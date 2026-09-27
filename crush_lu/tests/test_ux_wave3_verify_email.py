@@ -448,3 +448,107 @@ class SocialSignupConsentSignalTests(TestCase):
         )
         self.user.data_consent.refresh_from_db()
         self.assertTrue(self.user.data_consent.crushlu_consent_given)
+
+
+# ---------------------------------------------------------------------------
+# Review follow-ups (PR #1051): typed social emails must be verified, resend
+# must answer identically for known and unknown addresses, and the resend
+# button keeps a label without JavaScript.
+# ---------------------------------------------------------------------------
+
+
+class SocialLoginRequiresVerifiedEmailTests(TestCase):
+    """MultiDomainAccountAdapter.pre_login holds crush.lu social logins until
+    the account has a verified email (the completion form can now take a
+    typed, unproven address)."""
+
+    def setUp(self):
+        cache.clear()
+        self.factory = RequestFactory()
+
+    def _request(self, host="crush.lu"):
+        request = self.factory.get("/accounts/google/login/callback/", HTTP_HOST=host)
+        request.user = AnonymousUser()
+        request.session = SessionStore()
+        request._messages = FallbackStorage(request)
+        return request
+
+    def _pre_login(self, request, user, sociallogin=True, signup=True):
+        from azureproject.adapters import MultiDomainAccountAdapter
+
+        signal_kwargs = {"sociallogin": Mock()} if sociallogin else {}
+        with allauth_context.request_context(request):
+            return MultiDomainAccountAdapter(request).pre_login(
+                request,
+                user,
+                email_verification="none",
+                signal_kwargs=signal_kwargs,
+                email=None,
+                signup=signup,
+                redirect_url=None,
+            )
+
+    def test_typed_unverified_email_is_held_for_verification(self):
+        user, _address = _unverified_user("typed@example.com")
+        request = self._request()
+        response = self._pre_login(request, user)
+        self.assertIsNotNone(response)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["typed@example.com"])
+        self.assertEqual(
+            request.session["pending_verification_email"], "typed@example.com"
+        )
+
+    def test_later_social_login_is_held_too(self):
+        user, _address = _unverified_user("typed2@example.com")
+        response = self._pre_login(self._request(), user, signup=False)
+        self.assertIsNotNone(response)
+
+    def test_provider_verified_email_passes(self):
+        user, address = _unverified_user("verified@example.com")
+        address.verified = True
+        address.save()
+        self.assertIsNone(self._pre_login(self._request(), user))
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_password_login_is_not_affected(self):
+        user, _address = _unverified_user("pw@example.com")
+        self.assertIsNone(self._pre_login(self._request(), user, sociallogin=False))
+
+    def test_other_domains_are_not_affected(self):
+        user, _address = _unverified_user("other@example.com")
+        self.assertIsNone(self._pre_login(self._request(host="power-up.lu"), user))
+
+
+class ResendFailureIsIndistinguishableTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.client = Client(HTTP_HOST="crush.lu")
+
+    def test_a_mail_failure_gives_the_same_redirect_as_an_unknown_address(self):
+        from unittest.mock import patch
+
+        _unverified_user("known@example.com")
+        with patch.object(
+            EmailAddress, "send_confirmation", side_effect=RuntimeError("graph down")
+        ):
+            known = self.client.post(
+                "/en/signup/resend-verification/", {"email": "known@example.com"}
+            )
+        other = Client(HTTP_HOST="crush.lu").post(
+            "/en/signup/resend-verification/", {"email": "nobody@example.com"}
+        )
+        self.assertEqual(known.status_code, 302)
+        self.assertEqual(known.status_code, other.status_code)
+        self.assertEqual(known.url, other.url)
+
+
+class ResendButtonWithoutJavascriptTests(TestCase):
+    def setUp(self):
+        cache.clear()
+
+    def test_default_label_is_not_cloaked(self):
+        response = Client(HTTP_HOST="crush.lu").get("/accounts/confirm-email/")
+        html = response.content.decode()
+        self.assertIn('<span x-show="enabled">', html)

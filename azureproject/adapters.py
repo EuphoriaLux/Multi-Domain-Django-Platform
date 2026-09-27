@@ -831,6 +831,45 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
 
         return str(ip_addr)
 
+    def pre_login(self, request, user, **kwargs):
+        """
+        On crush.lu, hold a social login until the account has a verified email.
+
+        ``SOCIALACCOUNT_EMAIL_VERIFICATION = "none"`` trusts the provider's
+        address. The social-signup completion form lets a member type an
+        address when the provider gave none or it clashed (UX Wave 3, 2-15),
+        and nobody has proven they own a typed address. Without this check,
+        such an account would be logged in straight away and keep an unowned
+        address. This covers later social logins too, so going back through
+        the provider does not bypass the check. Provider-verified addresses
+        are stored with ``verified=True``, so they pass unchanged.
+        """
+        response = super().pre_login(request, user, **kwargs)
+        if response is not None:
+            return response
+        signal_kwargs = kwargs.get("signal_kwargs") or {}
+        if (
+            request is not None
+            and signal_kwargs.get("sociallogin") is not None
+            and _is_crush_domain(request)
+        ):
+            from allauth.account.models import EmailAddress
+            from allauth.account.utils import has_verified_email
+
+            if not has_verified_email(user):
+                address = (
+                    EmailAddress.objects.filter(user=user, verified=False)
+                    .order_by("-primary", "pk")
+                    .first()
+                )
+                if address is not None:
+                    address.send_confirmation(
+                        request, signup=kwargs.get("signup", False)
+                    )
+                    request.session["pending_verification_email"] = address.email
+                    return self.respond_email_verification_sent(request, user)
+        return None
+
     def post_login(self, request, user, **kwargs):
         """
         Route logins completed inside the native-app auth sheet back to the

@@ -1658,8 +1658,14 @@ def resend_verification_email(request):
             email__iexact=email, verified=False
         ).first()
         if email_address:
-            email_address.send_confirmation(request, signup=False)
-            logger.info("Resent verification email")
+            # The response must not differ between a known and an unknown
+            # address. A mail failure here would otherwise surface as an error
+            # only for existing accounts, so it is logged and swallowed.
+            try:
+                email_address.send_confirmation(request, signup=False)
+                logger.info("Resent verification email")
+            except Exception:
+                logger.exception("Resending the verification email failed")
         # Remember the address so this page can mask it and keep offering
         # resend without needing the visitor to retype it.
         request.session["pending_verification_email"] = email
