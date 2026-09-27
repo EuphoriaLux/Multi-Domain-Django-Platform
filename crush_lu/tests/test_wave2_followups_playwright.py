@@ -131,3 +131,39 @@ def test_spark_review_buttons_ask_their_own_question(page, live_server):
         dialog.locator("[data-confirm-accept]").click()
     spark.refresh_from_db()
     assert spark.status == CrushSpark.Status.COACH_APPROVED
+
+
+def test_gift_landing_footer_sign_in_is_clickable(page, live_server):
+    """#1053: the giant decorative heart (.cta-section::before) sat on top of
+    the footer's links and swallowed the tap on "Sign in"."""
+    from datetime import date
+
+    from crush_lu.models import JourneyGift
+
+    sender = _member("gift.sender@example.com", "Sam")
+    gift = JourneyGift.objects.create(
+        sender=sender,
+        recipient_name="Marie",
+        date_first_met=date(2024, 2, 14),
+        location_first_met="Luxembourg City",
+        status=JourneyGift.Status.PENDING,
+    )
+
+    page.set_viewport_size(PHONE)
+    page.context.add_cookies(
+        [
+            {
+                "name": "cookie_consent",
+                "value": '{"essential": true, "analytics": false, "marketing": false}',
+                "url": live_server.url,
+            }
+        ]
+    )
+    page.goto(f"{live_server.url}/en/journey/gift/{gift.gift_code}/")
+
+    sign_in = page.locator("footer.cta-section").get_by_role("link", name="Sign in")
+    sign_in.scroll_into_view_if_needed()
+    # A real (non-forced) click: Playwright refuses when another element
+    # would receive the pointer event at the link's centre.
+    sign_in.click(timeout=3000)
+    page.wait_for_url(re.compile(r"/accounts/login/"))

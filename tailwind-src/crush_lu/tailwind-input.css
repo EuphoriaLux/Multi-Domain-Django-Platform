@@ -7352,6 +7352,9 @@ html.dark .cta-section {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
+    /* Decoration only: positioned above the footer's links, it would
+       otherwise swallow taps on "Sign in" and the report form. */
+    pointer-events: none;
 }
 
 .gift-landing .cta-section::after {
