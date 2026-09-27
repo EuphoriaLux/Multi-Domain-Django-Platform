@@ -15867,7 +15867,7 @@ msgstr "(non terminée)"
 #: templates/crush_lu/cache/finish.html:99
 #: templates/crush_lu/event_feedback.html:12
 msgid "Back to event"
-msgstr "Retour à la connexion"
+msgstr "Retour à l’événement"
 
 #: templates/crush_lu/cache/lobby.html:4
 #: templates/crush_lu/cache/lobby.html:14 templates/crush_lu/cache/play.html:4
@@ -26024,10 +26024,6 @@ msgstr "Annulation..."
 #: templates/crush_lu/event_cancel.html:29
 msgid "Yes, Cancel Registration"
 msgstr "Oui, annuler l'inscription"
-
-#: templates/crush_lu/event_cancel.html:33
-msgid "No, Keep Registration"
-msgstr "Non, garder l'inscription"
 
 #: templates/crush_lu/event_detail.html:40
 msgid "Back to Events"
@@ -42629,3 +42625,49 @@ msgid "≈ 15 min to set up · Get verified at your first event"
 msgstr ""
 "≈ 15 min pour créer votre profil · Vérification lors de votre premier "
 "événement"
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+msgid "What happens to your payment"
+msgstr "Ce qu’il advient de votre paiement"
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+#, python-format
+msgid "You'll get %(amount)s EUR back as Crush Credit, ready to use on any Crush.lu event."
+msgstr "Vous récupérez %(amount)s EUR en Crush Credit, utilisable immédiatement pour tout événement Crush.lu."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+#, python-format
+msgid "No refund: the event starts in less than %(hours)s hours. Your seat is released for someone else, and if someone takes it and pays before the event starts, you'll get %(share)s EUR back as Crush Credit."
+msgstr "Aucun remboursement : l’événement commence dans moins de %(hours)s heures. Votre place est libérée pour quelqu’un d’autre ; si quelqu’un la reprend et paie avant le début de l’événement, vous récupérez %(share)s EUR en Crush Credit."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+#, python-format
+msgid "You'll get %(amount)s EUR back as Crush Credit. It returns to your balance with its original expiry dates, so any part that has already expired can't be used again."
+msgstr "Vous récupérez %(amount)s EUR en Crush Credit. Il revient sur votre solde avec ses dates d’expiration d’origine : toute partie déjà expirée ne pourra plus être utilisée."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+#, python-format
+msgid "No refund: the event starts in less than %(hours)s hours. Your seat is released for someone else."
+msgstr "Aucun remboursement : l’événement commence dans moins de %(hours)s heures. Votre place est libérée pour quelqu’un d’autre."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+msgid "Keep my seat"
+msgstr "Garder ma place"
+
+#: crush_lu/templates/crush_lu/partials/_cancellation_policy_note.html
+#, python-format
+msgid "Cancel before %(date)s at %(time)s for full Crush Credit. After that there's no refund, but you get %(share)s%% back as Crush Credit if someone takes your seat and pays before the event."
+msgstr "Annulez avant le %(date)s à %(time)s pour récupérer l’intégralité en Crush Credit. Ensuite, aucun remboursement, mais vous récupérez %(share)s %% en Crush Credit si quelqu’un reprend votre place et paie avant l’événement."
+
+#: crush_lu/templates/crush_lu/partials/_cancellation_policy_note.html
+#, python-format
+msgid "The event starts in less than %(hours)s hours, so cancelling gives no refund, but you get %(share)s%% back as Crush Credit if someone takes your seat and pays before the event."
+msgstr "L’événement commence dans moins de %(hours)s heures : une annulation ne donne droit à aucun remboursement, mais vous récupérez %(share)s %% en Crush Credit si quelqu’un reprend votre place et paie avant l’événement."
+
+#: views_events.py:2051
+msgid ""
+"The cancellation terms changed while this page was open. Please check them "
+"again before you confirm."
+msgstr ""
+"Les conditions d’annulation ont changé pendant que cette page était ouverte."
+" Veuillez les vérifier à nouveau avant de confirmer."

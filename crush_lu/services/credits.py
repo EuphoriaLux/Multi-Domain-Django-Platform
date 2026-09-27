@@ -31,6 +31,7 @@ reading, not by running. Two rules keep this module out of the cycle:
 
 import logging
 import uuid
+from datetime import timedelta
 from datetime import timezone as dt_timezone
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -373,15 +374,40 @@ def _percent_of(amount_cents, percent):
     )
 
 
-def is_late_cancellation(event, moment=None):
-    """True when ``moment`` is inside the no-credit window before the start."""
-    moment = moment or timezone.now()
-    hours = getattr(
+def late_window_hours():
+    """Hours before the start inside which a member cancellation earns nothing."""
+    return getattr(
         settings,
         "CRUSH_CREDIT_LATE_CANCELLATION_HOURS",
         DEFAULT_LATE_CANCELLATION_HOURS,
     )
-    return (event.date_time - moment).total_seconds() <= hours * 3600
+
+
+def resale_share_percent():
+    """Share of a late-cancelled seat's price credited if a replacement pays."""
+    return getattr(
+        settings, "CRUSH_CREDIT_RESALE_SHARE_PERCENT", DEFAULT_RESALE_SHARE_PERCENT
+    )
+
+
+def full_credit_deadline(event):
+    """The last moment a member cancellation still earns full Crush Credit."""
+    return event.date_time - timedelta(hours=late_window_hours())
+
+
+def is_late_cancellation(event, moment=None):
+    """True when ``moment`` is inside the no-credit window before the start."""
+    return (moment or timezone.now()) >= full_credit_deadline(event)
+
+
+def cancellation_policy(event, moment=None):
+    """The member cancellation policy for ``event``, as the policy note shows it."""
+    return {
+        "deadline": full_credit_deadline(event),
+        "late": is_late_cancellation(event, moment),
+        "hours": late_window_hours(),
+        "share_percent": resale_share_percent(),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -575,20 +601,81 @@ def _issue_payment_return_credits(
     return issued
 
 
-def issue_cancellation_credits(registration, *, moment=None):
-    """Plural form of :func:`issue_cancellation_credit` for tranche restores."""
+class CancellationOutcome:
+    """What a member's own cancellation returns — decided, not yet issued.
+
+    ``kind`` is ``NOTHING_PAID`` (no captured payment, nothing to return),
+    ``CREDIT`` (outside the late window: ``amount_cents`` as Crush Credit) or
+    ``LATE`` (inside it: nothing now, only the resale share if a replacement
+    pays before the start).
+    """
+
+    NOTHING_PAID = "nothing_paid"
+    CREDIT = "credit"
+    LATE = "late"
+
+    def __init__(self, kind, amount_cents=0, payment=None):
+        self.kind = kind
+        self.amount_cents = amount_cents
+        self.payment = payment
+        self.late_window_hours = late_window_hours()
+        self.resale_share_cents = _percent_of(amount_cents, resale_share_percent())
+
+    @property
+    def amount(self):
+        return Decimal(self.amount_cents) / 100
+
+    @property
+    def resale_share(self):
+        return Decimal(self.resale_share_cents) / 100
+
+    @property
+    def restores_credit(self):
+        """The seat was bought with Crush Credit, so the credit returned is the
+        same tranches on their original expiry clocks, some possibly lapsed."""
+        return (
+            self.payment is not None
+            and self.payment.provider == PaymentTransaction.Provider.CREDIT
+        )
+
+    @property
+    def resale_claimable(self):
+        """A late resale share can only be paid against an attributable
+        payment (legacy fee-fallback rows carry no claim), so only then may
+        the preview promise it."""
+        return self.payment is not None
+
+
+def cancellation_outcome(registration, *, moment=None):
+    """Decide a member's own cancellation under the credit policy, issuing nothing.
+
+    The one policy decision behind :func:`issue_cancellation_credits`, so the
+    confirmation page previews exactly what the real cancellation will do.
+    """
     if not registration.payment_confirmed:
-        return []
+        return CancellationOutcome(CancellationOutcome.NOTHING_PAID)
 
     amount_cents, payment = paid_amount_cents(registration)
     if amount_cents <= 0:
-        return []
+        return CancellationOutcome(CancellationOutcome.NOTHING_PAID)
 
     # A SumUp callback can arrive hours or days after the member released the
     # seat. Classify the policy at that durable cancellation time, never at the
     # callback/reconciliation time.
     policy_moment = moment or getattr(registration, "cancelled_at", None)
     if is_late_cancellation(registration.event, policy_moment):
+        return CancellationOutcome(CancellationOutcome.LATE, amount_cents, payment)
+    return CancellationOutcome(CancellationOutcome.CREDIT, amount_cents, payment)
+
+
+def issue_cancellation_credits(registration, *, moment=None):
+    """Plural form of :func:`issue_cancellation_credit` for tranche restores."""
+    outcome = cancellation_outcome(registration, moment=moment)
+    if outcome.kind == CancellationOutcome.NOTHING_PAID:
+        return []
+    amount_cents, payment = outcome.amount_cents, outcome.payment
+
+    if outcome.kind == CancellationOutcome.LATE:
         logger.info(
             "Registration %s cancelled inside the late window — no credit now; "
             "50%% follows if the replacement pays before the event starts.",
@@ -603,7 +690,7 @@ def issue_cancellation_credits(registration, *, moment=None):
         CrushCredit.Reason.MEMBER_CANCELLATION,
         note=(
             f"Cancelled more than "
-            f"{getattr(settings, 'CRUSH_CREDIT_LATE_CANCELLATION_HOURS', DEFAULT_LATE_CANCELLATION_HOURS)}h "
+            f"{late_window_hours()}h "
             f"before {registration.event}."
         ),
     )
@@ -772,9 +859,7 @@ def maybe_issue_resale_credits(
     )
     if beneficiary is None:
         return []
-    share = getattr(
-        settings, "CRUSH_CREDIT_RESALE_SHARE_PERCENT", DEFAULT_RESALE_SHARE_PERCENT
-    )
+    share = resale_share_percent()
     try:
         # The savepoint is load-bearing when this runs inside a checkout's
         # outer transaction: catching IntegrityError without one leaves that
