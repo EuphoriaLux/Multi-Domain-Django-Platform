@@ -130,6 +130,18 @@ but are **deprecated** for new user-facing work:
 If you find yourself reaching for one of these in a new file, ask whether
 the new file should be migrated to the canonical four.
 
+### Third-party brand buttons (exception)
+
+Sign-in buttons for an external identity provider wear **that provider's**
+brand, not ours: `.social-login-btn` plus `.google-btn`, `.facebook-btn`,
+`.microsoft-btn`, `.apple-btn`, `.linkedin-btn` or `.luxid-btn` (all in
+`tailwind-input.css`). `.luxid-btn` is shared by `crush_lu/auth.html` and
+`account/login_crush.html`; neither adds its own gradient utilities. The LuxID gradient (`#8B5CF6 → #3B82F6 → #10B981`) is
+the one sanctioned non-brand gradient: it lives only in `.luxid-btn`, never
+inline, and does not count against the one-gradient-CTA rule. Only render a
+provider button, or copy that promises it, when that provider is configured
+(`socialaccount_providers|has_luxid` from `social_tags`).
+
 ---
 
 ## 2b. Crush Connect wizard components (`.connect-*`)

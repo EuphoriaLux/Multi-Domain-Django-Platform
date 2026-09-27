@@ -1321,7 +1321,8 @@
                 <!-- Privacy First -->
                 <div>
                     <p class="font-semibold mb-4 text-white/90">{% trans "Privacy First" %}</p>
-                    <p class="text-white/75">{% trans "Your privacy matters. All profiles are reviewed by our Crush Coaches." %}</p>
+                    {# LuxID verification is instant, with no coach review; some event audiences admit unverified profiles, so no "before meeting anyone" guarantee. Spec: ai-memory-hub/specs/2026-08-24-crush-connect-repo-product-doc.md #}
+                    <p class="text-white/75">{% trans "Your privacy matters. Members are verified instantly with LuxID or in person at an event." %}</p>
                     {% if whatsapp_enabled and whatsapp_number %}
                     <p class="text-white/75 mt-4">
                         <a href="https://wa.me/{{ whatsapp_number }}" target="_blank" rel="noopener noreferrer"
@@ -1359,6 +1360,8 @@
             <!-- Copyright -->
             <div class="border-t border-white/20 mt-8 pt-8 text-center">
                 <small class="text-white/75">{% trans "&copy; 2026 Crush.lu - Made with 💕 in Luxembourg" %}</small>
+                {# Imprint: entity + address exactly as the privacy policy names the controller #}
+                <p class="mt-2 text-xs text-white/75">{% trans "Crush.lu (en cours de constitution)" %} &middot; 10 rue des Bons Malades, L-6462 Echternach, {% trans "Luxembourg" %}</p>
             </div>
         </div>
     </footer>
