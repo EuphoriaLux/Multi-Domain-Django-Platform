@@ -277,8 +277,14 @@ class BookingCancelConfirmTests(BookingBase):
         self.assertIn("showConfirm", content)
 
 
-@override_settings(**CRUSH_LU_URL_SETTINGS)
 class BookingCalendarLinkTests(BookingBase):
+    """Deliberately does NOT override ROOT_URLCONF: HTTP_HOST=crush.lu alone
+    must resolve the correct per-domain urlconf via DomainURLRoutingMiddleware,
+    the way a real crush.lu request does. A bare `reverse()` for the .ics
+    link would resolve against the default ROOT_URLCONF instead (where
+    crush_lu is mounted under /crush/) and 404 on a real request while still
+    passing here if ROOT_URLCONF were overridden."""
+
     def _book(self):
         from crush_lu.models import ScreeningSlot
 

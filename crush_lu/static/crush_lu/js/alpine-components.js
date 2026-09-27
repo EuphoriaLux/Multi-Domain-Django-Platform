@@ -4833,9 +4833,9 @@ document.addEventListener("alpine:init", function () {
         }
         return {
             photos: [
-                { id: 1, hasImage: false, preview: "" },
-                { id: 2, hasImage: false, preview: "" },
-                { id: 3, hasImage: false, preview: "" },
+                { id: 1, hasImage: false, preview: "", uploadGeneration: 0 },
+                { id: 2, hasImage: false, preview: "", uploadGeneration: 0 },
+                { id: 3, hasImage: false, preview: "", uploadGeneration: 0 },
             ],
 
             // Computed getters for CSP compatibility
@@ -4931,6 +4931,13 @@ document.addEventListener("alpine:init", function () {
                     };
                     reader.readAsDataURL(file);
 
+                    // Bump this slot's generation so a Remove tapped while
+                    // this resize/upload is still in flight (finding 3-15)
+                    // can invalidate it below — the delete request must win,
+                    // not a delayed upload that would silently re-add the
+                    // removed photo.
+                    var generation = ++self.photos[index].uploadGeneration;
+
                     // Downscale/re-encode client-side (max ~2048px long edge,
                     // JPEG q=0.85) before the auto-save upload — server
                     // validation is unchanged and still applies to whatever
@@ -4941,6 +4948,13 @@ document.addEventListener("alpine:init", function () {
                     var uploadPromise = resizeImageForUpload(file, 2048, 0.85).then(function (
                         uploadFile,
                     ) {
+                        // The slot was removed (or replaced by a newer
+                        // selection) while this resize was running — do not
+                        // upload a file the member already deleted.
+                        if (self.photos[index].uploadGeneration !== generation) {
+                            return;
+                        }
+
                         var formData = new FormData();
                         formData.append("photo", uploadFile, uploadFile.name || file.name);
                         formData.append("photo_number", photoNumber);
@@ -4964,8 +4978,36 @@ document.addEventListener("alpine:init", function () {
                                 return response.json();
                             })
                             .then(function (result) {
+                                // Re-check after the round trip too: a
+                                // Remove tapped mid-upload must still win
+                                // over this response.
+                                if (self.photos[index].uploadGeneration !== generation) {
+                                    return;
+                                }
                                 if (result.success) {
                                     self.photos[index].uploadedUrl = result.photo_url;
+                                    // Replace the native file input's
+                                    // FileList with the resized copy so a
+                                    // final non-JS form submit re-sends the
+                                    // already-uploaded resized file instead
+                                    // of the original (finding 3-16).
+                                    var input = document.getElementById(
+                                        "photo" + photoNumber,
+                                    );
+                                    if (input && typeof DataTransfer !== "undefined") {
+                                        try {
+                                            var dt = new DataTransfer();
+                                            dt.items.add(uploadFile);
+                                            input.files = dt.files;
+                                        } catch (e) {
+                                            // Browser lacks a writable
+                                            // DataTransfer/File constructor
+                                            // pairing — leave the input as
+                                            // the browser set it; the
+                                            // resized copy is still saved
+                                            // server-side via the draft.
+                                        }
+                                    }
                                 } else {
                                     console.error(
                                         "[PHOTO UPLOAD] ❌ Upload failed:",
@@ -4998,6 +5040,14 @@ document.addEventListener("alpine:init", function () {
             _removePhoto: function (index) {
                 var self = this;
                 var photoNumber = index + 1;
+
+                // Invalidate any resize/upload for this slot that is still
+                // in flight (finding 3-15): _handleFileSelect checks this
+                // generation before it POSTs or applies a response, so a
+                // delayed upload can no longer re-add a photo this removal
+                // is about to delete.
+                self.photos[index].uploadGeneration =
+                    (self.photos[index].uploadGeneration || 0) + 1;
 
                 var clearLocal = function () {
                     self.photos[index].preview = "";

@@ -80,3 +80,58 @@ class PhotoUploadResizeAndToastTests(SimpleTestCase):
         step3_end = self.src.index("},", self.src.index("});", step3_start))
         step3_src = self.src[step3_start:step3_end]
         self.assertIn("waitForPendingPhotoUploads()", step3_src)
+
+    def test_removing_a_photo_invalidates_its_pending_upload(self):
+        """[Codex review round 2, PR #1070] A member who picks a large photo
+        and taps Remove before the resize/upload settles used to have the
+        delete request run first and the delayed upload run after — silently
+        re-adding the just-removed photo. `_removePhoto` must bump a
+        per-slot generation counter that `_handleFileSelect`'s resize/upload
+        chain checks before it POSTs, and again before it applies the
+        response, so a stale upload for a removed slot is abandoned."""
+        select_start = self.component_src.index("_handleFileSelect: function")
+        select_end = self.component_src.index("removePhoto1: function", select_start)
+        select_src = self.component_src[select_start:select_end]
+        remove_start = self.component_src.index("_removePhoto: function")
+        remove_src = self.component_src[remove_start:]
+
+        # The generation is captured before the resize starts...
+        self.assertIn(
+            "var generation = ++self.photos[index].uploadGeneration", select_src
+        )
+        # ...and checked both before the network request and before the
+        # response is applied, so either race window is covered.
+        self.assertEqual(
+            select_src.count("self.photos[index].uploadGeneration !== generation"),
+            2,
+        )
+        # Removal invalidates any generation captured before it ran.
+        self.assertIn(
+            "self.photos[index].uploadGeneration =\n                    "
+            "(self.photos[index].uploadGeneration || 0) + 1",
+            remove_src,
+        )
+
+    def test_successful_auto_upload_replaces_the_file_input_with_the_resized_copy(
+        self,
+    ):
+        """[Codex review round 2, PR #1070] After the auto-upload succeeds,
+        the native `photo_N` file input still held the original, full-size
+        `File` — the final non-JS `form.submit()` in `handleFormSubmit`
+        therefore re-sent the original (defeating the resize, and able to
+        exceed the form's 10 MB limit even though the resized copy already
+        saved fine). The success branch must swap the input's FileList for
+        the resized file via DataTransfer."""
+        select_start = self.component_src.index("_handleFileSelect: function")
+        select_end = self.component_src.index("removePhoto1: function", select_start)
+        select_src = self.component_src[select_start:select_end]
+        success_start = select_src.index("if (result.success)")
+        success_end = select_src.index("} else {", success_start)
+        success_src = select_src[success_start:success_end]
+        self.assertIn(
+            'document.getElementById(\n                                        "photo" + photoNumber',
+            select_src,
+        )
+        self.assertIn("new DataTransfer()", success_src)
+        self.assertIn("dt.items.add(uploadFile)", success_src)
+        self.assertIn("input.files = dt.files", success_src)

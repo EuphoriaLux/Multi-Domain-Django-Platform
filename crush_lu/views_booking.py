@@ -108,7 +108,9 @@ def book_screening(request, booking_token):
     }
     if existing_booking:
         context["ics_download_url"] = reverse(
-            "crush_lu:download_booking_ics", kwargs={"booking_token": booking_token}
+            "crush_lu:download_booking_ics",
+            kwargs={"booking_token": booking_token},
+            urlconf=getattr(request, "urlconf", None),
         )
         context["google_calendar_url"] = _google_calendar_url(existing_booking)
     return render(request, "crush_lu/book_screening.html", context)
