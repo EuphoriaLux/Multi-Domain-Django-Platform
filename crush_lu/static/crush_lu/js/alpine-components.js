@@ -131,6 +131,13 @@ document.addEventListener("alpine:init", function () {
         return createImageBitmap(file, { imageOrientation: "from-image" })
             .then(function (bitmap) {
                 var scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+                var shortEdge = Math.min(bitmap.width, bitmap.height);
+                // The final profile form requires both sides to be at least
+                // 200px. Keep an originally valid panorama valid even when
+                // that means its long edge remains above the usual target.
+                if (shortEdge >= 200 && Math.round(shortEdge * scale) < 200) {
+                    scale = Math.min(1, 200 / shortEdge);
+                }
                 var width = Math.max(1, Math.round(bitmap.width * scale));
                 var height = Math.max(1, Math.round(bitmap.height * scale));
                 var canvas = document.createElement("canvas");
