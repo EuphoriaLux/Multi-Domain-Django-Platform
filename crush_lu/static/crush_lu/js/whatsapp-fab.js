@@ -18,8 +18,11 @@
 
     // Buttons the FAB must never obstruct: every canonical crush button
     // variant (primary/solid/outline/danger + modifiers), full-width blocks,
-    // and the wallet badge. Matched by substring so new variants are covered.
-    const CTA_SELECTOR = '[class*="btn-crush"], .btn-block, .google-wallet-btn';
+    // the wallet badge, and the bottom prompts (install card, push prompt)
+    // whose controls sit in the FAB's corner. Matched by substring so new
+    // variants are covered.
+    const CTA_SELECTOR =
+        '[class*="btn-crush"], .btn-block, .google-wallet-btn, .prompt-above-nav';
     const PAD = 8; // px of breathing room around the FAB's box
 
     let ticking = false;
@@ -69,6 +72,14 @@
     window.addEventListener("resize", schedule, { passive: true });
     // Re-check after HTMX swaps that may add or move CTAs on the page.
     document.body.addEventListener("htmx:afterSettle", schedule);
+    // Bottom prompts appear and leave without a scroll (Alpine x-show flips
+    // their inline style), so re-check whenever one is shown or hidden.
+    if ("MutationObserver" in window) {
+        const observer = new MutationObserver(schedule);
+        document.querySelectorAll(".prompt-above-nav").forEach(function (el) {
+            observer.observe(el, { attributes: true, attributeFilter: ["style", "class"] });
+        });
+    }
     // Initial pass once the first layout is available.
     requestAnimationFrame(update);
 })();
