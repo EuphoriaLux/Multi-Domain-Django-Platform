@@ -19,7 +19,12 @@
         {# owed, so a member arrived thinking they'd paid and the coach had to #}
         {# chase money at the door. registration_fee lives on the event, not #}
         {# the registration, so a free event (fee 0) never shows this. #}
-        {% if event.registration_fee > 0 and not registration.payment_confirmed %}
+        {# registration_payable (services/event_payments.py) additionally #}
+        {# excludes an "attended" (or otherwise non pending/confirmed) seat: #}
+        {# the door accepts it without SumUp, but create_sumup_event_checkout #}
+        {# refuses to charge it, so "Pay now" must not be offered here either #}
+        {# (Codex finding, UX Wave 3 · WP8 follow-up). #}
+        {% if event.registration_fee > 0 and not registration.payment_confirmed and registration_payable %}
         <div class="mb-4 rounded-lg border border-amber-200 dark:border-yellow-700 bg-amber-50 dark:bg-yellow-900/30 text-amber-800 dark:text-yellow-300 p-3 sm:p-4">
             <div class="flex items-start gap-2">
                 <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20">

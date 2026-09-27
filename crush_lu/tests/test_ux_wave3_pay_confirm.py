@@ -5,6 +5,7 @@ the default urlconf, not the crush.lu one the HTTP_HOST override selects.
 """
 
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
@@ -13,7 +14,9 @@ from django.test import Client, TestCase
 from django.utils import timezone
 
 from crush_lu.models.events import EventRegistration, MeetupEvent
+from crush_lu.models.payments import PaymentTransaction
 from crush_lu.models.profiles import CrushProfile, UserDataConsent
+from crush_lu.services.event_payments import registration_is_payable
 
 User = get_user_model()
 
@@ -220,4 +223,149 @@ class EventDetailWaitlistToneTests(PayConfirmTestBase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "#event-payment-actions")
         self.assertNotContains(response, 'id="event-payment-actions"')
+        self.assertNotContains(response, "Pay with Card")
+
+
+class RegistrationIsPayableTests(PayConfirmTestBase):
+    """Codex review findings on PR #1071: three surfaces (the pay-confirm
+    retry message, the ticket page's "Pay now" strip, and the event-detail
+    status card's payment-due tone) each independently decided whether a
+    registration was still payable, and disagreed with
+    create_sumup_event_checkout's own allowlist (status in "pending"/
+    "confirmed", event not cancelled). registration_is_payable()
+    (services/event_payments.py) is now the single source of truth all three
+    call; these tests exercise the shared helper directly and each surface
+    that consumes it.
+    """
+
+    def test_pending_registration_on_live_event_is_payable(self):
+        self.assertTrue(registration_is_payable(self.registration, self.event))
+
+    def test_confirmed_registration_on_live_event_is_payable(self):
+        self.registration.status = "confirmed"
+        self.assertTrue(registration_is_payable(self.registration, self.event))
+
+    def test_cancelled_registration_is_not_payable(self):
+        self.registration.status = "cancelled"
+        self.assertFalse(registration_is_payable(self.registration, self.event))
+
+    def test_no_show_registration_is_not_payable(self):
+        self.registration.status = "no_show"
+        self.assertFalse(registration_is_payable(self.registration, self.event))
+
+    def test_attended_registration_is_not_payable(self):
+        self.registration.status = "attended"
+        self.assertFalse(registration_is_payable(self.registration, self.event))
+
+    def test_pending_registration_on_cancelled_event_is_not_payable(self):
+        self.event.is_cancelled = True
+        self.assertFalse(registration_is_payable(self.registration, self.event))
+
+
+class SumUpReturnRetryCopyTests(PayConfirmTestBase):
+    """Codex finding (views_payments.py, sumup_payment_return): a member who
+    cancels their registration and then reopens the checkout return URL
+    (still carrying the old, uncleared transaction) was told "your spot is
+    reserved — you can retry payment below", although the registration is no
+    longer payable and create_sumup_event_checkout would refuse the retry."""
+
+    def _make_pending_tx(self, ref="CRUSH-WP8-RETRY-1"):
+        return PaymentTransaction.objects.create(
+            transaction_reference=ref,
+            sumup_checkout_id=f"CHK-{ref}",
+            amount=self.event.registration_fee,
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+
+    @patch("crush_lu.views_payments._sync_checkout_with_sumup", return_value="")
+    def test_still_pending_registration_gets_retry_copy(self, _mock_sync):
+        tx = self._make_pending_tx()
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            "/payments/sumup/return/", {"ref": tx.transaction_reference}, follow=True
+        )
+
+        texts = [str(m) for m in response.context["messages"]]
+        self.assertTrue(
+            any("Your spot is reserved" in t for t in texts),
+            texts,
+        )
+
+    @patch("crush_lu.views_payments._sync_checkout_with_sumup", return_value="")
+    def test_cancelled_registration_does_not_get_retry_copy(self, _mock_sync):
+        self.registration.status = "cancelled"
+        self.registration.save()
+        tx = self._make_pending_tx(ref="CRUSH-WP8-RETRY-2")
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            "/payments/sumup/return/", {"ref": tx.transaction_reference}, follow=True
+        )
+
+        texts = [str(m) for m in response.context["messages"]]
+        self.assertFalse(
+            any("Your spot is reserved" in t for t in texts),
+            texts,
+        )
+        self.assertTrue(
+            any("Payment is pending or was not completed." in t for t in texts),
+            texts,
+        )
+
+
+class EventTicketPayNowGatingTests(PayConfirmTestBase):
+    """Codex finding (event_ticket.html): the ticket page's "Pay now" strip
+    rendered for any unpaid registration, including an "attended" seat —
+    supported because check-in accepts pending-payment seats — even though
+    create_sumup_event_checkout refuses to charge a non pending/confirmed
+    registration."""
+
+    def test_confirmed_unpaid_ticket_shows_pay_now_link(self):
+        self.registration.status = "confirmed"
+        self.registration.payment_confirmed = False
+        self.registration.save()
+        self.client.force_login(self.user)
+
+        response = self.client.get(f"/en/events/{self.event.id}/ticket/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Payment due")
+        self.assertContains(response, "#event-payment-actions")
+
+    def test_attended_unpaid_ticket_hides_pay_now_link(self):
+        self.registration.status = "attended"
+        self.registration.payment_confirmed = False
+        self.registration.checked_in_at = timezone.now()
+        self.registration.save()
+        self.client.force_login(self.user)
+
+        response = self.client.get(f"/en/events/{self.event.id}/ticket/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Payment due")
+        self.assertNotContains(response, "#event-payment-actions")
+
+
+class EventDetailNoShowToneTests(PayConfirmTestBase):
+    """Codex finding (registration_status_tags.py): a "no_show" registration
+    on a paid event also has payment_confirmed=False, so the tone chain fell
+    into "payment_due" and rendered checkout buttons the endpoint refuses
+    (only "pending"/"confirmed" are accepted)."""
+
+    def test_no_show_unpaid_registration_has_no_payment_due_banner_or_buttons(self):
+        self.registration.status = "no_show"
+        self.registration.payment_confirmed = False
+        self.registration.save()
+        self.client.force_login(self.user)
+
+        response = self.client.get(f"/en/events/{self.event.id}/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Payment due")
+        self.assertNotContains(response, "#event-payment-actions")
         self.assertNotContains(response, "Pay with Card")
