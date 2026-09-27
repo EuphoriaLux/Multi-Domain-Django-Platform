@@ -1,0 +1,43 @@
+{% extends "crush_lu/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Take a Break" %}{% endblock %}
+
+{% block content %}
+<div class="section-container max-w-2xl mx-auto">
+    <h1 class="text-3xl font-bold mb-8">{% trans "Take a Break" %}</h1>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="mb-6">
+                <h2 class="text-xl font-semibold mb-4">{% trans "What happens while you're on a break" %}</h2>
+                <ul class="list-disc list-inside text-secondary space-y-2 mb-4">
+                    <li>{% trans "You're hidden from Crush Connect matching" %}</li>
+                    <li>{% trans "You won't be invited to events or receive marketing emails" %}</li>
+                    <li>{% trans "Your existing event registrations are kept — nothing is cancelled" %}</li>
+                    <li>{% trans "You'll still receive transactional and security emails" %}</li>
+                </ul>
+                <p class="text-sm text-secondary">
+                    {% trans "This is fully reversible. Resume any time from a button on your dashboard." %}
+                </p>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="flex gap-4">
+                    <button
+                        type="submit"
+                        class="btn-crush-outline"
+                        onclick="return confirm('{% filter escapejs %}{% trans "Take a break now? You can resume any time from your dashboard." %}{% endfilter %}')"
+                    >
+                        {% trans "Take a Break" %}
+                    </button>
+                    <a href="{% url 'crush_lu:account_settings' %}" class="btn-cancel">
+                        {% trans "Cancel" %}
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

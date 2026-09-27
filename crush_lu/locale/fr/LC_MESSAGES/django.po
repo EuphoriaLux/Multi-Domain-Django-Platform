@@ -42671,3 +42671,52 @@ msgid ""
 msgstr ""
 "Les conditions d’annulation ont changé pendant que cette page était ouverte."
 " Veuillez les vérifier à nouveau avant de confirmer."
+
+# UX Wave 3 · WP13
+msgid "Take a Break"
+msgstr "Faire une pause"
+
+msgid "What happens while you're on a break"
+msgstr "Ce qui se passe pendant votre pause"
+
+msgid "You're hidden from Crush Connect matching"
+msgstr "Vous êtes masqué(e) du matching Crush Connect"
+
+msgid "You won't be invited to events or receive marketing emails"
+msgstr "Vous ne recevrez plus d'invitations aux événements ni d'e-mails marketing"
+
+msgid "Your existing event registrations are kept — nothing is cancelled"
+msgstr "Vos inscriptions aux événements existantes sont conservées — rien n'est annulé"
+
+msgid "You'll still receive transactional and security emails"
+msgstr "Vous continuerez à recevoir les e-mails transactionnels et de sécurité"
+
+msgid "This is fully reversible. Resume any time from a button on your dashboard."
+msgstr "C'est entièrement réversible. Reprenez à tout moment depuis un bouton de votre tableau de bord."
+
+msgid "Take a break now? You can resume any time from your dashboard."
+msgstr "Faire une pause maintenant ? Vous pouvez la terminer à tout moment depuis votre tableau de bord."
+
+msgid "Hide your profile from events, Connect matching and marketing emails. Fully reversible — resume any time from your dashboard."
+msgstr "Masquez votre profil des événements, du matching Connect et des e-mails marketing. Entièrement réversible — reprenez à tout moment depuis votre tableau de bord."
+
+msgid "Currently on a break"
+msgstr "Actuellement en pause"
+
+msgid "You do not have a Crush.lu profile to pause."
+msgstr "Vous n'avez pas de profil Crush.lu à mettre en pause."
+
+msgid "You're already taking a break."
+msgstr "Vous êtes déjà en pause."
+
+msgid "You're taking a break. You're hidden from events, Connect matching and marketing emails until you resume."
+msgstr "Vous êtes en pause. Vous êtes masqué(e) des événements, du matching Connect et des e-mails marketing jusqu'à ce que vous repreniez."
+
+msgid "Welcome back! Your profile is visible again."
+msgstr "Bon retour parmi nous ! Votre profil est de nouveau visible."
+
+msgid "You're taking a break — hidden from events, Connect matching and marketing."
+msgstr "Vous êtes en pause — masqué(e) des événements, du matching Connect et du marketing."
+
+msgid "Resume"
+msgstr "Reprendre"

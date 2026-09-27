@@ -800,6 +800,26 @@ class CrushProfile(models.Model):
     is_active = models.BooleanField(default=True)
     approved_at = models.DateTimeField(null=True, blank=True)
 
+    # Self-service, reversible "Take a break" (UX Wave 3 · WP13). Distinct
+    # from `is_active` (soft-deactivation/ban) and from ProfileSubmission's
+    # coach-SLA `is_paused` (an unrelated review-workflow field). While set,
+    # the member is excluded from event invitation/campaign audiences and
+    # marketing sends (see newsletter_service.exclude_on_break_users) and
+    # Connect matching (mirrored onto CrushConnectMembership.pause()/
+    # reactivate() by take_a_break()/resume_from_break() below). No expiry —
+    # the member resumes from the dashboard banner. Transactional/security
+    # emails are unaffected; they never go through the marketing audience
+    # resolvers this field gates.
+    on_break_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=_(
+            "Set while the member has taken a self-service break — hides them "
+            "from events, Connect matching and marketing until they resume."
+        ),
+    )
+
     # Coach assignment — permanent per-user, set at first event or ticket purchase
     assigned_coach = models.ForeignKey(
         "crush_lu.CrushCoach",
@@ -1452,6 +1472,36 @@ class CrushProfile(models.Model):
                 "phone_verification_uid",
             ]
         )
+
+    @property
+    def is_on_break(self) -> bool:
+        return self.on_break_at is not None
+
+    def take_a_break(self) -> None:
+        """Self-service, reversible pause (UX Wave 3 · WP13).
+
+        Hides the member from event invitation/campaign audiences and
+        marketing sends (`newsletter_service.exclude_on_break_users`) and
+        mirrors the pause onto the Crush Connect membership, if any, so
+        matching stops using `CrushConnectMembership.pause()`'s existing
+        score-cache cleanup. Does not touch existing event registrations —
+        those are a separate, deliberate decision left to the member.
+        """
+        if self.on_break_at is None:
+            self.on_break_at = timezone.now()
+            self.save(update_fields=["on_break_at"])
+        membership = getattr(self.user, "crush_connect_membership", None)
+        if membership is not None:
+            membership.pause()
+
+    def resume_from_break(self) -> None:
+        """Undo `take_a_break()` — restores events, matching and marketing."""
+        if self.on_break_at is not None:
+            self.on_break_at = None
+            self.save(update_fields=["on_break_at"])
+        membership = getattr(self.user, "crush_connect_membership", None)
+        if membership is not None:
+            membership.reactivate()
 
 
 class ProfileSubmission(models.Model):

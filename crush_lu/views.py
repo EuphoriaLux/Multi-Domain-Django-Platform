@@ -105,6 +105,8 @@ from .views_account import (  # noqa: F401
     set_password,
     disconnect_social_account,
     delete_crushlu_profile_view,
+    take_a_break_view,
+    resume_from_break_view,
     gdpr_data_management,
     consent_confirm,
     account_banned,
