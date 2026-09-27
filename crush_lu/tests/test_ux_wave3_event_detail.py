@@ -172,6 +172,30 @@ class StickyCtaToastOffsetTests(EventDetailWave3TestBase):
             "not one — a single rAF can still race x-show's own",
         )
 
+    def test_toast_offset_also_resyncs_on_resize(self):
+        """Codex review on #1062: `visible` only ever changes from the
+        IntersectionObserver, so crossing the md:hidden breakpoint while it
+        stays true (rotate/resize) never re-ran the offset calc without a
+        resize listener too."""
+        js_path = finders.find("crush_lu/js/alpine-components.js")
+        with open(js_path, encoding="utf-8") as fh:
+            js = fh.read()
+        start = js.index('Alpine.data("eventStickyCta"')
+        end = js.index("Alpine.data(", start + 1)
+        component_src = js[start:end]
+        self.assertIn('addEventListener("resize"', component_src)
+        # The watcher and the resize listener must share one calculation, or
+        # they can disagree — the resize path must not just be a copy that
+        # drifts from the watcher's own rules over time.
+        self.assertEqual(component_src.count("function syncToastOffset"), 1)
+        self.assertIn("setTimeout(syncToastOffset", component_src)
+        self.assertIn(
+            "requestAnimationFrame(syncToastOffset)",
+            component_src,
+            "the visible-watcher path must call the same function, not a "
+            "second copy of the calculation",
+        )
+
 
 class VerificationDeadEndLinksTests(EventDetailWave3TestBase):
     """#4-14: dead-end verification boxes now offer a next step."""
@@ -228,6 +252,24 @@ class VerificationDeadEndLinksTests(EventDetailWave3TestBase):
         self.assertIn('href="mailto:support@crush.lu"', html)
         self.assertIn("Contact support", html)
 
+    def test_rejected_profile_on_approved_gate_offers_support_not_luxid(self):
+        """Codex review on #1062: LuxID refuses to verify a rejected profile,
+        so the `approved`-gate branch must route it to support instead of the
+        generic "not approved" branch's "Verify with LuxID" action."""
+        event = self._make_event(profile_requirement="approved")
+        user = self._create_user("rejected-approved@test.com")
+        self._profile(
+            user,
+            is_approved=False,
+            verification_status="rejected",
+        )
+        self.client.force_login(user)
+
+        html = self._get_detail(event)
+        self.assertIn("Please contact support.", html)
+        self.assertIn('href="mailto:support@crush.lu"', html)
+        self.assertNotIn("Verify with LuxID", html)
+
 
 class ShareButtonFallbackTests(EventDetailWave3TestBase):
     """#4-18: Share stays visible and falls back to copy-link."""
@@ -242,6 +284,41 @@ class ShareButtonFallbackTests(EventDetailWave3TestBase):
         html = self._get_detail(event)
         self.assertIn("navigator.clipboard.writeText", html)
         self.assertIn("Link copied", html)
+
+    def test_share_has_a_legacy_copy_path_and_error_toast(self):
+        """Codex review on #1062: a WebView/browser with neither Web Share
+        nor the async Clipboard API must not reach a silent dead end."""
+        event = self._make_event()
+        html = self._get_detail(event)
+        self.assertIn("execCommand('copy')", html)
+        self.assertIn("Could not copy the link", html)
+        self.assertIn("type: 'error'", html)
+
+
+class FactStripLocaleDateOrderTests(EventDetailWave3TestBase):
+    """Codex review on #1062: the fact strip and sticky CTA must use
+    DATE_FORMAT (locale-aware day/month order), not the literal "D, M j"
+    which fixes English ordering even for DE/FR readers."""
+
+    def test_fact_strip_uses_date_format_not_the_literal_pattern(self):
+        event = self._make_event()
+        html = self._get_detail(event)
+        self.assertNotIn('date:"D, M j"', html)
+
+    def test_de_page_renders_day_before_month(self):
+        from django.utils import formats, translation
+
+        event = self._make_event(date_time=timezone.now() + timedelta(days=7))
+        response = self.client.get(f"/de/events/{event.id}/")
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        # German DATE_FORMAT is "j. F Y" (day, then month name): compute the
+        # exact localized string the template's `date:"DATE_FORMAT"` filter
+        # produces and require it verbatim, rather than scanning the whole
+        # page for a bare month name (which can false-match unrelated text).
+        with translation.override("de"):
+            expected_date = formats.date_format(event.date_time, "DATE_FORMAT")
+        self.assertIn(expected_date, html)
 
 
 class DescriptionClampGateTests(EventDetailWave3TestBase):
@@ -364,3 +441,61 @@ class LuxidVerifyLinkTests(EventDetailWave3TestBase):
             html,
         )
         self.assertIn("Verify with LuxID", html)
+
+
+class FactStripPremiumAwareCapacityTests(EventDetailWave3TestBase):
+    """Codex review on #1062: the fact strip's "spots left" must use the
+    same premium-aware capacity snapshot as the registration CTA, not
+    `event.spots_remaining` (total capacity), or the two can contradict each
+    other for a direct event with reserved premium seats."""
+
+    def _profile(self, user, **kwargs):
+        defaults = dict(
+            date_of_birth=date(1995, 1, 1),
+            gender="F",
+            location="Luxembourg",
+            is_approved=True,
+            verification_status="verified",
+        )
+        defaults.update(kwargs)
+        return CrushProfile.objects.create(user=user, **defaults)
+
+    def _fill_public_capacity(self, event, count):
+        from crush_lu.models import EventRegistration
+
+        for i in range(count):
+            filler = self._create_user(f"filler{i}@test.com")
+            EventRegistration.objects.create(
+                event=event,
+                user=filler,
+                status="confirmed",
+                payment_confirmed=True,
+            )
+
+    def test_non_premium_viewer_sees_zero_when_only_reserved_seats_remain(self):
+        # capacity 10, 2 reserved for premium, 8 confirmed: public_capacity is
+        # full (8/8) even though event.spots_remaining (10-8=2) is not.
+        event = self._make_event(max_participants=10, reserved_premium_seats=2)
+        self._fill_public_capacity(event, 8)
+        viewer = self._create_user("viewer1@test.com")
+        self._profile(viewer)
+        self.client.force_login(viewer)
+
+        html = self._get_detail(event)
+        self.assertNotIn("2 spots left", html)
+        self.assertIn("0 spots left", html)
+
+    def test_premium_viewer_sees_the_reserved_seats(self):
+        from crush_lu.models.profiles import CrushCoach, PremiumMembership
+
+        event = self._make_event(max_participants=10, reserved_premium_seats=2)
+        self._fill_public_capacity(event, 8)
+        viewer = self._create_user("viewer2@test.com")
+        self._profile(viewer)
+        coach_user = self._create_user("coach2@test.com")
+        coach = CrushCoach.objects.create(user=coach_user)
+        PremiumMembership.objects.create(user=viewer, coach=coach, status="active")
+        self.client.force_login(viewer)
+
+        html = self._get_detail(event)
+        self.assertIn("2 spots left", html)

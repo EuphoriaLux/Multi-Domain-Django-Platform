@@ -137,7 +137,13 @@
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-4 sm:mb-6 text-sm sm:text-base text-gray-700 dark:text-gray-200">
                     <span class="inline-flex items-center gap-1.5">
                         {% include "shared/icons/calendar.html" with class="w-4 h-4 text-crush-purple flex-shrink-0" %}
-                        {{ event.date_time|date:"D, M j" }} &middot; {{ event.date_time|date:"TIME_FORMAT" }}
+                        {% comment %}
+                        "D" + DATE_FORMAT, not a literal "D, M j": only day/month names are
+                        translated, so a fixed English-order format renders DE/FR dates in the
+                        wrong order. DATE_FORMAT is locale-aware day-before-month for both (Codex
+                        review on #1062) and is already how the hero above formats this date.
+                        {% endcomment %}
+                        {{ event.date_time|date:"D" }}, {{ event.date_time|date:"DATE_FORMAT" }} &middot; {{ event.date_time|date:"TIME_FORMAT" }}
                     </span>
                     <span class="inline-flex items-center gap-1.5">
                         {% include "shared/icons/map-pin.html" with class="w-4 h-4 text-crush-purple flex-shrink-0" %}
@@ -152,8 +158,8 @@
                         {% blocktrans with min=event.min_age max=event.max_age %}Ages {{ min }}-{{ max }}{% endblocktrans %}
                     </span>
                     {% if not is_past and not curated_group_outlook and not gender_pool_availability %}
-                    <span class="inline-flex items-center gap-1.5 {% if event.spots_remaining <= 5 %}text-rose-600 dark:text-rose-400 font-semibold{% endif %}">
-                        {% blocktrans with spots=event.spots_remaining %}{{ spots }} spots left{% endblocktrans %}
+                    <span class="inline-flex items-center gap-1.5 {% if viewer_spots_remaining <= 5 %}text-rose-600 dark:text-rose-400 font-semibold{% endif %}">
+                        {% blocktrans with spots=viewer_spots_remaining %}{{ spots }} spots left{% endblocktrans %}
                     </span>
                     {% endif %}
                 </div>
@@ -618,6 +624,26 @@
                                         </div>
                                     </div>
                                 </div>
+                            {% elif user_profile.verification_status == "rejected" %}
+                                {% comment %}
+                                LuxID refuses to verify a rejected profile, so offering
+                                "Verify with LuxID" here completes OAuth without resolving
+                                the block and leaves the member stuck behind the wrong
+                                recovery guidance (Codex review on #1062). Handle it before
+                                the generic "not approved" branch below, which would
+                                otherwise also match a rejected profile.
+                                {% endcomment %}
+                                <div class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <div class="flex-1">
+                                            <p class="text-xs sm:text-sm mb-3">{% trans "Your profile was not approved, so you cannot register for this event. Please contact support." %}</p>
+                                            <a href="mailto:support@crush.lu" class="btn-crush-outline btn-sm">{% trans "Contact support" %}</a>
+                                        </div>
+                                    </div>
+                                </div>
                             {% elif not user_profile.is_approved %}
                                 <div class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4">
                                     <div class="flex items-start gap-2">
@@ -958,7 +984,7 @@ respects the home-bar safe area.
      x-show="visible"
      x-cloak
      data-price-label="{% if not is_past %}{% if event.registration_fee > 0 %}€{{ event.registration_fee }}{% else %}{% trans "Free" %}{% endif %}{% endif %}"
-     data-facts-text="{{ event.date_time|date:"D, M j" }} &middot; {% if user.is_authenticated %}{{ event.location }}{% else %}{{ event.canton|default:"Luxembourg" }}{% endif %}"
+     data-facts-text="{{ event.date_time|date:"D" }}, {{ event.date_time|date:"DATE_FORMAT" }} &middot; {% if user.is_authenticated %}{{ event.location }}{% else %}{{ event.canton|default:"Luxembourg" }}{% endif %}"
      class="md:hidden fixed inset-x-0 bottom-[var(--bottom-nav-height)] z-40 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-crush-lg px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-3">
     <div class="flex-1 min-w-0">
         <p class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="factsText"></p>
@@ -981,20 +1007,70 @@ document.addEventListener('DOMContentLoaded', function() {
         url: shareUrl
     };
 
+    function notifyLinkCopied() {
+        if (window.Alpine && Alpine.store('toasts')) {
+            Alpine.store('toasts').add({
+                type: 'success',
+                message: '{% trans "Link copied" %}'
+            });
+        }
+    }
+
+    function notifyCopyFailed() {
+        if (window.Alpine && Alpine.store('toasts')) {
+            Alpine.store('toasts').add({
+                type: 'error',
+                message: '{% trans "Could not copy the link. Long-press or select it from the address bar instead." %}'
+            });
+        }
+    }
+
+    // Legacy copy path for a WebView or browser with neither Web Share nor
+    // the async Clipboard API: `execCommand('copy')` off a hidden, focused
+    // textarea (#4-18 review). Returns false, not throws, on failure so the
+    // caller can fall through to the error toast instead of a dead control.
+    function legacyCopyFallback() {
+        var textarea = document.createElement('textarea');
+        textarea.value = shareUrl;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        var selection = document.getSelection();
+        var originalRange = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+        textarea.select();
+        textarea.setSelectionRange(0, textarea.value.length);
+        var succeeded = false;
+        try {
+            succeeded = document.execCommand('copy');
+        } catch (err) {
+            succeeded = false;
+        }
+        document.body.removeChild(textarea);
+        if (originalRange) {
+            selection.removeAllRanges();
+            selection.addRange(originalRange);
+        }
+        return succeeded;
+    }
+
     function copyLinkFallback() {
-        if (!navigator.clipboard || !navigator.clipboard.writeText) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(shareUrl).then(notifyLinkCopied).catch(function (err) {
+                console.error('Error copying link:', err);
+                if (legacyCopyFallback()) {
+                    notifyLinkCopied();
+                } else {
+                    notifyCopyFailed();
+                }
+            });
             return;
         }
-        navigator.clipboard.writeText(shareUrl).then(function () {
-            if (window.Alpine && Alpine.store('toasts')) {
-                Alpine.store('toasts').add({
-                    type: 'success',
-                    message: '{% trans "Link copied" %}'
-                });
-            }
-        }).catch(function (err) {
-            console.error('Error copying link:', err);
-        });
+        if (legacyCopyFallback()) {
+            notifyLinkCopied();
+        } else {
+            notifyCopyFailed();
+        }
     }
 
     shareBtn.addEventListener('click', async function() {

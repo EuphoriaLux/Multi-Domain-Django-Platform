@@ -2514,11 +2514,38 @@ document.addEventListener("alpine:init", function () {
                 // bottom offset above the bar's own rendered height so a
                 // toast never renders on top of the price/CTA. Reverts to
                 // its normal .toast-above-nav offset when the bar hides.
-                this.$watch("visible", function (value) {
+                //
+                // `visible` (Alpine's own x-show flag) only ever changes from
+                // the IntersectionObserver below, so it is silent about the
+                // `md:hidden` breakpoint: rotating or resizing past 768px
+                // while `visible` stays true leaves this offset applied with
+                // no bar left to justify it, and resizing back can reuse a
+                // stale height (Codex review on #1062). Recompute on resize
+                // too, not just on the `visible` watcher, so the offset
+                // always matches what CSS is actually showing right now.
+                function syncToastOffset() {
                     var toast = document.getElementById("toast-container");
                     if (!toast) {
                         return;
                     }
+                    // The bar is md:hidden, so at >=768px offsetHeight reads 0
+                    // regardless of `visible` (display:none from the media
+                    // query) — never write a bottom offset in that case, or
+                    // the desktop toast stack (lg:bottom-auto lg:top-4) picks
+                    // up an inline `bottom` it never had.
+                    var barHeight = self.visible ? self.$el.offsetHeight : 0;
+                    if (barHeight > 0) {
+                        toast.style.setProperty(
+                            "bottom",
+                            "calc(var(--bottom-nav-height) + " +
+                                barHeight +
+                                "px + env(safe-area-inset-bottom, 0px))",
+                        );
+                    } else {
+                        toast.style.removeProperty("bottom");
+                    }
+                }
+                this.$watch("visible", function () {
                     // This watcher and the x-show effect both react to the
                     // same `visible` change, but x-show always applies its
                     // style mutation on a requestAnimationFrame callback
@@ -2528,26 +2555,18 @@ document.addEventListener("alpine:init", function () {
                     // one for x-show's own rAF, one more so the resulting
                     // layout has actually been computed before we read it.
                     requestAnimationFrame(function () {
-                        requestAnimationFrame(function () {
-                            // The bar is md:hidden, so on >=768px `visible`
-                            // can flip true while offsetHeight is still 0
-                            // (display:none) — never write a bottom offset
-                            // in that case, or the desktop toast stack
-                            // (lg:bottom-auto lg:top-4) picks up an inline
-                            // `bottom` it never had.
-                            var barHeight = value ? self.$el.offsetHeight : 0;
-                            if (barHeight > 0) {
-                                toast.style.setProperty(
-                                    "bottom",
-                                    "calc(var(--bottom-nav-height) + " +
-                                        barHeight +
-                                        "px + env(safe-area-inset-bottom, 0px))",
-                                );
-                            } else {
-                                toast.style.removeProperty("bottom");
-                            }
-                        });
+                        requestAnimationFrame(syncToastOffset);
                     });
+                });
+                // A plain `resize` listener fires on every pixel during a
+                // drag; debounce it so a rotation/resize settles once before
+                // reading layout, same cost profile as the watcher above.
+                var resizeTimer = null;
+                window.addEventListener("resize", function () {
+                    if (resizeTimer) {
+                        clearTimeout(resizeTimer);
+                    }
+                    resizeTimer = setTimeout(syncToastOffset, 150);
                 });
                 var panel = document.getElementById("event-cta-panel");
                 if (!panel || !("IntersectionObserver" in window)) {
