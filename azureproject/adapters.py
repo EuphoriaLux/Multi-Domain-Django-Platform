@@ -874,10 +874,28 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
                         send_verification_email_to_address,
                     )
 
-                    send_verification_email_to_address(
-                        request, address, signup=kwargs.get("signup", False)
+                    from django.utils import timezone
+
+                    from crush_lu.views_account import (
+                        RESEND_VERIFICATION_COOLDOWN_SECONDS,
                     )
+
+                    # Login stays held even if the mail fails; the member can
+                    # retry from the verification page once the countdown
+                    # (the same window as allauth's limiter) runs out.
+                    try:
+                        send_verification_email_to_address(
+                            request, address, signup=kwargs.get("signup", False)
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Sending the social-login verification email failed"
+                        )
                     request.session["pending_verification_email"] = address.email
+                    request.session["resend_verification_cooldown_until"] = (
+                        int(timezone.now().timestamp())
+                        + RESEND_VERIFICATION_COOLDOWN_SECONDS
+                    )
                     return self.respond_email_verification_sent(request, user)
         return None
 

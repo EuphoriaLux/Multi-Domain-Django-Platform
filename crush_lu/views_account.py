@@ -1620,7 +1620,11 @@ def signup(request):
     return render(request, "crush_lu/auth.html", context)
 
 
-RESEND_VERIFICATION_COOLDOWN_SECONDS = 60
+# Match allauth's per-address confirm_email limiter (the send goes through
+# it), so the button never re-enables while a retry would silently not send.
+RESEND_VERIFICATION_COOLDOWN_SECONDS = getattr(
+    settings, "ACCOUNT_EMAIL_CONFIRMATION_COOLDOWN", 3 * 60
+)
 
 
 @require_http_methods(["POST"])

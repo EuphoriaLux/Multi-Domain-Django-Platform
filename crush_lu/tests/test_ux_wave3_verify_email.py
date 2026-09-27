@@ -683,3 +683,43 @@ class PublicResendPerAddressLimitTests(TestCase):
                 "/en/signup/resend-verification/", {"email": "target@example.com"}
             )
         self.assertEqual(len(mail.outbox), 1)
+
+
+class CooldownMatchesAllauthLimiterTests(TestCase):
+    def setUp(self):
+        cache.clear()
+
+    def test_resend_cooldown_is_allauths_confirmation_cooldown(self):
+        from allauth.account import app_settings as allauth_settings
+
+        from crush_lu.views_account import RESEND_VERIFICATION_COOLDOWN_SECONDS
+
+        expected = allauth_settings.RATE_LIMITS["confirm_email"]
+        self.assertEqual(expected, f"1/{RESEND_VERIFICATION_COOLDOWN_SECONDS}s/key")
+
+    def test_resend_starts_the_full_cooldown(self):
+        from django.utils import timezone
+
+        from crush_lu.views_account import RESEND_VERIFICATION_COOLDOWN_SECONDS
+
+        _unverified_user("cool@example.com")
+        client = Client(HTTP_HOST="crush.lu")
+        before = int(timezone.now().timestamp())
+        client.post("/en/signup/resend-verification/", {"email": "cool@example.com"})
+        until = client.session["resend_verification_cooldown_until"]
+        self.assertGreaterEqual(until, before + RESEND_VERIFICATION_COOLDOWN_SECONDS)
+
+
+class SocialLoginMailFailureTests(SocialLoginRequiresVerifiedEmailTests):
+    def test_a_mail_failure_still_holds_the_login_without_a_500(self):
+        from unittest.mock import patch
+
+        user, _address = _unverified_user("broken@example.com")
+        request = self._request()
+        with patch.object(
+            EmailAddress, "send_confirmation", side_effect=RuntimeError("graph down")
+        ):
+            response = self._pre_login(request, user)
+        self.assertIsNotNone(response)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("resend_verification_cooldown_until", request.session)
