@@ -2653,15 +2653,35 @@ document.addEventListener("alpine:init", function () {
             get isSignupTab() {
                 return this.activeTab === "signup";
             },
+            // Alpine's CSP-friendly build can't evaluate an inline ternary
+            // (`isLoginTab ? 'true' : 'false'`) in x-bind:aria-selected —
+            // it silently logs a console warning and never sets the
+            // attribute. These return the string directly so the binding
+            // stays a bare property name.
+            get loginAriaSelected() {
+                return this.isLoginTab ? "true" : "false";
+            },
+            get signupAriaSelected() {
+                return this.isSignupTab ? "true" : "false";
+            },
+            // Roving tabindex: only the active tab sits in the sequential
+            // tab order, per the ARIA tabs keyboard pattern. Arrow keys
+            // move focus between tabs (handled by onTabKeydown below).
+            get loginTabIndex() {
+                return this.isLoginTab ? "0" : "-1";
+            },
+            get signupTabIndex() {
+                return this.isSignupTab ? "0" : "-1";
+            },
             get loginTabClass() {
                 return this.activeTab === "login"
                     ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md"
-                    : "text-gray-900 bg-white/50 hover:bg-white/80";
+                    : "text-gray-900 bg-white/50 hover:bg-white/80 dark:text-gray-300 dark:bg-transparent dark:hover:bg-white/10";
             },
             get signupTabClass() {
                 return this.activeTab === "signup"
                     ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md"
-                    : "text-gray-900 bg-white/50 hover:bg-white/80";
+                    : "text-gray-900 bg-white/50 hover:bg-white/80 dark:text-gray-300 dark:bg-transparent dark:hover:bg-white/10";
             },
 
             init: function () {
@@ -2676,6 +2696,35 @@ document.addEventListener("alpine:init", function () {
             },
             setSignup: function () {
                 this.activeTab = "signup";
+            },
+            // ARIA tabs keyboard pattern: Left/Right/Home/End move both
+            // selection and focus between the two tabs (there are only
+            // ever two, so wrapping toggles). Other keys are left alone.
+            onTabKeydown: function (event) {
+                var key = event.key;
+                if (
+                    key !== "ArrowLeft" &&
+                    key !== "ArrowRight" &&
+                    key !== "Home" &&
+                    key !== "End"
+                ) {
+                    return;
+                }
+                event.preventDefault();
+                var next = this.isLoginTab ? "signup" : "login";
+                if (key === "Home") next = "login";
+                if (key === "End") next = "signup";
+                var nextId = next === "login" ? "auth-tab-login" : "auth-tab-signup";
+                var nextEl = document.getElementById(nextId);
+                if (!nextEl) return;
+                // Dispatch a real click rather than setting activeTab
+                // directly: the signup tab also carries a plain
+                // addEventListener click handler (funnel analytics in
+                // auth.html) that a direct state assignment would bypass,
+                // so an arrow-key switch to signup would silently miss
+                // the signup_page_viewed event.
+                nextEl.click();
+                nextEl.focus();
             },
         };
     });

@@ -68,29 +68,35 @@
                 </p>
 
                 <!-- OTP Inputs - CSP-compatible: using :value + @input with method names only (no $event) -->
-                <div class="flex justify-center gap-2 mb-4">
+                <div class="flex justify-center gap-2 mb-4" role="group" aria-label="{% trans 'Verification code' %}">
                     <input type="text" id="otp-0" x-ref="otp0" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="one-time-code" data-index="0"
+                           aria-label="{% blocktrans with n=1 %}Digit {{ n }} of 6{% endblocktrans %}"
                            :value="otp0" @input="handleOtp0Input" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
                            class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition dark:bg-gray-700 dark:text-white dark:border-gray-600">
                     <input type="text" id="otp-1" x-ref="otp1" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="1"
+                           aria-label="{% blocktrans with n=2 %}Digit {{ n }} of 6{% endblocktrans %}"
                            :value="otp1" @input="handleOtp1Input" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
                            class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition dark:bg-gray-700 dark:text-white dark:border-gray-600">
                     <input type="text" id="otp-2" x-ref="otp2" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="2"
+                           aria-label="{% blocktrans with n=3 %}Digit {{ n }} of 6{% endblocktrans %}"
                            :value="otp2" @input="handleOtp2Input" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
                            class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition dark:bg-gray-700 dark:text-white dark:border-gray-600">
                     <input type="text" id="otp-3" x-ref="otp3" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="3"
+                           aria-label="{% blocktrans with n=4 %}Digit {{ n }} of 6{% endblocktrans %}"
                            :value="otp3" @input="handleOtp3Input" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
                            class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition dark:bg-gray-700 dark:text-white dark:border-gray-600">
                     <input type="text" id="otp-4" x-ref="otp4" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="4"
+                           aria-label="{% blocktrans with n=5 %}Digit {{ n }} of 6{% endblocktrans %}"
                            :value="otp4" @input="handleOtp4Input" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
                            class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition dark:bg-gray-700 dark:text-white dark:border-gray-600">
                     <input type="text" id="otp-5" x-ref="otp5" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="5"
+                           aria-label="{% blocktrans with n=6 %}Digit {{ n }} of 6{% endblocktrans %}"
                            :value="otp5" @input="handleOtp5Input" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
                            class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition dark:bg-gray-700 dark:text-white dark:border-gray-600">
                 </div>
 
                 <!-- Error message -->
-                <div x-show="hasError" class="bg-red-50 text-red-700 px-4 py-2 rounded-lg text-sm mb-4" x-text="error"></div>
+                <div x-show="hasError" role="alert" class="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-4 py-2 rounded-lg text-sm mb-4" x-text="error"></div>
 
                 <button @click="verifyCode"
                         x-bind:disabled="isCodeIncomplete"

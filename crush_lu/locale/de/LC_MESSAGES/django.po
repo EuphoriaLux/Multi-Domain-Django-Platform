@@ -42637,3 +42637,19 @@ msgstr ""
 #: crush_lu/templates/account/verification_sent_crush.html
 msgid "Use a different address"
 msgstr "Andere Adresse verwenden"
+
+
+# UX Wave 3 · WP2 auth-page
+#: templates/crush_lu/includes/phone_otp_modal.html:71
+msgid "Verification code"
+msgstr "Verifizierungscode"
+
+#: templates/crush_lu/includes/phone_otp_modal.html:73
+#: templates/crush_lu/includes/phone_otp_modal.html:76
+#: templates/crush_lu/includes/phone_otp_modal.html:79
+#: templates/crush_lu/includes/phone_otp_modal.html:82
+#: templates/crush_lu/includes/phone_otp_modal.html:85
+#: templates/crush_lu/includes/phone_otp_modal.html:88
+#, python-format
+msgid "Digit %(n)s of 6"
+msgstr "Ziffer %(n)s von 6"
