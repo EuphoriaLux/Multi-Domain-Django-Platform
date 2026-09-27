@@ -65,6 +65,12 @@ class InstallBannerMarkupTests(TestCase):
         self.assertIn("fixed", tag.split())
         self.assertIn("prompt-above-nav", tag)
 
+    def test_ios_guide_is_cloaked_until_alpine_boots(self):
+        html = self._get()
+        start = html.index('x-show="showGuide"')
+        tag = html[html.rindex("<div", 0, start) : html.index(">", start)]
+        self.assertIn("x-cloak", tag.split())
+
     def test_fr_install_label_has_no_emoji(self):
         html = self._get("/fr/")
         button = INSTALL_BUTTON_RE.search(html).group(0)

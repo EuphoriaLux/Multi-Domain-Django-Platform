@@ -249,3 +249,54 @@ def test_push_settings_check_times_out_with_try_again(browser, live_server):
     card.get_by_role("button", name="Try Again").click()
     expect(checking).to_be_visible()
     expect(timed_out).to_be_visible(timeout=6000)
+
+
+# The same visit in a new tab: sessionStorage is fresh, the last page view
+# was a minute ago.
+SAME_VISIT_NEW_TAB_JS = """
+if (!sessionStorage.getItem("crush-pwa-session")) {
+    localStorage.setItem("crush-pwa-sessions", "1");
+    localStorage.setItem("crush-pwa-last-seen", String(Date.now() - 60 * 1000));
+}
+"""
+# A browser with a service worker but no Push API (e.g. an iOS Safari tab).
+NO_PUSH_MANAGER_JS = "delete window.PushManager;"
+
+
+def test_new_tab_in_the_same_visit_is_not_a_second_session(browser, live_server):
+    page = _phone(browser, live_server, _member())
+    page.context.add_init_script(SAME_VISIT_NEW_TAB_JS)
+    _open(page, f"{live_server.url}/en/dashboard/")
+
+    page.wait_for_timeout(500)
+    expect(page.locator("#pwa-install-banner")).to_be_hidden()
+    assert page.evaluate("() => localStorage.getItem('crush-pwa-sessions')") == "1"
+
+
+def test_ios_guide_stays_hidden_without_javascript(browser, live_server):
+    context = browser.new_context(
+        viewport=PHONE, user_agent=IPHONE_UA, java_script_enabled=False
+    )
+    page = context.new_page()
+    page.goto(f"{live_server.url}/en/")
+    expect(page.get_by_text("Step 1: Tap Share")).to_be_hidden()
+
+
+def test_coach_card_without_push_api_says_not_supported_not_retry(browser, live_server):
+    from crush_lu.models import CrushCoach
+
+    user = _member()
+    CrushCoach.objects.create(user=user, bio="Coach", is_active=True)
+    page = _phone(browser, live_server, user)
+    page.context.add_init_script(HANGING_SW_JS)
+    page.context.add_init_script(NO_PUSH_MANAGER_JS)
+    _open(page, f"{live_server.url}/en/account/settings/")
+
+    card = page.locator("[x-data='coachPushPreferences']")
+    expect(card).to_be_visible()
+    page.wait_for_timeout(3500)
+    expect(
+        card.get_by_text("We couldn't check notification support on this device.")
+    ).to_be_hidden()
+    expect(card.get_by_text("Try Again")).to_be_hidden()
+    expect(card.get_by_text("Push notifications not available")).to_be_visible()

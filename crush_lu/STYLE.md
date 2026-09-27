@@ -279,7 +279,7 @@ Some files are legacy / parked and should NOT be touched casually:
 
 ## 7. Alpine.js primitives
 
-Three shared mixin factories live at the top of
+Four shared mixin factories live at the top of
 `crush_lu/static/crush_lu/js/alpine-components.js`. Compose them inside
 your named Alpine.data component with the **`mixin`** helper (also in
 that file). They are not themselves Alpine.data registrations because
@@ -321,6 +321,19 @@ makes its own HTMX call instead.
 `showModal()` / `hideModal()` / `toggleModal()` plus `isModalOpen` /
 `isModalClosed` getters. Reach for this rather than rolling a one-off
 `x-data="{ open: false }"`.
+
+### `makePushStatusCheck()`
+
+The push settings cards' status probe, composed into `pushPreferences` and
+`coachPushPreferences`. The host component supplies `isLoading`,
+`isSupported`, `_checkStatus()` and `_retryDeviceMatch()`; its
+`_checkStatus()` calls `this._runStatusCheck(probe)`, where `probe(finish)`
+runs the component's own check and calls `finish()` once it has an answer.
+An unsupported browser settles at once without probing. If `finish()` has
+not run after 3 s the "Checking…" state gives way to `showCheckTimedOut`
+(a "couldn't check" notice with a Retry that calls `retryStatusCheck()`);
+a late answer still settles the card. "Not supported" always wins over the
+timed-out notice.
 
 ### Deprecated Alpine components (do not use in new code)
 

@@ -163,10 +163,12 @@ document.addEventListener("alpine:init", function () {
         return {
             checkTimedOut: false,
             _checkRun: 0,
+            // "Not supported" is the truthful answer, so it wins over Retry.
             get showCheckTimedOut() {
-                return !this.isLoading && this.checkTimedOut;
+                return !this.isLoading && this.checkTimedOut && this.isSupported;
             },
             // probe(finish) runs the component's own check and calls finish().
+            // An unsupported browser has nothing to probe: settle at once.
             _runStatusCheck: function (probe) {
                 var self = this;
                 var run = ++this._checkRun;
@@ -178,14 +180,16 @@ document.addEventListener("alpine:init", function () {
                         self.checkTimedOut = true;
                     }
                 }, PUSH_CHECK_TIMEOUT_MS);
-                probe(function () {
+                var finish = function () {
                     if (run !== self._checkRun) return;
                     self.isLoading = false;
                     self.checkTimedOut = false;
                     self.$nextTick(function () {
                         self._retryDeviceMatch();
                     });
-                });
+                };
+                if (!this.isSupported) return finish();
+                probe(finish);
             },
             retryStatusCheck: function () {
                 this._checkStatus();
