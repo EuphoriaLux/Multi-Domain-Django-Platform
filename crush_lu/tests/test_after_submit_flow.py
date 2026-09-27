@@ -22,7 +22,12 @@ from django.core.cache import cache
 from django.test import TestCase
 from django.utils import timezone
 
-from crush_lu.models import CrushCoach, CrushProfile, ProfileSubmission
+from crush_lu.models import (
+    CrushCoach,
+    CrushProfile,
+    PremiumMembership,
+    ProfileSubmission,
+)
 from crush_lu.models.profiles import UserDataConsent
 
 User = get_user_model()
@@ -162,6 +167,37 @@ class ProfileSubmittedOrderTests(_MemberMixin, TestCase):
         )
         self.assertContains(response, 'data-verification-option="luxid"')
 
+    def test_status_line_follows_locked_premium_path(self):
+        # A pending PremiumMembership without a live submission locks the path:
+        # the partial hides the event/LuxID cards, so the status line must not
+        # send the member there either (Codex #1047).
+        _add_luxid_app()
+        PremiumMembership.objects.create(
+            user=self.user, coach=self._make_coach(), status="pending"
+        )
+        response = self._get("/en/profile-submitted/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "re on the Premium path")
+        self.assertContains(
+            response,
+            "Your profile is ready. Next: complete your Premium membership.",
+        )
+        self.assertNotContains(response, "Next: get verified at an event")
+        self.assertNotContains(response, 'data-verification-option="event"')
+
+    def test_status_line_without_premium_keeps_verification_paths(self):
+        _add_luxid_app()
+        PremiumMembership.objects.create(
+            user=self.user, coach=self._make_coach(), status="active"
+        )
+        response = self._get("/en/profile-submitted/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "Your profile is ready. Next: get verified at an event or with LuxID.",
+        )
+        self.assertNotContains(response, "complete your Premium membership")
+
 
 class RejectedVerdictTests(_MemberMixin, TestCase):
     """3-16: a rejection is one consistent verdict with a delete path."""
@@ -207,6 +243,40 @@ class RejectedVerdictTests(_MemberMixin, TestCase):
         self.assertTemplateUsed(
             response, "crush_lu/delete_crushlu_profile_confirm.html"
         )
+
+
+class RejectedProfileWithoutSubmissionTests(_MemberMixin, TestCase):
+    """Codex #1047: a door rejection of a free-path member flips only the
+    profile status (no ProfileSubmission) and must still reach the verdict."""
+
+    def setUp(self):
+        super().setUp()
+        self.profile.verification_status = "rejected"
+        self.profile.save(update_fields=["verification_status"])
+        self.assertFalse(
+            ProfileSubmission.objects.filter(profile=self.profile).exists()
+        )
+
+    def test_profile_submitted_redirects_to_verdict_page(self):
+        response = self._get("/en/profile-submitted/")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/profile/rejected/", response["Location"])
+
+    def test_rejected_page_renders_with_delete_path(self):
+        response = self._get("/en/profile/rejected/")
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "crush_lu/profile_rejected.html")
+        match = re.search(
+            r"<a [^>]*data-rejected-delete[^>]*>", response.content.decode()
+        )
+        self.assertIsNotNone(match)
+        self.assertIn('href="/en/account/delete-profile/"', match.group(0))
+
+    def test_pending_member_without_rejection_is_sent_away(self):
+        self.profile.verification_status = "pending"
+        self.profile.save(update_fields=["verification_status"])
+        response = self._get("/en/profile/rejected/")
+        self.assertEqual(response.status_code, 302)
 
 
 class SignupLuxidPromiseTests(TestCase):

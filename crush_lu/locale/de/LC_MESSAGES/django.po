@@ -42419,6 +42419,12 @@ msgid "Women %(women)s%% · Men %(men)s%%"
 msgstr "Frauen %(women)s%% · Männer %(men)s%%"
 
 #: templates/crush_lu/profile_submitted.html
+msgid "Your profile is ready. Next: complete your Premium membership."
+msgstr ""
+"Dein Profil ist fertig. Nächster Schritt: Schließ deine Premium-"
+"Mitgliedschaft ab."
+
+#: templates/crush_lu/profile_submitted.html
 msgid "Your profile is ready. Next: get verified at an event."
 msgstr ""
 "Dein Profil ist fertig. Nächster Schritt: Lass dich bei einem Event "

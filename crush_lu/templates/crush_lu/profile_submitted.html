@@ -31,12 +31,14 @@
             {# is the flag that collapses the LuxID card in _verification_options.html, so #}
             {# this line always matches the cards below (a member already linked to LuxID #}
             {# still sees the LuxID card, hence not the auth page's has_luxid filter). #}
+            {# A pending PremiumMembership locks the path (path_locked): the partial then hides #}
+            {# the event/LuxID cards and asks them to complete Premium, so this line does too. #}
             <div class="flex justify-center mb-4">
                 <div class="w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
                     {% include "shared/icons/shield-check.html" with class="w-8 h-8 md:w-10 md:h-10 text-white" %}
                 </div>
             </div>
-            <h2 data-status-line class="mt-4 mb-6 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% if luxid_unavailable %}{% trans "Your profile is ready. Next: get verified at an event." %}{% else %}{% trans "Your profile is ready. Next: get verified at an event or with LuxID." %}{% endif %}</h2>
+            <h2 data-status-line class="mt-4 mb-6 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% if path_locked %}{% trans "Your profile is ready. Next: complete your Premium membership." %}{% elif luxid_unavailable %}{% trans "Your profile is ready. Next: get verified at an event." %}{% else %}{% trans "Your profile is ready. Next: get verified at an event or with LuxID." %}{% endif %}</h2>
 
             {# If the user already connected LuxID but isn't verified yet, reassure them (view lazily verifies + redirects normally; this is an edge state). #}
             {# Gate on the LuxID link itself: an empty luxid_connect_url also means "LuxID not configured / lookup failed", which must not read as "connected". #}
