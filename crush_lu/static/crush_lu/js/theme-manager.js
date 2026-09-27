@@ -37,6 +37,13 @@
      * @param {string} theme - 'dark' or 'light'
      */
     function applyTheme(theme) {
+        // An always-dark surface (journey / gift pages render
+        // data-theme-lock="dark" on <html>) keeps .dark whatever the saved or
+        // system preference, and never overwrites the saved preference.
+        const locked = document.documentElement.getAttribute("data-theme-lock");
+        if (locked) {
+            theme = locked;
+        }
         if (theme === "dark") {
             document.documentElement.classList.add("dark");
             document.documentElement.style.colorScheme = "dark";
@@ -44,7 +51,9 @@
             document.documentElement.classList.remove("dark");
             document.documentElement.style.colorScheme = "light";
         }
-        localStorage.setItem("theme", theme);
+        if (!locked) {
+            localStorage.setItem("theme", theme);
+        }
     }
 
     /**
@@ -86,7 +95,11 @@
 
     // Expose API for Alpine.js component
     window.themeManager = {
-        getTheme: () => localStorage.getItem("theme") || getInitialTheme(),
+        getTheme: () =>
+            document.documentElement.getAttribute("data-theme-lock") ||
+            localStorage.getItem("theme") ||
+            getInitialTheme(),
+        isLocked: () => document.documentElement.hasAttribute("data-theme-lock"),
         setTheme: applyTheme,
         toggleTheme: toggleTheme,
     };
