@@ -1890,15 +1890,21 @@ def export_user_data(request):
         visible_connections.append(
             {
                 "event": conn.event.title if conn.event else None,
-                # Once a connection is shared, the other member's email only
-                # appears if they chose to share it (UX Wave 3, 5-10).
+                # Once the other member has answered the consent step without
+                # choosing to share their email, it never appears here, in
+                # any status (UX Wave 3, 5-10). Rows where they have not
+                # answered yet keep the existing export contract.
                 "connected_with": (
                     None
-                    if conn.status == "shared"
-                    and not (
-                        conn.recipient_shares_email
+                    if (
+                        (conn.status == "shared" or conn.recipient_consents_to_share)
+                        and not conn.recipient_shares_email
                         if conn.requester == user
-                        else conn.requester_shares_email
+                        else (
+                            conn.status == "shared"
+                            or conn.requester_consents_to_share
+                        )
+                        and not conn.requester_shares_email
                     )
                     else (
                         conn.recipient.email

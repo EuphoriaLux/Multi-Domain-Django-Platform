@@ -946,11 +946,12 @@ def my_connections(request):
         len(get_people_ive_met(request.user)) if lobby_feature_enabled() else 0
     )
 
-    # Gates the empty state's secondary CTA (finding 5-14): Crush Connect is
-    # only worth offering a verified member, since it's the same gate the
-    # hub itself enforces.
-    profile = getattr(request.user, "crushprofile", None)
-    is_verified = bool(profile and profile.verification_status == "verified")
+    # Gates the empty state's secondary CTA (finding 5-14): offer Crush
+    # Connect only to members the hub will actually let in, using the hub's
+    # own gate so the link never bounces to the teaser.
+    from .views_crush_connect import _hub_access_blocker
+
+    is_verified = _hub_access_blocker(request.user) is None
 
     context = {
         "sent_requests": sent,

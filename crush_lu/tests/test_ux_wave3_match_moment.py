@@ -549,9 +549,18 @@ class MyConnectionsEmptyStateTests(TestCase):
         response = self.client.get("/en/connections/", HTTP_HOST="crush.lu")
         self.assertNotContains(response, "Try Crush Connect")
 
-    def test_verified_member_sees_connect_cta(self):
-        self.user.crushprofile.verification_status = "verified"
-        self.user.crushprofile.save()
+    @override_settings(CRUSH_CONNECT_LAUNCHED=True)
+    def test_hub_eligible_member_sees_connect_cta(self):
+        # The CTA follows the hub's own gate: approved, verified, and
+        # Connect-identity-verified (here via a linked LuxID account).
+        from allauth.socialaccount.models import SocialAccount
+
+        profile = self.user.crushprofile
+        profile.is_approved = True
+        profile.save()
+        SocialAccount.objects.create(
+            user=self.user, provider="luxid", uid=f"lux-{self.user.pk}"
+        )
         response = self.client.get("/en/connections/", HTTP_HOST="crush.lu")
         self.assertContains(response, "Try Crush Connect")
 
@@ -579,6 +588,20 @@ class ConsentPrivacyReviewTests(TestCase):
     def test_export_omits_an_email_the_other_member_did_not_share(self):
         self.connection.status = "shared"
         self.connection.recipient_shares_email = False
+        self.connection.save()
+        self.assertNotIn(self.recipient.email, self._export())
+
+    def test_export_hides_an_opted_out_email_before_the_connection_is_shared(self):
+        # Recipient consented without email; requester hasn't answered yet.
+        self.connection.recipient_consents_to_share = True
+        self.connection.recipient_shares_email = False
+        self.connection.save()
+        self.assertNotIn(self.recipient.email, self._export())
+
+    def test_export_hides_an_opted_out_email_after_a_decline(self):
+        self.connection.recipient_consents_to_share = True
+        self.connection.recipient_shares_email = False
+        self.connection.status = "declined"
         self.connection.save()
         self.assertNotIn(self.recipient.email, self._export())
 
@@ -653,4 +676,35 @@ class RetiredSparksBadgeTests(TestCase):
         with patch.object(CrushSpark.objects, "filter") as spark_filter:
             context = crush_user_context(request)
         spark_filter.assert_not_called()
-        self.assertEqual(context.get("actionable_sparks_count", 0), 0)
+        # Present and 0 on the normal path, so base.html's badge sum works.
+        self.assertIn("actionable_sparks_count", context)
+        self.assertEqual(context["actionable_sparks_count"], 0)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class EmptyStateConnectCtaGateTests(TestCase):
+    """The empty state's Connect CTA uses the hub's own access gate."""
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(
+            username="cta@example.com", email="cta@example.com", password="testpass123"
+        )
+        CrushProfile.objects.create(
+            user=self.user,
+            date_of_birth=date(1995, 5, 15),
+            gender="M",
+            location="Luxembourg",
+            is_approved=True,
+        )
+        _give_crushlu_consent(self.user)
+        self.client = Client()
+        self.client.login(username="cta@example.com", password="testpass123")
+
+    @override_settings(CRUSH_CONNECT_LAUNCHED=True)
+    def test_verified_member_without_luxid_or_attendance_gets_no_connect_cta(self):
+        profile = self.user.crushprofile
+        self.assertFalse(profile.is_connect_identity_verified)
+        response = self.client.get("/en/connections/", HTTP_HOST="crush.lu")
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["is_verified"])

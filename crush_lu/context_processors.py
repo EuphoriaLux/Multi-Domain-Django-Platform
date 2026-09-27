@@ -174,7 +174,9 @@ def crush_user_context(request):
 
         # Retired Sparks (UX Wave 3, 5-13) no longer count toward the nav
         # badge: their member pages redirect away, so nothing can clear them.
-        # actionable_sparks_count stays 0 via _SAFE_NAV_DEFAULTS.
+        # Set explicitly: base.html adds it to pending_requests_count, and a
+        # missing value would blank the badge.
+        context["actionable_sparks_count"] = 0
 
 
         # Profile submission status for visual indicators
