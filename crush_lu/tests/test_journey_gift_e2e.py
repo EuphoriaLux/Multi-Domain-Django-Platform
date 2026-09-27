@@ -224,6 +224,41 @@ class TestGiftLandingPage:
         login_link = page.locator('a[href*="login"], a:has-text("Log in"), a:has-text("Sign in")')
         assert login_link.count() > 0
 
+    def test_report_link_confirms_then_expires_gift(
+        self, page: Page, live_server_url, pending_gift
+    ):
+        """The "This isn't for me / Report" link uses the confirm sheet (7-01).
+
+        Cancelling leaves the gift pending; confirming POSTs over HTMX, follows
+        the HX-Redirect home and expires the gift.
+        """
+        from crush_lu.models import JourneyGift
+
+        page.goto(f"{live_server_url}/en/journey/gift/{pending_gift.gift_code}/")
+        page.wait_for_load_state("networkidle")
+        assert "verified Crush.lu member" in page.content()
+        cookie_decline = page.locator('button:has-text("Decline All")')
+        if cookie_decline.count() > 0 and cookie_decline.first.is_visible():
+            cookie_decline.first.click()
+
+        dialog = page.locator("#crush-confirm-dialog")
+        report = page.get_by_test_id("gift-report").first
+        report.click()
+        dialog.wait_for(state="visible")
+        page.locator("#crush-confirm-dialog [data-confirm-cancel]").click()
+        dialog.wait_for(state="hidden")
+        pending_gift.refresh_from_db()
+        assert pending_gift.status == JourneyGift.Status.PENDING
+
+        report.click()
+        dialog.wait_for(state="visible")
+        assert "Close and report" in dialog.inner_text()
+        page.locator("#crush-confirm-dialog [data-confirm-accept]").click()
+        page.wait_for_url(lambda url: "/journey/gift/" not in url, timeout=10000)
+        assert "our team has been notified" in page.content()
+        pending_gift.refresh_from_db()
+        assert pending_gift.status == JourneyGift.Status.EXPIRED
+
     def test_expired_gift_shows_expired_page(self, page: Page, live_server_url, expired_gift):
         """Expired gifts should show an expired message."""
         page.goto(f"{live_server_url}/en/journey/gift/{expired_gift.gift_code}/")
