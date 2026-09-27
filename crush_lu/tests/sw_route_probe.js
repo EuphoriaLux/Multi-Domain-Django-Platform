@@ -272,6 +272,22 @@ const probes = [
         mustBeClaimed: true,
     },
     {
+        name: "consent_accept_post",
+        url: "https://crush.lu/cookies/accept/",
+        method: "POST",
+        mode: "same-origin",
+        destination: "",
+        mustBeClaimed: false,
+    },
+    {
+        name: "consent_decline_post",
+        url: "https://crush.lu/cookies/decline/",
+        method: "POST",
+        mode: "same-origin",
+        destination: "",
+        mustBeClaimed: false,
+    },
+    {
         // The ticket is what an attendee opens at the venue door, often with
         // no signal. It needs its own cache: "crush-pages" is shared with
         // every page and expires after 24h.
@@ -464,6 +480,7 @@ async function probeReplay(urls) {
 (async () => {
     const replay = await probeReplay([
         "https://crush.lu/crush-admin/crush_lu/meetupevent/29/change/",
+        "https://crush.lu/cookies/decline/",
         "https://crush.lu/en/events/29/register/",
     ]);
     process.stdout.write(

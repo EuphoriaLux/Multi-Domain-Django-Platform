@@ -217,6 +217,8 @@ from .views_invitations import (  # noqa: F401
 from .views_event_polls import (  # noqa: F401
     poll_list,
     poll_detail,
+    poll_suggest,
+    theme_board,
 )
 
 # PWA & special experiences
