@@ -43148,3 +43148,43 @@ msgstr ""
 "Nous vous préviendrons par e-mail si une place se libère. Aucun paiement "
 "n'est nécessaire jusque-là."
 
+
+# UX Wave 3 · WP8 pay-confirm (merged from Codex branch)
+#: templates/crush_lu/emails/profile_incomplete_72h.html:36
+msgid ""
+"You're SO close! Just add 1-3 photos and you're done. Your privacy is "
+"protected - you can blur photos or show only your first name."
+msgstr ""
+"Vous êtes SI proche ! Ajoutez juste 1-3 photos et c'est fait. Votre vie "
+"privée est protégée - vous pouvez flouter les photos ou montrer seulement "
+"votre prénom."
+
+#: context_processors.py:56
+msgid "Complete your profile"
+msgstr "Complétez votre profil"
+
+#: context_processors.py:58
+msgid "Profile verified"
+msgstr "Profil vérifié"
+
+#: context_processors.py:62
+msgid "Tell us about you"
+msgstr "Parlez-nous de vous"
+
+#: context_processors.py:63 context_processors.py:64
+msgid "Add photos"
+msgstr "Ajouter des photos"
+
+#: context_processors.py:65
+msgid "Review & submit"
+msgstr "Vérifier et soumettre"
+
+#: context_processors.py:66
+msgid "Under review"
+msgstr "En cours de relecture"
+
+# UX Wave 3 · WP8 payment eligibility
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "This registration cannot be paid for in its current state."
+msgstr "Cette inscription ne peut pas être payée dans son état actuel."
+

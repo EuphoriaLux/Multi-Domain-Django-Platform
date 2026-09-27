@@ -42,12 +42,13 @@ def registration_tone(user_registration, event):
         return "applied"
     if status == "waitlist":
         return "waitlist"
-    if (
-        event.registration_fee > 0
-        and not user_registration.payment_confirmed
-        and registration_is_payable(user_registration, event)
-    ):
-        return "payment_due"
+    if event.registration_fee > 0 and not user_registration.payment_confirmed:
+        if status in ("pending", "confirmed"):
+            return (
+                "payment_due"
+                if registration_is_payable(user_registration, event)
+                else "payment_unavailable"
+            )
     if status in ("confirmed", "attended"):
         return "confirmed"
     return "other"

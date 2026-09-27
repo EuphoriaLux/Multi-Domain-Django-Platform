@@ -48,7 +48,11 @@
                     {% elif entry.is_waitlist %}
                     <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 rounded-full whitespace-nowrap">{% trans "Waitlist" %}</span>
                     {% elif entry.is_pending_payment %}
+                    {% if entry.can_pay %}
                     <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-full whitespace-nowrap">{% trans "Payment due" %}</span>
+                    {% else %}
+                    <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-full whitespace-nowrap">{% trans "Pending" %}</span>
+                    {% endif %}
                     {% else %}
                     <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-full whitespace-nowrap">{% trans "Confirmed" %}</span>
                     {% endif %}
@@ -62,7 +66,7 @@
                 <div class="mt-auto flex flex-wrap gap-2">
                     {% include "crush_lu/components/event_lobby_cta.html" with cta=entry.lobby_cta event=entry.event %}
                     <a href="{% url 'crush_lu:event_detail' entry.event.id %}" class="btn-crush-solid flex-1 text-center py-2">{% trans "Details" %}</a>
-                    {% if entry.is_pending_payment %}
+                    {% if entry.can_pay %}
                     {% if entry.has_sufficient_crush_credit %}
                     <button type="button" x-data="sumupCheckoutButton" @click="start" :disabled="isLoading"
                             data-sumup-reg-id="{{ entry.registration.id }}" data-payment-method="credit"

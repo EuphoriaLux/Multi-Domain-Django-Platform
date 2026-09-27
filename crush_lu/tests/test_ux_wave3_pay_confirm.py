@@ -106,6 +106,7 @@ class EventDetailStatusToneTests(PayConfirmTestBase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "You're in!")
+        self.assertContains(response, "View My Ticket", count=1)
         self.assertNotContains(response, "Payment due")
 
     def test_free_event_confirmed_registration_has_no_payment_due_banner(self):
@@ -260,6 +261,39 @@ class RegistrationIsPayableTests(PayConfirmTestBase):
     def test_pending_registration_on_cancelled_event_is_not_payable(self):
         self.event.is_cancelled = True
         self.assertFalse(registration_is_payable(self.registration, self.event))
+
+    def test_uncertified_curated_registration_hides_payment_invites(self):
+        self.event.registration_mode = "curated"
+        self.event.group_size = 6
+        self.event.planned_groups = 1
+        self.event.save(update_fields=["registration_mode", "group_size", "planned_groups"])
+        self.registration.status = "confirmed"
+        self.registration.save(update_fields=["status"])
+        self.assertFalse(registration_is_payable(self.registration, self.event))
+        self.client.force_login(self.user)
+
+        detail = self.client.get(f"/en/events/{self.event.id}/")
+        self.assertEqual(detail.status_code, 200)
+        self.assertContains(
+            detail, "This registration cannot be paid for in its current state."
+        )
+        self.assertNotContains(detail, "Payment due")
+        self.assertNotContains(detail, "Pay now")
+        self.assertNotContains(detail, "You're in!")
+
+        ticket = self.client.get(f"/en/events/{self.event.id}/ticket/")
+        self.assertEqual(ticket.status_code, 200)
+        self.assertNotContains(ticket, "Payment due")
+
+        self.registration.status = "pending"
+        self.registration.save(update_fields=["status"])
+        my_events = self.client.get("/en/my-events/")
+        self.assertEqual(my_events.status_code, 200)
+        self.assertTrue(my_events.context["upcoming_registrations"][0]["is_pending_payment"])
+        self.assertFalse(my_events.context["upcoming_registrations"][0]["can_pay"])
+        self.assertContains(my_events, "Pending")
+        self.assertNotContains(my_events, "Payment due")
+        self.assertNotContains(my_events, "Pay with Card")
 
 
 class SumUpReturnRetryCopyTests(PayConfirmTestBase):

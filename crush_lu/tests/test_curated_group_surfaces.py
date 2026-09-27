@@ -640,6 +640,11 @@ class CuratedMemberInsightTests(TestCase):
     def test_selected_member_sees_a_provisional_group_summary_without_names(self):
         event, mine, others, group = self._select_viewer()
 
+        from crush_lu.services.event_payments import registration_is_payable
+
+        mine.refresh_from_db()
+        self.assertTrue(registration_is_payable(mine, event))
+
         response = self._detail(event)
         outlook = response.context["curated_group_outlook"]
 
