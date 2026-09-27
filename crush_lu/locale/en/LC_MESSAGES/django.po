@@ -28445,6 +28445,7 @@ msgid "As seen in"
 msgstr ""
 
 # UX Wave 3 · WP12 connect-moments
+# UX Wave 3 · WP12 connect-moments
 #. UX Wave 3 · WP12
 msgid "Connect Week progress"
 msgstr ""
@@ -28495,6 +28496,6 @@ msgstr ""
 msgid "Today — see how you appear in the mix"
 msgstr ""
 
-
 msgid "18:30 or Evening"
 msgstr ""
+

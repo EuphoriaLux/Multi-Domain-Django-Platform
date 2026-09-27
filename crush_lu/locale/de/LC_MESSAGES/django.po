@@ -42578,6 +42578,15 @@ msgstr "Du hast die Blockierung von %(name)s aufgehoben."
 msgid "As seen in"
 msgstr "Bekannt aus"
 
+#: templates/crush_lu/partials/_push_check_timed_out.html:5
+msgid "We couldn't check notification support on this device."
+msgstr "Wir konnten die Benachrichtigungsunterstützung auf diesem Gerät nicht prüfen."
+
+#: templates/crush_lu/partials/_push_native_notice.html:10
+msgid "Notifications are managed in the app"
+msgstr "Benachrichtigungen werden in der App verwaltet"
+
+# UX Wave 3 · WP12 connect-moments
 # UX Wave 3 · WP12 connect-moments
 #. UX Wave 3 · WP12
 msgid "Connect Week progress"
@@ -42631,6 +42640,6 @@ msgstr "Endet am %(when)s"
 msgid "Today — see how you appear in the mix"
 msgstr "Heute — sieh, wie du im Mix erscheinst"
 
-
 msgid "18:30 or Evening"
 msgstr "18:30 oder abends"
+
