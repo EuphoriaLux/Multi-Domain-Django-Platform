@@ -73,6 +73,8 @@
                                 role="tab"
                                 x-bind:aria-selected="loginAriaSelected"
                                 aria-controls="login-panel"
+                                x-bind:tabindex="loginTabIndex"
+                                @keydown="onTabKeydown"
                                 @click="setLogin"
                                 x-bind:class="loginTabClass"
                                 class="flex-1 py-3 px-1 sm:px-6 rounded-full font-bold text-base sm:text-lg transition-all duration-300">
@@ -83,6 +85,8 @@
                                 role="tab"
                                 x-bind:aria-selected="signupAriaSelected"
                                 aria-controls="signup-panel"
+                                x-bind:tabindex="signupTabIndex"
+                                @keydown="onTabKeydown"
                                 @click="setSignup"
                                 x-bind:class="signupTabClass"
                                 class="flex-1 py-3 px-1 sm:px-6 rounded-full font-bold text-base sm:text-lg transition-all duration-300">
@@ -199,7 +203,7 @@
                             <div class="mb-4">
                                 <label for="id_login" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Email" %}</label>
                                 <input type="email" class="w-full px-4 py-3 border {% if login_form.login.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-                                       id="id_login" name="login" autocomplete="username email" inputmode="email"
+                                       id="id_login" name="login" autocomplete="username" inputmode="email"
                                        value="{{ login_form.login.value|default:'' }}" required
                                        aria-invalid="{% if login_form.login.errors %}true{% else %}false{% endif %}"
                                        {% if login_form.login.errors %}aria-describedby="id_login_error"{% endif %}
@@ -373,7 +377,9 @@
                             <!-- Consent Checkboxes -->
                             <div class="mb-4">
                                 <label class="flex items-start">
-                                    <input type="checkbox" name="crushlu_consent" id="id_crushlu_consent" required class="mt-1 mr-2 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded">
+                                    <input type="checkbox" name="crushlu_consent" id="id_crushlu_consent" required class="mt-1 mr-2 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded"
+                                           aria-invalid="{% if signup_form.crushlu_consent.errors %}true{% else %}false{% endif %}"
+                                           {% if signup_form.crushlu_consent.errors %}aria-describedby="id_crushlu_consent_error"{% endif %}>
                                     <span class="text-sm text-gray-700 dark:text-gray-200">
                                         {% trans "I agree to the" %}
                                         <a href="{% url 'crush_lu:terms_of_service' %}" target="_blank" class="text-crush-purple hover:underline">{% trans "Terms of Service" %}</a>
@@ -382,7 +388,7 @@
                                     </span>
                                 </label>
                                 {% if signup_form.crushlu_consent.errors %}
-                                    <p role="alert" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ signup_form.crushlu_consent.errors.0 }}</p>
+                                    <p id="id_crushlu_consent_error" role="alert" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ signup_form.crushlu_consent.errors.0 }}</p>
                                 {% endif %}
                             </div>
 
@@ -659,19 +665,35 @@ var _i18n = {
         var firstInvalid = document.querySelector('#login-panel [aria-invalid="true"], #signup-panel [aria-invalid="true"]');
         if (firstInvalid) firstInvalid.focus();
 
-        // Funnel analytics: fire once per real tab switch (not on initial
-        // render). Plain event listeners, not Alpine bindings — the CSP
-        // Alpine build disallows inline expressions with arguments, and the
-        // tab buttons already carry bare @click="setLogin"/"setSignup".
-        // Same event name as the server-rendered view event above (see its
-        // comment for why it isn't GA4's reserved sign-up conversion name).
+        // Funnel analytics: fire once per real tab switch (login -> signup),
+        // never on a re-click of the already-active signup tab — /signup/
+        // already fires the server-rendered page-view event once, so a
+        // second client-side event on the same view would double-count.
+        // Plain event listeners, not Alpine bindings — the CSP Alpine build
+        // disallows inline expressions with arguments, and the tab buttons
+        // already carry bare @click="setLogin"/"setSignup". Tracked with
+        // our own flag rather than reading Alpine's aria-selected, since
+        // listener order between Alpine's handler and this one is not
+        // guaranteed. Same event name as the server-rendered view event
+        // above (see its comment for why it isn't GA4's reserved sign-up
+        // conversion name).
+        var tabNavContainer = document.querySelector('.auth-tabs-container');
+        var lastActiveAuthTab = (tabNavContainer && tabNavContainer.getAttribute('data-initial-tab')) || 'login';
         var signupTabBtn = document.getElementById('auth-tab-signup');
+        var loginTabBtn = document.getElementById('auth-tab-login');
         if (signupTabBtn) {
             signupTabBtn.addEventListener('click', function() {
+                if (lastActiveAuthTab === 'signup') return;
+                lastActiveAuthTab = 'signup';
                 if (typeof gtag !== 'undefined') gtag('event', 'signup_page_viewed', { method: 'tab_switch' });
                 if (window.appInsights && typeof window.appInsights.trackEvent === 'function') {
                     window.appInsights.trackEvent({ name: 'signup_page_viewed', properties: { method: 'tab_switch' } });
                 }
+            });
+        }
+        if (loginTabBtn) {
+            loginTabBtn.addEventListener('click', function() {
+                lastActiveAuthTab = 'login';
             });
         }
 

@@ -128,9 +128,17 @@ class LoginFieldAutocompleteTests(TestCase):
         cache.clear()
 
     def test_login_email_has_autocomplete_and_inputmode(self):
+        """
+        A single valid autocomplete token only: "username email" is not a
+        legal token sequence (an autocomplete value carries one field-purpose
+        token), so browsers/password managers reject it and lose the
+        explicit login-autofill hint. The email `type`/`inputmode` already
+        carry the "this is an email" signal.
+        """
         html = Client(HTTP_HOST="crush.lu").get("/en/login/").content.decode()
         tag = _input_tag(html, "id_login")
-        self.assertIn('autocomplete="username email"', tag)
+        self.assertIn('autocomplete="username"', tag)
+        self.assertNotIn('autocomplete="username email"', tag)
         self.assertIn('inputmode="email"', tag)
         # The literal autofocus attribute is gone — see AuthJSBehaviorTests
         # for the pointer-fine-gated JS replacement.
@@ -301,3 +309,116 @@ class SignupFunnelAnalyticsTests(TestCase):
         self.assertIn("auth-tab-signup", script)
         self.assertIn("signup_page_viewed", script)
         self.assertNotIn("'sign_up'", script)
+
+    def test_repeat_clicks_on_an_already_active_signup_tab_do_not_refire(self):
+        """
+        Without a guard, every click on the signup tab button fires the
+        event again — including a re-click while it is already active,
+        which /signup/ already counted once via the server-rendered
+        event. Repeated clicks would silently inflate the funnel count.
+        """
+        html = Client(HTTP_HOST="crush.lu").get("/en/login/").content.decode()
+        script = html[html.index("Unified Auth Page Handler") :]
+        self.assertIn("lastActiveAuthTab", script)
+        guard_idx = script.index("signupTabBtn.addEventListener")
+        handler = script[guard_idx : guard_idx + 400]
+        self.assertIn("if (lastActiveAuthTab === 'signup') return;", handler)
+
+
+class AuthTabsKeyboardTests(TestCase):
+    """Codex round-1 finding: ARIA tabs need roving tabindex and arrow-key
+    navigation, not just click handlers, once role="tab" is applied."""
+
+    def setUp(self):
+        cache.clear()
+
+    def test_tabs_carry_roving_tabindex_bindings(self):
+        html = Client(HTTP_HOST="crush.lu").get("/en/login/").content.decode()
+        login_tab = re.search(r'<button\b[^>]*id="auth-tab-login"[^>]*>', html)
+        signup_tab = re.search(r'<button\b[^>]*id="auth-tab-signup"[^>]*>', html)
+        self.assertIn('x-bind:tabindex="loginTabIndex"', login_tab.group(0))
+        self.assertIn('x-bind:tabindex="signupTabIndex"', signup_tab.group(0))
+        self.assertIn('@keydown="onTabKeydown"', login_tab.group(0))
+        self.assertIn('@keydown="onTabKeydown"', signup_tab.group(0))
+        # Bare-name binding only, per the CSP Alpine idiom used everywhere
+        # else in this component.
+        self.assertNotIn("isLoginTab ? '0' : '-1'", html)
+
+    def test_keyboard_handler_implements_the_aria_tabs_pattern(self):
+        with open(
+            "crush_lu/static/crush_lu/js/alpine-components.js", encoding="utf-8"
+        ) as f:
+            src = f.read()
+        start = src.index("onTabKeydown: function")
+        end = src.index("};", start)
+        handler_src = src[start:end]
+        for key in ("ArrowLeft", "ArrowRight", "Home", "End"):
+            self.assertIn(key, handler_src)
+        self.assertIn(".focus()", handler_src)
+        # Dispatches a real click (routing through the tab's own @click and
+        # any plain addEventListener handlers, e.g. the funnel-analytics
+        # tracker on the signup tab) rather than assigning activeTab
+        # directly, which would silently skip that tracker.
+        self.assertIn(".click()", handler_src)
+
+    def test_only_the_active_tab_is_in_the_tab_index_getters(self):
+        with open(
+            "crush_lu/static/crush_lu/js/alpine-components.js", encoding="utf-8"
+        ) as f:
+            src = f.read()
+        start = src.index('Alpine.data("tabNav"')
+        end = src.index("setLogin: function", start)
+        tab_nav_src = src[start:end]
+        self.assertIn("get loginTabIndex()", tab_nav_src)
+        self.assertIn("get signupTabIndex()", tab_nav_src)
+
+
+class SignupConsentCheckboxAriaTests(TestCase):
+    """Codex round-1 finding: the required-consent checkbox must be
+    associated with its own error so first-invalid-field focus (2-09) can
+    reach it — previously it carried neither aria-invalid nor
+    aria-describedby, so a missing-consent submission left keyboard and
+    screen-reader users stranded with no indication of what to fix."""
+
+    def setUp(self):
+        cache.clear()
+
+    def _submit_without_consent(self):
+        return Client(HTTP_HOST="crush.lu").post(
+            "/en/signup/",
+            {
+                "first_name": "NoConsent",
+                "email": "no-consent@example.com",
+                "password1": "Str0ng-pass-2026!",
+                "password2": "Str0ng-pass-2026!",
+                # crushlu_consent intentionally omitted
+            },
+        )
+
+    def test_missing_consent_marks_the_checkbox_invalid_and_describes_it(self):
+        response = self._submit_without_consent()
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        checkbox = _input_tag(html, "id_crushlu_consent")
+        self.assertIn('aria-invalid="true"', checkbox)
+        self.assertIn('aria-describedby="id_crushlu_consent_error"', checkbox)
+        self.assertIn('id="id_crushlu_consent_error"', html)
+        self.assertIn('role="alert"', html)
+
+    def test_first_invalid_field_query_can_find_the_checkbox(self):
+        """
+        The focus-recovery script (`#signup-panel [aria-invalid="true"]`)
+        only works if the checkbox actually carries the attribute — this
+        pins the query itself against the rendered error markup.
+        """
+        response = self._submit_without_consent()
+        html = response.content.decode()
+        signup_panel = html[html.index('id="signup-panel"') :]
+        checkbox = _input_tag(signup_panel, "id_crushlu_consent")
+        self.assertIn('aria-invalid="true"', checkbox)
+
+    def test_valid_signup_reports_aria_invalid_false_on_the_checkbox(self):
+        html = Client(HTTP_HOST="crush.lu").get("/en/signup/").content.decode()
+        checkbox = _input_tag(html, "id_crushlu_consent")
+        self.assertIn('aria-invalid="false"', checkbox)
+        self.assertNotIn("aria-describedby", checkbox)
