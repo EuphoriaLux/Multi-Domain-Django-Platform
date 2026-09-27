@@ -12921,6 +12921,26 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
+    // Event-cancel double-submit guard (event_cancel.html). The first submit
+    // enters the confirming state and goes through natively; any further
+    // submit is swallowed so a double tap cannot post twice. Replaces an
+    // inline onsubmit handler the nonce-based CSP blocked.
+    Alpine.data("eventCancelForm", function () {
+        return mixin(makeConfirm({ autoSubmit: false }), {
+            guardSubmit(event) {
+                if (this.isConfirming) {
+                    event.preventDefault();
+                    return;
+                }
+                this.request();
+            },
+            // Back/forward cache restores the page as it was left: re-arm it.
+            resetGuard(event) {
+                if (event && event.persisted) this.cancelConfirm();
+            },
+        });
+    });
+
     // Spark confirm inline component (replaces browser confirm dialog)
     Alpine.data("sparkConfirm", function () {
         // Composes makeConfirm with the template-facing API the spark
@@ -15320,37 +15340,42 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
-    // Connect Cycle temp chat: 1-click block confirmation panel. Composes
-    // makeConfirm with the template-facing API the block partial expects
-    // (isInitial / showConfirm / cancel), same as sparkConfirm — but
-    // autoSubmit stays ON (the default): proceed() submits the enclosing
-    // block form directly, no HTMX involved.
-    Alpine.data("connectChatBlockConfirm", function () {
-        return mixin(makeConfirm(), {
-            get isInitial() {
-                return this.isIdle;
-            },
-            showConfirm() {
-                this.request();
-            },
-            cancel() {
-                this.cancelConfirm();
-            },
-            confirmBlock() {
-                this.proceed();
-            },
-        });
-    });
-
     // Connect Week review card: opens/closes the per-card native <dialog>
     // "Choose" confirmation (UX Wave 3 · WP12 / 6-06). Template-local — one
     // dialog per card via $refs, not a shared cross-page sheet/store (that
     // name belongs to Wave 2's forthcoming shared component).
+    //
+    // Some WebViews (and very old browsers) have <dialog> without
+    // HTMLDialogElement.showModal — openDialog() would then silently no-op
+    // and the member could never send the request. Fall back to the
+    // existing global confirm helper (window.crushConfirm, see
+    // confirm-sheet.js), which itself falls back to window.confirm when
+    // even that isn't available, and submit the form directly on accept.
     Alpine.data("connectReviewChoice", function () {
         return {
             openDialog: function () {
                 var dialog = this.$refs.dialog;
-                if (dialog && typeof dialog.showModal === "function") dialog.showModal();
+                if (dialog && typeof dialog.showModal === "function") {
+                    dialog.showModal();
+                    return;
+                }
+                var message = this.$root.getAttribute("data-confirm-message") || "";
+                var form = this.$root.querySelector("form");
+                var submitForm = function () {
+                    if (!form) return;
+                    if (typeof form.requestSubmit === "function") {
+                        form.requestSubmit();
+                    } else {
+                        form.submit();
+                    }
+                };
+                if (typeof window.crushConfirm === "function") {
+                    window.crushConfirm(message).then(function (ok) {
+                        if (ok) submitForm();
+                    });
+                } else if (window.confirm(message)) {
+                    submitForm();
+                }
             },
             closeDialog: function () {
                 var dialog = this.$refs.dialog;
@@ -15358,6 +15383,7 @@ document.addEventListener("alpine:init", function () {
             },
         };
     });
+
 
     // Auto-redirect countdown shown on the profile-approved state of profile_submitted.html.
     // Reads the destination URL from data-dashboard-url to stay language-prefix–safe.
