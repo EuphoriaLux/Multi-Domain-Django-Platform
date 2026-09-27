@@ -42945,6 +42945,122 @@ msgctxt "drawer group"
 msgid "Preferences"
 msgstr "Darstellung & Sprache"
 
+# UX Wave 3 · WP8 pay-confirm
+# UX Wave 3 · WP8 pay-confirm
+# UX Wave 3 · WP8 pay-confirm
+# UX Wave 3 · WP8 pay-confirm
+# UX Wave 3 · WP8 pay-confirm
+# UX Wave 3 · WP8
+#: crush_lu/templates/crush_lu/event_detail.html
+#: crush_lu/templates/crush_lu/event_ticket.html
+#, python-format
+msgid "Payment due — €%(amount)s"
+msgstr "Zahlung ausstehend — €%(amount)s"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "Your spot is reserved. Complete payment below to confirm it."
+msgstr ""
+"Dein Platz ist reserviert. Schließe die Zahlung unten ab, um ihn zu "
+"bestätigen."
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "You're in!"
+msgstr "Du bist dabei!"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "View my ticket"
+msgstr "Mein Ticket ansehen"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+#: crush_lu/templates/crush_lu/_event_registration_success.html
+msgid "Preparing checkout…"
+msgstr "Bezahlvorgang wird vorbereitet …"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+#: crush_lu/templates/crush_lu/_event_registration_success.html
+#: crush_lu/templates/crush_lu/my_events.html
+msgid "An error occurred launching payment. Please try again."
+msgstr ""
+"Beim Starten der Zahlung ist ein Fehler aufgetreten. Bitte versuche es "
+"erneut."
+
+#: crush_lu/templates/crush_lu/event_detail.html
+#: crush_lu/templates/crush_lu/_event_registration_success.html
+#: crush_lu/templates/crush_lu/my_events.html
+msgid "Pay with Card"
+msgstr "Mit Karte bezahlen"
+
+#: crush_lu/templates/crush_lu/my_events.html
+msgid "Preparing…"
+msgstr "Wird vorbereitet …"
+
+#: crush_lu/templates/crush_lu/event_ticket.html
+msgid "This ticket holds your seat, but payment hasn't been received yet."
+msgstr ""
+"Dieses Ticket sichert deinen Platz, aber die Zahlung ist noch nicht "
+"eingegangen."
+
+#: crush_lu/views_payments.py
+msgid ""
+"Your payment is still pending or was not completed. Your spot is reserved — "
+"you can retry payment below."
+msgstr ""
+"Deine Zahlung ist noch ausstehend oder wurde nicht abgeschlossen. Dein Platz"
+" ist reserviert — du kannst die Zahlung unten erneut versuchen."
+
+# UX Wave 3 · WP8 (follow-up: 4-10 waitlist regression)
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "You're on the waitlist"
+msgstr "Du bist auf der Warteliste"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "We'll email you if a spot opens up. No payment is needed until then."
+msgstr ""
+"Wir schreiben dir per E-Mail, wenn ein Platz frei wird. Bis dahin ist keine "
+"Zahlung nötig."
+
+
+# UX Wave 3 · WP8 pay-confirm (merged from Codex branch)
+#: templates/crush_lu/emails/profile_incomplete_72h.html:36
+msgid ""
+"You're SO close! Just add 1-3 photos and you're done. Your privacy is "
+"protected - you can blur photos or show only your first name."
+msgstr ""
+"Du bist SO nah dran! Füge einfach 1-3 Fotos hinzu und fertig. Deine "
+"Privatsphäre bleibt geschützt – du kannst Fotos verwischen oder nur deinen "
+"Vornamen anzeigen."
+
+#: context_processors.py:56
+msgid "Complete your profile"
+msgstr "Vervollständige dein Profil"
+
+#: context_processors.py:58
+msgid "Profile verified"
+msgstr "Profil verifiziert"
+
+#: context_processors.py:62
+msgid "Tell us about you"
+msgstr "Erzähl uns von dir"
+
+#: context_processors.py:63 context_processors.py:64
+msgid "Add photos"
+msgstr "Fotos hinzufügen"
+
+#: context_processors.py:65
+msgid "Review & submit"
+msgstr "Überprüfen und absenden"
+
+#: context_processors.py:66
+msgid "Under review"
+msgstr "In Prüfung"
+
+# UX Wave 3 · WP8 payment eligibility
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "This registration cannot be paid for in its current state."
+msgstr "Diese Anmeldung kann derzeit nicht bezahlt werden."
+
+
+# UX Wave 3 · WP9 dashboard
 # UX Wave 3 · WP9 dashboard
 # UX Wave 3 · WP9 dashboard
 # UX Wave 3 · WP9 dashboard

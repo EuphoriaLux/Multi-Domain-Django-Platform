@@ -2592,9 +2592,8 @@ document.addEventListener("alpine:init", function () {
     // Credit" as <button class="js-sumup-checkout-detail"> elements instead
     // (they trigger a fetch()-based SumUp checkout, not a navigation), so
     // when no anchor is found this also falls back to that button and, on
-    // tap, re-dispatches a click to the real in-panel button so the existing
-    // document-level '.js-sumup-checkout-detail' listener (event_detail.html)
-    // handles the checkout exactly as if the member had tapped it directly.
+    // tap, re-dispatches a click to the real in-panel button so its Alpine
+    // checkout handler runs exactly as if the member had tapped it directly.
     Alpine.data("eventStickyCta", function () {
         return {
             visible: false,
@@ -16510,7 +16509,16 @@ document.addEventListener("alpine:init", function () {
                     return this.msgPreparing;
                 }
                 if (!isNaN(this.amount) && this.amount > 0) {
-                    return this.labelSupport + " (€" + this.amount.toFixed(2) + ")";
+                    // "Support · €10" (#4-10), not "Support the Project (€10.00)":
+                    // the full-sentence label wrapped to two lines on a 390px
+                    // pill and lost its side padding. Whole euros drop the
+                    // ".00" so the common presets stay short; a genuinely
+                    // fractional custom amount still shows its cents.
+                    var amountText =
+                        this.amount % 1 === 0
+                            ? this.amount.toFixed(0)
+                            : this.amount.toFixed(2);
+                    return this.labelSupport + " · €" + amountText;
                 }
                 return this.labelSupport;
             },
@@ -16670,6 +16678,115 @@ document.addEventListener("alpine:init", function () {
                         labelSpan.classList.toggle("dark:text-purple-200", !on);
                     }
                 });
+            },
+        };
+    });
+
+    // Named component behind the SumUp "Pay with Card" / "Pay with Crush
+    // Credit" buttons on event_detail.html, _event_registration_success.html
+    // and my_events.html (UX Wave 3 WP8 · finding 4-05). The three templates
+    // used to carry byte-identical <script> blocks with a click-delegation
+    // listener; a double tap fired two checkouts (no disabled state) and a
+    // failure showed an untranslated alert(), which reads as a scam dialog
+    // inside the iOS/Android WebView. One Alpine.data component fixes both:
+    // isLoading disables the button for the duration of the fetch, and a
+    // failure goes to Alpine.store("toasts") (the documented public API in
+    // toast-component.js) instead of alert().
+    //
+    // Config comes in as data-* attributes (CSP build: x-data cannot take
+    // arguments), same convention as donationCard above. data-label /
+    // data-label-loading are pre-rendered so the resting state matches the
+    // server-rendered fallback content exactly, and the loading state names
+    // itself instead of just spinning.
+    Alpine.data("sumupCheckoutButton", function () {
+        return {
+            registrationId: "",
+            paymentMethod: "card",
+            restingLabel: "",
+            loadingLabel: "",
+            errorMessage: "",
+            isLoading: false,
+
+            init: function () {
+                var el = this.$el;
+                this.registrationId = el.getAttribute("data-sumup-reg-id") || "";
+                this.paymentMethod = el.getAttribute("data-payment-method") || "card";
+                this.restingLabel = el.getAttribute("data-label") || "";
+                this.loadingLabel = el.getAttribute("data-label-loading") || "";
+                this.errorMessage = el.getAttribute("data-msg-error") || "";
+
+                // start() leaves isLoading true while navigating to
+                // widget_url so the button stays disabled during the
+                // redirect. If the browser instead restores this page from
+                // the back/forward cache (e.g. the member backs out of the
+                // SumUp checkout on mobile Safari/Chrome), that redirect
+                // never completes and the button would stay stuck on the
+                // loading label until a hard reload. pageshow with
+                // event.persisted fires on a bfcache restore (never on a
+                // normal load), so clear the stale loading state here.
+                var self = this;
+                window.addEventListener("pageshow", function (event) {
+                    if (event.persisted) {
+                        self.isLoading = false;
+                    }
+                });
+            },
+
+            get label() {
+                return this.isLoading ? this.loadingLabel : this.restingLabel;
+            },
+
+            // Named getter, not "x-show=\"!isLoading\"" in the templates:
+            // the CSP build evaluates bare property/method names only.
+            get idle() {
+                return !this.isLoading;
+            },
+
+            // CSRF_COOKIE_HTTPONLY is True, so document.cookie can't see
+            // csrftoken. Read the hidden input base.html renders instead
+            // (same as HTMX does).
+            getCsrfToken: function () {
+                var input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+                return input ? input.value : "";
+            },
+
+            start: function () {
+                if (this.isLoading || !this.registrationId) return;
+                this.isLoading = true;
+                var self = this;
+                fetch("/payments/sumup/create-event-checkout/" + this.registrationId + "/", {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": this.getCsrfToken(),
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ payment_method: this.paymentMethod }),
+                })
+                    .then(function (res) {
+                        return res.json().catch(function () {
+                            throw new Error("HTTP " + res.status);
+                        });
+                    })
+                    .then(function (data) {
+                        if (data.success && data.widget_url) {
+                            // Navigating away — leave isLoading true so the
+                            // button stays disabled during the redirect.
+                            window.location.href = data.widget_url;
+                            return;
+                        }
+                        self.isLoading = false;
+                        Alpine.store("toasts").add({
+                            type: "error",
+                            message: data.error || self.errorMessage,
+                        });
+                    })
+                    .catch(function () {
+                        self.isLoading = false;
+                        Alpine.store("toasts").add({
+                            type: "error",
+                            message: self.errorMessage,
+                        });
+                    });
             },
         };
     });
