@@ -5,11 +5,11 @@
 <!-- Only shown to PWA users who haven't enabled push notifications -->
 <div x-data="pushActivationPrompt"
      x-cloak
-     x-show="shouldShowPrompt"
+     x-show="visible"
      x-transition:enter="transition ease-out duration-300"
      x-transition:enter-start="opacity-0 transform translate-y-4"
      x-transition:enter-end="opacity-100 transform translate-y-0"
-     class="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-purple-600 to-pink-600 text-white p-4 shadow-lg z-50 md:bottom-4 md:left-4 md:right-auto md:max-w-md md:rounded-xl">
+     class="prompt-above-nav fixed bottom-0 left-0 right-0 bg-gradient-to-r from-purple-600 to-pink-600 text-white p-4 shadow-lg z-50 md:bottom-4 md:left-4 md:right-auto md:max-w-md md:rounded-xl">
 
     <div class="flex items-start gap-3">
         <!-- Icon -->
@@ -60,10 +60,13 @@ document.addEventListener('alpine:init', () => {
         shouldShowPrompt: false,
         isEnabling: false,
         get notEnabling() { return !this.isEnabling; },
+        // Last in Alpine.store('prompts'): waits for cookie sheet, messages, install card.
+        get visible() { return this.shouldShowPrompt && Alpine.store('prompts').isActive('push'); },
         isPwaUser: false,
         hasPushEnabled: false,
 
         init() {
+            this.$watch('shouldShowPrompt', (on) => Alpine.store('prompts').set('push', on));
             // Check if user is PWA user
             this.isPwaUser = window.matchMedia('(display-mode: standalone)').matches ||
                            window.navigator.standalone ||
