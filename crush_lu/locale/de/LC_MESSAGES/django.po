@@ -14589,15 +14589,6 @@ msgstr "Gefahrenzone"
 msgid "Delete Crush.lu Profile"
 msgstr "Crush.lu-Profil löschen"
 
-#: templates/crush_lu/account_settings.html:1001
-#: templates/crush_lu/partials/edit_account_danger.html:35
-msgid ""
-"Permanently delete your dating profile and photos. Your PowerUp account will"
-" remain active."
-msgstr ""
-"Lösche dauerhaft dein Dating-Profil und deine Fotos. Dein PowerUp-Konto "
-"bleibt aktiv."
-
 #: templates/crush_lu/account_settings.html:1002
 #: templates/crush_lu/gdpr_data_management.html:69
 #: templates/crush_lu/partials/edit_account_danger.html:36
@@ -14612,15 +14603,6 @@ msgstr ""
 #: templates/crush_lu/partials/edit_account_danger.html:45
 msgid "Privacy & Data Management"
 msgstr "Privatsphäre & Datenverwaltung"
-
-#: templates/crush_lu/account_settings.html:1013
-#: templates/crush_lu/partials/edit_account_danger.html:47
-msgid ""
-"View your consent status, download your data, or delete your entire PowerUp "
-"account (all platforms)."
-msgstr ""
-"Sieh deinen Einwilligungsstatus ein, lade deine Daten herunter oder lösche "
-"dein gesamtes PowerUp-Konto (alle Plattformen)."
 
 #: templates/crush_lu/account_settings.html:1016
 #: templates/crush_lu/gdpr_data_management.html:8
@@ -23072,26 +23054,10 @@ msgstr ""
 "Verhindert, dass du jemals ein neues Crush.lu-Profil mit diesem Konto "
 "erstellen kannst"
 
-#: templates/crush_lu/delete_crushlu_profile_confirm.html:24
-msgid ""
-"Your PowerUp account will remain active, and you can continue using other "
-"platforms."
-msgstr ""
-"Dein PowerUp-Konto bleibt aktiv und du kannst andere Plattformen weiterhin "
-"nutzen."
-
 #: templates/crush_lu/delete_crushlu_profile_confirm.html:30
 msgid "This deletion is permanent and cannot be undone."
 msgstr ""
 "Diese Löschung ist endgültig und kann nicht rückgängig gemacht werden."
-
-#: templates/crush_lu/delete_crushlu_profile_confirm.html:38
-msgid "Confirm your email address to proceed:"
-msgstr "Bestätige deine E-Mail-Adresse, um fortzufahren:"
-
-#: templates/crush_lu/delete_crushlu_profile_confirm.html:48
-msgid "Enter your email address:"
-msgstr "Gib deine E-Mail-Adresse ein:"
 
 #: templates/crush_lu/delete_crushlu_profile_confirm.html:56
 msgid ""
@@ -23104,11 +23070,6 @@ msgstr ""
 #: templates/crush_lu/delete_crushlu_profile_confirm.html:58
 msgid "Delete My Crush.lu Profile"
 msgstr "Mein Crush.lu-Profil löschen"
-
-#: templates/crush_lu/delete_crushlu_profile_confirm.html:73
-msgid "To delete your entire PowerUp account (all platforms), visit the"
-msgstr ""
-"Um dein gesamtes PowerUp-Konto (alle Plattformen) zu löschen, besuche die"
 
 #: templates/crush_lu/delete_crushlu_profile_confirm.html:75
 msgid "GDPR Data Management page"
@@ -27210,14 +27171,6 @@ msgstr "Datenverwaltung"
 msgid "Your Consent Status"
 msgstr "Dein Einwilligungsstatus"
 
-#: templates/crush_lu/gdpr_data_management.html:18
-msgid "PowerUp Account"
-msgstr "PowerUp-Konto"
-
-#: templates/crush_lu/gdpr_data_management.html:19
-msgid "Identity layer (login, email, OAuth)"
-msgstr "Identitätsschicht (Login, E-Mail, OAuth)"
-
 #: templates/crush_lu/gdpr_data_management.html:29
 #: templates/crush_lu/gdpr_data_management.html:48
 msgid "Not given"
@@ -27240,24 +27193,11 @@ msgstr "Kontolöschung"
 msgid "Option 1: Delete Crush.lu Profile Only"
 msgstr "Option 1: Nur Crush.lu-Profil löschen"
 
-#: templates/crush_lu/gdpr_data_management.html:68
-msgid ""
-"Removes your dating profile, photos, and event history. Your PowerUp account"
-" remains active for other platforms."
-msgstr ""
-"Entfernt dein Dating-Profil, Fotos und Event-Historie. Dein PowerUp-Konto "
-"bleibt für andere Plattformen aktiv."
-
 #: templates/crush_lu/gdpr_data_management.html:72
 msgid "Are you sure? This cannot be undone and you cannot rejoin Crush.lu."
 msgstr ""
 "Bist du sicher? Dies kann nicht rückgängig gemacht werden und du kannst "
 "Crush.lu nicht erneut beitreten."
-
-#: templates/crush_lu/gdpr_data_management.html:76
-#: templates/crush_lu/gdpr_data_management.html:106
-msgid "Confirm your email to proceed:"
-msgstr "Bestätige deine E-Mail, um fortzufahren:"
 
 #: templates/crush_lu/gdpr_data_management.html:80
 msgid "Delete Crush.lu Profile Only"
@@ -27266,29 +27206,6 @@ msgstr "Nur Crush.lu-Profil löschen"
 #: templates/crush_lu/gdpr_data_management.html:88
 msgid "You do not have an active Crush.lu profile."
 msgstr "Du hast kein aktives Crush.lu-Profil."
-
-#: templates/crush_lu/gdpr_data_management.html:96
-msgid "Option 2: Delete Entire PowerUp Account"
-msgstr "Option 2: Gesamtes PowerUp-Konto löschen"
-
-#: templates/crush_lu/gdpr_data_management.html:99
-msgid ""
-"Permanently deletes your account from ALL platforms (Crush.lu, VinsDelux, "
-"Entreprinder, etc.). This cannot be undone."
-msgstr ""
-"Löscht dein Konto dauerhaft von ALLEN Plattformen (Crush.lu, VinsDelux, "
-"Entreprinder usw.). Dies kann nicht rückgängig gemacht werden."
-
-#: templates/crush_lu/gdpr_data_management.html:102
-msgid ""
-"This will delete ALL your data across ALL platforms. Are you absolutely "
-"sure?"
-msgstr ""
-"Dies löscht ALLE deine Daten auf ALLEN Plattformen. Bist du absolut sicher?"
-
-#: templates/crush_lu/gdpr_data_management.html:110
-msgid "Delete Entire Account (All Platforms)"
-msgstr "Gesamtes Konto löschen (alle Plattformen)"
 
 #: templates/crush_lu/gdpr_data_management.html:121
 msgid "Download Your Data"
@@ -36603,17 +36520,6 @@ msgstr ""
 "Beim Löschen deines Profils ist ein Fehler aufgetreten. Bitte versuche es "
 "erneut."
 
-#: views_account.py:995
-msgid ""
-"Your Crush.lu profile has been deleted. Your PowerUp account remains active."
-msgstr ""
-"Dein Crush.lu-Profil wurde gelöscht. Dein PowerUp-Konto bleibt weiterhin "
-"aktiv."
-
-#: views_account.py:1007
-msgid "Your account has been completely deleted from all platforms."
-msgstr "Dein Konto wurde vollständig von allen Plattformen gelöscht."
-
 #: views_account.py:1041
 msgid "You have already given consent."
 msgstr "Du hast bereits zugestimmt."
@@ -38064,12 +37970,6 @@ msgid ""
 "You've blocked this member. They won't be able to reach you, and you won't "
 "see each other again."
 msgstr ""
-
-#: views_moderation.py:99
-#, fuzzy
-#| msgid "Member since"
-msgid "Member unblocked."
-msgstr "Mitglied seit"
 
 #: views_moderation.py:114
 #, fuzzy
@@ -42563,3 +42463,117 @@ msgstr "Das Blockieren schließt diesen Chat und lässt sich nicht rückgängig 
 msgctxt "connect catalogue"
 msgid "No coach is assigned to you right now."
 msgstr "Dir ist gerade kein Coach zugewiesen."
+
+#: templates/crush_lu/gdpr_data_management.html
+msgid "Login account"
+msgstr "Login-Konto"
+
+#: templates/crush_lu/gdpr_data_management.html
+msgid ""
+"Your email and sign-in methods. It can also be used for other services run by"
+" the same operator."
+msgstr ""
+"Deine E-Mail und deine Anmeldemethoden. Es kann auch für andere Dienste "
+"desselben Betreibers genutzt werden."
+
+#: templates/crush_lu/gdpr_data_management.html
+msgid ""
+"Removes your dating profile, photos, and event history. Your login account "
+"stays active."
+msgstr ""
+"Entfernt dein Dating-Profil, Fotos und Event-Historie. Dein Login-Konto "
+"bleibt aktiv."
+
+#: templates/crush_lu/gdpr_data_management.html
+msgid "Delete profile"
+msgstr "Profil löschen"
+
+#: templates/crush_lu/gdpr_data_management.html
+msgid "Option 2: Delete your entire account"
+msgstr "Option 2: Dein gesamtes Konto löschen"
+
+#: templates/crush_lu/gdpr_data_management.html
+msgid ""
+"Permanently deletes your login account and all your data, including on any "
+"other service run by the same operator where you use it. This cannot be "
+"undone."
+msgstr ""
+"Löscht dein Login-Konto und alle deine Daten dauerhaft, auch bei anderen "
+"Diensten desselben Betreibers, die du damit nutzt. Dies kann nicht rückgängig"
+" gemacht werden."
+
+#: templates/crush_lu/gdpr_data_management.html
+msgid "Delete your entire account and all your data? This cannot be undone."
+msgstr ""
+"Dein gesamtes Konto und alle deine Daten löschen? Dies kann nicht rückgängig "
+"gemacht werden."
+
+#: templates/crush_lu/gdpr_data_management.html
+msgid "Delete account"
+msgstr "Konto löschen"
+
+#: templates/crush_lu/gdpr_data_management.html
+msgid "Delete entire account"
+msgstr "Gesamtes Konto löschen"
+
+#: templates/crush_lu/gdpr_data_management.html
+#, python-format
+msgid "Your account email is %(email)s."
+msgstr "Deine Konto-E-Mail ist %(email)s."
+
+#: forms_account.py
+msgid "Type your email address to confirm"
+msgstr "Gib zur Bestätigung deine E-Mail-Adresse ein"
+
+#: templates/crush_lu/delete_crushlu_profile_confirm.html
+msgid "Your login account stays active."
+msgstr "Dein Login-Konto bleibt aktiv."
+
+#: templates/crush_lu/delete_crushlu_profile_confirm.html
+msgid "To delete your entire account, visit the"
+msgstr "Um dein gesamtes Konto zu löschen, besuche die"
+
+#: templates/crush_lu/partials/edit_account_danger.html
+msgid ""
+"Permanently delete your dating profile and photos. Your login account stays "
+"active."
+msgstr ""
+"Lösche dein Dating-Profil und deine Fotos dauerhaft. Dein Login-Konto bleibt "
+"aktiv."
+
+#: templates/crush_lu/partials/edit_account_danger.html
+msgid ""
+"View your consent status, download your data, or delete your entire account."
+msgstr ""
+"Sieh dir deinen Einwilligungsstatus an, lade deine Daten herunter oder lösche"
+" dein gesamtes Konto."
+
+#: views_account.py
+msgid ""
+"Your Crush.lu profile has been deleted. Your login account remains active."
+msgstr "Dein Crush.lu-Profil wurde gelöscht. Dein Login-Konto bleibt aktiv."
+
+#: views_account.py
+msgid "Your account and all your data have been permanently deleted."
+msgstr "Dein Konto und alle deine Daten wurden dauerhaft gelöscht."
+
+#: templates/crush_lu/moderation/blocked_members.html
+#, python-format
+msgid ""
+"Unblock %(name)s? They'll be able to see you at events and contact you again."
+msgstr ""
+"Blockierung von %(name)s aufheben? Diese Person kann dich dann wieder bei "
+"Events sehen und dich kontaktieren."
+
+#: templates/crush_lu/moderation/blocked_members.html
+msgid ""
+"You can block someone from their member card, a connection or a chat. They "
+"won't be notified."
+msgstr ""
+"Du kannst jemanden über die Mitgliedskarte, eine Verbindung oder einen Chat "
+"blockieren. Die Person wird nicht benachrichtigt."
+
+#: templates/crush_lu/moderation/blocked_members.html
+#, python-format
+msgid "You unblocked %(name)s."
+msgstr "Du hast die Blockierung von %(name)s aufgehoben."
