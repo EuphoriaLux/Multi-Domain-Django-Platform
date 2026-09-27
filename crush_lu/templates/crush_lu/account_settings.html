@@ -831,6 +831,21 @@
                 </h5>
             </div>
             <div class="p-6 space-y-6">
+                <!-- Take a break (UX Wave 3 - WP13): reversible pause, above deletion -->
+                <div>
+                    <h6 class="font-semibold text-gray-900 dark:text-white mb-2">{% trans "Take a Break" %}</h6>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">
+                        {% trans "Hide your profile from events, Connect matching and marketing emails. Fully reversible — resume any time from your dashboard." %}
+                    </p>
+                    {% if profile.is_on_break %}
+                        {% include "crush_lu/components/status_badge.html" with tone="warning" label=_("Currently on a break") %}
+                    {% else %}
+                    <a href="{% url 'crush_lu:take_a_break' %}" class="btn-crush-outline inline-flex items-center">
+                        {% include "shared/icons/information-circle.html" with class="w-5 h-5" %}{% trans "Take a Break" %}
+                    </a>
+                    {% endif %}
+                </div>
+
                 <!-- Default action: Delete Crush.lu profile only -->
                 <div>
                     <h6 class="font-semibold text-red-600 mb-2">{% trans "Delete Crush.lu Profile" %}</h6>

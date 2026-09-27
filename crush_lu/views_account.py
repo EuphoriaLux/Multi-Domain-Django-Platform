@@ -946,6 +946,7 @@ def account_settings(request):
         request,
         "crush_lu/account_settings.html",
         {
+            "profile": CrushProfile.objects.filter(user=request.user).first(),
             "email_prefs": email_prefs,
             "google_connected": "google" in connected_providers,
             "facebook_connected": "facebook" in connected_providers,
@@ -1368,6 +1369,49 @@ def delete_crushlu_profile_view(request):
         "confirm_form": DeletionEmailConfirmForm(),
     }
     return render(request, "crush_lu/delete_crushlu_profile_confirm.html", context)
+
+
+@crush_login_required
+@require_http_methods(["GET", "POST"])
+def take_a_break_view(request):
+    """Self-service, reversible pause (UX Wave 3 · WP13).
+
+    GET shows a confirm step (Danger Zone entry point); POST applies it via
+    CrushProfile.take_a_break(), which also mirrors the pause onto Crush
+    Connect matching. Existing event registrations are left untouched.
+    """
+    profile = CrushProfile.objects.filter(user=request.user).first()
+    if profile is None:
+        messages.info(request, _("You do not have a Crush.lu profile to pause."))
+        return redirect("crush_lu:account_settings")
+
+    if profile.is_on_break:
+        messages.info(request, _("You're already taking a break."))
+        return redirect("crush_lu:account_settings")
+
+    if request.method == "POST":
+        profile.take_a_break()
+        messages.success(
+            request,
+            _(
+                "You're taking a break. You're hidden from events, Connect "
+                "matching and marketing emails until you resume."
+            ),
+        )
+        return redirect("crush_lu:dashboard")
+
+    return render(request, "crush_lu/take_a_break_confirm.html", {"profile": profile})
+
+
+@crush_login_required
+@require_http_methods(["POST"])
+def resume_from_break_view(request):
+    """Undo `take_a_break()` from the dashboard banner button."""
+    profile = CrushProfile.objects.filter(user=request.user).first()
+    if profile is not None and profile.is_on_break:
+        profile.resume_from_break()
+        messages.success(request, _("Welcome back! Your profile is visible again."))
+    return redirect("crush_lu:dashboard")
 
 
 @crush_login_required

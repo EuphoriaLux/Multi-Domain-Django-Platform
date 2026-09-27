@@ -36,6 +36,20 @@
 
 
 
+{# ─── 2b. Take a break banner (UX Wave 3 · WP13) ─── #}
+{% if profile.is_on_break %}
+<div class="alert alert-warning mb-4 sm:mb-5 flex-row justify-between items-center gap-3" role="alert">
+    <div class="flex items-center min-w-0">
+        {% include "shared/icons/information-circle.html" with class="w-5 h-5 mr-2 flex-shrink-0" %}
+        <span class="text-xs sm:text-base">{% trans "You're taking a break — hidden from events, Connect matching and marketing." %}</span>
+    </div>
+    <form method="post" action="{% url 'crush_lu:resume_from_break' %}" class="flex-shrink-0">
+        {% csrf_token %}
+        <button type="submit" class="btn-crush-solid btn-sm">{% trans "Resume" %}</button>
+    </form>
+</div>
+{% endif %}
+
 {# ─── 3. Verification Alerts & Journey ─── #}
 {% if profile and not profile.phone_verified %}
 <div class="alert alert-warning mb-4 sm:mb-5 flex-row justify-between items-center gap-3" role="alert">

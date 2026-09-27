@@ -43213,6 +43213,92 @@ msgstr ""
 "verbunden: manchmal sofort, manchmal über eine Vorstellung durch deinen "
 "Crush Coach."
 
+# UX Wave 3 · WP13 take-a-break
+# UX Wave 3 · WP13 take-a-break
+# UX Wave 3 · WP13 take-a-break
+# UX Wave 3 · WP13 take-a-break
+# UX Wave 3 · WP13 take-a-break
+# UX Wave 3 · WP13
+msgid "Take a Break"
+msgstr "Pause einlegen"
+
+msgid "What happens while you're on a break"
+msgstr "Was während deiner Pause passiert"
+
+msgid "You're hidden from Crush Connect matching"
+msgstr "Du wirst beim Crush Connect Matching ausgeblendet"
+
+msgid "You won't be invited to events or receive marketing emails"
+msgstr ""
+"Du wirst nicht zu Events eingeladen und erhältst keine Marketing-E-Mails"
+
+msgid "Your existing event registrations are kept — nothing is cancelled"
+msgstr ""
+"Deine bestehenden Event-Anmeldungen bleiben erhalten — nichts wird storniert"
+
+msgid "You'll still receive transactional and security emails"
+msgstr "Du erhältst weiterhin Transaktions- und Sicherheits-E-Mails"
+
+msgid ""
+"This is fully reversible. Resume any time from a button on your dashboard."
+msgstr ""
+"Das kannst du jederzeit rückgängig machen. Beende die Pause jederzeit über "
+"einen Button in deinem Dashboard."
+
+msgid "Take a break now? You can resume any time from your dashboard."
+msgstr ""
+"Jetzt eine Pause einlegen? Du kannst sie jederzeit über dein Dashboard "
+"beenden."
+
+msgid ""
+"Hide your profile from events, Connect matching and marketing emails. Fully "
+"reversible — resume any time from your dashboard."
+msgstr ""
+"Blende dein Profil bei Events, Connect-Matching und Marketing-E-Mails aus. "
+"Vollständig rückgängig zu machen — beende die Pause jederzeit über dein "
+"Dashboard."
+
+msgid "Currently on a break"
+msgstr "Derzeit in einer Pause"
+
+msgid "You do not have a Crush.lu profile to pause."
+msgstr "Du hast kein Crush.lu-Profil, das pausiert werden kann."
+
+msgid "You're already taking a break."
+msgstr "Du machst bereits eine Pause."
+
+msgid ""
+"You're taking a break. You're hidden from events, Connect matching and "
+"marketing emails until you resume."
+msgstr ""
+"Du machst eine Pause. Du bist bei Events, Connect-Matching und Marketing-E-"
+"Mails ausgeblendet, bis du die Pause beendest."
+
+msgid "Welcome back! Your profile is visible again."
+msgstr "Willkommen zurück! Dein Profil ist wieder sichtbar."
+
+msgid ""
+"You're taking a break — hidden from events, Connect matching and marketing."
+msgstr ""
+"Du machst eine Pause — ausgeblendet bei Events, Connect-Matching und "
+"Marketing."
+
+msgid "Resume"
+msgstr "Fortsetzen"
+
+# UX Wave 3 · WP13
+msgid ""
+"True when this pause was set by CrushProfile.take_a_break() rather than the "
+"member's own Connect pause control. resume_from_break() only reactivates "
+"Connect when this is True, so it never undoes an independent, self-service "
+"Connect pause (UX Wave 3 · WP13)."
+msgstr ""
+"Wahr, wenn diese Pause von CrushProfile.take_a_break() gesetzt wurde und "
+"nicht über die eigene Connect-Pause-Steuerung des Mitglieds. "
+"resume_from_break() reaktiviert Connect nur, wenn dies Wahr ist, damit eine "
+"unabhängige, selbst gesteuerte Connect-Pause (UX Wave 3 · WP13) nie "
+"aufgehoben wird."
+
 # UX Wave 3 · WP12 connect-moments
 # UX Wave 3 · WP12 connect-moments
 # UX Wave 3 · WP12 connect-moments

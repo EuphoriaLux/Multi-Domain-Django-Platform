@@ -208,6 +208,15 @@ class CrushConnectMembership(models.Model):
             "Set while the member has paused Crush Connect; onboarding and existing chats are preserved"
         ),
     )
+    paused_by_break = models.BooleanField(
+        default=False,
+        help_text=_(
+            "True when this pause was set by CrushProfile.take_a_break() rather "
+            "than the member's own Connect pause control. resume_from_break() "
+            "only reactivates Connect when this is True, so it never undoes an "
+            "independent, self-service Connect pause (UX Wave 3 · WP13)."
+        ),
+    )
 
     # Connect-specific onboarding content. The "Story" is the short answer that
     # appears on the member's private Connect Week and coach-curation cards.
@@ -503,7 +512,7 @@ class CrushConnectMembership(models.Model):
         """Whether the member is currently available for Connect activity."""
         return self.is_onboarded and not self.is_paused
 
-    def pause(self) -> None:
+    def pause(self, *, by_break: bool = False) -> None:
         """Hide the member from new Connect activity without losing setup.
 
         The timestamp alone is not enough. ``MatchScore`` rows are a cache, and
@@ -516,10 +525,18 @@ class CrushConnectMembership(models.Model):
         and the incidental cleanup only fires if some counterpart happens to
         re-save their own matching fields. Dropping the rows here is what makes
         "hidden from new Connect activity" true rather than aspirational.
+
+        ``by_break=True`` marks this pause as owned by
+        ``CrushProfile.take_a_break()`` (see ``paused_by_break``), so
+        ``resume_from_break()`` knows it may reactivate. It is a no-op — the
+        flag is never set — when the membership is already paused, which keeps
+        an independent, self-service Connect pause (``crush_connect_pause``)
+        untouched by a later, unrelated break.
         """
         if self.paused_at is None:
             self.paused_at = timezone.now()
-            self.save(update_fields=["paused_at", "updated_at"])
+            self.paused_by_break = by_break
+            self.save(update_fields=["paused_at", "paused_by_break", "updated_at"])
             self._delete_match_scores()
 
     def reactivate(self) -> None:
@@ -531,10 +548,16 @@ class CrushConnectMembership(models.Model):
         member was paused (their recalculation skips paused members and prunes
         the pair as stale), and this member's own edits during the pause, which
         returned early at the ``is_participating`` guard and were never scored.
+
+        Also clears ``paused_by_break``: whatever ended this pause — the
+        member's own Connect "Resume" control or ``resume_from_break()`` —
+        the pause episode is over, so no future ``resume_from_break()`` call
+        should treat it as still theirs to reactivate.
         """
         if self.paused_at is not None:
             self.paused_at = None
-            self.save(update_fields=["paused_at", "updated_at"])
+            self.paused_by_break = False
+            self.save(update_fields=["paused_at", "paused_by_break", "updated_at"])
             self._rebuild_match_scores()
 
     def _delete_match_scores(self) -> None:
@@ -543,9 +566,7 @@ class CrushConnectMembership(models.Model):
 
         from crush_lu.models.matching import MatchScore
 
-        MatchScore.objects.filter(
-            Q(user_a=self.user) | Q(user_b=self.user)
-        ).delete()
+        MatchScore.objects.filter(Q(user_a=self.user) | Q(user_b=self.user)).delete()
 
     def _rebuild_match_scores(self) -> None:
         """Recompute this member's pairs once the surrounding write lands.
