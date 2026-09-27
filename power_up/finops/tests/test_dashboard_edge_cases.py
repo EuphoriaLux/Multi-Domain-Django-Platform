@@ -2,11 +2,14 @@
 Unit tests for FinOps dashboard edge cases and potential issues
 Tests view logic, edge cases, and error handling
 """
-import pytest
-from django.contrib.auth import get_user_model
-from power_up.finops.models import CostRecord
 from datetime import datetime
 from decimal import Decimal
+
+import pytest
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
+
+from power_up.finops.models import CostRecord
 
 # A few tests below are individually skipped where they drifted from the
 # current dashboard: CostRecord lost the subscription_id/subscription_name
@@ -27,12 +30,15 @@ User = get_user_model()
 @pytest.fixture
 def staff_user(db):
     """Create staff user"""
-    return User.objects.create_user(
+    group, _ = Group.objects.get_or_create(name='power_up_staff')
+    user = User.objects.create_user(
         username='staff',
         email='staff@powerup.lu',
         password='testpass',
         is_staff=True
     )
+    user.groups.add(group)
+    return user
 
 
 @pytest.fixture

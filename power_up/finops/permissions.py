@@ -15,6 +15,7 @@ readable. Do not reintroduce them.
 """
 
 from rest_framework.permissions import BasePermission
+from power_up.permissions import is_power_up_staff
 
 
 class IsAdminOrStaff(BasePermission):
@@ -26,6 +27,4 @@ class IsAdminOrStaff(BasePermission):
     """
 
     def has_permission(self, request, view):
-        return request.user.is_authenticated and (
-            request.user.is_staff or request.user.is_superuser
-        )
+        return is_power_up_staff(request.user)

@@ -222,7 +222,11 @@ def trigger_retail_price_sync(request):
 
 @require_http_methods(["GET"])
 def sync_status(request):
-    """Check status of cost exports (public endpoint)"""
+    """Check status of cost exports for authenticated sync callers."""
+    denied = _reject_invalid_sync_token(request)
+    if denied is not None:
+        return denied
+
     from .models import CostExport
 
     try:

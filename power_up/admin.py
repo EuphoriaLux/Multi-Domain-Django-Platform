@@ -1,5 +1,7 @@
 from django.contrib import admin
 
+from power_up.permissions import is_power_up_staff
+
 # ============================================================================
 # CUSTOM ADMIN SITE - Power-Up Administration
 # ============================================================================
@@ -20,11 +22,7 @@ class PowerUpAdminSite(admin.AdminSite):
     index_template = "admin/power_up_index.html"
 
     def has_permission(self, request):
-        # Superusers get in without is_staff, as on the crush.lu admin: the
-        # platform bar offers this panel to every superuser, and the signal
-        # that grants coaches is_staff deliberately skips superusers.
-        user = request.user
-        return user.is_active and (user.is_staff or user.is_superuser)
+        return is_power_up_staff(request.user)
 
     def each_context(self, request):
         context = super().each_context(request)

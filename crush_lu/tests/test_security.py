@@ -216,12 +216,16 @@ class TestCSPInlineScriptNonces(SiteTestCase):
     def test_power_up_finops_dashboard_inline_scripts_carry_nonce(self):
         """Power Up FinOps dashboard renders config as JSON data blocks —
         data blocks are script elements and need the nonce too."""
+        from django.contrib.auth.models import Group
+
         staff_user = User.objects.create_user(
             username='csp-finops@test.com',
             email='csp-finops@test.com',
             password='testpass123',
             is_staff=True,
         )
+        group, _ = Group.objects.get_or_create(name='power_up_staff')
+        staff_user.groups.add(group)
         client = Client(HTTP_HOST='power-up.lu')
         client.force_login(staff_user)
         response = client.get('/finops/')

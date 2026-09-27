@@ -3,6 +3,7 @@ from datetime import timedelta
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.core.cache import cache
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
@@ -25,12 +26,22 @@ def _fresh_option_cache():
 
 @pytest.fixture
 def regular_user(db):
-    return User.objects.create_user(
+    """A Power-Up staff member who can view the retail price tracker.
+
+    Named ``regular_user`` (not ``staff_user``) because these tests exercise
+    dashboard *rendering*, not access control — the access-control lockdown
+    itself (staff-only) is covered separately in
+    ``power_up/finops/tests/test_permissions.py``.
+    """
+    group, _ = Group.objects.get_or_create(name="power_up_staff")
+    user = User.objects.create_user(
         username="price-user",
         email="price-user@example.com",
         password="pw",
-        is_staff=False,
+        is_staff=True,
     )
+    user.groups.add(group)
+    return user
 
 
 @pytest.mark.django_db

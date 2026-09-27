@@ -1,13 +1,14 @@
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth.decorators import user_passes_test
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 
 from power_up.crm.models import CustomerGroup, Tenant
+from power_up.permissions import is_power_up_staff
 
 from .forms import OnboardingConfigForm, TenantOnboardingForm
 from .models import OnboardingEmail, OnboardingSession
@@ -19,7 +20,7 @@ from .utils.meeting_slots import (
 )
 
 
-@staff_member_required
+@user_passes_test(is_power_up_staff, login_url="admin:login")
 def dashboard(request):
     groups = (
         CustomerGroup.objects.filter(is_active=True)
@@ -42,7 +43,7 @@ def dashboard(request):
     )
 
 
-@staff_member_required
+@user_passes_test(is_power_up_staff, login_url="admin:login")
 def start_session(request, group_id):
     if request.method != "POST":
         return redirect("onboarding:dashboard")
@@ -62,7 +63,7 @@ def start_session(request, group_id):
     return redirect("onboarding:configure", session_id=session.pk)
 
 
-@staff_member_required
+@user_passes_test(is_power_up_staff, login_url="admin:login")
 def configure(request, session_id):
     session = get_object_or_404(
         OnboardingSession.objects.select_related("group"), pk=session_id
@@ -111,7 +112,7 @@ def configure(request, session_id):
     )
 
 
-@staff_member_required
+@user_passes_test(is_power_up_staff, login_url="admin:login")
 def preview(request, session_id):
     session = get_object_or_404(
         OnboardingSession.objects.select_related("group"), pk=session_id
@@ -131,7 +132,7 @@ def preview(request, session_id):
     )
 
 
-@staff_member_required
+@user_passes_test(is_power_up_staff, login_url="admin:login")
 def download_eml(request, session_id):
     session = get_object_or_404(
         OnboardingSession.objects.select_related("group"), pk=session_id
@@ -182,7 +183,7 @@ def download_eml(request, session_id):
     return response
 
 
-@staff_member_required
+@user_passes_test(is_power_up_staff, login_url="admin:login")
 def session_detail(request, session_id):
     session = get_object_or_404(
         OnboardingSession.objects.select_related(
@@ -203,7 +204,7 @@ def session_detail(request, session_id):
     )
 
 
-@staff_member_required
+@user_passes_test(is_power_up_staff, login_url="admin:login")
 @xframe_options_sameorigin
 def partial_email_preview(request, session_id):
     session = get_object_or_404(OnboardingSession, pk=session_id)
@@ -211,7 +212,7 @@ def partial_email_preview(request, session_id):
     return HttpResponse(email_data["html"], content_type="text/html")
 
 
-@staff_member_required
+@user_passes_test(is_power_up_staff, login_url="admin:login")
 def partial_slot_picker(request):
     slots = generate_meeting_slots()
     grouped = group_slots_by_day(slots)
@@ -222,7 +223,7 @@ def partial_slot_picker(request):
     )
 
 
-@staff_member_required
+@user_passes_test(is_power_up_staff, login_url="admin:login")
 def tenant_edit(request, tenant_id, session_id=None):
     tenant = get_object_or_404(Tenant.objects.select_related("entity__group"), pk=tenant_id)
     group = tenant.entity.group
