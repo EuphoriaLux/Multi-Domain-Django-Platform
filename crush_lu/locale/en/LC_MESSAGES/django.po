@@ -28285,6 +28285,16 @@ msgid "No refund: the event starts in less than %(hours)s hours. Your seat is re
 msgstr "No refund: the event starts in less than %(hours)s hours. Your seat is released for someone else, and if someone takes it and pays before the event starts, you'll get %(share)s EUR back as Crush Credit."
 
 #: crush_lu/templates/crush_lu/event_cancel.html
+#, python-format
+msgid "You'll get %(amount)s EUR back as Crush Credit. It returns to your balance with its original expiry dates, so any part that has already expired can't be used again."
+msgstr "You'll get %(amount)s EUR back as Crush Credit. It returns to your balance with its original expiry dates, so any part that has already expired can't be used again."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+#, python-format
+msgid "No refund: the event starts in less than %(hours)s hours. Your seat is released for someone else."
+msgstr "No refund: the event starts in less than %(hours)s hours. Your seat is released for someone else."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
 msgid "Keep my seat"
 msgstr "Keep my seat"
 

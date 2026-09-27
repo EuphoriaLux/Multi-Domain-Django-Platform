@@ -21,9 +21,17 @@
             <div class="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg p-4 mb-6 text-left space-y-2" data-testid="cancellation-outcome" data-outcome="{{ outcome.kind }}">
                 <p class="text-sm font-semibold text-gray-900 dark:text-white">{% trans "What happens to your payment" %}</p>
                 <p class="text-sm text-gray-700 dark:text-gray-200">
-                    {% if outcome.kind == "credit" %}
+                    {% if outcome.kind == "credit" and outcome.restores_credit %}
+                        {% blocktrans trimmed with amount=outcome.amount|floatformat:2 %}
+                        You'll get {{ amount }} EUR back as Crush Credit. It returns to your balance with its original expiry dates, so any part that has already expired can't be used again.
+                        {% endblocktrans %}
+                    {% elif outcome.kind == "credit" %}
                         {% blocktrans trimmed with amount=outcome.amount|floatformat:2 %}
                         You'll get {{ amount }} EUR back as Crush Credit, ready to use on any Crush.lu event.
+                        {% endblocktrans %}
+                    {% elif outcome.kind == "late" and not outcome.resale_claimable %}
+                        {% blocktrans trimmed with hours=outcome.late_window_hours %}
+                        No refund: the event starts in less than {{ hours }} hours. Your seat is released for someone else.
                         {% endblocktrans %}
                     {% elif outcome.kind == "late" %}
                         {% blocktrans trimmed with hours=outcome.late_window_hours share=outcome.resale_share|floatformat:2 %}

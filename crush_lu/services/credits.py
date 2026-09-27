@@ -629,6 +629,22 @@ class CancellationOutcome:
     def resale_share(self):
         return Decimal(self.resale_share_cents) / 100
 
+    @property
+    def restores_credit(self):
+        """The seat was bought with Crush Credit, so the credit returned is the
+        same tranches on their original expiry clocks, some possibly lapsed."""
+        return (
+            self.payment is not None
+            and self.payment.provider == PaymentTransaction.Provider.CREDIT
+        )
+
+    @property
+    def resale_claimable(self):
+        """A late resale share can only be paid against an attributable
+        payment (legacy fee-fallback rows carry no claim), so only then may
+        the preview promise it."""
+        return self.payment is not None
+
 
 def cancellation_outcome(registration, *, moment=None):
     """Decide a member's own cancellation under the credit policy, issuing nothing.

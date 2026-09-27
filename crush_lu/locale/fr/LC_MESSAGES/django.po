@@ -42582,6 +42582,16 @@ msgid "No refund: the event starts in less than %(hours)s hours. Your seat is re
 msgstr "Aucun remboursement : l’événement commence dans moins de %(hours)s heures. Votre place est libérée pour quelqu’un d’autre ; si quelqu’un la reprend et paie avant le début de l’événement, vous récupérez %(share)s EUR en Crush Credit."
 
 #: crush_lu/templates/crush_lu/event_cancel.html
+#, python-format
+msgid "You'll get %(amount)s EUR back as Crush Credit. It returns to your balance with its original expiry dates, so any part that has already expired can't be used again."
+msgstr "Vous récupérez %(amount)s EUR en Crush Credit. Il revient sur votre solde avec ses dates d’expiration d’origine : toute partie déjà expirée ne pourra plus être utilisée."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+#, python-format
+msgid "No refund: the event starts in less than %(hours)s hours. Your seat is released for someone else."
+msgstr "Aucun remboursement : l’événement commence dans moins de %(hours)s heures. Votre place est libérée pour quelqu’un d’autre."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
 msgid "Keep my seat"
 msgstr "Garder ma place"
 

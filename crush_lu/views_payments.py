@@ -2707,9 +2707,18 @@ def sumup_widget_view(request, checkout_id):
         "order_town": (event.address_town or event.location) if event else "",
         # Member-cancellation terms only: once Crush.lu has cancelled the
         # event, a capture gets the organiser remedy instead, so don't quote
-        # terms that would not apply.
+        # terms that would not apply. Likewise once the member has already
+        # cancelled this registration: a late capture is then settled at
+        # ``cancelled_at``, not at page load, so today's deadline would lie.
         "cancellation_policy": (
-            cancellation_policy(event) if event and not event.is_cancelled else None
+            cancellation_policy(event)
+            if event
+            and not event.is_cancelled
+            and not (
+                tx_obj.event_registration_id
+                and tx_obj.event_registration.status == "cancelled"
+            )
+            else None
         ),
         # The failure baseline, rendered into the page rather than fetched by
         # it. Fetching cannot be made safe here however early it is started:

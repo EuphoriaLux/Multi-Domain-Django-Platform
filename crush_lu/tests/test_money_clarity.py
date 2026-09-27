@@ -18,6 +18,7 @@ from django.test import override_settings
 from django.utils import timezone
 
 from crush_lu.models.credits import CrushCredit
+from crush_lu.models.events import EventRegistration
 from crush_lu.models.payments import PaymentTransaction
 from crush_lu.services.credits import CancellationOutcome, cancellation_outcome
 from crush_lu.tests.test_crush_credit import FEE_CENTS, CreditFixture
@@ -123,6 +124,82 @@ class CancelPageShowsOutcomeTests(CreditFixture):
         self.assertContains(response, "Your seat is released for someone else")
         self.assertNotContains(response, "waitlist")
         self.assertContains(response, "7.75 EUR back as Crush Credit")
+
+    def test_late_legacy_payment_promises_no_resale_share(self):
+        """A fee-fallback payment carries no resale claim, so none is promised."""
+        event = self._event(hours_away=10, max_participants=5)
+        user = self._user("legacy-late@crush.lu")
+        EventRegistration.objects.create(
+            event=event,
+            user=user,
+            status="confirmed",
+            payment_confirmed=True,
+            payment_date=timezone.now(),
+        )
+
+        response = self._get(user, event)
+
+        self.assertContains(response, 'data-outcome="late"')
+        self.assertContains(response, "No refund")
+        self.assertContains(response, "Your seat is released for someone else.")
+        self.assertNotContains(response, "back as Crush Credit")
+
+    def test_credit_funded_seat_names_the_original_expiry(self):
+        """Restored tranches keep their clocks; never promise they are all usable."""
+        event = self._event(hours_away=100, max_participants=5)
+        user = self._user("credit-paid@crush.lu")
+        registration = EventRegistration.objects.create(
+            event=event,
+            user=user,
+            status="confirmed",
+            payment_confirmed=True,
+            payment_date=timezone.now(),
+        )
+        PaymentTransaction.objects.create(
+            transaction_reference=f"CRUSH-EVT-{registration.pk}-credit",
+            provider=PaymentTransaction.Provider.CREDIT,
+            amount=event.registration_fee,
+            currency="EUR",
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=user,
+            event_registration=registration,
+        )
+
+        response = self._get(user, event)
+
+        self.assertContains(response, 'data-outcome="credit"')
+        self.assertContains(response, "15.50 EUR back as Crush Credit")
+        self.assertContains(response, "original expiry dates")
+        self.assertNotContains(response, "ready to use on any Crush.lu event")
+
+    def test_credit_funded_seat_copy_is_translated(self):
+        event = self._event(hours_away=100, max_participants=5)
+        user = self._user("credit-paid-de@crush.lu")
+        registration = EventRegistration.objects.create(
+            event=event,
+            user=user,
+            status="confirmed",
+            payment_confirmed=True,
+            payment_date=timezone.now(),
+        )
+        PaymentTransaction.objects.create(
+            transaction_reference=f"CRUSH-EVT-{registration.pk}-credit-de",
+            provider=PaymentTransaction.Provider.CREDIT,
+            amount=event.registration_fee,
+            currency="EUR",
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=user,
+            event_registration=registration,
+        )
+
+        self.assertContains(
+            self._get(user, event, path_lang="de"), "ursprünglichen Ablaufdaten"
+        )
+        self.assertContains(
+            self._get(user, event, path_lang="fr"), "dates d’expiration d’origine"
+        )
 
     def test_organiser_cancelled_event_shows_no_member_preview(self):
         """The organiser remedy is owed, not the member one the preview would show."""
@@ -366,6 +443,19 @@ class SumUpWidgetOrderSummaryTests(CreditFixture):
         event = self.pending.event
         event.is_cancelled = True
         event.save()
+
+        response = self._get()
+
+        self.assertContains(response, 'data-testid="order-summary"')
+        self.assertNotContains(response, 'data-testid="cancellation-policy-note"')
+
+    def test_already_cancelled_registration_quotes_no_member_terms(self):
+        """A capture after the member cancelled is settled at ``cancelled_at``.
+
+        Today's deadline would not be the one applied, so quote none.
+        """
+        self.pending.status = "cancelled"
+        self.pending.save()
 
         response = self._get()
 
