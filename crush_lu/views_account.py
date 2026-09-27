@@ -1947,8 +1947,7 @@ def export_user_data(request):
                         and not conn.recipient_shares_email
                         if conn.requester == user
                         else (
-                            conn.status == "shared"
-                            or conn.requester_consents_to_share
+                            conn.status == "shared" or conn.requester_consents_to_share
                         )
                         and not conn.requester_shares_email
                     )
