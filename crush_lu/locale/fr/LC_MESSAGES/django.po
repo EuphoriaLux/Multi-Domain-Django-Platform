@@ -42863,3 +42863,8 @@ msgstr "Aide et support"
 #: templates/crush_lu/partials/mobile_drawer.html
 msgid "WhatsApp support"
 msgstr "Support WhatsApp"
+
+#: templates/crush_lu/partials/mobile_drawer.html
+msgctxt "drawer group"
+msgid "Preferences"
+msgstr "Préférences"

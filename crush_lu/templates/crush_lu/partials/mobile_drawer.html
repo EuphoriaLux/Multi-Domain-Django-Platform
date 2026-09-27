@@ -184,14 +184,14 @@
 
             {# Section: Preferences — the navbar's language switcher and theme toggle are hidden for members on mobile #}
             <div class="border-t border-gray-100 dark:border-gray-800 my-5"></div>
-            <span class="block px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-fg mb-2">{% trans "Preferences" %}</span>
+            <span class="block px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-fg mb-2">{% translate "Preferences" context "drawer group" %}</span>
             {% include "crush_lu/partials/language_switcher.html" with mobile=True drawer=True %}
             {# Light / Dark / System; aria-disabled with the locked label on always-dark pages, like the navbar toggle #}
             <div x-data="themeChoice" class="px-3 py-2" data-locked-label="{% trans "This experience is always in night mode" %}">
                 <div role="group" aria-label="{% trans 'Theme' %}" class="grid grid-cols-3 gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800">
-                    <button type="button" @click="chooseLight" x-bind:aria-pressed="isLightChosen" x-bind:aria-disabled="isLocked" x-bind:title="lockedTitle" x-bind:class="lightOptionClass" class="py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer">{% trans "Light" %}</button>
-                    <button type="button" @click="chooseDark" x-bind:aria-pressed="isDarkChosen" x-bind:aria-disabled="isLocked" x-bind:title="lockedTitle" x-bind:class="darkOptionClass" class="py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer">{% trans "Dark" %}</button>
-                    <button type="button" @click="chooseSystem" x-bind:aria-pressed="isSystemChosen" x-bind:aria-disabled="isLocked" x-bind:title="lockedTitle" x-bind:class="systemOptionClass" class="py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer">{% trans "System" %}</button>
+                    <button type="button" @click="chooseLight" x-bind:aria-pressed="isLightChosen" x-bind:aria-disabled="isLocked" x-bind:title="lockedTitle" x-bind:class="lightOptionClass" class="py-1.5 rounded-lg text-sm font-medium transition-colors">{% trans "Light" %}</button>
+                    <button type="button" @click="chooseDark" x-bind:aria-pressed="isDarkChosen" x-bind:aria-disabled="isLocked" x-bind:title="lockedTitle" x-bind:class="darkOptionClass" class="py-1.5 rounded-lg text-sm font-medium transition-colors">{% trans "Dark" %}</button>
+                    <button type="button" @click="chooseSystem" x-bind:aria-pressed="isSystemChosen" x-bind:aria-disabled="isLocked" x-bind:title="lockedTitle" x-bind:class="systemOptionClass" class="py-1.5 rounded-lg text-sm font-medium transition-colors">{% trans "System" %}</button>
                 </div>
                 <p x-show="isLocked" x-cloak class="mt-2 text-xs text-muted-fg" x-text="lockedLabel"></p>
             </div>

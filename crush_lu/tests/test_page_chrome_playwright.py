@@ -19,6 +19,7 @@ Excluded from the default run (``-m "not playwright"`` in pytest.ini). Run:
 
 import json
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -198,11 +199,31 @@ def test_theme_choice_is_locked_on_always_dark_pages(browser, live_server):
         expect(buttons.nth(i)).to_have_attribute("title", LOCKED_LABEL)
     expect(choice.get_by_text(LOCKED_LABEL)).to_be_visible()
 
+    # No option looks pressed or clickable while the page is forced dark.
+    for i in range(3):
+        expect(buttons.nth(i)).to_have_class(re.compile(r"\bcursor-not-allowed\b"))
+        expect(buttons.nth(i)).not_to_have_class(re.compile(r"\bshadow-sm\b"))
+
     # aria-disabled keeps them focusable; a real activation is still a no-op.
     choice.get_by_role("button", name="Light").dispatch_event("click")
     choice.get_by_role("button", name="System").dispatch_event("click")
     assert _is_dark(page)
     assert page.evaluate("() => localStorage.getItem('theme')") == "light"
+
+
+def test_other_theme_labels_follow_a_drawer_pick(browser, live_server):
+    # OS light + System: picking Light keeps the resolved theme light, so only
+    # the reactive preference (not localStorage) can refresh the other labels.
+    page = _page(browser, live_server, _member(), scheme="light")
+    _open(page, f"{live_server.url}/en/profile/edit/?section=account")
+    card = page.locator(
+        ".section-edit-card[x-data='themeToggle'] [x-text='themeLabel']"
+    )
+    expect(card).to_have_text("System (Light)")
+    _open_drawer(page).get_by_role("button", name="Light").click()
+    expect(card).to_have_text("Light")
+    page.locator("[x-data='themeChoice']").get_by_role("button", name="System").click()
+    expect(card).to_have_text("System (Light)")
 
 
 def test_drawer_language_select_switches_language(browser, live_server):

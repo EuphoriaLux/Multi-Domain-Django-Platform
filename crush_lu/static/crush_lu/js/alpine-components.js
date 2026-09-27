@@ -12631,8 +12631,9 @@ document.addEventListener("alpine:init", function () {
                 if (this.isLocked) {
                     return this.lockedLabel;
                 }
-                var saved = localStorage.getItem("theme");
-                if (!saved) {
+                // Read the reactive preference (kept in step by
+                // crush:themechange), not localStorage, which Alpine cannot track.
+                if (this.preference === "system") {
                     return this.isSystemDark ? "System (Dark)" : "System (Light)";
                 }
                 return this.isDark ? "Dark Mode" : "Light Mode";
@@ -12646,8 +12647,7 @@ document.addEventListener("alpine:init", function () {
             },
 
             get themeLabel() {
-                var saved = localStorage.getItem("theme");
-                if (!saved) {
+                if (this.preference === "system") {
                     return this.isSystemDark ? "System (Dark)" : "System (Light)";
                 }
                 return this.isDark ? "Dark" : "Light";
@@ -12708,9 +12708,17 @@ document.addEventListener("alpine:init", function () {
     // aria-disabled and the locked label explains why.
     Alpine.data("themeChoice", function () {
         var selected =
-            "bg-[var(--color-surface-card)] text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white";
-        var idle = "text-gray-700 dark:text-gray-300";
+            "cursor-pointer bg-[var(--color-surface-card)] text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white";
+        var idle = "cursor-pointer text-gray-700 dark:text-gray-300";
+        // Locked (always-dark) page: no option reads as pressed or clickable.
+        var locked = "text-gray-700 dark:text-gray-300 opacity-60 cursor-not-allowed";
         return mixin(makeThemeToggle(), {
+            _optionClass: function (chosen) {
+                if (this.isLocked) {
+                    return locked;
+                }
+                return chosen ? selected : idle;
+            },
             get isLightChosen() {
                 return this.preference === "light";
             },
@@ -12721,13 +12729,13 @@ document.addEventListener("alpine:init", function () {
                 return this.preference === "system";
             },
             get lightOptionClass() {
-                return this.isLightChosen ? selected : idle;
+                return this._optionClass(this.isLightChosen);
             },
             get darkOptionClass() {
-                return this.isDarkChosen ? selected : idle;
+                return this._optionClass(this.isDarkChosen);
             },
             get systemOptionClass() {
-                return this.isSystemChosen ? selected : idle;
+                return this._optionClass(this.isSystemChosen);
             },
             chooseLight: function () {
                 this.setTheme("light");

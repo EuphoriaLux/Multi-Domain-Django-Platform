@@ -139,9 +139,13 @@ class DrawerPreferencesAndHelpTests(TestCase):
         self.assertIn("Hilfe & Rechtliches", drawer)
         self.assertIn(">Hell</button>", drawer)
         self.assertIn(">Dunkel</button>", drawer)
+        # Not "Einstellungen": the drawer already has "Kontoeinstellungen".
+        self.assertIn(">Darstellung & Sprache</span>", drawer)
+        self.assertNotIn(">Einstellungen</span>", drawer)
         drawer = _drawer(self._get("/fr/notifications/"))
         self.assertIn("Aide et mentions légales", drawer)
         self.assertIn(">Sombre</button>", drawer)
+        self.assertIn(">Préférences</span>", drawer)
 
 
 class DrillDownPageChromeTests(TestCase):
