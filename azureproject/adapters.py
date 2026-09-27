@@ -5,9 +5,11 @@ Routes authentication to appropriate handlers based on request domain.
 """
 
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
+from allauth.socialaccount.providers.base import AuthError
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.core.exceptions import ImmediateHttpResponse
 from django.http import HttpResponseForbidden
+from django.utils.translation import gettext_lazy as _
 import base64
 import json
 import os
@@ -205,8 +207,6 @@ def _domain_allows_signup(request, allowed_domains):
         or domain.endswith(".crush.lu")
         or domain.endswith(".azurewebsites.net")
     )
-
-
 
 
 class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
@@ -442,12 +442,42 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
         """
         Handle authentication errors with detailed logging.
         This helps debug OAuth issues like Microsoft login failures.
+
+        On crush.lu, a user backing out of the provider's consent screen
+        (``AuthError.CANCELLED`` -- Google/Microsoft "access_denied", Apple's
+        cancel) is not a failure: redirect straight back to login with a
+        friendly, non-technical message instead of falling through to
+        allauth's generic (unbranded) "Login Cancelled" page. Everything
+        else still renders socialaccount/authentication_error_crush.html,
+        which itself hides the raw error/exception behind a details
+        disclosure -- see that template.
         """
         logger.error(
             "[OAUTH-ADAPTER] Authentication error: provider=%s, type=%s",
             provider_id,
             type(exception).__name__ if exception else "none",
         )
+
+        if error == AuthError.CANCELLED and _is_crush_domain(request):
+            from django.conf import settings
+            from django.contrib import messages
+            from django.shortcuts import redirect
+            from django.utils import translation
+
+            # Built as a literal path, not reverse("crush_lu:login"): this
+            # runs on the OAuth callback host/urlconf, and crush_lu:login
+            # only resolves under azureproject.urls_crush's i18n_patterns
+            # -- see get_email_verification_redirect_url() above for the
+            # same pattern.
+            supported = {code for code, _name in settings.LANGUAGES}
+            lang = translation.get_language()
+            if lang not in supported:
+                lang = settings.LANGUAGE_CODE
+            messages.info(
+                request,
+                _("Sign-in cancelled. Pick another way to continue, or try again."),
+            )
+            raise ImmediateHttpResponse(redirect(f"/{lang}/login/"))
 
         # Let the default handler show the error page
         return super().on_authentication_error(
@@ -638,16 +668,34 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
         message=None,
     ):
         """
-        Suppress allauth's "Successfully signed in as {name}." banner on Crush.lu.
+        Suppress two allauth message banners on Crush.lu:
 
-        The banner is redundant (landing on the dashboard already confirms the
-        login) and it renders the username, which breaks Crush.lu's privacy rule
-        against exposing names. Other platforms keep the default message.
+        - "Successfully signed in as {name}." is redundant (landing on the
+          dashboard already confirms the login) and it renders the username,
+          which breaks Crush.lu's privacy rule against exposing names.
+        - "Confirmation email sent to {email}." fires on both signup and
+          crush_lu:resend_verification (EmailAddress.send_confirmation()
+          triggers it either way) and would print the member's full,
+          unmasked address in a banner directly above the *masked* one on
+          account/verification_sent_crush.html -- defeating that page's own
+          masking. The page already says a link was sent, so the banner is
+          redundant there too.
+
+        Other platforms keep both default messages.
         """
         if (
-            message_template == "account/messages/logged_in.txt"
+            message_template
+            in (
+                "account/messages/logged_in.txt",
+                "account/messages/email_confirmation_sent.txt",
+            )
             and request is not None
             and _is_crush_domain(request)
+            and not (
+                message_template == "account/messages/email_confirmation_sent.txt"
+                and getattr(request, "user", None) is not None
+                and request.user.is_authenticated
+            )
         ):
             return
         return super().add_message(
@@ -787,6 +835,74 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
             raise PermissionDenied(f"Invalid IP address: {ip_value!r}")
 
         return str(ip_addr)
+
+    def pre_login(self, request, user, **kwargs):
+        """
+        On crush.lu, hold a social login until the account has a verified email.
+
+        ``SOCIALACCOUNT_EMAIL_VERIFICATION = "none"`` trusts the provider's
+        address. The social-signup completion form lets a member type an
+        address when the provider gave none or it clashed (UX Wave 3, 2-15),
+        and nobody has proven they own a typed address. Without this check,
+        such an account would be logged in straight away and keep an unowned
+        address. This covers later social logins too, so going back through
+        the provider does not bypass the check. Provider-verified addresses
+        are stored with ``verified=True``, so they pass unchanged.
+        """
+        response = super().pre_login(request, user, **kwargs)
+        if response is not None:
+            return response
+        signal_kwargs = kwargs.get("signal_kwargs") or {}
+        if (
+            request is not None
+            and signal_kwargs.get("sociallogin") is not None
+            and _is_crush_domain(request)
+        ):
+            from allauth.account.models import EmailAddress
+            from allauth.account.utils import has_verified_email
+
+            if not has_verified_email(user):
+                address = (
+                    EmailAddress.objects.filter(user=user, verified=False)
+                    .order_by("-primary", "pk")
+                    .first()
+                )
+                if address is not None:
+                    # allauth's rate-limited send (per-address cooldown), so
+                    # repeated provider logins can't spam a typed address.
+                    from allauth.account.internal.flows.email_verification import (
+                        send_verification_email_to_address,
+                    )
+
+                    from django.utils import timezone
+
+                    from crush_lu.views_account import (
+                        RESEND_VERIFICATION_COOLDOWN_SECONDS,
+                    )
+
+                    # Login stays held even if the mail fails; the member can
+                    # retry from the verification page once the countdown
+                    # (the same window as allauth's limiter) runs out. The
+                    # countdown only moves when the limiter was consumed (a
+                    # send, or a failure after it): a rate-limited retry keeps
+                    # the existing deadline instead of pushing it forward.
+                    try:
+                        limiter_consumed = send_verification_email_to_address(
+                            request, address, signup=kwargs.get("signup", False)
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Sending the social-login verification email failed"
+                        )
+                        limiter_consumed = True
+                    request.session["pending_verification_email"] = address.email
+                    if limiter_consumed:
+                        request.session["resend_verification_cooldown_until"] = (
+                            int(timezone.now().timestamp())
+                            + RESEND_VERIFICATION_COOLDOWN_SECONDS
+                        )
+                    return self.respond_email_verification_sent(request, user)
+        return None
 
     def post_login(self, request, user, **kwargs):
         """
