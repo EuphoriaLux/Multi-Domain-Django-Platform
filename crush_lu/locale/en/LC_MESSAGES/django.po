@@ -28253,8 +28253,9 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\about.html:325
 msgid ""
-"In a small country, discretion matters. No public browsing: only your Connect"
-" matches (after you opt in) and fellow event attendees see your photo."
+"In a small country, discretion matters. No public browsing: your photos are "
+"never public or shown to search engines, you need a Crush.lu account to see "
+"them, and Crush Connect asks before showing your photo to your matches."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\base.html:1210
@@ -28270,9 +28271,9 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\how_it_works.html:188
 msgid ""
-"On Crush Connect, your photo is only shown to the few verified members "
-"matched with you, and only after you opt in. At events, only fellow attendees"
-" see it."
+"Your photos are never public or shown to search engines — you need a Crush.lu"
+" account to see them, and Crush Connect asks before showing your photo to "
+"your matches."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\how_it_works.html:189

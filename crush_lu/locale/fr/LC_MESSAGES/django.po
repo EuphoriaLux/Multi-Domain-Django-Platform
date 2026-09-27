@@ -42542,12 +42542,14 @@ msgstr ""
 
 #: templates/crush_lu/about.html:325
 msgid ""
-"In a small country, discretion matters. No public browsing: only your Connect"
-" matches (after you opt in) and fellow event attendees see your photo."
+"In a small country, discretion matters. No public browsing: your photos are "
+"never public or shown to search engines, you need a Crush.lu account to see "
+"them, and Crush Connect asks before showing your photo to your matches."
 msgstr ""
-"Dans un petit pays, la discrétion compte. Aucune navigation publique : seuls "
-"vos matchs Connect (après votre accord) et les autres participants de vos "
-"événements voient votre photo."
+"Dans un petit pays, la discrétion compte. Aucune navigation publique : vos "
+"photos ne sont jamais publiques ni montrées aux moteurs de recherche, il faut"
+" un compte Crush.lu pour les voir, et Crush Connect vous demande votre accord"
+" avant de montrer votre photo à vos matchs."
 
 #: templates/crush_lu/base.html:1289
 #: templates/crush_lu/partials/edit_about_crushlu.html:123
@@ -42564,13 +42566,13 @@ msgstr "Vérifiés via LuxID ou en personne"
 
 #: templates/crush_lu/how_it_works.html:188
 msgid ""
-"On Crush Connect, your photo is only shown to the few verified members "
-"matched with you, and only after you opt in. At events, only fellow attendees"
-" see it."
+"Your photos are never public or shown to search engines — you need a Crush.lu"
+" account to see them, and Crush Connect asks before showing your photo to "
+"your matches."
 msgstr ""
-"Sur Crush Connect, votre photo n'est montrée qu'aux quelques membres vérifiés"
-" qui vous sont proposés, et seulement après votre accord. Lors des "
-"événements, seuls les autres participants la voient."
+"Vos photos ne sont jamais publiques ni montrées aux moteurs de recherche — il"
+" faut un compte Crush.lu pour les voir, et Crush Connect vous demande votre "
+"accord avant de montrer votre photo à vos matchs."
 
 #: templates/crush_lu/how_it_works.html:189
 msgid "No public search or profile browsing"

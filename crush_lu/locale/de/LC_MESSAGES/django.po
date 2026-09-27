@@ -42412,12 +42412,14 @@ msgstr ""
 
 #: templates/crush_lu/about.html:325
 msgid ""
-"In a small country, discretion matters. No public browsing: only your Connect"
-" matches (after you opt in) and fellow event attendees see your photo."
+"In a small country, discretion matters. No public browsing: your photos are "
+"never public or shown to search engines, you need a Crush.lu account to see "
+"them, and Crush Connect asks before showing your photo to your matches."
 msgstr ""
 "In einem kleinen Land ist Diskretion wichtig. Kein öffentliches Durchstöbern:"
-" Dein Foto sehen nur deine Connect-Matches (nachdem du zugestimmt hast) und "
-"die anderen Teilnehmenden deiner Veranstaltungen."
+" Deine Fotos sind nie öffentlich und werden nie Suchmaschinen gezeigt, man "
+"braucht ein Crush.lu-Konto, um sie zu sehen, und Crush Connect fragt dich, "
+"bevor dein Foto deinen Matches gezeigt wird."
 
 #: templates/crush_lu/base.html:1289
 #: templates/crush_lu/partials/edit_about_crushlu.html:123
@@ -42434,13 +42436,13 @@ msgstr "Verifiziert per LuxID oder persönlich"
 
 #: templates/crush_lu/how_it_works.html:188
 msgid ""
-"On Crush Connect, your photo is only shown to the few verified members "
-"matched with you, and only after you opt in. At events, only fellow attendees"
-" see it."
+"Your photos are never public or shown to search engines — you need a Crush.lu"
+" account to see them, and Crush Connect asks before showing your photo to "
+"your matches."
 msgstr ""
-"Bei Crush Connect sehen dein Foto nur die wenigen verifizierten Mitglieder, "
-"mit denen du gematcht wirst, und erst nachdem du zugestimmt hast. Bei "
-"Veranstaltungen sehen es nur die anderen Teilnehmenden."
+"Deine Fotos sind nie öffentlich und werden nie Suchmaschinen gezeigt – um sie"
+" zu sehen, braucht man ein Crush.lu-Konto, und Crush Connect fragt dich, "
+"bevor dein Foto deinen Matches gezeigt wird."
 
 #: templates/crush_lu/how_it_works.html:189
 msgid "No public search or profile browsing"
