@@ -29,9 +29,10 @@ rules) so the thread can claim most of the viewport.
             </h1>
         </div>
         {% if is_open %}
-        <span class="connect-chat-expiry-chip shrink-0 inline-flex items-center gap-1 rounded-full bg-gray-100 dark:bg-slate-700 px-2.5 py-1 text-[11px] font-semibold text-gray-600 dark:text-gray-300">
+        <span data-expiry-chip class="connect-chat-expiry-chip shrink-0 inline-flex items-center gap-1 rounded-full bg-gray-100 dark:bg-slate-700 px-2.5 py-1 text-[11px] font-semibold text-gray-600 dark:text-gray-300">
             {% include "shared/icons/clock.html" with class="w-3 h-3" %}
-            {% blocktrans with when=chat.expires_at|date:"D H:i" %}Closes {{ when }}{% endblocktrans %}
+            {# Sends roll chat.expires_at 7 days forward (either participant's) — connect-live-chat.js rewrites this text from the send/poll response so the chip never shows a stale deadline. #}
+            <span data-expiry-text>{% blocktrans with when=chat.expires_at|date:"D H:i" %}Closes {{ when }}{% endblocktrans %}</span>
         </span>
         {# Report + block, the same menu as every other Connect surface; the plain block uses the chat endpoint so it also closes this chat. #}
         <div class="shrink-0 self-start">

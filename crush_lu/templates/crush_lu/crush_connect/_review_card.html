@@ -52,7 +52,8 @@ template-local until Wave 2's shared confirm-sheet component lands.
         {% if answers %}
         <ul class="space-y-1 mb-0 list-none pl-0 text-xs text-gray-600 dark:text-gray-300">
             {% for answer in answers %}
-            <li class="truncate">
+            {# line-clamp, not truncate: a single truncated line reduces a typical gate-question to an ellipsis on this card's narrow half-width; title= keeps the full text reachable. #}
+            <li class="line-clamp-2" title="{{ answer.text }}">
                 &ldquo;{{ answer.text }}&rdquo; —
                 <span class="font-medium text-gray-800 dark:text-gray-100">
                     {% if answer.guess %}{% trans "Yes" %}{% else %}{% trans "No" %}{% endif %}

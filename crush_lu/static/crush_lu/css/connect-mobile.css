@@ -21,12 +21,21 @@
    (compact header + composer + safe-area), not a measured layout — same
    spirit as quiz-experience.css's "fill the room" comment. */
 body.connect-chat #pwa-install-banner { display: none !important; }
-/* Bounded, not `height: auto` / `max-height: none`: those let the thread grow
-   to fit all loaded messages instead of becoming its own scroll area, so a
-   chat past a screenful pushes the composer far below the fold and the
-   startup scroll-to-bottom (connect-live-chat.js only sets thread.scrollTop)
-   has no effect once the element has already expanded to its content. */
-body.connect-chat .connect-thread { height: calc(100dvh - 260px); max-height: calc(100dvh - 260px); min-height: 180px; }
+/* A generous clamp, not a fixed viewport-minus-pixels offset or a flex
+   chain: a static offset (or a `flex:1;min-height:0` column stretched
+   through main/shell/.connect-chat/.connect-chat-thread-wrap) both assume
+   there's always enough room left over for the thread above its own
+   min-height — but the pinned coffee-date section (and especially the full
+   venue-picker form when no plan exists yet) can alone be taller than a
+   phone viewport. When a flex sibling's content can't shrink below its
+   min-height, `min-height:0` ancestors do NOT reliably grow the page's
+   scrollable area to match (verified in the mobile emulator: the
+   composer painted outside the flex box, invisible and unreachable) —
+   so the thread must never depend on "whatever's left". It keeps its own
+   bounded, always-scrollable box regardless of what's above it, and the
+   page around it stays in normal flow so it can scroll like any other
+   page when the venue form pushes the composer below the fold. */
+body.connect-chat .connect-thread { height: clamp(220px, 60dvh, 640px); }
 .connect-thread [data-message-id] { flex-shrink: 0; overflow-wrap: anywhere; }
 .connect-composer { position: sticky; bottom: max(calc(72px + env(safe-area-inset-bottom)), var(--connect-keyboard, 0px)); background: var(--bg-primary, white); padding-block: .5rem; z-index: 20; }
 .dark .connect-composer { background: var(--color-slate-800); }

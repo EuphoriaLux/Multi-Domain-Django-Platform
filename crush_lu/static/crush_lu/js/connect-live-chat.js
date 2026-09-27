@@ -22,8 +22,31 @@
     const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
     return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
   };
+  const expiryChip = root.querySelector('[data-expiry-chip]');
+  const expiryText = root.querySelector('[data-expiry-text]');
+  // Sends roll chat.expires_at 7 days forward (either participant's), so
+  // the header chip must be refreshed from the send/poll response — a
+  // page-load-only value would keep showing the old, eventually past,
+  // deadline. The server pre-renders closes_label so nothing here needs
+  // to translate or format the date itself.
+  const updateExpiry = data => {
+    if (!expiryChip) return;
+    if (!data.closes_label) { expiryChip.hidden = true; return; }
+    if (expiryText) expiryText.textContent = data.closes_label;
+  };
   const nearBottom = () => thread.scrollHeight - thread.clientHeight - thread.scrollTop < 70;
-  const bottom = () => { thread.scrollTop = thread.scrollHeight; newButton.hidden = true; acknowledge(); };
+  // Two scrollable levels: the thread itself (bounded height, its own
+  // internal scroll for long message lists) and the page around it (the
+  // pinned coffee-date section, or the full venue-picker form when no plan
+  // exists yet, can push the composer below the fold on a short viewport).
+  // Both must move, or the composer can stay off-screen even once the
+  // thread has scrolled to its own newest message.
+  const bottom = () => {
+    thread.scrollTop = thread.scrollHeight;
+    (form || thread).scrollIntoView({block: 'end'});
+    newButton.hidden = true;
+    acknowledge();
+  };
   const stop = () => {
     stopped = true;
     clearTimeout(timer);
@@ -98,6 +121,7 @@
     try {
       const data = await request(root.dataset.messagesUrl + '?after=' + cursor);
       if (!data.is_open) stop();
+      updateExpiry(data);
       const stick = nearBottom();
       let added = false;
       for (const message of data.messages) {
@@ -148,6 +172,7 @@
     try {
       const data = await request(form.action, {method: 'POST', body});
       append(data.message);
+      updateExpiry(data);
       if (input.value === text) input.value = '';
       pending = null;
       sendStatus.textContent = '';
