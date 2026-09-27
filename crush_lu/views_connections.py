@@ -1018,7 +1018,9 @@ def connection_detail(request, connection_id):
                     request,
                     _("No problem — we've let your coach know. Nothing was shared."),
                 )
-                return redirect("crush_lu:connection_detail", connection_id=connection_id)
+                return redirect(
+                    "crush_lu:connection_detail", connection_id=connection_id
+                )
 
             consent_value = consent_choice == "yes"
             share_email = "share_email" in request.POST
