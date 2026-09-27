@@ -43060,6 +43060,161 @@ msgid "This registration cannot be paid for in its current state."
 msgstr "Diese Anmeldung kann derzeit nicht bezahlt werden."
 
 
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+#: crush_lu/templates/crush_lu/dashboard.html:18
+#, python-format
+msgid "%(requests)s new connection request"
+msgid_plural "%(requests)s new connection requests"
+msgstr[0] "%(requests)s neue Verbindungsanfrage"
+msgstr[1] "%(requests)s neue Verbindungsanfragen"
+
+#: crush_lu/templates/crush_lu/dashboard.html:18
+msgid "View all requests"
+msgstr "Alle Anfragen ansehen"
+
+#: crush_lu/templates/crush_lu/dashboard.html:18
+msgid "See Crush Connect above"
+msgstr "Crush Connect oben ansehen"
+
+
+# UX Wave 3 · WP10 match-moment
+# UX Wave 3 · WP10 match-moment
+# UX Wave 3 · WP10 match-moment
+# UX Wave 3 · WP10 match moment
+# UX Wave 3 · WP10 match-moment
+# UX Wave 3 · WP10 match-moment
+# UX Wave 3 . WP10 match-moment (findings 5-09, 5-10, 5-13, 5-14, 5-15)
+#: templates/crush_lu/connection_detail.html:343
+msgid "First name only:"
+msgstr "Nur Vorname:"
+
+#: templates/crush_lu/connection_detail.html:351
+msgid "Nothing is shared until you both consent."
+msgstr "Es wird nichts geteilt, bis ihr beide zustimmt."
+
+#: templates/crush_lu/connection_detail.html:368
+#, python-format
+msgid "Also share my email address with %(name)s"
+msgstr "Meine E-Mail-Adresse auch mit %(name)s teilen"
+
+#: templates/crush_lu/connection_detail.html:381
+msgid "Not now"
+msgstr "Nicht jetzt"
+
+#: templates/crush_lu/connection_detail.html:385
+msgid "\"Not now\" closes this quietly — the other person is not notified."
+msgstr ""
+"„Nicht jetzt“ schließt dies leise ab – die andere Person wird nicht "
+"benachrichtigt."
+
+#: templates/crush_lu/connection_detail.html:414
+#, python-format
+msgid "%(name)s chose not to share their email."
+msgstr "%(name)s hat sich entschieden, die E-Mail-Adresse nicht zu teilen."
+
+#: templates/crush_lu/_connection_response.html:15
+#, python-format
+msgid ""
+"You and %(name)s can already see each other's contact info — no waiting "
+"needed."
+msgstr ""
+"Du und %(name)s könnt eure Kontaktdaten bereits sehen – kein Warten nötig."
+
+#: templates/crush_lu/_connection_response.html:19
+#, python-format
+msgid ""
+"Your Crush Coach will call you within 48 hours to help arrange your "
+"introduction with %(name)s."
+msgstr ""
+"Dein Crush Coach ruft dich innerhalb von 48 Stunden an, um eure Vorstellung "
+"mit %(name)s zu organisieren."
+
+#: templates/crush_lu/_connection_response.html:24
+msgid "Coach reviews"
+msgstr "Coach prüft"
+
+#: templates/crush_lu/_connection_response.html:28
+msgid "You both consent"
+msgstr "Ihr stimmt beide zu"
+
+#: templates/crush_lu/_connection_response.html:41
+msgid "See next steps"
+msgstr "Nächste Schritte ansehen"
+
+#: templates/crush_lu/_connection_response.html:56
+msgid ""
+"This won't be shared with them. You can still connect at a future event."
+msgstr ""
+"Das wird nicht mit der anderen Person geteilt. Ihr könnt euch bei einem "
+"zukünftigen Event trotzdem noch verbinden."
+
+#: templates/crush_lu/my_connections.html:163
+msgid "Your first connection starts at an event"
+msgstr "Deine erste Verbindung beginnt bei einem Event"
+
+#: templates/crush_lu/my_connections.html:165
+msgid ""
+"Meet someone, and if you both say yes afterwards, your Crush Coach steps in "
+"to make the introduction."
+msgstr ""
+"Lerne jemanden kennen, und wenn ihr danach beide Ja sagt, übernimmt dein "
+"Crush Coach die Vorstellung."
+
+#: templates/crush_lu/my_connections.html:184
+msgid "Meet at an event"
+msgstr "Bei einem Event treffen"
+
+#: templates/crush_lu/my_connections.html:188
+msgid "Both say yes"
+msgstr "Beide sagen Ja"
+
+#: templates/crush_lu/my_connections.html:192
+msgid "Your coach introduces you"
+msgstr "Dein Coach stellt euch vor"
+
+#: views_connections.py:1019
+msgid "No problem — nothing was shared, and this connection is now closed."
+msgstr ""
+"Kein Problem – es wurde nichts geteilt, und diese Verbindung ist jetzt "
+"geschlossen."
+
+#: templates/crush_lu/_connection_response.html:21
+#, python-format
+msgid ""
+"Your Crush Coach will be in touch to help arrange your introduction with "
+"%(name)s."
+msgstr ""
+"Dein Crush Coach meldet sich, um eure Vorstellung mit %(name)s zu "
+"organisieren."
+
+#: views_connections.py:1029
+msgid ""
+"This connection has already moved on — refresh the page to see its current "
+"status."
+msgstr ""
+"Diese Verbindung hat sich bereits weiterentwickelt – lade die Seite neu, um "
+"den aktuellen Status zu sehen."
+
+#: crush_lu/templates/crush_lu/my_connections.html
+msgid ""
+"Meet someone, and if you both say yes afterwards, you're connected: "
+"sometimes straight away, sometimes through an introduction by your Crush "
+"Coach."
+msgstr ""
+"Lerne jemanden kennen, und wenn ihr danach beide Ja sagt, seid ihr "
+"verbunden: manchmal sofort, manchmal über eine Vorstellung durch deinen "
+"Crush Coach."
+
+
+# UX Wave 3 · WP13 take-a-break
 # UX Wave 3 · WP13 take-a-break
 # UX Wave 3 · WP13 take-a-break
 # UX Wave 3 · WP13 take-a-break

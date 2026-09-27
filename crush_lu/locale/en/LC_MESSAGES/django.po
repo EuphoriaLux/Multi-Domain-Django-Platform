@@ -28460,6 +28460,45 @@ msgstr ""
 msgid "Failed to load payment module. Please refresh or contact support."
 msgstr ""
 
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+#: crush_lu/templates/crush_lu/dashboard.html:18
+#, python-format
+msgid "%(requests)s new connection request"
+msgid_plural "%(requests)s new connection requests"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crush_lu/templates/crush_lu/dashboard.html:18
+msgid "View all requests"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/dashboard.html:18
+msgid "See Crush Connect above"
+msgstr ""
+
+
+# UX Wave 3 · WP10 match-moment
+# UX Wave 3 · WP10 match-moment
+# UX Wave 3 · WP10 match-moment
+# UX Wave 3 · WP10 match moment
+# UX Wave 3 · WP10 match-moment
+#: crush_lu/templates/crush_lu/my_connections.html
+msgid ""
+"Meet someone, and if you both say yes afterwards, you're connected: "
+"sometimes straight away, sometimes through an introduction by your Crush "
+"Coach."
+msgstr ""
+
+
+# UX Wave 3 · WP13 take-a-break
 # UX Wave 3 · WP13 take-a-break
 # UX Wave 3 · WP13 take-a-break
 # UX Wave 3 · WP13 take-a-break

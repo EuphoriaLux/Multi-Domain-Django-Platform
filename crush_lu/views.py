@@ -423,8 +423,13 @@ def dashboard(request):
         from django.db.models import Q as _Q
 
         from .services.blocking import blocked_user_ids
+        from .services.event_lobby import hidden_encounter_user_ids
 
-        _blocked_ids = blocked_user_ids(request.user)
+        # Blocked pairs AND safety-removed encounters (removal_pending /
+        # removed) stay mutually invisible, exactly as in my_connections.
+        _blocked_ids = blocked_user_ids(request.user) | hidden_encounter_user_ids(
+            request.user
+        )
         connection_count = (
             EventConnection.objects.active_for_user(request.user)
             .excluding_unshared_crushes()
@@ -432,6 +437,20 @@ def dashboard(request):
                 _Q(requester_id__in=_blocked_ids) | _Q(recipient_id__in=_blocked_ids)
             )
             .count()
+        )
+
+        # Received connection requests waiting on this member's own action —
+        # the dashboard's "Needs action" block surfaces a few of these
+        # directly (accept/decline inline) instead of leaving them as a
+        # non-clickable header count. Mirrors my_connections' received_pending
+        # query (views_connections.py) so the two never disagree on what
+        # counts as an actionable request.
+        pending_connection_requests = list(
+            EventConnection.objects.filter(recipient=request.user, status="pending")
+            .exclude(flow=EventConnection.FLOW_CRUSH)
+            .exclude(requester_id__in=_blocked_ids)
+            .select_related("requester__crushprofile", "event")
+            .order_by("-requested_at")[:3]
         )
 
         # Get or create referral code for this user's profile
@@ -642,7 +661,16 @@ def dashboard(request):
             "attended_count": attended_count,
             "pending_payment_registrations": pending_payment_registrations,
             "post_event_actions": post_event_actions,
+            "pending_connection_requests": pending_connection_requests,
             "connection_count": connection_count,
+            # The stats row repeats the next-event card (Upcoming) and the
+            # requests just surfaced above (Connections), so it only earns
+            # its place once the member has something to look back on, or
+            # has more bookings than the one next-event card shows.
+            "show_stats_tiles": (
+                profile.verification_status == "verified"
+                and (attended_count > 0 or connection_count > 0 or upcoming_count > 1)
+            ),
             "referral_url": referral_url,
             "has_attended_event": has_attended_event,
             "is_premium": is_premium,
@@ -2011,73 +2039,6 @@ def crush_preferences(request):
     redirect so old links/bookmarks don't 404."""
 
     return redirect("crush_lu:dashboard")
-
-
-@crush_login_required
-def matches_list(request):
-    """Page showing compatible matches sorted by score."""
-    from .matching import get_matches_for_user, get_score_display
-    from django.core.paginator import Paginator
-
-    try:
-        profile = CrushProfile.objects.get(user=request.user)
-    except CrushProfile.DoesNotExist:
-        messages.info(request, _("You need to create a profile first."))
-        return redirect("crush_lu:create_profile")
-
-    if not profile.is_approved:
-        messages.warning(
-            request, _("Your profile must be approved before viewing matches.")
-        )
-        return redirect("crush_lu:dashboard")
-
-    has_traits = profile.sought_qualities.exists()
-    matches = []
-
-    if has_traits:
-        match_scores = get_matches_for_user(request.user)
-
-        for ms in match_scores:
-            other_user = ms.user_b if ms.user_a == request.user else ms.user_a
-            try:
-                other_profile = CrushProfile.objects.get(
-                    user=other_user, verification_status="verified", is_active=True
-                )
-            except CrushProfile.DoesNotExist:
-                continue
-
-            # Gender filter (age filtering handled by hard filter in matching.py)
-            if (
-                profile.preferred_genders
-                and other_profile.gender not in profile.preferred_genders
-            ):
-                continue
-
-            score_display = get_score_display(ms.score_final)
-            if score_display:
-                matches.append(
-                    {
-                        "profile": other_profile,
-                        "score": ms.score_final,
-                        "score_percent": int(ms.score_final * 100),
-                        "display": score_display,
-                    }
-                )
-
-    paginator = Paginator(matches, 20)
-    page_number = request.GET.get("page")
-    page_obj = paginator.get_page(page_number)
-
-    return render(
-        request,
-        "crush_lu/matches.html",
-        {
-            "page_obj": page_obj,
-            "matches": page_obj.object_list,
-            "has_traits": has_traits,
-            "profile": profile,
-        },
-    )
 
 
 @require_http_methods(["GET"])

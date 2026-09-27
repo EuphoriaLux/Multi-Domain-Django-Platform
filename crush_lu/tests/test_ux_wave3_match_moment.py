@@ -1,0 +1,710 @@
+"""
+UX Wave 3 — WP10 "match moment" tests.
+
+Covers findings 5-09/5-10/5-13/5-14/5-15 from the Wave 3 review:
+- 5-09: the accept response is a celebratory card with a mini-timeline.
+- 5-10: consent step's "not now" option and per-channel (email) opt-in.
+- 5-13: retired Sparks pages redirect members with no in-flight spark.
+- 5-15: chat compose — first-message placeholder removal, inline error on
+  a failed send instead of the whole page being spliced into the thread.
+
+Uses literal paths with HTTP_HOST='crush.lu' (never reverse("crush_lu:...")
+in tests — the host-routed urlconf trap documented in AGENTS.md) and
+cache.clear() in setUp (SQLite PK-reuse leaks across tests).
+"""
+
+from datetime import date, timedelta
+from unittest.mock import patch
+
+from django.contrib.auth import get_user_model
+from django.core.cache import cache
+from django.test import Client, TestCase, override_settings
+from django.utils import timezone
+
+from crush_lu.models import (
+    CrushProfile,
+    CrushSpark,
+    EventConnection,
+    EventRegistration,
+    MeetupEvent,
+    UserDataConsent,
+)
+
+User = get_user_model()
+
+
+def _give_crushlu_consent(user):
+    """The consent middleware gates every crush_lu page behind
+    UserDataConsent.crushlu_consent_given — a signal creates the row on user
+    creation, so tests only need to flip the flag (same pattern as
+    ConnectionMessagesEndpointTests in test_connections.py)."""
+    UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class ConsentStepTests(TestCase):
+    """Finding 5-10: 'not now' and email opt-in at the consent step."""
+
+    def setUp(self):
+        cache.clear()
+        self.requester = User.objects.create_user(
+            username="consent-req@example.com",
+            email="consent-req@example.com",
+            password="testpass123",
+        )
+        self.recipient = User.objects.create_user(
+            username="consent-rec@example.com",
+            email="consent-rec@example.com",
+            password="testpass123",
+        )
+        for user, gender in [(self.requester, "M"), (self.recipient, "F")]:
+            CrushProfile.objects.create(
+                user=user,
+                date_of_birth=date(1995, 5, 15),
+                gender=gender,
+                location="Luxembourg",
+                is_approved=True,
+            )
+            _give_crushlu_consent(user)
+        self.event = MeetupEvent.objects.create(
+            title="Consent Test Event",
+            description="desc",
+            event_type="mixer",
+            date_time=timezone.now() - timedelta(days=1),
+            location="Luxembourg",
+            address="123 Test Street",
+            max_participants=20,
+            registration_deadline=timezone.now() - timedelta(days=3),
+            is_published=True,
+        )
+        self.connection = EventConnection.objects.create(
+            event=self.event,
+            requester=self.requester,
+            recipient=self.recipient,
+            status="coach_approved",
+        )
+        self.client = Client()
+        self.client.login(username="consent-req@example.com", password="testpass123")
+
+    def _detail_url(self):
+        return f"/en/connections/{self.connection.id}/"
+
+    def test_not_now_declines_without_notifying_or_sharing(self):
+        response = self.client.post(
+            self._detail_url(),
+            {"consent": "not_now"},
+            HTTP_HOST="crush.lu",
+        )
+        self.assertEqual(response.status_code, 302)
+        self.connection.refresh_from_db()
+        self.assertEqual(self.connection.status, "declined")
+        # Neither side's consent flags were flipped true.
+        self.assertFalse(self.connection.requester_consents_to_share)
+        self.assertFalse(self.connection.recipient_consents_to_share)
+
+    def test_consent_without_email_checkbox_does_not_share_email(self):
+        """The consent form's email checkbox is unchecked by default — an
+        omitted `share_email` field (an unchecked HTML checkbox is absent
+        from POST data entirely) must record that choice, not silently
+        share the email as the old always-on behaviour did."""
+        response = self.client.post(
+            self._detail_url(),
+            {"consent": "yes"},
+            HTTP_HOST="crush.lu",
+        )
+        self.assertEqual(response.status_code, 302)
+        self.connection.refresh_from_db()
+        self.assertTrue(self.connection.requester_consents_to_share)
+        self.assertFalse(self.connection.requester_shares_email)
+
+    def test_consent_with_email_checkbox_shares_email(self):
+        response = self.client.post(
+            self._detail_url(),
+            {"consent": "yes", "share_email": "on"},
+            HTTP_HOST="crush.lu",
+        )
+        self.assertEqual(response.status_code, 302)
+        self.connection.refresh_from_db()
+        self.assertTrue(self.connection.requester_shares_email)
+
+    def test_not_now_on_a_shared_connection_is_a_no_op(self):
+        """Review finding (WP10 blocker): the consent POST — both the
+        "not now" branch and the yes/no branch — must only act on a
+        connection still at `coach_approved`. A stale page, a double
+        submit, or a reopened tab could otherwise POST against a
+        connection that has already reached `shared` (contacts already
+        exchanged) and force it straight back to `declined`."""
+        self.connection.status = "shared"
+        self.connection.requester_consents_to_share = True
+        self.connection.recipient_consents_to_share = True
+        self.connection.save()
+
+        response = self.client.post(
+            self._detail_url(),
+            {"consent": "not_now"},
+            HTTP_HOST="crush.lu",
+        )
+        self.assertEqual(response.status_code, 302)
+        self.connection.refresh_from_db()
+        self.assertEqual(self.connection.status, "shared")
+
+    def test_not_now_stale_tab_race_does_not_revert_a_shared_connection(self):
+        """Review finding (P2): the view's status check
+        (``connection.status != "coach_approved"``) reads the object it
+        fetched at the top of the request. If another request moves the
+        row from ``coach_approved`` to ``shared`` *after* that read but
+        before this "not now" write, a blind ``.save()`` would still stamp
+        ``declined`` over a connection whose contacts were already
+        exchanged. The fix must re-read status atomically at write time
+        (a conditional ``UPDATE ... WHERE status='coach_approved'``, or an
+        equivalent locked re-read) so a zero-row update is a no-op.
+
+        Simulated here without real concurrency: the same race is forced by
+        having the manager's own ``.filter()`` — the exact call the fix's
+        conditional update makes — move the row to ``shared`` first, right
+        before it runs."""
+        original_filter = EventConnection.objects.filter
+        raced = {"done": False}
+
+        def racing_filter(*args, **kwargs):
+            if not raced["done"]:
+                raced["done"] = True
+                # Another request confirms the introduction between this
+                # view's initial read and its "not now" write.
+                original_filter(pk=self.connection.pk).update(status="shared")
+            return original_filter(*args, **kwargs)
+
+        with patch.object(
+            type(EventConnection.objects), "filter", side_effect=racing_filter
+        ):
+            response = self.client.post(
+                self._detail_url(),
+                {"consent": "not_now"},
+                HTTP_HOST="crush.lu",
+            )
+        self.assertEqual(response.status_code, 302)
+        self.connection.refresh_from_db()
+        self.assertEqual(self.connection.status, "shared")
+
+    def test_yes_on_a_shared_connection_is_a_no_op(self):
+        self.connection.status = "shared"
+        self.connection.requester_consents_to_share = True
+        self.connection.recipient_consents_to_share = True
+        self.connection.save()
+
+        response = self.client.post(
+            self._detail_url(),
+            {"consent": "yes", "share_email": "on"},
+            HTTP_HOST="crush.lu",
+        )
+        self.assertEqual(response.status_code, 302)
+        self.connection.refresh_from_db()
+        self.assertEqual(self.connection.status, "shared")
+
+    def test_shared_connection_hides_email_when_other_side_opted_out(self):
+        # Recipient consents without sharing email; requester consents with it.
+        self.connection.recipient_consents_to_share = True
+        self.connection.recipient_shares_email = False
+        self.connection.requester_consents_to_share = True
+        self.connection.requester_shares_email = True
+        self.connection.status = "shared"
+        self.connection.save()
+
+        response = self.client.get(self._detail_url(), HTTP_HOST="crush.lu")
+        self.assertEqual(response.status_code, 200)
+        # The requester is viewing: the recipient (the "other side") opted
+        # out of email, so it must not appear on the page at all.
+        self.assertNotContains(response, self.recipient.email)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class AcceptCelebratoryCardTests(TestCase):
+    """Finding 5-09: the accept response is a celebratory card (mobile-
+    stacked, "It's mutual!" header, mini-timeline) instead of the old
+    cramped single-row green alert."""
+
+    def setUp(self):
+        cache.clear()
+        self.requester = User.objects.create_user(
+            username="accept-req@example.com",
+            email="accept-req@example.com",
+            password="testpass123",
+        )
+        self.recipient = User.objects.create_user(
+            username="accept-rec@example.com",
+            email="accept-rec@example.com",
+            password="testpass123",
+        )
+        for user, gender in [(self.requester, "M"), (self.recipient, "F")]:
+            CrushProfile.objects.create(
+                user=user,
+                date_of_birth=date(1995, 5, 15),
+                gender=gender,
+                location="Luxembourg",
+                is_approved=True,
+            )
+            _give_crushlu_consent(user)
+        self.event = MeetupEvent.objects.create(
+            title="Accept Test Event",
+            description="desc",
+            event_type="mixer",
+            date_time=timezone.now() - timedelta(days=1),
+            location="Luxembourg",
+            address="123 Test Street",
+            max_participants=20,
+            registration_deadline=timezone.now() - timedelta(days=3),
+            is_published=True,
+        )
+        EventRegistration.objects.create(
+            event=self.event, user=self.recipient, status="attended"
+        )
+        # Different genders: the accept goes through coach review (not the
+        # same-gender auto-share branch), which is the path finding 5-09's
+        # mini-timeline is for.
+        self.connection = EventConnection.objects.create(
+            event=self.event,
+            requester=self.requester,
+            recipient=self.recipient,
+            status="pending",
+        )
+        self.client = Client()
+        self.client.login(username="accept-rec@example.com", password="testpass123")
+
+    def test_accept_renders_celebratory_card(self):
+        response = self.client.post(
+            f"/en/connections/{self.connection.id}/accept/",
+            {},
+            HTTP_HOST="crush.lu",
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode()
+        self.assertIn("It's mutual!", body)
+        self.assertIn("See next steps", body)
+        # The old copy never explained *when* — the mini-timeline does.
+        self.assertIn("Coach reviews", body)
+        self.assertIn("You both consent", body)
+        self.assertIn("Contacts shared", body)
+        self.connection.refresh_from_db()
+        self.assertEqual(self.connection.status, "accepted")
+
+    def test_ordinary_connection_accept_does_not_promise_48_hour_sla(self):
+        """Review finding (P2): ``EventConnection.call_by`` is None for
+        every row outside the 'My Crush!' flow (``flow=FLOW_LEGACY`` here,
+        this class's default) — only crush coach leads carry the 48h SLA
+        (spec §6/O8) and its reminder machinery. The accept card must not
+        promise a deadline the app cannot back for an ordinary connection."""
+        response = self.client.post(
+            f"/en/connections/{self.connection.id}/accept/",
+            {},
+            HTTP_HOST="crush.lu",
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode()
+        self.assertNotIn("48 hours", body)
+        self.assertIn("Your Crush Coach will be in touch", body)
+
+    def test_partial_still_promises_48_hours_when_call_by_is_backed(self):
+        """The 48h call promise stays wherever ``EventConnection.call_by``
+        (the reminder machinery's own SLA field) is actually set — i.e. a
+        real crush coach lead. Rendered directly against the partial
+        (rather than through the recipient response endpoint, which closes
+        for crush leads pre-`shared` — see finding 5-lead-privacy in
+        views_connections.py) so this asserts the template's own
+        condition, not an unreachable view state."""
+        from django.template.loader import render_to_string
+
+        self.connection.flow = EventConnection.FLOW_CRUSH
+        self.connection.requested_at = timezone.now()
+        self.connection.status = "coach_approved"
+        self.connection.save()
+        self.assertIsNotNone(self.connection.call_by)
+
+        body = render_to_string(
+            "crush_lu/_connection_response.html",
+            {"connection": self.connection, "action": "accept"},
+        )
+        self.assertIn("48 hours", body)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class SparkListRetirementTests(TestCase):
+    """Finding 5-13 (product answer): /sparks/, /sparks/received/ and
+    spark_detail permanently redirect to the Crush Connect hub, for every
+    member unconditionally — including one with an in-flight spark, per
+    the brief's explicit "REMOVE the member Sparks pages" instruction
+    (the orphaning mitigation is that coach-side spark tooling stays; see
+    coach_spark_list / coach_spark_assign, untouched by this WP)."""
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(
+            username="spark-user@example.com",
+            email="spark-user@example.com",
+            password="testpass123",
+        )
+        CrushProfile.objects.create(
+            user=self.user,
+            date_of_birth=date(1995, 5, 15),
+            gender="M",
+            location="Luxembourg",
+            is_approved=True,
+        )
+        _give_crushlu_consent(self.user)
+        self.event = MeetupEvent.objects.create(
+            title="Spark Test Event",
+            description="desc",
+            event_type="mixer",
+            date_time=timezone.now() - timedelta(days=1),
+            location="Luxembourg",
+            address="123 Test Street",
+            max_participants=20,
+            registration_deadline=timezone.now() - timedelta(days=3),
+            is_published=True,
+        )
+        self.client = Client()
+        self.client.login(username="spark-user@example.com", password="testpass123")
+
+    def test_sparks_list_redirects_permanently_to_connect_hub(self):
+        response = self.client.get("/en/sparks/", HTTP_HOST="crush.lu")
+        self.assertEqual(response.status_code, 301)
+        self.assertIn("/crush-connect/home/", response.url)
+
+    def test_sparks_received_redirects_permanently_to_connect_hub(self):
+        response = self.client.get("/en/sparks/received/", HTTP_HOST="crush.lu")
+        self.assertEqual(response.status_code, 301)
+        self.assertIn("/crush-connect/home/", response.url)
+
+    def test_spark_detail_redirects_permanently_to_connect_hub(self):
+        spark = CrushSpark.objects.create(
+            event=self.event,
+            sender=self.user,
+            sender_description="the person in the red dress",
+        )
+        response = self.client.get(f"/en/sparks/{spark.id}/", HTTP_HOST="crush.lu")
+        self.assertEqual(response.status_code, 301)
+        self.assertIn("/crush-connect/home/", response.url)
+
+    def test_in_flight_spark_still_redirects_no_exception(self):
+        """The brief's product answer is unconditional: even a member with
+        an in-flight spark (the case #433's guard was protecting) now gets
+        redirected — the member has no page for it any more, by design.
+        The coach keeps coach_spark_list/coach_spark_assign (coach-only) to
+        see and resolve it, and spark_create_journey stays reachable by
+        direct URL."""
+        CrushSpark.objects.create(
+            event=self.event,
+            sender=self.user,
+            sender_description="the person in the red dress",
+        )
+        response = self.client.get("/en/sparks/", HTTP_HOST="crush.lu")
+        self.assertEqual(response.status_code, 301)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class ChatComposeTests(TestCase):
+    """Finding 5-15: first-message placeholder removal and an inline error
+    (instead of the whole redirected page landing in the thread) on a
+    failed send."""
+
+    def setUp(self):
+        cache.clear()
+        self.sender = User.objects.create_user(
+            username="chat-sender@example.com",
+            email="chat-sender@example.com",
+            password="testpass123",
+        )
+        self.other = User.objects.create_user(
+            username="chat-other@example.com",
+            email="chat-other@example.com",
+            password="testpass123",
+        )
+        for user, gender in [(self.sender, "M"), (self.other, "F")]:
+            CrushProfile.objects.create(
+                user=user,
+                date_of_birth=date(1995, 5, 15),
+                gender=gender,
+                location="Luxembourg",
+                is_approved=True,
+            )
+            _give_crushlu_consent(user)
+        self.event = MeetupEvent.objects.create(
+            title="Chat Test Event",
+            description="desc",
+            event_type="mixer",
+            date_time=timezone.now() - timedelta(days=1),
+            location="Luxembourg",
+            address="123 Test Street",
+            max_participants=20,
+            registration_deadline=timezone.now() - timedelta(days=3),
+            is_published=True,
+        )
+        self.connection = EventConnection.objects.create(
+            event=self.event,
+            requester=self.sender,
+            recipient=self.other,
+            status="accepted",
+            responded_at=timezone.now(),
+        )
+        self.client = Client()
+        self.client.login(username="chat-sender@example.com", password="testpass123")
+
+    def _detail_url(self):
+        return f"/en/connections/{self.connection.id}/"
+
+    def test_first_message_response_removes_empty_placeholder_oob(self):
+        response = self.client.post(
+            self._detail_url(),
+            {"message": "Hello there!"},
+            HTTP_HOST="crush.lu",
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode()
+        self.assertIn('hx-swap-oob="delete"', body)
+        self.assertIn('id="chat-empty"', body)
+        self.assertEqual(response.headers.get("HX-Trigger"), "connection-message-sent")
+
+    def test_second_message_does_not_repeat_oob_delete(self):
+        from crush_lu.models import ConnectionMessage
+
+        ConnectionMessage.objects.create(
+            connection=self.connection, sender=self.sender, message="First"
+        )
+        response = self.client.post(
+            self._detail_url(),
+            {"message": "Second message"},
+            HTTP_HOST="crush.lu",
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("chat-empty", response.content.decode())
+
+    def test_failed_send_returns_inline_retarget_not_a_redirect(self):
+        """Before this fix, an invalid HTMX send fell through to a plain
+        redirect, so htmx's `beforeend` swap spliced the entire redirected
+        page into the message thread instead of showing nothing useful."""
+        response = self.client.post(
+            self._detail_url(),
+            {"message": ""},
+            HTTP_HOST="crush.lu",
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get("HX-Retarget"), "#chat-compose-error")
+        self.assertEqual(response.headers.get("HX-Reswap"), "innerHTML")
+        # No full page (e.g. the site nav) leaked into the response.
+        self.assertNotIn("<html", response.content.decode().lower())
+
+    def test_failed_send_does_not_create_a_message(self):
+        from crush_lu.models import ConnectionMessage
+
+        self.client.post(
+            self._detail_url(),
+            {"message": "x" * 501},
+            HTTP_HOST="crush.lu",
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertFalse(
+            ConnectionMessage.objects.filter(connection=self.connection).exists()
+        )
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class MyConnectionsEmptyStateTests(TestCase):
+    """Finding 5-14: the empty state explains the mechanic and keeps the
+    primary CTA available (no longer a 55vh-tall block pushing it down)."""
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(
+            username="lonely@example.com",
+            email="lonely@example.com",
+            password="testpass123",
+        )
+        # is_approved deliberately left False: CrushProfile.save() forces
+        # verification_status to "verified" whenever is_approved is True
+        # (legacy-field sync), which would defeat the unverified-member case.
+        CrushProfile.objects.create(
+            user=self.user,
+            date_of_birth=date(1995, 5, 15),
+            gender="M",
+            location="Luxembourg",
+            verification_status="pending",
+        )
+        _give_crushlu_consent(self.user)
+        self.client = Client()
+        self.client.login(username="lonely@example.com", password="testpass123")
+
+    def test_empty_state_explains_the_three_steps(self):
+        response = self.client.get("/en/connections/", HTTP_HOST="crush.lu")
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode()
+        self.assertIn("Meet at an event", body)
+        self.assertIn("Both say yes", body)
+        self.assertIn("Your coach introduces you", body)
+
+    def test_unverified_member_does_not_see_connect_cta(self):
+        response = self.client.get("/en/connections/", HTTP_HOST="crush.lu")
+        self.assertNotContains(response, "Try Crush Connect")
+
+    @override_settings(CRUSH_CONNECT_LAUNCHED=True)
+    def test_hub_eligible_member_sees_connect_cta(self):
+        # The CTA follows the hub's own gate: approved, verified, and
+        # Connect-identity-verified (here via a linked LuxID account).
+        from allauth.socialaccount.models import SocialAccount
+
+        profile = self.user.crushprofile
+        profile.is_approved = True
+        profile.save()
+        SocialAccount.objects.create(
+            user=self.user, provider="luxid", uid=f"lux-{self.user.pk}"
+        )
+        response = self.client.get("/en/connections/", HTTP_HOST="crush.lu")
+        self.assertContains(response, "Try Crush Connect")
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class ConsentPrivacyReviewTests(TestCase):
+    """Second Codex review round on #1061: email opt-in defaults, the GDPR
+    export, and the consent 'yes' race."""
+
+    setUp = ConsentStepTests.setUp
+    _detail_url = ConsentStepTests._detail_url
+
+    def test_new_connections_do_not_share_email_by_default(self):
+        fresh = EventConnection.objects.create(
+            event=self.event, requester=self.recipient, recipient=self.requester
+        )
+        self.assertFalse(fresh.requester_shares_email)
+        self.assertFalse(fresh.recipient_shares_email)
+
+    def _export(self):
+        response = self.client.get("/en/account/gdpr/export/", HTTP_HOST="crush.lu")
+        self.assertEqual(response.status_code, 200)
+        return response.content.decode()
+
+    def test_export_omits_an_email_the_other_member_did_not_share(self):
+        self.connection.status = "shared"
+        self.connection.recipient_shares_email = False
+        self.connection.save()
+        self.assertNotIn(self.recipient.email, self._export())
+
+    def test_export_hides_an_opted_out_email_before_the_connection_is_shared(self):
+        # Recipient consented without email; requester hasn't answered yet.
+        self.connection.recipient_consents_to_share = True
+        self.connection.recipient_shares_email = False
+        self.connection.save()
+        self.assertNotIn(self.recipient.email, self._export())
+
+    def test_export_hides_an_opted_out_email_after_a_decline(self):
+        self.connection.recipient_consents_to_share = True
+        self.connection.recipient_shares_email = False
+        self.connection.status = "declined"
+        self.connection.save()
+        self.assertNotIn(self.recipient.email, self._export())
+
+    def test_export_includes_an_email_that_was_shared(self):
+        self.connection.status = "shared"
+        self.connection.recipient_shares_email = True
+        self.connection.save()
+        self.assertIn(self.recipient.email, self._export())
+
+    def test_yes_racing_a_decline_does_not_reopen_or_share(self):
+        """The other member already consented from another tab; this member's
+        stale 'yes' lands after a concurrent 'not now' closed the row."""
+        self.connection.recipient_consents_to_share = True
+        self.connection.save()
+        original_filter = EventConnection.objects.filter
+        raced = {"done": False}
+
+        def racing_filter(*args, **kwargs):
+            if not raced["done"]:
+                raced["done"] = True
+                original_filter(pk=self.connection.pk).update(status="declined")
+            return original_filter(*args, **kwargs)
+
+        with patch.object(
+            type(EventConnection.objects), "filter", side_effect=racing_filter
+        ):
+            response = self.client.post(
+                self._detail_url(),
+                {"consent": "yes", "share_email": "on"},
+                HTTP_HOST="crush.lu",
+            )
+        self.assertEqual(response.status_code, 302)
+        self.connection.refresh_from_db()
+        self.assertEqual(self.connection.status, "declined")
+        self.assertFalse(self.connection.requester_consents_to_share)
+
+    def test_yes_from_both_sides_shares(self):
+        self.connection.recipient_consents_to_share = True
+        self.connection.save()
+        self.client.post(
+            self._detail_url(),
+            {"consent": "yes", "share_email": "on"},
+            HTTP_HOST="crush.lu",
+        )
+        self.connection.refresh_from_db()
+        self.assertEqual(self.connection.status, "shared")
+        self.assertTrue(self.connection.requester_shares_email)
+
+
+class RetiredSparksBadgeTests(TestCase):
+    def setUp(self):
+        cache.clear()
+
+    def test_retired_sparks_no_longer_feed_the_nav_badge(self):
+        user = User.objects.create_user(
+            username="badge@example.com", email="badge@example.com", password="x"
+        )
+        CrushProfile.objects.create(
+            user=user,
+            date_of_birth=date(1995, 5, 15),
+            gender="M",
+            location="Luxembourg",
+            is_approved=True,
+        )
+        _give_crushlu_consent(user)
+        from django.test import RequestFactory
+
+        from crush_lu.context_processors import crush_user_context
+
+        request = RequestFactory().get("/en/dashboard/", HTTP_HOST="crush.lu")
+        request.user = user
+        with patch.object(CrushSpark.objects, "filter") as spark_filter:
+            context = crush_user_context(request)
+        spark_filter.assert_not_called()
+        # Present and 0 on the normal path, so base.html's badge sum works.
+        self.assertIn("actionable_sparks_count", context)
+        self.assertEqual(context["actionable_sparks_count"], 0)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class EmptyStateConnectCtaGateTests(TestCase):
+    """The empty state's Connect CTA uses the hub's own access gate."""
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(
+            username="cta@example.com", email="cta@example.com", password="testpass123"
+        )
+        CrushProfile.objects.create(
+            user=self.user,
+            date_of_birth=date(1995, 5, 15),
+            gender="M",
+            location="Luxembourg",
+            is_approved=True,
+        )
+        _give_crushlu_consent(self.user)
+        self.client = Client()
+        self.client.login(username="cta@example.com", password="testpass123")
+
+    @override_settings(CRUSH_CONNECT_LAUNCHED=True)
+    def test_verified_member_without_luxid_or_attendance_gets_no_connect_cta(self):
+        profile = self.user.crushprofile
+        self.assertFalse(profile.is_connect_identity_verified)
+        response = self.client.get("/en/connections/", HTTP_HOST="crush.lu")
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["is_verified"])
