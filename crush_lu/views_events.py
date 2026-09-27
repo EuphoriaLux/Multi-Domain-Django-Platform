@@ -746,7 +746,7 @@ def _registration_outlook(event, profile, gender=None):
     pool full?", which answers no and promises a seat to someone whose chosen
     pool is full.
 
-    Returns ``(pools, user_pool, will_waitlist, waitlist_reason)``:
+    Returns ``(pools, user_pool, will_waitlist, waitlist_reason, capacity_remaining)``:
 
     ``pools``
         Per-gender availability for display, every pool capped by the seats
@@ -764,6 +764,15 @@ def _registration_outlook(event, profile, gender=None):
         rather than fall back on "Event is Full", which is plainly untrue when
         the event has seats left and only this member's pool does not. Mirrors
         the two branches of ``event_register``'s own flash message.
+    ``capacity_remaining``
+        Seats left *for this viewer specifically*: against ``max_participants``
+        for an active-premium viewer, against ``public_capacity`` (reserved
+        premium seats excluded) for everyone else. ``event.spots_remaining``
+        counts against total capacity regardless of viewer, so a surface using
+        it directly can advertise seats a non-premium viewer cannot actually
+        take once an event's reserved seats are outstanding -- the same
+        second-surface disagreement #866 already fixed for the pool chips.
+        ``None`` for a curated event, which has no seat-capacity concept.
 
     One definition, because two surfaces consume it -- the event page's CTA and
     the registration page's own warning and submit label -- and #866 was
@@ -783,7 +792,7 @@ def _registration_outlook(event, profile, gender=None):
     # applicant infer which preference/demographic pool is underserved. The
     # member-facing group outlook is built separately from a strict whitelist.
     if event.uses_curated_registration:
-        return [], None, False, None
+        return [], None, False, None, None
 
     is_premium = bool(profile and profile.has_active_premium)
     # Total *and* pools off one read -- see MeetupEvent.registration_capacity().
@@ -825,7 +834,7 @@ def _registration_outlook(event, profile, gender=None):
         reason = "pool"
     else:
         reason = None
-    return pools, user_pool, total_full or pool_blocks, reason
+    return pools, user_pool, total_full or pool_blocks, reason, capacity_remaining
 
 
 # Coarse social proof thresholds for the member outlook card. Deliberately
@@ -1016,6 +1025,20 @@ def event_detail(request, event_id):
     if request.user.is_authenticated:
         user_profile = CrushProfile.objects.filter(user=request.user).first()
 
+    # Match event_register: restricted events require a profile DOB inside
+    # the allowed range. The in-page anchor may still render for a blocked
+    # member, so expose this to the mobile sticky CTA before it mirrors it.
+    age_restriction_applies = event.min_age > 18 or event.max_age < 99
+    age_blocked_for_registration = bool(
+        request.user.is_authenticated
+        and age_restriction_applies
+        and (
+            user_profile is None
+            or user_profile.age is None
+            or not (event.min_age <= user_profile.age <= event.max_age)
+        )
+    )
+
     # Language requirement check
     language_requirement_met = True
     if event.languages and request.user.is_authenticated:
@@ -1200,6 +1223,7 @@ def event_detail(request, event_id):
         user_gender_pool,
         event_full_for_user,
         registration_waitlist_reason,
+        viewer_spots_remaining,
     ) = _registration_outlook(event, user_profile)
 
     # A reserved seat is available to this premium member specifically when the
@@ -1237,14 +1261,38 @@ def event_detail(request, event_id):
         registration=registration,
     )
 
+    # LuxID direct verification only accepts a submitted pending profile.
+    # Incomplete members must finish the profile wizard first; rejected
+    # members need support or coach review instead (#4-14).
+    luxid_connect_url_value = None
+    if (
+        request.user.is_authenticated
+        and user_profile
+        and user_profile.verification_status == "pending"
+    ):
+        from .luxid import get_luxid_connect_url
+
+        luxid_connect_url_value = get_luxid_connect_url(request)
+
     context = {
         "event": event,
         "is_past": is_past,
         "can_cancel": can_cancel,
         "user_registration": registration,
         "user_profile": user_profile,
+        "age_blocked_for_registration": age_blocked_for_registration,
         "user_is_premium": user_is_premium,
         "event_full_for_user": event_full_for_user,
+        # Viewer-aware seat count for the fact strip: `event.spots_remaining`
+        # counts against total capacity regardless of viewer, so it can
+        # advertise a reserved seat a non-premium viewer cannot actually take.
+        # `None` for a curated event -- callers fall back to the plain
+        # property there, which has always been correct for it (#866).
+        "viewer_spots_remaining": (
+            viewer_spots_remaining
+            if viewer_spots_remaining is not None
+            else event.spots_remaining
+        ),
         "gender_pool_availability": gender_pool_availability,
         "user_gender_pool": user_gender_pool,
         "registration_waitlist_reason": registration_waitlist_reason,
@@ -1261,6 +1309,7 @@ def event_detail(request, event_id):
             and available_credit_cents(request.user)
             >= int(event.registration_fee * 100)
         ),
+        "luxid_connect_url": luxid_connect_url_value,
     }
     return render(request, "crush_lu/event_detail.html", context)
 
@@ -1940,9 +1989,13 @@ def event_register(request, event_id):
     if form.is_bound:
         submitted_gender = (getattr(form, "cleaned_data", None) or {}).get("gender")
 
-    _pools, _user_pool, registration_will_waitlist, waitlist_reason = (
-        _registration_outlook(event, profile, gender=submitted_gender)
-    )
+    (
+        _pools,
+        _user_pool,
+        registration_will_waitlist,
+        waitlist_reason,
+        _capacity_remaining,
+    ) = _registration_outlook(event, profile, gender=submitted_gender)
 
     context = {
         "event": event,

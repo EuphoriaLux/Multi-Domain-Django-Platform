@@ -42762,6 +42762,46 @@ msgid "Use a different address"
 msgstr "Utiliser une autre adresse"
 
 
+# UX Wave 3 · WP6 event-detail
+# UX Wave 3 · WP6 event-detail
+# UX Wave 3 · WP6
+#: templates/crush_lu/event_detail.html:156
+#, python-format
+msgid "%(spots)s spots left"
+msgstr "%(spots)s places restantes"
+
+#: templates/crush_lu/event_detail.html:166
+msgid "Read more"
+msgstr "Lire la suite"
+
+#: templates/crush_lu/event_detail.html:631
+#: templates/crush_lu/event_detail.html:676
+msgid "See entry events"
+msgstr "Voir les événements d'entrée"
+
+#: templates/crush_lu/event_detail.html:693
+msgid "Contact support"
+msgstr "Contacter le support"
+
+#: templates/crush_lu/event_detail.html:987
+msgid "Link copied"
+msgstr "Lien copié"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+#, python-format
+msgid "%(spots)s spot left"
+msgid_plural "%(spots)s spots left"
+msgstr[0] "%(spots)s place restante"
+msgstr[1] "%(spots)s places restantes"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid ""
+"Could not copy the link. Long-press or select it from the address bar "
+"instead."
+msgstr ""
+"Impossible de copier le lien. Appuyez longuement dessus ou sélectionnez-le "
+"dans la barre d'adresse."
+
 # UX Wave 3 · WP5 photos-booking
 # UX Wave 3 · WP5 photos-booking
 #. UX Wave 3 · WP5
