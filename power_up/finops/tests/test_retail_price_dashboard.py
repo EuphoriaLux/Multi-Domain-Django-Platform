@@ -607,6 +607,44 @@ def test_reference_free_selections_share_one_index_per_reference(client, regular
 
 
 @pytest.mark.django_db
+def test_filter_vocabulary_refreshes_as_same_day_regions_arrive(client, regular_user):
+    """A product only in a later-synced region must not stay unknown for an hour."""
+    today = timezone.localdate()
+    _sync_region(today, "westeurope", "10.00000000")
+    client.force_login(regular_user)
+    client.get("/finops/prices/")  # Caches the options after one region.
+
+    later = azure_item("10.40000000", "northeurope")
+    later.update(productName="Virtual Machines Esv5 Series")
+    sync_retail_prices(
+        snapshot_date=today,
+        region="northeurope",
+        connector=FakeConnector({"Items": [later], "NextPageLink": None}),
+    )
+    response = client.get("/finops/prices/", {"product": "esv5"})
+
+    assert "Virtual Machines Esv5 Series" in response.context["product_options"]
+    assert [item["region_code"] for item in response.context["region_index"]] == [
+        "northeurope"
+    ]
+
+
+@pytest.mark.django_db
+def test_valid_filters_with_no_offers_are_cached_too(client, regular_user):
+    """A valid but empty combination must not regroup the day on every load."""
+    _sync_region(timezone.localdate(), "westeurope", "10.00000000")
+    client.force_login(regular_user)
+    params = {"price_type": "Reservation", "purchase_model": "on_demand"}
+
+    with CaptureQueriesContext(connection) as queries:
+        for _ in range(3):
+            response = client.get("/finops/prices/", params)
+            assert response.context["region_index"] == []
+
+    assert len(_index_group_by_queries(queries)) == 1
+
+
+@pytest.mark.django_db
 def test_sku_missing_from_the_newest_day_still_matches_exactly(client, regular_user):
     """A retired SKU typed with its stored casing keeps its history."""
     _sync_two_days("0.10000000", "0.12000000")
@@ -643,7 +681,7 @@ def test_option_cache_key_ignores_request_controlled_filters(
         if call.args[0].startswith("finops:prices:options:")
     }
     assert option_keys == {
-        f"finops:prices:options:v2:azure:{timezone.localdate().isoformat()}"
+        f"finops:prices:options:v2:azure:{timezone.localdate().isoformat()}:1"
     }
 
 

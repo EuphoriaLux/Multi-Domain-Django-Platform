@@ -41,11 +41,18 @@ def _latest_day_options(provider, latest_day):
     over its whole history ran for minutes on production and the page never
     rendered. One day holds every current SKU, OS, currency and region.
 
-    The key holds only the provider and that day, both taken from stored rows
-    (no rows, no key), so crafted query strings cannot multiply cache entries.
-    Currency and OS narrow the SKU list in Python instead.
+    The key holds only the provider, that day and how many region syncs have
+    completed for it, all taken from stored rows (no rows, no key), so crafted
+    query strings cannot multiply cache entries. The sync lands one region at
+    a time, so the count refreshes the lists as each region arrives. Currency
+    and OS narrow the SKU list in Python instead.
     """
-    key = f"finops:prices:options:v2:{provider}:{latest_day}"
+    completed_regions = RetailPriceSyncRun.objects.filter(
+        provider=provider,
+        snapshot_date=latest_day,
+        status=RetailPriceSyncRun.Status.COMPLETED,
+    ).count()
+    key = f"finops:prices:options:v2:{provider}:{latest_day}:{completed_regions}"
     options = cache.get(key)
     if options is not None:
         return options
@@ -323,7 +330,9 @@ def retail_price_dashboard(request):
                     if region_days
                     else ([], {})
                 )
-                if result[1]:
+                # Filters were validated above, so an empty result is a real
+                # answer worth keeping: rebuilding it would regroup the day.
+                if region_days:
                     cache.set(key, result, OPTIONS_CACHE_SECONDS)
             return result
 
