@@ -108,6 +108,68 @@ class LoginRateLimitTests(TestCase):
             content,
         )
 
+    def test_login_retries_preserve_the_submitted_identifier(self):
+        """Review finding (P2, crush_lu/urls.py:63): the throttled 429
+        re-render used an unbound ``LoginForm()``, so ``login_form.login``
+        rendered empty even though the user had just typed an email address
+        - forcing a retype after waiting, unlike a normal failed login.
+        """
+        for _ in range(5):
+            self.client.post(
+                "/en/login/",
+                {"login": "nobody@example.com", "password": "wrong"},
+            )
+
+        response = self.client.post(
+            "/en/login/",
+            {"login": "nobody@example.com", "password": "wrong"},
+        )
+
+        self.assertEqual(response.status_code, 429)
+        content = response.content.decode()
+        self.assertIn('value="nobody@example.com"', content)
+        # The password itself must never come back in the rendered HTML as
+        # a value attribute - auth.html's password <input> never sets one.
+        self.assertNotIn('value="wrong"', content)
+
+    def test_login_retries_mark_password_sensitive(self):
+        """Review finding (P2, crush_lu/urls.py:87): this branch returns
+        before allauth's own ``LoginView.dispatch`` (and its
+        ``@sensitive_post_parameters_m``) ever runs, so a crash while
+        rendering the throttled response used to risk an error report with
+        the raw submitted password in it.
+        """
+        for _ in range(5):
+            self.client.post(
+                "/en/login/",
+                {"login": "nobody@example.com", "password": "wrong"},
+            )
+
+        request_holder = {}
+        from crush_lu import urls as crush_urls
+
+        original = crush_urls.UnifiedAuthView.dispatch
+
+        def spy_dispatch(self, request, *args, **kwargs):
+            response = original(self, request, *args, **kwargs)
+            if request.method == "POST":
+                request_holder["request"] = request
+            return response
+
+        from unittest.mock import patch
+
+        with patch.object(crush_urls.UnifiedAuthView, "dispatch", spy_dispatch):
+            response = self.client.post(
+                "/en/login/",
+                {"login": "nobody@example.com", "password": "wrong"},
+            )
+
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(
+            getattr(request_holder["request"], "sensitive_post_parameters", None),
+            ["oldpassword", "password", "password1", "password2"],
+        )
+
 
 @override_settings(
     CACHES={
@@ -178,6 +240,27 @@ class SignupRateLimitTests(TestCase):
         # was never validated, so clean_email() never ran.
         self.assertNotIn("already exists", content)
         self.assertNotIn("already registered", content)
+
+    def test_blocked_attempt_does_not_capture_referral(self):
+        """Review finding (P2, crush_lu/views_account.py:1555):
+        ``capture_referral_from_request()`` used to run before the
+        ``request.limited`` check, so a throttled client posting a valid
+        ``?ref=`` would still trigger its ``get_or_create()`` write on every
+        blocked request, defeating the point of the throttle for this
+        database-writing side effect.
+        """
+        for _ in range(5):
+            self.client.post("/en/signup/?ref=ABC123", {})
+
+        from unittest.mock import patch
+
+        with patch(
+            "crush_lu.views_account.capture_referral_from_request"
+        ) as mock_capture:
+            response = self.client.post("/en/signup/?ref=ABC123", {})
+            mock_capture.assert_not_called()
+
+        self.assertEqual(response.status_code, 429)
 
 
 @override_settings(

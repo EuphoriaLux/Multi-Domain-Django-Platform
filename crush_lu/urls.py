@@ -57,10 +57,28 @@ class UnifiedAuthView(LoginView):
             if not throttle.allow_request(request, self):
                 wait = throttle.wait()
                 logger.warning(f"[RATE-LIMIT] Login rate limit exceeded for IP: {throttle.get_ident(request)}")
+                # UX Wave 3 · WP3 review (P2): this branch returns before
+                # ever reaching super().dispatch(), so allauth's own
+                # @sensitive_post_parameters_m on LoginView.dispatch never
+                # runs here - mark the same fields it would, so a crash
+                # while rendering this response doesn't leak the submitted
+                # password into Django's error report.
+                request.sensitive_post_parameters = [
+                    'oldpassword',
+                    'password',
+                    'password1',
+                    'password2',
+                ]
                 # UX Wave 3 · WP3 (finding 2-04): re-render the same auth.html
                 # the user was on, with an inline translated error, instead of
                 # a bare text/plain page with no branding or way back.
-                login_form = LoginForm()
+                #
+                # UX Wave 3 · WP3 review (P2): bind the form to the submitted
+                # POST data (not LoginForm()) so the user's typed identifier
+                # survives the wait instead of forcing a retype - safe here
+                # because add_rate_limited_error() seeds _errors itself and
+                # never lets Form.errors trigger full_clean().
+                login_form = LoginForm(request.POST)
                 add_rate_limited_error(
                     login_form,
                     _('Too many login attempts. Please try again in %(wait)s.')

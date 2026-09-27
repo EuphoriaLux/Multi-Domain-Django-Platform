@@ -1561,12 +1561,23 @@ def signup(request):
     """
     from allauth.account.forms import LoginForm
 
-    capture_referral_from_request(request)
     signup_form = CrushSignupForm()
     login_form = LoginForm()
     status_code = 200
+    limited = request.method == "POST" and getattr(request, "limited", False)
 
-    if request.method == "POST" and getattr(request, "limited", False):
+    # UX Wave 3 · WP3 review (P2): a throttled POST must not reach
+    # capture_referral_from_request()'s get_or_create() - block=False lets
+    # every request past the limit still enter this view, so a client
+    # cycling fresh sessions with a valid `?ref=` could keep writing
+    # ReferralAttribution rows after its IP was throttled, defeating the
+    # point of the rate limit for this write path. GET requests (the
+    # initial landing with `?ref=`) are never rate-limited, so they still
+    # capture normally.
+    if not limited:
+        capture_referral_from_request(request)
+
+    if limited:
         signup_form = CrushSignupForm(request.POST)
         add_rate_limited_error(
             signup_form,
