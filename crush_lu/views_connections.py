@@ -897,10 +897,16 @@ def respond_connection(request, connection_id, action):
 @crush_login_required
 def my_connections(request):
     """View all connections (sent, received, active)"""
-    # Hide connections whose counterpart is in a block pair with the viewer.
+    # Hide connections whose counterpart is in a block pair with the viewer,
+    # or behind a pending/approved encounter removal — those pairs stay
+    # mutually invisible, as on the attendee list (and the photo gate
+    # refuses their photos).
     from .services.blocking import blocked_user_ids
+    from .services.event_lobby import hidden_encounter_user_ids
 
-    blocked_ids = blocked_user_ids(request.user)
+    blocked_ids = blocked_user_ids(request.user) | hidden_encounter_user_ids(
+        request.user
+    )
 
     # Sent requests
     sent = (
@@ -987,10 +993,14 @@ def connection_detail(request, connection_id):
         raise Http404
 
     # Block guard: once either party blocks the other, the connection is dead.
+    # An encounter removal hides the pair the same way.
     from .services.blocking import is_blocked_pair
+    from .services.event_lobby import hidden_encounter_user_ids
 
     other_user = connection.recipient if is_requester else connection.requester
-    if is_blocked_pair(request.user, other_user):
+    if is_blocked_pair(
+        request.user, other_user
+    ) or other_user.pk in hidden_encounter_user_ids(request.user):
         messages.error(request, _("This connection is no longer available."))
         return redirect("crush_lu:my_connections")
 

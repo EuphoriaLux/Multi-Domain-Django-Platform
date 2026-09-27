@@ -14,7 +14,7 @@
 
     <header class="flex items-center gap-4 mb-6">
         <div class="w-14 h-14 shrink-0 rounded-xl overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
-            {% profile_photo partner.crushprofile 'photo_1' css_class='w-full h-full object-cover' alt_text=partner.first_name %}
+            {% profile_photo partner.crushprofile 'photo_1' css_class='w-full h-full object-cover' alt_text=partner.first_name hide_photo=partner_photo_hidden %}
         </div>
         <div class="min-w-0 flex-1">
             <h1 class="font-display text-2xl font-semibold tracking-tight text-gray-900 dark:text-white truncate">

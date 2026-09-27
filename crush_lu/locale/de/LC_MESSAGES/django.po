@@ -42578,6 +42578,15 @@ msgstr "Du hast die Blockierung von %(name)s aufgehoben."
 msgid "As seen in"
 msgstr "Bekannt aus"
 
+#: templates/crush_lu/partials/_push_check_timed_out.html:5
+msgid "We couldn't check notification support on this device."
+msgstr "Wir konnten die Benachrichtigungsunterstützung auf diesem Gerät nicht prüfen."
+
+#: templates/crush_lu/partials/_push_native_notice.html:10
+msgid "Notifications are managed in the app"
+msgstr "Benachrichtigungen werden in der App verwaltet"
+
+# UX Wave 3 · WP10 match-moment
 # UX Wave 3 · WP10 match-moment
 # UX Wave 3 . WP10 match-moment (findings 5-09, 5-10, 5-13, 5-14, 5-15)
 #: templates/crush_lu/connection_detail.html:343
@@ -42684,10 +42693,12 @@ msgstr ""
 "organisieren."
 
 #: views_connections.py:1029
-msgid "This connection has already moved on — refresh the page to see its current status."
+msgid ""
+"This connection has already moved on — refresh the page to see its current "
+"status."
 msgstr ""
-"Diese Verbindung hat sich bereits weiterentwickelt – lade die Seite neu, "
-"um den aktuellen Status zu sehen."
+"Diese Verbindung hat sich bereits weiterentwickelt – lade die Seite neu, um "
+"den aktuellen Status zu sehen."
 
 #: crush_lu/templates/crush_lu/my_connections.html
 msgid ""
@@ -42698,3 +42709,4 @@ msgstr ""
 "Lerne jemanden kennen, und wenn ihr danach beide Ja sagt, seid ihr "
 "verbunden: manchmal sofort, manchmal über eine Vorstellung durch deinen "
 "Crush Coach."
+

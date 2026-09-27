@@ -30864,7 +30864,7 @@ msgstr "Ajoutez de la variété"
 
 #: templates/crush_lu/partials/pwa_install_banner.html:24
 msgid "Install Crush.lu App"
-msgstr "📲 Installer l'application Crush.lu"
+msgstr "Installer l'application Crush.lu"
 
 #: templates/crush_lu/partials/pwa_install_banner.html:25
 msgid "Quick access & offline features"
@@ -42711,6 +42711,15 @@ msgstr "Vous avez débloqué %(name)s."
 msgid "As seen in"
 msgstr "Vu dans"
 
+#: templates/crush_lu/partials/_push_check_timed_out.html:5
+msgid "We couldn't check notification support on this device."
+msgstr "Nous n'avons pas pu vérifier la prise en charge des notifications sur cet appareil."
+
+#: templates/crush_lu/partials/_push_native_notice.html:10
+msgid "Notifications are managed in the app"
+msgstr "Les notifications sont gérées dans l'application"
+
+# UX Wave 3 · WP10 match-moment
 # UX Wave 3 · WP10 match-moment
 # UX Wave 3 . WP10 match-moment (findings 5-09, 5-10, 5-13, 5-14, 5-15)
 #: templates/crush_lu/connection_detail.html:343
@@ -42820,7 +42829,9 @@ msgstr ""
 "%(name)s."
 
 #: views_connections.py:1029
-msgid "This connection has already moved on — refresh the page to see its current status."
+msgid ""
+"This connection has already moved on — refresh the page to see its current "
+"status."
 msgstr ""
 "Cette connexion a déjà évolué — actualisez la page pour voir son statut "
 "actuel."
@@ -42834,3 +42845,4 @@ msgstr ""
 "Rencontrez quelqu'un, et si vous dites tous les deux oui ensuite, vous êtes "
 "mis en relation : parfois directement, parfois grâce aux présentations de "
 "votre Crush Coach."
+
