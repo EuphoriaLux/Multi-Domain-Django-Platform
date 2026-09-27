@@ -5291,19 +5291,21 @@ document.addEventListener("alpine:init", function () {
                     // page load, not a user navigation — pushState here just
                     // backfills the history stack the wizard would have
                     // built had the user clicked through from step 1).
-                    if (self.currentStep > 1) {
-                        for (var seedStep = 1; seedStep < self.currentStep; seedStep++) {
+                    // The landing entry itself becomes step 1 (replace), so
+                    // one Back past step 1 leaves the wizard. A reload lands
+                    // on an entry that already carries wizardStep: re-seeding
+                    // it would stack a second set of synthetic entries.
+                    var alreadySeeded =
+                        history.state && history.state.wizardStep;
+                    if (self.currentStep > 1 && !alreadySeeded) {
+                        history.replaceState({ wizardStep: 1 }, "", "#step-1");
+                        for (var seedStep = 2; seedStep <= self.currentStep; seedStep++) {
                             history.pushState(
                                 { wizardStep: seedStep },
                                 "",
                                 "#step-" + seedStep,
                             );
                         }
-                        history.pushState(
-                            { wizardStep: self.currentStep },
-                            "",
-                            "#step-" + self.currentStep,
-                        );
                     } else {
                         history.replaceState(
                             { wizardStep: self.currentStep },

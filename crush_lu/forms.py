@@ -258,9 +258,14 @@ class CrushProfileForm(forms.ModelForm):
             self.fields['date_of_birth'].disabled = True
 
     def _set_date_of_birth_bounds(self):
-        from datetime import date, timedelta
+        from datetime import timedelta
 
-        today = date.today()
+        from django.utils import timezone
+
+        # Same clock as clean_date_of_birth() and the step-save endpoint, so
+        # the picker and the server agree on the boundary day in any host
+        # timezone.
+        today = timezone.now().date()
         try:
             max_dob = today.replace(year=today.year - 18)
         except ValueError:

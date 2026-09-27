@@ -251,7 +251,7 @@ class NativeDateOfBirthTests(_SiteMixin, TestCase):
         """Fails on main: the widget carried no min/max attrs at all."""
         form = CrushProfileForm()
         attrs = form.fields["date_of_birth"].widget.attrs
-        today = date.today()
+        today = timezone.now().date()
         self.assertIn("max", attrs)
         self.assertIn("min", attrs)
         max_dob = date.fromisoformat(attrs["max"])
@@ -276,26 +276,22 @@ class NativeDateOfBirthTests(_SiteMixin, TestCase):
         self.assertEqual(age_on(today, one_day_earlier), 100)
 
     def test_bounds_reflect_the_request_year_not_a_frozen_class_default(self):
-        """min/max must be recomputed from `date.today()` on every call,
-        not frozen once at import/class-definition time — otherwise they
-        silently go stale after a year passes. Mocks today's date to two
-        different years and asserts both bounds move by the same delta."""
-
-        class _FixedToday(dt_module.date):
-            _today = dt_module.date(2020, 6, 15)
-
-            @classmethod
-            def today(cls):
-                return cls._today
-
+        """min/max are recomputed from the server clock on every call, not
+        frozen at import time. Moves timezone.now() five years and asserts
+        both bounds move by the same delta."""
         form = CrushProfileForm()
+        utc = dt_module.timezone.utc
 
-        with mock.patch.object(dt_module, "date", _FixedToday):
-            _FixedToday._today = dt_module.date(2020, 6, 15)
+        with mock.patch(
+            "django.utils.timezone.now",
+            return_value=dt_module.datetime(2020, 6, 15, 12, tzinfo=utc),
+        ):
             form._set_date_of_birth_bounds()
             attrs_2020 = dict(form.fields["date_of_birth"].widget.attrs)
-
-            _FixedToday._today = dt_module.date(2025, 6, 15)
+        with mock.patch(
+            "django.utils.timezone.now",
+            return_value=dt_module.datetime(2025, 6, 15, 12, tzinfo=utc),
+        ):
             form._set_date_of_birth_bounds()
             attrs_2025 = dict(form.fields["date_of_birth"].widget.attrs)
 
@@ -309,6 +305,23 @@ class NativeDateOfBirthTests(_SiteMixin, TestCase):
 
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
+class DateOfBirthBoundsClockTests(TestCase):
+    """Codex round 2 on #1068: the picker bounds use the same clock as
+    clean_date_of_birth() (timezone.now().date()), not the host's local
+    date.today(), which can be a different day near midnight."""
+
+    def test_bounds_follow_the_server_validation_clock(self):
+        utc = dt_module.timezone.utc
+        with mock.patch(
+            "django.utils.timezone.now",
+            return_value=dt_module.datetime(2026, 3, 10, 23, 30, tzinfo=utc),
+        ):
+            form = CrushProfileForm()
+        attrs = form.fields["date_of_birth"].widget.attrs
+        self.assertEqual(attrs["max"], "2008-03-10")
+        self.assertEqual(attrs["min"], "1926-03-11")
+
+
 class ReviewStepEditLinksTests(_SiteMixin, TestCase):
     """3-05: per-row Edit controls + an amber no-photo nudge."""
 
@@ -451,6 +464,35 @@ class TestWizardHistoryBackGesture:
         assert "/create-profile" in page.url
         assert page.locator('[data-wizard-step="3"]').is_visible()
         assert page.url.endswith("#step-3")
+
+    def test_resumed_wizard_leaves_after_step_one_in_a_single_back(
+        self, page, live_server_url, photo_step_user
+    ):
+        """Codex round 2 on #1068: the landing entry must become step 1
+        (replaced, not stacked under a synthetic step 1), so Back walks
+        3 -> 2 -> 1 and the next Back leaves the wizard."""
+        page.goto(f"{live_server_url}/accounts/login/")
+        page.wait_for_selector('input[name="login"]', timeout=10000)
+        decline = page.locator('button:has-text("Decline All")')
+        if decline.count() > 0:
+            decline.click()
+        page.fill('input[name="login"]', photo_step_user.email)
+        page.fill('input[name="password"]', "testpass123")
+        page.click('button:has-text("Login")')
+        page.wait_for_load_state("networkidle")
+
+        page.goto(f"{live_server_url}/en/create-profile/")
+        page.wait_for_selector('[data-wizard-step="3"]', timeout=10000)
+
+        for expected in ("2", "1"):
+            page.go_back()
+            page.wait_for_timeout(300)
+            assert page.url.endswith(f"#step-{expected}")
+            assert page.locator(f'[data-wizard-step="{expected}"]').is_visible()
+
+        page.go_back()
+        page.wait_for_load_state("load")
+        assert "/create-profile" not in page.url
 
 
 @pytest.mark.playwright
