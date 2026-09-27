@@ -42630,6 +42630,64 @@ msgid "Use a different address"
 msgstr "Andere Adresse verwenden"
 
 
+# UX Wave 3 · WP5 photos-booking
+# UX Wave 3 · WP5 photos-booking
+#. UX Wave 3 · WP5
+#: templates/crush_lu/book_screening.html
+msgid "Add to calendar (.ics)"
+msgstr "Zum Kalender hinzufügen (.ics)"
+
+#. UX Wave 3 · WP5
+#: templates/crush_lu/book_screening.html
+msgid "Add to Google Calendar"
+msgstr "Zu Google Kalender hinzufügen"
+
+#. UX Wave 3 · WP5
+#: templates/crush_lu/book_screening.html
+msgid "Cancel this booking?"
+msgstr "Diesen Termin stornieren?"
+
+#. UX Wave 3 · WP5
+#: templates/crush_lu/book_screening.html
+msgid "Yes, cancel"
+msgstr "Ja, stornieren"
+
+#. UX Wave 3 · WP5
+#: templates/crush_lu/book_screening.html
+msgid "No, keep it"
+msgstr "Nein, behalten"
+
+#. UX Wave 3 · WP5
+#: templates/crush_lu/book_screening.html
+msgid "Available times"
+msgstr "Verfügbare Zeiten"
+
+#. UX Wave 3 · WP5
+#: templates/crush_lu/book_screening.html
+msgid "More available times"
+msgstr "Weitere verfügbare Zeiten"
+
+#. UX Wave 3 · WP5
+#: crush_lu/views_booking.py
+msgid "Crush.lu screening call with {coach}"
+msgstr "Crush.lu-Vorgespräch mit {coach}"
+
+#. UX Wave 3 · WP5
+#: crush_lu/views_booking.py
+msgid ""
+"Your Crush.lu screening call. Manage or cancel it from the booking link in "
+"your confirmation email."
+msgstr ""
+"Dein Crush.lu-Vorgespräch. Verwalte oder storniere es über den Buchungslink "
+"in deiner Bestätigungs-E-Mail."
+
+#: templates/crush_lu/book_screening.html
+#, python-format
+msgid "Show %(more)s more slot"
+msgid_plural "Show %(more)s more slots"
+msgstr[0] "%(more)s weiteren Termin anzeigen"
+msgstr[1] "%(more)s weitere Termine anzeigen"
+
 # UX Wave 3 · WP4 profile-wizard
 # UX Wave 3 · WP4 profile-wizard
 # UX Wave 3 · WP4

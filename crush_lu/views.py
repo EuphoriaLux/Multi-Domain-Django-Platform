@@ -188,6 +188,7 @@ from .views_booking import (  # noqa: F401
     book_screening,
     confirm_booking,
     cancel_booking,
+    download_booking_ics,
 )
 
 # Voting & presentations
