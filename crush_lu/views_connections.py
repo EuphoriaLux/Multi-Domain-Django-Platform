@@ -1039,8 +1039,26 @@ def connection_detail(request, connection_id):
             # decline — is an open product question (see
             # findings_deferred), not something this fix invents.
             if consent_choice == "not_now":
-                connection.status = "declined"
-                connection.save()
+                # Conditional update, not a blind save: a concurrent request
+                # (another tab, or the coach/other party moving the
+                # connection to `shared` between the status check above and
+                # this write) must never be clobbered by a stale-tab
+                # "not_now". The WHERE clause re-reads status atomically at
+                # write time — if it no longer matches coach_approved, this
+                # updates zero rows and the introduction stands.
+                updated_rows = EventConnection.objects.filter(
+                    pk=connection.pk, status="coach_approved"
+                ).update(status="declined")
+                if not updated_rows:
+                    messages.info(
+                        request,
+                        _(
+                            "This connection has already moved on — refresh the page to see its current status."
+                        ),
+                    )
+                    return redirect(
+                        "crush_lu:connection_detail", connection_id=connection_id
+                    )
                 messages.info(
                     request,
                     _(

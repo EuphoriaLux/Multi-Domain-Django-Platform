@@ -14,6 +14,7 @@ cache.clear() in setUp (SQLite PK-reuse leaks across tests).
 """
 
 from datetime import date, timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -147,6 +148,44 @@ class ConsentStepTests(TestCase):
         self.connection.refresh_from_db()
         self.assertEqual(self.connection.status, "shared")
 
+    def test_not_now_stale_tab_race_does_not_revert_a_shared_connection(self):
+        """Review finding (P2): the view's status check
+        (``connection.status != "coach_approved"``) reads the object it
+        fetched at the top of the request. If another request moves the
+        row from ``coach_approved`` to ``shared`` *after* that read but
+        before this "not now" write, a blind ``.save()`` would still stamp
+        ``declined`` over a connection whose contacts were already
+        exchanged. The fix must re-read status atomically at write time
+        (a conditional ``UPDATE ... WHERE status='coach_approved'``, or an
+        equivalent locked re-read) so a zero-row update is a no-op.
+
+        Simulated here without real concurrency: the same race is forced by
+        having the manager's own ``.filter()`` — the exact call the fix's
+        conditional update makes — move the row to ``shared`` first, right
+        before it runs."""
+        original_filter = EventConnection.objects.filter
+        raced = {"done": False}
+
+        def racing_filter(*args, **kwargs):
+            if not raced["done"]:
+                raced["done"] = True
+                # Another request confirms the introduction between this
+                # view's initial read and its "not now" write.
+                original_filter(pk=self.connection.pk).update(status="shared")
+            return original_filter(*args, **kwargs)
+
+        with patch.object(
+            type(EventConnection.objects), "filter", side_effect=racing_filter
+        ):
+            response = self.client.post(
+                self._detail_url(),
+                {"consent": "not_now"},
+                HTTP_HOST="crush.lu",
+            )
+        self.assertEqual(response.status_code, 302)
+        self.connection.refresh_from_db()
+        self.assertEqual(self.connection.status, "shared")
+
     def test_yes_on_a_shared_connection_is_a_no_op(self):
         self.connection.status = "shared"
         self.connection.requester_consents_to_share = True
@@ -248,6 +287,45 @@ class AcceptCelebratoryCardTests(TestCase):
         self.assertIn("Contacts shared", body)
         self.connection.refresh_from_db()
         self.assertEqual(self.connection.status, "accepted")
+
+    def test_ordinary_connection_accept_does_not_promise_48_hour_sla(self):
+        """Review finding (P2): ``EventConnection.call_by`` is None for
+        every row outside the 'My Crush!' flow (``flow=FLOW_LEGACY`` here,
+        this class's default) — only crush coach leads carry the 48h SLA
+        (spec §6/O8) and its reminder machinery. The accept card must not
+        promise a deadline the app cannot back for an ordinary connection."""
+        response = self.client.post(
+            f"/en/connections/{self.connection.id}/accept/",
+            {},
+            HTTP_HOST="crush.lu",
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode()
+        self.assertNotIn("48 hours", body)
+        self.assertIn("Your Crush Coach will be in touch", body)
+
+    def test_partial_still_promises_48_hours_when_call_by_is_backed(self):
+        """The 48h call promise stays wherever ``EventConnection.call_by``
+        (the reminder machinery's own SLA field) is actually set — i.e. a
+        real crush coach lead. Rendered directly against the partial
+        (rather than through the recipient response endpoint, which closes
+        for crush leads pre-`shared` — see finding 5-lead-privacy in
+        views_connections.py) so this asserts the template's own
+        condition, not an unreachable view state."""
+        from django.template.loader import render_to_string
+
+        self.connection.flow = EventConnection.FLOW_CRUSH
+        self.connection.requested_at = timezone.now()
+        self.connection.status = "coach_approved"
+        self.connection.save()
+        self.assertIsNotNone(self.connection.call_by)
+
+        body = render_to_string(
+            "crush_lu/_connection_response.html",
+            {"connection": self.connection, "action": "accept"},
+        )
+        self.assertIn("48 hours", body)
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")

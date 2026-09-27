@@ -42674,3 +42674,17 @@ msgstr ""
 "Kein Problem – es wurde nichts geteilt, und diese Verbindung ist jetzt "
 "geschlossen."
 
+#: templates/crush_lu/_connection_response.html:21
+#, python-format
+msgid ""
+"Your Crush Coach will be in touch to help arrange your introduction with "
+"%(name)s."
+msgstr ""
+"Dein Crush Coach meldet sich, um eure Vorstellung mit %(name)s zu "
+"organisieren."
+
+#: views_connections.py:1029
+msgid "This connection has already moved on — refresh the page to see its current status."
+msgstr ""
+"Diese Verbindung hat sich bereits weiterentwickelt – lade die Seite neu, "
+"um den aktuellen Status zu sehen."

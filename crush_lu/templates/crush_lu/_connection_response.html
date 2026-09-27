@@ -16,7 +16,11 @@
                 </p>
             {% else %}
                 <p class="text-gray-700 dark:text-gray-200 text-sm mb-3">
-                    {% blocktrans with name=connection.requester.crushprofile.display_name %}Your Crush Coach will call you within 48 hours to help arrange your introduction with {{ name }}.{% endblocktrans %}
+                    {% if connection.call_by %}
+                        {% blocktrans with name=connection.requester.crushprofile.display_name %}Your Crush Coach will call you within 48 hours to help arrange your introduction with {{ name }}.{% endblocktrans %}
+                    {% else %}
+                        {% blocktrans with name=connection.requester.crushprofile.display_name %}Your Crush Coach will be in touch to help arrange your introduction with {{ name }}.{% endblocktrans %}
+                    {% endif %}
                 </p>
                 <ol class="space-y-2 mb-1">
                     <li class="flex items-center gap-2 text-xs font-medium text-pink-700 dark:text-pink-300">
