@@ -97,6 +97,14 @@ CRUSH_LEAD_REMINDERS_ENABLED = _env_bool("CRUSH_LEAD_REMINDERS_ENABLED", False)
 # environment explicitly opts in.
 CAMPAIGN_DISPATCH_ENABLED = _env_bool("CAMPAIGN_DISPATCH_ENABLED", False)
 
+# SumUp Tier-2 refund reconciliation — gate for /api/admin/sumup-reconciliation/,
+# driven hourly by the SumUpReconciliation Azure Function timer. The sweep never
+# issues a refund; it syncs Django to refunds a human already took in the SumUp
+# dashboard or on a terminal. Default OFF so the deploy is dark. NOT slot-sticky:
+# set it on both slots. Contract:
+# ai-memory-hub/policies/sumup-tier2-refund-automation-contract.md
+SUMUP_RECONCILIATION_ENABLED = _env_bool("SUMUP_RECONCILIATION_ENABLED", False)
+
 # Microsoft 365 NDR processing. Default OFF: enabling writes suppressions and
 # requires the app registration to have Mail.Read application permission.
 CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED = _env_bool(
@@ -311,15 +319,21 @@ MIDDLEWARE = [
     "azureproject.csp_middleware.PermissionsPolicyMiddleware",  # Browser feature restrictions
     "django.middleware.gzip.GZipMiddleware",  # Compress dynamic responses (static files served at ASGI level)
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "azureproject.middleware.AuthRateLimitMiddleware",  # Rate limit password reset before CSRF
     "azureproject.middleware.DomainURLRoutingMiddleware",  # Multi-domain routing - MUST be before LocaleMiddleware
     "django.middleware.locale.LocaleMiddleware",
+    # AuthRateLimitMiddleware (UX Wave 3 · WP3, finding 2-04) renders a
+    # branded, translated crush_lu/rate_limited.html on a 429, which needs
+    # request.urlconf (set by DomainURLRoutingMiddleware, for {% url %}) and
+    # an active language (set by LocaleMiddleware, for {% trans %}) - so it
+    # must come after both. It must still come before CsrfViewMiddleware.
+    "azureproject.middleware.AuthRateLimitMiddleware",  # Rate limit password reset before CSRF
     "django.middleware.common.CommonMiddleware",  # MUST be before SafeCurrentSiteMiddleware
     "azureproject.middleware.SafeCurrentSiteMiddleware",  # Safe site detection (auto-creates missing Sites)
     "azureproject.middleware.AdminLanguagePrefixRedirectMiddleware",  # Redirect /fr/admin/ -> /admin/
     # LoginPostDebugMiddleware (azureproject.middleware) is available for local
     # CSRF debugging — insert it here, before CsrfViewMiddleware, when needed.
     "django.middleware.csrf.CsrfViewMiddleware",
+    "azureproject.middleware.CookieConsentFlagSyncMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "crush_lu.middleware.UserActivityMiddleware",  # Track user activity and PWA usage
     "crush_lu.consent_middleware.CrushConsentMiddleware",  # Enforce Crush.lu GDPR consent
@@ -860,6 +874,10 @@ ACCOUNT_SIGNUP_REDIRECT_URL = "/profile/"  # Redirect to profile page after sign
 # Allauth adapters - Multi-domain aware
 SOCIALACCOUNT_ADAPTER = "azureproject.adapters.MultiDomainSocialAccountAdapter"
 ACCOUNT_ADAPTER = "azureproject.adapters.MultiDomainAccountAdapter"
+# Enforces the crush.lu Terms consent server-side on social-signup completion.
+SOCIALACCOUNT_FORMS = {
+    "signup": "azureproject.social_forms.MultiDomainSocialSignupForm"
+}
 
 # Email backend Configuration
 # NOTE: For domain-specific email configuration (crush.lu, vinsdelux.com, etc.),

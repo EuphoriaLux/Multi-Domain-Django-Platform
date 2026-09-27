@@ -69,7 +69,7 @@ def split_interests(value):
 
 @register.inclusion_tag('crush_lu/components/profile_photo.html')
 def profile_photo(profile, photo_field, css_class='', alt_text='Profile photo',
-                  fallback='initials'):
+                  fallback='initials', hide_photo=False):
     """
     Render a profile photo with consistent fallback.
 
@@ -85,11 +85,14 @@ def profile_photo(profile, photo_field, css_class='', alt_text='Profile photo',
         alt_text: Alt text for accessibility
         fallback: 'initials' (default — gradient + initial letter) or 'icon'
                   (neutral user-circle for non-personal placeholders)
+        hide_photo: render the fallback even when a photo exists — for
+                  surfaces where the viewer may no longer load it (see
+                  views_media.can_view_profile_photo), instead of a 403 image
 
     Returns:
         Rendered component
     """
-    photo = getattr(profile, photo_field, None) if profile else None
+    photo = getattr(profile, photo_field, None) if profile and not hide_photo else None
 
     if photo:
         photo_url = reverse('crush_lu:serve_profile_photo', kwargs={

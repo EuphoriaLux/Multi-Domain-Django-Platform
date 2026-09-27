@@ -1,5 +1,5 @@
 {% extends 'crush_lu/crush_connect/_base_connect.html' %}
-{% load i18n crush_media static %}
+{% load i18n crush_media moderation_tags static %}
 {% block extra_js %}{{ block.super }}<script src="{% static 'crush_lu/js/connect-live-chat.js' %}" defer></script>{% endblock %}
 
 {% block title %}{{ partner.first_name|default:_("Chat") }}{% endblock %}
@@ -14,9 +14,9 @@
 
     <header class="flex items-center gap-4 mb-6">
         <div class="w-14 h-14 shrink-0 rounded-xl overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
-            {% profile_photo partner.crushprofile 'photo_1' css_class='w-full h-full object-cover' alt_text=partner.first_name %}
+            {% profile_photo partner.crushprofile 'photo_1' css_class='w-full h-full object-cover' alt_text=partner.first_name hide_photo=partner_photo_hidden %}
         </div>
-        <div class="min-w-0">
+        <div class="min-w-0 flex-1">
             <h1 class="font-display text-2xl font-semibold tracking-tight text-gray-900 dark:text-white truncate">
                 {{ partner.first_name|default:_("A member") }}
             </h1>
@@ -30,6 +30,13 @@
                 {% endif %}
             </p>
         </div>
+        {% if is_open %}
+        {# Report + block, the same menu as every other Connect surface; the plain block uses the chat endpoint so it also closes this chat. #}
+        <div class="ml-auto self-start">
+            {% url 'crush_lu:connect_week_chat_block' chat.pk as chat_block_url %}
+            {% block_report_menu partner source="connect_chat" source_id=chat.pk variant="icon" block_url=chat_block_url %}
+        </div>
+        {% endif %}
     </header>
 
     {# --- Messages -------------------------------------------------------- #}
@@ -151,40 +158,6 @@
             <p class="text-xs text-gray-400 dark:text-gray-500 mb-0">{% trans "No plan was made." %}</p>
         {% endif %}
     </details>
-
-    {# --- Safety: 1-click block ------------------------------------------- #}
-    {% if is_open %}
-    <details class="mt-2 group">
-        <summary class="list-none cursor-pointer text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 select-none">
-            {% trans "Safety options" %}
-        </summary>
-        <div class="mt-2 rounded-xl bg-gray-50 dark:bg-slate-900/40 ring-1 ring-gray-200 dark:ring-slate-700 p-3">
-            <div x-data="connectChatBlockConfirm">
-                <button type="button" x-show="isInitial" @click="showConfirm"
-                        class="text-sm font-medium text-red-600 dark:text-red-400 hover:underline">
-                    {% trans "Block this member" %}
-                </button>
-                <form x-show="isConfirming" x-cloak method="post" action="{% url 'crush_lu:connect_week_chat_block' chat.pk %}" class="space-y-2">
-                    {% csrf_token %}
-                    <p class="text-xs text-gray-600 dark:text-gray-300 mb-0">
-                        {% trans "They won't be able to reach you, and you won't see each other again. This can't be undone." %}
-                    </p>
-                    <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
-                        <input type="checkbox" name="escalate_to_coach" value="1" class="rounded border-gray-300 text-crush-purple">
-                        {% trans "Also let a Crush Coach know" %}
-                    </label>
-                    <textarea name="details" rows="2" maxlength="2000"
-                              placeholder="{% trans 'Anything a coach should know? (optional)' %}"
-                              class="input-crush w-full text-sm"></textarea>
-                    <div class="flex gap-2">
-                        <button type="button" @click="confirmBlock" class="btn-danger btn-sm">{% trans "Yes, block" %}</button>
-                        <button type="button" @click="cancel" class="text-sm font-medium text-gray-600 dark:text-gray-300 hover:underline">{% trans "Cancel" %}</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </details>
-    {% endif %}
 
 </div>
 {% endblock %}

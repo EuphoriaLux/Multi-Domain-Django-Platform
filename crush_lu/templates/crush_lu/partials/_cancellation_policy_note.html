@@ -1,0 +1,20 @@
+{% load i18n %}
+{% comment %}
+One-line member cancellation policy, shared by the cancel page and the SumUp
+checkout so the two never disagree. Mirrors cancellation_outcome() in
+crush_lu/services/credits.py.
+
+Required: policy — cancellation_policy(event).
+{% endcomment %}
+<p class="text-xs text-gray-500 dark:text-gray-400" data-testid="cancellation-policy-note">
+    {% if policy.late %}
+    {% blocktrans trimmed with hours=policy.hours share=policy.share_percent %}
+    The event starts in less than {{ hours }} hours, so cancelling gives no refund, but you get {{ share }}% back as Crush Credit if someone takes your seat and pays before the event.
+    {% endblocktrans %}
+    {% else %}
+    {% blocktrans trimmed with date=policy.deadline|date:"DATE_FORMAT" time=policy.deadline|date:"TIME_FORMAT" share=policy.share_percent %}
+    Cancel before {{ date }} at {{ time }} for full Crush Credit. After that there's no refund, but you get {{ share }}% back as Crush Credit if someone takes your seat and pays before the event.
+    {% endblocktrans %}
+    {% endif %}
+    <a href="{% url 'crush_lu:terms_of_service' %}#tos-events" class="btn-link">{% trans "Read the cancellation policy" %}</a>
+</p>

@@ -7,6 +7,7 @@
 {% block extra_journey_css %}{% endblock %}
 {% endblock %}
 
+{% block theme_lock %} class="dark" data-theme-lock="dark"{% endblock %}
 {% block body_class %}journey-bg{% block journey_body_class %}{% endblock %}{% endblock %}
 
 {% block content %}
@@ -14,6 +15,7 @@
 <div
     x-data="journeyState"
     data-save-url="{% url 'crush_lu:api_save_state' %}"
+    data-journey-id="{{ journey_progress.journey_id|default:'' }}"
     data-initial-time="{{ journey_progress.total_time_seconds }}"
     data-initial-points="{{ journey_progress.total_points }}"
     class="journey-container journey-animate-fade-in"

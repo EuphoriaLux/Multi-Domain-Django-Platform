@@ -1,8 +1,9 @@
 from django.urls import path
 from django.views.generic import RedirectView
 from django.shortcuts import redirect
-from django.http import HttpResponse
+from django.utils.translation import gettext as _
 from allauth.account.views import LoginView, LogoutView
+from allauth.account.forms import LoginForm
 from . import views
 from . import views_pre_screening
 from . import views_crush_connect
@@ -11,6 +12,7 @@ from . import views_connect_chat
 from . import views_moderation
 from .forms import CrushSignupForm
 from .throttling import LoginRateThrottle
+from .rate_limit_utils import add_rate_limited_error, humanize_wait_seconds
 import logging
 
 logger = logging.getLogger(__name__)
@@ -43,18 +45,67 @@ class UnifiedAuthView(LoginView):
         return initial
 
     def dispatch(self, request, *args, **kwargs):
+        # Needed up-front so render_to_response() below (the rate-limit
+        # branch's own template render) has self.request to work with -
+        # normally View.setup()/super().dispatch() would set this for us,
+        # but we need it before we know whether we're even calling super().
+        self.request, self.args, self.kwargs = request, args, kwargs
+
         # Rate limiting for POST requests (login attempts)
         if request.method == 'POST':
             throttle = LoginRateThrottle()
             if not throttle.allow_request(request, self):
                 wait = throttle.wait()
                 logger.warning(f"[RATE-LIMIT] Login rate limit exceeded for IP: {throttle.get_ident(request)}")
-                return HttpResponse(
-                    f'Too many login attempts. Please try again in {int(wait)} seconds.',
-                    status=429,
-                    content_type='text/plain',
-                    headers={'Retry-After': str(int(wait))}
+                # UX Wave 3 · WP3 review (P2): this branch returns before
+                # ever reaching super().dispatch(), so allauth's own
+                # @sensitive_post_parameters_m on LoginView.dispatch never
+                # runs here - mark the same fields it would, so a crash
+                # while rendering this response doesn't leak the submitted
+                # password into Django's error report.
+                request.sensitive_post_parameters = [
+                    'oldpassword',
+                    'password',
+                    'password1',
+                    'password2',
+                ]
+                # UX Wave 3 · WP3 (finding 2-04): re-render the same auth.html
+                # the user was on, with an inline translated error, instead of
+                # a bare text/plain page with no branding or way back.
+                #
+                # UX Wave 3 · WP3 review (P2): bind the form to the submitted
+                # POST data (not LoginForm()) so the user's typed identifier
+                # survives the wait instead of forcing a retype - safe here
+                # because add_rate_limited_error() seeds _errors itself and
+                # never lets Form.errors trigger full_clean().
+                login_form = LoginForm(request.POST)
+                add_rate_limited_error(
+                    login_form,
+                    _('Too many login attempts. Please try again in %(wait)s.')
+                    % {'wait': humanize_wait_seconds(wait)},
                 )
+                # UX Wave 3 · WP3 review (P2): carry the validated `next`
+                # redirect target through the throttled response too, the
+                # same way NextRedirectMixin.get_context_data() would have -
+                # this branch bypasses it by building context by hand, so a
+                # user who was sent here from a protected page and retries
+                # after waiting must not land on the default destination.
+                from allauth.utils import get_request_param
+
+                redirect_field_value = get_request_param(
+                    self.request, self.redirect_field_name
+                )
+                context = {
+                    'signup_form': CrushSignupForm(),
+                    'login_form': login_form,
+                    'mode': 'login',
+                    'redirect_field_name': self.redirect_field_name,
+                    'redirect_field_value': redirect_field_value,
+                }
+                response = self.render_to_response(context)
+                response.status_code = 429
+                response['Retry-After'] = str(int(wait))
+                return response
 
         # Diagnostic logging for 403 debugging
         if request.method == 'POST':
@@ -127,6 +178,24 @@ def _spark_to_crush_connect(request, *args, **kwargs):
     Codex flagged the RedirectView form as P1 on PR #433.
     """
     return redirect("crush_lu:crush_connect_teaser")
+
+
+_legacy_delete_redirect = RedirectView.as_view(
+    pattern_name="crush_lu:delete_crushlu_profile", query_string=True
+)
+
+
+def _legacy_account_delete(request, *args, **kwargs):
+    """Legacy /account/delete/: GET forwards, POST keeps the GDPR contract.
+
+    Pages rendered at this URL (and cached by the service worker) POST
+    deletion_type + confirm_email here. A 302 would make the browser replay
+    it as a GET and drop the form, so POST goes to the GDPR view itself,
+    with its own auth, method and CSRF handling unchanged.
+    """
+    if request.method == "POST":
+        return views.gdpr_data_management(request)
+    return _legacy_delete_redirect(request, *args, **kwargs)
 
 
 urlpatterns = [
@@ -438,7 +507,8 @@ urlpatterns = [
     path('account/link-apple/', views.apple_relay_link_prompt, name='apple_link_prompt'),
 
     # GDPR & Account Deletion
-    path('account/delete/', views.gdpr_data_management, name='delete_account'),  # Legacy URL, points to GDPR dashboard
+    # Legacy URL: GET forwards to the profile deletion page; POST keeps the GDPR form contract.
+    path('account/delete/', _legacy_account_delete, name='delete_account'),
     path('account/delete-profile/', views.delete_crushlu_profile_view, name='delete_crushlu_profile'),  # Default action
     path('account/gdpr/', views.gdpr_data_management, name='gdpr_data_management'),  # Full GDPR options
     path('account/gdpr/export/', views.export_user_data, name='export_user_data'),  # GDPR data export
@@ -697,6 +767,7 @@ urlpatterns = [
     path('journey/gift/success/<str:gift_code>/', views_journey_gift.gift_success, name='gift_success'),
     path('journey/gift/<str:gift_code>/', views_journey_gift.gift_landing, name='gift_landing'),
     path('journey/gift/<str:gift_code>/claim/', views_journey_gift.gift_claim, name='gift_claim'),
+    path('journey/gift/<str:gift_code>/report/', views_journey_gift.gift_report, name='gift_report'),
     path('journey/gifts/', views_journey_gift.gift_list, name='gift_list'),
 
     # Journey API Endpoints (these use {% url %} template tags so can stay in i18n_patterns)
@@ -726,6 +797,9 @@ urlpatterns = [
 
     path('polls/', views.poll_list, name='poll_list'),
     path('polls/<int:poll_id>/', views.poll_detail, name='poll_detail'),
+    path('polls/<int:poll_id>/suggest/', views.poll_suggest, name='poll_suggest'),
+    # Public theme-night ballot: newest active public poll
+    path('themes/', views.theme_board, name='theme_board'),
 
     # ============================================================================
     # ADVENT CALENDAR SYSTEM

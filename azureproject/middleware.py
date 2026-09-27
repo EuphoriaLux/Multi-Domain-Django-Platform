@@ -30,6 +30,62 @@ from .domains import (
 logger = logging.getLogger(__name__)
 
 
+class CookieConsentFlagSyncMiddleware:
+    """Mirror choices made through django-cookie-consent's own forms.
+
+    The banner writes readable per-group flags before its fetch requests.
+    Those requests carry X-Cookie-Consent-Fetch and must not get a late
+    Set-Cookie that can undo a newer choice made in the same tab.
+    """
+
+    PATH_ACTIONS = {"/cookies/accept/": "accept", "/cookies/decline/": "decline"}
+    GROUPS = {"analytics", "marketing"}
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        action = self.PATH_ACTIONS.get(request.path)
+        if (
+            request.method != "POST"
+            or action is None
+            or request.headers.get("X-Cookie-Consent-Fetch")
+            or "cookie_consent" not in response.cookies
+        ):
+            return response
+
+        from cookie_consent.forms import ProcessCookiesForm
+
+        form = ProcessCookiesForm(data=request.POST)
+        if not form.is_valid():
+            return response
+        groups = self.GROUPS.intersection(
+            group.varname for group in form.get_cookie_groups()
+        )
+        if not groups:
+            return response
+
+        from cookie_consent.cache import get_cookie_group
+
+        for name in groups:
+            if action == "decline":
+                value = "decline"
+            else:
+                group = get_cookie_group(name)
+                if group is None:
+                    continue
+                value = f"accept:{group.get_version() or ''}"
+            response.set_cookie(
+                f"cookie_consent_{name}",
+                value,
+                max_age=365 * 24 * 60 * 60,
+                secure=settings.SESSION_COOKIE_SECURE,
+                samesite="Lax",
+            )
+        return response
+
+
 def _safe_cache_set(key, value, timeout=300):
     """
     Safely set a cache value, handling race conditions with DatabaseCache.
@@ -395,7 +451,13 @@ class AuthRateLimitMiddleware:
     def _check_password_reset_limit(self, request):
         """Check rate limit for password reset requests."""
         try:
+            from django.contrib.auth.models import AnonymousUser
+            from django.shortcuts import render
+            from django.urls import set_urlconf
+            from django.utils.translation import gettext as _
+
             from crush_lu.throttling import PasswordResetRateThrottle
+            from crush_lu.rate_limit_utils import humanize_wait_seconds
 
             throttle = PasswordResetRateThrottle()
             if not throttle.allow_request(request, None):
@@ -404,12 +466,57 @@ class AuthRateLimitMiddleware:
                     f"[RATE-LIMIT] Password reset rate limit exceeded for IP: "
                     f"{throttle.get_ident(request)}"
                 )
-                return HttpResponse(
-                    f'Too many password reset requests. Please try again in {int(wait / 60)} minutes.',
-                    status=429,
-                    content_type='text/plain',
-                    headers={'Retry-After': str(int(wait))}
-                )
+                wait_message = humanize_wait_seconds(wait)
+
+                # UX Wave 3 · WP3 review (P1): password reset is mounted via
+                # base_patterns on every domain (see urls_shared.py and each
+                # urls_<domain>.py), not just crush.lu, but
+                # crush_lu/rate_limited.html extends crush_lu/base.html and
+                # its {% url 'crush_lu:...' %} tags only resolve under the
+                # crush urlconf. Rendering it under another host's urlconf
+                # (entreprinder.lu, power-up.lu, arborist.lu, delegations.lu,
+                # portal.powerup.lu, ...) raised NoReverseMatch and turned
+                # this 429 into a 500. Only the crush host gets the branded
+                # page; every other host gets a domain-neutral fallback that
+                # references no app-specific URL names.
+                urlconf = getattr(request, 'urlconf', None)
+                if urlconf == DOMAINS['crush.lu']['urlconf']:
+                    # UX Wave 3 · WP3 (finding 2-04): branded, translated
+                    # page instead of a bare English text/plain response -
+                    # there's no form here to re-render inline, unlike
+                    # login/signup.
+                    #
+                    # This middleware runs before AuthenticationMiddleware
+                    # (it must stay ahead of CsrfViewMiddleware), so
+                    # request.user doesn't exist yet and the
+                    # crush_user_context processor would crash on it. A
+                    # password-reset request is always anonymous in
+                    # practice; stand in the same object
+                    # AuthenticationMiddleware would eventually set.
+                    if not hasattr(request, 'user'):
+                        request.user = AnonymousUser()
+                    # Short-circuiting here means the handler's own
+                    # resolve_request() (which normally does this) never
+                    # runs, so {% url %} in the template would resolve
+                    # against ROOT_URLCONF instead of the per-domain
+                    # urlconf DomainURLRoutingMiddleware already set on the
+                    # request.
+                    set_urlconf(urlconf)
+                    response = render(
+                        request,
+                        'crush_lu/rate_limited.html',
+                        {'wait_message': wait_message},
+                        status=429,
+                    )
+                else:
+                    message = _(
+                        'Too many attempts. Please try again in %(wait)s.'
+                    ) % {'wait': wait_message}
+                    response = HttpResponse(
+                        message, content_type='text/plain; charset=utf-8', status=429
+                    )
+                response['Retry-After'] = str(int(wait))
+                return response
         except ImportError:
             # crush_lu not available, skip rate limiting
             pass

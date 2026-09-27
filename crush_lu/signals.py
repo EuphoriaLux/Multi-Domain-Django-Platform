@@ -24,7 +24,11 @@ from django.db.models.signals import (
 )
 from django.dispatch import receiver
 from django.utils import timezone
-from allauth.account.signals import email_confirmation_sent, email_confirmed
+from allauth.account.signals import (
+    email_confirmation_sent,
+    email_confirmed,
+    user_signed_up,
+)
 from allauth.socialaccount.models import SocialAccount
 from allauth.socialaccount.signals import (
     pre_social_login,
@@ -3827,6 +3831,19 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
                 # canceller is not. A late cancellation records the candidate
                 # resale on the promoted row, and the share is issued only
                 # after that replacement's payment completes.
+                #
+                # NOT true when reconcile_sumup_payments set this marker: the
+                # cash already went back to the member outside Django, so
+                # there is no future capture for a resale claim to wait on —
+                # attaching one would name a beneficiary a claim that can
+                # never settle and can later outrank their own paid-seat
+                # claim. Passing None skips it here; a later newcomer taking
+                # the same freed seat directly still goes through
+                # _attach_unclaimed_resale_claim's own scan of every
+                # cancelled row on the event, which is why
+                # views_events._resale_claim_from also has to read this off
+                # the database (a REFUNDED source payment), not just this
+                # in-memory marker.
                 promoted = None
                 if (
                     not locked_event.is_cancelled
@@ -3835,7 +3852,11 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
                     promoted = _promote_from_waitlist(
                         locked_event,
                         cancelled_user,
-                        resale_source_registration=cancelled,
+                        resale_source_registration=(
+                            None
+                            if getattr(instance, "_external_cash_refund", False)
+                            else cancelled
+                        ),
                     )
         except Exception:
             logger.exception(
@@ -3850,6 +3871,9 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
                 cancelled,
                 credits,
                 awaiting_resale=awaiting_resale,
+                # Set by reconcile_sumup_payments when the seat was cancelled
+                # because its payment was refunded outside Django.
+                cash_refunded=getattr(instance, "_external_cash_refund", False),
             )
 
         if not promoted:
@@ -4678,6 +4702,71 @@ def stash_confirmed_email_for_login_prefill(sender, request, email_address, **kw
     messages.success(
         request,
         _("Email verified — please sign in to continue."),
+    )
+
+
+@receiver(user_signed_up)
+def record_interactive_social_signup_consent(
+    sender, request, user, sociallogin=None, **kwargs
+):
+    """Persist the Terms/Privacy checkbox from the manual social-signup
+    completion page (crush_lu/templates/socialaccount/signup_crush.html).
+
+    That page only renders when auto-signup couldn't complete the social
+    login by itself (the provider gave no usable email, or it conflicts
+    with an existing account) -- see azureproject/adapters.py
+    is_auto_signup_allowed / process_auto_signup. The pre_social_login
+    handlers above already stash an *implicit* crushlu_consent=True for
+    every new social signup the moment the OAuth callback lands, before
+    it's known whether that completion form will be needed at all; that
+    implicit value is what create_user_data_consent() writes onto
+    UserDataConsent at User-creation time. Once the member has actually
+    submitted the interactive form, overwrite that implicit default with
+    what they really checked.
+
+    Detected by the request having actually gone through
+    ``socialaccount_signup`` (the only route ``signup_crush.html`` posts
+    to) rather than by the checkbox's presence in POST: an unticked
+    checkbox never appears in POST data at all, so keying off "is the
+    field present" could only ever record True and would silently drop a
+    real "no" answer back to the implicit default.
+    """
+    if sociallogin is None or request is None:
+        return
+    if not _is_crush_domain(request):
+        return
+    if request.method != "POST":
+        return
+    url_name = getattr(getattr(request, "resolver_match", None), "url_name", None)
+    if url_name != "socialaccount_signup":
+        return
+
+    from crush_lu.models.profiles import UserDataConsent
+    from crush_lu.oauth_statekit import get_client_ip
+
+    from django import forms
+
+    # Normalise exactly as the form's required BooleanField did when it
+    # accepted the submission (MultiDomainSocialSignupForm), so any value it
+    # treated as ticked is stored as ticked.
+    consent_given = forms.BooleanField(required=False).to_python(
+        request.POST.get("crushlu_consent")
+    )
+    consent, _created = UserDataConsent.objects.get_or_create(user=user)
+    consent.crushlu_consent_given = consent_given
+    consent.crushlu_consent_date = timezone.now()
+    consent.crushlu_consent_ip = get_client_ip(request)
+    consent.save(
+        update_fields=[
+            "crushlu_consent_given",
+            "crushlu_consent_date",
+            "crushlu_consent_ip",
+        ]
+    )
+    logger.info(
+        "Recorded interactive social-signup consent for user %s: %s",
+        user.id,
+        consent_given,
     )
 
 

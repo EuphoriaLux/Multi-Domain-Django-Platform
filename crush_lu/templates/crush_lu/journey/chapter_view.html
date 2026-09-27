@@ -8,7 +8,7 @@
 {% block journey_content %}
 <!-- Back to Map -->
 <nav class="text-center mb-6" aria-label="{% trans 'Navigation' %}">
-    <a href="{% url 'crush_lu:journey_map' %}" class="journey-nav-btn">
+    <a href="{% if journey_progress.journey.journey_type == 'custom' %}{% url 'crush_lu:journey_selector' %}{% else %}{% url 'crush_lu:journey_map' %}{% endif %}" class="journey-nav-btn">
         {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
         {% trans "Back to Journey Map" %}
     </a>
@@ -92,11 +92,11 @@
         {{ chapter.completion_message|linebreaks }}
     </div>
 
-    <!-- Chapter 6 Final Response (Special Handling) -->
-    {% if chapter.chapter_number == 6 and not journey_progress.final_response %}
+    {# Final Response on the journey's last chapter: total_chapters is 6 for Wonderland and the configured count for a custom journey. The final-response API refuses an answer until that chapter is completed. #}
+    {% if chapter.chapter_number == journey_progress.journey.total_chapters and not journey_progress.final_response %}
     <div id="finalResponseSection" class="mt-10"
          x-data="finalResponse"
-         data-submit-url="{% url 'crush_lu:api_record_final_response' %}"
+         data-submit-url="{% url 'crush_lu:api_record_final_response' %}{{ journey_query }}"
          data-i18n-submitting="{% trans 'Submitting your response...' %}"
          data-i18n-success="{% trans 'Thank you for your response!' %}"
          data-i18n-error="{% trans 'An error occurred. Please try again.' %}"
@@ -122,7 +122,7 @@
             <div x-show="showStatus" x-bind:class="statusClass" x-text="statusMessage" class="mt-5 text-lg" role="status" aria-live="polite"></div>
         </div>
     </div>
-    {% elif chapter.chapter_number == 6 and journey_progress.final_response %}
+    {% elif chapter.chapter_number == journey_progress.journey.total_chapters and journey_progress.final_response %}
     <div class="mt-8 p-8 bg-crush-success/10 border-2 border-crush-success/30 rounded-2xl">
         <h3 class="text-xl font-bold mb-4">&#128150; {% trans "Your Response" %}</h3>
         <p class="text-lg">
@@ -169,7 +169,7 @@
 <!-- Navigation -->
 <nav class="flex flex-col md:flex-row justify-between gap-4 journey-container-narrow mx-auto my-10" aria-label="{% trans 'Chapter navigation' %}">
     {% if chapter.chapter_number > 1 %}
-        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number|add:"-1" %}" class="journey-nav-btn">
+        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number|add:"-1" %}{{ journey_query }}" class="journey-nav-btn">
             {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
             {% trans "Previous Chapter" %}
         </a>
@@ -178,12 +178,12 @@
     {% endif %}
 
     {% if is_completed and chapter.chapter_number < journey_progress.journey.total_chapters %}
-        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number|add:"1" %}" class="journey-nav-btn">
+        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number|add:"1" %}{{ journey_query }}" class="journey-nav-btn">
             {% trans "Next Chapter" %}
             {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
         </a>
     {% elif is_completed %}
-        <a href="{% url 'crush_lu:journey_map' %}" class="journey-nav-btn">
+        <a href="{% if journey_progress.journey.journey_type == 'custom' %}{% url 'crush_lu:journey_selector' %}{% else %}{% url 'crush_lu:journey_map' %}{% endif %}" class="journey-nav-btn">
             {% include "shared/icons/map.html" with class="w-5 h-5" %}
             {% trans "Return to Map" %}
         </a>

@@ -1927,39 +1927,15 @@ msgstr ""
 msgid "Get started"
 msgstr "Commencer"
 
-#: context_processors.py:56
-msgid "Complete your profile"
-msgstr "Complétez votre profil"
-
 #: context_processors.py:57
 #: templates/crush_lu/partials/_verification_journey.html:139
 #: templates/crush_lu/profile_submitted.html:179
 msgid "Verify your identity"
 msgstr "Vérifiez votre identité"
 
-#: context_processors.py:58
-msgid "Profile verified"
-msgstr "Profil vérifié"
-
 #: context_processors.py:59 templates/crush_lu/base.html:630
 msgid "Profile rejected"
 msgstr "Profil rejeté"
-
-#: context_processors.py:62
-msgid "Tell us about you"
-msgstr "Parlez-nous de vous"
-
-#: context_processors.py:63 context_processors.py:64
-msgid "Add photos"
-msgstr "Ajouter des photos"
-
-#: context_processors.py:65
-msgid "Review & submit"
-msgstr "Vérifier et soumettre"
-
-#: context_processors.py:66
-msgid "Under review"
-msgstr "En cours de relecture"
 
 #: decorators.py:116 decorators.py:121
 msgid "Too many attempts. Please try again later."
@@ -2621,10 +2597,6 @@ msgstr "Optionnel : son@email.com"
 #: forms.py:1163
 msgid "Recipient Email (Optional)"
 msgstr "Email du destinataire (Optionnel)"
-
-#: forms.py:1164
-msgid "We can send them a notification when you create the gift."
-msgstr "Nous pouvons lui envoyer une notification quand vous créez le cadeau."
 
 #: forms.py:1174
 msgid "Photo Puzzle Image"
@@ -13595,17 +13567,6 @@ msgstr ""
 "luxembourgeoise avec sélection par coach. Présentée dans Virgule.lu et "
 "LuxTimes. Fondée par Tom Sawyer et Wesley Hourdequin."
 
-#: templates/crush_lu/about.html:9
-msgid ""
-"About Crush.lu: Founded by Tom Sawyer and Wesley Hourdequin, featured in "
-"Virgule.lu and LuxTimes. Luxembourg's privacy-first dating platform with "
-"coach-verified profiles and real events."
-msgstr ""
-"À propos de Crush.lu : fondée par Tom Sawyer et Wesley Hourdequin, présentée"
-" dans Virgule.lu et LuxTimes. La plateforme de rencontres luxembourgeoise "
-"axée sur la confidentialité avec profils vérifiés par coach et événements "
-"réels."
-
 #: templates/crush_lu/about.html:10
 msgid ""
 "about crush.lu, Tom Sawyer crush.lu, Wesley Hourdequin, crush.lu founders, "
@@ -13695,16 +13656,6 @@ msgstr ""
 "Luxembourg. Dans un monde de swipe infini et de matchs superficiels, "
 "Crush.lu adopte une approche différente. Nous croyons que les vraies "
 "relations commencent par de vraies conversations, face à face."
-
-#: templates/crush_lu/about.html:149
-msgid ""
-"Every profile is personally verified. Every event is thoughtfully organized."
-" Every connection is meaningful. That's not an algorithm's promise - it's "
-"our commitment."
-msgstr ""
-"Chaque profil est vérifié personnellement. Chaque événement est organisé "
-"avec soin. Chaque connexion est significative. Ce n'est pas la promesse d'un"
-" algorithme - c'est notre engagement."
 
 #: templates/crush_lu/about.html:154
 msgid ""
@@ -13832,10 +13783,6 @@ msgstr ""
 msgid "Crush.lu in Numbers"
 msgstr "Crush.lu en chiffres"
 
-#: templates/crush_lu/about.html:253
-msgid "Verified Members"
-msgstr "Membres vérifiés"
-
 #: templates/crush_lu/about.html:257 templates/crush_lu/how_it_works.html:104
 msgid "Ways to Verify"
 msgstr "Façons de se vérifier"
@@ -13870,11 +13817,6 @@ msgstr ""
 msgid "Or instant verification with LuxID, Luxembourg's official login"
 msgstr ""
 "Ou une vérification instantanée avec LuxID, le login officiel au Luxembourg"
-
-#: templates/crush_lu/about.html:284
-msgid "Every member verified before they join — real people only"
-msgstr ""
-"Chaque membre est vérifié avant de rejoindre — que de vraies personnes"
 
 #: templates/crush_lu/about.html:285
 msgid "No bots, no catfishing, no fake accounts"
@@ -13940,14 +13882,6 @@ msgstr ""
 #: templates/crush_lu/home.html:113
 msgid "Privacy First"
 msgstr "Confidentialité d'abord"
-
-#: templates/crush_lu/about.html:325
-msgid ""
-"In a small country, discretion matters. Control your visibility, blur your "
-"photos, and choose exactly what you share."
-msgstr ""
-"Dans un petit pays, la discrétion compte. Contrôlez votre visibilité, "
-"floutez vos photos et choisissez exactement ce que vous partagez."
 
 #: templates/crush_lu/about.html:331
 msgid "Multicultural"
@@ -14682,15 +14616,6 @@ msgstr "Zone dangereuse"
 msgid "Delete Crush.lu Profile"
 msgstr "Supprimer le profil Crush.lu"
 
-#: templates/crush_lu/account_settings.html:1001
-#: templates/crush_lu/partials/edit_account_danger.html:35
-msgid ""
-"Permanently delete your dating profile and photos. Your PowerUp account will"
-" remain active."
-msgstr ""
-"Supprimer définitivement votre profil de rencontre et vos photos. Votre "
-"compte PowerUp restera actif."
-
 #: templates/crush_lu/account_settings.html:1002
 #: templates/crush_lu/gdpr_data_management.html:69
 #: templates/crush_lu/partials/edit_account_danger.html:36
@@ -14705,15 +14630,6 @@ msgstr ""
 #: templates/crush_lu/partials/edit_account_danger.html:45
 msgid "Privacy & Data Management"
 msgstr "Confidentialité & Gestion des données"
-
-#: templates/crush_lu/account_settings.html:1013
-#: templates/crush_lu/partials/edit_account_danger.html:47
-msgid ""
-"View your consent status, download your data, or delete your entire PowerUp "
-"account (all platforms)."
-msgstr ""
-"Consultez votre statut de consentement, téléchargez vos données ou supprimez"
-" votre compte PowerUp (toutes les plateformes)."
 
 #: templates/crush_lu/account_settings.html:1016
 #: templates/crush_lu/gdpr_data_management.html:8
@@ -15515,13 +15431,6 @@ msgstr "Mentions légales"
 msgid "Data Deletion"
 msgstr "Suppression des données"
 
-#: templates/crush_lu/base.html:1289
-#: templates/crush_lu/partials/edit_about_crushlu.html:123
-msgid "Your privacy matters. All profiles are reviewed by our Crush Coaches."
-msgstr ""
-"Votre vie privée compte. Tous les profils sont examinés par nos Crush "
-"Coaches."
-
 #: templates/crush_lu/base.html:1326
 msgid "&copy; 2026 Crush.lu - Made with 💕 in Luxembourg"
 msgstr "&copy; 2026 Crush.lu - Fait avec 💕 au Luxembourg"
@@ -15912,7 +15821,7 @@ msgstr "(non terminée)"
 #: templates/crush_lu/cache/finish.html:99
 #: templates/crush_lu/event_feedback.html:12
 msgid "Back to event"
-msgstr "Retour à la connexion"
+msgstr "Retour à l’événement"
 
 #: templates/crush_lu/cache/lobby.html:4
 #: templates/crush_lu/cache/lobby.html:14 templates/crush_lu/cache/play.html:4
@@ -21272,17 +21181,6 @@ msgstr ""
 "coach personnel choisit un match par semaine, plus un Drop quotidien de "
 "nouveaux visages — s'ouvre d'abord à un petit groupe."
 
-#: templates/crush_lu/crush_connect/catalogue_status.html:141
-#| msgid ""
-#| "Your full name and exact age are never shown. Photos stay blurred until you "
-#| "both Spark. Leave Crush Connect anytime from settings."
-msgid ""
-"Your full name and exact age are never shown. Leave Crush Connect anytime "
-"from settings."
-msgstr ""
-"Votre nom complet et votre âge exact ne sont jamais affichés. Vous pouvez "
-"quitter Crush Connect à tout moment dans les paramètres."
-
 #: templates/crush_lu/crush_connect/coach_member_detail.html:4
 msgid "Curate a match — Crush Connect"
 msgstr "Sélectionner un match — Crush Connect"
@@ -23225,25 +23123,9 @@ msgid ""
 "Prevents you from ever creating a new Crush.lu profile with this account"
 msgstr "Vous empêche de créer un nouveau profil Crush.lu avec ce compte"
 
-#: templates/crush_lu/delete_crushlu_profile_confirm.html:24
-msgid ""
-"Your PowerUp account will remain active, and you can continue using other "
-"platforms."
-msgstr ""
-"Votre compte PowerUp restera actif et vous pourrez continuer à utiliser les "
-"autres plateformes."
-
 #: templates/crush_lu/delete_crushlu_profile_confirm.html:30
 msgid "This deletion is permanent and cannot be undone."
 msgstr "Cette suppression est définitive et ne peut pas être annulée."
-
-#: templates/crush_lu/delete_crushlu_profile_confirm.html:38
-msgid "Confirm your email address to proceed:"
-msgstr "Confirmez votre adresse e-mail pour continuer :"
-
-#: templates/crush_lu/delete_crushlu_profile_confirm.html:48
-msgid "Enter your email address:"
-msgstr "Entrez votre adresse e-mail :"
 
 #: templates/crush_lu/delete_crushlu_profile_confirm.html:56
 msgid ""
@@ -23256,12 +23138,6 @@ msgstr ""
 #: templates/crush_lu/delete_crushlu_profile_confirm.html:58
 msgid "Delete My Crush.lu Profile"
 msgstr "Supprimer mon profil Crush.lu"
-
-#: templates/crush_lu/delete_crushlu_profile_confirm.html:73
-msgid "To delete your entire PowerUp account (all platforms), visit the"
-msgstr ""
-"Pour supprimer votre compte PowerUp complet (toutes les plateformes), "
-"visitez la"
 
 #: templates/crush_lu/delete_crushlu_profile_confirm.html:75
 msgid "GDPR Data Management page"
@@ -26070,10 +25946,6 @@ msgstr "Annulation..."
 msgid "Yes, Cancel Registration"
 msgstr "Oui, annuler l'inscription"
 
-#: templates/crush_lu/event_cancel.html:33
-msgid "No, Keep Registration"
-msgstr "Non, garder l'inscription"
-
 #: templates/crush_lu/event_detail.html:40
 msgid "Back to Events"
 msgstr "Retour aux événements"
@@ -27377,14 +27249,6 @@ msgstr "Gestion des données"
 msgid "Your Consent Status"
 msgstr "Votre statut de consentement"
 
-#: templates/crush_lu/gdpr_data_management.html:18
-msgid "PowerUp Account"
-msgstr "Compte PowerUp"
-
-#: templates/crush_lu/gdpr_data_management.html:19
-msgid "Identity layer (login, email, OAuth)"
-msgstr "Couche d'identité (connexion, email, OAuth)"
-
 #: templates/crush_lu/gdpr_data_management.html:29
 #: templates/crush_lu/gdpr_data_management.html:48
 msgid "Not given"
@@ -27407,24 +27271,11 @@ msgstr "Suppression du compte"
 msgid "Option 1: Delete Crush.lu Profile Only"
 msgstr "Option 1 : Supprimer uniquement le profil Crush.lu"
 
-#: templates/crush_lu/gdpr_data_management.html:68
-msgid ""
-"Removes your dating profile, photos, and event history. Your PowerUp account"
-" remains active for other platforms."
-msgstr ""
-"Supprime votre profil de rencontre, vos photos et votre historique "
-"d'événements. Votre compte PowerUp reste actif pour les autres plateformes."
-
 #: templates/crush_lu/gdpr_data_management.html:72
 msgid "Are you sure? This cannot be undone and you cannot rejoin Crush.lu."
 msgstr ""
 "Êtes-vous sûr ? Cette action est irréversible et vous ne pourrez pas "
 "rejoindre Crush.lu."
-
-#: templates/crush_lu/gdpr_data_management.html:76
-#: templates/crush_lu/gdpr_data_management.html:106
-msgid "Confirm your email to proceed:"
-msgstr "Confirmez votre email pour continuer :"
 
 #: templates/crush_lu/gdpr_data_management.html:80
 msgid "Delete Crush.lu Profile Only"
@@ -27433,30 +27284,6 @@ msgstr "Supprimer uniquement le profil Crush.lu"
 #: templates/crush_lu/gdpr_data_management.html:88
 msgid "You do not have an active Crush.lu profile."
 msgstr "Vous n'avez pas de profil Crush.lu actif."
-
-#: templates/crush_lu/gdpr_data_management.html:96
-msgid "Option 2: Delete Entire PowerUp Account"
-msgstr "Option 2 : Supprimer tout le compte PowerUp"
-
-#: templates/crush_lu/gdpr_data_management.html:99
-msgid ""
-"Permanently deletes your account from ALL platforms (Crush.lu, VinsDelux, "
-"Entreprinder, etc.). This cannot be undone."
-msgstr ""
-"Supprime définitivement votre compte de TOUTES les plateformes (Crush.lu, "
-"VinsDelux, Entreprinder, etc.). Cette action est irréversible."
-
-#: templates/crush_lu/gdpr_data_management.html:102
-msgid ""
-"This will delete ALL your data across ALL platforms. Are you absolutely "
-"sure?"
-msgstr ""
-"Cela supprimera TOUTES vos données sur TOUTES les plateformes. Êtes-vous "
-"absolument sûr ?"
-
-#: templates/crush_lu/gdpr_data_management.html:110
-msgid "Delete Entire Account (All Platforms)"
-msgstr "Supprimer le compte complet (toutes les plateformes)"
 
 #: templates/crush_lu/gdpr_data_management.html:121
 msgid "Download Your Data"
@@ -27781,10 +27608,6 @@ msgstr ""
 msgid "Simple Steps"
 msgstr "Étapes simples"
 
-#: templates/crush_lu/how_it_works.html:108
-msgid "Verified Profiles"
-msgstr "Profils vérifiés"
-
 #: templates/crush_lu/how_it_works.html:122
 msgid ""
 "Share who you are, what you love, and what you're looking for. Add photos "
@@ -27830,18 +27653,6 @@ msgstr "Contrôlez les informations que vous partagez"
 #: templates/crush_lu/how_it_works.html:187
 msgid "Show full name or just first name"
 msgstr "Montrez votre nom complet ou juste votre prénom"
-
-#: templates/crush_lu/how_it_works.html:188
-msgid "Blur photos until mutual interest"
-msgstr "Floutez les photos jusqu'à un intérêt mutuel"
-
-#: templates/crush_lu/how_it_works.html:189
-msgid "No public profiles browsing"
-msgstr "Pas de navigation dans les profils publics"
-
-#: templates/crush_lu/how_it_works.html:190
-msgid "Event-based connections only"
-msgstr "Connexions basées sur les événements uniquement"
 
 #: templates/crush_lu/how_it_works.html:196
 msgid "Community Standards"
@@ -30721,10 +30532,6 @@ msgstr ""
 "partez, vous pourrez alors commencer à rencontrer celui ou celle qui "
 "deviendra votre Crush."
 
-#: templates/crush_lu/partials/_verification_options.html:95
-msgid "4 weeks, a new hand-picked match every week"
-msgstr "4 semaines, 1 nouveau match sélectionné toutes les semaines"
-
 #: templates/crush_lu/partials/_verification_options.html:97
 msgid ""
 "Thanks to LuxID, join Crush Connect in a few clicks. A Crush Coach will "
@@ -31033,7 +30840,7 @@ msgstr "Ajoutez de la variété"
 
 #: templates/crush_lu/partials/pwa_install_banner.html:24
 msgid "Install Crush.lu App"
-msgstr "📲 Installer l'application Crush.lu"
+msgstr "Installer l'application Crush.lu"
 
 #: templates/crush_lu/partials/pwa_install_banner.html:25
 msgid "Quick access & offline features"
@@ -33046,18 +32853,6 @@ msgstr "Consulte nos conditions d'utilisation"
 msgid "Profile Submitted - Crush.lu"
 msgstr "Profil soumis"
 
-#: templates/crush_lu/profile_submitted.html:35
-msgid "Your profile is ready — now get verified"
-msgstr "Votre profil est prêt — vérifiez-vous maintenant"
-
-#: templates/crush_lu/profile_submitted.html:36
-msgid ""
-"One last step to activate your Crush.lu profile and start meeting real "
-"people."
-msgstr ""
-"Une dernière étape pour activer votre profil Crush.lu et rencontrer de "
-"vraies personnes."
-
 #: templates/crush_lu/profile_submitted.html:44
 msgid "LuxID connected"
 msgstr "LuxID connecté"
@@ -33360,12 +33155,6 @@ msgstr "Redirection vers votre tableau de bord dans"
 #: templates/crush_lu/profile_submitted.html:679
 msgid "seconds…"
 msgstr "secondes"
-
-#: templates/crush_lu/profile_submitted.html:691
-msgid "Your profile needs some updates before it can be approved."
-msgstr ""
-"Votre profil nécessite quelques modifications avant de pouvoir être "
-"approuvé."
 
 #: templates/crush_lu/profile_submitted.html:721
 msgid ""
@@ -36855,16 +36644,6 @@ msgstr ""
 "Une erreur s'est produite lors de la suppression de votre profil. Merci de "
 "réessayer."
 
-#: views_account.py:995
-msgid ""
-"Your Crush.lu profile has been deleted. Your PowerUp account remains active."
-msgstr ""
-"Votre profil Crush.lu a été supprimé. Votre compte PowerUp reste actif."
-
-#: views_account.py:1007
-msgid "Your account has been completely deleted from all platforms."
-msgstr "Votre compte a été entièrement supprimé de toutes les plateformes."
-
 #: views_account.py:1041
 msgid "You have already given consent."
 msgstr "Vous avez déjà donné votre consentement."
@@ -38304,12 +38083,6 @@ msgid ""
 "You've blocked this member. They won't be able to reach you, and you won't "
 "see each other again."
 msgstr ""
-
-#: views_moderation.py:99
-#, fuzzy
-#| msgid "Member since"
-msgid "Member unblocked."
-msgstr "Membre depuis"
 
 #: views_moderation.py:114
 #, fuzzy
@@ -41536,20 +41309,11 @@ msgstr "Toutes les conversations"
 msgid "Already confirmed — thanks!"
 msgstr "Déjà confirmé, merci !"
 
-msgid "Also let a Crush Coach know"
-msgstr "Informer également un coach Crush"
-
 msgid "Answer questions"
 msgstr "Répondre aux questions"
 
 msgid "Answer saved. Continue with your next available card."
 msgstr "Réponse enregistrée. Passez à la prochaine carte disponible."
-
-msgid "Anything a coach should know? (optional)"
-msgstr "Une information à transmettre au coach ? (facultatif)"
-
-msgid "Block this member"
-msgstr "Bloquer ce membre"
 
 msgid ""
 "Blocked. They won't be able to reach you, and you won't see each other "
@@ -41716,9 +41480,6 @@ msgstr "Bonjour, %(name)s"
 
 msgid "How Connect works"
 msgstr "Comment fonctionne Connect"
-
-msgid "I would like to get to know you."
-msgstr "J'aimerais faire votre connaissance."
 
 msgid "I'm interested"
 msgstr "Cette personne m'intéresse"
@@ -41898,13 +41659,6 @@ msgstr "La période de bilan de cette semaine est terminée."
 
 msgid "They weren't able to connect right now."
 msgstr "Cette personne n'a pas pu donner suite."
-
-msgid ""
-"They won't be able to reach you, and you won't see each other again. This "
-"can't be undone."
-msgstr ""
-"Vous ne pourrez plus vous contacter ni apparaître l'un pour l'autre. Cette "
-"action est irréversible."
 
 msgid "This card is no longer open."
 msgstr "Cette carte n'est plus disponible."
@@ -42111,14 +41865,6 @@ msgstr "Votre intérêt est enregistré"
 
 msgid "Your interest is saved. View your introduction."
 msgstr "Votre intérêt est enregistré. Consultez votre présentation."
-
-msgid ""
-"Your photo sharing is off, so you're not shown to anyone yet. Turn it back "
-"on to appear in eligible discovery and private coach curation."
-msgstr ""
-"Le partage de photo est désactivé : personne ne voit votre carte. Réactivez-"
-"le pour apparaître dans les découvertes autorisées et la sélection privée "
-"des coachs."
 
 msgid "Your private answer"
 msgstr "Votre réponse privée"
@@ -42371,6 +42117,77 @@ msgstr ""
 "Après votre dernier jour, vous avez 24 heures pour revoir tout le monde — "
 "dont une personne qui, selon nous, vous correspond particulièrement bien"
 
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid ""
+"Your payment for this event has been refunded to the payment method you "
+"used, so your registration has been cancelled and your seat released."
+msgstr ""
+"Votre paiement pour cet événement a été remboursé sur le moyen de paiement "
+"que vous avez utilisé ; votre inscription a donc été annulée et votre place "
+"libérée."
+
+
+#: crush_lu/templates/crush_lu/emails/event_payment_refunded.html
+#, python-format
+msgid ""
+"Your payment for <strong>%(title)s</strong> has been refunded to the payment"
+" method you used."
+msgstr ""
+"Votre paiement pour <strong>%(title)s</strong> a été remboursé sur le moyen "
+"de paiement que vous avez utilisé."
+
+
+#: crush_lu/templates/crush_lu/emails/event_payment_refunded.html
+#, python-format
+msgid ""
+"Because of this refund, the %(amount)s EUR in Crush Credit issued when you "
+"cancelled this registration has been withdrawn."
+msgstr ""
+"En raison de ce remboursement, le Crush Credit de %(amount)s EUR émis lors "
+"de l’annulation de votre inscription a été retiré."
+
+#. Crush.lu variant of the shared cookie banner
+#. (cookie_banner_variant="crush"). Same English as core/locale; DE uses the
+#. informal "du" of the rest of Crush.lu.
+#: ../core/templates/includes/cookie_banner.html
+msgctxt "crush cookie banner"
+msgid ""
+"We use cookies to enhance your experience. Analytics cookies help us "
+"understand how you use our site. You can accept all cookies or customize your"
+" preferences."
+msgstr ""
+"Nous utilisons des cookies pour améliorer votre expérience. Les cookies "
+"d'analyse nous aident à comprendre comment vous utilisez notre site. Vous "
+"pouvez accepter tous les cookies ou personnaliser vos préférences."
+
+#. Crush.lu variant of the shared cookie banner
+#. (cookie_banner_variant="crush"). Same English as core/locale; DE uses the
+#. informal "du" of the rest of Crush.lu.
+#: ../core/templates/includes/cookie_banner.html
+msgctxt "crush cookie banner"
+msgid ""
+"These cookies are necessary for the website to function and cannot be "
+"switched off. They are usually only set in response to actions made by you "
+"such as logging in or filling in forms."
+msgstr ""
+"Ces cookies sont nécessaires au fonctionnement du site web et ne peuvent pas "
+"être désactivés. Ils sont généralement définis uniquement en réponse à vos "
+"actions, comme la connexion ou le remplissage de formulaires."
+
+#. Crush.lu variant of the shared cookie banner
+#. (cookie_banner_variant="crush"). Same English as core/locale; DE uses the
+#. informal "du" of the rest of Crush.lu.
+#: ../core/templates/includes/cookie_banner.html
+msgctxt "crush cookie banner"
+msgid ""
+"These cookies may be set through our site by our advertising partners. They "
+"may be used to build a profile of your interests and show you relevant "
+"adverts on other sites."
+msgstr ""
+"Ces cookies peuvent être définis via notre site par nos partenaires "
+"publicitaires. Ils peuvent être utilisés pour créer un profil de vos intérêts"
+" et vous montrer des publicités pertinentes sur d'autres sites."
+
 #: templates/crush_lu/event_ticket.html
 msgid "QR code for event check-in"
 msgstr "Code QR pour l'enregistrement à l'événement"
@@ -42391,3 +42208,638 @@ msgstr "Nous n'avons pas pu confirmer l'envoi. Vérifiez avant de renvoyer."
 #, python-brace-format
 msgid "Unread notifications: {count}"
 msgstr "Notifications non lues : {count}"
+
+#: theme ballot
+msgid "Anyone can view; any logged-in account can vote (no approved profile needed)."
+msgstr "Tout le monde peut la voir ; tout compte connecté peut voter (aucun profil approuvé requis)."
+
+#: theme ballot
+msgid "Poll Suggestion"
+msgstr "Suggestion de sondage"
+
+#: theme ballot
+msgid "Poll Suggestions"
+msgstr "Suggestions de sondage"
+
+#: theme ballot
+msgid "Your idea"
+msgstr "Votre idée"
+
+#: theme ballot
+msgid "e.g. Salsa night, Escape room date…"
+msgstr "p. ex. soirée salsa, rendez-vous escape game…"
+
+#: theme ballot
+msgid "This poll is closed."
+msgstr "Ce sondage est clôturé."
+
+#: theme ballot
+msgid "Thanks for your idea! A coach will review it soon."
+msgstr "Merci pour votre idée ! Un coach l'examinera bientôt."
+
+#: theme ballot
+msgid "Please describe your idea in 200 characters or fewer."
+msgstr "Veuillez décrire votre idée en 200 caractères maximum."
+
+#: theme ballot
+msgid "Log in or create a free Crush.lu account to vote. No dating profile needed."
+msgstr "Connectez-vous ou créez un compte Crush.lu gratuit pour voter. Aucun profil de rencontre requis."
+
+#: theme ballot
+msgid "Log in to vote"
+msgstr "Se connecter pour voter"
+
+#: theme ballot
+msgid "When a theme gets enough votes, we plan it. If you voted for it, you'll hear first."
+msgstr "Quand un thème reçoit assez de votes, nous l'organisons. Si vous avez voté pour lui, vous serez informé en premier."
+
+#: theme ballot
+msgid "Missing your kind of night?"
+msgstr "Votre soirée idéale manque ?"
+
+#: theme ballot
+msgid "Suggest a theme. A coach reviews every idea before it goes on the ballot."
+msgstr "Proposez un thème. Un coach examine chaque idée avant qu'elle ne soit soumise au vote."
+
+#: theme ballot
+msgid "Send my idea"
+msgstr "Envoyer mon idée"
+
+#: theme ballot
+msgid "Theme nights"
+msgstr "Soirées à thème"
+
+#: theme ballot
+msgid "No theme vote right now"
+msgstr "Aucun vote de thème en ce moment"
+
+#: theme ballot
+msgid "We're preparing the next ballot of theme nights. Check back soon."
+msgstr "Nous préparons le prochain vote sur les soirées à thème. Revenez bientôt."
+
+#: theme ballot
+msgid "Approve: add as a new poll option"
+msgstr "Approuver : ajouter comme nouvelle option"
+
+#: theme ballot
+msgid "Reject selected suggestions"
+msgstr "Refuser les suggestions sélectionnées"
+
+#: theme ballot
+#, python-format
+msgid "%(count)d suggestion(s) added as poll options. Add translations and an image on the poll."
+msgstr "%(count)d suggestion(s) ajoutée(s) comme options. Ajoutez les traductions et une image dans le sondage."
+
+#: theme ballot
+#, python-format
+msgid "%(count)d suggestion(s) rejected."
+msgstr "%(count)d suggestion(s) refusée(s)."
+
+#: theme ballot
+msgid "Woman"
+msgstr "Femme"
+
+#: theme ballot
+msgid "Man"
+msgstr "Homme"
+
+#: theme ballot
+msgid "I am… (optional, only used for the anonymous women/men split)"
+msgstr "Je suis… (facultatif, sert uniquement à la répartition anonyme femmes/hommes)"
+
+#: theme ballot
+#, python-format
+msgid "Women/men shares are the percentage of all women and of all men voting who picked a theme. They appear once a theme has %(min)s votes from women and %(min)s from men."
+msgstr "Les parts femmes/hommes indiquent le pourcentage de toutes les femmes et de tous les hommes votants ayant choisi un thème. Elles s'affichent dès qu'un thème a %(min)s votes de femmes et %(min)s d'hommes."
+
+#: theme ballot
+#, python-format
+msgid "Women %(women)s%% · Men %(men)s%%"
+msgstr "Femmes %(women)s%% · Hommes %(men)s%%"
+
+#: forms.py:1164
+msgid "We'll email them the gift. Only enter an address if they know you're sending this."
+msgstr "Nous lui enverrons le cadeau par e-mail. N'indiquez une adresse que si cette personne sait que vous le lui envoyez."
+
+#: crush_lu/views_journey_gift.py
+msgid "You can send a Wonderland gift once a coach has approved your profile."
+msgstr "Vous pourrez envoyer un cadeau Wonderland dès qu'un coach aura approuvé votre profil."
+
+#: crush_lu/views_journey_gift.py
+msgid "Thanks for letting us know. This gift is now closed and our team has been notified."
+msgstr "Merci de nous avoir prévenus. Ce cadeau est désormais clôturé et notre équipe a été informée."
+
+#: crush_lu/views_journey_gift.py
+msgid "This gift is no longer active."
+msgstr "Ce cadeau n’est plus actif."
+
+#: crush_lu/views_journey_gift.py
+msgid "We couldn't send your report right now. The gift is still open. Please try again in a moment."
+msgstr "Nous n’avons pas pu envoyer votre signalement pour le moment. Le cadeau est toujours ouvert. Veuillez réessayer dans un instant."
+
+#: crush_lu/templates/crush_lu/journey/partials/gift_sender_badge.html
+#, python-format
+msgid "Created by %(name)s"
+msgstr "Créé par %(name)s"
+
+#: crush_lu/templates/crush_lu/journey/partials/gift_sender_badge.html
+msgid "verified Crush.lu member"
+msgstr "membre Crush.lu vérifié"
+
+#: crush_lu/templates/crush_lu/journey/partials/gift_report_form.html
+msgid "Close this gift and let the Crush.lu team know? The link will stop working."
+msgstr "Clôturer ce cadeau et prévenir l'équipe Crush.lu ? Le lien ne fonctionnera plus."
+
+#: crush_lu/templates/crush_lu/journey/partials/gift_report_form.html
+msgid "Close and report"
+msgstr "Clôturer et signaler"
+
+#: crush_lu/templates/crush_lu/journey/partials/gift_report_form.html
+msgid "This isn't for me / Report"
+msgstr "Ce n'est pas pour moi / Signaler"
+
+#: templates/crush_lu/about.html:9
+msgid ""
+"About Crush.lu: Founded by Tom Sawyer and Wesley Hourdequin, featured in "
+"Virgule.lu and LuxTimes. Luxembourg's privacy-first dating platform with "
+"verified profiles and real events."
+msgstr ""
+"À propos de Crush.lu : fondée par Tom Sawyer et Wesley Hourdequin, présentée"
+" dans Virgule.lu et LuxTimes. La plateforme de rencontres luxembourgeoise "
+"axée sur la confidentialité avec profils vérifiés et événements réels."
+
+#: templates/crush_lu/about.html:149
+msgid ""
+"Members are verified instantly with LuxID or in person at an event. Every "
+"event is thoughtfully organized. Every connection is meaningful. That's not "
+"an algorithm's promise - it's our commitment."
+msgstr ""
+"Les membres sont vérifiés instantanément avec LuxID ou en personne lors d'un "
+"événement. Chaque événement est organisé avec soin. Chaque connexion est "
+"significative. Ce n'est pas la promesse d'un algorithme - c'est notre "
+"engagement."
+
+#: templates/crush_lu/about.html:284
+msgid "Crush Connect only matches verified members — real people only"
+msgstr ""
+"Crush Connect ne propose que des membres vérifiés — que de vraies personnes"
+
+#: templates/crush_lu/about.html:325
+msgid ""
+"In a small country, discretion matters. No public browsing: your photos are "
+"never public or shown to search engines, you need a Crush.lu account to see "
+"them, and Crush Connect asks before showing your photo to your matches."
+msgstr ""
+"Dans un petit pays, la discrétion compte. Aucune navigation publique : vos "
+"photos ne sont jamais publiques ni montrées aux moteurs de recherche, il faut"
+" un compte Crush.lu pour les voir, et Crush Connect vous demande votre accord"
+" avant de montrer votre photo à vos matchs."
+
+#: templates/crush_lu/base.html:1289
+#: templates/crush_lu/partials/edit_about_crushlu.html:123
+msgid ""
+"Your privacy matters. Members are verified instantly with LuxID or in person "
+"at an event."
+msgstr ""
+"Votre vie privée compte. Les membres sont vérifiés instantanément avec LuxID "
+"ou en personne lors d'un événement."
+
+#: templates/crush_lu/how_it_works.html:108
+msgid "Verified with LuxID or in person"
+msgstr "Vérifiés via LuxID ou en personne"
+
+#: templates/crush_lu/how_it_works.html:188
+msgid ""
+"Your photos are never public or shown to search engines — you need a Crush.lu"
+" account to see them, and Crush Connect asks before showing your photo to "
+"your matches."
+msgstr ""
+"Vos photos ne sont jamais publiques ni montrées aux moteurs de recherche — il"
+" faut un compte Crush.lu pour les voir, et Crush Connect vous demande votre "
+"accord avant de montrer votre photo à vos matchs."
+
+#: templates/crush_lu/how_it_works.html:189
+msgid "No public search or profile browsing"
+msgstr "Aucune recherche publique ni navigation dans les profils"
+
+#: templates/crush_lu/how_it_works.html:190
+msgid "Contact details are only shared when you both agree"
+msgstr ""
+"Vos coordonnées ne sont partagées que si vous êtes tous les deux d'accord"
+
+#: templates/crush_lu/profile_submitted.html
+msgid "Your profile is ready. Next: complete your Premium membership."
+msgstr ""
+"Votre profil est prêt. Prochaine étape : finalisez votre adhésion "
+"Premium."
+
+#: templates/crush_lu/profile_submitted.html
+msgid "Your profile is ready. Next: get verified at an event."
+msgstr ""
+"Votre profil est prêt. Prochaine étape : faites-vous vérifier lors d'un "
+"événement."
+
+#: templates/crush_lu/profile_submitted.html
+msgid "Your profile is ready. Next: get verified at an event or with LuxID."
+msgstr ""
+"Votre profil est prêt. Prochaine étape : faites-vous vérifier lors d'un "
+"événement ou avec LuxID."
+
+#: templates/crush_lu/partials/_verification_options.html
+msgid "A hand-picked match every week — first month free"
+msgstr "Un match sélectionné chaque semaine — le premier mois offert"
+
+#: templates/crush_lu/profile_rejected.html
+msgid "Delete my profile and data"
+msgstr "Supprimer mon profil et mes données"
+
+#: templates/crush_lu/auth.html
+msgid "≈ 15 min to set up · Get verified at your first event"
+msgstr ""
+"≈ 15 min pour créer votre profil · Vérification lors de votre premier "
+"événement"
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+msgid "What happens to your payment"
+msgstr "Ce qu’il advient de votre paiement"
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+#, python-format
+msgid "You'll get %(amount)s EUR back as Crush Credit, ready to use on any Crush.lu event."
+msgstr "Vous récupérez %(amount)s EUR en Crush Credit, utilisable immédiatement pour tout événement Crush.lu."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+#, python-format
+msgid "No refund: the event starts in less than %(hours)s hours. Your seat is released for someone else, and if someone takes it and pays before the event starts, you'll get %(share)s EUR back as Crush Credit."
+msgstr "Aucun remboursement : l’événement commence dans moins de %(hours)s heures. Votre place est libérée pour quelqu’un d’autre ; si quelqu’un la reprend et paie avant le début de l’événement, vous récupérez %(share)s EUR en Crush Credit."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+#, python-format
+msgid "You'll get %(amount)s EUR back as Crush Credit. It returns to your balance with its original expiry dates, so any part that has already expired can't be used again."
+msgstr "Vous récupérez %(amount)s EUR en Crush Credit. Il revient sur votre solde avec ses dates d’expiration d’origine : toute partie déjà expirée ne pourra plus être utilisée."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+#, python-format
+msgid "No refund: the event starts in less than %(hours)s hours. Your seat is released for someone else."
+msgstr "Aucun remboursement : l’événement commence dans moins de %(hours)s heures. Votre place est libérée pour quelqu’un d’autre."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+msgid "Keep my seat"
+msgstr "Garder ma place"
+
+#: crush_lu/templates/crush_lu/partials/_cancellation_policy_note.html
+#, python-format
+msgid "Cancel before %(date)s at %(time)s for full Crush Credit. After that there's no refund, but you get %(share)s%% back as Crush Credit if someone takes your seat and pays before the event."
+msgstr "Annulez avant le %(date)s à %(time)s pour récupérer l’intégralité en Crush Credit. Ensuite, aucun remboursement, mais vous récupérez %(share)s %% en Crush Credit si quelqu’un reprend votre place et paie avant l’événement."
+
+#: crush_lu/templates/crush_lu/partials/_cancellation_policy_note.html
+#, python-format
+msgid "The event starts in less than %(hours)s hours, so cancelling gives no refund, but you get %(share)s%% back as Crush Credit if someone takes your seat and pays before the event."
+msgstr "L’événement commence dans moins de %(hours)s heures : une annulation ne donne droit à aucun remboursement, mais vous récupérez %(share)s %% en Crush Credit si quelqu’un reprend votre place et paie avant l’événement."
+
+#: views_events.py:2051
+msgid ""
+"The cancellation terms changed while this page was open. Please check them "
+"again before you confirm."
+msgstr ""
+"Les conditions d’annulation ont changé pendant que cette page était ouverte."
+" Veuillez les vérifier à nouveau avant de confirmer."
+
+#: templates/crush_lu/moderation/_block_report_menu.html
+msgid "Block this member? This closes the chat and can't be undone: they won't be able to reach you, and you won't be matched again."
+msgstr "Bloquer ce membre ? Cela ferme la discussion et ne peut pas être annulé : ce membre ne pourra plus vous contacter et vous ne serez plus mis en relation."
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "You're not shown to anyone yet."
+msgstr "Votre carte n'est encore montrée à personne."
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Your Connect home shows what is still missing."
+msgstr "Votre accueil Connect indique ce qui manque encore."
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "See all steps"
+msgstr "Voir toutes les étapes"
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgctxt "connect catalogue"
+msgid "Your coach"
+msgstr "Votre coach"
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Premium member · See your Coach's Pick"
+msgstr "Membre Premium · Voir votre Coach's Pick"
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Your full name and exact age are never shown."
+msgstr "Votre nom complet et votre âge exact ne sont jamais affichés."
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Pause Crush Connect anytime."
+msgstr "Vous pouvez mettre Crush Connect en pause à tout moment."
+
+#: models/moderation.py
+msgid "Connect chat"
+msgstr "Chat Connect"
+
+#: templates/crush_lu/crush_connect/week_inbox.html
+msgid "Sent you a Connect request"
+msgstr "Vous a envoyé une demande Connect"
+
+#: templates/crush_lu/crush_connect/_empty_actions.html
+#, python-format
+msgid "Today: %(done)s of %(total)s cards answered."
+msgstr "Aujourd'hui : %(done)s cartes sur %(total)s répondues."
+
+#: templates/crush_lu/moderation/_block_report_menu.html
+msgid "Report and block this member? Blocking closes the chat and can't be undone: they won't be able to reach you, and you won't be matched again."
+msgstr "Signaler et bloquer ce membre ? Le blocage ferme la discussion et ne peut pas être annulé : ce membre ne pourra plus vous contacter et vous ne serez plus mis en relation."
+
+#: templates/crush_lu/moderation/_block_report_menu.html
+msgid "Yes, report and block"
+msgstr "Oui, signaler et bloquer"
+
+#: templates/crush_lu/moderation/_block_report_menu.html
+msgid "Blocking closes this chat and can't be undone. You won't be matched again."
+msgstr "Le blocage ferme cette discussion et ne peut pas être annulé. Vous ne serez plus mis en relation."
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgctxt "connect catalogue"
+msgid "No coach is assigned to you right now."
+msgstr "Aucun coach ne vous est attribué pour le moment."
+
+#: templates/crush_lu/gdpr_data_management.html
+msgid "Login account"
+msgstr "Compte de connexion"
+
+#: templates/crush_lu/gdpr_data_management.html
+msgid ""
+"Your email and sign-in methods. It can also be used for other services run by"
+" the same operator."
+msgstr ""
+"Votre e-mail et vos méthodes de connexion. Il peut aussi servir pour d'autres"
+" services du même exploitant."
+
+#: templates/crush_lu/gdpr_data_management.html
+msgid ""
+"Removes your dating profile, photos, and event history. Your login account "
+"stays active."
+msgstr ""
+"Supprime votre profil de rencontre, vos photos et votre historique "
+"d'événements. Votre compte de connexion reste actif."
+
+#: templates/crush_lu/gdpr_data_management.html
+msgid "Delete profile"
+msgstr "Supprimer le profil"
+
+#: templates/crush_lu/gdpr_data_management.html
+msgid "Option 2: Delete your entire account"
+msgstr "Option 2 : Supprimer tout votre compte"
+
+#: templates/crush_lu/gdpr_data_management.html
+msgid ""
+"Permanently deletes your login account and all your data, including on any "
+"other service run by the same operator where you use it. This cannot be "
+"undone."
+msgstr ""
+"Supprime définitivement votre compte de connexion et toutes vos données, y "
+"compris sur les autres services du même exploitant où vous l'utilisez. Cette "
+"action est irréversible."
+
+#: templates/crush_lu/gdpr_data_management.html
+msgid "Delete your entire account and all your data? This cannot be undone."
+msgstr ""
+"Supprimer tout votre compte et toutes vos données ? Cette action est "
+"irréversible."
+
+#: templates/crush_lu/gdpr_data_management.html
+msgid "Delete account"
+msgstr "Supprimer le compte"
+
+#: templates/crush_lu/gdpr_data_management.html
+msgid "Delete entire account"
+msgstr "Supprimer tout le compte"
+
+#: templates/crush_lu/gdpr_data_management.html
+#, python-format
+msgid "Your account email is %(email)s."
+msgstr "L'e-mail de votre compte est %(email)s."
+
+#: forms_account.py
+msgid "Type your email address to confirm"
+msgstr "Saisissez votre adresse e-mail pour confirmer"
+
+#: templates/crush_lu/delete_crushlu_profile_confirm.html
+msgid "Your login account stays active."
+msgstr "Votre compte de connexion reste actif."
+
+#: templates/crush_lu/delete_crushlu_profile_confirm.html
+msgid "To delete your entire account, visit the"
+msgstr "Pour supprimer tout votre compte, rendez-vous sur la"
+
+#: templates/crush_lu/partials/edit_account_danger.html
+msgid ""
+"Permanently delete your dating profile and photos. Your login account stays "
+"active."
+msgstr ""
+"Supprimez définitivement votre profil de rencontre et vos photos. Votre "
+"compte de connexion reste actif."
+
+#: templates/crush_lu/partials/edit_account_danger.html
+msgid ""
+"View your consent status, download your data, or delete your entire account."
+msgstr ""
+"Consultez l'état de vos consentements, téléchargez vos données ou supprimez "
+"tout votre compte."
+
+#: views_account.py
+msgid ""
+"Your Crush.lu profile has been deleted. Your login account remains active."
+msgstr ""
+"Votre profil Crush.lu a été supprimé. Votre compte de connexion reste actif."
+
+#: views_account.py
+msgid "Your account and all your data have been permanently deleted."
+msgstr "Votre compte et toutes vos données ont été définitivement supprimés."
+
+#: templates/crush_lu/moderation/blocked_members.html
+#, python-format
+msgid ""
+"Unblock %(name)s? They'll be able to see you at events and contact you again."
+msgstr ""
+"Débloquer %(name)s ? Cette personne pourra à nouveau vous voir lors des "
+"événements et vous contacter."
+
+#: templates/crush_lu/moderation/blocked_members.html
+msgid ""
+"You can block someone from their member card, a connection or a chat. They "
+"won't be notified."
+msgstr ""
+"Vous pouvez bloquer quelqu'un depuis sa fiche de membre, une connexion ou un "
+"chat. Cette personne n'en sera pas informée."
+
+#: templates/crush_lu/moderation/blocked_members.html
+#, python-format
+msgid "You unblocked %(name)s."
+msgstr "Vous avez débloqué %(name)s."
+
+#: templates/crush_lu/home.html
+msgid "As seen in"
+msgstr "Vu dans"
+
+#: templates/crush_lu/partials/_push_check_timed_out.html:5
+msgid "We couldn't check notification support on this device."
+msgstr "Nous n'avons pas pu vérifier la prise en charge des notifications sur cet appareil."
+
+#: templates/crush_lu/partials/_push_native_notice.html:10
+msgid "Notifications are managed in the app"
+msgstr "Les notifications sont gérées dans l'application"
+
+#: templates/crush_lu/base.html:806
+#: templates/crush_lu/base.html:1186
+msgid "This experience is always in night mode"
+msgstr "Cette expérience est toujours en mode nuit"
+# UX Wave 3 · WP1 verify-email
+# UX Wave 3 · WP1 verify-email
+# UX Wave 3 · WP1 verify-email
+# UX Wave 3 · WP1 verify-email
+# UX Wave 3 · WP1 verify-email
+#: templates/account/verification_sent_crush.html:24
+msgid "We've sent a verification link to <strong>%(email)s</strong>."
+msgstr ""
+"Nous avons envoyé un lien de vérification à <strong>%(email)s</strong>."
+
+#: templates/account/verification_sent_crush.html:29
+msgid "Wrong address? Sign up again"
+msgstr "Mauvaise adresse ? Inscrivez-vous à nouveau"
+
+#: templates/account/verification_sent_crush.html:34
+msgid ""
+"We've sent a verification link to your email address. Click the link in the "
+"email to confirm your account."
+msgstr ""
+"Nous avons envoyé un lien de vérification à votre adresse e-mail. Cliquez "
+"sur le lien dans l'e-mail pour confirmer votre compte."
+
+#: templates/account/verification_sent_crush.html:50
+msgid "Email address to resend to"
+msgstr "Adresse e-mail pour le renvoi"
+
+#: templates/account/verification_sent_crush.html:55
+msgid "Your email address"
+msgstr "Votre adresse e-mail"
+
+#: templates/socialaccount/authentication_error_crush.html:16
+msgid ""
+"The provider declined this sign-in. Please try again, or use a different "
+"sign-in method."
+msgstr ""
+"Le fournisseur a refusé cette connexion. Veuillez réessayer ou utiliser une "
+"autre méthode de connexion."
+
+#: templates/socialaccount/authentication_error_crush.html:18
+msgid ""
+"Try again, or sign in with your email if you already have a Crush.lu "
+"account."
+msgstr ""
+"Réessayez, ou connectez-vous avec votre e-mail si vous avez déjà un compte "
+"Crush.lu."
+
+#: templates/socialaccount/authentication_error_crush.html:23
+msgid "Provider: %(provider)s · Code: %(code)s"
+msgstr "Fournisseur : %(provider)s · Code : %(code)s"
+
+#: templates/socialaccount/signup_crush.html:38
+msgid ""
+"Your %(provider)s account didn't provide a usable email. Enter the one you'd"
+" like to use for Crush.lu."
+msgstr ""
+"Votre compte %(provider)s n'a pas fourni d'adresse e-mail utilisable. "
+"Saisissez celle que vous souhaitez utiliser pour Crush.lu."
+
+#: templates/socialaccount/signup_crush.html:48
+msgid "Log in to your existing account instead"
+msgstr "Se connecter à votre compte existant à la place"
+
+#: azureproject/adapters.py:471
+msgid "Sign-in cancelled. Pick another way to continue, or try again."
+msgstr ""
+"Connexion annulée. Choisissez un autre moyen de continuer, ou réessayez."
+
+#: crush_lu/templates/account/verification_sent_crush.html
+msgid "Use a different address"
+msgstr "Utiliser une autre adresse"
+
+
+# UX Wave 3 · WP3 rate-limited
+# UX Wave 3 · WP3 rate-limited
+# UX Wave 3 · WP3 rate-limited
+# UX Wave 3 · WP3
+#: crush_lu/urls.py
+#, python-format
+msgid "Too many login attempts. Please try again in %(wait)s."
+msgstr "Trop de tentatives de connexion. Veuillez réessayer dans %(wait)s."
+
+# UX Wave 3 · WP3
+#: crush_lu/views_account.py
+#, python-format
+msgid "Too many signup attempts. Please try again in %(wait)s."
+msgstr "Trop de tentatives d'inscription. Veuillez réessayer dans %(wait)s."
+
+# UX Wave 3 · WP3
+#: crush_lu/templates/crush_lu/rate_limited.html
+msgid "Too many attempts"
+msgstr "Trop de tentatives"
+
+# UX Wave 3 · WP3
+#: crush_lu/templates/crush_lu/rate_limited.html
+msgid "For your security, we've temporarily paused this action."
+msgstr "Pour votre sécurité, nous avons temporairement suspendu cette action."
+
+# UX Wave 3 · WP3
+#: crush_lu/templates/crush_lu/rate_limited.html
+#, python-format
+msgid "Please try again in %(wait_message)s."
+msgstr "Veuillez réessayer dans %(wait_message)s."
+
+# UX Wave 3 · WP3
+#: crush_lu/templates/crush_lu/rate_limited.html
+msgid "Go to homepage"
+msgstr "Aller à l'accueil"
+
+# UX Wave 3 · WP3
+#: crush_lu/rate_limit_utils.py
+msgid "less than a minute"
+msgstr "moins d'une minute"
+
+# UX Wave 3 · WP3
+#: crush_lu/rate_limit_utils.py
+msgid "about 1 minute"
+msgstr "environ 1 minute"
+
+# UX Wave 3 · WP3
+#: crush_lu/rate_limit_utils.py
+#, python-format
+msgid "about %(minutes)d minutes"
+msgstr "environ %(minutes)d minutes"
+
+# UX Wave 3 · WP3 review (P1)
+#: azureproject/middleware.py
+#, python-format
+msgid "Too many attempts. Please try again in %(wait)s."
+msgstr "Trop de tentatives. Veuillez réessayer dans %(wait)s."
+
+# UX Wave 3 · WP2 auth-page
+#: templates/crush_lu/includes/phone_otp_modal.html:71
+msgid "Verification code"
+msgstr "Code de vérification"
+
+#: templates/crush_lu/includes/phone_otp_modal.html:73
+#: templates/crush_lu/includes/phone_otp_modal.html:76
+#: templates/crush_lu/includes/phone_otp_modal.html:79
+#: templates/crush_lu/includes/phone_otp_modal.html:82
+#: templates/crush_lu/includes/phone_otp_modal.html:85
+#: templates/crush_lu/includes/phone_otp_modal.html:88
+#, python-format
+msgid "Digit %(n)s of 6"
+msgstr "Chiffre %(n)s sur 6"

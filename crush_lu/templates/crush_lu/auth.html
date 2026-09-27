@@ -3,12 +3,30 @@
 {% load socialaccount %}
 {% load static %}
 {% load social_tags %}
+{% load analytics %}
 
 {% block title %}{% if mode == 'signup' %}{% trans "Join" %}{% else %}{% trans "Login" %}{% endif %} - Crush.lu{% endblock %}
 
 {% block meta_robots %}noindex, nofollow{% endblock %}
 
 {% block content %}
+{% comment %}
+  Funnel analytics: this is the only page that ever renders a signup
+  form (crush_lu/signup.html is dead code, unreferenced by any view) so
+  the view-level event belongs here, not there. Gated to mode=='signup'
+  so a login-tab render on /login/ never double-counts a page view.
+  These tags are the existing consent-gated hooks (azureproject/templatetags/analytics.py)
+  — nothing about consent is changed here.
+
+  Deliberately not GA4's reserved sign-up conversion event name: that is
+  meant for a completed registration (see the old signup.html, which
+  fired it here and misfired every abandoned page view as a conversion —
+  the bug this finding is about). "signup_page_viewed" is a plain
+  funnel-stage event, not a conversion; firing the real conversion event
+  after a successful complete_signup is deferred (see findings_deferred).
+{% endcomment %}
+{% if mode == 'signup' %}{% appinsights_event "signup_page_viewed" %}{% ga4_event "signup_page_viewed" method="page_view" %}{% endif %}
+{% get_providers as socialaccount_providers %}
 <div class="flex justify-center items-center min-h-[70vh]">
     <div class="w-full max-w-md">
         <div class="auth-card bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/20">
@@ -20,7 +38,7 @@
                       Surfaces what the user otherwise only sees AFTER signing
                       up (the welcome page tiles), reducing pre-commit hesitation.
                     {% endcomment %}
-                    <div x-show="isSignupTab"
+                    <div x-show="isSignupTab" x-cloak
                          x-transition:enter="transition ease-out duration-300"
                          x-transition:enter-start="opacity-0"
                          x-transition:enter-end="opacity-100"
@@ -39,19 +57,36 @@
                                 <p class="mt-1 text-[11px] font-semibold leading-tight text-gray-700 dark:text-gray-200">{% trans "Privacy-first" %}</p>
                             </div>
                         </div>
+                        {# Only promise LuxID when its button below is actually rendered. #}
                         <p class="mt-3 text-center text-[11px] text-gray-500 dark:text-gray-400">
+                            {% if socialaccount_providers|has_luxid %}
                             {% trans "≈ 15 min to set up · Get verified instantly with LuxID, or at an event" %}
+                            {% else %}
+                            {% trans "≈ 15 min to set up · Get verified at your first event" %}
+                            {% endif %}
                         </p>
                     </div>
 
-                    <div class="auth-tabs flex bg-purple-100 dark:bg-purple-900/30 rounded-full p-1 border border-purple-200 dark:border-purple-700">
+                    <div class="auth-tabs flex bg-purple-100 dark:bg-purple-900/30 rounded-full p-1 border border-purple-200 dark:border-purple-700" role="tablist">
                         <button type="button"
+                                id="auth-tab-login"
+                                role="tab"
+                                x-bind:aria-selected="loginAriaSelected"
+                                aria-controls="login-panel"
+                                x-bind:tabindex="loginTabIndex"
+                                @keydown="onTabKeydown"
                                 @click="setLogin"
                                 x-bind:class="loginTabClass"
                                 class="flex-1 py-3 px-1 sm:px-6 rounded-full font-bold text-base sm:text-lg transition-all duration-300">
                             {% trans "Login" %}
                         </button>
                         <button type="button"
+                                id="auth-tab-signup"
+                                role="tab"
+                                x-bind:aria-selected="signupAriaSelected"
+                                aria-controls="signup-panel"
+                                x-bind:tabindex="signupTabIndex"
+                                @keydown="onTabKeydown"
                                 @click="setSignup"
                                 x-bind:class="signupTabClass"
                                 class="flex-1 py-3 px-1 sm:px-6 rounded-full font-bold text-base sm:text-lg transition-all duration-300">
@@ -59,8 +94,7 @@
                         </button>
                     </div>
 
-                <!-- Social Login Buttons (shared) -->
-                {% get_providers as socialaccount_providers %}
+                <!-- Social Login Buttons (shared); providers are loaded at the top of the block -->
                 {% if socialaccount_providers %}
                 <div class="flex flex-col gap-3 mb-6">
                     {% comment %}
@@ -73,10 +107,9 @@
                     {% for provider in socialaccount_providers %}
                         {% if provider.id == "luxid" or provider.app.provider_id == "luxid" %}
                     <a href="{% provider_login_url provider %}" class="social-login-btn luxid-btn"
-                       data-oauth-url="{% provider_login_url provider %}" data-provider="LuxID"
-                       style="background: linear-gradient(to right, #8B5CF6, #3B82F6, #10B981); color: white;">
+                       data-oauth-url="{% provider_login_url provider %}" data-provider="LuxID">
                         <span class="social-icon">
-                            <img src="{% static 'crush_lu/images/Logo-LuxID_small.webp' %}" alt="LuxID" style="width: 20px; height: 20px; border-radius: 3px;">
+                            <img src="{% static 'crush_lu/images/Logo-LuxID_small.webp' %}" alt="LuxID" class="luxid-btn-logo">
                         </span>
                         <span class="flex flex-col items-start leading-tight text-left">
                             <span class="flex items-center gap-2">
@@ -150,13 +183,14 @@
                 <!-- Tab Content - Alpine.js controlled -->
                 <div>
                     <!-- Login Panel -->
-                    <div x-show="isLoginTab" x-transition:enter="transition ease-out duration-300"
+                    <div id="login-panel" role="tabpanel" aria-labelledby="auth-tab-login" tabindex="0"
+                         x-show="isLoginTab" x-cloak x-transition:enter="transition ease-out duration-300"
                          x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
                         <form method="post" action="{% url 'crush_lu:login' %}" novalidate id="login-form">
                             {% csrf_token %}
 
                             {% if login_form.non_field_errors %}
-                                <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 rounded-lg p-4 mb-4">
+                                <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 rounded-lg p-4 mb-4" role="alert">
                                     {{ login_form.non_field_errors }}
                                 </div>
                             {% endif %}
@@ -169,11 +203,14 @@
                             <div class="mb-4">
                                 <label for="id_login" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Email" %}</label>
                                 <input type="email" class="w-full px-4 py-3 border {% if login_form.login.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-                                       id="id_login" name="login"
-                                       value="{{ login_form.login.value|default:'' }}" required{% if login_form.is_bound or not login_form.login.value %} autofocus{% endif %}
+                                       id="id_login" name="login" autocomplete="username" inputmode="email"
+                                       value="{{ login_form.login.value|default:'' }}" required
+                                       aria-invalid="{% if login_form.login.errors %}true{% else %}false{% endif %}"
+                                       {% if login_form.login.errors %}aria-describedby="id_login_error"{% endif %}
+                                       {% if login_form.is_bound or not login_form.login.value %}data-autofocus-candidate{% endif %}
                                        placeholder="your@email.com">
                                 {% if login_form.login.errors %}
-                                    <p class="mt-1 text-sm text-red-600">{{ login_form.login.errors.0 }}</p>
+                                    <p id="id_login_error" role="alert" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ login_form.login.errors.0 }}</p>
                                 {% endif %}
                             </div>
 
@@ -181,7 +218,10 @@
                                 <label for="id_password" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Password" %}</label>
                                 <div class="relative">
                                     <input type="password" class="w-full px-4 py-3 pr-12 border {% if login_form.password.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-                                           id="id_password" name="password" required{% if not login_form.is_bound and login_form.login.value %} autofocus{% endif %}>
+                                           id="id_password" name="password" autocomplete="current-password" required
+                                           aria-invalid="{% if login_form.password.errors %}true{% else %}false{% endif %}"
+                                           {% if login_form.password.errors %}aria-describedby="id_password_error"{% endif %}
+                                           {% if not login_form.is_bound and login_form.login.value %}data-autofocus-candidate{% endif %}>
                                     <button type="button"
                                             class="password-toggle absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
                                             data-target="id_password"
@@ -191,7 +231,7 @@
                                     </button>
                                 </div>
                                 {% if login_form.password.errors %}
-                                    <p class="mt-1 text-sm text-red-600">{{ login_form.password.errors.0 }}</p>
+                                    <p id="id_password_error" role="alert" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ login_form.password.errors.0 }}</p>
                                 {% endif %}
                             </div>
 
@@ -218,38 +258,43 @@
                     </div>
 
                     <!-- Signup Panel -->
-                    <div x-show="isSignupTab" x-transition:enter="transition ease-out duration-300"
+                    <div id="signup-panel" role="tabpanel" aria-labelledby="auth-tab-signup" tabindex="0"
+                         x-show="isSignupTab" x-cloak x-transition:enter="transition ease-out duration-300"
                          x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
                         <form method="post" action="{% url 'crush_lu:signup' %}" novalidate id="signup-form">
                             {% csrf_token %}
 
                             {% if signup_form.non_field_errors %}
-                                <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 rounded-lg p-4 mb-4">
+                                <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 rounded-lg p-4 mb-4" role="alert">
                                     {{ signup_form.non_field_errors }}
                                 </div>
                             {% endif %}
 
-                            <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div class="grid grid-cols-2 gap-4 mb-4 items-end">
                                 <div>
                                     <label for="id_first_name" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "First Name" %}</label>
                                     <input type="text" class="w-full px-4 py-3 border {% if signup_form.first_name.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                            id="id_first_name" name="first_name" autocomplete="given-name"
-                                           value="{{ signup_form.first_name.value|default:'' }}" required>
+                                           value="{{ signup_form.first_name.value|default:'' }}" required
+                                           aria-invalid="{% if signup_form.first_name.errors %}true{% else %}false{% endif %}"
+                                           {% if signup_form.first_name.errors %}aria-describedby="id_first_name_error"{% endif %}>
                                     {% if signup_form.first_name.errors %}
-                                        <p class="mt-1 text-sm text-red-600">{{ signup_form.first_name.errors.0 }}</p>
+                                        <p id="id_first_name_error" role="alert" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ signup_form.first_name.errors.0 }}</p>
                                     {% endif %}
                                 </div>
 
                                 <div>
                                     <label for="id_last_name" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                                         {% trans "Last Name" %}
-                                        <span class="font-normal text-gray-400 dark:text-gray-500">({% trans "optional" %})</span>
+                                        <span class="font-normal text-gray-400 dark:text-gray-500 whitespace-nowrap">({% trans "optional" %})</span>
                                     </label>
                                     <input type="text" class="w-full px-4 py-3 border {% if signup_form.last_name.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                            id="id_last_name" name="last_name" autocomplete="family-name"
-                                           value="{{ signup_form.last_name.value|default:'' }}">
+                                           value="{{ signup_form.last_name.value|default:'' }}"
+                                           aria-invalid="{% if signup_form.last_name.errors %}true{% else %}false{% endif %}"
+                                           {% if signup_form.last_name.errors %}aria-describedby="id_last_name_error"{% endif %}>
                                     {% if signup_form.last_name.errors %}
-                                        <p class="mt-1 text-sm text-red-600">{{ signup_form.last_name.errors.0 }}</p>
+                                        <p id="id_last_name_error" role="alert" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ signup_form.last_name.errors.0 }}</p>
                                     {% endif %}
                                 </div>
                             </div>
@@ -258,9 +303,11 @@
                                 <label for="id_email" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Email" %}</label>
                                 <input type="email" class="w-full px-4 py-3 border {% if signup_form.email.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                        id="id_email" name="email" autocomplete="email" inputmode="email"
-                                       value="{{ signup_form.email.value|default:'' }}" required>
+                                       value="{{ signup_form.email.value|default:'' }}" required
+                                       aria-invalid="{% if signup_form.email.errors %}true{% else %}false{% endif %}"
+                                       {% if signup_form.email.errors %}aria-describedby="id_email_error"{% endif %}>
                                 {% if signup_form.email.errors %}
-                                    <p class="mt-1 text-sm text-red-600">{{ signup_form.email.errors.0 }}</p>
+                                    <p id="id_email_error" role="alert" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ signup_form.email.errors.0 }}</p>
                                     {% if signup_form.email_taken %}
                                         {% comment %}
                                           One-click switch to the login tab, prefilling the email
@@ -282,6 +329,8 @@
                                 <div class="relative">
                                     <input type="password" class="w-full px-4 py-3 pr-12 border {% if signup_form.password1.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                            id="id_password1" name="password1" autocomplete="new-password" required
+                                           aria-invalid="{% if signup_form.password1.errors %}true{% else %}false{% endif %}"
+                                           {% if signup_form.password1.errors %}aria-describedby="id_password1_error"{% endif %}
                                            data-password-strength>
                                     <button type="button"
                                             class="password-toggle absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
@@ -292,7 +341,7 @@
                                     </button>
                                 </div>
                                 {% if signup_form.password1.errors %}
-                                    <p class="mt-1 text-sm text-red-600">{{ signup_form.password1.errors.0 }}</p>
+                                    <p id="id_password1_error" role="alert" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ signup_form.password1.errors.0 }}</p>
                                 {% endif %}
                                 <div class="password-strength mt-2 hidden" aria-hidden="true">
                                     <div class="h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
@@ -308,6 +357,8 @@
                                 <div class="relative">
                                     <input type="password" class="w-full px-4 py-3 pr-12 border {% if signup_form.password2.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                            id="id_password2" name="password2" autocomplete="new-password" required
+                                           aria-invalid="{% if signup_form.password2.errors %}true{% else %}false{% endif %}"
+                                           {% if signup_form.password2.errors %}aria-describedby="id_password2_error"{% endif %}
                                            data-password-match>
                                     <button type="button"
                                             class="password-toggle absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
@@ -318,7 +369,7 @@
                                     </button>
                                 </div>
                                 {% if signup_form.password2.errors %}
-                                    <p class="mt-1 text-sm text-red-600">{{ signup_form.password2.errors.0 }}</p>
+                                    <p id="id_password2_error" role="alert" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ signup_form.password2.errors.0 }}</p>
                                 {% endif %}
                                 <p class="password-match-hint mt-1 hidden text-sm"></p>
                             </div>
@@ -326,7 +377,9 @@
                             <!-- Consent Checkboxes -->
                             <div class="mb-4">
                                 <label class="flex items-start">
-                                    <input type="checkbox" name="crushlu_consent" id="id_crushlu_consent" required class="mt-1 mr-2 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded">
+                                    <input type="checkbox" name="crushlu_consent" id="id_crushlu_consent" required class="mt-1 mr-2 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded"
+                                           aria-invalid="{% if signup_form.crushlu_consent.errors %}true{% else %}false{% endif %}"
+                                           {% if signup_form.crushlu_consent.errors %}aria-describedby="id_crushlu_consent_error"{% endif %}>
                                     <span class="text-sm text-gray-700 dark:text-gray-200">
                                         {% trans "I agree to the" %}
                                         <a href="{% url 'crush_lu:terms_of_service' %}" target="_blank" class="text-crush-purple hover:underline">{% trans "Terms of Service" %}</a>
@@ -335,7 +388,7 @@
                                     </span>
                                 </label>
                                 {% if signup_form.crushlu_consent.errors %}
-                                    <p class="mt-1 text-sm text-red-600">{{ signup_form.crushlu_consent.errors.0 }}</p>
+                                    <p id="id_crushlu_consent_error" role="alert" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ signup_form.crushlu_consent.errors.0 }}</p>
                                 {% endif %}
                             </div>
 
@@ -391,9 +444,6 @@
 var _i18n = {
     loggingIn: '{% filter escapejs %}{% trans "Logging in..." %}{% endfilter %}',
     creatingAccount: '{% filter escapejs %}{% trans "Creating Account..." %}{% endfilter %}',
-    openingLogin: '{% filter escapejs %}{% trans "Opening login..." %}{% endfilter %}',
-    redirectingTo: '{% filter escapejs %}{% trans "Redirecting to" %}{% endfilter %}',
-    opening: '{% filter escapejs %}{% trans "Opening" %}{% endfilter %}',
     showPassword: '{% filter escapejs %}{% trans "Show password" %}{% endfilter %}',
     hidePassword: '{% filter escapejs %}{% trans "Hide password" %}{% endfilter %}',
     pwWeak: '{% filter escapejs %}{% trans "Weak password" %}{% endfilter %}',
@@ -466,9 +516,23 @@ var _i18n = {
         var loginBtn = document.getElementById('login-submit-btn');
         var signupBtn = document.getElementById('signup-submit-btn');
 
+        // Busy-state resets to run again on a bfcache (pageshow, event.persisted)
+        // restore — see the pageshow listener at the bottom of this handler.
+        // Without this, a user who taps a social button, backs out of the
+        // provider's consent screen, and lands back on this exact DOM (no
+        // reload) is stuck: disabled buttons, "Logging in..." forever.
+        var resetters = [];
+
         // CSRF refresh + double-submit prevention helper
         function submitWithCsrfRefresh(form, btn, loadingText) {
             var isSubmitting = false;
+            var originalLabel = btn.textContent;
+            resetters.push(function() {
+                isSubmitting = false;
+                btn.disabled = false;
+                btn.textContent = originalLabel;
+                btn.classList.remove('opacity-75');
+            });
             form.addEventListener('submit', function(e) {
                 if (isSubmitting) { e.preventDefault(); return false; }
                 e.preventDefault();
@@ -584,6 +648,55 @@ var _i18n = {
             pwInput.addEventListener('input', checkMatch);
         }
 
+        // Autofocus, but only for a pointer that doesn't need a virtual
+        // keyboard: on mobile, autofocus pops the keyboard on load and
+        // covers the LuxID/Google buttons above the fold. The candidate
+        // field (server-picked: empty email, or password once email is
+        // prefilled) is marked with data-autofocus-candidate instead of
+        // the autofocus attribute.
+        if (window.matchMedia('(pointer: fine)').matches) {
+            var autofocusCandidate = document.querySelector('[data-autofocus-candidate]');
+            if (autofocusCandidate) autofocusCandidate.focus();
+        }
+
+        // Move focus to the first invalid field after a failed submit, for
+        // keyboard and screen-reader users who otherwise only see red text
+        // appear somewhere on the page.
+        var firstInvalid = document.querySelector('#login-panel [aria-invalid="true"], #signup-panel [aria-invalid="true"]');
+        if (firstInvalid) firstInvalid.focus();
+
+        // Funnel analytics: fire once per real tab switch (login -> signup),
+        // never on a re-click of the already-active signup tab — /signup/
+        // already fires the server-rendered page-view event once, so a
+        // second client-side event on the same view would double-count.
+        // Plain event listeners, not Alpine bindings — the CSP Alpine build
+        // disallows inline expressions with arguments, and the tab buttons
+        // already carry bare @click="setLogin"/"setSignup". Tracked with
+        // our own flag rather than reading Alpine's aria-selected, since
+        // listener order between Alpine's handler and this one is not
+        // guaranteed. Same event name as the server-rendered view event
+        // above (see its comment for why it isn't GA4's reserved sign-up
+        // conversion name).
+        var tabNavContainer = document.querySelector('.auth-tabs-container');
+        var lastActiveAuthTab = (tabNavContainer && tabNavContainer.getAttribute('data-initial-tab')) || 'login';
+        var signupTabBtn = document.getElementById('auth-tab-signup');
+        var loginTabBtn = document.getElementById('auth-tab-login');
+        if (signupTabBtn) {
+            signupTabBtn.addEventListener('click', function() {
+                if (lastActiveAuthTab === 'signup') return;
+                lastActiveAuthTab = 'signup';
+                if (typeof gtag !== 'undefined') gtag('event', 'signup_page_viewed', { method: 'tab_switch' });
+                if (window.appInsights && typeof window.appInsights.trackEvent === 'function') {
+                    window.appInsights.trackEvent({ name: 'signup_page_viewed', properties: { method: 'tab_switch' } });
+                }
+            });
+        }
+        if (loginTabBtn) {
+            loginTabBtn.addEventListener('click', function() {
+                lastActiveAuthTab = 'login';
+            });
+        }
+
         // "Sign in with this email" button on duplicate-email error —
         // switches to the login tab and prefills the email field.
         document.querySelectorAll('[data-switch-to-login]').forEach(function(btn) {
@@ -602,6 +715,16 @@ var _i18n = {
             });
         });
 
+        // Bfcache restore: a user who taps a social button, then backs out of
+        // the provider's consent screen, can land back on this exact page
+        // (no reload). Run every registered resetter so nothing stays stuck
+        // disabled/relabelled, and so isSubmitting flags forget the previous
+        // page-out. Always registered, even if there are no social buttons.
+        window.addEventListener('pageshow', function(e) {
+            if (!e.persisted) return;
+            resetters.forEach(function(reset) { reset(); });
+        });
+
         // Social login button handling
         var socialButtons = document.querySelectorAll('.social-login-btn');
         if (!socialButtons.length) return;
@@ -616,6 +739,16 @@ var _i18n = {
             var providerName = button.getAttribute('data-provider') || 'OAuth';
             var fullOAuthUrl = window.location.origin + oauthUrl;
 
+            // Restores the logo/label the aria-busy CSS spinner (see
+            // .social-login-btn[aria-busy] in tailwind-input.css) was
+            // covering — none of the branches below touch textContent
+            // anymore, so this only ever needs to clear state, never
+            // reconstruct markup.
+            resetters.push(function() {
+                button.classList.remove('disabled', 'opacity-75');
+                button.removeAttribute('aria-busy');
+            });
+
             // ANDROID PWA: Force external browser
             if (isPWA() && isAndroid()) {
                 var browserInfo = getAndroidBrowserPackage();
@@ -627,7 +760,6 @@ var _i18n = {
 
                     button.classList.add('disabled', 'opacity-75');
                     button.setAttribute('aria-busy', 'true');
-                    button.textContent = _i18n.opening + ' ' + browserInfo.name + '...';
 
                     if (browserInfo.package === 'com.sec.android.app.sbrowser') {
                         var newWindow = window.open(fullOAuthUrl, '_system');
@@ -655,7 +787,6 @@ var _i18n = {
                     e.preventDefault();
                     button.classList.add('disabled', 'opacity-75');
                     button.setAttribute('aria-busy', 'true');
-                    button.textContent = _i18n.openingLogin;
                     window.location.href = oauthUrl;
                 });
                 return;
@@ -665,7 +796,6 @@ var _i18n = {
             button.addEventListener('click', function(e) {
                 button.classList.add('disabled', 'opacity-75');
                 button.setAttribute('aria-busy', 'true');
-                button.textContent = _i18n.redirectingTo + ' ' + providerName + '...';
             });
         });
 

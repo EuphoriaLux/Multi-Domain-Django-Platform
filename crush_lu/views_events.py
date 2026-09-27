@@ -38,6 +38,8 @@ from .services.event_grouping import (
 )
 from .services.credits import (
     available_credit_cents,
+    cancellation_outcome,
+    cancellation_policy,
     is_late_cancellation,
     issue_cancellation_credits,
     paid_amount_cents,
@@ -73,10 +75,7 @@ def _is_duplicate_event_registration(error):
         with connection.cursor() as cursor:
             constraints = connection.introspection.get_constraints(cursor, table)
         constraint = constraints.get(diagnostic.constraint_name, {})
-        return (
-            constraint.get("unique", False)
-            and constraint.get("columns") == columns
-        )
+        return constraint.get("unique", False) and constraint.get("columns") == columns
     if connection.vendor == "sqlite":
         expected = "UNIQUE constraint failed: " + ", ".join(
             f"{table}.{column}" for column in columns
@@ -165,9 +164,22 @@ def _resale_claim_from(source, event):
         ),
     ).exists()
     captured_payment_exists = PaymentTransaction.objects.filter(
+        # REFUNDED alongside PAID: the comment below already says "a captured
+        # OR ALREADY-RETURNED payment is a completed cycle, not future cash"
+        # — reconcile_sumup_payments flips a payment straight to REFUNDED
+        # (never back to unconfirmed-PAID) when it reconciles an external
+        # cash refund, so a source-only claim built after that would wait on
+        # cash that was already given back, not cash still owed. Only a
+        # refund from THIS cycle counts: the row is reused on re-registration,
+        # which resets registered_at, and an earlier cycle's refund says
+        # nothing about cash still owed for the current one.
+        Q(status=PaymentTransaction.Status.PAID)
+        | Q(
+            status=PaymentTransaction.Status.REFUNDED,
+            created_at__gte=source.registered_at,
+        ),
         event_registration=source,
         purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
-        status=PaymentTransaction.Status.PAID,
     ).exists()
     if (
         not source.payment_confirmed
@@ -1947,6 +1959,63 @@ def event_register(request, event_id):
     return render(request, template, context)
 
 
+def _event_cancel_refusal(request, event, registration):
+    """Redirect (with its message) when this registration cannot be cancelled.
+
+    Shared by the GET preview and the locked POST, so the confirmation page
+    never promises money for a cancellation the POST would refuse.
+    """
+    if registration.status in ("cancelled", "no_show"):
+        messages.info(request, _("Your registration was already cancelled."))
+        return redirect("crush_lu:dashboard")
+
+    # Crush.lu has cancelled this event, so there is nothing for the
+    # member to cancel and a great deal for them to lose by trying.
+    #
+    # The organiser-cancellation remedy is a PREMIUM credit plus cash
+    # on request; the member-cancellation remedy is face value at best
+    # and nothing at all inside 48h. Letting this path run turns the
+    # first into the second. The window is real: the admin action
+    # commits `is_cancelled` and then does the echo.lu withdrawal and
+    # the Apple/Google wallet refreshes — network fan-out, seconds of
+    # it — before the credit sweep reaches this member, and the sweep
+    # skips rows that have gone `cancelled` in the meantime. A member
+    # reading the cancellation email and clicking "cancel my place"
+    # lands exactly there.
+    if event.is_cancelled:
+        messages.info(
+            request,
+            _(
+                "This event has been cancelled — you don't need to do "
+                "anything. Your Crush Credit is on its way, and you can "
+                "reply to the cancellation email if you would rather "
+                "have your money back."
+            ),
+        )
+        return redirect("crush_lu:event_detail", event_id=event.id)
+
+    now = timezone.now()
+    if registration.status == "attended" or event.end_time <= now:
+        messages.error(
+            request,
+            _(
+                "This event has already taken place. If something is wrong, "
+                "contact your coach."
+            ),
+        )
+        return redirect("crush_lu:event_detail", event_id=event.id)
+    if event.date_time <= now:
+        messages.error(
+            request,
+            _(
+                "This event has already started. If you can't make it, "
+                "contact your coach."
+            ),
+        )
+        return redirect("crush_lu:event_detail", event_id=event.id)
+    return None
+
+
 @crush_login_required
 def event_cancel(request, event_id):
     """Cancel event registration"""
@@ -1971,56 +2040,28 @@ def event_cancel(request, event_id):
                 .order_by("pk")
             }
             registration = locked_registrations[registration.pk]
-            if registration.status in ("cancelled", "no_show"):
-                messages.info(request, _("Your registration was already cancelled."))
-                return redirect("crush_lu:dashboard")
+            refusal = _event_cancel_refusal(request, locked_event, registration)
+            if refusal is not None:
+                return refusal
 
-            # Crush.lu has cancelled this event, so there is nothing for the
-            # member to cancel and a great deal for them to lose by trying.
-            #
-            # The organiser-cancellation remedy is a PREMIUM credit plus cash
-            # on request; the member-cancellation remedy is face value at best
-            # and nothing at all inside 48h. Letting this path run turns the
-            # first into the second. The window is real: the admin action
-            # commits `is_cancelled` and then does the echo.lu withdrawal and
-            # the Apple/Google wallet refreshes — network fan-out, seconds of
-            # it — before the credit sweep reaches this member, and the sweep
-            # skips rows that have gone `cancelled` in the meantime. A member
-            # reading the cancellation email and clicking "cancel my place"
-            # lands exactly there.
-            if locked_event.is_cancelled:
-                messages.info(
+            # The page promised an outcome when it was opened. If the full-credit
+            # deadline passed before the member confirmed, don't apply a
+            # different one silently: show them the new terms first.
+            moment = timezone.now()
+            previewed = request.POST.get("previewed_outcome")
+            current = cancellation_outcome(registration, moment=moment)
+            if previewed and previewed != current.kind:
+                messages.warning(
                     request,
                     _(
-                        "This event has been cancelled — you don't need to do "
-                        "anything. Your Crush Credit is on its way, and you can "
-                        "reply to the cancellation email if you would rather "
-                        "have your money back."
+                        "The cancellation terms changed while this page was "
+                        "open. Please check them again before you confirm."
                     ),
                 )
-                return redirect("crush_lu:event_detail", event_id=event_id)
-
-            now = timezone.now()
-            if registration.status == "attended" or locked_event.end_time <= now:
-                messages.error(
-                    request,
-                    _(
-                        "This event has already taken place. If something is wrong, "
-                        "contact your coach."
-                    ),
-                )
-                return redirect("crush_lu:event_detail", event_id=event_id)
-            if locked_event.date_time <= now:
-                messages.error(
-                    request,
-                    _(
-                        "This event has already started. If you can't make it, "
-                        "contact your coach."
-                    ),
-                )
-                return redirect("crush_lu:event_detail", event_id=event_id)
+                return redirect("crush_lu:event_cancel", event_id=event_id)
 
             registration.status = "cancelled"
+            registration.cancelled_at = moment
             # This view promotes explicitly below, inside the same locked
             # transaction, and sends the confirmation email itself. Tell
             # `signals.promote_waitlist_on_cancellation` to stand down, or the
@@ -2096,9 +2137,17 @@ def event_cancel(request, event_id):
 
         return redirect("crush_lu:dashboard")
 
+    refusal = _event_cancel_refusal(request, event, registration)
+    if refusal is not None:
+        return refusal
+
     context = {
         "event": event,
         "registration": registration,
+        # The same decision the POST makes, previewed now so the member sees
+        # what happens to their money before they confirm.
+        "outcome": cancellation_outcome(registration, moment=timezone.now()),
+        "cancellation_policy": cancellation_policy(event),
     }
     return render(request, "crush_lu/event_cancel.html", context)
 

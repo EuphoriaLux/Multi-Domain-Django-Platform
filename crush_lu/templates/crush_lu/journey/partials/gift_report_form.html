@@ -1,0 +1,17 @@
+{% load i18n %}
+{% comment %}
+Quiet "This isn't for me / Report" action for a gift recipient (UX 7-01).
+POSTs to gift_report, which expires the gift and alerts the team. HTMX routes
+it through the global confirm sheet; without JS it is a plain form POST.
+{% endcomment %}
+<form method="post"
+      action="{% url 'crush_lu:gift_report' gift_code=gift.gift_code %}"
+      hx-post="{% url 'crush_lu:gift_report' gift_code=gift.gift_code %}"
+      hx-confirm="{% trans "Close this gift and let the Crush.lu team know? The link will stop working." %}"
+      data-confirm-label="{% trans "Close and report" %}"
+      class="relative z-10 mt-6 text-center">
+    {% csrf_token %}
+    <button type="submit" class="btn-link text-sm text-white/80 hover:text-white" data-testid="gift-report">
+        {% trans "This isn't for me / Report" %}
+    </button>
+</form>

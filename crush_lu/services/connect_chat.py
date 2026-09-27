@@ -32,7 +32,11 @@ Scope notes:
   copy is shown, not just inside this one chat. It additionally writes a
   ``ConnectPairExclusion`` (permanent Cycle re-match exclusion — the
   general block system has no notion of the Cycle's card pool) and closes
-  this chat. The optional coach-escalation report reuses ``ConnectReport``
+  this chat. The chat's safety menu files its report through the general
+  ``UserReport`` queue (``source="connect_chat"``, which notifies staff and
+  coaches) and, with "Also block them", blocks through this function — so
+  the UI no longer offers ``escalate=True``; it stays for API callers.
+  The optional coach-escalation report reuses ``ConnectReport``
   (PR #883, previously unused by any view/service) rather than the general
   ``UserReport`` queue — its ``reviewed_by`` FK to ``CrushCoach``
   specifically routes it to coach review, matching what a Connect Cycle

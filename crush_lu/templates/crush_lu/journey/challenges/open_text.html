@@ -11,7 +11,7 @@
         x-data="openText"
         data-challenge-id="{{ challenge.id }}"
         data-submit-url="{% url 'crush_lu:api_submit_challenge' %}"
-        data-chapter-url="{% url 'crush_lu:chapter_view' chapter.chapter_number %}"
+        data-chapter-url="{% url 'crush_lu:chapter_view' chapter.chapter_number %}{{ journey_query }}"
         data-chapter-number="{{ chapter.chapter_number }}"
         data-min-length="10"
         data-max-length="2000"
@@ -61,7 +61,7 @@
                 <p class="mt-2">"{{ existing_attempt.user_answer }}"</p>
             </div>
 
-            <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="journey-btn-primary mt-6">
+            <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}{{ journey_query }}" class="journey-btn-primary mt-6">
                 {% trans "Continue to Next Challenge" %}
                 {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
             </a>

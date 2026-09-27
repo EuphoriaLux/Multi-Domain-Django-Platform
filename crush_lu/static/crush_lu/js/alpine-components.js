@@ -29,6 +29,59 @@ document.addEventListener("alpine:init", function () {
         }
     });
 
+    // Prompt queue (crush_lu/STYLE.md §8): at most one of the cookie sheet,
+    // flash messages, the install card and the push prompt at a time, in
+    // that order. The cookie sheet (shared core partial, no Alpine) reports
+    // itself via `cookie-banner-toggle`; flash messages are never hidden,
+    // they only hold install/push back until dismissed or auto-hidden.
+    // Install/push wait for DOMContentLoaded, when the sheet has decided.
+    var PROMPT_ORDER = ["cookie", "messages", "install", "push"];
+    Alpine.store("prompts", {
+        ready: false,
+        cookie: false,
+        messages: 0,
+        install: false,
+        push: false,
+        init() {
+            var self = this;
+            var sheet = document.getElementById("cookie-consent-banner");
+            this.cookie = !!sheet && sheet.style.display === "block";
+            document.addEventListener("cookie-banner-toggle", function (e) {
+                self.cookie = !!(e.detail && e.detail.open);
+            });
+            function markReady() {
+                self.ready = true;
+            }
+            if (document.readyState === "complete") {
+                markReady();
+            } else {
+                document.addEventListener("DOMContentLoaded", markReady);
+                window.addEventListener("load", markReady);
+            }
+        },
+        get active() {
+            for (var i = 0; i < PROMPT_ORDER.length; i++) {
+                var name = PROMPT_ORDER[i];
+                if (this[name]) {
+                    return i < 2 || this.ready ? name : null;
+                }
+            }
+            return null;
+        },
+        isActive(name) {
+            return this.active === name;
+        },
+        set(name, on) {
+            this[name] = !!on;
+        },
+        holdMessage() {
+            this.messages += 1;
+        },
+        releaseMessage() {
+            this.messages = Math.max(0, this.messages - 1);
+        },
+    });
+
     // =========================================================================
     // SHARED INTERACTIVITY MIXINS (Phase 5 — see crush_lu/STYLE.md §7)
     //
@@ -97,6 +150,55 @@ document.addEventListener("alpine:init", function () {
                     var form = this.$el && this.$el.closest("form");
                     if (form) form.submit();
                 }
+            },
+        };
+    }
+
+    // Push settings cards: navigator.serviceWorker.ready never settles when no
+    // worker is registered (failed registration, private mode, DEBUG's
+    // sw-unregister), so give up on the "Checking…" spinner after 3 s and
+    // offer a Retry. A late answer still settles the card normally.
+    var PUSH_CHECK_TIMEOUT_MS = 3000;
+    function makePushStatusCheck() {
+        return {
+            checkTimedOut: false,
+            _checkRun: 0,
+            // "Not supported" and a browser-level "blocked" are the truthful
+            // answers (Retry cannot change either), so both win over Retry.
+            get showCheckTimedOut() {
+                return (
+                    !this.isLoading &&
+                    this.checkTimedOut &&
+                    this.isSupported &&
+                    !this.permissionDenied
+                );
+            },
+            // probe(finish) runs the component's own check and calls finish().
+            // An unsupported browser has nothing to probe: settle at once.
+            _runStatusCheck: function (probe) {
+                var self = this;
+                var run = ++this._checkRun;
+                this.isLoading = true;
+                this.checkTimedOut = false;
+                setTimeout(function () {
+                    if (run === self._checkRun && self.isLoading) {
+                        self.isLoading = false;
+                        self.checkTimedOut = true;
+                    }
+                }, PUSH_CHECK_TIMEOUT_MS);
+                var finish = function () {
+                    if (run !== self._checkRun) return;
+                    self.isLoading = false;
+                    self.checkTimedOut = false;
+                    self.$nextTick(function () {
+                        self._retryDeviceMatch();
+                    });
+                };
+                if (!this.isSupported) return finish();
+                probe(finish);
+            },
+            retryStatusCheck: function () {
+                this._checkStatus();
             },
         };
     }
@@ -2476,10 +2578,13 @@ document.addEventListener("alpine:init", function () {
     });
 
     // Dismissible alert/message component
-    Alpine.data("dismissible", function () {
+    function makeDismissible() {
         return {
             show: true,
             init: function () {
+                this.startAutoDismiss();
+            },
+            startAutoDismiss: function () {
                 // Auto-dismiss only when the banner opts in via data-auto-dismiss
                 // (success/info confirmations). Errors and warnings omit the
                 // attribute so they persist until the user closes them.
@@ -2495,6 +2600,22 @@ document.addEventListener("alpine:init", function () {
                 this.show = false;
             },
         };
+    }
+    Alpine.data("dismissible", makeDismissible);
+
+    // base.html's Django flash messages: while one is visible it holds the
+    // lower-priority prompts (install, push) in Alpine.store("prompts").
+    Alpine.data("flashMessage", function () {
+        return mixin(makeDismissible(), {
+            init: function () {
+                var prompts = Alpine.store("prompts");
+                prompts.holdMessage();
+                this.$watch("show", function (visible) {
+                    if (!visible) prompts.releaseMessage();
+                });
+                this.startAutoDismiss();
+            },
+        });
     });
 
     // Inline connection request form (event attendees page).
@@ -2532,15 +2653,35 @@ document.addEventListener("alpine:init", function () {
             get isSignupTab() {
                 return this.activeTab === "signup";
             },
+            // Alpine's CSP-friendly build can't evaluate an inline ternary
+            // (`isLoginTab ? 'true' : 'false'`) in x-bind:aria-selected —
+            // it silently logs a console warning and never sets the
+            // attribute. These return the string directly so the binding
+            // stays a bare property name.
+            get loginAriaSelected() {
+                return this.isLoginTab ? "true" : "false";
+            },
+            get signupAriaSelected() {
+                return this.isSignupTab ? "true" : "false";
+            },
+            // Roving tabindex: only the active tab sits in the sequential
+            // tab order, per the ARIA tabs keyboard pattern. Arrow keys
+            // move focus between tabs (handled by onTabKeydown below).
+            get loginTabIndex() {
+                return this.isLoginTab ? "0" : "-1";
+            },
+            get signupTabIndex() {
+                return this.isSignupTab ? "0" : "-1";
+            },
             get loginTabClass() {
                 return this.activeTab === "login"
                     ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md"
-                    : "text-gray-900 bg-white/50 hover:bg-white/80";
+                    : "text-gray-900 bg-white/50 hover:bg-white/80 dark:text-gray-300 dark:bg-transparent dark:hover:bg-white/10";
             },
             get signupTabClass() {
                 return this.activeTab === "signup"
                     ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md"
-                    : "text-gray-900 bg-white/50 hover:bg-white/80";
+                    : "text-gray-900 bg-white/50 hover:bg-white/80 dark:text-gray-300 dark:bg-transparent dark:hover:bg-white/10";
             },
 
             init: function () {
@@ -2555,6 +2696,35 @@ document.addEventListener("alpine:init", function () {
             },
             setSignup: function () {
                 this.activeTab = "signup";
+            },
+            // ARIA tabs keyboard pattern: Left/Right/Home/End move both
+            // selection and focus between the two tabs (there are only
+            // ever two, so wrapping toggles). Other keys are left alone.
+            onTabKeydown: function (event) {
+                var key = event.key;
+                if (
+                    key !== "ArrowLeft" &&
+                    key !== "ArrowRight" &&
+                    key !== "Home" &&
+                    key !== "End"
+                ) {
+                    return;
+                }
+                event.preventDefault();
+                var next = this.isLoginTab ? "signup" : "login";
+                if (key === "Home") next = "login";
+                if (key === "End") next = "signup";
+                var nextId = next === "login" ? "auth-tab-login" : "auth-tab-signup";
+                var nextEl = document.getElementById(nextId);
+                if (!nextEl) return;
+                // Dispatch a real click rather than setting activeTab
+                // directly: the signup tab also carries a plain
+                // addEventListener click handler (funnel analytics in
+                // auth.html) that a direct state assignment would bypass,
+                // so an arrow-key switch to signup would silently miss
+                // the signup_page_viewed event.
+                nextEl.click();
+                nextEl.focus();
             },
         };
     });
@@ -3115,7 +3285,7 @@ document.addEventListener("alpine:init", function () {
     // Handles both enabling push and managing preferences
     // Uses event delegation for CSP compliance - no inline event handlers
     Alpine.data("pushPreferences", function () {
-        return {
+        return mixin(makePushStatusCheck(), {
             subscriptions: [],
             isSupported: false,
             isSubscribed: false,
@@ -3162,6 +3332,7 @@ document.addEventListener("alpine:init", function () {
             get showEnableButton() {
                 return (
                     !this.isLoading &&
+                    !this.checkTimedOut &&
                     this.isSupported &&
                     !this.isCurrentDeviceSubscribed &&
                     !this.permissionDenied
@@ -3174,7 +3345,7 @@ document.addEventListener("alpine:init", function () {
                 return !this.isLoading && !this.isSupported;
             },
             get showPreferences() {
-                return !this.isLoading && this.isSubscribed && this.hasSubscriptions;
+                return !this.isLoading && !this.checkTimedOut && this.isSubscribed && this.hasSubscriptions;
             },
             get showLoading() {
                 return this.isLoading;
@@ -3231,36 +3402,7 @@ document.addEventListener("alpine:init", function () {
                 // Detect current device endpoint for "This device" badge
                 this._detectCurrentEndpoint();
 
-                // Wait for CrushPush to be available before checking subscription status
-                this._waitForCrushPush(function () {
-                    // Check current subscription status
-                    if (
-                        self.isSupported &&
-                        window.CrushPush &&
-                        window.CrushPush.isSubscribed
-                    ) {
-                        window.CrushPush.isSubscribed()
-                            .then(function (subscribed) {
-                                self.isSubscribed = subscribed;
-                                self.isLoading = false;
-                                // Re-run device detection after DOM is rendered
-                                self.$nextTick(function () {
-                                    self._retryDeviceMatch();
-                                });
-                            })
-                            .catch(function () {
-                                self.isLoading = false;
-                                self.$nextTick(function () {
-                                    self._retryDeviceMatch();
-                                });
-                            });
-                    } else {
-                        self.isLoading = false;
-                        self.$nextTick(function () {
-                            self._retryDeviceMatch();
-                        });
-                    }
-                });
+                this._checkStatus();
 
                 // Event delegation for toggle changes
                 this.$el.addEventListener("change", function (event) {
@@ -3667,9 +3809,26 @@ document.addEventListener("alpine:init", function () {
                 return cookie ? cookie.split("=")[1] : "";
             },
 
+            // Wait for CrushPush, then ask it whether this device is subscribed
+            _checkStatus: function () {
+                var self = this;
+                this._runStatusCheck(function (finish) {
+                    self._waitForCrushPush(function () {
+                        if (!self.isSupported || !window.CrushPush.isSubscribed) {
+                            return finish();
+                        }
+                        window.CrushPush.isSubscribed()
+                            .then(function (subscribed) {
+                                self.isSubscribed = subscribed;
+                                finish();
+                            })
+                            .catch(finish);
+                    });
+                });
+            },
+
             // Wait for CrushPush to be available (handles script load timing)
             _waitForCrushPush: function (callback) {
-                var self = this;
                 var maxAttempts = 20; // 2 seconds max
                 var attempts = 0;
 
@@ -3679,10 +3838,10 @@ document.addEventListener("alpine:init", function () {
                         callback();
                     } else if (attempts < maxAttempts) {
                         setTimeout(check, 100);
-                    } else {
-                        // CrushPush never loaded (push not supported or script error)
-                        self.isLoading = false;
                     }
+                    // Otherwise CrushPush never loaded (script blocked or
+                    // failed): leave the check pending so the status-check
+                    // timeout offers Retry instead of a dead Enable button.
                 }
 
                 check();
@@ -3829,7 +3988,7 @@ document.addEventListener("alpine:init", function () {
                     health && health.valid === false && health.reason === "not_found"
                 );
             },
-        };
+        });
     });
 
     // CSP-safe wrapper component for individual subscription health status
@@ -3930,7 +4089,7 @@ document.addEventListener("alpine:init", function () {
     // Coach push notification preferences component (account settings and coach dashboard)
     // Separate from user push preferences - completely independent system
     Alpine.data("coachPushPreferences", function () {
-        return {
+        return mixin(makePushStatusCheck(), {
             subscriptions: [],
             isSupported: false,
             isSubscribed: false,
@@ -3963,6 +4122,7 @@ document.addEventListener("alpine:init", function () {
             get showEnableButton() {
                 return (
                     !this.isLoading &&
+                    !this.checkTimedOut &&
                     this.isSupported &&
                     !this.isCurrentDeviceSubscribed &&
                     !this.permissionDenied
@@ -3975,7 +4135,7 @@ document.addEventListener("alpine:init", function () {
                 return !this.isLoading && !this.isSupported;
             },
             get showPreferences() {
-                return !this.isLoading && this.isSubscribed && this.hasSubscriptions;
+                return !this.isLoading && !this.checkTimedOut && this.isSubscribed && this.hasSubscriptions;
             },
             get showLoading() {
                 return this.isLoading;
@@ -4024,16 +4184,7 @@ document.addEventListener("alpine:init", function () {
                 // Detect current device endpoint for "This device" badge
                 this._detectCurrentEndpoint();
 
-                this._waitForServiceWorker(function () {
-                    if (self.isSupported && self.subscriptions.length > 0) {
-                        self.isSubscribed = true;
-                    }
-                    self.isLoading = false;
-                    // Re-run device detection after DOM is rendered
-                    self.$nextTick(function () {
-                        self._retryDeviceMatch();
-                    });
-                });
+                this._checkStatus();
 
                 this.$el.addEventListener("change", function (event) {
                     if (event.target.classList.contains("coach-push-pref-toggle")) {
@@ -4487,6 +4638,18 @@ document.addEventListener("alpine:init", function () {
                 return c ? c.split("=")[1] : "";
             },
 
+            _checkStatus: function () {
+                var self = this;
+                this._runStatusCheck(function (finish) {
+                    self._waitForServiceWorker(function () {
+                        if (self.isSupported && self.subscriptions.length > 0) {
+                            self.isSubscribed = true;
+                        }
+                        finish();
+                    });
+                });
+            },
+
             _waitForServiceWorker: function (cb) {
                 var self = this;
                 if ("serviceWorker" in navigator) {
@@ -4570,7 +4733,7 @@ document.addEventListener("alpine:init", function () {
                 }
                 return Math.abs(hash).toString(16).padStart(8, "0");
             },
-        };
+        });
     });
 
     // Decline animation component (connection response)
@@ -8614,8 +8777,12 @@ document.addEventListener("alpine:init", function () {
      * Usage:
      * <div x-data="journeyState"
      *      data-save-url="/api/journey/save-state/"
+     *      data-journey-id="7"
      *      data-initial-time="300"
      *      data-initial-points="150">
+     *
+     * data-journey-id credits the time to the journey the page shows; the
+     * server falls back to the map's journey when it is empty.
      */
     Alpine.data("journeyState", function () {
         return {
@@ -8624,11 +8791,13 @@ document.addEventListener("alpine:init", function () {
             totalTimeSeconds: 0,
             currentPoints: 0,
             saveUrl: "",
+            journeyId: "",
             saveInterval: null,
 
             init: function () {
                 var el = this.$el;
                 this.saveUrl = el.dataset.saveUrl || "";
+                this.journeyId = el.dataset.journeyId || "";
                 this.totalTimeSeconds = parseInt(el.dataset.initialTime, 10) || 0;
                 this.currentPoints = parseInt(el.dataset.initialPoints, 10) || 0;
 
@@ -8652,15 +8821,17 @@ document.addEventListener("alpine:init", function () {
                 var self = this;
 
                 if (timeIncrement > 0) {
+                    var payload = { time_increment: timeIncrement };
+                    if (this.journeyId) {
+                        payload.journey_id = this.journeyId;
+                    }
                     fetch(this.saveUrl, {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
                             "X-CSRFToken": CrushUtils.getCsrfToken(),
                         },
-                        body: JSON.stringify({
-                            time_increment: timeIncrement,
-                        }),
+                        body: JSON.stringify(payload),
                     })
                         .then(function (response) {
                             return response.json();
@@ -8684,6 +8855,9 @@ document.addEventListener("alpine:init", function () {
                 if (timeIncrement > 0) {
                     var formData = new FormData();
                     formData.append("time_increment", timeIncrement);
+                    if (this.journeyId) {
+                        formData.append("journey_id", this.journeyId);
+                    }
                     formData.append("csrfmiddlewaretoken", CrushUtils.getCsrfToken());
                     navigator.sendBeacon(this.saveUrl, formData);
                 }
@@ -10441,6 +10615,11 @@ document.addEventListener("alpine:init", function () {
                 return this.platform === "ios";
             },
 
+            // Queued behind the cookie sheet and flash messages.
+            get visible() {
+                return this.show && Alpine.store("prompts").isActive("install");
+            },
+
             get isStepOne() {
                 return this.guideStep === 1;
             },
@@ -10484,6 +10663,9 @@ document.addEventListener("alpine:init", function () {
             init: function () {
                 var self = this;
                 // Listen for show/hide events from pwa-install.js
+                this.$watch("show", function (on) {
+                    Alpine.store("prompts").set("install", on);
+                });
                 window.addEventListener("pwa-show-install", function (e) {
                     self.show = true;
                     if (e.detail && e.detail.platform) {
@@ -12364,8 +12546,12 @@ document.addEventListener("alpine:init", function () {
         return {
             currentTheme: "light",
             systemPreference: "light",
+            // Journey / gift pages are always dark (data-theme-lock on <html>):
+            // the toggle is disabled and says why, in the page language.
+            lockedLabel: "",
 
             init: function () {
+                this.lockedLabel = this.$el.getAttribute("data-locked-label") || "";
                 // Initialize from themeManager
                 if (window.themeManager) {
                     this.currentTheme = window.themeManager.getTheme();
@@ -12399,6 +12585,14 @@ document.addEventListener("alpine:init", function () {
             },
 
             // Getters for CSP compliance (no inline expressions in templates)
+            get isLocked() {
+                return document.documentElement.hasAttribute("data-theme-lock");
+            },
+
+            get lockedTitle() {
+                return this.isLocked ? this.lockedLabel : null;
+            },
+
             get isDark() {
                 return this.currentTheme === "dark";
             },
@@ -12412,6 +12606,9 @@ document.addEventListener("alpine:init", function () {
             },
 
             get toggleButtonClass() {
+                if (this.isLocked) {
+                    return "bg-gray-700 text-yellow-400 cursor-not-allowed";
+                }
                 return this.isDark
                     ? "bg-gray-700 text-yellow-400 hover:bg-gray-600"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200";
@@ -12426,6 +12623,9 @@ document.addEventListener("alpine:init", function () {
             },
 
             get statusText() {
+                if (this.isLocked) {
+                    return this.lockedLabel;
+                }
                 var saved = localStorage.getItem("theme");
                 if (!saved) {
                     return this.isSystemDark ? "System (Dark)" : "System (Light)";
@@ -12434,6 +12634,9 @@ document.addEventListener("alpine:init", function () {
             },
 
             get ariaLabel() {
+                if (this.isLocked) {
+                    return this.lockedLabel;
+                }
                 return this.isDark ? "Switch to light mode" : "Switch to dark mode";
             },
 
@@ -12455,6 +12658,9 @@ document.addEventListener("alpine:init", function () {
             },
 
             toggleTheme: function () {
+                if (this.isLocked) {
+                    return;
+                }
                 if (window.themeManager) {
                     window.themeManager.toggleTheme();
                     this.currentTheme = window.themeManager.getTheme();
@@ -12908,6 +13114,26 @@ document.addEventListener("alpine:init", function () {
                 return this.description.length > this.maxLength;
             },
         };
+    });
+
+    // Event-cancel double-submit guard (event_cancel.html). The first submit
+    // enters the confirming state and goes through natively; any further
+    // submit is swallowed so a double tap cannot post twice. Replaces an
+    // inline onsubmit handler the nonce-based CSP blocked.
+    Alpine.data("eventCancelForm", function () {
+        return mixin(makeConfirm({ autoSubmit: false }), {
+            guardSubmit(event) {
+                if (this.isConfirming) {
+                    event.preventDefault();
+                    return;
+                }
+                this.request();
+            },
+            // Back/forward cache restores the page as it was left: re-arm it.
+            resetGuard(event) {
+                if (event && event.persisted) this.cancelConfirm();
+            },
+        });
     });
 
     // Spark confirm inline component (replaces browser confirm dialog)
@@ -13401,6 +13627,10 @@ document.addEventListener("alpine:init", function () {
 
                 var csrfToken = document.querySelector("[name=csrfmiddlewaretoken]");
                 var token = csrfToken ? csrfToken.value : "";
+                var payload = { option_ids: self.selectedOptions };
+                // Optional "I am..." answer, rendered only for voters without a profile gender
+                var gender = document.querySelector('input[name="voter_gender"]:checked');
+                if (gender) payload.gender = gender.value;
 
                 fetch("/api/polls/" + self.pollId + "/vote/", {
                     method: "POST",
@@ -13408,7 +13638,7 @@ document.addEventListener("alpine:init", function () {
                         "Content-Type": "application/json",
                         "X-CSRFToken": token,
                     },
-                    body: JSON.stringify({ option_ids: self.selectedOptions }),
+                    body: JSON.stringify(payload),
                 })
                     .then(function (r) {
                         return r.json();
@@ -15305,28 +15535,6 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
-    // Connect Cycle temp chat: 1-click block confirmation panel. Composes
-    // makeConfirm with the template-facing API the block partial expects
-    // (isInitial / showConfirm / cancel), same as sparkConfirm — but
-    // autoSubmit stays ON (the default): proceed() submits the enclosing
-    // block form directly, no HTMX involved.
-    Alpine.data("connectChatBlockConfirm", function () {
-        return mixin(makeConfirm(), {
-            get isInitial() {
-                return this.isIdle;
-            },
-            showConfirm() {
-                this.request();
-            },
-            cancel() {
-                this.cancelConfirm();
-            },
-            confirmBlock() {
-                this.proceed();
-            },
-        });
-    });
-
     // Auto-redirect countdown shown on the profile-approved state of profile_submitted.html.
     // Reads the destination URL from data-dashboard-url to stay language-prefix–safe.
     Alpine.data("approvedCountdown", () => ({
@@ -15339,6 +15547,34 @@ document.addEventListener("alpine:init", function () {
                     window.location.href = url;
                 } else {
                     this.countdown--;
+                }
+            }, 1000);
+        },
+    }));
+
+    // ========================================================================
+    // Verify-email resend cooldown (account/verification_sent_crush.html)
+    // ========================================================================
+
+    Alpine.data("resendCooldown", () => ({
+        disabled: false,
+        remaining: 0,
+        get enabled() {
+            return !this.disabled;
+        },
+        init() {
+            const cooldownUntil = parseInt(this.$el.dataset.cooldownUntil, 10) || 0;
+            const serverNow = parseInt(this.$el.dataset.serverNow, 10) || 0;
+            this.remaining = Math.max(0, cooldownUntil - serverNow);
+            if (this.remaining <= 0) {
+                return;
+            }
+            this.disabled = true;
+            const t = setInterval(() => {
+                this.remaining--;
+                if (this.remaining <= 0) {
+                    clearInterval(t);
+                    this.disabled = false;
                 }
             }, 1000);
         },
