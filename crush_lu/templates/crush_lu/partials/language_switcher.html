@@ -15,20 +15,21 @@
 {% if mobile %}
 {# Mobile version - full-width form with select dropdown #}
 {# Uses Django's set_language view to save preference in cookie #}
-<div class="px-2 py-2">
-    <form action="{% url 'set_language' %}" method="post" id="language-form-mobile" class="flex items-center gap-2"
+{# drawer=True: light-surface styling and its own ids (the navbar's mobile menu renders one too) #}
+<div class="{% if drawer %}px-3{% else %}px-2{% endif %} py-2">
+    <form action="{% url 'set_language' %}" method="post" id="language-form-{% if drawer %}drawer{% else %}mobile{% endif %}" class="flex items-center gap-2"
           data-current-path="{{ request.path }}">
         {% csrf_token %}
         {# The next value will be updated by JavaScript based on selected language #}
-        <input type="hidden" name="next" id="language-next-mobile" value="{{ request.path }}">
-        <label for="language-mobile" class="text-white/80 dark:text-white/70 text-sm flex items-center gap-1">
+        <input type="hidden" name="next" id="language-next-{% if drawer %}drawer{% else %}mobile{% endif %}" value="{{ request.path }}">
+        <label for="language-{% if drawer %}drawer{% else %}mobile{% endif %}" class="{% if drawer %}text-gray-700 dark:text-gray-200 font-medium{% else %}text-white/80 dark:text-white/70{% endif %} text-sm flex items-center gap-1">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
             </svg>
             {% trans "Language" %}:
         </label>
-        <select name="language" id="language-mobile"
-                class="flex-1 bg-white/10 border border-white/20 text-white rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-crush-pink lang-select-auto-submit">
+        <select name="language" id="language-{% if drawer %}drawer{% else %}mobile{% endif %}"
+                class="flex-1 {% if drawer %}form-select{% else %}bg-white/10 border border-white/20 text-white{% endif %} rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-crush-pink lang-select-auto-submit">
             {% for lang_code, lang_name in AVAILABLE_LANGUAGES %}
                 <option value="{{ lang_code }}" {% if lang_code == CURRENT_LANGUAGE %}selected{% endif %} class="text-gray-800">
                     {{ lang_name }}

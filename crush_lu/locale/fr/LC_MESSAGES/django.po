@@ -43051,3 +43051,28 @@ msgstr ""
 #: crush_lu/templates/crush_lu/payments/sumup_widget.html
 msgid "Failed to load payment module. Please refresh or contact support."
 msgstr "Impossible de charger le module de paiement. Veuillez actualiser la page ou contacter le support."
+
+#: templates/crush_lu/partials/mobile_drawer.html
+msgid "Light"
+msgstr "Clair"
+
+#: templates/crush_lu/partials/mobile_drawer.html
+msgid "Dark"
+msgstr "Sombre"
+
+#: templates/crush_lu/partials/mobile_drawer.html
+msgid "Help & legal"
+msgstr "Aide et mentions légales"
+
+#: templates/crush_lu/partials/mobile_drawer.html
+msgid "Help & support"
+msgstr "Aide et support"
+
+#: templates/crush_lu/partials/mobile_drawer.html
+msgid "WhatsApp support"
+msgstr "Support WhatsApp"
+
+#: templates/crush_lu/partials/mobile_drawer.html
+msgctxt "drawer group"
+msgid "Preferences"
+msgstr "Préférences"

@@ -13131,9 +13131,11 @@ document.addEventListener("alpine:init", function () {
      * - localStorage persistence
      * - Smooth transitions
      */
-    Alpine.data("themeToggle", function () {
+    function makeThemeToggle() {
         return {
             currentTheme: "light",
+            // "light" | "dark" | "system" (no manual choice saved)
+            preference: "system",
             systemPreference: "light",
             // Journey / gift pages are always dark (data-theme-lock on <html>):
             // the toggle is disabled and says why, in the page language.
@@ -13141,10 +13143,13 @@ document.addEventListener("alpine:init", function () {
 
             init: function () {
                 this.lockedLabel = this.$el.getAttribute("data-locked-label") || "";
-                // Initialize from themeManager
-                if (window.themeManager) {
-                    this.currentTheme = window.themeManager.getTheme();
-                }
+                // Initialize from themeManager, and stay in step when another
+                // toggle (navbar / drawer) or the OS changes the theme.
+                this._syncFromManager();
+                window.addEventListener(
+                    "crush:themechange",
+                    this._syncFromManager.bind(this),
+                );
 
                 // Detect system preference
                 if (window.matchMedia) {
@@ -13215,8 +13220,9 @@ document.addEventListener("alpine:init", function () {
                 if (this.isLocked) {
                     return this.lockedLabel;
                 }
-                var saved = localStorage.getItem("theme");
-                if (!saved) {
+                // Read the reactive preference (kept in step by
+                // crush:themechange), not localStorage, which Alpine cannot track.
+                if (this.preference === "system") {
                     return this.isSystemDark ? "System (Dark)" : "System (Light)";
                 }
                 return this.isDark ? "Dark Mode" : "Light Mode";
@@ -13230,8 +13236,7 @@ document.addEventListener("alpine:init", function () {
             },
 
             get themeLabel() {
-                var saved = localStorage.getItem("theme");
-                if (!saved) {
+                if (this.preference === "system") {
                     return this.isSystemDark ? "System (Dark)" : "System (Light)";
                 }
                 return this.isDark ? "Dark" : "Light";
@@ -13257,20 +13262,80 @@ document.addEventListener("alpine:init", function () {
             },
 
             setTheme: function (theme) {
+                if (this.isLocked) {
+                    return;
+                }
                 if (window.themeManager) {
                     window.themeManager.setTheme(theme);
-                    this.currentTheme = theme;
+                    this._syncFromManager();
                 }
             },
 
             useSystemPreference: function () {
-                localStorage.removeItem("theme");
-                this.currentTheme = this.systemPreference;
+                if (this.isLocked) {
+                    return;
+                }
                 if (window.themeManager) {
-                    window.themeManager.setTheme(this.systemPreference);
+                    window.themeManager.useSystemTheme();
+                    this._syncFromManager();
+                }
+            },
+
+            _syncFromManager: function () {
+                if (window.themeManager) {
+                    this.currentTheme = window.themeManager.getTheme();
+                    this.preference = window.themeManager.getPreference();
                 }
             },
         };
+    }
+
+    Alpine.data("themeToggle", makeThemeToggle);
+
+    // Light / Dark / System segmented control (mobile drawer). Same state and
+    // theme lock as themeToggle; on a theme-locked page every option is
+    // aria-disabled and the locked label explains why.
+    Alpine.data("themeChoice", function () {
+        var selected =
+            "cursor-pointer bg-[var(--color-surface-card)] text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white";
+        var idle = "cursor-pointer text-gray-700 dark:text-gray-300";
+        // Locked (always-dark) page: no option reads as pressed or clickable.
+        var locked = "text-gray-700 dark:text-gray-300 opacity-60 cursor-not-allowed";
+        return mixin(makeThemeToggle(), {
+            _optionClass: function (chosen) {
+                if (this.isLocked) {
+                    return locked;
+                }
+                return chosen ? selected : idle;
+            },
+            get isLightChosen() {
+                return this.preference === "light";
+            },
+            get isDarkChosen() {
+                return this.preference === "dark";
+            },
+            get isSystemChosen() {
+                return this.preference === "system";
+            },
+            get lightOptionClass() {
+                return this._optionClass(this.isLightChosen);
+            },
+            get darkOptionClass() {
+                return this._optionClass(this.isDarkChosen);
+            },
+            get systemOptionClass() {
+                return this._optionClass(this.isSystemChosen);
+            },
+            chooseLight: function () {
+                this.setTheme("light");
+            },
+            chooseDark: function () {
+                this.setTheme("dark");
+            },
+            chooseSystem: function () {
+                this.useSystemPreference();
+            },
+        });
     });
 
     // =========================================================================

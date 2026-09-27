@@ -2,15 +2,16 @@
 {% load i18n %}
 
 {% block title %}{% trans "Data Deletion - Crush.lu" %}{% endblock %}
+{% block mobile_page_title %}{% trans "Data Deletion" %}{% endblock %}
 
 {% block meta_robots %}noindex, nofollow{% endblock %}
 
 {% block content %}
-<div class="flex justify-center py-8 px-4">
+<div class="flex justify-center">
     <div class="w-full max-w-3xl">
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
-            <div class="p-8">
-                <h1 class="text-3xl font-bold dark:text-white mb-4">{% trans "Data Deletion Request" %}</h1>
+            <div class="p-5 sm:p-8">
+                {% include "crush_lu/components/page_header.html" with title=_("Data Deletion Request") class="mb-4" %}
                 <p class="text-gray-500 dark:text-gray-400 mb-6"><small>{% trans "Last Updated: January 14, 2025" %}</small></p>
 
                 <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-4 mb-6 flex items-start gap-3">

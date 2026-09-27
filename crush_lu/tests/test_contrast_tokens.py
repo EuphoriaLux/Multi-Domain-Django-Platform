@@ -180,8 +180,9 @@ class ThemeLockMarkupTests(TestCase):
         tag, html = self._html_tag("/en/dashboard/")
         self.assertNotIn("data-theme-lock", tag)
         self.assertNotIn('class="dark"', tag)
-        # The toggles still carry the explanation for locked pages.
-        self.assertEqual(html.count(f'data-locked-label="{LOCKED_LABEL}"'), 2)
+        # The toggles (navbar x2, drawer theme choice) carry the explanation
+        # for locked pages.
+        self.assertEqual(html.count(f'data-locked-label="{LOCKED_LABEL}"'), 3)
 
     def test_locked_label_is_translated(self):
         for lang, label in (

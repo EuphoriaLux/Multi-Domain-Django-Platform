@@ -2,10 +2,11 @@
 {% load i18n %}
 
 {% block title %}{% trans "Data Management" %}{% endblock %}
+{% block mobile_page_title %}{% trans "Data Management" %}{% endblock %}
 
 {% block content %}
-<div class="section-container">
-    <h1 class="text-3xl font-bold mb-8">{% trans "GDPR Data Management" %}</h1>
+<div class="max-w-4xl mx-auto">
+    {% include "crush_lu/components/page_header.html" with title=_("GDPR Data Management") class="mb-8" %}
 
     {% blocktrans with email=user.email asvar email_help %}Your account email is {{ email }}.{% endblocktrans %}
 
