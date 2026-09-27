@@ -42484,3 +42484,12 @@ msgid ""
 msgstr ""
 "Deine Zahlung ist noch ausstehend oder wurde nicht abgeschlossen. Dein "
 "Platz ist reserviert — du kannst die Zahlung unten erneut versuchen."
+
+# UX Wave 3 · WP8 (follow-up: 4-10 waitlist regression)
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "You're on the waitlist"
+msgstr "Du bist auf der Warteliste"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "We'll email you if a spot opens up. No payment is needed until then."
+msgstr "Wir schreiben dir per E-Mail, wenn ein Platz frei wird. Bis dahin ist keine Zahlung nötig."

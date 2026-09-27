@@ -1,6 +1,8 @@
 """
 Playwright: a failed SumUp checkout shows a toast, not alert(), and the
-button re-enables (UX Wave 3 · WP8, finding 4-05).
+button re-enables (UX Wave 3 · WP8, finding 4-05). Also covers a follow-up
+finding: a back/forward-cache restore must clear the button's stuck loading
+state.
 
 Before this, event_detail.html's "Pay with Card" button had no loading
 state (a double tap opened two checkouts) and a failure showed a browser
@@ -138,3 +140,46 @@ def test_failed_checkout_shows_toast_not_alert_and_reenables_button(
     # alert() fired.
     expect(pay_button).to_be_enabled()
     assert dialogs == []
+
+
+def test_bfcache_restore_clears_stuck_loading_state(
+    page, live_server, verified_member, unpaid_event_registration
+):
+    """Follow-up finding: start() leaves isLoading=true while navigating to
+    widget_url. If the browser restores this page from the back/forward
+    cache instead of completing that navigation -- e.g. the member backs out
+    of the SumUp checkout on mobile Safari/Chrome -- the button was stuck
+    disabled on "Preparing checkout..." until a hard reload. A `pageshow`
+    listener with `event.persisted` must clear it.
+    """
+    event, registration = unpaid_event_registration
+
+    page.set_viewport_size(PHONE)
+    _log_in(page, live_server.url, verified_member)
+    page.goto(f"{live_server.url}/en/events/{event.id}/")
+
+    pay_button = page.locator(
+        f'button[data-sumup-reg-id="{registration.id}"][data-payment-method="card"]'
+    )
+    expect(pay_button).to_be_visible()
+
+    # Never resolve the checkout call -- this reproduces the state a real
+    # navigation to widget_url leaves behind (isLoading stays true) without
+    # actually navigating away, so the test can then simulate the bfcache
+    # restore on this same page.
+    page.route(
+        f"**/payments/sumup/create-event-checkout/{registration.id}/",
+        lambda route: None,
+    )
+    pay_button.click()
+    expect(pay_button).to_be_disabled()
+
+    # Simulate a bfcache restore: real back/forward navigations fire
+    # `pageshow` with `persisted: true` on the restored page; a normal load
+    # never does.
+    page.evaluate(
+        "window.dispatchEvent(new PageTransitionEvent('pageshow', "
+        "{ persisted: true }))"
+    )
+
+    expect(pay_button).to_be_enabled()

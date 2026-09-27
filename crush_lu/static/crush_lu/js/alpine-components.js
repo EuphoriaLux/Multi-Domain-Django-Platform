@@ -15820,6 +15820,22 @@ document.addEventListener("alpine:init", function () {
                 this.restingLabel = el.getAttribute("data-label") || "";
                 this.loadingLabel = el.getAttribute("data-label-loading") || "";
                 this.errorMessage = el.getAttribute("data-msg-error") || "";
+
+                // start() leaves isLoading true while navigating to
+                // widget_url so the button stays disabled during the
+                // redirect. If the browser instead restores this page from
+                // the back/forward cache (e.g. the member backs out of the
+                // SumUp checkout on mobile Safari/Chrome), that redirect
+                // never completes and the button would stay stuck on the
+                // loading label until a hard reload. pageshow with
+                // event.persisted fires on a bfcache restore (never on a
+                // normal load), so clear the stale loading state here.
+                var self = this;
+                window.addEventListener("pageshow", function (event) {
+                    if (event.persisted) {
+                        self.isLoading = false;
+                    }
+                });
             },
 
             get label() {

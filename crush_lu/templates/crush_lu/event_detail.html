@@ -1,6 +1,7 @@
 {% extends 'crush_lu/base.html' %}
 {% load static analytics %}
 {% load i18n %}
+{% load registration_status_tags %}
 
 {% block title %}{{ event.title }} - Crush.lu{% endblock %}
 {% block mobile_page_title %}{{ event.title }}{% endblock %}
@@ -424,27 +425,33 @@
                 {% elif user.is_authenticated %}
                     {% if user_registration %}
                         {# Already registered - show status, tone-coded so a confirmed/paid #}
-                        {# spot no longer looks identical to an unpaid one (#4-09). Branch order #}
-                        {# matters: "applied" is checked first so the later "payment due" test #}
-                        {# doesn't need to repeat the "not applied" guard the payment buttons use. #}
-                        <div class="{% if user_registration.status == 'applied' %}bg-purple-50 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700 text-purple-800 dark:text-purple-300{% elif event.registration_fee > 0 and not user_registration.payment_confirmed %}bg-amber-50 dark:bg-yellow-900/30 border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300{% elif user_registration.status == 'confirmed' or user_registration.status == 'attended' %}bg-green-50 dark:bg-emerald-900/30 border-green-200 dark:border-emerald-700 text-green-800 dark:text-emerald-300{% elif user_registration.status == 'waitlist' %}bg-amber-50 dark:bg-yellow-900/30 border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300{% else %}bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300{% endif %} border rounded-lg p-3 sm:p-4 mb-4">
+                        {# spot no longer looks identical to an unpaid one (#4-09). registration_tone #}
+                        {# is the single source of truth for this card's background, icon color and #}
+                        {# content (#4-11) — it also fixes #4-10: "waitlist" is resolved before the #}
+                        {# unpaid-fee test, so a waitlisted seat on a paid event no longer reads as #}
+                        {# "payment due — your spot is reserved". #}
+                        {% registration_tone user_registration event as reg_tone %}
+                        <div class="{% if reg_tone == 'applied' %}bg-purple-50 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700 text-purple-800 dark:text-purple-300{% elif reg_tone == 'payment_due' %}bg-amber-50 dark:bg-yellow-900/30 border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300{% elif reg_tone == 'confirmed' %}bg-green-50 dark:bg-emerald-900/30 border-green-200 dark:border-emerald-700 text-green-800 dark:text-emerald-300{% elif reg_tone == 'waitlist' %}bg-amber-50 dark:bg-yellow-900/30 border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300{% else %}bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300{% endif %} border rounded-lg p-3 sm:p-4 mb-4">
                             <div class="flex items-start gap-2">
-                                <svg class="w-5 h-5 flex-shrink-0 mt-0.5 {% if user_registration.status == 'applied' %}text-purple-600 dark:text-purple-400{% elif event.registration_fee > 0 and not user_registration.payment_confirmed or user_registration.status == 'waitlist' %}text-amber-600 dark:text-yellow-400{% elif user_registration.status == 'confirmed' or user_registration.status == 'attended' %}text-green-600 dark:text-emerald-400{% else %}text-blue-600 dark:text-blue-400{% endif %}" fill="currentColor" viewBox="0 0 20 20">
+                                <svg class="w-5 h-5 flex-shrink-0 mt-0.5 {% if reg_tone == 'applied' %}text-purple-600 dark:text-purple-400{% elif reg_tone == 'payment_due' or reg_tone == 'waitlist' %}text-amber-600 dark:text-yellow-400{% elif reg_tone == 'confirmed' %}text-green-600 dark:text-emerald-400{% else %}text-blue-600 dark:text-blue-400{% endif %}" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                                 </svg>
                                 <div class="flex-1">
-                                    {% if user_registration.status == 'applied' %}
+                                    {% if reg_tone == 'applied' %}
                                     <p class="font-semibold text-sm sm:text-base mb-1">{% trans "Your application is in!" %}</p>
                                     {% if event.registration_fee > 0 %}
                                     <p class="text-xs sm:text-sm">{% trans "The organiser reviews mutual preferences and will invite you to pay only if you are selected for a viable provisional group. Selection is not guaranteed." %}</p>
                                     {% else %}
                                     <p class="text-xs sm:text-sm">{% trans "The organiser reviews mutual preferences and will confirm your place only if a viable provisional group can be formed. Selection is not guaranteed." %}</p>
                                     {% endif %}
-                                    {% elif event.registration_fee > 0 and not user_registration.payment_confirmed %}
+                                    {% elif reg_tone == 'waitlist' %}
+                                    <p class="font-semibold text-sm sm:text-base mb-1">{% trans "You're on the waitlist" %}</p>
+                                    <p class="text-xs sm:text-sm">{% trans "We'll email you if a spot opens up. No payment is needed until then." %}</p>
+                                    {% elif reg_tone == 'payment_due' %}
                                     <p class="font-semibold text-sm sm:text-base mb-1">{% blocktrans with amount=event.registration_fee %}Payment due — €{{ amount }}{% endblocktrans %}</p>
                                     <p class="text-xs sm:text-sm mb-2">{% trans "Your spot is reserved. Complete payment below to confirm it." %}</p>
                                     <a href="#event-payment-actions" class="btn-crush-solid btn-sm inline-flex">{% trans "Pay now" %}</a>
-                                    {% elif user_registration.status == 'confirmed' or user_registration.status == 'attended' %}
+                                    {% elif reg_tone == 'confirmed' %}
                                     <p class="font-semibold text-sm sm:text-base mb-1">{% trans "You're in!" %}</p>
                                     <p class="text-xs sm:text-sm mb-2">{% trans "We've sent a confirmation email with all the event details." %}</p>
                                     <a href="{% url 'crush_lu:event_ticket' event.id %}" class="btn-crush-solid btn-sm inline-flex">{% trans "View my ticket" %}</a>
@@ -458,14 +465,16 @@
                         {% include "crush_lu/components/curated_member_group.html" with group=curated_group_outlook.group only %}{% endif %}
                         {% comment %}
                           The status test is load-bearing on a paid curated
-                          event: an applicant has not been given a place, so
-                          these buttons would take money for a seat the
-                          organiser may never award. create_sumup_event_checkout
+                          event: an applicant has not been given a place, and
+                          a waitlisted member has no place either, so these
+                          buttons would take money for a seat the organiser
+                          may never award. create_sumup_event_checkout
                           allow-lists ("pending", "confirmed") and so rejects
-                          the click server-side — this keeps the member from
-                          being offered a payment that is designed to fail.
+                          the click server-side regardless — this exclusion
+                          just keeps the member from being offered a payment
+                          that is designed to fail (#4-10).
                         {% endcomment %}
-                        {% if event.registration_fee > 0 and not user_registration.payment_confirmed and user_registration.status != 'applied' %}
+                        {% if reg_tone == 'payment_due' %}
                         {# Anchor target for the "Pay now" link in the status card above (#4-09). #}
                         <div id="event-payment-actions">
                         {% if has_sufficient_crush_credit %}

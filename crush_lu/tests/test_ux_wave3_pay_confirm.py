@@ -184,3 +184,40 @@ class MyEventsSupportCardPositionTests(PayConfirmTestBase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Support the Project")
+
+
+class EventDetailWaitlistToneTests(PayConfirmTestBase):
+    """Wave 3 WP8 follow-up: a waitlisted registration on a PAID event was
+    falling into the payment-due content branch, because that chain checked
+    "fee > 0 and not payment_confirmed" before checking status == "waitlist"
+    (a waitlisted registration is unpaid too). The banner claimed "your spot
+    is reserved" and offered a "Pay now" link/buttons the server rejects.
+    registration_tone() resolves "waitlist" before "payment_due" so this
+    can't regress again.
+    """
+
+    def test_waitlisted_paid_registration_shows_waitlist_banner(self):
+        self.registration.status = "waitlist"
+        self.registration.payment_confirmed = False
+        self.registration.save()
+        self.client.force_login(self.user)
+
+        response = self.client.get(f"/en/events/{self.event.id}/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "You're on the waitlist")
+        self.assertNotContains(response, "Payment due")
+        self.assertNotContains(response, "Your spot is reserved")
+
+    def test_waitlisted_paid_registration_has_no_pay_now_anchor_or_buttons(self):
+        self.registration.status = "waitlist"
+        self.registration.payment_confirmed = False
+        self.registration.save()
+        self.client.force_login(self.user)
+
+        response = self.client.get(f"/en/events/{self.event.id}/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "#event-payment-actions")
+        self.assertNotContains(response, 'id="event-payment-actions"')
+        self.assertNotContains(response, "Pay with Card")
