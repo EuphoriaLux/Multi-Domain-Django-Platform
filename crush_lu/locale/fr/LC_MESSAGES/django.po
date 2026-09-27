@@ -2622,10 +2622,6 @@ msgstr "Optionnel : son@email.com"
 msgid "Recipient Email (Optional)"
 msgstr "Email du destinataire (Optionnel)"
 
-#: forms.py:1164
-msgid "We can send them a notification when you create the gift."
-msgstr "Nous pouvons lui envoyer une notification quand vous créez le cadeau."
-
 #: forms.py:1174
 msgid "Photo Puzzle Image"
 msgstr "Image du puzzle photo"
@@ -42513,6 +42509,47 @@ msgstr "Les parts femmes/hommes indiquent le pourcentage de toutes les femmes et
 #, python-format
 msgid "Women %(women)s%% · Men %(men)s%%"
 msgstr "Femmes %(women)s%% · Hommes %(men)s%%"
+
+#: forms.py:1164
+msgid "We'll email them the gift. Only enter an address if they know you're sending this."
+msgstr "Nous lui enverrons le cadeau par e-mail. N'indiquez une adresse que si cette personne sait que vous le lui envoyez."
+
+#: crush_lu/views_journey_gift.py
+msgid "You can send a Wonderland gift once a coach has approved your profile."
+msgstr "Vous pourrez envoyer un cadeau Wonderland dès qu'un coach aura approuvé votre profil."
+
+#: crush_lu/views_journey_gift.py
+msgid "Thanks for letting us know. This gift is now closed and our team has been notified."
+msgstr "Merci de nous avoir prévenus. Ce cadeau est désormais clôturé et notre équipe a été informée."
+
+#: crush_lu/views_journey_gift.py
+msgid "This gift is no longer active."
+msgstr "Ce cadeau n’est plus actif."
+
+#: crush_lu/views_journey_gift.py
+msgid "We couldn't send your report right now. The gift is still open. Please try again in a moment."
+msgstr "Nous n’avons pas pu envoyer votre signalement pour le moment. Le cadeau est toujours ouvert. Veuillez réessayer dans un instant."
+
+#: crush_lu/templates/crush_lu/journey/partials/gift_sender_badge.html
+#, python-format
+msgid "Created by %(name)s"
+msgstr "Créé par %(name)s"
+
+#: crush_lu/templates/crush_lu/journey/partials/gift_sender_badge.html
+msgid "verified Crush.lu member"
+msgstr "membre Crush.lu vérifié"
+
+#: crush_lu/templates/crush_lu/journey/partials/gift_report_form.html
+msgid "Close this gift and let the Crush.lu team know? The link will stop working."
+msgstr "Clôturer ce cadeau et prévenir l'équipe Crush.lu ? Le lien ne fonctionnera plus."
+
+#: crush_lu/templates/crush_lu/journey/partials/gift_report_form.html
+msgid "Close and report"
+msgstr "Clôturer et signaler"
+
+#: crush_lu/templates/crush_lu/journey/partials/gift_report_form.html
+msgid "This isn't for me / Report"
+msgstr "Ce n'est pas pour moi / Signaler"
 
 #: templates/crush_lu/about.html:9
 msgid ""
