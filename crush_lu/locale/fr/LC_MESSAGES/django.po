@@ -42570,3 +42570,47 @@ msgstr "Les parts femmes/hommes indiquent le pourcentage de toutes les femmes et
 #, python-format
 msgid "Women %(women)s%% · Men %(men)s%%"
 msgstr "Femmes %(women)s%% · Hommes %(men)s%%"
+
+# UX Wave 3 · WP5
+#: templates/crush_lu/book_screening.html
+msgid "Add to calendar (.ics)"
+msgstr "Ajouter au calendrier (.ics)"
+
+#: templates/crush_lu/book_screening.html
+msgid "Add to Google Calendar"
+msgstr "Ajouter à Google Agenda"
+
+#: templates/crush_lu/book_screening.html
+msgid "Cancel this booking?"
+msgstr "Annuler cette réservation ?"
+
+#: templates/crush_lu/book_screening.html
+msgid "Yes, cancel"
+msgstr "Oui, annuler"
+
+#: templates/crush_lu/book_screening.html
+msgid "No, keep it"
+msgstr "Non, la conserver"
+
+#: templates/crush_lu/book_screening.html
+msgid "Available times"
+msgstr "Créneaux disponibles"
+
+#: templates/crush_lu/book_screening.html
+msgid "More available times"
+msgstr "Autres créneaux disponibles"
+
+#: templates/crush_lu/book_screening.html
+#, python-format
+msgid "Show %(more)s more slot"
+msgid_plural "Show %(more)s more slots"
+msgstr[0] "Afficher %(more)s créneau supplémentaire"
+msgstr[1] "Afficher %(more)s créneaux supplémentaires"
+
+#: crush_lu/views_booking.py
+msgid "Crush.lu screening call with {coach}"
+msgstr "Appel de présélection Crush.lu avec {coach}"
+
+#: crush_lu/views_booking.py
+msgid "Your Crush.lu screening call. Manage or cancel it from the booking link in your confirmation email."
+msgstr "Votre appel de présélection Crush.lu. Gérez-le ou annulez-le depuis le lien de réservation dans votre e-mail de confirmation."

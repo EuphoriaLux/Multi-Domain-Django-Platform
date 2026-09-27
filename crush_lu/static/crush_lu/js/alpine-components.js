@@ -58,6 +58,71 @@ document.addEventListener("alpine:init", function () {
         return target;
     }
 
+    // UX Wave 3 · WP5 (finding 3-14) — client-side downscale/re-encode
+    // before a profile photo is uploaded. Keeps mobile uploads out of the
+    // 4-12MB range the coach review queue was seeing. Uses
+    // createImageBitmap({imageOrientation: 'from-image'}) so EXIF rotation
+    // is baked into the pixels instead of relying on <img> auto-rotation
+    // (which canvas drawImage does not inherit). Falls back to returning
+    // the original file untouched if the browser lacks canvas/bitmap
+    // support — server-side validation is unchanged either way.
+    function resizeImageForUpload(file, maxEdge, quality) {
+        maxEdge = maxEdge || 2048;
+        quality = quality || 0.85;
+        if (!file || typeof file.type !== "string" || file.type.indexOf("image/") !== 0) {
+            return Promise.resolve(file);
+        }
+        if (typeof createImageBitmap !== "function" || typeof document.createElement("canvas").getContext !== "function") {
+            return Promise.resolve(file);
+        }
+        return createImageBitmap(file, { imageOrientation: "from-image" })
+            .then(function (bitmap) {
+                var scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+                var width = Math.max(1, Math.round(bitmap.width * scale));
+                var height = Math.max(1, Math.round(bitmap.height * scale));
+                var canvas = document.createElement("canvas");
+                canvas.width = width;
+                canvas.height = height;
+                var ctx = canvas.getContext("2d");
+                ctx.drawImage(bitmap, 0, 0, width, height);
+                if (bitmap.close) bitmap.close();
+                return new Promise(function (resolve) {
+                    canvas.toBlob(
+                        function (blob) {
+                            resolve(blob || file);
+                        },
+                        "image/jpeg",
+                        quality,
+                    );
+                });
+            })
+            .then(function (blob) {
+                if (!blob || blob === file) return file;
+                var name = (file.name || "photo").replace(/\.[^.]+$/, "") + ".jpg";
+                try {
+                    return new File([blob], name, { type: "image/jpeg" });
+                } catch (e) {
+                    // Older Safari lacks the File constructor's options form.
+                    return blob;
+                }
+            })
+            .catch(function () {
+                return file;
+            });
+    }
+
+    // UX Wave 3 · WP5 — route a failure message through the shared toast
+    // store instead of a blocking alert(). Falls back to alert() only if
+    // the store genuinely isn't registered (defensive; toasts ship on
+    // every page via base.html).
+    function notifyError(message) {
+        if (typeof Alpine !== "undefined" && Alpine.store && Alpine.store("toasts")) {
+            Alpine.store("toasts").add({ type: "error", message: message });
+        } else {
+            alert(message);
+        }
+    }
+
     // The only path the coach door scanner may POST a scanned QR to — see
     // coachCheckin._checkinPathFromScan. Group 1 is the registration id.
     var CHECKIN_API_PATH_RE = /^\/api\/events\/checkin\/(\d+)\/[^\/]+\/$/;
@@ -4722,44 +4787,55 @@ document.addEventListener("alpine:init", function () {
                     };
                     reader.readAsDataURL(file);
 
-                    // Upload to server immediately (auto-save)
-                    var formData = new FormData();
-                    formData.append("photo", file);
-                    formData.append("photo_number", photoNumber);
+                    // Downscale/re-encode client-side (max ~2048px long edge,
+                    // JPEG q=0.85) before the auto-save upload — server
+                    // validation is unchanged and still applies to whatever
+                    // arrives.
+                    resizeImageForUpload(file, 2048, 0.85).then(function (
+                        uploadFile,
+                    ) {
+                        var formData = new FormData();
+                        formData.append("photo", uploadFile, uploadFile.name || file.name);
+                        formData.append("photo_number", photoNumber);
 
-                    // Get CSRF token
-                    var csrfToken = document.querySelector(
-                        "[name=csrfmiddlewaretoken]",
-                    );
-                    if (csrfToken) {
-                        formData.append("csrfmiddlewaretoken", csrfToken.value);
-                    }
+                        // Get CSRF token
+                        var csrfToken = document.querySelector(
+                            "[name=csrfmiddlewaretoken]",
+                        );
+                        if (csrfToken) {
+                            formData.append("csrfmiddlewaretoken", csrfToken.value);
+                        }
 
-                    fetch("/api/profile/draft/upload-photo/", {
-                        method: "POST",
-                        headers: {
-                            "X-CSRFToken": csrfToken ? csrfToken.value : "",
-                        },
-                        body: formData,
-                    })
-                        .then(function (response) {
-                            return response.json();
+                        fetch("/api/profile/draft/upload-photo/", {
+                            method: "POST",
+                            headers: {
+                                "X-CSRFToken": csrfToken ? csrfToken.value : "",
+                            },
+                            body: formData,
                         })
-                        .then(function (result) {
-                            if (result.success) {
-                                self.photos[index].uploadedUrl = result.photo_url;
-                            } else {
-                                console.error(
-                                    "[PHOTO UPLOAD] ❌ Upload failed:",
-                                    result.error,
+                            .then(function (response) {
+                                return response.json();
+                            })
+                            .then(function (result) {
+                                if (result.success) {
+                                    self.photos[index].uploadedUrl = result.photo_url;
+                                } else {
+                                    console.error(
+                                        "[PHOTO UPLOAD] ❌ Upload failed:",
+                                        result.error,
+                                    );
+                                    notifyError(
+                                        gettext("Photo upload failed: ") + result.error,
+                                    );
+                                }
+                            })
+                            .catch(function (err) {
+                                console.error("[PHOTO UPLOAD] ❌ Network error:", err);
+                                notifyError(
+                                    gettext("Photo upload failed. Please try again."),
                                 );
-                                alert(gettext("Photo upload failed: ") + result.error);
-                            }
-                        })
-                        .catch(function (err) {
-                            console.error("[PHOTO UPLOAD] ❌ Network error:", err);
-                            alert(gettext("Photo upload failed. Please try again."));
-                        });
+                            });
+                    });
                 }
             },
             removePhoto1: function () {
@@ -4812,12 +4888,16 @@ document.addEventListener("alpine:init", function () {
                                 "[PHOTO REMOVE] ❌ Delete failed:",
                                 result.error,
                             );
-                            alert(gettext("Could not remove the photo: ") + result.error);
+                            notifyError(
+                                gettext("Could not remove the photo: ") + result.error,
+                            );
                         }
                     })
                     .catch(function (err) {
                         console.error("[PHOTO REMOVE] ❌ Network error:", err);
-                        alert(gettext("Could not remove the photo. Please try again."));
+                        notifyError(
+                            gettext("Could not remove the photo. Please try again."),
+                        );
                     });
             },
         };
@@ -15777,5 +15857,58 @@ document.addEventListener("alpine:init", function () {
                 });
             },
         };
+    });
+
+    // =========================================================================
+    // UX Wave 3 · WP5 (finding 3-13) — screening-call self-booking
+    // (crush_lu/templates/crush_lu/book_screening.html)
+    // =========================================================================
+
+    // One instance per coach block. Slots are plain radio inputs (styled via
+    // Tailwind `peer-checked`, no per-item Alpine expression needed — the CSP
+    // build only allows bare method/property names), this component just
+    // tracks whether something is picked and mirrors the chosen slot's
+    // ISO datetimes into the two hidden fields the form actually submits.
+    // Picking a slot then pressing the sticky "Confirm" button is itself the
+    // two-step confirmation the finding asked for — no second dialog needed.
+    Alpine.data("bookingSlotPicker", function () {
+        return {
+            selectedStart: "",
+            selectedEnd: "",
+            selectedLabel: "",
+            showAll: false,
+
+            get hasSelection() {
+                return !!this.selectedStart;
+            },
+
+            pickSlot: function (event) {
+                var el = event.currentTarget || event.target;
+                this.selectedStart = el.dataset.start || "";
+                this.selectedEnd = el.dataset.end || "";
+                this.selectedLabel = el.dataset.label || "";
+            },
+
+            toggleShowAll: function () {
+                this.showAll = !this.showAll;
+            },
+        };
+    });
+
+    // Cancel-booking confirm, composed from the same makeConfirm mixin
+    // sparkConfirm uses — idle "Cancel booking" link, then an inline
+    // "Yes, cancel / No, keep it" choice before the form actually submits.
+    Alpine.data("bookingCancelConfirm", function () {
+        return mixin(makeConfirm(), {
+            get isInitial() {
+                return this.isIdle;
+            },
+            showConfirm: function () {
+                this.request();
+            },
+            cancel: function () {
+                this.cancelConfirm();
+            },
+        });
     });
 });

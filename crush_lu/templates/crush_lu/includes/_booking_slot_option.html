@@ -1,0 +1,22 @@
+{% load i18n %}
+{# UX Wave 3 · WP5 (finding 3-13) — one selectable slot card.
+   Included twice by book_screening.html (first 10 slots, then the
+   disclosure-revealed rest) inside the same `bookingSlotPicker`
+   x-data scope, so both grids share one selection/hidden-field state. #}
+<div class="relative">
+    <input type="radio" name="slot_choice"
+           id="slot-{{ block.coach.id }}-{{ forloop_counter0 }}"
+           class="peer sr-only"
+           data-start="{{ slot.start_at|date:'c' }}"
+           data-end="{{ slot.end_at|date:'c' }}"
+           data-label="{{ slot.start_at|date:'D, j M' }} · {{ slot.start_at|time:'H:i' }}"
+           @change="pickSlot">
+    <label for="slot-{{ block.coach.id }}-{{ forloop_counter0 }}"
+           class="block w-full h-full text-left px-4 py-3 rounded-lg border-2 border-gray-200 dark:border-gray-700 cursor-pointer transition-colors hover:border-crush-purple/60 peer-checked:border-crush-purple peer-checked:bg-purple-50 dark:peer-checked:bg-purple-900/10 peer-focus-visible:ring-2 peer-focus-visible:ring-crush-purple">
+        <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ slot.start_at|date:"D" }}, {{ slot.start_at|date:"j M" }}</div>
+        <div class="text-xs text-gray-500 dark:text-gray-400">{{ slot.start_at|time:"H:i" }}–{{ slot.end_at|time:"H:i" }}</div>
+        {% if slot.label %}
+            <div class="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{{ slot.label }}</div>
+        {% endif %}
+    </label>
+</div>
