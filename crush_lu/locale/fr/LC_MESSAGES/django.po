@@ -30660,10 +30660,6 @@ msgstr ""
 "partez, vous pourrez alors commencer à rencontrer celui ou celle qui "
 "deviendra votre Crush."
 
-#: templates/crush_lu/partials/_verification_options.html:95
-msgid "4 weeks, a new hand-picked match every week"
-msgstr "4 semaines, 1 nouveau match sélectionné toutes les semaines"
-
 #: templates/crush_lu/partials/_verification_options.html:97
 msgid ""
 "Thanks to LuxID, join Crush Connect in a few clicks. A Crush Coach will "
@@ -32985,18 +32981,6 @@ msgstr "Consulte nos conditions d'utilisation"
 msgid "Profile Submitted - Crush.lu"
 msgstr "Profil soumis"
 
-#: templates/crush_lu/profile_submitted.html:35
-msgid "Your profile is ready — now get verified"
-msgstr "Votre profil est prêt — vérifiez-vous maintenant"
-
-#: templates/crush_lu/profile_submitted.html:36
-msgid ""
-"One last step to activate your Crush.lu profile and start meeting real "
-"people."
-msgstr ""
-"Une dernière étape pour activer votre profil Crush.lu et rencontrer de "
-"vraies personnes."
-
 #: templates/crush_lu/profile_submitted.html:44
 msgid "LuxID connected"
 msgstr "LuxID connecté"
@@ -33299,12 +33283,6 @@ msgstr "Redirection vers votre tableau de bord dans"
 #: templates/crush_lu/profile_submitted.html:679
 msgid "seconds…"
 msgstr "secondes"
-
-#: templates/crush_lu/profile_submitted.html:691
-msgid "Your profile needs some updates before it can be approved."
-msgstr ""
-"Votre profil nécessite quelques modifications avant de pouvoir être "
-"approuvé."
 
 #: templates/crush_lu/profile_submitted.html:721
 msgid ""
@@ -42620,6 +42598,39 @@ msgid "Contact details are only shared when you both agree"
 msgstr ""
 "Vos coordonnées ne sont partagées que si vous êtes tous les deux d'accord"
 
+#: templates/crush_lu/profile_submitted.html
+msgid "Your profile is ready. Next: complete your Premium membership."
+msgstr ""
+"Votre profil est prêt. Prochaine étape : finalisez votre adhésion "
+"Premium."
+
+#: templates/crush_lu/profile_submitted.html
+msgid "Your profile is ready. Next: get verified at an event."
+msgstr ""
+"Votre profil est prêt. Prochaine étape : faites-vous vérifier lors d'un "
+"événement."
+
+#: templates/crush_lu/profile_submitted.html
+msgid "Your profile is ready. Next: get verified at an event or with LuxID."
+msgstr ""
+"Votre profil est prêt. Prochaine étape : faites-vous vérifier lors d'un "
+"événement ou avec LuxID."
+
+#: templates/crush_lu/partials/_verification_options.html
+msgid "A hand-picked match every week — first month free"
+msgstr "Un match sélectionné chaque semaine — le premier mois offert"
+
+#: templates/crush_lu/profile_rejected.html
+msgid "Delete my profile and data"
+msgstr "Supprimer mon profil et mes données"
+
+#: templates/crush_lu/auth.html
+msgid "≈ 15 min to set up · Get verified at your first event"
+msgstr ""
+"≈ 15 min pour créer votre profil · Vérification lors de votre premier "
+"événement"
+
+# UX Wave 3 · WP9 dashboard
 # UX Wave 3 · WP9 dashboard
 # UX Wave 3 · WP9 dashboard
 # UX Wave 3 · WP9 dashboard

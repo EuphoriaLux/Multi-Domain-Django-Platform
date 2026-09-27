@@ -22883,10 +22883,6 @@ msgstr ""
 msgid "You can now register for events and start making connections!"
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\profile_submitted.html:556
-msgid "Your profile needs some updates before it can be approved."
-msgstr ""
-
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:586
 msgid ""
 "Your coach tried to reach you but couldn't connect. Please contact them to "
@@ -28321,6 +28317,31 @@ msgstr ""
 msgid "Contact details are only shared when you both agree"
 msgstr ""
 
+#: templates/crush_lu/profile_submitted.html
+msgid "Your profile is ready. Next: complete your Premium membership."
+msgstr ""
+
+#: templates/crush_lu/profile_submitted.html
+msgid "Your profile is ready. Next: get verified at an event."
+msgstr ""
+
+#: templates/crush_lu/profile_submitted.html
+msgid "Your profile is ready. Next: get verified at an event or with LuxID."
+msgstr ""
+
+#: templates/crush_lu/partials/_verification_options.html
+msgid "A hand-picked match every week — first month free"
+msgstr ""
+
+#: templates/crush_lu/profile_rejected.html
+msgid "Delete my profile and data"
+msgstr ""
+
+#: templates/crush_lu/auth.html
+msgid "≈ 15 min to set up · Get verified at your first event"
+msgstr ""
+
+# UX Wave 3 · WP9 dashboard
 # UX Wave 3 · WP9 dashboard
 # UX Wave 3 · WP9 dashboard
 # UX Wave 3 · WP9 dashboard
