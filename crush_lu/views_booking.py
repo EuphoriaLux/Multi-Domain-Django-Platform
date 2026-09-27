@@ -156,7 +156,11 @@ def download_booking_ics(request, booking_token):
         raise Http404("No active booking")
 
     booking_url = request.build_absolute_uri(
-        reverse("crush_lu:book_screening", kwargs={"booking_token": booking_token})
+        reverse(
+            "crush_lu:book_screening",
+            kwargs={"booking_token": booking_token},
+            urlconf=getattr(request, "urlconf", None),
+        )
     )
     ics_bytes = generate_screening_ics(submission, slot, booking_url)
     response = HttpResponse(ics_bytes, content_type="text/calendar; charset=utf-8")
@@ -304,6 +308,7 @@ def _send_confirmation_email(submission, slot, request):
             reverse(
                 "crush_lu:book_screening",
                 kwargs={"booking_token": submission.booking_token},
+                urlconf=getattr(request, "urlconf", None),
             )
         )
         coach = slot.coach

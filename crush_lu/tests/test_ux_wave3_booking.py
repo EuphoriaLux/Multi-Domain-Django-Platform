@@ -10,6 +10,7 @@ slots to exactly the first ten with plain, unlinked "+N more" text).
 
 from datetime import timedelta
 from uuid import uuid4
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.messages import get_messages
@@ -324,6 +325,27 @@ class BookingCalendarLinkTests(BookingBase):
         )
         body = resp.content.decode()
         self.assertIn("BEGIN:VEVENT", body)
+        unfolded = body.replace("\r\n ", "")
+        manage_url = f"http://crush.lu{self._page_url()}"
+        self.assertIn(f"URL:{manage_url}", unfolded)
+        self.assertIn(f"Manage: {manage_url}", unfolded)
+        self.assertNotIn("/crush/book/", unfolded)
+
+    @patch("azureproject.email_utils.send_domain_email")
+    def test_confirmation_email_uses_active_urlconf(self, send_email):
+        from crush_lu.views_booking import _send_confirmation_email
+
+        slot = self._book()
+        page = self.client.get(self._page_url(), HTTP_HOST="crush.lu")
+        self.assertEqual(page.status_code, 200)
+
+        _send_confirmation_email(self.submission, slot, page.wsgi_request)
+
+        send_email.assert_called_once()
+        manage_url = f"http://crush.lu{self._page_url()}"
+        self.assertIn(manage_url, send_email.call_args.kwargs["message"])
+        attachment = send_email.call_args.kwargs["attachments"][0][1]
+        self.assertIn(f"URL:{manage_url}", attachment.decode().replace("\r\n ", ""))
 
     def test_ics_download_404s_without_an_active_booking(self):
         resp = self.client.get(self._ics_url(), HTTP_HOST="crush.lu")
