@@ -23091,7 +23091,7 @@ msgstr "temporairement au lieu de tout supprimer."
 msgid ""
 "Are you absolutely sure you want to delete your account? This cannot be "
 "undone."
-msgstr "Êtes-vous sûr de vouloir refuser cette connexion ?"
+msgstr "Êtes-vous absolument sûr de vouloir supprimer votre compte ? Cette action est irréversible."
 
 #: templates/crush_lu/delete_crushlu_profile_confirm.html:13
 msgid "Warning: Permanent Deletion"
@@ -25040,15 +25040,6 @@ msgid ""
 msgstr ""
 "Soyez authentique ! Mentionnez vos hobbies, ce qui vous fait rire, ou ce qui"
 " vous passionne."
-
-#: templates/crush_lu/emails/profile_incomplete_72h.html:36
-msgid ""
-"You're SO close! Just add 1-3 photos and you're done. Your privacy is "
-"protected - you can blur photos or show only your first name."
-msgstr ""
-"Vous êtes SI proche ! Ajoutez juste 1-3 photos et c'est fait. Votre vie "
-"privée est protégée - vous pouvez flouter les photos ou montrer seulement "
-"votre prénom."
 
 #: templates/crush_lu/emails/profile_incomplete_72h.html:39
 msgid "Photo tips:"
@@ -33645,7 +33636,7 @@ msgstr ""
 msgid ""
 "Declare your crush? It stays completely private and cannot be undone. Your "
 "Crush Coach will call you within 48 hours to talk about it."
-msgstr ""
+msgstr "Déclarer votre coup de cœur ? Il reste totalement privé et cette action est irréversible. Votre Crush Coach vous appellera sous 48h pour en discuter."
 
 #: templates/crush_lu/set_password.html:4
 msgid "Set Password - Crush.lu"
@@ -43048,6 +43039,18 @@ msgstr "Code de vérification"
 #, python-format
 msgid "Digit %(n)s of 6"
 msgstr "Chiffre %(n)s sur 6"
+
+#: templates/crush_lu/emails/profile_incomplete_72h.html:36
+msgid ""
+"You're SO close! Just add 1-3 photos and you're done. Your privacy is "
+"protected - you can show only your first name."
+msgstr ""
+"Vous êtes SI proche ! Ajoutez juste 1-3 photos et c'est fait. Votre vie "
+"privée est protégée - vous pouvez montrer seulement votre prénom."
+
+#: crush_lu/templates/crush_lu/payments/sumup_widget.html
+msgid "Failed to load payment module. Please refresh or contact support."
+msgstr "Impossible de charger le module de paiement. Veuillez actualiser la page ou contacter le support."
 
 #: templates/crush_lu/partials/mobile_drawer.html
 msgid "Light"

@@ -326,3 +326,54 @@ def test_confirm_sheet_has_a_single_plain_form_listener():
     assert source.count('addEventListener("submit"') == 1
     assert "data-confirm-when" in source
     assert "requestSubmit(submitter)" in source
+
+
+# ---------------------------------------------------------------------------
+# Wave 2 follow-ups (#1058)
+# ---------------------------------------------------------------------------
+
+
+def test_gdpr_full_deletion_copy_is_readable_in_dark_mode(client):
+    """.text-secondary is #6b7280 in both themes: on the dark:bg-red-950 box
+    that is ~3.3:1, so the paragraph needs its own dark colour."""
+    _login(client)
+    html = client.get("/en/account/gdpr/", **HOST).content.decode()
+    body = html.index("Permanently deletes your login account")
+    tag = html[html.rindex("<p", 0, body) : body]
+    assert "dark:text-gray-300" in tag
+
+
+@pytest.mark.parametrize(
+    "template",
+    [
+        "coach_spark_assign.html",
+        "request_connection.html",
+        "delete_account_confirm.html",
+    ],
+)
+def test_confirmations_use_the_confirm_sheet_not_window_confirm(template):
+    from pathlib import Path
+
+    from django.conf import settings
+
+    source = (
+        Path(settings.BASE_DIR) / "crush_lu" / "templates" / "crush_lu" / template
+    ).read_text(encoding="utf-8")
+    assert "confirm(" not in source
+    assert "onclick=" not in source and "onsubmit=" not in source
+    assert "data-confirm=" in source
+
+
+@pytest.mark.parametrize("lang", ["de", "fr"])
+def test_confirm_sheet_questions_are_translated(lang):
+    questions = [
+        "Declare your crush? It stays completely private and cannot be undone. "
+        "Your Crush Coach will call you within 48 hours to talk about it.",
+        "Are you absolutely sure you want to delete your account? "
+        "This cannot be undone.",
+    ]
+    with translation.override(lang):
+        for question in questions:
+            translated = translation.gettext(question)
+            assert translated != question
+            assert "connexion" not in translated and "Verbindung" not in translated

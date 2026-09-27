@@ -22995,7 +22995,7 @@ msgstr "vorübergehend deaktivieren kannst, anstatt alles zu löschen."
 msgid ""
 "Are you absolutely sure you want to delete your account? This cannot be "
 "undone."
-msgstr "Möchtest du diese Verbindung wirklich ablehnen?"
+msgstr "Bist du dir absolut sicher, dass du dein Konto löschen möchtest? Das kann nicht rückgängig gemacht werden."
 
 #: templates/crush_lu/delete_crushlu_profile_confirm.html:13
 msgid "Warning: Permanent Deletion"
@@ -24947,15 +24947,6 @@ msgid ""
 msgstr ""
 "Sei authentisch! Erwähne deine Hobbys, was dich zum Lachen bringt oder wofür"
 " du eine Leidenschaft hast."
-
-#: templates/crush_lu/emails/profile_incomplete_72h.html:36
-msgid ""
-"You're SO close! Just add 1-3 photos and you're done. Your privacy is "
-"protected - you can blur photos or show only your first name."
-msgstr ""
-"Du bist SO nah dran! Füge einfach 1-3 Fotos hinzu und fertig. Deine "
-"Privatsphäre bleibt geschützt – du kannst Fotos verwischen oder nur deinen "
-"Vornamen anzeigen."
 
 #: templates/crush_lu/emails/profile_incomplete_72h.html:39
 msgid "Photo tips:"
@@ -33508,7 +33499,7 @@ msgstr ""
 msgid ""
 "Declare your crush? It stays completely private and cannot be undone. Your "
 "Crush Coach will call you within 48 hours to talk about it."
-msgstr ""
+msgstr "Deinen Crush erklären? Das bleibt völlig privat und kann nicht rückgängig gemacht werden. Dein Crush Coach wird dich innerhalb von 48 Stunden anrufen, um darüber zu sprechen."
 
 #: templates/crush_lu/set_password.html:4
 msgid "Set Password - Crush.lu"
@@ -38728,7 +38719,7 @@ msgstr "Zahlung abschließen"
 
 #: crush_lu/templates/crush_lu/payments/sumup_widget.html
 msgid "Complete Your Payment"
-msgstr "Schließen Sie Ihre Zahlung ab"
+msgstr "Schließ deine Zahlung ab"
 
 #: crush_lu/templates/crush_lu/payments/sumup_widget.html
 msgid "Total Amount"
@@ -42916,6 +42907,18 @@ msgstr "Verifizierungscode"
 #, python-format
 msgid "Digit %(n)s of 6"
 msgstr "Ziffer %(n)s von 6"
+
+#: templates/crush_lu/emails/profile_incomplete_72h.html:36
+msgid ""
+"You're SO close! Just add 1-3 photos and you're done. Your privacy is "
+"protected - you can show only your first name."
+msgstr ""
+"Du bist SO nah dran! Füge einfach 1-3 Fotos hinzu und fertig. Deine "
+"Privatsphäre bleibt geschützt – du kannst nur deinen Vornamen anzeigen."
+
+#: crush_lu/templates/crush_lu/payments/sumup_widget.html
+msgid "Failed to load payment module. Please refresh or contact support."
+msgstr "Das Zahlungsmodul konnte nicht geladen werden. Bitte lade die Seite neu oder kontaktiere den Support."
 
 #: templates/crush_lu/partials/mobile_drawer.html
 msgid "Light"

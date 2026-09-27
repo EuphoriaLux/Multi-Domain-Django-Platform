@@ -625,13 +625,32 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         }
     }
 
-    function clearAppInsightsCookies() {
-        // The Browser SDK uses these host-only identifiers by default. Expire
-        // them immediately when analytics is withdrawn; the native consent
-        // endpoint also clears them server-side, as cookies registered in the
-        // analytics group (setup_cookie_groups, run by startup.sh).
-        ['ai_user', 'ai_session'].forEach(function(name) {
-            document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax';
+    function clearAnalyticsCookies() {
+        // Application Insights uses host-only identifiers. gtag writes _ga and
+        // _ga_<id> with cookie_domain 'auto', i.e. on the widest domain the
+        // browser accepts (Domain=crush.lu from www.crush.lu), which the
+        // native consent endpoint's host-only delete never reaches. So expire
+        // every analytics identifier at this host and at each parent domain;
+        // the browser ignores the attempt on the top-level domain. The native
+        // endpoint also clears the registered names server-side
+        // (setup_cookie_groups, run by startup.sh).
+        const expired = '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax';
+        const names = ['ai_user', 'ai_session'];
+        document.cookie.split(';').forEach(function(pair) {
+            const name = pair.split('=')[0].trim();
+            if (/^_g(a|id|at)(_|$)/.test(name) && names.indexOf(name) === -1) {
+                names.push(name);
+            }
+        });
+        const labels = location.hostname.split('.');
+        const scopes = [''];
+        for (let i = 0; i < labels.length - 1; i++) {
+            scopes.push('; domain=' + labels.slice(i).join('.'));
+        }
+        names.forEach(function(name) {
+            scopes.forEach(function(scope) {
+                document.cookie = name + expired + scope;
+            });
         });
     }
 
@@ -665,7 +684,7 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
                 (currentFlag('analytics') !== true ||
                  (serverState() && serverState().analytics === true &&
                   hasNewerServerVersion('analytics')))) {
-            clearAppInsightsCookies();
+            clearAnalyticsCookies();
         }
     }
 

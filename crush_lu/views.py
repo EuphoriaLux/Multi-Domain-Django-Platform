@@ -2521,11 +2521,12 @@ def profile_rejected(request):
     # submission (transition_unverified_profile keeps it verified).
     if profile is None or profile.verification_status == "verified":
         return redirect("crush_lu:dashboard")
-    submission = (
-        ProfileSubmission.objects.filter(profile=profile, status="rejected")
-        .order_by("-submitted_at")
-        .first()
-    )
+    # Only the latest submission carries the current verdict: an older
+    # rejection followed by a newer (e.g. expired) submission must not surface
+    # that old row's coach feedback.
+    submission = ProfileSubmission.latest_for_profile(profile)
+    if submission is not None and submission.status != "rejected":
+        submission = None
     # A door rejection (coach_reject_verification) of a free-path member sets
     # only the profile status: there is no submission to carry the verdict.
     if submission is None and profile.verification_status != "rejected":

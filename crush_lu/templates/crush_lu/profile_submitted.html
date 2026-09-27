@@ -42,8 +42,8 @@
 
             {# If the user already connected LuxID but isn't verified yet, reassure them (view lazily verifies + redirects normally; this is an edge state). #}
             {# Gate on the LuxID link itself: an empty luxid_connect_url also means "LuxID not configured / lookup failed", which must not read as "connected". #}
-            {# Only a pending profile is "processing": a rejected one also renders here and must not be told that. #}
-            {% if has_luxid_account and profile.verification_status == 'pending' %}
+            {# Only pending profiles reach this page: the view redirects rejected, verified and incomplete ones. #}
+            {% if has_luxid_account %}
             <div class="mb-4 rounded-2xl border border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20 px-6 py-5 text-left">
                 <div class="flex items-center gap-3">
                     {% include "shared/icons/check-circle.html" with class="w-6 h-6 text-green-600 dark:text-green-400 flex-shrink-0" %}
@@ -789,8 +789,8 @@
                 </div>
                 {% endif %}
 
-                {# ── Ghost story for non-pending, non-approved states ── #}
-                {% if submission.status != 'approved' and submission.status != 'pending' and submission.status != 'under_review' %}
+                {# ── Ghost story while the member has something to do (rejected submissions redirect to profile_rejected) ── #}
+                {% if submission.status == 'revision' or submission.status == 'recontact_coach' %}
                 <div class="mt-4 mb-4 md:mt-6 md:mb-6">
                     {% if submission.status == 'revision' %}
                         <p class="text-center text-xs text-purple-600/70 dark:text-purple-300/70 mb-2 font-medium">
@@ -814,7 +814,7 @@
                         <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-outline">
                             {% trans "Browse Events" %}
                         </a>
-                    {% elif submission.status != 'pending' and submission.status != 'under_review' %}
+                    {% elif submission.status == 'revision' or submission.status == 'recontact_coach' %}
                         <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-outline">
                             {% trans "Browse Events (while you wait)" %}
                         </a>
