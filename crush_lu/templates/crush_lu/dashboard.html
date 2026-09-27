@@ -14,7 +14,7 @@
 <div class="flex flex-row justify-between items-start gap-3 mb-4 sm:mb-5">
     <div>
         <h2 class="text-xl sm:text-2xl font-bold mb-0 leading-tight">{{ greeting }} 👋</h2>
-        <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1 mb-0">
+        <p class="text-xs sm:text-sm text-muted-fg mt-1 mb-0">
             {% blocktrans count events=upcoming_events_count %}{{ events }} upcoming event{% plural %}{{ events }} upcoming events{% endblocktrans %}{% if pending_requests_count %} · {% blocktrans count requests=pending_requests_count %}{{ requests }} new request{% plural %}{{ requests }} new requests{% endblocktrans %}{% endif %}
         </p>
     </div>
@@ -191,10 +191,10 @@
             </div>
 
             <h5 class="font-bold text-lg sm:text-xl mb-1.5">{{ next_registration.event.title }}</h5>
-            <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-0.5">
+            <p class="text-xs sm:text-sm text-muted-fg mb-0.5">
                 📅 {{ next_registration.event.date_time|date:"D" }}, {{ next_registration.event.date_time|date:"DATE_FORMAT" }} · {{ next_registration.event.date_time|date:"TIME_FORMAT" }}
             </p>
-            <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-3">
+            <p class="text-xs sm:text-sm text-muted-fg mb-3">
                 📍 {{ next_registration.event.location }}
                 {% if not next_registration.event.is_live %}
                 {# timeuntil is localised by Django, so only the wrapper needs translating. #}
@@ -216,7 +216,7 @@
             </div>
         {% else %}
             <h5 class="font-semibold text-base sm:text-lg mb-1.5">{% trans "No upcoming events yet" %}</h5>
-            <p class="text-gray-500 dark:text-gray-400 text-xs sm:text-sm mb-3.5">{% trans "Pick a meetup and get on the list." %}</p>
+            <p class="text-muted-fg text-xs sm:text-sm mb-3.5">{% trans "Pick a meetup and get on the list." %}</p>
             <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-solid inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs sm:text-sm">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg>
                 {% trans "Browse upcoming events" %}
@@ -224,7 +224,7 @@
         {% endif %}
 
         {% if profile.verification_status == 'verified' and not is_premium %}
-        <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-3.5 mb-0">
+        <p class="text-xs sm:text-sm text-muted-fg mt-3.5 mb-0">
             {% trans "Crush Connect is live: deliberate Connect Weeks and human coach-picked Premium introductions." %}
         </p>
         {% endif %}
@@ -236,15 +236,15 @@
 <div class="grid grid-cols-3 gap-3 mb-5">
     <a href="{% url 'crush_lu:my_events' %}" class="card-bordered p-3.5 sm:p-4 text-center rounded-xl no-underline hover:border-crush-purple/40 transition-colors">
         <p class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-0.5">{{ upcoming_count|default:0 }}</p>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{% trans "Upcoming" %}</p>
+        <p class="text-xs text-muted-fg mb-0">{% trans "Upcoming" %}</p>
     </a>
     <a href="{% url 'crush_lu:my_events' %}" class="card-bordered p-3.5 sm:p-4 text-center rounded-xl no-underline hover:border-crush-purple/40 transition-colors">
         <p class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-0.5">{{ attended_count|default:0 }}</p>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{% trans "Attended" %}</p>
+        <p class="text-xs text-muted-fg mb-0">{% trans "Attended" %}</p>
     </a>
     <a href="{% url 'crush_lu:my_connections' %}" class="card-bordered p-3.5 sm:p-4 text-center rounded-xl no-underline hover:border-crush-purple/40 transition-colors">
         <p class="text-xl sm:text-2xl font-bold text-crush-purple mb-0.5">{{ connection_count|default:0 }}</p>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{% trans "Connections" %}</p>
+        <p class="text-xs text-muted-fg mb-0">{% trans "Connections" %}</p>
     </a>
 </div>
 {% endif %}
@@ -300,14 +300,14 @@
                 <h6 class="font-semibold text-gray-900 dark:text-white text-base sm:text-lg mb-1">{{ coach.user.first_name }}</h6>
                 {% if coach.get_spoken_languages_display %}
                     <div class="flex flex-wrap justify-center sm:justify-start gap-1.5 mt-1 mb-2">
-                        <span class="text-xs text-gray-500 dark:text-gray-400">{% trans "Speaks:" %}</span>
+                        <span class="text-xs text-muted-fg">{% trans "Speaks:" %}</span>
                         {% for lang in coach.get_spoken_languages_display %}
                             <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">{{ lang.flag }} {{ lang.name }}</span>
                         {% endfor %}
                     </div>
                 {% endif %}
                 {% if coach.bio %}<p class="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mb-2.5">{{ coach.bio|truncatewords:30 }}</p>{% endif %}
-                <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-3">{% trans "Your personal coach is here to help you get the most out of Crush.lu. Event preparation, dating advice, and more — don't hesitate to reach out!" %}</p>
+                <p class="text-xs sm:text-sm text-muted-fg mb-3">{% trans "Your personal coach is here to help you get the most out of Crush.lu. Event preparation, dating advice, and more — don't hesitate to reach out!" %}</p>
                 <a href="mailto:{{ coach.user.email }}" class="btn-crush-solid inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm">
                     {% include "shared/icons/envelope.html" with class="w-4 h-4" %}
                     {% trans "Contact Coach" %}
@@ -335,7 +335,7 @@
                 </div>
                 <div x-show="canInstallVisible">
                     <h5 class="font-semibold text-base sm:text-lg mb-2">{% trans "📲 Install Crush.lu" %}</h5>
-                    <p class="text-gray-500 dark:text-gray-400 mb-3 text-xs sm:text-sm">{% trans "Install our app to get push notifications about events, messages, and connections!" %}</p>
+                    <p class="text-muted-fg mb-3 text-xs sm:text-sm">{% trans "Install our app to get push notifications about events, messages, and connections!" %}</p>
                     <button @click="install" class="btn-crush-solid inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm">{% include "shared/icons/arrow-down-tray.html" with class="w-4 h-4" %} {% trans "Install App" %}</button>
                 </div>
                 <div x-show="showInstructionsVisible">
@@ -348,7 +348,7 @@
                 </div>
                 <div x-show="showFallbackVisible">
                     <h5 class="font-semibold text-base sm:text-lg mb-2">{% trans "📲 Install Crush.lu" %}</h5>
-                    <p class="text-gray-500 dark:text-gray-400 text-xs sm:text-sm">{% trans "Open crush.lu in Chrome or Safari for the best install experience." %}</p>
+                    <p class="text-muted-fg text-xs sm:text-sm">{% trans "Open crush.lu in Chrome or Safari for the best install experience." %}</p>
                 </div>
             </div>
         </div>
@@ -359,7 +359,7 @@
     <div class="status-card rounded-2xl">
         <div class="status-card-body p-4 sm:p-5">
             <h5 class="font-semibold text-base sm:text-lg mb-2">{% trans "Membership Card" %}</h5>
-            <p class="text-gray-500 dark:text-gray-400 mb-3.5 text-xs sm:text-sm">{% trans "Save your Crush.lu card to your mobile wallet and share your referral link." %}</p>
+            <p class="text-muted-fg mb-3.5 text-xs sm:text-sm">{% trans "Save your Crush.lu card to your mobile wallet and share your referral link." %}</p>
             <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
                 {# Apple Wallet: show on iOS devices and desktop, hide on Android #}
                 {% if not is_android_device %}
@@ -382,7 +382,7 @@
                     {% if LANGUAGE_CODE == 'de' %}<img src="{% static 'crush_lu/img/wallet/de_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-10 sm:h-12 w-auto" id="google-wallet-img">
                     {% elif LANGUAGE_CODE == 'fr' %}<img src="{% static 'crush_lu/img/wallet/fr_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-10 sm:h-12 w-auto" id="google-wallet-img">
                     {% else %}<img src="{% static 'crush_lu/img/wallet/en_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-10 sm:h-12 w-auto" id="google-wallet-img">{% endif %}
-                    <span id="google-wallet-loading" class="hidden text-xs sm:text-sm text-gray-500 dark:text-gray-400">{% trans "Loading..." %}</span>
+                    <span id="google-wallet-loading" class="hidden text-xs sm:text-sm text-muted-fg">{% trans "Loading..." %}</span>
                 </button>
                 {% endif %}
             </div>

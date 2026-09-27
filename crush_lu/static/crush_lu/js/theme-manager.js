@@ -32,11 +32,63 @@
         return "light";
     }
 
+    // Status-bar colours come from the two <meta name="theme-color"> tags in
+    // base.html as rendered (light = brand purple, dark = the slate top bar),
+    // so the brand token stays in its canonical places. Each meta's original
+    // value is kept in data-theme-color before it is ever overwritten.
+    function themeColors(metas) {
+        var colors = {};
+        for (var i = 0; i < metas.length; i++) {
+            var meta = metas[i];
+            if (!meta.hasAttribute("data-theme-color")) {
+                meta.setAttribute("data-theme-color", meta.getAttribute("content") || "");
+            }
+            var media = meta.getAttribute("media") || "";
+            colors[media.indexOf("dark") !== -1 ? "dark" : "light"] =
+                meta.getAttribute("data-theme-color");
+        }
+        return colors;
+    }
+
+    /**
+     * Point the browser/status bar colour at the page theme. With no manual
+     * choice the two media-scoped metas follow the OS; a manual pick or a
+     * theme-locked page sets both, since the OS scheme no longer decides.
+     */
+    function syncThemeColor(theme, overridden) {
+        var metas = document.querySelectorAll('meta[name="theme-color"]');
+        var colors = themeColors(metas);
+        for (var i = 0; i < metas.length; i++) {
+            var media = metas[i].getAttribute("media") || "";
+            var own = media.indexOf("dark") !== -1 ? "dark" : "light";
+            var color = colors[overridden ? theme : own];
+            if (color) {
+                metas[i].setAttribute("content", color);
+            }
+        }
+    }
+
+    function systemTheme() {
+        return window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light";
+    }
+
     /**
      * Apply theme by toggling 'dark' class on <html> element
      * @param {string} theme - 'dark' or 'light'
+     * @param {boolean} persist - save it as the manual choice (false on page
+     *   load, so an unset preference keeps following the OS — "System")
      */
-    function applyTheme(theme) {
+    function applyTheme(theme, persist) {
+        // An always-dark surface (journey / gift pages render
+        // data-theme-lock="dark" on <html>) keeps .dark whatever the saved or
+        // system preference, and never overwrites the saved preference.
+        const locked = document.documentElement.getAttribute("data-theme-lock");
+        if (locked) {
+            theme = locked;
+        }
         if (theme === "dark") {
             document.documentElement.classList.add("dark");
             document.documentElement.style.colorScheme = "dark";
@@ -44,7 +96,23 @@
             document.documentElement.classList.remove("dark");
             document.documentElement.style.colorScheme = "light";
         }
-        localStorage.setItem("theme", theme);
+        if (!locked && persist !== false) {
+            localStorage.setItem("theme", theme);
+        }
+        syncThemeColor(theme, !!locked || !!localStorage.getItem("theme"));
+        // Keeps every themeToggle instance (navbar, drawer) in step.
+        window.dispatchEvent(new CustomEvent("crush:themechange"));
+    }
+
+    /**
+     * Drop the manual choice and follow the OS again ("System").
+     */
+    function useSystemTheme() {
+        if (document.documentElement.hasAttribute("data-theme-lock")) {
+            return;
+        }
+        localStorage.removeItem("theme");
+        applyTheme(systemTheme(), false);
     }
 
     /**
@@ -57,7 +125,7 @@
 
     // Initialize theme immediately (blocking execution)
     const initialTheme = getInitialTheme();
-    applyTheme(initialTheme);
+    applyTheme(initialTheme, false);
 
     // Listen for system preference changes
     if (window.matchMedia) {
@@ -69,7 +137,7 @@
                 // Only auto-switch if user hasn't manually set preference
                 const saved = localStorage.getItem("theme");
                 if (!saved) {
-                    applyTheme(e.matches ? "dark" : "light");
+                    applyTheme(e.matches ? "dark" : "light", false);
                 }
             });
         }
@@ -78,7 +146,7 @@
             mediaQuery.addListener((e) => {
                 const saved = localStorage.getItem("theme");
                 if (!saved) {
-                    applyTheme(e.matches ? "dark" : "light");
+                    applyTheme(e.matches ? "dark" : "light", false);
                 }
             });
         }
@@ -86,8 +154,15 @@
 
     // Expose API for Alpine.js component
     window.themeManager = {
-        getTheme: () => localStorage.getItem("theme") || getInitialTheme(),
+        getTheme: () =>
+            document.documentElement.getAttribute("data-theme-lock") ||
+            localStorage.getItem("theme") ||
+            getInitialTheme(),
+        isLocked: () => document.documentElement.hasAttribute("data-theme-lock"),
+        // "light" | "dark" | "system" (no manual choice saved)
+        getPreference: () => localStorage.getItem("theme") || "system",
         setTheme: applyTheme,
+        useSystemTheme: useSystemTheme,
         toggleTheme: toggleTheme,
     };
 })();

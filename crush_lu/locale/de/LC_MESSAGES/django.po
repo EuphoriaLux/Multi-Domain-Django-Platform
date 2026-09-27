@@ -1918,39 +1918,15 @@ msgstr ""
 msgid "Get started"
 msgstr "Loslegen"
 
-#: context_processors.py:56
-msgid "Complete your profile"
-msgstr "Vervollständige dein Profil"
-
 #: context_processors.py:57
 #: templates/crush_lu/partials/_verification_journey.html:139
 #: templates/crush_lu/profile_submitted.html:179
 msgid "Verify your identity"
 msgstr "Identität verifizieren"
 
-#: context_processors.py:58
-msgid "Profile verified"
-msgstr "Profil verifiziert"
-
 #: context_processors.py:59 templates/crush_lu/base.html:630
 msgid "Profile rejected"
 msgstr "Profil abgelehnt"
-
-#: context_processors.py:62
-msgid "Tell us about you"
-msgstr "Erzähl uns von dir"
-
-#: context_processors.py:63 context_processors.py:64
-msgid "Add photos"
-msgstr "Fotos hinzufügen"
-
-#: context_processors.py:65
-msgid "Review & submit"
-msgstr "Überprüfen und absenden"
-
-#: context_processors.py:66
-msgid "Under review"
-msgstr "In Prüfung"
 
 #: decorators.py:116 decorators.py:121
 msgid "Too many attempts. Please try again later."
@@ -23019,7 +22995,7 @@ msgstr "vorübergehend deaktivieren kannst, anstatt alles zu löschen."
 msgid ""
 "Are you absolutely sure you want to delete your account? This cannot be "
 "undone."
-msgstr "Möchtest du diese Verbindung wirklich ablehnen?"
+msgstr "Bist du dir absolut sicher, dass du dein Konto löschen möchtest? Das kann nicht rückgängig gemacht werden."
 
 #: templates/crush_lu/delete_crushlu_profile_confirm.html:13
 msgid "Warning: Permanent Deletion"
@@ -24971,15 +24947,6 @@ msgid ""
 msgstr ""
 "Sei authentisch! Erwähne deine Hobbys, was dich zum Lachen bringt oder wofür"
 " du eine Leidenschaft hast."
-
-#: templates/crush_lu/emails/profile_incomplete_72h.html:36
-msgid ""
-"You're SO close! Just add 1-3 photos and you're done. Your privacy is "
-"protected - you can blur photos or show only your first name."
-msgstr ""
-"Du bist SO nah dran! Füge einfach 1-3 Fotos hinzu und fertig. Deine "
-"Privatsphäre bleibt geschützt – du kannst Fotos verwischen oder nur deinen "
-"Vornamen anzeigen."
 
 #: templates/crush_lu/emails/profile_incomplete_72h.html:39
 msgid "Photo tips:"
@@ -33532,7 +33499,7 @@ msgstr ""
 msgid ""
 "Declare your crush? It stays completely private and cannot be undone. Your "
 "Crush Coach will call you within 48 hours to talk about it."
-msgstr ""
+msgstr "Deinen Crush erklären? Das bleibt völlig privat und kann nicht rückgängig gemacht werden. Dein Crush Coach wird dich innerhalb von 48 Stunden anrufen, um darüber zu sprechen."
 
 #: templates/crush_lu/set_password.html:4
 msgid "Set Password - Crush.lu"
@@ -38752,7 +38719,7 @@ msgstr "Zahlung abschließen"
 
 #: crush_lu/templates/crush_lu/payments/sumup_widget.html
 msgid "Complete Your Payment"
-msgstr "Schließen Sie Ihre Zahlung ab"
+msgstr "Schließ deine Zahlung ab"
 
 #: crush_lu/templates/crush_lu/payments/sumup_widget.html
 msgid "Total Amount"
@@ -42586,6 +42553,10 @@ msgstr "Wir konnten die Benachrichtigungsunterstützung auf diesem Gerät nicht 
 msgid "Notifications are managed in the app"
 msgstr "Benachrichtigungen werden in der App verwaltet"
 
+#: templates/crush_lu/base.html:806
+#: templates/crush_lu/base.html:1186
+msgid "This experience is always in night mode"
+msgstr "Dieses Erlebnis ist immer im Nachtmodus"
 # UX Wave 3 · WP1 verify-email
 # UX Wave 3 · WP1 verify-email
 # UX Wave 3 · WP1 verify-email
@@ -42658,7 +42629,323 @@ msgstr ""
 msgid "Use a different address"
 msgstr "Andere Adresse verwenden"
 
+# UX Wave 3 · WP7 event-list
+# UX Wave 3 · WP7 event-list
+# UX Wave 3 · WP7 event-list
+# UX Wave 3 · WP7
+#: crush_lu/views_events.py
+msgid "Applied"
+msgstr "Beworben"
 
+#: templates/crush_lu/includes/event_card.html
+msgid "View ticket"
+msgstr "Ticket ansehen"
+
+#: templates/crush_lu/includes/event_card.html
+msgid "Complete payment"
+msgstr "Zahlung abschließen"
+
+#: templates/crush_lu/event_ticket.html
+msgid "Event ticket"
+msgstr "Event-Ticket"
+
+#: templates/crush_lu/event_list.html
+msgid "All types"
+msgstr "Alle Typen"
+
+#: templates/crush_lu/event_list.html
+msgid "Speed Dating"
+msgstr "Speed-Dating"
+
+#: templates/crush_lu/event_list.html
+msgid "Social Mixer"
+msgstr "Mixer-Abend"
+
+#: templates/crush_lu/event_list.html
+msgid "Activity Meetup"
+msgstr "Aktivitäts-Treffen"
+
+#: templates/crush_lu/event_list.html
+msgid "Themed Event"
+msgstr "Themen-Event"
+
+#: templates/crush_lu/event_list.html
+msgid "Quiz Night"
+msgstr "Quizabend"
+
+#: templates/crush_lu/event_list.html
+msgid "Crush Cache Hunt"
+msgstr "Crush-Cache-Jagd"
+
+#: templates/crush_lu/event_list.html
+msgid "Create a free account to register for events."
+msgstr "Erstelle ein kostenloses Konto, um dich für Events anzumelden."
+
+#: templates/crush_lu/event_list.html
+msgid "Create a profile to get notified"
+msgstr "Erstelle ein Profil, um benachrichtigt zu werden"
+
+#: templates/crush_lu/event_list.html
+msgid "Sign in to see the events you've attended."
+msgstr "Melde dich an, um die Events zu sehen, an denen du teilgenommen hast."
+
+#: templates/crush_lu/event_list.html
+msgid "Event time range"
+msgstr "Zeitraum der Events"
+
+#: templates/crush_lu/event_list.html
+msgid "Filter by event type"
+msgstr "Nach Event-Typ filtern"
+
+#: templates/crush_lu/includes/event_card.html
+#, python-format
+msgid "Only %(counter)s spot left"
+msgid_plural "Only %(counter)s spots left"
+msgstr[0] "Nur noch %(counter)s Platz übrig"
+msgstr[1] "Nur noch %(counter)s Plätze übrig"
+
+# UX Wave 3 · WP6 event-detail
+# UX Wave 3 · WP6 event-detail
+# UX Wave 3 · WP6
+#: templates/crush_lu/event_detail.html:156
+#, python-format
+msgid "%(spots)s spots left"
+msgstr "%(spots)s Plätze übrig"
+
+#: templates/crush_lu/event_detail.html:166
+msgid "Read more"
+msgstr "Mehr lesen"
+
+#: templates/crush_lu/event_detail.html:631
+#: templates/crush_lu/event_detail.html:676
+msgid "See entry events"
+msgstr "Einstiegs-Events ansehen"
+
+#: templates/crush_lu/event_detail.html:693
+msgid "Contact support"
+msgstr "Support kontaktieren"
+
+#: templates/crush_lu/event_detail.html:987
+msgid "Link copied"
+msgstr "Link kopiert"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+#, python-format
+msgid "%(spots)s spot left"
+msgid_plural "%(spots)s spots left"
+msgstr[0] "%(spots)s Platz übrig"
+msgstr[1] "%(spots)s Plätze übrig"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid ""
+"Could not copy the link. Long-press or select it from the address bar "
+"instead."
+msgstr ""
+"Der Link konnte nicht kopiert werden. Halte ihn gedrückt oder markiere ihn "
+"in der Adressleiste."
+
+# UX Wave 3 · WP5 photos-booking
+# UX Wave 3 · WP5 photos-booking
+#. UX Wave 3 · WP5
+#: templates/crush_lu/book_screening.html
+msgid "Add to calendar (.ics)"
+msgstr "Zum Kalender hinzufügen (.ics)"
+
+#. UX Wave 3 · WP5
+#: templates/crush_lu/book_screening.html
+msgid "Add to Google Calendar"
+msgstr "Zu Google Kalender hinzufügen"
+
+#. UX Wave 3 · WP5
+#: templates/crush_lu/book_screening.html
+msgid "Cancel this booking?"
+msgstr "Diesen Termin stornieren?"
+
+#. UX Wave 3 · WP5
+#: templates/crush_lu/book_screening.html
+msgid "Yes, cancel"
+msgstr "Ja, stornieren"
+
+#. UX Wave 3 · WP5
+#: templates/crush_lu/book_screening.html
+msgid "No, keep it"
+msgstr "Nein, behalten"
+
+#. UX Wave 3 · WP5
+#: templates/crush_lu/book_screening.html
+msgid "Available times"
+msgstr "Verfügbare Zeiten"
+
+#. UX Wave 3 · WP5
+#: templates/crush_lu/book_screening.html
+msgid "More available times"
+msgstr "Weitere verfügbare Zeiten"
+
+#. UX Wave 3 · WP5
+#: crush_lu/views_booking.py
+msgid "Crush.lu screening call with {coach}"
+msgstr "Crush.lu-Vorgespräch mit {coach}"
+
+#. UX Wave 3 · WP5
+#: crush_lu/views_booking.py
+msgid ""
+"Your Crush.lu screening call. Manage or cancel it from the booking link in "
+"your confirmation email."
+msgstr ""
+"Dein Crush.lu-Vorgespräch. Verwalte oder storniere es über den Buchungslink "
+"in deiner Bestätigungs-E-Mail."
+
+#: templates/crush_lu/book_screening.html
+#, python-format
+msgid "Show %(more)s more slot"
+msgid_plural "Show %(more)s more slots"
+msgstr[0] "%(more)s weiteren Termin anzeigen"
+msgstr[1] "%(more)s weitere Termine anzeigen"
+
+# UX Wave 3 · WP4 profile-wizard
+# UX Wave 3 · WP4 profile-wizard
+# UX Wave 3 · WP4
+msgid "Not verified yet"
+msgstr "Noch nicht verifiziert"
+
+msgid "Members recognise you at events by your photo — add one."
+msgstr ""
+"An deinem Foto erkennen dich andere Mitglieder bei Events – füg eins hinzu."
+
+msgid "Add 1–3 photos. Optional, but recommended."
+msgstr "Füg 1–3 Fotos hinzu. Optional, aber empfohlen."
+
+# UX Wave 3 · WP4 review-edit aria-labels
+msgid "Edit photos"
+msgstr "Fotos bearbeiten"
+
+msgid "Edit your event identity"
+msgstr "Deine Event-Identität bearbeiten"
+
+msgid "Edit languages for events"
+msgstr "Sprachen für Events bearbeiten"
+
+msgid "Edit date of birth"
+msgstr "Geburtsdatum bearbeiten"
+
+msgid "Edit gender"
+msgstr "Geschlecht bearbeiten"
+
+msgid "Edit location"
+msgstr "Standort bearbeiten"
+
+# UX Wave 3 · WP3 rate-limited
+# UX Wave 3 · WP3 rate-limited
+# UX Wave 3 · WP3 rate-limited
+# UX Wave 3 · WP3
+#: crush_lu/urls.py
+#, python-format
+msgid "Too many login attempts. Please try again in %(wait)s."
+msgstr "Zu viele Anmeldeversuche. Bitte versuche es in %(wait)s erneut."
+
+# UX Wave 3 · WP3
+#: crush_lu/views_account.py
+#, python-format
+msgid "Too many signup attempts. Please try again in %(wait)s."
+msgstr ""
+"Zu viele Registrierungsversuche. Bitte versuche es in %(wait)s erneut."
+
+# UX Wave 3 · WP3
+#: crush_lu/templates/crush_lu/rate_limited.html
+msgid "Too many attempts"
+msgstr "Zu viele Versuche"
+
+# UX Wave 3 · WP3
+#: crush_lu/templates/crush_lu/rate_limited.html
+msgid "For your security, we've temporarily paused this action."
+msgstr "Aus Sicherheitsgründen haben wir diese Aktion vorübergehend pausiert."
+
+# UX Wave 3 · WP3
+#: crush_lu/templates/crush_lu/rate_limited.html
+#, python-format
+msgid "Please try again in %(wait_message)s."
+msgstr "Bitte versuche es in %(wait_message)s erneut."
+
+# UX Wave 3 · WP3
+#: crush_lu/templates/crush_lu/rate_limited.html
+msgid "Go to homepage"
+msgstr "Zur Startseite"
+
+# UX Wave 3 · WP3
+#: crush_lu/rate_limit_utils.py
+msgid "less than a minute"
+msgstr "weniger als eine Minute"
+
+# UX Wave 3 · WP3
+#: crush_lu/rate_limit_utils.py
+msgid "about 1 minute"
+msgstr "etwa 1 Minute"
+
+# UX Wave 3 · WP3
+#: crush_lu/rate_limit_utils.py
+#, python-format
+msgid "about %(minutes)d minutes"
+msgstr "etwa %(minutes)d Minuten"
+
+# UX Wave 3 · WP3 review (P1)
+#: azureproject/middleware.py
+#, python-format
+msgid "Too many attempts. Please try again in %(wait)s."
+msgstr "Zu viele Versuche. Bitte versuche es in %(wait)s erneut."
+
+# UX Wave 3 · WP2 auth-page
+#: templates/crush_lu/includes/phone_otp_modal.html:71
+msgid "Verification code"
+msgstr "Verifizierungscode"
+
+#: templates/crush_lu/includes/phone_otp_modal.html:73
+#: templates/crush_lu/includes/phone_otp_modal.html:76
+#: templates/crush_lu/includes/phone_otp_modal.html:79
+#: templates/crush_lu/includes/phone_otp_modal.html:82
+#: templates/crush_lu/includes/phone_otp_modal.html:85
+#: templates/crush_lu/includes/phone_otp_modal.html:88
+#, python-format
+msgid "Digit %(n)s of 6"
+msgstr "Ziffer %(n)s von 6"
+
+#: templates/crush_lu/emails/profile_incomplete_72h.html:36
+msgid ""
+"You're SO close! Just add 1-3 photos and you're done. Your privacy is "
+"protected - you can show only your first name."
+msgstr ""
+"Du bist SO nah dran! Füge einfach 1-3 Fotos hinzu und fertig. Deine "
+"Privatsphäre bleibt geschützt – du kannst nur deinen Vornamen anzeigen."
+
+#: crush_lu/templates/crush_lu/payments/sumup_widget.html
+msgid "Failed to load payment module. Please refresh or contact support."
+msgstr "Das Zahlungsmodul konnte nicht geladen werden. Bitte lade die Seite neu oder kontaktiere den Support."
+
+#: templates/crush_lu/partials/mobile_drawer.html
+msgid "Light"
+msgstr "Hell"
+
+#: templates/crush_lu/partials/mobile_drawer.html
+msgid "Dark"
+msgstr "Dunkel"
+
+#: templates/crush_lu/partials/mobile_drawer.html
+msgid "Help & legal"
+msgstr "Hilfe & Rechtliches"
+
+#: templates/crush_lu/partials/mobile_drawer.html
+msgid "Help & support"
+msgstr "Hilfe & Support"
+
+#: templates/crush_lu/partials/mobile_drawer.html
+msgid "WhatsApp support"
+msgstr "WhatsApp-Support"
+
+#: templates/crush_lu/partials/mobile_drawer.html
+msgctxt "drawer group"
+msgid "Preferences"
+msgstr "Darstellung & Sprache"
+
+# UX Wave 3 · WP13 take-a-break
 # UX Wave 3 · WP13 take-a-break
 # UX Wave 3 · WP13 take-a-break
 # UX Wave 3 · WP13
