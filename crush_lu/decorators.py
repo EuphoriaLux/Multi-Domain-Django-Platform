@@ -1,5 +1,7 @@
+import math
+import time
 from functools import wraps
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.core.cache import cache
 from django.http import HttpResponse, JsonResponse
@@ -7,6 +9,7 @@ from django.contrib import messages
 from django.utils.translation import gettext as _
 
 from crush_lu.oauth_statekit import get_client_ip
+from crush_lu.rate_limit_utils import humanize_wait_seconds
 
 
 def crush_login_required(function):
@@ -58,7 +61,7 @@ def coach_required(function):
     return wrapper
 
 
-def ratelimit(key='ip', rate='5/15m', method='POST', block=True):
+def ratelimit(key='ip', rate='5/15m', method='POST', block=True, rate_limited_template=None):
     """
     Simple rate limiting decorator using Django's cache framework.
 
@@ -69,6 +72,11 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True):
                        '10/h' = 10 requests per hour
         method: 'GET', 'POST', 'ALL' - which HTTP methods to rate limit
         block: If True, block the request with 429. If False, just set request.limited = True
+        rate_limited_template: When block triggers on a plain browser request
+              (not JSON/XHR), render this template with a translated
+              {{ wait_message }} instead of the bare text/plain fallback.
+              Leave unset for API-style endpoints that should keep the
+              existing plain-text/JSON contract.
 
     Example:
         @ratelimit(key='ip', rate='5/15m', method='POST')
@@ -110,6 +118,9 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True):
             if count > limit:
                 # Rate limit exceeded
                 request.limited = True
+                request.limited_retry_after = _remaining_window_seconds(
+                    cache_key, period_seconds
+                )
                 if block:
                     # Return JSON for API/AJAX requests, plain text for browser requests
                     if (
@@ -121,6 +132,19 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True):
                             {"error": _("Too many attempts. Please try again later."), "error_code": "rate_limited"},
                             status=429,
                         )
+                    if rate_limited_template:
+                        response = render(
+                            request,
+                            rate_limited_template,
+                            {
+                                'wait_message': humanize_wait_seconds(
+                                    request.limited_retry_after
+                                )
+                            },
+                            status=429,
+                        )
+                        response['Retry-After'] = str(request.limited_retry_after)
+                        return response
                     messages.error(
                         request,
                         _('Too many attempts. Please try again later.')
@@ -136,6 +160,41 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True):
     return decorator
 
 
+def _window_deadline_key(cache_key):
+    return f"{cache_key}:deadline"
+
+
+def _record_window_deadline(cache_key, period_seconds):
+    """Track expiry for cache backends without a native TTL method."""
+    cache.set(
+        _window_deadline_key(cache_key),
+        time.time() + period_seconds,
+        period_seconds,
+    )
+
+
+def _remaining_window_seconds(cache_key, period_seconds):
+    """Return the counter's remaining fixed-window lifetime, rounded up."""
+    ttl = getattr(cache, "ttl", None)
+    if callable(ttl):
+        try:
+            remaining = ttl(cache_key)
+            if isinstance(remaining, (int, float)) and remaining >= 0:
+                return max(1, min(period_seconds, math.ceil(remaining)))
+        except Exception:
+            pass
+
+    try:
+        deadline = cache.get(_window_deadline_key(cache_key))
+    except Exception:
+        deadline = None
+    if isinstance(deadline, (int, float)):
+        return max(1, min(period_seconds, math.ceil(deadline - time.time())))
+    # A concurrent first request may increment before the deadline key is
+    # written; the full period is accurate at the start of that window.
+    return period_seconds
+
+
 def _count_request(cache_key, period_seconds):
     """
     Count one request in the key's window and return the new total.
@@ -147,13 +206,15 @@ def _count_request(cache_key, period_seconds):
     Requests over the limit are counted too; incr() keeps the expiry that
     add() set, so they never extend the window.
     """
-    cache.add(cache_key, 0, period_seconds)
+    if cache.add(cache_key, 0, period_seconds):
+        _record_window_deadline(cache_key, period_seconds)
     try:
         return cache.incr(cache_key)
     except ValueError:
         # Evicted between add() and incr(): start a fresh window with this
         # request, unless a concurrent request already did.
         if cache.add(cache_key, 1, period_seconds):
+            _record_window_deadline(cache_key, period_seconds)
             return 1
         return cache.incr(cache_key)
 

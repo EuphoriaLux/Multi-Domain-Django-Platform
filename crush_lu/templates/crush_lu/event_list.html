@@ -93,10 +93,10 @@ and could needlessly deter registration.
     {# Tab navigation #}
     <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
         <div class="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 gap-1" role="tablist" aria-label="{% trans 'Event time range' %}">
-            <button type="button" role="tab" id="events-tab-upcoming" x-ref="tabUpcoming" aria-controls="events-panel-upcoming" x-bind:aria-selected="upcomingAriaSelected" x-bind:tabindex="isUpcoming ? '0' : '-1'" @click="showUpcoming" @keydown="onTabKeydown" x-bind:class="upcomingTabClass" class="px-4 py-2.5 min-h-11 text-sm sm:text-base font-medium rounded-md transition-all duration-200 whitespace-nowrap flex-1 sm:flex-none">
+            <button type="button" role="tab" id="events-tab-upcoming" x-ref="tabUpcoming" aria-controls="events-panel-upcoming" x-bind:aria-selected="upcomingAriaSelected" tabindex="0" x-bind:tabindex="upcomingTabIndex" @click="showUpcoming" @keydown="onTabKeydown" x-bind:class="upcomingTabClass" class="px-4 py-2.5 min-h-11 text-sm sm:text-base font-medium rounded-md transition-all duration-200 whitespace-nowrap flex-1 sm:flex-none">
                 {% trans "Upcoming" %}
             </button>
-            <button type="button" role="tab" id="events-tab-past" x-ref="tabPast" aria-controls="events-panel-past" x-bind:aria-selected="pastAriaSelected" x-bind:tabindex="isPast ? '0' : '-1'" @click="showPast" @keydown="onTabKeydown" x-bind:class="pastTabClass" class="px-4 py-2.5 min-h-11 text-sm sm:text-base font-medium rounded-md transition-all duration-200 whitespace-nowrap flex-1 sm:flex-none">
+            <button type="button" role="tab" id="events-tab-past" x-ref="tabPast" aria-controls="events-panel-past" x-bind:aria-selected="pastAriaSelected" tabindex="-1" x-bind:tabindex="pastTabIndex" @click="showPast" @keydown="onTabKeydown" x-bind:class="pastTabClass" class="px-4 py-2.5 min-h-11 text-sm sm:text-base font-medium rounded-md transition-all duration-200 whitespace-nowrap flex-1 sm:flex-none">
                 {% trans "Past Events" %}
             </button>
         </div>

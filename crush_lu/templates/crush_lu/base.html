@@ -171,6 +171,12 @@
            desktop half — forcing display:block on mobile would stomp flex/grid layouts */
         @media(min-width:1024px){.lg\:hidden{display:none}}
         .flex{display:flex}.items-center{align-items:center}.justify-between{justify-content:space-between}
+        /* Same shim gap as lg:hidden above, but this rule must come AFTER .flex:
+           unlayered rules of equal specificity resolve by source order, so
+           declaring it earlier (like lg:hidden) would still lose to .flex.
+           Needed by "flex ... md:hidden" elements (e.g. the event-detail mobile
+           sticky CTA bar, #4-03) so they don't leak onto tablet/desktop. */
+        @media(min-width:768px){.md\:hidden{display:none}}
         .py-3{padding-top:.75rem;padding-bottom:.75rem}
         .text-white{color:#fff}
         /* Hero section critical styles for LCP optimization */

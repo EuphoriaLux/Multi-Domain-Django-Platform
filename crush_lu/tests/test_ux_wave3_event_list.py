@@ -325,6 +325,35 @@ class EventCardEligibilityChipLabelTests(TestCase):
         self.assertContains(response, "Verified members only")
 
 
+    def test_private_approved_event_names_profile_gate_not_verification(self):
+        event = _make_event(
+            title="Private Approved Event",
+            is_private_invitation=True,
+            profile_requirement="approved",
+        )
+        event.invited_users.add(self.user)
+        self.client.login(username="incomplete@example.com", password="testpass123")
+
+        response = self.client.get("/en/events/")
+
+        self.assertContains(response, "This event requires a Crush profile.")
+        self.assertNotContains(response, "Verified members only")
+
+    def test_private_none_event_does_not_claim_no_profile_required(self):
+        event = _make_event(
+            title="Private Open Event",
+            is_private_invitation=True,
+            profile_requirement="none",
+        )
+        event.invited_users.add(self.user)
+        self.client.login(username="incomplete@example.com", password="testpass123")
+
+        response = self.client.get("/en/events/")
+
+        self.assertContains(response, "This event requires a Crush profile.")
+        self.assertNotContains(response, "No profile required")
+
+
 class EventTypeFilterLabelTests(TestCase):
     """Codex review finding: the event-type filter chips must be
     translated, not the model's raw EVENT_TYPE_CHOICES strings."""

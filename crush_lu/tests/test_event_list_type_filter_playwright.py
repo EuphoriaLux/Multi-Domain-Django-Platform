@@ -91,3 +91,23 @@ def test_type_filter_chip_click_shows_and_hides_matching_cards(
 
     expect(mixer_card).to_be_visible()
     expect(speed_dating_card).to_be_visible()
+
+
+
+def test_time_tabs_use_roving_focus_with_csp_safe_bindings(page, live_server):
+    page.goto(f"{live_server.url}/en/events/")
+    upcoming = page.locator("#events-tab-upcoming")
+    past = page.locator("#events-tab-past")
+
+    expect(upcoming).to_have_attribute("tabindex", "0")
+    expect(past).to_have_attribute("tabindex", "-1")
+    upcoming.focus()
+    upcoming.press("ArrowRight")
+    expect(past).to_be_focused()
+    expect(upcoming).to_have_attribute("tabindex", "-1")
+    expect(past).to_have_attribute("tabindex", "0")
+
+    past.press("Home")
+    expect(upcoming).to_be_focused()
+    expect(upcoming).to_have_attribute("tabindex", "0")
+    expect(past).to_have_attribute("tabindex", "-1")

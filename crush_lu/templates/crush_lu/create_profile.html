@@ -311,120 +311,10 @@
                 <!-- reCAPTCHA container -->
                 <div id="recaptcha-container"></div>
 
-                <!-- Date of Birth - Stepped Picker -->
+                <!-- Date of Birth - native date input (UX Wave 3 · WP4, 3-15: -->
+                <!-- replaces the old 4-level age-range/year/month/day drill-down) -->
                 <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                        {% include "shared/icons/calendar.html" with class="w-5 h-5" %} {% trans "Date of Birth" %} *
-                    </label>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{% trans "Must be 18+ to join" %}</p>
-
-                    <div x-data="dobPicker"
-                         data-months='[{"num":1,"name":"{% trans "January" %}"},{"num":2,"name":"{% trans "February" %}"},{"num":3,"name":"{% trans "March" %}"},{"num":4,"name":"{% trans "April" %}"},{"num":5,"name":"{% trans "May" %}"},{"num":6,"name":"{% trans "June" %}"},{"num":7,"name":"{% trans "July" %}"},{"num":8,"name":"{% trans "August" %}"},{"num":9,"name":"{% trans "September" %}"},{"num":10,"name":"{% trans "October" %}"},{"num":11,"name":"{% trans "November" %}"},{"num":12,"name":"{% trans "December" %}"}]'
-                         data-initial-dob="{% if form.date_of_birth.value %}{{ form.date_of_birth.value|date:'Y-m-d' }}{% elif profile and profile.date_of_birth %}{{ profile.date_of_birth|date:'Y-m-d' }}{% endif %}"
-                         class="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
-
-                        <!-- Progress Breadcrumb -->
-                        <div class="flex flex-wrap items-center gap-2 mb-4 text-sm">
-                            <button type="button" @click="goToStep1"
-                                    class="inline-flex items-center gap-1 px-2 py-1 rounded-md transition-colors"
-                                    x-bind:class="step1ButtonClass">
-                                <span>{% trans "Age Range" %}</span>
-                            </button>
-
-                            <div x-show="showAgeRangeBreadcrumb" class="flex items-center gap-2">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                                </svg>
-                                <button type="button" @click="goToStep2"
-                                        class="inline-flex items-center gap-1 px-2 py-1 rounded-md transition-colors"
-                                        x-bind:class="step2ButtonClass">
-                                    <span x-text="yearBreadcrumbText"></span>
-                                </button>
-                            </div>
-
-                            <div x-show="showYearBreadcrumb" class="flex items-center gap-2">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                                </svg>
-                                <button type="button" @click="goToStep3"
-                                        class="inline-flex items-center gap-1 px-2 py-1 rounded-md transition-colors"
-                                        x-bind:class="step3ButtonClass">
-                                    <span x-text="monthBreadcrumbText"></span>
-                                </button>
-                            </div>
-
-                            <div x-show="showMonthBreadcrumb" class="flex items-center gap-2">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                                </svg>
-                                <button type="button" @click="goToStep4"
-                                        class="inline-flex items-center gap-1 px-2 py-1 rounded-md transition-colors"
-                                        x-bind:class="step4ButtonClass">
-                                    <span x-text="dayBreadcrumbText"></span>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Step 1: Age Range Selection -->
-                        <div x-show="isStep1" x-transition:enter="transition ease-out duration-200"
-                             x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
-                            <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">{% trans "What's your age range?" %}</p>
-                            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3" data-dob-age-ranges>
-                                <!-- Buttons rendered by JavaScript -->
-                            </div>
-                        </div>
-
-                        <!-- Step 2: Year Selection -->
-                        <div x-show="isStep2" x-transition:enter="transition ease-out duration-200"
-                             x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-cloak>
-                            <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{% trans "Select your birth year" %}</p>
-                            <div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2 max-h-64 overflow-y-auto pr-1" data-dob-years>
-                                <!-- Buttons rendered by JavaScript -->
-                            </div>
-                        </div>
-
-                        <!-- Step 3: Month Selection -->
-                        <div x-show="isStep3" x-transition:enter="transition ease-out duration-200"
-                             x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-cloak>
-                            <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{% trans "Select your birth month" %}</p>
-                            <div class="grid grid-cols-3 sm:grid-cols-4 gap-2" data-dob-months>
-                                <!-- Buttons rendered by JavaScript -->
-                            </div>
-                        </div>
-
-                        <!-- Step 4: Day Selection -->
-                        <div x-show="isStep4" x-transition:enter="transition ease-out duration-200"
-                             x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-cloak>
-                            <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{% trans "Select your birth day" %}</p>
-                            <div class="grid grid-cols-7 gap-1 sm:gap-1.5" data-dob-days>
-                                <!-- Buttons rendered by JavaScript -->
-                            </div>
-
-                            <!-- Completion Summary -->
-                            <div data-dob-summary class="hidden mt-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg flex items-center gap-3">
-                                <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                                    <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p class="font-medium text-green-800 dark:text-green-200" data-dob-formatted></p>
-                                    <p class="text-sm text-green-600 dark:text-green-400">{% trans "Date of birth selected" %}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Hidden input for form submission -->
-                        <input type="hidden" name="date_of_birth"
-                               value="{% if form.date_of_birth.value %}{{ form.date_of_birth.value }}{% elif profile and profile.date_of_birth %}{{ profile.date_of_birth|date:'Y-m-d' }}{% endif %}">
-                    </div>
-
-                    {% if form.date_of_birth.errors %}
-                        <p class="text-sm text-red-600 mt-2 flex items-center gap-1">
-                            {% include "shared/icons/exclamation-circle.html" with class="w-4 h-4" %}
-                            {{ form.date_of_birth.errors.0 }}
-                        </p>
-                    {% endif %}
+                    {% include "crush_lu/components/form_field.html" with field=form.date_of_birth label=_("Date of Birth") field_class="max-w-xs" %}
                 </div>
 
                 <!-- Gender Selection -->
@@ -823,7 +713,7 @@
 
                 <div class="mb-6">
                     <h3 class="font-display text-2xl font-semibold italic leading-tight tracking-tight text-crush-dark dark:text-white">{% trans "Add Photos" %}</h3>
-                    <p class="mt-1.5 text-[13px] leading-normal text-gray-500 dark:text-gray-400">{% trans "Upload at least one photo (optional but recommended)" %}</p>
+                    <p class="mt-1.5 text-[13px] leading-normal text-gray-500 dark:text-gray-400">{% trans "Add 1–3 photos. Optional, but recommended." %}</p>
                 </div>
 
                 <!-- Photo Upload Grid - smaller gap on mobile for better fit -->
@@ -838,7 +728,7 @@
                     <!-- Photo 1 -->
                     <div class="relative aspect-square">
                         <input type="file" name="photo_1" id="photo1" accept="image/*" class="hidden"
-                               @change="handleFile1">
+                               x-bind:disabled="isSavingStep" @change="handleFile1">
                         <label for="photo1"
                                class="block w-full h-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl
                                       cursor-pointer hover:border-purple-400 transition-all overflow-hidden
@@ -854,7 +744,7 @@
                                 <span class="text-sm">{% trans "Photo" %} 1</span>
                             </div>
                         </label>
-                        <button type="button" x-show="photo1HasImage" @click="removePhoto1"
+                        <button type="button" x-show="photo1HasImage" @click="removePhoto1" x-bind:disabled="isSavingStep"
                                 class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full
                                        flex items-center justify-center hover:bg-red-600 transition shadow-lg"
                                 aria-label="{% trans 'Remove photo' %} 1">
@@ -866,7 +756,7 @@
                     <!-- Photo 2 -->
                     <div class="relative aspect-square">
                         <input type="file" name="photo_2" id="photo2" accept="image/*" class="hidden"
-                               @change="handleFile2">
+                               x-bind:disabled="isSavingStep" @change="handleFile2">
                         <label for="photo2"
                                class="block w-full h-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl
                                       cursor-pointer hover:border-purple-400 transition-all overflow-hidden
@@ -882,7 +772,7 @@
                                 <span class="text-sm">{% trans "Photo" %} 2</span>
                             </div>
                         </label>
-                        <button type="button" x-show="photo2HasImage" @click="removePhoto2"
+                        <button type="button" x-show="photo2HasImage" @click="removePhoto2" x-bind:disabled="isSavingStep"
                                 class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full
                                        flex items-center justify-center hover:bg-red-600 transition shadow-lg"
                                 aria-label="{% trans 'Remove photo' %} 2">
@@ -894,7 +784,7 @@
                     <!-- Photo 3 -->
                     <div class="relative aspect-square">
                         <input type="file" name="photo_3" id="photo3" accept="image/*" class="hidden"
-                               @change="handleFile3">
+                               x-bind:disabled="isSavingStep" @change="handleFile3">
                         <label for="photo3"
                                class="block w-full h-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl
                                       cursor-pointer hover:border-purple-400 transition-all overflow-hidden
@@ -910,7 +800,7 @@
                                 <span class="text-sm">{% trans "Photo" %} 3</span>
                             </div>
                         </label>
-                        <button type="button" x-show="photo3HasImage" @click="removePhoto3"
+                        <button type="button" x-show="photo3HasImage" @click="removePhoto3" x-bind:disabled="isSavingStep"
                                 class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full
                                        flex items-center justify-center hover:bg-red-600 transition shadow-lg"
                                 aria-label="{% trans 'Remove photo' %} 3">
@@ -1097,13 +987,19 @@
                         </div>
                         <div class="flex-1">
                             <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Photos" %}</span>
-                            <div class="mt-1 flex gap-2" x-ref="reviewPhotos" data-empty="{% trans 'No photos yet' %}">
+                            <div class="mt-1 flex gap-2" x-ref="reviewPhotos" data-empty="{% trans 'No photos yet' %}" data-empty-nudge="{% trans 'Members recognise you at events by your photo — add one.' %}">
                                 {% if profile and profile.photo_1 %}<img src="{% profile_photo_url profile 'photo_1' %}" alt="" class="h-14 w-14 rounded-lg object-cover">{% endif %}
                                 {% if profile and profile.photo_2 %}<img src="{% profile_photo_url profile 'photo_2' %}" alt="" class="h-14 w-14 rounded-lg object-cover">{% endif %}
                                 {% if profile and profile.photo_3 %}<img src="{% profile_photo_url profile 'photo_3' %}" alt="" class="h-14 w-14 rounded-lg object-cover">{% endif %}
-                                {% if not profile or not profile.photo_1 %}<p class="font-medium dark:text-white">{% trans "No photos yet" %}</p>{% endif %}
+                                {% if not profile or not profile.photo_1 %}
+                                <div class="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-700/50 dark:bg-amber-900/20">
+                                    {% include "shared/icons/exclamation-circle.html" with class="w-4 h-4 text-amber-500 flex-shrink-0" %}
+                                    <p class="text-sm text-amber-800 dark:text-amber-200">{% trans "Members recognise you at events by your photo — add one." %}</p>
+                                </div>
+                                {% endif %}
                             </div>
                         </div>
+                        <button type="button" data-goto-step="3" @click="editSection" aria-label="{% trans 'Edit photos' %}" class="btn-crush-outline btn-sm flex-shrink-0">{% trans "Edit" %}</button>
                     </div>
                     <div class="flex items-start gap-3">
                         <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900/40 rounded-full flex items-center justify-center flex-shrink-0">
@@ -1121,51 +1017,66 @@
                                 {% endif %}
                             </div>
                         </div>
+                        <button type="button" data-goto-step="2" @click="editSection" aria-label="{% trans 'Edit your event identity' %}" class="btn-crush-outline btn-sm flex-shrink-0">{% trans "Edit" %}</button>
                     </div>
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900/40 rounded-full flex items-center justify-center">
                             {% include "shared/icons/globe-alt.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
-                        <div>
+                        <div class="flex-1">
                             <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Languages for Events" %}</span>
                             <p class="font-medium uppercase dark:text-white" x-ref="reviewLanguages" data-empty="{% trans 'None selected yet' %}">{% if profile and profile.event_languages %}{{ profile.event_languages|join:" · " }}{% else %}{% trans "None selected yet" %}{% endif %}</p>
                         </div>
+                        <button type="button" data-goto-step="3" @click="editSection" aria-label="{% trans 'Edit languages for events' %}" class="btn-crush-outline btn-sm flex-shrink-0">{% trans "Edit" %}</button>
                     </div>
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900/40 rounded-full flex items-center justify-center">
                             {% include "shared/icons/phone.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
-                        <div>
+                        <div class="flex-1">
                             <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Phone Number" %}</span>
                             <p class="font-medium dark:text-white" x-ref="reviewPhone" data-empty="{% trans 'Not provided' %}">{% if profile and profile.phone_number %}{{ profile.phone_number }}{% else %}{% trans "Not provided" %}{% endif %}</p>
                         </div>
+                        {% comment %}
+                          Codex review finding: a verified phone renders as a
+                          static confirmation on step 1 (see the comment
+                          above), with no input to change — and the save
+                          endpoint ignores edits to a verified number anyway.
+                          An Edit button here would route users to a step
+                          that cannot act on their intent, so it's left off
+                          rather than built into a real change-and-reverify
+                          flow (out of scope for this PR).
+                        {% endcomment %}
                     </div>
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900/40 rounded-full flex items-center justify-center">
                             {% include "shared/icons/calendar.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
-                        <div>
+                        <div class="flex-1">
                             <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Date of Birth" %}</span>
                             <p class="font-medium dark:text-white" x-ref="reviewDob" data-empty="{% trans 'Not provided' %}">{% if profile and profile.date_of_birth %}{{ profile.date_of_birth|date:"j M Y" }}{% else %}{% trans "Not provided" %}{% endif %}</p>
                         </div>
+                        <button type="button" data-goto-step="1" @click="editSection" aria-label="{% trans 'Edit date of birth' %}" class="btn-crush-outline btn-sm flex-shrink-0">{% trans "Edit" %}</button>
                     </div>
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900/40 rounded-full flex items-center justify-center">
                             {% include "shared/icons/user.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
-                        <div>
+                        <div class="flex-1">
                             <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Gender" %}</span>
                             <p class="font-medium dark:text-white" x-ref="reviewGender" data-empty="{% trans 'Not selected' %}">{% if profile and profile.gender %}{{ profile.get_gender_display }}{% else %}{% trans "Not selected" %}{% endif %}</p>
                         </div>
+                        <button type="button" data-goto-step="1" @click="editSection" aria-label="{% trans 'Edit gender' %}" class="btn-crush-outline btn-sm flex-shrink-0">{% trans "Edit" %}</button>
                     </div>
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900/40 rounded-full flex items-center justify-center">
                             {% include "shared/icons/map-pin.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
-                        <div>
+                        <div class="flex-1">
                             <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Location" %}</span>
                             <p class="font-medium dark:text-white" x-ref="reviewLocation" data-empty="{% trans 'Not selected' %}">{% if profile and profile.location %}{{ profile.location }}{% else %}{% trans "Not selected" %}{% endif %}</p>
                         </div>
+                        <button type="button" data-goto-step="1" @click="editSection" aria-label="{% trans 'Edit location' %}" class="btn-crush-outline btn-sm flex-shrink-0">{% trans "Edit" %}</button>
                     </div>
                 </div>
 

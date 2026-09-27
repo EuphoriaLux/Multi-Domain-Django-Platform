@@ -101,16 +101,19 @@
             {% endif %}
             {% if is_eligible == False and not reg_status_chip %}
             {% comment %}
-            The chip must name the ACTUAL gate (5 different profile_requirement values, only
-            one of which is really about verification) rather than a fixed "Verified members
-            only" string that was wrong for 4 of 5 cases — finding WP7-1. Reuse the model's
-            own translated PROFILE_REQUIREMENT_CHOICES label so the copy always matches the
-            gate _light_eligibility() just evaluated. Suppressed when the member already has
+            Name the actual gate: private invitations require any Crush profile,
+            regardless of profile_requirement; public events use the model's
+            translated PROFILE_REQUIREMENT_CHOICES label. Suppressed when the member already has
             an active registration status chip: a coach can reject a confirmed attendee at the
             door without cancelling the EventRegistration, and the eligibility gate describes
             entry, not an already-held seat — showing both together reads as contradictory.
             {% endcomment %}
-            {% include "crush_lu/components/status_badge.html" with tone="warning" label=event.get_profile_requirement_display %}
+            {% if event.is_private_invitation %}
+                {% trans "This event requires a Crush profile." as private_profile_label %}
+                {% include "crush_lu/components/status_badge.html" with tone="warning" label=private_profile_label %}
+            {% else %}
+                {% include "crush_lu/components/status_badge.html" with tone="warning" label=event.get_profile_requirement_display %}
+            {% endif %}
             {% endif %}
         </div>
         {% endif %}
