@@ -723,3 +723,14 @@ class SocialLoginMailFailureTests(SocialLoginRequiresVerifiedEmailTests):
         self.assertIsNotNone(response)
         self.assertEqual(response.status_code, 302)
         self.assertIn("resend_verification_cooldown_until", request.session)
+
+
+class SocialLoginRateLimitedRetryTests(SocialLoginRequiresVerifiedEmailTests):
+    def test_a_rate_limited_retry_keeps_the_existing_deadline(self):
+        user, _address = _unverified_user("retry@example.com")
+        request = self._request()
+        self.assertIsNotNone(self._pre_login(request, user))  # sends, sets deadline
+        request.session["resend_verification_cooldown_until"] = 12345
+        self.assertIsNotNone(self._pre_login(request, user, signup=False))  # limited
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(request.session["resend_verification_cooldown_until"], 12345)
