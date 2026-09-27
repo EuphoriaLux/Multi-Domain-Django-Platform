@@ -10,6 +10,7 @@ from django.db.models import Q
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_GET, require_http_methods
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
+from django.views.decorators.debug import sensitive_post_parameters
 from django.conf import settings
 import logging
 import uuid
@@ -31,6 +32,7 @@ from .models import (
 )
 from .forms import CrushSignupForm
 from .decorators import crush_login_required, ratelimit
+from .rate_limit_utils import add_rate_limited_error, humanize_wait_seconds
 from .referrals import (
     capture_referral,
     capture_referral_from_request,
@@ -1547,8 +1549,14 @@ def referral_redirect(request, code):
     return redirect(signup_url)
 
 
+# Outermost, so the passwords are masked in error reports even on the
+# throttled branch below, which renders a full template.
+@sensitive_post_parameters("password1", "password2")
 @ensure_csrf_cookie
-@ratelimit(key="ip", rate="5/h", method="POST")
+# UX Wave 3 · WP3 (finding 2-04): block=False so a rate-limited POST still
+# reaches this view instead of the decorator's bare 429 text page - it's
+# re-rendered inline below, on the same auth.html the user was already on.
+@ratelimit(key="ip", rate="5/h", method="POST", block=False)
 def signup(request):
     """
     User registration with Allauth integration
@@ -1557,11 +1565,35 @@ def signup(request):
     """
     from allauth.account.forms import LoginForm
 
-    capture_referral_from_request(request)
     signup_form = CrushSignupForm()
     login_form = LoginForm()
+    status_code = 200
+    limited = request.method == "POST" and getattr(request, "limited", False)
 
-    if request.method == "POST":
+    # UX Wave 3 · WP3 review (P2): a throttled POST must not reach
+    # capture_referral_from_request()'s get_or_create() - block=False lets
+    # every request past the limit still enter this view, so a client
+    # cycling fresh sessions with a valid `?ref=` could keep writing
+    # ReferralAttribution rows after its IP was throttled, defeating the
+    # point of the rate limit for this write path. GET requests (the
+    # initial landing with `?ref=`) are never rate-limited, so they still
+    # capture normally.
+    if not limited:
+        capture_referral_from_request(request)
+
+    if limited:
+        signup_form = CrushSignupForm(request.POST)
+        add_rate_limited_error(
+            signup_form,
+            _("Too many signup attempts. Please try again in %(wait)s.")
+            % {
+                "wait": humanize_wait_seconds(
+                    getattr(request, "limited_retry_after", 3600)
+                )
+            },
+        )
+        status_code = 429
+    elif request.method == "POST":
         signup_form = CrushSignupForm(request.POST)
         if signup_form.is_valid():
             try:
@@ -1622,7 +1654,10 @@ def signup(request):
         "login_form": login_form,
         "mode": "signup",
     }
-    return render(request, "crush_lu/auth.html", context)
+    response = render(request, "crush_lu/auth.html", context, status=status_code)
+    if status_code == 429:
+        response["Retry-After"] = str(getattr(request, "limited_retry_after", 3600))
+    return response
 
 
 # Match allauth's per-address confirm_email limiter (the send goes through
@@ -1633,7 +1668,12 @@ RESEND_VERIFICATION_COOLDOWN_SECONDS = getattr(
 
 
 @require_http_methods(["POST"])
-@ratelimit(key="ip", rate="3/h", method="POST")
+@ratelimit(
+    key="ip",
+    rate="3/h",
+    method="POST",
+    rate_limited_template="crush_lu/rate_limited.html",
+)
 def resend_verification_email(request):
     """Re-send the email-verification link for a pending signup.
 
