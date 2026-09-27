@@ -24,6 +24,10 @@ from crush_lu.storage import crush_media_storage
 logger = logging.getLogger(__name__)
 
 
+class GiftNoLongerClaimable(ValueError):
+    """The gift's row left PENDING/CLAIM_FAILED after the instance was loaded."""
+
+
 @dataclass
 class MediaAttachmentResult:
     """Result of attaching media files to journey rewards."""
@@ -428,6 +432,19 @@ class JourneyGift(models.Model):
         # Use atomic transaction with savepoints for rollback control
         try:
             with transaction.atomic():
+                # Serialize with gift_report (and concurrent claims): lock the
+                # row and re-read status, since this instance may be stale.
+                # The lock is held until the final save below commits.
+                locked_status = (
+                    type(self)
+                    .objects.select_for_update()
+                    .values_list("status", flat=True)
+                    .get(pk=self.pk)
+                )
+                if locked_status not in (self.Status.PENDING, self.Status.CLAIM_FAILED):
+                    self.status = locked_status
+                    raise GiftNoLongerClaimable("This gift cannot be claimed")
+
                 # SAVEPOINT 1: User link
                 sid_user = transaction.savepoint()
 
@@ -536,6 +553,9 @@ class JourneyGift(models.Model):
                 logger.info(f"Gift {self.gift_code}: Successfully claimed by user {user.id}")
                 return journey
 
+        except GiftNoLongerClaimable:
+            # Reported/claimed/expired meanwhile: keep that status untouched.
+            raise
         except ValueError as e:
             # ValueError was raised from inner exception handlers
             # Mark as failed now that we're outside the atomic block
@@ -554,10 +574,25 @@ class JourneyGift(models.Model):
 
         Should only be called outside of atomic blocks to ensure the status
         update is not rolled back.
+
+        Conditional on the row still being claimable: the claim's row lock is
+        released when its atomic block fails, so a report may have expired
+        the gift in between. An unconditional save would reopen it.
         """
-        self.status = self.Status.CLAIM_FAILED
-        self.claim_error_message = error_message[:1000]  # Limit length
-        self.save(update_fields=['status', 'claim_error_message'])
+        error_message = error_message[:1000]  # Limit length
+        updated = (
+            type(self)
+            .objects.filter(
+                pk=self.pk,
+                status__in=[self.Status.PENDING, self.Status.CLAIM_FAILED],
+            )
+            .update(status=self.Status.CLAIM_FAILED, claim_error_message=error_message)
+        )
+        if updated:
+            self.status = self.Status.CLAIM_FAILED
+            self.claim_error_message = error_message
+        else:
+            self.refresh_from_db(fields=["status", "claim_error_message"])
 
     def _attach_media_to_rewards(self, journey, max_retries=3):
         """

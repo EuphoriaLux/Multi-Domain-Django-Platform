@@ -129,6 +129,24 @@ def _spark_to_crush_connect(request, *args, **kwargs):
     return redirect("crush_lu:crush_connect_teaser")
 
 
+_legacy_delete_redirect = RedirectView.as_view(
+    pattern_name="crush_lu:delete_crushlu_profile", query_string=True
+)
+
+
+def _legacy_account_delete(request, *args, **kwargs):
+    """Legacy /account/delete/: GET forwards, POST keeps the GDPR contract.
+
+    Pages rendered at this URL (and cached by the service worker) POST
+    deletion_type + confirm_email here. A 302 would make the browser replay
+    it as a GET and drop the form, so POST goes to the GDPR view itself,
+    with its own auth, method and CSRF handling unchanged.
+    """
+    if request.method == "POST":
+        return views.gdpr_data_management(request)
+    return _legacy_delete_redirect(request, *args, **kwargs)
+
+
 urlpatterns = [
     # Secure media serving
     path('media/profile/<int:user_id>/<str:photo_field>/', views_media.serve_profile_photo, name='serve_profile_photo'),
@@ -438,7 +456,8 @@ urlpatterns = [
     path('account/link-apple/', views.apple_relay_link_prompt, name='apple_link_prompt'),
 
     # GDPR & Account Deletion
-    path('account/delete/', views.gdpr_data_management, name='delete_account'),  # Legacy URL, points to GDPR dashboard
+    # Legacy URL: GET forwards to the profile deletion page; POST keeps the GDPR form contract.
+    path('account/delete/', _legacy_account_delete, name='delete_account'),
     path('account/delete-profile/', views.delete_crushlu_profile_view, name='delete_crushlu_profile'),  # Default action
     path('account/gdpr/', views.gdpr_data_management, name='gdpr_data_management'),  # Full GDPR options
     path('account/gdpr/export/', views.export_user_data, name='export_user_data'),  # GDPR data export
@@ -697,6 +716,7 @@ urlpatterns = [
     path('journey/gift/success/<str:gift_code>/', views_journey_gift.gift_success, name='gift_success'),
     path('journey/gift/<str:gift_code>/', views_journey_gift.gift_landing, name='gift_landing'),
     path('journey/gift/<str:gift_code>/claim/', views_journey_gift.gift_claim, name='gift_claim'),
+    path('journey/gift/<str:gift_code>/report/', views_journey_gift.gift_report, name='gift_report'),
     path('journey/gifts/', views_journey_gift.gift_list, name='gift_list'),
 
     # Journey API Endpoints (these use {% url %} template tags so can stay in i18n_patterns)

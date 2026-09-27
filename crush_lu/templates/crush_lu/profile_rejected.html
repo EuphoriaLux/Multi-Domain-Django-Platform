@@ -51,6 +51,16 @@
                     </a>
                 </div>
 
+                <!-- Self-serve data deletion (GDPR): the existing profile-deletion flow -->
+                <div class="text-center mb-6">
+                    <a href="{% url 'crush_lu:delete_crushlu_profile' %}" data-rejected-delete class="btn-crush-outline btn-block">
+                        {% trans "Delete my profile and data" %}
+                    </a>
+                    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                        {% trans "Removes your dating profile, photos, and event history. Your PowerUp account remains active for other platforms." %}
+                    </p>
+                </div>
+
                 <hr class="border-gray-200 dark:border-gray-700 mb-6">
 
                 <!-- Back to login -->
