@@ -42629,6 +42629,80 @@ msgstr ""
 msgid "Use a different address"
 msgstr "Andere Adresse verwenden"
 
+# UX Wave 3 · WP7 event-list
+# UX Wave 3 · WP7 event-list
+# UX Wave 3 · WP7 event-list
+# UX Wave 3 · WP7
+#: crush_lu/views_events.py
+msgid "Applied"
+msgstr "Beworben"
+
+#: templates/crush_lu/includes/event_card.html
+msgid "View ticket"
+msgstr "Ticket ansehen"
+
+#: templates/crush_lu/includes/event_card.html
+msgid "Complete payment"
+msgstr "Zahlung abschließen"
+
+#: templates/crush_lu/event_ticket.html
+msgid "Event ticket"
+msgstr "Event-Ticket"
+
+#: templates/crush_lu/event_list.html
+msgid "All types"
+msgstr "Alle Typen"
+
+#: templates/crush_lu/event_list.html
+msgid "Speed Dating"
+msgstr "Speed-Dating"
+
+#: templates/crush_lu/event_list.html
+msgid "Social Mixer"
+msgstr "Mixer-Abend"
+
+#: templates/crush_lu/event_list.html
+msgid "Activity Meetup"
+msgstr "Aktivitäts-Treffen"
+
+#: templates/crush_lu/event_list.html
+msgid "Themed Event"
+msgstr "Themen-Event"
+
+#: templates/crush_lu/event_list.html
+msgid "Quiz Night"
+msgstr "Quizabend"
+
+#: templates/crush_lu/event_list.html
+msgid "Crush Cache Hunt"
+msgstr "Crush-Cache-Jagd"
+
+#: templates/crush_lu/event_list.html
+msgid "Create a free account to register for events."
+msgstr "Erstelle ein kostenloses Konto, um dich für Events anzumelden."
+
+#: templates/crush_lu/event_list.html
+msgid "Create a profile to get notified"
+msgstr "Erstelle ein Profil, um benachrichtigt zu werden"
+
+#: templates/crush_lu/event_list.html
+msgid "Sign in to see the events you've attended."
+msgstr "Melde dich an, um die Events zu sehen, an denen du teilgenommen hast."
+
+#: templates/crush_lu/event_list.html
+msgid "Event time range"
+msgstr "Zeitraum der Events"
+
+#: templates/crush_lu/event_list.html
+msgid "Filter by event type"
+msgstr "Nach Event-Typ filtern"
+
+#: templates/crush_lu/includes/event_card.html
+#, python-format
+msgid "Only %(counter)s spot left"
+msgid_plural "Only %(counter)s spots left"
+msgstr[0] "Nur noch %(counter)s Platz übrig"
+msgstr[1] "Nur noch %(counter)s Plätze übrig"
 
 # UX Wave 3 · WP6 event-detail
 # UX Wave 3 · WP6 event-detail
