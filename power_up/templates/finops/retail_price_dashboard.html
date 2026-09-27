@@ -44,8 +44,8 @@
 
         <form method="get" class="mb-8 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <div class="mb-5">
-                <h2 class="text-lg font-semibold text-gray-900">Choose one comparable VM offer</h2>
-                <p class="mt-1 text-sm text-gray-500">Use the same operating system, VM size, product variant, and purchase model before comparing regions.</p>
+                <h2 class="text-lg font-semibold text-gray-900">Compare whole regions, or one VM offer</h2>
+                <p class="mt-1 text-sm text-gray-500">Leave the SKU empty for an overall price index per region. Pick a SKU to follow that exact offer over time.</p>
             </div>
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <label class="block text-sm font-medium text-gray-700 lg:order-5">
@@ -55,8 +55,8 @@
                     </select>
                 </label>
                 <label class="block text-sm font-medium text-gray-700 lg:order-2">
-                    2. VM size / SKU
-                    <input name="sku" list="sku-options" value="{{ active_sku }}" placeholder="Standard_D2s_v5" class="mt-1 block w-full rounded-md border-gray-300">
+                    2. VM size / SKU <span class="font-normal text-gray-500">(optional)</span>
+                    <input name="sku" list="sku-options" value="{{ active_sku }}" placeholder="All VMs · e.g. Standard_D2s_v5" class="mt-1 block w-full rounded-md border-gray-300">
                     <datalist id="sku-options">{% for sku in sku_options %}<option value="{{ sku }}">{% endfor %}</datalist>
                 </label>
                 <label class="block text-sm font-medium text-gray-700 lg:order-3">
@@ -126,7 +126,43 @@
             </div>
         </form>
 
-        {% if not history_rows %}
+        {% if not active_sku and region_index %}
+        <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div class="mb-4">
+                    <h2 class="text-lg font-semibold text-gray-900">Overall price by region</h2>
+                    <p class="text-sm text-gray-500">Price index vs {{ index_reference }} (= 100), each region at its latest snapshot (up to {{ index_day }}). Lower is cheaper.</p>
+                </div>
+                <canvas id="retail-region-index" height="220"></canvas>
+            </section>
+            <section class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                <div class="border-b border-gray-200 px-5 py-4">
+                    <h2 class="text-lg font-semibold text-gray-900">How the index is built</h2>
+                    <p class="text-sm text-gray-500">Median price ratio over the same VM offers (SKU, OS/licensing and meter) sold in both the region and {{ index_reference }}, with the active offer filters. Pick a SKU above for its price trend and history.</p>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                        <thead class="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            <tr><th class="px-4 py-3">Region</th><th class="px-4 py-3 text-right">Index</th><th class="px-4 py-3 text-right">vs {{ index_reference }}</th><th class="px-4 py-3 text-right">Offers compared</th></tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            {% for item in region_index %}
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3"><div class="font-medium text-gray-900">{{ item.location_name }}</div><div class="text-xs text-gray-500">{{ item.region_code }}{% if item.is_reference %} · reference{% endif %}{% if item.snapshot_date != index_day %} · prices of {{ item.snapshot_date }}{% endif %}</div></td>
+                                <td class="whitespace-nowrap px-4 py-3 text-right font-semibold text-gray-900">{{ item.index|floatformat:1 }}</td>
+                                <td class="whitespace-nowrap px-4 py-3 text-right font-semibold {% if item.difference_percent > 0 %}text-red-700{% elif item.difference_percent < 0 %}text-green-700{% else %}text-gray-500{% endif %}">{% if item.is_reference %}—{% elif item.difference_percent > 0 %}+{{ item.difference_percent|floatformat:1 }}%{% else %}{{ item.difference_percent|floatformat:1 }}%{% endif %}</td>
+                                <td class="whitespace-nowrap px-4 py-3 text-right text-gray-600">{{ item.compared }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% if index_missing_regions %}
+                <p class="border-t border-gray-200 px-5 py-3 text-xs text-gray-500">No comparable snapshot in the selected period for: {{ index_missing_regions|join:", " }}.</p>
+                {% endif %}
+            </section>
+        </div>
+        {% elif not history_rows %}
         <div class="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center">
             <h2 class="text-lg font-semibold text-gray-900">No matching price history yet</h2>
             <p class="mt-2 text-sm text-gray-600">Run the daily retail-price sync, or adjust the SKU and offer filters.</p>
@@ -190,6 +226,7 @@
 {{ chart_series|json_script:"retail-price-series" }}
 {{ chart_labels|json_script:"retail-price-labels" }}
 {{ region_comparison|json_script:"retail-region-data" }}
+{{ region_index|json_script:"retail-region-index-data" }}
 {% endblock %}
 
 {% block extra_js %}
@@ -200,6 +237,17 @@ document.addEventListener("DOMContentLoaded", function () {
     const series = JSON.parse(document.getElementById("retail-price-series").textContent);
     const labels = JSON.parse(document.getElementById("retail-price-labels").textContent);
     const comparison = JSON.parse(document.getElementById("retail-region-data").textContent);
+    const regionIndex = JSON.parse(document.getElementById("retail-region-index-data").textContent);
+    const indexCanvas = document.getElementById("retail-region-index");
+    if (indexCanvas && regionIndex.length) {
+        // Index values sit close to 100, so a zero-based axis would hide the gaps.
+        const values = regionIndex.map(item => item.index);
+        new Chart(indexCanvas, {
+            type: "bar",
+            data: { labels: regionIndex.map(item => item.location_name), datasets: [{ label: "Index", data: values, backgroundColor: regionIndex.map(item => item.is_reference ? "#9ca3af" : (item.index < 100 ? "#16a34a" : "#ea580c")) }] },
+            options: { responsive: true, indexAxis: "y", scales: { x: { min: Math.floor(Math.min(...values, 100) - 2), max: Math.ceil(Math.max(...values, 100) + 2) } }, plugins: { legend: { display: false } } }
+        });
+    }
     if (series.length) {
         new Chart(document.getElementById("retail-price-trend"), {
             type: "line",
