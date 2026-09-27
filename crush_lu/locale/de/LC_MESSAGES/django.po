@@ -14394,6 +14394,14 @@ msgstr "Push-Benachrichtigungen"
 msgid "Checking notification support..."
 msgstr "Benachrichtigungsunterstützung wird geprüft..."
 
+#: templates/crush_lu/partials/_push_check_timed_out.html:5
+msgid "We couldn't check notification support on this device."
+msgstr "Wir konnten die Benachrichtigungsunterstützung auf diesem Gerät nicht prüfen."
+
+#: templates/crush_lu/partials/_push_native_notice.html:10
+msgid "Notifications are managed in the app"
+msgstr "Benachrichtigungen werden in der App verwaltet"
+
 #: templates/crush_lu/account_settings.html:554
 #: templates/crush_lu/account_settings.html:805
 #: templates/crush_lu/partials/edit_account_notifications.html:161

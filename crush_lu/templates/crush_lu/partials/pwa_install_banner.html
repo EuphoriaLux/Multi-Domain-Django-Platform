@@ -1,41 +1,43 @@
 {% load i18n %}
-{# PWA Install Banner - Alpine.js controlled visibility #}
-<div id="pwa-install-banner"
-     x-data="pwaInstallBanner"
-     x-show="show"
-     x-transition:enter="transition ease-out duration-300"
-     x-transition:enter-start="opacity-0 -translate-y-full"
-     x-transition:enter-end="opacity-100 translate-y-0"
-     x-transition:leave="transition ease-in duration-200"
-     x-transition:leave-start="opacity-100 translate-y-0"
-     x-transition:leave-end="opacity-0 -translate-y-full"
-     x-cloak
-     class="pwa-install-banner">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between py-3 gap-4">
+{# PWA install card: a fixed overlay (no layout shift) above the bottom tab bar, #}
+{# queued behind the cookie sheet and flash messages by Alpine.store("prompts"). #}
+{# pwa-install.js decides when to offer it (2nd session on, not /account/, /payments/, #}
+{# the Connect wizard or a native shell). #}
+<div x-data="pwaInstallBanner">
+    <div id="pwa-install-banner"
+         x-show="visible"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-4"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-4"
+         x-cloak
+         class="pwa-install-banner prompt-above-nav fixed inset-x-3 bottom-3 mb-2 z-40 rounded-2xl border border-purple-200 dark:border-purple-800 bg-[var(--color-surface-card)] dark:bg-slate-800 shadow-lg lg:left-4 lg:right-auto lg:w-full lg:max-w-md">
+        <div class="flex items-center justify-between gap-3 py-2 pl-4 pr-2">
             <!-- Icon and Text -->
             <div class="flex items-center gap-3 min-w-0">
                 <div class="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                     </svg>
                 </div>
                 <div class="min-w-0">
-                    <h6 class="font-semibold text-gray-900 dark:text-white text-sm sm:text-base truncate">{% trans "Install Crush.lu App" %}</h6>
+                    <p class="font-semibold text-gray-900 dark:text-white text-sm sm:text-base truncate">{% trans "Install Crush.lu App" %}</p>
                     <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">{% trans "Quick access & offline features" %}</p>
                 </div>
             </div>
 
             <!-- Buttons -->
-            <div class="flex items-center gap-2 flex-shrink-0">
-                <button id="pwa-install-button" class="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-pink-500 rounded-full hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-200 hover:-translate-y-0.5">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex items-center gap-1 flex-shrink-0">
+                <button id="pwa-install-button" type="button" aria-label="{% trans "Install Crush.lu App" %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-pink-500 rounded-full hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-200 hover:-translate-y-0.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                     </svg>
                     <span class="mobile-hidden-sm-inline">{% trans "Install" %}</span>
                 </button>
-                <button id="pwa-dismiss-button" @click="dismiss" class="p-1.5 sm:p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors" aria-label="{% trans "Dismiss" %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <button id="pwa-dismiss-button" type="button" @click="dismiss" class="inline-flex items-center justify-center w-11 h-11 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors" aria-label="{% trans "Dismiss" %}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
                 </button>

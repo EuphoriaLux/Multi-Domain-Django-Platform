@@ -350,6 +350,21 @@ Pick the toast store for any NEW notification surface. Only call
 `messages.success/error/warning(...)` if you genuinely want the
 top-of-page banner treatment, and prefer the toast store if you don't.
 
+### Prompt queue (`Alpine.store('prompts')`)
+
+Unsolicited prompts share one queue (`alpine-components.js`) that shows **at most
+one at a time**, in this order: **`cookie`** (the shared cookie sheet, which has no
+Alpine and dispatches a `cookie-banner-toggle` document event), **`messages`**
+(`base.html` flash messages, `x-data="flashMessage"`: each visible one holds the
+slot until dismissed or auto-hidden, and messages themselves are never hidden),
+**`install`** (the PWA install card) and **`push`** (the push activation prompt).
+A prompt calls `Alpine.store("prompts").set(name, on)` and binds `x-show` to a
+getter that also checks `isActive(name)`; `install`/`push` wait for DOMContentLoaded.
+Anchor bottom prompts with `.prompt-above-nav` (clears `.bottom-nav` below `lg`).
+The install card never renders in native shells (`is_native_app`), and
+`pwa-install.js` offers it only from the 2nd session, outside `/account/`,
+`/payments/` and the Connect wizard.
+
 ### Failed HTMX requests
 
 `crush_lu/static/crush_lu/js/htmx-error-toast.js` (loaded by `base.html`)

@@ -134,10 +134,11 @@ html:not(.dark) {
    canvas — bg-white resolves to the tinted #f0ecf5 above, so card surfaces
    must use this token (or a #fff literal) instead. --bottom-nav-height is the
    mobile tab bar's height, consumed by the bar itself and by anything that
-   must clear it (e.g. bottom-anchored toasts). */
+   must clear it (toasts, .prompt-above-nav). 60.5px is the rendered bar: a
+   59.5px tab (6px + 34px icon + 2px + 11.5px label + 6px) plus its 1px border. */
 :root {
     --color-surface-card: #ffffff;
-    --bottom-nav-height: 56px;
+    --bottom-nav-height: 60.5px;
 }
 
 /* =============================================================================
@@ -14158,6 +14159,15 @@ body.connect-wizard main.has-bottom-nav {
         #toast-container.toast-above-nav {
             padding-bottom: 0;
         }
+    }
+}
+
+/* Bottom-anchored prompts (cookie sheet, install card, push prompt) clear the
+   mobile tab bar where it is rendered. Unlayered on purpose: it must beat the
+   shared cookie partial's own `bottom: 0` and Tailwind's bottom-* utilities. */
+@media (max-width: 1023px) {
+    body:has(.bottom-nav) .prompt-above-nav {
+        bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
     }
 }
 

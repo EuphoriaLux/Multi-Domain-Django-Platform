@@ -449,6 +449,9 @@
         </div>
 
         <!-- Push Notifications Card (shown to all, JS detects browser support) -->
+        {% if is_native_app %}
+        {% include "crush_lu/partials/_push_native_notice.html" %}
+        {% else %}
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden"
              x-data="pushPreferences"
              data-subscriptions='{{ push_subscriptions_json }}'
@@ -475,6 +478,7 @@
                         <span class="text-gray-500 dark:text-gray-400 dark:text-gray-500">{% trans "Checking notification support..." %}</span>
                     </div>
                 </template>
+                {% include "crush_lu/partials/_push_check_timed_out.html" %}
 
                 <!-- State: Push not supported -->
                 <template x-if="showNotSupported">
@@ -644,9 +648,10 @@
                 </template>
             </div>
         </div>
+        {% endif %}
 
         <!-- Coach Push Notifications Card (for coaches only) -->
-        {% if is_coach %}
+        {% if is_coach and not is_native_app %}
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden"
              x-data="coachPushPreferences"
              data-subscriptions='{{ coach_push_subscriptions_json }}'
@@ -674,6 +679,7 @@
                         <span class="text-gray-500 dark:text-gray-400 dark:text-gray-500">{% trans "Checking notification support..." %}</span>
                     </div>
                 </template>
+                {% include "crush_lu/partials/_push_check_timed_out.html" %}
 
                 <!-- State: Push not supported -->
                 <template x-if="showNotSupported">

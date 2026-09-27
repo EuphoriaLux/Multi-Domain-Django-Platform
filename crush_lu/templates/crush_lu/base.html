@@ -4,7 +4,7 @@
 {% load seo_tags %}
 {% load crush_connect_tags %}
 <!DOCTYPE html>
-<html lang="{{ LANGUAGE_CODE|default:'en' }}">
+<html lang="{{ LANGUAGE_CODE|default:'en' }}"{% if is_native_app %} data-native-app{% endif %}>
 <head>
     {% analytics_head %}
     {% if user.is_authenticated %}{% appinsights_head %}{% endif %}
@@ -1214,11 +1214,11 @@
     {% endif %}
     {% endblock %}
 
-    <!-- PWA Install Banner (hidden by default, shown by JavaScript) -->
-    {% include "crush_lu/partials/pwa_install_banner.html" %}
-
-    <!-- Push Notification Activation Prompt (for PWA users, hidden by default) -->
-    {% if user.is_authenticated %}
+    <!-- PWA install card + push prompt: queued by Alpine.store("prompts"), never in native shells -->
+    {% if not is_native_app %}
+        {% include "crush_lu/partials/pwa_install_banner.html" %}
+    {% endif %}
+    {% if user.is_authenticated and not is_native_app %}
         {% include "crush_lu/partials/_push_activation_prompt.html" %}
     {% endif %}
 
@@ -1244,7 +1244,7 @@
         <div class="container mt-4" role="status" aria-live="polite">
             {% for message in messages %}
                 {% if forloop.counter <= 3 %}
-                <div x-data="dismissible"
+                <div x-data="flashMessage"
                      {% if 'error' not in message.tags and 'danger' not in message.tags and 'warning' not in message.tags %}data-auto-dismiss="6000"{% endif %}
                      x-show="show"
                      x-transition:enter="transition ease-out duration-300"

@@ -23,7 +23,33 @@ class PWAInstaller {
         return "other";
     }
 
+    // Never in the native app shells (<html data-native-app>, from the
+    // is_native_app context flag), nor on account pages, checkout or the
+    // Connect wizard. Elsewhere only from the visitor's 2nd session on.
+    isSuppressed() {
+        if (document.body.classList.contains("connect-wizard")) return true;
+        return /^\/([a-z]{2}\/)?(account|payments)\//.test(location.pathname);
+    }
+
+    sessionCount() {
+        try {
+            var count = parseInt(localStorage.getItem("crush-pwa-sessions"), 10) || 0;
+            if (!sessionStorage.getItem("crush-pwa-session")) {
+                sessionStorage.setItem("crush-pwa-session", "1");
+                count += 1;
+                localStorage.setItem("crush-pwa-sessions", String(count));
+            }
+            return count;
+        } catch (e) {
+            return 0; // storage blocked: never nag
+        }
+    }
+
     init() {
+        if (document.documentElement.hasAttribute("data-native-app")) return;
+        var sessions = this.sessionCount();
+        if (this.isSuppressed() || sessions < 2) return;
+
         // Listen once for dismiss event emitted by Alpine component
         window.addEventListener("pwa-dismiss-install", this.handleDismissEvent);
 
@@ -134,23 +160,6 @@ if ("serviceWorker" in navigator) {
 // Add CSS styles
 const style = document.createElement("style");
 style.textContent = `
-    .pwa-install-banner {
-        background: var(--gradient-subtle, linear-gradient(135deg, rgba(155, 89, 182, 0.1) 0%, rgba(255, 107, 157, 0.1) 100%));
-        border-bottom: 2px solid rgba(155, 89, 182, 0.2);
-        animation: slideDown var(--transition-base, 0.3s ease);
-    }
-
-    @keyframes slideDown {
-        from {
-            transform: translateY(-100%);
-            opacity: 0;
-        }
-        to {
-            transform: translateY(0);
-            opacity: 1;
-        }
-    }
-
     .pwa-install-banner .btn-crush-primary {
         background: var(--gradient-primary, linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%));
         border: none;
