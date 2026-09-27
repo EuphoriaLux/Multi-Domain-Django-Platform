@@ -4,7 +4,8 @@ Account-exit UX (UX Wave 2, WP7: findings 8-05 and 8-15).
 - GDPR / delete pages speak user-facing language (no internal brand names),
   render labelled confirm inputs, and route destructive forms through the
   global confirm sheet (``data-confirm`` on the <form>).
-- The legacy /account/delete/ URL redirects to the profile deletion page.
+- The legacy /account/delete/ URL redirects GETs to the profile deletion
+  page and still accepts the GDPR deletion POST (Codex #1050).
 - Unblock is confirmed through the sheet and offers an Undo toast that
   re-blocks through the existing block endpoint.
 """
@@ -63,6 +64,65 @@ def test_legacy_account_delete_redirects_to_profile_deletion(client, lang):
     resp = client.get(f"/{lang}/account/delete/", **HOST)
     assert resp.status_code == 302
     assert resp["Location"] == f"/{lang}/account/delete-profile/"
+
+
+def test_legacy_account_delete_head_redirects(client):
+    _login(client)
+    resp = client.head("/en/account/delete/", **HOST)
+    assert resp.status_code == 302
+    assert resp["Location"] == "/en/account/delete-profile/"
+
+
+def test_legacy_account_delete_post_performs_gdpr_deletion(client):
+    # Codex #1050: forms rendered at the legacy URL POST back to it; a 302
+    # would be replayed as GET and silently drop the deletion request.
+    from crush_lu.models import CrushProfile
+
+    user = _login(client)
+    assert CrushProfile.objects.filter(user=user).exists()
+    resp = client.post(
+        "/en/account/delete/",
+        {"deletion_type": "crushlu_only", "confirm_email": user.email},
+        **HOST,
+    )
+    assert resp.status_code == 302
+    assert resp["Location"] == "/en/account/settings/"
+    assert not CrushProfile.objects.filter(user=user).exists()
+    assert User.objects.filter(pk=user.pk).exists()
+
+
+def test_legacy_account_delete_post_checks_email_and_csrf(client):
+    user = _login(client)
+    resp = client.post(
+        "/en/account/delete/",
+        {"deletion_type": "full_account", "confirm_email": "wrong@example.com"},
+        **HOST,
+    )
+    assert resp.status_code == 302
+    assert resp["Location"] == "/en/account/gdpr/"
+    assert User.objects.filter(pk=user.pk).exists()
+
+    from django.test import Client
+
+    strict = Client(enforce_csrf_checks=True)
+    strict.force_login(user)
+    resp = strict.post(
+        "/en/account/delete/",
+        {"deletion_type": "full_account", "confirm_email": user.email},
+        **HOST,
+    )
+    assert resp.status_code == 403
+    assert User.objects.filter(pk=user.pk).exists()
+
+
+def test_legacy_account_delete_post_requires_login(client):
+    resp = client.post(
+        "/en/account/delete/",
+        {"deletion_type": "full_account", "confirm_email": "x@example.com"},
+        **HOST,
+    )
+    assert resp.status_code == 302
+    assert "/account/delete-profile/" not in resp["Location"]
 
 
 def test_gdpr_page_has_no_internal_brand_names(client):
