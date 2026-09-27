@@ -8847,6 +8847,23 @@ document.addEventListener("alpine:init", function () {
             get showFallbackVisible() {
                 return this.showFallback;
             },
+            // Whether the dashboard card has anything worth showing at all.
+            // Deliberately excludes showFallback: that state (desktop
+            // Firefox and other non-Chromium browsers with no install path)
+            // used to render an "Open crush.lu in Chrome or Safari" card
+            // after a 2s timer — a card that was blank until then and only
+            // ever offered advice nobody there could act on. The card just
+            // doesn't render for that visitor now; the sibling Membership
+            // card expands to the full row instead, through
+            // membershipSpanClass below.
+            get cardVisible() {
+                return this.isInstalled || this.canInstall || this.showInstructions;
+            },
+            // Bound as a bare name on the Membership card: the CSP build
+            // can't evaluate an object literal with an inline negation.
+            get membershipSpanClass() {
+                return this.cardVisible ? "" : "md:col-span-2";
+            },
 
             init: function () {
                 var self = this;
@@ -8866,9 +8883,12 @@ document.addEventListener("alpine:init", function () {
                     return;
                 }
 
-                // iOS-specific instructions (no beforeinstallprompt on iOS)
+                // iOS-specific instructions (no beforeinstallprompt on iOS).
+                // iPadOS Safari reports a desktop "Macintosh" UA, so detect it
+                // the way pwa-install.js does (MacIntel + touch points).
                 var isIOS =
-                    /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                    (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) ||
+                    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
                 if (isIOS) {
                     self.showInstructions = true;
                     self.instructions = 'Tap Share, then "Add to Home Screen"';
