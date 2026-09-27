@@ -697,6 +697,7 @@ urlpatterns = [
     path('journey/gift/success/<str:gift_code>/', views_journey_gift.gift_success, name='gift_success'),
     path('journey/gift/<str:gift_code>/', views_journey_gift.gift_landing, name='gift_landing'),
     path('journey/gift/<str:gift_code>/claim/', views_journey_gift.gift_claim, name='gift_claim'),
+    path('journey/gift/<str:gift_code>/report/', views_journey_gift.gift_report, name='gift_report'),
     path('journey/gifts/', views_journey_gift.gift_list, name='gift_list'),
 
     # Journey API Endpoints (these use {% url %} template tags so can stay in i18n_patterns)
