@@ -5,6 +5,13 @@
           enctype="multipart/form-data"
           id="editPhotosForm">
         {% csrf_token %}
+        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+
+        {% if next %}
+        <p class="text-xs font-semibold uppercase tracking-[0.1em] text-crush-purple dark:text-crush-pink mb-3">
+            {% trans "Add a photo to continue where you left off." %}
+        </p>
+        {% endif %}
 
         <div class="section-card mb-4">
             <div class="photo-section-header">
@@ -28,7 +35,8 @@
 
         <!-- Action Buttons -->
         <div class="action-buttons-container action-buttons-sticky">
-            <a href="{% url 'crush_lu:edit_profile' %}" class="btn-cancel">
+            {# Back returns to `next` only once the gate it came from is satisfied (a main photo exists); otherwise that gated view would redirect straight back here. #}
+            <a href="{% if next and profile.photo_1 %}{{ next }}{% else %}{% url 'crush_lu:edit_profile' %}{% endif %}" class="btn-cancel"{% if next %} x-data="photoEditorBack" data-next="{{ next }}" data-fallback="{% url 'crush_lu:edit_profile' %}"{% endif %}>
                 {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
                 {% trans "Back" %}
             </a>
