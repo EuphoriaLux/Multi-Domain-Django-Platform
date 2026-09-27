@@ -42412,13 +42412,14 @@ msgstr ""
 
 #: templates/crush_lu/about.html:325
 msgid ""
-"In a small country, discretion matters. No public browsing: only verified "
-"members can see your photos, and Crush Connect asks before showing your "
-"photo to your matches."
+"In a small country, discretion matters. No public browsing: your photos are "
+"never public or shown to search engines, you need a Crush.lu account to see "
+"them, and Crush Connect asks before showing your photo to your matches."
 msgstr ""
-"In einem kleinen Land ist Diskretion wichtig. Kein öffentliches "
-"Durchstöbern: Nur verifizierte Mitglieder können deine Fotos sehen, und "
-"Crush Connect fragt dich, bevor dein Foto deinen Matches gezeigt wird."
+"In einem kleinen Land ist Diskretion wichtig. Kein öffentliches Durchstöbern:"
+" Deine Fotos sind nie öffentlich und werden nie Suchmaschinen gezeigt, man "
+"braucht ein Crush.lu-Konto, um sie zu sehen, und Crush Connect fragt dich, "
+"bevor dein Foto deinen Matches gezeigt wird."
 
 #: templates/crush_lu/base.html:1289
 #: templates/crush_lu/partials/edit_about_crushlu.html:123
@@ -42435,12 +42436,13 @@ msgstr "Verifiziert per LuxID oder persönlich"
 
 #: templates/crush_lu/how_it_works.html:188
 msgid ""
-"Only verified members can see your photos, never the public or search "
-"engines. Crush Connect asks before showing your photo to your matches."
+"Your photos are never public or shown to search engines — you need a Crush.lu"
+" account to see them, and Crush Connect asks before showing your photo to "
+"your matches."
 msgstr ""
-"Nur verifizierte Mitglieder können deine Fotos sehen, nie die "
-"Öffentlichkeit oder Suchmaschinen. Crush Connect fragt dich, bevor dein "
-"Foto deinen Matches gezeigt wird."
+"Deine Fotos sind nie öffentlich und werden nie Suchmaschinen gezeigt – um sie"
+" zu sehen, braucht man ein Crush.lu-Konto, und Crush Connect fragt dich, "
+"bevor dein Foto deinen Matches gezeigt wird."
 
 #: templates/crush_lu/how_it_works.html:189
 msgid "No public search or profile browsing"
