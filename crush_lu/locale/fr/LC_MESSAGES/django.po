@@ -25068,11 +25068,10 @@ msgstr ""
 #: templates/crush_lu/emails/profile_incomplete_72h.html:36
 msgid ""
 "You're SO close! Just add 1-3 photos and you're done. Your privacy is "
-"protected - you can blur photos or show only your first name."
+"protected - you can show only your first name."
 msgstr ""
 "Vous êtes SI proche ! Ajoutez juste 1-3 photos et c'est fait. Votre vie "
-"privée est protégée - vous pouvez flouter les photos ou montrer seulement "
-"votre prénom."
+"privée est protégée - vous pouvez montrer seulement votre prénom."
 
 #: templates/crush_lu/emails/profile_incomplete_72h.html:39
 msgid "Photo tips:"
