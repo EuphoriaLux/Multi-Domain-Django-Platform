@@ -571,7 +571,7 @@
                         {% endif %}
                     {% else %}
                         {% if event_languages_display and not language_requirement_met %}
-                        <div class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4 mb-4">
+                        <div id="event-language-blocked" class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4 mb-4">
                             <div class="flex items-start gap-2">
                                 <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
@@ -694,22 +694,12 @@
                                         </div>
                                     </div>
                                 </div>
-                            {% elif not user_profile.assigned_coach %}
-                                <div class="rounded-lg p-3 sm:p-4 border border-amber-300 dark:border-amber-600 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 text-amber-900 dark:text-amber-200">
-                                    <div class="flex items-start gap-2">
-                                        <span class="text-lg leading-none">✦</span>
-                                        <div class="flex-1">
-                                            <p class="font-semibold text-sm sm:text-base mb-1">{% trans "Coach required" %}</p>
-                                            <p class="text-xs sm:text-sm mb-3">{% trans "This event is reserved for members with a personal coach. Attend any event to get your coach assigned." %}</p>
-                                            <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-outline btn-sm">{% trans "See entry events" %}</a>
-                                        </div>
-                                    </div>
-                                </div>
                             {% elif user_profile.verification_status == "rejected" %}
                                 {% comment %}
-                                A rejected profile keeps its assigned_coach — nothing clears it — so
-                                without this the two checks above pass and the CTA renders for a user
-                                event_register now refuses, bouncing them straight back here.
+                                A rejected profile keeps its assigned_coach — nothing clears it — and
+                                event_register checks verification_status before assigned_coach, so
+                                this must be checked ahead of the missing-coach branch below or a
+                                rejected member without a coach gets the wrong recovery action.
                                 {% endcomment %}
                                 <div class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4">
                                     <div class="flex items-start gap-2">
@@ -719,6 +709,17 @@
                                         <div class="flex-1">
                                             <p class="text-xs sm:text-sm mb-3">{% trans "Your profile was not approved, so you cannot register for this event. Please contact support." %}</p>
                                             <a href="mailto:support@crush.lu" class="btn-crush-outline btn-sm">{% trans "Contact support" %}</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% elif not user_profile.assigned_coach %}
+                                <div class="rounded-lg p-3 sm:p-4 border border-amber-300 dark:border-amber-600 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 text-amber-900 dark:text-amber-200">
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-lg leading-none">✦</span>
+                                        <div class="flex-1">
+                                            <p class="font-semibold text-sm sm:text-base mb-1">{% trans "Coach required" %}</p>
+                                            <p class="text-xs sm:text-sm mb-3">{% trans "This event is reserved for members with a personal coach. Attend any event to get your coach assigned." %}</p>
+                                            <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-outline btn-sm">{% trans "See entry events" %}</a>
                                         </div>
                                     </div>
                                 </div>
@@ -1011,7 +1012,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (window.Alpine && Alpine.store('toasts')) {
             Alpine.store('toasts').add({
                 type: 'success',
-                message: '{% trans "Link copied" %}'
+                message: '{% trans "Link copied"|escapejs %}'
             });
         }
     }
@@ -1020,7 +1021,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (window.Alpine && Alpine.store('toasts')) {
             Alpine.store('toasts').add({
                 type: 'error',
-                message: '{% trans "Could not copy the link. Long-press or select it from the address bar instead." %}'
+                message: '{% trans "Could not copy the link. Long-press or select it from the address bar instead."|escapejs %}'
             });
         }
     }
@@ -1078,9 +1079,13 @@ document.addEventListener('DOMContentLoaded', function() {
             try {
                 await navigator.share(shareData);
             } catch (err) {
-                // User cancelled or error occurred
+                // AbortError is the user cancelling the native share sheet -
+                // no feedback needed. Any other error (e.g. share blocked by
+                // a WebView or permissions policy) falls back to copying the
+                // link so the button is never a dead control (#4-18 review).
                 if (err.name !== 'AbortError') {
                     console.error('Error sharing:', err);
+                    copyLinkFallback();
                 }
             }
         } else {

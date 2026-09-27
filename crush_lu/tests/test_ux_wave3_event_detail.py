@@ -531,3 +531,90 @@ class FactStripReviewRoundTwoTests(EventDetailWave3TestBase):
         response = self.client.get(f"/fr/events/{event.id}/")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Impossible de copier le lien.")
+
+
+class FactStripReviewRoundThreeTests(EventDetailWave3TestBase):
+    """Codex round 3 on #1062."""
+
+    def _profile(self, user, **kwargs):
+        defaults = dict(
+            date_of_birth=date(1995, 1, 1),
+            gender="F",
+            location="Luxembourg",
+            is_approved=False,
+            verification_status="pending",
+        )
+        defaults.update(kwargs)
+        return CrushProfile.objects.create(user=user, **defaults)
+
+    def test_copy_failure_toast_is_escaped_for_javascript_in_french(self):
+        """The FR translation contains the apostrophe in "d'adresse", which
+        breaks a single-quoted JS string literal unless escapejs is applied —
+        the resulting syntax error would kill the whole event-page script, so
+        the Share button would have no handler at all."""
+        event = self._make_event()
+        response = self.client.get(f"/fr/events/{event.id}/")
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        # escapejs renders the apostrophe as ', never a raw quote.
+        self.assertIn("d\\u0027adresse", html)
+        self.assertNotIn("d'adresse.'", html)
+
+    def test_rejected_profile_without_coach_offers_support_not_entry_events(self):
+        """Codex review on #1062: event_register checks verification_status
+        before assigned_coach, so a rejected profile without a coach must be
+        routed to support, not to the (useless) entry-events link that the
+        missing-coach branch offers."""
+        event = self._make_event(profile_requirement="coach_assigned")
+        user = self._create_user("rejected-nocoach@test.com")
+        self._profile(
+            user,
+            is_approved=False,
+            verification_status="rejected",
+            assigned_coach=None,
+        )
+        self.client.force_login(user)
+
+        html = self._get_detail(event)
+        self.assertIn("Please contact support.", html)
+        self.assertIn('href="mailto:support@crush.lu"', html)
+        self.assertNotIn("Coach required", html)
+
+    def test_share_falls_back_to_copy_on_non_abort_share_error(self):
+        """Codex review on #1062: a browser exposing navigator.share but
+        rejecting it with a non-AbortError (blocked by a WebView or
+        permissions policy) must still fall back to copying the link,
+        not just log and leave the button dead."""
+        event = self._make_event()
+        html = self._get_detail(event)
+        script = html.split("Web Share functionality")[1].split("</script>")[0]
+        listener_block = script.split("shareBtn.addEventListener")[1]
+        catch_block = listener_block.split("catch (err) {")[1].split(
+            "} else {"
+        )[0]
+        self.assertIn("AbortError", catch_block)
+        self.assertIn("copyLinkFallback();", catch_block)
+
+    def test_sticky_cta_skips_language_blocked_members(self):
+        """Codex review on #1062: a language-blocked member's registration
+        anchor is rendered alongside the language warning even though
+        event_register rejects them — the sticky bar must not target it."""
+        js_path = finders.find("crush_lu/js/alpine-components.js")
+        with open(js_path, encoding="utf-8") as fh:
+            js = fh.read()
+        start = js.index('Alpine.data("eventStickyCta"')
+        end = js.index("Alpine.data(", start + 1)
+        component_src = js[start:end]
+        self.assertIn('querySelector("#event-language-blocked")', component_src)
+
+        event = self._make_event(languages=["fr"])
+        user = self._create_user("langblocked@test.com")
+        self._profile(user, is_approved=True, verification_status="verified")
+        self.client.force_login(user)
+
+        html = self._get_detail(event)
+        self.assertIn('id="event-language-blocked"', html)
+        panel_html = html.split('id="event-cta-panel"')[1].split(
+            'id="event-sticky-cta"'
+        )[0]
+        self.assertIn("btn-crush-primary", panel_html)

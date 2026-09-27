@@ -2572,6 +2572,14 @@ document.addEventListener("alpine:init", function () {
                 if (!panel || !("IntersectionObserver" in window)) {
                     return;
                 }
+                // A language-blocked member sees the registration (or
+                // payment) CTA rendered alongside the language-requirement
+                // warning even though event_register rejects them — skip
+                // the sticky bar entirely rather than advertise an action
+                // that cannot succeed (Codex review on #1062).
+                if (panel.querySelector("#event-language-blocked")) {
+                    return;
+                }
                 var anchor = panel.querySelector("a.btn-crush-primary");
                 var target = anchor;
                 if (anchor) {
