@@ -43189,6 +43189,32 @@ msgid "This registration cannot be paid for in its current state."
 msgstr "Cette inscription ne peut pas être payée dans son état actuel."
 
 
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+#: crush_lu/templates/crush_lu/dashboard.html:18
+#, python-format
+msgid "%(requests)s new connection request"
+msgid_plural "%(requests)s new connection requests"
+msgstr[0] "%(requests)s nouvelle demande de connexion"
+msgstr[1] "%(requests)s nouvelles demandes de connexion"
+
+#: crush_lu/templates/crush_lu/dashboard.html:18
+msgid "View all requests"
+msgstr "Voir toutes les demandes"
+
+#: crush_lu/templates/crush_lu/dashboard.html:18
+msgid "See Crush Connect above"
+msgstr "Voir Crush Connect ci-dessus"
+
+
+# UX Wave 3 · WP11 connect-gating
 # UX Wave 3 · WP11 connect-gating
 # UX Wave 3 · WP11 connect-gating
 # UX Wave 3 · WP11 connect-gating
