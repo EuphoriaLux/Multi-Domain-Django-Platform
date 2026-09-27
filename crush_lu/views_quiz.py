@@ -4,6 +4,7 @@ import logging
 import os
 
 from django.conf import settings
+from django.core.exceptions import PermissionDenied
 from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
@@ -541,17 +542,48 @@ def quiz_table_display_data(request, event_id):
     return JsonResponse(data)
 
 
+def _can_view_quiz_photo(viewer, owner_id):
+    """Whether ``viewer`` may load ``owner_id``'s quiz photo.
+
+    Only the projector (quiz-display.js) renders these URLs, and it shows a
+    photo only when the device is signed in as the people running the quiz.
+    So: the owner, an active coach, or the quiz's creator / staff — the last
+    two only for a member registered for one of those quizzes. Fellow
+    players are refused; no player-facing surface renders these photos.
+    """
+    if viewer.pk == owner_id:
+        return True
+    if CrushCoach.objects.filter(user=viewer, is_active=True).exists():
+        return True
+    quizzes = QuizEvent.objects.filter(
+        event__eventregistration__user_id=owner_id,
+        event__eventregistration__status__in=["confirmed", "attended"],
+    )
+    if viewer.is_staff or viewer.is_superuser:
+        return quizzes.exists()
+    return quizzes.filter(created_by=viewer).exists()
+
+
 @login_required
 def quiz_display_photo(request, user_id):
     """Serve photo_1 for quiz display.
 
-    Only serves photos for users who have an approved CrushProfile.
+    Only serves photos for users who have an approved CrushProfile, and only
+    to viewers ``_can_view_quiz_photo`` admits.
     Returns a cache-friendly response suitable for projector displays.
     """
     profile = get_object_or_404(CrushProfile, user_id=user_id)
 
     if not profile.is_approved:
         raise Http404("Profile not approved")
+
+    if not _can_view_quiz_photo(request.user, profile.user_id):
+        logger.warning(
+            "quiz_display_photo denied: viewer=%s owner=%s",
+            request.user.pk,
+            profile.user_id,
+        )
+        raise PermissionDenied("You don't have permission to view this photo")
 
     photo = getattr(profile, "photo_1", None)
     if not photo:

@@ -71,6 +71,21 @@ def _participants_available(chat):
     return True
 
 
+def _may_view_partner_photo(user, partner):
+    """Whether this chat may render the partner's photo: only with their
+    Connect photo consent (another relationship, e.g. an event connection,
+    must not bring it back onto a Connect surface), and only when the photo
+    endpoint's own gate agrees — otherwise the fallback shows instead of a
+    403 image, while the conversation itself stays reachable."""
+    from crush_lu.views_media import can_view_profile_photo
+
+    membership = getattr(partner, "crush_connect_membership", None)
+    if membership is None or not membership.photo_share_consent:
+        return False
+    profile = getattr(partner, "crushprofile", None)
+    return profile is not None and can_view_profile_photo(user, profile)
+
+
 @crush_login_required
 def connect_week_chats(request):
     """The member's Connect Cycle temp chats, most recent first.
@@ -98,6 +113,7 @@ def connect_week_chats(request):
             continue
         chat = sync_chat_state(chat)
         chat.partner = chat.get_other_participant(user)
+        chat.partner_photo_hidden = not _may_view_partner_photo(user, chat.partner)
         chat.latest_message = (
             chat.messages.order_by("-pk").first() if chat_is_open(chat) else None
         )
@@ -117,6 +133,7 @@ def connect_week_chat_detail(request, chat_id: int):
     user = request.user
     chat = sync_chat_state(_get_participant_chat(user, chat_id))
     partner = chat.get_other_participant(user)
+    partner_photo_hidden = not _may_view_partner_photo(user, partner)
     coffee_date = getattr(chat, "coffee_date", None)
     is_p1 = chat.participant_1_id == user.id
 
@@ -155,6 +172,7 @@ def connect_week_chat_detail(request, chat_id: int):
     context = {
         "chat": chat,
         "partner": partner,
+        "partner_photo_hidden": partner_photo_hidden,
         "chat_messages": chat_messages,
         "coffee_date": coffee_date,
         "is_proposer": is_proposer,

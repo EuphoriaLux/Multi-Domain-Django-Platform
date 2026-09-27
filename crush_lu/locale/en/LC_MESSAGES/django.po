@@ -28443,3 +28443,13 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\home.html
 msgid "As seen in"
 msgstr ""
+
+# UX Wave 3 · WP1 verify-email
+# UX Wave 3 · WP1 verify-email
+# UX Wave 3 · WP1 verify-email
+# UX Wave 3 · WP1 verify-email
+# UX Wave 3 · WP1 verify-email
+#: crush_lu/templates/account/verification_sent_crush.html
+msgid "Use a different address"
+msgstr ""
+
