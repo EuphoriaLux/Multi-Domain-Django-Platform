@@ -72,13 +72,15 @@ class HomeUpcomingEventsTests(TestCase):
         self.assertIn("Future Mixer", titles)
 
     def test_debug_seed_event_excluded_from_anonymous_home(self):
-        _make_event(title="[DEBUG] Luxembourg City Crush Cache")
+        # Real seed_crush_cache.py title: the "[DEBUG]" tag is preceded by an
+        # emoji, so a naive `istartswith("[DEBUG]")` check would miss it.
+        _make_event(title="🧭 [DEBUG] Luxembourg City Crush Cache")
         _make_event(title="Real Public Event")
 
         response = self.client.get("/en/")
 
         titles = [e.title for e in response.context["upcoming_events"]]
-        self.assertNotIn("[DEBUG] Luxembourg City Crush Cache", titles)
+        self.assertNotIn("🧭 [DEBUG] Luxembourg City Crush Cache", titles)
         self.assertIn("Real Public Event", titles)
 
 
@@ -110,6 +112,18 @@ class EventCardAgesAndSpotsTests(TestCase):
         # 5 - 0 confirmed = 5 remaining, under the <=10 threshold.
         response = self.client.get("/en/events/")
         self.assertContains(response, "Only 5 spots left")
+
+    def test_upcoming_card_date_keeps_the_year(self):
+        # Codex review finding: compacting the date to "j M" dropped the
+        # year, so an event scheduled across a year boundary read as an
+        # ambiguous "Mon, 5 Jan" with no way to tell it isn't this year.
+        _make_event(
+            title="New Year Mixer",
+            event_type="mixer",
+            date_time=timezone.make_aware(timezone.datetime(2027, 1, 5, 19, 0)),
+        )
+        response = self.client.get("/en/events/")
+        self.assertContains(response, "5 Jan 2027")
 
 
 class EventListRegistrationStatusTests(TestCase):
@@ -170,6 +184,54 @@ class EventListRegistrationStatusTests(TestCase):
         response = self.client.get("/en/events/")
 
         self.assertContains(response, "Complete payment")
+
+    def test_attended_registration_keeps_ticket_badge_and_cta(self):
+        # Codex review finding: a member checked in at the door (status
+        # flips to "attended") stays on upcoming_event_list until the event
+        # ends, and event_ticket already accepts "attended" — so the card
+        # must keep the success chip + "View ticket" CTA, not fall back to
+        # "View Details".
+        EventRegistration.objects.create(
+            event=self.event, user=self.user, status="attended"
+        )
+        self.client.login(username="member@example.com", password="testpass123")
+
+        response = self.client.get("/en/events/")
+
+        self.assertEqual(
+            response.context["event_registration_status"][self.event.id], "attended"
+        )
+        self.assertContains(response, "Attended")
+        self.assertContains(response, "View ticket")
+        self.assertContains(response, f"/en/events/{self.event.id}/ticket/")
+
+    def test_attended_registration_suppresses_eligibility_warning(self):
+        # Codex review finding: a coach can reject a confirmed attendee at
+        # the door without cancelling the EventRegistration, so an event
+        # requiring a profile the member no longer satisfies must not show
+        # a contradictory "Verified members only" chip next to "Attended".
+        # Uses a fresh unverified user rather than self.user (whose profile
+        # already satisfies "approved") so _light_eligibility() genuinely
+        # returns False here.
+        gated_event = _make_event(
+            title="Gated Attended Event", profile_requirement="approved"
+        )
+        unverified_user = User.objects.create_user(
+            username="unverified@example.com",
+            email="unverified@example.com",
+            password="testpass123",
+        )
+        _grant_consent(unverified_user)
+        EventRegistration.objects.create(
+            event=gated_event, user=unverified_user, status="attended"
+        )
+        self.client.login(username="unverified@example.com", password="testpass123")
+
+        response = self.client.get("/en/events/")
+
+        self.assertFalse(response.context["event_eligibility"][gated_event.id])
+        self.assertContains(response, "Attended")
+        self.assertNotContains(response, "Verified members only")
 
     def test_no_registration_query_count_scales_flat_with_event_count(self):
         # Regression guard for the N+1 the finding calls out: adding more
@@ -249,6 +311,59 @@ class EventCardEligibilityChipLabelTests(TestCase):
         self.assertContains(response, "Verified members only")
 
 
+class EventTypeFilterLabelTests(TestCase):
+    """Codex review finding: the event-type filter chips must be
+    translated, not the model's raw EVENT_TYPE_CHOICES strings."""
+
+    def setUp(self):
+        cache.clear()
+        self.client = Client(HTTP_HOST="crush.lu")
+        _make_event(title="A Speed Dating Night", event_type="speed_dating")
+        _make_event(title="A Social Mixer", event_type="mixer")
+
+    def test_german_page_shows_translated_filter_labels(self):
+        # Meta/SEO copy elsewhere on the page mentions "Social Mixer" in
+        # English on purpose, so this checks the filter chip's own
+        # translated label is present rather than asserting the raw
+        # English string is absent from the whole page.
+        response = self.client.get("/de/events/")
+        self.assertContains(response, "Speed-Dating")
+        self.assertContains(response, "Mixer-Abend")
+        self.assertContains(response, 'data-filter-type="mixer"')
+
+    def test_french_page_shows_translated_filter_labels(self):
+        response = self.client.get("/fr/events/")
+        self.assertContains(response, "Rencontre conviviale")
+        self.assertContains(response, 'data-filter-type="mixer"')
+
+
+class PastTabHidesEventTypeFilterBarTests(TestCase):
+    """Codex review finding: the event-type filter bar only affects
+    upcoming cards (eventTypeFilterCard), so it must not stay visible
+    (and silently do nothing) on the past-events tab."""
+
+    def setUp(self):
+        cache.clear()
+        self.client = Client(HTTP_HOST="crush.lu")
+        _make_event(title="An Upcoming Mixer", event_type="mixer")
+        _make_event(title="An Upcoming Speed Date", event_type="speed_dating")
+
+    def test_filter_bar_is_scoped_to_the_upcoming_panel(self):
+        response = self.client.get("/en/events/")
+        content = response.content.decode()
+        filter_bar_start = content.index('aria-label="Filter by event type"')
+        upcoming_panel_start = content.index('id="events-panel-upcoming"')
+        past_panel_start = content.index('id="events-panel-past"')
+        # The filter bar must render before the past-events panel opens
+        # (i.e. inside/around the upcoming panel, x-show-gated on isUpcoming)
+        # rather than sitting outside both tab panels where it stays visible
+        # regardless of which tab is active.
+        self.assertLess(filter_bar_start, past_panel_start)
+        self.assertIn('x-show="isUpcoming"', content[:past_panel_start])
+        self.assertGreater(filter_bar_start, 0)
+        self.assertGreaterEqual(upcoming_panel_start, 0)
+
+
 class LightEligibilityTests(TestCase):
     """Finding 4-08: the "Verified members only" chip logic."""
 
@@ -292,10 +407,18 @@ class EventListPageStructureTests(TestCase):
         self.assertContains(response, "<h1")
         self.assertContains(
             response,
-            "Create a free profile and get verified to register for events.",
+            "Create a free account to register for events.",
         )
         self.assertContains(response, 'role="tablist"')
         self.assertContains(response, 'role="tab"')
+
+    def test_anonymous_banner_does_not_claim_universal_verification(self):
+        # Codex review finding: the banner must not claim every event
+        # requires a verified profile — profile_requirement="none" events
+        # need no profile at all, so that would be an invented rule.
+        response = self.client.get("/en/events/")
+        self.assertNotContains(response, "get verified to register")
+        self.assertNotContains(response, "verified profile")
 
     def test_authenticated_visitor_does_not_see_prospect_banner(self):
         user = User.objects.create_user(
@@ -308,7 +431,7 @@ class EventListPageStructureTests(TestCase):
         response = self.client.get("/en/events/")
         self.assertNotContains(
             response,
-            "Create a free profile and get verified to register for events.",
+            "Create a free account to register for events.",
         )
 
 

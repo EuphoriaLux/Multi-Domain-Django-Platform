@@ -128,12 +128,15 @@ def home(request):
     now = timezone.now()
     # Public, non-private events only — private-invitation events are visible
     # only to invited guests, and this landing page is anonymous (authenticated
-    # users were redirected above). QA/seed data (titled with a "[DEBUG]"
-    # prefix by the seed commands) is excluded so a prospect never lands on a
-    # test event (finding 1-05).
+    # users were redirected above). QA/seed data (marked with a "[DEBUG]" tag
+    # by the seed commands, e.g. seed_crush_cache.py's "🧭 [DEBUG] Luxembourg
+    # City Crush Cache") is excluded so a prospect never lands on a test
+    # event (finding 1-05). icontains, not istartswith: the real seeded
+    # titles carry an emoji before the tag, so the marker never starts the
+    # string.
     published = MeetupEvent.objects.filter(
         is_published=True, is_cancelled=False, is_private_invitation=False
-    ).exclude(title__istartswith="[DEBUG]")
+    ).exclude(title__icontains="[DEBUG]")
     # Anonymous visitors can't join an event that has already started, so this
     # anonymous-only landing page shows only future, registration-open starts —
     # a "Live now" event they can't act on is worse than one further out

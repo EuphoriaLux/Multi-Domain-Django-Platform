@@ -99,13 +99,16 @@
             {% if reg_status_chip %}
             {% include "crush_lu/components/status_badge.html" with tone=reg_status_chip.tone label=reg_status_chip.label %}
             {% endif %}
-            {% if is_eligible == False %}
+            {% if is_eligible == False and not reg_status_chip %}
             {% comment %}
             The chip must name the ACTUAL gate (5 different profile_requirement values, only
             one of which is really about verification) rather than a fixed "Verified members
             only" string that was wrong for 4 of 5 cases — finding WP7-1. Reuse the model's
             own translated PROFILE_REQUIREMENT_CHOICES label so the copy always matches the
-            gate _light_eligibility() just evaluated.
+            gate _light_eligibility() just evaluated. Suppressed when the member already has
+            an active registration status chip: a coach can reject a confirmed attendee at the
+            door without cancelling the EventRegistration, and the eligibility gate describes
+            entry, not an already-held seat — showing both together reads as contradictory.
             {% endcomment %}
             {% include "crush_lu/components/status_badge.html" with tone="warning" label=event.get_profile_requirement_display %}
             {% endif %}
@@ -117,7 +120,7 @@
         bounds are the unfilled 18-99 placeholder — finding 1-05/4-07).
         {% endcomment %}
         <div class="text-gray-500 dark:text-gray-400 mb-3 text-sm flex flex-col gap-1">
-            <span class="inline-flex items-center gap-1.5">{% include "shared/icons/calendar.html" with class="w-3.5 h-3.5 text-crush-purple" %} {{ event.date_time|date:"D" }}, {{ event.date_time|date:"j M" }} · {{ event.date_time|date:"TIME_FORMAT" }}</span>
+            <span class="inline-flex items-center gap-1.5">{% include "shared/icons/calendar.html" with class="w-3.5 h-3.5 text-crush-purple" %} {{ event.date_time|date:"D" }}, {{ event.date_time|date:"j M Y" }} · {{ event.date_time|date:"TIME_FORMAT" }}</span>
             <span class="inline-flex items-center gap-1.5">{% include "shared/icons/map-pin.html" with class="w-3.5 h-3.5 text-crush-purple" %} {% if user.is_authenticated and user_profile %}{{ event.location }}{% else %}{{ event.canton|default:"Luxembourg" }}{% endif %}{% if event.min_age > 18 or event.max_age < 99 %} · {% include "shared/icons/users.html" with class="w-3.5 h-3.5 text-crush-purple inline" %} {% blocktrans with min=event.min_age max=event.max_age %}Ages {{ min }}-{{ max }}{% endblocktrans %}{% endif %}</span>
         </div>
 

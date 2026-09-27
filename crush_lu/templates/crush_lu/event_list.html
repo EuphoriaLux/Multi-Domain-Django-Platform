@@ -75,11 +75,15 @@
 {% if not user.is_authenticated %}
 {% comment %}
 Prospect guidance banner — this page is the SEO landing page, and nothing
-told an anonymous visitor a verified profile is how registration works
-(finding 1-13).
+told an anonymous visitor how registration works (finding 1-13). Kept
+neutral and account-oriented rather than naming "verified profile": not
+every listed event requires full verification (profile_requirement is
+"none" for some, and "completed" also accepts a pending-but-phone-verified
+profile), so claiming a universal gate here would be wrong for some events
+and could needlessly deter registration.
 {% endcomment %}
 <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 rounded-lg p-4 mb-6 flex flex-wrap items-center justify-between gap-3">
-    <p class="text-sm">{% trans "Create a free profile and get verified to register for events." %}</p>
+    <p class="text-sm">{% trans "Create a free account to register for events." %}</p>
     <a href="{% url 'account_signup' %}" class="btn-crush-outline btn-sm shrink-0">{% trans "Get started" %}</a>
 </div>
 {% endif %}
@@ -101,9 +105,11 @@ told an anonymous visitor a verified profile is how registration works
     {% if event_type_filter_options|length > 1 %}
     {% comment %}
     Client-side type filter chips (finding 1-13). Only offered when the
-    upcoming list actually mixes more than one type.
+    upcoming list actually mixes more than one type. Only the upcoming cards
+    are wrapped in eventTypeFilterCard, so the bar must hide on the past tab
+    — otherwise clicking a chip there silently changes nothing visible.
     {% endcomment %}
-    <div class="flex flex-wrap gap-2 mb-6" role="group" aria-label="{% trans 'Filter by event type' %}">
+    <div class="flex flex-wrap gap-2 mb-6" x-show="isUpcoming" role="group" aria-label="{% trans 'Filter by event type' %}">
         <button type="button" data-filter-type="all" x-data="eventTypeFilterChip" x-bind:class="chipClass" @click="activate" class="px-3 py-1.5 min-h-9 text-sm font-medium rounded-full border transition-colors">
             {% trans "All types" %}
         </button>

@@ -438,9 +438,27 @@ def _light_eligibility(event, profile):
 
 # Registration statuses that still mean "you have a stake in this upcoming
 # event" for the list-card status chip. `cancelled` deliberately excluded —
-# a cancelled registration should look like no registration at all.
+# a cancelled registration should look like no registration at all. `attended`
+# included with the same "success" tone as `confirmed`: a checked-in member
+# stays on `upcoming_event_list` until the event's end time, and event_ticket
+# already treats `attended` as a seat-holding status, so the card must keep
+# showing the ticket badge/CTA rather than dropping back to "View Details".
+# Localized labels for the event-type filter chips (event_list.html,
+# finding 1-13). Kept separate from MeetupEvent.EVENT_TYPE_CHOICES, whose
+# plain-English strings back get_event_type_display() elsewhere and must
+# stay byte-identical for those call sites.
+_EVENT_TYPE_FILTER_LABELS = {
+    "speed_dating": _("Speed Dating"),
+    "mixer": _("Social Mixer"),
+    "activity": _("Activity Meetup"),
+    "themed": _("Themed Event"),
+    "quiz_night": _("Quiz Night"),
+    "crush_cache": _("Crush Cache Hunt"),
+}
+
 _LIST_CARD_STATUS_TONES = {
     "confirmed": ("success", _("Confirmed")),
+    "attended": ("success", _("Attended")),
     "pending": ("warning", _("Payment due")),
     "waitlist": ("info", _("Waitlist")),
     "applied": ("info", _("Applied")),
@@ -560,8 +578,11 @@ def event_list(request):
             event_eligibility[event.id] = _light_eligibility(event, list_profile)
 
     # Type filter chips (finding 1-13): only offer types actually present so
-    # the bar never shows an empty result.
-    event_type_labels = dict(MeetupEvent.EVENT_TYPE_CHOICES)
+    # the bar never shows an empty result. MeetupEvent.EVENT_TYPE_CHOICES
+    # stores plain English strings (used verbatim by get_event_type_display
+    # elsewhere in this codebase already), so the filter chips need their
+    # own localized label mapping rather than the raw choices dict.
+    event_type_labels = _EVENT_TYPE_FILTER_LABELS
     present_types = []
     seen_types = set()
     for event in visible_upcoming:
