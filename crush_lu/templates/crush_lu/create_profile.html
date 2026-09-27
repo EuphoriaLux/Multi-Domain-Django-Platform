@@ -999,7 +999,7 @@
                                 {% endif %}
                             </div>
                         </div>
-                        <button type="button" data-goto-step="3" @click="editSection" class="btn-link btn-sm flex-shrink-0">{% trans "Edit" %}</button>
+                        <button type="button" data-goto-step="3" @click="editSection" aria-label="{% trans 'Edit photos' %}" class="btn-link btn-sm flex-shrink-0 px-2 py-2">{% trans "Edit" %}</button>
                     </div>
                     <div class="flex items-start gap-3">
                         <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900/40 rounded-full flex items-center justify-center flex-shrink-0">
@@ -1017,7 +1017,7 @@
                                 {% endif %}
                             </div>
                         </div>
-                        <button type="button" data-goto-step="2" @click="editSection" class="btn-link btn-sm flex-shrink-0">{% trans "Edit" %}</button>
+                        <button type="button" data-goto-step="2" @click="editSection" aria-label="{% trans 'Edit your event identity' %}" class="btn-link btn-sm flex-shrink-0 px-2 py-2">{% trans "Edit" %}</button>
                     </div>
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900/40 rounded-full flex items-center justify-center">
@@ -1027,7 +1027,7 @@
                             <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Languages for Events" %}</span>
                             <p class="font-medium uppercase dark:text-white" x-ref="reviewLanguages" data-empty="{% trans 'None selected yet' %}">{% if profile and profile.event_languages %}{{ profile.event_languages|join:" · " }}{% else %}{% trans "None selected yet" %}{% endif %}</p>
                         </div>
-                        <button type="button" data-goto-step="3" @click="editSection" class="btn-link btn-sm flex-shrink-0">{% trans "Edit" %}</button>
+                        <button type="button" data-goto-step="3" @click="editSection" aria-label="{% trans 'Edit languages for events' %}" class="btn-link btn-sm flex-shrink-0 px-2 py-2">{% trans "Edit" %}</button>
                     </div>
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900/40 rounded-full flex items-center justify-center">
@@ -1037,7 +1037,16 @@
                             <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Phone Number" %}</span>
                             <p class="font-medium dark:text-white" x-ref="reviewPhone" data-empty="{% trans 'Not provided' %}">{% if profile and profile.phone_number %}{{ profile.phone_number }}{% else %}{% trans "Not provided" %}{% endif %}</p>
                         </div>
-                        <button type="button" data-goto-step="1" @click="editSection" class="btn-link btn-sm flex-shrink-0">{% trans "Edit" %}</button>
+                        {% comment %}
+                          Codex review finding: a verified phone renders as a
+                          static confirmation on step 1 (see the comment
+                          above), with no input to change — and the save
+                          endpoint ignores edits to a verified number anyway.
+                          An Edit button here would route users to a step
+                          that cannot act on their intent, so it's left off
+                          rather than built into a real change-and-reverify
+                          flow (out of scope for this PR).
+                        {% endcomment %}
                     </div>
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900/40 rounded-full flex items-center justify-center">
@@ -1047,7 +1056,7 @@
                             <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Date of Birth" %}</span>
                             <p class="font-medium dark:text-white" x-ref="reviewDob" data-empty="{% trans 'Not provided' %}">{% if profile and profile.date_of_birth %}{{ profile.date_of_birth|date:"j M Y" }}{% else %}{% trans "Not provided" %}{% endif %}</p>
                         </div>
-                        <button type="button" data-goto-step="1" @click="editSection" class="btn-link btn-sm flex-shrink-0">{% trans "Edit" %}</button>
+                        <button type="button" data-goto-step="1" @click="editSection" aria-label="{% trans 'Edit date of birth' %}" class="btn-link btn-sm flex-shrink-0 px-2 py-2">{% trans "Edit" %}</button>
                     </div>
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900/40 rounded-full flex items-center justify-center">
@@ -1057,7 +1066,7 @@
                             <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Gender" %}</span>
                             <p class="font-medium dark:text-white" x-ref="reviewGender" data-empty="{% trans 'Not selected' %}">{% if profile and profile.gender %}{{ profile.get_gender_display }}{% else %}{% trans "Not selected" %}{% endif %}</p>
                         </div>
-                        <button type="button" data-goto-step="1" @click="editSection" class="btn-link btn-sm flex-shrink-0">{% trans "Edit" %}</button>
+                        <button type="button" data-goto-step="1" @click="editSection" aria-label="{% trans 'Edit gender' %}" class="btn-link btn-sm flex-shrink-0 px-2 py-2">{% trans "Edit" %}</button>
                     </div>
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900/40 rounded-full flex items-center justify-center">
@@ -1067,7 +1076,7 @@
                             <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Location" %}</span>
                             <p class="font-medium dark:text-white" x-ref="reviewLocation" data-empty="{% trans 'Not selected' %}">{% if profile and profile.location %}{{ profile.location }}{% else %}{% trans "Not selected" %}{% endif %}</p>
                         </div>
-                        <button type="button" data-goto-step="1" @click="editSection" class="btn-link btn-sm flex-shrink-0">{% trans "Edit" %}</button>
+                        <button type="button" data-goto-step="1" @click="editSection" aria-label="{% trans 'Edit location' %}" class="btn-link btn-sm flex-shrink-0 px-2 py-2">{% trans "Edit" %}</button>
                     </div>
                 </div>
 

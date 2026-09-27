@@ -258,7 +258,7 @@ class CrushProfileForm(forms.ModelForm):
             self.fields['date_of_birth'].disabled = True
 
     def _set_date_of_birth_bounds(self):
-        from datetime import date
+        from datetime import date, timedelta
 
         today = date.today()
         try:
@@ -266,10 +266,16 @@ class CrushProfileForm(forms.ModelForm):
         except ValueError:
             # Feb 29 with no leap year 18 years back
             max_dob = today.replace(year=today.year - 18, day=28)
+        # Codex review finding: the earliest DOB clean_date_of_birth() still
+        # accepts is one day after someone's 100th birthday (they're 99
+        # until then, and turn 100 — invalid — on that exact date), not
+        # "today minus 99 years". Subtracting 99 years excludes everyone
+        # born earlier in the current year who is still a valid 99.
         try:
-            min_dob = today.replace(year=today.year - 99)
+            min_dob = today.replace(year=today.year - 100) + timedelta(days=1)
         except ValueError:
-            min_dob = today.replace(year=today.year - 99, day=28)
+            # Feb 29 with no leap year 100 years back
+            min_dob = today.replace(year=today.year - 100, day=28) + timedelta(days=1)
         self.fields['date_of_birth'].widget.attrs['max'] = max_dob.isoformat()
         self.fields['date_of_birth'].widget.attrs['min'] = min_dob.isoformat()
 

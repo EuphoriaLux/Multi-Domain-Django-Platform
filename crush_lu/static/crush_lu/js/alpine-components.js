@@ -5281,11 +5281,36 @@ document.addEventListener("alpine:init", function () {
                     if (hashMatch) {
                         self.currentStep = parseInt(hashMatch[1], 10);
                     }
-                    history.replaceState(
-                        { wizardStep: self.currentStep },
-                        "",
-                        "#step-" + self.currentStep,
-                    );
+                    // Codex review finding: seed history for resumed wizard
+                    // steps. A returning user can land directly on step 3 or
+                    // 4 (see stepMap above); a bare replaceState only ever
+                    // records that landing step, so the very first Back
+                    // press has no earlier wizard entry to land on and
+                    // leaves the page instead of walking to step 2/3. Push
+                    // one entry per preceding step first (this is still the
+                    // page load, not a user navigation — pushState here just
+                    // backfills the history stack the wizard would have
+                    // built had the user clicked through from step 1).
+                    if (self.currentStep > 1) {
+                        for (var seedStep = 1; seedStep < self.currentStep; seedStep++) {
+                            history.pushState(
+                                { wizardStep: seedStep },
+                                "",
+                                "#step-" + seedStep,
+                            );
+                        }
+                        history.pushState(
+                            { wizardStep: self.currentStep },
+                            "",
+                            "#step-" + self.currentStep,
+                        );
+                    } else {
+                        history.replaceState(
+                            { wizardStep: self.currentStep },
+                            "",
+                            "#step-" + self.currentStep,
+                        );
+                    }
                 } catch (e) {
                     // history API unavailable — steps still work without it.
                 }

@@ -17,7 +17,7 @@ template/form (the old markup this Wave 3 change replaced).
 """
 
 import datetime as dt_module
-from datetime import date
+from datetime import date, timedelta
 from unittest import mock
 
 from django.contrib.auth import get_user_model
@@ -258,7 +258,22 @@ class NativeDateOfBirthTests(_SiteMixin, TestCase):
         min_dob = date.fromisoformat(attrs["min"])
         age_at_max = today.year - max_dob.year
         self.assertEqual(age_at_max, 18)
-        self.assertEqual(today.year - min_dob.year, 99)
+
+        # Codex review finding: `min` must be the EARLIEST date of birth
+        # that clean_date_of_birth() still accepts (age <= 99), not simply
+        # "today minus 99 years" — that excludes everyone born earlier in
+        # the current year who is genuinely still 99. Assert against the
+        # server-side age formula itself rather than a fixed year delta.
+        def age_on(today_, dob):
+            return (
+                today_.year
+                - dob.year
+                - ((today_.month, today_.day) < (dob.month, dob.day))
+            )
+
+        self.assertEqual(age_on(today, min_dob), 99)
+        one_day_earlier = min_dob - timedelta(days=1)
+        self.assertEqual(age_on(today, one_day_earlier), 100)
 
     def test_bounds_reflect_the_request_year_not_a_frozen_class_default(self):
         """min/max must be recomputed from `date.today()` on every call,
