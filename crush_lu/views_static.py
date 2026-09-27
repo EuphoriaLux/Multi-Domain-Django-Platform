@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from django.contrib.admin.views.decorators import staff_member_required
+from django.db.models import Q
 from .models import MeetupEvent
 from .models.crush_connect import CrushConnectWaitlist
 from .models.events import EventRegistration
@@ -128,27 +129,32 @@ def home(request):
     now = timezone.now()
     # Public, non-private events only — private-invitation events are visible
     # only to invited guests, and this landing page is anonymous (authenticated
-    # users were redirected above).
+    # users were redirected above). QA/seed data (marked with a "[DEBUG]" tag
+    # by the seed commands, e.g. seed_crush_cache.py's "🧭 [DEBUG] Luxembourg
+    # City Crush Cache") is excluded so a prospect never lands on a test
+    # event (finding 1-05). icontains, not istartswith: the real seeded
+    # titles carry an emoji before the tag, so the marker never starts the
+    # string. title_en, not title: modeltranslation rewrites a bare `title`
+    # lookup to `title_<active_language>`, and the seed commands only ever
+    # populate the English column — so on /de/ and /fr/ a `title__icontains`
+    # exclude would compare against a NULL title_de/title_fr and silently
+    # stop excluding the marked event (round-2 finding).
     published = MeetupEvent.objects.filter(
         is_published=True, is_cancelled=False, is_private_invitation=False
-    )
-    # Events happening right now ("live"): started but not yet ended. end_time
-    # can't be filtered in the ORM (timedelta * F() is unsupported on SQLite),
-    # so confirm in Python — but bound the scan to MAX_EVENT_DURATION so a stray
-    # long-duration record can't turn this into a full-history scan.
-    live_events = [
-        e
-        for e in published.filter(
-            date_time__gte=MeetupEvent.live_lookback_cutoff(now), date_time__lt=now
-        ).order_by("date_time")
-        if e.end_time >= now
-    ]
-    # Soonest upcoming events (future starts are never ended; bound at the query
-    # level so we never materialise the full future backlog).
-    future_events = list(
-        published.filter(date_time__gte=now).order_by("date_time")[:3]
-    )
-    upcoming_events = (live_events + future_events)[:3]
+    ).exclude(title_en__icontains="[DEBUG]")
+    # Include live events only while they still accept registrations. The
+    # bounded lookback covers every valid duration; check each event's actual
+    # end_time in Python because duration arithmetic is not portable to SQLite.
+    candidates = published.filter(
+        date_time__gte=MeetupEvent.live_lookback_cutoff(now)
+    ).filter(Q(date_time__gte=now) | Q(registration_deadline__gt=now))
+    upcoming_events = []
+    for event in candidates.order_by("date_time"):
+        if event.date_time < now and event.end_time <= now:
+            continue
+        upcoming_events.append(event)
+        if len(upcoming_events) == 3:
+            break
 
     context = {
         "upcoming_events": upcoming_events,

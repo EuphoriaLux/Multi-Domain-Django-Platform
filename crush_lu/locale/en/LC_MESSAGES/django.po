@@ -16742,12 +16742,6 @@ msgid ""
 "passionate about."
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:36
-msgid ""
-"You're SO close! Just add 1-3 photos and you're done. Your privacy is "
-"protected - you can blur photos or show only your first name."
-msgstr ""
-
 #: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:39
 msgid "Photo tips:"
 msgstr ""
@@ -28441,6 +28435,32 @@ msgstr ""
 msgid "Use a different address"
 msgstr ""
 
+
+# UX Wave 3 · WP6 event-detail
+#: crush_lu/templates/crush_lu/event_detail.html
+#, python-format
+msgid "%(spots)s spot left"
+msgid_plural "%(spots)s spots left"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid ""
+"Could not copy the link. Long-press or select it from the address bar "
+"instead."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:36
+msgid ""
+"You're SO close! Just add 1-3 photos and you're done. Your privacy is "
+"protected - you can show only your first name."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/payments/sumup_widget.html
+msgid "Failed to load payment module. Please refresh or contact support."
+msgstr ""
+
+# UX Wave 3 · WP12 connect-moments
 # UX Wave 3 · WP12 connect-moments
 # UX Wave 3 · WP12 connect-moments
 # UX Wave 3 · WP12 connect-moments

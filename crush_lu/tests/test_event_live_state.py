@@ -106,7 +106,9 @@ class EventIsLiveTests(TestCase):
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class HomeLiveEventTests(TestCase):
-    """The public landing page must include in-progress ("live") events."""
+    """The public landing page is anonymous-only, so it must NOT surface an
+    in-progress ("live") event a visitor can no longer join — only future,
+    not-yet-started events (finding 1-05, UX Wave 3 WP7)."""
 
     @classmethod
     def setUpClass(cls):
@@ -135,20 +137,21 @@ class HomeLiveEventTests(TestCase):
         params.update(overrides)
         return MeetupEvent.objects.create(**params)
 
-    def test_live_event_appears_in_upcoming(self):
+    def test_live_event_excluded_from_upcoming(self):
         now = timezone.now()
-        # Started 10 min ago, 60 min long -> still in progress.
+        # Started 10 min ago, 60 min long -> still in progress, but an
+        # anonymous visitor can't join it any more (finding 1-05).
         live = self._make_event(date_time=now - timedelta(minutes=10))
 
         response = self.client.get(reverse("crush_lu:home"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn(live, list(response.context["upcoming_events"]))
+        self.assertNotIn(live, list(response.context["upcoming_events"]))
 
-    def test_long_running_live_event_within_window_appears(self):
+    def test_long_running_live_event_still_excluded(self):
         now = timezone.now()
-        # Started 20h ago (inside the enforced max-duration lookback) but runs
-        # for 25h -> still live. The bounded live scan must still surface it.
+        # Started 20h ago but runs for 25h -> still live, and still not
+        # something an anonymous visitor can act on (finding 1-05).
         live = self._make_event(
             date_time=now - timedelta(hours=20),
             duration_minutes=25 * 60,
@@ -157,7 +160,7 @@ class HomeLiveEventTests(TestCase):
         response = self.client.get(reverse("crush_lu:home"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn(live, list(response.context["upcoming_events"]))
+        self.assertNotIn(live, list(response.context["upcoming_events"]))
 
     def test_ended_event_excluded_from_upcoming(self):
         now = timezone.now()

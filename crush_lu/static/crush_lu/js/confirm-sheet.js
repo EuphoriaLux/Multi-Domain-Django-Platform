@@ -17,7 +17,9 @@
  * Plain POST forms (no HTMX): put data-confirm="Question?" (plus the two
  * options above) on the <form> itself. data-confirm-when="<checkbox name>"
  * asks only while that checkbox is ticked. The confirmed re-submit keeps the
- * clicked submit button (requestSubmit(submitter)).
+ * clicked submit button (requestSubmit(submitter)). A form whose submit
+ * buttons ask different questions puts data-confirm (and -style / -label) on
+ * each <button type="submit"> instead; the clicked button's attributes win.
  */
 (function () {
     "use strict";
@@ -106,15 +108,38 @@
         });
     });
 
+    // Some WebViews support <dialog> but leave SubmitEvent.submitter unset.
+    // Remember the last submit button clicked in each form, so a button's own
+    // data-confirm (and its name/value) survives there too. page-loading.js
+    // reads the same property. Implicit submission (Enter) clicks the default
+    // button, so this also covers keyboard submits.
+    document.addEventListener(
+        "click",
+        function (evt) {
+            var target = evt.target;
+            if (!target || !target.closest) return;
+            var btn = target.closest(
+                "button, input[type=submit], input[type=image]",
+            );
+            if (!btn || !btn.form) return;
+            var type = (btn.getAttribute("type") || "submit").toLowerCase();
+            if (btn.tagName === "BUTTON" && type !== "submit") return;
+            btn.form.__crushLastSubmitter = btn;
+        },
+        true,
+    );
+
     // Plain (non-HTMX) forms: <form data-confirm="Question?"> asks through the
     // sheet before submitting (same data-confirm-style / -label options, read
     // from the form). The browser validates required fields first, because
     // "submit" only fires for a valid form.
     document.addEventListener("submit", function (evt) {
         var form = evt.target;
-        if (!form || !form.hasAttribute || !form.hasAttribute("data-confirm")) {
-            return;
-        }
+        if (!form || !form.hasAttribute) return;
+        var submitter = evt.submitter || form.__crushLastSubmitter || null;
+        var source =
+            submitter && submitter.hasAttribute("data-confirm") ? submitter : form;
+        if (!source.hasAttribute("data-confirm")) return;
         if (form.getAttribute("data-confirmed") === "1") {
             form.removeAttribute("data-confirmed"); // one pass per confirmation
             return;
@@ -127,10 +152,9 @@
             if (!box || !box.checked) return;
         }
         evt.preventDefault();
-        var submitter = evt.submitter || null;
-        openConfirm(form.getAttribute("data-confirm"), {
-            style: form.getAttribute("data-confirm-style") || "danger",
-            confirmLabel: form.getAttribute("data-confirm-label") || undefined,
+        openConfirm(source.getAttribute("data-confirm"), {
+            style: source.getAttribute("data-confirm-style") || "danger",
+            confirmLabel: source.getAttribute("data-confirm-label") || undefined,
         }).then(function (ok) {
             if (!ok) return;
             form.setAttribute("data-confirmed", "1");
@@ -138,6 +162,14 @@
                 form.requestSubmit(submitter);
             } else {
                 form.removeAttribute("data-confirmed");
+                // form.submit() drops the clicked button's name/value.
+                if (submitter && submitter.name) {
+                    var carry = document.createElement("input");
+                    carry.type = "hidden";
+                    carry.name = submitter.name;
+                    carry.value = submitter.value;
+                    form.appendChild(carry);
+                }
                 form.submit();
             }
         });
