@@ -1,0 +1,47 @@
+{% load i18n %}
+{% comment %}
+Compact 5-step Connect Week timeline: Discover -> Review -> One request ->
+Chat -> Coffee. Context: timeline ({"step": 1-5, "next_kind": "opens" |
+"closes" | "waiting" | None, "next_at": date/datetime or None}), cycle_length.
+
+Template-local by design (UX Wave 3 · WP12): Wave 2 may ship a shared
+page-header/step component later — adopt it then instead of duplicating
+this markup elsewhere.
+{% endcomment %}
+{% if timeline %}
+<div class="connect-week-timeline" aria-label="{% trans 'Connect Week progress' %}">
+    <ol class="connect-week-timeline-steps mb-0 list-none pl-0">
+        <li class="connect-week-timeline-step{% if timeline.step == 1 %} is-current{% elif timeline.step > 1 %} is-done{% endif %}" {% if timeline.step == 1 %}aria-current="step"{% endif %}>
+            <span class="connect-week-timeline-dot" aria-hidden="true"></span>
+            <span class="connect-week-timeline-label">{% blocktrans with total=cycle_length %}Discover · days 1–{{ total }}{% endblocktrans %}</span>
+        </li>
+        <li class="connect-week-timeline-step{% if timeline.step == 2 %} is-current{% elif timeline.step > 2 %} is-done{% endif %}" {% if timeline.step == 2 %}aria-current="step"{% endif %}>
+            <span class="connect-week-timeline-dot" aria-hidden="true"></span>
+            <span class="connect-week-timeline-label">{% trans "Review · 24h" %}</span>
+        </li>
+        <li class="connect-week-timeline-step{% if timeline.step == 3 %} is-current{% elif timeline.step > 3 %} is-done{% endif %}" {% if timeline.step == 3 %}aria-current="step"{% endif %}>
+            <span class="connect-week-timeline-dot" aria-hidden="true"></span>
+            <span class="connect-week-timeline-label">{% trans "One request" %}</span>
+        </li>
+        <li class="connect-week-timeline-step{% if timeline.step == 4 %} is-current{% elif timeline.step > 4 %} is-done{% endif %}" {% if timeline.step == 4 %}aria-current="step"{% endif %}>
+            <span class="connect-week-timeline-dot" aria-hidden="true"></span>
+            <span class="connect-week-timeline-label">{% trans "Chat" %}</span>
+        </li>
+        <li class="connect-week-timeline-step{% if timeline.step == 5 %} is-current{% endif %}" {% if timeline.step == 5 %}aria-current="step"{% endif %}>
+            <span class="connect-week-timeline-dot" aria-hidden="true"></span>
+            <span class="connect-week-timeline-label">{% trans "Coffee" %}</span>
+        </li>
+    </ol>
+    {% if timeline.next_at %}
+    <p class="connect-week-timeline-next text-xs font-medium text-crush-purple dark:text-crush-pink mt-2 mb-0">
+        {% if timeline.next_kind == "opens" %}{% trans "Review opens" %}
+        <time datetime="{{ timeline.next_at|date:'c' }}">{{ timeline.next_at|date:"DATE_FORMAT" }}</time>
+        {% elif timeline.next_kind == "closes" %}{% trans "Review closes" %}
+        <time datetime="{{ timeline.next_at|date:'c' }}">{{ timeline.next_at|date:"DATETIME_FORMAT" }}</time>
+        {% elif timeline.next_kind == "waiting" %}{% trans "Waiting for their answer until" %}
+        <time datetime="{{ timeline.next_at|date:'c' }}">{{ timeline.next_at|date:"DATETIME_FORMAT" }}</time>
+        {% endif %}
+    </p>
+    {% endif %}
+</div>
+{% endif %}

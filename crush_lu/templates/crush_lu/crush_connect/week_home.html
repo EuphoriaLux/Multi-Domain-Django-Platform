@@ -1,5 +1,5 @@
 {% extends 'crush_lu/crush_connect/_base_connect.html' %}
-{% load i18n %}
+{% load i18n crush_media %}
 
 {% block title %}{% trans "Your Connect Week" %}{% endblock %}
 
@@ -33,8 +33,8 @@
         <p class="text-gray-600 dark:text-gray-300 max-w-sm">
             {% trans "Discover today's available cards. Your guesses stay private." %}
         </p>
-        <p class="font-semibold" role="status">{% blocktrans with completed=completed_count total=cards|length %}{{ completed }} of {{ total }} completed{% endblocktrans %}</p>
-        <p class="text-sm">{% trans "Review available from" %}: <time datetime="{{ review_date|date:'Y-m-d' }}">{{ review_date|date:'DATE_FORMAT' }}</time></p>
+        {% include "crush_lu/crush_connect/_week_timeline.html" %}
+        <p class="font-semibold mt-3" role="status">{% blocktrans with completed=completed_count total=cards|length %}{{ completed }} of {{ total }} completed{% endblocktrans %}</p>
         {% if cards and not next_card_id %}<p class="font-semibold">{% trans "All available cards are complete. Come back tomorrow." %}</p>{% endif %}
         {# cycle progress dots #}
         <div class="flex items-center gap-1.5 mt-4" aria-hidden="true">
@@ -48,7 +48,17 @@
         <div class="grid grid-cols-1 gap-6">
             {% for card in cards %}
                 <details name="daily-cards" class="rounded-2xl bg-white dark:bg-slate-800" {% if card.pk == next_card_id %}open{% endif %}>
-                <summary class="px-4 font-semibold">{{ card.target_user.first_name|default:_("A member") }} · {% if card.is_completed %}{% trans "Completed" %}{% else %}{% trans "Answer questions" %}{% endif %}</summary>
+                <summary class="flex items-center gap-3 px-4 py-3 font-semibold">
+                    <span class="w-9 h-9 rounded-full overflow-hidden shrink-0 bg-gradient-to-br from-crush-purple to-crush-pink">
+                        {% profile_photo card.target_user.crushprofile 'photo_1' css_class='w-full h-full object-cover' alt_text='' %}
+                    </span>
+                    <span class="flex-1">{{ card.target_user.first_name|default:_("A member") }}</span>
+                    {% if card.is_completed %}
+                    <span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 shrink-0">{% include "shared/icons/check-circle.html" with class="w-4 h-4" %}{% trans "Done" %}</span>
+                    {% else %}
+                    <span class="text-xs font-medium text-gray-400 dark:text-gray-500 shrink-0">{% trans "To do" %}</span>
+                    {% endif %}
+                </summary>
                 {% include "crush_lu/crush_connect/_cycle_card.html" with card=card target=card.target_user target_profile=card.target_user.crushprofile target_membership=card.target_user.crush_connect_membership answered_ids=answered_ids %}
                 </details>
             {% endfor %}

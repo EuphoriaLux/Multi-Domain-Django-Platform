@@ -43213,7 +43213,6 @@ msgstr ""
 "verbunden: manchmal sofort, manchmal über eine Vorstellung durch deinen "
 "Crush Coach."
 
-
 # UX Wave 3 · WP13 take-a-break
 # UX Wave 3 · WP13 take-a-break
 # UX Wave 3 · WP13 take-a-break
@@ -43299,4 +43298,88 @@ msgstr ""
 "resume_from_break() reaktiviert Connect nur, wenn dies Wahr ist, damit eine "
 "unabhängige, selbst gesteuerte Connect-Pause (UX Wave 3 · WP13) nie "
 "aufgehoben wird."
+
+# UX Wave 3 · WP12 connect-moments
+# UX Wave 3 · WP12 connect-moments
+# UX Wave 3 · WP12 connect-moments
+# UX Wave 3 · WP12 connect-moments
+# UX Wave 3 · WP12 connect-moments
+# UX Wave 3 · WP12 connect-moments
+# UX Wave 3 · WP12 connect-moments
+#. UX Wave 3 · WP12
+msgid "Connect Week progress"
+msgstr "Fortschritt der Connect Week"
+
+msgid "Discover · days 1–%(total)s"
+msgstr "Entdecken · Tag 1–%(total)s"
+
+msgid "Review · 24h"
+msgstr "Review · 24 Std."
+
+msgid "One request"
+msgstr "Eine Anfrage"
+
+msgid "Chat"
+msgstr "Chat"
+
+msgid "Review opens"
+msgstr "Review startet am"
+
+msgid "Review closes"
+msgstr "Review endet am"
+
+msgid "Waiting for their answer until"
+msgstr "Warten auf ihre Antwort bis"
+
+msgid "Done"
+msgstr "Erledigt"
+
+msgid "To do"
+msgstr "Offen"
+
+msgid ""
+"Your guesses stay private — they help you choose during the 24-hour review."
+msgstr ""
+"Deine Tipps bleiben privat — sie helfen dir bei deiner Wahl im 24-Stunden-"
+"Review."
+
+msgid "Review card for %(name)s"
+msgstr "Review-Karte für %(name)s"
+
+msgid "Send your one weekly request to %(name)s?"
+msgstr "Deine eine wöchentliche Anfrage an %(name)s senden?"
+
+msgid "You cannot choose someone else this week after sending."
+msgstr "Danach kannst du diese Woche niemanden mehr auswählen."
+
+msgid "Closes %(when)s"
+msgstr "Endet am %(when)s"
+
+msgid "Today — see how you appear in the mix"
+msgstr "Heute — sieh, wie du im Mix erscheinst"
+
+msgid "18:30 or Evening"
+msgstr "18:30 oder abends"
+
+# UX Wave 3 · WP11 connect-gating
+# UX Wave 3 · WP11 connect-gating
+# UX Wave 3 · WP11 connect-gating
+# UX Wave 3 · WP11 connect-gating
+# UX Wave 3 · WP11 connect-gating
+# UX Wave 3 · WP11 (connect-gating, findings 6-01/6-12)
+#: .\crush_lu\templates\crush_lu\crush_connect\hub.html:51
+msgid "Your coach:"
+msgstr "Dein Coach:"
+
+#: .\crush_lu\templates\crush_lu\crush_connect\hub.html:75
+msgid "Almost ready for today's suggestions"
+msgstr "Fast bereit für deine heutigen Vorschläge"
+
+#: .\crush_lu\templates\crush_lu\partials\edit_photos.html:12
+msgid "Add a photo to continue where you left off."
+msgstr "Füge ein Foto hinzu, um dort weiterzumachen, wo du aufgehört hast."
+
+#: .\crush_lu\templates\crush_lu\edit_profile.html:20
+msgid "Continue where you left off"
+msgstr "Weiter, wo du aufgehört hast"
 

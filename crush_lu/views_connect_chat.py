@@ -174,6 +174,19 @@ def connect_week_chat_detail(request, chat_id: int):
         "partner": partner,
         "partner_photo_hidden": partner_photo_hidden,
         "chat_messages": chat_messages,
+        # A full page (50) DOESN'T necessarily mean there is older history —
+        # a chat with exactly 50 total messages has nothing before the
+        # oldest one loaded. Check for an older row directly, matching
+        # connect_chat_messages' own `has_older` logic, instead of the
+        # length heuristic (UX Wave 3 · WP12 / follow-up). Setting `hidden`
+        # here avoids the layout jump of the button rendering visible then
+        # disappearing once connect-live-chat.js runs (UX Wave 3 · WP12 /
+        # 6-08).
+        "has_older": (
+            chat.messages.filter(pk__lt=chat_messages[0].pk).exists()
+            if chat_messages
+            else False
+        ),
         "coffee_date": coffee_date,
         "is_proposer": is_proposer,
         "my_confirmed_at": my_confirmed_at,
@@ -204,7 +217,10 @@ def connect_week_chat_send(request, chat_id: int):
             chat, user, request.POST.get("message", ""), submission_id
         )
         if request.headers.get("Accept") == "application/json":
-            return JsonResponse({"message": _message_json(message, user)})
+            chat.refresh_from_db()
+            return JsonResponse(
+                {"message": _message_json(message, user), **_chat_expiry_json(chat)}
+            )
     except ValueError as exc:
         reasons = {
             "chat_closed": _("This conversation has ended."),
@@ -334,6 +350,30 @@ def connect_week_chat_block(request, chat_id: int):
     return redirect("crush_lu:connect_week_chats")
 
 
+def _chat_expiry_json(chat):
+    """The header's rolling expiry chip (UX Wave 3 · WP12 / 6-08) reads
+    ``chat.expires_at`` at page load only. Every successful ``send_message``
+    moves it 7 days forward (either participant's send rolls the window), so
+    the live send and poll responses must carry a fresh value too, or the
+    chip keeps showing the stale deadline — eventually one already in the
+    past — until the page is reloaded. Pre-renders the same translated
+    label the template builds (``{% blocktrans %}Closes {{ when }}{%
+    endblocktrans %}``, msgid ``"Closes %(when)s"``) so the client has
+    nothing to translate itself.
+    """
+    from django.utils import dateformat
+    from django.utils.translation import gettext
+
+    if not chat_is_open(chat):
+        return {"expires_at": None, "closes_label": None}
+    local_when = timezone.localtime(chat.expires_at)
+    return {
+        "expires_at": chat.expires_at.isoformat(),
+        "closes_label": gettext("Closes %(when)s")
+        % {"when": dateformat.format(local_when, "D H:i")},
+    }
+
+
 def _message_json(message, user):
     # Deliberate allowlist: no read receipts, private answers, or model dumps.
     return {
@@ -374,6 +414,10 @@ def connect_chat_messages(request, chat_id):
             "has_more": bool(
                 rows and chat.messages.filter(pk__gt=rows[-1].pk).exists()
             ),
+            # The OTHER participant's sends also roll expires_at forward, so
+            # the poll (not just this participant's own send) must refresh
+            # the header chip — see _chat_expiry_json.
+            **_chat_expiry_json(chat),
         }
     )
 

@@ -51,7 +51,7 @@
     {% endif %}
 
     {% if review_items %}
-        <div class="grid grid-cols-1 gap-4">
+        <div class="grid grid-cols-2 gap-3 sm:gap-4">
             {% for item in review_items %}
                 {% include "crush_lu/crush_connect/_review_card.html" with card=item.card target=item.target target_profile=item.target.crushprofile answers=item.answers highlight_user_id=highlight_user_id review_active=review_active sent_request=sent_request %}
             {% endfor %}

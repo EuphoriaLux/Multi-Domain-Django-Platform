@@ -28486,17 +28486,12 @@ msgstr ""
 
 
 # UX Wave 3 · WP10 match-moment
-# UX Wave 3 · WP10 match-moment
-# UX Wave 3 · WP10 match-moment
-# UX Wave 3 · WP10 match moment
-# UX Wave 3 · WP10 match-moment
 #: crush_lu/templates/crush_lu/my_connections.html
 msgid ""
 "Meet someone, and if you both say yes afterwards, you're connected: "
 "sometimes straight away, sometimes through an introduction by your Crush "
 "Coach."
 msgstr ""
-
 
 # UX Wave 3 · WP13 take-a-break
 # UX Wave 3 · WP13 take-a-break
@@ -28565,4 +28560,79 @@ msgid ""
 "Connect when this is True, so it never undoes an independent, self-service "
 "Connect pause (UX Wave 3 · WP13)."
 msgstr ""
+
+# UX Wave 3 · WP12 connect-moments
+# UX Wave 3 · WP12 connect-moments
+# UX Wave 3 · WP12 connect-moments
+# UX Wave 3 · WP12 connect-moments
+# UX Wave 3 · WP12 connect-moments
+# UX Wave 3 · WP12 connect-moments
+# UX Wave 3 · WP12 connect-moments
+#. UX Wave 3 · WP12
+msgid "Connect Week progress"
+msgstr ""
+
+msgid "Discover · days 1–%(total)s"
+msgstr ""
+
+msgid "Review · 24h"
+msgstr ""
+
+msgid "One request"
+msgstr ""
+
+msgid "Chat"
+msgstr ""
+
+msgid "Review opens"
+msgstr ""
+
+msgid "Review closes"
+msgstr ""
+
+msgid "Waiting for their answer until"
+msgstr ""
+
+msgid "Done"
+msgstr ""
+
+msgid "To do"
+msgstr ""
+
+msgid ""
+"Your guesses stay private — they help you choose during the 24-hour review."
+msgstr ""
+
+msgid "Review card for %(name)s"
+msgstr ""
+
+msgid "Send your one weekly request to %(name)s?"
+msgstr ""
+
+msgid "You cannot choose someone else this week after sending."
+msgstr ""
+
+msgid "Closes %(when)s"
+msgstr ""
+
+msgid "Today — see how you appear in the mix"
+msgstr ""
+
+msgid "18:30 or Evening"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\crush_connect\hub.html:51
+msgid "Your coach:"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\crush_connect\hub.html:75
+msgid "Almost ready for today's suggestions"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\partials\edit_photos.html:12
+msgid "Add a photo to continue where you left off."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\edit_profile.html:20
+msgid "Continue where you left off"
 

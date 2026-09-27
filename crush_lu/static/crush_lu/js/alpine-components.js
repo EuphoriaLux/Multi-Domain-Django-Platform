@@ -15530,6 +15530,34 @@ document.addEventListener("alpine:init", function () {
     // Reads slot number from data-slot on the root element.
     // Imports a social photo via POST /api/profile/import-social-photo/ and
     // swaps the returned HTML into #photo-card-{slot}.
+    // Photo editor Back link. With a same-app `next`, Back returns there only
+    // once a main photo exists; photo uploads and deletes swap
+    // #photo-card-1 over HTMX without re-rendering this link, so keep its
+    // href in step after each swap.
+    Alpine.data("photoEditorBack", function () {
+        return {
+            _onSwap: null,
+            init: function () {
+                var el = this.$el;
+                this._onSwap = function (event) {
+                    var target = event.detail && event.detail.target;
+                    if (!target || target.id !== "photo-card-1") return;
+                    var hasPhoto = !!target.querySelector(
+                        ".photo-preview-container.has-photo",
+                    );
+                    el.setAttribute(
+                        "href",
+                        hasPhoto ? el.dataset.next : el.dataset.fallback,
+                    );
+                };
+                document.body.addEventListener("htmx:afterSwap", this._onSwap);
+            },
+            destroy: function () {
+                document.body.removeEventListener("htmx:afterSwap", this._onSwap);
+            },
+        };
+    });
+
     Alpine.data("photoPicker", function () {
         return {
             slot: 0,
@@ -16207,6 +16235,51 @@ document.addEventListener("alpine:init", function () {
             },
         };
     });
+
+    // Connect Week review card: opens/closes the per-card native <dialog>
+    // "Choose" confirmation (UX Wave 3 · WP12 / 6-06). Template-local — one
+    // dialog per card via $refs, not a shared cross-page sheet/store (that
+    // name belongs to Wave 2's forthcoming shared component).
+    //
+    // Some WebViews (and very old browsers) have <dialog> without
+    // HTMLDialogElement.showModal — openDialog() would then silently no-op
+    // and the member could never send the request. Fall back to the
+    // existing global confirm helper (window.crushConfirm, see
+    // confirm-sheet.js), which itself falls back to window.confirm when
+    // even that isn't available, and submit the form directly on accept.
+    Alpine.data("connectReviewChoice", function () {
+        return {
+            openDialog: function () {
+                var dialog = this.$refs.dialog;
+                if (dialog && typeof dialog.showModal === "function") {
+                    dialog.showModal();
+                    return;
+                }
+                var message = this.$root.getAttribute("data-confirm-message") || "";
+                var form = this.$root.querySelector("form");
+                var submitForm = function () {
+                    if (!form) return;
+                    if (typeof form.requestSubmit === "function") {
+                        form.requestSubmit();
+                    } else {
+                        form.submit();
+                    }
+                };
+                if (typeof window.crushConfirm === "function") {
+                    window.crushConfirm(message).then(function (ok) {
+                        if (ok) submitForm();
+                    });
+                } else if (window.confirm(message)) {
+                    submitForm();
+                }
+            },
+            closeDialog: function () {
+                var dialog = this.$refs.dialog;
+                if (dialog && typeof dialog.close === "function") dialog.close();
+            },
+        };
+    });
+
 
     // Auto-redirect countdown shown on the profile-approved state of profile_submitted.html.
     // Reads the destination URL from data-dashboard-url to stay language-prefix–safe.
