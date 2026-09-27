@@ -163,6 +163,18 @@
                 return;
             }
 
+            // data-confirm forms ask first (confirm-sheet.js); this capture
+            // listener runs before that, so a cancel would strand the overlay.
+            // data-confirm-when="<checkbox name>" asks only while it is ticked
+            // (same rule as confirm-sheet.js).
+            if (form && form.hasAttribute && form.hasAttribute("data-confirm")) {
+                const when = form.getAttribute("data-confirm-when");
+                const box = when && form.elements.namedItem(when);
+                if (!when || (box && box.checked)) {
+                    return;
+                }
+            }
+
             // Show overlay for all navigating forms (GET and POST)
             if (form) {
                 showLoadingOverlay();

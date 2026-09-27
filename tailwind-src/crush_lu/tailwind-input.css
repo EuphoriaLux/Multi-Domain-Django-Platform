@@ -6604,6 +6604,25 @@ html.dark .section-card {
     color: #ffffff;
 }
 
+/* LuxID (third-party identity provider). Its purple→blue→green gradient is
+   LuxID's brand, not ours: a documented exception to the brand tokens and the
+   one-gradient-CTA rule (see crush_lu/STYLE.md §2, "Third-party brand buttons"). */
+.social-login-btn.luxid-btn,
+.social-login-btn.luxid-btn:hover {
+    background: linear-gradient(to right, #8B5CF6, #3B82F6, #10B981);
+    color: #ffffff;
+}
+
+.social-login-btn.luxid-btn:hover {
+    filter: brightness(0.92);
+}
+
+.social-login-btn.luxid-btn .luxid-btn-logo {
+    width: 20px;
+    height: 20px;
+    border-radius: 3px;
+}
+
 .social-login-divider {
     display: flex;
     align-items: center;

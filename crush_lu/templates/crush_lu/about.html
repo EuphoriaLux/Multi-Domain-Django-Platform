@@ -6,7 +6,7 @@
 {% block og_title %}{% trans "About Crush.lu - Our Story, Founders & Press Coverage" %}{% endblock %}
 {% block og_description %}{% trans "Meet the founders behind Crush.lu, Luxembourg's coach-curated dating platform. Featured in Virgule.lu and LuxTimes. Founded by Tom Sawyer and Wesley Hourdequin." %}{% endblock %}
 
-{% block meta_description %}{% trans "About Crush.lu: Founded by Tom Sawyer and Wesley Hourdequin, featured in Virgule.lu and LuxTimes. Luxembourg's privacy-first dating platform with coach-verified profiles and real events." %}{% endblock %}
+{% block meta_description %}{% trans "About Crush.lu: Founded by Tom Sawyer and Wesley Hourdequin, featured in Virgule.lu and LuxTimes. Luxembourg's privacy-first dating platform with verified profiles and real events." %}{% endblock %}
 {% block meta_keywords %}{% trans "about crush.lu, Tom Sawyer crush.lu, Wesley Hourdequin, crush.lu founders, dating luxembourg, virgule.lu crush, luxtimes crush, luxembourg dating app" %}{% endblock %}
 
 {% block structured_data %}
@@ -145,8 +145,9 @@
                 <p class="mb-4">
                     {% trans "We're bringing back authentic connections in Luxembourg's dating scene. In a world of endless swiping and superficial matches, Crush.lu takes a different approach. We believe that real relationships start with real conversations, face-to-face." %}
                 </p>
+                {# LuxID verification is instant (no coach review); in-person verification happens at events. Not "verified before meeting anyone": some event audiences admit unverified profiles. Spec: ai-memory-hub/specs/2026-08-24-crush-connect-repo-product-doc.md #}
                 <p>
-                    {% trans "Every profile is personally verified. Every event is thoughtfully organized. Every connection is meaningful. That's not an algorithm's promise - it's our commitment." %}
+                    {% trans "Members are verified instantly with LuxID or in person at an event. Every event is thoughtfully organized. Every connection is meaningful. That's not an algorithm's promise - it's our commitment." %}
                 </p>
             </div>
         </div>
@@ -273,11 +274,12 @@
                     <span class="about-feature-icon">&#128272;</span>
                     {% trans "Human Verification" %}
                 </h5>
+                {# Only Crush Connect strictly requires verification (services/crush_connect.py); some event audiences admit unverified profiles. Spec: ai-memory-hub/specs/2026-08-24-crush-connect-repo-product-doc.md #}
                 <ul class="about-feature-list">
                     <li>{% trans "SMS verification confirms your phone number" %}</li>
                     <li>{% trans "In-person verification by a coach when you attend an event" %}</li>
                     <li>{% trans "Or instant verification with LuxID, Luxembourg's official login" %}</li>
-                    <li>{% trans "Every member verified before they join — real people only" %}</li>
+                    <li>{% trans "Crush Connect only matches verified members — real people only" %}</li>
                     <li>{% trans "No bots, no catfishing, no fake accounts" %}</li>
                 </ul>
             </div>
@@ -317,8 +319,9 @@
             <div class="about-why-emoji" aria-hidden="true">
                 {% include "crush_lu/includes/ghost-story-approved.html" with class="w-12 h-12 ghost-glow" %}
             </div>
+            {# Claim only what is true today. Photos are served only behind login, from the private crush_private container, never publicly or to crawlers (robots.txt disallows /media/ and /api/): views_media.serve_profile_photo (can_view_profile_photo: owner, active coaches, any approved member viewing an approved profile - no match or shared-event check) and views_quiz.quiz_display_photo (/api/quiz/photo/<user_id>/: any logged-in user, approved profiles). They also leave the site via the noreply@crush.lu Outlook contact sync (services/graph_contacts.py) and, if show_photo_on_wallet, the member's own wallet pass (wallet_pass.py). Connect only surfaces members with photo_share_consent (services/crush_connect.py). No blur. Spec: ai-memory-hub/specs/2026-08-24-crush-connect-repo-product-doc.md #}
             <h5>{% trans "Privacy First" %}</h5>
-            <p>{% trans "In a small country, discretion matters. Control your visibility, blur your photos, and choose exactly what you share." %}</p>
+            <p>{% trans "In a small country, discretion matters. No public browsing: your photos are never public or shown to search engines, you need a Crush.lu account to see them, and Crush Connect asks before showing your photo to your matches." %}</p>
         </div>
         <div class="about-why-card">
             <div class="about-why-emoji" aria-hidden="true">
