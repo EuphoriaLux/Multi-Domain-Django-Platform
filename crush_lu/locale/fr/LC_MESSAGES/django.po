@@ -28105,6 +28105,20 @@ msgstr "Nous avons envoyé un code à 6 chiffres à"
 msgid "via WhatsApp"
 msgstr "via WhatsApp"
 
+#: templates/crush_lu/includes/phone_otp_modal.html:71
+msgid "Verification code"
+msgstr "Code de vérification"
+
+#: templates/crush_lu/includes/phone_otp_modal.html:73
+#: templates/crush_lu/includes/phone_otp_modal.html:76
+#: templates/crush_lu/includes/phone_otp_modal.html:79
+#: templates/crush_lu/includes/phone_otp_modal.html:82
+#: templates/crush_lu/includes/phone_otp_modal.html:85
+#: templates/crush_lu/includes/phone_otp_modal.html:88
+#, python-format
+msgid "Digit %(n)s of 6"
+msgstr "Chiffre %(n)s sur 6"
+
 #: templates/crush_lu/includes/phone_otp_modal.html:99
 msgid "Verify Code"
 msgstr "Vérifier le code"

@@ -2535,12 +2535,12 @@ document.addEventListener("alpine:init", function () {
             get loginTabClass() {
                 return this.activeTab === "login"
                     ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md"
-                    : "text-gray-900 bg-white/50 hover:bg-white/80";
+                    : "text-gray-900 bg-white/50 hover:bg-white/80 dark:text-gray-300 dark:bg-transparent dark:hover:bg-white/10";
             },
             get signupTabClass() {
                 return this.activeTab === "signup"
                     ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md"
-                    : "text-gray-900 bg-white/50 hover:bg-white/80";
+                    : "text-gray-900 bg-white/50 hover:bg-white/80 dark:text-gray-300 dark:bg-transparent dark:hover:bg-white/10";
             },
 
             init: function () {
