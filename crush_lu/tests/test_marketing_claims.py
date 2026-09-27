@@ -2,9 +2,10 @@
 
 UX Wave 2 finding 1-02: How It Works, About and the footer promised photo
 blurring, event-only connections, "100% verified profiles" and coach review of
-every profile. The shipped product shows a clear photo to Crush Connect matches
-after opt-in (``photo_share_consent``) and to fellow event attendees, and
-verifies instantly via LuxID or in person at an event, with no coach review.
+every profile. The shipped product serves photos (unblurred) to any logged-in
+verified member, never publicly; Crush Connect only surfaces members who opted
+in (``photo_share_consent``). The media endpoint does not check matches or
+shared events, so the copy must not claim it does (Codex #1045). It verifies instantly via LuxID or in person at an event, with no coach review.
 Some event audiences admit unverified profiles, so the copy must not promise
 that everyone is verified before meeting anyone.
 
@@ -30,10 +31,19 @@ STALE_CLAIMS = [
     "before meeting anyone",
     "before you meet anyone",
     "before they meet anyone",
-    # Event co-attendees see the photo too, not only Connect matches.
-    "Your photo is only shown to the few verified members matched with you, "
-    "and only after you opt in<",
+    # Codex #1045: views_media.can_view_profile_photo serves any approved
+    # member's photo to any other approved member; it never checks a Connect
+    # match or a shared event, so the copy must not promise that it does.
+    "only shown to the few verified members matched with you",
+    "only fellow attendees see it",
+    "fellow event attendees see your photo",
+    "only your Connect matches",
 ]
+
+PHOTO_CLAIM = (
+    "Only verified members can see your photos, never the public or search "
+    "engines. Crush Connect asks before showing your photo to your matches."
+)
 
 FOOTER_CLAIM = (
     "Your privacy matters. Members are verified instantly with LuxID or in "
@@ -61,12 +71,7 @@ class MarketingClaimsTests(TestCase):
         self.assert_no_stale_claims(html, "/en/how-it-works/")
         self.assertNotIn(">100%<", html)
         self.assertIn("Verified with LuxID or in person", html)
-        self.assertIn(
-            "On Crush Connect, your photo is only shown to the few verified "
-            "members matched with you, and only after you opt in. At events, "
-            "only fellow attendees see it.",
-            html,
-        )
+        self.assertIn(PHOTO_CLAIM, html)
         self.assertIn("No public search or profile browsing", html)
         self.assertIn("Contact details are only shared when you both agree", html)
         self.assertIn(FOOTER_CLAIM, html)
@@ -75,8 +80,8 @@ class MarketingClaimsTests(TestCase):
         html = self._get("/en/about/")
         self.assert_no_stale_claims(html, "/en/about/")
         self.assertIn(
-            "No public browsing: only your Connect matches (after you opt in) "
-            "and fellow event attendees see your photo.",
+            "No public browsing: only verified members can see your photos, and "
+            "Crush Connect asks before showing your photo to your matches.",
             html,
         )
         self.assertIn(
@@ -98,13 +103,20 @@ class MarketingClaimsTests(TestCase):
     def test_rewritten_claims_are_translated(self):
         de = self._get("/de/how-it-works/")
         self.assertIn("Verifiziert per LuxID oder persönlich", de)
-        self.assertIn("Bei Veranstaltungen sehen es nur die anderen Teilnehmenden", de)
+        self.assertIn("Nur verifizierte Mitglieder können deine Fotos sehen", de)
+        self.assertIn("Crush Connect fragt dich, bevor dein Foto", de)
+        self.assertNotIn("Teilnehmenden deiner Veranstaltungen", de)
         self.assertIn("Kontaktdaten werden nur geteilt, wenn ihr beide zustimmt", de)
         self.assertIn("Mitglieder werden sofort mit LuxID oder persönlich", de)
         self.assertNotIn("unscharf", de)
 
         fr = self._get("/fr/about/")
-        self.assertIn("Aucune navigation publique : seuls vos matchs Connect", fr)
+        self.assertIn(
+            "Aucune navigation publique : seuls les membres vérifiés peuvent voir",
+            fr,
+        )
+        self.assertIn("vous demande votre accord avant de montrer votre photo", fr)
+        self.assertNotIn("seuls vos matchs Connect", fr)
         self.assertIn("Crush Connect ne propose que des membres vérifiés", fr)
         self.assertIn("Les membres sont vérifiés instantanément avec LuxID", fr)
         self.assertNotIn("floutez", fr)

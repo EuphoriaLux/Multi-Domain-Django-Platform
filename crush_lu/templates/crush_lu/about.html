@@ -323,9 +323,9 @@
             <div class="about-why-emoji" aria-hidden="true">
                 {% include "crush_lu/includes/ghost-story-approved.html" with class="w-12 h-12 ghost-glow" %}
             </div>
-            {# No blur: Connect shows a clear photo to daily matches only after photo_share_consent; fellow event attendees see it without that gate. Keep aligned with privacy_policy.html 6.2. Spec: ai-memory-hub/specs/2026-08-24-crush-connect-repo-product-doc.md #}
+            {# No blur. Photos are served to any logged-in verified member (views_media.can_view_profile_photo), not only matches or co-attendees; Connect only surfaces members with photo_share_consent. Spec: ai-memory-hub/specs/2026-08-24-crush-connect-repo-product-doc.md #}
             <h5>{% trans "Privacy First" %}</h5>
-            <p>{% trans "In a small country, discretion matters. No public browsing: only your Connect matches (after you opt in) and fellow event attendees see your photo." %}</p>
+            <p>{% trans "In a small country, discretion matters. No public browsing: only verified members can see your photos, and Crush Connect asks before showing your photo to your matches." %}</p>
         </div>
         <div class="about-why-card">
             <div class="about-why-emoji" aria-hidden="true">

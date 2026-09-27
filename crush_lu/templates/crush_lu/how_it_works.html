@@ -183,11 +183,11 @@
                 <span class="feature-icon">🔒</span>
                 {% trans "Your Privacy Matters" %}
             </h5>
-            {# Must match the shipped photo model: Crush Connect shows a clear photo to daily matches only after photo_share_consent (no blur); event attendee lists, voting results and connection requests show it to co-attendees without that gate. Keep aligned with privacy_policy.html 6.2. Spec: ai-memory-hub/specs/2026-08-24-crush-connect-repo-product-doc.md #}
+            {# Claim only what the code enforces: views_media.can_view_profile_photo serves photos to any logged-in member with an approved (verified) profile, plus coaches and the owner, via private storage; it does NOT check matches or shared events. Connect only surfaces members with photo_share_consent (services/crush_connect.py). No blur. Spec: ai-memory-hub/specs/2026-08-24-crush-connect-repo-product-doc.md #}
             <ul class="feature-list">
                 <li>{% trans "Control what information you share" %}</li>
                 <li>{% trans "Show full name or just first name" %}</li>
-                <li>{% trans "On Crush Connect, your photo is only shown to the few verified members matched with you, and only after you opt in. At events, only fellow attendees see it." %}</li>
+                <li>{% trans "Only verified members can see your photos, never the public or search engines. Crush Connect asks before showing your photo to your matches." %}</li>
                 <li>{% trans "No public search or profile browsing" %}</li>
                 <li>{% trans "Contact details are only shared when you both agree" %}</li>
             </ul>
