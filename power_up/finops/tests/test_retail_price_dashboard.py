@@ -474,6 +474,48 @@ def test_region_lookups_never_scale_with_submitted_region_values(client, regular
 
 
 @pytest.mark.django_db
+def test_product_substrings_naming_the_same_products_share_one_index(
+    client, regular_user
+):
+    """Free-text product fragments must not each build and cache an index."""
+    today = timezone.localdate()
+    _sync_region(today, "westeurope", "10.00000000")
+    _sync_region(today, "northeurope", "10.40000000")
+    client.force_login(regular_user)
+
+    with CaptureQueriesContext(connection) as queries:
+        for fragment in ("dsv5", "DSV5 SERIES", "Machines Dsv5", "v5 Ser"):
+            response = client.get("/finops/prices/", {"product": fragment})
+            index = {
+                item["region_code"]: item for item in response.context["region_index"]
+            }
+            assert index["northeurope"]["index"] == 104.0
+
+    assert len(_index_group_by_queries(queries)) == 1
+
+
+@pytest.mark.django_db
+def test_without_west_europe_the_reference_is_a_selected_region(client, regular_user):
+    """The visible rows are never normalised against a hidden region."""
+    today = timezone.localdate()
+    _sync_region(today, "westeurope", "10.00000000")
+    _sync_region(today, "northeurope", "10.40000000")
+    _sync_region(today, "swedencentral", "9.50000000")
+    client.force_login(regular_user)
+
+    response = client.get(
+        "/finops/prices/", {"region": ["northeurope", "swedencentral"]}
+    )
+
+    index = {item["region_code"]: item for item in response.context["region_index"]}
+    assert set(index) == {"northeurope", "swedencentral"}
+    assert response.context["index_reference"] == "North Europe"
+    assert index["northeurope"]["is_reference"] is True
+    assert index["northeurope"]["index"] == 100.0
+    assert index["swedencentral"]["index"] == 91.3
+
+
+@pytest.mark.django_db
 def test_sku_missing_from_the_newest_day_still_matches_exactly(client, regular_user):
     """A retired SKU typed with its stored casing keeps its history."""
     _sync_two_days("0.10000000", "0.12000000")

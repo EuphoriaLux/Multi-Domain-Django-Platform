@@ -231,7 +231,20 @@ def retail_price_dashboard(request):
     # Without a SKU the page compares whole regions instead: a like-for-like
     # price index for one day, never a scan of the full history.
     region_index, index_reference, index_day = [], "", None
-    product_names = {product.lower() for _, product in offer_choices}
+    # The product box is free text. For the index it resolves to the known
+    # product names it matches, so every substring naming the same products
+    # shares one cache entry and the query is an exact IN, not a LIKE.
+    index_products = (
+        sorted(
+            {
+                product
+                for _, product in offer_choices
+                if product_filter.lower() in product.lower()
+            }
+        )
+        if product_filter
+        else []
+    )
     # Currencies come from the sync runs, not the newest day: a day the sync
     # has only started may not carry every currency yet.
     synced_currencies = set(
@@ -247,10 +260,7 @@ def retail_price_dashboard(request):
         and (not os_filter or os_filter in options["os"])
         and price_type in PRICE_TYPES
         and purchase_model in PURCHASE_MODELS
-        and (
-            not product_filter
-            or any(product_filter.lower() in name for name in product_names)
-        )
+        and (not product_filter or index_products)
     )
     if not active_sku and latest_day and index_filters_valid:
         # Each region's own latest day in the requested currency: one MAX per
@@ -267,10 +277,18 @@ def retail_price_dashboard(request):
             )
             if day and start_date <= day <= end_date:
                 region_days[code] = day
-        # A region's index is pairwise against the reference, so it does not
-        # depend on which other regions are selected: build it once for all
-        # regions and cache it until any region's snapshot day moves. Grouping
-        # the daily catalogue is too heavy to repeat on every page load.
+        # A region's index is pairwise against the reference, so while the
+        # reference is selected the index does not depend on the other
+        # selected regions: build it once for all regions and cache it until
+        # any region's snapshot day moves. Grouping the daily catalogue is too
+        # heavy to repeat on every page load. Without the reference, the
+        # selection must pick its own, so only selected regions take part.
+        if selected_regions and INDEX_REFERENCE_REGION not in selected_regions:
+            region_days = {
+                code: day
+                for code, day in region_days.items()
+                if code in selected_regions
+            }
         signature = repr(
             (
                 provider,
@@ -278,7 +296,7 @@ def retail_price_dashboard(request):
                 os_filter,
                 price_type,
                 purchase_model,
-                product_filter.lower(),
+                index_products,
                 sorted(region_days.items()),
             )
         )
@@ -295,8 +313,8 @@ def retail_price_dashboard(request):
                 index_scope = index_scope.filter(price_type=price_type)
             if purchase_model:
                 index_scope = index_scope.filter(purchase_model=purchase_model)
-            if product_filter:
-                index_scope = index_scope.filter(product_name__icontains=product_filter)
+            if index_products:
+                index_scope = index_scope.filter(product_name__in=index_products)
             if os_filter:
                 index_scope = index_scope.filter(operating_system=os_filter)
             cached = (
