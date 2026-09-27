@@ -23,6 +23,7 @@ these routes sit inside i18n_patterns(prefix_default_language=True).
 
 from __future__ import annotations
 
+from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 
@@ -102,6 +103,49 @@ class SignupRateLimitTests(TestCase):
         self.assertTemplateUsed(response, "crush_lu/auth.html")
         content = response.content.decode()
         self.assertIn("Too many signup attempts", content)
+
+    def test_blocked_attempt_does_not_validate_the_form(self):
+        """finding 2-04 (rate_limit_utils.py:38): add_rate_limited_error()
+        must NOT trigger the bound signup form's full_clean() - it used to
+        do so as a side effect of Form.add_error() lazily reading
+        self.errors, which for a POST-bound CrushSignupForm runs
+        clean_email()'s User.objects.filter(...).exists() query on every
+        blocked request and can surface a confusing second field error
+        ("email already registered") alongside the generic rate-limit
+        message.
+        """
+        get_user_model().objects.create_user(
+            username="existing", email="taken@example.com", password="x"
+        )
+
+        for _ in range(5):
+            self.client.post("/en/signup/", {})
+
+        from unittest.mock import patch
+
+        with patch(
+            "crush_lu.forms.User.objects.filter",
+            wraps=get_user_model().objects.filter,
+        ) as mock_filter:
+            response = self.client.post(
+                "/en/signup/",
+                {
+                    "email": "taken@example.com",
+                    "password1": "whatever",
+                    "password2": "whatever",
+                },
+            )
+            # clean_email()'s User.objects.filter(email__iexact=...).exists()
+            # must never run on a blocked request.
+            mock_filter.assert_not_called()
+
+        self.assertEqual(response.status_code, 429)
+        content = response.content.decode()
+        self.assertIn("Too many signup attempts", content)
+        # The duplicate-email field error must not also appear: the form
+        # was never validated, so clean_email() never ran.
+        self.assertNotIn("already exists", content)
+        self.assertNotIn("already registered", content)
 
 
 @override_settings(

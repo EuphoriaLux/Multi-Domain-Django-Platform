@@ -43,7 +43,25 @@ def add_rate_limited_error(form, message):
     signup add this error *instead of* running validation (the request was
     blocked before it even got there), so ``cleaned_data`` was never set -
     calling ``add_error()`` directly raises ``AttributeError``.
+
+    ``Form.add_error()`` also reads ``self.errors`` first, and that property
+    lazily calls ``full_clean()`` the *first* time anything touches it if
+    ``self._errors`` is still ``None`` - which it is, since we're
+    deliberately skipping validation. For an unbound form (e.g. login's
+    ``LoginForm()``) ``full_clean()`` returns immediately, so this is
+    harmless. But for a form bound to POST data (signup's
+    ``CrushSignupForm(request.POST)``), it runs the *entire* validation
+    pipeline, including any field ``clean_*`` methods that hit the
+    database - e.g. ``CrushSignupForm.clean_email()``'s
+    ``User.objects.filter(email__iexact=email).exists()`` query. That both
+    defeats the point of rate limiting (a DB query on every blocked
+    request) and can surface a confusing second, unrelated field error
+    alongside the rate-limit message. So we seed ``_errors`` ourselves
+    before calling ``add_error()``, which makes the ``errors`` property
+    return that dict directly without ever calling ``full_clean()``.
     """
     if not hasattr(form, "cleaned_data"):
         form.cleaned_data = {}
+    if form._errors is None:
+        form._errors = {}
     form.add_error(None, message)
