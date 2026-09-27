@@ -487,6 +487,48 @@ class TestProfilePhotoRefused:
         assert _photo(client, staff, alice).status_code == 403
 
 
+class TestChatPagesMatchPhotoGate:
+    """The chat pages must not render a URL the photo endpoint refuses."""
+
+    def _chat(self, alice_consent):
+        alice = _member("alice", photo_consent=alice_consent)
+        ben = _member("ben", photo_consent=True)
+        session = ConnectWeekSession.objects.create(user=alice)
+        request = ConnectWeeklyRequest.objects.create(
+            session=session,
+            requester=alice,
+            recipient=ben,
+            status="accepted",
+            expires_at=timezone.now() + timedelta(hours=24),
+        )
+        chat = ConnectTemporaryChat.objects.create(
+            request=request,
+            participant_1=alice,
+            participant_2=ben,
+            expires_at=timezone.now() + timedelta(days=7),
+        )
+        return alice, ben, chat
+
+    def _pages(self, client, viewer, chat):
+        client.force_login(viewer)
+        return [
+            client.get("/en/crush-connect/week/chats/"),
+            client.get(f"/en/crush-connect/week/chats/{chat.pk}/"),
+        ]
+
+    def test_partner_with_consent_shows_photo(self, client):
+        alice, ben, chat = self._chat(alice_consent=True)
+        for response in self._pages(client, ben, chat):
+            assert response.status_code == 200
+            assert f"/media/profile/{alice.pk}/photo_1/" in response.content.decode()
+
+    def test_withdrawn_consent_falls_back_but_chat_stays(self, client):
+        alice, ben, chat = self._chat(alice_consent=False)
+        for response in self._pages(client, ben, chat):
+            assert response.status_code == 200
+            assert f"/media/profile/{alice.pk}/" not in response.content.decode()
+
+
 # ---------------------------------------------------------------------------
 # quiz_display_photo
 # ---------------------------------------------------------------------------
