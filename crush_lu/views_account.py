@@ -1662,8 +1662,15 @@ def resend_verification_email(request):
             # The response must not differ between a known and an unknown
             # address. A mail failure here would otherwise surface as an error
             # only for existing accounts, so it is logged and swallowed.
+            # allauth's rate-limited send: a per-address confirm_email
+            # cooldown, so rotating cookies or source IPs can't flood a
+            # pending address through this public endpoint.
+            from allauth.account.internal.flows.email_verification import (
+                send_verification_email_to_address,
+            )
+
             try:
-                email_address.send_confirmation(request, signup=False)
+                send_verification_email_to_address(request, email_address)
                 logger.info("Resent verification email")
             except Exception:
                 logger.exception("Resending the verification email failed")

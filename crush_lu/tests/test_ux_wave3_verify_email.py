@@ -668,3 +668,18 @@ class ResendAddressCorrectionTests(TestCase):
         html = client.get("/accounts/confirm-email/").content.decode()
         self.assertIn("Use a different address", html)
         self.assertIn('name="email"', html)
+
+
+class PublicResendPerAddressLimitTests(TestCase):
+    """Fresh sessions must not bypass the per-address resend limit."""
+
+    def setUp(self):
+        cache.clear()
+
+    def test_two_fresh_sessions_send_only_one_email_to_the_same_address(self):
+        _unverified_user("target@example.com")
+        for _ in range(2):
+            Client(HTTP_HOST="crush.lu").post(
+                "/en/signup/resend-verification/", {"email": "target@example.com"}
+            )
+        self.assertEqual(len(mail.outbox), 1)
