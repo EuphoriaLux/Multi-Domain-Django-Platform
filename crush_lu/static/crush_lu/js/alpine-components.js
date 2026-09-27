@@ -15882,6 +15882,10 @@ document.addEventListener("alpine:init", function () {
                 return !!this.selectedStart;
             },
 
+            get isShowAllHidden() {
+                return !this.showAll;
+            },
+
             pickSlot: function (event) {
                 var el = event.currentTarget || event.target;
                 this.selectedStart = el.dataset.start || "";

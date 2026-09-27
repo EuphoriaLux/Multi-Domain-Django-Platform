@@ -113,7 +113,7 @@
                         </div>
 
                         {% if block.slots|length > 10 %}
-                            <div class="px-4 pb-2" x-show="!showAll">
+                            <div class="px-4 pb-2" x-show="isShowAllHidden">
                                 <button type="button" @click="toggleShowAll"
                                         class="text-xs font-medium text-crush-purple hover:underline">
                                     {% blocktrans count more=block.slots|length|add:"-10" %}Show {{ more }} more slot{% plural %}Show {{ more }} more slots{% endblocktrans %}
