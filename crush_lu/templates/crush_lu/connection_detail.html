@@ -491,11 +491,11 @@
                         {% include "crush_lu/_connection_messages_list.html" %}
                     </div>
 
-                    {# Compose form. The reset-on-success listener lives in
-                       connection-chat.js (htmx:afterRequest), not inline —
-                       an inline hx-on::after-request compiles via Function()
-                       and would violate the site CSP once SECURE_CSP is
-                       enforced (finding 5-15). #}
+                    {% comment %}Compose form. The reset-on-success listener
+                       lives in connection-chat.js (htmx:afterRequest), not
+                       inline — an inline hx-on::after-request compiles via
+                       Function() and would violate the site CSP once
+                       SECURE_CSP is enforced (finding 5-15).{% endcomment %}
                     <form id="connection-compose-form" method="post"
                           hx-post="{% url 'crush_lu:connection_detail' connection.id %}"
                           hx-target="#messages-container"
