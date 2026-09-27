@@ -13591,17 +13591,6 @@ msgstr ""
 "luxembourgeoise avec sélection par coach. Présentée dans Virgule.lu et "
 "LuxTimes. Fondée par Tom Sawyer et Wesley Hourdequin."
 
-#: templates/crush_lu/about.html:9
-msgid ""
-"About Crush.lu: Founded by Tom Sawyer and Wesley Hourdequin, featured in "
-"Virgule.lu and LuxTimes. Luxembourg's privacy-first dating platform with "
-"coach-verified profiles and real events."
-msgstr ""
-"À propos de Crush.lu : fondée par Tom Sawyer et Wesley Hourdequin, présentée"
-" dans Virgule.lu et LuxTimes. La plateforme de rencontres luxembourgeoise "
-"axée sur la confidentialité avec profils vérifiés par coach et événements "
-"réels."
-
 #: templates/crush_lu/about.html:10
 msgid ""
 "about crush.lu, Tom Sawyer crush.lu, Wesley Hourdequin, crush.lu founders, "
@@ -13691,16 +13680,6 @@ msgstr ""
 "Luxembourg. Dans un monde de swipe infini et de matchs superficiels, "
 "Crush.lu adopte une approche différente. Nous croyons que les vraies "
 "relations commencent par de vraies conversations, face à face."
-
-#: templates/crush_lu/about.html:149
-msgid ""
-"Every profile is personally verified. Every event is thoughtfully organized."
-" Every connection is meaningful. That's not an algorithm's promise - it's "
-"our commitment."
-msgstr ""
-"Chaque profil est vérifié personnellement. Chaque événement est organisé "
-"avec soin. Chaque connexion est significative. Ce n'est pas la promesse d'un"
-" algorithme - c'est notre engagement."
 
 #: templates/crush_lu/about.html:154
 msgid ""
@@ -13867,11 +13846,6 @@ msgid "Or instant verification with LuxID, Luxembourg's official login"
 msgstr ""
 "Ou une vérification instantanée avec LuxID, le login officiel au Luxembourg"
 
-#: templates/crush_lu/about.html:284
-msgid "Every member verified before they join — real people only"
-msgstr ""
-"Chaque membre est vérifié avant de rejoindre — que de vraies personnes"
-
 #: templates/crush_lu/about.html:285
 msgid "No bots, no catfishing, no fake accounts"
 msgstr "Pas de bots, pas de catfishing, pas de faux comptes"
@@ -13936,14 +13910,6 @@ msgstr ""
 #: templates/crush_lu/home.html:113
 msgid "Privacy First"
 msgstr "Confidentialité d'abord"
-
-#: templates/crush_lu/about.html:325
-msgid ""
-"In a small country, discretion matters. Control your visibility, blur your "
-"photos, and choose exactly what you share."
-msgstr ""
-"Dans un petit pays, la discrétion compte. Contrôlez votre visibilité, "
-"floutez vos photos et choisissez exactement ce que vous partagez."
 
 #: templates/crush_lu/about.html:331
 msgid "Multicultural"
@@ -15492,13 +15458,6 @@ msgstr "Mentions légales"
 #: templates/crush_lu/partials/edit_about_crushlu.html:110
 msgid "Data Deletion"
 msgstr "Suppression des données"
-
-#: templates/crush_lu/base.html:1289
-#: templates/crush_lu/partials/edit_about_crushlu.html:123
-msgid "Your privacy matters. All profiles are reviewed by our Crush Coaches."
-msgstr ""
-"Votre vie privée compte. Tous les profils sont examinés par nos Crush "
-"Coaches."
 
 #: templates/crush_lu/base.html:1326
 msgid "&copy; 2026 Crush.lu - Made with 💕 in Luxembourg"
@@ -27692,10 +27651,6 @@ msgstr ""
 msgid "Simple Steps"
 msgstr "Étapes simples"
 
-#: templates/crush_lu/how_it_works.html:108
-msgid "Verified Profiles"
-msgstr "Profils vérifiés"
-
 #: templates/crush_lu/how_it_works.html:122
 msgid ""
 "Share who you are, what you love, and what you're looking for. Add photos "
@@ -27741,18 +27696,6 @@ msgstr "Contrôlez les informations que vous partagez"
 #: templates/crush_lu/how_it_works.html:187
 msgid "Show full name or just first name"
 msgstr "Montrez votre nom complet ou juste votre prénom"
-
-#: templates/crush_lu/how_it_works.html:188
-msgid "Blur photos until mutual interest"
-msgstr "Floutez les photos jusqu'à un intérêt mutuel"
-
-#: templates/crush_lu/how_it_works.html:189
-msgid "No public profiles browsing"
-msgstr "Pas de navigation dans les profils publics"
-
-#: templates/crush_lu/how_it_works.html:190
-msgid "Event-based connections only"
-msgstr "Connexions basées sur les événements uniquement"
 
 #: templates/crush_lu/how_it_works.html:196
 msgid "Community Standards"
@@ -42506,6 +42449,75 @@ msgstr "Clôturer et signaler"
 #: crush_lu/templates/crush_lu/journey/partials/gift_report_form.html
 msgid "This isn't for me / Report"
 msgstr "Ce n'est pas pour moi / Signaler"
+
+#: templates/crush_lu/about.html:9
+msgid ""
+"About Crush.lu: Founded by Tom Sawyer and Wesley Hourdequin, featured in "
+"Virgule.lu and LuxTimes. Luxembourg's privacy-first dating platform with "
+"verified profiles and real events."
+msgstr ""
+"À propos de Crush.lu : fondée par Tom Sawyer et Wesley Hourdequin, présentée"
+" dans Virgule.lu et LuxTimes. La plateforme de rencontres luxembourgeoise "
+"axée sur la confidentialité avec profils vérifiés et événements réels."
+
+#: templates/crush_lu/about.html:149
+msgid ""
+"Members are verified instantly with LuxID or in person at an event. Every "
+"event is thoughtfully organized. Every connection is meaningful. That's not "
+"an algorithm's promise - it's our commitment."
+msgstr ""
+"Les membres sont vérifiés instantanément avec LuxID ou en personne lors d'un "
+"événement. Chaque événement est organisé avec soin. Chaque connexion est "
+"significative. Ce n'est pas la promesse d'un algorithme - c'est notre "
+"engagement."
+
+#: templates/crush_lu/about.html:284
+msgid "Crush Connect only matches verified members — real people only"
+msgstr ""
+"Crush Connect ne propose que des membres vérifiés — que de vraies personnes"
+
+#: templates/crush_lu/about.html:325
+msgid ""
+"In a small country, discretion matters. No public browsing: your photos are "
+"never public or shown to search engines, you need a Crush.lu account to see "
+"them, and Crush Connect asks before showing your photo to your matches."
+msgstr ""
+"Dans un petit pays, la discrétion compte. Aucune navigation publique : vos "
+"photos ne sont jamais publiques ni montrées aux moteurs de recherche, il faut"
+" un compte Crush.lu pour les voir, et Crush Connect vous demande votre accord"
+" avant de montrer votre photo à vos matchs."
+
+#: templates/crush_lu/base.html:1289
+#: templates/crush_lu/partials/edit_about_crushlu.html:123
+msgid ""
+"Your privacy matters. Members are verified instantly with LuxID or in person "
+"at an event."
+msgstr ""
+"Votre vie privée compte. Les membres sont vérifiés instantanément avec LuxID "
+"ou en personne lors d'un événement."
+
+#: templates/crush_lu/how_it_works.html:108
+msgid "Verified with LuxID or in person"
+msgstr "Vérifiés via LuxID ou en personne"
+
+#: templates/crush_lu/how_it_works.html:188
+msgid ""
+"Your photos are never public or shown to search engines — you need a Crush.lu"
+" account to see them, and Crush Connect asks before showing your photo to "
+"your matches."
+msgstr ""
+"Vos photos ne sont jamais publiques ni montrées aux moteurs de recherche — il"
+" faut un compte Crush.lu pour les voir, et Crush Connect vous demande votre "
+"accord avant de montrer votre photo à vos matchs."
+
+#: templates/crush_lu/how_it_works.html:189
+msgid "No public search or profile browsing"
+msgstr "Aucune recherche publique ni navigation dans les profils"
+
+#: templates/crush_lu/how_it_works.html:190
+msgid "Contact details are only shared when you both agree"
+msgstr ""
+"Vos coordonnées ne sont partagées que si vous êtes tous les deux d'accord"
 
 #: templates/crush_lu/gdpr_data_management.html
 msgid "Login account"
