@@ -12,6 +12,17 @@ tracking scripts into templates.
 import os
 from urllib.parse import urlparse
 
+# Every environment variable that carries a GA4 Measurement ID (G-XXXXXXX).
+# setup_cookie_groups derives the property cookie names (_ga_XXXXXXX) from
+# these, so a new GA4 property must be listed here as well.
+GA4_MEASUREMENT_ID_ENV_VARS = (
+    "GA4_CRUSH_LU",
+    "GA4_DELEGATIONS",
+    "GA4_VINSDELUX",
+    "GA4_POWERUP",
+    "GA4_ARBORIST",
+)
+
 
 def analytics_ids(request):
     """
