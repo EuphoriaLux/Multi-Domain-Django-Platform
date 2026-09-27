@@ -28,6 +28,7 @@ from crush_lu.models.events import (
 )
 from crush_lu.models.payments import EventCheckoutCreationClaim, PaymentTransaction
 from crush_lu.models.profiles import CrushProfile, PremiumMembership
+from crush_lu.services.event_payments import registration_is_payable
 from crush_lu.services.credits import (
     cancellation_policy,
     credit_registration_for_cancelled_event,
@@ -184,6 +185,10 @@ def _event_checkout_validation_error(
         return JsonResponse(
             {"error": _("This registration is already paid.")}, status=400
         )
+    # These two checks are registration_is_payable() (services/event_payments.py)
+    # spelled out so each branch keeps its own error message; every other
+    # surface that offers or narrates a payment calls that shared helper
+    # instead of re-deriving this allowlist (UX Wave 3 · WP8 follow-up).
     if registration.status not in ("pending", "confirmed"):
         return JsonResponse(
             {"error": _("This registration cannot be paid for in its current state.")},
@@ -2486,6 +2491,33 @@ def _sumup_return_response(request, tx_obj):
             # Supporter badge and thank-you state now show.
             return redirect("crush_lu:my_events")
     else:
+        # A non-PAID event checkout used to land here too, and this branch
+        # sent it to home with no link back to the event it was paying for
+        # (#4-05) -- the seat is still reserved (pending stays reserved until
+        # the event's own cleanup, this view never cancels it), so home was
+        # simply the wrong page, not a safer one. Every other purpose
+        # (premium, donation, unlinked) keeps the pre-existing behaviour.
+        if tx_obj.event_registration:
+            registration = tx_obj.event_registration
+            # A registration cancelled after checkout started (event_cancel
+            # sets status="cancelled" without touching this transaction) is
+            # no longer payable, and create_sumup_event_checkout refuses a
+            # retry the same way — so the copy must not promise a reserved
+            # spot or a retry the endpoint will reject (Codex finding,
+            # UX Wave 3 · WP8 follow-up).
+            if registration.payment_confirmed:
+                messages.success(request, _("This registration is already paid."))
+            elif registration_is_payable(registration, registration.event):
+                messages.warning(
+                    request,
+                    _(
+                        "Your payment is still pending or was not completed. "
+                        "Your spot is reserved — you can retry payment below."
+                    ),
+                )
+            else:
+                messages.warning(request, _("Payment is pending or was not completed."))
+            return redirect("crush_lu:event_detail", event_id=registration.event.pk)
         messages.warning(request, _("Payment is pending or was not completed."))
 
     return redirect("crush_lu:home")

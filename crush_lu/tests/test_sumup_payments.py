@@ -349,6 +349,65 @@ class SumUpPaymentViewsTests(SiteTestMixin, TestCase):
         self.assertEqual(self.registration.status, "confirmed")
 
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_return_redirects_to_event_detail_when_not_paid(self, mock_get_checkout):
+        """A non-PAID return for an event checkout (#4-05) used to drop the
+        member on the home page with no link back to the event they were
+        paying for. The registration still holds the seat -- this view never
+        cancels it -- so the fix is only the redirect target, not the payment
+        outcome itself."""
+        PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-REF-350",
+            sumup_checkout_id="CHK_EVT_350",
+            amount=Decimal("15.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+        mock_get_checkout.return_value = {"id": "CHK_EVT_350", "status": "PENDING"}
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("sumup_payment_return"), {"ref": "CRUSH-EVT-REF-350"}
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response["Location"],
+            reverse("crush_lu:event_detail", kwargs={"event_id": self.event.id}),
+        )
+        self.registration.refresh_from_db()
+        self.assertEqual(self.registration.status, "pending")
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_return_still_redirects_home_when_not_paid_and_unlinked(
+        self, mock_get_checkout
+    ):
+        """The event_registration branch above is deliberately narrow: a
+        non-PAID donation (no event_registration, no premium_membership)
+        keeps the pre-existing home redirect -- there is nowhere more useful
+        to send it."""
+        PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-DON-REF-360",
+            sumup_checkout_id="CHK_DON_360",
+            amount=Decimal("10.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.DONATION,
+            user=self.user,
+        )
+        mock_get_checkout.return_value = {"id": "CHK_DON_360", "status": "PENDING"}
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("sumup_payment_return"), {"ref": "CRUSH-DON-REF-360"}
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], reverse("crush_lu:home"))
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
     def test_return_accepts_sumup_server_post(self, mock_get_checkout):
         """SumUp POSTs the result server-to-server with no session and no CSRF
         token. That used to 403, losing the confirmation for any customer who
