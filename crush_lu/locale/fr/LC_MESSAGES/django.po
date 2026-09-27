@@ -42718,3 +42718,7 @@ msgstr "Nous n'avons pas pu vérifier la prise en charge des notifications sur c
 #: templates/crush_lu/partials/_push_native_notice.html:10
 msgid "Notifications are managed in the app"
 msgstr "Les notifications sont gérées dans l'application"
+
+#: crush_lu/templates/crush_lu/payments/sumup_widget.html
+msgid "Failed to load payment module. Please refresh or contact support."
+msgstr "Impossible de charger le module de paiement. Veuillez actualiser la page ou contacter le support."

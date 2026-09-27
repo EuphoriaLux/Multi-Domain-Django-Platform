@@ -38752,7 +38752,7 @@ msgstr "Zahlung abschließen"
 
 #: crush_lu/templates/crush_lu/payments/sumup_widget.html
 msgid "Complete Your Payment"
-msgstr "Schließen Sie Ihre Zahlung ab"
+msgstr "Schließ deine Zahlung ab"
 
 #: crush_lu/templates/crush_lu/payments/sumup_widget.html
 msgid "Total Amount"
@@ -42585,3 +42585,7 @@ msgstr "Wir konnten die Benachrichtigungsunterstützung auf diesem Gerät nicht 
 #: templates/crush_lu/partials/_push_native_notice.html:10
 msgid "Notifications are managed in the app"
 msgstr "Benachrichtigungen werden in der App verwaltet"
+
+#: crush_lu/templates/crush_lu/payments/sumup_widget.html
+msgid "Failed to load payment module. Please refresh or contact support."
+msgstr "Das Zahlungsmodul konnte nicht geladen werden. Bitte lade die Seite neu oder kontaktiere den Support."
