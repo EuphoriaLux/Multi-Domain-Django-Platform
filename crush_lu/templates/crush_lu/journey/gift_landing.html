@@ -31,6 +31,7 @@
             <strong>{{ gift.sender.first_name }}</strong> {% trans "has created a Wonderland journey for" %}
         </p>
         <p class="hero-recipient">{{ gift.recipient_name }}</p>
+        {% include "crush_lu/journey/partials/gift_sender_badge.html" %}
         <div class="hero-cta">
             <a href="{% url 'account_signup' %}?next={% url 'crush_lu:gift_claim' gift_code=gift.gift_code %}" class="cta-primary">
                 {% trans "Begin Your Adventure" %}
@@ -154,6 +155,7 @@
             <a href="{% url 'account_login' %}?next={% url 'crush_lu:gift_claim' gift_code=gift.gift_code %}">{% trans "Sign in" %}</a>
         </p>
         <p class="cta-hint">{% trans "Free to join, takes only 2 minutes" %}</p>
+        {% include "crush_lu/journey/partials/gift_report_form.html" %}
     </footer>
 </article>
 </div>

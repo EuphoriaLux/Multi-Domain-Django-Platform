@@ -1449,12 +1449,26 @@ def screening_call_step(request):
     """
     Step 7 of the journey. Locked until the submission is approved. Points
     the user at the booking flow for the screening call.
+
+    Only the Premium coach path still has a screening call. Everyone else —
+    no live ProfileSubmission, or an expired one — gets verified at an event
+    or via LuxID, so an old link or bookmark lands on the get-verified page
+    instead of a "locked until approval" story that no longer exists.
     """
     profile = CrushProfile.objects.filter(user=request.user).first()
     if profile is None:
         return redirect("crush_lu:onboarding_entry")
 
+    if profile.verification_status == "verified":
+        # Verified at an event or via LuxID: a later coach rejection of the
+        # submission leaves the profile live, so there is no verdict to show.
+        return redirect("crush_lu:dashboard")
     submission = ProfileSubmission.latest_for_profile(profile)
+    if submission is None:
+        return redirect("crush_lu:profile_submitted")
+    if submission.status == "rejected":
+        # A rejection is final: the one verdict page, not "locked until approval".
+        return redirect("crush_lu:profile_rejected")
     approved = submission is not None and submission.status == "approved"
 
     context = {
