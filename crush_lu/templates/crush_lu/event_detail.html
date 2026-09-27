@@ -157,9 +157,9 @@
                     <span class="inline-flex items-center gap-1.5">
                         {% blocktrans with min=event.min_age max=event.max_age %}Ages {{ min }}-{{ max }}{% endblocktrans %}
                     </span>
-                    {% if not is_past and not curated_group_outlook and not gender_pool_availability %}
+                    {% if not is_past and event.is_registration_accepting and not curated_group_outlook and not gender_pool_availability %}
                     <span class="inline-flex items-center gap-1.5 {% if viewer_spots_remaining <= 5 %}text-rose-600 dark:text-rose-400 font-semibold{% endif %}">
-                        {% blocktrans with spots=viewer_spots_remaining %}{{ spots }} spots left{% endblocktrans %}
+                        {% blocktrans count spots=viewer_spots_remaining %}{{ spots }} spot left{% plural %}{{ spots }} spots left{% endblocktrans %}
                     </span>
                     {% endif %}
                 </div>
@@ -985,7 +985,7 @@ respects the home-bar safe area.
      x-cloak
      data-price-label="{% if not is_past %}{% if event.registration_fee > 0 %}€{{ event.registration_fee }}{% else %}{% trans "Free" %}{% endif %}{% endif %}"
      data-facts-text="{{ event.date_time|date:"D" }}, {{ event.date_time|date:"DATE_FORMAT" }} &middot; {% if user.is_authenticated %}{{ event.location }}{% else %}{{ event.canton|default:"Luxembourg" }}{% endif %}"
-     class="md:hidden fixed inset-x-0 bottom-[var(--bottom-nav-height)] z-40 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-crush-lg px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-3">
+     class="md:hidden fixed inset-x-0 bottom-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom,0px))] z-40 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-crush-lg px-4 pt-3 pb-3 flex items-center gap-3">
     <div class="flex-1 min-w-0">
         <p class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="factsText"></p>
         <p class="font-semibold text-gray-900 dark:text-white" x-text="priceText"></p>

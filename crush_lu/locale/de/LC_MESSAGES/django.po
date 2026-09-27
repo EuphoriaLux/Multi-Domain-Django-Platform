@@ -42610,3 +42610,18 @@ msgstr "Support kontaktieren"
 msgid "Link copied"
 msgstr "Link kopiert"
 
+
+#: crush_lu/templates/crush_lu/event_detail.html
+#, python-format
+msgid "%(spots)s spot left"
+msgid_plural "%(spots)s spots left"
+msgstr[0] "%(spots)s Platz übrig"
+msgstr[1] "%(spots)s Plätze übrig"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid ""
+"Could not copy the link. Long-press or select it from the address bar "
+"instead."
+msgstr ""
+"Der Link konnte nicht kopiert werden. Halte ihn gedrückt oder markiere ihn "
+"in der Adressleiste."

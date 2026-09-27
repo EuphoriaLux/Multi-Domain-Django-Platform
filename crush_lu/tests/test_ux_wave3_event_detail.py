@@ -499,3 +499,35 @@ class FactStripPremiumAwareCapacityTests(EventDetailWave3TestBase):
 
         html = self._get_detail(event)
         self.assertIn("2 spots left", html)
+
+
+class FactStripReviewRoundTwoTests(EventDetailWave3TestBase):
+    """Codex round 2 on #1062."""
+
+    def test_one_remaining_seat_is_singular(self):
+        event = self._make_event(max_participants=1)
+        html = self._get_detail(event)
+        self.assertIn("1 spot left", html)
+        self.assertNotIn("1 spots left", html)
+
+    def test_spots_are_hidden_once_registration_has_closed(self):
+        event = self._make_event(
+            registration_deadline=timezone.now() - timedelta(hours=1)
+        )
+        self.assertFalse(event.is_registration_accepting)
+        html = self._get_detail(event)
+        self.assertNotIn("spots left", html)
+        self.assertNotIn("spot left", html)
+
+    def test_sticky_cta_sits_above_nav_height_plus_safe_area(self):
+        html = self._get_detail(self._make_event())
+        self.assertIn(
+            "bottom-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom,0px))]",
+            html,
+        )
+
+    def test_copy_failure_toast_is_translated_in_french(self):
+        event = self._make_event()
+        response = self.client.get(f"/fr/events/{event.id}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Impossible de copier le lien.")
