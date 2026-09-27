@@ -1008,15 +1008,20 @@ def connection_detail(request, connection_id):
             consent_choice = request.POST.get("consent")
 
             # "Not now" (finding 5-10): a graceful exit from the consent step.
-            # It quietly closes the lead so the coach can follow up — the
-            # other side is never notified (mirrors the plain decline path,
-            # which also sends no notification).
+            # It quietly closes the lead — the other side is never notified
+            # (mirrors the plain decline path, which also sends no
+            # notification). The connection becomes visible to the coach the
+            # same passive way any declined connection already is (the "all"
+            # filter on coach_connections) — no active notification fires,
+            # so the copy below must not claim one does.
             if consent_choice == "not_now":
                 connection.status = "declined"
                 connection.save()
                 messages.info(
                     request,
-                    _("No problem — we've let your coach know. Nothing was shared."),
+                    _(
+                        "No problem — nothing was shared, and this connection is now closed."
+                    ),
                 )
                 return redirect(
                     "crush_lu:connection_detail", connection_id=connection_id

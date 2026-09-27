@@ -2,6 +2,7 @@
 UX Wave 3 — WP10 "match moment" tests.
 
 Covers findings 5-09/5-10/5-13/5-14/5-15 from the Wave 3 review:
+- 5-09: the accept response is a celebratory card with a mini-timeline.
 - 5-10: consent step's "not now" option and per-channel (email) opt-in.
 - 5-13: retired Sparks pages redirect members with no in-flight spark.
 - 5-15: chat compose — first-message placeholder removal, inline error on
@@ -23,6 +24,7 @@ from crush_lu.models import (
     CrushProfile,
     CrushSpark,
     EventConnection,
+    EventRegistration,
     MeetupEvent,
     UserDataConsent,
 )
@@ -138,6 +140,78 @@ class ConsentStepTests(TestCase):
         # The requester is viewing: the recipient (the "other side") opted
         # out of email, so it must not appear on the page at all.
         self.assertNotContains(response, self.recipient.email)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class AcceptCelebratoryCardTests(TestCase):
+    """Finding 5-09: the accept response is a celebratory card (mobile-
+    stacked, "It's mutual!" header, mini-timeline) instead of the old
+    cramped single-row green alert."""
+
+    def setUp(self):
+        cache.clear()
+        self.requester = User.objects.create_user(
+            username="accept-req@example.com",
+            email="accept-req@example.com",
+            password="testpass123",
+        )
+        self.recipient = User.objects.create_user(
+            username="accept-rec@example.com",
+            email="accept-rec@example.com",
+            password="testpass123",
+        )
+        for user, gender in [(self.requester, "M"), (self.recipient, "F")]:
+            CrushProfile.objects.create(
+                user=user,
+                date_of_birth=date(1995, 5, 15),
+                gender=gender,
+                location="Luxembourg",
+                is_approved=True,
+            )
+            _give_crushlu_consent(user)
+        self.event = MeetupEvent.objects.create(
+            title="Accept Test Event",
+            description="desc",
+            event_type="mixer",
+            date_time=timezone.now() - timedelta(days=1),
+            location="Luxembourg",
+            address="123 Test Street",
+            max_participants=20,
+            registration_deadline=timezone.now() - timedelta(days=3),
+            is_published=True,
+        )
+        EventRegistration.objects.create(
+            event=self.event, user=self.recipient, status="attended"
+        )
+        # Different genders: the accept goes through coach review (not the
+        # same-gender auto-share branch), which is the path finding 5-09's
+        # mini-timeline is for.
+        self.connection = EventConnection.objects.create(
+            event=self.event,
+            requester=self.requester,
+            recipient=self.recipient,
+            status="pending",
+        )
+        self.client = Client()
+        self.client.login(username="accept-rec@example.com", password="testpass123")
+
+    def test_accept_renders_celebratory_card(self):
+        response = self.client.post(
+            f"/en/connections/{self.connection.id}/accept/",
+            {},
+            HTTP_HOST="crush.lu",
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode()
+        self.assertIn("It's mutual!", body)
+        self.assertIn("See next steps", body)
+        # The old copy never explained *when* — the mini-timeline does.
+        self.assertIn("Coach reviews", body)
+        self.assertIn("You both consent", body)
+        self.assertIn("Contacts shared", body)
+        self.connection.refresh_from_db()
+        self.assertEqual(self.connection.status, "accepted")
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")

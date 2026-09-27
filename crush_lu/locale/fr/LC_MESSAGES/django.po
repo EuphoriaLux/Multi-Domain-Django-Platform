@@ -42592,10 +42592,8 @@ msgid "Not now"
 msgstr "Pas maintenant"
 
 #: templates/crush_lu/connection_detail.html:385
-msgid "\"Not now\" tells your coach quietly — the other person is not notified."
-msgstr ""
-"« Pas maintenant » informe discrètement votre coach — l'autre personne n'en "
-"est pas informée."
+msgid "\"Not now\" closes this quietly — the other person is not notified."
+msgstr "« Pas maintenant » referme cela discrètement — l'autre personne n'en est pas informée."
 
 #: templates/crush_lu/connection_detail.html:414
 #, python-format
@@ -42682,5 +42680,5 @@ msgstr ""
 " via Crush Connect."
 
 #: views_connections.py:1019
-msgid "No problem — we've let your coach know. Nothing was shared."
-msgstr "Pas de souci — nous avons informé votre coach. Rien n'a été partagé."
+msgid "No problem — nothing was shared, and this connection is now closed."
+msgstr "Pas de souci — rien n'a été partagé, et cette connexion est maintenant fermée."

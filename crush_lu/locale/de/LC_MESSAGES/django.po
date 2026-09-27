@@ -42458,10 +42458,8 @@ msgid "Not now"
 msgstr "Nicht jetzt"
 
 #: templates/crush_lu/connection_detail.html:385
-msgid "\"Not now\" tells your coach quietly — the other person is not notified."
-msgstr ""
-"„Nicht jetzt“ informiert nur leise deinen Coach – die andere Person wird "
-"nicht benachrichtigt."
+msgid "\"Not now\" closes this quietly — the other person is not notified."
+msgstr "„Nicht jetzt“ schließt dies leise ab – die andere Person wird nicht benachrichtigt."
 
 #: templates/crush_lu/connection_detail.html:414
 #, python-format
@@ -42547,6 +42545,5 @@ msgstr ""
 " Connect."
 
 #: views_connections.py:1019
-msgid "No problem — we've let your coach know. Nothing was shared."
-msgstr ""
-"Kein Problem – wir haben deinen Coach informiert. Es wurde nichts geteilt."
+msgid "No problem — nothing was shared, and this connection is now closed."
+msgstr "Kein Problem – es wurde nichts geteilt, und diese Verbindung ist jetzt geschlossen."

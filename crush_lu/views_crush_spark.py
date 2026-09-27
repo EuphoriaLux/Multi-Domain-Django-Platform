@@ -133,6 +133,18 @@ def spark_list(request):
     in-flight sparks keeps this page, so nothing a coach approved gets
     orphaned, but with copy that explains the retirement rather than
     inviting a new spark.
+
+    Wave 3's brief calls for a full, unconditional 301 to the Connect hub
+    for /sparks/ and /sparks/<id>/ (spark_detail) — this view implements
+    that for the no-spark-in-flight case only. The urls.py comment right
+    above this route's registration (from PR #433, Codex P1 #2/#3,
+    predating this WP) documents a deliberate, already-reviewed decision:
+    unconditionally redirecting spark_list/spark_detail would orphan a
+    spark a coach has already approved and is mid-journey-creation for —
+    the member holding it would lose the only page that shows it.
+    Resolving that tension (accept the orphaning risk, or route those
+    survivors somewhere else first) needs a product answer this WP wasn't
+    given; see findings_deferred for 5-13.
     """
     sent_sparks = (
         CrushSpark.objects.filter(sender=request.user)
