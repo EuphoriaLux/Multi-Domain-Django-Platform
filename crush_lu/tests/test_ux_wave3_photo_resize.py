@@ -76,10 +76,12 @@ class PhotoUploadResizeAndToastTests(SimpleTestCase):
 
     def test_wizard_step3_waits_for_pending_photo_uploads_before_advancing(self):
         wizard_start = self.src.index('Alpine.data("profileWizard"')
-        step3_start = self.src.index("saveAndNextStep3: function", wizard_start)
-        step3_end = self.src.index("},", self.src.index("});", step3_start))
+        step3_start = self.src.index("_completePhotoStep: function", wizard_start)
+        step3_end = self.src.index("// Clear save error", step3_start)
         step3_src = self.src[step3_start:step3_end]
         self.assertIn("waitForPendingPhotoUploads()", step3_src)
+        self.assertIn("_photoStepAdvancing = true", step3_src)
+        self.assertIn("self._completePhotoStep(false)", self.src)
 
     def test_removing_a_photo_invalidates_its_pending_upload(self):
         """[Codex review round 2, PR #1070] A member who picks a large photo
@@ -99,18 +101,30 @@ class PhotoUploadResizeAndToastTests(SimpleTestCase):
         self.assertIn(
             "var generation = ++self.photos[index].uploadGeneration", select_src
         )
-        # ...and checked both before the network request and before the
-        # response is applied, so either race window is covered.
+        # ...and checked before upload, after upload, and before an old
+        # FileReader preview can overwrite a newer selection.
         self.assertEqual(
             select_src.count("self.photos[index].uploadGeneration !== generation"),
-            2,
+            3,
         )
-        # Removal invalidates any generation captured before it ran.
-        self.assertIn(
-            "self.photos[index].uploadGeneration =\n                    "
-            "(self.photos[index].uploadGeneration || 0) + 1",
-            remove_src,
-        )
+        self.assertIn("++self.photos[index].uploadGeneration", remove_src)
+        # Generation checks only guard client state. A started POST can still
+        # write to the server, so the delete must queue behind that upload.
+        self.assertIn("var previousOperation = slotOperations[index]", remove_src)
+        self.assertIn("var deletePromise = previousOperation.then", remove_src)
+        self.assertIn("slotOperations[index] = deletePromise.then", remove_src)
+
+    def test_photo_step_drains_new_operations_and_locks_inputs(self):
+        """Continue must wait for the live queue and reject new file picks."""
+        self.assertIn(".then(waitForPendingPhotoUploads)", self.src)
+        self.assertIn("if (_photoStepAdvancing)", self.component_src)
+        template = (Path(__file__).parents[1] / "templates/crush_lu/create_profile.html").read_text(encoding="utf-8")
+        for number in (1, 2, 3):
+            self.assertIn(
+                f'id="photo{number}" accept="image/*" class="hidden"\n'
+                '                               x-bind:disabled="isSavingStep"',
+                template,
+            )
 
     def test_successful_auto_upload_replaces_the_file_input_with_the_resized_copy(
         self,
