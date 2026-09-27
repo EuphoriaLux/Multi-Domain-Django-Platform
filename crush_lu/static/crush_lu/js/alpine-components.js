@@ -111,6 +111,110 @@ document.addEventListener("alpine:init", function () {
         return target;
     }
 
+    // UX Wave 3 · WP5 (finding 3-14) — client-side downscale/re-encode
+    // before a profile photo is uploaded. Keeps mobile uploads out of the
+    // 4-12MB range the coach review queue was seeing. Uses
+    // createImageBitmap({imageOrientation: 'from-image'}) so EXIF rotation
+    // is baked into the pixels instead of relying on <img> auto-rotation
+    // (which canvas drawImage does not inherit). Falls back to returning
+    // the original file untouched if the browser lacks canvas/bitmap
+    // support — server-side validation is unchanged either way.
+    function resizeImageForUpload(file, maxEdge, quality) {
+        maxEdge = maxEdge || 2048;
+        quality = quality || 0.85;
+        if (!file || typeof file.type !== "string" || file.type.indexOf("image/") !== 0) {
+            return Promise.resolve(file);
+        }
+        if (typeof createImageBitmap !== "function" || typeof document.createElement("canvas").getContext !== "function") {
+            return Promise.resolve(file);
+        }
+        return createImageBitmap(file, { imageOrientation: "from-image" })
+            .then(function (bitmap) {
+                var scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+                var shortEdge = Math.min(bitmap.width, bitmap.height);
+                // The final profile form requires both sides to be at least
+                // 200px. Keep an originally valid panorama valid even when
+                // that means its long edge remains above the usual target.
+                if (shortEdge >= 200 && Math.round(shortEdge * scale) < 200) {
+                    scale = Math.min(1, 200 / shortEdge);
+                }
+                var width = Math.max(1, Math.round(bitmap.width * scale));
+                var height = Math.max(1, Math.round(bitmap.height * scale));
+                var canvas = document.createElement("canvas");
+                canvas.width = width;
+                canvas.height = height;
+                var ctx = canvas.getContext("2d");
+                ctx.drawImage(bitmap, 0, 0, width, height);
+                if (bitmap.close) bitmap.close();
+                return new Promise(function (resolve) {
+                    canvas.toBlob(
+                        function (blob) {
+                            resolve(blob || file);
+                        },
+                        "image/jpeg",
+                        quality,
+                    );
+                });
+            })
+            .then(function (blob) {
+                if (!blob || blob === file) return file;
+                var name = (file.name || "photo").replace(/\.[^.]+$/, "") + ".jpg";
+                try {
+                    return new File([blob], name, { type: "image/jpeg" });
+                } catch (e) {
+                    // Older Safari lacks the File constructor's options form.
+                    return blob;
+                }
+            })
+            .catch(function () {
+                return file;
+            });
+    }
+
+    // UX Wave 3 · WP5 — route a failure message through the shared toast
+    // store instead of a blocking alert(). Falls back to alert() only if
+    // the store genuinely isn't registered (defensive; toasts ship on
+    // every page via base.html).
+    function notifyError(message) {
+        if (typeof Alpine !== "undefined" && Alpine.store && Alpine.store("toasts")) {
+            Alpine.store("toasts").add({ type: "error", message: message });
+        } else {
+            alert(message);
+        }
+    }
+
+    // UX Wave 3 · WP5 (finding 3-14) — the profile wizard's Photos step
+    // (`photoUpload`, nested in its own x-data scope inside
+    // create_profile.html) resizes then uploads each photo asynchronously;
+    // the outer wizard's "Continue" button lives in a different scope and
+    // had no way to see that work in flight. A member who picks a large
+    // photo and taps Continue immediately used to advance to Review before
+    // the upload request was even created — the final page-unload could
+    // then abandon it, leaving a preview of a photo that was never saved.
+    // Tracked at module scope (same idiom as _photoUploadDeprecationLogged
+    // above) so the wizard component can await it without cross-scope
+    // Alpine wiring.
+    var _pendingPhotoUploads = [];
+    var _photoStepAdvancing = false;
+    function trackPendingPhotoUpload(promise) {
+        _pendingPhotoUploads.push(promise);
+        var settle = function () {
+            var idx = _pendingPhotoUploads.indexOf(promise);
+            if (idx !== -1) _pendingPhotoUploads.splice(idx, 1);
+        };
+        promise.then(settle, settle);
+    }
+    function waitForPendingPhotoUploads() {
+        if (!_pendingPhotoUploads.length) return Promise.resolve();
+        // A selection or removal may be added while the current batch is
+        // settling. Drain the live set before advancing the wizard.
+        return Promise.all(
+            _pendingPhotoUploads.slice().map(function (promise) {
+                return promise.then(function () {}, function () {});
+            }),
+        ).then(waitForPendingPhotoUploads);
+    }
+
     // The only path the coach door scanner may POST a scanned QR to — see
     // coachCheckin._checkinPathFromScan. Group 1 is the registration id.
     var CHECKIN_API_PATH_RE = /^\/api\/events\/checkin\/(\d+)\/[^\/]+\/$/;
@@ -4785,11 +4889,14 @@ document.addEventListener("alpine:init", function () {
             );
             _photoUploadDeprecationLogged = true;
         }
+        // Serialize writes per slot: a server-side upload must finish before
+        // a later Remove deletes it, and a newer selection follows that delete.
+        var slotOperations = [Promise.resolve(), Promise.resolve(), Promise.resolve()];
         return {
             photos: [
-                { id: 1, hasImage: false, preview: "" },
-                { id: 2, hasImage: false, preview: "" },
-                { id: 3, hasImage: false, preview: "" },
+                { id: 1, hasImage: false, preview: "", uploadGeneration: 0 },
+                { id: 2, hasImage: false, preview: "", uploadGeneration: 0 },
+                { id: 3, hasImage: false, preview: "", uploadGeneration: 0 },
             ],
 
             // Computed getters for CSP compatibility
@@ -4872,57 +4979,119 @@ document.addEventListener("alpine:init", function () {
                 this._handleFileSelect(2, event);
             },
             _handleFileSelect: function (index, event) {
+                // Continue locks the photo step while its writes drain.
+                if (_photoStepAdvancing) {
+                    event.target.value = "";
+                    return;
+                }
                 var file = event.target.files[0];
                 if (file) {
                     var self = this;
                     var photoNumber = index + 1; // Convert 0-indexed to 1-indexed
+                    var generation = ++self.photos[index].uploadGeneration;
+                    var previousOperation = slotOperations[index];
 
-                    // Show preview immediately
+                    // Show preview immediately unless a later Remove or
+                    // selection has already invalidated this FileReader.
                     var reader = new FileReader();
                     reader.onload = function (e) {
+                        if (self.photos[index].uploadGeneration !== generation) return;
                         self.photos[index].preview = e.target.result;
                         self.photos[index].hasImage = true;
                     };
                     reader.readAsDataURL(file);
 
-                    // Upload to server immediately (auto-save)
-                    var formData = new FormData();
-                    formData.append("photo", file);
-                    formData.append("photo_number", photoNumber);
+                    // Downscale/re-encode client-side (max ~2048px long edge,
+                    // JPEG q=0.85) before the auto-save upload — server
+                    // validation is unchanged and still applies to whatever
+                    // arrives. Tracked as a pending upload (see
+                    // trackPendingPhotoUpload above) so the wizard's
+                    // Continue button can wait for it to settle instead of
+                    // advancing past a photo that was never saved.
+                    var uploadPromise = Promise.all([
+                        previousOperation,
+                        resizeImageForUpload(file, 2048, 0.85),
+                    ]).then(function (ready) {
+                        var uploadFile = ready[1];
+                        // The slot was removed (or replaced by a newer
+                        // selection) while this resize was running — do not
+                        // upload a file the member already deleted.
+                        if (self.photos[index].uploadGeneration !== generation) {
+                            return;
+                        }
 
-                    // Get CSRF token
-                    var csrfToken = document.querySelector(
-                        "[name=csrfmiddlewaretoken]",
-                    );
-                    if (csrfToken) {
-                        formData.append("csrfmiddlewaretoken", csrfToken.value);
-                    }
+                        var formData = new FormData();
+                        formData.append("photo", uploadFile, uploadFile.name || file.name);
+                        formData.append("photo_number", photoNumber);
 
-                    fetch("/api/profile/draft/upload-photo/", {
-                        method: "POST",
-                        headers: {
-                            "X-CSRFToken": csrfToken ? csrfToken.value : "",
-                        },
-                        body: formData,
-                    })
-                        .then(function (response) {
-                            return response.json();
+                        // Get CSRF token
+                        var csrfToken = document.querySelector(
+                            "[name=csrfmiddlewaretoken]",
+                        );
+                        if (csrfToken) {
+                            formData.append("csrfmiddlewaretoken", csrfToken.value);
+                        }
+
+                        return fetch("/api/profile/draft/upload-photo/", {
+                            method: "POST",
+                            headers: {
+                                "X-CSRFToken": csrfToken ? csrfToken.value : "",
+                            },
+                            body: formData,
                         })
-                        .then(function (result) {
-                            if (result.success) {
-                                self.photos[index].uploadedUrl = result.photo_url;
-                            } else {
-                                console.error(
-                                    "[PHOTO UPLOAD] ❌ Upload failed:",
-                                    result.error,
+                            .then(function (response) {
+                                return response.json();
+                            })
+                            .then(function (result) {
+                                // Re-check after the round trip too: a
+                                // Remove tapped mid-upload must still win
+                                // over this response.
+                                if (self.photos[index].uploadGeneration !== generation) {
+                                    return;
+                                }
+                                if (result.success) {
+                                    self.photos[index].uploadedUrl = result.photo_url;
+                                    // Replace the native file input's
+                                    // FileList with the resized copy so a
+                                    // final non-JS form submit re-sends the
+                                    // already-uploaded resized file instead
+                                    // of the original (finding 3-16).
+                                    var input = document.getElementById(
+                                        "photo" + photoNumber,
+                                    );
+                                    if (input && typeof DataTransfer !== "undefined") {
+                                        try {
+                                            var dt = new DataTransfer();
+                                            dt.items.add(uploadFile);
+                                            input.files = dt.files;
+                                        } catch (e) {
+                                            // Browser lacks a writable
+                                            // DataTransfer/File constructor
+                                            // pairing — leave the input as
+                                            // the browser set it; the
+                                            // resized copy is still saved
+                                            // server-side via the draft.
+                                        }
+                                    }
+                                } else {
+                                    console.error(
+                                        "[PHOTO UPLOAD] ❌ Upload failed:",
+                                        result.error,
+                                    );
+                                    notifyError(
+                                        gettext("Photo upload failed: ") + result.error,
+                                    );
+                                }
+                            })
+                            .catch(function (err) {
+                                console.error("[PHOTO UPLOAD] ❌ Network error:", err);
+                                notifyError(
+                                    gettext("Photo upload failed. Please try again."),
                                 );
-                                alert(gettext("Photo upload failed: ") + result.error);
-                            }
-                        })
-                        .catch(function (err) {
-                            console.error("[PHOTO UPLOAD] ❌ Network error:", err);
-                            alert(gettext("Photo upload failed. Please try again."));
-                        });
+                            });
+                    });
+                    slotOperations[index] = uploadPromise.then(function () {}, function () {});
+                    trackPendingPhotoUpload(uploadPromise);
                 }
             },
             removePhoto1: function () {
@@ -4935,53 +5104,55 @@ document.addEventListener("alpine:init", function () {
                 this._removePhoto(2);
             },
             _removePhoto: function (index) {
+                if (_photoStepAdvancing) return;
                 var self = this;
                 var photoNumber = index + 1;
+                var removalGeneration = ++self.photos[index].uploadGeneration;
+                var previousOperation = slotOperations[index];
 
                 var clearLocal = function () {
                     self.photos[index].preview = "";
                     self.photos[index].hasImage = false;
                     self.photos[index].uploadedUrl = "";
                     var input = document.getElementById("photo" + photoNumber);
-                    if (input) {
-                        input.value = "";
-                    }
+                    if (input) input.value = "";
                 };
 
-                // Photos auto-upload to the profile the moment they're picked,
-                // so removing one must also delete it server-side — otherwise
-                // it silently reappears on refresh and gets submitted. Always
-                // call the endpoint: deleting an empty slot is a no-op, and a
-                // just-picked file may already have finished uploading.
-                var csrfToken = document.querySelector("[name=csrfmiddlewaretoken]");
-                var formData = new FormData();
-                formData.append("photo_number", photoNumber);
-
-                fetch("/api/profile/draft/delete-photo/", {
-                    method: "POST",
-                    headers: {
-                        "X-CSRFToken": csrfToken ? csrfToken.value : "",
-                    },
-                    body: formData,
-                })
-                    .then(function (response) {
-                        return response.json();
+                // An upload POST may already be running. Its generation
+                // check cannot undo a server write, so issue the delete only
+                // after that POST settles. Later selections queue behind it.
+                var deletePromise = previousOperation.then(function () {
+                    var csrfToken = document.querySelector("[name=csrfmiddlewaretoken]");
+                    var formData = new FormData();
+                    formData.append("photo_number", photoNumber);
+                    return fetch("/api/profile/draft/delete-photo/", {
+                        method: "POST",
+                        headers: {
+                            "X-CSRFToken": csrfToken ? csrfToken.value : "",
+                        },
+                        body: formData,
                     })
-                    .then(function (result) {
-                        if (result.success) {
-                            clearLocal();
-                        } else {
-                            console.error(
-                                "[PHOTO REMOVE] ❌ Delete failed:",
-                                result.error,
-                            );
-                            alert(gettext("Could not remove the photo: ") + result.error);
-                        }
-                    })
-                    .catch(function (err) {
-                        console.error("[PHOTO REMOVE] ❌ Network error:", err);
-                        alert(gettext("Could not remove the photo. Please try again."));
-                    });
+                        .then(function (response) {
+                            return response.json();
+                        })
+                        .then(function (result) {
+                            if (result.success) {
+                                // A newer file may already have been selected.
+                                if (self.photos[index].uploadGeneration === removalGeneration) {
+                                    clearLocal();
+                                }
+                            } else {
+                                console.error("[PHOTO REMOVE] ❌ Delete failed:", result.error);
+                                notifyError(gettext("Could not remove the photo: ") + result.error);
+                            }
+                        })
+                        .catch(function (err) {
+                            console.error("[PHOTO REMOVE] ❌ Network error:", err);
+                            notifyError(gettext("Could not remove the photo. Please try again."));
+                        });
+                });
+                slotOperations[index] = deletePromise.then(function () {}, function () {});
+                trackPendingPhotoUpload(deletePromise);
             },
         };
     });
@@ -5006,9 +5177,6 @@ document.addEventListener("alpine:init", function () {
             locationName: "",
 
             // Step 2 fields tracking
-
-            // Date of birth formatted display (from dobPicker)
-            dobFormatted: "",
 
             // Field-specific error messages
             fieldErrors: {},
@@ -5307,14 +5475,6 @@ document.addEventListener("alpine:init", function () {
                     }
                 });
 
-                // Listen for date of birth selection from dobPicker component
-                window.addEventListener("dob-selected", function (e) {
-                    if (e.detail && e.detail.formatted) {
-                        self.dobFormatted = e.detail.formatted;
-                        self.saveDraft();
-                    }
-                });
-
                 // =========================================================================
                 // DRAFT AUTO-SAVE SETUP
                 // =========================================================================
@@ -5330,6 +5490,95 @@ document.addEventListener("alpine:init", function () {
 
                 // Warn before leaving with unsaved changes
                 self.setupUnloadWarning();
+
+                // Browser/Android back gesture support (finding 3-04): stamp
+                // the landing step as a history entry (replace, not push —
+                // this is the page load, not a navigation) and honour a
+                // #step-N deep link within range. popstate then walks the
+                // wizard back/forward without re-pushing (would loop).
+                try {
+                    var hashMatch = /^#step-([1-4])$/.exec(window.location.hash);
+                    if (hashMatch) {
+                        self.currentStep = parseInt(hashMatch[1], 10);
+                    }
+                    // Codex review finding: seed history for resumed wizard
+                    // steps. A returning user can land directly on step 3 or
+                    // 4 (see stepMap above); a bare replaceState only ever
+                    // records that landing step, so the very first Back
+                    // press has no earlier wizard entry to land on and
+                    // leaves the page instead of walking to step 2/3. Push
+                    // one entry per preceding step first (this is still the
+                    // page load, not a user navigation — pushState here just
+                    // backfills the history stack the wizard would have
+                    // built had the user clicked through from step 1).
+                    // The landing entry itself becomes step 1 (replace), so
+                    // one Back past step 1 leaves the wizard. A reload lands
+                    // on an entry that already carries wizardStep: re-seeding
+                    // it would stack a second set of synthetic entries.
+                    var alreadySeeded =
+                        history.state && history.state.wizardStep;
+                    if (self.currentStep > 1 && !alreadySeeded) {
+                        history.replaceState({ wizardStep: 1 }, "", "#step-1");
+                        for (var seedStep = 2; seedStep <= self.currentStep; seedStep++) {
+                            history.pushState(
+                                { wizardStep: seedStep },
+                                "",
+                                "#step-" + seedStep,
+                            );
+                        }
+                    } else {
+                        history.replaceState(
+                            { wizardStep: self.currentStep },
+                            "",
+                            "#step-" + self.currentStep,
+                        );
+                    }
+                } catch (e) {
+                    // history API unavailable — steps still work without it.
+                }
+                window.addEventListener("popstate", function (e) {
+                    var step =
+                        e.state && e.state.wizardStep
+                            ? e.state.wizardStep
+                            : self.currentStep;
+                    // Review can be reached directly from an edited Event
+                    // Identity step via browser Back. Persist those fields
+                    // before showing a summary that looks ready to submit.
+                    if (self.currentStep === 2 && step === self.totalSteps) {
+                        if (self.isSaving) {
+                            history.replaceState({ wizardStep: 2 }, "", "#step-2");
+                            return;
+                        }
+                        self.saveStep2().then(function (result) {
+                            // A second navigation during the request wins.
+                            if (
+                                self.currentStep !== 2 ||
+                                !history.state ||
+                                history.state.wizardStep !== step
+                            ) {
+                                return;
+                            }
+                            if (result.success) {
+                                self._setStep(step, false);
+                            } else {
+                                // Keep the editable step and its error visible.
+                                history.replaceState({ wizardStep: 2 }, "", "#step-2");
+                            }
+                        });
+                        return;
+                    }
+                    // A browser Back from edited Photos also reaches Review
+                    // directly. Use the same pending-write gate as Continue.
+                    if (self.currentStep === 3 && step === self.totalSteps) {
+                        if (self.isSaving) {
+                            history.replaceState({ wizardStep: 3 }, "", "#step-3");
+                            return;
+                        }
+                        self._completePhotoStep(false);
+                        return;
+                    }
+                    self._setStep(step, false);
+                });
             },
 
             // Initialize field tracking from DOM values
@@ -5397,10 +5646,55 @@ document.addEventListener("alpine:init", function () {
                 }
             },
 
+            // Single choke point for every step transition (finding 3-04):
+            // nextStep/prevStep/goToStep/saveAndNextStep1-3 and the popstate
+            // handler all route through here so the Android/WebView back
+            // gesture always lands on the previous wizard section instead of
+            // exiting the page. pushHistory=false is for popstate itself
+            // (already a history entry) and the initial render.
+            _setStep: function (step, pushHistory) {
+                if (step < 1 || step > this.totalSteps) return;
+                this.currentStep = step;
+                // 3-05 follow-up: landing on Review via the back/forward
+                // gesture or a direct goToStep() must refresh the summary,
+                // the same way saveAndNextStep3 already does on the forward
+                // path — otherwise an edited field can show a stale value.
+                if (step === this.totalSteps) {
+                    this.updateReview();
+                }
+                window.scrollTo({ top: 0, behavior: "smooth" });
+                try {
+                    if (pushHistory) {
+                        history.pushState(
+                            { wizardStep: step },
+                            "",
+                            "#step-" + step,
+                        );
+                    } else {
+                        history.replaceState(
+                            { wizardStep: step },
+                            "",
+                            "#step-" + step,
+                        );
+                    }
+                } catch (e) {
+                    // history API unavailable (e.g. sandboxed preview) — the
+                    // step change above still works, just without deep-linking.
+                }
+                this.$nextTick(function () {
+                    var heading = document.querySelector(
+                        '[data-wizard-step="' + step + '"] h3',
+                    );
+                    if (heading) {
+                        heading.setAttribute("tabindex", "-1");
+                        heading.focus();
+                    }
+                });
+            },
+
             nextStep: function () {
                 if (this.currentStep < this.totalSteps) {
-                    this.currentStep++;
-                    window.scrollTo({ top: 0, behavior: "smooth" });
+                    this._setStep(this.currentStep + 1, true);
                 }
             },
 
@@ -5413,15 +5707,22 @@ document.addEventListener("alpine:init", function () {
 
             prevStep: function () {
                 if (this.currentStep > 1) {
-                    this.currentStep--;
-                    window.scrollTo({ top: 0, behavior: "smooth" });
+                    this._setStep(this.currentStep - 1, true);
                 }
             },
 
             goToStep: function (step) {
-                if (step >= 1 && step <= this.totalSteps) {
-                    this.currentStep = step;
-                    window.scrollTo({ top: 0, behavior: "smooth" });
+                this._setStep(step, true);
+            },
+
+            // CSP-compatible Review-step "Edit" links: reads the target step
+            // from the clicked element's own data attribute (same idiom as
+            // traitSelector.handleClick) instead of an inline goToStep(n)
+            // call, which the CSP build disallows.
+            editSection: function () {
+                var step = parseInt(this.$el.getAttribute("data-goto-step"), 10);
+                if (step) {
+                    this.goToStep(step);
                 }
             },
 
@@ -5443,6 +5744,7 @@ document.addEventListener("alpine:init", function () {
                 };
 
                 var phone = document.querySelector("[name=phone_number]");
+                var dobInput = document.querySelector("[name=date_of_birth]");
                 var genderEl = document.querySelector("[name=gender]:checked");
 
                 var reviewPhone = this.$refs.reviewPhone;
@@ -5457,11 +5759,20 @@ document.addEventListener("alpine:init", function () {
                     reviewPhone.textContent =
                         (phone && phone.value) || emptyLabel(reviewPhone);
                 }
-                if (reviewDob && this.dobFormatted) {
-                    // Only overwrite when the dobPicker produced a formatted
-                    // date this session — otherwise keep the server-rendered
-                    // value (resume-on-Review case).
-                    reviewDob.textContent = this.dobFormatted;
+                if (reviewDob) {
+                    // Native <input type="date"> value is always YYYY-MM-DD.
+                    // Format it for display client-side (no hard-coded copy)
+                    // when it's set this session; otherwise keep the
+                    // server-rendered value (resume-on-Review case).
+                    if (dobInput && dobInput.value) {
+                        var dobDate = new Date(dobInput.value + "T00:00:00");
+                        reviewDob.textContent = dobDate.toLocaleDateString(
+                            document.documentElement.lang || "en",
+                            { day: "numeric", month: "short", year: "numeric" },
+                        );
+                    } else {
+                        reviewDob.textContent = emptyLabel(reviewDob);
+                    }
                 }
                 if (reviewGender) {
                     var genderText = "";
@@ -5552,10 +5863,19 @@ document.addEventListener("alpine:init", function () {
                             reviewPhotos.appendChild(img);
                         }
                     } else {
-                        var p = document.createElement("p");
-                        p.className = "font-medium dark:text-white";
-                        p.textContent = emptyLabel(reviewPhotos);
-                        reviewPhotos.appendChild(p);
+                        // Amber nudge, not a neutral "No photos yet" row — a
+                        // profile with no face is a real conversion/safety
+                        // cost at an events-first product (finding 3-05).
+                        var callout = document.createElement("div");
+                        callout.className =
+                            "flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-700/50 dark:bg-amber-900/20";
+                        var nudge = document.createElement("p");
+                        nudge.className = "text-sm text-amber-800 dark:text-amber-200";
+                        nudge.textContent =
+                            reviewPhotos.getAttribute("data-empty-nudge") ||
+                            emptyLabel(reviewPhotos);
+                        callout.appendChild(nudge);
+                        reviewPhotos.appendChild(callout);
                     }
                 }
             },
@@ -5886,8 +6206,7 @@ document.addEventListener("alpine:init", function () {
                 self.saveStep1().then(function (result) {
                     if (result.success) {
                         self.saveError = "";
-                        self.currentStep = 2;
-                        window.scrollTo({ top: 0, behavior: "smooth" });
+                        self._setStep(2, true);
                     }
                     // Error is already set in saveStep1
                 });
@@ -5900,22 +6219,46 @@ document.addEventListener("alpine:init", function () {
                 self.saveStep2().then(function (result) {
                     if (result.success) {
                         self.saveError = "";
-                        self.currentStep = 3;
-                        window.scrollTo({ top: 0, behavior: "smooth" });
+                        self._setStep(3, true);
                     }
                 });
             },
 
-            // Save Step 3 (Photos) and advance to the Review step.
+            // Save Step 3 (Photos) and advance to the Review step. Waits
+            // for any in-flight photo resize/upload first (finding 3-14):
+            // photoUpload lives in its own nested x-data scope, so without
+            // this the wizard had no way to know an upload was still in
+            // flight and would advance to Review immediately, leaving a
+            // preview of a photo that may never actually get saved.
             saveAndNextStep3: function () {
+                this._completePhotoStep(true);
+            },
+            _completePhotoStep: function (pushHistory) {
                 var self = this;
+                if (self.isSaving) return;
+                self.isSaving = true;
+                _photoStepAdvancing = true;
 
-                self.saveStep3().then(function (result) {
+                waitForPendingPhotoUploads().then(function () {
+                    return self.saveStep3();
+                }).then(function (result) {
+                    _photoStepAdvancing = false;
+                    // The member may navigate elsewhere while the request
+                    // settles; an old completion must not pull them back.
+                    if (self.currentStep !== 3) return;
+                    if (!pushHistory && (!history.state || history.state.wizardStep !== 4)) return;
                     if (result.success) {
                         self.saveError = "";
-                        self.currentStep = 4;
-                        self.updateReview();
-                        window.scrollTo({ top: 0, behavior: "smooth" });
+                        self._setStep(4, pushHistory);
+                    } else if (!pushHistory) {
+                        history.replaceState({ wizardStep: 3 }, "", "#step-3");
+                    }
+                }).catch(function () {
+                    _photoStepAdvancing = false;
+                    self.isSaving = false;
+                    self.saveError = gettext("Failed to save. Please try again.");
+                    if (!pushHistory && self.currentStep === 3) {
+                        history.replaceState({ wizardStep: 3 }, "", "#step-3");
                     }
                 });
             },
@@ -6095,51 +6438,6 @@ document.addEventListener("alpine:init", function () {
                 }
                 if (this.draftData.date_of_birth) {
                     this.dateOfBirth = this.draftData.date_of_birth;
-                    // Format the date for display in review (e.g., "1990-01-15" -> "Jan 15, 1990")
-                    try {
-                        var dateParts = this.draftData.date_of_birth.split("-");
-                        if (dateParts.length === 3) {
-                            var dateObj = new Date(
-                                dateParts[0],
-                                dateParts[1] - 1,
-                                dateParts[2],
-                            );
-                            var months = [
-                                "Jan",
-                                "Feb",
-                                "Mar",
-                                "Apr",
-                                "May",
-                                "Jun",
-                                "Jul",
-                                "Aug",
-                                "Sep",
-                                "Oct",
-                                "Nov",
-                                "Dec",
-                            ];
-                            this.dobFormatted =
-                                months[dateObj.getMonth()] +
-                                " " +
-                                dateObj.getDate() +
-                                ", " +
-                                dateObj.getFullYear();
-                        }
-                    } catch (e) {
-                        this.dobFormatted = this.draftData.date_of_birth; // Fallback to raw value
-                    }
-
-                    // Tell the dobPicker so its stepped UI reflects the
-                    // restored date instead of sitting on the empty
-                    // age-range step.
-                    var dobPickerEl = document.querySelector('[x-data="dobPicker"]');
-                    if (dobPickerEl) {
-                        dobPickerEl.dispatchEvent(
-                            new CustomEvent("dob-restore", {
-                                detail: { value: this.draftData.date_of_birth },
-                            }),
-                        );
-                    }
                 }
                 if (this.draftData.gender) {
                     this.gender = this.draftData.gender;
@@ -7377,6 +7675,16 @@ document.addEventListener("alpine:init", function () {
             // Computed getters for CSP compatibility
             get notVerified() {
                 return !this.verified;
+            },
+            // The resting (unverified, no failed attempt yet) state reads as a
+            // neutral status, not an error — a red "Verification Required"
+            // pill before the member has typed anything reads as "you already
+            // did something wrong". Only a failed verify attempt earns red.
+            get notVerifiedNeutral() {
+                return !this.verified && this.failureCount === 0;
+            },
+            get notVerifiedFailed() {
+                return !this.verified && this.failureCount > 0;
             },
             get showSupportContact() {
                 return this.failureCount >= 2;
@@ -16063,5 +16371,70 @@ document.addEventListener("alpine:init", function () {
                 });
             },
         };
+    });
+
+    // =========================================================================
+    // UX Wave 3 · WP5 (finding 3-13) — screening-call self-booking
+    // (crush_lu/templates/crush_lu/book_screening.html)
+    // =========================================================================
+
+    // One instance per coach block. Slots are plain radio inputs (styled via
+    // Tailwind `peer-checked`, no per-item Alpine expression needed — the CSP
+    // build only allows bare method/property names), this component just
+    // tracks whether something is picked and mirrors the chosen slot's
+    // ISO datetimes into the two hidden fields the form actually submits.
+    // Picking a slot then pressing the sticky "Confirm" button is itself the
+    // two-step confirmation the finding asked for — no second dialog needed.
+    Alpine.data("bookingSlotPicker", function () {
+        return {
+            selectedStart: "",
+            selectedEnd: "",
+            selectedLabel: "",
+            showAll: false,
+
+            get hasSelection() {
+                return !!this.selectedStart;
+            },
+
+            // The CSP-friendly Alpine build forbids expressions (e.g.
+            // "!hasSelection") inside x-bind, so the negation needs its own
+            // bare-name getter — see connectOnboarding.notShowSecondStory
+            // for the same pattern elsewhere in this file.
+            get hasNoSelection() {
+                return !this.hasSelection;
+            },
+
+            get isShowAllHidden() {
+                return !this.showAll;
+            },
+
+            pickSlot: function (event) {
+                var el = event.currentTarget || event.target;
+                this.selectedStart = el.dataset.start || "";
+                this.selectedEnd = el.dataset.end || "";
+                this.selectedLabel = el.dataset.label || "";
+            },
+
+            toggleShowAll: function () {
+                this.showAll = !this.showAll;
+            },
+        };
+    });
+
+    // Cancel-booking confirm, composed from the same makeConfirm mixin
+    // sparkConfirm uses — idle "Cancel booking" link, then an inline
+    // "Yes, cancel / No, keep it" choice before the form actually submits.
+    Alpine.data("bookingCancelConfirm", function () {
+        return mixin(makeConfirm(), {
+            get isInitial() {
+                return this.isIdle;
+            },
+            showConfirm: function () {
+                this.request();
+            },
+            cancel: function () {
+                this.cancelConfirm();
+            },
+        });
     });
 });
