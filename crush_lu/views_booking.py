@@ -9,21 +9,25 @@ Views here are deliberately unauthenticated — the UUID is the credential
 limiting on the confirm POST adds a second line of defence against
 token guessing.
 """
-from datetime import datetime
+
+from datetime import datetime, timezone as dt_timezone
+from urllib.parse import urlencode
 from uuid import UUID
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_http_methods
 
 from .decorators import ratelimit
 from .models import CrushCoach, ProfileSubmission, ScreeningSlot
+from .services.ics_helper import generate_screening_ics
 from .services.slot_generator import bookable_slots
 
 
@@ -69,9 +73,7 @@ def book_screening(request, booking_token):
     # double-booking). Otherwise list bookable slots from hybrid-enabled
     # coaches, preferring their assigned coach at the top.
     existing_booking = (
-        ScreeningSlot.objects.filter(
-            submission=submission, status="booked"
-        )
+        ScreeningSlot.objects.filter(submission=submission, status="booked")
         .select_related("coach__user")
         .first()
     )
@@ -104,7 +106,66 @@ def book_screening(request, booking_token):
         "existing_booking": existing_booking,
         "coach_blocks": coach_blocks,
     }
+    if existing_booking:
+        context["ics_download_url"] = reverse(
+            "crush_lu:download_booking_ics",
+            kwargs={"booking_token": booking_token},
+            urlconf=getattr(request, "urlconf", None),
+        )
+        context["google_calendar_url"] = _google_calendar_url(existing_booking)
     return render(request, "crush_lu/book_screening.html", context)
+
+
+def _google_calendar_url(slot):
+    """Build a 'render'-endpoint Google Calendar link for a booked slot.
+
+    Built server-side (rather than composed in the template) so the `&`-
+    and `%`-heavy query string never has to survive Django's autoescaping.
+    """
+    coach = slot.coach
+    coach_name = (coach.user.get_full_name() or coach.user.username) if coach else ""
+    start_utc = slot.start_at.astimezone(dt_timezone.utc)
+    end_utc = slot.end_at.astimezone(dt_timezone.utc)
+    dates = "{}/{}".format(
+        start_utc.strftime("%Y%m%dT%H%M%SZ"), end_utc.strftime("%Y%m%dT%H%M%SZ")
+    )
+    params = {
+        "action": "TEMPLATE",
+        "text": gettext("Crush.lu screening call with {coach}").format(
+            coach=coach_name
+        ),
+        "dates": dates,
+        "details": gettext(
+            "Your Crush.lu screening call. Manage or cancel it from the "
+            "booking link in your confirmation email."
+        ),
+    }
+    return "https://calendar.google.com/calendar/render?" + urlencode(params)
+
+
+@require_http_methods(["GET"])
+def download_booking_ics(request, booking_token):
+    """Let a member download the same .ics the confirmation email attaches."""
+    submission = _resolve_token(booking_token)
+    slot = (
+        ScreeningSlot.objects.filter(submission=submission, status="booked")
+        .select_related("coach__user")
+        .first()
+    )
+    if not slot:
+        raise Http404("No active booking")
+
+    booking_url = request.build_absolute_uri(
+        reverse(
+            "crush_lu:book_screening",
+            kwargs={"booking_token": booking_token},
+            urlconf=getattr(request, "urlconf", None),
+        )
+    )
+    ics_bytes = generate_screening_ics(submission, slot, booking_url)
+    response = HttpResponse(ics_bytes, content_type="text/calendar; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="crush-screening-call.ics"'
+    return response
 
 
 @require_http_methods(["POST"])
@@ -116,6 +177,14 @@ def confirm_booking(request, booking_token):
     coach_id = request.POST.get("coach_id")
     start_iso = request.POST.get("start_at")
     end_iso = request.POST.get("end_at")
+
+    if not (start_iso and end_iso):
+        # No-JS fallback: the hidden start_at/end_at fields are only
+        # populated by Alpine's x-bind, so without JavaScript they submit
+        # empty. The radio's own value carries "start|end" instead (see
+        # includes/_booking_slot_option.html), so a plain form POST still
+        # resolves to a slot.
+        start_iso, _sep, end_iso = request.POST.get("slot_choice", "").partition("|")
 
     if not (coach_id and start_iso and end_iso):
         messages.error(request, _("Missing slot information. Please try again."))
@@ -137,7 +206,9 @@ def confirm_booking(request, booking_token):
             submission_token=submission.booking_token,
         )
     except ValidationError as exc:
-        messages.error(request, exc.messages[0] if exc.messages else _("Could not book this slot."))
+        messages.error(
+            request, exc.messages[0] if exc.messages else _("Could not book this slot.")
+        )
         return redirect("crush_lu:book_screening", booking_token=booking_token)
     except ProfileSubmission.DoesNotExist:
         raise Http404("Invalid booking token")
@@ -175,7 +246,10 @@ def confirm_booking(request, booking_token):
         messages.error(request, _("This booking link is no longer valid."))
         return redirect("crush_lu:book_screening", booking_token=booking_token)
 
-    messages.success(request, _("Your screening call is booked. Check your email for the calendar invite."))
+    messages.success(
+        request,
+        _("Your screening call is booked. Check your email for the calendar invite."),
+    )
     return redirect("crush_lu:book_screening", booking_token=booking_token)
 
 
@@ -184,9 +258,7 @@ def confirm_booking(request, booking_token):
 def cancel_booking(request, booking_token):
     """Cancel the current screening-call booking (if any)."""
     submission = _resolve_token(booking_token)
-    slot = ScreeningSlot.objects.filter(
-        submission=submission, status="booked"
-    ).first()
+    slot = ScreeningSlot.objects.filter(submission=submission, status="booked").first()
     if not slot:
         messages.info(request, _("No active booking to cancel."))
         return redirect("crush_lu:book_screening", booking_token=booking_token)
@@ -201,7 +273,9 @@ def cancel_booking(request, booking_token):
     )
     submission.save(update_fields=["system_actions"])
 
-    messages.success(request, _("Your booking has been cancelled. You can pick a new slot any time."))
+    messages.success(
+        request, _("Your booking has been cancelled. You can pick a new slot any time.")
+    )
     return redirect("crush_lu:book_screening", booking_token=booking_token)
 
 
@@ -234,6 +308,7 @@ def _send_confirmation_email(submission, slot, request):
             reverse(
                 "crush_lu:book_screening",
                 kwargs={"booking_token": submission.booking_token},
+                urlconf=getattr(request, "urlconf", None),
             )
         )
         coach = slot.coach
@@ -244,7 +319,9 @@ def _send_confirmation_email(submission, slot, request):
             "booking_url": booking_url,
         }
         body_txt = render_to_string("crush_lu/emails/screening_confirmed.txt", context)
-        body_html = render_to_string("crush_lu/emails/screening_confirmed.html", context)
+        body_html = render_to_string(
+            "crush_lu/emails/screening_confirmed.html", context
+        )
 
         send_domain_email(
             subject=str(_("Your Crush.lu screening call is booked")),

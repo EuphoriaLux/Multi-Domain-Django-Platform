@@ -76,7 +76,19 @@ def _input_tag(html, field_id):
 
 
 def _has_autofocus(html, field_id):
-    return re.search(r"\sautofocus\b", _input_tag(html, field_id)) is not None
+    """
+    Whether the server marked this field as the one to focus.
+
+    UX Wave 3 finding 2-08 replaced the literal `autofocus` attribute with
+    `data-autofocus-candidate` + a JS `matchMedia('(pointer: fine)')` gate,
+    so a touch keyboard no longer pops open over the LuxID/Google buttons on
+    page load. The server-side "which field wins" logic this test exercises
+    is unchanged; only the marker attribute moved.
+    """
+    return (
+        re.search(r"\sdata-autofocus-candidate\b", _input_tag(html, field_id))
+        is not None
+    )
 
 
 def _unverified_user(email):

@@ -131,13 +131,16 @@ class CrushProfileForm(forms.ModelForm):
         help_text=_('Required for coach screening and event coordination')
     )
 
-    # Override date_of_birth to ensure correct HTML5 date format
+    # Override date_of_birth to ensure correct HTML5 date format. A single
+    # native <input type="date"> (UX Wave 3 · WP4, finding 3-15) replaces the
+    # old 4-level age-range → year → month → day drill-down in
+    # create_profile.html; min/max are set per-request in __init__ below.
     date_of_birth = forms.DateField(
         required=True,
         widget=forms.DateInput(
             attrs={
                 'type': 'date',
-                'class': TAILWIND_INPUT
+                'class': 'input-crush'
             },
             format='%Y-%m-%d'
         ),
@@ -244,10 +247,42 @@ class CrushProfileForm(forms.ModelForm):
             self.initial['defects_ids'] = ','.join(
                 str(pk) for pk in self.instance.defects.values_list('pk', flat=True)
             )
+        # Native <input type="date"> min/max hints (UX Wave 3 · WP4, finding
+        # 3-15): computed per-request, not at class-definition time, so
+        # "today" never freezes. clean_date_of_birth() below still enforces
+        # 18-99 server-side regardless of what the browser lets through.
+        self._set_date_of_birth_bounds()
         # Lock gender and date_of_birth for approved profiles
         if self.instance and self.instance.pk and self.instance.is_approved:
             self.fields['gender'].disabled = True
             self.fields['date_of_birth'].disabled = True
+
+    def _set_date_of_birth_bounds(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        # Same clock as clean_date_of_birth() and the step-save endpoint, so
+        # the picker and the server agree on the boundary day in any host
+        # timezone.
+        today = timezone.now().date()
+        try:
+            max_dob = today.replace(year=today.year - 18)
+        except ValueError:
+            # Feb 29 with no leap year 18 years back
+            max_dob = today.replace(year=today.year - 18, day=28)
+        # Codex review finding: the earliest DOB clean_date_of_birth() still
+        # accepts is one day after someone's 100th birthday (they're 99
+        # until then, and turn 100 — invalid — on that exact date), not
+        # "today minus 99 years". Subtracting 99 years excludes everyone
+        # born earlier in the current year who is still a valid 99.
+        try:
+            min_dob = today.replace(year=today.year - 100) + timedelta(days=1)
+        except ValueError:
+            # Feb 29 with no leap year 100 years back
+            min_dob = today.replace(year=today.year - 100, day=28) + timedelta(days=1)
+        self.fields['date_of_birth'].widget.attrs['max'] = max_dob.isoformat()
+        self.fields['date_of_birth'].widget.attrs['min'] = min_dob.isoformat()
 
     def clean_event_languages(self):
         """Ensure event_languages is stored as a list for JSON serialization"""
