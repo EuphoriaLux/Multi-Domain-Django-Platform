@@ -261,5 +261,7 @@ class TopBarAndThemeColorTests(TestCase):
             REPO_ROOT / "crush_lu" / "static" / "crush_lu" / "js" / "theme-manager.js"
         ).read_text(encoding="utf-8")
         self.assertIn('meta[name="theme-color"]', js)
-        self.assertIn('dark: "#0f172a"', js)
-        self.assertIn('light: "#9B59B6"', js)
+        # Colours come from the rendered metas, not a second copy of the
+        # brand token (AGENTS.md: brand colours live in four places).
+        self.assertIn("data-theme-color", js)
+        self.assertNotRegex(js, r"#[0-9A-Fa-f]{6}\b")

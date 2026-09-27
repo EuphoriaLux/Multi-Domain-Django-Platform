@@ -32,9 +32,23 @@
         return "light";
     }
 
-    // Status-bar colours of the two <meta name="theme-color"> tags in
-    // base.html (light = brand purple, dark = the slate top bar).
-    var THEME_COLORS = { light: "#9B59B6", dark: "#0f172a" };
+    // Status-bar colours come from the two <meta name="theme-color"> tags in
+    // base.html as rendered (light = brand purple, dark = the slate top bar),
+    // so the brand token stays in its canonical places. Each meta's original
+    // value is kept in data-theme-color before it is ever overwritten.
+    function themeColors(metas) {
+        var colors = {};
+        for (var i = 0; i < metas.length; i++) {
+            var meta = metas[i];
+            if (!meta.hasAttribute("data-theme-color")) {
+                meta.setAttribute("data-theme-color", meta.getAttribute("content") || "");
+            }
+            var media = meta.getAttribute("media") || "";
+            colors[media.indexOf("dark") !== -1 ? "dark" : "light"] =
+                meta.getAttribute("data-theme-color");
+        }
+        return colors;
+    }
 
     /**
      * Point the browser/status bar colour at the page theme. With no manual
@@ -43,10 +57,14 @@
      */
     function syncThemeColor(theme, overridden) {
         var metas = document.querySelectorAll('meta[name="theme-color"]');
+        var colors = themeColors(metas);
         for (var i = 0; i < metas.length; i++) {
             var media = metas[i].getAttribute("media") || "";
             var own = media.indexOf("dark") !== -1 ? "dark" : "light";
-            metas[i].setAttribute("content", THEME_COLORS[overridden ? theme : own]);
+            var color = colors[overridden ? theme : own];
+            if (color) {
+                metas[i].setAttribute("content", color);
+            }
         }
     }
 

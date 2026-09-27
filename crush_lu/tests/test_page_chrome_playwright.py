@@ -264,6 +264,22 @@ def test_drill_down_top_bar_shows_back_and_title(browser, live_server, path, tit
     assert box == [48, 0], box
 
 
+def test_top_bar_back_works_from_the_keyboard(browser, live_server):
+    page = _page(browser, live_server, _member())
+    _open(page, f"{live_server.url}/en/dashboard/")
+    _open(page, f"{live_server.url}/en/notifications/")
+    back = page.locator(".top-bar-mobile-back")
+    expect(back).to_be_visible()
+    expect(back).to_have_attribute("type", "button")
+    back.focus()
+    assert page.evaluate(
+        "() => document.activeElement.classList.contains('top-bar-mobile-back')"
+    )
+    with page.expect_navigation():
+        page.keyboard.press("Enter")
+    assert page.url.endswith("/en/dashboard/"), page.url
+
+
 def test_account_settings_has_no_mobile_back_pill(browser, live_server):
     page = _page(browser, live_server, _member())
     _open(page, f"{live_server.url}/en/account/settings/")
