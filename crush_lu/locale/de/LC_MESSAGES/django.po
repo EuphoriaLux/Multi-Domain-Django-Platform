@@ -2609,11 +2609,6 @@ msgstr "Optional: ihre@email.com"
 msgid "Recipient Email (Optional)"
 msgstr "Empfaenger-E-Mail (Optional)"
 
-#: forms.py:1164
-msgid "We can send them a notification when you create the gift."
-msgstr ""
-"Wir koennen eine Benachrichtigung senden, wenn du das Geschenkerstellst."
-
 #: forms.py:1174
 msgid "Photo Puzzle Image"
 msgstr "Foto-Puzzle-Bild"
@@ -13548,16 +13543,6 @@ msgstr ""
 "Dating-Plattform. Vorgestellt in Virgule.lu und LuxTimes. Gegründet von Tom "
 "Sawyer und Wesley Hourdequin."
 
-#: templates/crush_lu/about.html:9
-msgid ""
-"About Crush.lu: Founded by Tom Sawyer and Wesley Hourdequin, featured in "
-"Virgule.lu and LuxTimes. Luxembourg's privacy-first dating platform with "
-"coach-verified profiles and real events."
-msgstr ""
-"Über Crush.lu: Gegründet von Tom Sawyer und Wesley Hourdequin, vorgestellt "
-"in Virgule.lu und LuxTimes. Luxemburgs datenschutzorientierte Dating-"
-"Plattform mit Coach-verifizierten Profilen und echten Veranstaltungen."
-
 #: templates/crush_lu/about.html:10
 msgid ""
 "about crush.lu, Tom Sawyer crush.lu, Wesley Hourdequin, crush.lu founders, "
@@ -13644,16 +13629,6 @@ msgstr ""
 "einer Welt des endlosen Swipens und oberflächlicher Matches verfolgt "
 "Crush.lu einen anderen Ansatz. Wir glauben, dass echte Beziehungen mit "
 "echten Gesprächen beginnen, von Angesicht zu Angesicht."
-
-#: templates/crush_lu/about.html:149
-msgid ""
-"Every profile is personally verified. Every event is thoughtfully organized."
-" Every connection is meaningful. That's not an algorithm's promise - it's "
-"our commitment."
-msgstr ""
-"Jedes Profil wird persönlich verifiziert. Jede Veranstaltung wird sorgfältig"
-" organisiert. Jede Verbindung ist bedeutungsvoll. Das ist kein Versprechen "
-"eines Algorithmus - es ist unser Engagement."
 
 #: templates/crush_lu/about.html:154
 msgid ""
@@ -13818,11 +13793,6 @@ msgid "Or instant verification with LuxID, Luxembourg's official login"
 msgstr ""
 "Oder sofortige Verifizierung mit LuxID, dem offiziellen Login in Luxemburg"
 
-#: templates/crush_lu/about.html:284
-msgid "Every member verified before they join — real people only"
-msgstr ""
-"Jedes Mitglied wird verifiziert, bevor es beitritt — nur echte Menschen"
-
 #: templates/crush_lu/about.html:285
 msgid "No bots, no catfishing, no fake accounts"
 msgstr "Keine Bots, kein Catfishing, keine gefälschten Konten"
@@ -13888,14 +13858,6 @@ msgstr ""
 #: templates/crush_lu/home.html:113
 msgid "Privacy First"
 msgstr "Datenschutz an erster Stelle"
-
-#: templates/crush_lu/about.html:325
-msgid ""
-"In a small country, discretion matters. Control your visibility, blur your "
-"photos, and choose exactly what you share."
-msgstr ""
-"In einem kleinen Land ist Diskretion wichtig. Kontrolliere deine "
-"Sichtbarkeit, verpixle deine Fotos und wähle genau aus, was du teilst."
 
 #: templates/crush_lu/about.html:331
 msgid "Multicultural"
@@ -15458,13 +15420,6 @@ msgstr "Rechtliches"
 #: templates/crush_lu/partials/edit_about_crushlu.html:110
 msgid "Data Deletion"
 msgstr "Datenlöschung"
-
-#: templates/crush_lu/base.html:1289
-#: templates/crush_lu/partials/edit_about_crushlu.html:123
-msgid "Your privacy matters. All profiles are reviewed by our Crush Coaches."
-msgstr ""
-"Deine Privatsphäre ist uns wichtig. Alle Profile werden von unseren Crush-"
-"Coaches überprüft."
 
 #: templates/crush_lu/base.html:1326
 msgid "&copy; 2026 Crush.lu - Made with 💕 in Luxembourg"
@@ -27660,10 +27615,6 @@ msgstr ""
 msgid "Simple Steps"
 msgstr "Einfache Schritte"
 
-#: templates/crush_lu/how_it_works.html:108
-msgid "Verified Profiles"
-msgstr "Verifizierte Profile"
-
 #: templates/crush_lu/how_it_works.html:122
 msgid ""
 "Share who you are, what you love, and what you're looking for. Add photos "
@@ -27708,18 +27659,6 @@ msgstr "Kontrolliere, welche Informationen du teilst"
 #: templates/crush_lu/how_it_works.html:187
 msgid "Show full name or just first name"
 msgstr "Vollständigen Namen oder nur Vornamen anzeigen"
-
-#: templates/crush_lu/how_it_works.html:188
-msgid "Blur photos until mutual interest"
-msgstr "Halte Fotos unscharf, bis beidseitiges Interesse besteht"
-
-#: templates/crush_lu/how_it_works.html:189
-msgid "No public profiles browsing"
-msgstr "Kein Durchsuchen öffentlicher Profile"
-
-#: templates/crush_lu/how_it_works.html:190
-msgid "Event-based connections only"
-msgstr "Nur ereignisbasierte Verbindungen"
 
 #: templates/crush_lu/how_it_works.html:196
 msgid "Community Standards"
@@ -30598,10 +30537,6 @@ msgstr ""
 "und ein Coach verifiziert dich von Angesicht zu Angesicht. Auf die Plätze, "
 "fertig, los: Danach kannst du die Person kennenlernen, die dein Crush wird."
 
-#: templates/crush_lu/partials/_verification_options.html:95
-msgid "4 weeks, a new hand-picked match every week"
-msgstr "4 Wochen, jede Woche ein neuer, handverlesener Match"
-
 #: templates/crush_lu/partials/_verification_options.html:97
 msgid ""
 "Thanks to LuxID, join Crush Connect in a few clicks. A Crush Coach will "
@@ -32909,18 +32844,6 @@ msgstr "Unsere Nutzungsbedingungen lesen"
 msgid "Profile Submitted - Crush.lu"
 msgstr "Profil eingereicht - Crush.lu"
 
-#: templates/crush_lu/profile_submitted.html:35
-msgid "Your profile is ready — now get verified"
-msgstr "Dein Profil ist fertig — jetzt verifizieren"
-
-#: templates/crush_lu/profile_submitted.html:36
-msgid ""
-"One last step to activate your Crush.lu profile and start meeting real "
-"people."
-msgstr ""
-"Nur noch ein Schritt, um dein Crush.lu-Profil zu aktivieren und echte "
-"Menschen kennenzulernen."
-
 #: templates/crush_lu/profile_submitted.html:44
 msgid "LuxID connected"
 msgstr "LuxID verbunden"
@@ -33223,11 +33146,6 @@ msgstr "Weiterleitung zu deinem Dashboard in"
 #: templates/crush_lu/profile_submitted.html:679
 msgid "seconds…"
 msgstr "Sekunden"
-
-#: templates/crush_lu/profile_submitted.html:691
-msgid "Your profile needs some updates before it can be approved."
-msgstr ""
-"Dein Profil benötigt einige Aktualisierungen, bevor es genehmigtwerden kann."
 
 #: templates/crush_lu/profile_submitted.html:721
 msgid ""
@@ -42438,6 +42356,146 @@ msgstr "Die Anteile Frauen/Männer zeigen, wie viel Prozent aller abstimmenden F
 #, python-format
 msgid "Women %(women)s%% · Men %(men)s%%"
 msgstr "Frauen %(women)s%% · Männer %(men)s%%"
+
+#: forms.py:1164
+msgid "We'll email them the gift. Only enter an address if they know you're sending this."
+msgstr "Wir schicken das Geschenk per E-Mail. Gib nur eine Adresse ein, wenn die Person weiß, dass du es sendest."
+
+#: crush_lu/views_journey_gift.py
+msgid "You can send a Wonderland gift once a coach has approved your profile."
+msgstr "Du kannst ein Wonderland-Geschenk senden, sobald ein Coach dein Profil freigegeben hat."
+
+#: crush_lu/views_journey_gift.py
+msgid "Thanks for letting us know. This gift is now closed and our team has been notified."
+msgstr "Danke für den Hinweis. Dieses Geschenk ist jetzt geschlossen und unser Team wurde informiert."
+
+#: crush_lu/views_journey_gift.py
+msgid "This gift is no longer active."
+msgstr "Dieses Geschenk ist nicht mehr aktiv."
+
+#: crush_lu/views_journey_gift.py
+msgid "We couldn't send your report right now. The gift is still open. Please try again in a moment."
+msgstr "Wir konnten deine Meldung gerade nicht senden. Das Geschenk ist noch offen. Bitte versuche es gleich noch einmal."
+
+#: crush_lu/templates/crush_lu/journey/partials/gift_sender_badge.html
+#, python-format
+msgid "Created by %(name)s"
+msgstr "Erstellt von %(name)s"
+
+#: crush_lu/templates/crush_lu/journey/partials/gift_sender_badge.html
+msgid "verified Crush.lu member"
+msgstr "verifiziertes Crush.lu-Mitglied"
+
+#: crush_lu/templates/crush_lu/journey/partials/gift_report_form.html
+msgid "Close this gift and let the Crush.lu team know? The link will stop working."
+msgstr "Dieses Geschenk schließen und das Crush.lu-Team informieren? Der Link funktioniert dann nicht mehr."
+
+#: crush_lu/templates/crush_lu/journey/partials/gift_report_form.html
+msgid "Close and report"
+msgstr "Schließen und melden"
+
+#: crush_lu/templates/crush_lu/journey/partials/gift_report_form.html
+msgid "This isn't for me / Report"
+msgstr "Das ist nicht für mich / Melden"
+
+#: templates/crush_lu/about.html:9
+msgid ""
+"About Crush.lu: Founded by Tom Sawyer and Wesley Hourdequin, featured in "
+"Virgule.lu and LuxTimes. Luxembourg's privacy-first dating platform with "
+"verified profiles and real events."
+msgstr ""
+"Über Crush.lu: Gegründet von Tom Sawyer und Wesley Hourdequin, vorgestellt "
+"in Virgule.lu und LuxTimes. Luxemburgs datenschutzorientierte Dating-"
+"Plattform mit verifizierten Profilen und echten Veranstaltungen."
+
+#: templates/crush_lu/about.html:149
+msgid ""
+"Members are verified instantly with LuxID or in person at an event. Every "
+"event is thoughtfully organized. Every connection is meaningful. That's not "
+"an algorithm's promise - it's our commitment."
+msgstr ""
+"Mitglieder werden sofort mit LuxID oder persönlich bei einer Veranstaltung "
+"verifiziert. Jede Veranstaltung wird sorgfältig organisiert. Jede Verbindung "
+"ist bedeutungsvoll. Das ist kein Versprechen eines Algorithmus - es ist unser"
+" Engagement."
+
+#: templates/crush_lu/about.html:284
+msgid "Crush Connect only matches verified members — real people only"
+msgstr ""
+"Crush Connect bringt nur verifizierte Mitglieder zusammen — nur echte "
+"Menschen"
+
+#: templates/crush_lu/about.html:325
+msgid ""
+"In a small country, discretion matters. No public browsing: your photos are "
+"never public or shown to search engines, you need a Crush.lu account to see "
+"them, and Crush Connect asks before showing your photo to your matches."
+msgstr ""
+"In einem kleinen Land ist Diskretion wichtig. Kein öffentliches Durchstöbern:"
+" Deine Fotos sind nie öffentlich und werden nie Suchmaschinen gezeigt, man "
+"braucht ein Crush.lu-Konto, um sie zu sehen, und Crush Connect fragt dich, "
+"bevor dein Foto deinen Matches gezeigt wird."
+
+#: templates/crush_lu/base.html:1289
+#: templates/crush_lu/partials/edit_about_crushlu.html:123
+msgid ""
+"Your privacy matters. Members are verified instantly with LuxID or in person "
+"at an event."
+msgstr ""
+"Deine Privatsphäre ist uns wichtig. Mitglieder werden sofort mit LuxID oder "
+"persönlich bei einer Veranstaltung verifiziert."
+
+#: templates/crush_lu/how_it_works.html:108
+msgid "Verified with LuxID or in person"
+msgstr "Verifiziert per LuxID oder persönlich"
+
+#: templates/crush_lu/how_it_works.html:188
+msgid ""
+"Your photos are never public or shown to search engines — you need a Crush.lu"
+" account to see them, and Crush Connect asks before showing your photo to "
+"your matches."
+msgstr ""
+"Deine Fotos sind nie öffentlich und werden nie Suchmaschinen gezeigt – um sie"
+" zu sehen, braucht man ein Crush.lu-Konto, und Crush Connect fragt dich, "
+"bevor dein Foto deinen Matches gezeigt wird."
+
+#: templates/crush_lu/how_it_works.html:189
+msgid "No public search or profile browsing"
+msgstr "Keine öffentliche Suche und kein Durchstöbern von Profilen"
+
+#: templates/crush_lu/how_it_works.html:190
+msgid "Contact details are only shared when you both agree"
+msgstr "Kontaktdaten werden nur geteilt, wenn ihr beide zustimmt"
+
+#: templates/crush_lu/profile_submitted.html
+msgid "Your profile is ready. Next: complete your Premium membership."
+msgstr ""
+"Dein Profil ist fertig. Nächster Schritt: Schließ deine Premium-"
+"Mitgliedschaft ab."
+
+#: templates/crush_lu/profile_submitted.html
+msgid "Your profile is ready. Next: get verified at an event."
+msgstr ""
+"Dein Profil ist fertig. Nächster Schritt: Lass dich bei einem Event "
+"verifizieren."
+
+#: templates/crush_lu/profile_submitted.html
+msgid "Your profile is ready. Next: get verified at an event or with LuxID."
+msgstr ""
+"Dein Profil ist fertig. Nächster Schritt: Lass dich bei einem Event oder mit"
+" LuxID verifizieren."
+
+#: templates/crush_lu/partials/_verification_options.html
+msgid "A hand-picked match every week — first month free"
+msgstr "Jede Woche ein handverlesener Match — der erste Monat ist gratis"
+
+#: templates/crush_lu/profile_rejected.html
+msgid "Delete my profile and data"
+msgstr "Mein Profil und meine Daten löschen"
+
+#: templates/crush_lu/auth.html
+msgid "≈ 15 min to set up · Get verified at your first event"
+msgstr "≈ 15 Min. zum Einrichten · Verifiziert bei deinem ersten Event"
 
 # UX Wave 3 · WP8
 #: crush_lu/templates/crush_lu/event_detail.html crush_lu/templates/crush_lu/event_ticket.html
