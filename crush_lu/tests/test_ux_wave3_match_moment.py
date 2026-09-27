@@ -126,6 +126,42 @@ class ConsentStepTests(TestCase):
         self.connection.refresh_from_db()
         self.assertTrue(self.connection.requester_shares_email)
 
+    def test_not_now_on_a_shared_connection_is_a_no_op(self):
+        """Review finding (WP10 blocker): the consent POST — both the
+        "not now" branch and the yes/no branch — must only act on a
+        connection still at `coach_approved`. A stale page, a double
+        submit, or a reopened tab could otherwise POST against a
+        connection that has already reached `shared` (contacts already
+        exchanged) and force it straight back to `declined`."""
+        self.connection.status = "shared"
+        self.connection.requester_consents_to_share = True
+        self.connection.recipient_consents_to_share = True
+        self.connection.save()
+
+        response = self.client.post(
+            self._detail_url(),
+            {"consent": "not_now"},
+            HTTP_HOST="crush.lu",
+        )
+        self.assertEqual(response.status_code, 302)
+        self.connection.refresh_from_db()
+        self.assertEqual(self.connection.status, "shared")
+
+    def test_yes_on_a_shared_connection_is_a_no_op(self):
+        self.connection.status = "shared"
+        self.connection.requester_consents_to_share = True
+        self.connection.recipient_consents_to_share = True
+        self.connection.save()
+
+        response = self.client.post(
+            self._detail_url(),
+            {"consent": "yes", "share_email": "on"},
+            HTTP_HOST="crush.lu",
+        )
+        self.assertEqual(response.status_code, 302)
+        self.connection.refresh_from_db()
+        self.assertEqual(self.connection.status, "shared")
+
     def test_shared_connection_hides_email_when_other_side_opted_out(self):
         # Recipient consents without sharing email; requester consents with it.
         self.connection.recipient_consents_to_share = True

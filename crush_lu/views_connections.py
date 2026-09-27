@@ -1005,15 +1005,39 @@ def connection_detail(request, connection_id):
 
         # Handle consent
         if "consent" in request.POST:
+            # WP10 review (finding 5-10/10-blocker): the consent step, and
+            # its "Not now" exit, only ever make sense at `coach_approved` —
+            # the same status the template's own `user_needs_consent` gate
+            # requires before it shows this form at all. Without this guard
+            # a stale page (another tab, a double-submit, or a page reopened
+            # after the introduction already completed) could POST "not_now"
+            # or a yes/no choice against a `shared` connection and force it
+            # straight back to `declined`, undoing an introduction whose
+            # contact info was already exchanged. No-op with a stale-page
+            # notice instead.
+            if connection.status != "coach_approved":
+                messages.info(
+                    request,
+                    _(
+                        "This connection has already moved on — refresh the page to see its current status."
+                    ),
+                )
+                return redirect(
+                    "crush_lu:connection_detail", connection_id=connection_id
+                )
+
             consent_choice = request.POST.get("consent")
 
             # "Not now" (finding 5-10): a graceful exit from the consent step.
             # It quietly closes the lead — the other side is never notified
             # (mirrors the plain decline path, which also sends no
-            # notification). The connection becomes visible to the coach the
-            # same passive way any declined connection already is (the "all"
-            # filter on coach_connections) — no active notification fires,
-            # so the copy below must not claim one does.
+            # notification). There is currently no coach-facing view of a
+            # quiet decline: coach_connections' "all" filter excludes
+            # status="declined" outright, so this state is invisible to
+            # coaches under every filter option today. Whether coaches
+            # should see it — and how to tell it apart from a mutual
+            # decline — is an open product question (see
+            # findings_deferred), not something this fix invents.
             if consent_choice == "not_now":
                 connection.status = "declined"
                 connection.save()
