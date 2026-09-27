@@ -24,7 +24,7 @@
                 <a href="{% url 'crush_lu:connect_week_chat_detail' chat.pk %}"
                    class="flex items-center gap-4 rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200/60 dark:ring-slate-700/60 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 transition-colors">
                     <div class="w-14 h-14 shrink-0 rounded-xl overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
-                        {% profile_photo chat.partner.crushprofile 'photo_1' css_class='w-full h-full object-cover' alt_text=chat.partner.first_name %}
+                        {% profile_photo chat.partner.crushprofile 'photo_1' css_class='w-full h-full object-cover' alt_text=chat.partner.first_name hide_photo=chat.partner_photo_hidden %}
                     </div>
                     <div class="flex-1 min-w-0">
                         <p class="font-semibold text-gray-900 dark:text-white mb-0.5 truncate">
