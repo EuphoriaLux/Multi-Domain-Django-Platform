@@ -66,10 +66,23 @@ class UnifiedAuthView(LoginView):
                     _('Too many login attempts. Please try again in %(wait)s.')
                     % {'wait': humanize_wait_seconds(wait)},
                 )
+                # UX Wave 3 · WP3 review (P2): carry the validated `next`
+                # redirect target through the throttled response too, the
+                # same way NextRedirectMixin.get_context_data() would have -
+                # this branch bypasses it by building context by hand, so a
+                # user who was sent here from a protected page and retries
+                # after waiting must not land on the default destination.
+                from allauth.utils import get_request_param
+
+                redirect_field_value = get_request_param(
+                    self.request, self.redirect_field_name
+                )
                 context = {
                     'signup_form': CrushSignupForm(),
                     'login_form': login_form,
                     'mode': 'login',
+                    'redirect_field_name': self.redirect_field_name,
+                    'redirect_field_value': redirect_field_value,
                 }
                 response = self.render_to_response(context)
                 response.status_code = 429

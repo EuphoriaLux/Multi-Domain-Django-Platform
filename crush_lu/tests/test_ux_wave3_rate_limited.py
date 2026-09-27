@@ -76,6 +76,38 @@ class LoginRateLimitTests(TestCase):
         self.assertEqual(response.status_code, 429)
         self.assertIn("Trop de tentatives de connexion", response.content.decode())
 
+    def test_login_retries_preserve_the_next_redirect(self):
+        """Review finding (P2, crush_lu/urls.py): the throttled 429 re-render
+        used to build its context by hand and skip NextRedirectMixin, so a
+        `?next=` target from a protected-page redirect silently vanished -
+        the retry after waiting landed on the default destination instead.
+        """
+        for _ in range(5):
+            self.client.post(
+                "/en/login/",
+                {
+                    "login": "nobody@example.com",
+                    "password": "wrong",
+                    "next": "/en/crush-connect/",
+                },
+            )
+
+        response = self.client.post(
+            "/en/login/",
+            {
+                "login": "nobody@example.com",
+                "password": "wrong",
+                "next": "/en/crush-connect/",
+            },
+        )
+
+        self.assertEqual(response.status_code, 429)
+        content = response.content.decode()
+        self.assertIn(
+            '<input type="hidden" name="next" value="/en/crush-connect/">',
+            content,
+        )
+
 
 @override_settings(
     CACHES={
@@ -181,6 +213,51 @@ class PasswordResetRateLimitTests(TestCase):
         # again in N minutes.' as bare text/plain, no way back.
         self.assertIn("Back to login", content)
         self.assertIn("Too many attempts", content)
+
+
+@override_settings(
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "test-ux-wave3-rate-limited-pwreset-other-hosts",
+        }
+    },
+)
+class PasswordResetRateLimitOtherHostsTests(TestCase):
+    """Review finding (P1, azureproject/middleware.py): password reset is
+    mounted via base_patterns on every domain, but crush_lu/rate_limited.html
+    extends crush_lu/base.html and its {% url 'crush_lu:...' %} tags only
+    resolve under the crush urlconf - rendering it under another host's
+    urlconf used to raise NoReverseMatch and turn the 429 into a 500.
+    """
+
+    def test_fourth_attempt_on_non_crush_host_stays_a_429(self):
+        for host in (
+            "entreprinder.lu",
+            "power-up.lu",
+            "arborist.lu",
+            "delegations.lu",
+            "portal.powerup.lu",
+        ):
+            with self.subTest(host=host):
+                cache.clear()
+                client = Client(HTTP_HOST=host)
+                for _ in range(3):
+                    client.post(
+                        "/accounts/password/reset/", {"email": "nobody@example.com"}
+                    )
+
+                response = client.post(
+                    "/accounts/password/reset/", {"email": "nobody@example.com"}
+                )
+
+                self.assertEqual(response.status_code, 429)
+                self.assertIn("Retry-After", response)
+                # Old behaviour on these hosts: NoReverseMatch -> 500, and
+                # the response never reached this Content-Type check.
+                self.assertEqual(
+                    response.get("Content-Type", "").split(";")[0], "text/plain"
+                )
 
 
 @override_settings(

@@ -42761,3 +42761,8 @@ msgstr "environ 1 minute"
 msgid "about %(minutes)d minutes"
 msgstr "environ %(minutes)d minutes"
 
+# UX Wave 3 · WP3 review (P1)
+#: azureproject/middleware.py
+#, python-format
+msgid "Too many attempts. Please try again in %(wait)s."
+msgstr "Trop de tentatives. Veuillez réessayer dans %(wait)s."
