@@ -356,11 +356,13 @@ PRIVILEGE_AUDIT_SQL = {
     ),
     # Any sequence privilege, in every schema: sequences default to owner-only
     # access, so a readable or advanceable one was granted somewhere.
+    # Drive the check from pg_sequence: PostgreSQL may evaluate a WHERE clause
+    # before c.relkind = 'S', and has_sequence_privilege rejects table OIDs.
     "sequences": (
-        "SELECT n.nspname, c.relname FROM pg_class c "
+        "SELECT n.nspname, c.relname FROM pg_sequence s "
+        "JOIN pg_class c ON c.oid = s.seqrelid "
         "JOIN pg_namespace n ON n.oid = c.relnamespace "
-        "WHERE c.relkind = 'S' "
-        "AND has_sequence_privilege(%(role)s, c.oid, 'SELECT,USAGE,UPDATE')"
+        "WHERE has_sequence_privilege(%(role)s, s.seqrelid, 'SELECT,USAGE,UPDATE')"
     ),
     # CREATE on this database (which ownership implies) would let the login
     # create a schema of its own; existing-schema CREATE is checked below.
