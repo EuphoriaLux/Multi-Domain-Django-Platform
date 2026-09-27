@@ -2393,27 +2393,33 @@ document.addEventListener("alpine:init", function () {
                         return;
                     }
                     // This watcher and the x-show effect both react to the
-                    // same `visible` change; effect order between them isn't
-                    // guaranteed, so reading offsetHeight here can still see
-                    // the pre-toggle display:none. $nextTick runs after
-                    // Alpine's DOM patch, once layout reflects the new state.
-                    self.$nextTick(function () {
-                        // The bar is md:hidden, so on >=768px `visible` can
-                        // flip true while offsetHeight is still 0 (display:
-                        // none) — never write a bottom offset in that case,
-                        // or the desktop toast stack (lg:bottom-auto
-                        // lg:top-4) picks up an inline `bottom` it never had.
-                        var barHeight = value ? self.$el.offsetHeight : 0;
-                        if (barHeight > 0) {
-                            toast.style.setProperty(
-                                "bottom",
-                                "calc(var(--bottom-nav-height) + " +
-                                    barHeight +
-                                    "px + env(safe-area-inset-bottom, 0px))",
-                            );
-                        } else {
-                            toast.style.removeProperty("bottom");
-                        }
+                    // same `visible` change, but x-show always applies its
+                    // style mutation on a requestAnimationFrame callback
+                    // (even with no x-transition), which runs AFTER a plain
+                    // $nextTick's microtask — so offsetHeight below would
+                    // still read the pre-toggle 0. Wait two frames instead:
+                    // one for x-show's own rAF, one more so the resulting
+                    // layout has actually been computed before we read it.
+                    requestAnimationFrame(function () {
+                        requestAnimationFrame(function () {
+                            // The bar is md:hidden, so on >=768px `visible`
+                            // can flip true while offsetHeight is still 0
+                            // (display:none) — never write a bottom offset
+                            // in that case, or the desktop toast stack
+                            // (lg:bottom-auto lg:top-4) picks up an inline
+                            // `bottom` it never had.
+                            var barHeight = value ? self.$el.offsetHeight : 0;
+                            if (barHeight > 0) {
+                                toast.style.setProperty(
+                                    "bottom",
+                                    "calc(var(--bottom-nav-height) + " +
+                                        barHeight +
+                                        "px + env(safe-area-inset-bottom, 0px))",
+                                );
+                            } else {
+                                toast.style.removeProperty("bottom");
+                            }
+                        });
                     });
                 });
                 var panel = document.getElementById("event-cta-panel");

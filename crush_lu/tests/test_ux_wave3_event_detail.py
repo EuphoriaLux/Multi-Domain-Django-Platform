@@ -159,6 +159,18 @@ class StickyCtaToastOffsetTests(EventDetailWave3TestBase):
         # Must guard offsetHeight == 0 (bar is md:hidden, so IntersectionObserver
         # can flip `visible` true on desktop while the bar itself is display:none).
         self.assertIn("barHeight > 0", component_src)
+        # x-show always defers its own style mutation through
+        # requestAnimationFrame (even with no x-transition), which runs AFTER
+        # a plain $nextTick microtask — so offsetHeight must be read after at
+        # least two animation frames, not via $nextTick alone, or it still
+        # sees the pre-toggle height (0 on show, stale on hide).
+        self.assertIn("requestAnimationFrame(function () {", component_src)
+        self.assertEqual(
+            component_src.count("requestAnimationFrame("),
+            2,
+            "offsetHeight must be read after two animation frames, "
+            "not one — a single rAF can still race x-show's own",
+        )
 
 
 class VerificationDeadEndLinksTests(EventDetailWave3TestBase):
