@@ -455,6 +455,8 @@
                                     <p class="font-semibold text-sm sm:text-base mb-1">{% trans "You're in!" %}</p>
                                     <p class="text-xs sm:text-sm mb-2">{% trans "We've sent a confirmation email with all the event details." %}</p>
                                     <a href="{% url 'crush_lu:event_ticket' event.id %}" class="btn-crush-solid btn-sm inline-flex">{% trans "View my ticket" %}</a>
+                                    {% elif reg_tone == 'cancelled' %}
+                                    <p class="font-semibold text-sm sm:text-base mb-1">{% trans "This event has been cancelled." %}</p>
                                     {% else %}
                                     <p class="font-semibold text-sm sm:text-base mb-1">{% trans "You're registered for this event!" %}</p>
                                     <p class="text-xs sm:text-sm">{% blocktrans with status=user_registration.get_status_display %}Status: {{ status }}{% endblocktrans %}</p>

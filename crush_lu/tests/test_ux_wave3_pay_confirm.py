@@ -398,3 +398,32 @@ class AlreadyPaidRegistrationTests(SumUpReturnRetryCopyTests):
         texts = [str(m) for m in response.context["messages"]]
         self.assertFalse(any("Your spot is reserved" in t for t in texts), texts)
         self.assertTrue(any("already paid" in t for t in texts), texts)
+
+
+class CancelledAndFreeEventToneTests(PayConfirmTestBase):
+    """Codex round 3 on #1071: a cancelled event must not get a positive
+    tone, and a fee removed after checkout makes the seat unpayable."""
+
+    def test_cancelled_event_gets_the_cancelled_tone(self):
+        from crush_lu.templatetags.registration_status_tags import registration_tone
+
+        self.registration.status = "confirmed"
+        self.registration.payment_confirmed = True
+        self.event.is_cancelled = True
+        self.assertEqual(registration_tone(self.registration, self.event), "cancelled")
+
+    def test_cancelled_event_detail_says_cancelled_not_youre_in(self):
+        self.registration.status = "confirmed"
+        self.registration.payment_confirmed = True
+        self.registration.save()
+        self.event.is_cancelled = True
+        self.event.save()
+        self.client.force_login(self.user)
+        response = self.client.get(f"/en/events/{self.event.pk}/", HTTP_HOST="crush.lu")
+        self.assertContains(response, "This event has been cancelled.")
+        self.assertNotContains(response, "You&#x27;re in!")
+        self.assertNotContains(response, "View my ticket")
+
+    def test_fee_removed_after_checkout_is_not_payable(self):
+        self.event.registration_fee = Decimal("0.00")
+        self.assertFalse(registration_is_payable(self.registration, self.event))

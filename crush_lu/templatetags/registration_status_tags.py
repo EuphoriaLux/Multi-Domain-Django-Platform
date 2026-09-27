@@ -30,6 +30,12 @@ def registration_tone(user_registration, event):
     if not user_registration:
         return "other"
 
+    # A cancelled event keeps its registrations `confirmed` and its detail
+    # page reachable, so no positive tone ("You're in!", "View my ticket",
+    # payment due) may ever apply to it.
+    if event.is_cancelled:
+        return "cancelled"
+
     status = user_registration.status
 
     if status == "applied":

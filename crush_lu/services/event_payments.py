@@ -33,8 +33,11 @@ def registration_is_payable(registration, event):
     # An already-paid seat (e.g. a replacement checkout B succeeded while
     # checkout A's return URL is reopened) is never payable again: checkout
     # rejects it, so no copy or CTA may offer a retry.
+    # The fee check mirrors the checkout endpoint too: an organiser can set
+    # the fee to 0 after a checkout was created.
     return (
         registration.status in PAYABLE_REGISTRATION_STATUSES
         and not registration.payment_confirmed
         and not event.is_cancelled
+        and event.registration_fee > 0
     )
