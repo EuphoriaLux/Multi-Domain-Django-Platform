@@ -106,6 +106,8 @@
         entry does today; escapejs means none ever can.
         {% endcomment %}
         const defaultError = "{{ default_error_text|escapejs }}";
+        {% trans 'Failed to load payment module. Please refresh or contact support.' as load_error_text %}
+        const loadError = "{{ load_error_text|escapejs }}";
 
         // CSRF_COOKIE_HTTPONLY is True, so document.cookie can't see csrftoken.
         // Read the hidden input base.html renders instead (same as HTMX does).
@@ -376,7 +378,10 @@
             });
         } else {
             console.error("SumUp SDK failed to load.");
-            document.getElementById("sumup-loading").innerHTML = "<p class='text-red-500'>Failed to load payment module. Please refresh or contact support.</p>";
+            const loadErrorEl = document.createElement("p");
+            loadErrorEl.className = "text-red-500 dark:text-red-400";
+            loadErrorEl.textContent = loadError;
+            document.getElementById("sumup-loading").replaceChildren(loadErrorEl);
         }
     });
 </script>

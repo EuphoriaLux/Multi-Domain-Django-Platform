@@ -1,5 +1,7 @@
 {% load i18n %}
-<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 h-full overflow-hidden {% if event.is_private_invitation %}vip-event-card relative{% endif %} {% if is_past %}opacity-75{% endif %}">
+{% load math_filters %}
+{% load crush_price %}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 h-full overflow-hidden {% if event.is_private_invitation %}vip-event-card relative{% endif %} {% if is_past %}opacity-75{% endif %}" data-event-type="{{ event.event_type }}">
     {# Event banner image or gradient placeholder #}
     {% if event.image %}
     <div class="w-full relative">
@@ -18,8 +20,15 @@
         {% endif %}
     </div>
     {% else %}
-    <div class="w-full h-48 min-h-[180px] bg-gradient-to-br from-crush-purple to-crush-pink rounded-t-xl flex flex-col justify-between p-4 relative overflow-hidden {% if is_past %}grayscale-[30%]{% endif %}">
-        <div class="absolute right-2 top-1/2 -translate-y-1/2 w-20 h-20 opacity-20 select-none" aria-hidden="true">
+    {% comment %}
+    No-image header: a short decorative band only — type + live/price. The
+    title, date, time, location and ages already live in the body below;
+    repeating them here (as before) roughly doubled card height on mobile
+    (finding 4-07). event_detail.html made the same call for its own
+    no-image header, see the comment there.
+    {% endcomment %}
+    <div class="w-full h-24 bg-gradient-to-br from-crush-purple to-crush-pink rounded-t-xl flex items-center justify-between px-4 relative overflow-hidden {% if is_past %}grayscale-[30%]{% endif %}">
+        <div class="absolute right-2 top-1/2 -translate-y-1/2 w-16 h-16 opacity-20 select-none" aria-hidden="true">
             {% if event.event_type == 'speed_dating' %}{% include "crush_lu/includes/ghost-story-nervous.html" with class="w-full h-full" %}
             {% elif event.event_type == 'mixer' %}{% include "crush_lu/includes/ghost-story-party.html" with class="w-full h-full" %}
             {% elif event.event_type == 'activity' %}{% include "crush_lu/includes/ghost-story-running.html" with class="w-full h-full" %}
@@ -28,33 +37,25 @@
             {% else %}{% include "crush_lu/includes/ghost-story-inlove.html" with class="w-full h-full" %}
             {% endif %}
         </div>
-        <div class="relative z-10 flex items-center justify-between">
-            <span class="inline-flex items-center gap-2">
-                <span class="inline-block px-2 py-0.5 text-xs font-semibold bg-white/20 text-white rounded-full backdrop-blur-sm">
-                    {{ event.get_event_type_display }}
-                </span>
-                {% if event.is_live and not is_past %}
-                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold bg-red-600 text-white rounded-full backdrop-blur-sm">
-                    <span class="animate-pulse w-2 h-2 rounded-full bg-white"></span>{% trans "Live now" %}
-                </span>
-                {% endif %}
+        <span class="relative z-10 inline-flex items-center gap-2">
+            <span class="inline-block px-2 py-0.5 text-xs font-semibold bg-white/20 text-white rounded-full backdrop-blur-sm">
+                {{ event.get_event_type_display }}
             </span>
+            {% if event.is_live and not is_past %}
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold bg-red-600 text-white rounded-full backdrop-blur-sm">
+                <span class="animate-pulse w-2 h-2 rounded-full bg-white"></span>{% trans "Live now" %}
+            </span>
+            {% endif %}
+        </span>
+        <span class="relative z-10">
             {% if is_past %}
             <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-gray-700/80 text-white rounded-full backdrop-blur-sm">{% trans "Past Event" %}</span>
             {% elif event.registration_fee > 0 %}
-            <span class="text-white font-bold text-sm">€{{ event.registration_fee }}</span>
+            <span class="text-white font-bold text-sm">{{ event.registration_fee|price }}</span>
             {% else %}
             <span class="text-white/90 font-semibold text-xs bg-white/15 px-2 py-0.5 rounded-full">{% trans "Free" %}</span>
             {% endif %}
-        </div>
-        <div class="relative z-10">
-            <h3 class="text-white font-bold text-lg leading-tight line-clamp-2 mb-1.5">{{ event.title }}</h3>
-            <p class="text-white/80 text-xs leading-relaxed flex flex-col gap-0.5">
-                <span class="inline-flex items-center gap-1">{% include "shared/icons/calendar.html" with class="w-3 h-3 inline" %} {{ event.date_time|date:"D" }}, {{ event.date_time|date:"j M" }} · {{ event.date_time|date:"TIME_FORMAT" }}</span>
-                <span class="inline-flex items-center gap-1">{% include "shared/icons/map-pin.html" with class="w-3 h-3 inline" %} {% if user.is_authenticated and user_profile %}{{ event.location }}{% else %}{{ event.canton|default:"Luxembourg" }}{% endif %}
-                · {% include "shared/icons/users.html" with class="w-3 h-3 inline" %} {{ event.min_age }}-{{ event.max_age }}</span>
-            </p>
-        </div>
+        </span>
     </div>
     {% endif %}
 
@@ -87,16 +88,43 @@
             {% include "shared/icons/star.html" with class="w-4 h-4 inline" %} {% trans "Private Invitation" %}
         </div>
         {% endif %}
-        <div class="flex justify-between items-start mb-3">
+        {% with reg_status_chip=event_status_chip|get_item:event.id is_eligible=event_eligibility|get_item:event.id %}
+        <div class="flex justify-between items-start gap-2 mb-2">
             <h3 class="font-semibold text-lg mb-0 dark:text-white">{{ event.title }}</h3>
-            <span class="badge-crush-soft">{{ event.get_event_type_display }}</span>
+            <span class="badge-crush-soft shrink-0">{{ event.get_event_type_display }}</span>
         </div>
 
+        {% if reg_status_chip or is_eligible == False %}
+        <div class="flex flex-wrap gap-1.5 mb-2">
+            {% if reg_status_chip %}
+            {% include "crush_lu/components/status_badge.html" with tone=reg_status_chip.tone label=reg_status_chip.label %}
+            {% endif %}
+            {% if is_eligible == False and not reg_status_chip %}
+            {% comment %}
+            Name the actual gate: private invitations require any Crush profile,
+            regardless of profile_requirement; public events use the model's
+            translated PROFILE_REQUIREMENT_CHOICES label. Suppressed when the member already has
+            an active registration status chip: a coach can reject a confirmed attendee at the
+            door without cancelling the EventRegistration, and the eligibility gate describes
+            entry, not an already-held seat — showing both together reads as contradictory.
+            {% endcomment %}
+            {% if event.is_private_invitation %}
+                {% trans "This event requires a Crush profile." as private_profile_label %}
+                {% include "crush_lu/components/status_badge.html" with tone="warning" label=private_profile_label %}
+            {% else %}
+                {% include "crush_lu/components/status_badge.html" with tone="warning" label=event.get_profile_requirement_display %}
+            {% endif %}
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% comment %}
+        One or two compact lines: date/time, then place (+ ages, unless the
+        bounds are the unfilled 18-99 placeholder — finding 1-05/4-07).
+        {% endcomment %}
         <div class="text-gray-500 dark:text-gray-400 mb-3 text-sm flex flex-col gap-1">
-            <span class="inline-flex items-center gap-1.5">{% include "shared/icons/calendar.html" with class="w-3.5 h-3.5 text-crush-purple" %} {{ event.date_time|date:"D" }}, {{ event.date_time|date:"DATE_FORMAT" }}</span>
-            <span class="inline-flex items-center gap-1.5">{% include "shared/icons/clock.html" with class="w-3.5 h-3.5 text-crush-purple" %} {{ event.date_time|date:"TIME_FORMAT" }} ({{ event.duration_minutes }} min)</span>
-            <span class="inline-flex items-center gap-1.5">{% include "shared/icons/map-pin.html" with class="w-3.5 h-3.5 text-crush-purple" %} {% if user.is_authenticated and user_profile %}{{ event.location }}{% else %}{{ event.canton|default:"Luxembourg" }}{% endif %}</span>
-            <span class="inline-flex items-center gap-1.5">{% include "shared/icons/users.html" with class="w-3.5 h-3.5 text-crush-purple" %} {% blocktrans with min=event.min_age max=event.max_age %}Ages {{ min }}-{{ max }}{% endblocktrans %}</span>
+            <span class="inline-flex items-center gap-1.5">{% include "shared/icons/calendar.html" with class="w-3.5 h-3.5 text-crush-purple" %} {{ event.date_time|date:"D" }}, {{ event.date_time|date:"j M Y" }} · {{ event.date_time|date:"TIME_FORMAT" }}</span>
+            <span class="inline-flex items-center gap-1.5">{% include "shared/icons/map-pin.html" with class="w-3.5 h-3.5 text-crush-purple" %} {% if user.is_authenticated and user_profile %}{{ event.location }}{% else %}{{ event.canton|default:"Luxembourg" }}{% endif %}{% if event.min_age > 18 or event.max_age < 99 %} · {% include "shared/icons/users.html" with class="w-3.5 h-3.5 text-crush-purple inline" %} {% blocktrans with min=event.min_age max=event.max_age %}Ages {{ min }}-{{ max }}{% endblocktrans %}{% endif %}</span>
         </div>
 
         {% if event.get_languages_display %}
@@ -109,7 +137,7 @@
         </div>
         {% endif %}
 
-        <p class="mb-4 dark:text-gray-300">{{ event.description|truncatewords:25 }}</p>
+        <p class="mb-4 dark:text-gray-300">{{ event.description|truncatewords:15 }}</p>
 
         <div class="mt-auto">
             <div class="flex justify-between items-center mb-3">
@@ -121,21 +149,32 @@
                         </span>
                     {% elif event.is_full %}
                         <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-red-600 text-white rounded-full">{% trans "Full" %}</span>
-                    {% else %}
-                        {% blocktrans count counter=event.spots_remaining %}{{ counter }} spot left{% plural %}{{ counter }} spots left{% endblocktrans %}
+                    {% elif event.spots_remaining <= 10 %}
+                        {# Only surface urgency, not raw demand — a big number reads as low interest, not a reason to hurry (finding 1-05). #}
+                        {% blocktrans count counter=event.spots_remaining %}Only {{ counter }} spot left{% plural %}Only {{ counter }} spots left{% endblocktrans %}
                     {% endif %}
                 </small>
                 {% if event.registration_fee > 0 %}
-                    <strong class="dark:text-white">€{{ event.registration_fee }}</strong>
+                    <strong class="dark:text-white">{{ event.registration_fee|price }}</strong>
                 {% else %}
                     <strong class="text-green-600 dark:text-green-300">{% trans "Free" %}</strong>
                 {% endif %}
             </div>
 
-            <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn-crush-solid w-full text-center block py-2 min-h-11">
-                {% trans "View Details" %}
+            {% if reg_status_chip.tone == "success" %}
+            {# "View ticket" should actually land on the ticket page, not detail — finding WP7-5. #}
+            <a href="{% url 'crush_lu:event_ticket' event.id %}" class="btn-crush-solid w-full text-center block py-2 min-h-11">
+                {% trans "View ticket" %}
             </a>
+            {% else %}
+            <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn-crush-solid w-full text-center block py-2 min-h-11">
+                {% if reg_status_chip.tone == "warning" %}{% trans "Complete payment" %}
+                {% else %}{% trans "View Details" %}
+                {% endif %}
+            </a>
+            {% endif %}
         </div>
+        {% endwith %}
         {% endif %}
     </div>
 </div>
