@@ -22,7 +22,12 @@ from django.core.cache import cache
 from django.test import TestCase
 from django.utils import timezone
 
-from crush_lu.models import CrushCoach, CrushProfile, ProfileSubmission
+from crush_lu.models import (
+    CrushCoach,
+    CrushProfile,
+    PremiumMembership,
+    ProfileSubmission,
+)
 from crush_lu.models.profiles import UserDataConsent
 
 User = get_user_model()
@@ -161,6 +166,37 @@ class ProfileSubmittedOrderTests(_MemberMixin, TestCase):
             "Your profile is ready. Next: get verified at an event or with LuxID.",
         )
         self.assertContains(response, 'data-verification-option="luxid"')
+
+    def test_status_line_follows_locked_premium_path(self):
+        # A pending PremiumMembership without a live submission locks the path:
+        # the partial hides the event/LuxID cards, so the status line must not
+        # send the member there either (Codex #1047).
+        _add_luxid_app()
+        PremiumMembership.objects.create(
+            user=self.user, coach=self._make_coach(), status="pending"
+        )
+        response = self._get("/en/profile-submitted/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "re on the Premium path")
+        self.assertContains(
+            response,
+            "Your profile is ready. Next: complete your Premium membership.",
+        )
+        self.assertNotContains(response, "Next: get verified at an event")
+        self.assertNotContains(response, 'data-verification-option="event"')
+
+    def test_status_line_without_premium_keeps_verification_paths(self):
+        _add_luxid_app()
+        PremiumMembership.objects.create(
+            user=self.user, coach=self._make_coach(), status="active"
+        )
+        response = self._get("/en/profile-submitted/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "Your profile is ready. Next: get verified at an event or with LuxID.",
+        )
+        self.assertNotContains(response, "complete your Premium membership")
 
 
 class RejectedVerdictTests(_MemberMixin, TestCase):
