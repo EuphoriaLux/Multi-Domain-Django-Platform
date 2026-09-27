@@ -42577,3 +42577,11 @@ msgstr "Du hast die Blockierung von %(name)s aufgehoben."
 #: templates/crush_lu/home.html
 msgid "As seen in"
 msgstr "Bekannt aus"
+
+#: templates/crush_lu/partials/_push_check_timed_out.html:5
+msgid "We couldn't check notification support on this device."
+msgstr "Wir konnten die Benachrichtigungsunterstützung auf diesem Gerät nicht prüfen."
+
+#: templates/crush_lu/partials/_push_native_notice.html:10
+msgid "Notifications are managed in the app"
+msgstr "Benachrichtigungen werden in der App verwaltet"
