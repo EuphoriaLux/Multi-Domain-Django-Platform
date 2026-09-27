@@ -12558,7 +12558,7 @@ document.addEventListener("alpine:init", function () {
 
             get toggleButtonClass() {
                 if (this.isLocked) {
-                    return "bg-gray-700 text-yellow-400 opacity-60 cursor-not-allowed";
+                    return "bg-gray-700 text-yellow-400 cursor-not-allowed";
                 }
                 return this.isDark
                     ? "bg-gray-700 text-yellow-400 hover:bg-gray-600"

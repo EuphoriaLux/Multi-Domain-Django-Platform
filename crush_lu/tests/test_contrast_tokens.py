@@ -89,9 +89,26 @@ class NavProgressContextTests(TestCase):
         self.assertEqual(context["profile_completion_step"], 5)
         self.assertEqual(str(context["profile_step_label"]), "Get verified")
 
-    def test_fresh_profile_starts_at_step_one(self):
+    def test_early_journey_steps_are_counted(self):
+        # The old status map reported every incomplete profile as step 1.
+        for step, fields in (
+            (2, {"phone_verified": False}),
+            (3, {"coach_intro_seen_at": None}),
+        ):
+            with self.subTest(step=step):
+                user = _onboarding_user(f"step{step}@example.com", **fields)
+                context = self._context(user)
+                self.assertEqual(context["profile_completion_step"], step)
+                # The bar fills with completed steps, like the stepper.
+                self.assertEqual(
+                    context["profile_completion_pct"], (step - 1) * 100 // 5
+                )
+
+    def test_bar_is_empty_before_anything_is_done(self):
         user = _onboarding_user(welcome_seen_at=None, phone_verified=False)
-        self.assertEqual(self._context(user)["profile_completion_step"], 1)
+        context = self._context(user)
+        self.assertEqual(context["profile_completion_step"], 1)
+        self.assertEqual(context["profile_completion_pct"], 0)
 
 
 class NavProgressMarkupTests(TestCase):
@@ -115,6 +132,13 @@ class NavProgressMarkupTests(TestCase):
         # White on pink measured 2.67:1; purple-dark on white passes AA.
         self.assertNotIn("bg-crush-pink text-white", badge)
         self.assertIn("text-crush-purple-dark", badge)
+
+    def test_continue_setup_resumes_the_current_step(self):
+        html = self._get("/en/events/")
+        start = html.index('x-data="profileProgress"')
+        dropdown = html[start : html.index("Continue Setup", start)]
+        self.assertIn('href="/en/onboarding/"', dropdown)
+        self.assertIn("width: 60%", dropdown)
 
     def test_nav_badge_is_hidden_where_the_stepper_is_shown(self):
         html = self._get("/en/create-profile/")

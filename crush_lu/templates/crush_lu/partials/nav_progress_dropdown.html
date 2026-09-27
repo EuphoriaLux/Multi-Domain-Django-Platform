@@ -26,7 +26,7 @@
             </div>
             <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                 <div class="bg-gradient-to-r from-crush-purple to-crush-pink h-2 rounded-full transition-all duration-300"
-                     style="width: {% widthratio profile_completion_step profile_completion_total 100 %}%"></div>
+                     style="width: {{ profile_completion_pct }}%"></div>
             </div>
         </div>
         <div class="dropdown-divider"></div>
@@ -38,7 +38,7 @@
         </div>
         <div class="dropdown-divider"></div>
         {# CTA Button #}
-        <a href="{% url 'crush_lu:create_profile' %}"
+        <a href="{% url 'crush_lu:onboarding_entry' %}"
            class="dropdown-item text-crush-purple dark:text-crush-pink font-semibold hover:bg-crush-purple/10 dark:hover:bg-crush-purple/20">
             {% include "shared/icons/arrow-right.html" with class="w-4 h-4 inline mr-2" %}
             {% trans "Continue Setup" %}

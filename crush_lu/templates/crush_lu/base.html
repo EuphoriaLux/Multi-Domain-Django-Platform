@@ -4,7 +4,7 @@
 {% load seo_tags %}
 {% load crush_connect_tags %}
 <!DOCTYPE html>
-{# theme_lock: an always-dark surface (journey, gifts) fills it with class="dark" data-theme-lock="dark"; theme-manager.js keeps .dark there and the toggles are disabled. #}
+{# theme_lock: an always-dark surface (journey, gifts) fills it with class="dark" data-theme-lock="dark"; theme-manager.js keeps .dark there and the toggles stay focusable but aria-disabled, so their explanation is reachable. #}
 <html lang="{{ LANGUAGE_CODE|default:'en' }}"{% if is_native_app %} data-native-app{% endif %}{% block theme_lock %}{% endblock %}>
 <head>
     {% analytics_head %}
@@ -807,7 +807,7 @@
                         <button
                             @click="toggleTheme"
                             x-bind:class="toggleButtonClass"
-                            x-bind:disabled="isLocked"
+                            x-bind:aria-disabled="isLocked"
                             x-bind:title="lockedTitle"
                             class="p-2 rounded-lg transition-all duration-300 flex items-center gap-2 border-0 focus:outline-none focus:ring-2 focus:ring-white/50"
                             x-bind:aria-label="ariaLabel"
@@ -1127,11 +1127,11 @@
                                     </div>
                                     <div class="w-full bg-white/20 rounded-full h-2">
                                         <div class="bg-gradient-to-r from-crush-purple to-crush-pink h-2 rounded-full"
-                                             style="width: {% widthratio profile_completion_step profile_completion_total 100 %}%"></div>
+                                             style="width: {{ profile_completion_pct }}%"></div>
                                     </div>
                                     <p class="text-white/60 text-xs mt-2">{% trans "Next:" %} {{ profile_step_label }}</p>
                                 </div>
-                                <a class="nav-link block bg-crush-pink/20 rounded-lg" href="{% url 'crush_lu:create_profile' %}">
+                                <a class="nav-link block bg-crush-pink/20 rounded-lg" href="{% url 'crush_lu:onboarding_entry' %}">
                                     {% include "shared/icons/arrow-right.html" with class="w-4 h-4 inline mr-2" %}
                                     {% trans "Continue Setup" %}
                                 </a>
@@ -1187,7 +1187,7 @@
                         <button
                             @click="toggleTheme"
                             x-bind:class="toggleButtonClass"
-                            x-bind:disabled="isLocked"
+                            x-bind:aria-disabled="isLocked"
                             x-bind:title="lockedTitle"
                             class="w-full p-3 rounded-lg transition-all duration-300 flex items-center gap-3 border-0 focus:outline-none focus:ring-2 focus:ring-white/50"
                             x-bind:aria-label="ariaLabel"

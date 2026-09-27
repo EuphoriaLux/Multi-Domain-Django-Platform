@@ -45,6 +45,7 @@ _SAFE_NAV_DEFAULTS = {
     "actionable_sparks_count": 0,
     "profile_completion_step": 0,
     "profile_completion_total": len(onboarding.JOURNEY_STEPS),
+    "profile_completion_pct": 0,
     "profile_step_label": _("Get started"),
     "upcoming_events": [],
     "upcoming_events_count": 0,
@@ -181,10 +182,15 @@ def crush_user_context(request):
         context["profile_completion_total"] = len(onboarding.JOURNEY_STEPS)
         if step == onboarding.STEP_REJECTED:
             context["profile_completion_step"] = 0
+            context["profile_completion_pct"] = 0
             context["profile_step_label"] = _("Profile rejected")
         else:
             context["profile_completion_step"] = step
             context["profile_step_label"] = onboarding.active_step(step).title
+            # Bar fills with *completed* steps, as the stepper does.
+            context["profile_completion_pct"] = (
+                (step - 1) * 100 // len(onboarding.JOURNEY_STEPS)
+            )
 
         if profile:
             verification_status = profile.verification_status

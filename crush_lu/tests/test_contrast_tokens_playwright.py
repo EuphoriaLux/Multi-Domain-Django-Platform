@@ -116,7 +116,12 @@ def test_gift_page_stays_dark_under_a_light_preference(browser, live_server):
     assert nav_bg == "rgb(15, 23, 42)"
 
     toggle = page.locator("[x-data='themeToggle'] button").first
-    assert toggle.is_disabled()
+    # aria-disabled, not disabled: it stays focusable so the reason is read.
+    assert toggle.get_attribute("aria-disabled") == "true"
+    assert toggle.evaluate("el => !el.disabled && el.tabIndex === 0")
+    # A real activation is still a no-op.
+    toggle.dispatch_event("click")
+    assert page.evaluate("() => document.documentElement.classList.contains('dark')")
     assert toggle.get_attribute("title") == LOCKED_LABEL
     assert toggle.get_attribute("aria-label") == LOCKED_LABEL
 
@@ -130,7 +135,7 @@ def test_gift_page_stays_dark_under_a_light_preference(browser, live_server):
         "() => document.documentElement.classList.contains('dark')"
     )
     toggle = page.locator("[x-data='themeToggle'] button").first
-    assert not toggle.is_disabled()
+    assert toggle.get_attribute("aria-disabled") is None
     assert toggle.get_attribute("title") is None
 
 
