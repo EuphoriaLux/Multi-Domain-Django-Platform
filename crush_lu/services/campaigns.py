@@ -86,14 +86,16 @@ def resolve_campaign_audience(campaign):
     """Base audience for the non-email channels of a campaign.
 
     Mirrors the newsletter audience semantics exactly (same resolver), then
-    applies the exclusions shared by every channel: banned/deleted users and
-    the campaign's language restriction. Channel-specific consent gates are
-    layered on top by each adapter.
+    applies the exclusions shared by every channel: banned/deleted users,
+    members on a self-service break (UX Wave 3 · WP13), and the campaign's
+    language restriction. Channel-specific consent gates are layered on top
+    by each adapter.
     """
     users = newsletter_service.resolve_audience(
         campaign.audience, campaign.segment_key
     )
     users = newsletter_service.exclude_banned_users(users)
+    users = newsletter_service.exclude_on_break_users(users)
     users = newsletter_service.apply_language_filter(users, campaign.language)
     return users
 
