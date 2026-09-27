@@ -492,8 +492,10 @@ def visible_cycle_cards(cards, viewer):
     )
 
     eligible = filter_catalogue_eligible(User.objects.all())
+    from crush_lu.services.event_lobby import hidden_encounter_user_ids
+
     eligible = exclude_assigned_coach_pairs(eligible, viewer).exclude(
-        pk__in=blocked_user_ids(viewer)
+        pk__in=blocked_user_ids(viewer) | hidden_encounter_user_ids(viewer)
     )
     # Reviews and summaries stay lazy until all eligibility predicates apply.
     # Generation can return a list; reload its surviving rows in one query,
@@ -828,6 +830,7 @@ def get_pending_inbox(user):
         exclude_assigned_coach_pairs,
         is_catalogue_eligible,
     )
+    from crush_lu.services.event_lobby import hidden_encounter_user_ids
 
     candidates = (
         exclude_assigned_coach_pairs(
@@ -837,7 +840,9 @@ def get_pending_inbox(user):
             user,
             field="requester_id",
         )
-        .exclude(requester_id__in=blocked_user_ids(user))
+        .exclude(
+            requester_id__in=blocked_user_ids(user) | hidden_encounter_user_ids(user)
+        )
         .select_related(
             "requester__crushprofile",
             "requester__crush_connect_membership",

@@ -21,7 +21,7 @@ rules) so the thread can claim most of the viewport.
             {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
         </a>
         <div class="w-11 h-11 shrink-0 rounded-xl overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
-            {% profile_photo partner.crushprofile 'photo_1' css_class='w-full h-full object-cover' alt_text=partner.first_name %}
+            {% profile_photo partner.crushprofile 'photo_1' css_class='w-full h-full object-cover' alt_text=partner.first_name hide_photo=partner_photo_hidden %}
         </div>
         {# flex-wrap, not a single non-wrapping row: at a narrow viewport the fixed chrome around it leaves little room, and the (longer in FR/DE) expiry chip would otherwise squeeze the name away instead of wrapping below it. #}
         <div class="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1">

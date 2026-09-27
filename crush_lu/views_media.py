@@ -11,6 +11,7 @@ from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 import os
 import logging
+from django.utils import timezone
 
 from .models import CrushProfile, CrushCoach
 from .oauth_statekit import get_client_ip
@@ -18,44 +19,225 @@ from .oauth_statekit import get_client_ip
 logger = logging.getLogger(__name__)
 
 
-def can_view_profile_photo(viewer, profile_owner):
+def can_view_profile_photo(viewer, profile_owner, photo_field="photo_1"):
     """
-    Determine if viewer can see profile_owner's photos
+    Determine if viewer can see profile_owner's photos.
 
-    Rules:
-    - Owner can always see their own photos
-    - Coaches can see all photos (for review)
-    - Approved profiles: visible to other approved users
-    - Unapproved profiles: only visible to owner and coaches
+    The URL is addressed by user id, so this check — not the page that
+    rendered the URL — is the gate. It encodes the same relationships as the
+    surfaces that render these URLs:
+
+    - the owner, active coaches (review) and superusers (admin, voting results)
+    - otherwise both profiles must be approved, the pair must not be blocked,
+      and one of:
+        - both attended the same event while its attendee list is open
+          (``MeetupEvent.connections_open``; ``event_attendees``)
+        - an ``EventConnection`` between them (``my_connections``,
+          ``connection_detail``), except a declined one and a My Crush! lead
+          its recipient has not been shown yet
+        - a Crush Connect pairing (cycle card, pending weekly request, chat,
+          coach pick) and the owner's ``photo_share_consent``
+
+    Member-to-member relationships cover ``photo_1`` only: every member
+    surface above renders just the primary photo, so photos 2 and 3 stay
+    with the owner, coaches and superusers.
 
     Args:
         viewer: User object of the person viewing
         profile_owner: CrushProfile object being viewed
+        photo_field: which photo is requested (photo_1, photo_2, photo_3)
 
     Returns:
         bool: whether the viewer is allowed to see the photo
     """
+    owner = profile_owner.user
+
     # Owner can always see their own photos
-    if viewer == profile_owner.user:
+    if viewer.pk == owner.pk:
         return True
 
-    # Check if viewer is a coach
+    # Coaches can see all photos (for review)
     if CrushCoach.objects.filter(user=viewer, is_active=True).exists():
         return True
+
+    if viewer.is_superuser:
+        return True
+
+    if photo_field != "photo_1":
+        return False
 
     # Profile must be approved for others to see
     if not profile_owner.is_approved:
         return False
 
     # Check if viewer has an approved profile
-    try:
-        viewer_profile = CrushProfile.objects.get(user=viewer)
-        if not viewer_profile.is_approved:
-            return False
-    except CrushProfile.DoesNotExist:
+    if not CrushProfile.objects.filter(user=viewer, is_approved=True).exists():
         return False
 
-    return True
+    from .services.blocking import is_blocked_pair
+    from .services.event_lobby import hidden_encounter_user_ids
+
+    # A safety removal of a confirmed encounter hides the pair from each
+    # other exactly like a block (``event_attendees`` excludes both).
+    if is_blocked_pair(viewer, owner) or owner.pk in hidden_encounter_user_ids(viewer):
+        return False
+
+    return (
+        _share_open_attendee_list(viewer, owner)
+        or _have_event_connection(viewer, owner)
+        or _are_connect_paired(viewer, owner)
+    )
+
+
+def _share_open_attendee_list(viewer, owner):
+    """Both attended an event whose named attendee list is currently open."""
+    from .models import MeetupEvent
+
+    shared_events = MeetupEvent.objects.filter(
+        eventregistration__user=viewer, eventregistration__status="attended"
+    ).filter(eventregistration__user=owner, eventregistration__status="attended")
+    return any(event.connections_open for event in shared_events.distinct())
+
+
+def _have_event_connection(viewer, owner):
+    from django.db.models import Q
+
+    from .models import EventConnection
+
+    crush = Q(flow=EventConnection.FLOW_CRUSH)
+    return EventConnection.objects.filter(
+        (
+            Q(requester=viewer, recipient=owner)
+            # ``my_connections`` keeps a declined My Crush! lead in the same
+            # neutral card as any other unshared one; refusing its photo
+            # would leak the coach-recorded outcome the UI hides.
+            & (crush | ~Q(status="declined"))
+        )
+        | (
+            Q(requester=owner, recipient=viewer)
+            & ~Q(status="declined")
+            # The recipient of a My Crush! lead is never shown it until
+            # it is shared (mirrors ``connection_detail``).
+            & ~(crush & ~Q(status="shared"))
+        )
+    ).exists()
+
+
+def _are_connect_paired(viewer, owner):
+    """A Crush Connect surface shows ``owner`` to ``viewer``, and ``owner``
+    consented to sharing their photo there ("Read-the-Photo")."""
+    from django.contrib.auth import get_user_model
+    from django.db.models import Q
+
+    from .models.crush_connect_cycle import ConnectTemporaryChat, ConnectWeeklyRequest
+    from .services.crush_connect import (
+        exclude_assigned_coach_pairs,
+        filter_catalogue_eligible,
+        get_active_coach_pick,
+    )
+
+    User = get_user_model()
+    if not User.objects.filter(
+        pk=owner.pk, crush_connect_membership__photo_share_consent=True
+    ).exists():
+        return False
+
+    # Chats are reached through a request, so they outlive catalogue
+    # eligibility; they stay visible while both participants pass
+    # ``views_connect_chat._participants_available``.
+    available = User.objects.filter(
+        pk__in=(viewer.pk, owner.pk),
+        is_active=True,
+        crushprofile__is_active=True,
+        crush_connect_membership__onboarded_at__isnull=False,
+        crush_connect_membership__excluded_by_coach=False,
+    )
+    if (
+        available.count() == 2
+        and ConnectTemporaryChat.objects.filter(
+            Q(participant_1=viewer, participant_2=owner)
+            | Q(participant_1=owner, participant_2=viewer)
+        )
+        .exclude(status=ConnectTemporaryChat.Status.BLOCKED)
+        .exists()
+    ):
+        return True
+
+    # Cards and the inbox only show catalogue-eligible members, never a
+    # member's assigned coach (``visible_cycle_cards``, ``get_pending_inbox``).
+    owner_qs = exclude_assigned_coach_pairs(User.objects.filter(pk=owner.pk), viewer)
+    if not filter_catalogue_eligible(owner_qs).exists():
+        return False
+    if _has_visible_cycle_card(viewer, owner):
+        return True
+    if (
+        _can_open_connect_inbox(viewer)
+        and ConnectWeeklyRequest.objects.filter(
+            requester=owner,
+            recipient=viewer,
+            status=ConnectWeeklyRequest.Status.PENDING,
+            # Expiry is applied lazily by ``sync_request_state``; a stale PENDING
+            # row past its deadline is already gone from the inbox.
+            expires_at__gt=timezone.now(),
+        ).exists()
+    ):
+        return True
+    # The pick page re-validates the pool and the assigned coach on read.
+    pick = get_active_coach_pick(viewer, include_accepted=True)
+    return pick is not None and pick.candidate_id == owner.pk
+
+
+def _can_open_connect_inbox(viewer):
+    """The recipient-side gate of ``connect_week_inbox``: a paused or
+    no-longer-eligible recipient is redirected before any requester renders."""
+    from .connect_phase import candidate_access_open
+    from .services.crush_connect import is_catalogue_eligible
+
+    membership = getattr(viewer, "crush_connect_membership", None)
+    if membership is not None and membership.is_paused:
+        return False
+    return viewer.is_staff or (
+        candidate_access_open() and is_catalogue_eligible(viewer)
+    )
+
+
+def _has_visible_cycle_card(viewer, owner):
+    """A card for ``owner`` that Connect Week still renders to ``viewer``.
+
+    Mirrors ``connect_week_home`` / ``connect_week_review``: only the viewer's
+    latest session counts, and only while the viewer passes the Connect Week
+    access gate (paused or coach-excluded members are redirected away). While
+    that session is inside its cycle, today's live card; after it, every
+    completed card — the review page keeps rendering them once closed, until
+    a new session starts. Session bookkeeping is lazy (``sync_session_state``),
+    so the cycle day is derived from the clock, not the stored fields.
+    """
+    from .models.crush_connect_cycle import ConnectWeekSession
+    from .services.connect_cycle import CYCLE_LENGTH_DAYS
+    from .views_connect_cycle import _connect_week_access_blocker
+
+    session = (
+        ConnectWeekSession.objects.filter(user=viewer).order_by("-started_at").first()
+    )
+    if session is None or not session.cards.filter(target_user=owner).exists():
+        return False
+    if _connect_week_access_blocker(viewer) is not None:
+        return False
+    # ``connect_week_home`` also turns away a viewer without a primary photo.
+    viewer_profile = getattr(viewer, "crushprofile", None)
+    if not viewer.is_staff and viewer_profile and not viewer_profile.photo_1:
+        return False
+
+    wall_day = (
+        timezone.localdate() - timezone.localtime(session.started_at).date()
+    ).days + 1
+    cards = session.cards.filter(target_user=owner)
+    if (
+        session.status == ConnectWeekSession.Status.ACTIVE
+        and wall_day <= CYCLE_LENGTH_DAYS
+    ):
+        return cards.filter(day_number=wall_day, is_expired=False).exists()
+    return cards.filter(is_completed=True).exists()
 
 
 def _increment_rate_limit_counter(key, period_seconds):
@@ -143,7 +325,7 @@ def serve_profile_photo(request, user_id, photo_field):
     profile = get_object_or_404(CrushProfile, user_id=user_id)
 
     # Check permissions
-    if not can_view_profile_photo(request.user, profile):
+    if not can_view_profile_photo(request.user, profile, photo_field):
         logger.warning(
             f"User {request.user.id} denied access to {profile.user.id}'s {photo_field}"
         )
