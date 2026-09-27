@@ -218,6 +218,7 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
     """
     from crush_lu.models import EventConnection
     from crush_lu.services.blocking import block_exists_subquery
+    from crush_lu.services.event_lobby import hidden_encounter_user_ids
 
     # --- Requester self-eligibility -----------------------------------------
     user_profile = getattr(user, "crushprofile", None)
@@ -286,6 +287,8 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
         .filter(_has_connection=False)
         .filter(_has_block=False)
         .exclude(pk=user.pk)
+        # An encounter removal hides the pair like a block does.
+        .exclude(pk__in=hidden_encounter_user_ids(user))
         .select_related("crushprofile", "crush_connect_membership")
     )
     # LuxID OR attended in-person event satisfies identity verification for
