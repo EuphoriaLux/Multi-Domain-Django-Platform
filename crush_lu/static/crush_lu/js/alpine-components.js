@@ -12941,6 +12941,26 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
+    // Event-cancel double-submit guard (event_cancel.html). The first submit
+    // enters the confirming state and goes through natively; any further
+    // submit is swallowed so a double tap cannot post twice. Replaces an
+    // inline onsubmit handler the nonce-based CSP blocked.
+    Alpine.data("eventCancelForm", function () {
+        return mixin(makeConfirm({ autoSubmit: false }), {
+            guardSubmit(event) {
+                if (this.isConfirming) {
+                    event.preventDefault();
+                    return;
+                }
+                this.request();
+            },
+            // Back/forward cache restores the page as it was left: re-arm it.
+            resetGuard(event) {
+                if (event && event.persisted) this.cancelConfirm();
+            },
+        });
+    });
+
     // Spark confirm inline component (replaces browser confirm dialog)
     Alpine.data("sparkConfirm", function () {
         // Composes makeConfirm with the template-facing API the spark

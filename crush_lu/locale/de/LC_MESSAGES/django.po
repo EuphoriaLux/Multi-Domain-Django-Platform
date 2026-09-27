@@ -25813,7 +25813,7 @@ msgstr "Mit wem hast du dich verbunden?"
 #: templates/crush_lu/event_register.html:43
 #, python-format
 msgid "%(date)s at %(time)s"
-msgstr "%(date)s bei %(time)s"
+msgstr "%(date)s um %(time)s"
 
 #: templates/crush_lu/event_attendees.html:170
 msgid "Did you meet someone at this event?"
@@ -25929,10 +25929,6 @@ msgstr "Wird storniert..."
 #: templates/crush_lu/event_cancel.html:29
 msgid "Yes, Cancel Registration"
 msgstr "Ja, Anmeldung stornieren"
-
-#: templates/crush_lu/event_cancel.html:33
-msgid "No, Keep Registration"
-msgstr "Nein, Anmeldung behalten"
 
 #: templates/crush_lu/event_detail.html:40
 msgid "Back to Events"
@@ -42497,6 +42493,53 @@ msgstr "Mein Profil und meine Daten löschen"
 msgid "≈ 15 min to set up · Get verified at your first event"
 msgstr "≈ 15 Min. zum Einrichten · Verifiziert bei deinem ersten Event"
 
+#: crush_lu/templates/crush_lu/event_cancel.html
+msgid "What happens to your payment"
+msgstr "Was mit deiner Zahlung passiert"
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+#, python-format
+msgid "You'll get %(amount)s EUR back as Crush Credit, ready to use on any Crush.lu event."
+msgstr "Du bekommst %(amount)s EUR als Crush Credit zurück – sofort für jedes Crush.lu-Event einsetzbar."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+#, python-format
+msgid "No refund: the event starts in less than %(hours)s hours. Your seat is released for someone else, and if someone takes it and pays before the event starts, you'll get %(share)s EUR back as Crush Credit."
+msgstr "Keine Rückerstattung: Das Event beginnt in weniger als %(hours)s Stunden. Dein Platz wird für jemand anderen freigegeben. Übernimmt ihn jemand und bezahlt vor Eventbeginn, bekommst du %(share)s EUR als Crush Credit zurück."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+#, python-format
+msgid "You'll get %(amount)s EUR back as Crush Credit. It returns to your balance with its original expiry dates, so any part that has already expired can't be used again."
+msgstr "Du bekommst %(amount)s EUR als Crush Credit zurück. Es geht mit seinen ursprünglichen Ablaufdaten auf dein Guthaben zurück, ein bereits abgelaufener Teil kann also nicht mehr verwendet werden."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+#, python-format
+msgid "No refund: the event starts in less than %(hours)s hours. Your seat is released for someone else."
+msgstr "Keine Rückerstattung: Das Event beginnt in weniger als %(hours)s Stunden. Dein Platz wird für jemand anderen freigegeben."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+msgid "Keep my seat"
+msgstr "Meinen Platz behalten"
+
+#: crush_lu/templates/crush_lu/partials/_cancellation_policy_note.html
+#, python-format
+msgid "Cancel before %(date)s at %(time)s for full Crush Credit. After that there's no refund, but you get %(share)s%% back as Crush Credit if someone takes your seat and pays before the event."
+msgstr "Storniere vor dem %(date)s um %(time)s, um den vollen Betrag als Crush Credit zurückzubekommen. Danach gibt es keine Rückerstattung, aber du bekommst %(share)s %% als Crush Credit zurück, wenn jemand deinen Platz übernimmt und vor dem Event bezahlt."
+
+#: crush_lu/templates/crush_lu/partials/_cancellation_policy_note.html
+#, python-format
+msgid "The event starts in less than %(hours)s hours, so cancelling gives no refund, but you get %(share)s%% back as Crush Credit if someone takes your seat and pays before the event."
+msgstr "Das Event beginnt in weniger als %(hours)s Stunden, daher gibt es bei einer Stornierung keine Rückerstattung, aber du bekommst %(share)s %% als Crush Credit zurück, wenn jemand deinen Platz übernimmt und vor dem Event bezahlt."
+
+#: views_events.py:2051
+msgid ""
+"The cancellation terms changed while this page was open. Please check them "
+"again before you confirm."
+msgstr ""
+"Die Stornobedingungen haben sich geändert, während diese Seite offen war. "
+"Bitte prüfe sie noch einmal, bevor du bestätigst."
+
+# UX Wave 3 · WP9 dashboard
 # UX Wave 3 · WP9 dashboard
 # UX Wave 3 · WP9 dashboard
 # UX Wave 3 · WP9 dashboard
