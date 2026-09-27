@@ -19,7 +19,10 @@ GA4's property cookie is registered under its real name, _ga_<Measurement
 ID without "G-">, for every GA4_* variable set in the environment
 (GA4_MEASUREMENT_ID_ENV_VARS): the library deletes cookies by exact name, so
 a wildcard row would never match. A literal _ga_* row left by earlier runs
-is kept (rows are never modified or removed here).
+is kept (rows are never modified or removed here). These rows keep domain
+'', so the server's delete is host-only; gtag writes _ga/_ga_<id> on the
+registrable domain (cookie_domain 'auto'), and the banner's
+clearAnalyticsCookies() expires those at every parent domain on a refusal.
 
 Adding a cookie to a group moves that group's version (the date of its
 newest cookie), so every earlier acceptance of the group counts as undecided

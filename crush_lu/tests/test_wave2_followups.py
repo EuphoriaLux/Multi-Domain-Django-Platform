@@ -98,3 +98,22 @@ def test_setup_cookie_groups_without_ga4_settings_adds_no_property_cookie(
     _run_setup_cookie_groups()
 
     assert [n for n in _analytics_cookie_names() if n.startswith("_ga_")] == []
+
+
+def test_every_ga4_setting_read_by_analytics_ids_is_listed_for_cookie_setup():
+    """setup_cookie_groups registers _ga_<id> only for the variables listed
+    in GA4_MEASUREMENT_ID_ENV_VARS: a GA4 property wired into analytics_ids()
+    but missing there would keep its cookie on decline."""
+    import inspect
+    import re
+
+    from azureproject import analytics_context
+
+    read = set(
+        re.findall(
+            r"os\.getenv\(\s*['\"](GA4_[A-Z0-9_]+)['\"]",
+            inspect.getsource(analytics_context),
+        )
+    )
+    assert read
+    assert read <= set(analytics_context.GA4_MEASUREMENT_ID_ENV_VARS)

@@ -167,3 +167,50 @@ def test_gift_landing_footer_sign_in_is_clickable(page, live_server):
     # would receive the pointer event at the link's centre.
     sign_in.click(timeout=3000)
     page.wait_for_url(re.compile(r"/accounts/login/"))
+
+
+def test_decline_expires_domain_scoped_ga_cookies(page):
+    """gtag writes _ga/_ga_<id> on the registrable domain (cookie_domain
+    'auto'), which the native endpoint's host-only delete never reaches: the
+    banner expires them at the host and at every parent domain (#1036)."""
+    from django.template.loader import render_to_string
+
+    banner = render_to_string(
+        "includes/cookie_banner.html", {"cookie_banner_variant": "crush"}
+    )
+    url = "http://www.crush.test/"
+    page.route(
+        url,
+        lambda route: route.fulfill(
+            content_type="text/html",
+            body=f"<!doctype html><html><body>{banner}</body></html>",
+        ),
+    )
+    page.route(
+        "**/cookies/**",
+        lambda route: route.fulfill(
+            content_type="application/json",
+            body='{"csrftoken":"tok","acceptUrl":"/cookies/accept/",'
+            '"declineUrl":"/cookies/decline/"}',
+        ),
+    )
+    page.context.add_cookies(
+        [
+            {"name": "_ga", "value": "GA1.1.1", "domain": ".crush.test", "path": "/"},
+            {
+                "name": "_ga_ABC123",
+                "value": "GS1.1.1",
+                "domain": ".crush.test",
+                "path": "/",
+            },
+            {"name": "_ga", "value": "GA1.1.2", "url": url},
+            {"name": "ai_user", "value": "visitor", "url": url},
+            {"name": "keepme", "value": "1", "domain": ".crush.test", "path": "/"},
+        ]
+    )
+    page.goto(url)
+    page.click("#cookie-btn-decline")
+
+    names = {c["name"] for c in page.context.cookies()}
+    assert not {"_ga", "_ga_ABC123", "ai_user"} & names
+    assert "keepme" in names
