@@ -1,10 +1,12 @@
 {% extends 'crush_lu/base.html' %}
 {% load i18n %}
+{% load privacy_tags %}
 
 {% block title %}{% trans "Verify Your Email - Crush.lu" %}{% endblock %}
 {% block meta_robots %}noindex, nofollow{% endblock %}
 
 {% block content %}
+{% with pending_email=request.session.pending_verification_email %}
 <div class="min-h-[60vh] flex items-center justify-center px-4 py-12">
     <div class="w-full max-w-md">
         <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/20 p-8 text-center">
@@ -16,12 +18,22 @@
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 {% trans "Check Your Inbox" %}
             </h1>
-            <p class="text-gray-500 dark:text-gray-400 mb-4">
-                {% blocktrans %}
-                    We've sent a verification link to your email address.
-                    Click the link in the email to confirm your account.
-                {% endblocktrans %}
-            </p>
+            {% if pending_email %}
+                <p class="text-gray-500 dark:text-gray-400 mb-1">
+                    {% blocktrans trimmed with email=pending_email|mask_email %}
+                        We've sent a verification link to <strong>{{ email }}</strong>.
+                    {% endblocktrans %}
+                </p>
+                <p class="text-sm mb-4">
+                    <a href="{% url 'crush_lu:signup' %}" class="text-purple-600 dark:text-purple-400 hover:underline">
+                        {% trans "Wrong address? Sign up again" %}
+                    </a>
+                </p>
+            {% else %}
+                <p class="text-gray-500 dark:text-gray-400 mb-4">
+                    {% trans "We've sent a verification link to your email address. Click the link in the email to confirm your account." %}
+                </p>
+            {% endif %}
             <p class="text-sm text-gray-400 dark:text-gray-500 mb-6">
                 {% blocktrans %}
                     If you don't see it in your inbox, check your spam folder.
@@ -29,10 +41,37 @@
                 {% endblocktrans %}
             </p>
 
-            <form method="post" action="{% url 'crush_lu:resend_verification' %}" class="mb-3">
+            <form method="post" action="{% url 'crush_lu:resend_verification' %}" class="mb-3"
+                  x-data="resendCooldown"
+                  data-cooldown-until="{{ request.session.resend_verification_cooldown_until|default:0 }}"
+                  data-server-now="{% now 'U' %}">
                 {% csrf_token %}
-                <button type="submit" class="inline-block w-full py-3 px-6 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                    {% trans "Resend Verification Email" %}
+                {% if not pending_email %}
+                    <label for="id_resend_email" class="sr-only">{% trans "Email address to resend to" %}</label>
+                    <input type="email"
+                           id="id_resend_email"
+                           name="email"
+                           required
+                           placeholder="{% trans 'Your email address' %}"
+                           class="w-full mb-3 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+                {% else %}
+                    <details class="mb-3 text-left">
+                        <summary class="text-sm text-purple-600 dark:text-purple-400 cursor-pointer">{% trans "Use a different address" %}</summary>
+                        <label for="id_resend_email" class="sr-only">{% trans "Email address to resend to" %}</label>
+                        <input type="email"
+                               id="id_resend_email"
+                               name="email"
+                               placeholder="{% trans 'Your email address' %}"
+                               class="w-full mt-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+                    </details>
+                {% endif %}
+                <button type="submit"
+                        x-bind:disabled="disabled"
+                        class="inline-block w-full py-3 px-6 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span x-show="enabled">{% trans "Resend Verification Email" %}</span>
+                    <span x-show="disabled" x-cloak>
+                        {% trans "Resend available in" %} <span x-text="remaining"></span>s
+                    </span>
                 </button>
             </form>
 
@@ -43,4 +82,5 @@
         </div>
     </div>
 </div>
+{% endwith %}
 {% endblock %}
