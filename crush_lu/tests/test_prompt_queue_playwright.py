@@ -379,3 +379,18 @@ def test_whatsapp_button_tucks_away_while_the_install_card_shows(browser, live_s
         expect(fab).not_to_have_class(re.compile(r"crush-whatsapp-btn--tucked"))
     finally:
         context_processors._site_config_cache["config"] = None
+
+
+def test_push_card_offers_retry_when_the_push_script_never_loads(browser, live_server):
+    page = _phone(browser, live_server, _member())
+    page.context.add_init_script(PERMISSION_DEFAULT_JS)
+    page.route("**/push-notifications.js*", lambda route: route.abort())
+    _open(page, f"{live_server.url}/en/account/settings/")
+
+    card = page.locator("[x-data='pushPreferences']")
+    expect(
+        card.get_by_text("We couldn't check notification support on this device.")
+    ).to_be_visible(timeout=6000)
+    expect(card.get_by_role("button", name="Enable Push Notifications")).to_have_count(
+        0
+    )

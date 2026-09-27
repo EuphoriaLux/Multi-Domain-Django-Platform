@@ -3780,7 +3780,6 @@ document.addEventListener("alpine:init", function () {
 
             // Wait for CrushPush to be available (handles script load timing)
             _waitForCrushPush: function (callback) {
-                var self = this;
                 var maxAttempts = 20; // 2 seconds max
                 var attempts = 0;
 
@@ -3790,10 +3789,10 @@ document.addEventListener("alpine:init", function () {
                         callback();
                     } else if (attempts < maxAttempts) {
                         setTimeout(check, 100);
-                    } else {
-                        // CrushPush never loaded (push not supported or script error)
-                        self.isLoading = false;
                     }
+                    // Otherwise CrushPush never loaded (script blocked or
+                    // failed): leave the check pending so the status-check
+                    // timeout offers Retry instead of a dead Enable button.
                 }
 
                 check();
