@@ -1072,19 +1072,37 @@ def connection_detail(request, connection_id):
             consent_value = consent_choice == "yes"
             share_email = "share_email" in request.POST
 
-            if is_requester:
-                connection.requester_consents_to_share = consent_value
-                connection.requester_shares_email = share_email
-            else:
-                connection.recipient_consents_to_share = consent_value
-                connection.recipient_shares_email = share_email
+            # Conditional updates, like "not_now" above: a stale save must
+            # never restore coach_approved over a concurrent decline, and the
+            # switch to `shared` re-checks both consents and the status at
+            # write time.
+            side = "requester" if is_requester else "recipient"
+            updated_rows = EventConnection.objects.filter(
+                pk=connection.pk, status="coach_approved"
+            ).update(
+                **{
+                    f"{side}_consents_to_share": consent_value,
+                    f"{side}_shares_email": share_email,
+                }
+            )
+            if not updated_rows:
+                messages.info(
+                    request,
+                    _(
+                        "This connection has already moved on — refresh the page to see its current status."
+                    ),
+                )
+                return redirect(
+                    "crush_lu:connection_detail", connection_id=connection_id
+                )
 
-            connection.save()
-
-            # Check if both consented and coach approved
-            if connection.can_share_contacts:
-                connection.status = "shared"
-                connection.save()
+            shared_rows = EventConnection.objects.filter(
+                pk=connection.pk,
+                status="coach_approved",
+                requester_consents_to_share=True,
+                recipient_consents_to_share=True,
+            ).update(status="shared")
+            if shared_rows:
                 messages.success(request, _("Contact information is now shared!"))
             else:
                 messages.success(request, _("Your consent has been recorded."))

@@ -42824,3 +42824,13 @@ msgid "This connection has already moved on — refresh the page to see its curr
 msgstr ""
 "Cette connexion a déjà évolué — actualisez la page pour voir son statut "
 "actuel."
+
+#: crush_lu/templates/crush_lu/my_connections.html
+msgid ""
+"Meet someone, and if you both say yes afterwards, you're connected: "
+"sometimes straight away, sometimes through an introduction by your Crush "
+"Coach."
+msgstr ""
+"Rencontrez quelqu'un, et si vous dites tous les deux oui ensuite, vous êtes "
+"mis en relation : parfois directement, parfois grâce aux présentations de "
+"votre Crush Coach."

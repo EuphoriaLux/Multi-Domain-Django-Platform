@@ -1890,10 +1890,21 @@ def export_user_data(request):
         visible_connections.append(
             {
                 "event": conn.event.title if conn.event else None,
+                # Once a connection is shared, the other member's email only
+                # appears if they chose to share it (UX Wave 3, 5-10).
                 "connected_with": (
-                    conn.recipient.email
-                    if conn.requester == user
-                    else conn.requester.email
+                    None
+                    if conn.status == "shared"
+                    and not (
+                        conn.recipient_shares_email
+                        if conn.requester == user
+                        else conn.requester_shares_email
+                    )
+                    else (
+                        conn.recipient.email
+                        if conn.requester == user
+                        else conn.requester.email
+                    )
                 ),
                 "status": ("with your coach" if is_unshared_crush else conn.status),
                 "created_at": (

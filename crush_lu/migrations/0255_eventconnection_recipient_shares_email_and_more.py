@@ -26,4 +26,22 @@ class Migration(migrations.Migration):
                 help_text="Requester chose to include their email in what is shared",
             ),
         ),
+        # The AddFields above backfill existing rows as True (their historical
+        # behaviour); new rows default to False.
+        migrations.AlterField(
+            model_name="eventconnection",
+            name="recipient_shares_email",
+            field=models.BooleanField(
+                default=False,
+                help_text="Recipient chose to include their email in what is shared",
+            ),
+        ),
+        migrations.AlterField(
+            model_name="eventconnection",
+            name="requester_shares_email",
+            field=models.BooleanField(
+                default=False,
+                help_text="Requester chose to include their email in what is shared",
+            ),
+        ),
     ]

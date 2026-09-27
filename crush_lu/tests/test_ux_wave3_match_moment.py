@@ -554,3 +554,103 @@ class MyConnectionsEmptyStateTests(TestCase):
         self.user.crushprofile.save()
         response = self.client.get("/en/connections/", HTTP_HOST="crush.lu")
         self.assertContains(response, "Try Crush Connect")
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class ConsentPrivacyReviewTests(TestCase):
+    """Second Codex review round on #1061: email opt-in defaults, the GDPR
+    export, and the consent 'yes' race."""
+
+    setUp = ConsentStepTests.setUp
+    _detail_url = ConsentStepTests._detail_url
+
+    def test_new_connections_do_not_share_email_by_default(self):
+        fresh = EventConnection.objects.create(
+            event=self.event, requester=self.recipient, recipient=self.requester
+        )
+        self.assertFalse(fresh.requester_shares_email)
+        self.assertFalse(fresh.recipient_shares_email)
+
+    def _export(self):
+        response = self.client.get("/en/account/gdpr/export/", HTTP_HOST="crush.lu")
+        self.assertEqual(response.status_code, 200)
+        return response.content.decode()
+
+    def test_export_omits_an_email_the_other_member_did_not_share(self):
+        self.connection.status = "shared"
+        self.connection.recipient_shares_email = False
+        self.connection.save()
+        self.assertNotIn(self.recipient.email, self._export())
+
+    def test_export_includes_an_email_that_was_shared(self):
+        self.connection.status = "shared"
+        self.connection.recipient_shares_email = True
+        self.connection.save()
+        self.assertIn(self.recipient.email, self._export())
+
+    def test_yes_racing_a_decline_does_not_reopen_or_share(self):
+        """The other member already consented from another tab; this member's
+        stale 'yes' lands after a concurrent 'not now' closed the row."""
+        self.connection.recipient_consents_to_share = True
+        self.connection.save()
+        original_filter = EventConnection.objects.filter
+        raced = {"done": False}
+
+        def racing_filter(*args, **kwargs):
+            if not raced["done"]:
+                raced["done"] = True
+                original_filter(pk=self.connection.pk).update(status="declined")
+            return original_filter(*args, **kwargs)
+
+        with patch.object(
+            type(EventConnection.objects), "filter", side_effect=racing_filter
+        ):
+            response = self.client.post(
+                self._detail_url(),
+                {"consent": "yes", "share_email": "on"},
+                HTTP_HOST="crush.lu",
+            )
+        self.assertEqual(response.status_code, 302)
+        self.connection.refresh_from_db()
+        self.assertEqual(self.connection.status, "declined")
+        self.assertFalse(self.connection.requester_consents_to_share)
+
+    def test_yes_from_both_sides_shares(self):
+        self.connection.recipient_consents_to_share = True
+        self.connection.save()
+        self.client.post(
+            self._detail_url(),
+            {"consent": "yes", "share_email": "on"},
+            HTTP_HOST="crush.lu",
+        )
+        self.connection.refresh_from_db()
+        self.assertEqual(self.connection.status, "shared")
+        self.assertTrue(self.connection.requester_shares_email)
+
+
+class RetiredSparksBadgeTests(TestCase):
+    def setUp(self):
+        cache.clear()
+
+    def test_retired_sparks_no_longer_feed_the_nav_badge(self):
+        user = User.objects.create_user(
+            username="badge@example.com", email="badge@example.com", password="x"
+        )
+        CrushProfile.objects.create(
+            user=user,
+            date_of_birth=date(1995, 5, 15),
+            gender="M",
+            location="Luxembourg",
+            is_approved=True,
+        )
+        _give_crushlu_consent(user)
+        from django.test import RequestFactory
+
+        from crush_lu.context_processors import crush_user_context
+
+        request = RequestFactory().get("/en/dashboard/", HTTP_HOST="crush.lu")
+        request.user = user
+        with patch.object(CrushSpark.objects, "filter") as spark_filter:
+            context = crush_user_context(request)
+        spark_filter.assert_not_called()
+        self.assertEqual(context.get("actionable_sparks_count", 0), 0)
