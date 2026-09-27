@@ -29,6 +29,7 @@ from crush_lu.models.events import (
 from crush_lu.models.payments import EventCheckoutCreationClaim, PaymentTransaction
 from crush_lu.models.profiles import CrushProfile, PremiumMembership
 from crush_lu.services.credits import (
+    cancellation_policy,
     credit_registration_for_cancelled_event,
     credit_registration_for_unavailable_curated_group,
     credit_transaction_reference,
@@ -2690,11 +2691,35 @@ def sumup_widget_view(request, checkout_id):
         )
         raise Http404("No payment found.")
 
+    # What is being bought, shown above the card form: a card-entry page that
+    # does not name the purchase is a trust breaker.
+    event = (
+        tx_obj.event_registration.event
+        if tx_obj.event_registration_id
+        else tx_obj.event
+    )
     context = {
         "checkout_id": checkout_id,
         "transaction": tx_obj,
         "amount": tx_obj.amount,
         "currency": tx_obj.currency,
+        "order_event": event,
+        "order_town": (event.address_town or event.location) if event else "",
+        # Member-cancellation terms only: once Crush.lu has cancelled the
+        # event, a capture gets the organiser remedy instead, so don't quote
+        # terms that would not apply. Likewise once the member has already
+        # cancelled this registration: a late capture is then settled at
+        # ``cancelled_at``, not at page load, so today's deadline would lie.
+        "cancellation_policy": (
+            cancellation_policy(event)
+            if event
+            and not event.is_cancelled
+            and not (
+                tx_obj.event_registration_id
+                and tx_obj.event_registration.status == "cancelled"
+            )
+            else None
+        ),
         # The failure baseline, rendered into the page rather than fetched by
         # it. Fetching cannot be made safe here however early it is started:
         # the status endpoint does a live provider read, so its answer can

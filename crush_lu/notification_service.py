@@ -1056,3 +1056,52 @@ def notify_report_filed(report) -> int:
         except Exception:
             logger.exception("Failed writing report notification for staff %s", staff.pk)
     return notified
+
+
+def notify_gift_reported(gift) -> int:
+    """Alert staff (in-app bell) that a gift recipient declined/reported a gift.
+
+    Same channel as ``notify_report_filed``: the recipient of a Wonderland gift
+    pressed "This isn't for me / Report" on the landing page. A coach should
+    look at the sender. Returns the number of staff notified; ``gift_report``
+    rolls the expiry back when that is 0, so the report can be retried.
+    """
+    from django.contrib.auth.models import User
+    from django.db import transaction
+    from django.urls import NoReverseMatch, reverse
+
+    from .models import Notification
+
+    try:
+        link_url = reverse("crush_admin:crush_lu_journeygift_change", args=[gift.pk])
+    except NoReverseMatch:
+        link_url = ""
+
+    sender_name = gift.sender.first_name or gift.sender.username
+    notified = 0
+    # Never alert the sender, even if they are staff.
+    staff_qs = User.objects.filter(is_staff=True, is_active=True).exclude(
+        pk=gift.sender_id
+    )
+    for staff in staff_qs:
+        try:
+            # Savepoint per write: gift_report calls this inside its atomic
+            # block, and one failed INSERT must not poison the others.
+            with transaction.atomic():
+                Notification.objects.create(
+                    user=staff,
+                    notification_type="journey_gift_reported",
+                    title="Journey gift reported",
+                    body=(
+                        f"The recipient of a gift from {sender_name} "
+                        f"({gift.gift_code}) said it wasn't for them."
+                    ),
+                    link_url=link_url,
+                    metadata={"gift_id": gift.pk, "sender_id": gift.sender_id},
+                )
+            notified += 1
+        except Exception:
+            logger.exception(
+                "Failed writing gift-report notification for staff %s", staff.pk
+            )
+    return notified

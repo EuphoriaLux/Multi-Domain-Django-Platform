@@ -12,6 +12,7 @@
             <strong>{{ gift.sender.first_name }}</strong> {% trans "created this journey for" %}
         </p>
         <p class="claim-recipient">{{ gift.recipient_name }}</p>
+        {% include "crush_lu/journey/partials/gift_sender_badge.html" %}
     </div>
 
     {% if gift.sender_message %}
@@ -35,5 +36,7 @@
     <p class="claim-hint">
         {% trans "By claiming this gift, you'll unlock 6 chapters of puzzles, secrets, and messages." %}
     </p>
+
+    {% include "crush_lu/journey/partials/gift_report_form.html" %}
 </article>
 {% endblock %}

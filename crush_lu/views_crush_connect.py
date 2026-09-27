@@ -179,6 +179,12 @@ def _connect_trust_status(profile):
     return None
 
 
+def _active_assigned_coach(profile):
+    """The member's assigned coach, only while that coach is active."""
+    coach = getattr(profile, "assigned_coach", None)
+    return coach if coach is not None and coach.is_active else None
+
+
 def _connect_readiness(user):
     """Build the personal, real-state checklist for the active Connect route.
 
@@ -815,14 +821,35 @@ def crush_connect_catalogue_status(request):
             }
         )
 
+    from crush_lu.services.crush_connect import is_catalogue_eligible
+
+    profile = getattr(user, "crushprofile", None)
+    # Same sources as the hub, so the two pages never disagree about
+    # visibility. Event verification and questions are readiness steps for
+    # the active journey, not visibility gates, so they never "block" here.
+    is_visible = is_catalogue_eligible(user)
+    readiness = _connect_readiness(user)
+    blocking_step = next(
+        (
+            step
+            for step in readiness["steps"]
+            if not step["complete"]
+            and step["key"] in {"identity", "photo", "photo_consent", "onboarding"}
+        ),
+        None,
+    )
     return render(
         request,
         "crush_lu/crush_connect/catalogue_status.html",
         {
             "membership": membership,
-            "profile": getattr(user, "crushprofile", None),
+            "profile": profile,
             "gate_stat_rows": _gate_stat_rows(user, membership),
             "connect_launched": connect_launched,
+            "is_visible": is_visible,
+            "blocking_step": None if is_visible else blocking_step,
+            "has_premium": bool(profile and profile.has_active_premium),
+            "premium_coach": _active_assigned_coach(profile),
             **waitlist_context,
         },
     )
@@ -929,7 +956,7 @@ def crush_connect_hub(request):
         "has_premium": bool(profile and profile.has_active_premium),
         # Naming the coach is most of the point: it is the thing being sold, and
         # the hub never told the member who theirs is.
-        "premium_coach": getattr(profile, "assigned_coach", None) if profile else None,
+        "premium_coach": _active_assigned_coach(profile),
         "connect_readiness": readiness,
         "blocking_step": blocking_step,
         "has_non_closed_chat": user_has_non_closed_chat(user),
