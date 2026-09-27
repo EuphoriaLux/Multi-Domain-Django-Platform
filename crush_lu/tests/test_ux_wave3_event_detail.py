@@ -242,3 +242,125 @@ class ShareButtonFallbackTests(EventDetailWave3TestBase):
         html = self._get_detail(event)
         self.assertIn("navigator.clipboard.writeText", html)
         self.assertIn("Link copied", html)
+
+
+class DescriptionClampGateTests(EventDetailWave3TestBase):
+    """WP6 fix: the clamp class must only ever apply when a "Read more"
+    toggle was also rendered to undo it — the two must share one gate."""
+
+    def test_long_description_marks_the_wrapper_collapsible(self):
+        event = self._make_event()
+        html = self._get_detail(event)
+        self.assertIn('data-collapsible="true"', html)
+
+    def test_short_description_is_not_marked_collapsible(self):
+        event = self._make_event(description="A short blurb.")
+        html = self._get_detail(event)
+        self.assertNotIn("data-collapsible", html)
+
+    def test_descriptionclass_getter_is_gated_on_collapsible_flag(self):
+        js_path = finders.find("crush_lu/js/alpine-components.js")
+        with open(js_path, encoding="utf-8") as fh:
+            js = fh.read()
+        start = js.index('Alpine.data("eventDescriptionToggle"')
+        end = js.index("Alpine.data(", start + 1)
+        component_src = js[start:end]
+        self.assertIn("this.collapsible = this.$el.dataset.collapsible", component_src)
+        self.assertIn("this.collapsible", component_src.split("descriptionClass")[1])
+
+
+class StickyCtaPaymentDueFallbackTests(EventDetailWave3TestBase):
+    """WP6 fix: the sticky bar must also appear for a registered-but-unpaid
+    member, whose CTA is a `.js-sumup-checkout-detail` <button>, not an
+    `a.btn-crush-primary` anchor (finding: init() only ever looked for the
+    anchor, so the bar silently never appeared in this state)."""
+
+    def _register_unpaid(self, event, user):
+        from crush_lu.models import EventRegistration
+
+        return EventRegistration.objects.create(
+            event=event,
+            user=user,
+            status="pending",
+            payment_confirmed=False,
+        )
+
+    def test_sticky_bar_falls_back_to_the_pay_button_when_no_anchor_exists(self):
+        event = self._make_event(registration_fee=25)
+        user = self._create_user("unpaid1@test.com")
+        self._register_unpaid(event, user)
+        self.client.force_login(user)
+
+        html = self._get_detail(event)
+        panel_html = html.split('id="event-cta-panel"')[1].split(
+            'id="event-sticky-cta"'
+        )[0]
+        # No btn-crush-primary anchor inside the CTA panel for this state...
+        self.assertNotIn("btn-crush-primary", panel_html)
+        # ...so the sticky bar's payment button must be wired up instead.
+        self.assertIn('x-show="isPayment"', html)
+        self.assertIn('@click="onCtaClick"', html)
+        self.assertIn("js-sumup-checkout-detail", html)
+
+    def test_init_falls_back_to_the_card_pay_button_and_replays_its_click(self):
+        js_path = finders.find("crush_lu/js/alpine-components.js")
+        with open(js_path, encoding="utf-8") as fh:
+            js = fh.read()
+        start = js.index('Alpine.data("eventStickyCta"')
+        end = js.index("Alpine.data(", start + 1)
+        component_src = js[start:end]
+        self.assertIn("js-sumup-checkout-detail", component_src)
+        self.assertIn("this.isPayment = true", component_src)
+        self.assertIn("onCtaClick: function (event) {", component_src)
+        self.assertIn("real.click();", component_src)
+
+    def test_observer_watches_the_cta_element_not_the_whole_panel(self):
+        """Minor finding: the comment says the bar hides "while that anchor
+        is still visible", so the IntersectionObserver must watch the anchor
+        (or its payment-button fallback), not #event-cta-panel itself."""
+        js_path = finders.find("crush_lu/js/alpine-components.js")
+        with open(js_path, encoding="utf-8") as fh:
+            js = fh.read()
+        start = js.index('Alpine.data("eventStickyCta"')
+        end = js.index("Alpine.data(", start + 1)
+        component_src = js[start:end]
+        self.assertIn("observer.observe(target);", component_src)
+        self.assertNotIn("observer.observe(panel);", component_src)
+
+
+class LuxidVerifyLinkTests(EventDetailWave3TestBase):
+    """#4-14 headline part: the "Verify with LuxID" button must actually
+    render for an unapproved member when LuxID is configured for the site.
+    No test previously configured a LuxID SocialApp, so this branch of
+    get_luxid_connect_url (and the anchor it feeds) was never exercised."""
+
+    def _profile(self, user, **kwargs):
+        defaults = dict(
+            date_of_birth=date(1995, 1, 1),
+            gender="F",
+            location="Luxembourg",
+            is_approved=False,
+            verification_status="pending",
+        )
+        defaults.update(kwargs)
+        return CrushProfile.objects.create(user=user, **defaults)
+
+    def test_verify_with_luxid_renders_when_luxid_is_configured(self):
+        from unittest.mock import patch
+
+        event = self._make_event(profile_requirement="approved")
+        user = self._create_user("pending-luxid@test.com")
+        self._profile(user)
+        self.client.force_login(user)
+
+        with patch(
+            "crush_lu.luxid.get_luxid_connect_url",
+            return_value="/accounts/luxid/login/?process=connect",
+        ):
+            html = self._get_detail(event)
+
+        self.assertIn(
+            'href="/accounts/luxid/login/?process=connect"',
+            html,
+        )
+        self.assertIn("Verify with LuxID", html)

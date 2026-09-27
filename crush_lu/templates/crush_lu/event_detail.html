@@ -159,7 +159,7 @@
                 </div>
 
                 {# Description section: collapsed after ~4 lines behind "Read more" (#4-03) #}
-                <div class="mb-6 sm:mb-8" x-data="eventDescriptionToggle">
+                <div class="mb-6 sm:mb-8" x-data="eventDescriptionToggle" {% if event.description|wordcount > 40 %}data-collapsible="true"{% endif %}>
                     <div id="event-description-text" class="prose dark:prose-invert prose-sm sm:prose-base max-w-none text-gray-600 dark:text-gray-300" :class="descriptionClass">{{ event.description|linebreaks }}</div>
                     {% if event.description|wordcount > 40 %}
                     <button type="button" @click="toggle" class="btn-crush-outline btn-sm mt-2" aria-expanded="false" x-bind:aria-expanded="expandedAria" aria-controls="event-description-text">
@@ -964,7 +964,8 @@ respects the home-bar safe area.
         <p class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="factsText"></p>
         <p class="font-semibold text-gray-900 dark:text-white" x-text="priceText"></p>
     </div>
-    <a :href="ctaHref" class="btn-crush-primary btn-sm whitespace-nowrap" x-text="ctaLabel"></a>
+    <a :href="ctaHref" x-show="isLink" class="btn-crush-primary btn-sm whitespace-nowrap" x-text="ctaLabel"></a>
+    <button type="button" x-show="isPayment" x-cloak @click="onCtaClick" class="btn-crush-primary btn-sm whitespace-nowrap" x-text="ctaLabel"></button>
 </div>
 
 <script nonce="{{ csp_nonce }}">

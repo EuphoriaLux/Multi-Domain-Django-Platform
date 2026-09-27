@@ -2,8 +2,9 @@
 
 Covers the interactive changes: the description "Read more" toggle (#4-03,
 plus its aria-expanded/aria-controls wiring, WP6-2), the share button's
-clipboard fallback + toast (#4-18), and the mobile sticky CTA bar's
-toast-offset guard (WP6-1).
+clipboard fallback + toast (#4-18), the mobile sticky CTA bar's toast-offset
+guard (WP6-1), and its fallback to a `.js-sumup-checkout-detail` payment
+button for a registered-but-unpaid member (WP6-3).
 
 Excluded from the default run (``-m "not playwright"`` in pytest.ini). Run:
     pytest -m playwright crush_lu/tests/test_ux_wave3_event_detail_playwright.py -n 0 --create-db
@@ -214,3 +215,67 @@ def test_sticky_cta_offsets_toast_on_mobile_and_never_on_desktop(
     set_visible(True)
     page.wait_for_timeout(200)
     assert toast_bottom_style() == ""
+
+
+def test_sticky_cta_falls_back_to_pay_button_for_unpaid_registration(
+    page, live_server, upcoming_event
+):
+    """WP6-3: a registered-but-unpaid member has no `a.btn-crush-primary`
+    inside #event-cta-panel — only `.js-sumup-checkout-detail` <button>s —
+    so init() must fall back to one of those instead of leaving the bar
+    permanently hidden, and tapping the sticky bar's own button must trigger
+    the same SumUp checkout as tapping the in-panel one.
+    """
+    from crush_lu.models import EventRegistration
+
+    upcoming_event.registration_fee = 25
+    upcoming_event.save(update_fields=["registration_fee"])
+    member = _make_open_registration_member()
+    EventRegistration.objects.create(
+        event=upcoming_event,
+        user=member,
+        status="pending",
+        payment_confirmed=False,
+    )
+    _log_in(page, live_server, member)
+
+    page.set_viewport_size(PHONE)
+    page.goto(f"{live_server.url}/en/events/{upcoming_event.id}/")
+
+    sticky_bar = page.locator("#event-sticky-cta")
+    sticky_button = sticky_bar.locator("button")
+    expect(sticky_button).to_be_attached()
+    expect(sticky_button).to_contain_text("Pay with Card")
+
+    checkout_request = {"seen": False}
+
+    def handle_checkout(route):
+        checkout_request["seen"] = True
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body='{"success": true, "widget_url": "about:blank#checkout"}',
+        )
+
+    page.route("**/payments/sumup/create-event-checkout/**", handle_checkout)
+
+    page.evaluate(
+        "Alpine.$data(document.getElementById('event-sticky-cta')).visible = true"
+    )
+    expect(sticky_bar).to_be_visible()
+    # The bar sits fixed above the mobile tab bar (--bottom-nav-height); at
+    # the 390x844 test viewport that can place its bounding box just past
+    # what Playwright considers the visible viewport even though it's
+    # genuinely on-screen. dispatch_event bypasses that actionability check —
+    # the click *handler*, not scroll/hit-testing, is what's under test here.
+    sticky_button.dispatch_event("click")
+
+    for _ in range(20):
+        if checkout_request["seen"]:
+            break
+        page.wait_for_timeout(50)
+    assert checkout_request["seen"], (
+        "tapping the sticky bar's payment button must replay a click onto "
+        "the real .js-sumup-checkout-detail button so the existing "
+        "document-level checkout listener fires"
+    )

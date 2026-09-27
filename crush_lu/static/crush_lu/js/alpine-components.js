@@ -2349,11 +2349,20 @@ document.addEventListener("alpine:init", function () {
     Alpine.data("eventDescriptionToggle", function () {
         return {
             expanded: false,
+            // Only ever clamp when the template also rendered a toggle to
+            // undo it (`{% if event.description|wordcount > 40 %}`) — read
+            // from data-collapsible so this getter can't disagree with that
+            // same gate (WP6 finding: the clamp used to apply regardless of
+            // whether a "Read more" button existed to remove it).
+            collapsible: false,
+            init: function () {
+                this.collapsible = this.$el.dataset.collapsible === "true";
+            },
             get collapsed() {
                 return !this.expanded;
             },
             get descriptionClass() {
-                return this.expanded ? "" : "line-clamp-4";
+                return !this.expanded && this.collapsible ? "line-clamp-4" : "";
             },
             // String form for :aria-expanded on the toggle button (#WP6-2):
             // mirrors the getter idiom base.html uses for nav aria-expanded
@@ -2372,6 +2381,14 @@ document.addEventListener("alpine:init", function () {
     // #event-cta-panel, so it can never disagree with the in-page CTA — it
     // reads the same DOM instead of re-deriving eligibility. Stays hidden
     // when that panel has no such anchor (blocked / login states).
+    //
+    // A registered-but-unpaid member sees "Pay with Card" / "Pay with Crush
+    // Credit" as <button class="js-sumup-checkout-detail"> elements instead
+    // (they trigger a fetch()-based SumUp checkout, not a navigation), so
+    // when no anchor is found this also falls back to that button and, on
+    // tap, re-dispatches a click to the real in-panel button so the existing
+    // document-level '.js-sumup-checkout-detail' listener (event_detail.html)
+    // handles the checkout exactly as if the member had tapped it directly.
     Alpine.data("eventStickyCta", function () {
         return {
             visible: false,
@@ -2379,6 +2396,14 @@ document.addEventListener("alpine:init", function () {
             ctaLabel: "",
             priceText: "",
             factsText: "",
+            isPayment: false,
+            payMethod: "",
+            // Bare getter for the anchor branch's x-show (#WP6 fix): the CSP
+            // build only evaluates bare property/method names, not
+            // expressions like "!isPayment".
+            get isLink() {
+                return !this.isPayment;
+            },
             init: function () {
                 this.priceText = this.$el.dataset.priceLabel || "";
                 this.factsText = this.$el.dataset.factsText || "";
@@ -2427,11 +2452,34 @@ document.addEventListener("alpine:init", function () {
                     return;
                 }
                 var anchor = panel.querySelector("a.btn-crush-primary");
-                if (!anchor) {
-                    return;
+                var target = anchor;
+                if (anchor) {
+                    this.ctaHref = anchor.getAttribute("href") || "";
+                    this.ctaLabel = (anchor.textContent || "").trim();
+                } else {
+                    // Prefer the "Pay with Card" button: it's the one payment
+                    // option always rendered when a balance is due, whereas
+                    // "Pay with Crush Credit" only appears with sufficient
+                    // credit — so anchoring on "card" keeps target selection
+                    // stable across members.
+                    var payButton =
+                        panel.querySelector(
+                            '.js-sumup-checkout-detail[data-payment-method="card"]',
+                        ) || panel.querySelector(".js-sumup-checkout-detail");
+                    if (!payButton) {
+                        return;
+                    }
+                    this.isPayment = true;
+                    this.payMethod =
+                        payButton.getAttribute("data-payment-method") || "card";
+                    this.ctaLabel = (payButton.textContent || "").trim();
+                    target = payButton;
                 }
-                this.ctaHref = anchor.getAttribute("href") || "";
-                this.ctaLabel = (anchor.textContent || "").trim();
+                // Observe the CTA element itself, not the whole panel — the
+                // intent (per the markup comment above) is to hide the bar
+                // "while that anchor is still visible on screen", and a
+                // future addition above/below it inside the same panel
+                // would otherwise decouple the two.
                 var observer = new IntersectionObserver(
                     function (entries) {
                         var entry = entries[0];
@@ -2439,7 +2487,24 @@ document.addEventListener("alpine:init", function () {
                     },
                     { rootMargin: "0px 0px -20% 0px" },
                 );
-                observer.observe(panel);
+                observer.observe(target);
+            },
+            onCtaClick: function (event) {
+                if (!this.isPayment) {
+                    return;
+                }
+                event.preventDefault();
+                var panel = document.getElementById("event-cta-panel");
+                var real =
+                    panel &&
+                    panel.querySelector(
+                        '.js-sumup-checkout-detail[data-payment-method="' +
+                            this.payMethod +
+                            '"]',
+                    );
+                if (real) {
+                    real.click();
+                }
             },
         };
     });
