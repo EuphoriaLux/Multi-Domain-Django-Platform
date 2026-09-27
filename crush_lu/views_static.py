@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from django.contrib.admin.views.decorators import staff_member_required
+from django.db.models import Q
 from .models import MeetupEvent
 from .models.crush_connect import CrushConnectWaitlist
 from .models.events import EventRegistration
@@ -141,13 +142,19 @@ def home(request):
     published = MeetupEvent.objects.filter(
         is_published=True, is_cancelled=False, is_private_invitation=False
     ).exclude(title_en__icontains="[DEBUG]")
-    # Anonymous visitors can't join an event that has already started, so this
-    # anonymous-only landing page shows only future, registration-open starts —
-    # a "Live now" event they can't act on is worse than one further out
-    # (finding 1-05). `end_time`/live status is irrelevant here on purpose.
-    upcoming_events = list(
-        published.filter(date_time__gte=now).order_by("date_time")[:3]
-    )
+    # Include live events only while they still accept registrations. The
+    # bounded lookback covers every valid duration; check each event's actual
+    # end_time in Python because duration arithmetic is not portable to SQLite.
+    candidates = published.filter(
+        date_time__gte=MeetupEvent.live_lookback_cutoff(now)
+    ).filter(Q(date_time__gte=now) | Q(registration_deadline__gt=now))
+    upcoming_events = []
+    for event in candidates.order_by("date_time"):
+        if event.date_time < now and event.end_time <= now:
+            continue
+        upcoming_events.append(event)
+        if len(upcoming_events) == 3:
+            break
 
     context = {
         "upcoming_events": upcoming_events,

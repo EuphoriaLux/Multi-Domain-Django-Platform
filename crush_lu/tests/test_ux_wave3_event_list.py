@@ -49,19 +49,19 @@ def _grant_consent(user):
 
 
 class HomeUpcomingEventsTests(TestCase):
-    """Finding 1-05: home() must not show already-live events to anonymous
-    visitors, and must exclude seeded QA events."""
+    """Finding 1-05: home() shows actionable events, not seeded QA events."""
 
     def setUp(self):
         cache.clear()
         self.client = Client(HTTP_HOST="crush.lu")
 
     def test_live_event_excluded_from_anonymous_home(self):
-        # Started 10 minutes ago, still within its duration -> "live".
+        # This live event has already closed registration.
         _make_event(
             title="Live Right Now",
             date_time=timezone.now() - timedelta(minutes=10),
             duration_minutes=60,
+            registration_deadline=timezone.now() - timedelta(minutes=1),
         )
         _make_event(title="Future Mixer", event_type="mixer")
 
@@ -70,6 +70,28 @@ class HomeUpcomingEventsTests(TestCase):
         titles = [e.title for e in response.context["upcoming_events"]]
         self.assertNotIn("Live Right Now", titles)
         self.assertIn("Future Mixer", titles)
+
+    def test_live_event_accepting_registration_is_on_anonymous_home(self):
+        _make_event(
+            title="Live And Registerable",
+            date_time=timezone.now() - timedelta(minutes=10),
+            duration_minutes=60,
+            registration_deadline=timezone.now() + timedelta(minutes=20),
+        )
+        response = self.client.get("/en/")
+        titles = [e.title for e in response.context["upcoming_events"]]
+        self.assertIn("Live And Registerable", titles)
+
+    def test_ended_event_with_open_deadline_is_excluded(self):
+        _make_event(
+            title="Ended But Deadline Open",
+            date_time=timezone.now() - timedelta(hours=2),
+            duration_minutes=60,
+            registration_deadline=timezone.now() + timedelta(hours=1),
+        )
+        response = self.client.get("/en/")
+        titles = [e.title for e in response.context["upcoming_events"]]
+        self.assertNotIn("Ended But Deadline Open", titles)
 
     def test_debug_seed_event_excluded_from_anonymous_home(self):
         # Real seed_crush_cache.py title: the "[DEBUG]" tag is preceded by an
@@ -131,13 +153,14 @@ class EventCardAgesAndSpotsTests(TestCase):
         # Codex review finding: compacting the date to "j M" dropped the
         # year, so an event scheduled across a year boundary read as an
         # ambiguous "Mon, 5 Jan" with no way to tell it isn't this year.
+        next_year = timezone.localdate().year + 1
         _make_event(
             title="New Year Mixer",
             event_type="mixer",
-            date_time=timezone.make_aware(timezone.datetime(2027, 1, 5, 19, 0)),
+            date_time=timezone.make_aware(timezone.datetime(next_year, 1, 5, 19, 0)),
         )
         response = self.client.get("/en/events/")
-        self.assertContains(response, "5 Jan 2027")
+        self.assertContains(response, f"5 Jan {next_year}")
 
 
 class EventListRegistrationStatusTests(TestCase):
