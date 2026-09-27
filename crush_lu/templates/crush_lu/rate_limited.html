@@ -1,0 +1,42 @@
+{% extends "crush_lu/base.html" %}
+{% load i18n %}
+
+{% comment %}
+UX Wave 3 · WP3 (finding 2-04): branded fallback for rate-limited auth
+actions that aren't re-rendered inline (password reset, resend
+verification). Login and signup re-render auth.html directly instead of
+using this page - see crush_lu/urls.py and crush_lu/views_account.py.
+{% endcomment %}
+
+{% block title %}{% trans "Too many attempts" %} - Crush.lu{% endblock %}
+
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center px-4 py-12">
+    <div class="max-w-lg w-full">
+        <div class="card border-2 border-amber-300 dark:border-amber-700">
+            <div class="card-body text-center">
+                <div class="text-5xl mb-4" aria-hidden="true">⏳</div>
+                <h1 class="mb-4">{% trans "Too many attempts" %}</h1>
+
+                <p class="text-secondary mb-2">
+                    {% trans "For your security, we've temporarily paused this action." %}
+                </p>
+                <p class="text-secondary mb-6">
+                    {% blocktrans %}Please try again in {{ wait_message }}.{% endblocktrans %}
+                </p>
+
+                <div class="space-y-3">
+                    <a href="{% url 'crush_lu:login' %}" class="btn-crush-solid btn-block py-3">
+                        {% trans "Back to login" %}
+                    </a>
+                    <a href="{% url 'crush_lu:home' %}" class="block text-sm text-secondary hover:text-purple-600 dark:hover:text-purple-400">
+                        {% trans "Go to homepage" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
