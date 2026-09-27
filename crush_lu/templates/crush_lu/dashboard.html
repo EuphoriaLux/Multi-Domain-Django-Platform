@@ -357,10 +357,6 @@ try Chrome) is dropped entirely rather than rendered after a 2s timer —
 appears, so there is no flash-then-empty-box wait either. `pwaInstallButton`
 (alpine-components.js) still sets `showFallback` internally for potential
 future use; nothing in this template reads it any more.
-
-Wave 2 is building a global prompt queue in parallel (per Wave 3 brief) —
-this fix stays local to the component rather than introducing a second
-queue; adopt Wave 2's component for this card once it lands.
 {% endcomment %}
 <div class="grid grid-cols-1 {% if not is_native_app %}md:grid-cols-2{% endif %} gap-5 mb-5"
      {% if not is_native_app %}x-data="pwaInstallButton"{% endif %}>
