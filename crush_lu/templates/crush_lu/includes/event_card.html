@@ -95,13 +95,19 @@
         </div>
 
         {% if reg_status_chip or is_eligible == False %}
-        {% trans "Verified members only" as verified_only_label %}
         <div class="flex flex-wrap gap-1.5 mb-2">
             {% if reg_status_chip %}
             {% include "crush_lu/components/status_badge.html" with tone=reg_status_chip.tone label=reg_status_chip.label %}
             {% endif %}
             {% if is_eligible == False %}
-            {% include "crush_lu/components/status_badge.html" with tone="warning" label=verified_only_label %}
+            {% comment %}
+            The chip must name the ACTUAL gate (5 different profile_requirement values, only
+            one of which is really about verification) rather than a fixed "Verified members
+            only" string that was wrong for 4 of 5 cases — finding WP7-1. Reuse the model's
+            own translated PROFILE_REQUIREMENT_CHOICES label so the copy always matches the
+            gate _light_eligibility() just evaluated.
+            {% endcomment %}
+            {% include "crush_lu/components/status_badge.html" with tone="warning" label=event.get_profile_requirement_display %}
             {% endif %}
         </div>
         {% endif %}
@@ -149,12 +155,18 @@
                 {% endif %}
             </div>
 
+            {% if reg_status_chip.tone == "success" %}
+            {# "View ticket" should actually land on the ticket page, not detail — finding WP7-5. #}
+            <a href="{% url 'crush_lu:event_ticket' event.id %}" class="btn-crush-solid w-full text-center block py-2 min-h-11">
+                {% trans "View ticket" %}
+            </a>
+            {% else %}
             <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn-crush-solid w-full text-center block py-2 min-h-11">
-                {% if reg_status_chip.tone == "success" %}{% trans "View ticket" %}
-                {% elif reg_status_chip.tone == "warning" %}{% trans "Complete payment" %}
+                {% if reg_status_chip.tone == "warning" %}{% trans "Complete payment" %}
                 {% else %}{% trans "View Details" %}
                 {% endif %}
             </a>
+            {% endif %}
         </div>
         {% endwith %}
         {% endif %}

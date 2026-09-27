@@ -312,12 +312,26 @@ class CuratedGroupSurfaceTests(TestCase):
         venue ceiling however large the pool grew — the curated card must
         never print one, regardless of the (unrelated) UX Wave 3 WP7 rule
         that a direct card's own seat count only shows once it is low."""
+        # A dedicated low-capacity direct event (kept separate from
+        # self.direct, whose max_participants=18 sits above the card's own
+        # <=10 urgency threshold and is depended on by other tests in this
+        # class) so this test still has a comparison card that actually
+        # shows a seat count — otherwise both assertions below would pass
+        # even if curated suppression were silently broken.
+        self._event(
+            "Almost Full Direct Night",
+            registration_mode="direct",
+            max_participants=10,
+            max_participants_m=5,
+            max_participants_f=5,
+            max_participants_nb=0,
+        )
+
         response = self.client.get("/en/events/")
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Curated groups · applications open")
-        self.assertNotContains(response, "18 spots left")
-        self.assertNotContains(response, "Only 18 spots left")
+        self.assertContains(response, "Only 10 spots left", count=1)
 
     def test_event_card_says_applications_closed_after_the_deadline(self):
         MeetupEvent.objects.filter(pk=self.curated.pk).update(

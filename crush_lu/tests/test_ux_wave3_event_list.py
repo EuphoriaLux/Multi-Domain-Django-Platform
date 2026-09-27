@@ -148,6 +148,19 @@ class EventListRegistrationStatusTests(TestCase):
         self.assertContains(response, "Confirmed")
         self.assertContains(response, "View ticket")
 
+    def test_confirmed_registration_view_ticket_links_to_ticket_page(self):
+        # Finding WP7-5: the "View ticket" CTA must actually land on the
+        # ticket page, not on event_detail (which only surfaces the ticket
+        # link indirectly, further down its own page).
+        EventRegistration.objects.create(
+            event=self.event, user=self.user, status="confirmed"
+        )
+        self.client.login(username="member@example.com", password="testpass123")
+
+        response = self.client.get("/en/events/")
+
+        self.assertContains(response, f"/en/events/{self.event.id}/ticket/")
+
     def test_pending_payment_shows_complete_payment_cta(self):
         EventRegistration.objects.create(
             event=self.event, user=self.user, status="pending"
@@ -160,24 +173,80 @@ class EventListRegistrationStatusTests(TestCase):
 
     def test_no_registration_query_count_scales_flat_with_event_count(self):
         # Regression guard for the N+1 the finding calls out: adding more
-        # events must not add more registration-status queries.
+        # events must not add more registration-status queries on the real
+        # event_list() view. This exercises /en/events/ itself (not a
+        # hand-reconstructed queryset) so it actually fails on origin/main,
+        # where event_list() builds no registration-status map at all and a
+        # per-event N+1 would go undetected by a synthetic query.
         EventRegistration.objects.create(
             event=self.event, user=self.user, status="confirmed"
         )
         self.client.login(username="member@example.com", password="testpass123")
 
+        from django.test.utils import CaptureQueriesContext
+        from django.db import connection
+
+        # Warm up first: the request path lazily creates several singleton
+        # rows on first sight of this host/user (Site, CrushSiteConfig,
+        # DailyUserActivity, UserActivity, ...). Those one-time INSERTs
+        # would otherwise pad the "baseline" call and be silently absent
+        # from the second, masking a real per-event N+1 in the diff.
+        self.client.get("/en/events/")
+
+        with CaptureQueriesContext(connection) as baseline:
+            self.client.get("/en/events/")
+        baseline_count = len(baseline.captured_queries)
+
         for i in range(5):
             _make_event(title=f"Extra Event {i}")
 
-        with self.assertNumQueries(1):
-            list(
-                EventRegistration.objects.filter(
-                    event__in=MeetupEvent.objects.filter(is_published=True),
-                    user=self.user,
-                )
-                .exclude(status="cancelled")
-                .values_list("event_id", "status")
-            )
+        with CaptureQueriesContext(connection) as with_more_events:
+            self.client.get("/en/events/")
+
+        self.assertEqual(
+            len(with_more_events.captured_queries),
+            baseline_count,
+            "query count grew with more events — a registration-status "
+            "(or eligibility) lookup is running per event instead of once",
+        )
+
+
+class EventCardEligibilityChipLabelTests(TestCase):
+    """Finding WP7-1: the ineligibility chip must name the ACTUAL gate
+    (from PROFILE_REQUIREMENT_CHOICES) instead of a fixed "Verified members
+    only" string that was wrong for 4 of the 5 profile_requirement values."""
+
+    def setUp(self):
+        cache.clear()
+        self.client = Client(HTTP_HOST="crush.lu")
+        self.user = User.objects.create_user(
+            username="incomplete@example.com",
+            email="incomplete@example.com",
+            password="testpass123",
+        )
+        _grant_consent(self.user)
+
+    def test_completed_requirement_shows_its_own_label_not_verified_only(self):
+        # profile_requirement="completed" (the model default) is about a
+        # finished, phone-verified profile — NOT about verification — so an
+        # incomplete-profile member must not be told "Verified members only".
+        _make_event(title="Completed Profile Event", profile_requirement="completed")
+        self.client.login(username="incomplete@example.com", password="testpass123")
+
+        response = self.client.get("/en/events/")
+
+        self.assertContains(response, "Participation-ready Crush profile")
+        self.assertNotContains(response, "Verified members only")
+
+    def test_approved_requirement_still_shows_verified_only(self):
+        # The one case where "Verified members only" is actually correct
+        # copy (it is PROFILE_REQUIREMENT_CHOICES' own label for "approved").
+        _make_event(title="Approved Only Event", profile_requirement="approved")
+        self.client.login(username="incomplete@example.com", password="testpass123")
+
+        response = self.client.get("/en/events/")
+
+        self.assertContains(response, "Verified members only")
 
 
 class LightEligibilityTests(TestCase):
