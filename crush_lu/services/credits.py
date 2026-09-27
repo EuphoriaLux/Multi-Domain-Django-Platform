@@ -34,6 +34,7 @@ import uuid
 from datetime import timedelta
 from datetime import timezone as dt_timezone
 from decimal import ROUND_HALF_UP, Decimal
+from functools import cached_property
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
@@ -629,14 +630,14 @@ class CancellationOutcome:
     def resale_share(self):
         return Decimal(self.resale_share_cents) / 100
 
-    @property
+    @cached_property
     def restores_credit(self):
         """The seat was bought with Crush Credit, so the credit returned is the
-        same tranches on their original expiry clocks, some possibly lapsed."""
-        return (
-            self.payment is not None
-            and self.payment.provider == PaymentTransaction.Provider.CREDIT
-        )
+        same tranches on their original expiry clocks, some possibly lapsed.
+
+        Asks the exact question the issuer asks: a legacy CREDIT payment with
+        no recorded redemptions gets one fresh credit instead."""
+        return bool(funding_tranches(self.payment))
 
     @property
     def resale_claimable(self):

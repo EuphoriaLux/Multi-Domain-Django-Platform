@@ -168,11 +168,16 @@
             // runs before it, so a cancel would strand the overlay. Only the
             // confirmed re-submit, marked data-confirmed="1", navigates.
             // data-confirm-when="<checkbox name>" asks only while that box
-            // is ticked (same rule as confirm-sheet.js).
+            // is ticked (same rule as confirm-sheet.js). A clicked submit
+            // button carrying its own data-confirm asks the same way.
+            // confirm-sheet.js records the clicked button for WebViews
+            // that leave SubmitEvent.submitter unset.
+            const submitter = e.submitter || (form && form.__crushLastSubmitter);
             if (
                 form &&
                 form.hasAttribute &&
-                form.hasAttribute("data-confirm") &&
+                (form.hasAttribute("data-confirm") ||
+                    (submitter && submitter.hasAttribute("data-confirm"))) &&
                 form.getAttribute("data-confirmed") !== "1"
             ) {
                 const when = form.getAttribute("data-confirm-when");
