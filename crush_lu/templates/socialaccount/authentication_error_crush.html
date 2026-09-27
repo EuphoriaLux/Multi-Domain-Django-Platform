@@ -14,29 +14,28 @@
                     {% trans "An error occurred while attempting to login via your third-party account." %}
                 </p>
 
-                {% if auth_error %}
-                <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 text-yellow-800 dark:text-yellow-300 rounded-lg p-4 mb-6 text-left">
-                    <strong>{% trans "Error details:" %}</strong>
-                    <p class="mb-0">{{ auth_error }}</p>
-                </div>
-                {% endif %}
+                <p class="text-gray-500 dark:text-gray-400 text-sm">
+                    {% if auth_error.code == "denied" %}
+                        {% trans "The provider declined this sign-in. Please try again, or use a different sign-in method." %}
+                    {% else %}
+                        {% trans "Try again, or sign in with your email if you already have a Crush.lu account." %}
+                    {% endif %}
+                </p>
 
-                <div class="mt-4">
-                    <p class="text-gray-500 dark:text-gray-400 text-sm">
-                        {% trans "This can happen if:" %}
+                {% if auth_error %}
+                <details class="text-left text-sm text-gray-400 dark:text-gray-500 mt-4">
+                    <summary class="cursor-pointer select-none">{% trans "Details" %}</summary>
+                    <p class="mt-2 mb-0">
+                        {% blocktrans with provider=auth_error.provider code=auth_error.code %}Provider: {{ provider }} · Code: {{ code }}{% endblocktrans %}
                     </p>
-                    <ul class="text-left text-gray-500 dark:text-gray-400 text-sm list-disc list-inside space-y-1">
-                        <li>{% trans "You cancelled the login on the provider's site" %}</li>
-                        <li>{% trans "Your email is already registered with a different login method" %}</li>
-                        <li>{% trans "There was a temporary connection issue" %}</li>
-                    </ul>
-                </div>
+                </details>
+                {% endif %}
 
                 <div class="flex flex-col gap-3 mt-6">
                     <a href="{% url 'crush_lu:login' %}" class="btn-crush-primary inline-flex items-center justify-center gap-2 py-3">
                         {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}{% trans "Back to Login" %}
                     </a>
-                    <a href="{% url 'crush_lu:signup' %}" class="inline-flex items-center justify-center gap-2 py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
+                    <a href="{% url 'crush_lu:signup' %}" class="btn-crush-outline inline-flex items-center justify-center gap-2 py-3 px-4">
                         {% trans "Create New Account" %}
                     </a>
                 </div>

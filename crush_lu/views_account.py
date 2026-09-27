@@ -1669,6 +1669,13 @@ def signup(request):
     return render(request, "crush_lu/auth.html", context)
 
 
+# Match allauth's per-address confirm_email limiter (the send goes through
+# it), so the button never re-enables while a retry would silently not send.
+RESEND_VERIFICATION_COOLDOWN_SECONDS = getattr(
+    settings, "ACCOUNT_EMAIL_CONFIRMATION_COOLDOWN", 3 * 60
+)
+
+
 @require_http_methods(["POST"])
 @ratelimit(key="ip", rate="3/h", method="POST")
 def resend_verification_email(request):
@@ -1676,20 +1683,59 @@ def resend_verification_email(request):
 
     The user is not yet logged in (mandatory mode blocks login until the email
     is verified), so we cannot use allauth's built-in email-management page
-    which requires authentication. The target email is read from the session
-    that was set when the user signed up. Always returns the same generic
-    message so we don't leak whether an account exists for a given email.
+    which requires authentication. Always returns the same generic message so
+    we don't leak whether an account exists for a given address.
+
+    The target email normally comes from the session key set when the user
+    signed up (or last tried to log in unverified). That session can be
+    empty -- a different device, or cookies cleared -- so this also accepts
+    an ``email`` POST field from the visible form the template shows in that
+    case. Either way, a per-session 60s cooldown (separate from the hourly
+    IP rate limit above, which guards against abuse) stops the same visitor
+    from re-triggering a send on every reload/back-button; the response
+    stays identical either way.
     """
     from allauth.account.models import EmailAddress
 
-    email = request.session.get("pending_verification_email")
-    if email:
+    now_ts = int(timezone.now().timestamp())
+    cooldown_until = request.session.get("resend_verification_cooldown_until", 0)
+    still_cooling_down = now_ts < cooldown_until
+
+    # A typed address wins over the session one, so a member who mistyped
+    # can correct it from the page's "Use a different address" field.
+    email = (request.POST.get("email") or "").strip() or request.session.get(
+        "pending_verification_email"
+    )
+
+    if email and not still_cooling_down:
         email_address = EmailAddress.objects.filter(
             email__iexact=email, verified=False
         ).first()
         if email_address:
-            email_address.send_confirmation(request, signup=False)
-            logger.info(f"Resent verification email to {email}")
+            # The response must not differ between a known and an unknown
+            # address. A mail failure here would otherwise surface as an error
+            # only for existing accounts, so it is logged and swallowed.
+            # allauth's rate-limited send: a per-address confirm_email
+            # cooldown, so rotating cookies or source IPs can't flood a
+            # pending address through this public endpoint.
+            from allauth.account.internal.flows.email_verification import (
+                send_verification_email_to_address,
+            )
+
+            try:
+                send_verification_email_to_address(request, email_address)
+                logger.info("Resent verification email")
+            except Exception:
+                logger.exception("Resending the verification email failed")
+        # Remember the address so this page can mask it and keep offering
+        # resend without needing the visitor to retype it.
+        request.session["pending_verification_email"] = email
+        # Only start the cooldown once we actually resolved an address to
+        # (possibly) send to -- a submission with no session email and no
+        # POST email shouldn't self-lock the visitor's own resend button.
+        request.session["resend_verification_cooldown_until"] = (
+            now_ts + RESEND_VERIFICATION_COOLDOWN_SECONDS
+        )
 
     messages.success(
         request,
