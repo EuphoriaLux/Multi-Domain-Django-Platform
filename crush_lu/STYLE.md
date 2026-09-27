@@ -224,6 +224,7 @@ Reach for these before composing inline:
 | `components/form_field.html` | Form field (label + input + errors + help). `{% include "crush_lu/components/form_field.html" with field=form.x %}`. |
 | `components/status_badge.html` | `.badge` with tone + icon + label + optional suffix. Prefer the convenience tag below over hand-rolling. |
 | `components/htmx_spinner.html` | The shared `<span class="htmx-indicator">` + loading icon. Pair with a sibling `<span class="htmx-hide-on-request">` carrying the resting label. |
+| `components/page_header.html` | Drill-down page title (`title`, `subtitle`, `tone="danger"`). One h1 scale; members on mobile get it screen-reader-only because the top bar shows it — so pair it with `{% block mobile_page_title %}` (which also gives the top bar its Back button). |
 | `components/toggle.html` | On/off switch: a real `role="switch"` checkbox + painted track, wrapped in its `<label>`. `tone` = `purple` (default) / `green` / `red` (destructive; also reddens the label), `inline` for the compact one-line row. |
 
 ### Toggle switches

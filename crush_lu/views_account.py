@@ -1365,7 +1365,6 @@ def delete_crushlu_profile_view(request):
 
     context = {
         "profile": profile,
-        "deletion_retry_in_progress": deletion_retry_in_progress,
         "confirm_form": DeletionEmailConfirmForm(),
     }
     return render(request, "crush_lu/delete_crushlu_profile_confirm.html", context)

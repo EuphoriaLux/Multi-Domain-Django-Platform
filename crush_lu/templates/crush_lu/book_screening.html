@@ -36,16 +36,60 @@
                     <strong>{{ existing_booking.start_at|date:"l" }}, {{ existing_booking.start_at|date:"j F" }}</strong>
                     · {{ existing_booking.start_at|time:"H:i" }}–{{ existing_booking.end_at|time:"H:i" }} ({% trans "Europe/Luxembourg" %})
                 </p>
-                <form method="post" action="{% url 'crush_lu:cancel_booking' booking_token=submission.booking_token %}">
-                    {% csrf_token %}
-                    <button type="submit" class="text-sm font-medium text-red-600 dark:text-red-400 hover:underline">
-                        {% trans "Cancel booking" %}
-                    </button>
-                </form>
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-2 mb-4 text-sm">
+                    <a href="{{ ics_download_url }}"
+                       class="inline-flex items-center gap-1.5 font-medium text-green-900 dark:text-green-100 hover:underline">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        {% trans "Add to calendar (.ics)" %}
+                    </a>
+                    <a href="{{ google_calendar_url }}" target="_blank" rel="noopener"
+                       class="inline-flex items-center gap-1.5 font-medium text-green-900 dark:text-green-100 hover:underline">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                        </svg>
+                        {% trans "Add to Google Calendar" %}
+                    </a>
+                </div>
+                <div x-data="bookingCancelConfirm">
+                    <form method="post" action="{% url 'crush_lu:cancel_booking' booking_token=submission.booking_token %}">
+                        {% csrf_token %}
+                        {% comment %}
+                        type="submit" so a no-JS visitor can still cancel
+                        directly; with Alpine loaded the click is prevented
+                        and the inline confirm step shows instead.
+                        {% endcomment %}
+                        <button type="submit" x-show="isInitial" @click.prevent="showConfirm"
+                                class="text-sm font-medium text-red-600 dark:text-red-400 hover:underline">
+                            {% trans "Cancel booking" %}
+                        </button>
+                        <div x-show="isConfirming" x-cloak
+                             class="flex items-center gap-3 p-2.5 -mx-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg">
+                            <span class="text-sm text-red-800 dark:text-red-200">
+                                {% trans "Cancel this booking?" %}
+                            </span>
+                            <button type="submit" class="btn-danger btn-sm">
+                                {% trans "Yes, cancel" %}
+                            </button>
+                            <button type="button" @click="cancel"
+                                    class="text-sm font-medium text-gray-600 dark:text-gray-400 hover:underline">
+                                {% trans "No, keep it" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         {% elif coach_blocks %}
             {% for block in coach_blocks %}
-                <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-4 overflow-hidden">
+                {% comment %}
+                No overflow-hidden here: `sticky` needs its nearest scrolling
+                ancestor to actually scroll, and overflow-hidden on this
+                section turns the section itself into that ancestor, so the
+                Confirm footer below stops sticking and scrolls out of reach
+                on a long slot list.
+                {% endcomment %}
+                <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-4">
                     <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center gap-3">
                         {% if block.coach.photo %}
                             <img src="{{ block.coach.photo.url }}" alt="" class="w-10 h-10 rounded-full object-cover">
@@ -66,29 +110,51 @@
                             {% endif %}
                         </div>
                     </div>
-                    <div class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {% for slot in block.slots|slice:":10" %}
-                            <form method="post" action="{% url 'crush_lu:confirm_booking' booking_token=submission.booking_token %}">
-                                {% csrf_token %}
-                                <input type="hidden" name="coach_id" value="{{ block.coach.id }}">
-                                <input type="hidden" name="start_at" value="{{ slot.start_at|date:'c' }}">
-                                <input type="hidden" name="end_at" value="{{ slot.end_at|date:'c' }}">
-                                <button type="submit"
-                                        class="w-full text-left px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-crush-purple dark:hover:border-crush-purple hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-colors">
-                                    <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ slot.start_at|date:"D" }}, {{ slot.start_at|date:"j M" }}</div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400">{{ slot.start_at|time:"H:i" }}–{{ slot.end_at|time:"H:i" }}</div>
-                                    {% if slot.label %}
-                                        <div class="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{{ slot.label }}</div>
-                                    {% endif %}
-                                </button>
-                            </form>
-                        {% endfor %}
-                    </div>
-                    {% if block.slots|length > 10 %}
-                        <div class="px-4 pb-3 text-xs text-gray-400 dark:text-gray-500">
-                            {% blocktrans count more=block.slots|length|add:"-10" %}+ {{ more }} more slot available{% plural %}+ {{ more }} more slots available{% endblocktrans %}
+                    <form method="post" action="{% url 'crush_lu:confirm_booking' booking_token=submission.booking_token %}"
+                          x-data="bookingSlotPicker" class="pb-20 sm:pb-4">
+                        {% csrf_token %}
+                        <input type="hidden" name="coach_id" value="{{ block.coach.id }}">
+                        <input type="hidden" name="start_at" x-bind:value="selectedStart">
+                        <input type="hidden" name="end_at" x-bind:value="selectedEnd">
+
+                        {% comment %}
+                        One radiogroup for the whole coach block: every radio
+                        here shares name="slot_choice" and is natively one
+                        mutually-exclusive set, so wrapping the disclosure's
+                        radios in a second radiogroup told screen-reader
+                        users they'd entered a new group even though picking
+                        one silently cleared the first grid's selection. The
+                        disclosure is a visual subdivision only.
+                        {% endcomment %}
+                        <div role="radiogroup" aria-label="{% trans 'Available times' %}">
+                            <div class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {% for slot in block.slots|slice:":10" %}
+                                    {% include "crush_lu/includes/_booking_slot_option.html" with block=block slot=slot forloop_counter0=forloop.counter0 %}
+                                {% endfor %}
+                            </div>
+
+                            {% if block.slots|length > 10 %}
+                                <div class="px-4 pb-2" x-show="isShowAllHidden" x-cloak>
+                                    <button type="button" @click="toggleShowAll"
+                                            class="text-xs font-medium text-crush-purple hover:underline">
+                                        {% blocktrans count more=block.slots|length|add:"-10" %}Show {{ more }} more slot{% plural %}Show {{ more }} more slots{% endblocktrans %}
+                                    </button>
+                                </div>
+                                <div class="p-4 pt-0 grid grid-cols-1 sm:grid-cols-2 gap-2" x-show="showAll">
+                                    {% for slot in block.slots|slice:"10:" %}
+                                        {% include "crush_lu/includes/_booking_slot_option.html" with block=block slot=slot forloop_counter0=forloop.counter0|add:"10" %}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
-                    {% endif %}
+
+                        <div class="sticky bottom-3 px-4">
+                            <button type="submit" class="btn-crush-solid w-full shadow-lg"
+                                    :disabled="hasNoSelection">
+                                {% trans "Confirm" %} <span x-text="selectedLabel"></span>
+                            </button>
+                        </div>
+                    </form>
                 </section>
             {% endfor %}
         {% else %}

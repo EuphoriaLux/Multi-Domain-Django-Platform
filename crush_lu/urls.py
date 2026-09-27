@@ -690,6 +690,11 @@ urlpatterns = [
         views.cancel_booking,
         name='cancel_booking',
     ),
+    path(
+        'book/<uuid:booking_token>/ics/',
+        views.download_booking_ics,
+        name='download_booking_ics',
+    ),
 
     # Coach invitation management
     path('coach/event/<int:event_id>/invitations/', views.coach_manage_invitations, name='coach_manage_invitations'),

@@ -12,7 +12,7 @@ Spec: ai-memory-hub/reviews (Crush.lu UX review Wave 2, findings 3-02, 3-16, 2-0
 """
 
 import re
-from datetime import date
+from datetime import date, timedelta
 
 from allauth.account.models import EmailAddress
 from allauth.socialaccount.models import SocialApp
@@ -298,6 +298,34 @@ class RejectedProfileWithoutSubmissionTests(_MemberMixin, TestCase):
         self.profile.save(update_fields=["verification_status"])
         response = self._get("/en/profile/rejected/")
         self.assertEqual(response.status_code, 302)
+
+
+class StaleRejectedSubmissionTests(_MemberMixin, TestCase):
+    """#1056: an older rejection's feedback must not headline a later verdict."""
+
+    def setUp(self):
+        super().setUp()
+        self.profile.verification_status = "rejected"
+        self.profile.save(update_fields=["verification_status"])
+        old = ProfileSubmission.objects.create(
+            profile=self.profile,
+            status="rejected",
+            feedback_to_user="Stale feedback from the first review",
+        )
+        newer = ProfileSubmission.objects.create(profile=self.profile, status="expired")
+        now = timezone.now()
+        ProfileSubmission.objects.filter(pk=old.pk).update(
+            submitted_at=now - timedelta(days=30)
+        )
+        ProfileSubmission.objects.filter(pk=newer.pk).update(submitted_at=now)
+
+    def test_door_rejection_after_expired_submission_shows_no_stale_feedback(self):
+        response = self._get("/en/profile/rejected/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "crush_lu/profile_rejected.html")
+        self.assertIsNone(response.context["submission"])
+        self.assertNotContains(response, "Stale feedback from the first review")
 
 
 class SignupLuxidPromiseTests(TestCase):
