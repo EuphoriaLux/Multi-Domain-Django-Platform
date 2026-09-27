@@ -159,3 +159,17 @@ def social_login_preconnect(context):
             )
         )
     )
+
+
+@register.filter
+def has_luxid(providers):
+    """True when LuxID is among ``{% get_providers %}``'s providers.
+
+    Same predicate as the LuxID button loop in ``crush_lu/auth.html``, so any
+    copy that promises LuxID is shown exactly when that button is.
+    """
+    for provider in providers or ():
+        app = getattr(provider, "app", None)
+        if provider.id == "luxid" or getattr(app, "provider_id", "") == "luxid":
+            return True
+    return False

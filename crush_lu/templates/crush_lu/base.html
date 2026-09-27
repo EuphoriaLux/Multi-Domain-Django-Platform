@@ -4,7 +4,7 @@
 {% load seo_tags %}
 {% load crush_connect_tags %}
 <!DOCTYPE html>
-<html lang="{{ LANGUAGE_CODE|default:'en' }}">
+<html lang="{{ LANGUAGE_CODE|default:'en' }}"{% if is_native_app %} data-native-app{% endif %}>
 <head>
     {% analytics_head %}
     {% if user.is_authenticated %}{% appinsights_head %}{% endif %}
@@ -1214,11 +1214,11 @@
     {% endif %}
     {% endblock %}
 
-    <!-- PWA Install Banner (hidden by default, shown by JavaScript) -->
-    {% include "crush_lu/partials/pwa_install_banner.html" %}
-
-    <!-- Push Notification Activation Prompt (for PWA users, hidden by default) -->
-    {% if user.is_authenticated %}
+    <!-- PWA install card + push prompt: queued by Alpine.store("prompts"), never in native shells -->
+    {% if not is_native_app %}
+        {% include "crush_lu/partials/pwa_install_banner.html" %}
+    {% endif %}
+    {% if user.is_authenticated and not is_native_app %}
         {% include "crush_lu/partials/_push_activation_prompt.html" %}
     {% endif %}
 
@@ -1244,7 +1244,7 @@
         <div class="container mt-4" role="status" aria-live="polite">
             {% for message in messages %}
                 {% if forloop.counter <= 3 %}
-                <div x-data="dismissible"
+                <div x-data="flashMessage"
                      {% if 'error' not in message.tags and 'danger' not in message.tags and 'warning' not in message.tags %}data-auto-dismiss="6000"{% endif %}
                      x-show="show"
                      x-transition:enter="transition ease-out duration-300"
@@ -1321,7 +1321,8 @@
                 <!-- Privacy First -->
                 <div>
                     <p class="font-semibold mb-4 text-white/90">{% trans "Privacy First" %}</p>
-                    <p class="text-white/75">{% trans "Your privacy matters. All profiles are reviewed by our Crush Coaches." %}</p>
+                    {# LuxID verification is instant, with no coach review; some event audiences admit unverified profiles, so no "before meeting anyone" guarantee. Spec: ai-memory-hub/specs/2026-08-24-crush-connect-repo-product-doc.md #}
+                    <p class="text-white/75">{% trans "Your privacy matters. Members are verified instantly with LuxID or in person at an event." %}</p>
                     {% if whatsapp_enabled and whatsapp_number %}
                     <p class="text-white/75 mt-4">
                         <a href="https://wa.me/{{ whatsapp_number }}" target="_blank" rel="noopener noreferrer"
@@ -1359,6 +1360,8 @@
             <!-- Copyright -->
             <div class="border-t border-white/20 mt-8 pt-8 text-center">
                 <small class="text-white/75">{% trans "&copy; 2026 Crush.lu - Made with 💕 in Luxembourg" %}</small>
+                {# Imprint: entity + address exactly as the privacy policy names the controller #}
+                <p class="mt-2 text-xs text-white/75">{% trans "Crush.lu (en cours de constitution)" %} &middot; 10 rue des Bons Malades, L-6462 Echternach, {% trans "Luxembourg" %}</p>
             </div>
         </div>
     </footer>

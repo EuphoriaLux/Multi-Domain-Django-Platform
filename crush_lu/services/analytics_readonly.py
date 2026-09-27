@@ -300,8 +300,17 @@ PRIVILEGE_AUDIT_SQL = {
         "has_table_privilege(%(role)s, c.oid, 'SELECT'), "
         "has_any_column_privilege(%(role)s, c.oid, 'SELECT'), "
         "has_table_privilege(%(role)s, c.oid, "
-        "'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') "
-        "OR has_any_column_privilege(%(role)s, c.oid, 'INSERT,UPDATE,REFERENCES') "
+        "'INSERT,DELETE,TRUNCATE,REFERENCES,TRIGGER') "
+        "OR has_any_column_privilege(%(role)s, c.oid, 'INSERT,REFERENCES') "
+        # PostgreSQL grants PUBLIC UPDATE on pg_settings by default. Its rule
+        # delegates to SET for this session and enforces parameter privileges;
+        # it cannot update a database relation. Keep auditing every other
+        # write privilege, including UPDATE if that PUBLIC grant is removed.
+        "OR ((has_table_privilege(%(role)s, c.oid, 'UPDATE') "
+        "OR has_any_column_privilege(%(role)s, c.oid, 'UPDATE')) "
+        "AND NOT (n.nspname = 'pg_catalog' AND c.relname = 'pg_settings' "
+        "AND c.relkind = 'v' "
+        "AND has_table_privilege('public', c.oid, 'UPDATE'))) "
         "OR (current_setting('server_version_num')::int >= 170000 "
         "AND has_table_privilege(%(role)s, c.oid, 'MAINTAIN')), "
         # What PUBLIC itself may read: system catalogs are compared against it.
@@ -356,11 +365,13 @@ PRIVILEGE_AUDIT_SQL = {
     ),
     # Any sequence privilege, in every schema: sequences default to owner-only
     # access, so a readable or advanceable one was granted somewhere.
+    # Drive the check from pg_sequence: PostgreSQL may evaluate a WHERE clause
+    # before c.relkind = 'S', and has_sequence_privilege rejects table OIDs.
     "sequences": (
-        "SELECT n.nspname, c.relname FROM pg_class c "
+        "SELECT n.nspname, c.relname FROM pg_sequence s "
+        "JOIN pg_class c ON c.oid = s.seqrelid "
         "JOIN pg_namespace n ON n.oid = c.relnamespace "
-        "WHERE c.relkind = 'S' "
-        "AND has_sequence_privilege(%(role)s, c.oid, 'SELECT,USAGE,UPDATE')"
+        "WHERE has_sequence_privilege(%(role)s, s.seqrelid, 'SELECT,USAGE,UPDATE')"
     ),
     # CREATE on this database (which ownership implies) would let the login
     # create a schema of its own; existing-schema CREATE is checked below.

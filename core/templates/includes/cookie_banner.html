@@ -9,7 +9,7 @@
 {# var(--crush-purple) accents and the informal-"du" DE copy (msgctxt "crush cookie banner" in crush_lu/locale). #}
 {# Without it the partial renders the generic .btn markup and formal core/locale copy the other sites use. #}
 
-<div id="cookie-consent-banner" class="cookie-banner{% if cookie_banner_variant == "crush" %} cookie-banner--crush{% endif %}" data-consent-state="{% cookie_consent_state %}" role="dialog" aria-labelledby="cookie-banner-title" aria-describedby="cookie-banner-description" style="display: none;">
+<div id="cookie-consent-banner" class="cookie-banner{% if cookie_banner_variant == "crush" %} cookie-banner--crush prompt-above-nav{% endif %}" data-consent-state="{% cookie_consent_state %}" role="dialog" aria-labelledby="cookie-banner-title" aria-describedby="cookie-banner-description" style="display: none;">
     <div class="cookie-banner-content">
         <div class="cookie-banner-text">
             <p id="cookie-banner-title" class="cookie-banner-title">{% trans "Cookie Settings" %}</p>
@@ -607,13 +607,21 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         const banner = document.getElementById('cookie-consent-banner');
         if (banner) {
             banner.style.display = 'block';
+            announceBanner(true);
         }
+    }
+
+    // Lets a site queue its own prompts behind this sheet (crush_lu's
+    // Alpine.store('prompts')); other sites ignore the event.
+    function announceBanner(open) {
+        document.dispatchEvent(new CustomEvent('cookie-banner-toggle', { detail: { open: open } }));
     }
 
     function hideBanner() {
         const banner = document.getElementById('cookie-consent-banner');
         if (banner) {
             banner.style.display = 'none';
+            announceBanner(false);
         }
     }
 
