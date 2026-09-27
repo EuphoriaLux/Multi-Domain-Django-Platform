@@ -209,6 +209,40 @@ class RejectedVerdictTests(_MemberMixin, TestCase):
         )
 
 
+class RejectedProfileWithoutSubmissionTests(_MemberMixin, TestCase):
+    """Codex #1047: a door rejection of a free-path member flips only the
+    profile status (no ProfileSubmission) and must still reach the verdict."""
+
+    def setUp(self):
+        super().setUp()
+        self.profile.verification_status = "rejected"
+        self.profile.save(update_fields=["verification_status"])
+        self.assertFalse(
+            ProfileSubmission.objects.filter(profile=self.profile).exists()
+        )
+
+    def test_profile_submitted_redirects_to_verdict_page(self):
+        response = self._get("/en/profile-submitted/")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/profile/rejected/", response["Location"])
+
+    def test_rejected_page_renders_with_delete_path(self):
+        response = self._get("/en/profile/rejected/")
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "crush_lu/profile_rejected.html")
+        match = re.search(
+            r"<a [^>]*data-rejected-delete[^>]*>", response.content.decode()
+        )
+        self.assertIsNotNone(match)
+        self.assertIn('href="/en/account/delete-profile/"', match.group(0))
+
+    def test_pending_member_without_rejection_is_sent_away(self):
+        self.profile.verification_status = "pending"
+        self.profile.save(update_fields=["verification_status"])
+        response = self._get("/en/profile/rejected/")
+        self.assertEqual(response.status_code, 302)
+
+
 class SignupLuxidPromiseTests(TestCase):
     """2-06: the signup promise matches the buttons actually rendered."""
 

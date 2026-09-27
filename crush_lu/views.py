@@ -2188,9 +2188,13 @@ def profile_submitted(request):
     # self-serve "Verify your identity" hero, not the old coach-review
     # messaging — and must not fall back to an older non-expired row.
     submission = ProfileSubmission.latest_for_profile(profile)
-    if submission is not None and submission.status == "rejected":
+    if profile.verification_status == "rejected" or (
+        submission is not None and submission.status == "rejected"
+    ):
         # A rejection is final: show the one verdict page (with its delete
         # path) rather than a second, contradictory "needs updates" story.
+        # Free-path members have no submission, and a door rejection
+        # (coach_reject_verification) then flips only the profile status.
         return redirect("crush_lu:profile_rejected")
 
     now = timezone.now()
@@ -2511,12 +2515,17 @@ def api_submission_note(request):
 @crush_login_required
 def profile_rejected(request):
     """Page shown when a profile has been rejected and cannot be resubmitted."""
-    try:
-        profile = CrushProfile.objects.get(user=request.user)
-        submission = ProfileSubmission.objects.filter(
-            profile=profile, status="rejected"
-        ).latest("submitted_at")
-    except (CrushProfile.DoesNotExist, ProfileSubmission.DoesNotExist):
+    profile = CrushProfile.objects.filter(user=request.user).first()
+    if profile is None:
+        return redirect("crush_lu:dashboard")
+    submission = (
+        ProfileSubmission.objects.filter(profile=profile, status="rejected")
+        .order_by("-submitted_at")
+        .first()
+    )
+    # A door rejection (coach_reject_verification) of a free-path member sets
+    # only the profile status: there is no submission to carry the verdict.
+    if submission is None and profile.verification_status != "rejected":
         return redirect("crush_lu:dashboard")
 
     context = {
