@@ -7,12 +7,15 @@ one (see AGENTS.md).
 """
 
 import io
+from datetime import timedelta
 from urllib.parse import quote
 
 import pytest
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.utils import timezone
 
+from crush_lu.models import EventRegistration, MeetupEvent
 from crush_lu.tests.test_crush_connect import (
     HUB_URL,
     _login_eligible,
@@ -24,6 +27,7 @@ pytestmark = pytest.mark.urls("azureproject.urls_crush")
 
 WEEK_HOME_URL = "/en/crush-connect/week/"
 EDIT_PROFILE_URL = "/en/profile/edit/"
+ONBOARDING_URL = "/en/crush-connect/onboarding/"
 
 
 def setup_function(_function):
@@ -198,3 +202,102 @@ def test_hub_card_headings_use_card_title_not_bare_h2(client, settings):
     assert response.status_code == 200
     assert '<h2 class="card-title">' in content
     assert "<h2>" not in content
+
+
+@pytest.mark.django_db
+def test_onboarding_missing_photo_redirect_preserves_event_id(client, settings):
+    """Codex review (WP11): the photo-gate bounce from ``crush_connect_onboarding``
+    must carry the originating ``event_id`` in its ``next`` URL. Without it,
+    resuming onboarding after the photo upload pops
+    ``ONBOARDING_EVENT_SESSION_KEY`` and can't restore it (no query string),
+    so a member returning from an Event Lobby CTA could land in the wrong
+    lobby recap."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    settings.CRUSH_EVENT_LOBBY_ENABLED = True
+    settings.AZURE_ACCOUNT_NAME = ""
+    me = _make_user(username="event_photo_member", onboarded=False)
+    me.crushprofile.photo_1 = ""
+    me.crushprofile.save(update_fields=["photo_1"])
+    _login_eligible(client, me)
+
+    now = timezone.now()
+    event = MeetupEvent.objects.create(
+        title="Origin recap",
+        description="x",
+        event_type="mixer",
+        date_time=now - timedelta(hours=2),
+        duration_minutes=60,
+        location="Luxembourg",
+        address="1 Test St",
+        max_participants=20,
+        registration_deadline=now - timedelta(days=1),
+        is_published=True,
+    )
+    EventRegistration.objects.create(event=event, user=me, status="attended")
+
+    response = client.get(f"{ONBOARDING_URL}?event_id={event.pk}")
+
+    assert response.status_code == 302
+    assert "section=photos" in response.url
+    # The `next` query param must itself carry event_id, not just be present
+    # somewhere in the URL — decode it to be sure it's on the right side of
+    # `next=`.
+    from urllib.parse import parse_qs, urlparse
+
+    outer = parse_qs(urlparse(response.url).query)
+    next_url = outer["next"][0]
+    next_query = parse_qs(urlparse(next_url).query)
+    assert next_query.get("event_id") == [str(event.pk)]
+
+
+@pytest.mark.django_db
+def test_hub_does_not_dead_link_ineligible_premium_coach(client, settings):
+    """Codex review (WP11): a Premium member with an assigned coach who fails
+    ``is_premium_connect_eligible`` (here: no photo-share consent) must not
+    get a coach link that ``crush_connect_coach_pick`` immediately redirects
+    back out of — that's a dead loop. The coach name still shows, just
+    unlinked."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="ineligible_premium_member",
+        onboarded=True,
+        premium=True,
+        photo_share_consent=False,
+    )
+    _login_eligible(client, me)
+
+    response = client.get(HUB_URL)
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "Your coach:" in content
+    assert '<a href="/en/crush-connect/coach-pick/"' not in content
+    # The coach's name must still be shown, just not linked into a dead loop.
+    coach_name = me.crushprofile.assigned_coach.user.get_full_name() or (
+        me.crushprofile.assigned_coach.user.username
+    )
+    assert coach_name in content
+
+
+@pytest.mark.django_db
+def test_hub_staff_preview_without_photo_keeps_open_today(client, settings):
+    """Codex review (WP11): staff bypass the photo gate everywhere it's
+    actually enforced, so a staff preview account without a photo must not
+    lose "Open Today" to a false "Add a photo" readiness blocker."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="staff_preview_member", onboarded=False)
+    me.is_staff = True
+    me.save(update_fields=["is_staff"])
+    me.crushprofile.photo_1 = ""
+    me.crushprofile.save(update_fields=["photo_1"])
+    _login_eligible(client, me)
+
+    response = client.get(HUB_URL)
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "Almost ready for today's suggestions" not in content
+    # Positive assertion: the working staff-preview action actually renders,
+    # not just that the false blocker is absent (get_connect_summary grants
+    # staff cycle_access unconditionally, so this section does render).
+    assert ">Open Today<" in content
