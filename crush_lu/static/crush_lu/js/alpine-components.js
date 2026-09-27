@@ -8103,10 +8103,15 @@ document.addEventListener("alpine:init", function () {
             // after a 2s timer — a card that was blank until then and only
             // ever offered advice nobody there could act on. The card just
             // doesn't render for that visitor now; the sibling Membership
-            // card expands to the full row instead (dashboard.html's
-            // `:class="{ 'md:col-span-2': !cardVisible }"`).
+            // card expands to the full row instead, through
+            // membershipSpanClass below.
             get cardVisible() {
                 return this.isInstalled || this.canInstall || this.showInstructions;
+            },
+            // Bound as a bare name on the Membership card: the CSP build
+            // can't evaluate an object literal with an inline negation.
+            get membershipSpanClass() {
+                return this.cardVisible ? "" : "md:col-span-2";
             },
 
             init: function () {

@@ -13,12 +13,12 @@ UX review Wave 3, WP9 (dashboard): findings 5-02, 5-03, 5-04, 5-07, 5-12.
 Every test here fails on origin/main (pre-Wave-3 dashboard.html/views.py).
 """
 
+import re
 from datetime import date, timedelta
 
 from allauth.account.models import EmailAddress
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
-from django.urls import reverse
 from django.utils import timezone
 
 from crush_lu.models import (
@@ -70,7 +70,6 @@ def _make_event(title="Test event", *, days_from_now=10):
     )
 
 
-@override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class DashboardConnectionRequestsTests(TestCase):
     """5-02: received connection requests get an actionable dashboard card."""
 
@@ -85,7 +84,7 @@ class DashboardConnectionRequestsTests(TestCase):
         cache.clear()
 
     def _get(self):
-        return self.client.get(reverse("crush_lu:dashboard"), HTTP_HOST="crush.lu")
+        return self.client.get("/en/dashboard/", HTTP_HOST="crush.lu")
 
     def test_received_request_renders_as_an_actionable_card(self):
         requester = _make_member("requester@example.com")
@@ -100,7 +99,7 @@ class DashboardConnectionRequestsTests(TestCase):
         self.assertContains(response, "wants to connect")
         self.assertContains(
             response,
-            reverse("crush_lu:respond_connection", args=[connection.id, "accept"]),
+            f"/en/connections/{connection.id}/accept/",
         )
 
     def test_header_count_links_to_my_connections_received_anchor(self):
@@ -114,7 +113,7 @@ class DashboardConnectionRequestsTests(TestCase):
 
         self.assertContains(
             response,
-            f'href="{reverse("crush_lu:my_connections")}#received"',
+            'href="/en/connections/#received"',
         )
 
     def test_no_pending_requests_means_no_header_subtitle_link(self):
@@ -137,7 +136,6 @@ class DashboardConnectionRequestsTests(TestCase):
         self.assertEqual(list(response.context["pending_connection_requests"]), [])
 
 
-@override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class DashboardStatsTilesTests(TestCase):
     """5-03: the stats row repeated facts shown elsewhere for a brand-new member."""
 
@@ -149,7 +147,7 @@ class DashboardStatsTilesTests(TestCase):
         cache.clear()
 
     def _get(self):
-        return self.client.get(reverse("crush_lu:dashboard"), HTTP_HOST="crush.lu")
+        return self.client.get("/en/dashboard/", HTTP_HOST="crush.lu")
 
     def test_stats_hidden_for_a_member_with_nothing_attended_or_connected(self):
         response = self._get()
@@ -179,7 +177,6 @@ class DashboardStatsTilesTests(TestCase):
         self.assertNotContains(response, '<button type="button" disabled')
 
 
-@override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class DashboardNextEventButtonsTests(TestCase):
     """5-07: 44px canonical buttons, Cancel separated from View Ticket."""
 
@@ -191,7 +188,7 @@ class DashboardNextEventButtonsTests(TestCase):
         cache.clear()
 
     def _get(self):
-        return self.client.get(reverse("crush_lu:dashboard"), HTTP_HOST="crush.lu")
+        return self.client.get("/en/dashboard/", HTTP_HOST="crush.lu")
 
     def test_view_ticket_and_details_use_canonical_44px_buttons(self):
         event = _make_event(days_from_now=7)
@@ -231,12 +228,21 @@ class DashboardNextEventButtonsTests(TestCase):
         )
 
         html = self._get().content.decode()
-        ticket_row_end = html.index("Details</a>")
+        details_index = html.index("Details</a>")
         cancel_index = html.index("Cancel</a>")
-        self.assertGreater(cancel_index, ticket_row_end)
+        # Between Details and Cancel, the action row's </div> must close
+        # before Cancel's own wrapper opens. The old markup had both links in
+        # one flex row, with no tags between them.
+        between = html[details_index:cancel_index]
+        row_close = between.find("</div>")
+        cancel_wrapper = between.rfind('<div class="mt-2.5">')
+        self.assertNotEqual(row_close, -1)
+        self.assertNotEqual(cancel_wrapper, -1)
+        self.assertLess(row_close, cancel_wrapper)
+        # No other link (i.e. Cancel) sits inside the action row.
+        self.assertNotIn("<a ", between[:row_close])
 
 
-@override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class ProductsPremiumCtaPaddingTests(TestCase):
     """5-12: the Premium CTA keeps its padding when the DE/FR label wraps."""
 
@@ -271,7 +277,6 @@ class ProductsPremiumCtaPaddingTests(TestCase):
         self.assertContains(response, "px-4 py-2.5")
 
 
-@override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class ProductsConnectStripDedupeTests(TestCase):
     """5-03: 'Join the Mix' must not repeat between the strip and the product
     card once the strip is rendered on the same page."""
@@ -284,18 +289,33 @@ class ProductsConnectStripDedupeTests(TestCase):
         cache.clear()
 
     def _get(self):
-        return self.client.get(reverse("crush_lu:dashboard"), HTTP_HOST="crush.lu")
+        return self.client.get("/en/dashboard/", HTTP_HOST="crush.lu")
 
-    def test_join_the_mix_cta_appears_at_most_once(self):
-        # Verified, not premium, not onboarded into Connect, not excluded --
-        # exactly the state where both the strip and the LuxID product card
-        # used to render their own "Join the Mix" button.
+    @override_settings(CRUSH_CONNECT_LAUNCHED=True)
+    def test_join_the_mix_cta_appears_exactly_once(self):
+        # Verified with LuxID linked (Connect-identity-verified), no attended
+        # event, not premium, not onboarded into Connect. In that state the
+        # strip and the LuxID product card both used to render "Join the Mix".
+        # (With in-person verification the strip says "Start my Connect Week"
+        # instead, so it has to be the LuxID path.)
+        from allauth.socialaccount.models import SocialAccount
+
+        profile = self.user.crushprofile
+        profile.verification_status = "verified"
+        profile.save(update_fields=["verification_status"])
+        SocialAccount.objects.create(
+            user=self.user, provider="luxid", uid=f"lux-{self.user.pk}"
+        )
+        profile.refresh_from_db()
+        self.assertTrue(profile.is_connect_identity_verified)
+
         response = self._get()
         html = response.content.decode()
-        self.assertLessEqual(html.count(">Join the Mix<"), 1)
+        # The strip pads its link text with template whitespace.
+        self.assertEqual(len(re.findall(r">\s*Join the Mix\s*<", html)), 1)
+        self.assertContains(response, "See Crush Connect above")
 
 
-@override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class MyConnectionsReceivedAnchorTests(TestCase):
     """The dashboard's #received links need somewhere to land."""
 
@@ -313,7 +333,5 @@ class MyConnectionsReceivedAnchorTests(TestCase):
             requester=requester, recipient=self.user, event=event, status="pending"
         )
 
-        response = self.client.get(
-            reverse("crush_lu:my_connections"), HTTP_HOST="crush.lu"
-        )
+        response = self.client.get("/en/connections/", HTTP_HOST="crush.lu")
         self.assertContains(response, 'id="received"')

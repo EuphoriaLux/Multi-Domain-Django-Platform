@@ -345,7 +345,7 @@
 {# ─── 10. Secondary: PWA + Wallet ─── #}
 {% comment %}
 x-data lives on the GRID, not the PWA card alone (finding 5-04): the
-Membership card's own :class reads the same `cardVisible` getter so it can
+Membership card's :class reads `membershipSpanClass` (built on `cardVisible`) so it can
 expand to the full row the instant the PWA card decides it has nothing to
 show — no dead half-width gap next to it on desktop.
 
@@ -394,7 +394,7 @@ queue; adopt Wave 2's component for this card once it lands.
     {% endif %}
 
     {# Membership / Wallet #}
-    <div class="status-card rounded-2xl" {% if not is_native_app %}:class="{ 'md:col-span-2': !cardVisible }"{% endif %}>
+    <div class="status-card rounded-2xl" {% if not is_native_app %}:class="membershipSpanClass"{% endif %}>
         <div class="status-card-body p-4 sm:p-5">
             <h5 class="font-semibold text-base sm:text-lg mb-2">{% trans "Membership Card" %}</h5>
             <p class="text-gray-500 dark:text-gray-400 mb-3.5 text-xs sm:text-sm">{% trans "Save your Crush.lu card to your mobile wallet and share your referral link." %}</p>
