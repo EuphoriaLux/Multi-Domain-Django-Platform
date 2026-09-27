@@ -42843,3 +42843,23 @@ msgstr "Code de vérification"
 #, python-format
 msgid "Digit %(n)s of 6"
 msgstr "Chiffre %(n)s sur 6"
+
+#: templates/crush_lu/partials/mobile_drawer.html
+msgid "Light"
+msgstr "Clair"
+
+#: templates/crush_lu/partials/mobile_drawer.html
+msgid "Dark"
+msgstr "Sombre"
+
+#: templates/crush_lu/partials/mobile_drawer.html
+msgid "Help & legal"
+msgstr "Aide et mentions légales"
+
+#: templates/crush_lu/partials/mobile_drawer.html
+msgid "Help & support"
+msgstr "Aide et support"
+
+#: templates/crush_lu/partials/mobile_drawer.html
+msgid "WhatsApp support"
+msgstr "Support WhatsApp"

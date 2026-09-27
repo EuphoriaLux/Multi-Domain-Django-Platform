@@ -11389,7 +11389,9 @@ html.dark .crush-connect-cta {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        height: 48px;
+        /* border-box: the notch inset is padding, so the bar grows by it and
+           keeps 48px for its content (an installed iOS PWA has ~47px). */
+        height: calc(48px + env(safe-area-inset-top, 0px));
         padding: 0 16px;
         padding-top: env(safe-area-inset-top, 0px);
         background: linear-gradient(135deg, #9b59b6, #c0399e, #ff6b9d);
