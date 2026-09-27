@@ -43213,6 +43213,68 @@ msgstr ""
 "verbunden: manchmal sofort, manchmal über eine Vorstellung durch deinen "
 "Crush Coach."
 
+# UX Wave 3 · WP12 connect-moments
+# UX Wave 3 · WP12 connect-moments
+# UX Wave 3 · WP12 connect-moments
+# UX Wave 3 · WP12 connect-moments
+# UX Wave 3 · WP12 connect-moments
+# UX Wave 3 · WP12 connect-moments
+# UX Wave 3 · WP12 connect-moments
+#. UX Wave 3 · WP12
+msgid "Connect Week progress"
+msgstr "Fortschritt der Connect Week"
+
+msgid "Discover · days 1–%(total)s"
+msgstr "Entdecken · Tag 1–%(total)s"
+
+msgid "Review · 24h"
+msgstr "Review · 24 Std."
+
+msgid "One request"
+msgstr "Eine Anfrage"
+
+msgid "Chat"
+msgstr "Chat"
+
+msgid "Review opens"
+msgstr "Review startet am"
+
+msgid "Review closes"
+msgstr "Review endet am"
+
+msgid "Waiting for their answer until"
+msgstr "Warten auf ihre Antwort bis"
+
+msgid "Done"
+msgstr "Erledigt"
+
+msgid "To do"
+msgstr "Offen"
+
+msgid ""
+"Your guesses stay private — they help you choose during the 24-hour review."
+msgstr ""
+"Deine Tipps bleiben privat — sie helfen dir bei deiner Wahl im 24-Stunden-"
+"Review."
+
+msgid "Review card for %(name)s"
+msgstr "Review-Karte für %(name)s"
+
+msgid "Send your one weekly request to %(name)s?"
+msgstr "Deine eine wöchentliche Anfrage an %(name)s senden?"
+
+msgid "You cannot choose someone else this week after sending."
+msgstr "Danach kannst du diese Woche niemanden mehr auswählen."
+
+msgid "Closes %(when)s"
+msgstr "Endet am %(when)s"
+
+msgid "Today — see how you appear in the mix"
+msgstr "Heute — sieh, wie du im Mix erscheinst"
+
+msgid "18:30 or Evening"
+msgstr "18:30 oder abends"
+
 # UX Wave 3 · WP11 connect-gating
 # UX Wave 3 · WP11 connect-gating
 # UX Wave 3 · WP11 connect-gating

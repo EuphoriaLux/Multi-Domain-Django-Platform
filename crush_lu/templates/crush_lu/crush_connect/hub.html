@@ -63,8 +63,8 @@
     <section class="rounded-2xl bg-white dark:bg-slate-800 p-4 mb-4 ring-1 ring-gray-200 dark:ring-slate-700">
         {% if connect_summary.review_open %}
         <h2 class="card-title">{% trans "Your weekly review is ready" %}</h2>
-        <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{% trans "Request deadline" %}: <time datetime="{{ connect_summary.session.review_expires_at|date:'c' }}">{{ connect_summary.session.review_expires_at|date:'DATETIME_FORMAT' }}</time></p>
-        <a class="btn-crush-solid btn-block" href="{% url 'crush_lu:connect_week_review' %}">{% trans "Review your week" %}</a>
+        {% include "crush_lu/crush_connect/_week_timeline.html" with timeline=connect_summary.timeline cycle_length=connect_summary.cycle_length %}
+        <a class="btn-crush-solid btn-block mt-2" href="{% url 'crush_lu:connect_week_review' %}">{% trans "Review your week" %}</a>
         {% elif blocking_step %}
         {% comment %}
         A blocking readiness step means Today would just bounce the member
@@ -80,7 +80,8 @@
         </a>
         {% else %}
         <h2 class="card-title">{% trans "Your Connect Week" %}</h2>
-        {% if connect_summary.daily_total %}<p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{% blocktrans with completed=connect_summary.daily_completed total=connect_summary.daily_total %}{{ completed }} of {{ total }} completed{% endblocktrans %}</p>{% else %}<p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{% trans "Open Today to see your available introductions." %}</p>{% endif %}
+        {% include "crush_lu/crush_connect/_week_timeline.html" with timeline=connect_summary.timeline cycle_length=connect_summary.cycle_length %}
+        {% if connect_summary.daily_total %}<p class="mt-2 text-sm text-gray-600 dark:text-gray-300 mb-3">{% blocktrans with completed=connect_summary.daily_completed total=connect_summary.daily_total %}{{ completed }} of {{ total }} completed{% endblocktrans %}</p>{% else %}<p class="mt-2 text-sm text-gray-600 dark:text-gray-300 mb-3">{% trans "Open Today to see your available introductions." %}</p>{% endif %}
         <a class="btn-crush-solid btn-block" href="{% url 'crush_lu:connect_week_home' %}">{% trans "Open Today" %}</a>
         {% endif %}
     </section>

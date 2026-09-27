@@ -11,9 +11,11 @@ from crush_lu.models import (
     ConnectWeekSession,
 )
 from crush_lu.services.connect_cycle import (
+    CYCLE_LENGTH_DAYS,
     get_pending_inbox,
     sync_session_state,
     visible_cycle_cards,
+    week_timeline_state,
 )
 from crush_lu.services.blocking import blocked_user_ids
 from crush_lu.services.crush_connect import get_active_coach_pick, is_catalogue_eligible
@@ -86,4 +88,6 @@ def get_connect_summary(user):
         "review_open": bool(cycle_access and session and session.is_review_active),
         "daily_total": len(cards),
         "daily_completed": sum(card.is_completed for card in cards),
+        "cycle_length": CYCLE_LENGTH_DAYS,
+        "timeline": week_timeline_state(session) if cycle_access and session else None,
     }
