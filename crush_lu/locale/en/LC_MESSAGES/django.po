@@ -28453,3 +28453,68 @@ msgstr ""
 msgid "Use a different address"
 msgstr ""
 
+
+# UX Wave 3 · WP13 take-a-break
+# UX Wave 3 · WP13 take-a-break
+# UX Wave 3 · WP13
+msgid "Take a Break"
+msgstr ""
+
+msgid "What happens while you're on a break"
+msgstr ""
+
+msgid "You're hidden from Crush Connect matching"
+msgstr ""
+
+msgid "You won't be invited to events or receive marketing emails"
+msgstr ""
+
+msgid "Your existing event registrations are kept — nothing is cancelled"
+msgstr ""
+
+msgid "You'll still receive transactional and security emails"
+msgstr ""
+
+msgid ""
+"This is fully reversible. Resume any time from a button on your dashboard."
+msgstr ""
+
+msgid "Take a break now? You can resume any time from your dashboard."
+msgstr ""
+
+msgid ""
+"Hide your profile from events, Connect matching and marketing emails. Fully "
+"reversible — resume any time from your dashboard."
+msgstr ""
+
+msgid "Currently on a break"
+msgstr ""
+
+msgid "You do not have a Crush.lu profile to pause."
+msgstr ""
+
+msgid "You're already taking a break."
+msgstr ""
+
+msgid ""
+"You're taking a break. You're hidden from events, Connect matching and "
+"marketing emails until you resume."
+msgstr ""
+
+msgid "Welcome back! Your profile is visible again."
+msgstr ""
+
+msgid ""
+"You're taking a break — hidden from events, Connect matching and marketing."
+msgstr ""
+
+msgid "Resume"
+msgstr ""
+
+# UX Wave 3 · WP13
+msgid ""
+"True when this pause was set by CrushProfile.take_a_break() rather than the "
+"member's own Connect pause control. resume_from_break() only reactivates "
+"Connect when this is True, so it never undoes an independent, self-service "
+"Connect pause (UX Wave 3 · WP13)."
+msgstr ""

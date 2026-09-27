@@ -77,7 +77,7 @@ def exclude_on_break_users(users):
 
     on_break_user_ids = CrushProfile.objects.filter(
         on_break_at__isnull=False
-    ).values_list('user_id', flat=True)
+    ).values_list("user_id", flat=True)
     return users.exclude(id__in=on_break_user_ids)
 
 
