@@ -1236,8 +1236,28 @@ def _render_edit_profile_form(request):
 
 
 def _edit_section_photos(request, profile):
-    """Handle photos section editing."""
+    """Handle photos section editing.
+
+    Honours a same-host ``?next=``/``next`` form field so a member sent here
+    from a blocked Connect surface (missing photo) returns there afterwards
+    instead of landing back on the generic section overview with no way back
+    (UX Wave 3, finding 6-01).
+    """
+    from django.utils.http import url_has_allowed_host_and_scheme
+
     from .social_photos import get_all_social_photos
+
+    candidate_next = request.POST.get("next") or request.GET.get("next", "")
+    safe_next = (
+        candidate_next
+        if candidate_next
+        and url_has_allowed_host_and_scheme(
+            candidate_next,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        )
+        else ""
+    )
 
     if request.method == "POST":
         form = CrushProfileForm(request.POST, request.FILES, instance=profile)
@@ -1247,10 +1267,10 @@ def _edit_section_photos(request, profile):
                 return render(
                     request,
                     "crush_lu/edit_profile.html#edit_success",
-                    {"profile": profile},
+                    {"profile": profile, "next": safe_next},
                 )
             messages.success(request, _("Photos updated!"))
-            return redirect("crush_lu:edit_profile")
+            return redirect(safe_next or reverse("crush_lu:edit_profile"))
 
     form = CrushProfileForm(instance=profile)
     context = {
@@ -1258,6 +1278,7 @@ def _edit_section_photos(request, profile):
         "profile": profile,
         "social_photos": get_all_social_photos(request.user),
         "section": "photos",
+        "next": safe_next,
     }
     template = "crush_lu/partials/edit_photos.html"
     if request.htmx:

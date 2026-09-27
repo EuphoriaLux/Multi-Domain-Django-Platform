@@ -43408,3 +43408,25 @@ msgstr "Aujourd'hui — découvrez comment vous apparaissez dans le mix"
 msgid "18:30 or Evening"
 msgstr "18:30 ou le soir"
 
+# UX Wave 3 · WP11 connect-gating
+# UX Wave 3 · WP11 connect-gating
+# UX Wave 3 · WP11 connect-gating
+# UX Wave 3 · WP11 connect-gating
+# UX Wave 3 · WP11 connect-gating
+# UX Wave 3 · WP11 (connect-gating, findings 6-01/6-12)
+#: .\crush_lu\templates\crush_lu\crush_connect\hub.html:51
+msgid "Your coach:"
+msgstr "Votre coach :"
+
+#: .\crush_lu\templates\crush_lu\crush_connect\hub.html:75
+msgid "Almost ready for today's suggestions"
+msgstr "Presque prêt pour vos suggestions du jour"
+
+#: .\crush_lu\templates\crush_lu\partials\edit_photos.html:12
+msgid "Add a photo to continue where you left off."
+msgstr "Ajoutez une photo pour reprendre là où vous en étiez."
+
+#: .\crush_lu\templates\crush_lu\edit_profile.html:20
+msgid "Continue where you left off"
+msgstr "Reprendre là où vous en étiez"
+

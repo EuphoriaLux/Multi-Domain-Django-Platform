@@ -15530,6 +15530,34 @@ document.addEventListener("alpine:init", function () {
     // Reads slot number from data-slot on the root element.
     // Imports a social photo via POST /api/profile/import-social-photo/ and
     // swaps the returned HTML into #photo-card-{slot}.
+    // Photo editor Back link. With a same-app `next`, Back returns there only
+    // once a main photo exists; photo uploads and deletes swap
+    // #photo-card-1 over HTMX without re-rendering this link, so keep its
+    // href in step after each swap.
+    Alpine.data("photoEditorBack", function () {
+        return {
+            _onSwap: null,
+            init: function () {
+                var el = this.$el;
+                this._onSwap = function (event) {
+                    var target = event.detail && event.detail.target;
+                    if (!target || target.id !== "photo-card-1") return;
+                    var hasPhoto = !!target.querySelector(
+                        ".photo-preview-container.has-photo",
+                    );
+                    el.setAttribute(
+                        "href",
+                        hasPhoto ? el.dataset.next : el.dataset.fallback,
+                    );
+                };
+                document.body.addEventListener("htmx:afterSwap", this._onSwap);
+            },
+            destroy: function () {
+                document.body.removeEventListener("htmx:afterSwap", this._onSwap);
+            },
+        };
+    });
+
     Alpine.data("photoPicker", function () {
         return {
             slot: 0,

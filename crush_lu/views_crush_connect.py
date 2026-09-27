@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.http import urlencode
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import ngettext
@@ -339,7 +340,23 @@ def _onboarding_gate(request):
         messages.warning(
             request, _("Please upload a profile photo to join Crush Connect.")
         )
-        return redirect("crush_lu:edit_profile"), existing, done_url
+        # Land on the photo section directly, and carry a same-app ``next``
+        # back to onboarding instead of stranding the member on the generic
+        # profile overview (UX Wave 3, 6-01). The ``next`` URL must carry the
+        # originating ``event_id`` too: ``crush_connect_onboarding`` pops
+        # ``ONBOARDING_EVENT_SESSION_KEY`` unconditionally on every visit and
+        # only re-derives it from the query string, so a bare ``next`` here
+        # would silently drop which Event Lobby the member came from.
+        next_url = reverse("crush_lu:crush_connect_onboarding")
+        origin_event_id = request.session.get(ONBOARDING_EVENT_SESSION_KEY)
+        if origin_event_id is not None:
+            next_url = f"{next_url}?{urlencode({'event_id': origin_event_id})}"
+        query = urlencode({"section": "photos", "next": next_url})
+        return (
+            redirect(f"{reverse('crush_lu:edit_profile')}?{query}"),
+            existing,
+            done_url,
+        )
 
     membership, _created = CrushConnectMembership.objects.get_or_create(user=user)
     return None, membership, done_url
@@ -880,6 +897,7 @@ def crush_connect_hub(request):
     from crush_lu.services.crush_connect import (
         get_active_coach_pick,
         is_catalogue_eligible,
+        is_premium_connect_eligible,
     )
 
     user = request.user
@@ -914,6 +932,32 @@ def crush_connect_hub(request):
     event_lobby_enabled = lobby_feature_enabled()
     people_ive_met_count = len(get_people_ive_met(user)) if event_lobby_enabled else 0
 
+    readiness = _connect_readiness(user)
+    # The full checklist is guidance, not a second entitlement system (see
+    # ``_connect_readiness``'s docstring) — most of its steps are informational
+    # and don't block Connect Week itself. The photo is the one step that
+    # actually is enforced as a hard gate elsewhere (``connect_week_home``,
+    # ``crush_connect_coach_pick``, the onboarding gate all bounce on it), so
+    # it's the only step worth swapping "Open Today" for an explained state
+    # over — otherwise this would flag members who are already using Connect
+    # Week fine (UX Wave 3, 6-01).
+    # Staff bypass the photo gate everywhere it's actually enforced (see the
+    # comment above), so never flag it here either — otherwise a staff
+    # preview account without a photo loses the working "Open Today" action
+    # to a false "Add a photo" requirement.
+    blocking_step = (
+        next(
+            (
+                step
+                for step in readiness["steps"]
+                if step["key"] == "photo" and not step["complete"]
+            ),
+            None,
+        )
+        if not user.is_staff
+        else None
+    )
+
     context = {
         "membership": membership,
         "is_visible": is_catalogue_eligible(user),
@@ -926,9 +970,13 @@ def crush_connect_hub(request):
         "people_ive_met_count": people_ive_met_count,
         "has_premium": bool(profile and profile.has_active_premium),
         # Naming the coach is most of the point: it is the thing being sold, and
-        # the hub never told the member who theirs is.
+        # the hub never told the member who theirs is. Only link the name when
+        # Coach's Pick will actually admit them — otherwise it redirects
+        # straight back here, a dead loop (UX Wave 3 review).
         "premium_coach": _active_assigned_coach(profile),
-        "connect_readiness": _connect_readiness(user),
+        "premium_coach_pick_ready": is_premium_connect_eligible(user),
+        "connect_readiness": readiness,
+        "blocking_step": blocking_step,
         "has_non_closed_chat": user_has_non_closed_chat(user),
     }
     return render(request, "crush_lu/crush_connect/hub.html", context)
@@ -1019,7 +1067,13 @@ def crush_connect_coach_pick(request):
                     "Connect suggestions; add it now in Photos."
                 ),
             )
-            return redirect(reverse("crush_lu:edit_profile") + "?section=photos")
+            query = urlencode(
+                {
+                    "section": "photos",
+                    "next": reverse("crush_lu:crush_connect_coach_pick"),
+                }
+            )
+            return redirect(f"{reverse('crush_lu:edit_profile')}?{query}")
         return redirect("crush_lu:crush_connect_hub")
 
     return render(

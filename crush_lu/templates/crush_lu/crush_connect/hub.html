@@ -45,32 +45,50 @@
     <header class="mb-4">
         <h1 class="text-2xl mb-1">{% blocktrans with name=user.first_name|default:user.username %}Hello, {{ name }}{% endblocktrans %}</h1>
         <p class="text-sm text-gray-600 dark:text-gray-300">{% if connect_summary.is_visible %}{% trans "Your Connect profile is visible to eligible members." %}{% elif membership.is_onboarded %}{% trans "Your Connect profile is currently hidden. Check your readiness details below." %}{% else %}{% trans "Complete your setup. You become visible only after final consent." %}{% endif %}</p>
-        {% if has_premium %}<p class="text-sm">⭐ {% trans "Premium member" %}{% if premium_coach %} · {{ premium_coach.user.get_full_name|default:premium_coach.user.username }}{% endif %}</p>{% endif %}
+        {% if has_premium %}
+        <p class="text-sm">
+            ⭐ {% trans "Premium" %}
+            {% if premium_coach %}· {% trans "Your coach:" %} {% if premium_coach_pick_ready %}<a href="{% url 'crush_lu:crush_connect_coach_pick' %}" class="underline underline-offset-2">{{ premium_coach.user.get_full_name|default:premium_coach.user.username }}</a>{% else %}{{ premium_coach.user.get_full_name|default:premium_coach.user.username }}{% endif %}{% endif %}
+        </p>
+        {% endif %}
     </header>
     {% if connect_summary.pending_requests %}
     <section class="rounded-2xl bg-white dark:bg-slate-800 p-4 mb-4 ring-1 ring-crush-purple">
-        <h2>{% trans "Your response needed" %}</h2>
-        <p>{% blocktrans count count=connect_summary.pending_requests %}You have {{ count }} pending request.{% plural %}You have {{ count }} pending requests.{% endblocktrans %}</p>
+        <h2 class="card-title">{% trans "Your response needed" %}</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{% blocktrans count count=connect_summary.pending_requests %}You have {{ count }} pending request.{% plural %}You have {{ count }} pending requests.{% endblocktrans %}</p>
         <a class="btn-crush-primary btn-block" href="{% url 'crush_lu:connect_week_inbox' %}">{% trans "Review requests" %}</a>
     </section>
     {% endif %}
     {% if connect_summary.cycle_access %}
     <section class="rounded-2xl bg-white dark:bg-slate-800 p-4 mb-4 ring-1 ring-gray-200 dark:ring-slate-700">
         {% if connect_summary.review_open %}
-        <h2>{% trans "Your weekly review is ready" %}</h2>
+        <h2 class="card-title">{% trans "Your weekly review is ready" %}</h2>
         {% include "crush_lu/crush_connect/_week_timeline.html" with timeline=connect_summary.timeline cycle_length=connect_summary.cycle_length %}
         <a class="btn-crush-solid btn-block mt-2" href="{% url 'crush_lu:connect_week_review' %}">{% trans "Review your week" %}</a>
+        {% elif blocking_step %}
+        {% comment %}
+        A blocking readiness step means Today would just bounce the member
+        straight to the photo editor with no explanation (UX Wave 3, 6-01).
+        Explain what's missing here instead, and send them back to the hub
+        once it's fixed.
+        {% endcomment %}
+        <h2 class="card-title">{% trans "Almost ready for today's suggestions" %}</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{{ blocking_step.description }}</p>
+        <a class="btn-crush-solid btn-block"
+           href="{{ blocking_step.cta_url }}{% if '?' in blocking_step.cta_url %}&{% else %}?{% endif %}next={{ request.path|urlencode }}">
+            {{ blocking_step.cta_label }}
+        </a>
         {% else %}
-        <h2>{% trans "Your Connect Week" %}</h2>
+        <h2 class="card-title">{% trans "Your Connect Week" %}</h2>
         {% include "crush_lu/crush_connect/_week_timeline.html" with timeline=connect_summary.timeline cycle_length=connect_summary.cycle_length %}
-        {% if connect_summary.daily_total %}<p class="mt-2">{% blocktrans with completed=connect_summary.daily_completed total=connect_summary.daily_total %}{{ completed }} of {{ total }} completed{% endblocktrans %}</p>{% else %}<p class="mt-2">{% trans "Open Today to see your available introductions." %}</p>{% endif %}
+        {% if connect_summary.daily_total %}<p class="mt-2 text-sm text-gray-600 dark:text-gray-300 mb-3">{% blocktrans with completed=connect_summary.daily_completed total=connect_summary.daily_total %}{{ completed }} of {{ total }} completed{% endblocktrans %}</p>{% else %}<p class="mt-2 text-sm text-gray-600 dark:text-gray-300 mb-3">{% trans "Open Today to see your available introductions." %}</p>{% endif %}
         <a class="btn-crush-solid btn-block" href="{% url 'crush_lu:connect_week_home' %}">{% trans "Open Today" %}</a>
         {% endif %}
     </section>
     {% elif connect_summary.is_visible %}
     <section class="rounded-2xl bg-white dark:bg-slate-800 p-4 mb-4">
-        <h2>{% trans "You can receive requests" %}</h2>
-        <p>{% trans "Taking part in a Crush event unlocks daily discovery during the beta." %}</p>
+        <h2 class="card-title">{% trans "You can receive requests" %}</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{% trans "Taking part in a Crush event unlocks daily discovery during the beta." %}</p>
         <a class="btn-crush-solid btn-block" href="{% url 'crush_lu:event_list' %}">{% trans "Find an event" %}</a>
     </section>
     {% endif %}
@@ -154,12 +172,15 @@
 
         {# Connect profile editor. #}
         <a href="{% url 'crush_lu:crush_connect_profile_edit' %}"
-           class="col-span-2 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
-            <div class="w-11 h-11 rounded-xl bg-crush-purple/10 flex items-center justify-center mb-3">
+           class="col-span-2 flex items-center gap-3 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
+            <div class="w-11 h-11 rounded-xl bg-crush-purple/10 flex items-center justify-center shrink-0">
                 {% include "shared/icons/pencil.html" with class="w-5 h-5 text-crush-purple" %}
             </div>
-            <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Edit profile" %}</p>
-            <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Your 3 questions, preferences & photos." %}</p>
+            <div class="flex-1 min-w-0">
+                <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Edit profile" %}</p>
+                <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Your 3 questions, preferences & photos." %}</p>
+            </div>
+            {% include "shared/icons/chevron-right.html" with class="w-5 h-5 text-gray-400 shrink-0" %}
         </a>
 
         {# People I've Met — permanent hub section (§7.8). #}

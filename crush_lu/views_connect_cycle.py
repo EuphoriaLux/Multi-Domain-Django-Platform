@@ -17,6 +17,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.http import urlencode
 from django.utils.translation import gettext_lazy as _
 
 from crush_lu.connect_phase import candidate_access_open, cycle_access_open
@@ -95,7 +96,12 @@ def connect_week_home(request):
                 "Your profile photo is missing. It blocks access to your daily Connect Week suggestions; add it now in Photos."
             ),
         )
-        return redirect(reverse("crush_lu:edit_profile") + "?section=photos")
+        # Carry a same-app ``next`` so the member returns to Today, instead
+        # of the photo editor, once the photo is added (UX Wave 3, 6-01).
+        query = urlencode(
+            {"section": "photos", "next": reverse("crush_lu:connect_week_home")}
+        )
+        return redirect(f"{reverse('crush_lu:edit_profile')}?{query}")
 
     blocker = _connect_week_access_blocker(user)
     if blocker is not None:
