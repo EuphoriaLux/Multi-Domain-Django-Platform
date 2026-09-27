@@ -163,9 +163,15 @@ document.addEventListener("alpine:init", function () {
         return {
             checkTimedOut: false,
             _checkRun: 0,
-            // "Not supported" is the truthful answer, so it wins over Retry.
+            // "Not supported" and a browser-level "blocked" are the truthful
+            // answers (Retry cannot change either), so both win over Retry.
             get showCheckTimedOut() {
-                return !this.isLoading && this.checkTimedOut && this.isSupported;
+                return (
+                    !this.isLoading &&
+                    this.checkTimedOut &&
+                    this.isSupported &&
+                    !this.permissionDenied
+                );
             },
             // probe(finish) runs the component's own check and calls finish().
             // An unsupported browser has nothing to probe: settle at once.
@@ -3284,7 +3290,7 @@ document.addEventListener("alpine:init", function () {
                 );
             },
             get showPermissionDenied() {
-                return !this.isLoading && !this.checkTimedOut && this.permissionDenied;
+                return !this.isLoading && this.permissionDenied;
             },
             get showNotSupported() {
                 return !this.isLoading && !this.isSupported;
@@ -4075,7 +4081,7 @@ document.addEventListener("alpine:init", function () {
                 );
             },
             get showPermissionDenied() {
-                return !this.isLoading && !this.checkTimedOut && this.permissionDenied;
+                return !this.isLoading && this.permissionDenied;
             },
             get showNotSupported() {
                 return !this.isLoading && !this.isSupported;

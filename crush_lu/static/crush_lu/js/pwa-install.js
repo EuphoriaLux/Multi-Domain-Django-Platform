@@ -31,19 +31,17 @@ class PWAInstaller {
         return /^\/([a-z]{2}\/)?(account|payments)\//.test(location.pathname);
     }
 
-    // A tab opened within 30 min of the last page view (an email link, an
-    // event in a new tab) belongs to the same visit, not a new session.
+    // A page view within 30 min of the last one (a reload, an email link, an
+    // event in a new tab) belongs to the same visit; one after a longer gap
+    // starts a new session, even in a tab the browser kept or restored.
     sessionCount() {
         try {
             var count = parseInt(localStorage.getItem("crush-pwa-sessions"), 10) || 0;
             var now = Date.now();
             var last = parseInt(localStorage.getItem("crush-pwa-last-seen"), 10) || 0;
-            if (!sessionStorage.getItem("crush-pwa-session")) {
-                sessionStorage.setItem("crush-pwa-session", "1");
-                if (!count || now - last > 30 * 60 * 1000) {
-                    count += 1;
-                    localStorage.setItem("crush-pwa-sessions", String(count));
-                }
+            if (!count || now - last > 30 * 60 * 1000) {
+                count += 1;
+                localStorage.setItem("crush-pwa-sessions", String(count));
             }
             localStorage.setItem("crush-pwa-last-seen", String(now));
             return count;

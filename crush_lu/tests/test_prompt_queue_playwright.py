@@ -19,6 +19,7 @@ Excluded from the default run (``-m "not playwright"`` in pytest.ini). Run:
 """
 
 import json
+import re
 
 import pytest
 
@@ -43,7 +44,8 @@ OPTIONAL_EXTERNAL_RESOURCES = (
 
 # A returning visitor: one earlier session already counted.
 RETURNING_VISITOR_JS = """
-if (!sessionStorage.getItem("crush-pwa-session")) {
+if (!sessionStorage.getItem("pq-seeded")) {
+    sessionStorage.setItem("pq-seeded", "1");
     localStorage.setItem("crush-pwa-sessions", "1");
 }
 """
@@ -236,6 +238,9 @@ def test_push_prompt_waits_behind_the_install_card_and_clears_the_tab_bar(
 def test_push_settings_check_times_out_with_try_again(browser, live_server):
     page = _phone(browser, live_server, _member())
     page.context.add_init_script(HANGING_SW_JS)
+    # Headless Chromium reports "denied" by default; this visitor has not
+    # blocked anything, so only Retry can help.
+    page.context.add_init_script(PERMISSION_DEFAULT_JS)
     _open(page, f"{live_server.url}/en/account/settings/")
 
     card = page.locator("[x-data='pushPreferences']")
@@ -254,10 +259,18 @@ def test_push_settings_check_times_out_with_try_again(browser, live_server):
 # The same visit in a new tab: sessionStorage is fresh, the last page view
 # was a minute ago.
 SAME_VISIT_NEW_TAB_JS = """
-if (!sessionStorage.getItem("crush-pwa-session")) {
+if (!sessionStorage.getItem("pq-seeded")) {
+    sessionStorage.setItem("pq-seeded", "1");
     localStorage.setItem("crush-pwa-sessions", "1");
     localStorage.setItem("crush-pwa-last-seen", String(Date.now() - 60 * 1000));
 }
+"""
+# Notifications neither granted nor blocked yet.
+PERMISSION_DEFAULT_JS = """
+Object.defineProperty(Notification, "permission", {
+    configurable: true,
+    get() { return "default"; },
+});
 """
 # A browser with a service worker but no Push API (e.g. an iOS Safari tab).
 NO_PUSH_MANAGER_JS = "delete window.PushManager;"
@@ -300,3 +313,69 @@ def test_coach_card_without_push_api_says_not_supported_not_retry(browser, live_
     ).to_be_hidden()
     expect(card.get_by_text("Try Again")).to_be_hidden()
     expect(card.get_by_text("Push notifications not available")).to_be_visible()
+
+
+# A tab the browser kept (or restored) from a visit two hours ago.
+RESTORED_TAB_JS = """
+if (!sessionStorage.getItem("pq-seeded")) {
+    sessionStorage.setItem("pq-seeded", "1");
+    sessionStorage.setItem("crush-pwa-session", "1");
+    localStorage.setItem("crush-pwa-sessions", "1");
+    localStorage.setItem(
+        "crush-pwa-last-seen", String(Date.now() - 2 * 60 * 60 * 1000)
+    );
+}
+"""
+# The visitor blocked notifications for the site in browser settings.
+PERMISSION_DENIED_JS = """
+Object.defineProperty(Notification, "permission", {
+    configurable: true,
+    get() { return "denied"; },
+});
+"""
+
+
+def test_restored_tab_after_inactivity_is_a_new_session(browser, live_server):
+    page = _phone(browser, live_server, _member())
+    page.context.add_init_script(RESTORED_TAB_JS)
+    _open(page, f"{live_server.url}/en/dashboard/")
+
+    expect(page.locator("#pwa-install-banner")).to_be_visible()
+    assert page.evaluate("() => localStorage.getItem('crush-pwa-sessions')") == "2"
+
+
+def test_blocked_notifications_win_over_try_again(browser, live_server):
+    page = _phone(browser, live_server, _member())
+    page.context.add_init_script(HANGING_SW_JS)
+    page.context.add_init_script(PERMISSION_DENIED_JS)
+    _open(page, f"{live_server.url}/en/account/settings/")
+
+    card = page.locator("[x-data='pushPreferences']")
+    expect(card.get_by_text("Notifications blocked")).to_be_visible(timeout=6000)
+    page.wait_for_timeout(3500)
+    expect(card.get_by_text("Notifications blocked")).to_be_visible()
+    expect(card.get_by_role("button", name="Try Again")).to_have_count(0)
+
+
+def test_whatsapp_button_tucks_away_while_the_install_card_shows(browser, live_server):
+    from crush_lu import context_processors
+    from crush_lu.models import CrushSiteConfig
+
+    config = CrushSiteConfig.get_config()
+    config.whatsapp_enabled = True
+    config.whatsapp_number = "352000000"
+    config.save()
+    context_processors._site_config_cache["config"] = None
+    try:
+        page = _phone(browser, live_server, _member(), returning=True)
+        _open(page, f"{live_server.url}/en/dashboard/")
+
+        fab = page.locator(".crush-whatsapp-btn")
+        expect(page.locator("#pwa-install-banner")).to_be_visible()
+        expect(fab).to_have_class(re.compile(r"crush-whatsapp-btn--tucked"))
+
+        page.locator("#pwa-dismiss-button").click()
+        expect(page.locator("#pwa-install-banner")).to_be_hidden()
+        expect(fab).not_to_have_class(re.compile(r"crush-whatsapp-btn--tucked"))
+    finally:
+        context_processors._site_config_cache["config"] = None
