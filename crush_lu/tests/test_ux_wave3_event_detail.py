@@ -10,6 +10,7 @@ Run with: pytest crush_lu/tests/test_ux_wave3_event_detail.py
 from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
+from django.contrib.staticfiles import finders
 from django.core.cache import cache
 from django.test import Client, TestCase
 from django.utils import timezone
@@ -122,6 +123,42 @@ class FactStripAndDescriptionTests(EventDetailWave3TestBase):
         self.assertIn('id="event-cta-panel"', html)
         self.assertIn('id="event-sticky-cta"', html)
         self.assertIn("eventStickyCta", html)
+
+    def test_read_more_toggle_has_aria_expanded_and_controls(self):
+        """WP6-2: the toggle must expose its expand/collapse state and the
+        region it controls, not just visually swap the label."""
+        event = self._make_event()
+        html = self._get_detail(event)
+        self.assertIn('id="event-description-text"', html)
+        self.assertIn('aria-controls="event-description-text"', html)
+        self.assertIn('x-bind:aria-expanded="expandedAria"', html)
+
+
+class StickyCtaToastOffsetTests(EventDetailWave3TestBase):
+    """WP6-1: the sticky CTA bar must not permanently obscure toasts.
+
+    Behaviour itself (offsetting #toast-container while the bar is visible,
+    and never doing so when its own height is 0 on desktop) is exercised in
+    the browser by test_ux_wave3_event_detail_playwright.py; this asserts
+    the JS actually wires up the watcher it depends on.
+    """
+
+    def test_alpine_component_watches_visible_and_offsets_toast_container(self):
+        js_path = finders.find("crush_lu/js/alpine-components.js")
+        self.assertIsNotNone(
+            js_path, "alpine-components.js not found via staticfiles finders"
+        )
+        with open(js_path, encoding="utf-8") as fh:
+            js = fh.read()
+        start = js.index('Alpine.data("eventStickyCta"')
+        end = js.index("Alpine.data(", start + 1)
+        component_src = js[start:end]
+        self.assertIn('this.$watch("visible"', component_src)
+        self.assertIn('getElementById("toast-container")', component_src)
+        self.assertIn('removeProperty("bottom")', component_src)
+        # Must guard offsetHeight == 0 (bar is md:hidden, so IntersectionObserver
+        # can flip `visible` true on desktop while the bar itself is display:none).
+        self.assertIn("barHeight > 0", component_src)
 
 
 class VerificationDeadEndLinksTests(EventDetailWave3TestBase):

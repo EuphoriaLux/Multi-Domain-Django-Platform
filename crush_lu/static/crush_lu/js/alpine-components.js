@@ -2355,6 +2355,12 @@ document.addEventListener("alpine:init", function () {
             get descriptionClass() {
                 return this.expanded ? "" : "line-clamp-4";
             },
+            // String form for :aria-expanded on the toggle button (#WP6-2):
+            // mirrors the getter idiom base.html uses for nav aria-expanded
+            // bindings under the CSP-safe Alpine build.
+            get expandedAria() {
+                return this.expanded ? "true" : "false";
+            },
             toggle: function () {
                 this.expanded = !this.expanded;
             },
@@ -2376,6 +2382,40 @@ document.addEventListener("alpine:init", function () {
             init: function () {
                 this.priceText = this.$el.dataset.priceLabel || "";
                 this.factsText = this.$el.dataset.factsText || "";
+                var self = this;
+                // #WP6-1: while this bar is visible, push #toast-container's
+                // bottom offset above the bar's own rendered height so a
+                // toast never renders on top of the price/CTA. Reverts to
+                // its normal .toast-above-nav offset when the bar hides.
+                this.$watch("visible", function (value) {
+                    var toast = document.getElementById("toast-container");
+                    if (!toast) {
+                        return;
+                    }
+                    // This watcher and the x-show effect both react to the
+                    // same `visible` change; effect order between them isn't
+                    // guaranteed, so reading offsetHeight here can still see
+                    // the pre-toggle display:none. $nextTick runs after
+                    // Alpine's DOM patch, once layout reflects the new state.
+                    self.$nextTick(function () {
+                        // The bar is md:hidden, so on >=768px `visible` can
+                        // flip true while offsetHeight is still 0 (display:
+                        // none) — never write a bottom offset in that case,
+                        // or the desktop toast stack (lg:bottom-auto
+                        // lg:top-4) picks up an inline `bottom` it never had.
+                        var barHeight = value ? self.$el.offsetHeight : 0;
+                        if (barHeight > 0) {
+                            toast.style.setProperty(
+                                "bottom",
+                                "calc(var(--bottom-nav-height) + " +
+                                    barHeight +
+                                    "px + env(safe-area-inset-bottom, 0px))",
+                            );
+                        } else {
+                            toast.style.removeProperty("bottom");
+                        }
+                    });
+                });
                 var panel = document.getElementById("event-cta-panel");
                 if (!panel || !("IntersectionObserver" in window)) {
                     return;
@@ -2386,7 +2426,6 @@ document.addEventListener("alpine:init", function () {
                 }
                 this.ctaHref = anchor.getAttribute("href") || "";
                 this.ctaLabel = (anchor.textContent || "").trim();
-                var self = this;
                 var observer = new IntersectionObserver(
                     function (entries) {
                         var entry = entries[0];

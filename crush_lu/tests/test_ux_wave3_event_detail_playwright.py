@@ -1,7 +1,9 @@
 """Playwright: JS behaviour changed for UX Wave 3 WP6 (event detail).
 
-Covers the two interactive changes: the description "Read more" toggle
-(#4-03) and the share button's clipboard fallback + toast (#4-18).
+Covers the interactive changes: the description "Read more" toggle (#4-03,
+plus its aria-expanded/aria-controls wiring, WP6-2), the share button's
+clipboard fallback + toast (#4-18), and the mobile sticky CTA bar's
+toast-offset guard (WP6-1).
 
 Excluded from the default run (``-m "not playwright"`` in pytest.ini). Run:
     pytest -m playwright crush_lu/tests/test_ux_wave3_event_detail_playwright.py -n 0 --create-db
@@ -11,12 +13,15 @@ import re
 from datetime import timedelta
 
 import pytest
+from django.conf import settings
+from django.test import Client
 from django.utils import timezone
 from playwright.sync_api import expect
 
 pytestmark = [pytest.mark.playwright, pytest.mark.django_db(transaction=True)]
 
 PHONE = {"width": 390, "height": 844}
+DESKTOP = {"width": 1280, "height": 900}
 
 LONG_DESCRIPTION = (
     "Join us for a wonderful evening of wine tasting paired with speed "
@@ -85,3 +90,127 @@ def test_share_button_falls_back_to_clipboard_copy_and_shows_toast(
     expect(page.locator("#toast-container")).to_contain_text("Link copied")
     copied = page.evaluate("window.__copiedText")
     assert copied == page.url
+
+
+def test_read_more_toggle_reports_aria_expanded_and_controls(
+    page, live_server, upcoming_event
+):
+    """WP6-2: the toggle must announce its state, not just swap the label."""
+    page.set_viewport_size(PHONE)
+    page.goto(f"{live_server.url}/en/events/{upcoming_event.id}/")
+
+    toggle = page.get_by_role("button", name="Read more")
+    expect(toggle).to_have_attribute("aria-expanded", "false")
+    controls_id = toggle.get_attribute("aria-controls")
+    assert controls_id, "toggle button must declare aria-controls"
+    expect(page.locator(f"#{controls_id}")).to_be_visible()
+
+    toggle.click()
+    expect(page.get_by_role("button", name="Show less")).to_have_attribute(
+        "aria-expanded", "true"
+    )
+
+
+def _log_in(page, live_server, user):
+    client = Client()
+    client.force_login(user)
+    page.context.add_cookies(
+        [
+            {
+                "name": settings.SESSION_COOKIE_NAME,
+                "value": client.cookies[settings.SESSION_COOKIE_NAME].value,
+                "url": live_server.url,
+            }
+        ]
+    )
+
+
+def _make_open_registration_member():
+    from django.contrib.auth import get_user_model
+
+    from crush_lu.models import UserDataConsent
+
+    user = get_user_model().objects.create_user(
+        username="sticky-cta-e2e@example.com",
+        email="sticky-cta-e2e@example.com",
+        password="testpass123",
+        first_name="Sticky",
+    )
+    UserDataConsent.objects.update_or_create(
+        user=user, defaults={"crushlu_consent_given": True}
+    )
+    return user
+
+
+def test_sticky_cta_offsets_toast_on_mobile_and_never_on_desktop(
+    page, live_server, upcoming_event
+):
+    """WP6-1: a toast must not render on top of the sticky CTA bar on
+    mobile, and the sticky bar's own (md:hidden) inline offset must never
+    leak into the desktop toast stack.
+
+    Drives the component's ``visible`` flag directly through Alpine's
+    ``$data`` rather than scrolling: real scroll-driven IntersectionObserver
+    timing in a headless viewport is flaky to assert on and isn't what
+    changed here — the ``$watch`` wired up on ``visible`` is.
+    """
+    member = _make_open_registration_member()
+    _log_in(page, live_server, member)
+
+    page.set_viewport_size(PHONE)
+    page.goto(f"{live_server.url}/en/events/{upcoming_event.id}/")
+
+    sticky_bar = page.locator("#event-sticky-cta")
+
+    def set_visible(value):
+        page.evaluate(
+            "v => Alpine.$data(document.getElementById('event-sticky-cta')).visible = v",
+            value,
+        )
+
+    def toast_bottom_style():
+        return page.evaluate("document.getElementById('toast-container').style.bottom")
+
+    def wait_for_toast_bottom(predicate, description):
+        # `page.wait_for_function` runs its predicate via an in-page
+        # `new Function`, which this app's CSP blocks (script-src has no
+        # 'unsafe-eval') — poll through one-shot `page.evaluate` calls
+        # instead, which go through the CDP Runtime.evaluate channel and
+        # aren't subject to that restriction.
+        for _ in range(20):
+            if predicate(toast_bottom_style()):
+                return
+            page.wait_for_timeout(50)
+        raise AssertionError(description)
+
+    set_visible(True)
+    expect(sticky_bar).to_be_visible()
+    bar_height = sticky_bar.bounding_box()["height"]
+    assert bar_height > 0
+
+    # $watch's callback runs on Alpine's own effect flush, a tick after the
+    # x-show DOM patch that expect(...).to_be_visible() already waited for
+    # — poll rather than assert immediately.
+    wait_for_toast_bottom(
+        lambda v: v != "", "toast-container never received a bottom offset"
+    )
+    inline_bottom = toast_bottom_style()
+    assert str(round(bar_height)) in inline_bottom, (
+        "toast-container's bottom offset must be derived from the bar's own "
+        "rendered height so a toast can never render on top of it"
+    )
+
+    set_visible(False)
+    expect(sticky_bar).to_be_hidden()
+    wait_for_toast_bottom(
+        lambda v: v == "", "toast-container's bottom offset was not cleared"
+    )
+
+    # On >=768px the bar is display:none (md:hidden), so offsetHeight is 0
+    # even if `visible` is flipped true — the watcher must never write a
+    # bottom offset in that case, or the desktop toast stack (which uses
+    # lg:bottom-auto lg:top-4, not .toast-above-nav) would inherit one.
+    page.set_viewport_size(DESKTOP)
+    set_visible(True)
+    page.wait_for_timeout(200)
+    assert toast_bottom_style() == ""
