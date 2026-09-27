@@ -1,3 +1,5 @@
+import math
+import time
 from functools import wraps
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -116,9 +118,9 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True, rate_limited_te
             if count > limit:
                 # Rate limit exceeded
                 request.limited = True
-                # Upper bound on the wait: the fixed window this decorator
-                # counts in, not a precisely-tracked remaining time.
-                request.limited_retry_after = period_seconds
+                request.limited_retry_after = _remaining_window_seconds(
+                    cache_key, period_seconds
+                )
                 if block:
                     # Return JSON for API/AJAX requests, plain text for browser requests
                     if (
@@ -134,10 +136,14 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True, rate_limited_te
                         response = render(
                             request,
                             rate_limited_template,
-                            {'wait_message': humanize_wait_seconds(period_seconds)},
+                            {
+                                'wait_message': humanize_wait_seconds(
+                                    request.limited_retry_after
+                                )
+                            },
                             status=429,
                         )
-                        response['Retry-After'] = str(period_seconds)
+                        response['Retry-After'] = str(request.limited_retry_after)
                         return response
                     messages.error(
                         request,
@@ -154,6 +160,41 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True, rate_limited_te
     return decorator
 
 
+def _window_deadline_key(cache_key):
+    return f"{cache_key}:deadline"
+
+
+def _record_window_deadline(cache_key, period_seconds):
+    """Track expiry for cache backends without a native TTL method."""
+    cache.set(
+        _window_deadline_key(cache_key),
+        time.time() + period_seconds,
+        period_seconds,
+    )
+
+
+def _remaining_window_seconds(cache_key, period_seconds):
+    """Return the counter's remaining fixed-window lifetime, rounded up."""
+    ttl = getattr(cache, "ttl", None)
+    if callable(ttl):
+        try:
+            remaining = ttl(cache_key)
+            if isinstance(remaining, (int, float)) and remaining >= 0:
+                return max(1, min(period_seconds, math.ceil(remaining)))
+        except Exception:
+            pass
+
+    try:
+        deadline = cache.get(_window_deadline_key(cache_key))
+    except Exception:
+        deadline = None
+    if isinstance(deadline, (int, float)):
+        return max(1, min(period_seconds, math.ceil(deadline - time.time())))
+    # A concurrent first request may increment before the deadline key is
+    # written; the full period is accurate at the start of that window.
+    return period_seconds
+
+
 def _count_request(cache_key, period_seconds):
     """
     Count one request in the key's window and return the new total.
@@ -165,13 +206,15 @@ def _count_request(cache_key, period_seconds):
     Requests over the limit are counted too; incr() keeps the expiry that
     add() set, so they never extend the window.
     """
-    cache.add(cache_key, 0, period_seconds)
+    if cache.add(cache_key, 0, period_seconds):
+        _record_window_deadline(cache_key, period_seconds)
     try:
         return cache.incr(cache_key)
     except ValueError:
         # Evicted between add() and incr(): start a fresh window with this
         # request, unless a concurrent request already did.
         if cache.add(cache_key, 1, period_seconds):
+            _record_window_deadline(cache_key, period_seconds)
             return 1
         return cache.incr(cache_key)
 
