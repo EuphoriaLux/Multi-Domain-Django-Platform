@@ -5167,6 +5167,32 @@ document.addEventListener("alpine:init", function () {
 
                 // Warn before leaving with unsaved changes
                 self.setupUnloadWarning();
+
+                // Browser/Android back gesture support (finding 3-04): stamp
+                // the landing step as a history entry (replace, not push —
+                // this is the page load, not a navigation) and honour a
+                // #step-N deep link within range. popstate then walks the
+                // wizard back/forward without re-pushing (would loop).
+                try {
+                    var hashMatch = /^#step-([1-4])$/.exec(window.location.hash);
+                    if (hashMatch) {
+                        self.currentStep = parseInt(hashMatch[1], 10);
+                    }
+                    history.replaceState(
+                        { wizardStep: self.currentStep },
+                        "",
+                        "#step-" + self.currentStep,
+                    );
+                } catch (e) {
+                    // history API unavailable — steps still work without it.
+                }
+                window.addEventListener("popstate", function (e) {
+                    var step =
+                        e.state && e.state.wizardStep
+                            ? e.state.wizardStep
+                            : self.currentStep;
+                    self._setStep(step, false);
+                });
             },
 
             // Initialize field tracking from DOM values
@@ -5234,10 +5260,48 @@ document.addEventListener("alpine:init", function () {
                 }
             },
 
+            // Single choke point for every step transition (finding 3-04):
+            // nextStep/prevStep/goToStep/saveAndNextStep1-3 and the popstate
+            // handler all route through here so the Android/WebView back
+            // gesture always lands on the previous wizard section instead of
+            // exiting the page. pushHistory=false is for popstate itself
+            // (already a history entry) and the initial render.
+            _setStep: function (step, pushHistory) {
+                if (step < 1 || step > this.totalSteps) return;
+                this.currentStep = step;
+                window.scrollTo({ top: 0, behavior: "smooth" });
+                try {
+                    if (pushHistory) {
+                        history.pushState(
+                            { wizardStep: step },
+                            "",
+                            "#step-" + step,
+                        );
+                    } else {
+                        history.replaceState(
+                            { wizardStep: step },
+                            "",
+                            "#step-" + step,
+                        );
+                    }
+                } catch (e) {
+                    // history API unavailable (e.g. sandboxed preview) — the
+                    // step change above still works, just without deep-linking.
+                }
+                this.$nextTick(function () {
+                    var heading = document.querySelector(
+                        '[data-wizard-step="' + step + '"] h3',
+                    );
+                    if (heading) {
+                        heading.setAttribute("tabindex", "-1");
+                        heading.focus();
+                    }
+                });
+            },
+
             nextStep: function () {
                 if (this.currentStep < this.totalSteps) {
-                    this.currentStep++;
-                    window.scrollTo({ top: 0, behavior: "smooth" });
+                    this._setStep(this.currentStep + 1, true);
                 }
             },
 
@@ -5250,15 +5314,22 @@ document.addEventListener("alpine:init", function () {
 
             prevStep: function () {
                 if (this.currentStep > 1) {
-                    this.currentStep--;
-                    window.scrollTo({ top: 0, behavior: "smooth" });
+                    this._setStep(this.currentStep - 1, true);
                 }
             },
 
             goToStep: function (step) {
-                if (step >= 1 && step <= this.totalSteps) {
-                    this.currentStep = step;
-                    window.scrollTo({ top: 0, behavior: "smooth" });
+                this._setStep(step, true);
+            },
+
+            // CSP-compatible Review-step "Edit" links: reads the target step
+            // from the clicked element's own data attribute (same idiom as
+            // traitSelector.handleClick) instead of an inline goToStep(n)
+            // call, which the CSP build disallows.
+            editSection: function () {
+                var step = parseInt(this.$el.getAttribute("data-goto-step"), 10);
+                if (step) {
+                    this.goToStep(step);
                 }
             },
 
@@ -5280,6 +5351,7 @@ document.addEventListener("alpine:init", function () {
                 };
 
                 var phone = document.querySelector("[name=phone_number]");
+                var dobInput = document.querySelector("[name=date_of_birth]");
                 var genderEl = document.querySelector("[name=gender]:checked");
 
                 var reviewPhone = this.$refs.reviewPhone;
@@ -5294,11 +5366,20 @@ document.addEventListener("alpine:init", function () {
                     reviewPhone.textContent =
                         (phone && phone.value) || emptyLabel(reviewPhone);
                 }
-                if (reviewDob && this.dobFormatted) {
-                    // Only overwrite when the dobPicker produced a formatted
-                    // date this session — otherwise keep the server-rendered
-                    // value (resume-on-Review case).
-                    reviewDob.textContent = this.dobFormatted;
+                if (reviewDob) {
+                    // Native <input type="date"> value is always YYYY-MM-DD.
+                    // Format it for display client-side (no hard-coded copy)
+                    // when it's set this session; otherwise keep the
+                    // server-rendered value (resume-on-Review case).
+                    if (dobInput && dobInput.value) {
+                        var dobDate = new Date(dobInput.value + "T00:00:00");
+                        reviewDob.textContent = dobDate.toLocaleDateString(
+                            document.documentElement.lang || "en",
+                            { day: "numeric", month: "short", year: "numeric" },
+                        );
+                    } else {
+                        reviewDob.textContent = emptyLabel(reviewDob);
+                    }
                 }
                 if (reviewGender) {
                     var genderText = "";
@@ -5389,10 +5470,19 @@ document.addEventListener("alpine:init", function () {
                             reviewPhotos.appendChild(img);
                         }
                     } else {
-                        var p = document.createElement("p");
-                        p.className = "font-medium dark:text-white";
-                        p.textContent = emptyLabel(reviewPhotos);
-                        reviewPhotos.appendChild(p);
+                        // Amber nudge, not a neutral "No photos yet" row — a
+                        // profile with no face is a real conversion/safety
+                        // cost at an events-first product (finding 3-05).
+                        var callout = document.createElement("div");
+                        callout.className =
+                            "flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-700/50 dark:bg-amber-900/20";
+                        var nudge = document.createElement("p");
+                        nudge.className = "text-sm text-amber-800 dark:text-amber-200";
+                        nudge.textContent =
+                            reviewPhotos.getAttribute("data-empty-nudge") ||
+                            emptyLabel(reviewPhotos);
+                        callout.appendChild(nudge);
+                        reviewPhotos.appendChild(callout);
                     }
                 }
             },
@@ -5723,8 +5813,7 @@ document.addEventListener("alpine:init", function () {
                 self.saveStep1().then(function (result) {
                     if (result.success) {
                         self.saveError = "";
-                        self.currentStep = 2;
-                        window.scrollTo({ top: 0, behavior: "smooth" });
+                        self._setStep(2, true);
                     }
                     // Error is already set in saveStep1
                 });
@@ -5737,8 +5826,7 @@ document.addEventListener("alpine:init", function () {
                 self.saveStep2().then(function (result) {
                     if (result.success) {
                         self.saveError = "";
-                        self.currentStep = 3;
-                        window.scrollTo({ top: 0, behavior: "smooth" });
+                        self._setStep(3, true);
                     }
                 });
             },
@@ -5750,9 +5838,8 @@ document.addEventListener("alpine:init", function () {
                 self.saveStep3().then(function (result) {
                     if (result.success) {
                         self.saveError = "";
-                        self.currentStep = 4;
+                        self._setStep(4, true);
                         self.updateReview();
-                        window.scrollTo({ top: 0, behavior: "smooth" });
                     }
                 });
             },
@@ -7214,6 +7301,16 @@ document.addEventListener("alpine:init", function () {
             // Computed getters for CSP compatibility
             get notVerified() {
                 return !this.verified;
+            },
+            // The resting (unverified, no failed attempt yet) state reads as a
+            // neutral status, not an error — a red "Verification Required"
+            // pill before the member has typed anything reads as "you already
+            // did something wrong". Only a failed verify attempt earns red.
+            get notVerifiedNeutral() {
+                return !this.verified && this.failureCount === 0;
+            },
+            get notVerifiedFailed() {
+                return !this.verified && this.failureCount > 0;
             },
             get showSupportContact() {
                 return this.failureCount >= 2;

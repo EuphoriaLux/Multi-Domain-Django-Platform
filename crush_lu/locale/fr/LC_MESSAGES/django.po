@@ -42570,3 +42570,13 @@ msgstr "Les parts femmes/hommes indiquent le pourcentage de toutes les femmes et
 #, python-format
 msgid "Women %(women)s%% · Men %(men)s%%"
 msgstr "Femmes %(women)s%% · Hommes %(men)s%%"
+
+# UX Wave 3 · WP4
+msgid "Not verified yet"
+msgstr "Pas encore vérifié"
+
+msgid "Members recognise you at events by your photo — add one."
+msgstr "Les autres membres vous reconnaissent aux événements grâce à votre photo — ajoutez-en une."
+
+msgid "Add 1–3 photos. Optional, but recommended."
+msgstr "Ajoutez 1 à 3 photos. Facultatif, mais recommandé."
