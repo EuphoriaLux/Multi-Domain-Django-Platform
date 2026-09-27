@@ -73,6 +73,26 @@ def _declined_in_browser_js(cookie_group):
     )
 
 
+def _stale_in_browser_js(cookie_group, rendered_version):
+    """A kept page must not reuse a grant older than a version seen since."""
+    key = json.dumps(f"crush_consent_version_{cookie_group}")
+    flag = json.dumps(f"cookie_consent_{cookie_group}")
+    rendered = json.dumps(rendered_version or "")
+    return f"""(function() {{
+    try {{
+      var rendered = Date.parse({rendered});
+      var latest = Date.parse(localStorage.getItem({key}) || '');
+      var match = document.cookie.match(new RegExp('(?:^|; )' + {flag} + '=([^;]*)'));
+      var value = match ? decodeURIComponent(match[1]) : '';
+      var accepted = value.indexOf('accept:') === 0 ? Date.parse(value.slice(7)) : NaN;
+      if (!isNaN(latest) && (isNaN(rendered) || latest > rendered)) {{
+        return isNaN(accepted) || accepted < latest;
+      }}
+      return !isNaN(rendered) && !isNaN(accepted) && accepted < rendered;
+    }} catch (e) {{ return false; }}
+  }})()"""
+
+
 def _cookie_group_version(cookie_group):
     """
     django-cookie-consent's current version of a group, or None if unknown here.
@@ -89,6 +109,17 @@ def _cookie_group_version(cookie_group):
     except Exception:
         return None
     return group.get_version() if group is not None else None
+
+
+def _request_cookie_group_version(request, cookie_group):
+    """Look up each group version once while rendering a request."""
+    versions = getattr(request, "_cookie_group_versions", None)
+    if versions is None:
+        versions = {}
+        request._cookie_group_versions = versions
+    if cookie_group not in versions:
+        versions[cookie_group] = _cookie_group_version(cookie_group)
+    return versions[cookie_group]
 
 
 def _stamp_is_current(stamp, reference):
@@ -137,13 +168,11 @@ def stored_cookie_choice(request, cookie_group):
     it wins. 3 alone is what a visitor who only used the library's own
     /cookies/ pages has.
 
-    A refusal in any of the three wins over an acceptance in another. The
-    library's /cookies/ forms write only 3, so a visitor who accepted through
-    the banner and later declined there holds an old banner acceptance next
-    to a newer library refusal; nothing records which is newer, so the
-    refusal is honoured. The cost is the reverse case (a banner acceptance
-    whose library post never landed, after a library refusal), which stays
-    declined until the next save: it errs toward not tracking.
+    A readable refusal always wins. A library refusal wins over an old banner
+    acceptance whose flag has no ``_banner`` marker. The current banner sets
+    that marker with its flag, so a newer acceptance remains authoritative if
+    an older native keepalive response arrives after navigation. The library's
+    own forms mirror their choices to the readable flags in middleware.
 
     An acceptance only counts while it is current for the group
     (_stamp_is_current): the flag carries the group version it was given
@@ -160,17 +189,25 @@ def stored_cookie_choice(request, cookie_group):
         library = get_cookie_value_from_request(request, cookie_group)
     except Exception:
         library = None
-    if library is False:
-        return False
-
     flag = request.COOKIES.get(f"cookie_consent_{cookie_group}", "")
     action, _, stamp = flag.partition(":")
     if action == FLAG_DECLINE:
         return False
     if action == FLAG_ACCEPT:
-        reference, looked_up = _cookie_group_version(cookie_group), True
-        if _stamp_is_current(unquote(stamp), reference):
+        reference, looked_up = (
+            _request_cookie_group_version(request, cookie_group),
+            True,
+        )
+        if _stamp_is_current(unquote(stamp), reference) and (
+            library is not False
+            or request.COOKIES.get(f"cookie_consent_{cookie_group}_banner") == "1"
+        ):
             return True
+
+    # Older banner flags have no marker. Keep the native refusal authoritative
+    # for those ambiguous legacy cookies; newer banner saves carry the marker.
+    if library is False:
+        return False
 
     raw = request.COOKIES.get(BANNER_COOKIE, "")
     if raw:
@@ -182,7 +219,7 @@ def stored_cookie_choice(request, cookie_group):
             if data[cookie_group] is not True:
                 return False
             if not looked_up:
-                reference = _cookie_group_version(cookie_group)
+                reference = _request_cookie_group_version(request, cookie_group)
             stamp = data.get("timestamp")
             if _stamp_is_current(stamp if isinstance(stamp, str) else "", reference):
                 return True
@@ -233,7 +270,7 @@ def cookie_consent_state(context):
     # and the modal keeps showing the other group's choice.
     state["decided"] = all(value is not None for value in state.values())
     state["versions"] = {
-        group: _cookie_group_version(group) or ""
+        group: _request_cookie_group_version(request, group) or ""
         for group in ("analytics", "marketing")
     }
     return json.dumps(state)
@@ -303,13 +340,19 @@ def analytics_head(context):
     # outranks the server's answer).
     refusal_updates = []
     if analytics_granted == "granted":
+        stale = _stale_in_browser_js(
+            "analytics", _request_cookie_group_version(request, "analytics")
+        )
         refusal_updates.append(
-            f"  if ({_declined_in_browser_js('analytics')}) "
+            f"  if ({_declined_in_browser_js('analytics')} || {stale}) "
             "gtag('consent', 'update', {'analytics_storage': 'denied'});"
         )
     if marketing_granted == "granted":
+        stale = _stale_in_browser_js(
+            "marketing", _request_cookie_group_version(request, "marketing")
+        )
         refusal_updates.append(
-            f"  if ({_declined_in_browser_js('marketing')}) "
+            f"  if ({_declined_in_browser_js('marketing')} || {stale}) "
             "gtag('consent', 'update', {'ad_storage': 'denied', "
             "'ad_user_data': 'denied', 'ad_personalization': 'denied'});"
         )
@@ -384,6 +427,7 @@ def analytics_body(context):
 <script{nonce_attr}>
   window.fbPixelId = '{fb_pixel_id}';
   document.addEventListener('cookie_consent_updated', function(e) {{
+    if (!e.detail || !e.detail.marketing) window.__fbPendingEvents = [];
     if (e.detail && e.detail.marketing && !window.fbq) {{
       !function(f,b,e,v,n,t,s)
       {{if(f.fbq)return;n=f.fbq=function(){{n.callMethod?
@@ -395,6 +439,9 @@ def analytics_body(context):
       'https://connect.facebook.net/en_US/fbevents.js');
       fbq('init', window.fbPixelId);
       fbq('track', 'PageView');
+      var pending = window.__fbPendingEvents || [];
+      window.__fbPendingEvents = [];
+      pending.forEach(function(args) {{ fbq.apply(null, args); }});
     }}
   }});
 </script>""")
@@ -408,6 +455,16 @@ def analytics_body(context):
     # that copy loads nothing until the next freshly rendered page: deliberate,
     # under-tracking is the safe direction.
     marketing_declined = _declined_in_browser_js("marketing")
+    if request is not None:
+        marketing_declined = (
+            "("
+            + marketing_declined
+            + " || "
+            + _stale_in_browser_js(
+                "marketing", _request_cookie_group_version(request, "marketing")
+            )
+        )
+        marketing_declined += ")"
     script = f"""<!-- Facebook Pixel -->
 <script{nonce_attr}>
   if (!{marketing_declined}) {{
@@ -421,6 +478,11 @@ def analytics_body(context):
   'https://connect.facebook.net/en_US/fbevents.js');
   fbq('init', '{fb_pixel_id}');
   fbq('track', 'PageView');
+  var pending = window.__fbPendingEvents || [];
+  window.__fbPendingEvents = [];
+  pending.forEach(function(args) {{ fbq.apply(null, args); }});
+  }} else {{
+    window.__fbPendingEvents = [];
   }}
 </script>
 <noscript><img height="1" width="1" style="display:none"
@@ -481,11 +543,27 @@ def fb_event(context, event_name, **params):
     nonce_attr = f' nonce="{nonce}"' if nonce is not None else ""
 
     # Build params object — use json.dumps for safe JS serialization (prevents XSS)
+    args = ["track", event_name]
     if params:
-        params_json = json.dumps(params, default=_json_default)
-        script = f"<script{nonce_attr}>if(window.fbq)fbq('track', {json.dumps(event_name)}, {params_json});</script>"
-    else:
-        script = f"<script{nonce_attr}>if(window.fbq)fbq('track', {json.dumps(event_name)});</script>"
+        args.append(params)
+    args_json = json.dumps(args, default=_json_default)
+    can_buffer = (
+        get_cookie_consent(request, "marketing", undecided=False) if request else False
+    )
+    live_refusal = _declined_in_browser_js("marketing")
+    if request is not None:
+        live_refusal += " || " + _stale_in_browser_js(
+            "marketing", _request_cookie_group_version(request, "marketing")
+        )
+    can_track = f"!({live_refusal})"
+    script = f"""<script{nonce_attr}>(function(args) {{
+  if ({can_track} && typeof window.fbq === 'function') {{
+    window.fbq.apply(null, args);
+  }} else if ({str(can_buffer).lower()} && {can_track}) {{
+    window.__fbPendingEvents = window.__fbPendingEvents || [];
+    window.__fbPendingEvents.push(args);
+  }}
+}})({args_json});</script>"""
 
     return mark_safe(script)
 
@@ -603,6 +681,16 @@ def appinsights_head(context):
     # that copy starts nothing until the next freshly rendered page:
     # deliberate, under-tracking is the safe direction.
     analytics_declined = _declined_in_browser_js("analytics")
+    if request is not None:
+        analytics_declined = (
+            "("
+            + analytics_declined
+            + " || "
+            + _stale_in_browser_js(
+                "analytics", _request_cookie_group_version(request, "analytics")
+            )
+        )
+        analytics_declined += ")"
     script = f"""<!-- Azure Application Insights Browser SDK v3 -->
 <script type="text/javascript"{nonce_attr}>
 if (!{analytics_declined}) {{
