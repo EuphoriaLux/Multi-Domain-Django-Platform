@@ -30864,7 +30864,7 @@ msgstr "Ajoutez de la variété"
 
 #: templates/crush_lu/partials/pwa_install_banner.html:24
 msgid "Install Crush.lu App"
-msgstr "📲 Installer l'application Crush.lu"
+msgstr "Installer l'application Crush.lu"
 
 #: templates/crush_lu/partials/pwa_install_banner.html:25
 msgid "Quick access & offline features"
@@ -42711,6 +42711,15 @@ msgstr "Vous avez débloqué %(name)s."
 msgid "As seen in"
 msgstr "Vu dans"
 
+#: templates/crush_lu/partials/_push_check_timed_out.html:5
+msgid "We couldn't check notification support on this device."
+msgstr "Nous n'avons pas pu vérifier la prise en charge des notifications sur cet appareil."
+
+#: templates/crush_lu/partials/_push_native_notice.html:10
+msgid "Notifications are managed in the app"
+msgstr "Les notifications sont gérées dans l'application"
+
+# UX Wave 3 · WP8 pay-confirm
 # UX Wave 3 · WP8 pay-confirm
 # UX Wave 3 · WP8
 #: crush_lu/templates/crush_lu/event_detail.html

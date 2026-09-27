@@ -42578,6 +42578,15 @@ msgstr "Du hast die Blockierung von %(name)s aufgehoben."
 msgid "As seen in"
 msgstr "Bekannt aus"
 
+#: templates/crush_lu/partials/_push_check_timed_out.html:5
+msgid "We couldn't check notification support on this device."
+msgstr "Wir konnten die Benachrichtigungsunterstützung auf diesem Gerät nicht prüfen."
+
+#: templates/crush_lu/partials/_push_native_notice.html:10
+msgid "Notifications are managed in the app"
+msgstr "Benachrichtigungen werden in der App verwaltet"
+
+# UX Wave 3 · WP8 pay-confirm
 # UX Wave 3 · WP8 pay-confirm
 # UX Wave 3 · WP8
 #: crush_lu/templates/crush_lu/event_detail.html
