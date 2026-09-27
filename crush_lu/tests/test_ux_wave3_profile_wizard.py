@@ -307,3 +307,93 @@ class ReviewStepEditLinksTests(_SiteMixin, TestCase):
         self.assertNotContains(
             response, "Upload at least one photo (optional but recommended)"
         )
+
+
+# ── 3-04: Playwright — Android/WebView back gesture walks the wizard ────────
+
+import pytest  # noqa: E402
+
+
+@pytest.mark.playwright
+class TestWizardHistoryBackGesture:
+    """Run with: pytest crush_lu/tests/test_ux_wave3_profile_wizard.py -v -m playwright -p no:xdist
+
+    Not a TestCase subclass — uses the pytest-django `live_server_url` /
+    pytest-playwright `page` fixtures directly, same pattern as
+    test_profile_registration_e2e.py.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _site(self, transactional_db):
+        from django.contrib.sites.models import SITE_CACHE
+
+        SITE_CACHE.clear()
+        Site.objects.get_or_create(
+            id=1, defaults={"domain": "localhost", "name": "localhost"}
+        )
+        Site.objects.get_or_create(domain="127.0.0.1", defaults={"name": "Live Server"})
+        yield
+        SITE_CACHE.clear()
+
+    @pytest.fixture
+    def photo_step_user(self, transactional_db):
+        user = User.objects.create_user(
+            username="wp4-history@example.com",
+            email="wp4-history@example.com",
+            password="testpass123",
+            first_name="Hist",
+        )
+        _grant_consent(user)
+        from allauth.account.models import EmailAddress
+
+        EmailAddress.objects.update_or_create(
+            user=user,
+            email=user.email,
+            defaults={"verified": True, "primary": True},
+        )
+        now = timezone.now()
+        CrushProfile.objects.create(
+            user=user,
+            welcome_seen_at=now,
+            phone_verified=True,
+            phone_number="+352621999888",
+            coach_intro_seen_at=now,
+            date_of_birth=now.date().replace(year=now.year - 30),
+            gender="F",
+            location="canton-luxembourg",
+            verification_status="incomplete",
+            # event_languages left empty -> wizard_step == 3 (Photos).
+        )
+        return user
+
+    def test_browser_back_moves_a_step_instead_of_leaving_the_wizard(
+        self, page, live_server_url, photo_step_user
+    ):
+        page.goto(f"{live_server_url}/accounts/login/")
+        page.wait_for_selector('input[name="login"]', timeout=10000)
+        decline = page.locator('button:has-text("Decline All")')
+        if decline.count() > 0:
+            decline.click()
+        page.fill('input[name="login"]', photo_step_user.email)
+        page.fill('input[name="password"]', "testpass123")
+        page.click('button:has-text("Login")')
+        page.wait_for_load_state("networkidle")
+
+        page.goto(f"{live_server_url}/en/create-profile/")
+        page.wait_for_selector('[data-wizard-step="3"]', timeout=10000)
+        assert page.url.endswith("#step-3")
+
+        # In-page Back (no reload) advances the history stack to step 2.
+        page.locator('[data-wizard-step="3"] button:has-text("Back")').click()
+        page.wait_for_timeout(300)
+        assert page.locator('[data-wizard-step="2"]').is_visible()
+        assert page.url.endswith("#step-2")
+
+        # This is the actual regression: on main, the browser Back button
+        # here would leave /create-profile/ entirely (no history entry was
+        # ever pushed). It must instead walk the wizard forward to step 3.
+        page.go_back()
+        page.wait_for_timeout(300)
+        assert "/create-profile" in page.url
+        assert page.locator('[data-wizard-step="3"]').is_visible()
+        assert page.url.endswith("#step-3")
