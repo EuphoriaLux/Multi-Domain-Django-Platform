@@ -7,6 +7,7 @@ from django.core.cache import cache
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
+from django.utils.formats import date_format
 
 from power_up.finops.retail_prices.service import sync_retail_prices
 from power_up.finops.tests.test_retail_price_sync import FakeConnector, azure_item
@@ -167,8 +168,27 @@ def test_hand_typed_sku_resolves_to_its_stored_casing(client, regular_user):
     assert len(response.context["chart_series"][0]["data"]) == 2
 
 
+def _sync_region(day, region, price):
+    sync_retail_prices(
+        snapshot_date=day,
+        region=region,
+        connector=FakeConnector(
+            {"Items": [azure_item(price, region)], "NextPageLink": None}
+        ),
+    )
+
+
+BOUNDED_SNAPSHOT_SQL = re.compile(
+    r'"snapshot_date" = |"provider_sku" = |"price_key" IN |'
+    r'SELECT MAX\("finops_hub_retailpricesnapshot"\."snapshot_date"\)'
+)
+
+
 @pytest.mark.django_db
-def test_default_view_never_scans_the_whole_price_history(client, regular_user):
+@pytest.mark.parametrize(
+    "params", [{}, {"sku": "Standard_D2s_v5"}], ids=["region-index", "one-sku"]
+)
+def test_dashboard_never_scans_the_whole_price_history(client, regular_user, params):
     """Every snapshot query must be pinned to one day, one SKU or known keys.
 
     The table grows by a full European VM catalogue each night. Unbounded
@@ -179,10 +199,9 @@ def test_default_view_never_scans_the_whole_price_history(client, regular_user):
     client.force_login(regular_user)
 
     with CaptureQueriesContext(connection) as queries:
-        response = client.get("/finops/prices/")
+        response = client.get("/finops/prices/", params)
 
     assert response.status_code == 200
-    assert response.context["active_sku"] == "Standard_D2s_v5"
     snapshot_selects = [
         q["sql"]
         for q in queries.captured_queries
@@ -190,44 +209,439 @@ def test_default_view_never_scans_the_whole_price_history(client, regular_user):
         and '"finops_hub_retailpricesnapshot"' in q["sql"]
     ]
     assert snapshot_selects
-    bounded = re.compile(
-        r'"snapshot_date" = |"provider_sku" = |"price_key" IN |'
-        r'SELECT MAX\("finops_hub_retailpricesnapshot"\."snapshot_date"\)'
-    )
-    unbounded = [sql for sql in snapshot_selects if not bounded.search(sql)]
+    unbounded = [
+        sql for sql in snapshot_selects if not BOUNDED_SNAPSHOT_SQL.search(sql)
+    ]
     assert unbounded == []
     assert not any("UPPER(" in sql for sql in snapshot_selects)
 
 
 @pytest.mark.django_db
-def test_default_sku_follows_the_selected_regions_own_latest_day(client, regular_user):
-    """A region that lags the newest day (mid-sync, failed sync) still gets a SKU.
-
-    Otherwise the page would fall back to every SKU of the region at once.
-    """
+def test_no_sku_shows_an_overall_price_index_per_region(client, regular_user):
+    """Without a SKU the page compares whole regions against West Europe."""
     today = timezone.localdate()
-    sync_retail_prices(
-        snapshot_date=today - timedelta(days=1),
-        region="westeurope",
-        connector=FakeConnector(
-            {"Items": [azure_item("0.10000000")], "NextPageLink": None}
-        ),
+    _sync_region(today, "westeurope", "10.00000000")
+    _sync_region(today, "northeurope", "10.40000000")
+    _sync_region(today, "swedencentral", "9.50000000")
+    client.force_login(regular_user)
+
+    response = client.get("/finops/prices/")
+
+    assert response.status_code == 200
+    assert response.context["active_sku"] == ""
+    assert response.context["history_rows"] == []
+    assert response.context["index_reference"] == "West Europe"
+    assert response.context["index_day"] == today
+    index = {item["region_code"]: item for item in response.context["region_index"]}
+    assert index["westeurope"]["index"] == 100.0
+    assert index["westeurope"]["is_reference"] is True
+    assert index["northeurope"]["index"] == 104.0
+    assert index["northeurope"]["difference_percent"] == 4.0
+    assert index["swedencentral"]["index"] == 95.0
+    assert index["swedencentral"]["compared"] == 1
+    # Cheapest first.
+    assert [item["region_code"] for item in response.context["region_index"]] == [
+        "swedencentral",
+        "westeurope",
+        "northeurope",
+    ]
+    content = response.content.decode()
+    assert "Overall price by region" in content
+    assert "No matching price history yet" not in content
+    # 16 selected regions had no snapshot that day and are named, not dropped.
+    assert "North Europe" not in response.context["index_missing_regions"]
+    assert len(response.context["index_missing_regions"]) == 16
+
+
+@pytest.mark.django_db
+def test_region_index_only_compares_the_same_offer(client, regular_user):
+    """Different SKUs or OS/licensing never enter one ratio."""
+    today = timezone.localdate()
+    _sync_region(today, "westeurope", "10.00000000")
+    other = azure_item("50.00000000", "northeurope")
+    other.update(
+        armSkuName="Standard_E64s_v5", meterId="meter-2", skuId="product-1/sku-2"
     )
     sync_retail_prices(
         snapshot_date=today,
         region="northeurope",
-        connector=FakeConnector(
-            {"Items": [azure_item("0.11000000", "northeurope")], "NextPageLink": None}
-        ),
+        connector=FakeConnector({"Items": [other], "NextPageLink": None}),
     )
+    client.force_login(regular_user)
+
+    response = client.get("/finops/prices/")
+
+    codes = [item["region_code"] for item in response.context["region_index"]]
+    assert codes == ["westeurope"]
+    assert "North Europe" in response.context["index_missing_regions"]
+
+
+@pytest.mark.django_db
+def test_region_index_falls_back_to_the_selected_regions_own_latest_day(
+    client, regular_user
+):
+    """A region that lags the newest day (mid-sync, failed sync) still gets an index."""
+    today = timezone.localdate()
+    _sync_region(today - timedelta(days=1), "westeurope", "0.10000000")
+    _sync_region(today, "northeurope", "0.11000000")
     client.force_login(regular_user)
 
     response = client.get("/finops/prices/", {"region": "westeurope"})
 
     assert response.status_code == 200
-    assert response.context["active_sku"] == "Standard_D2s_v5"
-    assert len(response.context["chart_series"]) == 1
-    assert len(response.context["history_rows"]) == 1
+    assert response.context["index_day"] == today - timedelta(days=1)
+    assert [item["region_code"] for item in response.context["region_index"]] == [
+        "westeurope"
+    ]
+
+
+@pytest.mark.django_db
+def test_region_index_keeps_every_region_during_the_morning_sync(client, regular_user):
+    """Mid-sync, regions not reached yet keep yesterday's prices.
+
+    Indexing only the newest day would show the few regions synced so far,
+    measured against a stand-in reference instead of West Europe.
+    """
+    today = timezone.localdate()
+    yesterday = today - timedelta(days=1)
+    _sync_region(yesterday, "westeurope", "10.00000000")
+    _sync_region(yesterday, "northeurope", "10.00000000")
+    _sync_region(yesterday, "swedencentral", "9.00000000")
+    _sync_region(today, "northeurope", "10.40000000")  # Only region synced so far.
+    client.force_login(regular_user)
+
+    response = client.get("/finops/prices/")
+
+    assert response.context["index_reference"] == "West Europe"
+    index = {item["region_code"]: item for item in response.context["region_index"]}
+    assert set(index) == {"westeurope", "northeurope", "swedencentral"}
+    assert index["northeurope"]["index"] == 104.0
+    assert index["northeurope"]["snapshot_date"] == today
+    assert index["westeurope"]["snapshot_date"] == yesterday
+    assert response.context["index_day"] == today
+    assert f"prices of {date_format(yesterday)}" in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_region_index_never_mixes_commercial_offers(client, regular_user):
+    """With "All" price types, each ratio still compares the same offer.
+
+    The fixture item also carries a 1-year savings-plan price of 0.07 in both
+    regions. Pooled with on-demand under one key, Min() would pick 0.07 on
+    both sides and hide the 4% on-demand gap.
+    """
+    today = timezone.localdate()
+    _sync_region(today, "westeurope", "10.00000000")
+    _sync_region(today, "northeurope", "10.40000000")
+    client.force_login(regular_user)
+
+    response = client.get("/finops/prices/", {"price_type": "", "purchase_model": ""})
+
+    index = {item["region_code"]: item for item in response.context["region_index"]}
+    # Median of on-demand 1.04 and savings plan 1.00.
+    assert index["northeurope"]["index"] == 102.0
+    assert index["northeurope"]["compared"] == 2
+
+
+@pytest.mark.django_db
+def test_status_card_reports_the_index_snapshot(client, regular_user):
+    today = timezone.localdate()
+    _sync_region(today, "westeurope", "10.00000000")
+    client.force_login(regular_user)
+
+    response = client.get("/finops/prices/")
+
+    assert response.context["latest_snapshot"] == today
+    assert "No price snapshot yet" not in response.content.decode()
+
+
+def _index_group_by_queries(queries):
+    return [
+        q["sql"]
+        for q in queries.captured_queries
+        if '"finops_hub_retailpricesnapshot"' in q["sql"]
+        and "GROUP BY" in q["sql"]
+        and '"meter_name"' in q["sql"]
+    ]
+
+
+@pytest.mark.django_db
+def test_region_index_is_cached_until_a_region_snapshot_moves(client, regular_user):
+    """Grouping the daily catalogue runs once, not on every page load.
+
+    Selecting fewer regions reuses the same cached index; a new snapshot day
+    for any region invalidates it.
+    """
+    today = timezone.localdate()
+    yesterday = today - timedelta(days=1)
+    _sync_region(yesterday, "westeurope", "10.00000000")
+    _sync_region(yesterday, "northeurope", "10.40000000")
+    client.force_login(regular_user)
+
+    with CaptureQueriesContext(connection) as first:
+        client.get("/finops/prices/")
+    with CaptureQueriesContext(connection) as second:
+        response = client.get(
+            "/finops/prices/", {"region": ["westeurope", "northeurope"]}
+        )
+
+    assert len(_index_group_by_queries(first)) == 1
+    assert _index_group_by_queries(second) == []
+    index = {item["region_code"]: item for item in response.context["region_index"]}
+    assert index["northeurope"]["index"] == 104.0
+
+    _sync_region(today, "northeurope", "10.80000000")
+    with CaptureQueriesContext(connection) as third:
+        response = client.get("/finops/prices/")
+
+    assert len(_index_group_by_queries(third)) == 1
+    index = {item["region_code"]: item for item in response.context["region_index"]}
+    assert index["northeurope"]["index"] == 108.0
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"currency": "XYZ"},
+        {"os": "bogus"},
+        {"price_type": "bogus"},
+        {"purchase_model": "bogus"},
+        {"product": "no such product"},
+    ],
+    ids=["currency", "os", "price-type", "purchase-model", "product"],
+)
+def test_unknown_filters_neither_build_nor_cache_an_index(
+    client, regular_user, mocker, params
+):
+    _sync_region(timezone.localdate(), "westeurope", "10.00000000")
+    client.force_login(regular_user)
+    cache_set = mocker.spy(cache, "set")
+
+    with CaptureQueriesContext(connection) as queries:
+        response = client.get("/finops/prices/", params)
+
+    assert response.status_code == 200
+    assert response.context["region_index"] == []
+    assert _index_group_by_queries(queries) == []
+    assert not any(
+        call.args[0].startswith("finops:prices:index:")
+        for call in cache_set.call_args_list
+    )
+
+
+@pytest.mark.django_db
+def test_region_index_reads_each_region_in_the_requested_currency(client, regular_user):
+    """A newer snapshot in another currency must not hide the EUR one."""
+    from power_up.finops.models import RetailPriceSnapshot
+
+    today = timezone.localdate()
+    yesterday = today - timedelta(days=1)
+    _sync_region(yesterday, "westeurope", "10.00000000")
+    _sync_region(yesterday, "northeurope", "10.40000000")
+    _sync_region(today, "northeurope", "11.00000000")
+    RetailPriceSnapshot.objects.filter(
+        region_code="northeurope", snapshot_date=today
+    ).update(currency="USD")
+    client.force_login(regular_user)
+
+    response = client.get("/finops/prices/", {"currency": "EUR"})
+
+    index = {item["region_code"]: item for item in response.context["region_index"]}
+    assert index["northeurope"]["index"] == 104.0
+    assert index["northeurope"]["snapshot_date"] == yesterday
+
+
+@pytest.mark.django_db
+def test_region_lookups_never_scale_with_submitted_region_values(client, regular_user):
+    """Repeated or invented region values cost no extra queries."""
+    _sync_region(timezone.localdate(), "westeurope", "10.00000000")
+    client.force_login(regular_user)
+
+    with CaptureQueriesContext(connection) as few:
+        client.get("/finops/prices/", {"region": ["westeurope"]})
+    cache.clear()
+    with CaptureQueriesContext(connection) as many:
+        response = client.get(
+            "/finops/prices/",
+            {"region": ["westeurope"] * 300 + [f"fake{i}" for i in range(300)]},
+        )
+
+    assert response.status_code == 200
+    assert len(many.captured_queries) == len(few.captured_queries)
+    assert response.context["selected_regions"][0] == "westeurope"
+    assert response.context["selected_regions"].count("westeurope") == 1
+
+
+@pytest.mark.django_db
+def test_product_substrings_naming_the_same_products_share_one_index(
+    client, regular_user
+):
+    """Free-text product fragments must not each build and cache an index."""
+    today = timezone.localdate()
+    _sync_region(today, "westeurope", "10.00000000")
+    _sync_region(today, "northeurope", "10.40000000")
+    client.force_login(regular_user)
+
+    with CaptureQueriesContext(connection) as queries:
+        for fragment in ("dsv5", "DSV5 SERIES", "Machines Dsv5", "v5 Ser"):
+            response = client.get("/finops/prices/", {"product": fragment})
+            index = {
+                item["region_code"]: item for item in response.context["region_index"]
+            }
+            assert index["northeurope"]["index"] == 104.0
+
+    assert len(_index_group_by_queries(queries)) == 1
+
+
+@pytest.mark.django_db
+def test_without_west_europe_the_reference_is_a_selected_region(client, regular_user):
+    """The visible rows are never normalised against a hidden region."""
+    today = timezone.localdate()
+    _sync_region(today, "westeurope", "10.00000000")
+    _sync_region(today, "northeurope", "10.40000000")
+    _sync_region(today, "swedencentral", "9.50000000")
+    client.force_login(regular_user)
+
+    response = client.get(
+        "/finops/prices/", {"region": ["northeurope", "swedencentral"]}
+    )
+
+    index = {item["region_code"]: item for item in response.context["region_index"]}
+    assert set(index) == {"northeurope", "swedencentral"}
+    assert response.context["index_reference"] == "North Europe"
+    assert index["northeurope"]["is_reference"] is True
+    assert index["northeurope"]["index"] == 100.0
+    assert index["swedencentral"]["index"] == 91.3
+
+
+@pytest.mark.django_db
+def test_product_filter_uses_the_requested_currencys_latest_day(client, regular_user):
+    """Today's USD-only snapshot must not empty yesterday's EUR vocabulary."""
+    from power_up.finops.models import RetailPriceSnapshot
+
+    today = timezone.localdate()
+    yesterday = today - timedelta(days=1)
+    _sync_region(yesterday, "westeurope", "10.00000000")
+    _sync_region(yesterday, "northeurope", "10.40000000")
+    _sync_region(today, "westeurope", "11.00000000")
+    RetailPriceSnapshot.objects.filter(snapshot_date=today).update(currency="USD")
+    client.force_login(regular_user)
+
+    response = client.get("/finops/prices/", {"currency": "EUR", "product": "dsv5"})
+
+    index = {item["region_code"]: item for item in response.context["region_index"]}
+    assert index["northeurope"]["index"] == 104.0
+    assert "Standard_D2s_v5" in response.context["sku_options"]
+    assert "EUR" in response.context["currency_options"]
+
+
+def _sync_catalogue(day, region, prices):
+    """One region's snapshot with a distinct SKU per price."""
+    items = []
+    for number, price in enumerate(prices):
+        item = azure_item(price, region)
+        item.update(
+            armSkuName=f"Standard_T{number}",
+            meterId=f"meter-t{number}",
+            skuId=f"product-1/sku-t{number}",
+        )
+        items.append(item)
+    sync_retail_prices(
+        snapshot_date=day,
+        region=region,
+        connector=FakeConnector({"Items": items, "NextPageLink": None}),
+    )
+
+
+@pytest.mark.django_db
+def test_fallback_reference_is_chosen_among_selected_regions(client, regular_user):
+    """West Europe selected but outside the period: never a hidden reference.
+
+    Sweden Central has the largest catalogue but is not selected, so the
+    visible North Europe must be the reference.
+    """
+    today = timezone.localdate()
+    _sync_catalogue(today - timedelta(days=200), "westeurope", ["1.00000000"])
+    _sync_catalogue(today, "northeurope", ["1.00000000", "2.00000000"])
+    _sync_catalogue(today, "polandcentral", ["1.10000000", "2.20000000"])
+    _sync_catalogue(today, "swedencentral", ["0.90000000", "1.80000000", "3.00000000"])
+    client.force_login(regular_user)
+
+    response = client.get(
+        "/finops/prices/",
+        {"region": ["westeurope", "northeurope", "polandcentral"]},
+    )
+
+    assert response.context["index_reference"] == "North Europe"
+    index = {item["region_code"]: item for item in response.context["region_index"]}
+    assert set(index) == {"northeurope", "polandcentral"}
+    assert index["northeurope"]["is_reference"] is True
+    assert index["polandcentral"]["index"] == 110.0
+    assert "West Europe" in response.context["index_missing_regions"]
+
+
+@pytest.mark.django_db
+def test_reference_free_selections_share_one_index_per_reference(client, regular_user):
+    """Cycling through region subsets must not rebuild the index each time."""
+    today = timezone.localdate()
+    _sync_catalogue(today, "westeurope", ["1.00000000"])
+    _sync_catalogue(today, "northeurope", ["1.00000000", "2.00000000", "3.00000000"])
+    _sync_catalogue(today, "polandcentral", ["1.10000000", "2.20000000"])
+    _sync_catalogue(today, "swedencentral", ["0.90000000", "1.80000000"])
+    client.force_login(regular_user)
+
+    with CaptureQueriesContext(connection) as queries:
+        for regions in (
+            ["northeurope", "polandcentral"],
+            ["northeurope", "swedencentral"],
+            ["northeurope", "polandcentral", "swedencentral"],
+            ["northeurope"],
+        ):
+            response = client.get("/finops/prices/", {"region": regions})
+            assert response.context["index_reference"] == "North Europe"
+
+    # One build against West Europe (for catalogue sizes), one against North
+    # Europe, whatever the subset.
+    assert len(_index_group_by_queries(queries)) == 2
+
+
+@pytest.mark.django_db
+def test_filter_vocabulary_refreshes_as_same_day_regions_arrive(client, regular_user):
+    """A product only in a later-synced region must not stay unknown for an hour."""
+    today = timezone.localdate()
+    _sync_region(today, "westeurope", "10.00000000")
+    client.force_login(regular_user)
+    client.get("/finops/prices/")  # Caches the options after one region.
+
+    later = azure_item("10.40000000", "northeurope")
+    later.update(productName="Virtual Machines Esv5 Series")
+    sync_retail_prices(
+        snapshot_date=today,
+        region="northeurope",
+        connector=FakeConnector({"Items": [later], "NextPageLink": None}),
+    )
+    response = client.get("/finops/prices/", {"product": "esv5"})
+
+    assert "Virtual Machines Esv5 Series" in response.context["product_options"]
+    assert [item["region_code"] for item in response.context["region_index"]] == [
+        "northeurope"
+    ]
+
+
+@pytest.mark.django_db
+def test_valid_filters_with_no_offers_are_cached_too(client, regular_user):
+    """A valid but empty combination must not regroup the day on every load."""
+    _sync_region(timezone.localdate(), "westeurope", "10.00000000")
+    client.force_login(regular_user)
+    params = {"price_type": "Reservation", "purchase_model": "on_demand"}
+
+    with CaptureQueriesContext(connection) as queries:
+        for _ in range(3):
+            response = client.get("/finops/prices/", params)
+            assert response.context["region_index"] == []
+
+    assert len(_index_group_by_queries(queries)) == 1
 
 
 @pytest.mark.django_db
@@ -256,8 +670,10 @@ def test_option_cache_key_ignores_request_controlled_filters(
     client.force_login(regular_user)
     cache_set = mocker.spy(cache, "set")
 
+    client.get("/finops/prices/")
     for index in range(3):
         client.get("/finops/prices/", {"currency": f"X{index}", "os": f"bogus-{index}"})
+        client.get("/finops/prices/", {"os": f"bogus-{index}"})
 
     option_keys = {
         call.args[0]
@@ -265,7 +681,7 @@ def test_option_cache_key_ignores_request_controlled_filters(
         if call.args[0].startswith("finops:prices:options:")
     }
     assert option_keys == {
-        f"finops:prices:options:azure:{timezone.localdate().isoformat()}"
+        f"finops:prices:options:v2:azure:{timezone.localdate().isoformat()}:1"
     }
 
 
@@ -282,7 +698,7 @@ def test_trend_chart_ships_sorted_day_labels_and_lets_chartjs_parse(
     _sync_two_days("0.12000000", "0.10000000")
     client.force_login(regular_user)
 
-    response = client.get("/finops/prices/")
+    response = client.get("/finops/prices/", {"sku": "Standard_D2s_v5"})
 
     today = timezone.localdate()
     assert response.context["chart_labels"] == [
