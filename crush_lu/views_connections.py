@@ -750,8 +750,13 @@ def respond_connection(request, connection_id, action):
     # pending → accepted transition (an old notification / known accept URL
     # could otherwise turn a blocked pair into a shared connection).
     from .services.blocking import is_blocked_pair
+    from .services.event_lobby import hidden_encounter_user_ids
 
-    if is_blocked_pair(request.user, connection.requester):
+    # A safety-removed encounter (removal_pending / removed) is treated like a
+    # block: the pair stays mutually invisible, so it can't be accepted here.
+    if is_blocked_pair(
+        request.user, connection.requester
+    ) or connection.requester_id in hidden_encounter_user_ids(request.user):
         if request.headers.get("HX-Request"):
             return render(
                 request,

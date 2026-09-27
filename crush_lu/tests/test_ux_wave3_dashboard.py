@@ -419,3 +419,33 @@ class DashboardAlreadyProcessedRequestTests(DashboardReviewRoundTwoTests):
         connection.save(update_fields=["status"])
         response = self._respond(connection, "accept", "https://crush.lu/en/dashboard/")
         self.assertEqual(response["HX-Refresh"], "true")
+
+
+class DashboardHiddenEncounterTests(DashboardReviewRoundTwoTests):
+    """Codex (P1) on #1042: a safety-removed encounter pair must stay
+    invisible on the dashboard and must not be acceptable from it."""
+
+    def _hide_pair(self, other, status):
+        from crush_lu.models import ConfirmedEncounter
+
+        low, high = ConfirmedEncounter.canonical_pair(self.user, other)
+        ConfirmedEncounter.objects.create(user_low=low, user_high=high, status=status)
+
+    def _assert_hidden_on_dashboard(self, status):
+        connection = self._pending_request()
+        self._hide_pair(connection.requester, status)
+        response = self.client.get("/en/dashboard/", HTTP_HOST="crush.lu")
+        self.assertNotIn(connection, response.context["pending_connection_requests"])
+
+    def test_removal_pending_request_is_not_shown_on_the_dashboard(self):
+        self._assert_hidden_on_dashboard("removal_pending")
+
+    def test_removed_encounter_request_is_not_shown_on_the_dashboard(self):
+        self._assert_hidden_on_dashboard("removed")
+
+    def test_removed_encounter_request_cannot_be_accepted(self):
+        connection = self._pending_request()
+        self._hide_pair(connection.requester, "removed")
+        self._respond(connection, "accept", "https://crush.lu/en/dashboard/")
+        connection.refresh_from_db()
+        self.assertEqual(connection.status, "pending")

@@ -420,8 +420,13 @@ def dashboard(request):
         from django.db.models import Q as _Q
 
         from .services.blocking import blocked_user_ids
+        from .services.event_lobby import hidden_encounter_user_ids
 
-        _blocked_ids = blocked_user_ids(request.user)
+        # Blocked pairs AND safety-removed encounters (removal_pending /
+        # removed) stay mutually invisible, exactly as in my_connections.
+        _blocked_ids = blocked_user_ids(request.user) | hidden_encounter_user_ids(
+            request.user
+        )
         connection_count = (
             EventConnection.objects.active_for_user(request.user)
             .excluding_unshared_crushes()
