@@ -369,3 +369,32 @@ class EventDetailNoShowToneTests(PayConfirmTestBase):
         self.assertNotContains(response, "Payment due")
         self.assertNotContains(response, "#event-payment-actions")
         self.assertNotContains(response, "Pay with Card")
+
+
+class AlreadyPaidRegistrationTests(SumUpReturnRetryCopyTests):
+    """Codex round 2 on #1071: a replacement checkout B paid the seat, then
+    checkout A's return URL is reopened. The registration is still
+    `confirmed`, so a status-only check wrongly offered a retry."""
+
+    def test_already_paid_registration_is_not_payable(self):
+        self.registration.status = "confirmed"
+        self.registration.payment_confirmed = True
+        self.assertFalse(registration_is_payable(self.registration, self.event))
+
+    @patch("crush_lu.views_payments._sync_checkout_with_sumup", return_value="")
+    def test_reopened_old_checkout_on_a_paid_seat_gets_no_retry_copy(self, _mock_sync):
+        self.registration.status = "confirmed"
+        self.registration.payment_confirmed = True
+        self.registration.save()
+        tx = self._make_pending_tx(ref="CRUSH-WP8-RETRY-PAID")
+        tx.status = PaymentTransaction.Status.CANCELLED
+        tx.save(update_fields=["status"])
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            "/payments/sumup/return/", {"ref": tx.transaction_reference}, follow=True
+        )
+
+        texts = [str(m) for m in response.context["messages"]]
+        self.assertFalse(any("Your spot is reserved" in t for t in texts), texts)
+        self.assertTrue(any("already paid" in t for t in texts), texts)

@@ -2505,7 +2505,9 @@ def _sumup_return_response(request, tx_obj):
             # retry the same way — so the copy must not promise a reserved
             # spot or a retry the endpoint will reject (Codex finding,
             # UX Wave 3 · WP8 follow-up).
-            if registration_is_payable(registration, registration.event):
+            if registration.payment_confirmed:
+                messages.success(request, _("This registration is already paid."))
+            elif registration_is_payable(registration, registration.event):
                 messages.warning(
                     request,
                     _(

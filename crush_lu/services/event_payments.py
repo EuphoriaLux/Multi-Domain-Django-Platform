@@ -30,6 +30,11 @@ def registration_is_payable(registration, event):
     """
     if registration is None:
         return False
+    # An already-paid seat (e.g. a replacement checkout B succeeded while
+    # checkout A's return URL is reopened) is never payable again: checkout
+    # rejects it, so no copy or CTA may offer a retry.
     return (
-        registration.status in PAYABLE_REGISTRATION_STATUSES and not event.is_cancelled
+        registration.status in PAYABLE_REGISTRATION_STATUSES
+        and not registration.payment_confirmed
+        and not event.is_cancelled
     )
