@@ -117,6 +117,38 @@ def test_autofocus_focuses_the_email_field_on_a_fine_pointer(page, live_server):
     assert page.evaluate("document.activeElement.id") == "id_login"
 
 
+def test_failed_signup_focuses_first_invalid_field(page, live_server):
+    """2-09: after a server-rendered signup error (duplicate email), the
+    first field marked aria-invalid="true" receives focus on load — for
+    keyboard and screen-reader users who would otherwise only see red text
+    appear somewhere on the page."""
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    User.objects.create_user(
+        username="wave3-dupe@example.com",
+        email="wave3-dupe@example.com",
+        password="Str0ng-pass-2026!",
+    )
+    page.goto(f"{live_server.url}/en/signup/")
+    page.locator("#id_first_name").fill("Dup")
+    page.locator("#id_email").fill("wave3-dupe@example.com")
+    page.locator("#id_password1").fill("Str0ng-pass-2026!")
+    page.locator("#id_password2").fill("Str0ng-pass-2026!")
+    page.locator("#id_crushlu_consent").check()
+    page.locator("#signup-submit-btn").click()
+
+    page.wait_for_selector('#signup-panel [aria-invalid="true"]')
+    first_invalid_id = page.eval_on_selector(
+        '#signup-panel [aria-invalid="true"]', "el => el.id"
+    )
+    page.wait_for_function(
+        "id => document.activeElement && document.activeElement.id === id",
+        arg=first_invalid_id,
+    )
+    assert page.evaluate("document.activeElement.id") == first_invalid_id
+
+
 def test_autofocus_is_skipped_on_a_coarse_touch_pointer(page, live_server):
     """2-08: on a touch/mobile context, matchMedia('(pointer: fine)') is
     false, so the email field is never auto-focused (no keyboard popping
