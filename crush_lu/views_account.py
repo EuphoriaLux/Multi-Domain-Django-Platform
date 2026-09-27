@@ -10,6 +10,7 @@ from django.db.models import Q
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_GET, require_http_methods
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
+from django.views.decorators.debug import sensitive_post_parameters
 from django.conf import settings
 import logging
 import uuid
@@ -1548,6 +1549,9 @@ def referral_redirect(request, code):
     return redirect(signup_url)
 
 
+# Outermost, so the passwords are masked in error reports even on the
+# throttled branch below, which renders a full template.
+@sensitive_post_parameters("password1", "password2")
 @ensure_csrf_cookie
 # UX Wave 3 · WP3 (finding 2-04): block=False so a rate-limited POST still
 # reaches this view instead of the decorator's bare 429 text page - it's

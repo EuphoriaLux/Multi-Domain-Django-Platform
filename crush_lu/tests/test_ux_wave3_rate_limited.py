@@ -198,6 +198,32 @@ class SignupRateLimitTests(TestCase):
         content = response.content.decode()
         self.assertIn("Too many signup attempts", content)
 
+    def test_throttled_signup_marks_passwords_sensitive(self):
+        """Codex round 3: the throttled branch renders a full template, so
+        the request must already carry sensitive_post_parameters for the
+        password fields before it does."""
+        from unittest.mock import patch
+
+        from crush_lu import views_account
+
+        for _ in range(5):
+            self.client.post("/en/signup/", {})
+
+        seen = {}
+        real_render = views_account.render
+
+        def spy_render(request, *args, **kwargs):
+            seen["params"] = getattr(request, "sensitive_post_parameters", None)
+            return real_render(request, *args, **kwargs)
+
+        with patch.object(views_account, "render", spy_render):
+            response = self.client.post(
+                "/en/signup/", {"password1": "s3cret!", "password2": "s3cret!"}
+            )
+
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(seen["params"], ("password1", "password2"))
+
     def test_blocked_attempt_does_not_validate_the_form(self):
         """finding 2-04 (rate_limit_utils.py:38): add_rate_limited_error()
         must NOT trigger the bound signup form's full_clean() - it used to
