@@ -93,8 +93,11 @@ INDEX_OFFER_FIELDS = (
 )
 
 
-def _region_price_index(scope, region_days):
-    """Each region's median price relative to the reference region.
+def _region_price_index(scope, region_days, reference):
+    """Each region's median price relative to ``reference``.
+
+    Returns the index rows and each region's catalogue size (offers with a
+    price), which the caller uses to pick a fallback reference.
 
     Every region is read on its own latest snapshot day (``region_days``), so a
     region the morning sync has not reached yet keeps yesterday's prices
@@ -121,14 +124,10 @@ def _region_price_index(scope, region_days):
         locations[row["region_code"]] = EUROPEAN_AZURE_REGIONS.get(
             row["region_code"], {}
         ).get("label", row["location_name"] or row["region_code"])
-    if not prices:
-        return [], ""
+    sizes = {code: len(region_prices) for code, region_prices in prices.items()}
+    if reference not in prices:
+        return [], sizes
 
-    reference = (
-        INDEX_REFERENCE_REGION
-        if INDEX_REFERENCE_REGION in prices
-        else max(sorted(prices), key=lambda code: len(prices[code]))
-    )
     reference_prices = prices[reference]
     index = []
     for code, region_prices in prices.items():
@@ -152,7 +151,7 @@ def _region_price_index(scope, region_days):
             }
         )
     index.sort(key=lambda item: (item["index"], item["region_code"]))
-    return index, reference
+    return index, sizes
 
 
 @login_required
@@ -280,54 +279,65 @@ def retail_price_dashboard(request):
             )
             if day and start_date <= day <= end_date:
                 region_days[code] = day
-        # A region's index is pairwise against the reference, so while the
-        # reference is selected the index does not depend on the other
-        # selected regions: build it once for all regions and cache it until
-        # any region's snapshot day moves. Grouping the daily catalogue is too
-        # heavy to repeat on every page load. Without the reference, the
-        # selection must pick its own, so only selected regions take part.
-        if selected_regions and INDEX_REFERENCE_REGION not in selected_regions:
-            region_days = {
-                code: day
-                for code, day in region_days.items()
-                if code in selected_regions
-            }
-        signature = repr(
-            (
-                provider,
-                currency,
-                os_filter,
-                price_type,
-                purchase_model,
-                index_products,
-                sorted(region_days.items()),
-            )
+        index_scope = RetailPriceSnapshot.objects.filter(
+            provider=provider,
+            currency=currency,
+            service_category="compute",
+            resource_type="virtual_machines",
         )
-        key = "finops:prices:index:v1:" + hashlib.sha256(signature.encode()).hexdigest()
-        cached = cache.get(key)
-        if cached is None:
-            index_scope = RetailPriceSnapshot.objects.filter(
-                provider=provider,
-                currency=currency,
-                service_category="compute",
-                resource_type="virtual_machines",
+        if price_type:
+            index_scope = index_scope.filter(price_type=price_type)
+        if purchase_model:
+            index_scope = index_scope.filter(purchase_model=purchase_model)
+        if index_products:
+            index_scope = index_scope.filter(product_name__in=index_products)
+        if os_filter:
+            index_scope = index_scope.filter(operating_system=os_filter)
+        signature = (
+            provider,
+            currency,
+            os_filter,
+            price_type,
+            purchase_model,
+            index_products,
+            sorted(region_days.items()),
+        )
+
+        def index_against(reference):
+            """The all-regions index against one reference, cached.
+
+            A region's index is pairwise against the reference, so it does not
+            depend on the other selected regions: the cache is keyed by the
+            reference (at most one entry per region), never by the selection,
+            and holds until any region's snapshot day moves. Grouping the daily
+            catalogue is too heavy to repeat on every page load.
+            """
+            key = (
+                "finops:prices:index:v2:"
+                + hashlib.sha256(repr(signature + (reference,)).encode()).hexdigest()
             )
-            if price_type:
-                index_scope = index_scope.filter(price_type=price_type)
-            if purchase_model:
-                index_scope = index_scope.filter(purchase_model=purchase_model)
-            if index_products:
-                index_scope = index_scope.filter(product_name__in=index_products)
-            if os_filter:
-                index_scope = index_scope.filter(operating_system=os_filter)
-            cached = (
-                _region_price_index(index_scope, region_days)
-                if region_days
-                else ([], "")
-            )
-            if cached[0]:
-                cache.set(key, cached, OPTIONS_CACHE_SECONDS)
-        all_regions_index, index_reference = cached
+            result = cache.get(key)
+            if result is None:
+                result = (
+                    _region_price_index(index_scope, region_days, reference)
+                    if region_days
+                    else ([], {})
+                )
+                if result[1]:
+                    cache.set(key, result, OPTIONS_CACHE_SECONDS)
+            return result
+
+        all_regions_index, sizes = index_against(INDEX_REFERENCE_REGION)
+        # The reference must be a visible region with prices: West Europe when
+        # it qualifies, else the selected region with the largest catalogue.
+        candidates = [code for code in (selected_regions or sizes) if sizes.get(code)]
+        if INDEX_REFERENCE_REGION in candidates:
+            index_reference = INDEX_REFERENCE_REGION
+        elif candidates:
+            index_reference = max(sorted(candidates), key=lambda code: sizes[code])
+            all_regions_index = index_against(index_reference)[0]
+        else:
+            all_regions_index = []
         region_index = [
             item
             for item in all_regions_index

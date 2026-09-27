@@ -536,6 +536,76 @@ def test_product_filter_uses_the_requested_currencys_latest_day(client, regular_
     assert "EUR" in response.context["currency_options"]
 
 
+def _sync_catalogue(day, region, prices):
+    """One region's snapshot with a distinct SKU per price."""
+    items = []
+    for number, price in enumerate(prices):
+        item = azure_item(price, region)
+        item.update(
+            armSkuName=f"Standard_T{number}",
+            meterId=f"meter-t{number}",
+            skuId=f"product-1/sku-t{number}",
+        )
+        items.append(item)
+    sync_retail_prices(
+        snapshot_date=day,
+        region=region,
+        connector=FakeConnector({"Items": items, "NextPageLink": None}),
+    )
+
+
+@pytest.mark.django_db
+def test_fallback_reference_is_chosen_among_selected_regions(client, regular_user):
+    """West Europe selected but outside the period: never a hidden reference.
+
+    Sweden Central has the largest catalogue but is not selected, so the
+    visible North Europe must be the reference.
+    """
+    today = timezone.localdate()
+    _sync_catalogue(today - timedelta(days=200), "westeurope", ["1.00000000"])
+    _sync_catalogue(today, "northeurope", ["1.00000000", "2.00000000"])
+    _sync_catalogue(today, "polandcentral", ["1.10000000", "2.20000000"])
+    _sync_catalogue(today, "swedencentral", ["0.90000000", "1.80000000", "3.00000000"])
+    client.force_login(regular_user)
+
+    response = client.get(
+        "/finops/prices/",
+        {"region": ["westeurope", "northeurope", "polandcentral"]},
+    )
+
+    assert response.context["index_reference"] == "North Europe"
+    index = {item["region_code"]: item for item in response.context["region_index"]}
+    assert set(index) == {"northeurope", "polandcentral"}
+    assert index["northeurope"]["is_reference"] is True
+    assert index["polandcentral"]["index"] == 110.0
+    assert "West Europe" in response.context["index_missing_regions"]
+
+
+@pytest.mark.django_db
+def test_reference_free_selections_share_one_index_per_reference(client, regular_user):
+    """Cycling through region subsets must not rebuild the index each time."""
+    today = timezone.localdate()
+    _sync_catalogue(today, "westeurope", ["1.00000000"])
+    _sync_catalogue(today, "northeurope", ["1.00000000", "2.00000000", "3.00000000"])
+    _sync_catalogue(today, "polandcentral", ["1.10000000", "2.20000000"])
+    _sync_catalogue(today, "swedencentral", ["0.90000000", "1.80000000"])
+    client.force_login(regular_user)
+
+    with CaptureQueriesContext(connection) as queries:
+        for regions in (
+            ["northeurope", "polandcentral"],
+            ["northeurope", "swedencentral"],
+            ["northeurope", "polandcentral", "swedencentral"],
+            ["northeurope"],
+        ):
+            response = client.get("/finops/prices/", {"region": regions})
+            assert response.context["index_reference"] == "North Europe"
+
+    # One build against West Europe (for catalogue sizes), one against North
+    # Europe, whatever the subset.
+    assert len(_index_group_by_queries(queries)) == 2
+
+
 @pytest.mark.django_db
 def test_sku_missing_from_the_newest_day_still_matches_exactly(client, regular_user):
     """A retired SKU typed with its stored casing keeps its history."""
