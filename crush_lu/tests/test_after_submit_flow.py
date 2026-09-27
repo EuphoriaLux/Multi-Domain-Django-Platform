@@ -245,6 +245,27 @@ class RejectedVerdictTests(_MemberMixin, TestCase):
         )
 
 
+class VerifiedMemberWithRejectedSubmissionTests(_MemberMixin, TestCase):
+    """A coach rejection after LuxID/event verification leaves the profile live."""
+
+    def setUp(self):
+        super().setUp()
+        self.profile.verification_status = "verified"
+        self.profile.is_approved = True
+        self.profile.save(update_fields=["verification_status", "is_approved"])
+        ProfileSubmission.objects.create(profile=self.profile, status="rejected")
+
+    def test_screening_call_sends_verified_member_to_dashboard(self):
+        response = self._get("/en/onboarding/screening-call/")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/dashboard/", response["Location"])
+
+    def test_rejected_page_is_not_shown_to_a_verified_member(self):
+        response = self._get("/en/profile/rejected/")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/dashboard/", response["Location"])
+
+
 class RejectedProfileWithoutSubmissionTests(_MemberMixin, TestCase):
     """Codex #1047: a door rejection of a free-path member flips only the
     profile status (no ProfileSubmission) and must still reach the verdict."""

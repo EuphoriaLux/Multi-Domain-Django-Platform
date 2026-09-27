@@ -2516,7 +2516,9 @@ def api_submission_note(request):
 def profile_rejected(request):
     """Page shown when a profile has been rejected and cannot be resubmitted."""
     profile = CrushProfile.objects.filter(user=request.user).first()
-    if profile is None:
+    # A verified profile stays live even when a coach later rejects its
+    # submission (transition_unverified_profile keeps it verified).
+    if profile is None or profile.verification_status == "verified":
         return redirect("crush_lu:dashboard")
     submission = (
         ProfileSubmission.objects.filter(profile=profile, status="rejected")

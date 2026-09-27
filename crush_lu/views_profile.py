@@ -1459,6 +1459,10 @@ def screening_call_step(request):
     if profile is None:
         return redirect("crush_lu:onboarding_entry")
 
+    if profile.verification_status == "verified":
+        # Verified at an event or via LuxID: a later coach rejection of the
+        # submission leaves the profile live, so there is no verdict to show.
+        return redirect("crush_lu:dashboard")
     submission = ProfileSubmission.latest_for_profile(profile)
     if submission is None:
         return redirect("crush_lu:profile_submitted")
