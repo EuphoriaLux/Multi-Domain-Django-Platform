@@ -129,11 +129,16 @@ def crush_user_context(request):
             # to avoid spurious banners.
             context["email_verified"] = True
 
-        # Blocked counterparts are hidden from every connection surface; reuse the
-        # same id set so badge counts can't advertise a pair the lists now hide.
+        # Blocked counterparts AND safety-removed encounters (removal_pending /
+        # removed) are hidden from every connection surface; reuse the same id
+        # set so badge counts can't advertise a pair the lists now hide — the
+        # dashboard query and my_connections combine both sets the same way.
         from .services.blocking import blocked_user_ids
+        from .services.event_lobby import hidden_encounter_user_ids
 
-        blocked_ids = blocked_user_ids(request.user)
+        blocked_ids = blocked_user_ids(request.user) | hidden_encounter_user_ids(
+            request.user
+        )
 
         # Connection count for badge. Excludes blocked counterparts — a `shared`
         # connection isn't terminated on block (contact was already exchanged),
@@ -152,10 +157,11 @@ def crush_user_context(request):
             .count()
         )
 
-        # Pending connection requests (received). Exclude blocked requesters so
-        # the nav/dashboard badge can't advertise a request the page itself hides
-        # (defence-in-depth; blocking also declines the underlying connection).
-        # Crush leads are never pending-visible to the recipient.
+        # Pending connection requests (received). Exclude blocked requesters and
+        # safety-removed counterparts so the nav/dashboard badge, the "#received"
+        # link and "View all requests" can't advertise a request the page itself
+        # hides (defence-in-depth; blocking/removal also decline the underlying
+        # connection). Crush leads are never pending-visible to the recipient.
         pending_requests_count = (
             EventConnection.objects.filter(recipient=request.user, status="pending")
             .exclude(flow=EventConnection.FLOW_CRUSH)

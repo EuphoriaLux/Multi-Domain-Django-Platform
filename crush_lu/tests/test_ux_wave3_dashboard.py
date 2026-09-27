@@ -449,3 +449,35 @@ class DashboardHiddenEncounterTests(DashboardReviewRoundTwoTests):
         self._respond(connection, "accept", "https://crush.lu/en/dashboard/")
         connection.refresh_from_db()
         self.assertEqual(connection.status, "pending")
+
+
+class DashboardHiddenEncounterBadgeCountTests(DashboardReviewRoundTwoTests):
+    """Follow-up on #1042: the context processor that feeds the header badge,
+    the "#received" link and "View all requests" must exclude a
+    safety-removed encounter's pending request the same way the dashboard's
+    own query and my_connections already do (see DashboardHiddenEncounterTests
+    above) — otherwise the nav count still advertises a request the page
+    itself hides."""
+
+    def _hide_pair(self, other, status):
+        from crush_lu.models import ConfirmedEncounter
+
+        low, high = ConfirmedEncounter.canonical_pair(self.user, other)
+        ConfirmedEncounter.objects.create(user_low=low, user_high=high, status=status)
+
+    def test_removal_pending_request_does_not_count_toward_the_badge(self):
+        connection = self._pending_request()
+        self._hide_pair(connection.requester, "removal_pending")
+        response = self.client.get("/en/dashboard/", HTTP_HOST="crush.lu")
+        self.assertEqual(response.context["pending_requests_count"], 0)
+
+    def test_removed_encounter_request_does_not_count_toward_the_badge(self):
+        connection = self._pending_request()
+        self._hide_pair(connection.requester, "removed")
+        response = self.client.get("/en/dashboard/", HTTP_HOST="crush.lu")
+        self.assertEqual(response.context["pending_requests_count"], 0)
+
+    def test_visible_pending_request_still_counts(self):
+        self._pending_request()
+        response = self.client.get("/en/dashboard/", HTTP_HOST="crush.lu")
+        self.assertEqual(response.context["pending_requests_count"], 1)
