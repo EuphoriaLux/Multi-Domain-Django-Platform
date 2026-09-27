@@ -28465,6 +28465,7 @@ msgstr ""
 # UX Wave 3 · WP12 connect-moments
 # UX Wave 3 · WP12 connect-moments
 # UX Wave 3 · WP12 connect-moments
+# UX Wave 3 · WP12 connect-moments
 #. UX Wave 3 · WP12
 msgid "Connect Week progress"
 msgstr ""
