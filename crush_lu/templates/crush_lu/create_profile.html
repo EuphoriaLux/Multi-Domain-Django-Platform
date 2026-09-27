@@ -728,7 +728,7 @@
                     <!-- Photo 1 -->
                     <div class="relative aspect-square">
                         <input type="file" name="photo_1" id="photo1" accept="image/*" class="hidden"
-                               @change="handleFile1">
+                               x-bind:disabled="isSavingStep" @change="handleFile1">
                         <label for="photo1"
                                class="block w-full h-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl
                                       cursor-pointer hover:border-purple-400 transition-all overflow-hidden
@@ -744,7 +744,7 @@
                                 <span class="text-sm">{% trans "Photo" %} 1</span>
                             </div>
                         </label>
-                        <button type="button" x-show="photo1HasImage" @click="removePhoto1"
+                        <button type="button" x-show="photo1HasImage" @click="removePhoto1" x-bind:disabled="isSavingStep"
                                 class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full
                                        flex items-center justify-center hover:bg-red-600 transition shadow-lg"
                                 aria-label="{% trans 'Remove photo' %} 1">
@@ -756,7 +756,7 @@
                     <!-- Photo 2 -->
                     <div class="relative aspect-square">
                         <input type="file" name="photo_2" id="photo2" accept="image/*" class="hidden"
-                               @change="handleFile2">
+                               x-bind:disabled="isSavingStep" @change="handleFile2">
                         <label for="photo2"
                                class="block w-full h-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl
                                       cursor-pointer hover:border-purple-400 transition-all overflow-hidden
@@ -772,7 +772,7 @@
                                 <span class="text-sm">{% trans "Photo" %} 2</span>
                             </div>
                         </label>
-                        <button type="button" x-show="photo2HasImage" @click="removePhoto2"
+                        <button type="button" x-show="photo2HasImage" @click="removePhoto2" x-bind:disabled="isSavingStep"
                                 class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full
                                        flex items-center justify-center hover:bg-red-600 transition shadow-lg"
                                 aria-label="{% trans 'Remove photo' %} 2">
@@ -784,7 +784,7 @@
                     <!-- Photo 3 -->
                     <div class="relative aspect-square">
                         <input type="file" name="photo_3" id="photo3" accept="image/*" class="hidden"
-                               @change="handleFile3">
+                               x-bind:disabled="isSavingStep" @change="handleFile3">
                         <label for="photo3"
                                class="block w-full h-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl
                                       cursor-pointer hover:border-purple-400 transition-all overflow-hidden
@@ -800,7 +800,7 @@
                                 <span class="text-sm">{% trans "Photo" %} 3</span>
                             </div>
                         </label>
-                        <button type="button" x-show="photo3HasImage" @click="removePhoto3"
+                        <button type="button" x-show="photo3HasImage" @click="removePhoto3" x-bind:disabled="isSavingStep"
                                 class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full
                                        flex items-center justify-center hover:bg-red-600 transition shadow-lg"
                                 aria-label="{% trans 'Remove photo' %} 3">
