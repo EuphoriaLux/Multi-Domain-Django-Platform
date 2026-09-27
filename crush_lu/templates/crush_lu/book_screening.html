@@ -55,7 +55,12 @@
                 <div x-data="bookingCancelConfirm">
                     <form method="post" action="{% url 'crush_lu:cancel_booking' booking_token=submission.booking_token %}">
                         {% csrf_token %}
-                        <button type="button" x-show="isInitial" @click="showConfirm"
+                        {% comment %}
+                        type="submit" so a no-JS visitor can still cancel
+                        directly; with Alpine loaded the click is prevented
+                        and the inline confirm step shows instead.
+                        {% endcomment %}
+                        <button type="submit" x-show="isInitial" @click.prevent="showConfirm"
                                 class="text-sm font-medium text-red-600 dark:text-red-400 hover:underline">
                             {% trans "Cancel booking" %}
                         </button>
@@ -77,7 +82,14 @@
             </div>
         {% elif coach_blocks %}
             {% for block in coach_blocks %}
-                <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-4 overflow-hidden">
+                {% comment %}
+                No overflow-hidden here: `sticky` needs its nearest scrolling
+                ancestor to actually scroll, and overflow-hidden on this
+                section turns the section itself into that ancestor, so the
+                Confirm footer below stops sticking and scrolls out of reach
+                on a long slot list.
+                {% endcomment %}
+                <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-4">
                     <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center gap-3">
                         {% if block.coach.photo %}
                             <img src="{{ block.coach.photo.url }}" alt="" class="w-10 h-10 rounded-full object-cover">
@@ -105,31 +117,40 @@
                         <input type="hidden" name="start_at" x-bind:value="selectedStart">
                         <input type="hidden" name="end_at" x-bind:value="selectedEnd">
 
-                        <div class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2" role="radiogroup"
-                             aria-label="{% trans 'Available times' %}">
-                            {% for slot in block.slots|slice:":10" %}
-                                {% include "crush_lu/includes/_booking_slot_option.html" with block=block slot=slot forloop_counter0=forloop.counter0 %}
-                            {% endfor %}
-                        </div>
-
-                        {% if block.slots|length > 10 %}
-                            <div class="px-4 pb-2" x-show="isShowAllHidden">
-                                <button type="button" @click="toggleShowAll"
-                                        class="text-xs font-medium text-crush-purple hover:underline">
-                                    {% blocktrans count more=block.slots|length|add:"-10" %}Show {{ more }} more slot{% plural %}Show {{ more }} more slots{% endblocktrans %}
-                                </button>
-                            </div>
-                            <div class="p-4 pt-0 grid grid-cols-1 sm:grid-cols-2 gap-2" x-show="showAll" x-cloak
-                                 role="radiogroup" aria-label="{% trans 'More available times' %}">
-                                {% for slot in block.slots|slice:"10:" %}
-                                    {% include "crush_lu/includes/_booking_slot_option.html" with block=block slot=slot forloop_counter0=forloop.counter0|add:"10" %}
+                        {% comment %}
+                        One radiogroup for the whole coach block: every radio
+                        here shares name="slot_choice" and is natively one
+                        mutually-exclusive set, so wrapping the disclosure's
+                        radios in a second radiogroup told screen-reader
+                        users they'd entered a new group even though picking
+                        one silently cleared the first grid's selection. The
+                        disclosure is a visual subdivision only.
+                        {% endcomment %}
+                        <div role="radiogroup" aria-label="{% trans 'Available times' %}">
+                            <div class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {% for slot in block.slots|slice:":10" %}
+                                    {% include "crush_lu/includes/_booking_slot_option.html" with block=block slot=slot forloop_counter0=forloop.counter0 %}
                                 {% endfor %}
                             </div>
-                        {% endif %}
+
+                            {% if block.slots|length > 10 %}
+                                <div class="px-4 pb-2" x-show="isShowAllHidden">
+                                    <button type="button" @click="toggleShowAll"
+                                            class="text-xs font-medium text-crush-purple hover:underline">
+                                        {% blocktrans count more=block.slots|length|add:"-10" %}Show {{ more }} more slot{% plural %}Show {{ more }} more slots{% endblocktrans %}
+                                    </button>
+                                </div>
+                                <div class="p-4 pt-0 grid grid-cols-1 sm:grid-cols-2 gap-2" x-show="showAll" x-cloak>
+                                    {% for slot in block.slots|slice:"10:" %}
+                                        {% include "crush_lu/includes/_booking_slot_option.html" with block=block slot=slot forloop_counter0=forloop.counter0|add:"10" %}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
 
                         <div class="sticky bottom-3 px-4">
                             <button type="submit" class="btn-crush-solid w-full shadow-lg"
-                                    :disabled="!hasSelection">
+                                    :disabled="hasNoSelection">
                                 {% trans "Confirm" %} <span x-text="selectedLabel"></span>
                             </button>
                         </div>

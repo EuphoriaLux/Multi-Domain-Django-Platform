@@ -12,6 +12,7 @@ from datetime import timedelta
 from uuid import uuid4
 
 from django.contrib.auth import get_user_model
+from django.contrib.messages import get_messages
 from django.contrib.sites.models import Site
 from django.core.cache import cache
 from django.test import TestCase, override_settings
@@ -141,11 +142,94 @@ class BookingSlotDisplayTests(BookingBase):
         wrapper = content[max(0, confirm_idx - 250) : confirm_idx]
         self.assertNotIn('x-show="hasSelection"', wrapper)
         self.assertNotIn("x-cloak", wrapper)
-        # Instead the button itself is disabled until a slot is picked.
+        # Instead the button itself is disabled until a slot is picked, via
+        # a bare-name getter — the CSP-friendly Alpine build can't evaluate
+        # a negation expression like `!hasSelection` inside x-bind (Codex
+        # review round 1, PR #1070): that silently drops the `disabled`
+        # attribute and lets Confirm submit before anything is selected.
         button_tag_start = content.rindex("<button", 0, confirm_idx)
         button_tag_end = content.index(">", confirm_idx)
         button_tag = content[button_tag_start:button_tag_end]
-        self.assertIn(':disabled="!hasSelection"', button_tag)
+        self.assertIn(':disabled="hasNoSelection"', button_tag)
+        self.assertNotIn(':disabled="!', button_tag)
+
+    def test_slot_radios_carry_start_end_as_their_value(self):
+        """[Codex review round 1] The hidden start_at/end_at fields are only
+        populated by Alpine's x-bind, so a no-JS submit posted them empty
+        and confirm_booking always rejected with "Missing slot information".
+        The radio's own value must carry the slot's start/end so the server
+        can resolve a slot even without JavaScript."""
+        resp = self.client.get(self._page_url(), HTTP_HOST="crush.lu")
+
+        content = resp.content.decode()
+        self.assertRegex(
+            content,
+            r'<input[^>]*name="slot_choice"[^>]*'
+            r'value="\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[^"]*\|'
+            r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}",
+        )
+
+    def test_only_one_radiogroup_per_coach_block(self):
+        """[Codex review round 1] The disclosure's extra slots used to sit in
+        a second `role="radiogroup"`, even though they share `name`
+        "slot_choice" with the first ten and are natively one mutually
+        exclusive set — telling a screen-reader user they'd entered a new
+        group when picking one silently cleared the other grid's selection."""
+        resp = self.client.get(self._page_url(), HTTP_HOST="crush.lu")
+
+        content = resp.content.decode()
+        self.assertEqual(content.count('role="radiogroup"'), 1)
+
+
+@override_settings(**CRUSH_LU_URL_SETTINGS)
+class BookingConfirmNoJsFallbackTests(BookingBase):
+    """[Codex review round 1, PR #1070] confirm_booking used to require
+    `start_at`/`end_at` in POST, but those hidden fields are only populated
+    by Alpine's x-bind — a plain form submit (JS disabled, or Alpine failed
+    to load) always posted them empty and every booking attempt bounced
+    with "Missing slot information", regardless of which radio was picked.
+    """
+
+    def _confirm_url(self):
+        return f"/en/book/{self.submission.booking_token}/confirm/"
+
+    def test_confirm_booking_resolves_slot_from_slot_choice_without_js(self):
+        """POSTing only coach_id + slot_choice (the "start|end" value the
+        radio itself carries — see includes/_booking_slot_option.html) must
+        still book the slot, exactly as if Alpine had populated the hidden
+        start_at/end_at fields."""
+        from crush_lu.models import ScreeningSlot
+        from crush_lu.services.slot_generator import bookable_slots
+
+        slot = bookable_slots(self.coach, days=14)[0]
+        slot_choice = "{}|{}".format(
+            slot["start_at"].isoformat(), slot["end_at"].isoformat()
+        )
+
+        resp = self.client.post(
+            self._confirm_url(),
+            {"coach_id": self.coach.id, "slot_choice": slot_choice},
+            HTTP_HOST="crush.lu",
+        )
+
+        self.assertEqual(resp.status_code, 302)
+        booked = ScreeningSlot.objects.filter(
+            submission=self.submission, status="booked"
+        ).first()
+        self.assertIsNotNone(booked)
+        self.assertEqual(booked.start_at, slot["start_at"])
+        self.assertEqual(booked.end_at, slot["end_at"])
+
+    def test_confirm_booking_still_errors_with_no_slot_information_at_all(self):
+        resp = self.client.post(
+            self._confirm_url(),
+            {"coach_id": self.coach.id},
+            HTTP_HOST="crush.lu",
+        )
+
+        self.assertEqual(resp.status_code, 302)
+        messages = list(get_messages(resp.wsgi_request))
+        self.assertTrue(any("Missing slot information" in str(m) for m in messages))
 
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
@@ -161,6 +245,25 @@ class BookingCancelConfirmTests(BookingBase):
             start_at=start_at,
             end_at=start_at + timedelta(minutes=30),
         )
+
+    def test_cancel_button_is_a_real_submit_control_for_no_js_visitors(self):
+        """[Codex review round 1] The visible "Cancel booking" control used
+        to be `type="button"` while the actual submit button stayed hidden
+        behind `x-cloak` — a visitor without JavaScript had no way to cancel
+        at all. The visible control must progressively enhance a working
+        submit: `type="submit"` so a no-JS click cancels directly, with the
+        Alpine click handler only preventing the default once JS is up."""
+        self._book()
+
+        resp = self.client.get(self._page_url(), HTTP_HOST="crush.lu")
+
+        content = resp.content.decode()
+        idx = content.index('x-show="isInitial"')
+        tag_start = content.rindex("<button", 0, idx)
+        tag_end = content.index(">", idx)
+        button_tag = content[tag_start:tag_end]
+        self.assertIn('type="submit"', button_tag)
+        self.assertIn('@click.prevent="showConfirm"', button_tag)
 
     def test_cancel_booking_is_wrapped_in_a_confirm_step(self):
         """Cancel used to be a bare submit button. It must now route through

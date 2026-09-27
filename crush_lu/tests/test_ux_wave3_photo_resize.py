@@ -56,3 +56,27 @@ class PhotoUploadResizeAndToastTests(SimpleTestCase):
         helper_src = self.src[helper_start:helper_end]
         self.assertIn('Alpine.store("toasts")', helper_src)
         self.assertIn(".add({", helper_src)
+
+    def test_photo_upload_is_tracked_as_a_pending_upload(self):
+        """[Codex review round 1, PR #1070] `photoUpload` lives in its own
+        nested x-data scope, separate from `profileWizard`'s Continue
+        button. Advancing used to be gated only on the wizard's own
+        `isSaving`, which knew nothing about a resize+upload still running
+        in the photo grid — a member who picked a large photo and tapped
+        Continue immediately could advance to Review, and even unload the
+        page, before the upload request was ever created. The resize/upload
+        promise must be registered with the shared pending-upload tracker."""
+        self.assertIn("trackPendingPhotoUpload(uploadPromise)", self.component_src)
+        # The upload must actually be awaited, not fired-and-forgotten: the
+        # resize .then() has to return the fetch chain rather than let the
+        # outer promise resolve before the request completes.
+        self.assertIn(
+            'return fetch("/api/profile/draft/upload-photo/"', self.component_src
+        )
+
+    def test_wizard_step3_waits_for_pending_photo_uploads_before_advancing(self):
+        wizard_start = self.src.index('Alpine.data("profileWizard"')
+        step3_start = self.src.index("saveAndNextStep3: function", wizard_start)
+        step3_end = self.src.index("},", self.src.index("});", step3_start))
+        step3_src = self.src[step3_start:step3_end]
+        self.assertIn("waitForPendingPhotoUploads()", step3_src)

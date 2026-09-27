@@ -172,6 +172,14 @@ def confirm_booking(request, booking_token):
     start_iso = request.POST.get("start_at")
     end_iso = request.POST.get("end_at")
 
+    if not (start_iso and end_iso):
+        # No-JS fallback: the hidden start_at/end_at fields are only
+        # populated by Alpine's x-bind, so without JavaScript they submit
+        # empty. The radio's own value carries "start|end" instead (see
+        # includes/_booking_slot_option.html), so a plain form POST still
+        # resolves to a slot.
+        start_iso, _sep, end_iso = request.POST.get("slot_choice", "").partition("|")
+
     if not (coach_id and start_iso and end_iso):
         messages.error(request, _("Missing slot information. Please try again."))
         return redirect("crush_lu:book_screening", booking_token=booking_token)

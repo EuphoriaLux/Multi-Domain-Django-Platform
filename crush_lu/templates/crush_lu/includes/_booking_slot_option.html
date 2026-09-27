@@ -6,8 +6,15 @@ disclosure-revealed rest) inside the same `bookingSlotPicker`
 x-data scope, so both grids share one selection/hidden-field state.
 {% endcomment %}
 <div class="relative">
+    {% comment %}
+    value carries "start|end" so a no-JS submit still resolves a slot
+    server-side (crush_lu.views_booking.confirm_booking falls back to
+    parsing slot_choice when the hidden start_at/end_at fields — which only
+    Alpine's x-bind populates — are empty).
+    {% endcomment %}
     <input type="radio" name="slot_choice"
            id="slot-{{ block.coach.id }}-{{ forloop_counter0 }}"
+           value="{{ slot.start_at|date:'c' }}|{{ slot.end_at|date:'c' }}"
            class="peer sr-only"
            data-start="{{ slot.start_at|date:'c' }}"
            data-end="{{ slot.end_at|date:'c' }}"

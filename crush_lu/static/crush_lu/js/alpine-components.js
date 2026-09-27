@@ -176,6 +176,36 @@ document.addEventListener("alpine:init", function () {
         }
     }
 
+    // UX Wave 3 · WP5 (finding 3-14) — the profile wizard's Photos step
+    // (`photoUpload`, nested in its own x-data scope inside
+    // create_profile.html) resizes then uploads each photo asynchronously;
+    // the outer wizard's "Continue" button lives in a different scope and
+    // had no way to see that work in flight. A member who picks a large
+    // photo and taps Continue immediately used to advance to Review before
+    // the upload request was even created — the final page-unload could
+    // then abandon it, leaving a preview of a photo that was never saved.
+    // Tracked at module scope (same idiom as _photoUploadDeprecationLogged
+    // above) so the wizard component can await it without cross-scope
+    // Alpine wiring.
+    var _pendingPhotoUploads = [];
+    function trackPendingPhotoUpload(promise) {
+        _pendingPhotoUploads.push(promise);
+        var settle = function () {
+            var idx = _pendingPhotoUploads.indexOf(promise);
+            if (idx !== -1) _pendingPhotoUploads.splice(idx, 1);
+        };
+        promise.then(settle, settle);
+    }
+    function waitForPendingPhotoUploads() {
+        if (!_pendingPhotoUploads.length) return Promise.resolve();
+        // Snapshot: uploads settle by removing themselves from the live
+        // array, so waiting on a copy avoids the array mutating mid-await.
+        return Promise.all(_pendingPhotoUploads.slice()).then(
+            function () {},
+            function () {},
+        );
+    }
+
     // The only path the coach door scanner may POST a scanned QR to — see
     // coachCheckin._checkinPathFromScan. Group 1 is the registration id.
     var CHECKIN_API_PATH_RE = /^\/api\/events\/checkin\/(\d+)\/[^\/]+\/$/;
@@ -4904,8 +4934,11 @@ document.addEventListener("alpine:init", function () {
                     // Downscale/re-encode client-side (max ~2048px long edge,
                     // JPEG q=0.85) before the auto-save upload — server
                     // validation is unchanged and still applies to whatever
-                    // arrives.
-                    resizeImageForUpload(file, 2048, 0.85).then(function (
+                    // arrives. Tracked as a pending upload (see
+                    // trackPendingPhotoUpload above) so the wizard's
+                    // Continue button can wait for it to settle instead of
+                    // advancing past a photo that was never saved.
+                    var uploadPromise = resizeImageForUpload(file, 2048, 0.85).then(function (
                         uploadFile,
                     ) {
                         var formData = new FormData();
@@ -4920,7 +4953,7 @@ document.addEventListener("alpine:init", function () {
                             formData.append("csrfmiddlewaretoken", csrfToken.value);
                         }
 
-                        fetch("/api/profile/draft/upload-photo/", {
+                        return fetch("/api/profile/draft/upload-photo/", {
                             method: "POST",
                             headers: {
                                 "X-CSRFToken": csrfToken ? csrfToken.value : "",
@@ -4950,6 +4983,7 @@ document.addEventListener("alpine:init", function () {
                                 );
                             });
                     });
+                    trackPendingPhotoUpload(uploadPromise);
                 }
             },
             removePhoto1: function () {
@@ -5937,11 +5971,19 @@ document.addEventListener("alpine:init", function () {
                 });
             },
 
-            // Save Step 3 (Photos) and advance to the Review step.
+            // Save Step 3 (Photos) and advance to the Review step. Waits
+            // for any in-flight photo resize/upload first (finding 3-14):
+            // photoUpload lives in its own nested x-data scope, so without
+            // this the wizard had no way to know an upload was still in
+            // flight and would advance to Review immediately, leaving a
+            // preview of a photo that may never actually get saved.
             saveAndNextStep3: function () {
                 var self = this;
+                self.isSaving = true;
 
-                self.saveStep3().then(function (result) {
+                waitForPendingPhotoUploads().then(function () {
+                    return self.saveStep3();
+                }).then(function (result) {
                     if (result.success) {
                         self.saveError = "";
                         self.currentStep = 4;
@@ -16000,6 +16042,14 @@ document.addEventListener("alpine:init", function () {
 
             get hasSelection() {
                 return !!this.selectedStart;
+            },
+
+            // The CSP-friendly Alpine build forbids expressions (e.g.
+            // "!hasSelection") inside x-bind, so the negation needs its own
+            // bare-name getter — see connectOnboarding.notShowSecondStory
+            // for the same pattern elsewhere in this file.
+            get hasNoSelection() {
+                return !this.hasSelection;
             },
 
             get isShowAllHidden() {
