@@ -45,6 +45,8 @@ def _local_photos(settings, tmp_path):
     """Serve from a temp MEDIA_ROOT (no SAS redirect) so allowed means 200."""
     settings.AZURE_ACCOUNT_NAME = ""
     settings.MEDIA_ROOT = str(tmp_path)
+    # Connect Week open to every eligible member (not the beta subset).
+    settings.CRUSH_CONNECT_LAUNCHED = True
     cache.clear()
     yield
     cache.clear()
@@ -218,6 +220,26 @@ class TestProfilePhotoAllowed:
         )
         assert _photo(client, ben, alice).status_code == 200
 
+    def test_completed_card_on_the_closed_review(self, client):
+        """The review page keeps rendering the latest session's cards after
+        its 24h window closes."""
+        alice = _member("alice", photo_consent=True)
+        ben = _member("ben", photo_consent=True)
+        session = ConnectWeekSession.objects.create(
+            user=ben,
+            status=ConnectWeekSession.Status.COMPLETED,
+            review_expires_at=timezone.now() - timedelta(hours=3),
+        )
+        ConnectCycleCard.objects.create(
+            session=session,
+            day_number=2,
+            card_index=1,
+            target_user=alice,
+            generated_date=timezone.localdate(),
+            is_completed=True,
+        )
+        assert _photo(client, ben, alice).status_code == 200
+
     def test_requester_of_declined_crush_lead_keeps_neutral_card(self, client):
         """``my_connections`` hides a declined lead's outcome; a 403 on its
         photo would reveal it."""
@@ -370,21 +392,37 @@ class TestProfilePhotoRefused:
         )
         assert _photo(client, ben, alice).status_code == 403
 
-    def test_review_window_closed(self, client):
+    def test_card_from_a_superseded_session(self, client):
         alice = _member("alice", photo_consent=True)
         ben = _member("ben", photo_consent=True)
-        session = ConnectWeekSession.objects.create(
-            user=ben,
-            status=ConnectWeekSession.Status.REVIEW_OPEN,
-            review_expires_at=timezone.now() - timedelta(minutes=1),
+        old = ConnectWeekSession.objects.create(
+            user=ben, status=ConnectWeekSession.Status.COMPLETED
+        )
+        ConnectWeekSession.objects.filter(pk=old.pk).update(
+            started_at=timezone.now() - timedelta(days=8)
         )
         ConnectCycleCard.objects.create(
-            session=session,
+            session=old,
             day_number=2,
             card_index=1,
             target_user=alice,
-            generated_date=timezone.localdate(),
+            generated_date=timezone.localdate() - timedelta(days=7),
             is_completed=True,
+        )
+        ConnectWeekSession.objects.create(user=ben)
+        assert _photo(client, ben, alice).status_code == 403
+
+    def test_card_after_viewer_paused_connect(self, client):
+        alice = _member("alice", photo_consent=True)
+        ben = _member("ben", photo_consent=True)
+        CrushConnectMembership.objects.filter(user=ben).update(paused_at=timezone.now())
+        session = ConnectWeekSession.objects.create(user=ben)
+        ConnectCycleCard.objects.create(
+            session=session,
+            day_number=1,
+            card_index=1,
+            target_user=alice,
+            generated_date=timezone.localdate(),
         )
         assert _photo(client, ben, alice).status_code == 403
 

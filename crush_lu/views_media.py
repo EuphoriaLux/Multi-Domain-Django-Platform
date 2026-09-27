@@ -11,8 +11,6 @@ from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 import os
 import logging
-from datetime import timedelta
-
 from django.utils import timezone
 
 from .models import CrushProfile, CrushCoach
@@ -179,44 +177,38 @@ def _are_connect_paired(viewer, owner):
 
 
 def _has_visible_cycle_card(viewer, owner):
-    """A card for ``owner`` that Connect Week still renders to ``viewer``:
-    today's live card of an active session, or a completed card during the
-    24h review. Session bookkeeping is lazy (``sync_session_state``), so the
-    day and the review deadline are derived from the clock, not the rows."""
-    from .models.crush_connect_cycle import ConnectCycleCard, ConnectWeekSession
-    from .services.connect_cycle import CYCLE_LENGTH_DAYS, REVIEW_WINDOW_HOURS
+    """A card for ``owner`` that Connect Week still renders to ``viewer``.
 
-    Status = ConnectWeekSession.Status
-    now = timezone.now()
-    cards = ConnectCycleCard.objects.filter(
-        session__user=viewer,
-        target_user=owner,
-        session__status__in=(Status.ACTIVE, Status.REVIEW_OPEN),
-    ).select_related("session")
-    for card in cards:
-        session = card.session
-        wall_day = (
-            timezone.localdate() - timezone.localtime(session.started_at).date()
-        ).days + 1
-        if session.status == Status.REVIEW_OPEN:
-            review_open = session.review_expires_at is None or (
-                now < session.review_expires_at
-            )
-            if card.is_completed and review_open:
-                return True
-            continue
-        if wall_day <= CYCLE_LENGTH_DAYS:
-            if card.day_number == wall_day and not card.is_expired:
-                return True
-        elif card.is_completed:
-            # The review opens on the next visit; bound it by the latest it
-            # could close had it opened when the cycle ended.
-            cycle_end = timezone.localtime(session.started_at).replace(
-                hour=0, minute=0, second=0, microsecond=0
-            ) + timedelta(days=CYCLE_LENGTH_DAYS)
-            if now < cycle_end + timedelta(hours=REVIEW_WINDOW_HOURS):
-                return True
-    return False
+    Mirrors ``connect_week_home`` / ``connect_week_review``: only the viewer's
+    latest session counts, and only while the viewer passes the Connect Week
+    access gate (paused or coach-excluded members are redirected away). While
+    that session is inside its cycle, today's live card; after it, every
+    completed card — the review page keeps rendering them once closed, until
+    a new session starts. Session bookkeeping is lazy (``sync_session_state``),
+    so the cycle day is derived from the clock, not the stored fields.
+    """
+    from .models.crush_connect_cycle import ConnectWeekSession
+    from .services.connect_cycle import CYCLE_LENGTH_DAYS
+    from .views_connect_cycle import _connect_week_access_blocker
+
+    session = (
+        ConnectWeekSession.objects.filter(user=viewer).order_by("-started_at").first()
+    )
+    if session is None or not session.cards.filter(target_user=owner).exists():
+        return False
+    if _connect_week_access_blocker(viewer) is not None:
+        return False
+
+    wall_day = (
+        timezone.localdate() - timezone.localtime(session.started_at).date()
+    ).days + 1
+    cards = session.cards.filter(target_user=owner)
+    if (
+        session.status == ConnectWeekSession.Status.ACTIVE
+        and wall_day <= CYCLE_LENGTH_DAYS
+    ):
+        return cards.filter(day_number=wall_day, is_expired=False).exists()
+    return cards.filter(is_completed=True).exists()
 
 
 def _increment_rate_limit_counter(key, period_seconds):
