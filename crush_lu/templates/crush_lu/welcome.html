@@ -6,7 +6,7 @@
 
 {% block content %}
 {% ga4_event "onboarding_welcome" %}
-<main class="min-h-screen bg-crush-light dark:bg-gray-900">
+<div class="min-h-screen bg-crush-light dark:bg-gray-900">
 
   {% include "crush_lu/includes/journey_stepper.html" %}
 
@@ -27,28 +27,30 @@
     </section>
 
     <section class="mb-6">
-      <label class="mb-2 block text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 dark:text-gray-500">
-        {% trans "What brings you here?" %}
-      </label>
-
       <form id="welcome-intent-form"
             hx-post="/api/welcome/intent/"
             hx-target="#intent-response"
             hx-swap="innerHTML"
             hx-trigger="change from:input[name=intent]"
-            hx-indicator="#intent-saving"
-            class="flex flex-col gap-2">
+            hx-indicator="#intent-saving">
         {% csrf_token %}
-        {% for value, label in intent_options %}
-          <label class="group relative flex cursor-pointer items-center gap-3 rounded-xl border border-gray-100 bg-white px-3.5 py-2.5 text-[13px] font-medium text-crush-dark transition-all duration-150 has-[:checked]:border-crush-purple has-[:checked]:bg-crush-purple/5 has-[:checked]:shadow-[0_0_0_3px_rgba(155,89,182,0.12)] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:has-[:checked]:border-purple-400 dark:has-[:checked]:bg-purple-500/10">
-            <input type="radio" name="intent" value="{{ value }}" class="peer sr-only"{% if current_intent == value %} checked{% endif %}>
-            <span aria-hidden="true"
-                  class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border-2 border-gray-300 bg-transparent peer-checked:border-crush-purple peer-checked:bg-crush-purple dark:border-gray-500 dark:peer-checked:border-purple-400 dark:peer-checked:bg-purple-400">
-              <span class="h-[6px] w-[6px] rounded-full bg-white opacity-0 peer-checked:opacity-100"></span>
-            </span>
-            {{ label }}
-          </label>
-        {% endfor %}
+        <fieldset class="m-0 border-0 p-0">
+          <legend class="mb-2 block text-xs font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
+            {% trans "What brings you here?" %}
+          </legend>
+          <div class="flex flex-col gap-2">
+            {% for value, label in intent_options %}
+              <label class="group relative flex cursor-pointer items-center gap-3 rounded-xl border border-gray-100 bg-white px-3.5 py-2.5 text-[13px] font-medium text-crush-dark transition-all duration-150 has-[:checked]:border-crush-purple has-[:checked]:bg-crush-purple/5 has-[:checked]:shadow-[0_0_0_3px_rgba(155,89,182,0.12)] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-crush-purple dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:has-[:checked]:border-purple-400 dark:has-[:checked]:bg-purple-500/10">
+                <input type="radio" name="intent" value="{{ value }}" class="peer sr-only"{% if current_intent == value %} checked{% endif %}>
+                <span aria-hidden="true"
+                      class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border-2 border-gray-300 bg-transparent peer-checked:border-crush-purple peer-checked:bg-crush-purple dark:border-gray-500 dark:peer-checked:border-purple-400 dark:peer-checked:bg-purple-400">
+                  <span class="h-[6px] w-[6px] rounded-full bg-white opacity-0 peer-checked:opacity-100"></span>
+                </span>
+                {{ label }}
+              </label>
+            {% endfor %}
+          </div>
+        </fieldset>
       </form>
 
       {% comment %}
@@ -74,9 +76,9 @@
     </section>
 
     <section class="mb-6">
-      <label class="mb-2 block text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 dark:text-gray-500">
+      <h2 class="mb-2 block text-xs font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
         {% trans "The road ahead · ≈ 15 min to get started" %}
-      </label>
+      </h2>
       <div class="flex flex-col gap-2">
         {% for ch in chapters %}
         <div class="flex items-center gap-2.5 rounded-xl border border-gray-100 bg-white px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800">
@@ -126,5 +128,5 @@
     </div>
 
   </div>
-</main>
+</div>
 {% endblock %}

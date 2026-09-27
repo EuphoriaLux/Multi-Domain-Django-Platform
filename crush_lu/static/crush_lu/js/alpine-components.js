@@ -2748,15 +2748,35 @@ document.addEventListener("alpine:init", function () {
             get isSignupTab() {
                 return this.activeTab === "signup";
             },
+            // Alpine's CSP-friendly build can't evaluate an inline ternary
+            // (`isLoginTab ? 'true' : 'false'`) in x-bind:aria-selected —
+            // it silently logs a console warning and never sets the
+            // attribute. These return the string directly so the binding
+            // stays a bare property name.
+            get loginAriaSelected() {
+                return this.isLoginTab ? "true" : "false";
+            },
+            get signupAriaSelected() {
+                return this.isSignupTab ? "true" : "false";
+            },
+            // Roving tabindex: only the active tab sits in the sequential
+            // tab order, per the ARIA tabs keyboard pattern. Arrow keys
+            // move focus between tabs (handled by onTabKeydown below).
+            get loginTabIndex() {
+                return this.isLoginTab ? "0" : "-1";
+            },
+            get signupTabIndex() {
+                return this.isSignupTab ? "0" : "-1";
+            },
             get loginTabClass() {
                 return this.activeTab === "login"
                     ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md"
-                    : "text-gray-900 bg-white/50 hover:bg-white/80";
+                    : "text-gray-900 bg-white/50 hover:bg-white/80 dark:text-gray-300 dark:bg-transparent dark:hover:bg-white/10";
             },
             get signupTabClass() {
                 return this.activeTab === "signup"
                     ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md"
-                    : "text-gray-900 bg-white/50 hover:bg-white/80";
+                    : "text-gray-900 bg-white/50 hover:bg-white/80 dark:text-gray-300 dark:bg-transparent dark:hover:bg-white/10";
             },
 
             init: function () {
@@ -2771,6 +2791,35 @@ document.addEventListener("alpine:init", function () {
             },
             setSignup: function () {
                 this.activeTab = "signup";
+            },
+            // ARIA tabs keyboard pattern: Left/Right/Home/End move both
+            // selection and focus between the two tabs (there are only
+            // ever two, so wrapping toggles). Other keys are left alone.
+            onTabKeydown: function (event) {
+                var key = event.key;
+                if (
+                    key !== "ArrowLeft" &&
+                    key !== "ArrowRight" &&
+                    key !== "Home" &&
+                    key !== "End"
+                ) {
+                    return;
+                }
+                event.preventDefault();
+                var next = this.isLoginTab ? "signup" : "login";
+                if (key === "Home") next = "login";
+                if (key === "End") next = "signup";
+                var nextId = next === "login" ? "auth-tab-login" : "auth-tab-signup";
+                var nextEl = document.getElementById(nextId);
+                if (!nextEl) return;
+                // Dispatch a real click rather than setting activeTab
+                // directly: the signup tab also carries a plain
+                // addEventListener click handler (funnel analytics in
+                // auth.html) that a direct state assignment would bypass,
+                // so an arrow-key switch to signup would silently miss
+                // the signup_page_viewed event.
+                nextEl.click();
+                nextEl.focus();
             },
         };
     });
@@ -5122,9 +5171,6 @@ document.addEventListener("alpine:init", function () {
 
             // Step 2 fields tracking
 
-            // Date of birth formatted display (from dobPicker)
-            dobFormatted: "",
-
             // Field-specific error messages
             fieldErrors: {},
 
@@ -5422,14 +5468,6 @@ document.addEventListener("alpine:init", function () {
                     }
                 });
 
-                // Listen for date of birth selection from dobPicker component
-                window.addEventListener("dob-selected", function (e) {
-                    if (e.detail && e.detail.formatted) {
-                        self.dobFormatted = e.detail.formatted;
-                        self.saveDraft();
-                    }
-                });
-
                 // =========================================================================
                 // DRAFT AUTO-SAVE SETUP
                 // =========================================================================
@@ -5445,6 +5483,85 @@ document.addEventListener("alpine:init", function () {
 
                 // Warn before leaving with unsaved changes
                 self.setupUnloadWarning();
+
+                // Browser/Android back gesture support (finding 3-04): stamp
+                // the landing step as a history entry (replace, not push —
+                // this is the page load, not a navigation) and honour a
+                // #step-N deep link within range. popstate then walks the
+                // wizard back/forward without re-pushing (would loop).
+                try {
+                    var hashMatch = /^#step-([1-4])$/.exec(window.location.hash);
+                    if (hashMatch) {
+                        self.currentStep = parseInt(hashMatch[1], 10);
+                    }
+                    // Codex review finding: seed history for resumed wizard
+                    // steps. A returning user can land directly on step 3 or
+                    // 4 (see stepMap above); a bare replaceState only ever
+                    // records that landing step, so the very first Back
+                    // press has no earlier wizard entry to land on and
+                    // leaves the page instead of walking to step 2/3. Push
+                    // one entry per preceding step first (this is still the
+                    // page load, not a user navigation — pushState here just
+                    // backfills the history stack the wizard would have
+                    // built had the user clicked through from step 1).
+                    // The landing entry itself becomes step 1 (replace), so
+                    // one Back past step 1 leaves the wizard. A reload lands
+                    // on an entry that already carries wizardStep: re-seeding
+                    // it would stack a second set of synthetic entries.
+                    var alreadySeeded =
+                        history.state && history.state.wizardStep;
+                    if (self.currentStep > 1 && !alreadySeeded) {
+                        history.replaceState({ wizardStep: 1 }, "", "#step-1");
+                        for (var seedStep = 2; seedStep <= self.currentStep; seedStep++) {
+                            history.pushState(
+                                { wizardStep: seedStep },
+                                "",
+                                "#step-" + seedStep,
+                            );
+                        }
+                    } else {
+                        history.replaceState(
+                            { wizardStep: self.currentStep },
+                            "",
+                            "#step-" + self.currentStep,
+                        );
+                    }
+                } catch (e) {
+                    // history API unavailable — steps still work without it.
+                }
+                window.addEventListener("popstate", function (e) {
+                    var step =
+                        e.state && e.state.wizardStep
+                            ? e.state.wizardStep
+                            : self.currentStep;
+                    // Review can be reached directly from an edited Event
+                    // Identity step via browser Back. Persist those fields
+                    // before showing a summary that looks ready to submit.
+                    if (self.currentStep === 2 && step === self.totalSteps) {
+                        if (self.isSaving) {
+                            history.replaceState({ wizardStep: 2 }, "", "#step-2");
+                            return;
+                        }
+                        self.saveStep2().then(function (result) {
+                            // A second navigation during the request wins.
+                            if (
+                                self.currentStep !== 2 ||
+                                !history.state ||
+                                history.state.wizardStep !== step
+                            ) {
+                                return;
+                            }
+                            if (result.success) {
+                                self._setStep(step, false);
+                            } else {
+                                // Keep the editable step and its error visible.
+                                history.replaceState({ wizardStep: 2 }, "", "#step-2");
+                            }
+                        });
+                        return;
+                    }
+                    self._setStep(step, false);
+                });
             },
 
             // Initialize field tracking from DOM values
@@ -5512,10 +5629,55 @@ document.addEventListener("alpine:init", function () {
                 }
             },
 
+            // Single choke point for every step transition (finding 3-04):
+            // nextStep/prevStep/goToStep/saveAndNextStep1-3 and the popstate
+            // handler all route through here so the Android/WebView back
+            // gesture always lands on the previous wizard section instead of
+            // exiting the page. pushHistory=false is for popstate itself
+            // (already a history entry) and the initial render.
+            _setStep: function (step, pushHistory) {
+                if (step < 1 || step > this.totalSteps) return;
+                this.currentStep = step;
+                // 3-05 follow-up: landing on Review via the back/forward
+                // gesture or a direct goToStep() must refresh the summary,
+                // the same way saveAndNextStep3 already does on the forward
+                // path — otherwise an edited field can show a stale value.
+                if (step === this.totalSteps) {
+                    this.updateReview();
+                }
+                window.scrollTo({ top: 0, behavior: "smooth" });
+                try {
+                    if (pushHistory) {
+                        history.pushState(
+                            { wizardStep: step },
+                            "",
+                            "#step-" + step,
+                        );
+                    } else {
+                        history.replaceState(
+                            { wizardStep: step },
+                            "",
+                            "#step-" + step,
+                        );
+                    }
+                } catch (e) {
+                    // history API unavailable (e.g. sandboxed preview) — the
+                    // step change above still works, just without deep-linking.
+                }
+                this.$nextTick(function () {
+                    var heading = document.querySelector(
+                        '[data-wizard-step="' + step + '"] h3',
+                    );
+                    if (heading) {
+                        heading.setAttribute("tabindex", "-1");
+                        heading.focus();
+                    }
+                });
+            },
+
             nextStep: function () {
                 if (this.currentStep < this.totalSteps) {
-                    this.currentStep++;
-                    window.scrollTo({ top: 0, behavior: "smooth" });
+                    this._setStep(this.currentStep + 1, true);
                 }
             },
 
@@ -5528,15 +5690,22 @@ document.addEventListener("alpine:init", function () {
 
             prevStep: function () {
                 if (this.currentStep > 1) {
-                    this.currentStep--;
-                    window.scrollTo({ top: 0, behavior: "smooth" });
+                    this._setStep(this.currentStep - 1, true);
                 }
             },
 
             goToStep: function (step) {
-                if (step >= 1 && step <= this.totalSteps) {
-                    this.currentStep = step;
-                    window.scrollTo({ top: 0, behavior: "smooth" });
+                this._setStep(step, true);
+            },
+
+            // CSP-compatible Review-step "Edit" links: reads the target step
+            // from the clicked element's own data attribute (same idiom as
+            // traitSelector.handleClick) instead of an inline goToStep(n)
+            // call, which the CSP build disallows.
+            editSection: function () {
+                var step = parseInt(this.$el.getAttribute("data-goto-step"), 10);
+                if (step) {
+                    this.goToStep(step);
                 }
             },
 
@@ -5558,6 +5727,7 @@ document.addEventListener("alpine:init", function () {
                 };
 
                 var phone = document.querySelector("[name=phone_number]");
+                var dobInput = document.querySelector("[name=date_of_birth]");
                 var genderEl = document.querySelector("[name=gender]:checked");
 
                 var reviewPhone = this.$refs.reviewPhone;
@@ -5572,11 +5742,20 @@ document.addEventListener("alpine:init", function () {
                     reviewPhone.textContent =
                         (phone && phone.value) || emptyLabel(reviewPhone);
                 }
-                if (reviewDob && this.dobFormatted) {
-                    // Only overwrite when the dobPicker produced a formatted
-                    // date this session — otherwise keep the server-rendered
-                    // value (resume-on-Review case).
-                    reviewDob.textContent = this.dobFormatted;
+                if (reviewDob) {
+                    // Native <input type="date"> value is always YYYY-MM-DD.
+                    // Format it for display client-side (no hard-coded copy)
+                    // when it's set this session; otherwise keep the
+                    // server-rendered value (resume-on-Review case).
+                    if (dobInput && dobInput.value) {
+                        var dobDate = new Date(dobInput.value + "T00:00:00");
+                        reviewDob.textContent = dobDate.toLocaleDateString(
+                            document.documentElement.lang || "en",
+                            { day: "numeric", month: "short", year: "numeric" },
+                        );
+                    } else {
+                        reviewDob.textContent = emptyLabel(reviewDob);
+                    }
                 }
                 if (reviewGender) {
                     var genderText = "";
@@ -5667,10 +5846,19 @@ document.addEventListener("alpine:init", function () {
                             reviewPhotos.appendChild(img);
                         }
                     } else {
-                        var p = document.createElement("p");
-                        p.className = "font-medium dark:text-white";
-                        p.textContent = emptyLabel(reviewPhotos);
-                        reviewPhotos.appendChild(p);
+                        // Amber nudge, not a neutral "No photos yet" row — a
+                        // profile with no face is a real conversion/safety
+                        // cost at an events-first product (finding 3-05).
+                        var callout = document.createElement("div");
+                        callout.className =
+                            "flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-700/50 dark:bg-amber-900/20";
+                        var nudge = document.createElement("p");
+                        nudge.className = "text-sm text-amber-800 dark:text-amber-200";
+                        nudge.textContent =
+                            reviewPhotos.getAttribute("data-empty-nudge") ||
+                            emptyLabel(reviewPhotos);
+                        callout.appendChild(nudge);
+                        reviewPhotos.appendChild(callout);
                     }
                 }
             },
@@ -6001,8 +6189,7 @@ document.addEventListener("alpine:init", function () {
                 self.saveStep1().then(function (result) {
                     if (result.success) {
                         self.saveError = "";
-                        self.currentStep = 2;
-                        window.scrollTo({ top: 0, behavior: "smooth" });
+                        self._setStep(2, true);
                     }
                     // Error is already set in saveStep1
                 });
@@ -6015,8 +6202,7 @@ document.addEventListener("alpine:init", function () {
                 self.saveStep2().then(function (result) {
                     if (result.success) {
                         self.saveError = "";
-                        self.currentStep = 3;
-                        window.scrollTo({ top: 0, behavior: "smooth" });
+                        self._setStep(3, true);
                     }
                 });
             },
@@ -6036,9 +6222,8 @@ document.addEventListener("alpine:init", function () {
                 }).then(function (result) {
                     if (result.success) {
                         self.saveError = "";
-                        self.currentStep = 4;
+                        self._setStep(4, true);
                         self.updateReview();
-                        window.scrollTo({ top: 0, behavior: "smooth" });
                     }
                 });
             },
@@ -6218,51 +6403,6 @@ document.addEventListener("alpine:init", function () {
                 }
                 if (this.draftData.date_of_birth) {
                     this.dateOfBirth = this.draftData.date_of_birth;
-                    // Format the date for display in review (e.g., "1990-01-15" -> "Jan 15, 1990")
-                    try {
-                        var dateParts = this.draftData.date_of_birth.split("-");
-                        if (dateParts.length === 3) {
-                            var dateObj = new Date(
-                                dateParts[0],
-                                dateParts[1] - 1,
-                                dateParts[2],
-                            );
-                            var months = [
-                                "Jan",
-                                "Feb",
-                                "Mar",
-                                "Apr",
-                                "May",
-                                "Jun",
-                                "Jul",
-                                "Aug",
-                                "Sep",
-                                "Oct",
-                                "Nov",
-                                "Dec",
-                            ];
-                            this.dobFormatted =
-                                months[dateObj.getMonth()] +
-                                " " +
-                                dateObj.getDate() +
-                                ", " +
-                                dateObj.getFullYear();
-                        }
-                    } catch (e) {
-                        this.dobFormatted = this.draftData.date_of_birth; // Fallback to raw value
-                    }
-
-                    // Tell the dobPicker so its stepped UI reflects the
-                    // restored date instead of sitting on the empty
-                    // age-range step.
-                    var dobPickerEl = document.querySelector('[x-data="dobPicker"]');
-                    if (dobPickerEl) {
-                        dobPickerEl.dispatchEvent(
-                            new CustomEvent("dob-restore", {
-                                detail: { value: this.draftData.date_of_birth },
-                            }),
-                        );
-                    }
                 }
                 if (this.draftData.gender) {
                     this.gender = this.draftData.gender;
@@ -7500,6 +7640,16 @@ document.addEventListener("alpine:init", function () {
             // Computed getters for CSP compatibility
             get notVerified() {
                 return !this.verified;
+            },
+            // The resting (unverified, no failed attempt yet) state reads as a
+            // neutral status, not an error — a red "Verification Required"
+            // pill before the member has typed anything reads as "you already
+            // did something wrong". Only a failed verify attempt earns red.
+            get notVerifiedNeutral() {
+                return !this.verified && this.failureCount === 0;
+            },
+            get notVerifiedFailed() {
+                return !this.verified && this.failureCount > 0;
             },
             get showSupportContact() {
                 return this.failureCount >= 2;
@@ -12669,8 +12819,12 @@ document.addEventListener("alpine:init", function () {
         return {
             currentTheme: "light",
             systemPreference: "light",
+            // Journey / gift pages are always dark (data-theme-lock on <html>):
+            // the toggle is disabled and says why, in the page language.
+            lockedLabel: "",
 
             init: function () {
+                this.lockedLabel = this.$el.getAttribute("data-locked-label") || "";
                 // Initialize from themeManager
                 if (window.themeManager) {
                     this.currentTheme = window.themeManager.getTheme();
@@ -12704,6 +12858,14 @@ document.addEventListener("alpine:init", function () {
             },
 
             // Getters for CSP compliance (no inline expressions in templates)
+            get isLocked() {
+                return document.documentElement.hasAttribute("data-theme-lock");
+            },
+
+            get lockedTitle() {
+                return this.isLocked ? this.lockedLabel : null;
+            },
+
             get isDark() {
                 return this.currentTheme === "dark";
             },
@@ -12717,6 +12879,9 @@ document.addEventListener("alpine:init", function () {
             },
 
             get toggleButtonClass() {
+                if (this.isLocked) {
+                    return "bg-gray-700 text-yellow-400 cursor-not-allowed";
+                }
                 return this.isDark
                     ? "bg-gray-700 text-yellow-400 hover:bg-gray-600"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200";
@@ -12731,6 +12896,9 @@ document.addEventListener("alpine:init", function () {
             },
 
             get statusText() {
+                if (this.isLocked) {
+                    return this.lockedLabel;
+                }
                 var saved = localStorage.getItem("theme");
                 if (!saved) {
                     return this.isSystemDark ? "System (Dark)" : "System (Light)";
@@ -12739,6 +12907,9 @@ document.addEventListener("alpine:init", function () {
             },
 
             get ariaLabel() {
+                if (this.isLocked) {
+                    return this.lockedLabel;
+                }
                 return this.isDark ? "Switch to light mode" : "Switch to dark mode";
             },
 
@@ -12760,6 +12931,9 @@ document.addEventListener("alpine:init", function () {
             },
 
             toggleTheme: function () {
+                if (this.isLocked) {
+                    return;
+                }
                 if (window.themeManager) {
                     window.themeManager.toggleTheme();
                     this.currentTheme = window.themeManager.getTheme();

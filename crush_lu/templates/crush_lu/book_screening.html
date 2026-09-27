@@ -134,13 +134,13 @@
                             </div>
 
                             {% if block.slots|length > 10 %}
-                                <div class="px-4 pb-2" x-show="isShowAllHidden">
+                                <div class="px-4 pb-2" x-show="isShowAllHidden" x-cloak>
                                     <button type="button" @click="toggleShowAll"
                                             class="text-xs font-medium text-crush-purple hover:underline">
                                         {% blocktrans count more=block.slots|length|add:"-10" %}Show {{ more }} more slot{% plural %}Show {{ more }} more slots{% endblocktrans %}
                                     </button>
                                 </div>
-                                <div class="p-4 pt-0 grid grid-cols-1 sm:grid-cols-2 gap-2" x-show="showAll" x-cloak>
+                                <div class="p-4 pt-0 grid grid-cols-1 sm:grid-cols-2 gap-2" x-show="showAll">
                                     {% for slot in block.slots|slice:"10:" %}
                                         {% include "crush_lu/includes/_booking_slot_option.html" with block=block slot=slot forloop_counter0=forloop.counter0|add:"10" %}
                                     {% endfor %}
