@@ -43,6 +43,7 @@ from crush_lu.services.connect_cycle import (
     sync_session_state,
     visible_cycle_cards,
     refresh_compatibility_highlight,
+    week_timeline_state,
 )
 
 User = get_user_model()
@@ -129,6 +130,7 @@ def connect_week_home(request):
         ),
         "review_date": timezone.localtime(session.started_at).date()
         + timedelta(days=CYCLE_LENGTH_DAYS),
+        "timeline": week_timeline_state(session),
         "day_number": session.current_day_number,
         "cycle_length": CYCLE_LENGTH_DAYS,
         "cycle_days": range(1, CYCLE_LENGTH_DAYS + 1),

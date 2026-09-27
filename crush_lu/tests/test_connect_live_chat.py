@@ -244,7 +244,13 @@ def test_retry_after_hard_deadline_returns_the_stored_message(client):
     )
     retry = client.post(url, payload, HTTP_ACCEPT="application/json")
     assert retry.status_code == 200
-    assert retry.json() == first.json()
+    # Same stored message both times (the retry contract) — but the expiry
+    # fields legitimately differ: the chat closed between calls, and each
+    # response reflects the chat's state as of that request, not a value
+    # frozen at the first send (see _chat_expiry_json).
+    assert retry.json()["message"] == first.json()["message"]
+    assert first.json()["closes_label"]
+    assert retry.json()["closes_label"] is None
     chat.refresh_from_db()
     assert chat.status == ConnectTemporaryChat.Status.CLOSED
     fresh = client.post(
