@@ -827,7 +827,8 @@ def my_events(request):
             "registration": reg,
             "event": reg.event,
             "is_waitlist": reg.status == "waitlist",
-            "is_pending_payment": reg.status == "pending"
+            "is_pending_payment": reg.status == "pending",
+            "can_pay": reg.status == "pending"
             and registration_is_payable(reg, reg.event),
             # "applied" included: withdrawing an application is exactly the
             # thing an applicant may still want to do, and event_cancel accepts

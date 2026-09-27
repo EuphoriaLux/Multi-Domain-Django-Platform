@@ -501,7 +501,6 @@
                                     {% elif reg_tone == 'confirmed' %}
                                     <p class="font-semibold text-sm sm:text-base mb-1">{% trans "You're in!" %}</p>
                                     <p class="text-xs sm:text-sm mb-2">{% trans "We've sent a confirmation email with all the event details." %}</p>
-                                    <a href="{% url 'crush_lu:event_ticket' event.id %}" class="btn-crush-solid btn-sm inline-flex">{% trans "View my ticket" %}</a>
                                     {% elif reg_tone == 'cancelled' %}
                                     <p class="font-semibold text-sm sm:text-base mb-1">{% trans "This event has been cancelled." %}</p>
                                     {% else %}
@@ -532,7 +531,7 @@
                                 data-label="{% trans 'Pay with Crush Credit' %}"
                                 data-label-loading="{% trans 'Preparing checkout…' %}"
                                 data-msg-error="{% trans 'An error occurred launching payment. Please try again.' %}"
-                                class="btn-crush-solid w-full mb-3 disabled:opacity-70 disabled:cursor-not-allowed">
+                                class="js-sumup-checkout-detail btn-crush-solid w-full mb-3 disabled:opacity-70 disabled:cursor-not-allowed">
                             <span x-text="label">{% trans "Pay with Crush Credit" %}</span>
                         </button>
                         {% endif %}
@@ -541,7 +540,7 @@
                                 data-label="{% trans 'Pay with Card' %} ({{ event.registration_fee }} EUR)"
                                 data-label-loading="{% trans 'Preparing checkout…' %}"
                                 data-msg-error="{% trans 'An error occurred launching payment. Please try again.' %}"
-                                class="flex items-center justify-center gap-2 w-full py-3 sm:py-4 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-lg transition-all hover:shadow-lg text-sm sm:text-base mb-3 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed">
+                                class="js-sumup-checkout-detail flex items-center justify-center gap-2 w-full py-3 sm:py-4 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-lg transition-all hover:shadow-lg text-sm sm:text-base mb-3 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed">
                             <svg x-show="idle" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                             </svg>

@@ -2592,9 +2592,8 @@ document.addEventListener("alpine:init", function () {
     // Credit" as <button class="js-sumup-checkout-detail"> elements instead
     // (they trigger a fetch()-based SumUp checkout, not a navigation), so
     // when no anchor is found this also falls back to that button and, on
-    // tap, re-dispatches a click to the real in-panel button so the existing
-    // document-level '.js-sumup-checkout-detail' listener (event_detail.html)
-    // handles the checkout exactly as if the member had tapped it directly.
+    // tap, re-dispatches a click to the real in-panel button so its Alpine
+    // checkout handler runs exactly as if the member had tapped it directly.
     Alpine.data("eventStickyCta", function () {
         return {
             visible: false,

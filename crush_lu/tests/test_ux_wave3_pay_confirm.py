@@ -106,6 +106,7 @@ class EventDetailStatusToneTests(PayConfirmTestBase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "You're in!")
+        self.assertContains(response, "View My Ticket", count=1)
         self.assertNotContains(response, "Payment due")
 
     def test_free_event_confirmed_registration_has_no_payment_due_banner(self):
@@ -288,7 +289,10 @@ class RegistrationIsPayableTests(PayConfirmTestBase):
         self.registration.save(update_fields=["status"])
         my_events = self.client.get("/en/my-events/")
         self.assertEqual(my_events.status_code, 200)
-        self.assertFalse(my_events.context["upcoming_registrations"][0]["is_pending_payment"])
+        self.assertTrue(my_events.context["upcoming_registrations"][0]["is_pending_payment"])
+        self.assertFalse(my_events.context["upcoming_registrations"][0]["can_pay"])
+        self.assertContains(my_events, "Pending")
+        self.assertNotContains(my_events, "Payment due")
         self.assertNotContains(my_events, "Pay with Card")
 
 
