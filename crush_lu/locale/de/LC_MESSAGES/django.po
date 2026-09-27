@@ -13754,10 +13754,6 @@ msgstr ""
 msgid "Crush.lu in Numbers"
 msgstr "Crush.lu in Zahlen"
 
-#: templates/crush_lu/about.html:253
-msgid "Verified Members"
-msgstr "Verifizierte Mitglieder"
-
 #: templates/crush_lu/about.html:257 templates/crush_lu/how_it_works.html:104
 msgid "Ways to Verify"
 msgstr "Wege zur Verifizierung"
@@ -42577,3 +42573,7 @@ msgstr ""
 #, python-format
 msgid "You unblocked %(name)s."
 msgstr "Du hast die Blockierung von %(name)s aufgehoben."
+
+#: templates/crush_lu/home.html
+msgid "As seen in"
+msgstr "Bekannt aus"

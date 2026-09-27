@@ -9260,10 +9260,6 @@ msgstr ""
 msgid "Crush.lu in Numbers"
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\about.html:253
-msgid "Verified Members"
-msgstr ""
-
 #: .\crush_lu\templates\crush_lu\about.html:257
 msgid "Verification Time"
 msgstr ""
@@ -28442,4 +28438,8 @@ msgstr ""
 #: templates/crush_lu/moderation/blocked_members.html
 #, python-format
 msgid "You unblocked %(name)s."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\home.html
+msgid "As seen in"
 msgstr ""
