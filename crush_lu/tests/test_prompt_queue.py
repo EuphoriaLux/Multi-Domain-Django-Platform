@@ -129,11 +129,11 @@ class MemberPromptTests(TestCase):
             "/en/account/settings/",
             "/en/profile/edit/?section=account&sub=notifications",
         ):
-            with self.subTest(path=path):
-                html = self._get(path, **NATIVE)
-                self.assertIn("Notifications are managed in the app", html)
-                self.assertNotIn('x-data="pushPreferences"', html)
-                self.assertNotIn("Checking notification support", html)
+            # No subTest: pytest without pytest-subtests drops its failures.
+            html = self._get(path, **NATIVE)
+            self.assertIn("Notifications are managed in the app", html, path)
+            self.assertNotIn('x-data="pushPreferences"', html, path)
+            self.assertNotIn("Checking notification support", html, path)
 
     def test_native_notice_translated(self):
         html = self._get("/de/account/settings/", **NATIVE)
