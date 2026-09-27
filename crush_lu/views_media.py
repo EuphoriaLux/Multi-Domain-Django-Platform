@@ -223,6 +223,10 @@ def _has_visible_cycle_card(viewer, owner):
         return False
     if _connect_week_access_blocker(viewer) is not None:
         return False
+    # ``connect_week_home`` also turns away a viewer without a primary photo.
+    viewer_profile = getattr(viewer, "crushprofile", None)
+    if not viewer.is_staff and viewer_profile and not viewer_profile.photo_1:
+        return False
 
     wall_day = (
         timezone.localdate() - timezone.localtime(session.started_at).date()

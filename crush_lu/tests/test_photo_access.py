@@ -413,6 +413,22 @@ class TestProfilePhotoRefused:
         ConnectWeekSession.objects.create(user=ben)
         assert _photo(client, ben, alice).status_code == 403
 
+    def test_live_card_after_viewer_removed_own_photo(self, client):
+        """``connect_week_home`` turns away a viewer without a photo."""
+        alice = _member("alice", photo_consent=True)
+        ben = _member("ben", photo_consent=True)
+        session = ConnectWeekSession.objects.create(user=ben)
+        ConnectCycleCard.objects.create(
+            session=session,
+            day_number=1,
+            card_index=1,
+            target_user=alice,
+            generated_date=timezone.localdate(),
+        )
+        assert _photo(client, ben, alice).status_code == 200
+        CrushProfile.objects.filter(user=ben).update(photo_1="")
+        assert _photo(client, ben, alice).status_code == 403
+
     def test_card_after_viewer_paused_connect(self, client):
         alice = _member("alice", photo_consent=True)
         ben = _member("ben", photo_consent=True)
@@ -486,6 +502,62 @@ class TestProfilePhotoRefused:
         alice = _member("alice")
         staff = User.objects.create_user("staff", "st@example.com", "x", is_staff=True)
         assert _photo(client, staff, alice).status_code == 403
+
+
+class TestHiddenEncounterSurfaces:
+    """A pending/approved encounter removal hides the pair like a block on
+    every surface that renders a photo, so no page emits a URL the photo
+    gate refuses."""
+
+    def _hide(self, a, b):
+        low, high = sorted([a, b], key=lambda u: u.pk)
+        ConfirmedEncounter.objects.create(
+            user_low=low, user_high=high, status="removal_pending"
+        )
+
+    def test_my_connections_drops_hidden_counterpart(self, client):
+        alice, ben = _member("alice"), _member("ben")
+        connection = EventConnection.objects.create(
+            requester=ben,
+            recipient=alice,
+            event=_event(ended_hours_ago=24 * 30),
+            status="accepted",
+        )
+        client.force_login(ben)
+        url = f"/media/profile/{alice.pk}/photo_1/"
+        assert url in client.get("/en/connections/").content.decode()
+        self._hide(alice, ben)
+        assert url not in client.get("/en/connections/").content.decode()
+        detail = client.get(f"/en/connections/{connection.pk}/")
+        assert detail.status_code == 302
+
+    def test_connect_card_and_inbox_drop_hidden_counterpart(self):
+        from crush_lu.services.connect_cycle import (
+            get_pending_inbox,
+            visible_cycle_cards,
+        )
+
+        alice = _member("alice", photo_consent=True)
+        ben = _member("ben", photo_consent=True)
+        session = ConnectWeekSession.objects.create(user=ben)
+        card = ConnectCycleCard.objects.create(
+            session=session,
+            day_number=1,
+            card_index=1,
+            target_user=alice,
+            generated_date=timezone.localdate(),
+        )
+        ConnectWeeklyRequest.objects.create(
+            session=ConnectWeekSession.objects.create(user=alice),
+            requester=alice,
+            recipient=ben,
+            expires_at=timezone.now() + timedelta(hours=24),
+        )
+        assert visible_cycle_cards([card], ben) == [card]
+        assert len(get_pending_inbox(ben)) == 1
+        self._hide(alice, ben)
+        assert visible_cycle_cards([card], ben) == []
+        assert get_pending_inbox(ben) == []
 
 
 class TestPhotoFields:
