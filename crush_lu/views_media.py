@@ -11,6 +11,9 @@ from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 import os
 import logging
+from datetime import timedelta
+
+from django.utils import timezone
 
 from .models import CrushProfile, CrushCoach
 from .oauth_statekit import get_client_ip
@@ -66,8 +69,11 @@ def can_view_profile_photo(viewer, profile_owner):
         return False
 
     from .services.blocking import is_blocked_pair
+    from .services.event_lobby import hidden_encounter_user_ids
 
-    if is_blocked_pair(viewer, owner):
+    # A safety removal of a confirmed encounter hides the pair from each
+    # other exactly like a block (``event_attendees`` excludes both).
+    if is_blocked_pair(viewer, owner) or owner.pk in hidden_encounter_user_ids(viewer):
         return False
 
     return (
@@ -92,19 +98,23 @@ def _have_event_connection(viewer, owner):
 
     from .models import EventConnection
 
-    return (
-        EventConnection.objects.filter(
+    crush = Q(flow=EventConnection.FLOW_CRUSH)
+    return EventConnection.objects.filter(
+        (
             Q(requester=viewer, recipient=owner)
-            | (
-                Q(requester=owner, recipient=viewer)
-                # The recipient of a My Crush! lead is never shown it until
-                # it is shared (mirrors ``connection_detail``).
-                & ~(Q(flow=EventConnection.FLOW_CRUSH) & ~Q(status="shared"))
-            )
+            # ``my_connections`` keeps a declined My Crush! lead in the same
+            # neutral card as any other unshared one; refusing its photo
+            # would leak the coach-recorded outcome the UI hides.
+            & (crush | ~Q(status="declined"))
         )
-        .exclude(status="declined")
-        .exists()
-    )
+        | (
+            Q(requester=owner, recipient=viewer)
+            & ~Q(status="declined")
+            # The recipient of a My Crush! lead is never shown it until
+            # it is shared (mirrors ``connection_detail``).
+            & ~(crush & ~Q(status="shared"))
+        )
+    ).exists()
 
 
 def _are_connect_paired(viewer, owner):
@@ -113,13 +123,12 @@ def _are_connect_paired(viewer, owner):
     from django.contrib.auth import get_user_model
     from django.db.models import Q
 
-    from .models.crush_connect import ConnectCoachPick
-    from .models.crush_connect_cycle import (
-        ConnectCycleCard,
-        ConnectTemporaryChat,
-        ConnectWeeklyRequest,
+    from .models.crush_connect_cycle import ConnectTemporaryChat, ConnectWeeklyRequest
+    from .services.crush_connect import (
+        exclude_assigned_coach_pairs,
+        filter_catalogue_eligible,
+        get_active_coach_pick,
     )
-    from .services.crush_connect import filter_catalogue_eligible
 
     User = get_user_model()
     if not User.objects.filter(
@@ -128,9 +137,18 @@ def _are_connect_paired(viewer, owner):
         return False
 
     # Chats are reached through a request, so they outlive catalogue
-    # eligibility (see views_connect_chat); consent alone gates them.
+    # eligibility; they stay visible while both participants pass
+    # ``views_connect_chat._participants_available``.
+    available = User.objects.filter(
+        pk__in=(viewer.pk, owner.pk),
+        is_active=True,
+        crushprofile__is_active=True,
+        crush_connect_membership__onboarded_at__isnull=False,
+        crush_connect_membership__excluded_by_coach=False,
+    )
     if (
-        ConnectTemporaryChat.objects.filter(
+        available.count() == 2
+        and ConnectTemporaryChat.objects.filter(
             Q(participant_1=viewer, participant_2=owner)
             | Q(participant_1=owner, participant_2=viewer)
         )
@@ -139,22 +157,66 @@ def _are_connect_paired(viewer, owner):
     ):
         return True
 
-    # Cards, the inbox and coach picks only show catalogue-eligible members.
-    if not filter_catalogue_eligible(User.objects.filter(pk=owner.pk)).exists():
+    # Cards and the inbox only show catalogue-eligible members, never a
+    # member's assigned coach (``visible_cycle_cards``, ``get_pending_inbox``).
+    owner_qs = exclude_assigned_coach_pairs(User.objects.filter(pk=owner.pk), viewer)
+    if not filter_catalogue_eligible(owner_qs).exists():
         return False
-    return (
-        ConnectCycleCard.objects.filter(
-            session__user=viewer, target_user=owner
-        ).exists()
-        or ConnectWeeklyRequest.objects.filter(
-            requester=owner,
-            recipient=viewer,
-            status=ConnectWeeklyRequest.Status.PENDING,
-        ).exists()
-        or ConnectCoachPick.objects.filter(
-            member=viewer, candidate=owner, status__in=["proposed", "accepted"]
-        ).exists()
-    )
+    if _has_visible_cycle_card(viewer, owner):
+        return True
+    if ConnectWeeklyRequest.objects.filter(
+        requester=owner,
+        recipient=viewer,
+        status=ConnectWeeklyRequest.Status.PENDING,
+        # Expiry is applied lazily by ``sync_request_state``; a stale PENDING
+        # row past its deadline is already gone from the inbox.
+        expires_at__gt=timezone.now(),
+    ).exists():
+        return True
+    # The pick page re-validates the pool and the assigned coach on read.
+    pick = get_active_coach_pick(viewer, include_accepted=True)
+    return pick is not None and pick.candidate_id == owner.pk
+
+
+def _has_visible_cycle_card(viewer, owner):
+    """A card for ``owner`` that Connect Week still renders to ``viewer``:
+    today's live card of an active session, or a completed card during the
+    24h review. Session bookkeeping is lazy (``sync_session_state``), so the
+    day and the review deadline are derived from the clock, not the rows."""
+    from .models.crush_connect_cycle import ConnectCycleCard, ConnectWeekSession
+    from .services.connect_cycle import CYCLE_LENGTH_DAYS, REVIEW_WINDOW_HOURS
+
+    Status = ConnectWeekSession.Status
+    now = timezone.now()
+    cards = ConnectCycleCard.objects.filter(
+        session__user=viewer,
+        target_user=owner,
+        session__status__in=(Status.ACTIVE, Status.REVIEW_OPEN),
+    ).select_related("session")
+    for card in cards:
+        session = card.session
+        wall_day = (
+            timezone.localdate() - timezone.localtime(session.started_at).date()
+        ).days + 1
+        if session.status == Status.REVIEW_OPEN:
+            review_open = session.review_expires_at is None or (
+                now < session.review_expires_at
+            )
+            if card.is_completed and review_open:
+                return True
+            continue
+        if wall_day <= CYCLE_LENGTH_DAYS:
+            if card.day_number == wall_day and not card.is_expired:
+                return True
+        elif card.is_completed:
+            # The review opens on the next visit; bound it by the latest it
+            # could close had it opened when the cycle ended.
+            cycle_end = timezone.localtime(session.started_at).replace(
+                hour=0, minute=0, second=0, microsecond=0
+            ) + timedelta(days=CYCLE_LENGTH_DAYS)
+            if now < cycle_end + timedelta(hours=REVIEW_WINDOW_HOURS):
+                return True
+    return False
 
 
 def _increment_rate_limit_counter(key, period_seconds):

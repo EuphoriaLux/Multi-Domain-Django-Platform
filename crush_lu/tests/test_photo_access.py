@@ -23,9 +23,11 @@ from crush_lu.models import (
     EventConnection,
     EventRegistration,
     MeetupEvent,
+    PremiumMembership,
     UserBlock,
 )
 from crush_lu.models.crush_connect import ConnectCoachPick
+from crush_lu.models.event_lobby import ConfirmedEncounter
 from crush_lu.models.crush_connect_cycle import (
     ConnectCycleCard,
     ConnectTemporaryChat,
@@ -193,7 +195,40 @@ class TestProfilePhotoAllowed:
         alice = _member("alice", photo_consent=True)
         ben = _member("ben", photo_consent=True)
         coach = CrushCoach.objects.create(user=_member("coach"), is_active=True)
+        CrushProfile.objects.filter(user=ben).update(assigned_coach=coach)
+        PremiumMembership.objects.create(user=ben, coach=coach, status="active")
         ConnectCoachPick.objects.create(coach=coach, member=ben, candidate=alice)
+        assert _photo(client, ben, alice).status_code == 200
+
+    def test_connect_completed_card_during_review(self, client):
+        alice = _member("alice", photo_consent=True)
+        ben = _member("ben", photo_consent=True)
+        session = ConnectWeekSession.objects.create(
+            user=ben,
+            status=ConnectWeekSession.Status.REVIEW_OPEN,
+            review_expires_at=timezone.now() + timedelta(hours=5),
+        )
+        ConnectCycleCard.objects.create(
+            session=session,
+            day_number=2,
+            card_index=1,
+            target_user=alice,
+            generated_date=timezone.localdate(),
+            is_completed=True,
+        )
+        assert _photo(client, ben, alice).status_code == 200
+
+    def test_requester_of_declined_crush_lead_keeps_neutral_card(self, client):
+        """``my_connections`` hides a declined lead's outcome; a 403 on its
+        photo would reveal it."""
+        alice, ben = _member("alice"), _member("ben")
+        EventConnection.objects.create(
+            requester=ben,
+            recipient=alice,
+            event=_event(ended_hours_ago=24 * 30),
+            status="declined",
+            flow=EventConnection.FLOW_CRUSH,
+        )
         assert _photo(client, ben, alice).status_code == 200
 
 
@@ -292,6 +327,107 @@ class TestProfilePhotoRefused:
             participant_2=ben,
             expires_at=timezone.now() + timedelta(days=7),
         )
+        assert _photo(client, ben, alice).status_code == 403
+
+    def test_hidden_encounter_even_with_relationship(self, client):
+        alice, ben = _member("alice"), _member("ben")
+        event = _event()
+        _attend(alice, event)
+        _attend(ben, event)
+        low, high = sorted([alice, ben], key=lambda u: u.pk)
+        ConfirmedEncounter.objects.create(
+            user_low=low, user_high=high, status="removal_pending"
+        )
+        assert _photo(client, ben, alice).status_code == 403
+
+    def test_expired_cycle_card(self, client):
+        alice = _member("alice", photo_consent=True)
+        ben = _member("ben", photo_consent=True)
+        session = ConnectWeekSession.objects.create(user=ben)
+        ConnectCycleCard.objects.create(
+            session=session,
+            day_number=1,
+            card_index=1,
+            target_user=alice,
+            generated_date=timezone.localdate(),
+            is_expired=True,
+        )
+        assert _photo(client, ben, alice).status_code == 403
+
+    def test_card_from_a_past_day(self, client):
+        alice = _member("alice", photo_consent=True)
+        ben = _member("ben", photo_consent=True)
+        session = ConnectWeekSession.objects.create(user=ben)
+        ConnectWeekSession.objects.filter(pk=session.pk).update(
+            started_at=timezone.now() - timedelta(days=2)
+        )
+        ConnectCycleCard.objects.create(
+            session=session,
+            day_number=1,
+            card_index=1,
+            target_user=alice,
+            generated_date=timezone.localdate() - timedelta(days=2),
+        )
+        assert _photo(client, ben, alice).status_code == 403
+
+    def test_review_window_closed(self, client):
+        alice = _member("alice", photo_consent=True)
+        ben = _member("ben", photo_consent=True)
+        session = ConnectWeekSession.objects.create(
+            user=ben,
+            status=ConnectWeekSession.Status.REVIEW_OPEN,
+            review_expires_at=timezone.now() - timedelta(minutes=1),
+        )
+        ConnectCycleCard.objects.create(
+            session=session,
+            day_number=2,
+            card_index=1,
+            target_user=alice,
+            generated_date=timezone.localdate(),
+            is_completed=True,
+        )
+        assert _photo(client, ben, alice).status_code == 403
+
+    def test_pending_request_past_its_deadline(self, client):
+        alice = _member("alice", photo_consent=True)
+        ben = _member("ben", photo_consent=True)
+        session = ConnectWeekSession.objects.create(user=alice)
+        ConnectWeeklyRequest.objects.create(
+            session=session,
+            requester=alice,
+            recipient=ben,
+            expires_at=timezone.now() - timedelta(minutes=1),
+        )
+        assert _photo(client, ben, alice).status_code == 403
+
+    def test_chat_partner_excluded_by_coach(self, client):
+        alice = _member("alice", photo_consent=True)
+        ben = _member("ben", photo_consent=True)
+        CrushConnectMembership.objects.filter(user=alice).update(excluded_by_coach=True)
+        session = ConnectWeekSession.objects.create(user=alice)
+        request = ConnectWeeklyRequest.objects.create(
+            session=session,
+            requester=alice,
+            recipient=ben,
+            status="accepted",
+            expires_at=timezone.now() + timedelta(hours=24),
+        )
+        ConnectTemporaryChat.objects.create(
+            request=request,
+            participant_1=alice,
+            participant_2=ben,
+            expires_at=timezone.now() + timedelta(days=7),
+        )
+        assert _photo(client, ben, alice).status_code == 403
+
+    def test_coach_pick_from_a_former_coach(self, client):
+        alice = _member("alice", photo_consent=True)
+        ben = _member("ben", photo_consent=True)
+        old_coach = CrushCoach.objects.create(user=_member("old"), is_active=True)
+        new_coach = CrushCoach.objects.create(user=_member("new"), is_active=True)
+        CrushProfile.objects.filter(user=ben).update(assigned_coach=new_coach)
+        PremiumMembership.objects.create(user=ben, coach=new_coach, status="active")
+        ConnectCoachPick.objects.create(coach=old_coach, member=ben, candidate=alice)
         assert _photo(client, ben, alice).status_code == 403
 
     def test_plain_staff_is_not_a_coach(self, client):
