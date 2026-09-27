@@ -6,6 +6,14 @@
  * Usage:
  * Alpine.store('toasts').add({ type: 'success', message: 'Profile saved!' })
  * Or via event: window.dispatchEvent(new CustomEvent('show-toast', { detail: { type: 'success', message: 'Done!' }}))
+ *
+ * Optional action button (e.g. "Undo"): action: { label: 'Undo', form: '<form id>' }
+ * submits that <form> in the page. A server-rendered page can raise a toast on
+ * load with <div hidden data-toast data-toast-type="success"
+ * data-toast-message="..." data-toast-action-label="Undo"
+ * data-toast-action-form="<form id>" data-toast-duration="0"></div>.
+ * Give action toasts duration 0 so they stay until the user acts or dismisses
+ * them (WCAG 2.2.1: an Undo must not time out under a keyboard/SR user).
  */
 
 (function () {
@@ -97,6 +105,26 @@
         msgP.textContent = toast.message || "";
         msgWrap.appendChild(msgP);
         row.appendChild(msgWrap);
+
+        // Optional action (e.g. "Undo"): submits a form that lives in the page.
+        if (toast.action && toast.action.label && toast.action.form) {
+            var actionBtn = document.createElement("button");
+            actionBtn.type = "button";
+            actionBtn.className =
+                "flex-shrink-0 self-center min-h-11 px-3 rounded-md text-sm font-semibold underline underline-offset-2 hover:no-underline focus:outline-none focus:ring-2 focus:ring-purple-500";
+            actionBtn.textContent = toast.action.label;
+            actionBtn.addEventListener("click", function () {
+                var form = document.getElementById(toast.action.form);
+                removeToast(toast.id);
+                if (!form) return;
+                if (typeof form.requestSubmit === "function") {
+                    form.requestSubmit();
+                } else {
+                    form.submit();
+                }
+            });
+            row.appendChild(actionBtn);
+        }
 
         // Dismiss button
         if (toast.dismissible !== false) {
@@ -202,6 +230,7 @@
                             ? toast.duration
                             : this.defaultDuration,
                     dismissible: toast.dismissible !== false,
+                    action: toast.action || null,
                 };
 
                 this.items.push(newToast);
@@ -235,6 +264,29 @@
                 this.items = [];
             },
         });
+
+        // Server-rendered toasts: <div hidden data-toast ...> (see header).
+        function raiseServerToasts() {
+            var nodes = document.querySelectorAll("[data-toast]");
+            Array.prototype.forEach.call(nodes, function (node) {
+                var d = node.dataset;
+                var duration = parseInt(d.toastDuration, 10);
+                Alpine.store("toasts").add({
+                    type: d.toastType || "info",
+                    message: d.toastMessage || "",
+                    duration: isNaN(duration) ? undefined : duration,
+                    action: d.toastActionLabel
+                        ? { label: d.toastActionLabel, form: d.toastActionForm }
+                        : null,
+                });
+                node.removeAttribute("data-toast"); // raise once
+            });
+        }
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", raiseServerToasts);
+        } else {
+            raiseServerToasts();
+        }
 
         // Listen for global toast events
         window.addEventListener("show-toast", function (event) {

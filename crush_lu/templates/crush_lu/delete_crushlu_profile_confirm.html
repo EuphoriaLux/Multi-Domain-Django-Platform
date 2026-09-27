@@ -21,7 +21,7 @@
                     <li class="font-bold text-red-600 dark:text-red-400">{% trans "Prevents you from ever creating a new Crush.lu profile with this account" %}</li>
                 </ul>
                 <p class="text-sm text-secondary">
-                    {% trans "Your PowerUp account will remain active, and you can continue using other platforms." %}
+                    {% trans "Your login account stays active." %}
                 </p>
             </div>
 
@@ -31,36 +31,18 @@
                 </p>
             </div>
 
-            <form method="post">
+            {% blocktrans with email=user.email asvar email_help %}Your account email is {{ email }}.{% endblocktrans %}
+            <form method="post"
+                  data-confirm="{% trans 'Are you absolutely sure? This cannot be undone and you cannot rejoin Crush.lu.' %}"
+                  data-confirm-label="{% trans 'Delete profile' %}">
                 {% csrf_token %}
-                <div class="mb-6">
-                    <label class="block text-sm font-medium mb-2">
-                        {% trans "Confirm your email address to proceed:" %}
-                    </label>
-                    <input
-                        type="email"
-                        name="confirm_email"
-                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                        placeholder="{{ user.email }}"
-                        required
-                    >
-                    <p class="text-xs text-secondary mt-1">
-                        {% trans "Enter your email address:" %} <strong>{{ user.email }}</strong>
-                    </p>
-                </div>
+                {% include "crush_lu/components/form_field.html" with field=confirm_form.confirm_email help=email_help field_class="mb-6" %}
 
-                <div class="flex gap-4">
-                    <button
-                        type="submit"
-                        class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-semibold"
-                        onclick="return confirm('{% filter escapejs %}{% trans "Are you absolutely sure? This cannot be undone and you cannot rejoin Crush.lu." %}{% endfilter %}')"
-                    >
+                <div class="flex flex-wrap gap-4">
+                    <button type="submit" class="btn-danger">
                         {% trans "Delete My Crush.lu Profile" %}
                     </button>
-                    <a
-                        href="{% url 'crush_lu:account_settings' %}"
-                        class="px-6 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition font-semibold"
-                    >
+                    <a href="{% url 'crush_lu:account_settings' %}" class="btn-crush-outline">
                         {% trans "Cancel" %}
                     </a>
                 </div>
@@ -70,7 +52,7 @@
 
     <div class="mt-6 text-sm text-secondary">
         <p>
-            {% trans "To delete your entire PowerUp account (all platforms), visit the" %}
+            {% trans "To delete your entire account, visit the" %}
             <a href="{% url 'crush_lu:gdpr_data_management' %}" class="text-crush-purple hover:underline">
                 {% trans "GDPR Data Management page" %}
             </a>.
