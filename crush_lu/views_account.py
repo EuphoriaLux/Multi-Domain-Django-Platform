@@ -1648,9 +1648,10 @@ def resend_verification_email(request):
     cooldown_until = request.session.get("resend_verification_cooldown_until", 0)
     still_cooling_down = now_ts < cooldown_until
 
-    email = (
-        request.session.get("pending_verification_email")
-        or (request.POST.get("email") or "").strip()
+    # A typed address wins over the session one, so a member who mistyped
+    # can correct it from the page's "Use a different address" field.
+    email = (request.POST.get("email") or "").strip() or request.session.get(
+        "pending_verification_email"
     )
 
     if email and not still_cooling_down:

@@ -54,6 +54,16 @@
                            required
                            placeholder="{% trans 'Your email address' %}"
                            class="w-full mb-3 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+                {% else %}
+                    <details class="mb-3 text-left">
+                        <summary class="text-sm text-purple-600 dark:text-purple-400 cursor-pointer">{% trans "Use a different address" %}</summary>
+                        <label for="id_resend_email" class="sr-only">{% trans "Email address to resend to" %}</label>
+                        <input type="email"
+                               id="id_resend_email"
+                               name="email"
+                               placeholder="{% trans 'Your email address' %}"
+                               class="w-full mt-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+                    </details>
                 {% endif %}
                 <button type="submit"
                         x-bind:disabled="disabled"

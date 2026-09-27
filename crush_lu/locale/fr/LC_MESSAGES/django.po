@@ -42983,3 +42983,7 @@ msgstr "Se connecter à votre compte existant à la place"
 msgid "Sign-in cancelled. Pick another way to continue, or try again."
 msgstr ""
 "Connexion annulée. Choisissez un autre moyen de continuer, ou réessayez."
+
+#: crush_lu/templates/account/verification_sent_crush.html
+msgid "Use a different address"
+msgstr "Utiliser une autre adresse"

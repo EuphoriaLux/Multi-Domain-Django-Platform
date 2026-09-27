@@ -28273,3 +28273,7 @@ msgstr ""
 #, python-format
 msgid "Women %(women)s%% · Men %(men)s%%"
 msgstr ""
+
+#: crush_lu/templates/account/verification_sent_crush.html
+msgid "Use a different address"
+msgstr ""

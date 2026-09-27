@@ -63,6 +63,9 @@
                             <a href="{% url 'crush_lu:privacy_policy' %}" target="_blank" rel="noopener" class="text-purple-600 hover:underline">{% trans "Privacy Policy" %}</a>
                         </label>
                     </div>
+                    {% if form.crushlu_consent.errors %}
+                        <p class="-mt-2 mb-4 text-sm text-red-600 dark:text-red-400" role="alert">{{ form.crushlu_consent.errors.0 }}</p>
+                    {% endif %}
 
                     <button class="btn-crush-primary w-full flex items-center justify-center gap-2 py-3" type="submit">
                         {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}{% trans "Complete Signup" %}

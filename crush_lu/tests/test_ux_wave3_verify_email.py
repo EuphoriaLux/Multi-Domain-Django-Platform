@@ -552,3 +552,107 @@ class ResendButtonWithoutJavascriptTests(TestCase):
         response = Client(HTTP_HOST="crush.lu").get("/accounts/confirm-email/")
         html = response.content.decode()
         self.assertIn('<span x-show="enabled">', html)
+
+
+# ---------------------------------------------------------------------------
+# Second review round (PR #1051)
+# ---------------------------------------------------------------------------
+
+
+class SocialLoginVerificationRateLimitTests(SocialLoginRequiresVerifiedEmailTests):
+    def test_repeated_social_logins_send_only_one_email(self):
+        user, _address = _unverified_user("spam@example.com")
+        self.assertIsNotNone(self._pre_login(self._request(), user))
+        self.assertIsNotNone(self._pre_login(self._request(), user, signup=False))
+        self.assertEqual(len(mail.outbox), 1)
+
+
+class ConfirmationBannerScopeTests(TestCase):
+    def setUp(self):
+        cache.clear()
+
+    def _add(self, user):
+        from django.contrib import messages as dj_messages
+
+        from azureproject.adapters import MultiDomainAccountAdapter
+
+        request = RequestFactory().get("/accounts/email/", HTTP_HOST="crush.lu")
+        request.user = user
+        request.session = SessionStore()
+        request._messages = FallbackStorage(request)
+        MultiDomainAccountAdapter(request).add_message(
+            request,
+            dj_messages.INFO,
+            "account/messages/email_confirmation_sent.txt",
+            {"email": "someone@example.com"},
+        )
+        return list(request._messages)
+
+    def test_signed_out_visitors_do_not_get_the_raw_email_banner(self):
+        self.assertEqual(self._add(AnonymousUser()), [])
+
+    def test_signed_in_email_management_keeps_its_success_banner(self):
+        user, _address = _unverified_user("member@example.com")
+        self.assertEqual(len(self._add(user)), 1)
+
+
+class SocialSignupConsentValidationTests(TestCase):
+    def setUp(self):
+        cache.clear()
+
+    def _form(self, host, data):
+        from allauth.socialaccount.models import SocialAccount, SocialLogin
+
+        from azureproject.social_forms import MultiDomainSocialSignupForm
+
+        request = RequestFactory().post("/accounts/social/signup/", HTTP_HOST=host)
+        request.user = AnonymousUser()
+        request.session = SessionStore()
+        sociallogin = SocialLogin(
+            user=User(email=""), account=SocialAccount(provider="google", uid="1")
+        )
+        with allauth_context.request_context(request):
+            form = MultiDomainSocialSignupForm(data=data, sociallogin=sociallogin)
+            form.is_valid()
+        return form
+
+    def test_crush_signup_without_consent_is_rejected(self):
+        form = self._form("crush.lu", {"email": "new@example.com"})
+        self.assertIn("crushlu_consent", form.errors)
+
+    def test_crush_signup_with_consent_passes_the_consent_check(self):
+        form = self._form(
+            "crush.lu", {"email": "new@example.com", "crushlu_consent": "on"}
+        )
+        self.assertNotIn("crushlu_consent", form.errors)
+
+    def test_other_domains_do_not_ask_for_crush_consent(self):
+        form = self._form("power-up.lu", {"email": "new@example.com"})
+        self.assertNotIn("crushlu_consent", form.fields)
+
+
+class ResendAddressCorrectionTests(TestCase):
+    def setUp(self):
+        cache.clear()
+
+    def test_typed_address_overrides_a_mistyped_session_address(self):
+        _unverified_user("right@example.com")
+        client = Client(HTTP_HOST="crush.lu")
+        session = client.session
+        session["pending_verification_email"] = "wrnog@example.com"
+        session.save()
+        client.post("/en/signup/resend-verification/", {"email": "right@example.com"})
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["right@example.com"])
+        self.assertEqual(
+            client.session["pending_verification_email"], "right@example.com"
+        )
+
+    def test_page_offers_a_correction_field_when_an_address_is_pending(self):
+        client = Client(HTTP_HOST="crush.lu")
+        session = client.session
+        session["pending_verification_email"] = "someone@example.com"
+        session.save()
+        html = client.get("/accounts/confirm-email/").content.decode()
+        self.assertIn("Use a different address", html)
+        self.assertIn('name="email"', html)

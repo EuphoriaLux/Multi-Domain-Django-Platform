@@ -42851,3 +42851,7 @@ msgid "Sign-in cancelled. Pick another way to continue, or try again."
 msgstr ""
 "Anmeldung abgebrochen. Wähle eine andere Möglichkeit fortzufahren, oder "
 "versuche es erneut."
+
+#: crush_lu/templates/account/verification_sent_crush.html
+msgid "Use a different address"
+msgstr "Andere Adresse verwenden"

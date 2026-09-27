@@ -691,6 +691,11 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
             )
             and request is not None
             and _is_crush_domain(request)
+            and not (
+                message_template == "account/messages/email_confirmation_sent.txt"
+                and getattr(request, "user", None) is not None
+                and request.user.is_authenticated
+            )
         ):
             return
         return super().add_message(
@@ -863,8 +868,14 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
                     .first()
                 )
                 if address is not None:
-                    address.send_confirmation(
-                        request, signup=kwargs.get("signup", False)
+                    # allauth's rate-limited send (per-address cooldown), so
+                    # repeated provider logins can't spam a typed address.
+                    from allauth.account.internal.flows.email_verification import (
+                        send_verification_email_to_address,
+                    )
+
+                    send_verification_email_to_address(
+                        request, address, signup=kwargs.get("signup", False)
                     )
                     request.session["pending_verification_email"] = address.email
                     return self.respond_email_verification_sent(request, user)
