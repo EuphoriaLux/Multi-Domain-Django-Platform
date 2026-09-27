@@ -24,6 +24,10 @@ from crush_lu.storage import crush_media_storage
 logger = logging.getLogger(__name__)
 
 
+class GiftNoLongerClaimable(ValueError):
+    """The gift's row left PENDING/CLAIM_FAILED after the instance was loaded."""
+
+
 @dataclass
 class MediaAttachmentResult:
     """Result of attaching media files to journey rewards."""
@@ -428,6 +432,19 @@ class JourneyGift(models.Model):
         # Use atomic transaction with savepoints for rollback control
         try:
             with transaction.atomic():
+                # Serialize with gift_report (and concurrent claims): lock the
+                # row and re-read status, since this instance may be stale.
+                # The lock is held until the final save below commits.
+                locked_status = (
+                    type(self)
+                    .objects.select_for_update()
+                    .values_list("status", flat=True)
+                    .get(pk=self.pk)
+                )
+                if locked_status not in (self.Status.PENDING, self.Status.CLAIM_FAILED):
+                    self.status = locked_status
+                    raise GiftNoLongerClaimable("This gift cannot be claimed")
+
                 # SAVEPOINT 1: User link
                 sid_user = transaction.savepoint()
 
@@ -536,6 +553,9 @@ class JourneyGift(models.Model):
                 logger.info(f"Gift {self.gift_code}: Successfully claimed by user {user.id}")
                 return journey
 
+        except GiftNoLongerClaimable:
+            # Reported/claimed/expired meanwhile: keep that status untouched.
+            raise
         except ValueError as e:
             # ValueError was raised from inner exception handlers
             # Mark as failed now that we're outside the atomic block
