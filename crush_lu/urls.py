@@ -124,10 +124,15 @@ def _spark_to_crush_connect(request, *args, **kwargs):
     NoReverseMatch and would return 500 instead of redirecting.
 
     This tiny view ignores any captured kwargs and reverses cleanly.
-    Codex flagged the RedirectView form as P1 on PR #433. The teaser is
-    public (unlike the hub, which is login-gated) — deliberate, since these
-    routes (spark_request/spark_send_inline/spark_actions) can be hit by a
-    logged-out or unverified member off an old bookmark/notification.
+    Codex flagged the RedirectView form as P1 on PR #433.
+
+    Left targeting the teaser rather than the hub (UX Wave 3, finding
+    5-13's redirect target): retargeting spark_request/spark_send_inline/
+    spark_actions is outside finding 5-13's evidence (only spark_list,
+    spark_detail and matches.html were cited), and the teaser is public
+    while the hub is login-gated, so switching the target here would
+    change what a logged-out or unverified member hitting one of these
+    routes lands on.
     """
     return redirect("crush_lu:crush_connect_teaser")
 

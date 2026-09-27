@@ -275,8 +275,10 @@ class SparkListRetirementTests(TestCase):
     def test_in_flight_spark_still_redirects_no_exception(self):
         """The brief's product answer is unconditional: even a member with
         an in-flight spark (the case #433's guard was protecting) now gets
-        redirected — nothing left for them to track on this route, by
-        design; they'd resume mid-journey via coach_spark_assign instead."""
+        redirected — the member has no page for it any more, by design.
+        The coach keeps coach_spark_list/coach_spark_assign (coach-only) to
+        see and resolve it, and spark_create_journey stays reachable by
+        direct URL."""
         CrushSpark.objects.create(
             event=self.event,
             sender=self.user,
