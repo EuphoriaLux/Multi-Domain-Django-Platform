@@ -431,6 +431,18 @@ class SocialSignupConsentSignalTests(TestCase):
         self.user.data_consent.refresh_from_db()
         self.assertTrue(self.user.data_consent.crushlu_consent_given)
 
+    def test_any_value_the_form_accepts_is_recorded_as_true(self):
+        """The required BooleanField accepts any truthy value ("yes", "1",
+        even "no"), so the stored consent must be normalised the same way."""
+        for value in ("yes", "1", "true", "no"):
+            with self.subTest(value=value):
+                request = self._post({"crushlu_consent": value})
+                record_interactive_social_signup_consent(
+                    sender=User, request=request, user=self.user, sociallogin=Mock()
+                )
+                self.user.data_consent.refresh_from_db()
+                self.assertTrue(self.user.data_consent.crushlu_consent_given)
+
     def test_auto_signup_is_not_touched(self):
         """No sociallogin present at all -- pre_social_login's implicit
         default (True, seeded in setUp) must survive untouched."""

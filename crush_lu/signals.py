@@ -4744,7 +4744,14 @@ def record_interactive_social_signup_consent(
     from crush_lu.models.profiles import UserDataConsent
     from crush_lu.oauth_statekit import get_client_ip
 
-    consent_given = request.POST.get("crushlu_consent") == "on"
+    from django import forms
+
+    # Normalise exactly as the form's required BooleanField did when it
+    # accepted the submission (MultiDomainSocialSignupForm), so any value it
+    # treated as ticked is stored as ticked.
+    consent_given = forms.BooleanField(required=False).to_python(
+        request.POST.get("crushlu_consent")
+    )
     consent, _created = UserDataConsent.objects.get_or_create(user=user)
     consent.crushlu_consent_given = consent_given
     consent.crushlu_consent_date = timezone.now()
