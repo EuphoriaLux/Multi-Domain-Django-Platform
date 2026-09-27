@@ -2685,6 +2685,13 @@ document.addEventListener("alpine:init", function () {
                     return;
                 }
                 var anchor = panel.querySelector("a.btn-crush-primary");
+                // event_register rejects age-restricted sign-ups without a
+                // qualifying profile DOB. Keep a real payment button available
+                // for an existing unpaid registration, but never mirror a
+                // registration anchor that leads straight to that rejection.
+                if (anchor && panel.dataset.ageBlocked === "true") {
+                    return;
+                }
                 var target = anchor;
                 if (anchor) {
                     this.ctaHref = anchor.getAttribute("href") || "";

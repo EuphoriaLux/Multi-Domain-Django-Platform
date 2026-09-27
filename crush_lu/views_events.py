@@ -1025,6 +1025,20 @@ def event_detail(request, event_id):
     if request.user.is_authenticated:
         user_profile = CrushProfile.objects.filter(user=request.user).first()
 
+    # Match event_register: restricted events require a profile DOB inside
+    # the allowed range. The in-page anchor may still render for a blocked
+    # member, so expose this to the mobile sticky CTA before it mirrors it.
+    age_restriction_applies = event.min_age > 18 or event.max_age < 99
+    age_blocked_for_registration = bool(
+        request.user.is_authenticated
+        and age_restriction_applies
+        and (
+            user_profile is None
+            or user_profile.age is None
+            or not (event.min_age <= user_profile.age <= event.max_age)
+        )
+    )
+
     # Language requirement check
     language_requirement_met = True
     if event.languages and request.user.is_authenticated:
@@ -1262,6 +1276,7 @@ def event_detail(request, event_id):
         "can_cancel": can_cancel,
         "user_registration": registration,
         "user_profile": user_profile,
+        "age_blocked_for_registration": age_blocked_for_registration,
         "user_is_premium": user_is_premium,
         "event_full_for_user": event_full_for_user,
         # Viewer-aware seat count for the fact strip: `event.spots_remaining`

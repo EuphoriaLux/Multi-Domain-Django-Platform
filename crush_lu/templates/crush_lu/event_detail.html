@@ -419,7 +419,7 @@
                 whichever single btn-crush-primary anchor is rendered here, without
                 re-deriving the eligibility logic itself (#4-03).
                 {% endcomment %}
-                <div id="event-cta-panel">
+                <div id="event-cta-panel" data-age-blocked="{{ age_blocked_for_registration|yesno:'true,false' }}">
                 {# Live banner: frames the whole action area while the event is in progress #}
                 {% if event.is_live %}
                 <div class="mb-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 sm:p-4">

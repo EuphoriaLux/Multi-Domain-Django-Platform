@@ -11,7 +11,7 @@ Excluded from the default run (``-m "not playwright"`` in pytest.ini). Run:
 """
 
 import re
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pytest
 from django.conf import settings
@@ -279,3 +279,48 @@ def test_sticky_cta_falls_back_to_pay_button_for_unpaid_registration(
         "the real .js-sumup-checkout-detail button so the existing "
         "document-level checkout listener fires"
     )
+
+
+
+def test_sticky_registration_cta_respects_age_gate(page, live_server, upcoming_event):
+    """An age-restricted registration anchor must not become a sticky dead end."""
+    from crush_lu.models import CrushProfile
+
+    upcoming_event.min_age = 21
+    upcoming_event.max_age = 35
+    upcoming_event.save(update_fields=["min_age", "max_age"])
+    member = _make_open_registration_member()
+    _log_in(page, live_server, member)
+    page.set_viewport_size(PHONE)
+    url = f"{live_server.url}/en/events/{upcoming_event.id}/"
+    panel = page.locator("#event-cta-panel")
+    sticky = page.locator("#event-sticky-cta")
+
+    def assert_blocked():
+        expect(panel).to_have_attribute("data-age-blocked", "true")
+        # The regular anchor exists, so the sticky component must apply its own gate.
+        expect(panel.locator("a.btn-crush-primary")).to_have_count(1)
+        expect(sticky).to_be_hidden()
+        assert page.evaluate(
+            "Alpine.$data(document.getElementById('event-sticky-cta')).ctaHref"
+        ) == ""
+
+    page.goto(url)
+    assert_blocked()  # No profile/DOB.
+
+    profile = CrushProfile.objects.create(
+        user=member, gender="F", location="Luxembourg"
+    )
+    page.reload()
+    assert_blocked()  # Profile exists, but DOB is still missing.
+
+    profile.date_of_birth = date(2008, 1, 1)
+    profile.save(update_fields=["date_of_birth"])
+    page.reload()
+    assert_blocked()  # Under the event's minimum age.
+
+    profile.date_of_birth = date(2000, 1, 1)
+    profile.save(update_fields=["date_of_birth"])
+    page.reload()
+    expect(panel).to_have_attribute("data-age-blocked", "false")
+    expect(sticky.locator("a")).to_have_attribute("href", re.compile(r".+"))
