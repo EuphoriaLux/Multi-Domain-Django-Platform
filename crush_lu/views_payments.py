@@ -2485,6 +2485,23 @@ def _sumup_return_response(request, tx_obj):
             # Supporter badge and thank-you state now show.
             return redirect("crush_lu:my_events")
     else:
+        # A non-PAID event checkout used to land here too, and this branch
+        # sent it to home with no link back to the event it was paying for
+        # (#4-05) -- the seat is still reserved (pending stays reserved until
+        # the event's own cleanup, this view never cancels it), so home was
+        # simply the wrong page, not a safer one. Every other purpose
+        # (premium, donation, unlinked) keeps the pre-existing behaviour.
+        if tx_obj.event_registration:
+            messages.warning(
+                request,
+                _(
+                    "Your payment is still pending or was not completed. "
+                    "Your spot is reserved — you can retry payment below."
+                ),
+            )
+            return redirect(
+                "crush_lu:event_detail", event_id=tx_obj.event_registration.event.pk
+            )
         messages.warning(request, _("Payment is pending or was not completed."))
 
     return redirect("crush_lu:home")

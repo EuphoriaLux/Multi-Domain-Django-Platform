@@ -440,7 +440,9 @@ class CuratedSurfaceConsistencyTests(CuratedRegistrationTestBase):
         self._register(self.user, self.curated)
 
         response = self.client.get(f"/en/events/{self.curated.id}/")
-        self.assertNotContains(response, "js-sumup-checkout-detail")
+        # Renamed from the "js-sumup-checkout-detail" class to the
+        # sumupCheckoutButton Alpine component (UX Wave 3 · WP8 / #4-05).
+        self.assertNotContains(response, 'x-data="sumupCheckoutButton"')
 
     def test_my_events_shows_applied_not_confirmed(self):
         self._register(self.user, self.curated)

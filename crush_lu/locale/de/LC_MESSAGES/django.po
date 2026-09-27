@@ -42438,3 +42438,49 @@ msgstr "Die Anteile Frauen/Männer zeigen, wie viel Prozent aller abstimmenden F
 #, python-format
 msgid "Women %(women)s%% · Men %(men)s%%"
 msgstr "Frauen %(women)s%% · Männer %(men)s%%"
+
+# UX Wave 3 · WP8
+#: crush_lu/templates/crush_lu/event_detail.html crush_lu/templates/crush_lu/event_ticket.html
+#, python-format
+msgid "Payment due — €%(amount)s"
+msgstr "Zahlung ausstehend — €%(amount)s"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "Your spot is reserved. Complete payment below to confirm it."
+msgstr "Dein Platz ist reserviert. Schließe die Zahlung unten ab, um ihn zu bestätigen."
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "You're in!"
+msgstr "Du bist dabei!"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "View my ticket"
+msgstr "Mein Ticket ansehen"
+
+#: crush_lu/templates/crush_lu/event_detail.html crush_lu/templates/crush_lu/_event_registration_success.html
+msgid "Preparing checkout…"
+msgstr "Bezahlvorgang wird vorbereitet …"
+
+#: crush_lu/templates/crush_lu/event_detail.html crush_lu/templates/crush_lu/_event_registration_success.html crush_lu/templates/crush_lu/my_events.html
+msgid "An error occurred launching payment. Please try again."
+msgstr "Beim Starten der Zahlung ist ein Fehler aufgetreten. Bitte versuche es erneut."
+
+#: crush_lu/templates/crush_lu/event_detail.html crush_lu/templates/crush_lu/_event_registration_success.html crush_lu/templates/crush_lu/my_events.html
+msgid "Pay with Card"
+msgstr "Mit Karte bezahlen"
+
+#: crush_lu/templates/crush_lu/my_events.html
+msgid "Preparing…"
+msgstr "Wird vorbereitet …"
+
+#: crush_lu/templates/crush_lu/event_ticket.html
+msgid "This ticket holds your seat, but payment hasn't been received yet."
+msgstr "Dieses Ticket sichert deinen Platz, aber die Zahlung ist noch nicht eingegangen."
+
+#: crush_lu/views_payments.py
+msgid ""
+"Your payment is still pending or was not completed. Your spot is reserved "
+"— you can retry payment below."
+msgstr ""
+"Deine Zahlung ist noch ausstehend oder wurde nicht abgeschlossen. Dein "
+"Platz ist reserviert — du kannst die Zahlung unten erneut versuchen."

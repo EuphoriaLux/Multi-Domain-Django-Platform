@@ -42570,3 +42570,49 @@ msgstr "Les parts femmes/hommes indiquent le pourcentage de toutes les femmes et
 #, python-format
 msgid "Women %(women)s%% · Men %(men)s%%"
 msgstr "Femmes %(women)s%% · Hommes %(men)s%%"
+
+# UX Wave 3 · WP8
+#: crush_lu/templates/crush_lu/event_detail.html crush_lu/templates/crush_lu/event_ticket.html
+#, python-format
+msgid "Payment due — €%(amount)s"
+msgstr "Paiement en attente — %(amount)s €"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "Your spot is reserved. Complete payment below to confirm it."
+msgstr "Votre place est réservée. Terminez le paiement ci-dessous pour la confirmer."
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "You're in!"
+msgstr "Vous y êtes !"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "View my ticket"
+msgstr "Voir mon billet"
+
+#: crush_lu/templates/crush_lu/event_detail.html crush_lu/templates/crush_lu/_event_registration_success.html
+msgid "Preparing checkout…"
+msgstr "Préparation du paiement…"
+
+#: crush_lu/templates/crush_lu/event_detail.html crush_lu/templates/crush_lu/_event_registration_success.html crush_lu/templates/crush_lu/my_events.html
+msgid "An error occurred launching payment. Please try again."
+msgstr "Une erreur s'est produite lors du lancement du paiement. Veuillez réessayer."
+
+#: crush_lu/templates/crush_lu/event_detail.html crush_lu/templates/crush_lu/_event_registration_success.html crush_lu/templates/crush_lu/my_events.html
+msgid "Pay with Card"
+msgstr "Payer par carte"
+
+#: crush_lu/templates/crush_lu/my_events.html
+msgid "Preparing…"
+msgstr "Préparation…"
+
+#: crush_lu/templates/crush_lu/event_ticket.html
+msgid "This ticket holds your seat, but payment hasn't been received yet."
+msgstr "Ce billet réserve votre place, mais le paiement n'a pas encore été reçu."
+
+#: crush_lu/views_payments.py
+msgid ""
+"Your payment is still pending or was not completed. Your spot is reserved "
+"— you can retry payment below."
+msgstr ""
+"Votre paiement est toujours en attente ou n'a pas été finalisé. Votre "
+"place est réservée — vous pouvez retenter le paiement ci-dessous."
