@@ -179,7 +179,10 @@ def test_premium_badge_and_named_coach_are_visible(client, settings):
 
     body = client.get(HUB_URL).content.decode()
 
-    assert "Premium member" in body
+    # UX Wave 3, 6-12: says "Your coach:" and names them, rather than just
+    # "Premium member" with a bare name that never says who they are.
+    assert "Premium" in body
+    assert "Your coach:" in body
     assert member.crushprofile.assigned_coach.user.username in body
 
 
