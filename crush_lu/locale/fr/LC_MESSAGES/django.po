@@ -42570,3 +42570,51 @@ msgstr "Les parts femmes/hommes indiquent le pourcentage de toutes les femmes et
 #, python-format
 msgid "Women %(women)s%% · Men %(men)s%%"
 msgstr "Femmes %(women)s%% · Hommes %(men)s%%"
+
+# UX Wave 3 · WP7
+#: crush_lu/views_events.py
+msgid "Applied"
+msgstr "Candidature envoyée"
+
+#: templates/crush_lu/includes/event_card.html
+msgid "View ticket"
+msgstr "Voir le billet"
+
+#: templates/crush_lu/includes/event_card.html
+msgid "Complete payment"
+msgstr "Finaliser le paiement"
+
+#: templates/crush_lu/event_ticket.html
+msgid "Event ticket"
+msgstr "Billet de l'événement"
+
+#: templates/crush_lu/event_list.html
+msgid "All types"
+msgstr "Tous les types"
+
+#: templates/crush_lu/event_list.html
+msgid "Create a free profile and get verified to register for events."
+msgstr "Créez un profil gratuit et faites-vous vérifier pour vous inscrire aux événements."
+
+#: templates/crush_lu/event_list.html
+msgid "Create a profile to get notified"
+msgstr "Créez un profil pour être averti"
+
+#: templates/crush_lu/event_list.html
+msgid "Sign in to see the events you've attended."
+msgstr "Connectez-vous pour voir les événements auxquels vous avez participé."
+
+#: templates/crush_lu/event_list.html
+msgid "Event time range"
+msgstr "Période des événements"
+
+#: templates/crush_lu/event_list.html
+msgid "Filter by event type"
+msgstr "Filtrer par type d'événement"
+
+#: templates/crush_lu/includes/event_card.html
+#, python-format
+msgid "Only %(counter)s spot left"
+msgid_plural "Only %(counter)s spots left"
+msgstr[0] "Plus qu'%(counter)s place disponible"
+msgstr[1] "Plus que %(counter)s places disponibles"

@@ -72,32 +72,67 @@
     {% include "crush_lu/includes/_event_poll_banner.html" %}
 {% endif %}
 
+{% if not user.is_authenticated %}
+{% comment %}
+Prospect guidance banner — this page is the SEO landing page, and nothing
+told an anonymous visitor a verified profile is how registration works
+(finding 1-13).
+{% endcomment %}
+<div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 rounded-lg p-4 mb-6 flex flex-wrap items-center justify-between gap-3">
+    <p class="text-sm">{% trans "Create a free profile and get verified to register for events." %}</p>
+    <a href="{% url 'account_signup' %}" class="btn-crush-outline btn-sm shrink-0">{% trans "Get started" %}</a>
+</div>
+{% endif %}
+
 <div x-data="eventTabs">
+    <h1 class="text-2xl font-bold dark:text-white mb-4">{% trans "Events" %}</h1>
     {# Tab navigation #}
-    <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-6">
-        <h2 class="text-2xl font-bold dark:text-white sm:mr-4">{% trans "Events" %}</h2>
-        <div class="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 gap-1">
-            <button @click="showUpcoming" x-bind:class="upcomingTabClass" class="px-4 py-2.5 min-h-11 text-sm sm:text-base font-medium rounded-md transition-all duration-200 whitespace-nowrap flex-1 sm:flex-none">
+    <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
+        <div class="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 gap-1" role="tablist" aria-label="{% trans 'Event time range' %}">
+            <button type="button" role="tab" id="events-tab-upcoming" aria-controls="events-panel-upcoming" x-bind:aria-selected="upcomingAriaSelected" @click="showUpcoming" x-bind:class="upcomingTabClass" class="px-4 py-2.5 min-h-11 text-sm sm:text-base font-medium rounded-md transition-all duration-200 whitespace-nowrap flex-1 sm:flex-none">
                 {% trans "Upcoming" %}
             </button>
-            <button @click="showPast" x-bind:class="pastTabClass" class="px-4 py-2.5 min-h-11 text-sm sm:text-base font-medium rounded-md transition-all duration-200 whitespace-nowrap flex-1 sm:flex-none">
+            <button type="button" role="tab" id="events-tab-past" aria-controls="events-panel-past" x-bind:aria-selected="pastAriaSelected" @click="showPast" x-bind:class="pastTabClass" class="px-4 py-2.5 min-h-11 text-sm sm:text-base font-medium rounded-md transition-all duration-200 whitespace-nowrap flex-1 sm:flex-none">
                 {% trans "Past Events" %}
             </button>
         </div>
     </div>
 
+    {% if event_type_filter_options|length > 1 %}
+    {% comment %}
+    Client-side type filter chips (finding 1-13). Only offered when the
+    upcoming list actually mixes more than one type.
+    {% endcomment %}
+    <div class="flex flex-wrap gap-2 mb-6" role="group" aria-label="{% trans 'Filter by event type' %}">
+        <button type="button" data-filter-type="all" x-data="eventTypeFilterChip" x-bind:class="chipClass" @click="activate" class="px-3 py-1.5 min-h-9 text-sm font-medium rounded-full border transition-colors">
+            {% trans "All types" %}
+        </button>
+        {% for option in event_type_filter_options %}
+        <button type="button" data-filter-type="{{ option.value }}" x-data="eventTypeFilterChip" x-bind:class="chipClass" @click="activate" class="px-3 py-1.5 min-h-9 text-sm font-medium rounded-full border transition-colors">
+            {{ option.label }}
+        </button>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     {# Upcoming events tab #}
-    <div x-show="isUpcoming">
+    <div id="events-panel-upcoming" role="tabpanel" aria-labelledby="events-tab-upcoming" x-show="isUpcoming">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {% for event in upcoming_event_list %}
+                <div x-data="eventTypeFilterCard" x-show="visible" data-event-type="{{ event.event_type }}">
                 {% include "crush_lu/includes/event_card.html" with event=event is_past=False %}
+                </div>
             {% empty %}
             <div class="col-span-full">
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
                     <div class="text-center py-12 px-6 min-h-[55vh] flex flex-col items-center justify-center">
                         <div class="mx-auto w-32 h-32 mb-4 ghost-glow">{% include "crush_lu/includes/ghost-story-party.html" with class="w-full h-full" %}</div>
                         <h4 class="text-xl font-semibold mb-2 dark:text-white">{% trans "The ghosts are planning something" %}</h4>
-                        <p class="text-gray-500 dark:text-gray-400">{% trans "No upcoming events right now — check back soon for speed dating nights and social mixers." %}</p>
+                        <p class="text-gray-500 dark:text-gray-400 {% if not user.is_authenticated %}mb-4{% endif %}">{% trans "No upcoming events right now — check back soon for speed dating nights and social mixers." %}</p>
+                        {% if not user.is_authenticated %}
+                        {# No newsletter/alerts subscription endpoint exists yet (findings_deferred) — point the anonymous CTA at the one real next step instead of a dead link. #}
+                        <a href="{% url 'account_signup' %}" class="btn-crush-outline btn-sm">{% trans "Create a profile to get notified" %}</a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -106,7 +141,7 @@
     </div>
 
     {# Past events tab #}
-    <div x-show="isPast" style="display: none;">
+    <div id="events-panel-past" role="tabpanel" aria-labelledby="events-tab-past" x-show="isPast" style="display: none;">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {% for event, user_attended in past_events_with_attendance %}
                 {% include "crush_lu/includes/event_card.html" with event=event is_past=True user_attended=user_attended %}
@@ -116,7 +151,11 @@
                     <div class="text-center py-12 px-6">
                         <div class="mx-auto w-32 h-32 mb-4 ghost-glow">{% include "crush_lu/includes/ghost-story-lonely.html" with class="w-full h-full" %}</div>
                         <h4 class="text-xl font-semibold mb-2 dark:text-white">{% trans "Nothing in the rear-view mirror yet" %}</h4>
+                        {% if user.is_authenticated %}
                         <p class="text-gray-500 dark:text-gray-400">{% trans "Past events will appear here once you've attended your first meetup." %}</p>
+                        {% else %}
+                        <p class="text-gray-500 dark:text-gray-400">{% trans "Sign in to see the events you've attended." %}</p>
+                        {% endif %}
                     </div>
                 </div>
             </div>

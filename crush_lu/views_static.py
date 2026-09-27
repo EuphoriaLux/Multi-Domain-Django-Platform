@@ -128,27 +128,19 @@ def home(request):
     now = timezone.now()
     # Public, non-private events only — private-invitation events are visible
     # only to invited guests, and this landing page is anonymous (authenticated
-    # users were redirected above).
+    # users were redirected above). QA/seed data (titled with a "[DEBUG]"
+    # prefix by the seed commands) is excluded so a prospect never lands on a
+    # test event (finding 1-05).
     published = MeetupEvent.objects.filter(
         is_published=True, is_cancelled=False, is_private_invitation=False
-    )
-    # Events happening right now ("live"): started but not yet ended. end_time
-    # can't be filtered in the ORM (timedelta * F() is unsupported on SQLite),
-    # so confirm in Python — but bound the scan to MAX_EVENT_DURATION so a stray
-    # long-duration record can't turn this into a full-history scan.
-    live_events = [
-        e
-        for e in published.filter(
-            date_time__gte=MeetupEvent.live_lookback_cutoff(now), date_time__lt=now
-        ).order_by("date_time")
-        if e.end_time >= now
-    ]
-    # Soonest upcoming events (future starts are never ended; bound at the query
-    # level so we never materialise the full future backlog).
-    future_events = list(
+    ).exclude(title__istartswith="[DEBUG]")
+    # Anonymous visitors can't join an event that has already started, so this
+    # anonymous-only landing page shows only future, registration-open starts —
+    # a "Live now" event they can't act on is worse than one further out
+    # (finding 1-05). `end_time`/live status is irrelevant here on purpose.
+    upcoming_events = list(
         published.filter(date_time__gte=now).order_by("date_time")[:3]
     )
-    upcoming_events = (live_events + future_events)[:3]
 
     context = {
         "upcoming_events": upcoming_events,

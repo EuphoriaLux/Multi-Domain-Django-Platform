@@ -2689,7 +2689,51 @@ document.addEventListener("alpine:init", function () {
             showPast() {
                 this.setTab("past");
             },
+            get upcomingAriaSelected() {
+                return this.isUpcoming ? "true" : "false";
+            },
+            get pastAriaSelected() {
+                return this.isPast ? "true" : "false";
+            },
         });
+    });
+
+    // Event type filter (event_list.html, finding 1-13). Shared active-type
+    // state lives on an Alpine.store because directives here can't call a
+    // method with an argument (STYLE.md §7) — each chip/card instead reads
+    // its own value from its element's own data-filter-type/data-event-type
+    // attribute in init(), and only ever calls no-arg methods/getters.
+    Alpine.store("eventTypeFilter", { active: "all" });
+
+    Alpine.data("eventTypeFilterChip", function () {
+        return {
+            type: "all",
+            init() {
+                this.type = this.$el.dataset.filterType || "all";
+            },
+            activate() {
+                Alpine.store("eventTypeFilter").active = this.type;
+            },
+            get chipClass() {
+                var isActive = Alpine.store("eventTypeFilter").active === this.type;
+                return isActive
+                    ? "bg-crush-purple text-white border-crush-purple"
+                    : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700";
+            },
+        };
+    });
+
+    Alpine.data("eventTypeFilterCard", function () {
+        return {
+            type: "",
+            init() {
+                this.type = this.$el.dataset.eventType || "";
+            },
+            get visible() {
+                var active = Alpine.store("eventTypeFilter").active;
+                return active === "all" || active === this.type;
+            },
+        };
     });
 
     // Invitation row component (reject modal)

@@ -393,6 +393,58 @@ def _postal_address(event):
     return postal
 
 
+def _light_eligibility(event, profile):
+    """Display-only estimate of whether ``profile`` meets ``event``'s
+    ``profile_requirement``, for the list-card "Verified members only" chip
+    (findings 4-08 / 1-13).
+
+    This mirrors the *shape* of the gate in ``event_register`` (same field,
+    same branches) but never blocks anything and carries no messaging — the
+    only source of truth for whether a registration is actually allowed is
+    ``event_register`` itself. Returns ``True`` when nothing here suggests
+    the member would be turned away, so an unrecognised or future
+    ``profile_requirement`` value defaults to "don't flag it" rather than
+    guessing wrong in the more visible direction.
+    """
+    if event.is_private_invitation:
+        # Gated by invitation, not profile_requirement — never flag here.
+        return True
+    requirement = event.profile_requirement
+    if not requirement or requirement not in {
+        "completed",
+        "approved",
+        "coach_assigned",
+        "unverified",
+        "profile_exists",
+    }:
+        return True
+    if profile is None:
+        return False
+    status = profile.verification_status
+    if requirement == "completed":
+        return status == "verified" or (status == "pending" and profile.phone_verified)
+    if requirement == "approved":
+        return status == "verified"
+    if requirement == "coach_assigned":
+        return status != "rejected" and bool(profile.assigned_coach_id)
+    if requirement == "unverified":
+        return status not in ("verified", "rejected")
+    if requirement == "profile_exists":
+        return status != "rejected"
+    return True
+
+
+# Registration statuses that still mean "you have a stake in this upcoming
+# event" for the list-card status chip. `cancelled` deliberately excluded —
+# a cancelled registration should look like no registration at all.
+_LIST_CARD_STATUS_TONES = {
+    "confirmed": ("success", _("Confirmed")),
+    "pending": ("warning", _("Payment due")),
+    "waitlist": ("info", _("Waitlist")),
+    "applied": ("info", _("Applied")),
+}
+
+
 def _filter_private_events(events, user):
     """Filter out private invitation events unless user is invited."""
     if not user.is_authenticated:
@@ -479,6 +531,46 @@ def event_list(request):
     past_events_with_attendance = [
         (event, event.id in attended_ids) for event in visible_past
     ]
+
+    # Per-user registration status + eligibility for the upcoming list cards
+    # (finding 4-08). One query for the status map; eligibility is computed
+    # in Python from the profile already fetched, so neither adds an N+1.
+    event_registration_status = {}
+    event_status_chip = {}
+    event_eligibility = {}
+    if request.user.is_authenticated and visible_upcoming:
+        event_registration_status = dict(
+            EventRegistration.objects.filter(
+                event__in=visible_upcoming, user=request.user
+            )
+            .exclude(status="cancelled")
+            .values_list("event_id", "status")
+        )
+        for event_id, status in event_registration_status.items():
+            tone_label = _LIST_CARD_STATUS_TONES.get(status)
+            if tone_label:
+                event_status_chip[event_id] = {
+                    "tone": tone_label[0],
+                    "label": tone_label[1],
+                }
+        list_profile = CrushProfile.objects.filter(user=request.user).first()
+        for event in visible_upcoming:
+            event_eligibility[event.id] = _light_eligibility(event, list_profile)
+
+    # Type filter chips (finding 1-13): only offer types actually present so
+    # the bar never shows an empty result.
+    event_type_labels = dict(MeetupEvent.EVENT_TYPE_CHOICES)
+    present_types = []
+    seen_types = set()
+    for event in visible_upcoming:
+        if event.event_type not in seen_types:
+            seen_types.add(event.event_type)
+            present_types.append(
+                {
+                    "value": event.event_type,
+                    "label": event_type_labels.get(event.event_type, event.event_type),
+                }
+            )
 
     # Build ItemList JSON-LD in Python to avoid template rendering issues
     # (escapejs produces \x27 for apostrophes, which is invalid JSON)
@@ -618,6 +710,10 @@ def event_list(request):
         "past_events_with_attendance": past_events_with_attendance,
         "event_list_jsonld": event_list_jsonld,
         "active_polls": active_polls,
+        "event_registration_status": event_registration_status,
+        "event_status_chip": event_status_chip,
+        "event_eligibility": event_eligibility,
+        "event_type_filter_options": present_types,
     }
     return render(request, "crush_lu/event_list.html", context)
 
