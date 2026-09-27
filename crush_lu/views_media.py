@@ -162,18 +162,35 @@ def _are_connect_paired(viewer, owner):
         return False
     if _has_visible_cycle_card(viewer, owner):
         return True
-    if ConnectWeeklyRequest.objects.filter(
-        requester=owner,
-        recipient=viewer,
-        status=ConnectWeeklyRequest.Status.PENDING,
-        # Expiry is applied lazily by ``sync_request_state``; a stale PENDING
-        # row past its deadline is already gone from the inbox.
-        expires_at__gt=timezone.now(),
-    ).exists():
+    if (
+        _can_open_connect_inbox(viewer)
+        and ConnectWeeklyRequest.objects.filter(
+            requester=owner,
+            recipient=viewer,
+            status=ConnectWeeklyRequest.Status.PENDING,
+            # Expiry is applied lazily by ``sync_request_state``; a stale PENDING
+            # row past its deadline is already gone from the inbox.
+            expires_at__gt=timezone.now(),
+        ).exists()
+    ):
         return True
     # The pick page re-validates the pool and the assigned coach on read.
     pick = get_active_coach_pick(viewer, include_accepted=True)
     return pick is not None and pick.candidate_id == owner.pk
+
+
+def _can_open_connect_inbox(viewer):
+    """The recipient-side gate of ``connect_week_inbox``: a paused or
+    no-longer-eligible recipient is redirected before any requester renders."""
+    from .connect_phase import candidate_access_open
+    from .services.crush_connect import is_catalogue_eligible
+
+    membership = getattr(viewer, "crush_connect_membership", None)
+    if membership is not None and membership.is_paused:
+        return False
+    return viewer.is_staff or (
+        candidate_access_open() and is_catalogue_eligible(viewer)
+    )
 
 
 def _has_visible_cycle_card(viewer, owner):

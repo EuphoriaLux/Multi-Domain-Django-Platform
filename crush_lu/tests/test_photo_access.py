@@ -438,6 +438,19 @@ class TestProfilePhotoRefused:
         )
         assert _photo(client, ben, alice).status_code == 403
 
+    def test_pending_request_after_recipient_paused(self, client):
+        alice = _member("alice", photo_consent=True)
+        ben = _member("ben", photo_consent=True)
+        CrushConnectMembership.objects.filter(user=ben).update(paused_at=timezone.now())
+        session = ConnectWeekSession.objects.create(user=alice)
+        ConnectWeeklyRequest.objects.create(
+            session=session,
+            requester=alice,
+            recipient=ben,
+            expires_at=timezone.now() + timedelta(hours=24),
+        )
+        assert _photo(client, ben, alice).status_code == 403
+
     def test_chat_partner_excluded_by_coach(self, client):
         alice = _member("alice", photo_consent=True)
         ben = _member("ben", photo_consent=True)
