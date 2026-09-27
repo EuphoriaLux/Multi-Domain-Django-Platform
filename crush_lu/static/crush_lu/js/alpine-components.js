@@ -3159,7 +3159,92 @@ document.addEventListener("alpine:init", function () {
             showPast() {
                 this.setTab("past");
             },
+            get upcomingAriaSelected() {
+                return this.isUpcoming ? "true" : "false";
+            },
+            get pastAriaSelected() {
+                return this.isPast ? "true" : "false";
+            },
+            get upcomingTabIndex() {
+                return this.isUpcoming ? "0" : "-1";
+            },
+            get pastTabIndex() {
+                return this.isPast ? "0" : "-1";
+            },
+            // WAI-ARIA APG tab keyboard behavior (round-2 finding): arrow
+            // keys move both selection and focus between the two tabs;
+            // Home/End jump to the first/last. $refs are set in the
+            // template (x-ref="tabUpcoming" / "tabPast") on the same
+            // x-data root, so they're reachable from here.
+            focusTab(name) {
+                this.setTab(name);
+                var self = this;
+                this.$nextTick(function () {
+                    var target =
+                        name === "upcoming"
+                            ? self.$refs.tabUpcoming
+                            : self.$refs.tabPast;
+                    if (target) target.focus();
+                });
+            },
+            onTabKeydown(event) {
+                if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+                    event.preventDefault();
+                    this.focusTab(this.isUpcoming ? "past" : "upcoming");
+                } else if (event.key === "Home") {
+                    event.preventDefault();
+                    this.focusTab("upcoming");
+                } else if (event.key === "End") {
+                    event.preventDefault();
+                    this.focusTab("past");
+                }
+            },
         });
+    });
+
+    // Event type filter (event_list.html, finding 1-13). Shared active-type
+    // state lives on an Alpine.store because directives here can't call a
+    // method with an argument (STYLE.md §7) — each chip/card instead reads
+    // its own value from its element's own data-filter-type/data-event-type
+    // attribute in init(), and only ever calls no-arg methods/getters.
+    Alpine.store("eventTypeFilter", { active: "all" });
+
+    Alpine.data("eventTypeFilterChip", function () {
+        return {
+            type: "all",
+            init() {
+                this.type = this.$el.dataset.filterType || "all";
+            },
+            activate() {
+                Alpine.store("eventTypeFilter").active = this.type;
+            },
+            get isActive() {
+                return Alpine.store("eventTypeFilter").active === this.type;
+            },
+            get chipClass() {
+                return this.isActive
+                    ? "bg-crush-purple text-white border-crush-purple"
+                    : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700";
+            },
+            // Round-2 finding: the chip's selected state was only visible as
+            // color, which a screen-reader user activating it can't see.
+            get ariaPressed() {
+                return this.isActive ? "true" : "false";
+            },
+        };
+    });
+
+    Alpine.data("eventTypeFilterCard", function () {
+        return {
+            type: "",
+            init() {
+                this.type = this.$el.dataset.eventType || "";
+            },
+            get visible() {
+                var active = Alpine.store("eventTypeFilter").active;
+                return active === "all" || active === this.type;
+            },
+        };
     });
 
     // Invitation row component (reject modal)
