@@ -254,3 +254,58 @@ class GiftReportTests(GiftAbuseTestBase):
         client = Client(HTTP_HOST="crush.lu", enforce_csrf_checks=True)
         response = client.post(f"/en/journey/gift/{gift.gift_code}/report/")
         self.assertEqual(response.status_code, 403)
+
+
+class GiftReportClaimRaceTests(GiftAbuseTestBase):
+    """A report landing between a claim's load and its save must win.
+
+    SQLite ignores ``select_for_update``, so the race is simulated: the claim
+    runs on an instance loaded before the row was expired, and the lock is
+    asserted structurally.
+    """
+
+    def _stale_pending_gift_reported_meanwhile(self):
+        from crush_lu.models import JourneyGift
+
+        gift = self._gift(self._user("alice@example.com", approved=True))
+        self.assertTrue(gift.is_claimable)  # the claim view's check passes
+        response = self.client.post(f"/en/journey/gift/{gift.gift_code}/report/")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            JourneyGift.objects.get(pk=gift.pk).status, JourneyGift.Status.EXPIRED
+        )
+        return gift
+
+    def test_stale_claim_refuses_a_reported_gift(self):
+        from crush_lu.models import JourneyConfiguration, JourneyGift
+
+        gift = self._stale_pending_gift_reported_meanwhile()
+
+        with self.assertRaises(ValueError):
+            gift.claim(self._user("bob@example.com"))
+
+        gift.refresh_from_db()
+        self.assertEqual(gift.status, JourneyGift.Status.EXPIRED)
+        self.assertIsNone(gift.claimed_by)
+        self.assertIsNone(gift.journey)
+        self.assertFalse(JourneyConfiguration.objects.exists())
+
+    def test_claim_reads_status_under_a_row_lock(self):
+        from unittest import mock
+
+        from django.db.models import QuerySet
+
+        from crush_lu.models import JourneyGift
+
+        gift = self._stale_pending_gift_reported_meanwhile()
+        original = QuerySet.select_for_update
+        locked = []
+
+        def spy(qs, *args, **kwargs):
+            locked.append(qs.model)
+            return original(qs, *args, **kwargs)
+
+        with mock.patch.object(QuerySet, "select_for_update", spy):
+            with self.assertRaises(ValueError):
+                gift.claim(self._user("bob@example.com"))
+        self.assertIn(JourneyGift, locked)
