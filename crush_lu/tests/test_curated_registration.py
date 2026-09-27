@@ -485,11 +485,13 @@ class CuratedOutlookTests(CuratedRegistrationTestBase):
         self.curated.refresh_from_db()
         self.assertTrue(self.curated.is_full)
 
-        _pools, _user_pool, will_waitlist, reason = _registration_outlook(
-            self.curated, self.user.crushprofile
+        _pools, _user_pool, will_waitlist, reason, capacity_remaining = (
+            _registration_outlook(self.curated, self.user.crushprofile)
         )
         self.assertFalse(will_waitlist)
         self.assertIsNone(reason)
+        # A curated event has no seat-capacity concept -- #1062.
+        self.assertIsNone(capacity_remaining)
 
     def test_full_direct_event_still_reports_a_waitlist(self):
         """The curated bypass must not leak into ordinary events."""
@@ -503,8 +505,8 @@ class CuratedOutlookTests(CuratedRegistrationTestBase):
             )
         self.direct.refresh_from_db()
 
-        _pools, _user_pool, will_waitlist, reason = _registration_outlook(
-            self.direct, self.user.crushprofile
+        _pools, _user_pool, will_waitlist, reason, _capacity_remaining = (
+            _registration_outlook(self.direct, self.user.crushprofile)
         )
         self.assertTrue(will_waitlist)
         self.assertEqual(reason, "total")

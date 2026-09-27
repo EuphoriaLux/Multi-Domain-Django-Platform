@@ -2,10 +2,11 @@
 {% load i18n %}
 
 {% block title %}{% trans "Delete Crush.lu Profile" %}{% endblock %}
+{% block mobile_page_title %}{% trans "Delete Crush.lu Profile" %}{% endblock %}
 
 {% block content %}
-<div class="section-container max-w-2xl mx-auto">
-    <h1 class="text-3xl font-bold mb-8 text-red-600 dark:text-red-400">{% trans "Delete Crush.lu Profile" %}</h1>
+<div class="max-w-2xl mx-auto">
+    {% include "crush_lu/components/page_header.html" with title=_("Delete Crush.lu Profile") tone="danger" class="mb-8" %}
 
     <div class="card border-red-200 dark:border-red-900">
         <div class="card-body">

@@ -9,7 +9,7 @@
     <!-- Header -->
     <div class="text-center mb-8">
         <h1 class="text-3xl font-bold mb-3">{% trans "My Connections 💕" %}</h1>
-        <p class="text-lg text-gray-500 dark:text-gray-400">{% trans "Track your connection requests and active connections" %}</p>
+        <p class="text-lg text-muted-fg">{% trans "Track your connection requests and active connections" %}</p>
     </div>
 
     {# People I've Met cross-link — only rendered for members with confirmed encounters #}
@@ -104,7 +104,7 @@
                                     <!-- Info -->
                                     <div class="flex-grow">
                                         <h5 class="font-semibold mb-1 dark:text-white">{{ connection.recipient.crushprofile.display_name }}</h5>
-                                        <p class="text-gray-500 dark:text-gray-400 text-sm mb-0 flex items-center gap-1">
+                                        <p class="text-muted-fg text-sm mb-0 flex items-center gap-1">
                                             {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
                                             {{ connection.event.title }}
                                         </p>
@@ -138,7 +138,7 @@
                                     <!-- Info -->
                                     <div class="flex-grow">
                                         <h5 class="font-semibold mb-1 dark:text-white">{{ connection.recipient.crushprofile.display_name }}</h5>
-                                        <p class="text-gray-500 dark:text-gray-400 text-sm mb-0 flex items-center gap-1">
+                                        <p class="text-muted-fg text-sm mb-0 flex items-center gap-1">
                                             {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
                                             {{ connection.event.title }}
                                         </p>
@@ -158,10 +158,10 @@
 
     <!-- Empty State -->
     {% if not received_requests and not active_connections and not sent_requests %}
-        <div class="text-center py-8 flex flex-col items-center">
-            <div class="mx-auto w-24 h-24 mb-4 ghost-glow">{% include "crush_lu/includes/ghost-story-lonely.html" with class="w-full h-full" %}</div>
+        <div class="text-center py-12 min-h-[55vh] flex flex-col items-center justify-center">
+            <div class="mx-auto w-40 h-40 mb-6 ghost-glow">{% include "crush_lu/includes/ghost-story-lonely.html" with class="w-full h-full" %}</div>
             <h3 class="text-2xl font-semibold mb-2">{% trans "Your first connection starts at an event" %}</h3>
-            <p class="text-gray-500 dark:text-gray-400 mb-6 max-w-md">
+            <p class="text-muted-fg mb-6 max-w-md">
                 {% trans "Meet someone, and if you both say yes afterwards, you're connected: sometimes straight away, sometimes through an introduction by your Crush Coach." %}
             </p>
 

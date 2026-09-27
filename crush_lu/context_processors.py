@@ -22,6 +22,7 @@ from .models import (
     Notification,
 )
 
+from crush_lu import onboarding
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,8 @@ _SAFE_NAV_DEFAULTS = {
     "unread_notifications_count": 0,
     "actionable_sparks_count": 0,
     "profile_completion_step": 0,
+    "profile_completion_total": len(onboarding.JOURNEY_STEPS),
+    "profile_completion_pct": 0,
     "profile_step_label": _("Get started"),
     "upcoming_events": [],
     "upcoming_events_count": 0,
@@ -51,21 +54,6 @@ _SAFE_NAV_DEFAULTS = {
     # silent_variable_failure), which would 500 the page even with this guard.
     "nav_has_profile": False,
     "nav_is_active_coach": False,
-}
-
-# Profile verification state → navbar progress indicator
-PROFILE_STEP_INFO = {
-    "incomplete": (1, _("Complete your profile")),
-    "pending": (2, _("Verify your identity")),
-    "verified": (3, _("Profile verified")),
-    "rejected": (0, _("Profile rejected")),
-    # Legacy wizard-step keys kept for graceful handling of cached values
-    "not_started": (1, _("Get started")),
-    "step1": (1, _("Tell us about you")),
-    "step2": (2, _("Add photos")),
-    "step3": (2, _("Add photos")),
-    "step4": (2, _("Review & submit")),
-    "submitted": (2, _("Under review")),
 }
 
 
@@ -178,7 +166,6 @@ def crush_user_context(request):
         # missing value would blank the badge.
         context["actionable_sparks_count"] = 0
 
-
         # Profile submission status for visual indicators
         profile_submission = None
         profile = CrushProfile.objects.filter(user=request.user).first()
@@ -186,18 +173,28 @@ def crush_user_context(request):
         # Template-safe existence flag for base.html (see _SAFE_NAV_DEFAULTS):
         # avoids a bare {% if user.crushprofile %} reverse lookup in the nav.
         context["nav_has_profile"] = profile is not None
+
+        # Navbar progress counts the same onboarding steps as the journey
+        # stepper, so the nav and the stepper always show the same N/5.
+        step = onboarding.get_current_step(profile)
+        context["profile_completion_total"] = len(onboarding.JOURNEY_STEPS)
+        if step == onboarding.STEP_REJECTED:
+            context["profile_completion_step"] = 0
+            context["profile_completion_pct"] = 0
+            context["profile_step_label"] = _("Profile rejected")
+        else:
+            context["profile_completion_step"] = step
+            context["profile_step_label"] = onboarding.active_step(step).title
+            # Bar fills with *completed* steps, as the stepper does.
+            context["profile_completion_pct"] = (
+                (step - 1) * 100 // len(onboarding.JOURNEY_STEPS)
+            )
+
         if profile:
             verification_status = profile.verification_status
             context["profile_completion_status"] = (
                 verification_status  # backward compat alias
             )
-
-            # Profile step info for navbar progress indicator
-            step_info = PROFILE_STEP_INFO.get(
-                verification_status, (0, _("Get started"))
-            )
-            context["profile_completion_step"] = step_info[0]
-            context["profile_step_label"] = step_info[1]
 
             # Approved flag drives the navbar's "full navigation" branch (Edit
             # Profile, Connect, …). It must be exposed even when there is NO
@@ -239,10 +236,6 @@ def crush_user_context(request):
                     context["assigned_coach_name"] = (
                         profile_submission.coach.user.first_name
                     )
-        else:
-            # No profile yet - show step 0
-            context["profile_completion_step"] = 0
-            context["profile_step_label"] = _("Get started")
 
         # Upcoming events for user (includes ongoing events until end_time)
         # Use a generous cutoff to include events that may still be ongoing,

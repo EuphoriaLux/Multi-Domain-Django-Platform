@@ -2710,10 +2710,12 @@ def sumup_widget_view(request, checkout_id):
         # terms that would not apply. Likewise once the member has already
         # cancelled this registration: a late capture is then settled at
         # ``cancelled_at``, not at page load, so today's deadline would lie.
+        # Nor once the event has started: member cancellation is closed then.
         "cancellation_policy": (
             cancellation_policy(event)
             if event
             and not event.is_cancelled
+            and event.date_time > timezone.now()
             and not (
                 tx_obj.event_registration_id
                 and tx_obj.event_registration.status == "cancelled"
