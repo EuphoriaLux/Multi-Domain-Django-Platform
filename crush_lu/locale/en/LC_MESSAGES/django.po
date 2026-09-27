@@ -28273,3 +28273,20 @@ msgstr ""
 #, python-format
 msgid "Women %(women)s%% · Men %(men)s%%"
 msgstr ""
+
+# UX Wave 3 · WP11 (connect-gating, findings 6-01/6-12)
+#: .\crush_lu\templates\crush_lu\crush_connect\hub.html:51
+msgid "Your coach:"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\crush_connect\hub.html:75
+msgid "Almost ready for today's suggestions"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\partials\edit_photos.html:12
+msgid "Add a photo to continue where you left off."
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\edit_profile.html:20
+msgid "Continue where you left off"
+msgstr ""

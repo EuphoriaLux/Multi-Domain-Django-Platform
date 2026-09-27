@@ -1,6 +1,7 @@
 """Core Crush Connect catalogue and human coach-pick tests."""
 
 from datetime import date, timedelta
+from urllib.parse import quote
 
 import pytest
 from allauth.socialaccount.models import SocialAccount
@@ -330,7 +331,11 @@ def test_photoless_premium_member_cannot_view_coach_pick(client, settings):
     response = client.get(COACH_PICK_URL)
 
     assert response.status_code == 302
-    assert response.url.endswith("?section=photos")
+    # UX Wave 3, 6-01: carries a same-app ``next`` back to Coach's Pick so the
+    # member returns here, instead of the generic profile overview, once the
+    # photo is added.
+    assert "section=photos" in response.url
+    assert f"next={quote(COACH_PICK_URL, safe='')}" in response.url
 
 
 @pytest.mark.django_db
