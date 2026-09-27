@@ -35,6 +35,33 @@ PHONE = {"width": 390, "height": 844}
 DECLINED = json.dumps({"essential": True, "analytics": False, "marketing": False})
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LOCKED_LABEL = "This experience is always in night mode"
+# WCAG 2.x contrast of an element's text against the nearest opaque background.
+CONTRAST_JS = """
+(el) => {
+    // Tailwind v4 colours compute as oklch(): let a canvas convert to sRGB.
+    const ctx = document.createElement("canvas").getContext("2d", {willReadFrequently: true});
+    const parse = (c) => {
+        ctx.clearRect(0, 0, 1, 1);
+        ctx.fillStyle = c;
+        ctx.fillRect(0, 0, 1, 1);
+        const d = ctx.getImageData(0, 0, 1, 1).data;
+        return [d[0], d[1], d[2], d[3] / 255];
+    };
+    const lum = ([r, g, b]) => {
+        const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+        return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+    };
+    let node = el, bg = null;
+    while (node) {
+        const v = parse(getComputedStyle(node).backgroundColor);
+        if (v[3] === 1) { bg = v; break; }
+        node = node.parentElement;
+    }
+    const fg = lum(parse(getComputedStyle(el).color));
+    const b = lum(bg || [255, 255, 255]);
+    return (Math.max(fg, b) + 0.05) / (Math.min(fg, b) + 0.05);
+}
+"""
 THEME_COLORS_JS = (
     "() => [...document.querySelectorAll('meta[name=\"theme-color\"]')]"
     ".map(m => m.getAttribute('content'))"
@@ -233,9 +260,16 @@ def test_axe_color_contrast_in_the_open_drawer(browser, live_server, theme):
     _open_drawer(page)
     page.wait_for_timeout(400)  # slide-in transition
     page.evaluate(axe)
-    nodes = page.evaluate(
-        "async () => (await axe.run({include: [['[x-data=\"mobileDrawer\"]']]},"
-        " {runOnly: ['color-contrast']}))"
-        ".violations.flatMap(v => v.nodes.map(n => n.target.join(' ')))"
-    )
-    assert nodes == [], nodes
+    body = page.locator("[x-data='mobileDrawer'] .overflow-y-auto")
+    # Top of the drawer, then scrolled to the new groups and Logout.
+    for scroll in (0, 99999):
+        body.evaluate(f"el => {{ el.scrollTop = {scroll}; }}")
+        page.wait_for_timeout(150)
+        nodes = page.evaluate(
+            "async () => (await axe.run({include: [['[x-data=\"mobileDrawer\"]']]},"
+            " {runOnly: ['color-contrast']}))"
+            ".violations.flatMap(v => v.nodes.map(n => n.target.join(' ')))"
+        )
+        assert nodes == [], (scroll, nodes)
+    logout = page.locator("[x-data='mobileDrawer'] a[href$='/logout/'] span")
+    assert logout.evaluate(CONTRAST_JS) >= 4.5
