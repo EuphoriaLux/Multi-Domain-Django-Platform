@@ -96,20 +96,22 @@ class AuthPanelsCloakTests(TestCase):
     def test_login_and_signup_panels_carry_x_cloak(self):
         html = Client(HTTP_HOST="crush.lu").get("/en/login/").content.decode()
         self.assertIn('id="login-panel" role="tabpanel"', html)
-        login_panel_open = html[html.index('id="login-panel"') : html.index(
-            'id="login-panel"'
-        ) + 400]
-        signup_panel_open = html[html.index('id="signup-panel"') : html.index(
-            'id="signup-panel"'
-        ) + 400]
+        login_panel_open = html[
+            html.index('id="login-panel"') : html.index('id="login-panel"') + 400
+        ]
+        signup_panel_open = html[
+            html.index('id="signup-panel"') : html.index('id="signup-panel"') + 400
+        ]
         self.assertIn("x-cloak", login_panel_open)
         self.assertIn("x-cloak", signup_panel_open)
 
     def test_signup_reassurance_strip_carries_x_cloak(self):
         html = Client(HTTP_HOST="crush.lu").get("/en/signup/").content.decode()
-        strip = html[html.index('x-show="isSignupTab"') - 20 : html.index(
-            'x-show="isSignupTab"'
-        ) + 200]
+        strip = html[
+            html.index('x-show="isSignupTab"')
+            - 20 : html.index('x-show="isSignupTab"')
+            + 200
+        ]
         self.assertIn("x-cloak", strip)
 
 
@@ -216,9 +218,7 @@ class OtpModalAriaTests(TestCase):
     def _render(self):
         factory = RequestFactory()
         request = factory.get("/")
-        template = Template(
-            '{% include "crush_lu/includes/phone_otp_modal.html" %}'
-        )
+        template = Template('{% include "crush_lu/includes/phone_otp_modal.html" %}')
         return template.render(Context({"request": request}))
 
     def test_digit_inputs_have_labels_and_are_grouped(self):
@@ -273,9 +273,7 @@ class SignupFunnelAnalyticsTests(TestCase):
             signup_html = (
                 Client(HTTP_HOST="crush.lu").get("/en/signup/").content.decode()
             )
-            login_html = (
-                Client(HTTP_HOST="crush.lu").get("/en/login/").content.decode()
-            )
+            login_html = Client(HTTP_HOST="crush.lu").get("/en/login/").content.decode()
         self.assertIn('"signup_page_viewed"', signup_html)
         self.assertIn('"sign_up"', signup_html)
         self.assertNotIn('"signup_page_viewed"', login_html)
@@ -283,9 +281,7 @@ class SignupFunnelAnalyticsTests(TestCase):
     def test_dead_signup_template_is_gone(self):
         import os as _os
 
-        self.assertFalse(
-            _os.path.exists("crush_lu/templates/crush_lu/signup.html")
-        )
+        self.assertFalse(_os.path.exists("crush_lu/templates/crush_lu/signup.html"))
 
     def test_tab_switch_to_signup_is_tracked_in_js(self):
         html = Client(HTTP_HOST="crush.lu").get("/en/login/").content.decode()
