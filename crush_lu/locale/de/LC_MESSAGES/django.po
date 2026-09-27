@@ -42586,6 +42586,80 @@ msgstr "Wir konnten die Benachrichtigungsunterstützung auf diesem Gerät nicht 
 msgid "Notifications are managed in the app"
 msgstr "Benachrichtigungen werden in der App verwaltet"
 
+# UX Wave 3 · WP1 verify-email
+# UX Wave 3 · WP1 verify-email
+# UX Wave 3 · WP1 verify-email
+# UX Wave 3 · WP1 verify-email
+# UX Wave 3 · WP1 verify-email
+#: templates/account/verification_sent_crush.html:24
+msgid "We've sent a verification link to <strong>%(email)s</strong>."
+msgstr ""
+"Wir haben einen Bestätigungslink an <strong>%(email)s</strong> gesendet."
+
+#: templates/account/verification_sent_crush.html:29
+msgid "Wrong address? Sign up again"
+msgstr "Falsche Adresse? Erneut registrieren"
+
+#: templates/account/verification_sent_crush.html:34
+msgid ""
+"We've sent a verification link to your email address. Click the link in the "
+"email to confirm your account."
+msgstr ""
+"Wir haben einen Bestätigungslink an deine E-Mail-Adresse gesendet. Klicke "
+"auf den Link in der E-Mail, um dein Konto zu bestätigen."
+
+#: templates/account/verification_sent_crush.html:50
+msgid "Email address to resend to"
+msgstr "E-Mail-Adresse für den erneuten Versand"
+
+#: templates/account/verification_sent_crush.html:55
+msgid "Your email address"
+msgstr "Deine E-Mail-Adresse"
+
+#: templates/socialaccount/authentication_error_crush.html:16
+msgid ""
+"The provider declined this sign-in. Please try again, or use a different "
+"sign-in method."
+msgstr ""
+"Der Anbieter hat diese Anmeldung abgelehnt. Bitte versuche es erneut oder "
+"nutze eine andere Anmeldemethode."
+
+#: templates/socialaccount/authentication_error_crush.html:18
+msgid ""
+"Try again, or sign in with your email if you already have a Crush.lu "
+"account."
+msgstr ""
+"Versuche es erneut oder melde dich mit deiner E-Mail-Adresse an, falls du "
+"bereits ein Crush.lu-Konto hast."
+
+#: templates/socialaccount/authentication_error_crush.html:23
+msgid "Provider: %(provider)s · Code: %(code)s"
+msgstr "Anbieter: %(provider)s · Code: %(code)s"
+
+#: templates/socialaccount/signup_crush.html:38
+msgid ""
+"Your %(provider)s account didn't provide a usable email. Enter the one you'd"
+" like to use for Crush.lu."
+msgstr ""
+"Dein %(provider)s-Konto hat keine nutzbare E-Mail-Adresse angegeben. Gib die"
+" E-Mail-Adresse ein, die du für Crush.lu verwenden möchtest."
+
+#: templates/socialaccount/signup_crush.html:48
+msgid "Log in to your existing account instead"
+msgstr "Stattdessen bei deinem bestehenden Konto anmelden"
+
+#: azureproject/adapters.py:471
+msgid "Sign-in cancelled. Pick another way to continue, or try again."
+msgstr ""
+"Anmeldung abgebrochen. Wähle eine andere Möglichkeit fortzufahren, oder "
+"versuche es erneut."
+
+#: crush_lu/templates/account/verification_sent_crush.html
+msgid "Use a different address"
+msgstr "Andere Adresse verwenden"
+
+
+# UX Wave 3 · WP5 photos-booking
 # UX Wave 3 · WP5 photos-booking
 #. UX Wave 3 · WP5
 #: templates/crush_lu/book_screening.html

@@ -61,7 +61,7 @@
                 <p class="text-gray-500 dark:text-gray-400 mb-6">
                     {% trans "This email confirmation link has expired or is invalid." %}
                 </p>
-                <a href="{% url 'account_email' %}" class="btn-crush-primary inline-block py-3 px-6">
+                <a href="{% url 'account_email_verification_sent' %}" class="btn-crush-primary inline-block py-3 px-6">
                     {% trans "Request a New Link" %}
                 </a>
             {% endif %}
