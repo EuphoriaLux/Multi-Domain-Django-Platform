@@ -15504,6 +15504,34 @@ document.addEventListener("alpine:init", function () {
     }));
 
     // ========================================================================
+    // Verify-email resend cooldown (account/verification_sent_crush.html)
+    // ========================================================================
+
+    Alpine.data("resendCooldown", () => ({
+        disabled: false,
+        remaining: 0,
+        get enabled() {
+            return !this.disabled;
+        },
+        init() {
+            const cooldownUntil = parseInt(this.$el.dataset.cooldownUntil, 10) || 0;
+            const serverNow = parseInt(this.$el.dataset.serverNow, 10) || 0;
+            this.remaining = Math.max(0, cooldownUntil - serverNow);
+            if (this.remaining <= 0) {
+                return;
+            }
+            this.disabled = true;
+            const t = setInterval(() => {
+                this.remaining--;
+                if (this.remaining <= 0) {
+                    clearInterval(t);
+                    this.disabled = false;
+                }
+            }, 1000);
+        },
+    }));
+
+    // ========================================================================
     // Campaign Dashboard (crush-admin/campaigns/)
     // ========================================================================
 
