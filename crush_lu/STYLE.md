@@ -291,7 +291,7 @@ Some files are legacy / parked and should NOT be touched casually:
 
 ## 7. Alpine.js primitives
 
-Three shared mixin factories live at the top of
+Four shared mixin factories live at the top of
 `crush_lu/static/crush_lu/js/alpine-components.js`. Compose them inside
 your named Alpine.data component with the **`mixin`** helper (also in
 that file). They are not themselves Alpine.data registrations because
@@ -334,6 +334,19 @@ makes its own HTMX call instead.
 `isModalClosed` getters. Reach for this rather than rolling a one-off
 `x-data="{ open: false }"`.
 
+### `makePushStatusCheck()`
+
+The push settings cards' status probe, composed into `pushPreferences` and
+`coachPushPreferences`. The host component supplies `isLoading`,
+`isSupported`, `_checkStatus()` and `_retryDeviceMatch()`; its
+`_checkStatus()` calls `this._runStatusCheck(probe)`, where `probe(finish)`
+runs the component's own check and calls `finish()` once it has an answer.
+An unsupported browser settles at once without probing. If `finish()` has
+not run after 3 s the "Checking…" state gives way to `showCheckTimedOut`
+(a "couldn't check" notice with a Retry that calls `retryStatusCheck()`);
+a late answer still settles the card. "Not supported" always wins over the
+timed-out notice.
+
 ### Deprecated Alpine components (do not use in new code)
 
 | Component | Replace with | Reason |
@@ -361,6 +374,21 @@ Two systems exist today; the long-term direction is one.
 Pick the toast store for any NEW notification surface. Only call
 `messages.success/error/warning(...)` if you genuinely want the
 top-of-page banner treatment, and prefer the toast store if you don't.
+
+### Prompt queue (`Alpine.store('prompts')`)
+
+Unsolicited prompts share one queue (`alpine-components.js`) that shows **at most
+one at a time**, in this order: **`cookie`** (the shared cookie sheet, which has no
+Alpine and dispatches a `cookie-banner-toggle` document event), **`messages`**
+(`base.html` flash messages, `x-data="flashMessage"`: each visible one holds the
+slot until dismissed or auto-hidden, and messages themselves are never hidden),
+**`install`** (the PWA install card) and **`push`** (the push activation prompt).
+A prompt calls `Alpine.store("prompts").set(name, on)` and binds `x-show` to a
+getter that also checks `isActive(name)`; `install`/`push` wait for DOMContentLoaded.
+Anchor bottom prompts with `.prompt-above-nav` (clears `.bottom-nav` below `lg`).
+The install card never renders in native shells (`is_native_app`), and
+`pwa-install.js` offers it only from the 2nd session, outside `/account/`,
+`/payments/` and the Connect wizard.
 
 ### Failed HTMX requests
 
