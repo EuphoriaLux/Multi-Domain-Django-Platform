@@ -583,3 +583,32 @@ class TestReviewStepRefreshesAfterBackGesture:
         updated_dob = page.locator('[x-ref="reviewDob"]').inner_text()
         assert updated_dob != original_dob
         assert "1990" in updated_dob
+
+    def test_back_from_event_identity_persists_edits_before_review(
+        self, page, live_server_url, review_step_user
+    ):
+        page.goto(f"{live_server_url}/accounts/login/")
+        page.wait_for_selector('input[name="login"]', timeout=10000)
+        decline = page.locator('button:has-text("Decline All")')
+        if decline.count() > 0:
+            decline.click()
+        page.fill('input[name="login"]', review_step_user.email)
+        page.fill('input[name="password"]', "testpass123")
+        page.click('button:has-text("Login")')
+        page.wait_for_load_state("networkidle")
+
+        page.goto(f"{live_server_url}/en/create-profile/")
+        page.wait_for_selector('[data-wizard-step="4"]', timeout=10000)
+        page.locator('[data-wizard-step="4"] [data-goto-step="2"]').click()
+        page.wait_for_selector('[data-wizard-step="2"]', timeout=10000)
+
+        vibe = page.locator('input[name="event_vibe"][value]:not([value=""])').first
+        selected_vibe = vibe.get_attribute("value")
+        vibe.check(force=True)
+        page.go_back()
+        page.wait_for_selector('[data-wizard-step="4"]', timeout=10000)
+
+        # The final form does not include this field. The step-save request
+        # must commit it before Review is shown after the history gesture.
+        assert CrushProfile.objects.get(user=review_step_user).event_vibe == selected_vibe
+        assert page.url.endswith("#step-4")

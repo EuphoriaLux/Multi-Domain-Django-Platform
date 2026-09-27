@@ -5370,6 +5370,32 @@ document.addEventListener("alpine:init", function () {
                         e.state && e.state.wizardStep
                             ? e.state.wizardStep
                             : self.currentStep;
+                    // Review can be reached directly from an edited Event
+                    // Identity step via browser Back. Persist those fields
+                    // before showing a summary that looks ready to submit.
+                    if (self.currentStep === 2 && step === self.totalSteps) {
+                        if (self.isSaving) {
+                            history.replaceState({ wizardStep: 2 }, "", "#step-2");
+                            return;
+                        }
+                        self.saveStep2().then(function (result) {
+                            // A second navigation during the request wins.
+                            if (
+                                self.currentStep !== 2 ||
+                                !history.state ||
+                                history.state.wizardStep !== step
+                            ) {
+                                return;
+                            }
+                            if (result.success) {
+                                self._setStep(step, false);
+                            } else {
+                                // Keep the editable step and its error visible.
+                                history.replaceState({ wizardStep: 2 }, "", "#step-2");
+                            }
+                        });
+                        return;
+                    }
                     self._setStep(step, false);
                 });
             },
