@@ -300,8 +300,17 @@ PRIVILEGE_AUDIT_SQL = {
         "has_table_privilege(%(role)s, c.oid, 'SELECT'), "
         "has_any_column_privilege(%(role)s, c.oid, 'SELECT'), "
         "has_table_privilege(%(role)s, c.oid, "
-        "'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') "
-        "OR has_any_column_privilege(%(role)s, c.oid, 'INSERT,UPDATE,REFERENCES') "
+        "'INSERT,DELETE,TRUNCATE,REFERENCES,TRIGGER') "
+        "OR has_any_column_privilege(%(role)s, c.oid, 'INSERT,REFERENCES') "
+        # PostgreSQL grants PUBLIC UPDATE on pg_settings by default. Its rule
+        # delegates to SET for this session and enforces parameter privileges;
+        # it cannot update a database relation. Keep auditing every other
+        # write privilege, including UPDATE if that PUBLIC grant is removed.
+        "OR ((has_table_privilege(%(role)s, c.oid, 'UPDATE') "
+        "OR has_any_column_privilege(%(role)s, c.oid, 'UPDATE')) "
+        "AND NOT (n.nspname = 'pg_catalog' AND c.relname = 'pg_settings' "
+        "AND c.relkind = 'v' "
+        "AND has_table_privilege('public', c.oid, 'UPDATE'))) "
         "OR (current_setting('server_version_num')::int >= 170000 "
         "AND has_table_privilege(%(role)s, c.oid, 'MAINTAIN')), "
         # What PUBLIC itself may read: system catalogs are compared against it.
