@@ -88,11 +88,18 @@
 
     // Plain (non-HTMX) forms: <form data-confirm="question"> asks first and
     // submits only on accept. Same data-confirm-style / data-confirm-label.
+    // data-confirm-when="<checkbox name>" asks only while that box is ticked.
+    // page-loading.js mirrors this rule to keep its overlay off the sheet.
     document.addEventListener("submit", function (evt) {
         var form = evt.target;
         if (!(form instanceof HTMLFormElement)) return;
         var question = form.getAttribute("data-confirm");
         if (!question || evt.defaultPrevented) return;
+        var when = form.getAttribute("data-confirm-when");
+        if (when) {
+            var box = form.elements.namedItem(when);
+            if (!box || !box.checked) return;
+        }
         evt.preventDefault();
         openConfirm(question, {
             style: form.getAttribute("data-confirm-style") || "danger",

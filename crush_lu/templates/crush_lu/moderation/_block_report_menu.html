@@ -24,7 +24,10 @@ Plain forms (no JS dependency); each posts and redirects back via referer.
 {% endif %}
 
         {# Report — opens the moderation queue; option to block at the same time. #}
-        <form method="post" action="{% url 'crush_lu:report_user' member.id %}" class="space-y-2">
+        {# From a Connect chat (block_url) "Also block them" closes the chat and excludes the pair for good: say so, and confirm only while it is ticked (data-confirm-when). #}
+        <form method="post" action="{% url 'crush_lu:report_user' member.id %}" class="space-y-2"{% if block_url %} data-report-also-blocks-chat
+              data-confirm="{% trans "Report and block this member? Blocking closes the chat and can't be undone: they won't be able to reach you, and you won't be matched again." %}"
+              data-confirm-when="also_block" data-confirm-style="danger" data-confirm-label="{% trans 'Yes, report and block' %}"{% endif %}>
             {% csrf_token %}
             {% if source %}<input type="hidden" name="source" value="{{ source }}">{% endif %}
             {% if source_id %}<input type="hidden" name="source_id" value="{{ source_id }}">{% endif %}
@@ -41,6 +44,11 @@ Plain forms (no JS dependency); each posts and redirects back via referer.
                 <input type="checkbox" name="also_block" value="1" checked class="rounded border-gray-300 text-crush-purple">
                 {% trans "Also block them" %}
             </label>
+            {% if block_url %}
+            <p class="text-xs text-gray-500 dark:text-gray-400" data-also-block-disclosure>
+                {% trans "Blocking closes this chat and can't be undone. You won't be matched again." %}
+            </p>
+            {% endif %}
             <button type="submit" class="text-sm font-semibold text-red-600 dark:text-red-400 hover:underline">
                 {% trans "Submit report" %}
             </button>

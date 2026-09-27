@@ -103,6 +103,7 @@
 
     {% if has_premium %}
     {# Premium members already have a coach: show who, never the upsell or the waitlist. #}
+    {% if premium_coach %}
     <a href="{% url 'crush_lu:crush_connect_coach_pick' %}" data-connect-your-coach
        class="flex items-center gap-4 rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm p-5 no-underline hover:shadow-crush-md transition-shadow">
         <span class="w-12 h-12 shrink-0 rounded-full overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center text-white">
@@ -110,11 +111,24 @@
         </span>
         <span class="flex-1 min-w-0">
             <span class="block text-xs font-bold uppercase tracking-wide text-crush-purple dark:text-crush-pink">{% trans "Your coach" context "connect catalogue" %}</span>
-            {% if premium_coach %}<span class="block font-semibold text-gray-900 dark:text-white truncate">{{ premium_coach.user.get_full_name|default:premium_coach.user.first_name }}</span>{% endif %}
+            <span class="block font-semibold text-gray-900 dark:text-white truncate">{{ premium_coach.user.get_full_name|default:premium_coach.user.first_name }}</span>
             <span class="block text-sm text-gray-600 dark:text-gray-300">{% trans "Premium member · See your Coach's Pick" %}</span>
         </span>
         {% include "shared/icons/arrow-right.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500 shrink-0" %}
     </a>
+    {% else %}
+    {# Premium, but the assigned coach is inactive or missing: acknowledge Premium, claim no coach. #}
+    <div data-connect-premium-no-coach
+         class="flex items-center gap-4 rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm p-5">
+        <span class="w-12 h-12 shrink-0 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center text-white">
+            {% include "shared/icons/sparkles.html" with class="w-5 h-5" %}
+        </span>
+        <span class="flex-1 min-w-0">
+            <span class="block text-xs font-bold uppercase tracking-wide text-crush-purple dark:text-crush-pink">{% trans "Premium member" %}</span>
+            <span class="block text-sm text-gray-600 dark:text-gray-300">{% trans "No coach is assigned to you right now." context "connect catalogue" %}</span>
+        </span>
+    </div>
+    {% endif %}
     {% else %}
     {% comment %}
        Premium upsell. Before the public launch, Premium is invite-only: the

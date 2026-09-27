@@ -744,3 +744,37 @@ def test_week_inbox_links_to_chats_for_a_luxid_only_recipient(client, settings):
     resp = client.get(WEEK_INBOX_URL)
 
     assert "Your chats" in resp.content.decode()
+
+
+@pytest.mark.django_db
+def test_chat_report_form_discloses_and_confirms_the_permanent_block(client):
+    """From a chat, "Also block them" on the report form runs the chat block
+    (closes the chat, permanent pair exclusion): the form says so and asks
+    first, but only while the box is ticked (``data-confirm-when``). The
+    report form on other surfaces is unchanged."""
+    import re
+
+    from django.core.cache import cache
+    from django.template import Context, Template
+
+    cache.clear()
+    me, target, chat = _make_open_chat()
+    _login_eligible(client, me)
+    html = client.get(f"{CHATS_URL}{chat.pk}/").content.decode()
+
+    form = re.search(
+        rf'<form method="post" action="/en/members/{target.pk}/report/"[^>]*>', html
+    )
+    assert form, "chat report form missing"
+    tag = form.group(0)
+    assert 'data-confirm-when="also_block"' in tag
+    assert "Blocking closes the chat" in tag and "can't be undone" in tag
+    assert 'data-confirm-label="Yes, report and block"' in tag
+    assert "Blocking closes this chat and can&#x27;t be undone." in html or (
+        "Blocking closes this chat and can't be undone." in html
+    )
+
+    generic = Template("{% load moderation_tags %}{% block_report_menu member %}")
+    rendered = generic.render(Context({"member": target}))
+    assert "data-confirm" not in rendered
+    assert "data-also-block-disclosure" not in rendered

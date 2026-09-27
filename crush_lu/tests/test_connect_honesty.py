@@ -128,6 +128,8 @@ def test_premium_member_sees_their_coach_not_the_upsell(client, settings):
 
     card = body[body.index("data-connect-your-coach") :]
     assert "Coachy Test" in card
+    assert "See your Coach's Pick" in card
+    assert "data-connect-premium-no-coach" not in body
     assert 'href="/en/crush-connect/coach-pick/"' in body
     assert "Premium is in closed beta." not in body
     assert "Want your own Coach Pick?" not in body
@@ -173,9 +175,33 @@ def test_inactive_coach_is_not_named_on_catalogue_or_hub(client, settings):
     body = _body(client.get(CATALOGUE_STATUS_URL))
     hub = _body(client.get("/en/crush-connect/home/"))
 
-    assert "data-connect-your-coach" in body
+    # Premium is still acknowledged (no upsell), but nothing claims a coach.
+    assert "data-connect-your-coach" not in body
+    assert "data-connect-premium-no-coach" in body
+    assert "No coach is assigned to you right now." in body
+    assert "See your Coach's Pick" not in body
+    assert 'href="/en/crush-connect/coach-pick/"' not in body
+    assert "Want your own Coach Pick?" not in body
+    assert "Premium is in closed beta." not in body
     assert "Gonecoach" not in body
     assert "Gonecoach" not in hub
+
+
+@pytest.mark.django_db
+def test_premium_member_without_assigned_coach_gets_no_coach_card(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="nocoachpremium", premium=True)
+    type(me.crushprofile).objects.filter(pk=me.crushprofile.pk).update(
+        assigned_coach=None
+    )
+    _login_eligible(client, me)
+
+    body = _body(client.get(CATALOGUE_STATUS_URL))
+
+    assert "data-connect-premium-no-coach" in body
+    assert "data-connect-your-coach" not in body
+    assert "See your Coach's Pick" not in body
+    assert "Want your own Coach Pick?" not in body
 
 
 @pytest.mark.django_db

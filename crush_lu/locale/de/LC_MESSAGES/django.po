@@ -42447,3 +42447,20 @@ msgstr "Hat dir eine Connect-Anfrage geschickt"
 #, python-format
 msgid "Today: %(done)s of %(total)s cards answered."
 msgstr "Heute: %(done)s von %(total)s Karten beantwortet."
+
+#: templates/crush_lu/moderation/_block_report_menu.html
+msgid "Report and block this member? Blocking closes the chat and can't be undone: they won't be able to reach you, and you won't be matched again."
+msgstr "Dieses Mitglied melden und blockieren? Das Blockieren schließt den Chat und lässt sich nicht rückgängig machen: Die Person kann dich nicht mehr erreichen, und ihr werdet nicht mehr zusammengebracht."
+
+#: templates/crush_lu/moderation/_block_report_menu.html
+msgid "Yes, report and block"
+msgstr "Ja, melden und blockieren"
+
+#: templates/crush_lu/moderation/_block_report_menu.html
+msgid "Blocking closes this chat and can't be undone. You won't be matched again."
+msgstr "Das Blockieren schließt diesen Chat und lässt sich nicht rückgängig machen. Ihr werdet nicht mehr zusammengebracht."
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgctxt "connect catalogue"
+msgid "No coach is assigned to you right now."
+msgstr "Dir ist gerade kein Coach zugewiesen."
