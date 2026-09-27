@@ -15,30 +15,55 @@
         {% if blocks %}
         <ul class="space-y-3">
             {% for block in blocks %}
+            {% with name=block.blocked.first_name|default:block.blocked.username %}
             <li class="flex items-center justify-between gap-3 rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-3">
                 <div class="min-w-0">
                     <p class="font-semibold text-gray-900 dark:text-white truncate mb-0">
-                        {{ block.blocked.first_name|default:block.blocked.username }}
+                        {{ name }}
                     </p>
                     <p class="text-xs text-gray-400 dark:text-gray-500 mb-0">
                         {% blocktrans with when=block.created_at|date:"DATE_FORMAT" %}Blocked {{ when }}{% endblocktrans %}
                         {% if block.get_reason_display %}· {{ block.get_reason_display }}{% endif %}
                     </p>
                 </div>
-                <form method="post" action="{% url 'crush_lu:unblock_user' block.blocked.id %}">
+                {% blocktrans asvar unblock_question %}Unblock {{ name }}? They'll be able to see you at events and contact you again.{% endblocktrans %}
+                <form method="post" action="{% url 'crush_lu:unblock_user' block.blocked.id %}" class="shrink-0"
+                      data-confirm="{{ unblock_question }}" data-confirm-style="neutral" data-confirm-label="{% trans 'Unblock' %}">
                     {% csrf_token %}
                     <input type="hidden" name="next" value="{% url 'crush_lu:blocked_members' %}">
-                    <button type="submit" class="text-sm font-semibold text-crush-purple hover:underline">
-                        {% trans "Unblock" %}
+                    <button type="submit" class="btn-crush-outline btn-sm min-h-11">
+                        {% trans "Unblock" %}<span class="sr-only"> {{ name }}</span>
                     </button>
                 </form>
             </li>
+            {% endwith %}
             {% endfor %}
         </ul>
         {% else %}
-        <div class="text-center py-16 px-6 rounded-2xl bg-gray-50 dark:bg-gray-800/40 ring-1 ring-gray-200 dark:ring-gray-700">
-            <p class="text-gray-600 dark:text-gray-300 mb-0">{% trans "You haven't blocked anyone." %}</p>
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-crush-sm text-center py-12 px-6">
+            <div class="mx-auto w-24 h-24 mb-4 ghost-glow">{% include "crush_lu/includes/ghost-story-approved.html" with class="w-full h-full" %}</div>
+            <h2 class="text-lg font-semibold mb-2 text-gray-900 dark:text-white">{% trans "You haven't blocked anyone." %}</h2>
+            <p class="text-gray-500 dark:text-gray-400 mb-0">{% trans "You can block someone from their member card, a connection or a chat. They won't be notified." %}</p>
         </div>
+        {% endif %}
+
+        {% if undo_member %}
+        {# Undo = re-block through the existing endpoint; toast-component.js raises the toast. #}
+        <form id="undo-unblock-form" method="post" action="{% url 'crush_lu:block_user' undo_member.id %}" hidden>
+            {% csrf_token %}
+            <input type="hidden" name="reason" value="{{ undo_reason }}">
+            <input type="hidden" name="next" value="{% url 'crush_lu:blocked_members' %}">
+        </form>
+        {% blocktrans with name=undo_member.first_name|default:undo_member.username asvar undo_message %}You unblocked {{ name }}.{% endblocktrans %}
+        <div hidden data-toast data-toast-type="success" data-toast-duration="0"
+             data-toast-message="{{ undo_message }}"
+             data-toast-action-label="{% trans 'Undo' %}" data-toast-action-form="undo-unblock-form"></div>
+        <noscript>
+            <p class="mt-6 flex items-center justify-between gap-3 rounded-xl bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-200 px-4 py-3" role="status">
+                {{ undo_message }}
+                <button type="submit" form="undo-unblock-form" class="btn-crush-outline btn-sm min-h-11">{% trans "Undo" %}</button>
+            </p>
+        </noscript>
         {% endif %}
     </div>
 </div>

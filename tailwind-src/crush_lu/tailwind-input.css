@@ -12383,6 +12383,11 @@ html.dark .press-link {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 }
 
+/* Odd card count on the 2-column mobile grid: the last card spans the row */
+.about-stat-card:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+}
+
 html.dark .about-stat-card {
     background: #1e293b;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
@@ -12627,13 +12632,17 @@ html.dark .about-cta-section p {
     }
 
     .about-stats-section {
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(3, 1fr);
         gap: 2rem;
         margin: 0 0 3rem;
     }
 
     .about-stat-card {
         padding: 2rem 1rem;
+    }
+
+    .about-stat-card:last-child:nth-child(odd) {
+        grid-column: auto;
     }
 
     .founder-avatar {
