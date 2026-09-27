@@ -30,6 +30,62 @@ from .domains import (
 logger = logging.getLogger(__name__)
 
 
+class CookieConsentFlagSyncMiddleware:
+    """Mirror choices made through django-cookie-consent's own forms.
+
+    The banner writes readable per-group flags before its fetch requests.
+    Those requests carry X-Cookie-Consent-Fetch and must not get a late
+    Set-Cookie that can undo a newer choice made in the same tab.
+    """
+
+    PATH_ACTIONS = {"/cookies/accept/": "accept", "/cookies/decline/": "decline"}
+    GROUPS = {"analytics", "marketing"}
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        action = self.PATH_ACTIONS.get(request.path)
+        if (
+            request.method != "POST"
+            or action is None
+            or request.headers.get("X-Cookie-Consent-Fetch")
+            or "cookie_consent" not in response.cookies
+        ):
+            return response
+
+        from cookie_consent.forms import ProcessCookiesForm
+
+        form = ProcessCookiesForm(data=request.POST)
+        if not form.is_valid():
+            return response
+        groups = self.GROUPS.intersection(
+            group.varname for group in form.get_cookie_groups()
+        )
+        if not groups:
+            return response
+
+        from cookie_consent.cache import get_cookie_group
+
+        for name in groups:
+            if action == "decline":
+                value = "decline"
+            else:
+                group = get_cookie_group(name)
+                if group is None:
+                    continue
+                value = f"accept:{group.get_version() or ''}"
+            response.set_cookie(
+                f"cookie_consent_{name}",
+                value,
+                max_age=365 * 24 * 60 * 60,
+                secure=settings.SESSION_COOKIE_SECURE,
+                samesite="Lax",
+            )
+        return response
+
+
 def _safe_cache_set(key, value, timeout=300):
     """
     Safely set a cache value, handling race conditions with DatabaseCache.

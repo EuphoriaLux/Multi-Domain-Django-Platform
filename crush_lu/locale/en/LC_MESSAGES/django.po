@@ -2086,10 +2086,6 @@ msgstr ""
 msgid "Recipient Email (Optional)"
 msgstr ""
 
-#: .\crush_lu\forms.py:1204
-msgid "We can send them a notification when you create the gift."
-msgstr ""
-
 #: .\crush_lu\forms.py:1214
 msgid "Photo Puzzle Image"
 msgstr ""
@@ -28272,6 +28268,47 @@ msgstr ""
 #: theme ballot
 #, python-format
 msgid "Women %(women)s%% · Men %(men)s%%"
+msgstr ""
+
+#: .\crush_lu\forms.py:1204
+msgid "We'll email them the gift. Only enter an address if they know you're sending this."
+msgstr ""
+
+#: crush_lu/views_journey_gift.py
+msgid "You can send a Wonderland gift once a coach has approved your profile."
+msgstr ""
+
+#: crush_lu/views_journey_gift.py
+msgid "Thanks for letting us know. This gift is now closed and our team has been notified."
+msgstr ""
+
+#: crush_lu/views_journey_gift.py
+msgid "This gift is no longer active."
+msgstr ""
+
+#: crush_lu/views_journey_gift.py
+msgid "We couldn't send your report right now. The gift is still open. Please try again in a moment."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/journey/partials/gift_sender_badge.html
+#, python-format
+msgid "Created by %(name)s"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/journey/partials/gift_sender_badge.html
+msgid "verified Crush.lu member"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/journey/partials/gift_report_form.html
+msgid "Close this gift and let the Crush.lu team know? The link will stop working."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/journey/partials/gift_report_form.html
+msgid "Close and report"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/journey/partials/gift_report_form.html
+msgid "This isn't for me / Report"
 msgstr ""
 
 #: templates/crush_lu/crush_connect/catalogue_status.html

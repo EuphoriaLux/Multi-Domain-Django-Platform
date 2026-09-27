@@ -603,6 +603,7 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
     }
 
     function showBanner() {
+        prepareNativeStatus();
         const banner = document.getElementById('cookie-consent-banner');
         if (banner) {
             banner.style.display = 'block';
@@ -627,6 +628,7 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
     }
 
     function dispatchConsentEvent(consent) {
+        if (consent.marketing !== true) window.__fbPendingEvents = [];
         const event = new CustomEvent('cookie_consent_updated', {
             detail: consent
         });
@@ -648,12 +650,13 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         // page may have set them under an acceptance given after this copy
         // was rendered (a restored history entry or the service worker's
         // kept copy, embedding an older refusal). So clear them only while
-        // the browser holds no acceptance flag. Every save on this page
-        // writes its flag before dispatching, so a refusal made here still
-        // clears them. A stale acceptance flag (a cookie was added to the
-        // group since) holds the wipe back too; the SDK does not load in
-        // that state, and the visitor's next answer settles it.
-        if (consent.analytics !== true && currentFlag('analytics') !== true) {
+        // the browser holds no current acceptance. Every save on this page
+        // writes its flag before dispatching. A stale acceptance is no longer
+        // current, so renewal also clears the old identifiers.
+        if (consent.analytics !== true &&
+                (currentFlag('analytics') !== true ||
+                 (serverState() && serverState().analytics === true &&
+                  hasNewerServerVersion('analytics')))) {
             clearAppInsightsCookies();
         }
     }
@@ -673,18 +676,18 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
 
     // Also set the per-group flags the server reads first (stored_cookie_choice).
     // An acceptance carries django-cookie-consent's version of the group (the
-    // date of its newest cookie, from data-consent-state), so a cookie added
-    // to the group later makes it stale and the banner asks again, as the
-    // library does with its own cookie. Without a known version the save's
-    // own date stands in.
+    // date of its newest cookie, from data-consent-state or a newer version
+    // seen on another page), so an explicit renewal on a cached page stays
+    // current. Without a known version the save's own date stands in.
     function setDjangoCookieConsent(groupName, accepted) {
         const value = accepted
-            ? 'accept:' + (serverVersions()[groupName] || new Date().toISOString())
+            ? 'accept:' + (latestGroupVersion(groupName) || new Date().toISOString())
             : 'decline';
         const date = new Date();
         date.setTime(date.getTime() + (COOKIE_EXPIRY_DAYS * 24 * 60 * 60 * 1000));
         const expires = "expires=" + date.toUTCString();
         document.cookie = 'cookie_consent_' + groupName + "=" + value + ";" + expires + ";path=/;SameSite=Lax";
+        document.cookie = 'cookie_consent_' + groupName + '_banner=1;' + expires + ';path=/;SameSite=Lax';
     }
 
     // django-cookie-consent's own cookie (mounted at /cookies/ on every site)
@@ -695,6 +698,24 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
     // cookies above carry the choice too, and the server reads them first,
     // so a save is honoured even if this never completes.
     const NATIVE_STATUS_URL = '/cookies/status/';
+    let nativeStatusPromise = null;
+
+    function prepareNativeStatus() {
+        if (typeof fetch !== 'function') return Promise.resolve(null);
+        if (!nativeStatusPromise) {
+            nativeStatusPromise = fetch(NATIVE_STATUS_URL, { credentials: 'same-origin' })
+                .then(function(response) { return response.ok ? response.json() : null; })
+                .then(function(status) {
+                    if (!status) nativeStatusPromise = null;
+                    return status;
+                })
+                .catch(function() {
+                    nativeStatusPromise = null;
+                    return null;
+                });
+        }
+        return nativeStatusPromise;
+    }
 
     function postNativeChoice(url, csrftoken, groups) {
         if (!groups.length) return Promise.resolve();
@@ -715,8 +736,8 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
 
     function syncNativeConsent(consent) {
         if (typeof fetch !== 'function') return;
-        fetch(NATIVE_STATUS_URL, { credentials: 'same-origin' })
-            .then(function(response) { return response.ok ? response.json() : null; })
+        // Start the latest keepalive POST without waiting for an older choice.
+        prepareNativeStatus()
             .then(function(status) {
                 if (!status || !status.csrftoken) return;
                 const accepted = [], declined = [];
@@ -745,7 +766,10 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
             analytics: consent.analytics === true,
             marketing: consent.marketing === true,
             decided: true,
-            versions: serverVersions() // a second save here still writes versioned flags
+            versions: {
+                analytics: latestGroupVersion('analytics'),
+                marketing: latestGroupVersion('marketing')
+            }
         });
     }
 
@@ -820,6 +844,55 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         return state && state.versions && typeof state.versions === 'object' ? state.versions : {};
     }
 
+    // A cached page can carry an older version than another page has seen.
+    // Renew against the newest known version so an explicit choice survives
+    // the next navigation instead of being stale immediately.
+    function latestGroupVersion(group) {
+        const rendered = serverVersions()[group] || '';
+        try {
+            const known = localStorage.getItem('crush_consent_version_' + group);
+            if (known && !isNaN(Date.parse(known)) &&
+                    (isNaN(Date.parse(rendered)) || Date.parse(known) > Date.parse(rendered))) {
+                return known;
+            }
+        } catch (e) { /* storage can be unavailable in private mode */ }
+        return rendered;
+    }
+
+    // Remember the newest group versions seen on an online page. A kept
+    // ticket may later contain an older rendered grant; its tracker guards
+    // can compare against these versions while leaving the offline QR intact.
+    function rememberServerVersions() {
+        const versions = serverVersions();
+        ['analytics', 'marketing'].forEach(function(group) {
+            const version = versions[group];
+            if (!version) return;
+            try {
+                const key = 'crush_consent_version_' + group;
+                const known = localStorage.getItem(key);
+                if (!known || Date.parse(version) > Date.parse(known)) {
+                    localStorage.setItem(key, version);
+                }
+            } catch (e) { /* storage can be unavailable in private mode */ }
+        });
+    }
+
+    function hasNewerServerVersion(group) {
+        const version = serverVersions()[group];
+        const rendered = Date.parse(version || '');
+        const flag = getCookie('cookie_consent_' + group);
+        const accepted = typeof flag === 'string' && flag.indexOf('accept:') === 0
+            ? Date.parse(flag.slice(7)) : NaN;
+        try {
+            const known = localStorage.getItem('crush_consent_version_' + group);
+            const latest = Date.parse(known || '');
+            if (!isNaN(latest) && (isNaN(rendered) || latest > rendered)) {
+                return isNaN(accepted) || accepted < latest;
+            }
+        } catch (e) { /* storage can be unavailable in private mode */ }
+        return !isNaN(accepted) && !isNaN(rendered) && accepted < rendered;
+    }
+
     // The stored choice as {analytics, marketing}: the server's view first,
     // then the cookie this script can read. Two formats share that cookie:
     // this banner's JSON object, and django-cookie-consent's own
@@ -832,15 +905,15 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
             // readable cookie beside it may be an acceptance that a cookie
             // added since made stale. A group the server holds no choice for
             // (null) stays unticked, while the other keeps its current choice.
-            // A live refusal flag vetoes an embedded grant: on a freshly
-            // rendered page the server already read that flag first (so this
-            // changes nothing there), but a cached copy of the page embeds the
-            // grant it was rendered with, and must not re-grant a withdrawal.
+            // A live refusal or newer group version vetoes an embedded grant:
+            // a cached copy must not re-grant a withdrawn or expired choice.
             // Only in that direction: a live acceptance never outranks the
             // server's refusal or its "ask again" (under-tracking is safe).
             return {
-                analytics: server.analytics === true && currentFlag('analytics') !== false,
-                marketing: server.marketing === true && currentFlag('marketing') !== false
+                analytics: server.analytics === true && currentFlag('analytics') !== false &&
+                    !hasNewerServerVersion('analytics'),
+                marketing: server.marketing === true && currentFlag('marketing') !== false &&
+                    !hasNewerServerVersion('marketing')
             };
         }
         const consent = getCookie(COOKIE_NAME);
@@ -869,6 +942,7 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
     }
 
     function showCookieSettings() {
+        prepareNativeStatus();
         reflectStoredConsent();
         document.getElementById('cookie-settings-modal').style.display = 'flex';
     }
@@ -957,7 +1031,13 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
     // request falls back to the cookie this script can read.
     function choiceOnLoad() {
         const server = serverState();
-        if (server) return server.decided ? storedConsent() : null;
+        if (server) {
+            if (['analytics', 'marketing'].some(function(group) {
+                return server[group] === true && currentFlag(group) !== false &&
+                    hasNewerServerVersion(group);
+            })) return null;
+            return server.decided ? storedConsent() : null;
+        }
         const consent = getCookie(COOKIE_NAME);
         if (!consent) return null;
         return typeof consent === 'object' ? consent : storedConsent();
@@ -967,6 +1047,7 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
     document.addEventListener('DOMContentLoaded', function() {
         // Bind event listeners
         bindButtonEvents();
+        rememberServerVersions();
 
         const stored = choiceOnLoad();
         if (!stored) {
@@ -992,8 +1073,8 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
     // re-sending the embedded choice as it stands would replay a refusal it
     // embeds over a later acceptance (and wipe the identifiers set under
     // it), while a later acceptance never outranks the page's own refusal
-    // or its open question (under-tracking is the safe direction). The
-    // banner stays as it was left.
+    // or its open question (under-tracking is the safe direction). A newly
+    // stale grant reopens the banner so the visitor can renew it.
     window.addEventListener('pageshow', function(event) {
         if (!event.persisted) return;
         const server = serverState();
@@ -1007,14 +1088,20 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
             }
             return;
         }
-        const withdrawn = ['analytics', 'marketing'].some(function(group) {
+        const groups = ['analytics', 'marketing'];
+        const withdrawn = groups.some(function(group) {
             return server[group] === true && currentFlag(group) === false;
         });
-        if (!withdrawn) return;
-        // The embedded grants with the live refusals applied.
+        const stale = groups.some(function(group) {
+            return server[group] === true && currentFlag(group) !== false &&
+                hasNewerServerVersion(group);
+        });
+        if (!withdrawn && !stale) return;
+        // The embedded grants with live refusals and expired versions applied.
         const stored = storedConsent();
         dispatchConsentEvent(stored);
         updateGoogleConsent(stored);
+        if (stale) showBanner();
     });
 })();
 </script>

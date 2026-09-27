@@ -328,6 +328,7 @@ MIDDLEWARE = [
     # LoginPostDebugMiddleware (azureproject.middleware) is available for local
     # CSRF debugging — insert it here, before CsrfViewMiddleware, when needed.
     "django.middleware.csrf.CsrfViewMiddleware",
+    "azureproject.middleware.CookieConsentFlagSyncMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "crush_lu.middleware.UserActivityMiddleware",  # Track user activity and PWA usage
     "crush_lu.consent_middleware.CrushConsentMiddleware",  # Enforce Crush.lu GDPR consent

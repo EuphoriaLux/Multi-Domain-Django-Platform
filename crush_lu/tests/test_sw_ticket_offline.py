@@ -129,3 +129,10 @@ def test_ordinary_navigation_keeps_offline_tickets():
         "gdpr_page_navigation",
     ):
         assert results[name]["purgedCaches"] == [], results[name]
+
+
+@pytest.mark.parametrize("name", ["consent_accept_post", "consent_decline_post"])
+def test_consent_post_purges_pages_but_keeps_offline_tickets(name):
+    probe = _run_sw_route_probe()[name]
+    assert probe["purgedCaches"] == ["crush-pages"]
+    assert not probe["claimed"]
