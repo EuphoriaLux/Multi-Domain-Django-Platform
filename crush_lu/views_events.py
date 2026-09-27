@@ -1261,11 +1261,15 @@ def event_detail(request, event_id):
         registration=registration,
     )
 
-    # Only needed for the "verified members only" / "coach required" dead-end
-    # boxes below, which show a "Verify with LuxID" action to an authenticated
-    # member whose profile exists but isn't approved yet (#4-14).
+    # LuxID direct verification only accepts a submitted pending profile.
+    # Incomplete members must finish the profile wizard first; rejected
+    # members need support or coach review instead (#4-14).
     luxid_connect_url_value = None
-    if request.user.is_authenticated and user_profile and not user_profile.is_approved:
+    if (
+        request.user.is_authenticated
+        and user_profile
+        and user_profile.verification_status == "pending"
+    ):
         from .luxid import get_luxid_connect_url
 
         luxid_connect_url_value = get_luxid_connect_url(request)

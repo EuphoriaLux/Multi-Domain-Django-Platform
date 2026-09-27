@@ -11,7 +11,7 @@ Excluded from the default run (``-m "not playwright"`` in pytest.ini). Run:
 """
 
 import re
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
 from django.conf import settings
@@ -314,13 +314,55 @@ def test_sticky_registration_cta_respects_age_gate(page, live_server, upcoming_e
     page.reload()
     assert_blocked()  # Profile exists, but DOB is still missing.
 
-    profile.date_of_birth = date(2008, 1, 1)
+    profile.date_of_birth = timezone.localdate() - timedelta(days=365 * 18)
     profile.save(update_fields=["date_of_birth"])
     page.reload()
     assert_blocked()  # Under the event's minimum age.
 
-    profile.date_of_birth = date(2000, 1, 1)
+    profile.date_of_birth = timezone.localdate() - timedelta(days=365 * 26)
     profile.save(update_fields=["date_of_birth"])
     page.reload()
     expect(panel).to_have_attribute("data-age-blocked", "false")
     expect(sticky.locator("a")).to_have_attribute("href", re.compile(r".+"))
+
+
+
+def test_sticky_cta_hides_when_real_cta_enters_bottom_of_viewport(
+    page, live_server, upcoming_event
+):
+    """The real CTA should replace the sticky one at its first visible edge."""
+    member = _make_open_registration_member()
+    _log_in(page, live_server, member)
+    page.set_viewport_size(PHONE)
+    page.goto(f"{live_server.url}/en/events/{upcoming_event.id}/")
+    target = page.locator("#event-cta-panel a.btn-crush-primary")
+    sticky = page.locator("#event-sticky-cta")
+    expect(target).to_have_count(1)
+    # Leave scroll room even when the event page has little content after CTA.
+    page.evaluate(
+        "() => { const spacer = document.createElement('div'); "
+        "spacer.style.height = '1200px'; document.body.appendChild(spacer); "
+        "document.documentElement.style.scrollBehavior = 'auto'; }"
+    )
+
+    def position_target(viewport_fraction):
+        page.evaluate(
+            """fraction => {
+                const el = document.querySelector(
+                    '#event-cta-panel a.btn-crush-primary'
+                );
+                window.scrollTo(
+                    0,
+                    window.scrollY + el.getBoundingClientRect().top -
+                    window.innerHeight * fraction
+                );
+            }""",
+            viewport_fraction,
+        )
+
+    position_target(1.15)  # Real CTA sits below the viewport.
+    expect(sticky).to_be_visible()
+    position_target(0.84)  # Visible just above the mobile tab bar.
+    y = target.bounding_box()["y"]
+    assert PHONE["height"] * 0.8 < y < PHONE["height"] * 0.9
+    expect(sticky).to_be_hidden()

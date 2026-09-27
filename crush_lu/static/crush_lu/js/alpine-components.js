@@ -2715,17 +2715,15 @@ document.addEventListener("alpine:init", function () {
                     this.ctaLabel = (payButton.textContent || "").trim();
                     target = payButton;
                 }
-                // Observe the CTA element itself, not the whole panel — the
-                // intent (per the markup comment above) is to hide the bar
-                // "while that anchor is still visible on screen", and a
-                // future addition above/below it inside the same panel
-                // would otherwise decouple the two.
+                // Observe the CTA element itself, not the whole panel. Use
+                // the full viewport so the bar hides as soon as any part of
+                // the real CTA enters view, including near the bottom edge.
                 var observer = new IntersectionObserver(
                     function (entries) {
                         var entry = entries[0];
                         self.visible = !!entry && !entry.isIntersecting;
                     },
-                    { rootMargin: "0px 0px -20% 0px" },
+                    { rootMargin: "0px" },
                 );
                 observer.observe(target);
             },

@@ -422,6 +422,25 @@ class LuxidVerifyLinkTests(EventDetailWave3TestBase):
         defaults.update(kwargs)
         return CrushProfile.objects.create(user=user, **defaults)
 
+    def test_incomplete_profile_offers_wizard_instead_of_luxid(self):
+        from unittest.mock import patch
+
+        event = self._make_event(profile_requirement="approved")
+        user = self._create_user("incomplete-luxid@test.com")
+        self._profile(user, verification_status="incomplete")
+        self.client.force_login(user)
+
+        with patch(
+            "crush_lu.luxid.get_luxid_connect_url",
+            return_value="/accounts/luxid/login/?process=connect",
+        ) as connect_url:
+            html = self._get_detail(event)
+
+        connect_url.assert_not_called()
+        self.assertNotIn("Verify with LuxID", html)
+        self.assertIn('href="/en/create-profile/"', html)
+        self.assertIn("Finish your profile", html)
+
     def test_verify_with_luxid_renders_when_luxid_is_configured(self):
         from unittest.mock import patch
 

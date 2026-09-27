@@ -644,6 +644,11 @@
                                         </div>
                                     </div>
                                 </div>
+                            {% elif user_profile.verification_status == "incomplete" %}
+                                <div class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4">
+                                    <p class="text-xs sm:text-sm mb-3">{% trans "Please complete your profile to continue." %}</p>
+                                    <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-solid btn-sm">{% trans "Finish your profile" %}</a>
+                                </div>
                             {% elif not user_profile.is_approved %}
                                 <div class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4">
                                     <div class="flex items-start gap-2">
