@@ -869,6 +869,10 @@ ACCOUNT_SIGNUP_REDIRECT_URL = "/profile/"  # Redirect to profile page after sign
 # Allauth adapters - Multi-domain aware
 SOCIALACCOUNT_ADAPTER = "azureproject.adapters.MultiDomainSocialAccountAdapter"
 ACCOUNT_ADAPTER = "azureproject.adapters.MultiDomainAccountAdapter"
+# Enforces the crush.lu Terms consent server-side on social-signup completion.
+SOCIALACCOUNT_FORMS = {
+    "signup": "azureproject.social_forms.MultiDomainSocialSignupForm"
+}
 
 # Email backend Configuration
 # NOTE: For domain-specific email configuration (crush.lu, vinsdelux.com, etc.),

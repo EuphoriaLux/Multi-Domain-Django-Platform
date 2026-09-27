@@ -265,8 +265,10 @@ def event_voting_results(request, event_id):
     """Display voting results and transition to presentations when ready"""
     event = get_object_or_404(MeetupEvent, id=event_id)
 
-    # Allow event coaches and superusers
-    is_coach = event.coaches.filter(user=request.user).exists()
+    # Allow active event coaches and superusers. A deactivated coach still
+    # assigned to the event gets the attendee path — the coach view renders
+    # attendee photos, which only active coaches may load.
+    is_coach = event.coaches.filter(user=request.user, is_active=True).exists()
     is_coach_view = is_coach or request.user.is_superuser
     if not is_coach_view:
         # Verify user is registered for this event
