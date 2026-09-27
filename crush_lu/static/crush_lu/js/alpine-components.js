@@ -13505,6 +13505,10 @@ document.addEventListener("alpine:init", function () {
 
                 var csrfToken = document.querySelector("[name=csrfmiddlewaretoken]");
                 var token = csrfToken ? csrfToken.value : "";
+                var payload = { option_ids: self.selectedOptions };
+                // Optional "I am..." answer, rendered only for voters without a profile gender
+                var gender = document.querySelector('input[name="voter_gender"]:checked');
+                if (gender) payload.gender = gender.value;
 
                 fetch("/api/polls/" + self.pollId + "/vote/", {
                     method: "POST",
@@ -13512,7 +13516,7 @@ document.addEventListener("alpine:init", function () {
                         "Content-Type": "application/json",
                         "X-CSRFToken": token,
                     },
-                    body: JSON.stringify({ option_ids: self.selectedOptions }),
+                    body: JSON.stringify(payload),
                 })
                     .then(function (r) {
                         return r.json();
