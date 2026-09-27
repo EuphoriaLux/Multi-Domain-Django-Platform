@@ -104,6 +104,19 @@ def test_pageshow_persisted_resets_busy_state(page, live_server, google_social_a
     assert google_btn.first.get_attribute("aria-busy") is None
 
 
+def test_autofocus_focuses_the_email_field_on_a_fine_pointer(page, live_server):
+    """2-08 positive case: on a normal desktop/mouse context, the field
+    marked data-autofocus-candidate IS focused — proves the JS actually
+    runs the focus(), not just that the literal `autofocus` attribute (an
+    entirely separate mechanism the test below can't distinguish from a
+    JS bug that never focuses anything) is gone."""
+    page.goto(f"{live_server.url}/en/login/")
+    page.wait_for_function(
+        "document.activeElement && document.activeElement.id === 'id_login'"
+    )
+    assert page.evaluate("document.activeElement.id") == "id_login"
+
+
 def test_autofocus_is_skipped_on_a_coarse_touch_pointer(page, live_server):
     """2-08: on a touch/mobile context, matchMedia('(pointer: fine)') is
     false, so the email field is never auto-focused (no keyboard popping
