@@ -109,7 +109,7 @@ class FactStripAndDescriptionTests(EventDetailWave3TestBase):
         event = self._make_event()
         html = self._get_detail(event)
         self.assertIn("eventDescriptionToggle", html)
-        self.assertIn(':class="descriptionClass"', html)
+        self.assertRegex(html, r'id="event-description-text"[^>]*line-clamp-4')
         self.assertIn("Read more", html)
 
     def test_short_description_has_no_read_more_toggle(self):
@@ -317,7 +317,9 @@ class FactStripLocaleDateOrderTests(EventDetailWave3TestBase):
         # produces and require it verbatim, rather than scanning the whole
         # page for a bare month name (which can false-match unrelated text).
         with translation.override("de"):
-            expected_date = formats.date_format(event.date_time, "DATE_FORMAT")
+            expected_date = formats.date_format(
+                timezone.localtime(event.date_time), "DATE_FORMAT"
+            )
         self.assertIn(expected_date, html)
 
 
@@ -329,13 +331,15 @@ class DescriptionClampGateTests(EventDetailWave3TestBase):
         event = self._make_event()
         html = self._get_detail(event)
         self.assertIn('data-collapsible="true"', html)
+        self.assertRegex(html, r'id="event-description-text"[^>]*line-clamp-4')
 
     def test_short_description_is_not_marked_collapsible(self):
         event = self._make_event(description="A short blurb.")
         html = self._get_detail(event)
         self.assertNotIn("data-collapsible", html)
+        self.assertNotRegex(html, r'id="event-description-text"[^>]*line-clamp-4')
 
-    def test_descriptionclass_getter_is_gated_on_collapsible_flag(self):
+    def test_toggle_only_changes_clamp_for_collapsible_descriptions(self):
         js_path = finders.find("crush_lu/js/alpine-components.js")
         with open(js_path, encoding="utf-8") as fh:
             js = fh.read()
@@ -343,7 +347,8 @@ class DescriptionClampGateTests(EventDetailWave3TestBase):
         end = js.index("Alpine.data(", start + 1)
         component_src = js[start:end]
         self.assertIn("this.collapsible = this.$el.dataset.collapsible", component_src)
-        self.assertIn("this.collapsible", component_src.split("descriptionClass")[1])
+        self.assertIn("if (this.collapsible)", component_src)
+        self.assertIn("this.$refs.description.classList.toggle(", component_src)
 
 
 class StickyCtaPaymentDueFallbackTests(EventDetailWave3TestBase):

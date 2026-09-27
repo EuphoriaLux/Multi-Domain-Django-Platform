@@ -2555,20 +2555,14 @@ document.addEventListener("alpine:init", function () {
     Alpine.data("eventDescriptionToggle", function () {
         return {
             expanded: false,
-            // Only ever clamp when the template also rendered a toggle to
-            // undo it (`{% if event.description|wordcount > 40 %}`) — read
-            // from data-collapsible so this getter can't disagree with that
-            // same gate (WP6 finding: the clamp used to apply regardless of
-            // whether a "Read more" button existed to remove it).
+            // The template initially clamps long text so it cannot flash
+            // open before Alpine loads. The same gate renders the toggle.
             collapsible: false,
             init: function () {
                 this.collapsible = this.$el.dataset.collapsible === "true";
             },
             get collapsed() {
                 return !this.expanded;
-            },
-            get descriptionClass() {
-                return !this.expanded && this.collapsible ? "line-clamp-4" : "";
             },
             // String form for :aria-expanded on the toggle button (#WP6-2):
             // mirrors the getter idiom base.html uses for nav aria-expanded
@@ -2578,6 +2572,12 @@ document.addEventListener("alpine:init", function () {
             },
             toggle: function () {
                 this.expanded = !this.expanded;
+                if (this.collapsible) {
+                    this.$refs.description.classList.toggle(
+                        "line-clamp-4",
+                        !this.expanded,
+                    );
+                }
             },
         };
     });
