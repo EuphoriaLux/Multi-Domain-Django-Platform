@@ -145,6 +145,15 @@ class NavProgressMarkupTests(TestCase):
         self.assertIn('aria-label="Onboarding progress"', html)
         self.assertNotIn('x-data="profileProgress"', html)
 
+    def test_mobile_menu_progress_is_hidden_where_the_stepper_is_shown(self):
+        # The hamburger menu's "Profile Progress" card is a second counter;
+        # on stepper pages it can disagree with the stepper (welcome_view
+        # saves welcome_seen_at before the context processor runs).
+        self.assertIn("Profile Progress", self._get("/en/events/"))
+        html = self._get("/en/create-profile/")
+        self.assertIn('aria-label="Onboarding progress"', html)
+        self.assertNotIn("Profile Progress", html)
+
 
 class ThemeLockMarkupTests(TestCase):
     """7-03: journey and gift pages are an explicit dark surface."""

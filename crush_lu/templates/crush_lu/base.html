@@ -1120,6 +1120,8 @@
 
                             {% else %}
                                 {# PROFILE INCOMPLETE: Progress info + locked features #}
+                                {# Not on stepper pages: the journey stepper is the one counter there. #}
+                                {% if not journey_steps %}
                                 <div class="px-4 py-3 bg-white/10 rounded-lg mb-2">
                                     <div class="flex justify-between text-sm mb-2">
                                         <span class="text-white/80">{% trans "Profile Progress" %}</span>
@@ -1131,6 +1133,7 @@
                                     </div>
                                     <p class="text-white/60 text-xs mt-2">{% trans "Next:" %} {{ profile_step_label }}</p>
                                 </div>
+                                {% endif %}
                                 <a class="nav-link block bg-crush-pink/20 rounded-lg" href="{% url 'crush_lu:onboarding_entry' %}">
                                     {% include "shared/icons/arrow-right.html" with class="w-4 h-4 inline mr-2" %}
                                     {% trans "Continue Setup" %}
