@@ -136,9 +136,19 @@ def event_ticket(request, event_id):
     # the door printer puts on the attendee's badge (services/ticket_printer.py).
     ticket_number = f"#{registration.id}"
 
+    # An "attended" seat still has payment_confirmed=False when the door
+    # takes payment out of band (see the docstring above), and the ticket is
+    # reachable for that status by design. But create_sumup_event_checkout
+    # only accepts "pending"/"confirmed" registrations on a non-cancelled
+    # event, so the "Pay now" strip below must not offer a retry the
+    # endpoint will refuse for an attended (or otherwise non-payable) seat
+    # (Codex finding, UX Wave 3 · WP8 follow-up).
+    from crush_lu.services.event_payments import registration_is_payable
+
     context = {
         "event": event,
         "registration": registration,
+        "registration_payable": registration_is_payable(registration, event),
         "checkin_url": checkin_url,
         "checkin_qr_svg": checkin_qr_svg,
         "ticket_number": ticket_number,

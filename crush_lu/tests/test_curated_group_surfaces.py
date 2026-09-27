@@ -259,7 +259,9 @@ class CuratedGroupSurfaceTests(TestCase):
         self.assertContains(response, "Selection is not guaranteed.")
         self.assertContains(response, "Withdraw Application")
         self.assertNotContains(response, "Cancel Registration")
-        self.assertNotContains(response, "js-sumup-checkout-detail")
+        # Renamed from the "js-sumup-checkout-detail" class to the
+        # sumupCheckoutButton Alpine component (UX Wave 3 · WP8 / #4-05).
+        self.assertNotContains(response, 'x-data="sumupCheckoutButton"')
 
     def test_curated_structured_data_does_not_publish_stale_seats(self):
         for index in range(self.curated.max_participants):
@@ -638,6 +640,11 @@ class CuratedMemberInsightTests(TestCase):
     def test_selected_member_sees_a_provisional_group_summary_without_names(self):
         event, mine, others, group = self._select_viewer()
 
+        from crush_lu.services.event_payments import registration_is_payable
+
+        mine.refresh_from_db()
+        self.assertTrue(registration_is_payable(mine, event))
+
         response = self._detail(event)
         outlook = response.context["curated_group_outlook"]
 
@@ -661,7 +668,9 @@ class CuratedMemberInsightTests(TestCase):
         self.assertContains(response, "Your tables appear here once it is final.")
         self.assertNotContains(response, "data-curated-own-tables")
         self.assertNotContains(response, "match your preferences")
-        self.assertContains(response, "js-sumup-checkout-detail")
+        # Renamed from the "js-sumup-checkout-detail" class to the
+        # sumupCheckoutButton Alpine component (UX Wave 3 · WP8 / #4-05).
+        self.assertContains(response, 'x-data="sumupCheckoutButton"')
 
     def test_locked_member_sees_only_their_own_tables(self):
         event, mine, others, group = self._select_viewer()
