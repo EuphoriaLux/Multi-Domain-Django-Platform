@@ -43076,3 +43076,272 @@ msgstr "Support WhatsApp"
 msgctxt "drawer group"
 msgid "Preferences"
 msgstr "Préférences"
+
+# UX Wave 3 · WP8 pay-confirm
+# UX Wave 3 · WP8 pay-confirm
+# UX Wave 3 · WP8 pay-confirm
+# UX Wave 3 · WP8 pay-confirm
+# UX Wave 3 · WP8 pay-confirm
+# UX Wave 3 · WP8
+#: crush_lu/templates/crush_lu/event_detail.html
+#: crush_lu/templates/crush_lu/event_ticket.html
+#, python-format
+msgid "Payment due — €%(amount)s"
+msgstr "Paiement en attente — %(amount)s €"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "Your spot is reserved. Complete payment below to confirm it."
+msgstr ""
+"Votre place est réservée. Terminez le paiement ci-dessous pour la confirmer."
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "You're in!"
+msgstr "Vous y êtes !"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "View my ticket"
+msgstr "Voir mon billet"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+#: crush_lu/templates/crush_lu/_event_registration_success.html
+msgid "Preparing checkout…"
+msgstr "Préparation du paiement…"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+#: crush_lu/templates/crush_lu/_event_registration_success.html
+#: crush_lu/templates/crush_lu/my_events.html
+msgid "An error occurred launching payment. Please try again."
+msgstr ""
+"Une erreur s'est produite lors du lancement du paiement. Veuillez réessayer."
+
+#: crush_lu/templates/crush_lu/event_detail.html
+#: crush_lu/templates/crush_lu/_event_registration_success.html
+#: crush_lu/templates/crush_lu/my_events.html
+msgid "Pay with Card"
+msgstr "Payer par carte"
+
+#: crush_lu/templates/crush_lu/my_events.html
+msgid "Preparing…"
+msgstr "Préparation…"
+
+#: crush_lu/templates/crush_lu/event_ticket.html
+msgid "This ticket holds your seat, but payment hasn't been received yet."
+msgstr ""
+"Ce billet réserve votre place, mais le paiement n'a pas encore été reçu."
+
+#: crush_lu/views_payments.py
+msgid ""
+"Your payment is still pending or was not completed. Your spot is reserved — "
+"you can retry payment below."
+msgstr ""
+"Votre paiement est toujours en attente ou n'a pas été finalisé. Votre place "
+"est réservée — vous pouvez retenter le paiement ci-dessous."
+
+# UX Wave 3 · WP8 (follow-up: 4-10 waitlist regression)
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "You're on the waitlist"
+msgstr "Vous êtes sur la liste d'attente"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "We'll email you if a spot opens up. No payment is needed until then."
+msgstr ""
+"Nous vous préviendrons par e-mail si une place se libère. Aucun paiement "
+"n'est nécessaire jusque-là."
+
+
+# UX Wave 3 · WP8 pay-confirm (merged from Codex branch)
+#: templates/crush_lu/emails/profile_incomplete_72h.html:36
+msgid ""
+"You're SO close! Just add 1-3 photos and you're done. Your privacy is "
+"protected - you can blur photos or show only your first name."
+msgstr ""
+"Vous êtes SI proche ! Ajoutez juste 1-3 photos et c'est fait. Votre vie "
+"privée est protégée - vous pouvez flouter les photos ou montrer seulement "
+"votre prénom."
+
+#: context_processors.py:56
+msgid "Complete your profile"
+msgstr "Complétez votre profil"
+
+#: context_processors.py:58
+msgid "Profile verified"
+msgstr "Profil vérifié"
+
+#: context_processors.py:62
+msgid "Tell us about you"
+msgstr "Parlez-nous de vous"
+
+#: context_processors.py:63 context_processors.py:64
+msgid "Add photos"
+msgstr "Ajouter des photos"
+
+#: context_processors.py:65
+msgid "Review & submit"
+msgstr "Vérifier et soumettre"
+
+#: context_processors.py:66
+msgid "Under review"
+msgstr "En cours de relecture"
+
+# UX Wave 3 · WP8 payment eligibility
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "This registration cannot be paid for in its current state."
+msgstr "Cette inscription ne peut pas être payée dans son état actuel."
+
+
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+# UX Wave 3 · WP9 dashboard
+#: crush_lu/templates/crush_lu/dashboard.html:18
+#, python-format
+msgid "%(requests)s new connection request"
+msgid_plural "%(requests)s new connection requests"
+msgstr[0] "%(requests)s nouvelle demande de connexion"
+msgstr[1] "%(requests)s nouvelles demandes de connexion"
+
+#: crush_lu/templates/crush_lu/dashboard.html:18
+msgid "View all requests"
+msgstr "Voir toutes les demandes"
+
+#: crush_lu/templates/crush_lu/dashboard.html:18
+msgid "See Crush Connect above"
+msgstr "Voir Crush Connect ci-dessus"
+
+
+# UX Wave 3 · WP10 match-moment
+# UX Wave 3 · WP10 match-moment
+# UX Wave 3 · WP10 match-moment
+# UX Wave 3 · WP10 match moment
+# UX Wave 3 · WP10 match-moment
+# UX Wave 3 · WP10 match-moment
+# UX Wave 3 . WP10 match-moment (findings 5-09, 5-10, 5-13, 5-14, 5-15)
+#: templates/crush_lu/connection_detail.html:343
+msgid "First name only:"
+msgstr "Prénom uniquement :"
+
+#: templates/crush_lu/connection_detail.html:351
+msgid "Nothing is shared until you both consent."
+msgstr ""
+"Rien n'est partagé tant que vous n'avez pas tous les deux donné votre "
+"consentement."
+
+#: templates/crush_lu/connection_detail.html:368
+#, python-format
+msgid "Also share my email address with %(name)s"
+msgstr "Partager aussi mon adresse e-mail avec %(name)s"
+
+#: templates/crush_lu/connection_detail.html:381
+msgid "Not now"
+msgstr "Pas maintenant"
+
+#: templates/crush_lu/connection_detail.html:385
+msgid "\"Not now\" closes this quietly — the other person is not notified."
+msgstr ""
+"« Pas maintenant » referme cela discrètement — l'autre personne n'en est pas"
+" informée."
+
+#: templates/crush_lu/connection_detail.html:414
+#, python-format
+msgid "%(name)s chose not to share their email."
+msgstr "%(name)s a choisi de ne pas partager son e-mail."
+
+#: templates/crush_lu/_connection_response.html:15
+#, python-format
+msgid ""
+"You and %(name)s can already see each other's contact info — no waiting "
+"needed."
+msgstr ""
+"Vous et %(name)s pouvez déjà voir vos informations de contact respectives — "
+"pas besoin d'attendre."
+
+#: templates/crush_lu/_connection_response.html:19
+#, python-format
+msgid ""
+"Your Crush Coach will call you within 48 hours to help arrange your "
+"introduction with %(name)s."
+msgstr ""
+"Votre Crush Coach vous appellera sous 48h pour vous aider à organiser votre "
+"rencontre avec %(name)s."
+
+#: templates/crush_lu/_connection_response.html:24
+msgid "Coach reviews"
+msgstr "Le coach examine"
+
+#: templates/crush_lu/_connection_response.html:28
+msgid "You both consent"
+msgstr "Vous consentez tous les deux"
+
+#: templates/crush_lu/_connection_response.html:41
+msgid "See next steps"
+msgstr "Voir les prochaines étapes"
+
+#: templates/crush_lu/_connection_response.html:56
+msgid ""
+"This won't be shared with them. You can still connect at a future event."
+msgstr ""
+"Cela ne sera pas partagé avec cette personne. Vous pourrez toujours vous "
+"connecter lors d'un prochain événement."
+
+#: templates/crush_lu/my_connections.html:163
+msgid "Your first connection starts at an event"
+msgstr "Votre première connexion commence lors d'un événement"
+
+#: templates/crush_lu/my_connections.html:165
+msgid ""
+"Meet someone, and if you both say yes afterwards, your Crush Coach steps in "
+"to make the introduction."
+msgstr ""
+"Rencontrez quelqu'un, et si vous dites tous les deux oui ensuite, votre "
+"Crush Coach se charge de faire les présentations."
+
+#: templates/crush_lu/my_connections.html:184
+msgid "Meet at an event"
+msgstr "Se rencontrer lors d'un événement"
+
+#: templates/crush_lu/my_connections.html:188
+msgid "Both say yes"
+msgstr "Vous dites tous les deux oui"
+
+#: templates/crush_lu/my_connections.html:192
+msgid "Your coach introduces you"
+msgstr "Votre coach fait les présentations"
+
+#: views_connections.py:1019
+msgid "No problem — nothing was shared, and this connection is now closed."
+msgstr ""
+"Pas de souci — rien n'a été partagé, et cette connexion est maintenant "
+"fermée."
+
+#: templates/crush_lu/_connection_response.html:21
+#, python-format
+msgid ""
+"Your Crush Coach will be in touch to help arrange your introduction with "
+"%(name)s."
+msgstr ""
+"Votre Crush Coach vous contactera pour organiser votre présentation avec "
+"%(name)s."
+
+#: views_connections.py:1029
+msgid ""
+"This connection has already moved on — refresh the page to see its current "
+"status."
+msgstr ""
+"Cette connexion a déjà évolué — actualisez la page pour voir son statut "
+"actuel."
+
+#: crush_lu/templates/crush_lu/my_connections.html
+msgid ""
+"Meet someone, and if you both say yes afterwards, you're connected: "
+"sometimes straight away, sometimes through an introduction by your Crush "
+"Coach."
+msgstr ""
+"Rencontrez quelqu'un, et si vous dites tous les deux oui ensuite, vous êtes "
+"mis en relation : parfois directement, parfois grâce aux présentations de "
+"votre Crush Coach."
+

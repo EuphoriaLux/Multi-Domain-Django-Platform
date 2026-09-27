@@ -387,6 +387,21 @@ class EventConnection(models.Model):
         help_text=_("Recipient agrees to share contact info")
     )
 
+    # Per-channel consent (UX Wave 3, finding 5-10): name, phone (when set) and
+    # profile/photos are always part of "contact info" once a side consents —
+    # only email is an independent choice, ticked at consent time. Existing
+    # rows were backfilled True (migration 0255) to keep their historical
+    # behaviour; new rows default False, so any path that shares without the
+    # consent form (e.g. the same-gender auto-share) never exposes email.
+    requester_shares_email = models.BooleanField(
+        default=False,
+        help_text=_("Requester chose to include their email in what is shared")
+    )
+    recipient_shares_email = models.BooleanField(
+        default=False,
+        help_text=_("Recipient chose to include their email in what is shared")
+    )
+
     # Timestamps
     requested_at = models.DateTimeField(auto_now_add=True)
     responded_at = models.DateTimeField(null=True, blank=True)

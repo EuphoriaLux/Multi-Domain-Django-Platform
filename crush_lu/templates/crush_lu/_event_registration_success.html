@@ -87,60 +87,27 @@
         {% endcomment %}
         {% if event.registration_fee > 0 and not registration.payment_confirmed and registration.status != 'applied' %}
         {% if has_sufficient_crush_credit %}
-        <button data-sumup-reg-id="{{ registration.id }}" data-payment-method="credit" class="js-sumup-checkout-success btn-crush-solid w-full">
-            <span>{% trans "Pay with Crush Credit" %}</span>
+        <button type="button" x-data="sumupCheckoutButton" @click="start" :disabled="isLoading"
+                data-sumup-reg-id="{{ registration.id }}" data-payment-method="credit"
+                data-label="{% trans 'Pay with Crush Credit' %}"
+                data-label-loading="{% trans 'Preparing checkout…' %}"
+                data-msg-error="{% trans 'An error occurred launching payment. Please try again.' %}"
+                class="btn-crush-solid w-full disabled:opacity-70 disabled:cursor-not-allowed">
+            <span x-text="label">{% trans "Pay with Crush Credit" %}</span>
         </button>
         {% endif %}
-        <button data-sumup-reg-id="{{ registration.id }}" data-payment-method="card" class="js-sumup-checkout-success w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <button type="button" x-data="sumupCheckoutButton" @click="start" :disabled="isLoading"
+                data-sumup-reg-id="{{ registration.id }}" data-payment-method="card"
+                data-label="{% trans 'Pay with Card' %} ({{ event.registration_fee }} EUR)"
+                data-label-loading="{% trans 'Preparing checkout…' %}"
+                data-msg-error="{% trans 'An error occurred launching payment. Please try again.' %}"
+                class="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed">
+            <svg x-show="idle" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
             </svg>
-            <span>{% trans "Pay with Card" %} ({{ event.registration_fee }} EUR)</span>
+            <span x-show="isLoading" x-cloak>{% include "shared/icons/loading.html" with class="w-5 h-5 animate-spin" %}</span>
+            <span x-text="label">{% trans "Pay with Card" %} ({{ event.registration_fee }} EUR)</span>
         </button>
-        <script nonce="{{ csp_nonce }}">
-            // CSRF_COOKIE_HTTPONLY is True, so document.cookie can't see csrftoken.
-            // Read the hidden input base.html renders instead (same as HTMX does).
-            function getCsrfToken() {
-                const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
-                return input ? input.value : '';
-            }
-
-            function startSumUpCheckout(registrationId, paymentMethod) {
-                fetch('/payments/sumup/create-event-checkout/' + registrationId + '/', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': getCsrfToken(),
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({payment_method: paymentMethod})
-                })
-                .then(res => res.json().catch(() => {
-                    throw new Error('HTTP ' + res.status);
-                }))
-                .then(data => {
-                    if (data.success && data.widget_url) {
-                        window.location.href = data.widget_url;
-                    } else {
-                        alert(data.error || 'Failed to initiate payment.');
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert('An error occurred launching payment.');
-                });
-            }
-
-            document.addEventListener('click', function(e) {
-                const btn = e.target.closest('.js-sumup-checkout-success');
-                if (btn) {
-                    const regId = btn.getAttribute('data-sumup-reg-id');
-                    const paymentMethod = btn.getAttribute('data-payment-method') || 'card';
-                    if (regId) {
-                        startSumUpCheckout(regId, paymentMethod);
-                    }
-                }
-            });
-        </script>
         {% endif %}
 
         {% if registration.status == 'confirmed' %}

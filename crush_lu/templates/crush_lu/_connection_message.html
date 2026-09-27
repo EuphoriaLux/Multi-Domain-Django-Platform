@@ -1,4 +1,10 @@
 {% load i18n %}
+{% if remove_empty_placeholder %}
+    {% comment %}Out-of-band delete: removes the "No messages yet" block the
+       moment this, the first message in the thread, is appended (finding
+       5-15).{% endcomment %}
+    <div id="chat-empty" hx-swap-oob="delete"></div>
+{% endif %}
 <div class="{% if is_own_message %}msg-bubble msg-bubble-sent{% elif msg.is_coach_message %}msg-bubble msg-bubble-coach{% else %}msg-bubble msg-bubble-received{% endif %}">
     <div class="flex items-center justify-between mb-2">
         <strong class="text-sm">

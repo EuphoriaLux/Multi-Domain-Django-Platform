@@ -15,6 +15,30 @@
             </a>
         </div>
 
+        {# Payment-due strip (#4-09): the ticket never said payment was still #}
+        {# owed, so a member arrived thinking they'd paid and the coach had to #}
+        {# chase money at the door. registration_fee lives on the event, not #}
+        {# the registration, so a free event (fee 0) never shows this. #}
+        {# registration_payable (services/event_payments.py) additionally #}
+        {# excludes an "attended" (or otherwise non pending/confirmed) seat: #}
+        {# the door accepts it without SumUp, but create_sumup_event_checkout #}
+        {# refuses to charge it, so "Pay now" must not be offered here either #}
+        {# (Codex finding, UX Wave 3 · WP8 follow-up). #}
+        {% if event.registration_fee > 0 and not registration.payment_confirmed and registration_payable %}
+        <div class="mb-4 rounded-lg border border-amber-200 dark:border-yellow-700 bg-amber-50 dark:bg-yellow-900/30 text-amber-800 dark:text-yellow-300 p-3 sm:p-4">
+            <div class="flex items-start gap-2">
+                <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                </svg>
+                <div class="flex-1">
+                    <p class="font-semibold text-sm mb-1">{% blocktrans with amount=event.registration_fee %}Payment due — €{{ amount }}{% endblocktrans %}</p>
+                    <p class="text-xs sm:text-sm mb-2">{% trans "This ticket holds your seat, but payment hasn't been received yet." %}</p>
+                    <a href="{% url 'crush_lu:event_detail' event.id %}#event-payment-actions" class="btn-crush-solid btn-sm inline-flex">{% trans "Pay now" %}</a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         {# Ticket Card #}
         <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/30 overflow-hidden">
             {# Purple header with event info #}

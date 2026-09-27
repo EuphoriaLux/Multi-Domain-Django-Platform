@@ -820,12 +820,16 @@ def my_events(request):
         return lobby_cta(request.user, reg.event, registration=reg, now=now)
 
     credit_balance_cents = available_credit_cents(request.user)
+    from .services.event_payments import registration_is_payable
+
     upcoming_with_meta = [
         {
             "registration": reg,
             "event": reg.event,
             "is_waitlist": reg.status == "waitlist",
             "is_pending_payment": reg.status == "pending",
+            "can_pay": reg.status == "pending"
+            and registration_is_payable(reg, reg.event),
             # "applied" included: withdrawing an application is exactly the
             # thing an applicant may still want to do, and event_cancel accepts
             # it. Deliberately NOT SEAT_HOLDING_STATUSES — that set includes

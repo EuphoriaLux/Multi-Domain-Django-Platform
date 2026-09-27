@@ -1,21 +1,48 @@
 {% load i18n %}
 {% if action == 'accept' %}
-<div id="connection-{{ connection.id }}" class="bg-green-50 dark:bg-green-900/30 rounded-xl shadow-sm dark:shadow-gray-900/20 border-l-4 border-green-500 p-4">
-    <div class="flex items-center">
-        <div class="mr-4">
-            {% include "shared/icons/check-circle.html" with class="w-10 h-10 text-green-500" %}
+<div id="connection-{{ connection.id }}"
+     class="rounded-xl shadow-sm dark:shadow-gray-900/20 border-l-4 border-pink-400 bg-gradient-to-br from-pink-50 to-purple-50 dark:from-pink-900/20 dark:to-purple-900/20 p-5">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-start">
+        <div class="shrink-0 w-12 h-12 rounded-full bg-white dark:bg-gray-800 shadow-sm flex items-center justify-center">
+            {% include "shared/icons/sparkles.html" with class="w-6 h-6 text-pink-500" %}
         </div>
-        <div class="flex-grow">
-            <h5 class="font-semibold text-green-800 dark:text-green-300 mb-1">{% trans "Connection Accepted!" %}</h5>
-            <p class="text-green-700 dark:text-green-300 text-sm">
-                {% blocktrans with name=connection.requester.crushprofile.display_name %}A coach will help facilitate your introduction with {{ name }}.{% endblocktrans %}
-            </p>
+        <div class="flex-1 min-w-0">
+            <h5 class="font-semibold text-lg text-gray-900 dark:text-white mb-1">
+                {% trans "It's mutual!" %}
+            </h5>
+            {% if connection.status == 'shared' %}
+                <p class="text-gray-700 dark:text-gray-200 text-sm mb-3">
+                    {% blocktrans with name=connection.requester.crushprofile.display_name %}You and {{ name }} can already see each other's contact info — no waiting needed.{% endblocktrans %}
+                </p>
+            {% else %}
+                <p class="text-gray-700 dark:text-gray-200 text-sm mb-3">
+                    {% if connection.call_by %}
+                        {% blocktrans with name=connection.requester.crushprofile.display_name %}Your Crush Coach will call you within 48 hours to help arrange your introduction with {{ name }}.{% endblocktrans %}
+                    {% else %}
+                        {% blocktrans with name=connection.requester.crushprofile.display_name %}Your Crush Coach will be in touch to help arrange your introduction with {{ name }}.{% endblocktrans %}
+                    {% endif %}
+                </p>
+                <ol class="space-y-2 mb-1">
+                    <li class="flex items-center gap-2 text-xs font-medium text-pink-700 dark:text-pink-300">
+                        <span class="w-5 h-5 rounded-full bg-pink-500 text-white flex items-center justify-center shrink-0">1</span>
+                        {% trans "Coach reviews" %}
+                    </li>
+                    <li class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                        <span class="w-5 h-5 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center shrink-0">2</span>
+                        {% trans "You both consent" %}
+                    </li>
+                    <li class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                        <span class="w-5 h-5 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center shrink-0">3</span>
+                        {% trans "Contacts shared" %}
+                    </li>
+                </ol>
+            {% endif %}
         </div>
-        <div class="ml-4">
+        <div class="shrink-0">
             <a href="{% url 'crush_lu:connection_detail' connection.id %}"
-               class="inline-flex items-center gap-2 px-4 py-2.5 font-semibold bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors">
+               class="btn-crush-primary inline-flex items-center justify-center gap-2 w-full sm:w-auto">
                 {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
-                {% trans "View Details" %}
+                {% trans "See next steps" %}
             </a>
         </div>
     </div>
@@ -28,8 +55,9 @@
      x-transition:leave="transition ease-in duration-300"
      x-transition:leave-start="opacity-100 transform scale-100"
      x-transition:leave-end="opacity-0 transform scale-95">
-    <div class="flex items-center justify-center text-gray-500 dark:text-gray-400 py-2">
-        <p class="m-0">{% trans "Connection request declined" %}</p>
+    <div class="flex flex-col items-center justify-center text-center gap-1 text-gray-500 dark:text-gray-400 py-2">
+        <p class="m-0 font-medium">{% trans "Connection request declined" %}</p>
+        <p class="m-0 text-xs">{% trans "This won't be shared with them. You can still connect at a future event." %}</p>
     </div>
 </div>
 {% endif %}

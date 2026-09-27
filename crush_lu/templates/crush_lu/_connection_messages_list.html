@@ -15,7 +15,11 @@ an established convention in this template family; keep the name.
         {% endif %}
     {% endfor %}
 {% else %}
-    <div class="text-center py-8">
+    {% comment %}id targeted by the compose response's out-of-band delete
+       (finding 5-15) so the placeholder disappears the moment the first
+       message is sent, instead of sitting next to it until the next 20s
+       poll.{% endcomment %}
+    <div id="chat-empty" class="text-center py-8">
         <div class="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mx-auto mb-3">
             {% include "shared/icons/chat-bubble-left-ellipsis.html" with class="w-6 h-6 text-gray-400 dark:text-gray-500" %}
         </div>
