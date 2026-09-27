@@ -301,3 +301,23 @@ def test_hub_staff_preview_without_photo_keeps_open_today(client, settings):
     # not just that the false blocker is absent (get_connect_summary grants
     # staff cycle_access unconditionally, so this section does render).
     assert ">Open Today<" in content
+
+
+@pytest.mark.django_db
+def test_photo_editor_back_does_not_loop_into_the_photo_gate(client, settings):
+    """Codex round 2 on #1066: without a main photo, Back must not return to
+    the gated view that redirects straight back to this editor."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_verified_phone_member(username="week_back_member", onboarded=True)
+    me.crushprofile.photo_1 = ""
+    me.crushprofile.save(update_fields=["photo_1"])
+    _login_eligible(client, me)
+
+    response = client.get(
+        f"{EDIT_PROFILE_URL}?section=photos&next={quote(WEEK_HOME_URL, safe='')}"
+    )
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert f'href="{WEEK_HOME_URL}" class="btn-cancel"' not in content
+    assert f'href="{EDIT_PROFILE_URL}" class="btn-cancel"' in content
