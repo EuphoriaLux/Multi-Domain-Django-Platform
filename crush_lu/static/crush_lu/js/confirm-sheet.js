@@ -15,7 +15,9 @@
  *   data-confirm-label="..."       accept button label (default: "Confirm")
  *
  * Plain POST forms (no HTMX): put data-confirm="Question?" (plus the two
- * options above) on the <form> itself.
+ * options above) on the <form> itself. data-confirm-when="<checkbox name>"
+ * asks only while that checkbox is ticked. The confirmed re-submit keeps the
+ * clicked submit button (requestSubmit(submitter)).
  */
 (function () {
     "use strict";
@@ -116,6 +118,13 @@
         if (form.getAttribute("data-confirmed") === "1") {
             form.removeAttribute("data-confirmed"); // one pass per confirmation
             return;
+        }
+        // data-confirm-when="<checkbox name>" asks only while that box is
+        // ticked; page-loading.js mirrors this rule to keep its overlay off.
+        var when = form.getAttribute("data-confirm-when");
+        if (when) {
+            var box = form.elements.namedItem(when);
+            if (!box || !box.checked) return;
         }
         evt.preventDefault();
         var submitter = evt.submitter || null;

@@ -163,16 +163,23 @@
                 return;
             }
 
-            // A data-confirm form first asks through the confirm sheet
-            // (confirm-sheet.js cancels this submit); only its confirmed
-            // re-submit, marked data-confirmed="1", navigates.
+            // data-confirm forms ask first through the confirm sheet
+            // (confirm-sheet.js cancels this submit); this capture listener
+            // runs before it, so a cancel would strand the overlay. Only the
+            // confirmed re-submit, marked data-confirmed="1", navigates.
+            // data-confirm-when="<checkbox name>" asks only while that box
+            // is ticked (same rule as confirm-sheet.js).
             if (
                 form &&
                 form.hasAttribute &&
                 form.hasAttribute("data-confirm") &&
                 form.getAttribute("data-confirmed") !== "1"
             ) {
-                return;
+                const when = form.getAttribute("data-confirm-when");
+                const box = when && form.elements.namedItem(when);
+                if (!when || (box && box.checked)) {
+                    return;
+                }
             }
 
             // Show overlay for all navigating forms (GET and POST)

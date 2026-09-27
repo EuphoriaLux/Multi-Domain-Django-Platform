@@ -21134,17 +21134,6 @@ msgstr ""
 "persönlicher Coach wählt jede Woche ein Match für dich, plus täglich ein "
 "Drop mit neuen Gesichtern — öffnet zuerst für eine kleine Gruppe."
 
-#: templates/crush_lu/crush_connect/catalogue_status.html:141
-#| msgid ""
-#| "Your full name and exact age are never shown. Photos stay blurred until you "
-#| "both Spark. Leave Crush Connect anytime from settings."
-msgid ""
-"Your full name and exact age are never shown. Leave Crush Connect anytime "
-"from settings."
-msgstr ""
-"Dein vollständiger Name und dein genaues Alter werden nie angezeigt. Du "
-"kannst Crush Connect jederzeit in den Einstellungen verlassen."
-
 #: templates/crush_lu/crush_connect/coach_member_detail.html:4
 msgid "Curate a match — Crush Connect"
 msgstr "Ein Match kuratieren – Crush Connect"
@@ -25774,7 +25763,7 @@ msgstr "Mit wem hast du dich verbunden?"
 #: templates/crush_lu/event_register.html:43
 #, python-format
 msgid "%(date)s at %(time)s"
-msgstr "%(date)s bei %(time)s"
+msgstr "%(date)s um %(time)s"
 
 #: templates/crush_lu/event_attendees.html:170
 msgid "Did you meet someone at this event?"
@@ -25890,10 +25879,6 @@ msgstr "Wird storniert..."
 #: templates/crush_lu/event_cancel.html:29
 msgid "Yes, Cancel Registration"
 msgstr "Ja, Anmeldung stornieren"
-
-#: templates/crush_lu/event_cancel.html:33
-msgid "No, Keep Registration"
-msgstr "Nein, Anmeldung behalten"
 
 #: templates/crush_lu/event_detail.html:40
 msgid "Back to Events"
@@ -30454,10 +30439,6 @@ msgstr ""
 "und ein Coach verifiziert dich von Angesicht zu Angesicht. Auf die Plätze, "
 "fertig, los: Danach kannst du die Person kennenlernen, die dein Crush wird."
 
-#: templates/crush_lu/partials/_verification_options.html:95
-msgid "4 weeks, a new hand-picked match every week"
-msgstr "4 Wochen, jede Woche ein neuer, handverlesener Match"
-
 #: templates/crush_lu/partials/_verification_options.html:97
 msgid ""
 "Thanks to LuxID, join Crush Connect in a few clicks. A Crush Coach will "
@@ -32765,18 +32746,6 @@ msgstr "Unsere Nutzungsbedingungen lesen"
 msgid "Profile Submitted - Crush.lu"
 msgstr "Profil eingereicht - Crush.lu"
 
-#: templates/crush_lu/profile_submitted.html:35
-msgid "Your profile is ready — now get verified"
-msgstr "Dein Profil ist fertig — jetzt verifizieren"
-
-#: templates/crush_lu/profile_submitted.html:36
-msgid ""
-"One last step to activate your Crush.lu profile and start meeting real "
-"people."
-msgstr ""
-"Nur noch ein Schritt, um dein Crush.lu-Profil zu aktivieren und echte "
-"Menschen kennenzulernen."
-
 #: templates/crush_lu/profile_submitted.html:44
 msgid "LuxID connected"
 msgstr "LuxID verbunden"
@@ -33079,11 +33048,6 @@ msgstr "Weiterleitung zu deinem Dashboard in"
 #: templates/crush_lu/profile_submitted.html:679
 msgid "seconds…"
 msgstr "Sekunden"
-
-#: templates/crush_lu/profile_submitted.html:691
-msgid "Your profile needs some updates before it can be approved."
-msgstr ""
-"Dein Profil benötigt einige Aktualisierungen, bevor es genehmigtwerden kann."
 
 #: templates/crush_lu/profile_submitted.html:721
 msgid ""
@@ -41244,21 +41208,12 @@ msgstr "Alle Chats"
 msgid "Already confirmed — thanks!"
 msgstr "Schon bestätigt – danke!"
 
-msgid "Also let a Crush Coach know"
-msgstr "Auch einen Crush Coach informieren"
-
 msgid "Answer questions"
 msgstr "Fragen beantworten"
 
 msgid "Answer saved. Continue with your next available card."
 msgstr ""
 "Antwort gespeichert. Weiter geht es mit deiner nächsten verfügbaren Karte."
-
-msgid "Anything a coach should know? (optional)"
-msgstr "Was sollte dein Coach wissen? (optional)"
-
-msgid "Block this member"
-msgstr "Dieses Mitglied blockieren"
 
 msgid ""
 "Blocked. They won't be able to reach you, and you won't see each other "
@@ -41426,9 +41381,6 @@ msgstr "Hallo, %(name)s"
 
 msgid "How Connect works"
 msgstr "So funktioniert Connect"
-
-msgid "I would like to get to know you."
-msgstr "Ich möchte dich kennenlernen."
 
 msgid "I'm interested"
 msgstr "Ich bin interessiert"
@@ -41607,13 +41559,6 @@ msgstr "Die Rückblickfrist dieser Woche ist abgelaufen."
 
 msgid "They weren't able to connect right now."
 msgstr "Die Person konnte sich gerade nicht verbinden."
-
-msgid ""
-"They won't be able to reach you, and you won't see each other again. This "
-"can't be undone."
-msgstr ""
-"Ihr könnt euch nicht mehr erreichen und werdet einander nicht mehr "
-"angezeigt. Das kann nicht rückgängig gemacht werden."
 
 msgid "This card is no longer open."
 msgstr "Diese Karte ist nicht mehr offen."
@@ -41818,14 +41763,6 @@ msgstr "Dein Interesse ist gespeichert"
 
 msgid "Your interest is saved. View your introduction."
 msgstr "Dein Interesse ist gespeichert. Sieh dir deinen Vorschlag an."
-
-msgid ""
-"Your photo sharing is off, so you're not shown to anyone yet. Turn it back "
-"on to appear in eligible discovery and private coach curation."
-msgstr ""
-"Die Fotofreigabe ist aus, daher wirst du noch niemandem gezeigt. Aktiviere "
-"sie wieder, um in berechtigter Entdeckung und privater Coach-Auswahl zu "
-"erscheinen."
 
 msgid "Your private answer"
 msgstr "Deine private Antwort"
@@ -42387,6 +42324,145 @@ msgstr "Keine öffentliche Suche und kein Durchstöbern von Profilen"
 #: templates/crush_lu/how_it_works.html:190
 msgid "Contact details are only shared when you both agree"
 msgstr "Kontaktdaten werden nur geteilt, wenn ihr beide zustimmt"
+
+#: templates/crush_lu/profile_submitted.html
+msgid "Your profile is ready. Next: complete your Premium membership."
+msgstr ""
+"Dein Profil ist fertig. Nächster Schritt: Schließ deine Premium-"
+"Mitgliedschaft ab."
+
+#: templates/crush_lu/profile_submitted.html
+msgid "Your profile is ready. Next: get verified at an event."
+msgstr ""
+"Dein Profil ist fertig. Nächster Schritt: Lass dich bei einem Event "
+"verifizieren."
+
+#: templates/crush_lu/profile_submitted.html
+msgid "Your profile is ready. Next: get verified at an event or with LuxID."
+msgstr ""
+"Dein Profil ist fertig. Nächster Schritt: Lass dich bei einem Event oder mit"
+" LuxID verifizieren."
+
+#: templates/crush_lu/partials/_verification_options.html
+msgid "A hand-picked match every week — first month free"
+msgstr "Jede Woche ein handverlesener Match — der erste Monat ist gratis"
+
+#: templates/crush_lu/profile_rejected.html
+msgid "Delete my profile and data"
+msgstr "Mein Profil und meine Daten löschen"
+
+#: templates/crush_lu/auth.html
+msgid "≈ 15 min to set up · Get verified at your first event"
+msgstr "≈ 15 Min. zum Einrichten · Verifiziert bei deinem ersten Event"
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+msgid "What happens to your payment"
+msgstr "Was mit deiner Zahlung passiert"
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+#, python-format
+msgid "You'll get %(amount)s EUR back as Crush Credit, ready to use on any Crush.lu event."
+msgstr "Du bekommst %(amount)s EUR als Crush Credit zurück – sofort für jedes Crush.lu-Event einsetzbar."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+#, python-format
+msgid "No refund: the event starts in less than %(hours)s hours. Your seat is released for someone else, and if someone takes it and pays before the event starts, you'll get %(share)s EUR back as Crush Credit."
+msgstr "Keine Rückerstattung: Das Event beginnt in weniger als %(hours)s Stunden. Dein Platz wird für jemand anderen freigegeben. Übernimmt ihn jemand und bezahlt vor Eventbeginn, bekommst du %(share)s EUR als Crush Credit zurück."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+#, python-format
+msgid "You'll get %(amount)s EUR back as Crush Credit. It returns to your balance with its original expiry dates, so any part that has already expired can't be used again."
+msgstr "Du bekommst %(amount)s EUR als Crush Credit zurück. Es geht mit seinen ursprünglichen Ablaufdaten auf dein Guthaben zurück, ein bereits abgelaufener Teil kann also nicht mehr verwendet werden."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+#, python-format
+msgid "No refund: the event starts in less than %(hours)s hours. Your seat is released for someone else."
+msgstr "Keine Rückerstattung: Das Event beginnt in weniger als %(hours)s Stunden. Dein Platz wird für jemand anderen freigegeben."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+msgid "Keep my seat"
+msgstr "Meinen Platz behalten"
+
+#: crush_lu/templates/crush_lu/partials/_cancellation_policy_note.html
+#, python-format
+msgid "Cancel before %(date)s at %(time)s for full Crush Credit. After that there's no refund, but you get %(share)s%% back as Crush Credit if someone takes your seat and pays before the event."
+msgstr "Storniere vor dem %(date)s um %(time)s, um den vollen Betrag als Crush Credit zurückzubekommen. Danach gibt es keine Rückerstattung, aber du bekommst %(share)s %% als Crush Credit zurück, wenn jemand deinen Platz übernimmt und vor dem Event bezahlt."
+
+#: crush_lu/templates/crush_lu/partials/_cancellation_policy_note.html
+#, python-format
+msgid "The event starts in less than %(hours)s hours, so cancelling gives no refund, but you get %(share)s%% back as Crush Credit if someone takes your seat and pays before the event."
+msgstr "Das Event beginnt in weniger als %(hours)s Stunden, daher gibt es bei einer Stornierung keine Rückerstattung, aber du bekommst %(share)s %% als Crush Credit zurück, wenn jemand deinen Platz übernimmt und vor dem Event bezahlt."
+
+#: views_events.py:2051
+msgid ""
+"The cancellation terms changed while this page was open. Please check them "
+"again before you confirm."
+msgstr ""
+"Die Stornobedingungen haben sich geändert, während diese Seite offen war. "
+"Bitte prüfe sie noch einmal, bevor du bestätigst."
+
+#: templates/crush_lu/moderation/_block_report_menu.html
+msgid "Block this member? This closes the chat and can't be undone: they won't be able to reach you, and you won't be matched again."
+msgstr "Dieses Mitglied blockieren? Damit wird der Chat geschlossen, und das lässt sich nicht rückgängig machen: Die Person kann dich nicht mehr erreichen, und ihr werdet nicht mehr zusammengebracht."
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "You're not shown to anyone yet."
+msgstr "Du wirst noch niemandem angezeigt."
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Your Connect home shows what is still missing."
+msgstr "Auf deiner Connect-Startseite siehst du, was noch fehlt."
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "See all steps"
+msgstr "Alle Schritte ansehen"
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgctxt "connect catalogue"
+msgid "Your coach"
+msgstr "Dein Coach"
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Premium member · See your Coach's Pick"
+msgstr "Premium-Mitglied · Deinen Coach's Pick ansehen"
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Your full name and exact age are never shown."
+msgstr "Dein vollständiger Name und dein genaues Alter werden nie angezeigt."
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Pause Crush Connect anytime."
+msgstr "Du kannst Crush Connect jederzeit pausieren."
+
+#: models/moderation.py
+msgid "Connect chat"
+msgstr "Connect-Chat"
+
+#: templates/crush_lu/crush_connect/week_inbox.html
+msgid "Sent you a Connect request"
+msgstr "Hat dir eine Connect-Anfrage geschickt"
+
+#: templates/crush_lu/crush_connect/_empty_actions.html
+#, python-format
+msgid "Today: %(done)s of %(total)s cards answered."
+msgstr "Heute: %(done)s von %(total)s Karten beantwortet."
+
+#: templates/crush_lu/moderation/_block_report_menu.html
+msgid "Report and block this member? Blocking closes the chat and can't be undone: they won't be able to reach you, and you won't be matched again."
+msgstr "Dieses Mitglied melden und blockieren? Das Blockieren schließt den Chat und lässt sich nicht rückgängig machen: Die Person kann dich nicht mehr erreichen, und ihr werdet nicht mehr zusammengebracht."
+
+#: templates/crush_lu/moderation/_block_report_menu.html
+msgid "Yes, report and block"
+msgstr "Ja, melden und blockieren"
+
+#: templates/crush_lu/moderation/_block_report_menu.html
+msgid "Blocking closes this chat and can't be undone. You won't be matched again."
+msgstr "Das Blockieren schließt diesen Chat und lässt sich nicht rückgängig machen. Ihr werdet nicht mehr zusammengebracht."
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgctxt "connect catalogue"
+msgid "No coach is assigned to you right now."
+msgstr "Dir ist gerade kein Coach zugewiesen."
 
 #: templates/crush_lu/gdpr_data_management.html
 msgid "Login account"

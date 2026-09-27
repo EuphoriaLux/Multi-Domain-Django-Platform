@@ -307,3 +307,22 @@ def test_unblock_without_block_sets_no_undo(client):
     target = _make_user(username="target")
     client.post(f"/en/members/{target.id}/unblock/", **HOST)
     assert UNDO_UNBLOCK_SESSION_KEY not in client.session
+
+
+def test_confirm_sheet_has_a_single_plain_form_listener():
+    """One submit listener handles data-confirm forms.
+
+    WP6 and WP7 each added one; with both, a confirm form opened two sheets.
+    The merged listener keeps data-confirm-when (WP6) and re-submits with the
+    clicked button via requestSubmit(submitter) (WP7).
+    """
+    from pathlib import Path
+
+    from django.conf import settings
+
+    source = (
+        Path(settings.BASE_DIR) / "crush_lu/static/crush_lu/js/confirm-sheet.js"
+    ).read_text(encoding="utf-8")
+    assert source.count('addEventListener("submit"') == 1
+    assert "data-confirm-when" in source
+    assert "requestSubmit(submitter)" in source

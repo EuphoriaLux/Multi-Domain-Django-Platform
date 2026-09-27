@@ -298,18 +298,19 @@ class TestProfileSubmittedLuxidBanner(_SiteMixin, TestCase):
     def test_rejected_member_with_luxid_is_not_told_verification_is_processing(
         self,
     ):
-        """A rejected profile is not redirected and the lazy fix-up skips it,
-        so the page renders — but nothing about it is "processing"."""
+        """A rejected profile is sent to the one verdict page (UX Wave 2 · WP4),
+        and nothing on it says verification is "processing"."""
         self._link_luxid()
         self.profile.verification_status = "rejected"
         self.profile.save(update_fields=["verification_status"])
 
         response = self._get()
 
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.context["has_luxid_account"])
-        self.assertEqual(response.context["profile"].verification_status, "rejected")
-        self.assertNotContains(response, PROCESSING_TEXT)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("rejected", response["Location"])
+        verdict = self._get(response["Location"])
+        self.assertEqual(verdict.status_code, 200)
+        self.assertNotContains(verdict, PROCESSING_TEXT)
 
     def test_verified_member_with_luxid_never_sees_the_banner(self):
         """Verified members are sent to the dashboard before anything renders."""
