@@ -657,10 +657,11 @@ def dashboard(request):
             "connection_count": connection_count,
             # The stats row repeats the next-event card (Upcoming) and the
             # requests just surfaced above (Connections), so it only earns
-            # its place once the member has something to look back on.
+            # its place once the member has something to look back on, or
+            # has more bookings than the one next-event card shows.
             "show_stats_tiles": (
                 profile.verification_status == "verified"
-                and (attended_count > 0 or connection_count > 0)
+                and (attended_count > 0 or connection_count > 0 or upcoming_count > 1)
             ),
             "referral_url": referral_url,
             "has_attended_event": has_attended_event,

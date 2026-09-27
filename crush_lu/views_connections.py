@@ -701,6 +701,24 @@ def connection_actions(request, event_id, user_id):
     )
 
 
+def _refresh_if_from_dashboard(request, response, message=None):
+    """Reload the dashboard after an inline accept/decline.
+
+    The dashboard embeds the same request card as My Connections (UX Wave 3,
+    finding 5-02), but its counts, header link and stats row sit outside the
+    swapped card. A full refresh keeps them honest, and the queued message
+    confirms the action on the reloaded page.
+    """
+    from urllib.parse import urlparse
+
+    path = urlparse(request.headers.get("HX-Current-URL", "")).path
+    if path.rstrip("/").endswith("/dashboard"):
+        if message:
+            messages.success(request, message)
+        response["HX-Refresh"] = "true"
+    return response
+
+
 @crush_login_required
 @ratelimit(key="user", rate="10/h", method="POST")
 @require_http_methods(["POST"])
@@ -846,10 +864,21 @@ def respond_connection(request, connection_id, action):
                     "crush_lu/_attendee_connection_response.html",
                     {"attendee": attendee, "action": "accept"},
                 )
-            return render(
+            return _refresh_if_from_dashboard(
                 request,
-                "crush_lu/_connection_response.html",
-                {"connection": connection, "action": "accept"},
+                render(
+                    request,
+                    "crush_lu/_connection_response.html",
+                    {"connection": connection, "action": "accept"},
+                ),
+                (
+                    _("Connection accepted! Contact info is now shared.")
+                    if connection.is_same_gender
+                    else _(
+                        "Connection accepted! A coach will help facilitate "
+                        "your introduction."
+                    )
+                ),
             )
         if connection.is_same_gender:
             messages.success(
@@ -878,10 +907,14 @@ def respond_connection(request, connection_id, action):
                     "crush_lu/_attendee_connection_response.html",
                     {"attendee": attendee, "action": "decline"},
                 )
-            return render(
+            return _refresh_if_from_dashboard(
                 request,
-                "crush_lu/_connection_response.html",
-                {"connection": connection, "action": "decline"},
+                render(
+                    request,
+                    "crush_lu/_connection_response.html",
+                    {"connection": connection, "action": "decline"},
+                ),
+                _("Connection request declined."),
             )
         messages.info(request, _("Connection request declined."))
     else:

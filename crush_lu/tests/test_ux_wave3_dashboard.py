@@ -335,3 +335,78 @@ class MyConnectionsReceivedAnchorTests(TestCase):
 
         response = self.client.get("/en/connections/", HTTP_HOST="crush.lu")
         self.assertContains(response, 'id="received"')
+
+
+class DashboardReviewRoundTwoTests(TestCase):
+    """Second Codex review round on #1042."""
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        self.user = _make_member("round2@example.com")
+        self.client.login(username="round2@example.com", password="testpass123")
+
+    def test_stats_shown_when_more_bookings_than_the_next_event_card(self):
+        EventRegistration.objects.create(
+            user=self.user,
+            event=_make_event("First", days_from_now=5),
+            status="confirmed",
+        )
+        EventRegistration.objects.create(
+            user=self.user,
+            event=_make_event("Second", days_from_now=9),
+            status="confirmed",
+        )
+        response = self.client.get("/en/dashboard/", HTTP_HOST="crush.lu")
+        self.assertTrue(response.context["show_stats_tiles"])
+
+    def test_single_booking_still_hides_the_duplicated_stats_row(self):
+        EventRegistration.objects.create(
+            user=self.user,
+            event=_make_event("Only", days_from_now=5),
+            status="confirmed",
+        )
+        response = self.client.get("/en/dashboard/", HTTP_HOST="crush.lu")
+        self.assertFalse(response.context["show_stats_tiles"])
+
+    def _pending_request(self):
+        requester = _make_member("round2-requester@example.com")
+        event = _make_event("Past", days_from_now=-3)
+        EventRegistration.objects.create(user=self.user, event=event, status="attended")
+        EventRegistration.objects.create(user=requester, event=event, status="attended")
+        return EventConnection.objects.create(
+            requester=requester, recipient=self.user, event=event, status="pending"
+        )
+
+    def _respond(self, connection, action, current_url):
+        return self.client.post(
+            f"/en/connections/{connection.id}/{action}/",
+            HTTP_HOST="crush.lu",
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_TARGET=f"connection-{connection.id}",
+            HTTP_HX_CURRENT_URL=current_url,
+        )
+
+    def test_inline_accept_on_the_dashboard_refreshes_the_page(self):
+        connection = self._pending_request()
+        response = self._respond(connection, "accept", "https://crush.lu/en/dashboard/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["HX-Refresh"], "true")
+        connection.refresh_from_db()
+        self.assertNotEqual(connection.status, "pending")
+
+    def test_inline_decline_on_the_dashboard_refreshes_the_page(self):
+        connection = self._pending_request()
+        response = self._respond(
+            connection, "decline", "https://crush.lu/en/dashboard/"
+        )
+        self.assertEqual(response["HX-Refresh"], "true")
+
+    def test_my_connections_keeps_the_in_place_swap(self):
+        connection = self._pending_request()
+        response = self._respond(
+            connection, "accept", "https://crush.lu/en/connections/"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("HX-Refresh", response)

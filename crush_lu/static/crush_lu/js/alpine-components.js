@@ -8132,9 +8132,12 @@ document.addEventListener("alpine:init", function () {
                     return;
                 }
 
-                // iOS-specific instructions (no beforeinstallprompt on iOS)
+                // iOS-specific instructions (no beforeinstallprompt on iOS).
+                // iPadOS Safari reports a desktop "Macintosh" UA, so detect it
+                // the way pwa-install.js does (MacIntel + touch points).
                 var isIOS =
-                    /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                    (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) ||
+                    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
                 if (isIOS) {
                     self.showInstructions = true;
                     self.instructions = 'Tap Share, then "Add to Home Screen"';
