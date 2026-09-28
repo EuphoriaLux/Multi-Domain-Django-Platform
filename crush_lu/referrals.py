@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.db import transaction
@@ -18,7 +19,9 @@ def ensure_session_key(request):
     return request.session.session_key
 
 
-def build_referral_url(code, request=None, base_url=None, language_neutral=False):
+def build_referral_url(
+    code, request=None, base_url=None, language_neutral=False, next_url=None
+):
     """
     Build the referral URL for a given code.
 
@@ -27,6 +30,8 @@ def build_referral_url(code, request=None, base_url=None, language_neutral=False
         request: Optional HttpRequest for building absolute URLs
         base_url: Optional base URL override
         language_neutral: If True, generates URL without language prefix (for wallet passes)
+        next_url: Optional local path the referral link lands on instead of
+            signup (e.g. a shared event page); see views_account.referral_redirect
 
     Returns:
         Absolute referral URL
@@ -37,6 +42,8 @@ def build_referral_url(code, request=None, base_url=None, language_neutral=False
         path = f"/r/{code}/"
     else:
         path = reverse("crush_lu:referral_redirect", kwargs={"code": code})
+    if next_url:
+        path = f"{path}?{urlencode({'next': next_url})}"
 
     if request is not None and not language_neutral:
         return request.build_absolute_uri(path)
