@@ -14037,6 +14037,24 @@ body.connect-wizard main.has-bottom-nav {
     }
 }
 
+/* Members' footer below lg (decision H, #1055): only the compact imprint +
+   help/legal block, and only where the tab bar is rendered (focused flows
+   such as the Connect wizard drop both). Its bottom padding clears the fixed
+   tab bar and the home-indicator inset, so the links sit above the bar. */
+@media (max-width: 1023px) {
+    .site-footer-member {
+        display: none;
+    }
+    body:has(.bottom-nav) .site-footer-member {
+        display: block;
+        margin-top: 0;
+        padding-top: 1.5rem;
+        padding-bottom: calc(
+            var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 1.5rem
+        );
+    }
+}
+
 /* =============================================================================
    LEGAL PROSE (privacy_policy.html, terms_of_service.html)
    Preflight strips list bullets and block margins; this scoped class restores
