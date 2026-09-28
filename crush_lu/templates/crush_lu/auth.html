@@ -382,7 +382,7 @@
                                            {% if signup_form.crushlu_consent.errors %}aria-describedby="id_crushlu_consent_error"{% endif %}>
                                     <span class="text-sm text-gray-700 dark:text-gray-200">
                                         {% url 'crush_lu:terms_of_service' as terms_url %}{% url 'crush_lu:privacy_policy' as privacy_url %}
-                                        {% blocktrans trimmed %}I agree to the <a href="{{ terms_url }}" target="_blank" class="text-crush-purple hover:underline">Terms of Service</a> and <a href="{{ privacy_url }}" target="_blank" class="text-crush-purple hover:underline">Privacy Policy</a>{% endblocktrans %}
+                                        {% with link_class="text-crush-purple hover:underline" %}{% blocktrans trimmed %}I agree to the <a href="{{ terms_url }}" target="_blank" class="{{ link_class }}">Terms of Service</a> and <a href="{{ privacy_url }}" target="_blank" class="{{ link_class }}">Privacy Policy</a>{% endblocktrans %}{% endwith %}
                                     </span>
                                 </label>
                                 {% if signup_form.crushlu_consent.errors %}

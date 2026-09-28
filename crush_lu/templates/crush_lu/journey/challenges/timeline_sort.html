@@ -42,7 +42,7 @@
 
         {% if existing_attempt %}
         <!-- Already Completed -->
-        {% blocktrans with points=existing_attempt.points_earned asvar completion_message %}You already sorted this timeline correctly and earned <strong>{{ points }} points</strong>.{% endblocktrans %}
+        {% blocktrans count points=existing_attempt.points_earned asvar completion_message %}You already sorted this timeline correctly and earned <strong>{{ points }} point</strong>.{% plural %}You already sorted this timeline correctly and earned <strong>{{ points }} points</strong>.{% endblocktrans %}
         {% include "crush_lu/journey/partials/already_completed.html" %}
         {% else %}
         <!-- Instructions -->

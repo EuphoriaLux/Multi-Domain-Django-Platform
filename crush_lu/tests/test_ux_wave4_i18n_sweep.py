@@ -132,6 +132,10 @@ class SignupScreenTests(TestCase):
         response = self.client.get("/de/signup/", HTTP_HOST=HOST)
         self.assertContains(response, 'href="/de/terms-of-service/" target="_blank"')
         self.assertContains(response, 'href="/de/privacy-policy/" target="_blank"')
+        # The link classes are a placeholder, not part of the msgid.
+        self.assertContains(
+            response, 'target="_blank" class="text-crush-purple hover:underline"', 2
+        )
 
     @patch.object(CrushSignupForm, "is_valid", return_value=True)
     @patch.object(
@@ -191,6 +195,9 @@ class PhoneVerificationErrorTests(TestCase):
 
 
 class SocialAuthErrorTitleTests(TestCase):
+    def setUp(self):
+        cache.clear()
+
     def test_title_is_translated(self):
         # Same setup as test_ux_wave3_verify_email._render_crush_page.
         request = RequestFactory().get("/", HTTP_HOST=HOST)
@@ -235,6 +242,60 @@ class JourneyCopyTests(TestCase):
         for lang, sentence in expected.items():
             response = self.client.get(f"/{lang}{url}", HTTP_HOST=HOST)
             self.assertContains(response, sentence)
+
+    def test_every_challenge_type_says_one_point_in_the_singular(self):
+        chapter_progress = ChapterProgress.objects.create(
+            journey_progress=self.player.progress, chapter=self.player.chapter
+        )
+        ChallengeAttempt.objects.create(
+            chapter_progress=chapter_progress,
+            challenge=self.player.challenge,
+            user_answer="4",
+            is_correct=True,
+            points_earned=1,
+        )
+        url = f"/journey/chapter/1/challenge/{self.player.challenge.id}/"
+        expected = {
+            "multiple_choice": {
+                "de": "Du hast diese Frage bereits beantwortet und "
+                "<strong>1 Punkt</strong> gesammelt.",
+                "fr": "Vous avez déjà répondu à cette question et gagné "
+                "<strong>1 point</strong>.",
+            },
+            "riddle": {
+                "de": "Du hast dieses Rätsel bereits gelöst und "
+                "<strong>1 Punkt</strong> verdient.",
+                "fr": "Vous avez déjà résolu cette énigme et gagné "
+                "<strong>1 point</strong>.",
+            },
+            "timeline_sort": {
+                "de": "Du hast diese Zeitleiste bereits richtig sortiert und "
+                "<strong>1 Punkt</strong> erhalten.",
+                "fr": "Vous avez déjà trié cette chronologie correctement et "
+                "gagné <strong>1 point</strong>.",
+            },
+            "word_scramble": {
+                "de": "Du hast dieses Wort bereits entschlüsselt und "
+                "<strong>1 Punkt</strong> verdient.",
+                "fr": "Vous avez déjà déchiffré ce mot et gagné "
+                "<strong>1 point</strong>.",
+            },
+            "would_you_rather": {
+                "de": "Du hast deine Wahl bereits geteilt und "
+                "<strong>1 Punkt</strong> gesammelt.",
+                "fr": "Vous avez déjà partagé votre choix et gagné "
+                "<strong>1 point</strong>.",
+            },
+        }
+        rendered = {}
+        for challenge_type, sentences in expected.items():
+            self.player.challenge.challenge_type = challenge_type
+            self.player.challenge.save(update_fields=["challenge_type"])
+            for lang, sentence in sentences.items():
+                response = self.client.get(f"/{lang}{url}", HTTP_HOST=HOST)
+                self.assertEqual(response.status_code, 200, challenge_type)
+                rendered[(challenge_type, lang)] = sentence in response.content.decode()
+        self.assertEqual([k for k, ok in rendered.items() if not ok], [])
 
     def test_chapter_duration_is_translated(self):
         response = self.client.get("/de/journey/wonderland/", HTTP_HOST=HOST)
@@ -299,6 +360,9 @@ class WelcomeRoadAheadTests(TestCase):
 class TranslationSettingsFrenchTests(SimpleTestCase):
     """Catalogue-level checks for strings whose screens need heavy fixtures."""
 
+    def setUp(self):
+        cache.clear()
+
     def test_french_fixes(self):
         expected = {
             "Receive notifications via WhatsApp on:": (
@@ -334,6 +398,9 @@ class TranslationSettingsFrenchTests(SimpleTestCase):
 
 
 class PoFileTests(SimpleTestCase):
+    def setUp(self):
+        cache.clear()
+
     def test_no_duplicate_msgids(self):
         for lang in ("en", "de", "fr"):
             po = polib.pofile(str(LOCALE / lang / "LC_MESSAGES" / "django.po"))
@@ -358,6 +425,9 @@ class PoFileTests(SimpleTestCase):
 
 
 class CheckTranslationsEmojiRuleTests(SimpleTestCase):
+    def setUp(self):
+        cache.clear()
+
     def entry(self, msgid, msgstr, **kwargs):
         return polib.POEntry(msgid=msgid, msgstr=msgstr, **kwargs)
 

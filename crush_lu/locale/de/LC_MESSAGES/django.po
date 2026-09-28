@@ -28258,8 +28258,11 @@ msgid "%(points)s points available"
 msgstr "%(points)s Punkte verdient"
 
 #: templates/crush_lu/journey/challenges/multiple_choice.html:44
-msgid "You already answered this question and earned <strong>%(points)s points</strong>."
-msgstr "Du hast diese Frage bereits beantwortet und <strong>%(points)s Punkte</strong> gesammelt."
+#, python-format
+msgid "You already answered this question and earned <strong>%(points)s point</strong>."
+msgid_plural "You already answered this question and earned <strong>%(points)s points</strong>."
+msgstr[0] "Du hast diese Frage bereits beantwortet und <strong>%(points)s Punkt</strong> gesammelt."
+msgstr[1] "Du hast diese Frage bereits beantwortet und <strong>%(points)s Punkte</strong> gesammelt."
 
 #: templates/crush_lu/journey/challenges/multiple_choice.html:49
 msgid "Answer options"
@@ -28352,8 +28355,11 @@ msgid "Riddle Challenge"
 msgstr "Rätsel-Herausforderung"
 
 #: templates/crush_lu/journey/challenges/riddle.html:46
-msgid "You already solved this riddle and earned <strong>%(points)s points</strong>."
-msgstr "Du hast dieses Rätsel bereits gelöst und <strong>%(points)s Punkte</strong> verdient."
+#, python-format
+msgid "You already solved this riddle and earned <strong>%(points)s point</strong>."
+msgid_plural "You already solved this riddle and earned <strong>%(points)s points</strong>."
+msgstr[0] "Du hast dieses Rätsel bereits gelöst und <strong>%(points)s Punkt</strong> verdient."
+msgstr[1] "Du hast dieses Rätsel bereits gelöst und <strong>%(points)s Punkte</strong> verdient."
 
 #: templates/crush_lu/journey/challenges/riddle.html:65
 msgid "Select a date using the calendar"
@@ -28393,8 +28399,11 @@ msgid "Timeline Challenge"
 msgstr "Zeitstrahl-Challenge"
 
 #: templates/crush_lu/journey/challenges/timeline_sort.html:44
-msgid "You already sorted this timeline correctly and earned <strong>%(points)s points</strong>."
-msgstr "Du hast diese Zeitleiste bereits richtig sortiert und <strong>%(points)s Punkte</strong> erhalten."
+#, python-format
+msgid "You already sorted this timeline correctly and earned <strong>%(points)s point</strong>."
+msgid_plural "You already sorted this timeline correctly and earned <strong>%(points)s points</strong>."
+msgstr[0] "Du hast diese Zeitleiste bereits richtig sortiert und <strong>%(points)s Punkt</strong> erhalten."
+msgstr[1] "Du hast diese Zeitleiste bereits richtig sortiert und <strong>%(points)s Punkte</strong> erhalten."
 
 #: templates/crush_lu/journey/challenges/timeline_sort.html:57
 msgid "Sortable timeline events"
@@ -28417,8 +28426,11 @@ msgid "Shuffle"
 msgstr "Shuffle"
 
 #: templates/crush_lu/journey/challenges/word_scramble.html:60
-msgid "You already unscrambled this word and earned <strong>%(points)s points</strong>."
-msgstr "Du hast dieses Wort bereits entschlüsselt und <strong>%(points)s Punkte</strong> verdient."
+#, python-format
+msgid "You already unscrambled this word and earned <strong>%(points)s point</strong>."
+msgid_plural "You already unscrambled this word and earned <strong>%(points)s points</strong>."
+msgstr[0] "Du hast dieses Wort bereits entschlüsselt und <strong>%(points)s Punkt</strong> verdient."
+msgstr[1] "Du hast dieses Wort bereits entschlüsselt und <strong>%(points)s Punkte</strong> verdient."
 
 #: templates/crush_lu/journey/challenges/word_scramble.html:74
 msgid "Type the unscrambled word..."
@@ -28433,8 +28445,11 @@ msgid "Great choice!"
 msgstr "Tolle Wahl!"
 
 #: templates/crush_lu/journey/challenges/would_you_rather.html:43
-msgid "You've already shared your choice and earned <strong>%(points)s points</strong>."
-msgstr "Du hast deine Wahl bereits geteilt und <strong>%(points)s Punkte</strong> gesammelt."
+#, python-format
+msgid "You've already shared your choice and earned <strong>%(points)s point</strong>."
+msgid_plural "You've already shared your choice and earned <strong>%(points)s points</strong>."
+msgstr[0] "Du hast deine Wahl bereits geteilt und <strong>%(points)s Punkt</strong> gesammelt."
+msgstr[1] "Du hast deine Wahl bereits geteilt und <strong>%(points)s Punkte</strong> gesammelt."
 
 #: templates/crush_lu/journey/challenges/would_you_rather.html:52
 msgid "Choose an option"
@@ -43686,8 +43701,8 @@ msgstr "Jede Einwilligung wird mit Ihrer IP-Adresse, einem Zeitstempel und der V
 
 # UX Wave 4 · WP15 i18n-sweep
 #: crush_lu/templates/crush_lu/auth.html
-msgid "I agree to the <a href=\"%(terms_url)s\" target=\"_blank\" class=\"text-crush-purple hover:underline\">Terms of Service</a> and <a href=\"%(privacy_url)s\" target=\"_blank\" class=\"text-crush-purple hover:underline\">Privacy Policy</a>"
-msgstr "Ich stimme den <a href=\"%(terms_url)s\" target=\"_blank\" class=\"text-crush-purple hover:underline\">Nutzungsbedingungen</a> und der <a href=\"%(privacy_url)s\" target=\"_blank\" class=\"text-crush-purple hover:underline\">Datenschutzerklärung</a> zu"
+msgid "I agree to the <a href=\"%(terms_url)s\" target=\"_blank\" class=\"%(link_class)s\">Terms of Service</a> and <a href=\"%(privacy_url)s\" target=\"_blank\" class=\"%(link_class)s\">Privacy Policy</a>"
+msgstr "Ich stimme den <a href=\"%(terms_url)s\" target=\"_blank\" class=\"%(link_class)s\">Nutzungsbedingungen</a> und der <a href=\"%(privacy_url)s\" target=\"_blank\" class=\"%(link_class)s\">Datenschutzerklärung</a> zu"
 
 #: crush_lu/views_phone_verification.py
 msgid "Invalid JSON format"

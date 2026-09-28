@@ -1249,7 +1249,8 @@ def welcome_view(request):
     CrushProfile.welcome_seen_at.
 
     Sits at the top of the 7-step onboarding journey: intent probe, chapter
-    preview of the 15-minute flow, and 'what makes us different' tiles.
+    preview with a total time summed from the steps, and 'what makes us
+    different' tiles.
     """
     profile, _created = CrushProfile.objects.get_or_create(user=request.user)
 
