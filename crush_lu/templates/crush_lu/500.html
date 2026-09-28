@@ -4,10 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
+  <meta name="color-scheme" content="light dark">
   <title>Something went wrong – Crush.lu</title>
   <style>
-    /* Standalone: no external CSS, no context processors — must render even
-       when the rest of the request pipeline is broken. */
+    /* Standalone: no external CSS, no context processors, no i18n — must
+       render even when the rest of the request pipeline is broken. The
+       language is unknown here, so EN/DE/FR lines are all inline, and dark
+       mode follows the OS (no theme script runs on this page). */
+    :root { color-scheme: light dark; }
     body {
       margin: 0;
       min-height: 100vh;
@@ -23,7 +27,9 @@
     .card { max-width: 28rem; }
     .code { font-size: 4.5rem; font-weight: 700; color: #9b59b6; margin: 0; }
     h1 { font-size: 1.5rem; font-style: italic; margin: 0.5rem 0 0; }
-    p { color: #555; margin: 0.75rem 0 1.75rem; line-height: 1.5; }
+    p { color: #555; margin: 0.75rem 0; line-height: 1.5; }
+    p.alt { font-size: 0.9rem; margin-top: 0.25rem; }
+    .actions { margin: 1.75rem 0 1rem; }
     a.home {
       display: inline-block;
       padding: 0.75rem 1.75rem;
@@ -33,6 +39,14 @@
       text-decoration: none;
       font-weight: 600;
     }
+    .help { font-size: 0.9rem; }
+    .help a { color: #8e44ad; font-weight: 600; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #111827; color: #f3f4f6; }
+      .code { color: #ff6b9d; }
+      p { color: #d1d5db; }
+      .help a { color: #d8b4fe; }
+    }
   </style>
 </head>
 <body>
@@ -40,7 +54,15 @@
     <p class="code">500</p>
     <h1>Something went wrong on our end</h1>
     <p>We've hit an unexpected error. Our team has been notified — please try again in a moment.</p>
-    <a class="home" href="/">Back to home</a>
+    <p class="alt" lang="de">Bei uns ist ein unerwarteter Fehler aufgetreten. Bitte versuche es gleich noch einmal.</p>
+    <p class="alt" lang="fr">Une erreur inattendue s'est produite de notre côté. Veuillez réessayer dans un instant.</p>
+    <div class="actions">
+      <a class="home" href="/">Back to home</a>
+    </div>
+    <p class="help">
+      Still stuck? <span lang="de">· Immer noch Probleme?</span> <span lang="fr">· Le problème persiste ?</span><br>
+      <a href="mailto:support@crush.lu">support@crush.lu</a>
+    </p>
   </div>
 </body>
 </html>
