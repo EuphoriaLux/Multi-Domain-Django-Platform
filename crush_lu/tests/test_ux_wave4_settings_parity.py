@@ -199,7 +199,6 @@ class NotificationsParityTests(TestCase):
         names = {field.get("name"): field for field in parsed.inputs}
         self.assertIn("whatsapp_opt_in", names)
         self.assertEqual(names["whatsapp_opt_in"].get("role"), "switch")
-        self.assertEqual(names["return_to"].get("value"), "notifications")
 
     def test_whatsapp_card_asks_for_a_verified_phone_first(self):
         # save() refuses to un-verify a phone, so bypass it.
@@ -226,7 +225,7 @@ class NotificationsParityTests(TestCase):
     def test_whatsapp_post_from_drill_down_returns_there(self):
         response = self.client.post(
             "/en/account/settings/whatsapp-preference/",
-            {"whatsapp_opt_in": "on", "return_to": "notifications"},
+            {"whatsapp_opt_in": "on"},
             HTTP_HOST=HOST,
         )
         self.assertEqual(response.status_code, 302)
@@ -237,11 +236,15 @@ class NotificationsParityTests(TestCase):
         )
         self.assertTrue(EmailPreference.objects.get(user=self.user).whatsapp_opt_in)
 
-    def test_whatsapp_post_without_return_to_keeps_old_redirect(self):
+    def test_whatsapp_post_ignores_a_foreign_return_to(self):
         response = self.client.post(
             "/en/account/settings/whatsapp-preference/",
             {"return_to": "https://evil.example/"},
             HTTP_HOST=HOST,
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], "/en/account/settings/")
+        self.assertEqual(
+            response["Location"],
+            "/en/profile/edit/?section=account&sub=notifications"
+            "#whatsapp-notifications",
+        )
