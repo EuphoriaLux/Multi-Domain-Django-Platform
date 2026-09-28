@@ -1916,7 +1916,9 @@ def resend_verification_email(request):
         else:
             request.session["pending_verification_email"] = email
             _held_social_user_id(request)
-        start_resend_cooldown_display(request, email)
+            # Only for the address the page now shows: a rejected typed
+            # address must not disable resend for the restored one.
+            start_resend_cooldown_display(request, email)
 
     messages.success(
         request,

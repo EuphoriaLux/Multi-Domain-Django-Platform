@@ -25,7 +25,7 @@
                     {% endblocktrans %}
                 </p>
                 {# A held social account corrects its address with "Use a different address" below: signing up again would only log back into it (#1059). #}
-                {% if not request.session.pending_verification_user_id %}
+                {% if not social_address_hold %}
                 <p class="text-sm mb-4">
                     <a href="{% url 'crush_lu:signup' %}" class="text-purple-600 dark:text-purple-400 hover:underline">
                         {% trans "Wrong address? Sign up again" %}

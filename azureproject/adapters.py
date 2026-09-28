@@ -161,11 +161,16 @@ def _get_domain(request):
     return host
 
 
+def _get_mapped_domain(request):
+    """``_get_domain``, with a dev alias (crush.localhost) read as the domain
+    it stands for (#1059). Production hosts are returned unchanged."""
+    domain = _get_domain(request)
+    return DEV_DOMAIN_MAPPINGS.get(domain, domain)
+
+
 def _is_crush_domain(request):
     """Check if request is from crush.lu or localhost (dev default)."""
-    domain = _get_domain(request)
-    # Dev aliases (crush.localhost) count as the domain they stand for (#1059).
-    domain = DEV_DOMAIN_MAPPINGS.get(domain, domain)
+    domain = _get_mapped_domain(request)
     # crush.lu is the main domain, localhost/127.0.0.1 routes to crush.lu in development
     # Subdomains like test.crush.lu are also crush domains
     return domain in ("crush.lu", "localhost", "127.0.0.1") or domain.endswith(
@@ -200,9 +205,10 @@ def _domain_allows_signup(request, allowed_domains):
 
     Unknown/missing hosts are refused: requests that don't resolve to a
     configured domain fall back to PRODUCTION_DEFAULT's urlconf, and that
-    fallback must not be a way to register.
+    fallback must not be a way to register. A dev alias is gated as the
+    domain it stands for.
     """
-    domain = _get_domain(request)
+    domain = _get_mapped_domain(request)
     if not domain:
         return False
     return (

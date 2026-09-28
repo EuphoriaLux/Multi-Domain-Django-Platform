@@ -261,6 +261,46 @@ class SocialAddressCorrectionTests(TestCase):
         self.assertNotIn('href="/en/signup/"', html)
         self.assertIn("Use a different address", html)
 
+    def test_rejected_correction_keeps_the_restored_address_cooldown(self):
+        """The page shows the held address again after a rejected
+        correction, so its countdown must stay the held address's, not
+        the rejected typed one's."""
+        import hashlib
+
+        _unverified_user("taken@example.com")
+        session = self.client.session
+        session["resend_verification_cooldown_until"] = 0
+        session["resend_verification_cooldown_hash"] = hashlib.sha256(
+            b"typo@exmaple.com"
+        ).hexdigest()
+        session.save()
+        self.client.post(RESEND, {"email": "taken@example.com"})
+        session = self.client.session
+        self.assertEqual(session["pending_verification_email"], "typo@exmaple.com")
+        self.assertEqual(session["resend_verification_cooldown_until"], 0)
+        self.assertEqual(
+            session["resend_verification_cooldown_hash"],
+            hashlib.sha256(b"typo@exmaple.com").hexdigest(),
+        )
+
+    def test_expired_or_consumed_hold_shows_the_sign_up_again_link(self):
+        """The link is hidden only while the hold can still rewrite the
+        account: once the window passes, or the one rewrite is spent, the
+        page offers account recovery again."""
+        later = timezone.now() + timezone.timedelta(minutes=31)
+        with mock.patch("django.utils.timezone.now", return_value=later):
+            expired = self.client.get("/accounts/confirm-email/").content.decode()
+        self.assertIn('href="/en/signup/"', expired)
+        self.assertNotIn("pending_verification_user_id", self.client.session)
+
+        consumed = Client(HTTP_HOST="crush.lu")
+        session = consumed.session
+        session["pending_verification_email"] = "typo@exmaple.com"
+        session["pending_verification_user_id"] = self.user.pk
+        session.save()  # no issued-at: a hold that was already used
+        html = consumed.get("/accounts/confirm-email/").content.decode()
+        self.assertIn('href="/en/signup/"', html)
+
     def test_later_email_signup_in_the_session_cannot_rewrite_the_held_account(
         self,
     ):
@@ -347,6 +387,9 @@ class SocialAddressCorrectionTests(TestCase):
 
 
 class CrushLocalhostDomainTests(TestCase):
+    def setUp(self):
+        cache.clear()
+
     def test_crush_localhost_counts_as_crush(self):
         from azureproject.adapters import _is_crush_domain
         from crush_lu.signals import _is_crush_domain as signals_is_crush
@@ -357,6 +400,37 @@ class CrushLocalhostDomainTests(TestCase):
         other = RequestFactory().get("/", HTTP_HOST="power-up.localhost:8000")
         self.assertFalse(_is_crush_domain(other))
         self.assertFalse(signals_is_crush(other))
+
+    def test_crush_localhost_is_open_for_social_signup(self):
+        """First-time social login on the dev alias passes the same signup
+        gate as crush.lu; production hosts are gated exactly as before."""
+        from azureproject.adapters import MultiDomainSocialAccountAdapter
+
+        adapter = MultiDomainSocialAccountAdapter()
+        results = {
+            host: adapter.is_open_for_signup(
+                RequestFactory().get("/", HTTP_HOST=host), mock.Mock()
+            )
+            for host in (
+                "crush.localhost:8000",
+                "crush.lu",
+                "delegations.lu",
+                "power-up.lu",
+                "entreprinder.lu",
+                "power-up.localhost:8000",
+            )
+        }
+        self.assertEqual(
+            results,
+            {
+                "crush.localhost:8000": True,
+                "crush.lu": True,
+                "delegations.lu": True,
+                "power-up.lu": False,
+                "entreprinder.lu": False,
+                "power-up.localhost:8000": False,
+            },
+        )
 
 
 # ---------------------------------------------------------------------------
