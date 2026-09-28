@@ -539,7 +539,9 @@ def sender_user(transactional_db):
         email='sender@example.com',
         password='sender123',
         first_name='Alice',
-        last_name='Sender'
+        last_name='Sender',
+        # Gift creation is staff/coach-only (UX Wave 4 decision C).
+        is_staff=True,
     )
     # Create EmailAddress for Allauth (required for email login)
     EmailAddress.objects.create(
