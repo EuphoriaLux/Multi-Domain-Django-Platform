@@ -1008,6 +1008,20 @@ def update_email_preferences(request):
     return redirect("crush_lu:account_settings")
 
 
+def _whatsapp_preference_redirect(request):
+    """Send the member back to the settings surface the form was posted from.
+
+    The account drill-down's WhatsApp card posts ``return_to=notifications``
+    (8-08); anything else keeps the /account/settings/ redirect.
+    """
+    if request.POST.get("return_to") == "notifications":
+        return redirect(
+            reverse("crush_lu:edit_profile")
+            + "?section=account&sub=notifications#whatsapp-notifications"
+        )
+    return redirect("crush_lu:account_settings")
+
+
 @login_required
 @require_http_methods(["POST"])
 def update_whatsapp_preference(request):
@@ -1033,14 +1047,14 @@ def update_whatsapp_preference(request):
                     "A verified phone number is required to enable WhatsApp notifications."
                 ),
             )
-            return redirect("crush_lu:account_settings")
+            return _whatsapp_preference_redirect(request)
 
     email_prefs = EmailPreference.get_or_create_for_user(request.user)
     email_prefs.whatsapp_opt_in = wants_opt_in
     email_prefs.save(update_fields=["whatsapp_opt_in"])
 
     messages.success(request, _("WhatsApp notification preference updated."))
-    return redirect("crush_lu:account_settings")
+    return _whatsapp_preference_redirect(request)
 
 
 @login_required
