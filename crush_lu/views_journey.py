@@ -18,6 +18,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def render_no_journey(request, kind="journey"):
+    """Plain-language page for a member without a journey (or calendar).
+
+    One page for every "nothing here for you" case, so it never reveals
+    whether a journey exists for someone else with the same name.
+    """
+    return render(request, "crush_lu/no_journey.html", {"kind": kind})
+
+
 @crush_login_required
 def journey_selector(request):
     """
@@ -32,8 +41,7 @@ def journey_selector(request):
     special_experience = SpecialUserExperience.active_for_user(request.user)
 
     if not special_experience:
-        messages.warning(request, _('No special journey found for your account.'))
-        return redirect('crush_lu:home')
+        return render_no_journey(request)
 
     # Get all active journeys for this user
     journeys = JourneyConfiguration.objects.filter(
@@ -42,6 +50,10 @@ def journey_selector(request):
     ).order_by('journey_type')
 
     if not journeys.exists():
+        # special_welcome only opens for sessions flagged at login; anyone
+        # else would bounce home with "This page is not available."
+        if not request.session.get('special_experience_active'):
+            return render_no_journey(request)
         messages.info(request, _('Welcome! Your journey is being prepared.'))
         return redirect('crush_lu:special_welcome')
 
@@ -133,8 +145,7 @@ def journey_map_wonderland(request):
         logger.info(f"Special experience found: {special_experience is not None}")
 
         if not special_experience:
-            messages.warning(request, _('No special journey found for your account.'))
-            return redirect('crush_lu:home')
+            return render_no_journey(request)
 
         # Get the Wonderland journey specifically
         try:

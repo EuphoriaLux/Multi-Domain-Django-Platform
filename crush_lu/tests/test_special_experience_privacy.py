@@ -89,23 +89,24 @@ class JourneyViewPrivacyTests(NamesakeFixtureMixin, TestCase):
             is_active=True,
         )
 
-    def test_namesake_selector_redirects_home_without_journey(self):
+    def test_namesake_selector_shows_no_journey_page(self):
         self.client.force_login(self.namesake)
 
         response = self.client.get("/en/journey/select/", HTTP_HOST=HOST)
 
-        self.assertEqual(response.status_code, 302)
-        self.assertNotIn("journey", response.url)
-        self.assertIn("No special journey found for your account.", _messages(response))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "crush_lu/no_journey.html")
+        self.assertContains(response, "You don't have a journey yet")
+        self.assertEqual(_messages(response), [])
 
-    def test_namesake_wonderland_redirects_home_and_creates_no_progress(self):
+    def test_namesake_wonderland_shows_no_journey_and_creates_no_progress(self):
         self.client.force_login(self.namesake)
 
         response = self.client.get("/en/journey/wonderland/", HTTP_HOST=HOST)
 
-        self.assertEqual(response.status_code, 302)
-        self.assertNotIn("journey", response.url)
-        self.assertIn("No special journey found for your account.", _messages(response))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "crush_lu/no_journey.html")
+        self.assertNotContains(response, "The Wonderland of You")
         self.assertFalse(JourneyProgress.objects.filter(user=self.namesake).exists())
 
     def test_name_only_experience_grants_nobody_access(self):
@@ -116,7 +117,7 @@ class JourneyViewPrivacyTests(NamesakeFixtureMixin, TestCase):
 
         response = self.client.get("/en/journey/wonderland/", HTTP_HOST=HOST)
 
-        self.assertEqual(response.status_code, 302)
+        self.assertTemplateUsed(response, "crush_lu/no_journey.html")
         self.assertFalse(JourneyProgress.objects.filter(user=self.namesake).exists())
 
     def test_linked_user_single_journey_redirects_into_it(self):
@@ -329,22 +330,22 @@ class AdventViewPrivacyTests(NamesakeFixtureMixin, TestCase):
 
         response = self.client.get("/en/advent/", HTTP_HOST=HOST)
 
-        self.assertEqual(response.status_code, 302)
-        self.assertNotIn("advent", response.url)
-        self.assertIn(
-            "No special experience found for your account.", _messages(response)
-        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "crush_lu/no_journey.html")
+        self.assertContains(response, "You don't have an Advent Calendar yet")
+        self.assertEqual(_messages(response), [])
 
     def test_namesake_gets_no_door_scanner_or_api(self):
         self.client.force_login(self.namesake)
 
         door = self.client.get("/en/advent/door/1/", HTTP_HOST=HOST)
-        self.assertEqual(door.status_code, 302)
-        self.assertIn("No special experience found.", _messages(door))
+        self.assertEqual(door.status_code, 200)
+        self.assertTemplateUsed(door, "crush_lu/no_journey.html")
+        self.assertEqual(_messages(door), [])
 
         scanner = self.client.get("/en/advent/qr-scanner/", HTTP_HOST=HOST)
-        self.assertEqual(scanner.status_code, 302)
-        self.assertNotIn("advent", scanner.url)
+        self.assertEqual(scanner.status_code, 200)
+        self.assertTemplateUsed(scanner, "crush_lu/no_journey.html")
 
         status = self.client.get("/en/api/advent/status/", HTTP_HOST=HOST)
         self.assertEqual(status.status_code, 404)

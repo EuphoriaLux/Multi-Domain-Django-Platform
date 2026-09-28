@@ -64,10 +64,11 @@ def _axe_source():
     return None
 
 
-def _member():
+def _member(*, is_staff=False):
+    # Gift sender pages are staff/coach-only (UX Wave 4 decision C).
     from crush_lu.tests.test_profile_edit_connect_card import _make_member
 
-    return _make_member("contrast@example.com")
+    return _make_member("contrast@example.com", is_staff=is_staff)
 
 
 def _page(browser, live_server, user, theme):
@@ -103,7 +104,7 @@ def _open(page, url):
 
 
 def test_gift_page_stays_dark_under_a_light_preference(browser, live_server):
-    page = _page(browser, live_server, _member(), "light")
+    page = _page(browser, live_server, _member(is_staff=True), "light")
     _open(page, f"{live_server.url}/en/journey/gift/create/")
 
     assert page.evaluate("() => document.documentElement.classList.contains('dark')")
@@ -167,7 +168,7 @@ def test_axe_color_contrast_is_clean(browser, live_server, theme, path):
     axe = _axe_source()
     if axe is None:
         pytest.skip("axe-core not available (set AXE_CORE_PATH)")
-    page = _page(browser, live_server, _member(), theme)
+    page = _page(browser, live_server, _member(is_staff="/gift" in path), theme)
     _open(page, f"{live_server.url}{path}")
     page.wait_for_timeout(300)
     page.evaluate(axe)
