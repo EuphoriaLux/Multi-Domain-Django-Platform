@@ -231,7 +231,7 @@ class GiftWizardErrorStepTests(GiftWizardTestBase):
 
 class GiftWizardScriptTests(TestCase):
     def test_audio_listener_is_bound_to_the_letter_music_field(self):
-        for name in ("alpine-components.js", "alpine-components.min.js"):
+        for name in ("alpine/journey.js", "alpine/journey.min.js"):
             source = (JS_DIR / name).read_text(encoding="utf-8")
             self.assertIn("id_chapter5_letter_music", source, name)
             self.assertNotIn("id_chapter4_audio", source, name)

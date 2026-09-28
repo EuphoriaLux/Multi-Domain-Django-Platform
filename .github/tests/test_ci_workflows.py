@@ -158,15 +158,27 @@ class WorkflowWiringTests(unittest.TestCase):
 
 
 class MinifiedAlpineBundleWiringTests(unittest.TestCase):
-    """alpine-components.min.js is committed (tests and DEBUG=False render it)
-    and rebuilt on deploy exactly like tailwind.css."""
+    """Every Alpine bundle's .min.js is committed (tests and DEBUG=False render
+    it) and rebuilt on deploy exactly like tailwind.css."""
 
-    MIN_JS = "crush_lu/static/crush_lu/js/alpine-components.min.js"
+    ALPINE_DIR = "crush_lu/static/crush_lu/js/alpine"
+
+    def setUp(self):
+        # Every module in js/alpine/ except the shared helpers is an entry.
+        self.entries = sorted(
+            p.name[: -len(".js")]
+            for p in (ROOT / self.ALPINE_DIR).glob("*.js")
+            if not p.name.endswith(".min.js") and p.name != "shared.js"
+        )
+        self.assertEqual(self.entries, ["coach", "connect", "core", "journey", "quiz"])
+        self.min_js = [f"{self.ALPINE_DIR}/{e}.min.js" for e in self.entries]
 
     def test_pr_ci_blocks_on_a_stale_min_js(self):
         steps = CI["jobs"]["javascript-lint"]["steps"]
         check = next(s for s in steps if "npm run build:js" in s.get("run", ""))
-        self.assertIn(f"git diff --exit-code -- {self.MIN_JS}", check["run"])
+        # --porcelain covers modified AND untracked (never-committed) bundles.
+        self.assertIn(f"git status --porcelain -- {self.ALPINE_DIR}/", check["run"])
+        self.assertIn("exit 1", check["run"])
         self.assertNotIn("continue-on-error", check)
         self.assertLess(
             next(i for i, s in enumerate(steps) if s.get("run") == "npm ci"),
@@ -178,19 +190,31 @@ class MinifiedAlpineBundleWiringTests(unittest.TestCase):
         build = deploy["jobs"]["build"]["steps"]
         self.assertTrue(any("npm run build:js" in s.get("run", "") for s in build))
         upload = next(s for s in build if s.get("uses", "").startswith("actions/up"))
-        self.assertIn(self.MIN_JS, upload["with"]["path"])
         steps = deploy["jobs"]["deploy"]["steps"]
         names = [s.get("name") for s in steps]
         clear = steps[names.index("Clear tracked CSS bundles")]["run"]
         verify = steps[names.index("Verify the built CSS landed")]["run"]
-        self.assertIn(self.MIN_JS, clear)
-        self.assertIn(self.MIN_JS, verify)
+        for min_js in self.min_js:
+            self.assertIn(min_js, upload["with"]["path"])
+            self.assertIn(min_js, clear)
+            self.assertIn(min_js, verify)
+        self.assertNotIn("alpine-components", upload["with"]["path"] + clear + verify)
 
     def test_esbuild_is_pinned_exactly(self):
         package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
         version = package["devDependencies"]["esbuild"]
         self.assertRegex(version, r"^\d+\.\d+\.\d+$")
-        self.assertIn(self.MIN_JS, package["scripts"]["build:js"])
+        script = package["scripts"]["build:js"]
+        for entry in self.entries:
+            self.assertIn(f"{self.ALPINE_DIR}/{entry}.js ", script)
+        for flag in (
+            "--bundle",
+            "--format=iife",
+            "--minify",
+            "--entry-names=[name].min",
+        ):
+            self.assertIn(flag, script)
+        self.assertIn(f"--outdir={self.ALPINE_DIR}", script)
 
 
 class ScopeTests(unittest.TestCase):

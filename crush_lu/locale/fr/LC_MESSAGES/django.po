@@ -13558,14 +13558,8 @@ msgstr ""
 "À propos de Crush.lu - Notre histoire, fondateurs et couverture presse"
 
 #: templates/crush_lu/about.html:7
-msgid ""
-"Meet the founders behind Crush.lu, Luxembourg's coach-curated dating "
-"platform. Featured in Virgule.lu and LuxTimes. Founded by Tom Sawyer and "
-"Wesley Hourdequin."
-msgstr ""
-"Découvrez les fondateurs de Crush.lu, la plateforme de rencontres "
-"luxembourgeoise avec sélection par coach. Présentée dans Virgule.lu et "
-"LuxTimes. Fondée par Tom Sawyer et Wesley Hourdequin."
+msgid "Meet the founders behind Crush.lu, Luxembourg's dating platform with coach-hosted events. Featured in Virgule.lu and LuxTimes. Founded by Tom Sawyer and Wesley Hourdequin."
+msgstr "Découvrez les fondateurs de Crush.lu, la plateforme de rencontres luxembourgeoise aux événements animés par des coachs. Présentée dans Virgule.lu et LuxTimes. Fondée par Tom Sawyer et Wesley Hourdequin."
 
 #: templates/crush_lu/about.html:10
 msgid ""
@@ -13599,15 +13593,8 @@ msgid "About Crush.lu"
 msgstr "À propos de Crush.lu"
 
 #: templates/crush_lu/about.html:43
-msgid ""
-"Learn about Crush.lu, Luxembourg's privacy-first dating platform. Founded by"
-" Tom Sawyer and Wesley Hourdequin, bringing authentic connections through "
-"coach-curated profiles and real-world events."
-msgstr ""
-"Découvrez Crush.lu, la plateforme de rencontres luxembourgeoise axée sur la "
-"confidentialité. Fondée par Tom Sawyer et Wesley Hourdequin, elle crée des "
-"connexions authentiques grâce à des profils sélectionnés par des coachs et "
-"des événements réels."
+msgid "Learn about Crush.lu, Luxembourg's privacy-first dating platform. Founded by Tom Sawyer and Wesley Hourdequin, bringing authentic connections through coach-hosted, real-world events."
+msgstr "Découvrez Crush.lu, la plateforme de rencontres luxembourgeoise axée sur la confidentialité. Fondée par Tom Sawyer et Wesley Hourdequin, elle crée des connexions authentiques grâce à des événements réels animés par des coachs."
 
 #: templates/crush_lu/about.html:47
 msgid ""
@@ -16165,6 +16152,9 @@ msgstr "Dernière mise à jour : 14 janvier 2025"
 #: templates/crush_lu/terms_of_service.html:17
 msgid "Table of Contents"
 msgstr "Table des matières"
+
+msgid "Back to contents"
+msgstr "Retour à la table des matières"
 
 #: templates/crush_lu/child_safety_standards.html:19
 #, fuzzy
@@ -26318,14 +26308,8 @@ msgstr ""
 " Luxembourg. De vraies rencontres, de vraies personnes."
 
 #: templates/crush_lu/event_list.html:13
-msgid ""
-"Speed dating events in Luxembourg for singles. Join Crush.lu for coach-"
-"curated speed dating nights, social mixers, and themed meetups. Book your "
-"next event now."
-msgstr ""
-"Speed dating au Luxembourg pour célibataires. Crush.lu organise des soirées "
-"speed dating, rencontres sociales et événements thématiques. Réservez votre "
-"prochain événement."
+msgid "Speed dating events in Luxembourg for singles. Join Crush.lu for coach-hosted speed dating nights, social mixers, and themed meetups. Book your next event now."
+msgstr "Speed dating au Luxembourg pour célibataires. Crush.lu organise des soirées speed dating animées par des coachs, des rencontres sociales et des événements thématiques. Réservez votre prochain événement."
 
 #: templates/crush_lu/event_list.html:14
 msgid ""
@@ -27374,13 +27358,8 @@ msgstr ""
 "célibataires luxembourg, dating luxembourg"
 
 #: templates/crush_lu/home.html:26
-msgid ""
-"Privacy-first dating platform for Luxembourg with coach-curated events and "
-"meaningful connections."
-msgstr ""
-"Plateforme de rencontres axée sur la confidentialité pour le Luxembourg avec"
-" des événements sélectionnés par des coachs et des connexions "
-"significatives."
+msgid "Privacy-first dating platform for Luxembourg with coach-hosted events and meaningful connections."
+msgstr "Plateforme de rencontres axée sur la confidentialité pour le Luxembourg avec des événements animés par des coachs et des connexions significatives."
 
 #: templates/crush_lu/home.html:43
 msgid "How does Crush.lu work?"
@@ -27604,12 +27583,8 @@ msgid "How to Start Dating with Crush.lu"
 msgstr "Comment commencer les rencontres avec Crush.lu"
 
 #: templates/crush_lu/how_it_works.html:43
-msgid ""
-"A step-by-step guide to meeting singles in Luxembourg through Crush.lu's "
-"coach-curated dating events."
-msgstr ""
-"Un guide étape par étape pour rencontrer des célibataires au Luxembourg via "
-"les événements de rencontre organisés par les coachs de Crush.lu."
+msgid "A step-by-step guide to meeting singles in Luxembourg through Crush.lu's coach-hosted dating events."
+msgstr "Un guide étape par étape pour rencontrer des célibataires au Luxembourg via les événements de rencontre animés par les coachs de Crush.lu."
 
 #: templates/crush_lu/how_it_works.html:55
 msgid ""
@@ -31339,8 +31314,8 @@ msgstr "Crush.lu utilise une architecture à deux niveaux :"
 #: templates/crush_lu/privacy_policy.html:61
 #: templates/crush_lu/terms_of_service.html:64
 #: templates/crush_lu/terms_of_service.html:94
-msgid "PowerUp Account:"
-msgstr "Compte PowerUp :"
+msgid "Crush.lu account:"
+msgstr "Compte Crush.lu :"
 
 #: templates/crush_lu/privacy_policy.html:61
 msgid ""
@@ -31367,13 +31342,8 @@ msgstr ""
 "Crush.lu et soumises à un consentement séparé."
 
 #: templates/crush_lu/privacy_policy.html:65
-msgid ""
-"Each tier requires separate, explicit consent. You may delete your Crush.lu "
-"Profile while keeping your PowerUp Account, or delete everything."
-msgstr ""
-"Chaque niveau nécessite un consentement séparé et explicite. Vous pouvez "
-"supprimer votre profil Crush.lu tout en conservant votre compte PowerUp, ou "
-"tout supprimer."
+msgid "Each tier requires separate, explicit consent. You may delete your Crush.lu Profile while keeping your Crush.lu account, or delete everything."
+msgstr "Chaque niveau nécessite un consentement séparé et explicite. Vous pouvez supprimer votre profil Crush.lu tout en conservant votre compte Crush.lu, ou tout supprimer."
 
 #: templates/crush_lu/privacy_policy.html:69
 msgid "3. Data We Collect"
@@ -31503,12 +31473,8 @@ msgid "Privacy flags"
 msgstr "Options de confidentialité"
 
 #: templates/crush_lu/privacy_policy.html:100
-msgid ""
-"your choices for: display full name or first name only, show exact age or "
-"age range, blur photos until mutual interest"
-msgstr ""
-"vos choix pour : afficher le nom complet ou le prénom uniquement, afficher "
-"l'âge exact ou une tranche d'âge, flouter les photos jusqu'à intérêt mutuel"
+msgid "your choices for: display full name or first name only, show exact age or age range"
+msgstr "vos choix pour : afficher le nom complet ou le prénom uniquement, afficher l'âge exact ou une tranche d'âge"
 
 #: templates/crush_lu/privacy_policy.html:101
 msgid "Draft data"
@@ -31939,13 +31905,8 @@ msgstr ""
 "au RGPD :"
 
 #: templates/crush_lu/privacy_policy.html:194
-msgid ""
-"Two-tier consent: separate records for PowerUp Account and Crush.lu Profile,"
-" each with IP address, timestamp, and terms version accepted"
-msgstr ""
-"Consentement à deux niveaux : enregistrements séparés pour le compte PowerUp"
-" et le profil Crush.lu, chacun avec adresse IP, horodatage et version des "
-"conditions acceptée"
+msgid "Two-tier consent: separate records for Crush.lu account and Crush.lu Profile, each with IP address, timestamp, and terms version accepted"
+msgstr "Consentement à deux niveaux : enregistrements séparés pour le compte Crush.lu et le profil Crush.lu, chacun avec adresse IP, horodatage et version des conditions acceptée"
 
 #: templates/crush_lu/privacy_policy.html:195
 msgid "Marketing consent: separate opt-in with timestamp"
@@ -32572,15 +32533,8 @@ msgid "Right to Erasure (Art. 17):"
 msgstr "Droit à l'effacement (Art. 17) :"
 
 #: templates/crush_lu/privacy_policy.html:477
-msgid ""
-"Request deletion of your data. You can delete your Crush.lu Profile only "
-"(keeping your PowerUp Account) or delete everything. Use the Data Management"
-" page in your account settings."
-msgstr ""
-"Demander la suppression de vos données. Vous pouvez supprimer uniquement "
-"votre profil Crush.lu (en conservant votre compte PowerUp) ou tout "
-"supprimer. Utilisez la page Gestion des données dans les paramètres de votre"
-" compte."
+msgid "Request deletion of your data. You can delete your Crush.lu Profile only (keeping your Crush.lu account) or delete everything. Use the Data Management page in your account settings."
+msgstr "Demander la suppression de vos données. Vous pouvez supprimer uniquement votre profil Crush.lu (en conservant votre compte Crush.lu) ou tout supprimer. Utilisez la page Gestion des données dans les paramètres de votre compte."
 
 #: templates/crush_lu/privacy_policy.html:478
 msgid "Right to Restriction (Art. 18):"
@@ -32807,13 +32761,12 @@ msgstr ""
 "Chaque photo est stockée sous un chemin spécifique à l'utilisateur avec un "
 "nom de fichier aléatoire"
 
-#: templates/crush_lu/privacy_policy.html:570
-msgid ""
-"The blur feature allows you to obscure your photos until mutual interest is "
-"established"
-msgstr ""
-"La fonctionnalité de flou vous permet de masquer vos photos jusqu'à ce qu'un"
-" intérêt mutuel soit établi"
+#~ msgid ""
+#~ "The blur feature allows you to obscure your photos until mutual interest is "
+#~ "established"
+#~ msgstr ""
+#~ "La fonctionnalité de flou vous permet de masquer vos photos jusqu'à ce qu'un"
+#~ " intérêt mutuel soit établi"
 
 #: templates/crush_lu/privacy_policy.html:571
 msgid ""
@@ -34280,8 +34233,8 @@ msgstr ""
 "consentir séparément à :"
 
 #: templates/crush_lu/terms_of_service.html:53
-msgid "The creation of your PowerUp Account (identity layer)"
-msgstr "La création de votre compte PowerUp (couche d'identité)"
+msgid "The creation of your Crush.lu account (identity layer)"
+msgstr "La création de votre compte Crush.lu (couche d'identité)"
 
 #: templates/crush_lu/terms_of_service.html:54
 msgid "The creation of your Crush.lu Profile (dating profile layer)"
@@ -35327,11 +35280,8 @@ msgstr ""
 "depuis les paramètres de votre compte"
 
 #: templates/crush_lu/terms_of_service.html:322
-msgid ""
-"Privacy controls: choose what other users can see (name, age, photo blur)"
-msgstr ""
-"Contrôles de confidentialité : choisissez ce que les autres utilisateurs "
-"peuvent voir (nom, âge, flou de photo)"
+msgid "Privacy controls: choose what other users can see (name, age)"
+msgstr "Contrôles de confidentialité : choisissez ce que les autres utilisateurs peuvent voir (nom, âge)"
 
 #: templates/crush_lu/terms_of_service.html:323
 msgid ""
@@ -35498,25 +35448,16 @@ msgid "Delete Crush.lu Profile:"
 msgstr "Supprimer le profil Crush.lu :"
 
 #: templates/crush_lu/terms_of_service.html:371
-msgid ""
-"Removes your dating profile, photos, connections, and event history. Your "
-"PowerUp Account remains active for other platforms."
-msgstr ""
-"Supprime votre profil de rencontres, vos photos, vos connexions et votre "
-"historique d'événements. Votre compte PowerUp reste actif pour les autres "
-"plateformes."
+msgid "Removes your dating profile, photos, connections, and event history. Your Crush.lu account remains active for other platforms."
+msgstr "Supprime votre profil de rencontres, vos photos, vos connexions et votre historique d'événements. Votre compte Crush.lu reste actif pour les autres plateformes."
 
 #: templates/crush_lu/terms_of_service.html:372
 msgid "Delete Full Account:"
 msgstr "Supprimer le compte complet :"
 
 #: templates/crush_lu/terms_of_service.html:372
-msgid ""
-"Removes your PowerUp Account and all associated data across all platforms. "
-"Your account is anonymised."
-msgstr ""
-"Supprime votre compte PowerUp et toutes les données associées sur toutes les"
-" plateformes. Votre compte est anonymisé."
+msgid "Removes your Crush.lu account and all associated data across all platforms. Your account is anonymised."
+msgstr "Supprime votre compte Crush.lu et toutes les données associées sur toutes les plateformes. Votre compte est anonymisé."
 
 #: templates/crush_lu/terms_of_service.html:375
 msgid "17.2 Termination by Us"
@@ -39438,14 +39379,9 @@ msgstr ""
 "Il est utilisable immédiatement pour tout événement Crush.lu et conserve la "
 "date d’expiration applicable."
 
-msgid ""
-"This cancellation is inside 48 hours, so no credit is issued yet. If a "
-"replacement pays for the released seat before the event starts, we'll add "
-"50% of what you paid as Crush Credit."
-msgstr ""
-"Cette annulation intervient dans les 48 heures : aucun crédit n’est donc "
-"accordé immédiatement. Si une autre personne paie la place libérée avant le "
-"début de l’événement, nous ajouterons 50 % du montant payé en Crush Credit."
+#, python-format
+msgid "This cancellation is inside %(hours)s hours, so no credit is issued yet. If a replacement pays for the released seat before the event starts, we'll add %(share)s%% of what you paid as Crush Credit."
+msgstr "Cette annulation intervient dans les %(hours)s heures : aucun crédit n’est donc accordé immédiatement. Si une autre personne paie la place libérée avant le début de l’événement, nous ajouterons %(share)s %% du montant payé en Crush Credit."
 
 msgid "Cash / bank transfer"
 msgstr "Espèces / virement bancaire"
@@ -43739,6 +43675,24 @@ msgid_plural "%(counter)s items need your attention"
 msgstr[0] "%(counter)s élément requiert votre attention"
 msgstr[1] "%(counter)s éléments requièrent votre attention"
 
+# UX Wave 4 · WP7a — legal pages Version 2.1 (clarification)
+#: crush_lu/templates/crush_lu/privacy_policy.html
+msgid "Last Updated: September 28, 2026"
+msgstr "Dernière mise à jour : 28 septembre 2026"
+
+#: crush_lu/templates/crush_lu/privacy_policy.html
+msgid "Version 2.1"
+msgstr "Version 2.1"
+
+#: crush_lu/templates/crush_lu/privacy_policy.html
+msgid ""
+"This Privacy Policy applies to Version 2.1 of our terms. Your consent "
+"records reference this version number for traceability."
+msgstr ""
+"Cette politique de confidentialité s'applique à la version 2.1 de nos "
+"conditions. Vos enregistrements de consentement font référence à ce numéro "
+"de version pour la traçabilité."
+
 #: crush_lu/templates/crush_lu/membership.html
 msgid "We have already received a payment for your Premium request."
 msgstr "Nous avons déjà reçu un paiement pour votre demande Premium."
@@ -43746,3 +43700,7 @@ msgstr "Nous avons déjà reçu un paiement pour votre demande Premium."
 #: crush_lu/templates/crush_lu/membership.html
 msgid "Contact support about your Premium payment"
 msgstr "Contactez le support au sujet de votre paiement Premium"
+
+#: crush_lu/templates/crush_lu/terms_of_service.html:57
+msgid "Each consent is recorded with your IP address, timestamp, and the version of these Terms you accepted. This version is 2.1."
+msgstr "Chaque consentement est enregistré avec votre adresse IP, un horodatage et la version de ces conditions que vous avez acceptée. Cette version est la 2.1."
