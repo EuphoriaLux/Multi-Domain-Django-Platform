@@ -12849,10 +12849,8 @@ msgstr "Lass uns unser Gespräch fortsetzen…"
 
 #: templates/crush_lu/_request_connection_form.html:49
 #: templates/crush_lu/request_connection.html:76
-#, fuzzy
-#| msgid "Welcome to Crush!"
 msgid "Declare My Crush!"
-msgstr "Willkommen bei Crush!"
+msgstr "Meinen Crush erklären!"
 
 #: templates/crush_lu/_review_guidelines.html:9
 msgid "Review Guidelines"
@@ -13412,7 +13410,7 @@ msgstr "Nachfassen nach Ermessen des Coaches"
 #: templates/crush_lu/_screening_tab_calibration.html:135
 #: templates/crush_lu/auth.html:243 templates/crush_lu/coach_settings.html:95
 msgid "optional"
-msgstr "Fakultativ"
+msgstr "optional"
 
 #: templates/crush_lu/_screening_tab_calibration.html:139
 msgid ""
@@ -20141,7 +20139,7 @@ msgstr "Dein Vibe"
 #: templates/crush_lu/create_profile.html:751
 #: templates/crush_lu/event_register.html:90
 msgid "Optional"
-msgstr "Fakultativ"
+msgstr "Optional"
 
 #: templates/crush_lu/create_profile.html:706
 #: templates/crush_lu/partials/edit_event_identity.html:149
@@ -27753,27 +27751,6 @@ msgid "Just like on Crush.lu — real connections happen when you show up!"
 msgstr ""
 "Genau wie auf Crush.lu — echte Verbindungen entstehen, wenn du dich zeigst!"
 
-#: templates/crush_lu/includes/ghost-story-section.html:152
-msgid "Find Your Match"
-msgstr "Finde dein Match"
-
-#: templates/crush_lu/includes/ghost-story-section.html:168
-msgid "Previous scene"
-msgstr "Vorherige Szene"
-
-#: templates/crush_lu/includes/ghost-story-section.html:176
-#: templates/crush_lu/includes/ghost-story-section.html:177
-#: templates/crush_lu/includes/ghost-story-section.html:178
-#: templates/crush_lu/includes/ghost-story-section.html:179
-#: templates/crush_lu/includes/ghost-story-section.html:180
-#: templates/crush_lu/includes/ghost-story-section.html:181
-msgid "Scene"
-msgstr "Szene"
-
-#: templates/crush_lu/includes/ghost-story-section.html:190
-msgid "Next scene"
-msgstr "Nächste Szene"
-
 #: templates/crush_lu/includes/journey_stepper.html:14
 #, python-format
 msgid ""
@@ -28281,10 +28258,8 @@ msgid "%(points)s points available"
 msgstr "%(points)s Punkte verdient"
 
 #: templates/crush_lu/journey/challenges/multiple_choice.html:44
-msgid "You already answered this question and earned <strong>"
-msgstr ""
-"Du hast diese Frage bereits beantwortet und <strong>%(points)s "
-"Punkte</strong> gesammelt."
+msgid "You already answered this question and earned <strong>%(points)s points</strong>."
+msgstr "Du hast diese Frage bereits beantwortet und <strong>%(points)s Punkte</strong> gesammelt."
 
 #: templates/crush_lu/journey/challenges/multiple_choice.html:49
 msgid "Answer options"
@@ -28377,10 +28352,8 @@ msgid "Riddle Challenge"
 msgstr "Rätsel-Herausforderung"
 
 #: templates/crush_lu/journey/challenges/riddle.html:46
-msgid "You already solved this riddle and earned <strong>"
-msgstr ""
-"Du hast dieses Rätsel bereits gelöst und <strong>%(points)s Punkte</strong> "
-"verdient."
+msgid "You already solved this riddle and earned <strong>%(points)s points</strong>."
+msgstr "Du hast dieses Rätsel bereits gelöst und <strong>%(points)s Punkte</strong> verdient."
 
 #: templates/crush_lu/journey/challenges/riddle.html:65
 msgid "Select a date using the calendar"
@@ -28420,10 +28393,8 @@ msgid "Timeline Challenge"
 msgstr "Zeitstrahl-Challenge"
 
 #: templates/crush_lu/journey/challenges/timeline_sort.html:44
-msgid "You already sorted this timeline correctly and earned <strong>"
-msgstr ""
-"Du hast diese Zeitleiste bereits richtig sortiert und<strong>%(points)s "
-"Punkte</strong> erhalten."
+msgid "You already sorted this timeline correctly and earned <strong>%(points)s points</strong>."
+msgstr "Du hast diese Zeitleiste bereits richtig sortiert und <strong>%(points)s Punkte</strong> erhalten."
 
 #: templates/crush_lu/journey/challenges/timeline_sort.html:57
 msgid "Sortable timeline events"
@@ -28446,10 +28417,8 @@ msgid "Shuffle"
 msgstr "Shuffle"
 
 #: templates/crush_lu/journey/challenges/word_scramble.html:60
-msgid "You already unscrambled this word and earned <strong>"
-msgstr ""
-"You already unscrambled this word and earned "
-"<strong>%(points)spoints</strong>."
+msgid "You already unscrambled this word and earned <strong>%(points)s points</strong>."
+msgstr "Du hast dieses Wort bereits entschlüsselt und <strong>%(points)s Punkte</strong> verdient."
 
 #: templates/crush_lu/journey/challenges/word_scramble.html:74
 msgid "Type the unscrambled word..."
@@ -28464,10 +28433,8 @@ msgid "Great choice!"
 msgstr "Tolle Wahl!"
 
 #: templates/crush_lu/journey/challenges/would_you_rather.html:43
-msgid "You've already shared your choice and earned <strong>"
-msgstr ""
-"Du hast deine Wahl bereits geteilt und <strong>%(points)s Punkte</strong> "
-"gesammelt."
+msgid "You've already shared your choice and earned <strong>%(points)s points</strong>."
+msgstr "Du hast deine Wahl bereits geteilt und <strong>%(points)s Punkte</strong> gesammelt."
 
 #: templates/crush_lu/journey/challenges/would_you_rather.html:52
 msgid "Choose an option"
@@ -33638,7 +33605,7 @@ msgstr "Zum Hochladen eines Fotos klicken"
 #: templates/crush_lu/spark_create_journey.html:95
 #: templates/crush_lu/spark_create_journey.html:121
 msgid "(optional)"
-msgstr "Fakultativ"
+msgstr "(optional)"
 
 #: templates/crush_lu/spark_create_journey.html:69
 msgid "Upload up to 5 photos for the slideshow."
@@ -36093,8 +36060,8 @@ msgstr ""
 "Bevor es losgeht: eine kurze Frage, damit wir dich richtig begleiten können."
 
 #: templates/crush_lu/welcome.html:79
-msgid "The road ahead · ≈ 15 min to get started"
-msgstr "Dein Weg · ca. 15 Min. bis zum Start"
+msgid "The road ahead · ≈ %(minutes)s min to get started"
+msgstr "Dein Weg · ca. %(minutes)s Min. bis zum Start"
 
 #: templates/crush_lu/welcome.html:104
 msgid "What makes us different"
@@ -38769,7 +38736,7 @@ msgstr "Gesamtbetrag"
 
 #: crush_lu/templates/crush_lu/payments/sumup_widget.html
 msgid "Confirming your payment — please don't close this page."
-msgstr "Ihre Zahlung wird bestätigt — bitte schließen Sie diese Seite nicht."
+msgstr "Deine Zahlung wird bestätigt — bitte schließ diese Seite nicht."
 
 #: crush_lu/templates/crush_lu/payments/sumup_widget.html
 msgid "Loading secure SumUp payment checkout..."
@@ -38780,12 +38747,8 @@ msgid "Encrypted & PCI-DSS Compliant via SumUp"
 msgstr "Verschlüsselt und PCI-DSS-konform über SumUp"
 
 #: crush_lu/templates/crush_lu/payments/sumup_widget.html
-msgid ""
-"The payment could not be completed. Please check your card details and try "
-"again."
-msgstr ""
-"Die Zahlung konnte nicht abgeschlossen werden. Bitte überprüfen Sie Ihre "
-"Kartendaten und versuchen Sie es erneut."
+msgid "The payment could not be completed. Please check your card details and try again."
+msgstr "Die Zahlung konnte nicht abgeschlossen werden. Bitte überprüfe deine Kartendaten und versuche es erneut."
 
 #: crush_lu/views_payments.py
 msgid "Premium is invite-only during the beta."
@@ -39302,12 +39265,6 @@ msgid ""
 msgstr ""
 "{sent} Absage-E-Mail(s) gesendet; {remaining} stehen noch aus. Führe diese "
 "Aktion erneut aus, um fortzufahren."
-
-msgid ""
-"No payment was recorded for this registration, so no Crush Credit is due."
-msgstr ""
-"Für diese Anmeldung wurde keine Zahlung erfasst, daher ist kein Crush Credit"
-" fällig."
 
 msgid ""
 "No payment was recorded for this registration, so no Crush Credit is due."
@@ -43726,3 +43683,48 @@ msgstr "Hinweis: Diese Mitglieder machen gerade eine Pause von Crush.lu: %(names
 #: crush_lu/templates/crush_lu/terms_of_service.html:57
 msgid "Each consent is recorded with your IP address, timestamp, and the version of these Terms you accepted. This version is 2.1."
 msgstr "Jede Einwilligung wird mit Ihrer IP-Adresse, einem Zeitstempel und der Version dieser Nutzungsbedingungen, die Sie akzeptiert haben, aufgezeichnet. Diese Version ist 2.1."
+
+# UX Wave 4 · WP15 i18n-sweep
+#: crush_lu/templates/crush_lu/auth.html
+msgid "I agree to the <a href=\"%(terms_url)s\" target=\"_blank\" class=\"text-crush-purple hover:underline\">Terms of Service</a> and <a href=\"%(privacy_url)s\" target=\"_blank\" class=\"text-crush-purple hover:underline\">Privacy Policy</a>"
+msgstr "Ich stimme den <a href=\"%(terms_url)s\" target=\"_blank\" class=\"text-crush-purple hover:underline\">Nutzungsbedingungen</a> und der <a href=\"%(privacy_url)s\" target=\"_blank\" class=\"text-crush-purple hover:underline\">Datenschutzerklärung</a> zu"
+
+#: crush_lu/views_phone_verification.py
+msgid "Invalid JSON format"
+msgstr "Ungültiges JSON-Format"
+
+#: crush_lu/views_phone_verification.py
+msgid "idToken is required"
+msgstr "idToken ist erforderlich"
+
+#: crush_lu/views_phone_verification.py
+msgid "Token does not contain a verified phone number"
+msgstr "Das Token enthält keine verifizierte Telefonnummer"
+
+#: crush_lu/views_phone_verification.py
+msgid "Phone verification failed. Please try again."
+msgstr "Die Verifizierung der Telefonnummer ist fehlgeschlagen. Bitte versuche es erneut."
+
+#: crush_lu/views_phone_verification.py
+msgid "Invalid request"
+msgstr "Ungültige Anfrage"
+
+#: crush_lu/views_phone_verification.py
+msgid "Phone number is required"
+msgstr "Telefonnummer ist erforderlich"
+
+#: crush_lu/views_account.py
+msgid "An account with this email already exists. Please login or use a different email."
+msgstr "Es gibt bereits ein Konto mit dieser E-Mail-Adresse. Bitte melde dich an oder verwende eine andere E-Mail-Adresse."
+
+#: crush_lu/views_account.py
+msgid "An error occurred while creating your account. Please try again."
+msgstr "Beim Erstellen deines Kontos ist ein Fehler aufgetreten. Bitte versuche es erneut."
+
+#: crush_lu/templates/crush_lu/journey/journey_map.html
+msgid "~%(minutes)s min"
+msgstr "~%(minutes)s Min."
+
+#: crush_lu/templates/crush_lu/advent/calendar.html
+msgid "December %(year)s"
+msgstr "Dezember %(year)s"

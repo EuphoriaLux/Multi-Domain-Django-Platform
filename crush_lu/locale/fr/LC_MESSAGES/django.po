@@ -969,7 +969,7 @@ msgstr ""
 #: templates/crush_lu/signup.html:112
 #: templates/socialaccount/signup_crush.html:34
 msgid "Email"
-msgstr "Email"
+msgstr "E-mail"
 
 #: admin/profiles.py:172
 msgid "Has Dating Profile"
@@ -2596,7 +2596,7 @@ msgstr "Optionnel : son@email.com"
 
 #: forms.py:1163
 msgid "Recipient Email (Optional)"
-msgstr "Email du destinataire (Optionnel)"
+msgstr "E-mail du destinataire (Optionnel)"
 
 #: forms.py:1174
 msgid "Photo Puzzle Image"
@@ -4957,7 +4957,7 @@ msgstr "Détails de l'événement :"
 #, fuzzy
 #| msgid "Email Confirmation"
 msgid "Event Meeting Confirmation"
-msgstr "Notifications par email"
+msgstr "Notifications par e-mail"
 
 #: models/event_lobby.py:194
 #, fuzzy
@@ -5930,7 +5930,7 @@ msgstr "Nom/surnom pour l'histoire du parcours (p. ex., 'Mon Crush', 'Marie')"
 
 #: models/journey_gift.py:147
 msgid "Optional email for notifications"
-msgstr "Email optionnel pour les notifications"
+msgstr "E-mail optionnel pour les notifications"
 
 #: models/journey_gift.py:152
 msgid "Date the sender and recipient first met"
@@ -6248,7 +6248,7 @@ msgstr "Newsletters"
 
 #: models/newsletter.py:152
 msgid "Email snapshot at send time"
-msgstr "Capture de l'email au moment de l'envoi"
+msgstr "Capture de l'e-mail au moment de l'envoi"
 
 #: models/newsletter.py:167
 msgid "Newsletter Recipient"
@@ -7405,7 +7405,7 @@ msgstr "Abonnements aux notifications push"
 
 #: models/profiles.py:2106
 msgid "User who owns these email preferences"
-msgstr "Utilisateur propriétaire de ces préférences email"
+msgstr "Utilisateur propriétaire de ces préférences e-mail"
 
 #: models/profiles.py:2114
 msgid "Secure token for one-click unsubscribe links"
@@ -7414,7 +7414,7 @@ msgstr "Jeton sécurisé pour les liens de désabonnement en un clic"
 #: models/profiles.py:2119 templates/crush_lu/account_settings.html:397
 #: templates/crush_lu/partials/edit_account_notifications.html:65
 msgid "Emails about profile approval, revision requests"
-msgstr "Emails concernant l'approbation du profil, demandes de révision"
+msgstr "E-mails concernant l'approbation du profil, demandes de révision"
 
 #: models/profiles.py:2123 templates/crush_lu/account_settings.html:409
 #: templates/crush_lu/partials/edit_account_notifications.html:78
@@ -7429,12 +7429,12 @@ msgstr "Nouvelle demande de connexion !"
 #: models/profiles.py:2129 templates/crush_lu/account_settings.html:433
 #: templates/crush_lu/partials/edit_account_notifications.html:104
 msgid "Notifications about new messages from connections"
-msgstr "Soyez notifié des événements, messages et connexions"
+msgstr "Notifications des nouveaux messages de vos connexions"
 
 #: models/profiles.py:2133
 msgid "Newsletter emails about upcoming events and community news"
 msgstr ""
-"Emails de newsletter sur les événements à venir et les nouvelles de la "
+"E-mails de newsletter sur les événements à venir et les nouvelles de la "
 "communauté"
 
 #: models/profiles.py:2138
@@ -7453,13 +7453,13 @@ msgstr "L'utilisateur s'est désabonné de TOUS les e-mails"
 
 #: models/profiles.py:2156
 msgid "Email Preference"
-msgstr "Préférence email"
+msgstr "Préférence e-mail"
 
 #: models/profiles.py:2157 templates/admin/crush_lu/dashboard.html:1205
 #: templates/crush_lu/email_unsubscribe.html:4
 #: templates/crush_lu/email_unsubscribe.html:73
 msgid "Email Preferences"
-msgstr "Préférences email"
+msgstr "Préférences e-mail"
 
 #: models/profiles.py:2236
 msgid "User consents to PowerUp identity layer (User model + OAuth data)"
@@ -10989,7 +10989,7 @@ msgstr "Désabonnés de tout"
 
 #: templates/admin/crush_lu/dashboard.html:1223
 msgid "Opted out of all emails"
-msgstr "Désabonné de tous les emails"
+msgstr "Désabonné de tous les e-mails"
 
 #: templates/admin/crush_lu/dashboard.html:1230
 msgid "Email Category Opt-ins"
@@ -11418,7 +11418,7 @@ msgstr "Taux d’approbation de vérification"
 
 #: templates/admin/crush_lu/email_template_manager.html:4
 msgid "Email Template Manager"
-msgstr "Gestionnaire de modèles d'email"
+msgstr "Gestionnaire de modèles d'e-mail"
 
 #: templates/admin/crush_lu/email_template_manager.html:510
 msgid "Context & Recipients"
@@ -11430,7 +11430,7 @@ msgstr "Sélectionner un utilisateur"
 
 #: templates/admin/crush_lu/email_template_manager.html:519
 msgid "Search by name or email..."
-msgstr "Rechercher par nom ou email..."
+msgstr "Rechercher par nom ou e-mail..."
 
 #: templates/admin/crush_lu/email_template_manager.html:553
 msgid "Select Event"
@@ -11466,7 +11466,7 @@ msgstr "Chargement des cadeaux…"
 
 #: templates/admin/crush_lu/email_template_manager.html:609
 msgid "Select a user to preview this email template."
-msgstr "Sélectionnez un utilisateur pour prévisualiser ce modèle d'email."
+msgstr "Sélectionnez un utilisateur pour prévisualiser ce modèle d'e-mail."
 
 #: templates/admin/crush_lu/email_template_manager.html:618
 msgid "Load Preview"
@@ -11493,7 +11493,7 @@ msgstr "Texte brut"
 
 #: templates/admin/crush_lu/email_template_manager.html:659
 msgid "Select a template and user to preview the email"
-msgstr "Sélectionnez un modèle et un utilisateur pour prévisualiser l'email"
+msgstr "Sélectionnez un modèle et un utilisateur pour prévisualiser l'e-mail"
 
 #: templates/admin/crush_lu/email_template_manager.html:668
 msgid "Copy HTML"
@@ -12074,7 +12074,7 @@ msgid ""
 "Send profile completion reminder emails to users who haven't finished their "
 "profiles."
 msgstr ""
-"Envoyer des emails de rappel aux utilisateurs qui n'ont pas complété leur "
+"Envoyer des e-mails de rappel aux utilisateurs qui n'ont pas complété leur "
 "profil."
 
 #: templates/admin/crush_lu/profile_reminders_panel.html:491
@@ -12096,7 +12096,7 @@ msgstr "Simulation terminée"
 
 #: templates/admin/crush_lu/profile_reminders_panel.html:527
 msgid "No emails were actually sent."
-msgstr "Aucun email n'a été réellement envoyé."
+msgstr "Aucun e-mail n'a été réellement envoyé."
 
 #: templates/admin/crush_lu/profile_reminders_panel.html:529
 msgid "Reminders Sent!"
@@ -12141,7 +12141,7 @@ msgstr "72h uniquement"
 
 #: templates/admin/crush_lu/profile_reminders_panel.html:599
 msgid "Max Emails to Send"
-msgstr "Maximum d'emails à envoyer"
+msgstr "Maximum d'e-mails à envoyer"
 
 #: templates/admin/crush_lu/profile_reminders_panel.html:606
 msgid "Dry Run (preview without sending)"
@@ -12659,7 +12659,7 @@ msgstr "Vous êtes inscrit !"
 #: templates/crush_lu/_event_registration_success.html:40
 msgid "We've sent a confirmation email with all the event details."
 msgstr ""
-"On vous a envoyé un email de confirmation avec tous les détails de "
+"On vous a envoyé un e-mail de confirmation avec tous les détails de "
 "l'événement."
 
 #: templates/crush_lu/_event_registration_success.html:51
@@ -12891,10 +12891,8 @@ msgstr "Continuons notre conversation…"
 
 #: templates/crush_lu/_request_connection_form.html:49
 #: templates/crush_lu/request_connection.html:76
-#, fuzzy
-#| msgid "Welcome to Crush!"
 msgid "Declare My Crush!"
-msgstr "Bienvenue sur Crush !"
+msgstr "Déclarer mon coup de cœur !"
 
 #: templates/crush_lu/_review_guidelines.html:9
 msgid "Review Guidelines"
@@ -12927,7 +12925,7 @@ msgstr "Rédigez le retour dans la langue préférée de l'utilisateur"
 #: templates/crush_lu/_review_guidelines.html:55
 msgid "Use preview button to verify email before sending"
 msgstr ""
-"Utilisez le bouton de prévisualisation pour vérifier l'email avant l'envoi"
+"Utilisez le bouton de prévisualisation pour vérifier l'e-mail avant l'envoi"
 
 #: templates/crush_lu/_review_status_strip.html:17
 msgid "Review status"
@@ -13458,7 +13456,7 @@ msgstr "Suivi à la discrétion du coach"
 #: templates/crush_lu/_screening_tab_calibration.html:135
 #: templates/crush_lu/auth.html:243 templates/crush_lu/coach_settings.html:95
 msgid "optional"
-msgstr "Optionnel"
+msgstr "facultatif"
 
 #: templates/crush_lu/_screening_tab_calibration.html:139
 msgid ""
@@ -14123,7 +14121,7 @@ msgstr "Définir un mot de passe"
 #: templates/crush_lu/account_settings.html:296
 #: templates/crush_lu/partials/edit_account_settings.html:285
 msgid "You have a password set for email login."
-msgstr "Vous avez défini un mot de passe pour la connexion par email."
+msgstr "Vous avez défini un mot de passe pour la connexion par e-mail."
 
 #: templates/crush_lu/account_settings.html:298
 #: templates/crush_lu/partials/edit_account_settings.html:287
@@ -14205,7 +14203,7 @@ msgstr "Créer un profil"
 #: templates/crush_lu/account_settings.html:358
 #: templates/crush_lu/partials/edit_account_notifications.html:8
 msgid "Email Notifications"
-msgstr "Notifications par email"
+msgstr "Notifications par e-mail"
 
 #: templates/crush_lu/account_settings.html:368
 #: templates/crush_lu/partials/edit_account_notifications.html:35
@@ -14219,12 +14217,12 @@ msgstr ""
 #: templates/crush_lu/account_settings.html:379
 #: templates/crush_lu/partials/edit_account_notifications.html:46
 msgid "Unsubscribe from ALL emails"
-msgstr "Se désabonner de TOUS les emails"
+msgstr "Se désabonner de TOUS les e-mails"
 
 #: templates/crush_lu/account_settings.html:386
 #: templates/crush_lu/partials/edit_account_notifications.html:53
 msgid "Choose which emails you'd like to receive:"
-msgstr "Choisissez les emails que vous souhaitez recevoir :"
+msgstr "Choisissez les e-mails que vous souhaitez recevoir :"
 
 #: templates/crush_lu/account_settings.html:446
 #: templates/crush_lu/email_unsubscribe.html:139
@@ -14256,7 +14254,7 @@ msgstr ""
 
 #: templates/crush_lu/account_settings.html:483
 msgid "Receive notifications via WhatsApp on:"
-msgstr "Reçois des notifications via WhatsApp pour :"
+msgstr "Recevez des notifications via WhatsApp au :"
 
 #: templates/crush_lu/account_settings.html:494
 msgid "Enable WhatsApp Notifications"
@@ -14984,7 +14982,7 @@ msgstr "Continuer avec Apple"
 
 #: templates/crush_lu/auth.html:148
 msgid "Or use email"
-msgstr "Ou par email"
+msgstr "Ou par e-mail"
 
 #: templates/crush_lu/auth.html:184 templates/crush_lu/auth.html:287
 #: templates/crush_lu/auth.html:313 templates/crush_lu/auth.html:392
@@ -15510,7 +15508,7 @@ msgid ""
 "If you no longer have access to this email address, reply to your coach's "
 "last message and we'll reschedule manually."
 msgstr ""
-"Si tu n'as plus accès à cette adresse email, réponds au dernier message de "
+"Si tu n'as plus accès à cette adresse e-mail, réponds au dernier message de "
 "ton Coach et nous replanifierons manuellement."
 
 # Coach Dashboard translations
@@ -16912,13 +16910,13 @@ msgstr "Non fourni"
 #, fuzzy
 #| msgid "Recipient Email (Optional)"
 msgid "Recipient (your call too)"
-msgstr "Email du destinataire (Optionnel)"
+msgstr "E-mail du destinataire (Optionnel)"
 
 #: templates/crush_lu/coach_connection_review.html:315
 #, fuzzy
 #| msgid "Recipient Email (Optional)"
 msgid "Recipient (their coach)"
-msgstr "Email du destinataire (Optionnel)"
+msgstr "E-mail du destinataire (Optionnel)"
 
 #: templates/crush_lu/coach_connection_review.html:329
 msgid "They consented on the call"
@@ -19882,7 +19880,7 @@ msgid ""
 "I consent to receive marketing emails about new features, events, and "
 "promotions."
 msgstr ""
-"Je consens à recevoir des emails marketing sur les nouvelles "
+"Je consens à recevoir des e-mails marketing sur les nouvelles "
 "fonctionnalités, événements et promotions."
 
 #: templates/crush_lu/consent_confirm.html:71
@@ -20211,7 +20209,7 @@ msgstr "Votre ambiance"
 #: templates/crush_lu/create_profile.html:751
 #: templates/crush_lu/event_register.html:90
 msgid "Optional"
-msgstr "Optionnel"
+msgstr "Facultatif"
 
 #: templates/crush_lu/create_profile.html:706
 #: templates/crush_lu/partials/edit_event_identity.html:149
@@ -20674,7 +20672,7 @@ msgid ""
 "you'd make an amazing coach. If you can charm us, imagine what you'll do for"
 " our members."
 msgstr ""
-"Pas question de se cacher derrière des emails. Décrochez le téléphone, "
+"Pas question de se cacher derrière des e-mails. Décrochez le téléphone, "
 "appelez-nous et convainquez-nous pourquoi vous feriez un coach incroyable. "
 "Si vous arrivez à nous charmer, imaginez ce que vous ferez pour nos membres."
 
@@ -22499,7 +22497,7 @@ msgstr "Informations du compte :"
 
 #: templates/crush_lu/data_deletion.html:29
 msgid "Email, name, date of birth, phone number"
-msgstr "Email, nom, date de naissance, numéro de téléphone"
+msgstr "E-mail, nom, date de naissance, numéro de téléphone"
 
 #: templates/crush_lu/data_deletion.html:30
 msgid "Profile Data:"
@@ -22816,7 +22814,7 @@ msgstr "Fournis des réponses aux questions de sécurité"
 
 #: templates/crush_lu/data_deletion.html:149
 msgid "Confirm via registered email address"
-msgstr "Confirme via l'adresse email enregistrée"
+msgstr "Confirme via l'adresse e-mail enregistrée"
 
 #: templates/crush_lu/data_deletion.html:150
 msgid "Provide photo ID (in cases of suspicious activity)"
@@ -22878,7 +22876,7 @@ msgstr ""
 
 #: templates/crush_lu/data_deletion.html:169
 msgid "Create a new account with a new email address"
-msgstr "Créer un nouveau compte avec une nouvelle adresse email"
+msgstr "Créer un nouveau compte avec une nouvelle adresse e-mail"
 
 #: templates/crush_lu/data_deletion.html:170
 msgid "Complete profile creation and coach review again"
@@ -22923,7 +22921,7 @@ msgstr "Accès :"
 #: templates/crush_lu/data_deletion.html:189
 msgid "Request a copy of your data (send email to privacy@crush.lu)"
 msgstr ""
-"Demander une copie de vos données (envoyez un email à privacy@crush.lu)"
+"Demander une copie de vos données (envoyez un e-mail à privacy@crush.lu)"
 
 #: templates/crush_lu/data_deletion.html:190
 msgid "Rectification:"
@@ -23094,7 +23092,7 @@ msgstr "SUPPRIMER MON COMPTE"
 
 #: templates/crush_lu/delete_account_confirm.html:90
 msgid "Permanently Delete My Account"
-msgstr "Créer un compte"
+msgstr "Supprimer définitivement mon compte"
 
 #: templates/crush_lu/delete_account_confirm.html:102
 msgid "Changed your mind? You can also"
@@ -23289,7 +23287,7 @@ msgstr "Ce lien de désinscription est invalide ou a expiré."
 
 #: templates/crush_lu/email_unsubscribe.html:18
 msgid "If you need to manage your email preferences, please"
-msgstr "Si vous avez besoin de gérer vos préférences email, merci de"
+msgstr "Si vous avez besoin de gérer vos préférences e-mail, merci de"
 
 #: templates/crush_lu/email_unsubscribe.html:19
 msgid "log in to your account"
@@ -23309,7 +23307,7 @@ msgstr "Préférences mises à jour !"
 
 #: templates/crush_lu/email_unsubscribe.html:38 views_account.py:748
 msgid "You have been unsubscribed from all Crush.lu emails."
-msgstr "Vous vous êtes désinscrit de tous les emails Crush.lu."
+msgstr "Vous vous êtes désinscrit de tous les e-mails Crush.lu."
 
 #: templates/crush_lu/email_unsubscribe.html:42
 msgid "Changed your mind? You can re-subscribe below."
@@ -23318,11 +23316,11 @@ msgstr "Vous avez changé d'avis ? Vous pouvez vous réabonner ci-dessous."
 #: templates/crush_lu/email_unsubscribe.html:49
 #: templates/crush_lu/email_unsubscribe.html:92
 msgid "Re-subscribe to Emails"
-msgstr "Se réabonner aux emails"
+msgstr "Se réabonner aux e-mails"
 
 #: templates/crush_lu/email_unsubscribe.html:54
 msgid "Your email preferences have been updated successfully."
-msgstr "Vos préférences email ont été mises à jour avec succès."
+msgstr "Vos préférences e-mail ont été mises à jour avec succès."
 
 #: templates/crush_lu/email_unsubscribe.html:60
 msgid "Want more control?"
@@ -23343,15 +23341,15 @@ msgstr "Salut !"
 
 #: templates/crush_lu/email_unsubscribe.html:78
 msgid "Choose how you'd like to manage your email preferences:"
-msgstr "Choisissez comment vous souhaitez gérer vos préférences email :"
+msgstr "Choisissez comment vous souhaitez gérer vos préférences e-mail :"
 
 #: templates/crush_lu/email_unsubscribe.html:84
 msgid "You are currently unsubscribed from all emails."
-msgstr "Vous êtes actuellement désinscrit de tous les emails."
+msgstr "Vous êtes actuellement désinscrit de tous les e-mails."
 
 #: templates/crush_lu/email_unsubscribe.html:99
 msgid "Your current email subscriptions:"
-msgstr "Vos abonnements email actuels :"
+msgstr "Vos abonnements e-mail actuels :"
 
 #: templates/crush_lu/email_unsubscribe.html:147
 msgid "Quick unsubscribe options:"
@@ -23369,11 +23367,11 @@ msgstr ""
 
 #: templates/crush_lu/email_unsubscribe.html:168
 msgid "Unsubscribe from ALL Emails"
-msgstr "Se désabonner de TOUS les emails"
+msgstr "Se désabonner de TOUS les e-mails"
 
 #: templates/crush_lu/email_unsubscribe.html:171
 msgid "You won't receive any emails from Crush.lu."
-msgstr "Vous ne recevrez plus aucun email de Crush.lu."
+msgstr "Vous ne recevrez plus aucun e-mail de Crush.lu."
 
 #: templates/crush_lu/email_unsubscribe.html:180
 msgid "For more detailed control,"
@@ -23401,7 +23399,7 @@ msgstr "Rencontres confidentielles au Luxembourg"
 
 #: templates/crush_lu/emails/base_email.html:114
 msgid "You're receiving this because you have an account on Crush.lu."
-msgstr "Vous recevez cet email parce que vous avez un compte sur Crush.lu."
+msgstr "Vous recevez cet e-mail parce que vous avez un compte sur Crush.lu."
 
 #: templates/crush_lu/emails/base_email.html:116
 msgid "If you have questions, contact us at"
@@ -23413,7 +23411,7 @@ msgstr "Se désabonner"
 
 #: templates/crush_lu/emails/base_email.html:122
 msgid "Manage email preferences"
-msgstr "Gérer les préférences email"
+msgstr "Gérer les préférences e-mail"
 
 #: templates/crush_lu/emails/coach_assignment.html:4
 msgid "New Profile Review"
@@ -23573,7 +23571,7 @@ msgstr "Bonne chance !"
 
 #: templates/crush_lu/emails/connection_accepted.html:40
 msgid "You're receiving this because your connection request was accepted."
-msgstr "Vous recevez cet email car votre demande de connexion a été acceptée."
+msgstr "Vous recevez cet e-mail car votre demande de connexion a été acceptée."
 
 #: templates/crush_lu/emails/crush_connect_catalogue_welcome.html:6
 msgid "You're in the mix!"
@@ -23788,7 +23786,7 @@ msgstr "S'inscrire maintenant"
 #: templates/crush_lu/emails/newsletter.html:22
 #: templates/crush_lu/emails/patch_notes.html:59
 msgid "You're receiving this because you're a member of Crush.lu."
-msgstr "Vous recevez cet email parce que vous êtes membre de Crush.lu."
+msgstr "Vous recevez cet e-mail parce que vous êtes membre de Crush.lu."
 
 #: templates/crush_lu/emails/event_cancellation.html:4
 #: templates/crush_lu/emails/event_cancellation.html:6
@@ -24482,7 +24480,7 @@ msgid ""
 "You're receiving this because someone special created a journey for you on "
 "Crush.lu."
 msgstr ""
-"Vous recevez cet email parce que quelqu'un de spécial a créé un parcours "
+"Vous recevez cet e-mail parce que quelqu'un de spécial a créé un parcours "
 "pour vous sur Crush.lu."
 
 #: templates/crush_lu/emails/mutual_match.html:4
@@ -25210,7 +25208,7 @@ msgstr ""
 
 #: templates/crush_lu/emails/profile_incomplete_final.html:46
 msgid "Have questions or need help? Just reply to this email!"
-msgstr "Des questions ou besoin d'aide ? Réponds simplement à cet email !"
+msgstr "Des questions ou besoin d'aide ? Réponds simplement à cet e-mail !"
 
 #: templates/crush_lu/emails/profile_incomplete_final.html:51
 msgid "This is our final profile completion reminder. We won't send any more."
@@ -25257,7 +25255,7 @@ msgstr "Appeler le Coach"
 #: templates/crush_lu/emails/profile_recontact.html:31
 #: templates/crush_lu/profile_submitted.html:809
 msgid "Email Coach"
-msgstr "Email au Coach"
+msgstr "E-mail au Coach"
 
 #: templates/crush_lu/emails/profile_recontact.html:33
 msgid ""
@@ -27874,27 +27872,6 @@ msgstr ""
 "Tout comme sur Crush.lu — les vraies connexions se créent quand vous vous "
 "montrez !"
 
-#: templates/crush_lu/includes/ghost-story-section.html:152
-msgid "Find Your Match"
-msgstr "Trouvez votre match"
-
-#: templates/crush_lu/includes/ghost-story-section.html:168
-msgid "Previous scene"
-msgstr "Scène précédente"
-
-#: templates/crush_lu/includes/ghost-story-section.html:176
-#: templates/crush_lu/includes/ghost-story-section.html:177
-#: templates/crush_lu/includes/ghost-story-section.html:178
-#: templates/crush_lu/includes/ghost-story-section.html:179
-#: templates/crush_lu/includes/ghost-story-section.html:180
-#: templates/crush_lu/includes/ghost-story-section.html:181
-msgid "Scene"
-msgstr "Scène"
-
-#: templates/crush_lu/includes/ghost-story-section.html:190
-msgid "Next scene"
-msgstr "Scène suivante"
-
 #: templates/crush_lu/includes/journey_stepper.html:14
 #, python-format
 msgid ""
@@ -28046,7 +28023,7 @@ msgstr "Notre Crush Coach examinera votre demande de participation"
 #: templates/crush_lu/invitation_accept_form.html:103
 msgid "Once approved, you'll receive an email with event details"
 msgstr ""
-"Une fois approuvé, vous recevrez un email avec les détails de l'événement"
+"Une fois approuvé, vous recevrez un e-mail avec les détails de l'événement"
 
 #: templates/crush_lu/invitation_accept_form.html:110
 msgid "Privacy Protected:"
@@ -28164,7 +28141,7 @@ msgstr "Votre participation sera examinée par notre Crush Coach"
 
 #: templates/crush_lu/invitation_landing.html:215
 msgid "Once approved, you'll receive an email confirmation"
-msgstr "Une fois approuvé, vous recevrez une confirmation par email"
+msgstr "Une fois approuvé, vous recevrez une confirmation par e-mail"
 
 #: templates/crush_lu/invitation_landing.html:216
 msgid "You can then register for this exclusive event"
@@ -28237,11 +28214,11 @@ msgstr ""
 
 #: templates/crush_lu/invitation_pending_approval.html:161
 msgid "Email Confirmation"
-msgstr "Notifications par email"
+msgstr "Notifications par e-mail"
 
 #: templates/crush_lu/invitation_pending_approval.html:162
 msgid "You'll receive an email once approved with event details"
-msgstr "Vous recevrez un email une fois que votre profil sera approuvé"
+msgstr "Vous recevrez un e-mail une fois que votre profil sera approuvé"
 
 #: templates/crush_lu/invitation_pending_approval.html:172
 #, python-format
@@ -28273,7 +28250,7 @@ msgstr "La plupart des approbations sont traitées dans les 24 heures"
 msgid ""
 "Once approved, you'll receive all event information and registration "
 "instructions"
-msgstr "Une fois approuvé, vous recevrez une confirmation par email"
+msgstr "Une fois approuvé, vous recevrez une confirmation par e-mail"
 
 #: templates/crush_lu/invitation_pending_approval.html:195
 #, python-format
@@ -28409,8 +28386,8 @@ msgid "%(points)s points available"
 msgstr "%(points)s points disponibles"
 
 #: templates/crush_lu/journey/challenges/multiple_choice.html:44
-msgid "You already answered this question and earned <strong>"
-msgstr "Vous avez déjà répondu à cette question et gagné <strong>"
+msgid "You already answered this question and earned <strong>%(points)s points</strong>."
+msgstr "Vous avez déjà répondu à cette question et gagné <strong>%(points)s points</strong>."
 
 #: templates/crush_lu/journey/challenges/multiple_choice.html:49
 msgid "Answer options"
@@ -28503,8 +28480,8 @@ msgid "Riddle Challenge"
 msgstr "Défi énigme"
 
 #: templates/crush_lu/journey/challenges/riddle.html:46
-msgid "You already solved this riddle and earned <strong>"
-msgstr "Vous avez déjà résolu cette énigme et gagné <strong>"
+msgid "You already solved this riddle and earned <strong>%(points)s points</strong>."
+msgstr "Vous avez déjà résolu cette énigme et gagné <strong>%(points)s points</strong>."
 
 #: templates/crush_lu/journey/challenges/riddle.html:65
 msgid "Select a date using the calendar"
@@ -28542,8 +28519,8 @@ msgid "Timeline Challenge"
 msgstr "Défi chronologie"
 
 #: templates/crush_lu/journey/challenges/timeline_sort.html:44
-msgid "You already sorted this timeline correctly and earned <strong>"
-msgstr "Vous avez déjà trié cette chronologie correctement et gagné <strong>"
+msgid "You already sorted this timeline correctly and earned <strong>%(points)s points</strong>."
+msgstr "Vous avez déjà trié cette chronologie correctement et gagné <strong>%(points)s points</strong>."
 
 #: templates/crush_lu/journey/challenges/timeline_sort.html:57
 msgid "Sortable timeline events"
@@ -28566,8 +28543,8 @@ msgid "Shuffle"
 msgstr "Mélanger"
 
 #: templates/crush_lu/journey/challenges/word_scramble.html:60
-msgid "You already unscrambled this word and earned <strong>"
-msgstr "Vous avez déjà déchiffré ce mot et gagné <strong>"
+msgid "You already unscrambled this word and earned <strong>%(points)s points</strong>."
+msgstr "Vous avez déjà déchiffré ce mot et gagné <strong>%(points)s points</strong>."
 
 #: templates/crush_lu/journey/challenges/word_scramble.html:74
 msgid "Type the unscrambled word..."
@@ -28582,8 +28559,8 @@ msgid "Great choice!"
 msgstr "Super choix !"
 
 #: templates/crush_lu/journey/challenges/would_you_rather.html:43
-msgid "You've already shared your choice and earned <strong>"
-msgstr "Vous avez déjà partagé votre choix et gagné <strong>"
+msgid "You've already shared your choice and earned <strong>%(points)s points</strong>."
+msgstr "Vous avez déjà partagé votre choix et gagné <strong>%(points)s points</strong>."
 
 #: templates/crush_lu/journey/challenges/would_you_rather.html:52
 msgid "Choose an option"
@@ -30883,7 +30860,7 @@ msgstr "Ajoutez de la variété"
 
 #: templates/crush_lu/partials/pwa_install_banner.html:24
 msgid "Install Crush.lu App"
-msgstr "Installer l'application Crush.lu"
+msgstr "Installer l'app Crush.lu"
 
 #: templates/crush_lu/partials/pwa_install_banner.html:25
 msgid "Quick access & offline features"
@@ -33682,7 +33659,7 @@ msgstr "Définir le mot de passe"
 
 #: templates/crush_lu/set_password.html:26
 msgid "You signed up with"
-msgstr "Ou inscrivez-vous avec votre email"
+msgstr "Ou inscrivez-vous avec votre e-mail"
 
 #: templates/crush_lu/set_password.html:34
 #, python-format
@@ -33723,7 +33700,7 @@ msgstr "S'inscrire avec Apple"
 
 #: templates/crush_lu/signup.html:79
 msgid "Or sign up with email"
-msgstr "Ou inscrivez-vous avec votre email"
+msgstr "Ou inscrivez-vous avec votre e-mail"
 
 #: templates/crush_lu/signup.html:129
 msgid "Your password must contain at least 8 characters."
@@ -33774,7 +33751,7 @@ msgstr "Clique pour télécharger une photo"
 #: templates/crush_lu/spark_create_journey.html:95
 #: templates/crush_lu/spark_create_journey.html:121
 msgid "(optional)"
-msgstr "Optionnel"
+msgstr "(facultatif)"
 
 #: templates/crush_lu/spark_create_journey.html:69
 msgid "Upload up to 5 photos for the slideshow."
@@ -36239,8 +36216,8 @@ msgid "Before we start, one quick question to help us guide you."
 msgstr "Avant de commencer, une petite question pour bien vous orienter."
 
 #: templates/crush_lu/welcome.html:79
-msgid "The road ahead · ≈ 15 min to get started"
-msgstr "La suite · ≈ 15 min pour démarrer"
+msgid "The road ahead · ≈ %(minutes)s min to get started"
+msgstr "La suite · ≈ %(minutes)s min pour démarrer"
 
 #: templates/crush_lu/welcome.html:104
 msgid "What makes us different"
@@ -36353,7 +36330,7 @@ msgstr "Erreurs :"
 #, python-format
 msgid "This email is from your %(provider)s account and cannot be changed."
 msgstr ""
-"Cet email provient de votre compte %(provider)s et ne peut pas être modifié."
+"Cet e-mail provient de votre compte %(provider)s et ne peut pas être modifié."
 
 #: templates/socialaccount/signup_crush.html:56
 msgid "I agree to Crush.lu's"
@@ -36626,11 +36603,11 @@ msgstr ""
 
 #: views_account.py:756
 msgid "You have been unsubscribed from marketing emails."
-msgstr "Vous avez été désabonné des emails marketing."
+msgstr "Vous avez été désabonné des e-mails marketing."
 
 #: views_account.py:768
 msgid "You have been re-subscribed to Crush.lu emails."
-msgstr "Vous avez été réabonné aux emails Crush.lu."
+msgstr "Vous avez été réabonné aux e-mails Crush.lu."
 
 #: views_account.py:815
 msgid "This feature is only for users who signed up with Facebook."
@@ -36809,7 +36786,7 @@ msgstr "Impossible de réserver ce créneau."
 msgid ""
 "Your screening call is booked. Check your email for the calendar invite."
 msgstr ""
-"Votre appel de présélection est réservé. Consultez vos emails pour "
+"Votre appel de présélection est réservé. Consultez vos e-mails pour "
 "l'invitation d'agenda."
 
 #: views_booking.py:168
@@ -37226,7 +37203,7 @@ msgstr ""
 #| "This email is from your %(provider)s account and cannot be changed."
 msgid "This answer was already recorded and cannot be changed."
 msgstr ""
-"Cet email provient de votre compte %(provider)s et ne peut pas être modifié."
+"Cet e-mail provient de votre compte %(provider)s et ne peut pas être modifié."
 
 #: views_coach.py:4551
 #, fuzzy
@@ -37977,7 +37954,7 @@ msgid ""
 "Welcome! Your invitation has been accepted. You will receive an email once "
 "your attendance is approved by our team."
 msgstr ""
-"Bienvenue ! Votre invitation a été acceptée. Vous recevrez un email dès que "
+"Bienvenue ! Votre invitation a été acceptée. Vous recevrez un e-mail dès que "
 "votre participation sera approuvée par notre équipe."
 
 #: views_invitations.py:157
@@ -38005,7 +37982,7 @@ msgid ""
 "Invitation created for %(email)s, but email could not be sent. Code: "
 "%(code)s"
 msgstr ""
-"Invitation créée pour %(email)s, mais l'email n'a pas pu être envoyé. Code :"
+"Invitation créée pour %(email)s, mais l'e-mail n'a pas pu être envoyé. Code :"
 " %(code)s"
 
 #: views_invitations.py:265 views_invitations.py:294
@@ -43859,3 +43836,48 @@ msgstr "À noter : ces membres font une pause sur Crush.lu en ce moment : %(name
 #: crush_lu/templates/crush_lu/terms_of_service.html:57
 msgid "Each consent is recorded with your IP address, timestamp, and the version of these Terms you accepted. This version is 2.1."
 msgstr "Chaque consentement est enregistré avec votre adresse IP, un horodatage et la version de ces conditions que vous avez acceptée. Cette version est la 2.1."
+
+# UX Wave 4 · WP15 i18n-sweep
+#: crush_lu/templates/crush_lu/auth.html
+msgid "I agree to the <a href=\"%(terms_url)s\" target=\"_blank\" class=\"text-crush-purple hover:underline\">Terms of Service</a> and <a href=\"%(privacy_url)s\" target=\"_blank\" class=\"text-crush-purple hover:underline\">Privacy Policy</a>"
+msgstr "J'accepte les <a href=\"%(terms_url)s\" target=\"_blank\" class=\"text-crush-purple hover:underline\">Conditions d'utilisation</a> et la <a href=\"%(privacy_url)s\" target=\"_blank\" class=\"text-crush-purple hover:underline\">Politique de confidentialité</a>"
+
+#: crush_lu/views_phone_verification.py
+msgid "Invalid JSON format"
+msgstr "Format JSON invalide"
+
+#: crush_lu/views_phone_verification.py
+msgid "idToken is required"
+msgstr "idToken est requis"
+
+#: crush_lu/views_phone_verification.py
+msgid "Token does not contain a verified phone number"
+msgstr "Le jeton ne contient pas de numéro de téléphone vérifié"
+
+#: crush_lu/views_phone_verification.py
+msgid "Phone verification failed. Please try again."
+msgstr "La vérification du numéro de téléphone a échoué. Veuillez réessayer."
+
+#: crush_lu/views_phone_verification.py
+msgid "Invalid request"
+msgstr "Requête invalide"
+
+#: crush_lu/views_phone_verification.py
+msgid "Phone number is required"
+msgstr "Le numéro de téléphone est requis"
+
+#: crush_lu/views_account.py
+msgid "An account with this email already exists. Please login or use a different email."
+msgstr "Un compte existe déjà avec cette adresse e-mail. Veuillez vous connecter ou utiliser une autre adresse e-mail."
+
+#: crush_lu/views_account.py
+msgid "An error occurred while creating your account. Please try again."
+msgstr "Une erreur s'est produite lors de la création de votre compte. Veuillez réessayer."
+
+#: crush_lu/templates/crush_lu/journey/journey_map.html
+msgid "~%(minutes)s min"
+msgstr "~%(minutes)s min"
+
+#: crush_lu/templates/crush_lu/advent/calendar.html
+msgid "December %(year)s"
+msgstr "Décembre %(year)s"

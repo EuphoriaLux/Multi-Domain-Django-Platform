@@ -57,9 +57,8 @@
 
         {% if existing_attempt %}
         <!-- Already Completed -->
-        {% with completion_message=_("You already unscrambled this word and earned <strong>")|add:existing_attempt.points_earned|stringformat:"s"|add:" points</strong>." %}
+        {% blocktrans with points=existing_attempt.points_earned asvar completion_message %}You already unscrambled this word and earned <strong>{{ points }} points</strong>.{% endblocktrans %}
         {% include "crush_lu/journey/partials/already_completed.html" %}
-        {% endwith %}
         {% else %}
         <!-- Answer Input Section -->
         <div x-show="isNotSuccess" x-cloak class="mt-8">

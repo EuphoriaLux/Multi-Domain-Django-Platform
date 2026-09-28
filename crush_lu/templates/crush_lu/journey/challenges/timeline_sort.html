@@ -42,9 +42,8 @@
 
         {% if existing_attempt %}
         <!-- Already Completed -->
-        {% with completion_message=_("You already sorted this timeline correctly and earned <strong>")|add:existing_attempt.points_earned|stringformat:"s"|add:" points</strong>."|safe %}
+        {% blocktrans with points=existing_attempt.points_earned asvar completion_message %}You already sorted this timeline correctly and earned <strong>{{ points }} points</strong>.{% endblocktrans %}
         {% include "crush_lu/journey/partials/already_completed.html" %}
-        {% endwith %}
         {% else %}
         <!-- Instructions -->
         <div x-show="isNotSuccess" x-cloak class="instruction-box">

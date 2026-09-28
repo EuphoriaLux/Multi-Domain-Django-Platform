@@ -41,9 +41,8 @@
 
         {% if existing_attempt %}
         <!-- Already Completed -->
-        {% with completion_message=_("You already answered this question and earned <strong>")|add:existing_attempt.points_earned|stringformat:"s"|add:" points</strong>."|safe %}
+        {% blocktrans with points=existing_attempt.points_earned asvar completion_message %}You already answered this question and earned <strong>{{ points }} points</strong>.{% endblocktrans %}
         {% include "crush_lu/journey/partials/already_completed.html" %}
-        {% endwith %}
         {% else %}
         <!-- Options -->
         <div x-show="isNotSuccess" x-cloak class="space-y-4 my-8" role="radiogroup" aria-label="{% trans 'Answer options' %}">

@@ -1279,6 +1279,8 @@ def welcome_view(request):
             }
             for ch in onboarding.JOURNEY_CHAPTERS
         ],
+        # Header estimate, summed from the steps so it never drifts from them.
+        "journey_total_min": sum(s.min_duration for s in onboarding.JOURNEY_STEPS),
     }
     context.update(onboarding.stepper_context(current=1))
     return render(request, "crush_lu/welcome.html", context)

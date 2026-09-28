@@ -1714,13 +1714,18 @@ def signup(request):
                 ):
                     messages.error(
                         request,
-                        "An account with this email already exists. "
-                        "Please login or use a different email.",
+                        _(
+                            "An account with this email already exists. "
+                            "Please login or use a different email."
+                        ),
                     )
                 else:
                     messages.error(
                         request,
-                        "An error occurred while creating your account. Please try again.",
+                        _(
+                            "An error occurred while creating your account. "
+                            "Please try again."
+                        ),
                     )
 
     context = {
