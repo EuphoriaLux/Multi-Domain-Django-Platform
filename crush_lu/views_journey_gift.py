@@ -77,17 +77,56 @@ def _unclaimable_response(request, gift):
     return render(request, template, {"gift": gift})
 
 
+# Wizard step 1 fields; every other form field is a step-2 media upload.
+_GIFT_STEP_ONE_FIELDS = (
+    "recipient_name",
+    "date_first_met",
+    "location_first_met",
+    "sender_message",
+    "recipient_email",
+)
+
+
+def _gift_created(response):
+    """Only a successful create (the redirect to the success page) counts
+    toward the daily cap (decision C, #1053); a form re-render does not."""
+    return response.status_code == 302
+
+
+def _wizard_errors(form):
+    """Group a bound form's errors by wizard step for the error summaries.
+
+    Returns (initial_step, {step: [{"id", "label", "message"}]}): the wizard
+    opens on the first step holding an error (finding 7-06)."""
+    by_step = {1: [], 2: []}
+    for message in form.non_field_errors():
+        by_step[1].append({"id": "", "label": "", "message": message})
+    for name, field in form.fields.items():
+        errors = form.errors.get(name)
+        if errors:
+            step = 1 if name in _GIFT_STEP_ONE_FIELDS else 2
+            by_step[step].append(
+                {
+                    "id": form[name].id_for_label,
+                    "label": field.label,
+                    "message": errors[0],
+                }
+            )
+    initial_step = 2 if by_step[2] and not by_step[1] else 1
+    return initial_step, by_step
+
+
 @crush_login_required
 @_gift_admin_only
 @require_http_methods(["GET", "POST"])
-@ratelimit(key="user", rate="5/d", method="POST", block=True)
+@ratelimit(key="user", rate="5/d", method="POST", block=True, count_if=_gift_created)
 def gift_create(request):
     """
     Create a new journey gift.
 
     Only staff and active coaches can create a gift (decision C; the
     optional recipient email makes this an outbound-mail surface), capped
-    at 5 per day.
+    at 5 successful creations per day (invalid POSTs don't count).
     A QR code is generated for sharing.
     If recipient email is provided, sends notification email with QR code.
     """
@@ -139,11 +178,15 @@ def gift_create(request):
     else:
         form = JourneyGiftForm()
 
+    initial_step, step_errors = _wizard_errors(form)
     return render(
         request,
         "crush_lu/journey/gift_create.html",
         {
             "form": form,
+            "initial_step": initial_step,
+            "step_one_errors": step_errors[1],
+            "step_two_errors": step_errors[2],
         },
     )
 

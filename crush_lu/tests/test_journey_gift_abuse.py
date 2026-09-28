@@ -147,10 +147,11 @@ class GiftCreateGateTests(GiftAbuseTestBase):
 
     def test_sixth_post_in_a_day_is_rate_limited(self):
         self._login(self._user("staff@example.com", staff=True))
-        # Invalid (no uploads/fields) POSTs still count toward the daily cap.
+        # Decision C (#1053): only successful creates count toward the cap;
+        # invalid POSTs are covered in test_ux_wave4_gift_wizard.
         for _ in range(5):
-            self.assertNotEqual(self.client.post(CREATE_URL, {}).status_code, 429)
-        self.assertEqual(self.client.post(CREATE_URL, {}).status_code, 429)
+            self.assertEqual(self._post().status_code, 302)
+        self.assertEqual(self._post().status_code, 429)
 
 
 class GiftTrustLineTests(GiftAbuseTestBase):

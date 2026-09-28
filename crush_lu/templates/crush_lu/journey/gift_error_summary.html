@@ -1,0 +1,18 @@
+{% load i18n %}
+{% comment %}
+Gift wizard error summary (finding 7-06): shown at the top of the step that
+holds server-side form errors, linking each error to its field.
+Args: errors (list of {id, label, message} from views_journey_gift._wizard_errors),
+files_note (truthy on the media step: selected files are not kept).
+{% endcomment %}
+<div class="gift-message gift-message-error text-left" role="alert" tabindex="-1" data-gift-error-summary>
+    <p class="m-0 font-semibold">{% trans "Please fix the following errors:" %}</p>
+    <ul class="mt-2 mb-0 list-disc space-y-1 pl-5 text-sm">
+        {% for error in errors %}
+        <li>{% if error.id %}<a href="#{{ error.id }}" class="text-inherit underline underline-offset-2 hover:text-white">{{ error.label }}: {{ error.message }}</a>{% else %}{{ error.message }}{% endif %}</li>
+        {% endfor %}
+    </ul>
+    {% if files_note %}
+    <p class="mt-2 mb-0 text-sm">{% trans "Files are not kept after an error. Please select them again." %}</p>
+    {% endif %}
+</div>
