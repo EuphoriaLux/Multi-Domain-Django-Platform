@@ -5044,6 +5044,12 @@ html.dark .btn-crush-outline {
     border-color: var(--crush-purple-light);
 }
 
+/* Keep the hover label white on the gradient: the rule above outranks
+   .btn-crush-outline:hover. */
+html.dark .btn-crush-outline:hover {
+    color: white;
+}
+
 /* Hero Button */
 .btn-hero-primary {
     background: var(--color-white);

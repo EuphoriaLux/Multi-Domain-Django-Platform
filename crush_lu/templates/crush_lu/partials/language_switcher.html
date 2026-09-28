@@ -50,7 +50,7 @@
 <div class="relative" x-data="languageSwitcher" @click.away="close">
     <button type="button"
             @click="toggle"
-            class="{% if on_card %}btn-crush-outline btn-sm inline-flex gap-1{% else %}nav-link flex items-center gap-1 px-2 py-1{% endif %}"
+            class="{% if on_card %}btn-crush-outline btn-sm inline-flex items-center gap-1{% else %}nav-link flex items-center gap-1 px-2 py-1{% endif %}"
             aria-haspopup="true"
             x-bind:aria-expanded="ariaExpanded">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
