@@ -287,7 +287,7 @@ class CancelPageShowsOutcomeTests(CreditFixture):
 
     def test_submit_guard_component_is_registered(self):
         source = Path(
-            settings.BASE_DIR, "crush_lu/static/crush_lu/js/alpine-components.js"
+            settings.BASE_DIR, "crush_lu/static/crush_lu/js/alpine/core.js"
         ).read_text(encoding="utf-8")
         match = re.search(
             r'Alpine\.data\("eventCancelForm".*?\n    \}\);', source, re.S

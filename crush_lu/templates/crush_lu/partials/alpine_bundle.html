@@ -1,0 +1,9 @@
+{% load static %}{% comment %}
+One Alpine component bundle: crush_lu/static/crush_lu/js/alpine/<bundle>.js.
+Usage: {% include "crush_lu/partials/alpine_bundle.html" with bundle="coach" %}
+Put it in base.html's pre_alpine_js block (or a block rendered earlier), never
+extra_js: the bundle's alpine:init listener must exist before Alpine starts.
+DEBUG serves the readable ES module; everywhere else the committed esbuild
+output of `npm run build:js`. CI fails when a .min.js drifts from its source,
+and a missing one 500s the page under the WhiteNoise manifest.
+{% endcomment %}{% if debug %}{% now "U" as ts %}<script type="module" nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/alpine/'|add:bundle|add:'.js' %}?v={{ ts }}"></script>{% else %}<script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/alpine/'|add:bundle|add:'.min.js' %}"></script>{% endif %}
