@@ -87,6 +87,15 @@ class LegacySettingsRedirectTests(TestCase):
             landing = self.client.get(ACCOUNT, HTTP_HOST=HOST)
             self.assertEqual(landing.status_code, 200, email)
 
+    def test_apple_link_flag_survives_the_redirect(self):
+        self._login("apple@example.com")
+        response = self.client.get("/en/account/settings/?apple_link=1", HTTP_HOST=HOST)
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(
+            response["Location"],
+            "/en/profile/edit/?section=account&sub=settings&apple_link=1",
+        )
+
     def test_anonymous_visitor_still_hits_the_login_gate(self):
         response = self.client.get("/en/account/settings/", HTTP_HOST=HOST)
         self.assertEqual(response.status_code, 302)

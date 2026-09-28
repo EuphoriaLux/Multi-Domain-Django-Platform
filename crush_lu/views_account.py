@@ -781,7 +781,12 @@ def legacy_account_settings(request):
     Old links, bookmarks and already-sent emails keep working. A #fragment
     never reaches the server; the browser re-applies it after the redirect and
     the drill-down's ``legacySettingsAnchor`` component maps it to ``sub=``.
+    ``?apple_link=1`` (Apple relay banner) carries over to the settings card.
     """
+    if request.GET.get("apple_link") == "1":
+        return HttpResponsePermanentRedirect(
+            account_settings_url("settings") + "&apple_link=1"
+        )
     return HttpResponsePermanentRedirect(account_settings_url())
 
 

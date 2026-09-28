@@ -32,6 +32,9 @@ from playwright.sync_api import expect  # noqa: E402
 pytestmark = [pytest.mark.playwright, pytest.mark.django_db(transaction=True)]
 
 PHONE = {"width": 390, "height": 844}
+# The push cards live in the account drill-down's notifications sub-section
+# since /account/settings/ was retired (UX Wave 4 · WP9b).
+NOTIFICATIONS = "/en/profile/edit/?section=account&sub=notifications"
 IPHONE_UA = (
     "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 "
     "(KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"
@@ -195,12 +198,29 @@ def test_flash_message_holds_the_install_card_until_dismissed(browser, live_serv
     expect(page.locator("#pwa-install-banner")).to_be_visible()
 
 
-def test_no_install_card_on_account_pages(browser, live_server):
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/en/account/settings/",  # retired URL: 301 to the drill-down overview
+        "/en/profile/edit/?section=account&sub=settings",
+        NOTIFICATIONS,
+        "/en/account/delete/",
+    ],
+)
+def test_no_install_card_on_account_pages(browser, live_server, path):
     page = _phone(browser, live_server, _member(), returning=True)
-    _open(page, f"{live_server.url}/en/account/settings/")
+    _open(page, f"{live_server.url}{path}")
     page.wait_for_timeout(500)
     expect(page.locator("#pwa-install-banner")).to_be_hidden()
     assert page.evaluate("() => Alpine.store('prompts').install") is False
+
+
+def test_profile_edit_outside_the_account_section_keeps_the_install_card(
+    browser, live_server
+):
+    page = _phone(browser, live_server, _member(), returning=True)
+    _open(page, f"{live_server.url}/en/profile/edit/")
+    expect(page.locator("#pwa-install-banner")).to_be_visible()
 
 
 def test_installer_returns_early_in_a_native_shell(browser, live_server):
@@ -241,7 +261,7 @@ def test_push_settings_check_times_out_with_try_again(browser, live_server):
     # Headless Chromium reports "denied" by default; this visitor has not
     # blocked anything, so only Retry can help.
     page.context.add_init_script(PERMISSION_DEFAULT_JS)
-    _open(page, f"{live_server.url}/en/account/settings/")
+    _open(page, f"{live_server.url}{NOTIFICATIONS}")
 
     card = page.locator("[x-data='pushPreferences']")
     checking = card.get_by_text("Checking notification support...")
@@ -303,7 +323,7 @@ def test_coach_card_without_push_api_says_not_supported_not_retry(browser, live_
     page = _phone(browser, live_server, user)
     page.context.add_init_script(HANGING_SW_JS)
     page.context.add_init_script(NO_PUSH_MANAGER_JS)
-    _open(page, f"{live_server.url}/en/account/settings/")
+    _open(page, f"{live_server.url}{NOTIFICATIONS}")
 
     card = page.locator("[x-data='coachPushPreferences']")
     expect(card).to_be_visible()
@@ -348,7 +368,7 @@ def test_blocked_notifications_win_over_try_again(browser, live_server):
     page = _phone(browser, live_server, _member())
     page.context.add_init_script(HANGING_SW_JS)
     page.context.add_init_script(PERMISSION_DENIED_JS)
-    _open(page, f"{live_server.url}/en/account/settings/")
+    _open(page, f"{live_server.url}{NOTIFICATIONS}")
 
     card = page.locator("[x-data='pushPreferences']")
     expect(card.get_by_text("Notifications blocked")).to_be_visible(timeout=6000)
@@ -385,7 +405,7 @@ def test_push_card_offers_retry_when_the_push_script_never_loads(browser, live_s
     page = _phone(browser, live_server, _member())
     page.context.add_init_script(PERMISSION_DEFAULT_JS)
     page.route("**/push-notifications.js*", lambda route: route.abort())
-    _open(page, f"{live_server.url}/en/account/settings/")
+    _open(page, f"{live_server.url}{NOTIFICATIONS}")
 
     card = page.locator("[x-data='pushPreferences']")
     expect(

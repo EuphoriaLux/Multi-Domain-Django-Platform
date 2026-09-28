@@ -110,7 +110,9 @@ class MemberPromptTests(TestCase):
         self.assertIn("Alpine.store('prompts').isActive('push')", html)
 
     def test_native_shell_gets_no_push_prompt(self):
-        html = self._get("/en/profile/edit/?section=account&sub=notifications", **NATIVE)
+        html = self._get(
+            "/en/profile/edit/?section=account&sub=notifications", **NATIVE
+        )
         self.assertNotIn('x-data="pushActivationPrompt"', html)
 
     def test_cookie_sheet_clears_the_tab_bar_on_crush(self):
@@ -135,9 +137,13 @@ class MemberPromptTests(TestCase):
             self.assertNotIn("Checking notification support", html, path)
 
     def test_native_notice_translated(self):
-        html = self._get("/de/profile/edit/?section=account&sub=notifications", **NATIVE)
+        html = self._get(
+            "/de/profile/edit/?section=account&sub=notifications", **NATIVE
+        )
         self.assertIn("Benachrichtigungen werden in der App verwaltet", html)
-        html = self._get("/fr/profile/edit/?section=account&sub=notifications", **NATIVE)
+        html = self._get(
+            "/fr/profile/edit/?section=account&sub=notifications", **NATIVE
+        )
         self.assertIn("Les notifications sont gérées dans l'application", html)
 
 
