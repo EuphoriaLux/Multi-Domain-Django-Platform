@@ -43472,3 +43472,18 @@ msgid "%(counter)s item needs your attention"
 msgid_plural "%(counter)s items need your attention"
 msgstr[0] "%(counter)s Eintrag braucht deine Aufmerksamkeit"
 msgstr[1] "%(counter)s Einträge brauchen deine Aufmerksamkeit"
+
+#: crush_lu/views_payments.py
+#, python-format
+msgid "This checkout belongs to another member. Payment status: %(status)s."
+msgstr "Dieser Checkout gehört einem anderen Mitglied. Zahlungsstatus: %(status)s."
+
+#: crush_lu/templates/crush_lu/components/support_card.html:90 crush_lu/templates/crush_lu/components/support_card.html:145
+msgctxt "donation button"
+msgid "Support"
+msgstr "Unterstützen"
+
+#: crush_lu/services/on_break.py
+#, python-format
+msgid "Heads-up, taking a break from Crush.lu right now: %(names)s. You can still invite them."
+msgstr "Hinweis, legt gerade eine Pause von Crush.lu ein: %(names)s. Du kannst trotzdem einladen."

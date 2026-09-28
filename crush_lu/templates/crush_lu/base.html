@@ -8,7 +8,8 @@
 <html lang="{{ LANGUAGE_CODE|default:'en' }}"{% if is_native_app %} data-native-app{% endif %}{% block theme_lock %}{% endblock %}>
 <head>
     {% analytics_head %}
-    {% if user.is_authenticated %}{% appinsights_head %}{% endif %}
+    {# Consent-gated like every other visitor: anonymous /login/ and /signup/ events flush too (#1085). #}
+    {% appinsights_head %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{% block title %}Crush.lu - Meet New People{% endblock %}</title>

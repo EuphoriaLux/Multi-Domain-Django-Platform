@@ -16302,27 +16302,63 @@ document.addEventListener("alpine:init", function () {
     // Verify-email resend cooldown (account/verification_sent_crush.html)
     // ========================================================================
 
+    // The server's cooldown is per address (#1059), so a corrected address in
+    // "Use a different address" re-enables the button while the countdown for
+    // the cooled address keeps running. The page only knows that address as a
+    // SHA-256 hash of its trimmed, lower-cased form.
     Alpine.data("resendCooldown", () => ({
-        disabled: false,
+        coolingDown: false,
+        otherAddress: false,
+        cooldownHash: "",
+        inputSeq: 0,
         remaining: 0,
+        get disabled() {
+            return this.coolingDown && !this.otherAddress;
+        },
         get enabled() {
             return !this.disabled;
         },
         init() {
+            this.cooldownHash = this.$el.dataset.cooldownHash || "";
             const cooldownUntil = parseInt(this.$el.dataset.cooldownUntil, 10) || 0;
             const serverNow = parseInt(this.$el.dataset.serverNow, 10) || 0;
             this.remaining = Math.max(0, cooldownUntil - serverNow);
             if (this.remaining <= 0) {
                 return;
             }
-            this.disabled = true;
+            this.coolingDown = true;
             const t = setInterval(() => {
                 this.remaining--;
                 if (this.remaining <= 0) {
                     clearInterval(t);
-                    this.disabled = false;
+                    this.coolingDown = false;
                 }
             }, 1000);
+        },
+        onEmailInput(event) {
+            const value = (event.target.value || "").trim().toLowerCase();
+            const seq = ++this.inputSeq;
+            if (!value) {
+                this.otherAddress = false;
+                return;
+            }
+            // Without the hash or SubtleCrypto (plain-http dev hosts) any typed
+            // address counts as different; the server still no-ops a repeat.
+            if (!this.cooldownHash || !window.crypto || !window.crypto.subtle) {
+                this.otherAddress = true;
+                return;
+            }
+            window.crypto.subtle
+                .digest("SHA-256", new TextEncoder().encode(value))
+                .then((buf) => {
+                    if (seq !== this.inputSeq) {
+                        return;
+                    }
+                    const hex = Array.from(new Uint8Array(buf))
+                        .map((b) => b.toString(16).padStart(2, "0"))
+                        .join("");
+                    this.otherAddress = hex !== this.cooldownHash;
+                });
         },
     }));
 

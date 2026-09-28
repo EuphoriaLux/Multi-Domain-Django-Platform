@@ -15,7 +15,7 @@ import json
 import os
 import logging
 
-from azureproject.domains import get_domain_config
+from azureproject.domains import DEV_DOMAIN_MAPPINGS, get_domain_config
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +163,8 @@ def _get_domain(request):
 def _is_crush_domain(request):
     """Check if request is from crush.lu or localhost (dev default)."""
     domain = _get_domain(request)
+    # Dev aliases (crush.localhost) count as the domain they stand for (#1059).
+    domain = DEV_DOMAIN_MAPPINGS.get(domain, domain)
     # crush.lu is the main domain, localhost/127.0.0.1 routes to crush.lu in development
     # Subdomains like test.crush.lu are also crush domains
     return domain in ("crush.lu", "localhost", "127.0.0.1") or domain.endswith(
@@ -874,10 +876,9 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
                         send_verification_email_to_address,
                     )
 
-                    from django.utils import timezone
-
                     from crush_lu.views_account import (
-                        RESEND_VERIFICATION_COOLDOWN_SECONDS,
+                        claim_resend_cooldown,
+                        start_resend_cooldown_display,
                     )
 
                     # Login stays held even if the mail fails; the member can
@@ -896,11 +897,12 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
                         )
                         limiter_consumed = True
                     request.session["pending_verification_email"] = address.email
+                    # The verification page may replace this held account's
+                    # typed address ("Use a different address", #1059).
+                    request.session["pending_verification_user_id"] = user.pk
                     if limiter_consumed:
-                        request.session["resend_verification_cooldown_until"] = (
-                            int(timezone.now().timestamp())
-                            + RESEND_VERIFICATION_COOLDOWN_SECONDS
-                        )
+                        claim_resend_cooldown(address.email, force=True)
+                        start_resend_cooldown_display(request, address.email)
                     return self.respond_email_verification_sent(request, user)
         return None
 

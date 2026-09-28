@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse, HttpResponse
@@ -12,6 +13,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.debug import sensitive_post_parameters
 from django.conf import settings
+from django.core.cache import cache
 import logging
 import uuid
 import json
@@ -1586,6 +1588,13 @@ def referral_redirect(request, code):
     producing ERROR-level log noise.
     """
     referral = capture_referral(request, code, source="link")
+    # A shared event link (build_referral_url(next_url=...), 4-18) lands on
+    # the event; the captured code still credits a later signup.
+    next_url = request.GET.get("next")
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return redirect(next_url)
     signup_url = reverse("crush_lu:signup")
     if referral:
         return redirect(f"{signup_url}?ref={referral.code}")
@@ -1710,6 +1719,88 @@ RESEND_VERIFICATION_COOLDOWN_SECONDS = getattr(
 )
 
 
+def _email_digest(email):
+    return hashlib.sha256(email.strip().lower().encode()).hexdigest()
+
+
+def claim_resend_cooldown(email, force=False):
+    """Claim the resend cooldown for ``email`` (#1059).
+
+    ``cache.add`` is atomic, so of two overlapping POSTs (a double-click
+    during the synchronous send) only one gets to send. Keyed on the
+    normalised address, not the session: a corrected address is not held
+    back by the typo's cooldown, and rotating cookies does not reset it.
+    ``force`` records a send that already happened (the social pre_login
+    hold). ``None`` means the cache backend swallowed an error: fail open
+    like ``_may_ask_sumup``; the 3/h IP limit and allauth's per-address
+    limiter still bound the sends.
+    """
+    key = f"crush:resend-verification:{_email_digest(email)}"
+    if force:
+        cache.set(key, 1, RESEND_VERIFICATION_COOLDOWN_SECONDS)
+        return True
+    return cache.add(key, 1, RESEND_VERIFICATION_COOLDOWN_SECONDS) is not False
+
+
+def start_resend_cooldown_display(request, email):
+    """Session copy of the cooldown, only for the page's countdown."""
+    request.session["resend_verification_cooldown_until"] = (
+        int(timezone.now().timestamp()) + RESEND_VERIFICATION_COOLDOWN_SECONDS
+    )
+    request.session["resend_verification_cooldown_hash"] = _email_digest(email)
+
+
+def _replace_pending_social_address(request, typed_email):
+    """Swap a held social account's unverified address for ``typed_email``.
+
+    Only for the account the social pre_login hold stashed in this session
+    (the visitor just proved the provider login), and only while it has no
+    verified address. The old row is deleted rather than edited: HMAC
+    confirmation keys sign the row's pk, so an edited row would let the
+    link already mailed to the typo confirm the corrected address. An
+    address another account uses is skipped silently, so the caller's
+    response stays identical (ACCOUNT_UNIQUE_EMAIL, no enumeration).
+    """
+    from allauth.account.models import EmailAddress
+    from django.contrib.auth.models import User
+    from django.core.exceptions import ValidationError
+    from django.core.validators import validate_email
+
+    user_id = request.session.get("pending_verification_user_id")
+    if not user_id:
+        return None
+    try:
+        validate_email(typed_email)
+    except ValidationError:
+        return None
+    with transaction.atomic():
+        user = User.objects.select_for_update().filter(pk=user_id).first()
+        if (
+            user is None
+            or EmailAddress.objects.filter(user=user, verified=True).exists()
+        ):
+            return None
+        pending = EmailAddress.objects.filter(user=user, verified=False)
+        if pending.filter(email__iexact=typed_email).exists():
+            return None
+        taken = (
+            EmailAddress.objects.filter(email__iexact=typed_email)
+            .exclude(user=user)
+            .exists()
+            or User.objects.filter(email__iexact=typed_email)
+            .exclude(pk=user.pk)
+            .exists()
+        )
+        if taken:
+            return None
+        pending.delete()
+        user.email = typed_email
+        user.save(update_fields=["email"])
+        return EmailAddress.objects.create(
+            user=user, email=typed_email, primary=True, verified=False
+        )
+
+
 @require_http_methods(["POST"])
 @ratelimit(
     key="ip",
@@ -1729,27 +1820,27 @@ def resend_verification_email(request):
     signed up (or last tried to log in unverified). That session can be
     empty -- a different device, or cookies cleared -- so this also accepts
     an ``email`` POST field from the visible form the template shows in that
-    case. Either way, a per-session 60s cooldown (separate from the hourly
-    IP rate limit above, which guards against abuse) stops the same visitor
-    from re-triggering a send on every reload/back-button; the response
-    stays identical either way.
+    case. A per-address cooldown (``claim_resend_cooldown``, separate from
+    the hourly IP rate limit above, which guards against abuse) stops a
+    re-send on every reload/back-button; the response stays identical
+    either way. For a social account held by pre_login, a typed address
+    replaces the account's unverified one (#1059).
     """
     from allauth.account.models import EmailAddress
 
-    now_ts = int(timezone.now().timestamp())
-    cooldown_until = request.session.get("resend_verification_cooldown_until", 0)
-    still_cooling_down = now_ts < cooldown_until
-
     # A typed address wins over the session one, so a member who mistyped
     # can correct it from the page's "Use a different address" field.
-    email = (request.POST.get("email") or "").strip() or request.session.get(
-        "pending_verification_email"
-    )
+    typed = (request.POST.get("email") or "").strip()
+    email = typed or request.session.get("pending_verification_email")
 
-    if email and not still_cooling_down:
-        email_address = EmailAddress.objects.filter(
-            email__iexact=email, verified=False
-        ).first()
+    if email and claim_resend_cooldown(email):
+        email_address = (
+            _replace_pending_social_address(request, typed) if typed else None
+        )
+        if email_address is None:
+            email_address = EmailAddress.objects.filter(
+                email__iexact=email, verified=False
+            ).first()
         if email_address:
             # The response must not differ between a known and an unknown
             # address. A mail failure here would otherwise surface as an error
@@ -1769,12 +1860,7 @@ def resend_verification_email(request):
         # Remember the address so this page can mask it and keep offering
         # resend without needing the visitor to retype it.
         request.session["pending_verification_email"] = email
-        # Only start the cooldown once we actually resolved an address to
-        # (possibly) send to -- a submission with no session email and no
-        # POST email shouldn't self-lock the visitor's own resend button.
-        request.session["resend_verification_cooldown_until"] = (
-            now_ts + RESEND_VERIFICATION_COOLDOWN_SECONDS
-        )
+        start_resend_cooldown_display(request, email)
 
     messages.success(
         request,
