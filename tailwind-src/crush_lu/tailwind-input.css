@@ -9910,7 +9910,7 @@ html.dark .nav-btn:hover {
 }
 
 /* ============================================================
-   Ghost Story Section - Animated Romantic Comedy Slideshow
+   Ghost Story - compact auto-playing slideshow (profile_submitted.html)
    ============================================================ */
 
 /* --- Keyframe Animations --- */
@@ -10150,51 +10150,7 @@ html.dark .nav-btn:hover {
     }
 }
 
-@keyframes ghost-story-cta-bounce {
-    0% {
-        opacity: 0;
-        transform: translateY(30px) scale(0.8);
-    }
-    60% {
-        opacity: 1;
-        transform: translateY(-6px) scale(1.05);
-    }
-    80% {
-        transform: translateY(3px) scale(0.98);
-    }
-    100% {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
-}
-
-@keyframes ghost-story-pulse-glow {
-    0%,
-    100% {
-        box-shadow: 0 0 20px rgba(155, 89, 182, 0.2);
-    }
-    50% {
-        box-shadow: 0 0 40px rgba(155, 89, 182, 0.4);
-    }
-}
-
 /* --- Container & Layout --- */
-
-.ghost-story-section {
-    position: relative;
-    overflow: hidden;
-    border-radius: 1.5rem;
-    border: 1px solid rgba(155, 89, 182, 0.2);
-    background: linear-gradient(135deg, #e8d5f5 0%, #f2dae8 50%, #d9c2eb 100%);
-    padding: 2rem;
-    animation: ghost-story-pulse-glow 4s ease-in-out infinite;
-}
-
-html.dark .ghost-story-section {
-    background: linear-gradient(135deg, #1e1b4b 0%, #1e293b 50%, #312e81 100%);
-    border-color: rgba(139, 92, 246, 0.3);
-    box-shadow: 0 0 30px rgba(139, 92, 246, 0.15);
-}
 
 /* Compact variant — borderless, embedded inline */
 .ghost-story-compact {
@@ -10334,103 +10290,6 @@ html.dark .ghost-story-title {
     background-clip: text;
 }
 
-/* --- Navigation Buttons --- */
-
-.ghost-story-nav-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.8);
-    border: 1px solid rgba(155, 89, 182, 0.2);
-    color: #9b59b6;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 1rem;
-    flex-shrink: 0;
-}
-
-.ghost-story-nav-btn:hover {
-    background: rgba(155, 89, 182, 0.15);
-    transform: scale(1.1);
-}
-
-.ghost-story-nav-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-    transform: none;
-}
-
-html.dark .ghost-story-nav-btn {
-    background: rgba(30, 41, 59, 0.8);
-    border-color: rgba(139, 92, 246, 0.3);
-    color: #c084fc;
-}
-
-html.dark .ghost-story-nav-btn:hover {
-    background: rgba(139, 92, 246, 0.2);
-}
-
-/* --- Dot Navigation --- */
-
-.ghost-story-dots {
-    display: flex;
-    /* No gap: each dot already carries a 1.5rem hit area, which puts neighbouring
-       centres 24px apart. Adding gap on top would stretch the row without helping. */
-    gap: 0;
-    align-items: center;
-    justify-content: center;
-}
-
-/* The button is a transparent 24x24 hit area (WCAG 2.5.8 / Lighthouse target-size);
-   ::before draws the 8px dot people actually see. Before this the button *was* the
-   8px dot, giving an 8px-wide target with ~4px of safe space between neighbours. */
-.ghost-story-dot {
-    width: 1.5rem;
-    height: 1.5rem;
-    display: grid;
-    place-items: center;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-}
-
-.ghost-story-dot::before {
-    content: "";
-    width: 0.5rem;
-    height: 0.5rem;
-    border-radius: 50%;
-    background: rgba(155, 89, 182, 0.3);
-    transition: all 0.3s ease;
-}
-
-.ghost-story-dot:hover::before {
-    background: rgba(155, 89, 182, 0.5);
-    transform: scale(1.3);
-}
-
-.ghost-story-dot-active::before {
-    background: #9b59b6;
-    transform: scale(1.4);
-    box-shadow: 0 0 8px rgba(155, 89, 182, 0.5);
-}
-
-html.dark .ghost-story-dot::before {
-    background: rgba(139, 92, 246, 0.3);
-}
-
-html.dark .ghost-story-dot:hover::before {
-    background: rgba(139, 92, 246, 0.5);
-}
-
-html.dark .ghost-story-dot-active::before {
-    background: #a78bfa;
-    box-shadow: 0 0 8px rgba(167, 139, 250, 0.5);
-}
-
 /* --- Ghost Characters --- */
 
 .ghost-story-char {
@@ -10537,43 +10396,6 @@ html.dark .ghost-glow {
     animation: ghost-story-sparkle-rain 2.1s linear 0.5s infinite;
 }
 
-.ghost-story-scene-5 .ghost-story-cta {
-    animation: ghost-story-cta-bounce 0.8s ease-out 0.5s both;
-}
-
-/* --- CTA Button in Scene 5 --- */
-
-.ghost-story-cta-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.75rem;
-    background: linear-gradient(135deg, #9b59b6, #ff6b9d);
-    color: white;
-    font-weight: 600;
-    border-radius: 9999px;
-    border: none;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    text-decoration: none;
-    font-size: 0.95rem;
-    box-shadow: 0 4px 15px rgba(155, 89, 182, 0.3);
-}
-
-.ghost-story-cta-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(155, 89, 182, 0.4);
-}
-
-html.dark .ghost-story-cta-btn {
-    background: linear-gradient(135deg, #7c3aed, #ec4899);
-    box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
-}
-
-html.dark .ghost-story-cta-btn:hover {
-    box-shadow: 0 8px 25px rgba(124, 58, 237, 0.4);
-}
-
 /* --- Decorative Hearts --- */
 
 .ghost-story-heart-svg {
@@ -10587,11 +10409,6 @@ html.dark .ghost-story-heart-svg {
 /* --- Mobile Responsive --- */
 
 @media (max-width: 768px) {
-    .ghost-story-section {
-        padding: 1rem;
-        border-radius: 1rem;
-    }
-
     .ghost-story-stage {
         min-height: 240px;
     }
@@ -10615,27 +10432,6 @@ html.dark .ghost-story-heart-svg {
 
     .ghost-story-title {
         font-size: 0.95rem;
-    }
-
-    .ghost-story-nav-btn {
-        width: 1.75rem;
-        height: 1.75rem;
-        font-size: 0.8rem;
-    }
-
-    .ghost-story-nav-btn svg {
-        width: 14px;
-        height: 14px;
-    }
-
-    .ghost-story-dots {
-        /* Hit areas already set the spacing; see .ghost-story-dot. */
-        gap: 0;
-    }
-
-    .ghost-story-cta-btn {
-        font-size: 0.8rem;
-        padding: 0.5rem 1rem;
     }
 }
 
@@ -12674,7 +12470,6 @@ html.dark .about-cta-section p {
     }
 
     .about-stats-section {
-        grid-template-columns: repeat(3, 1fr);
         gap: 2rem;
         margin: 0 0 3rem;
     }
