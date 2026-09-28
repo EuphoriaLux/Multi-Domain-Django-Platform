@@ -136,7 +136,8 @@
             </div>
             <h3 class="feature-title">{% trans "Guided Support" %}</h3>
             <p class="feature-text">
-                {% trans "Our coaches host every event and welcome you in person. Want a personal coach by your side? That's Premium." %}
+                {% trans "Our coaches host every event and welcome you in person. Want a personal coach by your side?" %}
+                <a href="{% url 'crush_lu:membership' %}#pricing" class="font-semibold text-crush-purple-dark dark:text-purple-300 underline underline-offset-2 hover:no-underline">{% trans "That's Premium." %}</a>
             </p>
         </div>
     </div>
