@@ -18,17 +18,17 @@
     "format:check": "prettier --check \"**/*.{html,js,css}\""
   },
   "dependencies": {
-    "alpinejs": "^3.17.3",
-    "htmx.org": "^2.0.10"
+    "alpinejs": "^3.17.4",
+    "htmx.org": "^2.0.11"
   },
   "devDependencies": {
-    "@playwright/mcp": "^0.0.81",
+    "@playwright/mcp": "^0.0.82",
     "@tailwindcss/cli": "^4.3.3",
     "@tailwindcss/forms": "^0.5.7",
     "@tailwindcss/typography": "^0.5.20",
     "@upstash/context7-mcp": "^4.1.1",
-    "esbuild": "0.25.12",
-    "prettier": "^3.9.8",
+    "esbuild": "0.28.2",
+    "prettier": "^3.9.9",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4.1.18"
   },
