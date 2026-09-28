@@ -5,11 +5,13 @@ Handles gift creation, landing page, and claiming flow.
 """
 
 import logging
+from functools import wraps
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_http_methods, require_POST
@@ -39,41 +41,56 @@ def _sender_is_verified(user):
     )
 
 
-def _gift_sender_block_redirect(request):
-    """Redirect unapproved senders away from gift creation.
+def _is_gift_admin(user):
+    """Journey gifts are an admin/coach tool (decision C, finding 7-05):
+    staff or an active coach may create and list them."""
+    if user.is_staff:
+        return True
+    coach = getattr(user, "crushcoach", None)
+    return bool(coach and coach.is_active)
 
-    A gift can email any address, so only coach-screened members may send one.
-    Banned accounts never get here: CrushConsentMiddleware sends them to the
-    banned page on every Crush.lu path.
-    """
-    if not _sender_is_verified(request.user):
-        messages.info(
-            request,
-            _(
-                "You can send a Wonderland gift once a coach has approved "
-                "your profile."
-            ),
-        )
-        return redirect("crush_lu:dashboard")
-    return None
+
+def _gift_admin_only(view):
+    """Members get a plain 404: the sender routes are not a member feature.
+
+    Sits above @ratelimit so a denied member never reaches the rate counter
+    (a 429 would reveal the route exists)."""
+
+    @wraps(view)
+    def wrapper(request, *args, **kwargs):
+        if not _is_gift_admin(request.user):
+            raise Http404
+        return view(request, *args, **kwargs)
+
+    return wrapper
+
+
+def _unclaimable_response(request, gift):
+    """The status page for a gift that can no longer be claimed.
+
+    The recipient who claimed it goes back to their own Wonderland."""
+    if request.user.is_authenticated and gift.claimed_by_id == request.user.pk:
+        return redirect("crush_lu:journey_map_wonderland")
+    template = "crush_lu/journey/gift_expired.html"
+    if gift.status in (JourneyGift.Status.CLAIMED, JourneyGift.Status.COMPLETED):
+        template = "crush_lu/journey/gift_claimed.html"
+    return render(request, template, {"gift": gift})
 
 
 @crush_login_required
+@_gift_admin_only
 @require_http_methods(["GET", "POST"])
 @ratelimit(key="user", rate="5/d", method="POST", block=True)
 def gift_create(request):
     """
     Create a new journey gift.
 
-    Only approved members can create a gift (7-01: the optional
-    recipient email makes this an outbound-mail surface), capped at 5 per day.
+    Only staff and active coaches can create a gift (decision C; the
+    optional recipient email makes this an outbound-mail surface), capped
+    at 5 per day.
     A QR code is generated for sharing.
     If recipient email is provided, sends notification email with QR code.
     """
-    blocked = _gift_sender_block_redirect(request)
-    if blocked:
-        return blocked
-
     if request.method == "POST":
         form = JourneyGiftForm(request.POST, request.FILES)
         if form.is_valid():
@@ -132,6 +149,7 @@ def gift_create(request):
 
 
 @login_required
+@_gift_admin_only
 def gift_success(request, gift_code):
     """
     Display the success page with the QR code after gift creation.
@@ -157,12 +175,8 @@ def gift_landing(request, gift_code):
     """
     gift = get_object_or_404(JourneyGift, gift_code=gift_code)
 
-    # Check if gift is claimable
     if not gift.is_claimable:
-        if gift.is_expired:
-            return render(request, "crush_lu/journey/gift_expired.html", {"gift": gift})
-        elif gift.status == JourneyGift.Status.CLAIMED:
-            return render(request, "crush_lu/journey/gift_claimed.html", {"gift": gift})
+        return _unclaimable_response(request, gift)
 
     # If user is logged in, redirect to claim page
     if request.user.is_authenticated:
@@ -191,13 +205,8 @@ def gift_claim(request, gift_code):
     """
     gift = get_object_or_404(JourneyGift, gift_code=gift_code)
 
-    # Check if gift is claimable
     if not gift.is_claimable:
-        if gift.is_expired:
-            messages.error(request, _("This gift has expired."))
-        elif gift.status == JourneyGift.Status.CLAIMED:
-            messages.error(request, _("This gift has already been claimed."))
-        return redirect("crush_lu:journey_map_wonderland")
+        return _unclaimable_response(request, gift)
 
     if request.method == "POST":
         try:
@@ -292,6 +301,7 @@ def gift_report(request, gift_code):
 
 
 @login_required
+@_gift_admin_only
 def gift_list(request):
     """
     List all gifts created by the current user.

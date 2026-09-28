@@ -161,7 +161,8 @@ class ThemeLockMarkupTests(TestCase):
     def setUp(self):
         cache.clear()
         self.client = Client(HTTP_HOST="crush.lu")
-        self.client.force_login(_make_member("gifter@example.com"))
+        # Gift sender pages are staff/coach-only (UX Wave 4 decision C).
+        self.client.force_login(_make_member("gifter@example.com", is_staff=True))
 
     def _html_tag(self, path):
         response = self.client.get(path)
