@@ -15544,10 +15544,8 @@ msgid "No teams yet."
 msgstr "Pas encore d'équipes."
 
 #: templates/crush_lu/cache/_play_content.html:9
-#, fuzzy
-#| msgid "Too many attempts. Please try again later."
 msgid "Too many attempts. Take a breath and try again in a minute."
-msgstr "Trop de tentatives. Veuillez réessayer plus tard."
+msgstr "Trop de tentatives. Prenez une pause et réessayez dans une minute."
 
 #: templates/crush_lu/cache/_play_content.html:33
 #: templates/crush_lu/cache/finish.html:14

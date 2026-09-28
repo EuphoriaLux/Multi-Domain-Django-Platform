@@ -16,6 +16,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
+from django.conf import settings
+from django.utils import translation
 from django.utils.translation import get_language, gettext_lazy as _
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
@@ -274,23 +276,48 @@ def _back_to_poll(request, poll):
     return redirect('crush_lu:poll_detail', poll.pk)
 
 
+def _ballot_language(data):
+    """The language of the page the ballot sits on, posted as ``lang``.
+
+    The vote URL is language-neutral, so without it LocaleMiddleware would
+    answer in the browser's Accept-Language instead of the page's language.
+    """
+    lang = data.get('lang') if isinstance(data, dict) else None
+    if lang in {code for code, _name in settings.LANGUAGES}:
+        return lang
+    return get_language()
+
+
 @require_POST
 @crush_login_required
-@ratelimit(key='user', rate='10/m')
+@ratelimit(key='user', rate='10/m', rate_limited_template='crush_lu/rate_limited.html')
 def poll_vote(request, poll_id):
     """Submit a vote on a poll.
 
     The ballot's fetch posts JSON and gets JSON back, with the rendered results
     partial to swap in. A plain form post (no JS) is redirected back to the
-    poll page with a flash message.
+    poll page with a flash message. Either way the reply is in the ballot
+    page's language.
     """
     poll = get_object_or_404(EventPoll, pk=poll_id, is_published=True)
     is_json = request.content_type == 'application/json'
+    if is_json:
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            data = None
+    else:
+        data = request.POST
+    with translation.override(_ballot_language(data)):
+        return _poll_vote(request, poll, is_json, data)
 
+
+def _poll_vote(request, poll, is_json, data):
     def reply(error, status=400):
         if is_json:
             return JsonResponse({'error': error}, status=status)
-        messages.error(request, error)
+        # Messages render after this language override ends: translate now.
+        messages.error(request, str(error))
         return _back_to_poll(request, poll)
 
     if not poll.is_public:
@@ -306,9 +333,7 @@ def poll_vote(request, poll_id):
         return reply(_('Poll is not active'))
 
     if is_json:
-        try:
-            data = json.loads(request.body)
-        except (json.JSONDecodeError, ValueError):
+        if not isinstance(data, dict):
             return reply(_('Invalid JSON'))
     else:
         data = {
@@ -365,7 +390,7 @@ def poll_vote(request, poll_id):
     )
 
     if not is_json:
-        messages.success(request, _("Your vote has been recorded. Thank you!"))
+        messages.success(request, str(_("Your vote has been recorded. Thank you!")))
         return _back_to_poll(request, poll)
 
     # Return updated results

@@ -214,3 +214,24 @@ def test_submit_sends_the_button_sorted_order(timeline_page):
     page.locator("button.journey-btn-primary").click()
     expect(page.get_by_text("Perfect!")).to_be_visible()
     expect(page.locator(".timeline-move").first).to_be_disabled()
+
+
+def test_vote_results_follow_the_page_language_not_the_browser(
+    page, live_server, transactional_db
+):
+    from crush_lu.tests.test_ux_wave4_polls_timeline import make_member, make_poll
+
+    user = make_member()
+    poll = make_poll()
+    _log_in(page, live_server, user)
+    # An English browser on the German page: the vote URL is language-neutral.
+    page.set_extra_http_headers({"Accept-Language": "en"})
+    page.set_viewport_size(PHONE)
+    page.goto(f"{live_server.url}/de/polls/{poll.id}/")
+    page.wait_for_load_state("load")
+
+    page.locator("input[name=option_ids]").first.check()
+    page.locator('form[action*="/vote/"] button[type=submit]').click()
+
+    expect(page.get_by_text("Deine Stimme wurde aufgezeichnet. Danke!")).to_be_visible()
+    expect(page.get_by_text("Your vote has been recorded")).to_have_count(0)

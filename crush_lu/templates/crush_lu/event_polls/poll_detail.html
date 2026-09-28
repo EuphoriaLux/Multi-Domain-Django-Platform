@@ -57,6 +57,7 @@
             <form method="post" action="{% url 'api_poll_vote' poll.id %}" class="no-loading"
                   x-show="isBallotShown" @submit.prevent="submitVote" @change="updateSelection">
                 {% csrf_token %}
+                <input type="hidden" name="lang" value="{{ LANGUAGE_CODE }}">
                 {% if return_to_themes %}<input type="hidden" name="return_to" value="themes">{% endif %}
                 <fieldset class="mb-8"{% if not can_vote %} disabled{% endif %}>
                     <legend class="sr-only">{{ poll.title }}</legend>

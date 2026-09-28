@@ -14,7 +14,7 @@ from html.parser import HTMLParser
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import TestCase
-from django.utils import timezone
+from django.utils import timezone, translation
 
 from crush_lu.models import (
     ChapterProgress,
@@ -257,6 +257,123 @@ class PollNoJsFallbackTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "No options selected")
         self.assertFalse(EventPollVote.objects.filter(user=self.user).exists())
+
+
+class PollVoteLanguageTests(TestCase):
+    """The vote URL is language-neutral: it answers in the ballot page's
+    language (the posted ``lang``), not the browser's Accept-Language."""
+
+    def setUp(self):
+        cache.clear()
+        self.user = make_member()
+        self.client.force_login(self.user)
+        self.poll = make_poll()
+        self.wine = self.poll.options.get(name="Wine Night")
+
+    def test_ballot_carries_the_page_language(self):
+        response = self.client.get(
+            f"/de/polls/{self.poll.id}/", HTTP_HOST=HOST, HTTP_ACCEPT_LANGUAGE="en"
+        )
+        inputs = _Tags(response.content.decode()).find("input", name="lang")
+        self.assertEqual([attrs["value"] for attrs, _a in inputs], ["de"])
+
+    def test_json_vote_renders_results_in_the_page_language(self):
+        response = self.client.post(
+            f"/api/polls/{self.poll.id}/vote/",
+            data=json.dumps({"option_ids": [self.wine.id], "lang": "de"}),
+            content_type="application/json",
+            HTTP_HOST=HOST,
+            HTTP_ACCEPT_LANGUAGE="en",
+        )
+        self.assertEqual(response.status_code, 200)
+        html = response.json()["results_html"]
+        self.assertIn("Deine Stimme wurde aufgezeichnet. Danke!", html)
+        self.assertNotIn("Your vote has been recorded", html)
+
+    def test_json_vote_error_uses_the_page_language(self):
+        response = self.client.post(
+            f"/api/polls/{self.poll.id}/vote/",
+            data=json.dumps({"option_ids": [], "lang": "fr"}),
+            content_type="application/json",
+            HTTP_HOST=HOST,
+            HTTP_ACCEPT_LANGUAGE="en",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "Aucune option sélectionnée")
+
+    def test_unknown_lang_falls_back_to_the_request_language(self):
+        response = self.client.post(
+            f"/api/polls/{self.poll.id}/vote/",
+            data=json.dumps({"option_ids": [], "lang": "xx"}),
+            content_type="application/json",
+            HTTP_HOST=HOST,
+            HTTP_ACCEPT_LANGUAGE="de",
+        )
+        self.assertEqual(response.json()["error"], "Keine Option ausgewählt")
+
+    def test_no_js_vote_returns_to_the_page_language(self):
+        response = self.client.post(
+            f"/api/polls/{self.poll.id}/vote/",
+            {"option_ids": [str(self.wine.id)], "lang": "de"},
+            HTTP_HOST=HOST,
+            HTTP_ACCEPT_LANGUAGE="en",
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, f"/de/polls/{self.poll.id}/")
+        page = self.client.get(response.url, HTTP_HOST=HOST, HTTP_ACCEPT_LANGUAGE="en")
+        self.assertContains(page, "Deine Stimme wurde aufgezeichnet. Danke!")
+
+    def test_no_js_error_flash_uses_the_page_language(self):
+        response = self.client.post(
+            f"/api/polls/{self.poll.id}/vote/",
+            {"lang": "fr"},
+            HTTP_HOST=HOST,
+            HTTP_ACCEPT_LANGUAGE="en",
+            follow=True,
+        )
+        self.assertEqual(response.redirect_chain[-1][0], f"/fr/polls/{self.poll.id}/")
+        self.assertContains(response, "Aucune option sélectionnée")
+
+    def test_rate_limited_no_js_vote_gets_a_page(self):
+        for _i in range(10):
+            self.client.post(
+                f"/api/polls/{self.poll.id}/vote/",
+                {"option_ids": [str(self.wine.id)]},
+                HTTP_HOST=HOST,
+            )
+        response = self.client.post(
+            f"/api/polls/{self.poll.id}/vote/",
+            {"option_ids": [str(self.wine.id)]},
+            HTTP_HOST=HOST,
+        )
+        self.assertIn("Retry-After", response.headers)
+        self.assertContains(
+            response,
+            "temporarily paused this action.",
+            status_code=429,
+        )
+
+
+class RateLimitCopyTranslationTests(TestCase):
+    """The ballot's explicit 429 copy is compiled for DE and FR (not fuzzy)."""
+
+    MSGID = "Too many attempts. Take a breath and try again in a minute."
+
+    def test_rate_limit_copy_is_translated(self):
+        for lang, expected in (
+            (
+                "de",
+                "Zu viele Versuche. Atme kurz durch und versuch es in einer "
+                "Minute noch mal.",
+            ),
+            (
+                "fr",
+                "Trop de tentatives. Prenez une pause et réessayez dans une " "minute.",
+            ),
+        ):
+            with translation.override(lang):
+                got = translation.gettext(self.MSGID)
+            self.assertEqual(got, expected)
 
 
 class TimelineMoveButtonsTests(TestCase):

@@ -14265,6 +14265,8 @@ document.addEventListener("alpine:init", function () {
                     var value = el.dataset["text" + keys[i]];
                     if (value) this["_text" + keys[i]] = value;
                 }
+                // A browser may restore a checked option after reload/back.
+                this.updateSelection();
             },
 
             get submitButtonText() {
@@ -14302,7 +14304,9 @@ document.addEventListener("alpine:init", function () {
                 var self = this;
                 var form = this.$root.querySelector("form");
                 var token = form.querySelector("[name=csrfmiddlewaretoken]");
-                var payload = { option_ids: ids };
+                // The vote URL is language-neutral: reply in the page's language.
+                var lang = form.querySelector('input[name="lang"]');
+                var payload = { option_ids: ids, lang: lang ? lang.value : "" };
                 // Optional "I am..." answer, rendered only for voters without a profile gender
                 var gender = form.querySelector('input[name="voter_gender"]:checked');
                 if (gender) payload.gender = gender.value;
