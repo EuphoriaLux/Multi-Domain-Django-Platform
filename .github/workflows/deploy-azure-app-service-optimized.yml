@@ -55,11 +55,12 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
 
-      - name: Build CSS
+      - name: Build CSS + JS
         run: |
           npm ci
           npm run build:css:all
-          echo "✅ CSS build complete"
+          npm run build:js
+          echo "✅ CSS + JS build complete"
 
       # Without this the build above is decorative: the runner is discarded and
       # the `deploy` job checks out afresh, so `collectstatic` packages the CSS
@@ -77,6 +78,7 @@ jobs:
             power_up/static/power_up/css/tailwind.css
             tableau/static/tableau/css/tailwind.css
             arborist/static/arborist/css/tailwind.css
+            crush_lu/static/crush_lu/js/alpine-components.min.js
           # Fail loudly rather than silently deploying stale CSS again.
           if-no-files-found: error
           retention-days: 1
@@ -107,7 +109,8 @@ jobs:
           rm -f crush_lu/static/crush_lu/css/tailwind.css \
                 power_up/static/power_up/css/tailwind.css \
                 tableau/static/tableau/css/tailwind.css \
-                arborist/static/arborist/css/tailwind.css
+                arborist/static/arborist/css/tailwind.css \
+                crush_lu/static/crush_lu/js/alpine-components.min.js
           echo "🧹 Tracked CSS removed — only the artifact can satisfy the check below"
 
       - name: Download built CSS
@@ -121,10 +124,11 @@ jobs:
           for f in crush_lu/static/crush_lu/css/tailwind.css \
                    power_up/static/power_up/css/tailwind.css \
                    tableau/static/tableau/css/tailwind.css \
-                   arborist/static/arborist/css/tailwind.css; do
+                   arborist/static/arborist/css/tailwind.css \
+                   crush_lu/static/crush_lu/js/alpine-components.min.js; do
             test -s "$f" || { echo "❌ missing or empty after download: $f"; exit 1; }
           done
-          echo "✅ All four CSS bundles restored from the artifact"
+          echo "✅ All four CSS bundles + alpine-components.min.js restored from the artifact"
 
       - name: Setup Python
         uses: actions/setup-python@v7
