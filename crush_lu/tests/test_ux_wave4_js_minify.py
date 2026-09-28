@@ -143,7 +143,9 @@ class ShellServesMinifiedBundleTests(TestCase):
 class AdminBaseSiteTests(TestCase):
     def _render(self, path, debug):
         request = RequestFactory().get("/crush-admin/", HTTP_HOST=HOST)
-        request.user = get_user_model()(is_staff=True, is_active=True)
+        request.user = get_user_model().objects.get_or_create(
+            username="coach@example.com", defaults={"is_staff": True}
+        )[0]
         set_urlconf("azureproject.urls_crush")
         try:
             template = engines["django"].from_string(path.read_text("utf-8"))
@@ -224,6 +226,8 @@ class TimelineSortLoadsSortableTests(TestCase):
         )
         html = response.content.decode()
         self.assertIn('x-data="timelineSort"', html)
+        # Template comments must not leak into the page as visible text.
+        self.assertNotIn("initSortable", html)
         srcs = _script_srcs(html)
         sortable = [i for i, s in enumerate(srcs) if SORTABLE in s]
         self.assertEqual(len(sortable), 1, srcs)
