@@ -1068,7 +1068,7 @@ def test_edit_section_detail_renders(client, settings):
     assert resp.status_code == 200
     body = resp.content.decode()
     assert 'name="section" value="questions"' in body
-    assert "Back to your profile" in body
+    assert "Back to your profile" not in body  # UX Wave 4 · WP10 follow-up
 
 
 @pytest.mark.django_db

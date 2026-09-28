@@ -12,9 +12,12 @@ Usage:
     {% endif %}
 """
 
+import logging
+
 from django import template
 from django.conf import settings
 
+logger = logging.getLogger(__name__)
 register = template.Library()
 
 
@@ -70,6 +73,20 @@ def crush_connect_nav_visible(user):
 def crush_connect_launched():
     """Raw flag accessor for templates that need it directly."""
     return getattr(settings, "CRUSH_CONNECT_LAUNCHED", False)
+
+
+@register.simple_tag
+def connect_nav_badge_count(user):
+    """Cached pending-requests + unread-chats count for the desktop Connect
+    link. Callers gate it with ``crush_connect_nav_visible``; a backend fault
+    hides the badge instead of 500ing the page, like that filter."""
+    from crush_lu.services.connect_summary import connect_nav_badge_count as count
+
+    try:
+        return count(user)
+    except Exception:
+        logger.exception("Connect nav badge count failed")
+        return 0
 
 
 # Per-option decoration for the shared _radio_tiles.html partial, keyed by the
