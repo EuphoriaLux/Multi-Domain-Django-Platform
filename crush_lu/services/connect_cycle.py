@@ -575,11 +575,15 @@ def week_timeline_state(session, sent_request=None):
     if sent_request is None or sent_request.status != sent_request.Status.ACCEPTED:
         return None
     from crush_lu.models.crush_connect_cycle import ConnectTemporaryChat
+    from crush_lu.services.connect_chat import sync_chat_state
 
     try:
-        chat_status = sent_request.chat.status
+        chat = sent_request.chat
     except ObjectDoesNotExist:
         return None
+    # Chat lifecycle is sync-on-read: an untouched row can still say ACTIVE
+    # after expires_at or a block placed elsewhere (refreshes in place).
+    chat_status = sync_chat_state(chat).status
     if chat_status not in (
         ConnectTemporaryChat.Status.ACTIVE,
         ConnectTemporaryChat.Status.MEETING_SCHEDULED,

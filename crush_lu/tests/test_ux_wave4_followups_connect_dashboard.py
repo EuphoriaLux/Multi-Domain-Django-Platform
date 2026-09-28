@@ -135,6 +135,21 @@ def test_completed_session_keeps_the_coffee_step_with_a_plan():
 
 
 @pytest.mark.django_db
+def test_completed_session_hides_the_timeline_once_an_open_chat_expired():
+    # Review P2: the chat row still says ACTIVE after expires_at until it is
+    # synced; the timeline must sync it rather than trust the stale status.
+    me, _target, chat = _make_open_chat()
+    ConnectTemporaryChat.objects.filter(pk=chat.pk).update(
+        expires_at=timezone.now() - timedelta(minutes=1)
+    )
+    session = _complete(ConnectWeekSession.objects.filter(user=me).first())
+
+    assert week_timeline_state(session) is None
+    chat.refresh_from_db()
+    assert chat.status == ConnectTemporaryChat.Status.CLOSED
+
+
+@pytest.mark.django_db
 @pytest.mark.parametrize(
     "chat_status",
     [ConnectTemporaryChat.Status.CLOSED, ConnectTemporaryChat.Status.BLOCKED],
