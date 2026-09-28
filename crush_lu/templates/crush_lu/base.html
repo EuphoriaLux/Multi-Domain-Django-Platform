@@ -299,6 +299,7 @@
                                 {% endif %}
                             </a>
                             {% endif %}
+                            {% include "crush_lu/partials/nav_connect_link.html" %}
 
                             <!-- Coach Dropdown (all coach work) -->
                             <div class="dropdown" @click.away="closeCoachTools">
@@ -426,7 +427,7 @@
                                     </a>
                                     <a class="dropdown-item" href="{% url 'crush_lu:my_connections' %}">
                                         {% include "shared/icons/users.html" with class="w-4 h-4 inline mr-2" %}
-                                        {% trans "Connections" %}
+                                        {% translate "Matches" context "member connections nav" %}
                                         {% if pending_requests_count > 0 %}
                                             <span class="badge badge-danger ml-2">{{ pending_requests_count }}</span>
                                         {% endif %}
@@ -570,7 +571,7 @@
 
                                 <a class="nav-link" href="{% url 'crush_lu:my_connections' %}">
                                     {% include "shared/icons/users.html" with class="w-4 h-4" %}
-                                    <span>{% trans "Connections" %}</span>
+                                    <span>{% translate "Matches" context "member connections nav" %}</span>
                                     {% if pending_requests_count > 0 %}
                                         <span class="badge badge-danger">{{ pending_requests_count }}</span>
                                     {% endif %}
@@ -615,7 +616,7 @@
                                     {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
                                     <span>{% trans "Browse Events" %}</span>
                                 </a>
-                                {% include "crush_lu/partials/nav_locked_item.html" with label=_("Connections") tooltip=_("Connect after events") %}
+                                {% translate "Matches" context "member connections nav" as matches_label %}{% include "crush_lu/partials/nav_locked_item.html" with label=matches_label tooltip=_("Connect after events") %}
 
                             {% elif profile_status == 'recontact_coach' %}
                                 {# RECONTACT COACH: Coach wants to speak with user #}
@@ -639,7 +640,7 @@
                                     {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
                                     <span>{% trans "Browse Events" %}</span>
                                 </a>
-                                {% include "crush_lu/partials/nav_locked_item.html" with label=_("Connections") tooltip=_("Connect after events") %}
+                                {% translate "Matches" context "member connections nav" as matches_label %}{% include "crush_lu/partials/nav_locked_item.html" with label=matches_label tooltip=_("Connect after events") %}
 
                             {% else %}
                                 {# PROFILE INCOMPLETE: Progress dropdown + locked features #}
@@ -658,8 +659,10 @@
                                     {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
                                     <span>{% trans "Browse Events" %}</span>
                                 </a>
-                                {% include "crush_lu/partials/nav_locked_item.html" with label=_("Connections") tooltip=_("Connect after events") %}
+                                {% translate "Matches" context "member connections nav" as matches_label %}{% include "crush_lu/partials/nav_locked_item.html" with label=matches_label tooltip=_("Connect after events") %}
                             {% endif %}
+                            {# Outside the profile-status branches: the filter is its only gate, as for the bottom tab. #}
+                            {% include "crush_lu/partials/nav_connect_link.html" %}
 
                             <!-- User Profile Dropdown (always shown for authenticated users) -->
                             <div class="dropdown" @click.away="closeUserMenu">
@@ -953,7 +956,7 @@
                             </a>
                             <a class="nav-link block" href="{% url 'crush_lu:my_connections' %}">
                                 {% include "shared/icons/users.html" with class="w-4 h-4 inline mr-2" %}
-                                {% trans "Connections" %}
+                                {% translate "Matches" context "member connections nav" %}
                                 {% if pending_requests_count > 0 %}
                                     <span class="badge badge-danger ml-1">{{ pending_requests_count }}</span>
                                 {% endif %}
@@ -1029,7 +1032,7 @@
                                 </a>
                                 <a class="nav-link block" href="{% url 'crush_lu:my_connections' %}">
                                     {% include "shared/icons/users.html" with class="w-4 h-4 inline mr-2" %}
-                                    {% trans "Connections" %}
+                                    {% translate "Matches" context "member connections nav" %}
                                     {% if pending_requests_count > 0 %}
                                         <span class="badge badge-danger ml-1">{{ pending_requests_count }}</span>
                                     {% endif %}
@@ -1097,7 +1100,7 @@
                                 </a>
                                 <span class="block text-white/40 px-4 py-2">
                                     {% include "shared/icons/lock-closed.html" with class="w-4 h-4 inline mr-2" %}
-                                    {% trans "Connections" %} <span class="text-xs">({% trans "after events" %})</span>
+                                    {% translate "Matches" context "member connections nav" %} <span class="text-xs">({% trans "after events" %})</span>
                                 </span>
 
                             {% elif profile_status == 'recontact_coach' %}
@@ -1124,7 +1127,7 @@
                                 </a>
                                 <span class="block text-white/40 px-4 py-2">
                                     {% include "shared/icons/lock-closed.html" with class="w-4 h-4 inline mr-2" %}
-                                    {% trans "Connections" %} <span class="text-xs">({% trans "after events" %})</span>
+                                    {% translate "Matches" context "member connections nav" %} <span class="text-xs">({% trans "after events" %})</span>
                                 </span>
 
                             {% else %}
@@ -1162,7 +1165,7 @@
                                 </a>
                                 <span class="block text-white/40 px-4 py-2">
                                     {% include "shared/icons/lock-closed.html" with class="w-4 h-4 inline mr-2" %}
-                                    {% trans "Connections" %} <span class="text-xs">({% trans "after events" %})</span>
+                                    {% translate "Matches" context "member connections nav" %} <span class="text-xs">({% trans "after events" %})</span>
                                 </span>
                             {% endif %}
 
