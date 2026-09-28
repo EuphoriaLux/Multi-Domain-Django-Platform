@@ -80,7 +80,7 @@
     same htmx flow, not a second implementation of it. Capped at 3 by the view
     query; a "View all" link covers the rest instead of a growing dashboard.
     {% endcomment %}
-    {# The one live region for accept/decline: _connection_response.html fills it out of band (finding 5-08). #}
+    {# The one live region for accept/decline: _connection_response.html fills it out of band (finding 5-08). Today respond_connection sends HX-Refresh for dashboard requests, so the reload's toast announces instead; the region stays as the OOB target (no htmx oobErrorNoTarget) and speaks if that refresh is ever dropped. #}
     <div id="connection-status-live" class="sr-only" role="status" aria-live="polite"></div>
     {% for connection in pending_connection_requests %}
         {% include 'crush_lu/_received_connection_card.html' with heading_level=2 %}

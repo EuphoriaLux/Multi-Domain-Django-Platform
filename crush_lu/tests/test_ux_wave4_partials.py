@@ -449,6 +449,9 @@ class EntryEventsFilterTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self._upcoming_ids(response), [self.entry.id])
         self.assertContains(response, "Entry event")
+        # Canonical status_badge primitive, not a hand-rolled badge.
+        self.assertContains(response, 'class="badge badge-success ')
+        self.assertNotContains(response, "bg-emerald-100 text-emerald-800")
         self.assertContains(response, "Showing entry events only")
         self.assertContains(response, 'href="/en/events/"')
 
