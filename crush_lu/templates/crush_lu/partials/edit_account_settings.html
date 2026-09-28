@@ -303,22 +303,33 @@
         </div>
         <div class="p-6">
             {% if user.crushprofile %}
+            {# Status states ported from /account/settings/ now that pending and rejected profiles reach this page (8-08). #}
+            {% with rs=user.crushprofile.review_status vs=user.crushprofile.verification_status %}
             <p class="mb-4">
-                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium {% if user.crushprofile.is_approved %}bg-green-100 text-green-800{% elif user.crushprofile.completion_status == 'submitted' %}bg-amber-100 text-amber-800{% else %}bg-gray-100 dark:bg-gray-700 text-gray-800{% endif %}">
-                    {% if user.crushprofile.is_approved %}{% trans "Approved" %}{% elif user.crushprofile.completion_status == 'submitted' %}{% trans "Pending Review" %}{% else %}{% trans "Incomplete" %}{% endif %}
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium {% if user.crushprofile.is_approved %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300{% elif vs == 'rejected' or rs == 'rejected' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300{% elif rs == 'revision' or vs == 'pending' or rs == 'pending' or rs == 'recontact_coach' or user.crushprofile.completion_status == 'submitted' %}bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300{% else %}bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200{% endif %}">
+                    {% if user.crushprofile.is_approved %}{% trans "Approved" %}{% elif vs == 'rejected' or rs == 'rejected' %}{% trans "Not Verified" %}{% elif rs == 'revision' %}{% trans "Revision Needed" %}{% elif vs == 'pending' or rs == 'pending' or rs == 'recontact_coach' or user.crushprofile.completion_status == 'submitted' %}{% trans "Pending Review" %}{% else %}{% trans "Incomplete" %}{% endif %}
                 </span>
             </p>
             {% if user.crushprofile.is_approved %}
             <a href="{% url 'crush_lu:edit_profile' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
                 {% include "shared/icons/pencil.html" with class="w-5 h-5" %}{% trans "Edit Profile" %}
             </a>
-            {% elif user.crushprofile.completion_status == 'submitted' %}
+            {% elif vs == 'rejected' or rs == 'rejected' %}
+            <a href="{% url 'crush_lu:profile_rejected' %}" class="text-red-600 dark:text-red-400 hover:text-red-800 text-sm underline">
+                {% trans "View rejection details" %}
+            </a>
+            {% elif rs == 'revision' %}
+            <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-primary px-4 py-2 rounded-lg inline-flex items-center">
+                {% include "shared/icons/pencil.html" with class="w-5 h-5" %}{% trans "Update Profile" %}
+            </a>
+            {% elif vs == 'pending' or rs == 'pending' or rs == 'recontact_coach' or user.crushprofile.completion_status == 'submitted' %}
             <span class="text-gray-400 dark:text-gray-500 text-sm">{% trans "Profile under review" %}</span>
             {% else %}
             <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-primary px-4 py-2 rounded-lg inline-flex items-center">
                 {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}{% trans "Complete Profile" %}
             </a>
             {% endif %}
+            {% endwith %}
             {% else %}
             <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "You haven't created a dating profile yet." %}</p>
             <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-primary px-4 py-2 rounded-lg inline-flex items-center">
