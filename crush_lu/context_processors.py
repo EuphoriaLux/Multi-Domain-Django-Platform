@@ -59,6 +59,12 @@ _SAFE_NAV_DEFAULTS = {
 }
 
 
+def _social_address_hold(request):
+    from crush_lu.views_account import _held_social_user_id
+
+    return bool(_held_social_user_id(request))
+
+
 def crush_user_context(request):
     """Add user-specific context for navigation and UI"""
     from .ios_app_utils import (
@@ -94,6 +100,10 @@ def crush_user_context(request):
             (is_ios_native_app and not ios_native_commerce_enabled)
             or (is_android_native_app and not android_native_commerce_enabled)
         ),
+        # Callable, so only the verification-sent page that reads it pays for
+        # the check: a held social account, still inside its rewrite window
+        # and not yet consumed (#1059). An expired hold is dropped here.
+        "social_address_hold": lambda: _social_address_hold(request),
     }
 
     def _fill_authenticated_context():
