@@ -3,11 +3,7 @@
 <div class="max-w-3xl mx-auto">
     {# The overview's only heading, so it is the page h1 (8-07); the rows are the cards, as on the Edit Profile list. #}
     <div class="mb-4">
-        <h1 class="text-2xl font-bold mb-2 text-crush-dark dark:text-white flex items-center gap-2">
-            {% include "shared/icons/cog-6-tooth.html" with class="w-6 h-6 text-purple-600 dark:text-purple-300" %}
-            {% trans "Account" %}
-        </h1>
-        <p class="text-muted-fg text-sm mb-4">{% trans "Manage your account, linked services, and preferences." %}</p>
+        {% include "crush_lu/components/page_header.html" with title=_("Account") subtitle=_("Manage your account, linked services, and preferences.") class="mb-4" %}
 
         <div class="space-y-3">
             <!-- Account Settings -->

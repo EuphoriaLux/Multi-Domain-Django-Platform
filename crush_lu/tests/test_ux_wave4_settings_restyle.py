@@ -127,6 +127,24 @@ class AccountRestyleTests(TestCase):
                 bad[key] = levels
         self.assertEqual(bad, {})
 
+    def test_h1_is_the_shared_page_header_visible_on_desktop(self):
+        # components/page_header.html: shown on desktop, sr-only on mobile only
+        # (where the top bar carries the title). A plain sr-only h1 hides the
+        # page title from desktop users.
+        h1s = {
+            key: [classes for tag, classes in page.classes if tag == "h1"]
+            for key, page in self._pages()
+        }
+        bad = {
+            key: found
+            for key, found in h1s.items()
+            if len(found) != 1
+            or "sr-only" in found[0]
+            or "max-lg:sr-only" not in found[0]
+        }
+        self.assertEqual(bad, {})
+        self.assertIn("text-red-600", h1s[("approved_coach", "&sub=danger")][0])
+
     def test_cards_use_the_surface_token_not_lavender_bg_white(self):
         offenders = []
         for key, page in self._pages():

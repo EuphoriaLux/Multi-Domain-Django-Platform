@@ -1,8 +1,7 @@
 {% load socialaccount i18n static %}
 
 <div class="max-w-3xl mx-auto">
-    {# The top bar shows the title on phones; the h1 keeps the heading order (8-07). #}
-    <h1 class="sr-only">{% trans "Account Settings" %}</h1>
+    {% include "crush_lu/components/page_header.html" with title=_("Account Settings") %}
 
     <!-- Account Info Card -->
     <div class="bg-[var(--color-surface-card)] dark:bg-gray-800 rounded-2xl shadow-crush-sm mb-6 overflow-hidden">
