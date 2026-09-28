@@ -11,12 +11,16 @@ Literal paths, not reverse(), per AGENTS.md.
 """
 
 import os
+from datetime import timedelta
 from decimal import Decimal
 from io import StringIO
 from unittest import mock
+from uuid import uuid4
 
 from allauth.account.models import EmailAddress
 from allauth.socialaccount.models import SocialAccount
+from cookie_consent.cache import delete_cache
+from cookie_consent.models import CookieGroup
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.messages import get_messages
@@ -29,6 +33,7 @@ from django.test import Client, RequestFactory, TestCase
 from django.utils import timezone, translation
 from django.utils.translation import pgettext
 
+from crush_lu.models import CrushCoach, EventInvitation, ProfileSubmission
 from crush_lu.models.events import EventRegistration, MeetupEvent
 from crush_lu.models.payments import PaymentTransaction
 from crush_lu.models.profiles import CrushProfile, UserDataConsent
@@ -652,3 +657,94 @@ class AnonymousAppInsightsTests(TestCase):
         self.assertIn(
             "Azure Application Insights (waiting for analytics consent)", html
         )
+
+
+class AnonymousAppInsightsAllowlistTests(TestCase):
+    """Codex P1 on #1105: page views send the full URL, so anonymous visitors
+    get App Insights only on the allowlisted login and signup pages, never on
+    pages whose URL is a credential (/book/<token>/, /invite/<code>/)."""
+
+    ENV = AnonymousAppInsightsTests.ENV
+    LIVE = "Azure Application Insights Browser SDK v3 -->"
+    MARKERS = (LIVE, "Azure Application Insights (waiting", "ai.3.gbl.min.js")
+
+    def setUp(self):
+        cache.clear()
+        CookieGroup.objects.create(varname="analytics", name="Analytics")
+        delete_cache()
+        self.client = Client(HTTP_HOST="crush.lu")
+        # Real analytics consent through django-cookie-consent's own view.
+        response = self.client.post("/cookies/accept/", {"cookie_groups": "analytics"})
+        self.assertEqual(response.status_code, 302)
+
+    def tearDown(self):
+        delete_cache()
+
+    def _html(self, path):
+        with mock.patch.dict(os.environ, self.ENV):
+            response = self.client.get(path)
+        self.assertEqual(response.status_code, 200, path)
+        return response.content.decode()
+
+    def _assert_no_loader(self, html, path):
+        for marker in self.MARKERS:
+            self.assertNotIn(marker, html, f"{path}: {marker}")
+
+    def test_consenting_anonymous_visitor_gets_the_sdk_on_login(self):
+        self.assertIn(self.LIVE, self._html("/en/login/"))
+
+    def test_consenting_anonymous_visitor_gets_the_sdk_on_signup(self):
+        self.assertIn(self.LIVE, self._html("/en/signup/"))
+
+    def test_booking_token_page_has_no_loader_for_anonymous_visitor(self):
+        member, profile = _member("booker@crush.lu", gender="M")
+        coach_user = User.objects.create_user(
+            username="coach-ai@crush.lu", email="coach-ai@crush.lu", password="x"
+        )
+        coach = CrushCoach.objects.create(
+            user=coach_user,
+            is_active=True,
+            hybrid_features_enabled=True,
+            working_mode="hybrid",
+            availability_windows=[
+                {"day": "monday", "start": "09:00", "end": "17:00", "label": ""}
+            ],
+        )
+        submission = ProfileSubmission.objects.create(
+            profile=profile,
+            status="pending",
+            coach=coach,
+            booking_token=uuid4(),
+            booking_token_expires_at=timezone.now() + timedelta(days=7),
+        )
+        path = f"/en/book/{submission.booking_token}/"
+        self._assert_no_loader(self._html(path), path)
+
+    def test_invitation_code_page_has_no_loader_for_anonymous_visitor(self):
+        inviter = User.objects.create_user(
+            username="inviter@crush.lu", email="inviter@crush.lu", password="x"
+        )
+        event = _event(
+            is_private_invitation=True,
+            invitation_code="vip-ai",
+            invitation_expires_at=timezone.now() + timedelta(days=30),
+        )
+        invitation = EventInvitation.objects.create(
+            event=event,
+            guest_email="guest-ai@example.com",
+            guest_first_name="Gia",
+            guest_last_name="Guest",
+            invited_by=inviter,
+            status="pending",
+            approval_status="pending_approval",
+        )
+        path = f"/en/invite/{invitation.invitation_code}/"
+        self._assert_no_loader(self._html(path), path)
+
+    def test_other_anonymous_pages_have_no_loader(self):
+        self._assert_no_loader(self._html("/en/"), "/en/")
+
+    def test_authenticated_member_still_gets_the_sdk(self):
+        member, _ = _member("signed-in-ai@crush.lu")
+        self.client.force_login(member)
+        self.assertIn(self.LIVE, self._html("/en/my-events/"))

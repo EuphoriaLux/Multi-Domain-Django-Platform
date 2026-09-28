@@ -25,3 +25,16 @@ def mask_email(value):
     else:
         masked_local = local[0] + "*" * len(local[1:])
     return f"{masked_local}@{domain}"
+
+
+# Anonymous pages whose App Insights page views are safe to record (#1085).
+# The loader's automatic page-view tracking sends the full URL, so an
+# anonymous page is allowed only when its URL carries no credential: token
+# pages such as /book/<booking_token>/ and /invite/<code>/ must stay off.
+ANONYMOUS_TELEMETRY_VIEWS = frozenset({"crush_lu:login", "crush_lu:signup"})
+
+
+@register.filter
+def anonymous_telemetry_allowed(resolver_match):
+    """True when an anonymous visitor may get the App Insights loader here."""
+    return getattr(resolver_match, "view_name", None) in ANONYMOUS_TELEMETRY_VIEWS
