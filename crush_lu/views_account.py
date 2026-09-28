@@ -1927,6 +1927,10 @@ def resend_verification_email(request):
             # (email_confirmation_sent signal), so restore the hold.
             request.session["pending_verification_email"] = held_email
             request.session["pending_verification_user_id"] = held
+            # Retyping the held address itself resent to it and claimed its
+            # cooldown, so the page's countdown must start for it too.
+            if held_email and typed.lower() == held_email.lower():
+                start_resend_cooldown_display(request, held_email)
         else:
             request.session["pending_verification_email"] = email
             _held_social_user_id(request)

@@ -288,6 +288,29 @@ class SocialAddressCorrectionTests(TestCase):
             hashlib.sha256(b"typo@exmaple.com").hexdigest(),
         )
 
+    def test_retyping_the_held_address_starts_its_cooldown(self):
+        """Retyping the held address (any case) resends to it and claims its
+        cooldown, so the page must count down instead of offering a resend
+        that the claim would silently drop."""
+        import hashlib
+
+        session = self.client.session
+        session["resend_verification_cooldown_until"] = 0
+        session.save()
+        self.client.post(RESEND, {"email": "Typo@Exmaple.com"})
+        session = self.client.session
+        self.assertEqual(session["pending_verification_email"], "typo@exmaple.com")
+        self.assertEqual(session["pending_verification_user_id"], self.user.pk)
+        self.assertGreater(
+            session["resend_verification_cooldown_until"],
+            int(timezone.now().timestamp()),
+        )
+        self.assertEqual(
+            session["resend_verification_cooldown_hash"],
+            hashlib.sha256(b"typo@exmaple.com").hexdigest(),
+        )
+        self.assertEqual(len(mail.outbox), 1)
+
     def test_expired_or_consumed_hold_shows_the_sign_up_again_link(self):
         """The link is hidden only while the hold can still rewrite the
         account: once the window passes, or the one rewrite is spent, the
