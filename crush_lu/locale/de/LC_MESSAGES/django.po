@@ -43673,6 +43673,38 @@ msgstr "Wir haben für deine Premium-Anfrage bereits eine Zahlung erhalten."
 msgid "Contact support about your Premium payment"
 msgstr "Kontaktiere den Support zu deiner Premium-Zahlung"
 
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "System (Dark)"
+msgstr "System (Dunkel)"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "System (Light)"
+msgstr "System (Hell)"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "Dark Mode"
+msgstr "Dunkelmodus"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "Light Mode"
+msgstr "Hellmodus"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "Switch to light mode"
+msgstr "Zum Hellmodus wechseln"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "Switch to dark mode"
+msgstr "Zum Dunkelmodus wechseln"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "Switch to Light"
+msgstr "Zu Hell wechseln"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "Switch to Dark"
+msgstr "Zu Dunkel wechseln"
+
 # UX Wave 4 · WP13a followups-connect-dashboard
 #: crush_lu/templates/crush_lu/my_connections.html
 msgid "You're connected, directly or via your coach"

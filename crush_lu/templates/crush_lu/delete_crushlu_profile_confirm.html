@@ -12,16 +12,16 @@
         <div class="card-body">
             <div class="mb-6">
                 <h2 class="text-xl font-semibold mb-4">{% trans "Warning: Permanent Deletion" %}</h2>
-                <p class="text-secondary mb-4">
+                <p class="text-muted-fg mb-4">
                     {% trans "You are about to permanently delete your Crush.lu profile. This action:" %}
                 </p>
-                <ul class="list-disc list-inside text-secondary space-y-2 mb-4">
+                <ul class="list-disc list-inside text-muted-fg space-y-2 mb-4">
                     <li>{% trans "Removes your dating profile, photos, and all event history" %}</li>
                     <li>{% trans "Deletes all your connections and messages" %}</li>
                     <li>{% trans "Cancels any pending event registrations" %}</li>
-                    <li class="font-bold text-red-600 dark:text-red-400">{% trans "Prevents you from ever creating a new Crush.lu profile with this account" %}</li>
+                    <li class="font-bold text-red-700 dark:text-red-400">{% trans "Prevents you from ever creating a new Crush.lu profile with this account" %}</li>
                 </ul>
-                <p class="text-sm text-secondary">
+                <p class="text-sm text-muted-fg">
                     {% trans "Your login account stays active." %}
                 </p>
             </div>
@@ -51,10 +51,10 @@
         </div>
     </div>
 
-    <div class="mt-6 text-sm text-secondary">
+    <div class="mt-6 text-sm text-muted-fg">
         <p>
             {% trans "To delete your entire account, visit the" %}
-            <a href="{% url 'crush_lu:gdpr_data_management' %}" class="text-crush-purple hover:underline">
+            <a href="{% url 'crush_lu:gdpr_data_management' %}" class="text-crush-purple-dark dark:text-purple-300 hover:underline">
                 {% trans "GDPR Data Management page" %}
             </a>.
         </p>

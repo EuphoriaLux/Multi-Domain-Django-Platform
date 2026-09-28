@@ -19,18 +19,18 @@
             </div>
             <div class="p-6">
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                    <div class="text-gray-500 dark:text-gray-400 dark:text-gray-500">{% trans "Email" %}</div>
+                    <div class="text-muted-fg">{% trans "Email" %}</div>
                     <div class="sm:col-span-2 text-gray-900 dark:text-white flex items-center gap-2">
                         {{ user.email }}
-                        <a href="{% url 'account_email' %}" class="text-xs text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 font-medium">{% trans "Manage" %}</a>
+                        <a href="{% url 'account_email' %}" class="text-xs text-purple-600 dark:text-purple-300 hover:text-purple-700 dark:hover:text-purple-300 font-medium">{% trans "Manage" %}</a>
                     </div>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                    <div class="text-gray-500 dark:text-gray-400 dark:text-gray-500">{% trans "Name" %}</div>
+                    <div class="text-muted-fg">{% trans "Name" %}</div>
                     <div class="sm:col-span-2 text-gray-900 dark:text-white">{{ profile.display_name }}</div>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                    <div class="text-gray-500 dark:text-gray-400 dark:text-gray-500">{% trans "Member since" %}</div>
+                    <div class="text-muted-fg">{% trans "Member since" %}</div>
                     <div class="sm:col-span-2 text-gray-900 dark:text-white">{{ user.date_joined|date:"DATE_FORMAT" }}</div>
                 </div>
             </div>
@@ -58,7 +58,7 @@
                     </p>
                 </div>
                 {% endif %}
-                <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-6">
+                <p class="text-muted-fg mb-6">
                     {% trans "Connect additional social accounts for easier login. You can use any connected account to log in." %}
                 </p>
 
@@ -91,14 +91,14 @@
                             <span class="font-semibold">{{ social.provider|title }}</span>
                             {% endif %}
                             {% if social.display_email %}
-                            <small class="text-gray-500 dark:text-gray-400 ml-2">{{ social.display_email }}</small>
+                            <small class="text-muted-fg ml-2">{{ social.display_email }}</small>
                             {% endif %}
                         </div>
                         {% if crush_social_accounts.count > 1 or user.has_usable_password %}
                         <form method="post" action="{% url 'crush_lu:disconnect_social_account' social.id %}"
                               onsubmit="return confirm('{% blocktrans with provider=social.provider|title %}Are you sure you want to disconnect this {{ provider }} account?{% endblocktrans %}');">
                             {% csrf_token %}
-                            <button type="submit" class="border border-red-300 text-red-600 hover:bg-red-50 px-4 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-1">
+                            <button type="submit" class="border border-red-300 text-red-700 dark:text-red-400 hover:bg-red-50 px-4 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-1">
                                 {% include "shared/icons/x-mark.html" with class="w-5 h-5" %}{% trans "Disconnect" %}
                             </button>
                         </form>
@@ -150,7 +150,7 @@
                 {% endif %}
 
                 {% if not crush_social_accounts %}
-                <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-4">
+                <p class="text-muted-fg mb-4">
                     {% trans "You don't have any social accounts connected yet." %}
                 </p>
                 {% if google_available or facebook_available or microsoft_available or apple_available or luxid_available %}
@@ -187,7 +187,7 @@
                     {% endif %}
                 </div>
                 {% else %}
-                <p class="text-gray-400 dark:text-gray-500 text-sm">{% trans "Social login providers are not configured for this site." %}</p>
+                <p class="text-muted-fg text-sm">{% trans "Social login providers are not configured for this site." %}</p>
                 {% endif %}
                 {% endif %}
             </div>
@@ -202,12 +202,12 @@
                 </h5>
             </div>
             <div class="p-6">
-                <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-4">
+                <p class="text-muted-fg mb-4">
                     {% trans "Photos from your connected social accounts. To use these photos on your dating profile," %}
                     {% if user.crushprofile and user.crushprofile.is_approved %}
-                    <a href="{% url 'crush_lu:edit_profile' %}" class="text-purple-600 hover:text-purple-800">{% trans "go to Edit Profile" %}</a>.
+                    <a href="{% url 'crush_lu:edit_profile' %}" class="text-purple-600 dark:text-purple-300 hover:text-purple-800">{% trans "go to Edit Profile" %}</a>.
                     {% else %}
-                    <a href="{% url 'crush_lu:create_profile' %}" class="text-purple-600 hover:text-purple-800">{% trans "complete your profile setup" %}</a>.
+                    <a href="{% url 'crush_lu:create_profile' %}" class="text-purple-600 dark:text-purple-300 hover:text-purple-800">{% trans "complete your profile setup" %}</a>.
                     {% endif %}
                 </p>
 
@@ -250,13 +250,13 @@
 
                 {% if user.crushprofile and user.crushprofile.is_approved %}
                 <div class="text-center mt-6">
-                    <a href="{% url 'crush_lu:edit_profile' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                    <a href="{% url 'crush_lu:edit_profile' %}" class="border border-purple-300 text-purple-600 dark:text-purple-300 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
                         {% include "shared/icons/cloud-arrow-down.html" with class="w-5 h-5" %}{% trans "Import Photos to Profile" %}
                     </a>
                 </div>
                 {% elif user.crushprofile %}
                 <div class="text-center mt-6">
-                    <a href="{% url 'crush_lu:create_profile' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                    <a href="{% url 'crush_lu:create_profile' %}" class="border border-purple-300 text-purple-600 dark:text-purple-300 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
                         {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}{% trans "Complete Profile to Import" %}
                     </a>
                 </div>
@@ -275,10 +275,10 @@
                 </h5>
             </div>
             <div class="p-6">
-                <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-4">
+                <p class="text-muted-fg mb-4">
                     {% blocktrans with email=user.email %}You can set a password to enable login with your email ({{ email }}) in addition to your social accounts.{% endblocktrans %}
                 </p>
-                <a href="{% url 'crush_lu:set_password' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                <a href="{% url 'crush_lu:set_password' %}" class="border border-purple-300 text-purple-600 dark:text-purple-300 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
                     {% include "shared/icons/key.html" with class="w-5 h-5" %}{% trans "Set Password" %}
                 </a>
             </div>
@@ -292,13 +292,13 @@
                 </h5>
             </div>
             <div class="p-6">
-                <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-4">
+                <p class="text-muted-fg mb-4">
                     {% trans "You have a password set for email login." %}
                     {% if crush_social_accounts %}
                     {% trans "You can also login with your connected social accounts." %}
                     {% endif %}
                 </p>
-                <a href="{% url 'account_change_password' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                <a href="{% url 'account_change_password' %}" class="border border-purple-300 text-purple-600 dark:text-purple-300 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
                     {% include "shared/icons/pencil.html" with class="w-5 h-5" %}{% trans "Change Password" %}
                 </a>
             </div>
@@ -323,11 +323,11 @@
                 </p>
                 {% with rs=user.crushprofile.review_status vs=user.crushprofile.verification_status %}
                 {% if user.crushprofile.is_approved %}
-                <a href="{% url 'crush_lu:edit_profile' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                <a href="{% url 'crush_lu:edit_profile' %}" class="border border-purple-300 text-purple-600 dark:text-purple-300 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
                     {% include "shared/icons/pencil.html" with class="w-5 h-5" %}{% trans "Edit Profile" %}
                 </a>
                 {% elif vs == 'rejected' or rs == 'rejected' %}
-                <a href="{% url 'crush_lu:profile_rejected' %}" class="text-red-600 hover:text-red-800 text-sm underline">
+                <a href="{% url 'crush_lu:profile_rejected' %}" class="text-red-700 dark:text-red-400 hover:text-red-800 text-sm underline">
                     {% trans "View rejection details" %}
                 </a>
                 {% elif rs == 'revision' %}
@@ -335,7 +335,7 @@
                     {% include "shared/icons/pencil.html" with class="w-5 h-5" %}{% trans "Update Profile" %}
                 </a>
                 {% elif vs == 'pending' or rs == 'pending' or rs == 'recontact_coach' %}
-                <span class="text-gray-400 dark:text-gray-500 text-sm">{% trans "Awaiting verification" %}</span>
+                <span class="text-muted-fg text-sm">{% trans "Awaiting verification" %}</span>
                 {% else %}
                 <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-primary px-4 py-2 rounded-lg inline-flex items-center">
                     {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}{% trans "Complete Profile" %}
@@ -343,7 +343,7 @@
                 {% endif %}
                 {% endwith %}
                 {% else %}
-                <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-4">{% trans "You haven't created a dating profile yet." %}</p>
+                <p class="text-muted-fg mb-4">{% trans "You haven't created a dating profile yet." %}</p>
                 <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-primary px-4 py-2 rounded-lg inline-flex items-center">
                     {% include "shared/icons/plus-circle.html" with class="w-5 h-5" %}{% trans "Create Profile" %}
                 </a>
@@ -376,7 +376,7 @@
                     <hr class="my-6 border-gray-200 dark:border-gray-700">
 
                     <div x-bind:class="unsubscribeAllClass">
-                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm mb-4">{% trans "Choose which emails you'd like to receive:" %}</p>
+                        <p class="text-muted-fg text-sm mb-4">{% trans "Choose which emails you'd like to receive:" %}</p>
 
                         <div class="space-y-4">
                             {% include "crush_lu/components/toggle.html" with name="email_profile_updates" checked=email_prefs.email_profile_updates label=_("Profile Updates") help=_("Emails about profile approval, revision requests") %}
@@ -422,7 +422,7 @@
                 {% endif %}
                 <form method="post" action="{% url 'crush_lu:update_whatsapp_preference' %}">
                     {% csrf_token %}
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    <p class="text-sm text-muted-fg mb-4">
                         {% trans "Receive notifications via WhatsApp on:" %}
                         <strong class="text-gray-900 dark:text-white ml-1">{{ user.crushprofile.phone_number }}</strong>
                     </p>
@@ -440,7 +440,7 @@
                     {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 text-amber-600 mt-0.5 shrink-0" %}
                     <p class="text-sm text-amber-800 dark:text-amber-200">
                         {% trans "A verified phone number is required to enable WhatsApp notifications." %}
-                        <a href="{% url 'crush_lu:edit_profile' %}" class="underline font-medium">{% trans "Update your profile" %}</a>
+                        <a href="{% url 'crush_lu:edit_profile' %}" class="underline font-medium text-amber-900 dark:text-amber-100">{% trans "Update your profile" %}</a>
                         {% trans "to add and verify your number." %}
                     </p>
                 </div>
@@ -475,7 +475,7 @@
                 <template x-if="showLoading">
                     <div class="flex items-center justify-center py-4">
                         <span class="animate-spin inline-block w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full mr-2"></span>
-                        <span class="text-gray-500 dark:text-gray-400 dark:text-gray-500">{% trans "Checking notification support..." %}</span>
+                        <span class="text-muted-fg">{% trans "Checking notification support..." %}</span>
                     </div>
                 </template>
                 {% include "crush_lu/partials/_push_check_timed_out.html" %}
@@ -487,7 +487,7 @@
                             {% include "shared/icons/information-circle.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500 mr-2 flex-shrink-0 mt-0.5" %}
                             <div>
                                 <p class="font-medium text-gray-700 dark:text-gray-200">{% trans "Push notifications not available" %}</p>
-                                <p class="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
+                                <p class="text-sm text-muted-fg mt-1">
                                     {% trans "Your browser doesn't support push notifications. Try opening Crush.lu in Chrome, Firefox, Edge, or Safari on iOS 16.4+." %}
                                 </p>
                             </div>
@@ -513,7 +513,7 @@
                 <!-- State: Not subscribed - show enable button -->
                 <template x-if="showEnableButton">
                     <div>
-                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm mb-4">
+                        <p class="text-muted-fg text-sm mb-4">
                             {% trans "Get instant notifications about new messages, event reminders, and connections on this device." %}
                         </p>
 
@@ -526,7 +526,7 @@
                         </button>
 
                         <template x-if="errorMessage">
-                            <p class="mt-3 text-sm text-red-600" x-text="errorMessage"></p>
+                            <p class="mt-3 text-sm text-red-700 dark:text-red-400" x-text="errorMessage"></p>
                         </template>
                     </div>
                 </template>
@@ -534,7 +534,7 @@
                 <!-- State: Subscribed - show preferences -->
                 <template x-if="showPreferences">
                     <div>
-                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm mb-4">
+                        <p class="text-muted-fg text-sm mb-4">
                             {% trans "Configure which notifications you receive on your devices. Changes are saved automatically." %}
                         </p>
 
@@ -574,13 +574,13 @@
                                     </span>
                                 </div>
                                 <button type="button"
-                                        class="disable-push-btn text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-red-600 transition-colors"
+                                        class="disable-push-btn text-sm text-muted-fg hover:text-red-600 transition-colors"
                                         x-bind:disabled="isDisabling">
                                     <span x-text="disableButtonText"></span>
                                 </button>
                             </div>
                             <!-- Last active timestamp -->
-                            <p class="text-xs text-gray-400 dark:text-gray-500 mb-2 pl-7">{% trans "Last active:" %} {{ subscription.last_used_at|timesince }}</p>
+                            <p class="text-xs text-muted-fg mb-2 pl-7">{% trans "Last active:" %} {{ subscription.last_used_at|timesince }}</p>
 
                             <!-- Health Status Indicators -->
                             <div x-show="hasStatus" class="mb-4 pl-7">
@@ -597,29 +597,29 @@
                                     <span>⚠</span>
                                     <span x-text="ageText"></span>
                                     <button @click="refreshSubscriptionById"
-                                            class="text-purple-600 hover:underline text-xs font-medium">
+                                            class="text-purple-600 dark:text-purple-300 hover:underline text-xs font-medium">
                                         {% trans "Refresh" %}
                                     </button>
                                 </div>
 
                                 <!-- Invalid: high failure count -->
                                 <div x-show="failureStatus"
-                                     class="text-red-600 flex items-center gap-2 text-sm">
+                                     class="text-red-700 dark:text-red-400 flex items-center gap-2 text-sm">
                                     <span>✗</span>
                                     <span>{% trans "May be expired (send failures detected)" %}</span>
                                     <button @click="refreshSubscriptionById"
-                                            class="text-purple-600 hover:underline text-xs font-medium">
+                                            class="text-purple-600 dark:text-purple-300 hover:underline text-xs font-medium">
                                         {% trans "Fix Now" %}
                                     </button>
                                 </div>
 
                                 <!-- Invalid: not found -->
                                 <div x-show="notFoundStatus"
-                                     class="text-red-600 flex items-center gap-2 text-sm">
+                                     class="text-red-700 dark:text-red-400 flex items-center gap-2 text-sm">
                                     <span>✗</span>
                                     <span>{% trans "Subscription not active" %}</span>
                                     <button @click="deleteSubscriptionById"
-                                            class="text-purple-600 hover:underline text-xs font-medium">
+                                            class="text-purple-600 dark:text-purple-300 hover:underline text-xs font-medium">
                                         {% trans "Remove" %}
                                     </button>
                                 </div>
@@ -641,7 +641,7 @@
                         </div>
                         {% empty %}
                         <div class="text-center py-4">
-                            <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500">{% trans "No devices registered for push notifications." %}</p>
+                            <p class="text-muted-fg">{% trans "No devices registered for push notifications." %}</p>
                         </div>
                         {% endfor %}
                     </div>
@@ -676,7 +676,7 @@
                 <template x-if="showLoading">
                     <div class="flex items-center justify-center py-4">
                         <span class="animate-spin inline-block w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full mr-2"></span>
-                        <span class="text-gray-500 dark:text-gray-400 dark:text-gray-500">{% trans "Checking notification support..." %}</span>
+                        <span class="text-muted-fg">{% trans "Checking notification support..." %}</span>
                     </div>
                 </template>
                 {% include "crush_lu/partials/_push_check_timed_out.html" %}
@@ -688,7 +688,7 @@
                             {% include "shared/icons/information-circle.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500 mr-2 flex-shrink-0 mt-0.5" %}
                             <div>
                                 <p class="font-medium text-gray-700 dark:text-gray-200">{% trans "Push notifications not available" %}</p>
-                                <p class="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
+                                <p class="text-sm text-muted-fg mt-1">
                                     {% trans "Your browser doesn't support push notifications." %}
                                 </p>
                             </div>
@@ -714,7 +714,7 @@
                 <!-- State: Not subscribed - show enable button -->
                 <template x-if="showEnableButton">
                     <div>
-                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm mb-4">
+                        <p class="text-muted-fg text-sm mb-4">
                             {% trans "Get instant notifications about new profile submissions, screening reminders, and user responses." %}
                         </p>
 
@@ -727,7 +727,7 @@
                         </button>
 
                         <template x-if="errorMessage">
-                            <p class="mt-3 text-sm text-red-600" x-text="errorMessage"></p>
+                            <p class="mt-3 text-sm text-red-700 dark:text-red-400" x-text="errorMessage"></p>
                         </template>
                     </div>
                 </template>
@@ -735,7 +735,7 @@
                 <!-- State: Subscribed - show preferences -->
                 <template x-if="showPreferences">
                     <div>
-                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm mb-4">
+                        <p class="text-muted-fg text-sm mb-4">
                             {% trans "Configure which coach notifications you receive on your devices. Changes are saved automatically." %}
                         </p>
 
@@ -764,13 +764,13 @@
                                     </span>
                                 </div>
                                 <button type="button"
-                                        class="disable-coach-push-btn text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-red-600 transition-colors"
+                                        class="disable-coach-push-btn text-sm text-muted-fg hover:text-red-600 transition-colors"
                                         x-bind:disabled="isDisabling">
                                     <span x-text="disableButtonText"></span>
                                 </button>
                             </div>
                             <!-- Last active timestamp -->
-                            <p class="text-xs text-gray-400 dark:text-gray-500 mb-4 pl-7">{% trans "Last active:" %} {{ subscription.last_used_at|timesince }}</p>
+                            <p class="text-xs text-muted-fg mb-4 pl-7">{% trans "Last active:" %} {{ subscription.last_used_at|timesince }}</p>
 
                             <div class="space-y-4 pl-7">
                                 <!-- New Submissions Toggle -->
@@ -788,7 +788,7 @@
                         </div>
                         {% empty %}
                         <div class="text-center py-4">
-                            <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500">{% trans "No devices registered for coach notifications." %}</p>
+                            <p class="text-muted-fg">{% trans "No devices registered for coach notifications." %}</p>
                         </div>
                         {% endfor %}
                     </div>
@@ -806,17 +806,17 @@
             </div>
             <div class="p-6">
                 <div class="flex flex-col gap-3">
-                    <a href="{% url 'crush_lu:privacy_policy' %}" class="text-purple-600 hover:text-purple-800 flex items-center">
+                    <a href="{% url 'crush_lu:privacy_policy' %}" class="text-purple-600 dark:text-purple-300 hover:text-purple-800 flex items-center">
                         {% include "shared/icons/document-text.html" with class="w-5 h-5" %}{% trans "Privacy Policy" %}
                     </a>
-                    <a href="{% url 'crush_lu:data_deletion' %}" class="text-purple-600 hover:text-purple-800 flex items-center">
+                    <a href="{% url 'crush_lu:data_deletion' %}" class="text-purple-600 dark:text-purple-300 hover:text-purple-800 flex items-center">
                         {% include "shared/icons/information-circle.html" with class="w-5 h-5" %}{% trans "Data Deletion Information" %}
                     </a>
                     {# The footer's trigger is hidden for signed-in members below lg; this one is reachable at every width. #}
-                    <a href="#" data-cookie-settings class="text-purple-600 hover:text-purple-800 flex items-center">
+                    <a href="#" data-cookie-settings class="text-purple-600 dark:text-purple-300 hover:text-purple-800 flex items-center">
                         {% include "shared/icons/shield-check.html" with class="w-5 h-5" %}{% trans "Cookie Settings" %}
                     </a>
-                    <a href="{% url 'crush_lu:blocked_members' %}" class="text-purple-600 hover:text-purple-800 flex items-center">
+                    <a href="{% url 'crush_lu:blocked_members' %}" class="text-purple-600 dark:text-purple-300 hover:text-purple-800 flex items-center">
                         {% include "shared/icons/shield-check.html" with class="w-5 h-5" %}{% trans "Blocked Members" %}
                     </a>
                 </div>
@@ -825,7 +825,7 @@
 
         <!-- Danger Zone Card -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden border-2 border-red-500">
-            <div class="bg-red-500 text-white px-6 py-4">
+            <div class="bg-red-700 text-white px-6 py-4">
                 <h5 class="text-lg font-semibold flex items-center">
                     {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}{% trans "Danger Zone" %}
                 </h5>
@@ -834,7 +834,7 @@
                 <!-- Take a break (UX Wave 3 - WP13): reversible pause, above deletion -->
                 <div>
                     <h6 class="font-semibold text-gray-900 dark:text-white mb-2">{% trans "Take a Break" %}</h6>
-                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">
+                    <p class="text-muted-fg text-sm mb-4">
                         {% trans "Hide your profile from events, Connect matching and marketing emails. Fully reversible — resume any time from your dashboard." %}
                     </p>
                     {% if profile.is_on_break %}
@@ -848,12 +848,12 @@
 
                 <!-- Default action: Delete Crush.lu profile only -->
                 <div>
-                    <h6 class="font-semibold text-red-600 mb-2">{% trans "Delete Crush.lu Profile" %}</h6>
+                    <h6 class="font-semibold text-red-700 dark:text-red-400 mb-2">{% trans "Delete Crush.lu Profile" %}</h6>
                     <p class="text-gray-700 dark:text-gray-300 text-sm mb-4">
                         {% trans "Permanently delete your dating profile and photos. Your login account stays active." %}
-                        <strong class="text-red-600 dark:text-red-400">{% trans "Warning: This cannot be undone and you cannot rejoin Crush.lu with this account." %}</strong>
+                        <strong class="text-red-700 dark:text-red-400">{% trans "Warning: This cannot be undone and you cannot rejoin Crush.lu with this account." %}</strong>
                     </p>
-                    <a href="{% url 'crush_lu:delete_crushlu_profile' %}" class="border border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                    <a href="{% url 'crush_lu:delete_crushlu_profile' %}" class="border border-red-300 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
                         {% include "shared/icons/trash.html" with class="w-5 h-5" %}{% trans "Delete Crush.lu Profile" %}
                     </a>
                 </div>
@@ -861,7 +861,7 @@
                 <!-- Link to full GDPR dashboard -->
                 <div>
                     <h6 class="font-semibold mb-2">{% trans "Privacy & Data Management" %}</h6>
-                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">
+                    <p class="text-muted-fg text-sm mb-4">
                         {% trans "View your consent status, download your data, or delete your entire account." %}
                     </p>
                     <a href="{% url 'crush_lu:gdpr_data_management' %}" class="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
