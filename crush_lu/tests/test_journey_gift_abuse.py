@@ -81,26 +81,27 @@ class GiftCreateGateTests(GiftAbuseTestBase):
             },
         )
 
-    def test_unapproved_member_is_redirected_and_cannot_send(self):
+    # Decision C (UX Wave 4 · WP2): gifts are an admin/coach tool, so
+    # member senders -- approved or not -- get a 404.
+    def test_unapproved_member_gets_404_and_cannot_send(self):
         from crush_lu.models import JourneyGift
 
         self._login(self._user("pending@example.com", approved=False))
 
         get = self.client.get(CREATE_URL)
-        self.assertEqual(get.status_code, 302)
-        self.assertIn("/dashboard/", get["Location"])
+        self.assertEqual(get.status_code, 404)
 
         post = self._post()
-        self.assertEqual(post.status_code, 302)
+        self.assertEqual(post.status_code, 404)
         self.assertFalse(JourneyGift.objects.exists())
         self.assertEqual(len(mail.outbox), 0)
 
-    def test_account_without_profile_is_redirected(self):
+    def test_account_without_profile_gets_404(self):
         from crush_lu.models import JourneyGift
 
         self._login(self._user("noprofile@example.com"))
         response = self._post()
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 404)
         self.assertFalse(JourneyGift.objects.exists())
 
     def test_banned_member_is_sent_to_banned_page(self):
@@ -125,8 +126,7 @@ class GiftCreateGateTests(GiftAbuseTestBase):
         self._login(user)
 
         response = self._post()
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("/dashboard/", response["Location"])
+        self.assertEqual(response.status_code, 404)
         self.assertFalse(JourneyGift.objects.exists())
         self.assertEqual(len(mail.outbox), 0)
 
@@ -135,14 +135,18 @@ class GiftCreateGateTests(GiftAbuseTestBase):
         landing = self.client.get(f"/en/journey/gift/{gift.gift_code}/")
         self.assertNotContains(landing, "verified Crush.lu member")
 
-    def test_approved_member_can_open_the_form(self):
+    def test_approved_member_gets_404(self):
         self._login(self._user("approved@example.com", approved=True))
+        self.assertEqual(self.client.get(CREATE_URL).status_code, 404)
+
+    def test_staff_can_open_the_form(self):
+        self._login(self._user("staff@example.com", staff=True))
         response = self.client.get(CREATE_URL)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Only enter an address if they know")
 
     def test_sixth_post_in_a_day_is_rate_limited(self):
-        self._login(self._user("approved@example.com", approved=True))
+        self._login(self._user("staff@example.com", staff=True))
         # Invalid (no uploads/fields) POSTs still count toward the daily cap.
         for _ in range(5):
             self.assertNotEqual(self.client.post(CREATE_URL, {}).status_code, 429)

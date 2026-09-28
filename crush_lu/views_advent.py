@@ -14,6 +14,7 @@ import json
 import logging
 
 from .decorators import crush_login_required
+from .views_journey import render_no_journey
 from .models import (
     SpecialUserExperience, AdventCalendar, AdventDoor, AdventDoorContent,
     AdventProgress, QRCodeToken
@@ -35,22 +36,19 @@ def advent_calendar_view(request):
         special_experience = SpecialUserExperience.active_for_user(request.user)
 
         if not special_experience:
-            messages.warning(request, _('No special experience found for your account.'))
-            return redirect('crush_lu:home')
+            return render_no_journey(request, "advent")
 
         # Get the advent calendar journey
         journey = special_experience.advent_calendar_journey
 
         if not journey or not journey.is_active:
-            messages.info(request, _('No Advent Calendar is currently available for you.'))
-            return redirect('crush_lu:home')
+            return render_no_journey(request, "advent")
 
         # Get the advent calendar configuration
         try:
             calendar = journey.advent_calendar
         except AdventCalendar.DoesNotExist:
-            messages.warning(request, _('Your Advent Calendar is being prepared.'))
-            return redirect('crush_lu:home')
+            return render_no_journey(request, "advent")
 
         # Check if it's December
         if not calendar.is_december():
@@ -139,14 +137,12 @@ def advent_door_view(request, door_number):
         special_experience = SpecialUserExperience.active_for_user(request.user)
 
         if not special_experience:
-            messages.warning(request, _('No special experience found.'))
-            return redirect('crush_lu:home')
+            return render_no_journey(request, "advent")
 
         # Get the advent calendar
         journey = special_experience.advent_calendar_journey
         if not journey:
-            messages.warning(request, _('No Advent Calendar found.'))
-            return redirect('crush_lu:home')
+            return render_no_journey(request, "advent")
 
         calendar = journey.advent_calendar
 
@@ -303,11 +299,11 @@ def advent_qr_scanner(request):
         special_experience = SpecialUserExperience.active_for_user(request.user)
 
         if not special_experience:
-            return redirect('crush_lu:home')
+            return render_no_journey(request, "advent")
 
         journey = special_experience.advent_calendar_journey
         if not journey:
-            return redirect('crush_lu:home')
+            return render_no_journey(request, "advent")
 
         calendar = journey.advent_calendar
 
