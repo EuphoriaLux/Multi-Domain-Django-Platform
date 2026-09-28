@@ -543,7 +543,7 @@ class MyConnectionsEmptyStateTests(TestCase):
         body = response.content.decode()
         self.assertIn("Meet at an event", body)
         self.assertIn("Both say yes", body)
-        self.assertIn("Your coach introduces you", body)
+        self.assertIn("You're connected, directly or via your coach", body)
 
     def test_unverified_member_does_not_see_connect_cta(self):
         response = self.client.get("/en/connections/", HTTP_HOST="crush.lu")
