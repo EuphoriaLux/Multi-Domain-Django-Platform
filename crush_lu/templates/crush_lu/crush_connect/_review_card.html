@@ -84,7 +84,7 @@ template-local until Wave 2's shared confirm-sheet component lands.
                             </p>
                             <form method="post" action="{% url 'crush_lu:connect_week_request_send' card.pk %}">
                                 {% csrf_token %}
-                                <button type="submit" class="btn-crush-primary btn-block mb-2">
+                                <button type="submit" class="btn-crush-solid btn-block mb-2">
                                     {% trans "Confirm and send request" %}
                                 </button>
                             </form>

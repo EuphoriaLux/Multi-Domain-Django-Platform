@@ -420,7 +420,12 @@ getter that also checks `isActive(name)`; `install`/`push` wait for DOMContentLo
 Anchor bottom prompts with `.prompt-above-nav` (clears `.bottom-nav` below `lg`).
 The install card never renders in native shells (`is_native_app`), and
 `pwa-install.js` offers it only from the 2nd session, outside `/account/`,
-`/payments/` and the Connect wizard.
+`/payments/` and the Connect wizard. The store itself never activates
+`install`/`push` on a first visit. `base.html` includes the install card only
+when `prompt_install_eligible` (approved profile or a first confirmed
+booking) and the push prompt only when `prompt_push_eligible` (a first
+confirmed booking). On `/dashboard/` the dashboard's own install card is the
+`install` prompt, so the page empties `{% block pwa_install_banner %}`.
 
 ### Failed HTMX requests
 

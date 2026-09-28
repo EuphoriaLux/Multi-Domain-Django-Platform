@@ -43746,6 +43746,19 @@ msgstr "Passer en clair"
 msgid "Switch to Dark"
 msgstr "Passer en sombre"
 
+# UX Wave 4 · WP13a followups-connect-dashboard
+#: crush_lu/templates/crush_lu/my_connections.html
+msgid "You're connected, directly or via your coach"
+msgstr "Vous êtes mis en relation, directement ou via votre coach"
+
+#: crush_lu/templates/crush_lu/moderation/_block_report_menu.html
+msgid "Also let a Crush Coach know"
+msgstr "Prévenir aussi un Crush Coach"
+
+#: crush_lu/templates/crush_lu/crush_connect/chat_detail.html
+msgid "Meeting safely"
+msgstr "Se rencontrer en toute sécurité"
+
 #: crush_lu/services/on_break.py
 #, python-format
 msgid "Heads-up: these members are taking a break from Crush.lu right now: %(names)s. You can still invite them."

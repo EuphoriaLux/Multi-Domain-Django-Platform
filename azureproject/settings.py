@@ -1248,6 +1248,7 @@ ACCOUNT_DEFAULT_HTTP_PROTOCOL = "http" if DEBUG else "https"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
+        "hub.authentication.AdminApiKeyAuthentication",
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
