@@ -1848,9 +1848,15 @@ def resend_verification_email(request):
     email = typed or request.session.get("pending_verification_email")
 
     if email and claim_resend_cooldown(email):
+        held = _held_social_user_id(request) if typed else None
+        held_email = request.session.get("pending_verification_email")
         email_address = (
             _replace_pending_social_address(request, typed) if typed else None
         )
+        # A rejected correction (invalid, or another account's address)
+        # keeps the session bound to the held account, so a later available
+        # address can still repair it; the response below stays identical.
+        keep_held_binding = bool(held) and email_address is None
         if email_address is None:
             email_address = EmailAddress.objects.filter(
                 email__iexact=email, verified=False
@@ -1873,8 +1879,14 @@ def resend_verification_email(request):
                 logger.exception("Resending the verification email failed")
         # Remember the address so this page can mask it and keep offering
         # resend without needing the visitor to retype it.
-        request.session["pending_verification_email"] = email
-        _held_social_user_id(request)
+        if keep_held_binding:
+            # The generic resend above may have re-stashed the typed address
+            # (email_confirmation_sent signal), so restore the hold.
+            request.session["pending_verification_email"] = held_email
+            request.session["pending_verification_user_id"] = held
+        else:
+            request.session["pending_verification_email"] = email
+            _held_social_user_id(request)
         start_resend_cooldown_display(request, email)
 
     messages.success(

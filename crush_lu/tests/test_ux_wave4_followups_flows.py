@@ -164,6 +164,28 @@ class SocialAddressCorrectionTests(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.email, "typo@exmaple.com")
 
+    def test_rejected_correction_keeps_the_held_account_for_a_later_one(self):
+        """A correction to an address another account owns is skipped, but
+        the session stays bound to the held account, so a second, available
+        address still repairs it without repeating the provider login."""
+        _unverified_user("taken@example.com")
+        self.client.post(RESEND, {"email": "taken@example.com"})
+        session = self.client.session
+        self.assertEqual(session["pending_verification_email"], "typo@exmaple.com")
+        self.assertEqual(session["pending_verification_user_id"], self.user.pk)
+
+        self.client.post(RESEND, {"email": "fixed@example.com"})
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "fixed@example.com")
+        self.assertEqual(
+            list(
+                EmailAddress.objects.filter(user=self.user).values_list(
+                    "email", flat=True
+                )
+            ),
+            ["fixed@example.com"],
+        )
+
     def test_without_the_session_hold_nothing_is_replaced(self):
         client = Client(HTTP_HOST="crush.lu")
         client.post(RESEND, {"email": "fixed@example.com"})
