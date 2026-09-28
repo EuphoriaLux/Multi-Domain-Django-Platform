@@ -10,7 +10,7 @@ previously modeled a 3-tab UI (Profile Overview / Screening Call / Review
 Decision) with the summary card gated behind `x-show="showProfileSummary"`
 (hidden on tab 1, visible on tabs 2-3) via an `isProfileTab` Alpine getter.
 The current template (`coach_review_profile.html`, Alpine component
-`reviewTabs` in `alpine-components.js`) has only 2 tabs — Screening Call and
+`reviewTabs` in `js/alpine/coach.js`) has only 2 tabs — Screening Call and
 Review Decision — and the summary card is unconditionally rendered above the
 tabs (see the template's own "PROFILE SUMMARY - Always Visible" comment).
 There is no `isProfileTab` or `showProfileSummary` getter anymore, and no

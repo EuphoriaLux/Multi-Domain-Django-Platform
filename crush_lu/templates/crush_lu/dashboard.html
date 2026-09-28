@@ -369,7 +369,7 @@ init() runs) never flashes all four states at once. The old fourth
 try Chrome) is dropped entirely rather than rendered after a 2s timer —
 `cardVisible` simply stays false for that visitor and the card never
 appears, so there is no flash-then-empty-box wait either. `pwaInstallButton`
-(alpine-components.js) still sets `showFallback` internally for potential
+(js/alpine/core.js) still sets `showFallback` internally for potential
 future use; nothing in this template reads it any more.
 {% endcomment %}
 <div class="grid grid-cols-1 {% if not is_native_app %}md:grid-cols-2{% endif %} gap-5 mb-5"

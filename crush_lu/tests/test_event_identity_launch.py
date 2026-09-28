@@ -39,7 +39,7 @@ CRUSH_LU_URL_SETTINGS = {"ROOT_URLCONF": "azureproject.urls_crush"}
 APP_ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE_ROOT = APP_ROOT / "templates"
 LOCALE_ROOT = APP_ROOT / "locale"
-JS_COMPONENTS = APP_ROOT / "static" / "crush_lu" / "js" / "alpine-components.js"
+JS_COMPONENTS = APP_ROOT / "static" / "crush_lu" / "js" / "alpine" / "core.js"
 
 # Every Event Identity msgid introduced in Phases C-D that must be translated
 # in the tracked DE/FR catalogs (spec §10 "launch readiness: translations").

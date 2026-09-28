@@ -312,11 +312,22 @@ Some files are legacy / parked and should NOT be touched casually:
 
 ## 7. Alpine.js primitives
 
-Four shared mixin factories live at the top of
-`crush_lu/static/crush_lu/js/alpine-components.js`. Compose them inside
-your named Alpine.data component with the **`mixin`** helper (also in
-that file). They are not themselves Alpine.data registrations because
-the CSP build cannot pass arguments via `x-data`.
+Four mixin factories are documented below. `makeTabs`, `makeConfirm` and
+`makeModal` live in `crush_lu/static/crush_lu/js/alpine/shared.js`, which
+bundle entries import (`import { makeModal, mixin } from "./shared.js";`);
+`makePushStatusCheck` serves only the push settings cards and stays in
+`core.js`. Compose them inside your named Alpine.data component with the
+**`mixin`** helper (also in `shared.js`). They are not themselves
+Alpine.data registrations because the CSP build cannot pass arguments via
+`x-data`.
+
+Components live in per-feature bundles in the same folder: `core.js`
+(shell and site-wide components, loaded by `base.html`) and `coach.js`,
+`quiz.js`, `journey.js`, `connect.js`. A page that uses a feature component
+loads its bundle in `{% block pre_alpine_js %}` with
+`{% include "crush_lu/partials/alpine_bundle.html" with bundle="coach" %}`
+(never `extra_js`, which runs after Alpine starts). Run `npm run build:js`
+and commit the `.min.js` files after editing a bundle.
 
 **Do not use `Object.assign` or spread (`...`)** to compose with these
 — both evaluate the source's getters during the copy (with the wrong
@@ -398,7 +409,7 @@ top-of-page banner treatment, and prefer the toast store if you don't.
 
 ### Prompt queue (`Alpine.store('prompts')`)
 
-Unsolicited prompts share one queue (`alpine-components.js`) that shows **at most
+Unsolicited prompts share one queue (`js/alpine/core.js`) that shows **at most
 one at a time**, in this order: **`cookie`** (the shared cookie sheet, which has no
 Alpine and dispatches a `cookie-banner-toggle` document event), **`messages`**
 (`base.html` flash messages, `x-data="flashMessage"`: each visible one holds the
@@ -514,7 +525,7 @@ because the ~30 `ghost-story-*` decorations already live there.
 | `ghost-logo-mono.html` | Single color via `currentColor`, mask-punched face | Single-color contexts (emails, watermarks) | `w-7 h-7` |
 
 `ghost-logo-hero.html` has a JS contract: the `ghostEyes` Alpine
-component (`alpine-components.js`) queries `.ghost-eye` / `.ghost-heart`
+component (`js/alpine/core.js`) queries `.ghost-eye` / `.ghost-heart`
 inside the hero section and rewrites their transforms per frame. That
 markup — and the heartbeat's `additive="sum"` — is load-bearing.
 

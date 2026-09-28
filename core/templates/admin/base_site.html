@@ -31,11 +31,8 @@
 {{ block.super }}
 {# Tiered coach-panel sidebar behaviour; no-op on admin sites without tiers. #}
 <script defer src="{% static 'crush_lu/js/crush_admin_nav.js' %}"></script>
-{% if debug %}
-<script defer src="{% static 'crush_lu/js/alpine-components.js' %}"></script>
-{% else %}
-<script defer src="{% static 'crush_lu/js/alpine-components.min.js' %}"></script>
-{% endif %}
+{# Coach Panel components (dashboard, campaigns) live in the coach bundle. #}
+{% include "crush_lu/partials/alpine_bundle.html" with bundle="coach" %}
 <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/csp@3.14.9/dist/cdn.min.js"></script>
 {% endblock %}
 
