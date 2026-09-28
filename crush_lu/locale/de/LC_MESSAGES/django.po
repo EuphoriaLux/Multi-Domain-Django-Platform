@@ -43383,3 +43383,32 @@ msgstr "Füge ein Foto hinzu, um dort weiterzumachen, wo du aufgehört hast."
 msgid "Continue where you left off"
 msgstr "Weiter, wo du aufgehört hast"
 
+
+# UX Wave 4 · WP2 (journey-entry, finding 7-04)
+#: .\crush_lu\templates\crush_lu\no_journey.html
+msgid "No Advent Calendar yet"
+msgstr "Noch kein Adventskalender"
+
+#: .\crush_lu\templates\crush_lu\no_journey.html
+msgid "No journey yet"
+msgstr "Noch keine Reise"
+
+#: .\crush_lu\templates\crush_lu\no_journey.html
+msgid "You don't have an Advent Calendar yet"
+msgstr "Du hast noch keinen Adventskalender"
+
+#: .\crush_lu\templates\crush_lu\no_journey.html
+msgid "You don't have a journey yet"
+msgstr "Du hast noch keine Reise"
+
+#: .\crush_lu\templates\crush_lu\no_journey.html
+msgid "An Advent Calendar is a personal surprise the Crush.lu team prepares for one member. When one is ready for you, it appears in your menu."
+msgstr "Ein Adventskalender ist eine persönliche Überraschung, die das Crush.lu-Team für ein einzelnes Mitglied vorbereitet. Sobald einer für dich bereit ist, erscheint er in deinem Menü."
+
+#: .\crush_lu\templates\crush_lu\no_journey.html
+msgid "A journey is a personal surprise the Crush.lu team prepares for one member. When one is ready for you, it appears in your menu."
+msgstr "Eine Reise ist eine persönliche Überraschung, die das Crush.lu-Team für ein einzelnes Mitglied vorbereitet. Sobald eine für dich bereit ist, erscheint sie in deinem Menü."
+
+#: .\crush_lu\templates\crush_lu\no_journey.html
+msgid "Followed a link someone sent you? Check that you're signed in with the account it was meant for."
+msgstr "Bist du einem Link gefolgt, den dir jemand geschickt hat? Prüfe, ob du mit dem Konto angemeldet bist, für das er gedacht war."
