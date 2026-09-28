@@ -13088,8 +13088,10 @@ html.dark .hiw-cta-section p {
     color: #94a3b8;
 }
 
-/* Timeline connector for desktop */
-@media (min-width: 768px) {
+/* Timeline connector for desktop: only in the single-row 4-column layout,
+   running from the first icon centre to the last (12.5% = half a column),
+   so it never extends past the grid and cause horizontal scroll. */
+@media (min-width: 1024px) {
     .step-timeline {
         position: relative;
     }
@@ -13097,9 +13099,9 @@ html.dark .hiw-cta-section p {
     .step-timeline::after {
         content: "";
         position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 100%;
+        top: calc(1.5rem + 40px);
+        left: 12.5%;
+        right: 12.5%;
         height: 3px;
         background: linear-gradient(90deg, #9b59b6, #ff6b9d);
         transform: translateY(-50%);
@@ -14237,6 +14239,49 @@ body.connect-wizard main.has-bottom-nav {
 @media (max-width: 1023px) {
     body:has(.bottom-nav) .prompt-above-nav {
         bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+    }
+}
+
+/* =============================================================================
+   LEGAL PROSE (privacy_policy.html, terms_of_service.html)
+   Preflight strips list bullets and block margins; this scoped class restores
+   a readable long-form rhythm for the legal pages without pulling in
+   @tailwindcss/typography's full reset. Headings keep the base scale one step
+   down: h3 = section, h4 = subsection.
+   ============================================================================= */
+@layer components {
+    .legal-prose h3 {
+        @apply mt-10 mb-3 scroll-mt-24 text-xl sm:text-2xl;
+    }
+    .legal-prose h4 {
+        @apply mt-6 mb-2 scroll-mt-24 text-lg;
+    }
+    .legal-prose p {
+        @apply mb-4 leading-relaxed;
+    }
+    .legal-prose ul:not(.list-none) {
+        @apply mb-4 list-disc space-y-1.5 pl-6 leading-relaxed;
+    }
+    .legal-prose ul.list-none {
+        @apply mb-4 space-y-1;
+    }
+    .legal-prose li::marker {
+        @apply text-crush-purple dark:text-crush-pink;
+    }
+    .legal-prose :is(p, li, td) a {
+        @apply text-crush-purple-dark underline underline-offset-2 dark:text-purple-300;
+    }
+    .legal-prose [role="region"] {
+        @apply mb-4 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-crush-purple;
+    }
+    .legal-back-to-contents {
+        @apply fixed left-4 z-40 inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-crush-purple-dark shadow-crush-md dark:border-gray-600 dark:bg-gray-800 dark:text-purple-300 lg:hidden;
+        bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+    }
+    body:has(.bottom-nav) .legal-back-to-contents {
+        bottom: calc(
+            var(--bottom-nav-height) + 1rem + env(safe-area-inset-bottom, 0px)
+        );
     }
 }
 
