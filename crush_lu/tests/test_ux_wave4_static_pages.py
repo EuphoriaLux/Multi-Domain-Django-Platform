@@ -309,3 +309,19 @@ class LegalVersionBumpTests(TestCase):
             self.assertContains(response, "Version 2.1")
             self.assertContains(response, "Last Updated: September 28, 2026")
             self.assertNotContains(response, "Version 2.0 ")
+
+    def test_terms_consent_sentence_names_the_current_version(self):
+        # Codex P1 on #1103: the Acceptance section still said 2.0.
+        cases = {
+            "en": "This version is 2.1.",
+            "de": "Diese Version ist 2.1.",
+            "fr": "Cette version est la 2.1.",
+        }
+        bodies = {}
+        for lang in cases:
+            response = self.client.get(f"/{lang}/terms-of-service/", **HOST)
+            self.assertEqual(response.status_code, 200, lang)
+            bodies[lang] = response.content.decode()
+        for lang, sentence in cases.items():
+            self.assertIn(sentence, bodies[lang], lang)
+            self.assertNotIn(sentence.replace("2.1", "2.0"), bodies[lang], lang)

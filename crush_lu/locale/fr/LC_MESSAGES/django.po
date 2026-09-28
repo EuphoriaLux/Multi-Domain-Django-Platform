@@ -43642,3 +43642,7 @@ msgstr "Nous avons déjà reçu un paiement pour votre demande Premium."
 #: crush_lu/templates/crush_lu/membership.html
 msgid "Contact support about your Premium payment"
 msgstr "Contactez le support au sujet de votre paiement Premium"
+
+#: crush_lu/templates/crush_lu/terms_of_service.html:57
+msgid "Each consent is recorded with your IP address, timestamp, and the version of these Terms you accepted. This version is 2.1."
+msgstr "Chaque consentement est enregistré avec votre adresse IP, un horodatage et la version de ces conditions que vous avez acceptée. Cette version est la 2.1."

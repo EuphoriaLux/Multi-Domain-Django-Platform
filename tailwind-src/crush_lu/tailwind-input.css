@@ -14266,7 +14266,11 @@ body.connect-wizard main.has-bottom-nav {
         @apply mb-4 space-y-1;
     }
     .legal-prose li::marker {
-        @apply text-crush-purple dark:text-crush-pink;
+        @apply text-crush-purple;
+    }
+    /* dark: on ::marker compiles to an invalid ::marker:where() selector. */
+    html.dark .legal-prose li::marker {
+        @apply text-crush-pink;
     }
     .legal-prose :is(p, li, td) a {
         @apply text-crush-purple-dark underline underline-offset-2 dark:text-purple-300;
