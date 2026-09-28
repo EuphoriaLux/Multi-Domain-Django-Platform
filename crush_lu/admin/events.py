@@ -2290,19 +2290,31 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             return
         # 8-13: warn, never block, about newly invited members on a break —
         # direct invited_users and new/changed guest rows in the inline.
-        before = {getattr(u, "pk", u) for u in form.initial.get("invited_users") or []}
-        users = [
-            u
-            for u in form.cleaned_data.get("invited_users") or []
-            if u.pk not in before
-        ]
-        emails = [
-            f.cleaned_data.get("guest_email")
-            for fs in formsets
-            if fs.model is EventInvitation
-            for f in fs.forms
-            if "guest_email" in f.changed_data and not f.cleaned_data.get("DELETE")
-        ]
+        if "is_private_invitation" in form.changed_data:
+            # Turning an event private makes every existing invitee effective.
+            users = list(form.cleaned_data.get("invited_users") or [])
+            emails = list(
+                EventInvitation.objects.filter(event=form.instance).values_list(
+                    "guest_email", flat=True
+                )
+            )
+        else:
+            before = {
+                getattr(u, "pk", u) for u in form.initial.get("invited_users") or []
+            }
+            users = [
+                u
+                for u in form.cleaned_data.get("invited_users") or []
+                if u.pk not in before
+            ]
+            emails = [
+                f.cleaned_data.get("guest_email")
+                for fs in formsets
+                if fs.model is EventInvitation
+                for f in fs.forms
+                if "guest_email" in f.changed_data
+                and not f.cleaned_data.get("DELETE")
+            ]
         from crush_lu.services.on_break import warn_if_inviting_on_break
 
         warn_if_inviting_on_break(request, emails=emails, users=users)

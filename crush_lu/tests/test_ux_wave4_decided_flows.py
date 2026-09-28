@@ -247,7 +247,9 @@ class OnBreakInvitationWarningTests(TestCase):
         texts = [str(m) for m in get_messages(request)]
         self.assertTrue(any("taking a break" in t for t in texts), texts)
 
-    def _event_admin_save_related(self, initial_users, users, guest_forms=()):
+    def _event_admin_save_related(
+        self, initial_users, users, guest_forms=(), changed_data=()
+    ):
         from django.contrib import admin
 
         from crush_lu.admin import crush_admin_site
@@ -261,6 +263,7 @@ class OnBreakInvitationWarningTests(TestCase):
             instance=self.event,
             initial={"invited_users": initial_users},
             cleaned_data={"invited_users": users},
+            changed_data=list(changed_data),
         )
         formsets = [mock.Mock(model=EventInvitation, forms=list(guest_forms))]
         with mock.patch.object(admin.ModelAdmin, "save_related"):
@@ -283,6 +286,33 @@ class OnBreakInvitationWarningTests(TestCase):
             cleaned_data={"guest_email": "resting@crush.lu", "DELETE": False},
         )
         texts = self._event_admin_save_related([], [], guest_forms=[row])
+        self.assertTrue(any("taking a break" in t for t in texts), texts)
+
+    def test_event_admin_warns_existing_invitees_when_made_private(self):
+        # Review P2: public -> private makes unchanged invitees effective.
+        EventInvitation.objects.create(
+            event=self.event,
+            guest_email="resting@crush.lu",
+            guest_first_name="Mia",
+            guest_last_name="Rest",
+        )
+        by_user = self._event_admin_save_related(
+            [self.member], [self.member], changed_data=["is_private_invitation"]
+        )
+        self.assertEqual(len(by_user), 1)
+        self.assertIn("taking a break", by_user[0])
+        self.assertIn("Mia", by_user[0])
+
+    def test_event_admin_warns_unchanged_guest_rows_when_made_private(self):
+        EventInvitation.objects.create(
+            event=self.event,
+            guest_email="resting@crush.lu",
+            guest_first_name="Mia",
+            guest_last_name="Rest",
+        )
+        texts = self._event_admin_save_related(
+            [], [], changed_data=["is_private_invitation"]
+        )
         self.assertTrue(any("taking a break" in t for t in texts), texts)
 
 
