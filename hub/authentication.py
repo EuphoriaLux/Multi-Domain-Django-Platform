@@ -42,3 +42,6 @@ class AdminApiKeyAuthentication(BaseAuthentication):
             )
 
         return (user, None)
+
+    def authenticate_header(self, request):
+        return 'Bearer realm="api"'
