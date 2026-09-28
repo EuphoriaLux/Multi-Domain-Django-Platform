@@ -15,14 +15,14 @@
         <div class="door-content-card">
             <!-- Door number badge -->
             <div class="door-badge mb-4">
-                <span class="badge bg-danger fs-4 px-4 py-2">{% blocktrans with num=door_number %}Day {{ num }}{% endblocktrans %}</span>
+                <span class="inline-block rounded-full bg-advent-red text-white text-xl font-semibold px-4 py-2">{% blocktrans with num=door_number %}Day {{ num }}{% endblocktrans %}</span>
             </div>
 
             {% if was_newly_opened %}
                 <div class="newly-opened-message text-center mb-4">
                     <span style="font-size: 3rem;">✨</span>
-                    <h3 class="text-success">{% trans "Congratulations!" %}</h3>
-                    <p class="text-muted">{% blocktrans with num=door_number %}You've opened Door {{ num }}!{% endblocktrans %}</p>
+                    <h3 class="text-green-700 dark:text-green-400">{% trans "Congratulations!" %}</h3>
+                    <p class="text-muted-fg">{% blocktrans with num=door_number %}You've opened Door {{ num }}!{% endblocktrans %}</p>
                 </div>
             {% endif %}
 
@@ -38,13 +38,13 @@
                 {% if content.photo %}
                     <div class="door-photo text-center my-4">
                         <img src="{{ content.photo.url }}" alt="{{ content.title }}"
-                             class="img-fluid rounded shadow" style="max-height: 400px;">
+                             class="max-w-full h-auto mx-auto rounded-2xl shadow-crush-md" style="max-height: 400px;">
                     </div>
                 {% endif %}
 
                 {% if content.video_file %}
                     <div class="door-video my-4">
-                        <video controls class="w-100 rounded shadow">
+                        <video controls class="w-full rounded-2xl shadow-crush-md">
                             <source src="{{ content.video_file.url }}" type="video/mp4">
                             {% trans "Your browser does not support the video tag." %}
                         </video>
@@ -53,7 +53,7 @@
 
                 {% if content.audio_file %}
                     <div class="door-audio my-4 text-center">
-                        <audio controls class="w-100">
+                        <audio controls class="w-full">
                             <source src="{{ content.audio_file.url }}" type="audio/mpeg">
                             {% trans "Your browser does not support the audio element." %}
                         </audio>
@@ -78,7 +78,7 @@
                         {% if content.bonus_photo %}
                             <div class="bonus-photo text-center mt-3">
                                 <img src="{{ content.bonus_photo.url }}" alt="{% trans "Bonus" %}"
-                                     class="img-fluid rounded" style="max-height: 300px;">
+                                     class="max-w-full h-auto mx-auto rounded-2xl" style="max-height: 300px;">
                             </div>
                         {% endif %}
                     </div>
@@ -86,18 +86,18 @@
                     <!-- Show hint about bonus content -->
                     <div class="bonus-hint text-center mt-4 p-3 rounded-xl border-2 border-dashed border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20">
                         <span style="font-size: 2rem;">🎁</span>
-                        <p class="mb-0 mt-2">
+                        <p class="mt-2">
                             <strong>{% trans "Bonus content available!" %}</strong><br>
-                            <small class="text-muted">{% trans "Scan the QR code on your physical gift to unlock!" %}</small>
+                            <small class="text-muted-fg">{% trans "Scan the QR code on your physical gift to unlock!" %}</small>
                         </p>
                     </div>
                 {% endif %}
 
             {% else %}
-                <div class="no-content text-center py-5">
+                <div class="no-content text-center py-12">
                     <span style="font-size: 3rem;">🎁</span>
                     <h3 class="mt-3">{% trans "Content Coming Soon!" %}</h3>
-                    <p class="text-muted">{% trans "This door's content is being prepared..." %}</p>
+                    <p class="text-muted-fg">{% trans "This door's content is being prepared..." %}</p>
                 </div>
             {% endif %}
 
@@ -159,6 +159,12 @@
 
     .bonus-hint {
         animation: pulse 2s infinite;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .bonus-hint {
+            animation: none;
+        }
     }
 </style>
 {% endblock %}
