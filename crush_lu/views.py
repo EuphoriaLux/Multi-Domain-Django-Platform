@@ -2589,8 +2589,17 @@ def membership(request):
         },
     ]
 
+    from django.conf import settings as _settings
+
+    from .views_premium import premium_monthly_fee
+
     context = {
         "profile": profile,
+        # Free vs Premium comparison (Decision A, finding 1-01): the price is
+        # rendered from SUMUP_PREMIUM_MONTHLY_FEE, never hardcoded.
+        "premium_monthly_fee": premium_monthly_fee(),
+        "premium_invite_only": getattr(_settings, "PREMIUM_REDIRECTS_TO_BETA", False),
+        "is_premium": bool(profile and profile.has_active_premium),
         "referral_url": referral_url,
         "tiers": tiers,
         "current_tier": profile.membership_tier if profile else "basic",

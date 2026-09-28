@@ -24,6 +24,18 @@ from .ios_app_utils import ios_commerce_suppressed
 logger = logging.getLogger(__name__)
 
 
+def premium_monthly_fee():
+    """The Premium monthly price as a Decimal, read from the one setting.
+
+    Shared by the coach picker and the public pricing page (/membership/) so
+    neither can advertise a different amount than the SumUp checkout charges
+    (views_payments.create_sumup_premium_checkout reads the same setting).
+    """
+    from django.conf import settings as _settings
+
+    return Decimal(str(getattr(_settings, "SUMUP_PREMIUM_MONTHLY_FEE", "10.00")))
+
+
 def _available_coaches():
     """Coaches open to new premium members and not yet at capacity.
 
@@ -96,9 +108,7 @@ def premium_choose_coach(request):
         # (views_payments.create_sumup_premium_checkout reads it too). The label
         # used to hard-code "€10.00 / month", so changing SUMUP_PREMIUM_MONTHLY_FEE
         # would have advertised one price and billed another.
-        "premium_monthly_fee": Decimal(
-            str(getattr(_settings, "SUMUP_PREMIUM_MONTHLY_FEE", "10.00"))
-        ),
+        "premium_monthly_fee": premium_monthly_fee(),
     }
     return render(request, "crush_lu/premium/choose_coach.html", context)
 

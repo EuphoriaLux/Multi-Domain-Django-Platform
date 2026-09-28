@@ -43517,3 +43517,60 @@ msgstr "Ajoutez une photo pour reprendre là où vous en étiez."
 msgid "Continue where you left off"
 msgstr "Reprendre là où vous en étiez"
 
+
+# UX Wave 4 · WP5 pricing (finding 1-01)
+#: crush_lu/templates/crush_lu/membership.html
+msgid "Start free. Go Premium when you want a personal coach."
+msgstr ""
+"Commencez gratuitement. Passez à Premium lorsque vous souhaitez un coach "
+"personnel."
+
+#: crush_lu/templates/crush_lu/membership.html
+msgid "Free vs Premium"
+msgstr "Gratuit ou Premium"
+
+#: crush_lu/templates/crush_lu/membership.html
+msgctxt "price"
+msgid "Free"
+msgstr "Gratuit"
+
+#: crush_lu/templates/crush_lu/membership.html
+#: crush_lu/templates/crush_lu/how_it_works.html
+msgid "Free account"
+msgstr "Compte gratuit"
+
+#: crush_lu/templates/crush_lu/membership.html
+#: crush_lu/templates/crush_lu/how_it_works.html
+msgid "Events from €0"
+msgstr "Événements dès 0 €"
+
+#: crush_lu/templates/crush_lu/membership.html
+#: crush_lu/templates/crush_lu/how_it_works.html
+msgid "Premium optional"
+msgstr "Premium en option"
+
+#: crush_lu/templates/crush_lu/membership.html
+#, python-format
+msgid "€%(amount)s / month"
+msgstr "%(amount)s € / mois"
+
+#: crush_lu/templates/crush_lu/membership.html
+msgid "Go Premium"
+msgstr "Passez à Premium"
+
+#: crush_lu/templates/crush_lu/membership.html
+msgctxt "membership page section"
+msgid "Rewards"
+msgstr "Récompenses"
+
+#: crush_lu/templates/crush_lu/home.html
+msgid ""
+"Our coaches host every event and welcome you in person. Want a personal "
+"coach by your side?"
+msgstr ""
+"Nos coachs organisent chaque événement et vous accueillent en personne. Vous"
+" voulez un coach personnel à vos côtés ?"
+
+#: crush_lu/templates/crush_lu/home.html
+msgid "That's Premium."
+msgstr "C'est Premium."
