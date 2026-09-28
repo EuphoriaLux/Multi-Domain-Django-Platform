@@ -1,0 +1,6 @@
+{% load i18n %}
+{# The swappable results region: poll_detail renders it in place and poll_vote returns it as results_html, so the in-page swap keeps the section heading. #}
+<div class="mt-10">
+    <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">{% trans "Current Results" %}</h2>
+    {% include 'crush_lu/event_polls/_poll_results_partial.html' %}
+</div>

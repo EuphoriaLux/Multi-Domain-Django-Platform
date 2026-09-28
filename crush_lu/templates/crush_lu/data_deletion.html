@@ -12,7 +12,7 @@
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
             <div class="p-5 sm:p-8">
                 {% include "crush_lu/components/page_header.html" with title=_("Data Deletion Request") class="mb-4" %}
-                <p class="text-gray-500 dark:text-gray-400 mb-6"><small>{% trans "Last Updated: January 14, 2025" %}</small></p>
+                <p class="text-muted-fg mb-6"><small>{% trans "Last Updated: January 14, 2025" %}</small></p>
 
                 <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-4 mb-6 flex items-start gap-3">
                     {% include "shared/icons/info.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
@@ -68,7 +68,7 @@
                     <span><strong>{% trans "Warning:" %}</strong> {% trans "Account deletion is permanent and cannot be undone." %}</span>
                 </div>
                 <ol class="list-decimal list-inside space-y-2 mb-6 text-gray-700 dark:text-gray-300">
-                    <li>{% trans "Go to your" %} <a href="{% url 'crush_lu:dashboard' %}" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Dashboard" %}</a></li>
+                    <li>{% trans "Go to your" %} <a href="{% url 'crush_lu:dashboard' %}" class="text-purple-600 dark:text-purple-300 hover:underline">{% trans "Dashboard" %}</a></li>
                     <li>{% trans "Click on \"Account Settings\"" %}</li>
                     <li>{% trans "Scroll to \"Delete Account\" section" %}</li>
                     <li>{% trans "Click \"Delete My Account\" and confirm" %}</li>
@@ -177,7 +177,7 @@
                     {% trans "For questions about data deletion or privacy concerns:" %}
                 </p>
                 <ul class="space-y-2 mb-6 text-gray-700 dark:text-gray-300">
-                    <li><strong>{% trans "Email:" %}</strong> <a href="mailto:privacy@crush.lu" class="text-purple-600 dark:text-purple-400 hover:underline">privacy@crush.lu</a></li>
+                    <li><strong>{% trans "Email:" %}</strong> <a href="mailto:privacy@crush.lu" class="text-purple-600 dark:text-purple-300 hover:underline">privacy@crush.lu</a></li>
                     <li><strong>{% trans "Subject:" %}</strong> {% trans "\"Data Deletion Request\" or \"Privacy Inquiry\"" %}</li>
                     <li><strong>{% trans "Response Time:" %}</strong> {% trans "Within 48 hours" %}</li>
                 </ul>
@@ -208,10 +208,10 @@
                 </div>
 
                 <div class="text-center">
-                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">
+                    <p class="text-muted-fg text-sm mb-4">
                         {% trans "For more information, see our" %}
-                        <a href="{% url 'crush_lu:privacy_policy' %}" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Privacy Policy" %}</a> {% trans "and" %}
-                        <a href="{% url 'crush_lu:terms_of_service' %}" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Terms of Service" %}</a>.
+                        <a href="{% url 'crush_lu:privacy_policy' %}" class="text-purple-600 dark:text-purple-300 hover:underline">{% trans "Privacy Policy" %}</a> {% trans "and" %}
+                        <a href="{% url 'crush_lu:terms_of_service' %}" class="text-purple-600 dark:text-purple-300 hover:underline">{% trans "Terms of Service" %}</a>.
                     </p>
                     <a href="{% url 'crush_lu:home' %}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
                         {% trans "Back to Home" %}

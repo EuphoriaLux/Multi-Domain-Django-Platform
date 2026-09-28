@@ -68,13 +68,13 @@
             <template x-if="isEditing">
                 <div>
                     <h1 class="font-display text-2xl md:text-3xl font-semibold italic leading-tight tracking-tight text-crush-dark dark:text-white mb-3">{% trans "Edit Your Profile" %}</h1>
-                    <p class="text-gray-500 dark:text-gray-400">{% trans "Update your profile information" %}</p>
+                    <p class="text-muted-fg">{% trans "Update your profile information" %}</p>
                 </div>
             </template>
             <template x-if="isNotEditing">
                 <div>
                     <h1 class="font-display text-2xl md:text-3xl font-semibold italic leading-tight tracking-tight text-crush-dark dark:text-white mb-3">{% trans "Welcome to Crush!" %}</h1>
-                    <p class="text-gray-500 dark:text-gray-400">{% trans "Let's create your profile in just a few steps" %}</p>
+                    <p class="text-muted-fg">{% trans "Let's create your profile in just a few steps" %}</p>
                 </div>
             </template>
 
@@ -150,10 +150,10 @@
               competing with the journey rail above.
             {% endcomment %}
             <div class="mt-4 flex items-baseline justify-between gap-3">
-                <span class="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 dark:text-gray-500">
+                <span class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-fg">
                     {% trans "Build your profile" %}
                 </span>
-                <span class="text-xs font-medium tabular-nums text-crush-purple dark:text-purple-300" x-text="stepLabel"></span>
+                <span class="text-xs font-medium tabular-nums text-crush-purple-dark dark:text-purple-300" x-text="stepLabel"></span>
             </div>
             {% endif %}
         </div>
@@ -254,7 +254,7 @@
 
                 <div class="mb-6">
                     <h3 class="font-display text-2xl font-semibold italic leading-tight tracking-tight text-crush-dark dark:text-white">{% trans "Basic Information" %}</h3>
-                    <p class="mt-1.5 text-[13px] leading-normal text-gray-500 dark:text-gray-400">{% trans "Let's start with the essentials" %}</p>
+                    <p class="mt-1.5 text-[13px] leading-normal text-muted-fg">{% trans "Let's start with the essentials" %}</p>
                 </div>
 
                 {% comment %}
@@ -382,7 +382,7 @@
                         </div>
                     </div>
                     {% if form.gender.errors %}
-                        <p class="text-sm text-red-600 mt-2 flex items-center gap-1" role="alert">
+                        <p class="text-sm text-red-700 dark:text-red-400 mt-2 flex items-center gap-1" role="alert">
                             {% include "shared/icons/exclamation-circle.html" with class="w-4 h-4" %}
                             {{ form.gender.errors.0 }}
                         </p>
@@ -452,7 +452,7 @@
                     </div>
 
                     {% if form.location.errors %}
-                        <div class="canton-map-error mt-2 text-sm text-red-600 flex items-center gap-1">
+                        <div class="canton-map-error mt-2 text-sm text-red-700 dark:text-red-400 flex items-center gap-1">
                             {% include "shared/icons/exclamation-circle.html" with class="w-4 h-4" %}
                             {{ form.location.errors.0 }}
                         </div>
@@ -521,14 +521,14 @@
 
                 <div class="mb-6">
                     <h3 class="font-display text-2xl font-semibold italic leading-tight tracking-tight text-crush-dark dark:text-white">{% trans "Your Event Identity" %}</h3>
-                    <p class="mt-1.5 text-[13px] leading-normal text-gray-500 dark:text-gray-400">{% trans "This is what people will discover about you at our events — no long bio needed. (All optional.)" %}</p>
+                    <p class="mt-1.5 text-[13px] leading-normal text-muted-fg">{% trans "This is what people will discover about you at our events — no long bio needed. (All optional.)" %}</p>
                 </div>
 
                 {# --- Vibe: qualities & defects --- #}
                 <div class="mb-8">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                         {% include "shared/icons/sparkles.html" with class="w-5 h-5" %} {% trans "Your vibe" %}
-                        <span class="text-xs text-gray-400 font-normal ml-1">{% trans "Optional" %}</span>
+                        <span class="text-xs text-muted-fg font-normal ml-1">{% trans "Optional" %}</span>
                     </label>
 
                     <div class="mb-5"
@@ -538,11 +538,11 @@
                          data-initial="{{ selected_qualities_json }}">
                         <div class="flex items-center justify-between mb-2">
                             <span class="text-sm font-medium text-gray-700 dark:text-gray-200">{% trans "My Qualities" %}</span>
-                            <span class="text-sm font-semibold text-purple-600 dark:text-purple-400" x-text="counterText"></span>
+                            <span class="text-sm font-semibold text-purple-600 dark:text-purple-300" x-text="counterText"></span>
                         </div>
                         {% for cat in qualities_grouped %}
                         <div class="mb-3">
-                            <div class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">{{ cat.label }}</div>
+                            <div class="text-xs font-semibold uppercase tracking-wider text-muted-fg mb-1.5">{{ cat.label }}</div>
                             <div class="flex flex-wrap gap-2">
                                 {% for trait in cat.traits %}
                                 <button type="button" data-trait-id="{{ trait.pk }}" @click="handleClick"
@@ -566,7 +566,7 @@
                         </div>
                         {% for cat in defects_grouped %}
                         <div class="mb-3">
-                            <div class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">{{ cat.label }}</div>
+                            <div class="text-xs font-semibold uppercase tracking-wider text-muted-fg mb-1.5">{{ cat.label }}</div>
                             <div class="flex flex-wrap gap-2">
                                 {% for trait in cat.traits %}
                                 <button type="button" data-trait-id="{{ trait.pk }}" @click="handleClick"
@@ -589,12 +589,12 @@
                         </label>
                         <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink"><span x-text="interestCount">{{ event_identity_selected_ids|length }}</span>/8</span>
                     </div>
-                    <p class="text-gray-400 dark:text-gray-500 text-xs mb-3">{% trans "Pick up to 8 — these appear as chips at events." %}</p>
+                    <p class="text-muted-fg text-xs mb-3">{% trans "Pick up to 8 — these appear as chips at events." %}</p>
 
                     {% regroup event_identity_interests by get_category_display as interest_groups %}
                     {% for group in interest_groups %}
                     <div class="mb-3">
-                        <div class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">{{ group.grouper }}</div>
+                        <div class="text-xs font-semibold uppercase tracking-wider text-muted-fg mb-1.5">{{ group.grouper }}</div>
                         <div class="flex flex-wrap gap-2">
                             {% for interest in group.list %}
                             <label class="cursor-pointer block">
@@ -613,8 +613,8 @@
                             <span class="block text-sm font-medium text-gray-700 dark:text-gray-200">{% trans "Ask me about…" %}</span>
                             <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink"><span x-text="askMeCount">{{ event_identity_ask_me_about|length }}</span>/3</span>
                         </div>
-                        <p class="text-gray-400 dark:text-gray-500 text-xs mb-3">{% trans "Highlight up to 3 of your interests as conversation starters." %}</p>
-                        <p data-askme-empty class="{% if event_identity_selected_ids %}hidden {% endif %}text-gray-400 dark:text-gray-500 text-sm italic">{% trans "Select some interests above first." %}</p>
+                        <p class="text-muted-fg text-xs mb-3">{% trans "Highlight up to 3 of your interests as conversation starters." %}</p>
+                        <p data-askme-empty class="{% if event_identity_selected_ids %}hidden {% endif %}text-muted-fg text-sm italic">{% trans "Select some interests above first." %}</p>
                         <div class="flex flex-wrap gap-2">
                             {% for interest in event_identity_interests %}
                             <span data-askme-wrap data-interest-id="{{ interest.pk }}" class="{% if interest.pk not in event_identity_selected_ids %}hidden {% endif %}inline-block">
@@ -634,7 +634,7 @@
                 <div class="mb-6">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                         {% include "shared/icons/musical-note.html" with class="w-5 h-5" %} {% trans "My event vibe" %}
-                        <span class="text-xs text-gray-400 font-normal ml-1">{% trans "Optional" %}</span>
+                        <span class="text-xs text-muted-fg font-normal ml-1">{% trans "Optional" %}</span>
                     </label>
                     <div class="flex flex-wrap gap-2">
                         {% for value, label in event_vibe_choices %}
@@ -713,7 +713,7 @@
 
                 <div class="mb-6">
                     <h3 class="font-display text-2xl font-semibold italic leading-tight tracking-tight text-crush-dark dark:text-white">{% trans "Add Photos" %}</h3>
-                    <p class="mt-1.5 text-[13px] leading-normal text-gray-500 dark:text-gray-400">{% trans "Add 1–3 photos. Optional, but recommended." %}</p>
+                    <p class="mt-1.5 text-[13px] leading-normal text-muted-fg">{% trans "Add 1–3 photos. Optional, but recommended." %}</p>
                 </div>
 
                 <!-- Photo Upload Grid - smaller gap on mobile for better fit -->
@@ -736,7 +736,7 @@
                             <div x-show="photo1HasImage" class="w-full h-full">
                                 <img x-bind:src="photo1Preview" class="w-full h-full object-cover" alt="Photo preview">
                             </div>
-                            <div x-show="photo1NoImage" class="w-full h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
+                            <div x-show="photo1NoImage" class="w-full h-full flex flex-col items-center justify-center text-muted-fg">
                                 <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -764,7 +764,7 @@
                             <div x-show="photo2HasImage" class="w-full h-full">
                                 <img x-bind:src="photo2Preview" class="w-full h-full object-cover" alt="Photo preview">
                             </div>
-                            <div x-show="photo2NoImage" class="w-full h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
+                            <div x-show="photo2NoImage" class="w-full h-full flex flex-col items-center justify-center text-muted-fg">
                                 <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -792,7 +792,7 @@
                             <div x-show="photo3HasImage" class="w-full h-full">
                                 <img x-bind:src="photo3Preview" class="w-full h-full object-cover" alt="Photo preview">
                             </div>
-                            <div x-show="photo3NoImage" class="w-full h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
+                            <div x-show="photo3NoImage" class="w-full h-full flex flex-col items-center justify-center text-muted-fg">
                                 <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -837,7 +837,7 @@
                                    class="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                             <div>
                                 <span class="font-medium dark:text-white">{% trans "Show my full name" %}</span>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Otherwise only your first name will be shown" %}</p>
+                                <p class="text-sm text-muted-fg">{% trans "Otherwise only your first name will be shown" %}</p>
                             </div>
                         </label>
 
@@ -847,7 +847,7 @@
                                    class="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                             <div>
                                 <span class="font-medium dark:text-white">{% trans "Show my exact age" %}</span>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Otherwise show age range (e.g., 25-29)" %}</p>
+                                <p class="text-sm text-muted-fg">{% trans "Otherwise show age range (e.g., 25-29)" %}</p>
                             </div>
                         </label>
 
@@ -863,7 +863,7 @@
                         {% trans "Languages for Events" %}
                         <span class="text-red-500 text-sm">*</span>
                     </h5>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{% trans "Which languages can you speak at in-person events?" %}</p>
+                    <p class="text-sm text-muted-fg mb-3">{% trans "Which languages can you speak at in-person events?" %}</p>
                     <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-lg p-3 mb-4">
                         <p class="text-sm text-amber-800 dark:text-amber-300 flex items-start gap-2">
                             <svg class="w-4 h-4 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -970,7 +970,7 @@
 
                 <div class="mb-6">
                     <h3 class="font-display text-2xl font-semibold italic leading-tight tracking-tight text-crush-dark dark:text-white">{% trans "Review & Submit" %}</h3>
-                    <p class="mt-1.5 text-[13px] leading-normal text-gray-500 dark:text-gray-400">{% trans "Almost done! Review your information" %}</p>
+                    <p class="mt-1.5 text-[13px] leading-normal text-muted-fg">{% trans "Almost done! Review your information" %}</p>
                 </div>
 
                 {% comment %}
@@ -986,7 +986,7 @@
                             {% include "shared/icons/camera.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
                         <div class="flex-1">
-                            <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Photos" %}</span>
+                            <span class="text-sm text-muted-fg">{% trans "Photos" %}</span>
                             <div class="mt-1 flex gap-2" x-ref="reviewPhotos" data-empty="{% trans 'No photos yet' %}" data-empty-nudge="{% trans 'Members recognise you at events by your photo — add one.' %}">
                                 {% if profile and profile.photo_1 %}<img src="{% profile_photo_url profile 'photo_1' %}" alt="" class="h-14 w-14 rounded-lg object-cover">{% endif %}
                                 {% if profile and profile.photo_2 %}<img src="{% profile_photo_url profile 'photo_2' %}" alt="" class="h-14 w-14 rounded-lg object-cover">{% endif %}
@@ -1006,14 +1006,14 @@
                             {% include "shared/icons/sparkles.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
                         <div class="min-w-0 flex-1">
-                            <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Your Event Identity" %}</span>
+                            <span class="text-sm text-muted-fg">{% trans "Your Event Identity" %}</span>
                             {# Server-rendered so a direct resume on Review (wizard_step→4, updateReview never runs) still shows the saved chips; JS rebuilds the identical set from the checked boxes when it does run. #}
                             <div class="flex flex-wrap gap-1.5 mt-1" x-ref="reviewInterests" data-empty="{% trans 'Nothing selected yet (optional)' %}">
                                 {% if event_identity_vibe or event_identity_selected_ids %}
                                     {% for value, label in event_vibe_choices %}{% if value == event_identity_vibe %}<span class="inline-block px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">{{ label }}</span>{% endif %}{% endfor %}
                                     {% for interest in event_identity_interests %}{% if interest.pk in event_identity_selected_ids %}<span class="inline-block px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">{{ interest.label }}</span>{% endif %}{% endfor %}
                                 {% else %}
-                                    <span class="text-gray-400 dark:text-gray-500 italic text-sm">{% trans "Nothing selected yet (optional)" %}</span>
+                                    <span class="text-muted-fg italic text-sm">{% trans "Nothing selected yet (optional)" %}</span>
                                 {% endif %}
                             </div>
                         </div>
@@ -1024,7 +1024,7 @@
                             {% include "shared/icons/globe-alt.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
                         <div class="flex-1">
-                            <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Languages for Events" %}</span>
+                            <span class="text-sm text-muted-fg">{% trans "Languages for Events" %}</span>
                             <p class="font-medium uppercase dark:text-white" x-ref="reviewLanguages" data-empty="{% trans 'None selected yet' %}">{% if profile and profile.event_languages %}{{ profile.event_languages|join:" · " }}{% else %}{% trans "None selected yet" %}{% endif %}</p>
                         </div>
                         <button type="button" data-goto-step="3" @click="editSection" aria-label="{% trans 'Edit languages for events' %}" class="btn-crush-outline btn-sm flex-shrink-0">{% trans "Edit" %}</button>
@@ -1034,7 +1034,7 @@
                             {% include "shared/icons/phone.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
                         <div class="flex-1">
-                            <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Phone Number" %}</span>
+                            <span class="text-sm text-muted-fg">{% trans "Phone Number" %}</span>
                             <p class="font-medium dark:text-white" x-ref="reviewPhone" data-empty="{% trans 'Not provided' %}">{% if profile and profile.phone_number %}{{ profile.phone_number }}{% else %}{% trans "Not provided" %}{% endif %}</p>
                         </div>
                         {% comment %}
@@ -1053,7 +1053,7 @@
                             {% include "shared/icons/calendar.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
                         <div class="flex-1">
-                            <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Date of Birth" %}</span>
+                            <span class="text-sm text-muted-fg">{% trans "Date of Birth" %}</span>
                             <p class="font-medium dark:text-white" x-ref="reviewDob" data-empty="{% trans 'Not provided' %}">{% if profile and profile.date_of_birth %}{{ profile.date_of_birth|date:"j M Y" }}{% else %}{% trans "Not provided" %}{% endif %}</p>
                         </div>
                         <button type="button" data-goto-step="1" @click="editSection" aria-label="{% trans 'Edit date of birth' %}" class="btn-crush-outline btn-sm flex-shrink-0">{% trans "Edit" %}</button>
@@ -1063,7 +1063,7 @@
                             {% include "shared/icons/user.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
                         <div class="flex-1">
-                            <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Gender" %}</span>
+                            <span class="text-sm text-muted-fg">{% trans "Gender" %}</span>
                             <p class="font-medium dark:text-white" x-ref="reviewGender" data-empty="{% trans 'Not selected' %}">{% if profile and profile.gender %}{{ profile.get_gender_display }}{% else %}{% trans "Not selected" %}{% endif %}</p>
                         </div>
                         <button type="button" data-goto-step="1" @click="editSection" aria-label="{% trans 'Edit gender' %}" class="btn-crush-outline btn-sm flex-shrink-0">{% trans "Edit" %}</button>
@@ -1073,7 +1073,7 @@
                             {% include "shared/icons/map-pin.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
                         <div class="flex-1">
-                            <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Location" %}</span>
+                            <span class="text-sm text-muted-fg">{% trans "Location" %}</span>
                             <p class="font-medium dark:text-white" x-ref="reviewLocation" data-empty="{% trans 'Not selected' %}">{% if profile and profile.location %}{{ profile.location }}{% else %}{% trans "Not selected" %}{% endif %}</p>
                         </div>
                         <button type="button" data-goto-step="1" @click="editSection" aria-label="{% trans 'Edit location' %}" class="btn-crush-outline btn-sm flex-shrink-0">{% trans "Edit" %}</button>
@@ -1092,21 +1092,21 @@
                             <div class="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center flex-shrink-0 font-semibold">1</div>
                             <div>
                                 <h6 class="font-medium dark:text-white">{% trans "Profile Complete" %}</h6>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Your profile is ready — you're almost there!" %}</p>
+                                <p class="text-sm text-muted-fg">{% trans "Your profile is ready — you're almost there!" %}</p>
                             </div>
                         </div>
                         <div class="flex gap-4">
                             <div class="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center flex-shrink-0 font-semibold">2</div>
                             <div>
                                 <h6 class="font-medium dark:text-white">{% trans "Get Verified" %}</h6>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Come to an event and a coach verifies you in person, or connect your LuxID in seconds — no waiting." %}</p>
+                                <p class="text-sm text-muted-fg">{% trans "Come to an event and a coach verifies you in person, or connect your LuxID in seconds — no waiting." %}</p>
                             </div>
                         </div>
                         <div class="flex gap-4">
                             <div class="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center flex-shrink-0 font-semibold">3</div>
                             <div>
                                 <h6 class="font-medium dark:text-white">{% trans "Start Connecting" %}</h6>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Join events and start meeting real people!" %}</p>
+                                <p class="text-sm text-muted-fg">{% trans "Join events and start meeting real people!" %}</p>
                             </div>
                         </div>
                     </div>

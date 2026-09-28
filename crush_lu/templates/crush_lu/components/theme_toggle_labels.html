@@ -1,0 +1,6 @@
+{% load i18n %}{% comment %}
+Translated status / aria copy for the themeToggle Alpine component, as
+data-label-* attributes. Include it inside the x-data="themeToggle" tag:
+<div x-data="themeToggle" {% include "crush_lu/components/theme_toggle_labels.html" %}>
+Keys match THEME_TOGGLE_LABELS in js/alpine/core.js.
+{% endcomment %}data-label-system-dark="{% trans "System (Dark)" %}" data-label-system-light="{% trans "System (Light)" %}" data-label-dark-mode="{% trans "Dark Mode" %}" data-label-light-mode="{% trans "Light Mode" %}" data-label-switch-light-mode="{% trans "Switch to light mode" %}" data-label-switch-dark-mode="{% trans "Switch to dark mode" %}" data-label-dark="{% trans "Dark" %}" data-label-light="{% trans "Light" %}" data-label-switch-light="{% trans "Switch to Light" %}" data-label-switch-dark="{% trans "Switch to Dark" %}"
