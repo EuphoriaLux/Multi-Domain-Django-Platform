@@ -8,12 +8,12 @@
 <div class="flex justify-center">
     <div class="w-full max-w-3xl">
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
-            <div class="p-8">
+            <div class="legal-prose p-8">
                 <h1 class="text-3xl font-bold dark:text-white mb-4">{% trans "Privacy Policy" %}</h1>
-                <p class="text-muted mb-4"><small>{% trans "Last Updated: February 24, 2026" %} — {% trans "Version 2.0" %}</small></p>
+                <p class="text-muted mb-4"><small>{% trans "Last Updated: September 28, 2026" %} — {% trans "Version 2.1" %}</small></p>
 
                 <!-- Table of Contents -->
-                <nav class="mb-8 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <nav id="legal-contents" class="mb-8 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg scroll-mt-24">
                     <h2 class="text-lg font-semibold dark:text-white mb-3">{% trans "Table of Contents" %}</h2>
                     <ol class="list-decimal list-inside space-y-1 text-sm text-gray-600 dark:text-gray-300">
                         <li><a href="#pp-controller" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Controller Identity" %}</a></li>
@@ -46,7 +46,7 @@
                     <li><strong>{% trans "Supervisory Authority:" %}</strong> {% trans "Commission nationale pour la protection des données (CNPD), 15 Boulevard du Jazz, L-4370 Belvaux, Luxembourg" %}</li>
                 </ul>
                 <p>
-                    {% trans "This Privacy Policy applies to Version 2.0 of our terms. Your consent records reference this version number for traceability." %}
+                    {% trans "This Privacy Policy applies to Version 2.1 of our terms. Your consent records reference this version number for traceability." %}
                 </p>
 
                 <!-- 2. Scope -->
@@ -58,17 +58,17 @@
                     {% trans "Crush.lu uses a two-tier architecture:" %}
                 </p>
                 <ul>
-                    <li><strong>{% trans "PowerUp Account:" %}</strong> {% trans "Your identity layer — email, name, and authentication credentials. This account may be shared with other platforms operated by us." %}</li>
+                    <li><strong>{% trans "Crush.lu account:" %}</strong> {% trans "Your identity layer — email, name, and authentication credentials. This account may be shared with other platforms operated by us." %}</li>
                     <li><strong>{% trans "Crush.lu Profile:" %}</strong> {% trans "Your dating profile — photos, bio, interests, event history, and connections. This data is specific to Crush.lu and subject to separate consent." %}</li>
                 </ul>
                 <p>
-                    {% trans "Each tier requires separate, explicit consent. You may delete your Crush.lu Profile while keeping your PowerUp Account, or delete everything." %}
+                    {% trans "Each tier requires separate, explicit consent. You may delete your Crush.lu Profile while keeping your Crush.lu account, or delete everything." %}
                 </p>
 
                 <!-- 3. Data We Collect -->
                 <h3 id="pp-data-collect">{% trans "3. Data We Collect" %}</h3>
 
-                <h5>{% trans "3.1 Identity Data" %}</h5>
+                <h4>{% trans "3.1 Identity Data" %}</h4>
                 <p>{% trans "When you create an account, we collect:" %}</p>
                 <ul>
                     <li>{% trans "Email address and username" %}</li>
@@ -77,7 +77,7 @@
                     <li>{% trans "Password (stored as a salted hash — we never store your password in plain text)" %}</li>
                 </ul>
 
-                <h5>{% trans "3.2 Social Login Data" %}</h5>
+                <h4>{% trans "3.2 Social Login Data" %}</h4>
                 <p>{% trans "If you register or log in via Google, Facebook, Microsoft, or LinkedIn, we receive:" %}</p>
                 <ul>
                     <li>{% trans "Your public profile information (name, email, profile picture)" %}</li>
@@ -86,7 +86,7 @@
                 </ul>
                 <p>{% trans "During the OAuth flow, we temporarily store an OAuthState record containing your IP address and user agent for security verification. This record auto-expires after 10 minutes." %}</p>
 
-                <h5>{% trans "3.3 Profile Data" %}</h5>
+                <h4>{% trans "3.3 Profile Data" %}</h4>
                 <p>{% trans "When you create your Crush.lu Profile, we collect:" %}</p>
                 <ul>
                     <li><strong>{% trans "Gender" %}</strong> — {% trans "male, female, non-binary, other, or prefer not to say" %}</li>
@@ -97,11 +97,11 @@
                     <li><strong>{% trans "Looking for" %}</strong> — {% trans "friends, dating, both, or networking" %}</li>
                     <li><strong>{% trans "Language preferences" %}</strong> — {% trans "preferred interface language and languages spoken at events" %}</li>
                     <li><strong>{% trans "Photos" %}</strong> — {% trans "up to 3 profile photos, stored in a private Azure Blob Storage container with time-limited access tokens (see Section 13)" %}</li>
-                    <li><strong>{% trans "Privacy flags" %}</strong> — {% trans "your choices for: display full name or first name only, show exact age or age range, blur photos until mutual interest" %}</li>
+                    <li><strong>{% trans "Privacy flags" %}</strong> — {% trans "your choices for: display full name or first name only, show exact age or age range" %}</li>
                     <li><strong>{% trans "Draft data" %}</strong> — {% trans "if you save a partially completed profile, we temporarily store your progress" %}</li>
                 </ul>
 
-                <h5>{% trans "3.4 Verification Data" %}</h5>
+                <h4>{% trans "3.4 Verification Data" %}</h4>
                 <p>{% trans "Members are verified before accessing members-only events — in person by an authorised Crush Coach at an event, or via LuxID digital identity. The following data may be created during verification:" %}</p>
                 <ul>
                     <li>{% trans "Profile submission status (pending, approved, rejected, revision requested, recontact coach)" %}</li>
@@ -113,7 +113,7 @@
                     <li>{% trans "Pre-screening questionnaire responses: your self-reported answers to a short optional questionnaire that prepares your Coach for the review call (logistics, expectations, own-words text answers, and explicit consents). A rule-based Readiness Score and attention flags are computed from these answers to help your Coach prioritise — they are advisory only and never used to auto-decide on your profile." %}</li>
                 </ul>
 
-                <h5>{% trans "3.5 Event Data" %}</h5>
+                <h4>{% trans "3.5 Event Data" %}</h4>
                 <p>{% trans "When you register for or attend events, we collect:" %}</p>
                 <ul>
                     <li>{% trans "Registration details: event, status (pending, confirmed, waitlist, cancelled, attended, no-show)" %}</li>
@@ -128,7 +128,7 @@
                     <li>{% trans "Speed dating pair assignments and round data" %}</li>
                 </ul>
 
-                <h5>{% trans "3.6 Connections & Messaging Data" %}</h5>
+                <h4>{% trans "3.6 Connections & Messaging Data" %}</h4>
                 <p>{% trans "After attending an event, you may request connections with other attendees:" %}</p>
                 <ul>
                     <li>{% trans "Connection requests: who you requested, your note (up to 300 characters), status" %}</li>
@@ -138,7 +138,7 @@
                     <li>{% trans "Coach moderation flags on messages" %}</li>
                 </ul>
 
-                <h5>{% trans "3.7 Crush Spark Data" %}</h5>
+                <h4>{% trans "3.7 Crush Spark Data" %}</h4>
                 <p>{% trans "Crush Spark is our anonymous admirer feature. If you send or receive a Spark, we process:" %}</p>
                 <ul>
                     <li>{% trans "Anonymous description of the person you liked (text only, reviewed by a coach)" %}</li>
@@ -149,7 +149,7 @@
                 </ul>
                 <p>{% trans "The sender's identity remains anonymous until the recipient completes the full journey. Once delivered, a Spark cannot be withdrawn." %}</p>
 
-                <h5>{% trans "3.8 Journey & Advent Calendar Data" %}</h5>
+                <h4>{% trans "3.8 Journey & Advent Calendar Data" %}</h4>
                 <p>{% trans "Interactive journeys (Wonderland, Advent Calendars, custom experiences) involve:" %}</p>
                 <ul>
                     <li>{% trans "Progress tracking: current chapter, points earned, time spent" %}</li>
@@ -160,7 +160,7 @@
                     <li>{% trans "Advent Calendar progress: doors opened, QR code scans, visit timestamps" %}</li>
                 </ul>
 
-                <h5>{% trans "3.9 Wallet & Loyalty Data" %}</h5>
+                <h4>{% trans "3.9 Wallet & Loyalty Data" %}</h4>
                 <p>{% trans "If you add your Crush.lu pass to Apple Wallet or Google Wallet:" %}</p>
                 <ul>
                     <li>{% trans "Apple Wallet: pass serial number, authentication token, device library identifier, APNS push token" %}</li>
@@ -174,7 +174,7 @@
                     <li>{% trans "Referral points and membership tier (basic, bronze, silver, gold)" %}</li>
                 </ul>
 
-                <h5>{% trans "3.10 Notification Data" %}</h5>
+                <h4>{% trans "3.10 Notification Data" %}</h4>
                 <p>{% trans "To deliver notifications, we collect:" %}</p>
                 <ul>
                     <li><strong>{% trans "Push notifications:" %}</strong> {% trans "subscription endpoint URL, encryption keys (p256dh, auth), device fingerprint, user agent, device name" %}</li>
@@ -182,17 +182,17 @@
                     <li><strong>{% trans "Notification preferences:" %}</strong> {% trans "which types of push notifications you wish to receive (messages, events, connections, profile updates)" %}</li>
                 </ul>
 
-                <h5>{% trans "3.11 Device & Activity Data" %}</h5>
+                <h4>{% trans "3.11 Device & Activity Data" %}</h4>
                 <ul>
                     <li><strong>{% trans "Activity tracking:" %}</strong> {% trans "last seen timestamp, last PWA visit, total visit count, first seen timestamp" %}</li>
                     <li><strong>{% trans "PWA installation:" %}</strong> {% trans "device fingerprint, operating system, form factor (phone, tablet, desktop), browser name, full user agent string, installation and last-used timestamps" %}</li>
                     <li><strong>{% trans "Re-engagement:" %}</strong> {% trans "last reminder email sent, total reminders sent count" %}</li>
                 </ul>
 
-                <h5>{% trans "3.12 Consent Records" %}</h5>
+                <h4>{% trans "3.12 Consent Records" %}</h4>
                 <p>{% trans "We maintain detailed records of your consent as required by GDPR:" %}</p>
                 <ul>
-                    <li>{% trans "Two-tier consent: separate records for PowerUp Account and Crush.lu Profile, each with IP address, timestamp, and terms version accepted" %}</li>
+                    <li>{% trans "Two-tier consent: separate records for Crush.lu account and Crush.lu Profile, each with IP address, timestamp, and terms version accepted" %}</li>
                     <li>{% trans "Marketing consent: separate opt-in with timestamp" %}</li>
                     <li>{% trans "Ban records: if applicable, ban date and reason (user deletion, admin action, terms violation)" %}</li>
                 </ul>
@@ -201,7 +201,7 @@
                 <h3 id="pp-how-use">{% trans "4. How We Use Your Data" %}</h3>
                 <p>{% trans "The following table describes how we use your data and our legal basis under Article 6 GDPR:" %}</p>
 
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto" tabindex="0" role="region" aria-label="{% trans "How We Use Your Data" %}">
                     <table class="min-w-full text-sm border dark:border-gray-600 mb-4">
                         <thead>
                             <tr class="bg-gray-50 dark:bg-gray-700">
@@ -297,7 +297,7 @@
                 <!-- 6. Data Sharing -->
                 <h3 id="pp-sharing">{% trans "6. Data Sharing" %}</h3>
 
-                <h5>{% trans "6.1 With Crush Coaches" %}</h5>
+                <h4>{% trans "6.1 With Crush Coaches" %}</h4>
                 <p>{% trans "Our authorised Crush Coaches can access:" %}</p>
                 <ul>
                     <li>{% trans "Your profile information, photos, bio, and interests (for review and approval)" %}</li>
@@ -307,7 +307,7 @@
                 </ul>
                 <p>{% trans "Coaches cannot see: your password, your raw IP addresses, your device fingerprints, your email preferences, or your push subscription technical data." %}</p>
 
-                <h5>{% trans "6.2 With Other Users" %}</h5>
+                <h4>{% trans "6.2 With Other Users" %}</h4>
                 <p>{% trans "What other users can see is controlled by your privacy settings:" %}</p>
                 <ul>
                     <li>{% trans "Display name: your full name or first name only (controlled by your 'Show Full Name' setting)" %}</li>
@@ -317,9 +317,9 @@
                 </ul>
                 <p>{% trans "Crush Spark descriptions are anonymous. The sender's identity is only revealed when the recipient completes the full journey." %}</p>
 
-                <h5>{% trans "6.3 Sub-Processors" %}</h5>
+                <h4>{% trans "6.3 Sub-Processors" %}</h4>
                 <p>{% trans "We share data with the following third-party service providers:" %}</p>
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto" tabindex="0" role="region" aria-label="{% trans "6.3 Sub-Processors" %}">
                     <table class="min-w-full text-sm border dark:border-gray-600 mb-4">
                         <thead>
                             <tr class="bg-gray-50 dark:bg-gray-700">
@@ -383,7 +383,7 @@
                     </table>
                 </div>
 
-                <h5>{% trans "6.4 Legal Requirements" %}</h5>
+                <h4>{% trans "6.4 Legal Requirements" %}</h4>
                 <p>
                     {% trans "We may disclose your personal data if required by law, court order, or regulatory request, or to protect the rights, property, or safety of Crush.lu, our users, or others." %}
                 </p>
@@ -408,7 +408,7 @@
                 <!-- 8. Data Retention -->
                 <h3 id="pp-retention">{% trans "8. Data Retention" %}</h3>
                 <p>{% trans "We retain your data for the following periods:" %}</p>
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto" tabindex="0" role="region" aria-label="{% trans "Data Retention" %}">
                     <table class="min-w-full text-sm border dark:border-gray-600 mb-4">
                         <thead>
                             <tr class="bg-gray-50 dark:bg-gray-700">
@@ -475,7 +475,7 @@
                 <ul>
                     <li><strong>{% trans "Right of Access (Art. 15):" %}</strong> {% trans "Request a copy of your personal data. You can export your data directly from your account settings." %}</li>
                     <li><strong>{% trans "Right to Rectification (Art. 16):" %}</strong> {% trans "Correct inaccurate or incomplete information by editing your profile." %}</li>
-                    <li><strong>{% trans "Right to Erasure (Art. 17):" %}</strong> {% trans "Request deletion of your data. You can delete your Crush.lu Profile only (keeping your PowerUp Account) or delete everything. Use the Data Management page in your account settings." %}</li>
+                    <li><strong>{% trans "Right to Erasure (Art. 17):" %}</strong> {% trans "Request deletion of your data. You can delete your Crush.lu Profile only (keeping your Crush.lu account) or delete everything. Use the Data Management page in your account settings." %}</li>
                     <li><strong>{% trans "Right to Restriction (Art. 18):" %}</strong> {% trans "Request that we limit how we process your data." %}</li>
                     <li><strong>{% trans "Right to Data Portability (Art. 20):" %}</strong> {% trans "Receive your data in a structured, machine-readable JSON format via the data export feature in your account settings." %}</li>
                     <li><strong>{% trans "Right to Object (Art. 21):" %}</strong> {% trans "Object to processing based on legitimate interest." %}</li>
@@ -496,7 +496,7 @@
                 <!-- 10. Cookies & Local Storage -->
                 <h3 id="pp-cookies">{% trans "10. Cookies & Local Storage" %}</h3>
                 <p>{% trans "We use the following cookies and browser storage:" %}</p>
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto" tabindex="0" role="region" aria-label="{% trans "Cookies & Local Storage" %}">
                     <table class="min-w-full text-sm border dark:border-gray-600 mb-4">
                         <thead>
                             <tr class="bg-gray-50 dark:bg-gray-700">
@@ -568,7 +568,6 @@
                     <li>{% trans "Photos are stored in a private Azure Blob Storage container — they are not publicly accessible" %}</li>
                     <li>{% trans "Access is granted via time-limited Shared Access Signature (SAS) tokens that expire after 30 minutes" %}</li>
                     <li>{% trans "Each photo is stored under a user-specific path with a randomised filename" %}</li>
-                    <li>{% trans "The blur feature allows you to obscure your photos until mutual interest is established" %}</li>
                     <li>{% trans "Journey and Crush Spark media files receive the same private storage treatment" %}</li>
                 </ul>
 
@@ -610,6 +609,7 @@
                     </p>
                     <a href="{% url 'crush_lu:home' %}" class="btn-crush-primary inline-flex items-center justify-center px-6 py-3">{% trans "Back to Home" %}</a>
                 </div>
+                <a href="#legal-contents" class="legal-back-to-contents"><span aria-hidden="true">&uarr;</span> {% trans "Back to contents" %}</a>
             </div>
         </div>
     </div>
