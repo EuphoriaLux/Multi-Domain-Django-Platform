@@ -213,6 +213,36 @@ class PollResultsTests(TestCase):
         )
         self.assertIn("Your vote", html)
 
+    def test_vote_json_counts_and_partial_come_from_one_snapshot(self):
+        # Codex review: a vote committed between two separate aggregate
+        # queries split one response into two snapshots. Simulate another
+        # member voting just before the rendered partial is computed.
+        from unittest import mock
+
+        from crush_lu import views_event_polls
+
+        other = make_member(username="poll_concurrent_voter")
+        original = views_event_polls._results_context
+
+        def concurrent_vote_first(request, poll):
+            EventPollVote.objects.create(poll=poll, option=self.games, user=other)
+            return original(request, poll)
+
+        with mock.patch.object(
+            views_event_polls, "_results_context", side_effect=concurrent_vote_first
+        ):
+            data = self._vote_json([self.wine.id]).json()
+
+        self.assertEqual(data["total_votes"], 2)
+        self.assertEqual(sum(r["vote_count"] for r in data["results"]), 2)
+        labels = [
+            attrs["aria-label"]
+            for attrs, _a in _Tags(data["results_html"]).find("div", role="img")
+        ]
+        self.assertEqual(
+            labels, ["Wine Night: 50%, 1 vote", "Board Games: 50%, 1 vote"]
+        )
+
     def test_results_page_bars_have_text_labels(self):
         EventPollVote.objects.create(poll=self.poll, option=self.games, user=self.user)
         response = self.client.get(f"/en/polls/{self.poll.id}/", HTTP_HOST=HOST)

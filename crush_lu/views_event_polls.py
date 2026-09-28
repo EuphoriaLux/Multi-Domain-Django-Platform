@@ -405,9 +405,11 @@ def _poll_vote(request, poll, is_json, data):
         messages.success(request, str(_("Your vote has been recorded. Thank you!")))
         return _back_to_poll(request, poll)
 
-    # Return updated results
-    options = poll.options.annotate(vote_count=Count('votes'))
-    total_votes = sum(o.vote_count for o in options)
+    # Return updated results. One evaluated snapshot feeds the counts, the
+    # header total and the rendered partial, so a concurrent vote cannot
+    # make them disagree within one response.
+    context = _results_context(request, poll)
+    total_votes = context['total_votes']
     results = [
         {
             'id': o.id,
@@ -415,7 +417,7 @@ def _poll_vote(request, poll, is_json, data):
             'vote_count': o.vote_count,
             'percentage': round(o.vote_count / total_votes * 100) if total_votes else 0,
         }
-        for o in options
+        for o in context['options']
     ]
 
     return JsonResponse({
@@ -425,7 +427,7 @@ def _poll_vote(request, poll, is_json, data):
         'results': results,
         'results_html': render_to_string(
             'crush_lu/event_polls/_poll_results_partial.html',
-            _results_context(request, poll),
+            context,
             request=request,
         ),
     })
