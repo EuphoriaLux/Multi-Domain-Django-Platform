@@ -43599,6 +43599,11 @@ msgstr "Wir haben für deine Premium-Anfrage bereits eine Zahlung erhalten."
 msgid "Contact support about your Premium payment"
 msgstr "Kontaktiere den Support zu deiner Premium-Zahlung"
 
+#: crush_lu/services/on_break.py
+#, python-format
+msgid "Heads-up: these members are taking a break from Crush.lu right now: %(names)s. You can still invite them."
+msgstr "Hinweis: Diese Mitglieder machen gerade eine Pause von Crush.lu: %(names)s. Du kannst sie trotzdem einladen."
+
 #: crush_lu/templates/crush_lu/terms_of_service.html:57
 msgid "Each consent is recorded with your IP address, timestamp, and the version of these Terms you accepted. This version is 2.1."
 msgstr "Jede Einwilligung wird mit Ihrer IP-Adresse, einem Zeitstempel und der Version dieser Nutzungsbedingungen, die Sie akzeptiert haben, aufgezeichnet. Diese Version ist 2.1."
