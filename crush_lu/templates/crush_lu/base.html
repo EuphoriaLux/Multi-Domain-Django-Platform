@@ -10,7 +10,7 @@
 <head>
     {% analytics_head %}
     {# Consent-gated. Anonymous visitors get it only on login/signup (#1085): page views send the full URL, so token pages (/book/, /invite/) stay off. #}
-    {% if user.is_authenticated or request.resolver_match|anonymous_telemetry_allowed %}{% appinsights_head %}{% endif %}
+    {% if user.is_authenticated or request|anonymous_telemetry_allowed %}{% appinsights_head %}{% endif %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{% block title %}Crush.lu - Meet New People{% endblock %}</title>

@@ -736,6 +736,12 @@ class AnonymousAppInsightsAllowlistTests(TestCase):
     def test_consenting_anonymous_visitor_gets_the_sdk_on_signup(self):
         self.assertIn(self.LIVE, self._html("/en/signup/"))
 
+    def test_login_redirect_carrying_a_token_has_no_loader(self):
+        # Codex on #1105: crush_login_required sends an anonymous QR scan to
+        # /login/?next=/advent/qr/<token>/, and a page view records the URL.
+        path = "/en/login/?next=/en/advent/qr/0f8fad5b-d9cb-469f-a165-70867728950e/"
+        self._assert_no_loader(self._html(path), path)
+
     def test_booking_token_page_has_no_loader_for_anonymous_visitor(self):
         member, profile = _member("booker@crush.lu", gender="M")
         coach_user = User.objects.create_user(

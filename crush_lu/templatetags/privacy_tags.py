@@ -35,6 +35,13 @@ ANONYMOUS_TELEMETRY_VIEWS = frozenset({"crush_lu:login", "crush_lu:signup"})
 
 
 @register.filter
-def anonymous_telemetry_allowed(resolver_match):
-    """True when an anonymous visitor may get the App Insights loader here."""
-    return getattr(resolver_match, "view_name", None) in ANONYMOUS_TELEMETRY_VIEWS
+def anonymous_telemetry_allowed(request):
+    """True when an anonymous visitor may get the App Insights loader here.
+
+    Only a bare allowlisted URL qualifies: a query string can carry a
+    credential too (login redirects add ``?next=/advent/qr/<token>/``).
+    """
+    resolver_match = getattr(request, "resolver_match", None)
+    if getattr(resolver_match, "view_name", None) not in ANONYMOUS_TELEMETRY_VIEWS:
+        return False
+    return not request.META.get("QUERY_STRING")
