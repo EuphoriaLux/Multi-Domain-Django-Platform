@@ -49,13 +49,17 @@
 </head>
 <body class="bg-white text-gray-900 antialiased">
     {% include "includes/staging_banner.html" %}
+    {% block navigation %}
     {% include "power_up/partials/navigation.html" %}
+    {% endblock %}
 
     <main>
         {% block content %}{% endblock %}
     </main>
 
+    {% block footer %}
     {% include "power_up/partials/footer.html" %}
+    {% endblock %}
 
     {# No JavaScript - pure HTML/CSS static site for CSP safety #}
     {% block extra_js %}{% endblock %}
