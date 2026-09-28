@@ -115,10 +115,7 @@
 
             <div x-ref="results" tabindex="-1" class="focus:outline-none">
                 {% if show_results or poll.show_results_before_close %}
-                <div class="mt-10">
-                    <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">{% trans "Current Results" %}</h2>
-                    {% include 'crush_lu/event_polls/_poll_results_partial.html' %}
-                </div>
+                {% include 'crush_lu/event_polls/_poll_results_region.html' %}
                 {% endif %}
             </div>
         </div>

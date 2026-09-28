@@ -426,7 +426,7 @@ def _poll_vote(request, poll, is_json, data):
         'total_votes': total_votes,
         'results': results,
         'results_html': render_to_string(
-            'crush_lu/event_polls/_poll_results_partial.html',
+            'crush_lu/event_polls/_poll_results_region.html',
             context,
             request=request,
         ),

@@ -213,6 +213,13 @@ class PollResultsTests(TestCase):
         )
         self.assertIn("Your vote", html)
 
+    def test_vote_json_results_keep_the_section_heading(self):
+        # Codex review: the swap replaced the whole results region, dropping
+        # the "Current Results" h2 and leaving focus on an unnamed div.
+        html = self._vote_json([self.wine.id]).json()["results_html"]
+        self.assertEqual(len(_Tags(html).find("h2")), 1)
+        self.assertIn("Current Results", html)
+
     def test_vote_json_counts_and_partial_come_from_one_snapshot(self):
         # Codex review: a vote committed between two separate aggregate
         # queries split one response into two snapshots. Simulate another
