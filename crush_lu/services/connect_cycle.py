@@ -534,7 +534,9 @@ def week_timeline_state(session, sent_request=None):
     - the session left ACTIVE/REVIEW_OPEN (COMPLETED/EXPIRED/ABANDONED)
       without an open chat. A session completes on its review-window
       timeout whatever the request state, so an ACCEPTED request whose chat
-      is still open keeps its Chat/Coffee step instead of vanishing.
+      is still open keeps its Chat/Coffee step instead of vanishing;
+    - the request was ACCEPTED but its chat has since closed, expired or
+      been blocked — in any session status, the chat is synced first.
 
     ``sent_request`` is the session's single ``ConnectWeeklyRequest`` (or
     ``None``) when the caller already has it; passing it avoids a redundant
@@ -552,7 +554,7 @@ def week_timeline_state(session, sent_request=None):
                 "next_at": session.review_expires_at,
             }
         if sent_request.status == sent_request.Status.ACCEPTED:
-            return _chat_timeline_step(sent_request)
+            return _open_chat_timeline_step(sent_request)
         if sent_request.status == sent_request.Status.PENDING:
             return {
                 "step": 3,
@@ -574,6 +576,13 @@ def week_timeline_state(session, sent_request=None):
         sent_request = session.weekly_requests.order_by("-sent_at").first()
     if sent_request is None or sent_request.status != sent_request.Status.ACCEPTED:
         return None
+    return _open_chat_timeline_step(sent_request)
+
+
+def _open_chat_timeline_step(sent_request):
+    """The Chat/Coffee step for an ACCEPTED request, or ``None`` once its
+    chat is missing or no longer open. Shared by the REVIEW_OPEN and the
+    terminal-session branches so neither trusts the request status alone."""
     from crush_lu.models.crush_connect_cycle import ConnectTemporaryChat
     from crush_lu.services.connect_chat import sync_chat_state
 

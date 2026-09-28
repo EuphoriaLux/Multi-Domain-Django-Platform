@@ -149,6 +149,54 @@ def test_completed_session_hides_the_timeline_once_an_open_chat_expired():
     assert chat.status == ConnectTemporaryChat.Status.CLOSED
 
 
+def _review_open_session(me):
+    session = ConnectWeekSession.objects.filter(user=me).first()
+    assert session.status == ConnectWeekSession.Status.REVIEW_OPEN
+    return session
+
+
+@pytest.mark.django_db
+def test_review_open_session_keeps_the_chat_step_while_the_chat_is_open():
+    me, _target, _chat = _make_open_chat()
+
+    state = week_timeline_state(_review_open_session(me))
+
+    assert state == {"step": 4, "next_kind": None, "next_at": None}
+
+
+@pytest.mark.django_db
+def test_review_open_session_hides_the_timeline_once_an_open_chat_expired():
+    # Codex review on #1108: the REVIEW_OPEN fast path returned the Chat step
+    # off the request status alone, so a stale ACTIVE chat row past its
+    # expires_at still showed "Chat". It must sync the chat like the
+    # terminal-session branch does.
+    me, _target, chat = _make_open_chat()
+    ConnectTemporaryChat.objects.filter(pk=chat.pk).update(
+        expires_at=timezone.now() - timedelta(minutes=1)
+    )
+    session = _review_open_session(me)
+
+    assert week_timeline_state(session) is None
+    chat.refresh_from_db()
+    assert chat.status == ConnectTemporaryChat.Status.CLOSED
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "chat_status",
+    [ConnectTemporaryChat.Status.CLOSED, ConnectTemporaryChat.Status.BLOCKED],
+)
+def test_review_open_session_hides_the_timeline_once_the_chat_ended(chat_status):
+    me, _target, chat = _make_open_chat()
+    ConnectTemporaryChat.objects.filter(pk=chat.pk).update(status=chat_status)
+    session = _review_open_session(me)
+    req = session.weekly_requests.get()
+
+    # Neither passed in nor looked up: both paths must agree.
+    assert week_timeline_state(session, sent_request=req) is None
+    assert week_timeline_state(session) is None
+
+
 @pytest.mark.django_db
 @pytest.mark.parametrize(
     "chat_status",
