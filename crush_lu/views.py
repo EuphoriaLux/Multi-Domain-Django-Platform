@@ -2597,8 +2597,22 @@ def membership(request):
         },
     ]
 
+    from django.conf import settings as _settings
+
+    from .views_premium import pending_premium_state, premium_monthly_fee
+
     context = {
         "profile": profile,
+        # Free vs Premium comparison (Decision A, finding 1-01): the price is
+        # rendered from SUMUP_PREMIUM_MONTHLY_FEE, never hardcoded.
+        "premium_monthly_fee": premium_monthly_fee(),
+        "premium_invite_only": getattr(_settings, "PREMIUM_REDIRECTS_TO_BETA", False),
+        # An open request gets a way back in instead of the waitlist (the same
+        # pending predicate premium_choose_coach uses). "complete" only when
+        # checkout would accept it; "manage" when the beta gate refuses the
+        # buyer, so the page never promises a payment that would 403.
+        "pending_premium_state": pending_premium_state(request.user),
+        "is_premium": bool(profile and profile.has_active_premium),
         "referral_url": referral_url,
         "tiers": tiers,
         "current_tier": profile.membership_tier if profile else "basic",
