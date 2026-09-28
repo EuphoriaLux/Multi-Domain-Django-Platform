@@ -103,6 +103,10 @@ def advent_calendar_view(request):
             'calendar': calendar,
             'progress': progress,
             'doors': door_data,
+            'has_qr_locked_doors': any(
+                d['is_available'] and d['requires_qr'] and not d['has_qr_scanned']
+                for d in door_data
+            ),
             'current_day': calendar.get_current_day(),
             'is_december': True,
             'completion_percentage': progress.completion_percentage,

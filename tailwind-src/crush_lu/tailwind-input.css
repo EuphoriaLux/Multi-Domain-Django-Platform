@@ -117,6 +117,13 @@
     --shadow-journey-glow-pink: 0 0 40px rgba(255, 107, 157, 0.9);
     --shadow-journey-glow-success: 0 0 30px rgba(46, 204, 113, 0.6);
     --shadow-journey-card: 0 10px 40px rgba(0, 0, 0, 0.3);
+
+    /* ===================
+     ADVENT CALENDAR TOKEN
+     The seasonal Christmas red of the advent pages (day badge, progress bar,
+     available doors, QR button). Scoped to crush_lu/advent/ — not a brand color.
+     =================== */
+    --color-advent-red: #c41e3a;
 }
 
 /* =============================================================================
@@ -1768,6 +1775,13 @@ body.journey-bg {
         animation-duration: 22s;
         animation-delay: 2.2s;
         font-size: 24px;
+    }
+
+    /* Phones get 6 of the 15 hearts: each one is an always-running animation. */
+    @media (max-width: 480px) {
+        .journey-hearts .heart-bg:nth-child(n + 7) {
+            display: none;
+        }
     }
 
     .journey-chapter-path {
@@ -4495,6 +4509,12 @@ body.journey-bg {
     [class*="journey-"] {
         animation: none !important;
         transition: none !important;
+    }
+
+    /* The floating hearts are pure decoration: hide them rather than freeze
+       15 emoji mid-screen. */
+    .journey-hearts .heart-bg {
+        display: none;
     }
 }
 

@@ -28,6 +28,14 @@
             {% endif %}
         </div>
     </div>
+
+    {% if has_qr_locked_doors %}
+        <p class="advent-qr-hint" id="advent-qr-hint">
+            <span aria-hidden="true">🔒</span>
+            {% trans "Doors with a lock open when you scan the QR code on your physical gift." %}
+            <a href="{% url 'crush_lu:advent_qr_scanner' %}">{% trans "Open the QR scanner" %}</a>
+        </p>
+    {% endif %}
 </div>
 
 <div class="advent-content">
@@ -41,7 +49,8 @@
 
                     {% if door_data.is_opened %}
                         <!-- Door opened - show checkmark -->
-                        <a href="{% url 'crush_lu:advent_door' door_data.door_number %}" class="door-link opened">
+                        <a href="{% url 'crush_lu:advent_door' door_data.door_number %}" class="door-link opened"
+                           aria-label="{% blocktrans with num=door_data.door_number %}Door {{ num }}, opened{% endblocktrans %}">
                             <div class="door-number">{{ door_data.door_number }}</div>
                             <div class="door-status">✓</div>
                             {% if door_data.has_qr_bonus and door_data.has_qr_scanned %}
@@ -51,18 +60,28 @@
 
                     {% elif door_data.can_open %}
                         <!-- Door available - can be opened -->
+                        {% if door_data.teaser_text %}
+                        {# No aria-label here: it would replace the visible teaser for screen readers. The state is read from sr-only text, then the teaser. #}
                         <a href="{% url 'crush_lu:advent_door' door_data.door_number %}" class="door-link available">
+                            <span class="sr-only">{% blocktrans with num=door_data.door_number %}Door {{ num }}, ready to open{% endblocktrans %}</span>
+                            <div class="door-number" aria-hidden="true">{{ door_data.door_number }}</div>
+                            <div class="door-icon" aria-hidden="true">{{ door_data.door_icon|default:"🎄" }}</div>
+                            <div class="door-teaser">{{ door_data.teaser_text }}</div>
+                            <div class="door-glow" aria-hidden="true"></div>
+                        </a>
+                        {% else %}
+                        <a href="{% url 'crush_lu:advent_door' door_data.door_number %}" class="door-link available"
+                           aria-label="{% blocktrans with num=door_data.door_number %}Door {{ num }}, ready to open{% endblocktrans %}">
                             <div class="door-number">{{ door_data.door_number }}</div>
                             <div class="door-icon">{{ door_data.door_icon|default:"🎄" }}</div>
-                            {% if door_data.teaser_text %}
-                                <div class="door-teaser">{{ door_data.teaser_text }}</div>
-                            {% endif %}
                             <div class="door-glow"></div>
                         </a>
+                        {% endif %}
 
                     {% elif door_data.is_available and door_data.requires_qr and not door_data.has_qr_scanned %}
                         <!-- Door requires QR scan -->
-                        <div class="door-link qr-required">
+                        <div class="door-link qr-required" role="img" aria-describedby="advent-qr-hint"
+                             aria-label="{% blocktrans with num=door_data.door_number %}Door {{ num }}, needs a QR scan to open{% endblocktrans %}">
                             <div class="door-number">{{ door_data.door_number }}</div>
                             <div class="door-icon">🔒</div>
                             <div class="door-teaser">{% trans "Scan QR to unlock" %}</div>
@@ -70,7 +89,8 @@
 
                     {% else %}
                         <!-- Door locked (future date) -->
-                        <div class="door-link locked">
+                        <div class="door-link locked" role="img"
+                             aria-label="{% if not current_day or door_data.door_number > current_day %}{% blocktrans with num=door_data.door_number %}Door {{ num }}, opens December {{ num }}{% endblocktrans %}{% else %}{% blocktrans with num=door_data.door_number %}Door {{ num }}, locked{% endblocktrans %}{% endif %}">
                             <div class="door-number">{{ door_data.door_number }}</div>
                             <div class="door-icon">❄️</div>
                         </div>
@@ -82,7 +102,7 @@
 </div>
 
 <!-- QR Scanner Button -->
-<a href="{% url 'crush_lu:advent_qr_scanner' %}" class="qr-scanner-btn" title="{% trans "Scan QR Code" %}">
+<a href="{% url 'crush_lu:advent_qr_scanner' %}" class="qr-scanner-btn" title="{% trans "Scan QR Code" %}" aria-label="{% trans "Scan QR Code" %}">
     {% include "shared/icons/qr-code.html" with class="w-5 h-5" %}
 </a>
 
@@ -139,23 +159,33 @@
         cursor: not-allowed;
     }
 
-    /* QR Required door */
+    /* QR Required door: reads as locked (no pulse, no pointer); the hint under
+       the progress bar links to the scanner that opens it. */
     .door-link.qr-required {
-        background: linear-gradient(135deg, #8e44ad, #9b59b6);
-        cursor: pointer;
-        animation: pulse 2s infinite;
+        background: linear-gradient(135deg, #5b2d77, #6c3589);
+        border: 2px dashed rgba(255, 255, 255, 0.45);
+        cursor: default;
     }
 
-    @keyframes pulse {
-        0%, 100% { box-shadow: 0 0 0 0 rgba(142, 68, 173, 0.5); }
-        50% { box-shadow: 0 0 20px 5px rgba(142, 68, 173, 0.3); }
+    .advent-qr-hint {
+        max-width: 400px;
+        margin: 1rem auto 0;
+        font-size: 0.9rem;
+        color: #f0e68c;
+    }
+
+    .advent-qr-hint a {
+        color: #fff;
+        font-weight: 600;
+        text-decoration: underline;
+        text-underline-offset: 2px;
     }
 
     /* Available door */
     .door-link.available {
-        background: linear-gradient(135deg, var(--door-color, #c41e3a), #ff6b6b);
+        background: linear-gradient(135deg, var(--door-color, var(--color-advent-red)), #ff6b6b);
         cursor: pointer;
-        box-shadow: 0 4px 15px rgba(196, 30, 58, 0.4);
+        box-shadow: 0 4px 15px color-mix(in srgb, var(--color-advent-red) 40%, transparent);
     }
 
     .door-link.available:hover {
@@ -172,6 +202,18 @@
     @keyframes glow {
         0%, 100% { opacity: 0.5; }
         50% { opacity: 1; }
+    }
+
+    @keyframes doorOpen {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1) rotateY(10deg); }
+        100% { transform: scale(1) rotateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .door-link.available .door-glow {
+            animation: none;
+        }
     }
 
     /* Opened door */
@@ -224,15 +266,33 @@
     }
 
     /* Teaser text */
+    /* 0.75rem (12px) is the readable floor; two clamped lines fit the
+       ~75px doors of the 4-column phone grid. */
     .door-teaser {
-        font-size: 0.6rem;
+        font-size: 0.75rem;
+        line-height: 1.15;
         text-align: center;
-        margin-top: 4px;
-        opacity: 0.9;
-        max-width: 90%;
+        margin-top: 2px;
+        max-width: 94%;
         overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        overflow-wrap: anywhere;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+
+    /* Phone doors are ~60px square: number + icon + two teaser lines don't
+       fit, so an available door with a teaser drops its icon there, and a
+       QR door keeps its lock (the hint above the grid carries the words). */
+    @media (max-width: 480px) {
+        .door-link.available:has(.door-teaser) .door-number {
+            line-height: 1.1;
+        }
+
+        .door-link.available:has(.door-teaser) .door-icon,
+        .door-link.qr-required .door-teaser {
+            display: none;
+        }
     }
 
     /* Bonus badge */
@@ -249,14 +309,9 @@
     document.querySelectorAll('.advent-door.available .door-link').forEach(door => {
         door.addEventListener('click', function(e) {
             // Add opening animation
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
             this.style.animation = 'doorOpen 0.5s ease-out';
         });
     });
-
-    @keyframes doorOpen {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.1) rotateY(10deg); }
-        100% { transform: scale(1) rotateY(0); }
-    }
 </script>
 {% endblock %}

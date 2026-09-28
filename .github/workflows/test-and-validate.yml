@@ -185,6 +185,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Blocking: pytest and production (DEBUG=False) serve the COMMITTED
+      # alpine-components.min.js, so it must match the source. esbuild is
+      # pinned exactly, so a rebuild is byte-identical when nothing drifted.
+      - name: Verify alpine-components.min.js is up to date
+        run: |
+          npm run build:js
+          git diff --exit-code -- crush_lu/static/crush_lu/js/alpine-components.min.js || {
+            echo "::error::alpine-components.min.js is stale: run 'npm run build:js' and commit it"
+            exit 1
+          }
+
       - name: Check JavaScript/CSS formatting (advisory)
         run: npm run format:check
         continue-on-error: true
