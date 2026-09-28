@@ -186,15 +186,17 @@ jobs:
         run: npm ci
 
       # Blocking: pytest and production (DEBUG=False) serve the COMMITTED
-      # alpine-components.min.js, so it must match the source. esbuild is
-      # pinned exactly, so a rebuild is byte-identical when nothing drifted.
-      - name: Verify alpine-components.min.js is up to date
+      # Alpine bundles (js/alpine/*.min.js), so they must match the sources.
+      # esbuild is pinned exactly, so a rebuild is byte-identical when nothing
+      # drifted. `git status` also catches a new bundle that was never added.
+      - name: Verify the Alpine .min.js bundles are up to date
         run: |
           npm run build:js
-          git diff --exit-code -- crush_lu/static/crush_lu/js/alpine-components.min.js || {
-            echo "::error::alpine-components.min.js is stale: run 'npm run build:js' and commit it"
+          if [ -n "$(git status --porcelain -- crush_lu/static/crush_lu/js/alpine/)" ]; then
+            git status --short -- crush_lu/static/crush_lu/js/alpine/
+            echo "::error::Alpine bundles are stale: run 'npm run build:js' and commit js/alpine/*.min.js"
             exit 1
-          }
+          fi
 
       - name: Check JavaScript/CSS formatting (advisory)
         run: npm run format:check

@@ -23,6 +23,7 @@
                     hx-target="#connection-actions-{{ attendee.user.id }}"
                     hx-swap="outerHTML"
                     hx-confirm="{% trans 'Are you sure you want to decline this connection?' %}"
+                    data-confirm-label="{% trans 'Decline' %}"
                     class="inline-flex items-center justify-center gap-2 px-4 py-2.5 font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
                 <span class="htmx-indicator">
                     {% include "shared/icons/loading.html" with class="w-4 h-4 animate-spin" %}

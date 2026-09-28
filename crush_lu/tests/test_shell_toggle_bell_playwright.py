@@ -3,7 +3,7 @@
 ``test_shell_toggle_bell.py`` pins the server side: the mobile top bar is
 seeded with the unread ``Notification`` count and both bells carry the wiring
 attributes. What only a browser can prove is the runtime bridge in
-``alpine-components.js``: the desktop ``notificationBell`` re-reads
+``js/alpine/core.js``: the desktop ``notificationBell`` re-reads
 ``/api/notifications/`` and broadcasts each new ``unreadCount`` as a window
 ``notif-unread-count`` event, and ``topBarMobile.syncNotificationCount``
 moves the mobile badge and the bell's aria-label with it. A source-level

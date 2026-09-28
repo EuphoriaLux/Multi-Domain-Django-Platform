@@ -7,9 +7,9 @@
             {% include "shared/icons/sparkles.html" with class="w-6 h-6 text-pink-500" %}
         </div>
         <div class="flex-1 min-w-0">
-            <h5 class="font-semibold text-lg text-gray-900 dark:text-white mb-1">
+            <h3 class="font-semibold text-lg text-gray-900 dark:text-white mb-1">
                 {% trans "It's mutual!" %}
-            </h5>
+            </h3>
             {% if connection.status == 'shared' %}
                 <p class="text-gray-700 dark:text-gray-200 text-sm mb-3">
                     {% blocktrans with name=connection.requester.crushprofile.display_name %}You and {{ name }} can already see each other's contact info — no waiting needed.{% endblocktrans %}
@@ -60,4 +60,7 @@
         <p class="m-0 text-xs">{% trans "This won't be shared with them. You can still connect at a future event." %}</p>
     </div>
 </div>
+{% endif %}
+{% if action == 'accept' or action == 'decline' %}
+<div id="connection-status-live" hx-swap-oob="innerHTML">{% if action == 'accept' %}{% trans "It's mutual!" %}{% else %}{% trans "Connection request declined" %}{% endif %}</div>
 {% endif %}

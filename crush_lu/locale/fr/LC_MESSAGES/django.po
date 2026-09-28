@@ -42911,6 +42911,18 @@ msgstr "Lire la suite"
 msgid "See entry events"
 msgstr "Voir les événements d'entrée"
 
+#: templates/crush_lu/includes/event_card.html
+msgid "Entry event"
+msgstr "Événement d'entrée"
+
+#: templates/crush_lu/event_list.html
+msgid "Showing entry events only"
+msgstr "Seuls les événements d'entrée sont affichés"
+
+#: templates/crush_lu/event_list.html
+msgid "Show all events"
+msgstr "Afficher tous les événements"
+
 #: templates/crush_lu/event_detail.html:693
 msgid "Contact support"
 msgstr "Contacter le support"
