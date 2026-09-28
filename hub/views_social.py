@@ -591,6 +591,9 @@ class SocialPostDetailView(APIView):
                 mapped_platforms = {
                     profile_platforms[profile_id] for profile_id in selected_profile_ids
                 }
+                if not effective_platforms and mapped_platforms:
+                    effective_platforms = sorted(mapped_platforms)
+                    serializer.validated_data["platforms"] = effective_platforms
                 if not mapped_platforms.issubset(set(effective_platforms or [])):
                     scheduling_errors["buffer_profile_platforms"] = (
                         BUFFER_PLATFORM_SCOPE_ERROR

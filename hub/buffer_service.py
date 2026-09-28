@@ -182,6 +182,8 @@ def _create_channel_post(
     metadata: dict = {}
     if platform == "facebook":
         metadata["facebook"] = {"type": "post"}
+    elif platform == "instagram":
+        metadata["instagram"] = {"type": "post", "shouldShareToFeed": True}
     if metadata:
         post_input["metadata"] = metadata
 

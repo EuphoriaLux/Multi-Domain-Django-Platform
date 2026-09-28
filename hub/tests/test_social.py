@@ -1303,6 +1303,34 @@ class BufferServiceTests(SimpleTestCase):
         variables = post_request.call_args.kwargs["json"]["variables"]["input"]
         self.assertEqual(variables["metadata"], {"facebook": {"type": "post"}})
 
+    @patch("hub.buffer_service.requests.post")
+    def test_instagram_channel_includes_instagram_metadata(self, post_request):
+        response = Mock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {
+            "data": {
+                "createPost": {
+                    "__typename": "PostActionSuccess",
+                    "post": {"id": "ig_post_1", "status": "buffer", "dueAt": None},
+                }
+            }
+        }
+        post_request.return_value = response
+
+        result = create_buffer_update(
+            text="Instagram Post",
+            profile_ids=["ig_channel_1"],
+            profile_platforms={"ig_channel_1": "instagram"},
+            media_url="https://media.crush.lu/social/card.png",
+        )
+
+        self.assertEqual(result["buffer_id"], "ig_post_1")
+        variables = post_request.call_args.kwargs["json"]["variables"]["input"]
+        self.assertEqual(
+            variables["metadata"],
+            {"instagram": {"type": "post", "shouldShareToFeed": True}},
+        )
+
     @patch("hub.buffer_service._create_channel_post")
     def test_partial_failure_reports_already_created_post_ids(self, create_post):
         create_post.side_effect = [
