@@ -57,8 +57,11 @@ Plain forms (no JS dependency); each posts and redirects back via referer.
         {# Block on its own (no report). A block_url block (the Connect chat) also closes the chat and excludes the pair for good, so confirm first. #}
         <form method="post" action="{% if block_url %}{{ block_url }}{% else %}{% url 'crush_lu:block_user' member.id %}{% endif %}"{% if block_url %}
               data-confirm="{% trans "Block this member? This closes the chat and can't be undone: they won't be able to reach you, and you won't be matched again." %}"
-              data-confirm-style="danger" data-confirm-label="{% trans 'Yes, block' %}"{% endif %}>
+              data-confirm-style="danger" data-confirm-label="{% trans 'Yes, block' %}"
+              data-confirm-option="escalate_to_coach" data-confirm-option-label="{% trans 'Also let a Crush Coach know' %}"{% endif %}>
             {% csrf_token %}
+            {# Filled from the sheet's optional, unticked checkbox: the chat block's existing ConnectReport escalation. #}
+            {% if block_url %}<input type="hidden" name="escalate_to_coach" value="">{% endif %}
             <button type="submit" class="text-sm font-medium text-gray-600 dark:text-gray-300 hover:underline">
                 {% trans "Just block this member" %}
             </button>

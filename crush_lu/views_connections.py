@@ -701,7 +701,7 @@ def connection_actions(request, event_id, user_id):
     )
 
 
-def _refresh_if_from_dashboard(request, response, message=None):
+def _refresh_if_from_dashboard(request, response, message=None, level=messages.SUCCESS):
     """Reload the dashboard after an inline accept/decline.
 
     The dashboard embeds the same request card as My Connections (UX Wave 3,
@@ -714,7 +714,7 @@ def _refresh_if_from_dashboard(request, response, message=None):
     path = urlparse(request.headers.get("HX-Current-URL", "")).path
     if path.rstrip("/").endswith("/dashboard"):
         if message:
-            messages.success(request, message)
+            messages.add_message(request, level, message)
         response["HX-Refresh"] = "true"
     return response
 
@@ -758,10 +758,14 @@ def respond_connection(request, connection_id, action):
         request.user, connection.requester
     ) or connection.requester_id in hidden_encounter_user_ids(request.user):
         if request.headers.get("HX-Request"):
-            return render(
+            # A block placed after the dashboard rendered leaves its header,
+            # badge and stats stale: refresh it like the other outcomes.
+            unavailable = _("This connection is no longer available.")
+            return _refresh_if_from_dashboard(
                 request,
-                "crush_lu/_htmx_error.html",
-                {"message": _("This connection is no longer available.")},
+                render(request, "crush_lu/_htmx_error.html", {"message": unavailable}),
+                unavailable,
+                messages.ERROR,
             )
         messages.error(request, _("This connection is no longer available."))
         return redirect("crush_lu:my_connections")

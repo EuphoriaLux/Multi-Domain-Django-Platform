@@ -41,10 +41,13 @@ document.addEventListener("alpine:init", function () {
     // that order. The cookie sheet (shared core partial, no Alpine) reports
     // itself via `cookie-banner-toggle`; flash messages are never hidden,
     // they only hold install/push back until dismissed or auto-hidden.
-    // Install/push wait for DOMContentLoaded, when the sheet has decided.
+    // Install/push wait for DOMContentLoaded, when the sheet has decided,
+    // and never show on a first visit: pwa-install.js (deferred, so it has
+    // run by then) counts visits in localStorage "crush-pwa-sessions".
     var PROMPT_ORDER = ["cookie", "messages", "install", "push"];
     Alpine.store("prompts", {
         ready: false,
+        returning: false,
         cookie: false,
         messages: 0,
         install: false,
@@ -57,6 +60,12 @@ document.addEventListener("alpine:init", function () {
                 self.cookie = !!(e.detail && e.detail.open);
             });
             function markReady() {
+                try {
+                    var visits = localStorage.getItem("crush-pwa-sessions");
+                    self.returning = (parseInt(visits, 10) || 0) >= 2;
+                } catch (e) {
+                    self.returning = false; // storage blocked: never nag
+                }
                 self.ready = true;
             }
             if (document.readyState === "complete") {
@@ -70,7 +79,7 @@ document.addEventListener("alpine:init", function () {
             for (var i = 0; i < PROMPT_ORDER.length; i++) {
                 var name = PROMPT_ORDER[i];
                 if (this[name]) {
-                    return i < 2 || this.ready ? name : null;
+                    return i < 2 || (this.ready && this.returning) ? name : null;
                 }
             }
             return null;
@@ -6836,17 +6845,27 @@ document.addEventListener("alpine:init", function () {
             instructions: "",
 
             // Computed getters for CSP compatibility
-            get canInstallVisible() {
-                return this.canInstall;
-            },
             get isInstalledVisible() {
                 return this.isInstalled;
             },
-            get showInstructionsVisible() {
-                return this.showInstructions;
-            },
             get showFallbackVisible() {
                 return this.showFallback;
+            },
+            // The install offer is the "install" prompt (STYLE.md §8): queued
+            // behind the cookie sheet and flash messages, and one at a time
+            // with the push prompt. base.html leaves the global install
+            // banner out on the dashboard, so this card is the only offer.
+            get installOffered() {
+                return this.canInstall || this.showInstructions;
+            },
+            get installQueued() {
+                return Alpine.store("prompts").isActive("install");
+            },
+            get canInstallVisible() {
+                return this.canInstall && this.installQueued;
+            },
+            get showInstructionsVisible() {
+                return this.showInstructions && this.installQueued;
             },
             // Whether the dashboard card has anything worth showing at all.
             // Deliberately excludes showFallback: that state (desktop
@@ -6858,7 +6877,7 @@ document.addEventListener("alpine:init", function () {
             // card expands to the full row instead, through
             // membershipSpanClass below.
             get cardVisible() {
-                return this.isInstalled || this.canInstall || this.showInstructions;
+                return this.isInstalled || (this.installOffered && this.installQueued);
             },
             // Bound as a bare name on the Membership card: the CSP build
             // can't evaluate an object literal with an inline negation.
@@ -6868,6 +6887,9 @@ document.addEventListener("alpine:init", function () {
 
             init: function () {
                 var self = this;
+                this.$watch("installOffered", function (on) {
+                    Alpine.store("prompts").set("install", on);
+                });
 
                 // Check if already installed (standalone mode)
                 if (

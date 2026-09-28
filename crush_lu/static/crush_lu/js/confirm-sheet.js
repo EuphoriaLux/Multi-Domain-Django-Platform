@@ -16,7 +16,10 @@
  *
  * Plain POST forms (no HTMX): put data-confirm="Question?" (plus the two
  * options above) on the <form> itself. data-confirm-when="<checkbox name>"
- * asks only while that checkbox is ticked. The confirmed re-submit keeps the
+ * asks only while that checkbox is ticked. data-confirm-option="<input name>"
+ * plus data-confirm-option-label="..." adds an unticked checkbox to the sheet
+ * and writes its state ("1" / "") into that form input on confirm. The
+ * confirmed re-submit keeps the
  * clicked submit button (requestSubmit(submitter)). A form whose submit
  * buttons ask different questions puts data-confirm (and -style / -label) on
  * each <button type="submit"> instead; the clicked button's attributes win.
@@ -24,7 +27,7 @@
 (function () {
     "use strict";
 
-    var dialog, msgEl, acceptBtn, cancelBtn, defaultLabel;
+    var dialog, msgEl, acceptBtn, cancelBtn, defaultLabel, optWrap, optInput;
     var resolveFn = null;
 
     function resolvePending(result) {
@@ -57,6 +60,12 @@
             if (dialog.open) dialog.close();
             msgEl.textContent = message || "";
             acceptBtn.textContent = opts.confirmLabel || defaultLabel;
+            if (optWrap) {
+                optWrap.hidden = !opts.optionLabel;
+                optInput.checked = false;
+                optWrap.querySelector("[data-confirm-option-label]").textContent =
+                    opts.optionLabel || "";
+            }
             dialog.classList.toggle(
                 "confirm-danger",
                 (opts.style || "danger") !== "neutral",
@@ -73,6 +82,8 @@
         acceptBtn = dialog.querySelector("[data-confirm-accept]");
         cancelBtn = dialog.querySelector("[data-confirm-cancel]");
         defaultLabel = acceptBtn.textContent.trim();
+        optWrap = dialog.querySelector("[data-confirm-option]");
+        optInput = optWrap && optWrap.querySelector("[data-confirm-option-input]");
 
         acceptBtn.addEventListener("click", function () {
             settle(true);
@@ -155,8 +166,14 @@
         openConfirm(source.getAttribute("data-confirm"), {
             style: source.getAttribute("data-confirm-style") || "danger",
             confirmLabel: source.getAttribute("data-confirm-label") || undefined,
+            optionLabel: source.getAttribute("data-confirm-option-label") || "",
         }).then(function (ok) {
             if (!ok) return;
+            // data-confirm-option="<input name>": the sheet's checkbox fills it.
+            var opt = form.elements.namedItem(
+                source.getAttribute("data-confirm-option") || "",
+            );
+            if (opt && optInput) opt.value = optInput.checked ? "1" : "";
             form.setAttribute("data-confirmed", "1");
             if (typeof form.requestSubmit === "function") {
                 form.requestSubmit(submitter);
