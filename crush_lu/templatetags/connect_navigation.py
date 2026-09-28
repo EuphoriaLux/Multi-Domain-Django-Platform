@@ -1,6 +1,6 @@
 from django import template
 
-from crush_lu.services.connect_summary import get_connect_summary
+from crush_lu.services import connect_summary
 
 register = template.Library()
 
@@ -24,5 +24,6 @@ def connect_tab(url_name):
 def connect_navigation(context):
     request = context["request"]
     if not hasattr(request, "_connect_summary"):
-        request._connect_summary = get_connect_summary(request.user)
+        # Looked up on the module at call time so tests can patch it.
+        request._connect_summary = connect_summary.get_connect_summary(request.user)
     return request._connect_summary
