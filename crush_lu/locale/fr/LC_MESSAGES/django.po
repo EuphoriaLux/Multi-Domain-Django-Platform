@@ -43513,3 +43513,22 @@ msgid "%(counter)s item needs your attention"
 msgid_plural "%(counter)s items need your attention"
 msgstr[0] "%(counter)s élément requiert votre attention"
 msgstr[1] "%(counter)s éléments requièrent votre attention"
+
+# UX Wave 4 · WP7a — legal pages Version 2.1 (clarification)
+#: crush_lu/templates/crush_lu/privacy_policy.html
+msgid "Last Updated: September 28, 2026"
+msgstr "Dernière mise à jour : 28 septembre 2026"
+
+#: crush_lu/templates/crush_lu/privacy_policy.html
+msgid "Version 2.1"
+msgstr "Version 2.1"
+
+#: crush_lu/templates/crush_lu/privacy_policy.html
+msgid ""
+"This Privacy Policy applies to Version 2.1 of our terms. Your consent "
+"records reference this version number for traceability."
+msgstr ""
+"Cette politique de confidentialité s'applique à la version 2.1 de nos "
+"conditions. Vos enregistrements de consentement font référence à ce numéro "
+"de version pour la traçabilité."
+

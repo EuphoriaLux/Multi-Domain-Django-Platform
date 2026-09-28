@@ -294,3 +294,18 @@ class ErrorPagesTests(TestCase):
         # Dependency-free: no stylesheet or script is loaded.
         self.assertEqual(parsed.of("link"), [])
         self.assertEqual(parsed.of("script"), [])
+
+
+class LegalVersionBumpTests(TestCase):
+    """Decision G is a clarification: bump the date and minor version."""
+
+    def setUp(self):
+        cache.clear()
+
+    def test_privacy_and_terms_show_version_2_1(self):
+        for path in ("/en/privacy-policy/", "/en/terms-of-service/"):
+            response = self.client.get(path, **HOST)
+            self.assertEqual(response.status_code, 200, path)
+            self.assertContains(response, "Version 2.1")
+            self.assertContains(response, "Last Updated: September 28, 2026")
+            self.assertNotContains(response, "Version 2.0 ")
