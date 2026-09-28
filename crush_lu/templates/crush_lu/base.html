@@ -1443,11 +1443,16 @@
 
     {% block pre_alpine_js %}{% endblock %}
     <!-- Alpine.js CSP Components (defer maintains order - runs BEFORE Alpine.js) -->
+    {% comment %}
+        Outside DEBUG this serves the esbuild output of `npm run build:js`; the
+        .min.js is committed and CI fails if it drifts from the source, because
+        a missing file 500s every page under the WhiteNoise manifest.
+    {% endcomment %}
     {% if debug %}
         {% now "U" as ts %}
         <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/alpine-components.js' %}?v={{ ts }}"></script>
     {% else %}
-        <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/alpine-components.js' %}"></script>
+        <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/alpine-components.min.js' %}"></script>
     {% endif %}
     <!-- Alpine.js 3.13.3 CSP Build (CSP-compliant, no unsafe-eval required).
          Self-hosted - see the HTMX note above. Keep this the @alpinejs/csp
@@ -1455,9 +1460,7 @@
          unsafe-eval. -->
     <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/vendor/alpinejs-csp-3.13.3.min.js' %}"></script>
 
-    <!-- Sortable.js 1.15.2 for drag-and-drop with touch support.
-         Self-hosted - see the HTMX note above. -->
-    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/vendor/sortable-1.15.2.min.js' %}"></script>
+    {# Sortable.js is loaded only by journey/challenges/timeline_sort.html. #}
 
     <!-- Crush.lu Utilities (CSRF, sanitization, logging) -->
     <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/utils.js' %}"></script>

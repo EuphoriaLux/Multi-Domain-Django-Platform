@@ -28,7 +28,11 @@
 
 {% block extrahead %}
 {{ block.super }}
+{% if debug %}
 <script defer src="{% static 'crush_lu/js/alpine-components.js' %}"></script>
+{% else %}
+<script defer src="{% static 'crush_lu/js/alpine-components.min.js' %}"></script>
+{% endif %}
 <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/csp@3.14.9/dist/cdn.min.js"></script>
 {% endblock %}
 
