@@ -720,9 +720,9 @@ class AnonymousAppInsightsAllowlistTests(TestCase):
     def tearDown(self):
         delete_cache()
 
-    def _html(self, path):
+    def _html(self, path, **extra):
         with mock.patch.dict(os.environ, self.ENV):
-            response = self.client.get(path)
+            response = self.client.get(path, **extra)
         self.assertEqual(response.status_code, 200, path)
         return response.content.decode()
 
@@ -786,6 +786,27 @@ class AnonymousAppInsightsAllowlistTests(TestCase):
         )
         path = f"/en/invite/{invitation.invitation_code}/"
         self._assert_no_loader(self._html(path), path)
+
+    # Codex on #1105: the SDK records document.referrer, and same-origin
+    # navigation sends the full referring URL, so a "Login / Join" click from
+    # a token page must not load the SDK on the login page.
+    TOKEN_REFERER = "https://crush.lu/en/book/0f8fad5b-d9cb-469f-a165-70867728950e/"
+
+    def test_same_origin_token_referrer_has_no_loader(self):
+        html = self._html("/en/login/", HTTP_REFERER=self.TOKEN_REFERER)
+        self._assert_no_loader(html, self.TOKEN_REFERER)
+
+    def test_same_origin_referrer_with_a_query_has_no_loader(self):
+        referer = "https://crush.lu/en/events/?code=secret"
+        self._assert_no_loader(self._html("/en/signup/", HTTP_REFERER=referer), referer)
+
+    def test_same_origin_parameterless_referrer_keeps_the_sdk(self):
+        html = self._html("/en/login/", HTTP_REFERER="https://crush.lu/en/")
+        self.assertIn(self.LIVE, html)
+
+    def test_cross_origin_referrer_keeps_the_sdk(self):
+        html = self._html("/en/signup/", HTTP_REFERER="https://www.google.com/")
+        self.assertIn(self.LIVE, html)
 
     def test_other_anonymous_pages_have_no_loader(self):
         self._assert_no_loader(self._html("/en/"), "/en/")
