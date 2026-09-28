@@ -85,17 +85,24 @@ class MinifiedBundleFileTests(TestCase):
     def test_min_file_is_byte_identical_to_a_fresh_build(self):
         """Exact check when esbuild is installed (CI's JavaScript Lint job runs
         the same comparison with the pinned version from package.json)."""
-        local = Path(settings.BASE_DIR) / "node_modules" / ".bin" / "esbuild"
-        esbuild = str(local) if local.exists() else shutil.which("esbuild")
+        # shutil.which honours PATHEXT: on Windows it returns esbuild.cmd, not
+        # npm's extensionless sh shim, which subprocess cannot execute.
+        local_bin = Path(settings.BASE_DIR) / "node_modules" / ".bin"
+        esbuild = shutil.which("esbuild", path=str(local_bin)) or shutil.which(
+            "esbuild"
+        )
         if not esbuild:
             self.skipTest("esbuild not installed (npm ci)")
         pinned = re.search(
             r'"esbuild":\s*"([^"]+)"',
             (Path(settings.BASE_DIR) / "package.json").read_text(encoding="utf-8"),
         ).group(1)
-        version = subprocess.run(
-            [esbuild, "--version"], capture_output=True, text=True, check=True
-        ).stdout.strip()
+        try:
+            version = subprocess.run(
+                [esbuild, "--version"], capture_output=True, text=True, check=True
+            ).stdout.strip()
+        except (OSError, subprocess.CalledProcessError) as exc:
+            self.skipTest(f"esbuild at {esbuild} is not runnable: {exc}")
         if version != pinned:
             self.skipTest(f"esbuild {version} is not the pinned {pinned}")
         with tempfile.TemporaryDirectory() as tmp:
@@ -127,6 +134,8 @@ class ShellServesMinifiedBundleTests(TestCase):
         self.assertTrue(any(MIN_SRC in s for s in srcs), srcs)
         self.assertFalse(any("alpine-components.js" in s for s in srcs), srcs)
         self.assertFalse(any(SORTABLE in s for s in srcs), srcs)
+        # Build notes are template comments, not bytes shipped on every page.
+        self.assertNotIn("npm run build:js", html)
 
     @override_settings(DEBUG=True)
     def test_debug_shell_keeps_the_readable_source(self):

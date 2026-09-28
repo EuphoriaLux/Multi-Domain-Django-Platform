@@ -1442,10 +1442,12 @@
     {% endif %}
 
     {% block pre_alpine_js %}{% endblock %}
-    <!-- Alpine.js CSP Components (defer maintains order - runs BEFORE Alpine.js).
-         Outside DEBUG this serves the esbuild output of `npm run build:js`; the
-         .min.js is committed and CI fails if it drifts from the source, because
-         a missing file 500s every page under the WhiteNoise manifest. -->
+    <!-- Alpine.js CSP Components (defer maintains order - runs BEFORE Alpine.js) -->
+    {% comment %}
+        Outside DEBUG this serves the esbuild output of `npm run build:js`; the
+        .min.js is committed and CI fails if it drifts from the source, because
+        a missing file 500s every page under the WhiteNoise manifest.
+    {% endcomment %}
     {% if debug %}
         {% now "U" as ts %}
         <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/alpine-components.js' %}?v={{ ts }}"></script>
