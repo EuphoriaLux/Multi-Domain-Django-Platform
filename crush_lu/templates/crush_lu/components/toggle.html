@@ -56,7 +56,7 @@ keeps its tone colour because peer-checked:* out-specifies the dark: variant.
         <span aria-hidden="true" class="block w-11 h-6 rounded-full bg-gray-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 {% if tone == 'red' %}peer-focus:ring-red-100 peer-checked:bg-red-500{% elif tone == 'green' %}peer-focus:ring-green-100 peer-checked:bg-green-600{% else %}peer-focus:ring-purple-100 peer-checked:bg-purple-600{% endif %} after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white"></span>
     </span>
     <span class="ml-3{% if inline %} text-sm{% else %} flex-1{% endif %}">
-        <strong{% if id %} id="{{ id }}_label"{% endif %} class="{% if tone == 'red' %}text-red-600 dark:text-red-400{% else %}text-gray-900 dark:text-white{% endif %}">{{ label }}</strong>
-        {% if help and not inline %}<span{% if id %} id="{{ id }}_help"{% endif %} class="block text-sm text-gray-500 dark:text-gray-400">{{ help }}</span>{% endif %}
+        <strong{% if id %} id="{{ id }}_label"{% endif %} class="{% if tone == 'red' %}text-red-700 dark:text-red-400{% else %}text-gray-900 dark:text-white{% endif %}">{{ label }}</strong>
+        {% if help and not inline %}<span{% if id %} id="{{ id }}_help"{% endif %} class="block text-sm text-muted-fg">{{ help }}</span>{% endif %}
     </span>
 </label>

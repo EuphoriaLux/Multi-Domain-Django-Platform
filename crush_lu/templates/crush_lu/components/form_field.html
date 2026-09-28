@@ -32,7 +32,7 @@ includes the form prefix, so prefixed forms and formsets stay unique.
 <div class="space-y-1 {{ field_class }}">
     {% if label != "" %}
         <label for="{{ field.id_for_label }}"
-               class="block {% if size == 'sm' %}text-xs text-gray-500 dark:text-gray-400{% else %}text-sm font-medium text-gray-700 dark:text-gray-300{% endif %} {{ label_class }}">
+               class="block {% if size == 'sm' %}text-xs text-muted-fg{% else %}text-sm font-medium text-gray-700 dark:text-gray-300{% endif %} {{ label_class }}">
             {{ label|default:field.label }}{% if field.field.required %}<span class="text-red-500" aria-hidden="true"> *</span>{% endif %}
         </label>
     {% endif %}
@@ -42,9 +42,9 @@ includes the form prefix, so prefixed forms and formsets stay unique.
         <p{% if field.auto_id %} id="{{ field.auto_id }}_error"{% endif %} class="text-red-500 dark:text-red-400 text-sm" role="alert">{{ field.errors.0 }}</p>
     {% endif %}
     {% if field.help_text %}
-        <p{% if field.auto_id %} id="{{ field.auto_id }}_helptext"{% endif %} class="text-xs text-gray-400 dark:text-gray-500">{{ field.help_text|safe }}</p>
+        <p{% if field.auto_id %} id="{{ field.auto_id }}_helptext"{% endif %} class="text-xs text-muted-fg">{{ field.help_text|safe }}</p>
     {% endif %}
     {% if help %}
-        <p{% if field.auto_id %} id="{{ field.auto_id }}_help"{% endif %} class="text-xs text-gray-400 dark:text-gray-500">{{ help }}</p>
+        <p{% if field.auto_id %} id="{{ field.auto_id }}_help"{% endif %} class="text-xs text-muted-fg">{{ help }}</p>
     {% endif %}
 </div>
