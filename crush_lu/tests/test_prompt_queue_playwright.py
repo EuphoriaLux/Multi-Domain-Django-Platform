@@ -66,9 +66,13 @@ Object.defineProperty(ServiceWorkerContainer.prototype, "ready", {
 
 
 def _member():
-    from crush_lu.tests.test_profile_edit_connect_card import _make_member
+    """An approved member with a first confirmed booking: since UX Wave 4 ·
+    WP13a (decision I) only such a member gets the global install card and
+    the push prompt. The pages under test are ``/en/events/``: the dashboard
+    shows its own install card (the same "install" prompt) instead."""
+    from crush_lu.tests.test_prompt_queue import _make_eligible_member
 
-    return _make_member("prompt-queue@example.com")
+    return _make_eligible_member("prompt-queue@example.com")
 
 
 def _phone(browser, live_server, user, *, consent=True, returning=False, extra=None):
@@ -125,7 +129,7 @@ def test_first_visit_cookie_sheet_sits_above_the_tab_bar_and_no_install(
     browser, live_server
 ):
     page = _phone(browser, live_server, _member(), consent=False)
-    _open(page, f"{live_server.url}/en/dashboard/")
+    _open(page, f"{live_server.url}/en/events/")
 
     sheet = page.locator("#cookie-consent-banner")
     expect(sheet).to_be_visible()
@@ -139,7 +143,7 @@ def test_first_visit_cookie_sheet_sits_above_the_tab_bar_and_no_install(
 
 def test_second_session_install_card_waits_for_the_cookie_choice(browser, live_server):
     page = _phone(browser, live_server, _member(), consent=False, returning=True)
-    _open(page, f"{live_server.url}/en/dashboard/")
+    _open(page, f"{live_server.url}/en/events/")
 
     card = page.locator("#pwa-install-banner")
     expect(page.locator("#cookie-consent-banner")).to_be_visible()
@@ -157,7 +161,7 @@ def test_second_session_install_card_is_an_overlay_above_the_tab_bar(
     browser, live_server
 ):
     page = _phone(browser, live_server, _member(), returning=True)
-    _open(page, f"{live_server.url}/en/dashboard/")
+    _open(page, f"{live_server.url}/en/events/")
 
     card = page.locator("#pwa-install-banner")
     expect(card).to_be_visible()
@@ -184,7 +188,7 @@ def test_flash_message_holds_the_install_card_until_dismissed(browser, live_serv
     page.context.add_cookies(
         [{"name": storage.cookie_name, "value": encoded, "url": live_server.url}]
     )
-    _open(page, f"{live_server.url}/en/dashboard/")
+    _open(page, f"{live_server.url}/en/events/")
 
     message = page.get_by_role("alert").filter(has_text="Something went wrong")
     expect(message).to_be_visible()
@@ -205,7 +209,7 @@ def test_no_install_card_on_account_pages(browser, live_server):
 
 def test_installer_returns_early_in_a_native_shell(browser, live_server):
     page = _phone(browser, live_server, _member(), returning=True)
-    _open(page, f"{live_server.url}/en/dashboard/")
+    _open(page, f"{live_server.url}/en/events/")
     shown = page.evaluate("""() => {
         let shown = 0;
         window.addEventListener("pwa-show-install", () => { shown += 1; });
@@ -222,7 +226,7 @@ def test_push_prompt_waits_behind_the_install_card_and_clears_the_tab_bar(
     browser, live_server
 ):
     page = _phone(browser, live_server, _member(), returning=True)
-    _open(page, f"{live_server.url}/en/dashboard/")
+    _open(page, f"{live_server.url}/en/events/")
     expect(page.locator("#pwa-install-banner")).to_be_visible()
 
     prompt = page.locator("[x-data='pushActivationPrompt']")
@@ -279,7 +283,7 @@ NO_PUSH_MANAGER_JS = "delete window.PushManager;"
 def test_new_tab_in_the_same_visit_is_not_a_second_session(browser, live_server):
     page = _phone(browser, live_server, _member())
     page.context.add_init_script(SAME_VISIT_NEW_TAB_JS)
-    _open(page, f"{live_server.url}/en/dashboard/")
+    _open(page, f"{live_server.url}/en/events/")
 
     page.wait_for_timeout(500)
     expect(page.locator("#pwa-install-banner")).to_be_hidden()
@@ -338,7 +342,7 @@ Object.defineProperty(Notification, "permission", {
 def test_restored_tab_after_inactivity_is_a_new_session(browser, live_server):
     page = _phone(browser, live_server, _member())
     page.context.add_init_script(RESTORED_TAB_JS)
-    _open(page, f"{live_server.url}/en/dashboard/")
+    _open(page, f"{live_server.url}/en/events/")
 
     expect(page.locator("#pwa-install-banner")).to_be_visible()
     assert page.evaluate("() => localStorage.getItem('crush-pwa-sessions')") == "2"
@@ -368,7 +372,7 @@ def test_whatsapp_button_tucks_away_while_the_install_card_shows(browser, live_s
     context_processors._site_config_cache["config"] = None
     try:
         page = _phone(browser, live_server, _member(), returning=True)
-        _open(page, f"{live_server.url}/en/dashboard/")
+        _open(page, f"{live_server.url}/en/events/")
 
         fab = page.locator(".crush-whatsapp-btn")
         expect(page.locator("#pwa-install-banner")).to_be_visible()
