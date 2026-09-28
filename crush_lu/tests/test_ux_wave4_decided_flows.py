@@ -159,6 +159,74 @@ class OnBreakInvitationWarningTests(TestCase):
         self.assertIn("Pause", texts[0])
         self.assertIn("Mia", texts[0])
 
+    def _direct_warning(self, emails):
+        from crush_lu.services.on_break import warn_if_inviting_on_break
+
+        request = RequestFactory().get("/")
+        request.session = SessionStore()
+        request._messages = FallbackStorage(request)
+        names = warn_if_inviting_on_break(request, emails=emails)
+        return names, [str(m) for m in get_messages(request)]
+
+    def test_verified_secondary_address_warns_once(self):
+        # Review P2: a merge moves verified addresses onto the keeper, so an
+        # invite to a secondary address must still find the on-break member.
+        EmailAddress.objects.create(
+            user=self.member, email="alias@crush.lu", primary=False, verified=True
+        )
+        names, texts = self._direct_warning(["Alias@crush.lu"])
+        self.assertEqual(names, ["Mia"])
+        self.assertEqual(len(texts), 1)
+        self.assertIn("taking a break", texts[0])
+
+    def test_primary_and_secondary_address_name_the_member_once(self):
+        EmailAddress.objects.create(
+            user=self.member, email="alias@crush.lu", primary=False, verified=True
+        )
+        names, _texts = self._direct_warning(["alias@crush.lu", "resting@crush.lu"])
+        self.assertEqual(names, ["Mia"])
+
+    def test_unverified_secondary_address_does_not_warn(self):
+        EmailAddress.objects.create(
+            user=self.member, email="alias@crush.lu", primary=False, verified=False
+        )
+        names, texts = self._direct_warning(["alias@crush.lu"])
+        self.assertEqual(names, [])
+        self.assertEqual(texts, [])
+
+    def _admin_save_existing_invitation(self, changed_data, new_event=None):
+        from crush_lu.admin import crush_admin_site
+        from crush_lu.admin.events import EventInvitationAdmin
+
+        invitation = EventInvitation.objects.create(
+            event=self.event,
+            guest_email="resting@crush.lu",
+            guest_first_name="Mia",
+            guest_last_name="Rest",
+        )
+        if new_event is not None:
+            invitation.event = new_event
+        request = RequestFactory().post("/")
+        request.user = self.coach.user
+        request.session = SessionStore()
+        request._messages = FallbackStorage(request)
+        EventInvitationAdmin(EventInvitation, crush_admin_site).save_model(
+            request, invitation, form=mock.Mock(changed_data=changed_data), change=True
+        )
+        return [str(m) for m in get_messages(request)]
+
+    def test_admin_invitation_moved_to_another_event_warns(self):
+        # Review P2: changing only the event is a new invite for that event.
+        other = _event(
+            title="Other", is_private_invitation=True, registration_fee=Decimal("0")
+        )
+        texts = self._admin_save_existing_invitation(["event"], new_event=other)
+        self.assertTrue(any("taking a break" in t for t in texts), texts)
+
+    def test_admin_invitation_unrelated_edit_does_not_rewarn(self):
+        texts = self._admin_save_existing_invitation(["guest_first_name"])
+        self.assertEqual(texts, [])
+
     def test_admin_invitation_save_warns(self):
         from crush_lu.admin import crush_admin_site
         from crush_lu.admin.events import EventInvitationAdmin
@@ -279,5 +347,22 @@ class EventShareReferralTests(TestCase):
         code = ReferralCode.objects.create(referrer=profile)
         response = self.client.get(
             f"/en/r/{code.code}/", {"next": "https://evil.example/"}
+        )
+        self.assertIn("/signup/", response.url)
+
+    def test_unknown_code_ignores_next_and_keeps_the_signup_redirect(self):
+        # Review P2: an unknown/inactive code keeps main's signup redirect.
+        response = self.client.get(
+            "/en/r/NOSUCHCODE/", {"next": f"/en/events/{self.event.pk}/"}
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/signup/", response.url)
+        self.assertNotIn("ref=", response.url)
+
+    def test_inactive_code_ignores_next(self):
+        _user, profile = _member("inactive@crush.lu")
+        code = ReferralCode.objects.create(referrer=profile, is_active=False)
+        response = self.client.get(
+            f"/en/r/{code.code}/", {"next": f"/en/events/{self.event.pk}/"}
         )
         self.assertIn("/signup/", response.url)

@@ -4165,7 +4165,8 @@ class EventInvitationAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
         # 8-13: warn, never block, when the invitee is on a break.
-        if not change or "guest_email" in form.changed_data:
+        # Moving an invitation to another event is a new invite for that event.
+        if not change or {"guest_email", "event"} & set(form.changed_data):
             from crush_lu.services.on_break import warn_if_inviting_on_break
 
             warn_if_inviting_on_break(request, emails=[obj.guest_email])

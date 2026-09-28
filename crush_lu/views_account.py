@@ -1589,9 +1589,17 @@ def referral_redirect(request, code):
     referral = capture_referral(request, code, source="link")
     # A shared event link (build_referral_url(next_url=...), 4-18) lands on
     # the event; the captured code still credits a later signup.
+    # Only a valid code earns the event landing; an unknown/inactive one keeps
+    # the plain signup redirect.
     next_url = request.GET.get("next")
-    if next_url and url_has_allowed_host_and_scheme(
-        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    if (
+        referral
+        and next_url
+        and url_has_allowed_host_and_scheme(
+            next_url,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        )
     ):
         return redirect(next_url)
     signup_url = reverse("crush_lu:signup")
