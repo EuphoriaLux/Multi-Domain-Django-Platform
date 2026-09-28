@@ -1,0 +1,13 @@
+{% load i18n crush_connect_tags %}
+{% comment %}
+Top-level desktop "Connect" link (UX Wave 4 · WP10 / 6-05). Gated exactly like
+the mobile bottom-nav Connect tab. No count badge: the Connect counts come from
+get_connect_summary(), which is not in the base context and costs several
+queries per page, so the header would pay for it on every request.
+{% endcomment %}
+{% if user|crush_connect_nav_visible %}
+<a class="nav-link" href="{% url 'crush_lu:crush_connect_hub' %}" data-nav="crush-connect">
+    {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
+    <span>{% trans "Connect" %}</span>
+</a>
+{% endif %}

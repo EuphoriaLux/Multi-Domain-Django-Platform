@@ -41376,9 +41376,6 @@ msgstr ""
 msgid "Connect Week requests"
 msgstr "Demandes Connect Week"
 
-msgid "Connect home"
-msgstr "Accueil Connect"
-
 msgid "Connect navigation"
 msgstr "Navigation Connect"
 
@@ -43517,3 +43514,21 @@ msgstr "Ajoutez une photo pour reprendre là où vous en étiez."
 msgid "Continue where you left off"
 msgstr "Reprendre là où vous en étiez"
 
+
+#: crush_lu/templates/crush_lu/crush_connect/_connect_subnav.html:14
+msgctxt "Crush Connect subnav"
+msgid "Home"
+msgstr "Accueil"
+
+#: crush_lu/templates/crush_lu/partials/bottom_nav.html:67
+msgctxt "member connections nav"
+msgid "Matches"
+msgstr "Affinités"
+
+#: crush_lu/templates/crush_lu/my_connections.html:4
+msgid "My Matches"
+msgstr "Mes affinités"
+
+#: crush_lu/templates/crush_lu/my_connections.html:11
+msgid "My Matches 💕"
+msgstr "Mes affinités 💕"
