@@ -2591,7 +2591,7 @@ def membership(request):
 
     from django.conf import settings as _settings
 
-    from .views_premium import premium_monthly_fee
+    from .views_premium import pending_premium_membership, premium_monthly_fee
 
     context = {
         "profile": profile,
@@ -2599,6 +2599,10 @@ def membership(request):
         # rendered from SUMUP_PREMIUM_MONTHLY_FEE, never hardcoded.
         "premium_monthly_fee": premium_monthly_fee(),
         "premium_invite_only": getattr(_settings, "PREMIUM_REDIRECTS_TO_BETA", False),
+        # Same predicate premium_choose_coach uses to let a member past the
+        # beta funnel: an open request gets a way back to pay, change or
+        # cancel it instead of the waitlist.
+        "has_pending_premium": pending_premium_membership(request.user) is not None,
         "is_premium": bool(profile and profile.has_active_premium),
         "referral_url": referral_url,
         "tiers": tiers,

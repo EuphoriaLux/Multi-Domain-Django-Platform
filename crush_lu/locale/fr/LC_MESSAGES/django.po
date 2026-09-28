@@ -43574,3 +43574,16 @@ msgstr ""
 #: crush_lu/templates/crush_lu/home.html
 msgid "That's Premium."
 msgstr "C'est Premium."
+
+#: crush_lu/templates/crush_lu/membership.html:4
+msgid "Pricing"
+msgstr "Tarifs"
+
+#: crush_lu/templates/crush_lu/membership.html:7
+#: crush_lu/templates/crush_lu/membership.html:9
+msgid "Free account, events from €0. Premium adds a personal coach and reserved seats."
+msgstr "Compte gratuit, événements dès 0 €. Premium vous offre un coach personnel et des places réservées."
+
+#: crush_lu/templates/crush_lu/membership.html:74
+msgid "Complete your Premium signup"
+msgstr "Finalisez votre inscription Premium"

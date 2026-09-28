@@ -36,6 +36,23 @@ def premium_monthly_fee():
     return Decimal(str(getattr(_settings, "SUMUP_PREMIUM_MONTHLY_FEE", "10.00")))
 
 
+def pending_premium_membership(user):
+    """The user's open (``pending``) PremiumMembership, or None.
+
+    One predicate for "has a Premium request still to pay, change or cancel":
+    premium_choose_coach lets these members past the Crush Connect beta
+    funnel, and the pricing page (/membership/) must offer them the same way
+    back in instead of the waitlist.
+    """
+    if not getattr(user, "is_authenticated", False):
+        return None
+    return (
+        PremiumMembership.objects.filter(user=user, status="pending")
+        .select_related("coach__user")
+        .first()
+    )
+
+
 def _available_coaches():
     """Coaches open to new premium members and not yet at capacity.
 
@@ -65,11 +82,7 @@ def premium_choose_coach(request):
     if ios_commerce_suppressed(request):
         return render(request, "crush_lu/premium/ios_unavailable.html")
 
-    pending = (
-        PremiumMembership.objects.filter(user=request.user, status="pending")
-        .select_related("coach__user")
-        .first()
-    )
+    pending = pending_premium_membership(request.user)
 
     # Crush Connect beta: funnel premium-seekers into the beta waitlist. This
     # runs before the profile gate because the waitlist is open to authenticated

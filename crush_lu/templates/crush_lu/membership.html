@@ -1,12 +1,12 @@
 {% extends 'crush_lu/base.html' %}
 {% load static i18n %}
 
-{% block title %}{% trans "Membership - Crush.lu" %}{% endblock %}
+{% block title %}{% trans "Pricing" %} – Crush.lu{% endblock %}
 
-{% block og_title %}{% trans "Crush.lu Membership Program" %}{% endblock %}
-{% block og_description %}{% trans "Join the Crush.lu membership program. Earn points, unlock rewards, and get your digital membership card in your wallet." %}{% endblock %}
+{% block og_title %}{% trans "Pricing" %} – Crush.lu{% endblock %}
+{% block og_description %}{% trans "Free account, events from €0. Premium adds a personal coach and reserved seats." %}{% endblock %}
 
-{% block meta_description %}{% trans "Crush.lu Membership: Install our app to unlock your digital membership card. Earn points by inviting friends and climb the tiers from Basic to Gold." %}{% endblock %}
+{% block meta_description %}{% trans "Free account, events from €0. Premium adds a personal coach and reserved seats." %}{% endblock %}
 {% block meta_keywords %}{% trans "crush.lu membership, dating rewards, referral program, membership card, pwa app" %}{% endblock %}
 
 {% block content %}
@@ -70,6 +70,8 @@
                 {% if is_premium %}
                 <span class="inline-flex items-center justify-center w-full py-2.5 rounded-xl bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-sm font-semibold">✓ {% trans "Your plan" %}</span>
                 {% elif suppress_native_commerce %}
+                {% elif has_pending_premium %}
+                <a href="{% url 'crush_lu:premium_choose_coach' %}" class="btn-crush-solid btn-block text-center">{% trans "Complete your Premium signup" %}</a>
                 {% elif premium_invite_only %}
                 <p class="text-sm text-muted-fg mb-3">{% trans "Premium is invite-only during the beta." %}</p>
                 <a href="{% url 'crush_lu:crush_connect_teaser' %}" class="btn-crush-solid btn-block text-center">{% trans "Join the Waitlist" %}</a>

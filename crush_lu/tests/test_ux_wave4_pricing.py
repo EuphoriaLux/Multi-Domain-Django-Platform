@@ -14,6 +14,7 @@ the default urlconf, not the host-selected one).
 
 import re
 from datetime import date
+from html.parser import HTMLParser
 
 from django.contrib.auth.models import User
 from django.core.cache import cache
@@ -27,6 +28,78 @@ def _premium_card(html):
     match = re.search(r'id="premium-plan".*?</section>', html, re.S)
     assert match, "Premium plan card missing"
     return match.group(0)
+
+
+class _HeadMeta(HTMLParser):
+    """Collect <title> text and <meta> content by name/property."""
+
+    def __init__(self):
+        super().__init__()
+        self.title = ""
+        self.meta = {}
+        self._in_title = False
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == "title":
+            self._in_title = True
+        elif tag == "meta":
+            key = attrs.get("name") or attrs.get("property")
+            if key and key not in self.meta:
+                self.meta[key] = attrs.get("content", "")
+
+    def handle_endtag(self, tag):
+        if tag == "title":
+            self._in_title = False
+
+    def handle_data(self, data):
+        if self._in_title:
+            self.title += data
+
+
+def _head(html):
+    parser = _HeadMeta()
+    parser.feed(html)
+    parser.title = parser.title.strip()
+    return parser
+
+
+class PricingMetaTests(TestCase):
+    """Title and meta describe the pricing role, not the old points programme."""
+
+    def setUp(self):
+        cache.clear()
+        self.client = Client(HTTP_HOST="crush.lu")
+
+    def test_english_title_and_description(self):
+        head = _head(self.client.get("/en/membership/").content.decode())
+        description = (
+            "Free account, events from €0. "
+            "Premium adds a personal coach and reserved seats."
+        )
+        self.assertEqual(head.title, "Pricing – Crush.lu")
+        self.assertEqual(head.meta["og:title"], "Pricing – Crush.lu")
+        self.assertEqual(head.meta["description"], description)
+        self.assertEqual(head.meta["og:description"], description)
+        self.assertNotIn("Earn points", head.meta["description"])
+
+    def test_german_title_and_description(self):
+        head = _head(self.client.get("/de/membership/").content.decode())
+        self.assertEqual(head.title, "Preise – Crush.lu")
+        self.assertEqual(
+            head.meta["description"],
+            "Kostenloses Konto, Events ab 0 €. "
+            "Premium bietet dir einen persönlichen Coach und reservierte Plätze.",
+        )
+
+    def test_french_title_and_description(self):
+        head = _head(self.client.get("/fr/membership/").content.decode())
+        self.assertEqual(head.title, "Tarifs – Crush.lu")
+        self.assertEqual(
+            head.meta["description"],
+            "Compte gratuit, événements dès 0 €. "
+            "Premium vous offre un coach personnel et des places réservées.",
+        )
 
 
 class PricingPageTests(TestCase):
@@ -135,6 +208,61 @@ class PricingPageMemberTests(TestCase):
         card = _premium_card(self.client.get("/en/membership/").content.decode())
         self.assertIn("Your plan", card)
         self.assertNotIn("/premium/coaches/", card)
+
+    def _pending_membership(self):
+        from crush_lu.models import CrushCoach, PremiumMembership
+
+        coach_user = User.objects.create_user(
+            username="pc@example.com", email="pc@example.com", password="x"
+        )
+        coach = CrushCoach.objects.create(user=coach_user, is_active=True)
+        return PremiumMembership.objects.create(
+            user=self.user, coach=coach, status="pending"
+        )
+
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
+    def test_pending_member_in_beta_can_complete_signup(self):
+        # premium_choose_coach lets a pending member past the beta funnel, so
+        # the pricing page must link there too, not to the waitlist.
+        self._pending_membership()
+        card = _premium_card(self.client.get("/en/membership/").content.decode())
+        self.assertIn('href="/en/premium/coaches/"', card)
+        self.assertIn("Complete your Premium signup", card)
+        self.assertNotIn("invite-only", card)
+        self.assertNotIn("/crush-connect/", card)
+        response = self.client.get("/en/premium/coaches/")
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
+    def test_pending_member_cta_translated(self):
+        self._pending_membership()
+        card = _premium_card(self.client.get("/de/membership/").content.decode())
+        self.assertIn("Schließ deine Premium-Anmeldung ab", card)
+        card = _premium_card(self.client.get("/fr/membership/").content.decode())
+        self.assertIn("Finalisez votre inscription Premium", card)
+
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
+    def test_selected_beta_tester_without_request_sees_waitlist(self):
+        from crush_lu.models import CrushConnectWaitlist
+
+        CrushConnectWaitlist.objects.create(user=self.user, selected_as_tester=True)
+        card = _premium_card(self.client.get("/en/membership/").content.decode())
+        self.assertIn("Premium is invite-only during the beta.", card)
+        self.assertIn('href="/en/crush-connect/"', card)
+        self.assertNotIn("Complete your Premium signup", card)
+
+    @override_settings(
+        PREMIUM_REDIRECTS_TO_BETA=True,
+        IOS_NATIVE_COMMERCE_ENABLED=False,
+    )
+    def test_native_app_hides_pending_cta(self):
+        self._pending_membership()
+        html = self.client.get(
+            "/en/membership/", HTTP_X_CRUSH_CLIENT="ios-app"
+        ).content.decode()
+        card = _premium_card(html)
+        self.assertNotIn("/premium/coaches/", card)
+        self.assertNotIn("Complete your Premium signup", card)
 
 
 class PricingEntryPointTests(TestCase):
