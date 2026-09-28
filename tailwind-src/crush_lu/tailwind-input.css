@@ -8501,7 +8501,7 @@ html.dark .progress-bar-container {
 }
 
 .step-nav {
-    @apply mb-8 flex flex-col justify-center gap-2.5 sm:flex-row;
+    @apply mb-8 flex list-none flex-row flex-wrap justify-center gap-2.5 p-0;
 }
 
 .step-indicator {
