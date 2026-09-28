@@ -43569,6 +43569,80 @@ msgid "Continue where you left off"
 msgstr "Reprendre là où vous en étiez"
 
 
+# UX Wave 4 · WP5 pricing (finding 1-01)
+#: crush_lu/templates/crush_lu/membership.html
+msgid "Start free. Go Premium when you want a personal coach."
+msgstr ""
+"Commencez gratuitement. Passez à Premium lorsque vous souhaitez un coach "
+"personnel."
+
+#: crush_lu/templates/crush_lu/membership.html
+msgid "Free vs Premium"
+msgstr "Gratuit ou Premium"
+
+#: crush_lu/templates/crush_lu/membership.html
+msgctxt "price"
+msgid "Free"
+msgstr "Gratuit"
+
+#: crush_lu/templates/crush_lu/membership.html
+#: crush_lu/templates/crush_lu/how_it_works.html
+msgid "Free account"
+msgstr "Compte gratuit"
+
+#: crush_lu/templates/crush_lu/membership.html
+#: crush_lu/templates/crush_lu/how_it_works.html
+msgid "Events from €0"
+msgstr "Événements dès 0 €"
+
+#: crush_lu/templates/crush_lu/membership.html
+#: crush_lu/templates/crush_lu/how_it_works.html
+msgid "Premium optional"
+msgstr "Premium en option"
+
+#: crush_lu/templates/crush_lu/membership.html
+#, python-format
+msgid "€%(amount)s / month"
+msgstr "%(amount)s € / mois"
+
+#: crush_lu/templates/crush_lu/membership.html
+msgid "Go Premium"
+msgstr "Passez à Premium"
+
+#: crush_lu/templates/crush_lu/membership.html
+msgctxt "membership page section"
+msgid "Rewards"
+msgstr "Récompenses"
+
+#: crush_lu/templates/crush_lu/home.html
+msgid ""
+"Our coaches host every event and welcome you in person. Want a personal "
+"coach by your side?"
+msgstr ""
+"Nos coachs organisent chaque événement et vous accueillent en personne. Vous"
+" voulez un coach personnel à vos côtés ?"
+
+#: crush_lu/templates/crush_lu/home.html
+msgid "That's Premium."
+msgstr "C'est Premium."
+
+#: crush_lu/templates/crush_lu/membership.html:4
+msgid "Pricing"
+msgstr "Tarifs"
+
+#: crush_lu/templates/crush_lu/membership.html:7
+#: crush_lu/templates/crush_lu/membership.html:9
+msgid "Free account, events from €0. Premium adds a personal coach and reserved seats."
+msgstr "Compte gratuit, événements dès 0 €. Premium vous offre un coach personnel et des places réservées."
+
+#: crush_lu/templates/crush_lu/membership.html:74
+msgid "Complete your Premium signup"
+msgstr "Finalisez votre inscription Premium"
+
+#: crush_lu/templates/crush_lu/membership.html:77
+msgid "Manage your Premium request"
+msgstr "Gérez votre demande Premium"
+
 # UX Wave 4 · WP2 (journey-entry, finding 7-04)
 #: .\crush_lu\templates\crush_lu\no_journey.html
 msgid "No Advent Calendar yet"
@@ -43627,3 +43701,11 @@ msgid "%(counter)s item needs your attention"
 msgid_plural "%(counter)s items need your attention"
 msgstr[0] "%(counter)s élément requiert votre attention"
 msgstr[1] "%(counter)s éléments requièrent votre attention"
+
+#: crush_lu/templates/crush_lu/membership.html
+msgid "We have already received a payment for your Premium request."
+msgstr "Nous avons déjà reçu un paiement pour votre demande Premium."
+
+#: crush_lu/templates/crush_lu/membership.html
+msgid "Contact support about your Premium payment"
+msgstr "Contactez le support au sujet de votre paiement Premium"

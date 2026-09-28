@@ -1,12 +1,12 @@
 {% extends 'crush_lu/base.html' %}
 {% load static i18n %}
 
-{% block title %}{% trans "Membership - Crush.lu" %}{% endblock %}
+{% block title %}{% trans "Pricing" %} – Crush.lu{% endblock %}
 
-{% block og_title %}{% trans "Crush.lu Membership Program" %}{% endblock %}
-{% block og_description %}{% trans "Join the Crush.lu membership program. Earn points, unlock rewards, and get your digital membership card in your wallet." %}{% endblock %}
+{% block og_title %}{% trans "Pricing" %} – Crush.lu{% endblock %}
+{% block og_description %}{% trans "Free account, events from €0. Premium adds a personal coach and reserved seats." %}{% endblock %}
 
-{% block meta_description %}{% trans "Crush.lu Membership: Install our app to unlock your digital membership card. Earn points by inviting friends and climb the tiers from Basic to Gold." %}{% endblock %}
+{% block meta_description %}{% trans "Free account, events from €0. Premium adds a personal coach and reserved seats." %}{% endblock %}
 {% block meta_keywords %}{% trans "crush.lu membership, dating rewards, referral program, membership card, pwa app" %}{% endblock %}
 
 {% block content %}
@@ -20,8 +20,78 @@
             {% trans "Crush.lu Membership" %}
         </h1>
         <p class="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
-            {% trans "Get your digital membership card, earn rewards, and unlock exclusive benefits by inviting friends." %}
+            {% trans "Start free. Go Premium when you want a personal coach." %}
         </p>
+    </div>
+
+    {% comment %}
+    Free vs Premium (Decision A, finding 1-01). Feature lists reuse
+    partials/_products.html; no trial is promised. The price comes from
+    SUMUP_PREMIUM_MONTHLY_FEE via the view, never hardcoded. Native shells
+    that may not sell (suppress_native_commerce) get neither price nor CTA.
+    {% endcomment %}
+    <section id="pricing" class="mb-12" aria-labelledby="pricing-heading">
+        <h2 id="pricing-heading" class="text-center text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-6">{% trans "Free vs Premium" %}</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch">
+            <div class="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-crush-sm p-6 flex flex-col">
+                <span class="self-start badge text-xs font-bold uppercase tracking-wide px-3 py-1 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">{% trans "Free" context "price" %}</span>
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white mt-3">{% trans "Standard" %}</h3>
+                <p class="text-2xl font-bold text-gray-900 dark:text-white mt-2">{% trans "Free account" %}</p>
+                <p class="text-sm text-muted-fg mb-5">{% trans "Events from €0" %}</p>
+                <ul class="space-y-2.5 text-sm mb-6 flex-1">
+                    <li class="flex items-start gap-2 text-gray-700 dark:text-gray-300"><span class="text-green-600 dark:text-green-400" aria-hidden="true">✓</span> {% trans "Verified profile" %}</li>
+                    <li class="flex items-start gap-2 text-gray-700 dark:text-gray-300"><span class="text-green-600 dark:text-green-400" aria-hidden="true">✓</span> {% trans "Browse & buy event tickets" %}</li>
+                    <li class="flex items-start gap-2 text-gray-700 dark:text-gray-300"><span class="text-green-600 dark:text-green-400" aria-hidden="true">✓</span> {% trans "Meet people face-to-face" %}</li>
+                    <li class="flex items-start gap-2 text-gray-700 dark:text-gray-300"><span class="text-green-600 dark:text-green-400" aria-hidden="true">✓</span> {% trans "Post-event connections" %}</li>
+                    <li class="flex items-start gap-2 text-gray-700 dark:text-gray-300"><span class="text-green-600 dark:text-green-400" aria-hidden="true">✓</span> {% trans "In the Mix — discoverable in Crush Connect" %}</li>
+                    <li class="flex items-start gap-2 text-muted-fg"><span aria-hidden="true">✕</span> {% trans "No personal coach" %}</li>
+                </ul>
+                {% if user.is_authenticated %}
+                <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-outline btn-block text-center">{% trans "Browse Events" %}</a>
+                {% else %}
+                <a href="{% url 'crush_lu:signup' %}" class="btn-crush-outline btn-block text-center">{% trans "Get Started Free" %}</a>
+                {% endif %}
+            </div>
+
+            <div id="premium-plan" class="rounded-2xl border-2 border-crush-purple bg-white dark:bg-gray-800 shadow-crush-md p-6 flex flex-col">
+                <span class="self-start badge text-xs font-bold uppercase tracking-wide px-3 py-1 rounded-full bg-purple-100 dark:bg-purple-900/40 text-crush-purple-dark dark:text-purple-300">{% trans "Premium" %}</span>
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white mt-3">{% trans "Premium" %}</h3>
+                {% if not suppress_native_commerce %}
+                <p class="text-2xl font-bold text-gray-900 dark:text-white mt-2" data-testid="premium-price">{% blocktrans with amount=premium_monthly_fee %}€{{ amount }} / month{% endblocktrans %}</p>
+                {% endif %}
+                <p class="text-sm text-muted-fg mb-5">{% trans "Premium optional" %}</p>
+                <ul class="space-y-2.5 text-sm mb-6 flex-1">
+                    <li class="flex items-start gap-2 text-gray-700 dark:text-gray-300"><span class="text-crush-purple dark:text-purple-300" aria-hidden="true">✓</span> {% trans "Everything in Standard" %}</li>
+                    <li class="flex items-start gap-2 text-gray-700 dark:text-gray-300"><span class="text-crush-purple dark:text-purple-300" aria-hidden="true">✓</span> {% trans "Personal coach" %}</li>
+                    <li class="flex items-start gap-2 text-gray-700 dark:text-gray-300"><span class="text-crush-purple dark:text-purple-300" aria-hidden="true">✓</span> {% trans "In-person verification before the event" %}</li>
+                    <li class="flex items-start gap-2 text-gray-700 dark:text-gray-300"><span class="text-crush-purple dark:text-purple-300" aria-hidden="true">✓</span> {% trans "Reserved event seats" %}</li>
+                    <li class="flex items-start gap-2 font-semibold text-gray-900 dark:text-white"><span class="text-crush-purple dark:text-purple-300" aria-hidden="true">★</span> {% trans "Crush Connect — Connect Week + human Coach Pick" %}</li>
+                </ul>
+                {% if is_premium %}
+                <span class="inline-flex items-center justify-center w-full py-2.5 rounded-xl bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-sm font-semibold">✓ {% trans "Your plan" %}</span>
+                {% elif suppress_native_commerce %}
+                {% elif pending_premium_state == "paid" %}
+                <p class="text-sm text-muted-fg mb-3">{% trans "We have already received a payment for your Premium request." %}</p>
+                <a href="{% url 'crush_lu:support' %}" class="btn-crush-outline btn-block text-center">{% trans "Contact support about your Premium payment" %}</a>
+                {% elif pending_premium_state == "complete" %}
+                <a href="{% url 'crush_lu:premium_choose_coach' %}" class="btn-crush-solid btn-block text-center">{% trans "Complete your Premium signup" %}</a>
+                {% elif pending_premium_state == "manage" %}
+                <p class="text-sm text-muted-fg mb-3">{% trans "Premium is invite-only during the beta." %}</p>
+                <a href="{% url 'crush_lu:premium_choose_coach' %}" class="btn-crush-outline btn-block text-center">{% trans "Manage your Premium request" %}</a>
+                {% elif premium_invite_only %}
+                <p class="text-sm text-muted-fg mb-3">{% trans "Premium is invite-only during the beta." %}</p>
+                <a href="{% url 'crush_lu:crush_connect_teaser' %}" class="btn-crush-solid btn-block text-center">{% trans "Join the Waitlist" %}</a>
+                {% else %}
+                <a href="{% url 'crush_lu:premium_choose_coach' %}" class="btn-crush-solid btn-block text-center">{% trans "Go Premium" %}</a>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    <section id="rewards" aria-labelledby="rewards-heading">
+    <div class="text-center mb-8">
+        <h2 id="rewards-heading" class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-2">{% trans "Rewards" context "membership page section" %}</h2>
+        <p class="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">{% trans "Get your digital membership card, earn rewards, and unlock exclusive benefits by inviting friends." %}</p>
     </div>
 
     <!-- Membership Card Preview -->
@@ -207,6 +277,8 @@
             </div>
         </div>
     </div>
+
+    </section>
 
     <!-- CTA for non-authenticated users -->
     {% if not user.is_authenticated %}
