@@ -54,7 +54,7 @@
              data-text-network-error="{% trans "Network error. Please try again." %}"
              data-text-rate-limited="{% trans "Too many attempts. Take a breath and try again in a minute." %}"
              data-text-success="{% trans "Thanks, your vote is in!" %}">
-            <form method="post" action="{% url 'api_poll_vote' poll.id %}"
+            <form method="post" action="{% url 'api_poll_vote' poll.id %}" class="no-loading"
                   x-show="isBallotShown" @submit.prevent="submitVote" @change="updateSelection">
                 {% csrf_token %}
                 {% if return_to_themes %}<input type="hidden" name="return_to" value="themes">{% endif %}
@@ -62,7 +62,7 @@
                     <legend class="sr-only">{{ poll.title }}</legend>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {% for option in options %}
-                        <label class="poll-option poll-option-card block">
+                        <label class="poll-option poll-option-card flex flex-col">
                             {% if option.static_image or option.image %}
                             <span class="poll-option-image-wrapper block">
                                 <img src="{% if option.static_image %}{% static 'crush_lu/images/event-polls/' %}{{ option.static_image }}{% else %}{{ option.image.url }}{% endif %}" alt="" class="poll-option-image">

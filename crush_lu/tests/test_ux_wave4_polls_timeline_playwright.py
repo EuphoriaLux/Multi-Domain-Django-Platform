@@ -92,6 +92,9 @@ def test_keyboard_vote_swaps_results_in_place_with_a_toast(poll_page):
     expect(page.get_by_role("img", name="Board Games: 100%, 1 vote")).to_be_visible()
     expect(page.get_by_role("radio")).to_have_count(0)
     assert page.evaluate("window.__noReload") is True
+    # The page-loading overlay must not cover a submit that never navigates.
+    page.wait_for_timeout(1000)
+    expect(page.locator("#page-loading-overlay")).to_be_hidden()
     assert dialogs == []
 
     from crush_lu.models.event_polls import EventPollVote

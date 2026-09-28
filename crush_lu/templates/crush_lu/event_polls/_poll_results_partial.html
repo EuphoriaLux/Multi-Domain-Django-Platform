@@ -35,7 +35,7 @@
                     {% endif %}
                     <h3 class="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">{{ option.name }}</h3>
                     {% if option.id in user_votes %}
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">{% trans "Your vote" context "poll result" %}</span>
+                    <span class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">{% trans "Your vote" context "poll result" %}</span>
                     {% endif %}
                 </div>
                 {% if not hide_counts %}
