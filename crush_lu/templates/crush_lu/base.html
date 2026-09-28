@@ -1421,7 +1421,7 @@
          Accept-Language and could disagree with this page.
          Deferred: no template calls gettext() inline at parse time, and defer preserves
          document order, so the catalog still lands before every deferred consumer
-         below (toast, confirm-sheet, alpine-components). -->
+         below (toast, confirm-sheet, the Alpine bundles). -->
     <script nonce="{{ csp_nonce }}" defer src="{% url 'javascript-catalog-lang' LANGUAGE_CODE %}"></script>
 
     <!-- HTMX 2.0.4 (HTML-driven interactivity) - deferred for non-blocking load.
@@ -1432,7 +1432,7 @@
          this at build time on purpose. -->
     <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/vendor/htmx-2.0.4.min.js' %}"></script>
 
-    <!-- Toast Notification Component (loads before alpine-components.js) -->
+    <!-- Toast Notification Component (loads before the Alpine bundles) -->
     {% if debug %}
         {% now "U" as ts %}
         <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/toast-component.js' %}?v={{ ts }}"></script>
@@ -1458,19 +1458,14 @@
         <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/confirm-sheet.js' %}"></script>
     {% endif %}
 
+    {% comment %}
+        Feature Alpine bundles (coach, quiz, journey, connect) go in
+        pre_alpine_js via crush_lu/partials/alpine_bundle.html on the pages
+        whose templates use them; test_ux_wave4_js_split checks every x-data.
+    {% endcomment %}
     {% block pre_alpine_js %}{% endblock %}
     <!-- Alpine.js CSP Components (defer maintains order - runs BEFORE Alpine.js) -->
-    {% comment %}
-        Outside DEBUG this serves the esbuild output of `npm run build:js`; the
-        .min.js is committed and CI fails if it drifts from the source, because
-        a missing file 500s every page under the WhiteNoise manifest.
-    {% endcomment %}
-    {% if debug %}
-        {% now "U" as ts %}
-        <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/alpine-components.js' %}?v={{ ts }}"></script>
-    {% else %}
-        <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/alpine-components.min.js' %}"></script>
-    {% endif %}
+    {% include "crush_lu/partials/alpine_bundle.html" with bundle="core" %}
     <!-- Alpine.js 3.13.3 CSP Build (CSP-compliant, no unsafe-eval required).
          Self-hosted - see the HTMX note above. Keep this the @alpinejs/csp
          build, NOT the plain `alpinejs` package: the standard build needs

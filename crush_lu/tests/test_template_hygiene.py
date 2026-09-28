@@ -92,7 +92,7 @@ def test_no_csp_unsafe_alpine_expressions():
     parse fine and then do nothing at runtime, so the component is inert with
     no console error and no failing view test — the disclosure just never
     opens. Expose getters and methods from an `Alpine.data` component and bind
-    their bare names instead (see `makeModal` in alpine-components.js).
+    their bare names instead (see `makeModal` in js/alpine/core.js).
     """
     offenders = []
     for template in sorted(TEMPLATES_DIR.rglob("*.html")):
