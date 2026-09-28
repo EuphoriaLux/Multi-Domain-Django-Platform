@@ -14657,6 +14657,39 @@ msgstr "Scanner le QR pour débloquer"
 msgid "Scan QR Code"
 msgstr "Scanner le code QR"
 
+#: templates/crush_lu/advent/calendar.html:36
+msgid "Doors with a lock open when you scan the QR code on your physical gift."
+msgstr "Les portes avec un cadenas s'ouvrent lorsque vous scannez le code QR de votre cadeau physique."
+
+#: templates/crush_lu/advent/calendar.html:37
+msgid "Open the QR scanner"
+msgstr "Ouvrir le scanner QR"
+
+#: templates/crush_lu/advent/calendar.html:53
+#, python-format
+msgid "Door %(num)s, opened"
+msgstr "Porte %(num)s, ouverte"
+
+#: templates/crush_lu/advent/calendar.html:64
+#, python-format
+msgid "Door %(num)s, ready to open"
+msgstr "Porte %(num)s, prête à être ouverte"
+
+#: templates/crush_lu/advent/calendar.html:76
+#, python-format
+msgid "Door %(num)s, needs a QR scan to open"
+msgstr "Porte %(num)s, scan du code QR nécessaire pour l'ouvrir"
+
+#: templates/crush_lu/advent/calendar.html:85
+#, python-format
+msgid "Door %(num)s, opens December %(num)s"
+msgstr "Porte %(num)s, s'ouvre le %(num)s décembre"
+
+#: templates/crush_lu/advent/calendar.html:85
+#, python-format
+msgid "Door %(num)s, locked"
+msgstr "Porte %(num)s, verrouillée"
+
 #: templates/crush_lu/advent/calendar_locked.html:4
 msgid "Advent Calendar - Coming Soon"
 msgstr "Calendrier de l'Avent – Bientôt disponible"

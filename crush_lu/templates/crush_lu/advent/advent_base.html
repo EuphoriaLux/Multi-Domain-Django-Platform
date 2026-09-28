@@ -1,6 +1,9 @@
 {% extends 'crush_lu/base.html' %}
 {% load static %}
 
+{# Advent is a night-mode experience, theme-locked like the journey pages (#1077). #}
+{% block theme_lock %} class="dark" data-theme-lock="dark"{% endblock %}
+
 {% block extra_css %}
 <style>
     /* ============================================================================
@@ -45,18 +48,26 @@
         }
     }
 
+    /* Sway uses the individual `translate` property so it composes with the
+       `transform` that `fall` animates, without triggering layout. */
     @keyframes sway {
         0%, 100% {
-            margin-left: 0;
+            translate: 0 0;
         }
         25% {
-            margin-left: 15px;
+            translate: 15px 0;
         }
         50% {
-            margin-left: -10px;
+            translate: -10px 0;
         }
         75% {
-            margin-left: 20px;
+            translate: 20px 0;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .snowflakes {
+            display: none;
         }
     }
 
@@ -95,7 +106,7 @@
     }
 
     .advent-progress .progress-bar {
-        background: linear-gradient(90deg, #c41e3a, #ff6b6b);
+        background: linear-gradient(90deg, var(--color-advent-red), #ff6b6b);
         border-radius: 6px;
     }
 
@@ -128,7 +139,7 @@
     }
 
     .door-content-card h2 {
-        color: #c41e3a;
+        color: var(--color-advent-red);
         margin-bottom: 1rem;
     }
 
@@ -144,10 +155,13 @@
         width: 60px;
         height: 60px;
         border-radius: 50%;
-        background: linear-gradient(135deg, #c41e3a, #ff6b6b);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, var(--color-advent-red), #ff6b6b);
         color: white;
         border: none;
-        box-shadow: 0 4px 16px rgba(196, 30, 58, 0.4);
+        box-shadow: 0 4px 16px color-mix(in srgb, var(--color-advent-red) 40%, transparent);
         font-size: 1.5rem;
         z-index: 100;
         transition: transform 0.3s ease;
@@ -155,6 +169,30 @@
 
     .qr-scanner-btn:hover {
         transform: scale(1.1);
+    }
+
+    /* Below lg the mobile tab bar is fixed to the bottom: clear it and the
+       home-indicator inset so the FAB never covers a tab. */
+    @media (max-width: 1023px) {
+        body:has(.bottom-nav) .qr-scanner-btn {
+            bottom: calc(var(--bottom-nav-height) + 1rem + env(safe-area-inset-bottom, 0px));
+            right: 1rem;
+        }
+    }
+
+    /* The global WhatsApp FAB (base.html, when configured) owns the corner:
+       stack the QR FAB directly above it on the same centre line instead of
+       covering it. Its offsets mirror partials/_whatsapp_button.html
+       (56px button at bottom 1.5rem / 4.5rem below lg, right 1.5rem). */
+    body:has(.crush-whatsapp-btn) .qr-scanner-btn {
+        bottom: calc(1.5rem + 56px + 1rem + env(safe-area-inset-bottom, 0px));
+        right: calc(1.5rem - 2px);
+    }
+
+    @media (max-width: 1023px) {
+        body:has(.crush-whatsapp-btn) .qr-scanner-btn {
+            bottom: calc(4.5rem + 56px + 1rem + env(safe-area-inset-bottom, 0px));
+        }
     }
 
     /* Bonus content styling */
@@ -239,10 +277,13 @@
     (function() {
         const snowflakesContainer = document.getElementById('snowflakes');
         if (!snowflakesContainer) return;
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
         const snowflakeSymbols = ['❄', '❅', '❆', '✻', '✼', '•'];
+        // Fewer flakes on phones: each one is an always-running animation.
+        const count = window.matchMedia('(max-width: 480px)').matches ? 20 : 60;
 
-        for (let i = 0; i < 60; i++) {
+        for (let i = 0; i < count; i++) {
             const snowflake = document.createElement('span');
             snowflake.className = 'snowflake';
             snowflake.textContent = snowflakeSymbols[Math.floor(Math.random() * snowflakeSymbols.length)];
