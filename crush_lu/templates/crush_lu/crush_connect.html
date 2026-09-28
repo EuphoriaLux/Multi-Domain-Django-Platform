@@ -83,13 +83,15 @@
             {% trans "Free Connect participation includes eligible daily discovery and one weekly request. Premium adds personal introductions chosen by your coach." %}
         </p>
 
+        {# One-line subline per card: the approved taglines of the experience pages (CONNECT_EXPERIENCES, views_crush_connect.py; UX Wave 4 · 6-03). #}
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
             <!-- Experience 1: Your Coach's Pick -->
             <div class="crush-connect-feature-card animate-on-scroll">
                 <div class="crush-connect-feature-icon">
                     <span class="crush-connect-feature-ghost">{% include "crush_lu/includes/ghost-story-typing.html" with class="w-12 h-12 ghost-glow" %}</span>
                 </div>
-                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">{% trans "Your Coach's Pick" %}</h3>
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-1">{% trans "Your Coach's Pick" %}</h3>
+                <p class="text-sm font-semibold text-crush-purple-dark dark:text-purple-300 mb-3">{% trans "One match a week, picked by a human." %}</p>
                 <p class="text-gray-600 dark:text-gray-400 mb-4">
                     {% trans "Every week, a real Crush Coach chooses one person for you, tells you why, and — if you both say yes — arranges the date personally. Not a feed, an actual introduction." %}
                 </p>
@@ -103,7 +105,8 @@
                 <div class="crush-connect-feature-icon">
                     <span class="crush-connect-feature-ghost">{% include "crush_lu/includes/ghost-story-chatting-pair.html" with class="w-12 h-12 ghost-glow" %}</span>
                 </div>
-                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">{% trans "Read the Photo" %}</h3>
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-1">{% trans "Read the Photo" %}</h3>
+                <p class="text-sm font-semibold text-crush-purple-dark dark:text-purple-300 mb-3">{% trans "No bios. Three questions. One photo." %}</p>
                 <p class="text-gray-600 dark:text-gray-400 mb-4">
                     {% trans "No bios to skim. Everyone answers 3 yes/no questions in private; you guess from the card. They see only anonymous totals such as 3 of 5 answered Yes — never who voted." %}
                 </p>
@@ -117,7 +120,8 @@
                 <div class="crush-connect-feature-icon">
                     <span class="crush-connect-feature-ghost">{% include "crush_lu/includes/ghost-story-approved.html" with class="w-12 h-12 ghost-glow" %}</span>
                 </div>
-                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">{% trans "In the Mix — free" %}</h3>
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-1">{% trans "In the Mix — free" %}</h3>
+                <p class="text-sm font-semibold text-crush-purple-dark dark:text-purple-300 mb-3">{% trans "Verified, discoverable, free — forever." %}</p>
                 <p class="text-gray-600 dark:text-gray-400 mb-4">
                     {% trans "Verify once with LuxID or event attendance, answer your 3 questions, and you're discoverable in Connect Week and the coach-curated catalogue. No subscription, ever." %}
                 </p>

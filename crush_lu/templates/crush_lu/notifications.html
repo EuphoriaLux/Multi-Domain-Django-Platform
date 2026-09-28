@@ -31,8 +31,8 @@
                         <span class="flex-shrink-0 mt-1.5 w-2 h-2 rounded-full {% if n.is_unread %}bg-crush-purple{% else %}bg-transparent{% endif %}"></span>
                         <div class="flex-1 min-w-0">
                             <p class="text-sm font-medium text-gray-900 dark:text-white mb-0.5">{{ n.title }}</p>
-                            {% if n.body %}<p class="text-sm text-gray-500 dark:text-gray-400 mb-1">{{ n.body|truncatewords:25 }}</p>{% endif %}
-                            <p class="text-xs text-gray-400 dark:text-gray-500">{{ n.created_at|timesince }} {% trans "ago" %}</p>
+                            {% if n.body %}<p class="text-sm text-muted-fg mb-1">{{ n.body|truncatewords:25 }}</p>{% endif %}
+                            <p class="text-xs text-muted-fg">{{ n.created_at|timesince }} {% trans "ago" %}</p>
                         </div>
                     </div>
                 </a>
@@ -45,7 +45,7 @@
         <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 text-center py-12 px-6">
             <div class="mx-auto w-24 h-24 mb-4 ghost-glow">{% include "crush_lu/includes/ghost-story-discover.html" with class="w-full h-full" %}</div>
             <h4 class="text-lg font-semibold mb-2 dark:text-white">{% trans "No notifications yet" %}</h4>
-            <p class="text-gray-500 dark:text-gray-400">{% trans "You're all caught up. New activity will appear here." %}</p>
+            <p class="text-muted-fg">{% trans "You're all caught up. New activity will appear here." %}</p>
         </div>
     </div>
     {% endif %}

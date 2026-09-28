@@ -176,7 +176,8 @@ Tokens introduced for this surface (in `tailwind-input.css`):
 - `--text-muted` — secondary copy on the lavender surfaces: gray-600 in
   light, gray-400 in dark. Use the `text-muted-fg` utility instead of
   `text-gray-500` (which only reaches ~4.0:1 on `#ede8f4`). The mobile tab
-  bar's inactive labels use it too.
+  bar's inactive labels use it too. The legacy `.text-muted` class maps to
+  the same token, so don't pair it with a `dark:text-*` override.
 
 ### Always-dark surfaces
 

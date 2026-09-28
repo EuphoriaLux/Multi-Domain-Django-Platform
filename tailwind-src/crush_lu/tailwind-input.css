@@ -145,7 +145,7 @@ html:not(.dark) {
    60.65px tab (6px + 34px icon + 2px + 12.65px label + 6px) plus its 1px border.
    --text-muted is secondary copy on the tinted lavender surfaces: gray-500
    only reaches ~4.0:1 on #ede8f4, gray-600 reaches 6.3:1 (gray-400 on dark).
-   Use it through the text-muted-fg utility. */
+   Use it through the text-muted-fg utility (.text-muted maps to it too). */
 :root {
     --color-surface-card: #ffffff;
     --bottom-nav-height: 61.65px;
@@ -400,7 +400,7 @@ body.journey-bg {
     }
 
     .btn-danger {
-        @apply bg-red-500 px-6 py-3 text-white hover:bg-red-600 focus:ring-red-400 dark:bg-red-600 dark:hover:bg-red-500;
+        @apply bg-red-700 px-6 py-3 text-white hover:bg-red-800 focus:ring-red-400 dark:bg-red-700 dark:hover:bg-red-800;
     }
 
     .btn-warning {
@@ -974,8 +974,10 @@ body.journey-bg {
         @apply text-xl font-bold;
     }
 
+    /* Legacy component class, mapped onto the --text-muted token (dark
+       variant included via html.dark) so it matches text-muted-fg. */
     .text-muted {
-        @apply text-gray-500 dark:text-gray-400;
+        @apply text-muted-fg;
     }
 
     .text-gradient {
@@ -4970,7 +4972,8 @@ footer hr {
 
 .btn-crush-outline {
     background: transparent;
-    color: var(--crush-purple);
+    /* purple-dark text: crush-purple only reaches 4.0:1 on the lavender card */
+    color: var(--crush-purple-dark);
     border: 2px solid var(--crush-purple);
     font-weight: var(--font-semibold);
     padding: var(--space-3) var(--space-8);
@@ -5022,7 +5025,8 @@ footer hr {
 }
 
 html.dark .btn-crush-outline {
-    color: var(--crush-purple-light);
+    /* base.html's dark --crush-purple (5.4:1 on gray-800); purple-light is 4.47 */
+    color: var(--crush-purple);
     border-color: var(--crush-purple-light);
 }
 
