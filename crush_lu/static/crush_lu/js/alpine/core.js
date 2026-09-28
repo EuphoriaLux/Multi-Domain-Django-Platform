@@ -7773,44 +7773,43 @@ document.addEventListener("alpine:init", function () {
 
     // Event Poll Voting component
     // CSP-safe: all logic in methods/getters, no inline expressions.
-    // Each option element has data-option-id; methods read it from $el.
+    // The ballot is a real <form> of native radios/checkboxes (name="option_ids")
+    // that also works without JS; this component posts it as JSON instead, shows
+    // errors inline, and swaps in the server-rendered results on success.
     Alpine.data("eventPollVoting", function () {
         return {
-            selectedOptions: [],
-            isMultiChoice: false,
+            selectedCount: 0,
             isSubmitting: false,
             hasVoted: false,
-            pollId: 0,
+            errorMessage: "",
 
-            _textSubmit: "Submit Vote",
-            _textSubmitting: "Submitting...",
-            _textSubmitted: "Vote Submitted",
-            _textError: "Failed to submit vote",
+            _textSubmit: gettext("Submit Vote"),
+            _textSubmitting: gettext("Submitting..."),
+            _textSubmitted: gettext("Vote Submitted"),
+            _textError: gettext("Failed to submit vote"),
             _textNetworkError: gettext("Network error. Please try again."),
+            _textRateLimited: gettext(
+                "Too many attempts. Take a breath and try again in a minute.",
+            ),
+            _textSuccess: gettext("Thanks, your vote is in!"),
 
             init() {
                 var el = this.$el;
-                this.isMultiChoice = el.getAttribute("data-multi-choice") === "true";
-                this.hasVoted = el.getAttribute("data-has-voted") === "true";
-                this.pollId = parseInt(el.getAttribute("data-poll-id") || "0", 10);
-                this._textSubmit =
-                    el.getAttribute("data-text-submit") || this._textSubmit;
-                this._textSubmitting =
-                    el.getAttribute("data-text-submitting") || this._textSubmitting;
-                this._textSubmitted =
-                    el.getAttribute("data-text-submitted") || this._textSubmitted;
-                this._textError = el.getAttribute("data-text-error") || this._textError;
-                this._textNetworkError =
-                    el.getAttribute("data-text-network-error") ||
-                    this._textNetworkError;
-            },
-
-            get canSubmit() {
-                return (
-                    this.selectedOptions.length > 0 &&
-                    !this.isSubmitting &&
-                    !this.hasVoted
-                );
+                var keys = [
+                    "Submit",
+                    "Submitting",
+                    "Submitted",
+                    "Error",
+                    "NetworkError",
+                    "RateLimited",
+                    "Success",
+                ];
+                for (var i = 0; i < keys.length; i++) {
+                    var value = el.dataset["text" + keys[i]];
+                    if (value) this["_text" + keys[i]] = value;
+                }
+                // A browser may restore a checked option after reload/back.
+                this.updateSelection();
             },
 
             get submitButtonText() {
@@ -7820,110 +7819,94 @@ document.addEventListener("alpine:init", function () {
             },
 
             get isDisabled() {
-                return this.isSubmitting || this.hasVoted;
+                return this.isSubmitting || this.hasVoted || this.selectedCount === 0;
             },
 
-            // CSP-safe: reads data-option-id from the element that has x-bind:class
-            get optionClass() {
-                var el = this.$el;
-                var id = parseInt(el.getAttribute("data-option-id") || "0", 10);
-                return this.selectedOptions.indexOf(id) !== -1
-                    ? "poll-option-selected"
-                    : "";
+            get isBallotShown() {
+                return !this.hasVoted;
             },
 
-            // CSP-safe: reads data-option-id for the image overlay check circle
-            get checkOverlayClass() {
-                var el = this.$el;
-                var id = parseInt(el.getAttribute("data-option-id") || "0", 10);
-                if (this.selectedOptions.indexOf(id) !== -1) {
-                    return "poll-option-check-active";
-                }
-                return "";
+            updateSelection: function () {
+                this.selectedCount = this._selectedIds().length;
+                this.errorMessage = "";
             },
 
-            // CSP-safe: reads data-option-id from the checkbox circle element
-            get checkboxClass() {
-                var el = this.$el;
-                var id = parseInt(el.getAttribute("data-option-id") || "0", 10);
-                if (this.selectedOptions.indexOf(id) !== -1) {
-                    return "border-crush-purple bg-crush-purple dark:border-violet-500 dark:bg-violet-500";
-                }
-                return "border-gray-300 dark:border-gray-600";
-            },
-
-            // CSP-safe: reads data-option-id from the svg element
-            get isOptionSelected() {
-                var el = this.$el;
-                var id = parseInt(el.getAttribute("data-option-id") || "0", 10);
-                return this.selectedOptions.indexOf(id) !== -1;
-            },
-
-            // CSP-safe: getter for submit button class
-            get submitClass() {
-                if (this.canSubmit) {
-                    return "bg-crush-purple hover:bg-purple-700 dark:bg-violet-600 dark:hover:bg-violet-700";
-                }
-                return "bg-gray-300 dark:bg-gray-700 cursor-not-allowed";
-            },
-
-            // CSP-safe: reads data-option-id from closest [data-option-id] ancestor
-            handleOptionClick: function () {
-                if (this.hasVoted || this.isSubmitting) return;
-
-                var el = this.$el;
-                var id = parseInt(el.getAttribute("data-option-id") || "0", 10);
-                if (!id) return;
-
-                var idx = this.selectedOptions.indexOf(id);
-                if (idx !== -1) {
-                    this.selectedOptions.splice(idx, 1);
-                } else {
-                    if (!this.isMultiChoice) {
-                        this.selectedOptions = [id];
-                    } else {
-                        this.selectedOptions.push(id);
-                    }
-                }
+            _selectedIds: function () {
+                var checked = this.$root.querySelectorAll(
+                    'input[name="option_ids"]:checked',
+                );
+                return Array.from(checked).map(function (input) {
+                    return parseInt(input.value, 10);
+                });
             },
 
             submitVote: function () {
-                if (!this.canSubmit) return;
+                var ids = this._selectedIds();
+                if (!ids.length || this.isSubmitting || this.hasVoted) return;
 
                 var self = this;
-                self.isSubmitting = true;
-
-                var csrfToken = document.querySelector("[name=csrfmiddlewaretoken]");
-                var token = csrfToken ? csrfToken.value : "";
-                var payload = { option_ids: self.selectedOptions };
+                var form = this.$root.querySelector("form");
+                var token = form.querySelector("[name=csrfmiddlewaretoken]");
+                // The vote URL is language-neutral: reply in the page's language.
+                var lang = form.querySelector('input[name="lang"]');
+                var payload = { option_ids: ids, lang: lang ? lang.value : "" };
                 // Optional "I am..." answer, rendered only for voters without a profile gender
-                var gender = document.querySelector('input[name="voter_gender"]:checked');
+                var gender = form.querySelector('input[name="voter_gender"]:checked');
                 if (gender) payload.gender = gender.value;
 
-                fetch("/api/polls/" + self.pollId + "/vote/", {
+                self.isSubmitting = true;
+                self.errorMessage = "";
+                fetch(form.action, {
                     method: "POST",
+                    credentials: "same-origin",
                     headers: {
                         "Content-Type": "application/json",
-                        "X-CSRFToken": token,
+                        Accept: "application/json",
+                        "X-CSRFToken": token ? token.value : "",
                     },
                     body: JSON.stringify(payload),
                 })
                     .then(function (r) {
-                        return r.json();
-                    })
-                    .then(function (data) {
-                        self.isSubmitting = false;
-                        if (data.success) {
-                            self.hasVoted = true;
-                            window.location.reload();
-                        } else {
-                            alert(data.error || self._textError);
+                        if (r.status === 429) return self._fail(self._textRateLimited);
+                        var type = r.headers.get("Content-Type") || "";
+                        // A CSRF 403 page or a login redirect is HTML, not JSON.
+                        if (type.indexOf("application/json") === -1) {
+                            return self._fail(self._textError);
                         }
+                        return r.json().then(function (data) {
+                            if (r.ok && data.success) return self._succeed(data);
+                            self._fail(data.error || self._textError);
+                        });
                     })
                     .catch(function () {
-                        self.isSubmitting = false;
-                        alert(self._textNetworkError);
+                        self._fail(self._textNetworkError);
                     });
+            },
+
+            _fail: function (message) {
+                this.isSubmitting = false;
+                this.errorMessage = message;
+            },
+
+            _succeed: function (data) {
+                this.isSubmitting = false;
+                this.hasVoted = true;
+                var results = this.$refs.results;
+                if (results && data.results_html) {
+                    results.innerHTML = data.results_html;
+                    results.focus();
+                }
+                // The header count sits outside this component; update it from
+                // the same response that renders the results.
+                var total = document.querySelector("[data-poll-total-votes]");
+                if (total && typeof data.total_votes === "number") {
+                    total.textContent = data.total_votes;
+                }
+                window.dispatchEvent(
+                    new CustomEvent("show-toast", {
+                        detail: { type: "success", message: this._textSuccess },
+                    }),
+                );
             },
         };
     });

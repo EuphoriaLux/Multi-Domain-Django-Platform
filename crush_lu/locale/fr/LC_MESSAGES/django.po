@@ -15531,10 +15531,8 @@ msgid "No teams yet."
 msgstr "Pas encore d'équipes."
 
 #: templates/crush_lu/cache/_play_content.html:9
-#, fuzzy
-#| msgid "Too many attempts. Please try again later."
 msgid "Too many attempts. Take a breath and try again in a minute."
-msgstr "Trop de tentatives. Veuillez réessayer plus tard."
+msgstr "Trop de tentatives. Prenez une pause et réessayez dans une minute."
 
 #: templates/crush_lu/cache/_play_content.html:33
 #: templates/crush_lu/cache/finish.html:14
@@ -43695,6 +43693,82 @@ msgid "%(counter)s item needs your attention"
 msgid_plural "%(counter)s items need your attention"
 msgstr[0] "%(counter)s élément requiert votre attention"
 msgstr[1] "%(counter)s éléments requièrent votre attention"
+
+#: templates/crush_lu/event_polls/poll_detail.html
+#, python-format
+msgid "Voting opens %(date)s"
+msgstr "Le vote ouvre le %(date)s"
+
+#: templates/crush_lu/event_polls/poll_detail.html
+msgid "Thanks, your vote is in!"
+msgstr "Merci, votre vote est bien enregistré !"
+
+#: templates/crush_lu/event_polls/_poll_results_partial.html
+msgctxt "poll result"
+msgid "Your vote"
+msgstr "Votre vote"
+
+#: templates/crush_lu/event_polls/_poll_results_partial.html
+#, python-format
+msgid "%(counter)s vote"
+msgid_plural "%(counter)s votes"
+msgstr[0] "%(counter)s vote"
+msgstr[1] "%(counter)s votes"
+
+#: templates/crush_lu/event_polls/_poll_results_partial.html
+#, python-format
+msgid "%(name)s: %(pct)s%%, %(votes_label)s"
+msgstr "%(name)s : %(pct)s %%, %(votes_label)s"
+
+#: views_event_polls.py
+msgid "Profile required"
+msgstr "Profil requis"
+
+#: views_event_polls.py
+msgid "Poll is not active"
+msgstr "Ce sondage n'est pas ouvert pour le moment"
+
+#: views_event_polls.py
+msgid "No options selected"
+msgstr "Aucune option sélectionnée"
+
+#: views_event_polls.py
+msgid "Only one choice allowed"
+msgstr "Un seul choix possible"
+
+#: views_event_polls.py
+msgid "Invalid option"
+msgstr "Option invalide"
+
+#: templates/crush_lu/journey/challenges/timeline_sort.html
+msgid ""
+"Drag and drop the events, or use the up and down buttons, to arrange them in"
+" chronological order"
+msgstr ""
+"Glisse et dépose les événements, ou utilise les boutons haut et bas, pour "
+"les organiser en ordre chronologique"
+
+#: templates/crush_lu/journey/challenges/timeline_sort.html
+msgid ""
+"Touch and drag the events, or use the up and down buttons, to arrange them "
+"in chronological order"
+msgstr ""
+"Touche et glisse les événements, ou utilise les boutons haut et bas, pour "
+"les organiser en ordre chronologique"
+
+#: templates/crush_lu/journey/challenges/timeline_sort.html
+msgid "{item} moved to position {position} of {total}"
+msgstr "{item} est maintenant en position {position} sur {total}"
+
+#: templates/crush_lu/journey/challenges/timeline_sort.html
+#, python-format
+msgid "Move “%(event)s” up"
+msgstr "Déplacer « %(event)s » vers le haut"
+
+#: templates/crush_lu/journey/challenges/timeline_sort.html
+#, python-format
+msgid "Move “%(event)s” down"
+msgstr "Déplacer « %(event)s » vers le bas"
 
 #: crush_lu/views_payments.py
 #, python-format

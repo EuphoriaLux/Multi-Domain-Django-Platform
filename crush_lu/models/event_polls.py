@@ -50,6 +50,11 @@ class EventPoll(models.Model):
         """Poll is past its end date."""
         return timezone.now() > self.end_date
 
+    @property
+    def is_upcoming(self):
+        """Poll is published but voting has not opened yet."""
+        return self.is_published and timezone.now() < self.start_date
+
 
 class EventPollOption(models.Model):
     """An option within an event poll."""
