@@ -162,6 +162,23 @@ class SocialAddressCorrectionTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ["fixed@example.com"])
 
+    def test_corrected_address_is_stored_lower_case(self):
+        """allauth lowercases login and password-reset input and matches it
+        exactly, so a mixed-case correction must be stored lower-case or the
+        member could not sign in with it on Postgres."""
+        self.client.post(RESEND, {"email": "Fixed@Example.com"})
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "fixed@example.com")
+        self.assertEqual(
+            list(
+                EmailAddress.objects.filter(user=self.user).values_list(
+                    "email", flat=True
+                )
+            ),
+            ["fixed@example.com"],
+        )
+        self.assertEqual(mail.outbox[-1].to, ["fixed@example.com"])
+
     def test_address_of_another_account_is_skipped_with_the_same_response(self):
         _unverified_user("taken@example.com")
         other = Client(HTTP_HOST="crush.lu").post(RESEND, {"email": "nobody@x.lu"})

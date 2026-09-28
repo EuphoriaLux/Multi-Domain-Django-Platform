@@ -1816,6 +1816,9 @@ def _replace_pending_social_address(request, typed_email):
     user_id = _held_social_user_id(request)
     if not user_id:
         return None
+    # Stored lower-case like the signup form (forms.py): allauth lowercases
+    # login and reset input and then matches exactly.
+    typed_email = typed_email.strip().lower()
     try:
         validate_email(typed_email)
     except ValidationError:
