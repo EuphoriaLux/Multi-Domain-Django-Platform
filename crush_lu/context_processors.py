@@ -54,6 +54,8 @@ _SAFE_NAV_DEFAULTS = {
     # silent_variable_failure), which would 500 the page even with this guard.
     "nav_has_profile": False,
     "nav_is_active_coach": False,
+    "prompt_install_eligible": False,
+    "prompt_push_eligible": False,
 }
 
 
@@ -275,6 +277,17 @@ def crush_user_context(request):
             and reg.event.date_time + timedelta(minutes=reg.event.duration_minutes or 0)
             >= now
         ][:5]
+
+        # Prompt gating (UX Wave 4 · WP13a, decision I): the push prompt only
+        # after a first successful booking, the install card only after that
+        # or profile approval. The prompts store adds "never on a first visit".
+        has_booked = EventRegistration.objects.filter(
+            user=request.user, status__in=["confirmed", "attended"]
+        ).exists()
+        context["prompt_push_eligible"] = has_booked
+        context["prompt_install_eligible"] = has_booked or bool(
+            profile and profile.is_approved
+        )
 
         context["upcoming_events"] = upcoming_registrations
         context["upcoming_events_count"] = len(upcoming_registrations)

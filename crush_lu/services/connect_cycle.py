@@ -524,16 +524,21 @@ def week_timeline_state(session, sent_request=None):
     ``ConnectWeeklyRequest.expires_at``).
 
     Returns ``{"step": 1-5, "next_kind": "opens"|"closes"|"waiting"|None,
-    "next_at": date/datetime or None}``, or ``None`` once the session has
-    left ACTIVE/REVIEW_OPEN (COMPLETED/EXPIRED/ABANDONED): by then the
-    review window has closed and neither "Review opens <past date>" (the
-    ACTIVE branch's arithmetic) nor a specific later step can be inferred —
-    a session completes on its review-window timeout regardless of whether
-    a request was ever sent or accepted, so there is no reliable step to
-    report. Callers/templates treat ``None`` as "no timeline to show".
+    "next_at": date/datetime or None}``, or ``None`` ("no timeline to
+    show") when there is no reliable step to report:
+
+    - the weekly request ended without a chat (DECLINED / EXPIRED /
+      CANCELLED). ``can_send_weekly_request()`` rejects a second request,
+      so reverting to "Review closes …" would imply the member can still
+      choose;
+    - the session left ACTIVE/REVIEW_OPEN (COMPLETED/EXPIRED/ABANDONED)
+      without an open chat. A session completes on its review-window
+      timeout whatever the request state, so an ACCEPTED request whose chat
+      is still open keeps its Chat/Coffee step instead of vanishing.
+
     ``sent_request`` is the session's single ``ConnectWeeklyRequest`` (or
     ``None``) when the caller already has it; passing it avoids a redundant
-    query during the review window.
+    query.
     """
     if session is None:
         return {"step": 1, "next_kind": None, "next_at": None}
@@ -547,28 +552,15 @@ def week_timeline_state(session, sent_request=None):
                 "next_at": session.review_expires_at,
             }
         if sent_request.status == sent_request.Status.ACCEPTED:
-            # Step 4 ("Chat") until a coffee plan exists on the opened chat;
-            # once one is proposed/accepted/rescheduled/confirmed, advance to
-            # step 5 ("Coffee") — a cancelled plan drops back to step 4 since
-            # the pair is still just chatting.
-            step = 4
-            try:
-                coffee_date = sent_request.chat.coffee_date
-            except ObjectDoesNotExist:
-                coffee_date = None
-            if (
-                coffee_date is not None
-                and coffee_date.status != coffee_date.Status.CANCELLED
-            ):
-                step = 5
-            return {"step": step, "next_kind": None, "next_at": None}
+            return _chat_timeline_step(sent_request)
         if sent_request.status == sent_request.Status.PENDING:
             return {
                 "step": 3,
                 "next_kind": "waiting",
                 "next_at": sent_request.expires_at,
             }
-        return {"step": 2, "next_kind": "closes", "next_at": session.review_expires_at}
+        # DECLINED / EXPIRED / CANCELLED: the one-shot flow has ended.
+        return None
     if session.status == session.Status.ACTIVE:
         review_date = timezone.localtime(session.started_at).date() + timedelta(
             days=CYCLE_LENGTH_DAYS
@@ -576,11 +568,40 @@ def week_timeline_state(session, sent_request=None):
         return {"step": 1, "next_kind": "opens", "next_at": review_date}
     # Terminal statuses (COMPLETED / EXPIRED / ABANDONED): falling through to
     # the ACTIVE branch above would show "Review opens <date>" with
-    # started_at + CYCLE_LENGTH_DAYS already in the past. There is no single
-    # correct step to report instead (COMPLETED covers both "sent nothing"
-    # and "chatted all week" alike), so hide the timeline rather than invent
-    # one — see the docstring.
-    return None
+    # started_at + CYCLE_LENGTH_DAYS already in the past. Only an accepted
+    # request whose chat is still open has a later step to report.
+    if sent_request is None:
+        sent_request = session.weekly_requests.order_by("-sent_at").first()
+    if sent_request is None or sent_request.status != sent_request.Status.ACCEPTED:
+        return None
+    from crush_lu.models.crush_connect_cycle import ConnectTemporaryChat
+
+    try:
+        chat_status = sent_request.chat.status
+    except ObjectDoesNotExist:
+        return None
+    if chat_status not in (
+        ConnectTemporaryChat.Status.ACTIVE,
+        ConnectTemporaryChat.Status.MEETING_SCHEDULED,
+        ConnectTemporaryChat.Status.MEETING_CONFIRMED,
+    ):
+        return None
+    return _chat_timeline_step(sent_request)
+
+
+def _chat_timeline_step(sent_request):
+    """Step 4 ("Chat") until a coffee plan exists on the opened chat; once
+    one is proposed/accepted/rescheduled/confirmed, step 5 ("Coffee") — a
+    cancelled plan drops back to step 4 since the pair is still just
+    chatting."""
+    step = 4
+    try:
+        coffee_date = sent_request.chat.coffee_date
+    except ObjectDoesNotExist:
+        coffee_date = None
+    if coffee_date is not None and coffee_date.status != coffee_date.Status.CANCELLED:
+        step = 5
+    return {"step": step, "next_kind": None, "next_at": None}
 
 
 def get_review_cards(session):

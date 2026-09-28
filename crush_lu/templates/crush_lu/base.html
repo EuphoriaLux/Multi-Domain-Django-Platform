@@ -1235,11 +1235,12 @@
     {% endif %}
     {% endblock %}
 
-    <!-- PWA install card + push prompt: queued by Alpine.store("prompts"), never in native shells -->
-    {% if not is_native_app %}
-        {% include "crush_lu/partials/pwa_install_banner.html" %}
+    <!-- PWA install card + push prompt: queued by Alpine.store("prompts"), never in native shells.
+         Install only after approval or a first booking, push only after a first booking (prompt_*_eligible). -->
+    {% if not is_native_app and prompt_install_eligible %}
+        {% block pwa_install_banner %}{% include "crush_lu/partials/pwa_install_banner.html" %}{% endblock %}
     {% endif %}
-    {% if user.is_authenticated and not is_native_app %}
+    {% if user.is_authenticated and not is_native_app and prompt_push_eligible %}
         {% include "crush_lu/partials/_push_activation_prompt.html" %}
     {% endif %}
 

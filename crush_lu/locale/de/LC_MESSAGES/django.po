@@ -43581,3 +43581,16 @@ msgstr "Wir haben für deine Premium-Anfrage bereits eine Zahlung erhalten."
 #: crush_lu/templates/crush_lu/membership.html
 msgid "Contact support about your Premium payment"
 msgstr "Kontaktiere den Support zu deiner Premium-Zahlung"
+
+# UX Wave 4 · WP13a followups-connect-dashboard
+#: crush_lu/templates/crush_lu/my_connections.html
+msgid "You're connected, directly or via your coach"
+msgstr "Ihr seid verbunden, direkt oder über deinen Coach"
+
+#: crush_lu/templates/crush_lu/moderation/_block_report_menu.html
+msgid "Also let a Crush Coach know"
+msgstr "Auch einem Crush Coach Bescheid geben"
+
+#: crush_lu/templates/crush_lu/crush_connect/chat_detail.html
+msgid "Meeting safely"
+msgstr "Sicher treffen"

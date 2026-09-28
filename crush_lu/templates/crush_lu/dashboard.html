@@ -5,6 +5,8 @@
 
 {% block title %}{% trans "Dashboard - Crush.lu" %}{% endblock %}
 {% block meta_robots %}noindex, nofollow{% endblock %}
+{# The dashboard's own install card below is the "install" prompt here. #}
+{% block pwa_install_banner %}{% endblock %}
 
 {% block content %}
 {% if profile %}{% appinsights_event "dashboard_viewed" profile_approved=profile.is_approved %}{% else %}{% appinsights_event "dashboard_viewed" profile_approved="no_profile" %}{% endif %}
@@ -371,11 +373,15 @@ try Chrome) is dropped entirely rather than rendered after a 2s timer —
 appears, so there is no flash-then-empty-box wait either. `pwaInstallButton`
 (alpine-components.js) still sets `showFallback` internally for potential
 future use; nothing in this template reads it any more.
+
+The install offer is the "install" prompt of Alpine.store("prompts") (one
+prompt at a time, never on a first visit), and the card only renders once
+prompt_install_eligible (approved profile or a first booking) holds.
 {% endcomment %}
-<div class="grid grid-cols-1 {% if not is_native_app %}md:grid-cols-2{% endif %} gap-5 mb-5"
-     {% if not is_native_app %}x-data="pwaInstallButton"{% endif %}>
+<div class="grid grid-cols-1 {% if not is_native_app and prompt_install_eligible %}md:grid-cols-2{% endif %} gap-5 mb-5"
+     {% if not is_native_app and prompt_install_eligible %}x-data="pwaInstallButton"{% endif %}>
     {# PWA Install - only shown for web browsers, hidden in native apps #}
-    {% if not is_native_app %}
+    {% if not is_native_app and prompt_install_eligible %}
     <div class="status-card rounded-2xl" x-show="cardVisible" x-cloak>
         <div class="status-card-body p-4 sm:p-5">
             <div x-show="isInstalledVisible" x-cloak>
@@ -404,7 +410,7 @@ future use; nothing in this template reads it any more.
     {% endif %}
 
     {# Membership / Wallet #}
-    <div class="status-card rounded-2xl" {% if not is_native_app %}:class="membershipSpanClass"{% endif %}>
+    <div class="status-card rounded-2xl" {% if not is_native_app and prompt_install_eligible %}:class="membershipSpanClass"{% endif %}>
         <div class="status-card-body p-4 sm:p-5">
             <h5 class="font-semibold text-base sm:text-lg mb-2">{% trans "Membership Card" %}</h5>
             <p class="text-muted-fg mb-3.5 text-xs sm:text-sm">{% trans "Save your Crush.lu card to your mobile wallet and share your referral link." %}</p>
