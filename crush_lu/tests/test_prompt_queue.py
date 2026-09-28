@@ -19,12 +19,25 @@ from pathlib import Path
 from django.core.cache import cache
 from django.test import Client, SimpleTestCase, TestCase
 
+from crush_lu.models import EventRegistration
 from crush_lu.tests.test_profile_edit_connect_card import _make_member
+from crush_lu.tests.test_ux_wave3_dashboard import _make_event
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 NATIVE = {"HTTP_X_CRUSH_CLIENT": "ios-app"}
 INSTALL_BUTTON_RE = re.compile(r'<button id="pwa-install-button"[^>]*>')
 DISMISS_BUTTON_RE = re.compile(r'<button id="pwa-dismiss-button"[^>]*>')
+
+
+def _make_eligible_member(username):
+    """An approved member with a first confirmed booking: since UX Wave 4 ·
+    WP13a (decision I) only such a member is offered the install card and
+    the push prompt, so the markup under test renders at all."""
+    user = _make_member(username)
+    EventRegistration.objects.create(
+        user=user, event=_make_event("Prompt event"), status="confirmed"
+    )
+    return user
 
 
 def _install_banner(html):
@@ -36,8 +49,9 @@ class InstallBannerMarkupTests(TestCase):
     def setUp(self):
         cache.clear()
         self.client = Client(HTTP_HOST="crush.lu")
+        self.client.force_login(_make_eligible_member("install@example.com"))
 
-    def _get(self, path="/en/", **extra):
+    def _get(self, path="/en/events/", **extra):
         response = self.client.get(path, **extra)
         self.assertEqual(response.status_code, 200)
         return response.content.decode()
@@ -72,7 +86,7 @@ class InstallBannerMarkupTests(TestCase):
         self.assertIn("x-cloak", tag.split())
 
     def test_fr_install_label_has_no_emoji(self):
-        html = self._get("/fr/")
+        html = self._get("/fr/events/")
         button = INSTALL_BUTTON_RE.search(html).group(0)
         self.assertIn('aria-label="Installer l\'application Crush.lu"', button)
         self.assertNotIn("📲", _install_banner(html))
@@ -92,7 +106,7 @@ class InstallBannerMarkupTests(TestCase):
 class MemberPromptTests(TestCase):
     def setUp(self):
         cache.clear()
-        self.user = _make_member("prompts@example.com")
+        self.user = _make_eligible_member("prompts@example.com")
         self.client = Client(HTTP_HOST="crush.lu")
         self.client.force_login(self.user)
 

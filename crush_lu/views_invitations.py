@@ -232,6 +232,9 @@ def coach_manage_invitations(request, event_id):
                             request,
                             _("Invitation created for %(email)s, but email could not be sent. Code: %(code)s") % {"email": email, "code": invitation.invitation_code},
                         )
+                    from .services.on_break import warn_if_inviting_on_break
+
+                    warn_if_inviting_on_break(request, emails=[email])
                     logger.info(
                         f"Invitation created for {email} to event {event.title}"
                     )

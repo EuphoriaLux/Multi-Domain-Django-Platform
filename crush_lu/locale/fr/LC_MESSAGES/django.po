@@ -43788,6 +43788,24 @@ msgstr "Nous avons déjà reçu un paiement pour votre demande Premium."
 msgid "Contact support about your Premium payment"
 msgstr "Contactez le support au sujet de votre paiement Premium"
 
+# UX Wave 4 · WP13a followups-connect-dashboard
+#: crush_lu/templates/crush_lu/my_connections.html
+msgid "You're connected, directly or via your coach"
+msgstr "Vous êtes mis en relation, directement ou via votre coach"
+
+#: crush_lu/templates/crush_lu/moderation/_block_report_menu.html
+msgid "Also let a Crush Coach know"
+msgstr "Prévenir aussi un Crush Coach"
+
+#: crush_lu/templates/crush_lu/crush_connect/chat_detail.html
+msgid "Meeting safely"
+msgstr "Se rencontrer en toute sécurité"
+
+#: crush_lu/services/on_break.py
+#, python-format
+msgid "Heads-up: these members are taking a break from Crush.lu right now: %(names)s. You can still invite them."
+msgstr "À noter : ces membres font une pause sur Crush.lu en ce moment : %(names)s. Vous pouvez tout de même les inviter."
+
 #: crush_lu/templates/crush_lu/terms_of_service.html:57
 msgid "Each consent is recorded with your IP address, timestamp, and the version of these Terms you accepted. This version is 2.1."
 msgstr "Chaque consentement est enregistré avec votre adresse IP, un horodatage et la version de ces conditions que vous avez acceptée. Cette version est la 2.1."
