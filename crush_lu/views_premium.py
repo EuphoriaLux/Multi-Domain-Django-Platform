@@ -24,6 +24,59 @@ from .ios_app_utils import ios_commerce_suppressed
 logger = logging.getLogger(__name__)
 
 
+def premium_monthly_fee():
+    """The Premium monthly price as a Decimal, read from the one setting.
+
+    Shared by the coach picker and the public pricing page (/membership/) so
+    neither can advertise a different amount than the SumUp checkout charges
+    (views_payments.create_sumup_premium_checkout reads the same setting).
+    """
+    from django.conf import settings as _settings
+
+    return Decimal(str(getattr(_settings, "SUMUP_PREMIUM_MONTHLY_FEE", "10.00")))
+
+
+def pending_premium_membership(user):
+    """The user's open (``pending``) PremiumMembership, or None.
+
+    One predicate for "has a Premium request still to pay, change or cancel":
+    premium_choose_coach lets these members past the Crush Connect beta
+    funnel, and the pricing page (/membership/) must offer them the same way
+    back in instead of the waitlist.
+    """
+    if not getattr(user, "is_authenticated", False):
+        return None
+    return (
+        PremiumMembership.objects.filter(user=user, status="pending")
+        .select_related("coach__user")
+        .first()
+    )
+
+
+def pending_premium_state(user):
+    """How the pricing page may address the user's open Premium request.
+
+    ``None`` when there is no pending request. ``"paid"`` when a payment was
+    already captured against it but Premium was never granted
+    (``views_payments._premium_payment_captured``, the predicate that makes
+    create_sumup_premium_checkout answer 409): only staff can reconcile that,
+    so the member is pointed at support, never at checkout. ``"complete"``
+    when checkout would accept it. ``"manage"`` when the beta allowlist
+    refuses its buyer (``views_payments._premium_purchase_refused``, the same
+    predicate that makes create_sumup_premium_checkout answer 403): such a
+    member can still change or cancel the request, but must not be promised
+    completion. ``"paid"`` is checked first, mirroring the checkout's order.
+    """
+    pending = pending_premium_membership(user)
+    if pending is None:
+        return None
+    from .views_payments import _premium_payment_captured, _premium_purchase_refused
+
+    if _premium_payment_captured(pending):
+        return "paid"
+    return "manage" if _premium_purchase_refused(pending) else "complete"
+
+
 def _available_coaches():
     """Coaches open to new premium members and not yet at capacity.
 
@@ -53,11 +106,7 @@ def premium_choose_coach(request):
     if ios_commerce_suppressed(request):
         return render(request, "crush_lu/premium/ios_unavailable.html")
 
-    pending = (
-        PremiumMembership.objects.filter(user=request.user, status="pending")
-        .select_related("coach__user")
-        .first()
-    )
+    pending = pending_premium_membership(request.user)
 
     # Crush Connect beta: funnel premium-seekers into the beta waitlist. This
     # runs before the profile gate because the waitlist is open to authenticated
@@ -96,9 +145,7 @@ def premium_choose_coach(request):
         # (views_payments.create_sumup_premium_checkout reads it too). The label
         # used to hard-code "€10.00 / month", so changing SUMUP_PREMIUM_MONTHLY_FEE
         # would have advertised one price and billed another.
-        "premium_monthly_fee": Decimal(
-            str(getattr(_settings, "SUMUP_PREMIUM_MONTHLY_FEE", "10.00"))
-        ),
+        "premium_monthly_fee": premium_monthly_fee(),
     }
     return render(request, "crush_lu/premium/choose_coach.html", context)
 
