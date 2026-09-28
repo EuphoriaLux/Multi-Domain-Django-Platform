@@ -10441,8 +10441,8 @@ document.addEventListener("alpine:init", function () {
             isNotSubmitting: true,
             showSubmitLabel: false,
             feedbackClass: "hidden mt-6",
-            instructionText:
-                "Drag and drop the events to arrange them in chronological order",
+            instructionText: "",
+            positionAnnouncement: "",
             // i18n translations (loaded from data attributes)
             i18n: {
                 perfect: gettext("Perfect!"),
@@ -10451,10 +10451,12 @@ document.addEventListener("alpine:init", function () {
                 errorDefault: gettext("Not quite right. Try rearranging the events!"),
                 errorGeneric: gettext("An error occurred. Please try again."),
                 instructionDesktop: gettext(
-                    "Drag and drop the events to arrange them in chronological order",
+                    "Drag and drop the events, or use the up and down buttons, to arrange them in chronological order",
                 ),
-                instructionTouch:
-                    "Touch and drag the events to arrange them in chronological order",
+                instructionTouch: gettext(
+                    "Touch and drag the events, or use the up and down buttons, to arrange them in chronological order",
+                ),
+                moved: gettext("{item} moved to position {position} of {total}"),
             },
 
             init: function () {
@@ -10481,6 +10483,7 @@ document.addEventListener("alpine:init", function () {
                     this.i18n.instructionDesktop = el.dataset.i18nInstructionDesktop;
                 if (el.dataset.i18nInstructionTouch)
                     this.i18n.instructionTouch = el.dataset.i18nInstructionTouch;
+                if (el.dataset.i18nMoved) this.i18n.moved = el.dataset.i18nMoved;
 
                 // CSP-safe: update instruction text based on device type
                 this._updateInstructionText();
@@ -10556,25 +10559,71 @@ document.addEventListener("alpine:init", function () {
                     chosenClass: "sortable-chosen",
                     dragClass: "sortable-drag",
                     handle: ".timeline-item",
+                    // Taps on the move buttons must not start a drag.
+                    filter: ".timeline-move",
+                    preventOnFilter: false,
                     forceFallback: false,
                     fallbackTolerance: 3,
                     touchStartThreshold: 5,
                     delay: 0,
                     delayOnTouchOnly: true,
-                    onEnd: function () {
+                    onEnd: function (evt) {
                         self.updateNumbers();
+                        self._announcePosition(evt.item);
                     },
                 });
             },
 
             updateNumbers: function () {
-                var items = this.$el.querySelectorAll(".timeline-item");
+                var items = this.$root.querySelectorAll(".timeline-item");
+                var last = items.length - 1;
                 items.forEach(function (item, index) {
                     var numberEl = item.querySelector(".timeline-number");
                     if (numberEl) {
                         numberEl.textContent = index + 1;
                     }
+                    var up = item.querySelector(".timeline-move-up");
+                    var down = item.querySelector(".timeline-move-down");
+                    if (up) up.disabled = index === 0;
+                    if (down) down.disabled = index === last;
                 });
+            },
+
+            // Keyboard/screen-reader alternative to dragging.
+            moveUp: function () {
+                this._moveItem(this.$el, -1);
+            },
+
+            moveDown: function () {
+                this._moveItem(this.$el, 1);
+            },
+
+            _moveItem: function (button, direction) {
+                var item = button.closest(".timeline-item");
+                var sibling =
+                    direction < 0 ? item.previousElementSibling : item.nextElementSibling;
+                if (!sibling) return;
+                if (direction < 0) {
+                    item.parentNode.insertBefore(item, sibling);
+                } else {
+                    item.parentNode.insertBefore(sibling, item);
+                }
+                this.updateNumbers();
+                this._announcePosition(item);
+                // Moving the node drops focus; keep it on a usable button of the item.
+                var other = item.querySelector(
+                    direction < 0 ? ".timeline-move-down" : ".timeline-move-up",
+                );
+                (button.disabled ? other : button).focus();
+            },
+
+            _announcePosition: function (item) {
+                var items = Array.from(this.$root.querySelectorAll(".timeline-item"));
+                var text = item.querySelector(".timeline-text");
+                this.positionAnnouncement = this.i18n.moved
+                    .replace("{item}", text ? text.textContent.trim() : "")
+                    .replace("{position}", items.indexOf(item) + 1)
+                    .replace("{total}", items.length);
             },
 
             shuffleItems: function () {
@@ -10683,6 +10732,9 @@ document.addEventListener("alpine:init", function () {
                 var items = this.$el.querySelectorAll(".timeline-item");
                 items.forEach(function (item) {
                     item.style.cursor = "default";
+                });
+                this.$root.querySelectorAll(".timeline-move").forEach(function (btn) {
+                    btn.disabled = true;
                 });
             },
         };
@@ -14178,44 +14230,41 @@ document.addEventListener("alpine:init", function () {
 
     // Event Poll Voting component
     // CSP-safe: all logic in methods/getters, no inline expressions.
-    // Each option element has data-option-id; methods read it from $el.
+    // The ballot is a real <form> of native radios/checkboxes (name="option_ids")
+    // that also works without JS; this component posts it as JSON instead, shows
+    // errors inline, and swaps in the server-rendered results on success.
     Alpine.data("eventPollVoting", function () {
         return {
-            selectedOptions: [],
-            isMultiChoice: false,
+            selectedCount: 0,
             isSubmitting: false,
             hasVoted: false,
-            pollId: 0,
+            errorMessage: "",
 
-            _textSubmit: "Submit Vote",
-            _textSubmitting: "Submitting...",
-            _textSubmitted: "Vote Submitted",
-            _textError: "Failed to submit vote",
+            _textSubmit: gettext("Submit Vote"),
+            _textSubmitting: gettext("Submitting..."),
+            _textSubmitted: gettext("Vote Submitted"),
+            _textError: gettext("Failed to submit vote"),
             _textNetworkError: gettext("Network error. Please try again."),
+            _textRateLimited: gettext(
+                "Too many attempts. Take a breath and try again in a minute.",
+            ),
+            _textSuccess: gettext("Thanks, your vote is in!"),
 
             init() {
                 var el = this.$el;
-                this.isMultiChoice = el.getAttribute("data-multi-choice") === "true";
-                this.hasVoted = el.getAttribute("data-has-voted") === "true";
-                this.pollId = parseInt(el.getAttribute("data-poll-id") || "0", 10);
-                this._textSubmit =
-                    el.getAttribute("data-text-submit") || this._textSubmit;
-                this._textSubmitting =
-                    el.getAttribute("data-text-submitting") || this._textSubmitting;
-                this._textSubmitted =
-                    el.getAttribute("data-text-submitted") || this._textSubmitted;
-                this._textError = el.getAttribute("data-text-error") || this._textError;
-                this._textNetworkError =
-                    el.getAttribute("data-text-network-error") ||
-                    this._textNetworkError;
-            },
-
-            get canSubmit() {
-                return (
-                    this.selectedOptions.length > 0 &&
-                    !this.isSubmitting &&
-                    !this.hasVoted
-                );
+                var keys = [
+                    "Submit",
+                    "Submitting",
+                    "Submitted",
+                    "Error",
+                    "NetworkError",
+                    "RateLimited",
+                    "Success",
+                ];
+                for (var i = 0; i < keys.length; i++) {
+                    var value = el.dataset["text" + keys[i]];
+                    if (value) this["_text" + keys[i]] = value;
+                }
             },
 
             get submitButtonText() {
@@ -14225,110 +14274,86 @@ document.addEventListener("alpine:init", function () {
             },
 
             get isDisabled() {
-                return this.isSubmitting || this.hasVoted;
+                return this.isSubmitting || this.hasVoted || this.selectedCount === 0;
             },
 
-            // CSP-safe: reads data-option-id from the element that has x-bind:class
-            get optionClass() {
-                var el = this.$el;
-                var id = parseInt(el.getAttribute("data-option-id") || "0", 10);
-                return this.selectedOptions.indexOf(id) !== -1
-                    ? "poll-option-selected"
-                    : "";
+            get isBallotShown() {
+                return !this.hasVoted;
             },
 
-            // CSP-safe: reads data-option-id for the image overlay check circle
-            get checkOverlayClass() {
-                var el = this.$el;
-                var id = parseInt(el.getAttribute("data-option-id") || "0", 10);
-                if (this.selectedOptions.indexOf(id) !== -1) {
-                    return "poll-option-check-active";
-                }
-                return "";
+            updateSelection: function () {
+                this.selectedCount = this._selectedIds().length;
+                this.errorMessage = "";
             },
 
-            // CSP-safe: reads data-option-id from the checkbox circle element
-            get checkboxClass() {
-                var el = this.$el;
-                var id = parseInt(el.getAttribute("data-option-id") || "0", 10);
-                if (this.selectedOptions.indexOf(id) !== -1) {
-                    return "border-crush-purple bg-crush-purple dark:border-violet-500 dark:bg-violet-500";
-                }
-                return "border-gray-300 dark:border-gray-600";
-            },
-
-            // CSP-safe: reads data-option-id from the svg element
-            get isOptionSelected() {
-                var el = this.$el;
-                var id = parseInt(el.getAttribute("data-option-id") || "0", 10);
-                return this.selectedOptions.indexOf(id) !== -1;
-            },
-
-            // CSP-safe: getter for submit button class
-            get submitClass() {
-                if (this.canSubmit) {
-                    return "bg-crush-purple hover:bg-purple-700 dark:bg-violet-600 dark:hover:bg-violet-700";
-                }
-                return "bg-gray-300 dark:bg-gray-700 cursor-not-allowed";
-            },
-
-            // CSP-safe: reads data-option-id from closest [data-option-id] ancestor
-            handleOptionClick: function () {
-                if (this.hasVoted || this.isSubmitting) return;
-
-                var el = this.$el;
-                var id = parseInt(el.getAttribute("data-option-id") || "0", 10);
-                if (!id) return;
-
-                var idx = this.selectedOptions.indexOf(id);
-                if (idx !== -1) {
-                    this.selectedOptions.splice(idx, 1);
-                } else {
-                    if (!this.isMultiChoice) {
-                        this.selectedOptions = [id];
-                    } else {
-                        this.selectedOptions.push(id);
-                    }
-                }
+            _selectedIds: function () {
+                var checked = this.$root.querySelectorAll(
+                    'input[name="option_ids"]:checked',
+                );
+                return Array.from(checked).map(function (input) {
+                    return parseInt(input.value, 10);
+                });
             },
 
             submitVote: function () {
-                if (!this.canSubmit) return;
+                var ids = this._selectedIds();
+                if (!ids.length || this.isSubmitting || this.hasVoted) return;
 
                 var self = this;
-                self.isSubmitting = true;
-
-                var csrfToken = document.querySelector("[name=csrfmiddlewaretoken]");
-                var token = csrfToken ? csrfToken.value : "";
-                var payload = { option_ids: self.selectedOptions };
+                var form = this.$root.querySelector("form");
+                var token = form.querySelector("[name=csrfmiddlewaretoken]");
+                var payload = { option_ids: ids };
                 // Optional "I am..." answer, rendered only for voters without a profile gender
-                var gender = document.querySelector('input[name="voter_gender"]:checked');
+                var gender = form.querySelector('input[name="voter_gender"]:checked');
                 if (gender) payload.gender = gender.value;
 
-                fetch("/api/polls/" + self.pollId + "/vote/", {
+                self.isSubmitting = true;
+                self.errorMessage = "";
+                fetch(form.action, {
                     method: "POST",
+                    credentials: "same-origin",
                     headers: {
                         "Content-Type": "application/json",
-                        "X-CSRFToken": token,
+                        Accept: "application/json",
+                        "X-CSRFToken": token ? token.value : "",
                     },
                     body: JSON.stringify(payload),
                 })
                     .then(function (r) {
-                        return r.json();
-                    })
-                    .then(function (data) {
-                        self.isSubmitting = false;
-                        if (data.success) {
-                            self.hasVoted = true;
-                            window.location.reload();
-                        } else {
-                            alert(data.error || self._textError);
+                        if (r.status === 429) return self._fail(self._textRateLimited);
+                        var type = r.headers.get("Content-Type") || "";
+                        // A CSRF 403 page or a login redirect is HTML, not JSON.
+                        if (type.indexOf("application/json") === -1) {
+                            return self._fail(self._textError);
                         }
+                        return r.json().then(function (data) {
+                            if (r.ok && data.success) return self._succeed(data);
+                            self._fail(data.error || self._textError);
+                        });
                     })
                     .catch(function () {
-                        self.isSubmitting = false;
-                        alert(self._textNetworkError);
+                        self._fail(self._textNetworkError);
                     });
+            },
+
+            _fail: function (message) {
+                this.isSubmitting = false;
+                this.errorMessage = message;
+            },
+
+            _succeed: function (data) {
+                this.isSubmitting = false;
+                this.hasVoted = true;
+                var results = this.$refs.results;
+                if (results && data.results_html) {
+                    results.innerHTML = data.results_html;
+                    results.focus();
+                }
+                window.dispatchEvent(
+                    new CustomEvent("show-toast", {
+                        detail: { type: "success", message: this._textSuccess },
+                    }),
+                );
             },
         };
     });

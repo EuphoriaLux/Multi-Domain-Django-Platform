@@ -6,9 +6,9 @@
     <div class="poll-option poll-option-card">
         {% if option.static_image %}
         <div class="poll-option-image-wrapper">
-            <img src="{% static 'crush_lu/images/event-polls/' %}{{ option.static_image }}" alt="{{ option.name }}" class="poll-option-image">
+            <img src="{% static 'crush_lu/images/event-polls/' %}{{ option.static_image }}" alt="" class="poll-option-image">
             {% if option.id in user_votes %}
-            <div class="poll-option-check poll-option-check-active">
+            <div class="poll-option-check poll-option-check-active" aria-hidden="true">
                 <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
                 </svg>
@@ -17,9 +17,9 @@
         </div>
         {% elif option.image %}
         <div class="poll-option-image-wrapper">
-            <img src="{{ option.image.url }}" alt="{{ option.name }}" class="poll-option-image">
+            <img src="{{ option.image.url }}" alt="" class="poll-option-image">
             {% if option.id in user_votes %}
-            <div class="poll-option-check poll-option-check-active">
+            <div class="poll-option-check poll-option-check-active" aria-hidden="true">
                 <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
                 </svg>
@@ -34,6 +34,9 @@
                     <span class="text-xl">{{ option.icon }}</span>
                     {% endif %}
                     <h3 class="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">{{ option.name }}</h3>
+                    {% if option.id in user_votes %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">{% trans "Your vote" context "poll result" %}</span>
+                    {% endif %}
                 </div>
                 {% if not hide_counts %}
                 <span class="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap ml-2">
@@ -45,12 +48,11 @@
             <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-2">{{ option.description }}</p>
             {% endif %}
             {% if not hide_counts %}
-            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
-                {% if total_votes %}
-                <div class="poll-results-bar" style="width: {% widthratio option.vote_count total_votes 100 %}%"></div>
-                {% else %}
-                <div class="poll-results-bar" style="width: 0%"></div>
-                {% endif %}
+            {% widthratio option.vote_count total_votes 100 as pct %}
+            {% blocktrans count counter=option.vote_count asvar votes_label %}{{ counter }} vote{% plural %}{{ counter }} votes{% endblocktrans %}
+            {% blocktrans with name=option.name asvar bar_label %}{{ name }}: {{ pct }}%, {{ votes_label }}{% endblocktrans %}
+            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3" role="img" aria-label="{{ bar_label }}">
+                <div class="poll-results-bar" style="width: {{ pct }}%"></div>
             </div>
             {% if option.show_gender_split %}
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">

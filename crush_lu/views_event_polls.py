@@ -13,6 +13,7 @@ from django.contrib.auth.views import redirect_to_login
 from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import get_language, gettext_lazy as _
@@ -135,7 +136,8 @@ def poll_list(request):
     })
 
 
-def _render_poll(request, poll):
+def _results_context(request, poll):
+    """What _poll_results_partial.html needs: options with counts, the viewer's votes."""
     options = list(
         poll.options.annotate(
             vote_count=Count('votes'),
@@ -155,7 +157,20 @@ def _render_poll(request, poll):
                 poll=poll, user=request.user
             ).values_list('option_id', flat=True)
         )
-    has_voted = len(user_votes) > 0
+    return {
+        'poll': poll,
+        'options': options,
+        'total_votes': total_votes,
+        'user_votes': user_votes,
+        'has_voted': bool(user_votes),
+        'any_gender_split': any_gender_split,
+    }
+
+
+def _render_poll(request, poll):
+    context = _results_context(request, poll)
+    has_voted = context['has_voted']
+    authenticated = request.user.is_authenticated
 
     # Show voting form if poll is active and user hasn't voted
     can_vote = authenticated and poll.is_active and not has_voted
@@ -163,13 +178,11 @@ def _render_poll(request, poll):
     show_results = has_voted or poll.is_closed or (poll.show_results_before_close and not can_vote)
 
     return render(request, 'crush_lu/event_polls/poll_detail.html', {
-        'poll': poll,
-        'options': options,
+        **context,
         'can_vote': can_vote,
-        'total_votes': total_votes,
-        'user_votes': user_votes,
-        'has_voted': has_voted,
         'show_results': show_results,
+        # The non-JS vote form posts back to the page that rendered it.
+        'return_to_themes': request.resolver_match.url_name == 'theme_board',
         # Anonymous visitors of a public poll: show the ballot, ask to log in.
         'login_to_vote': not authenticated and poll.is_active,
         'login_url': redirect_to_login(
@@ -178,7 +191,6 @@ def _render_poll(request, poll):
         'can_suggest': authenticated and poll.is_public and poll.is_active,
         # Voters without a profile gender get an optional "I am..." choice.
         'ask_gender': can_vote and not _profile_voter_gender(request.user),
-        'any_gender_split': any_gender_split,
         'gender_split_min': GENDER_SPLIT_MIN_VOTES,
         'voter_gender_choices': EventPollVote.VOTER_GENDER_CHOICES,
         'suggestion_form': EventPollSuggestionForm(),
@@ -255,42 +267,71 @@ def poll_suggest(request, poll_id):
     return redirect(next_url)
 
 
+def _back_to_poll(request, poll):
+    """Redirect a no-JS vote to the page that rendered the ballot."""
+    if request.POST.get('return_to') == 'themes':
+        return redirect('crush_lu:theme_board')
+    return redirect('crush_lu:poll_detail', poll.pk)
+
+
 @require_POST
 @crush_login_required
 @ratelimit(key='user', rate='10/m')
 def poll_vote(request, poll_id):
-    """Submit a vote on a poll. Returns JSON."""
+    """Submit a vote on a poll.
+
+    The ballot's fetch posts JSON and gets JSON back, with the rendered results
+    partial to swap in. A plain form post (no JS) is redirected back to the
+    poll page with a flash message.
+    """
     poll = get_object_or_404(EventPoll, pk=poll_id, is_published=True)
+    is_json = request.content_type == 'application/json'
+
+    def reply(error, status=400):
+        if is_json:
+            return JsonResponse({'error': error}, status=status)
+        messages.error(request, error)
+        return _back_to_poll(request, poll)
 
     if not poll.is_public:
         try:
             profile = CrushProfile.objects.get(user=request.user)
         except CrushProfile.DoesNotExist:
-            return JsonResponse({'error': 'Profile required'}, status=403)
+            return reply(_('Profile required'), 403)
 
         if not profile.is_approved:
-            return JsonResponse({'error': 'Profile not approved'}, status=403)
+            return reply(_('Profile not approved'), 403)
 
     if not poll.is_active:
-        return JsonResponse({'error': 'Poll is not active'}, status=400)
+        return reply(_('Poll is not active'))
 
-    try:
-        data = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
-        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    if is_json:
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return reply(_('Invalid JSON'))
+    else:
+        data = {
+            'option_ids': request.POST.getlist('option_ids'),
+            'gender': request.POST.get('voter_gender'),
+        }
+        try:
+            data['option_ids'] = [int(oid) for oid in data['option_ids']]
+        except ValueError:
+            return reply(_('Invalid option'))
 
     option_ids = data.get('option_ids', [])
     if not option_ids:
-        return JsonResponse({'error': 'No options selected'}, status=400)
+        return reply(_('No options selected'))
 
     if not poll.allow_multiple_choices and len(option_ids) > 1:
-        return JsonResponse({'error': 'Only one choice allowed'}, status=400)
+        return reply(_('Only one choice allowed'))
 
     # Validate all option IDs belong to this poll
     valid_options = set(poll.options.values_list('id', flat=True))
     for oid in option_ids:
         if oid not in valid_options:
-            return JsonResponse({'error': 'Invalid option'}, status=400)
+            return reply(_('Invalid option'))
 
     # Single-choice: delete existing votes first
     if not poll.allow_multiple_choices:
@@ -309,7 +350,7 @@ def poll_vote(request, poll_id):
     # Create votes (skip duplicates via unique_together)
     created = 0
     for oid in option_ids:
-        _, was_created = EventPollVote.objects.get_or_create(
+        _vote, was_created = EventPollVote.objects.get_or_create(
             poll=poll,
             option_id=oid,
             user=request.user,
@@ -322,6 +363,10 @@ def poll_vote(request, poll_id):
     earlier_votes.exclude(voter_gender=voter_gender).update(
         voter_gender=voter_gender
     )
+
+    if not is_json:
+        messages.success(request, _("Your vote has been recorded. Thank you!"))
+        return _back_to_poll(request, poll)
 
     # Return updated results
     options = poll.options.annotate(vote_count=Count('votes'))
@@ -341,6 +386,11 @@ def poll_vote(request, poll_id):
         'created': created,
         'total_votes': total_votes,
         'results': results,
+        'results_html': render_to_string(
+            'crush_lu/event_polls/_poll_results_partial.html',
+            _results_context(request, poll),
+            request=request,
+        ),
     })
 
 

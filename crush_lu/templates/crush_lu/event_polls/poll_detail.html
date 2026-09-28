@@ -30,106 +30,97 @@
             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
                 {% trans "Closed" %}
             </span>
+            {% elif poll.is_upcoming %}
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                {% trans "Upcoming" %}
+            </span>
             {% endif %}
             {% if poll.allow_multiple_choices %}
             <span class="text-xs text-gray-400 dark:text-gray-500">{% trans "Multiple choices allowed" %}</span>
             {% endif %}
         </div>
 
-        {% if can_vote %}
+        {% if can_vote or poll.is_upcoming %}
+        {% if poll.is_upcoming %}
+        <p class="rounded-xl border border-purple-200 dark:border-purple-700/50 bg-purple-50 dark:bg-purple-900/20 p-5 mb-8 text-sm sm:text-base text-gray-700 dark:text-gray-300">
+            {% blocktrans with date=poll.start_date|date:"DATETIME_FORMAT" %}Voting opens {{ date }}{% endblocktrans %}
+        </p>
+        {% endif %}
         <div x-data="eventPollVoting"
-             data-poll-id="{{ poll.id }}"
-             data-multi-choice="{{ poll.allow_multiple_choices|yesno:'true,false' }}"
-             data-has-voted="{{ has_voted|yesno:'true,false' }}"
              data-text-submit="{% trans "Submit Vote" %}"
              data-text-submitting="{% trans "Submitting..." %}"
              data-text-submitted="{% trans "Vote Submitted" %}"
              data-text-error="{% trans "Failed to submit vote" %}"
-             data-text-network-error="{% trans "Network error. Please try again." %}">
-
-            {% csrf_token %}
-
-            <!-- Grid: 1 col on mobile, 2 cols on desktop -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-                {% for option in options %}
-                <div class="poll-option poll-option-card"
-                     data-option-id="{{ option.id }}"
-                     x-bind:class="optionClass"
-                     @click="handleOptionClick">
-
-                    {% if option.static_image %}
-                    <div class="poll-option-image-wrapper">
-                        <img src="{% static 'crush_lu/images/event-polls/' %}{{ option.static_image }}" alt="{{ option.name }}" class="poll-option-image">
-                        <div class="poll-option-check"
-                             data-option-id="{{ option.id }}"
-                             x-bind:class="checkOverlayClass">
-                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                 data-option-id="{{ option.id }}"
-                                 x-show="isOptionSelected">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                        </div>
-                    </div>
-                    {% elif option.image %}
-                    <div class="poll-option-image-wrapper">
-                        <img src="{{ option.image.url }}" alt="{{ option.name }}" class="poll-option-image">
-                        <div class="poll-option-check"
-                             data-option-id="{{ option.id }}"
-                             x-bind:class="checkOverlayClass">
-                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                 data-option-id="{{ option.id }}"
-                                 x-show="isOptionSelected">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <div class="poll-option-body">
-                        <div class="flex items-center gap-2">
-                            {% if option.icon %}
-                            <span class="text-xl">{{ option.icon }}</span>
+             data-text-network-error="{% trans "Network error. Please try again." %}"
+             data-text-rate-limited="{% trans "Too many attempts. Take a breath and try again in a minute." %}"
+             data-text-success="{% trans "Thanks, your vote is in!" %}">
+            <form method="post" action="{% url 'api_poll_vote' poll.id %}"
+                  x-show="isBallotShown" @submit.prevent="submitVote" @change="updateSelection">
+                {% csrf_token %}
+                {% if return_to_themes %}<input type="hidden" name="return_to" value="themes">{% endif %}
+                <fieldset class="mb-8"{% if not can_vote %} disabled{% endif %}>
+                    <legend class="sr-only">{{ poll.title }}</legend>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {% for option in options %}
+                        <label class="poll-option poll-option-card block">
+                            {% if option.static_image or option.image %}
+                            <span class="poll-option-image-wrapper block">
+                                <img src="{% if option.static_image %}{% static 'crush_lu/images/event-polls/' %}{{ option.static_image }}{% else %}{{ option.image.url }}{% endif %}" alt="" class="poll-option-image">
+                                <span class="poll-option-check" aria-hidden="true">
+                                    <svg class="poll-option-check-mark w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                </span>
+                            </span>
                             {% endif %}
-                            <h3 class="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">{{ option.name }}</h3>
-                        </div>
-                        {% if option.description %}
-                        <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{{ option.description }}</p>
-                        {% endif %}
+                            <span class="poll-option-body block">
+                                <span class="flex items-center gap-3">
+                                    <input type="{% if poll.allow_multiple_choices %}checkbox{% else %}radio{% endif %}" name="option_ids" value="{{ option.id }}" class="poll-option-input">
+                                    {% if option.icon %}<span class="text-xl" aria-hidden="true">{{ option.icon }}</span>{% endif %}
+                                    <span class="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">{{ option.name }}</span>
+                                </span>
+                                {% if option.description %}
+                                <span class="block text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{{ option.description }}</span>
+                                {% endif %}
+                            </span>
+                        </label>
+                        {% endfor %}
                     </div>
+                </fieldset>
+
+                {% if ask_gender %}
+                <fieldset class="mb-6">
+                    <legend class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        {% trans "I am… (optional, only used for the anonymous women/men split)" %}
+                    </legend>
+                    <div class="flex flex-wrap gap-x-5 gap-y-2">
+                        {% for code, label in voter_gender_choices %}
+                        <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                            <input type="radio" name="voter_gender" value="{{ code }}" class="text-crush-purple">
+                            {{ label }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+                {% endif %}
+
+                {% if can_vote %}
+                <p role="alert" class="mb-4 text-sm font-medium text-red-700 dark:text-red-300 empty:hidden" x-text="errorMessage"></p>
+                <button type="submit" x-bind:disabled="isDisabled" class="btn-crush-primary btn-block">
+                    <span x-text="submitButtonText">{% trans "Submit Vote" %}</span>
+                </button>
+                {% endif %}
+            </form>
+
+            <div x-ref="results" tabindex="-1" class="focus:outline-none">
+                {% if can_vote and poll.show_results_before_close %}
+                <div class="mt-10">
+                    <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">{% trans "Current Results" %}</h2>
+                    {% include 'crush_lu/event_polls/_poll_results_partial.html' %}
                 </div>
-                {% endfor %}
+                {% endif %}
             </div>
-
-            {% if ask_gender %}
-            <fieldset class="mb-6">
-                <legend class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {% trans "I am… (optional, only used for the anonymous women/men split)" %}
-                </legend>
-                <div class="flex flex-wrap gap-x-5 gap-y-2">
-                    {% for code, label in voter_gender_choices %}
-                    <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                        <input type="radio" name="voter_gender" value="{{ code }}" class="text-crush-purple">
-                        {{ label }}
-                    </label>
-                    {% endfor %}
-                </div>
-            </fieldset>
-            {% endif %}
-
-            <button @click="submitVote"
-                    x-bind:disabled="isDisabled"
-                    x-bind:class="submitClass"
-                    class="w-full py-3.5 px-6 rounded-xl text-white font-semibold transition-colors text-base">
-                <span x-text="submitButtonText"></span>
-            </button>
         </div>
-
-        {% if poll.show_results_before_close %}
-        <div class="mt-10">
-            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">{% trans "Current Results" %}</h2>
-            {% include 'crush_lu/event_polls/_poll_results_partial.html' %}
-        </div>
-        {% endif %}
 
         {% elif login_to_vote %}
         <div class="rounded-xl border border-purple-200 dark:border-purple-700/50 bg-purple-50 dark:bg-purple-900/20 p-5 mb-8 flex flex-col sm:flex-row sm:items-center gap-4">
