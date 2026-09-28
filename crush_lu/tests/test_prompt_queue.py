@@ -163,9 +163,7 @@ class OtherSitesCookieSheetTests(TestCase):
 
 class PromptQueueSourceTests(SimpleTestCase):
     def test_store_orders_cookie_messages_install_push(self):
-        js = (
-            REPO_ROOT / "crush_lu/static/crush_lu/js/alpine-components.js"
-        ).read_text()
+        js = (REPO_ROOT / "crush_lu/static/crush_lu/js/alpine/core.js").read_text()
         self.assertIn('Alpine.store("prompts"', js)
         self.assertIn('["cookie", "messages", "install", "push"]', js)
         self.assertIn('Alpine.data("flashMessage"', js)

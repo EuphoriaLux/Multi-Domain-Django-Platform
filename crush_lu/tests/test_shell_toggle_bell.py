@@ -457,7 +457,7 @@ class MobileTopBarBellTests(TestCase):
 
     def test_desktop_bell_broadcasts_and_mobile_bar_follows(self):
         """Source-level wiring check for the CSP-safe event bridge."""
-        js = (REPO_ROOT / "crush_lu/static/crush_lu/js/alpine-components.js").read_text(
+        js = (REPO_ROOT / "crush_lu/static/crush_lu/js/alpine/core.js").read_text(
             encoding="utf-8"
         )
         bell = js.split('Alpine.data("notificationBell"', 1)[1].split(

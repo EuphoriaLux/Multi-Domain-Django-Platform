@@ -5,10 +5,13 @@ unvalidated: an empty / ``?…`` / ``#…`` decode resolved to the door page's
 own URL (prod: 403 "CSRF token missing" on ``/de/coach/events/<id>/checkin/``
 from iOS Safari), and a foreign QR was POSTed to whatever host it named.
 
-There is no JS unit harness in this repo, so this runs the real
-``alpine-components.js`` in Node's ``vm`` with minimal ``document``/``Alpine``
-stubs and exercises the component's own methods. Skipped when ``node`` is not
-on PATH.
+There is no JS unit harness in this repo, so this runs the real coach
+bundle in Node's ``vm`` with minimal ``document``/``Alpine`` stubs and exercises
+the component's own methods. The source (``js/alpine/coach.js``) is an ES
+module that imports shared helpers, so the harness runs the committed esbuild
+bundle ``coach.min.js`` — the exact code production serves, kept identical to
+the source by the staleness checks in ``test_ux_wave4_js_split``. Skipped when
+``node`` is not on PATH.
 """
 
 import json
@@ -24,7 +27,8 @@ JS_FILE = (
     / "static"
     / "crush_lu"
     / "js"
-    / "alpine-components.js"
+    / "alpine"
+    / "coach.min.js"
 )
 
 HARNESS = r"""

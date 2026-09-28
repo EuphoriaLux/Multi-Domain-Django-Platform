@@ -543,6 +543,16 @@ def event_list(request):
     visible_upcoming = _filter_private_events(upcoming_events, request.user)
     visible_past = _filter_private_events(past_events, request.user)
 
+    # "See entry events" (#1082): an entry event is one that only asks for a
+    # participation-ready profile (profile_requirement="completed"), so a
+    # not-yet-verified member can join it and get verified there.
+    entry_filter = request.GET.get("entry") == "1"
+    if entry_filter:
+        visible_upcoming = [
+            e for e in visible_upcoming if e.profile_requirement == "completed"
+        ]
+        visible_past = [e for e in visible_past if e.profile_requirement == "completed"]
+
     # Build attendance lookup for past events (only 'attended' status)
     attended_ids = set()
     if request.user.is_authenticated:
@@ -743,6 +753,7 @@ def event_list(request):
         "event_status_chip": event_status_chip,
         "event_eligibility": event_eligibility,
         "event_type_filter_options": present_types,
+        "entry_filter": entry_filter,
     }
     return render(request, "crush_lu/event_list.html", context)
 

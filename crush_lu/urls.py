@@ -502,7 +502,7 @@ urlpatterns = [
          name='pre_screening_finalize'),
 
     # Profile step-by-step saving APIs - MOVED to urls_crush.py (language-neutral)
-    # These APIs are called from alpine-components.js with hardcoded paths:
+    # These APIs are called from js/alpine/core.js with hardcoded paths:
     # - api/profile/save-step1/, save-step2/, save-step3/
     # - api/profile/complete/
     # - api/profile/progress/
