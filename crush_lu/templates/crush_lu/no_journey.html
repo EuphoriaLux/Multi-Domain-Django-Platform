@@ -1,0 +1,32 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+{% comment %}
+Shown for /journey/ and /advent/ when the member has nothing to open there.
+The same page covers every case, so it never says whether a journey exists
+for anyone else (7-02 namesake privacy). kind: "journey" | "advent".
+{% endcomment %}
+
+{% block title %}{% if kind == "advent" %}{% trans "No Advent Calendar yet" %}{% else %}{% trans "No journey yet" %}{% endif %} | Crush.lu{% endblock %}
+
+{% block content %}
+<div class="section-container">
+    <div class="max-w-xl mx-auto px-4 sm:px-6">
+        <div class="text-center py-12 min-h-[55vh] flex flex-col items-center justify-center">
+            <div class="mx-auto w-40 h-40 mb-6 ghost-glow">{% include "crush_lu/includes/ghost-story-discover.html" with class="w-full h-full" %}</div>
+            <h1 class="text-2xl font-semibold mb-3 text-gray-900 dark:text-white">
+                {% if kind == "advent" %}{% trans "You don't have an Advent Calendar yet" %}{% else %}{% trans "You don't have a journey yet" %}{% endif %}
+            </h1>
+            <p class="text-muted-fg mb-3">
+                {% if kind == "advent" %}{% trans "An Advent Calendar is a personal surprise the Crush.lu team prepares for one member. When one is ready for you, it appears in your menu." %}{% else %}{% trans "A journey is a personal surprise the Crush.lu team prepares for one member. When one is ready for you, it appears in your menu." %}{% endif %}
+            </p>
+            <p class="text-sm text-muted-fg mb-6">
+                {% trans "Followed a link someone sent you? Check that you're signed in with the account it was meant for." %}
+            </p>
+            <a href="{% url 'crush_lu:dashboard' %}" class="btn-crush-primary inline-flex items-center gap-2 px-6 py-3">
+                {% include "shared/icons/home.html" with class="w-4 h-4" %}
+                {% trans "Back to dashboard" %}
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
