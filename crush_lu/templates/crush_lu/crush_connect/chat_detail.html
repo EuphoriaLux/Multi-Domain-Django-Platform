@@ -17,7 +17,7 @@ rules) so the thread can claim most of the viewport.
 <div class="connect-chat max-w-2xl mx-auto px-4 py-4 pb-24 lg:pb-10" data-connect-chat data-messages-url="{% url 'crush_lu:connect_chat_messages' chat.pk %}" data-read-url="{% url 'crush_lu:connect_chat_read' chat.pk %}" data-sending="{% trans 'Sending…' %}" data-failed="{% trans 'Could not send. Your draft is saved here; try again.' %}" data-retrying="{% trans 'Connection interrupted. Retrying…' %}" data-closed="{% trans 'This conversation has ended.' %}">
 
     <header class="flex items-center gap-4 mb-4">
-        <a href="{% url 'crush_lu:connect_week_chats' %}" aria-label="{% trans 'All chats' %}" class="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-full text-gray-500 dark:text-gray-400 hover:text-crush-purple no-underline">
+        <a href="{% url 'crush_lu:connect_week_chats' %}" aria-label="{% trans 'All chats' %}" class="shrink-0 inline-flex items-center justify-center w-11 h-11 rounded-full text-gray-500 dark:text-gray-400 hover:text-crush-purple no-underline">
             {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
         </a>
         <div class="w-11 h-11 shrink-0 rounded-xl overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">

@@ -58,10 +58,10 @@
                         {% endif %}
                     </div>
                 {% elif has_qr_bonus and not show_bonus %}
-                    <div class="bonus-hint text-center mt-4 p-4" style="background: linear-gradient(135deg, #fff3cd, #ffeeba); border-radius: 12px;">
-                        <span style="font-size: 2.5rem;">🎄</span>
-                        <h5 class="mt-2">{% trans "Found the gift?" %}</h5>
-                        <p class="mb-0 text-muted">{% trans "Scan the QR code on it to reveal the full message!" %}</p>
+                    <div class="bonus-hint text-center mt-4 p-4 rounded-xl border-2 border-dashed border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20">
+                        <span style="font-size: 2.5rem;" aria-hidden="true">🎄</span>
+                        <h5 class="mt-2 text-gray-900 dark:text-yellow-200">{% trans "Found the gift?" %}</h5>
+                        <p class="mb-0 text-gray-600 dark:text-gray-200">{% trans "Scan the QR code on it to reveal the full message!" %}</p>
                     </div>
                 {% endif %}
             {% else %}

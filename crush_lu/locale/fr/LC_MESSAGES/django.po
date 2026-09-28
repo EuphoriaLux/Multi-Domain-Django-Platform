@@ -14657,6 +14657,39 @@ msgstr "Scanner le QR pour débloquer"
 msgid "Scan QR Code"
 msgstr "Scanner le code QR"
 
+#: templates/crush_lu/advent/calendar.html:36
+msgid "Doors with a lock open when you scan the QR code on your physical gift."
+msgstr "Les portes avec un cadenas s'ouvrent lorsque vous scannez le code QR de votre cadeau physique."
+
+#: templates/crush_lu/advent/calendar.html:37
+msgid "Open the QR scanner"
+msgstr "Ouvrir le scanner QR"
+
+#: templates/crush_lu/advent/calendar.html:53
+#, python-format
+msgid "Door %(num)s, opened"
+msgstr "Porte %(num)s, ouverte"
+
+#: templates/crush_lu/advent/calendar.html:64
+#, python-format
+msgid "Door %(num)s, ready to open"
+msgstr "Porte %(num)s, prête à être ouverte"
+
+#: templates/crush_lu/advent/calendar.html:76
+#, python-format
+msgid "Door %(num)s, needs a QR scan to open"
+msgstr "Porte %(num)s, scan du code QR nécessaire pour l'ouvrir"
+
+#: templates/crush_lu/advent/calendar.html:85
+#, python-format
+msgid "Door %(num)s, opens December %(num)s"
+msgstr "Porte %(num)s, s'ouvre le %(num)s décembre"
+
+#: templates/crush_lu/advent/calendar.html:85
+#, python-format
+msgid "Door %(num)s, locked"
+msgstr "Porte %(num)s, verrouillée"
+
 #: templates/crush_lu/advent/calendar_locked.html:4
 msgid "Advent Calendar - Coming Soon"
 msgstr "Calendrier de l'Avent – Bientôt disponible"
@@ -41376,9 +41409,6 @@ msgstr ""
 msgid "Connect Week requests"
 msgstr "Demandes Connect Week"
 
-msgid "Connect home"
-msgstr "Accueil Connect"
-
 msgid "Connect navigation"
 msgstr "Navigation Connect"
 
@@ -43546,3 +43576,33 @@ msgstr "Un parcours est une surprise personnelle que l'équipe Crush.lu prépare
 #: .\crush_lu\templates\crush_lu\no_journey.html
 msgid "Followed a link someone sent you? Check that you're signed in with the account it was meant for."
 msgstr "Vous avez suivi un lien que quelqu'un vous a envoyé ? Vérifiez que vous êtes connecté avec le compte auquel il était destiné."
+
+#: crush_lu/templates/crush_lu/crush_connect/_connect_subnav.html:14
+msgctxt "Crush Connect subnav"
+msgid "Home"
+msgstr "Accueil"
+
+#: crush_lu/templates/crush_lu/partials/bottom_nav.html:67
+msgctxt "member connections nav"
+msgid "Matches"
+msgstr "Affinités"
+
+#: crush_lu/templates/crush_lu/my_connections.html:4
+msgid "My Matches"
+msgstr "Mes affinités"
+
+#: crush_lu/templates/crush_lu/my_connections.html:11
+msgid "My Matches 💕"
+msgstr "Mes affinités 💕"
+
+#: crush_lu/templates/crush_lu/crush_connect/_connect_subnav.html:19
+msgctxt "Crush Connect subnav"
+msgid "Chats"
+msgstr "Chats"
+
+#: crush_lu/templates/crush_lu/partials/nav_connect_link.html:14
+#, python-format
+msgid "%(counter)s item needs your attention"
+msgid_plural "%(counter)s items need your attention"
+msgstr[0] "%(counter)s élément requiert votre attention"
+msgstr[1] "%(counter)s éléments requièrent votre attention"
