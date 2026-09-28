@@ -43688,3 +43688,8 @@ msgstr "Nous avons déjà reçu un paiement pour votre demande Premium."
 #: crush_lu/templates/crush_lu/membership.html
 msgid "Contact support about your Premium payment"
 msgstr "Contactez le support au sujet de votre paiement Premium"
+
+#: crush_lu/services/on_break.py
+#, python-format
+msgid "Heads-up: these members are taking a break from Crush.lu right now: %(names)s. You can still invite them."
+msgstr "À noter : ces membres font une pause sur Crush.lu en ce moment : %(names)s. Vous pouvez tout de même les inviter."

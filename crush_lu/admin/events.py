@@ -2284,6 +2284,29 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             )
         return super().formfield_for_dbfield(db_field, request, **kwargs)
 
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        if not form.instance.is_private_invitation:
+            return
+        # 8-13: warn, never block, about newly invited members on a break —
+        # direct invited_users and new/changed guest rows in the inline.
+        before = {getattr(u, "pk", u) for u in form.initial.get("invited_users") or []}
+        users = [
+            u
+            for u in form.cleaned_data.get("invited_users") or []
+            if u.pk not in before
+        ]
+        emails = [
+            f.cleaned_data.get("guest_email")
+            for fs in formsets
+            if fs.model is EventInvitation
+            for f in fs.forms
+            if "guest_email" in f.changed_data and not f.cleaned_data.get("DELETE")
+        ]
+        from crush_lu.services.on_break import warn_if_inviting_on_break
+
+        warn_if_inviting_on_break(request, emails=emails, users=users)
+
     def save_formset(self, request, form, formset, change):
         """
         Don't let a re-submitted registration row take the whole save down.
@@ -4138,6 +4161,14 @@ class EventInvitationAdmin(admin.ModelAdmin):
         return mark_safe(status_html)
 
     get_status_display.short_description = _("Complete Status")
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        # 8-13: warn, never block, when the invitee is on a break.
+        if not change or "guest_email" in form.changed_data:
+            from crush_lu.services.on_break import warn_if_inviting_on_break
+
+            warn_if_inviting_on_break(request, emails=[obj.guest_email])
 
     @admin.action(description=_("✅ Approve selected guests"))
     def approve_guests(self, request, queryset):
