@@ -13,7 +13,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
-from django.http import Http404, HttpResponse
+from django.http import Http404
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.translation import gettext as _
@@ -274,7 +274,17 @@ def pre_screening_save_section(request, section_id: str):
 
     submission = _get_active_submission(request.user)
     if submission is None or not _can_edit(submission):
-        return HttpResponse(status=410)
+        # 200, not 410: htmx swaps nothing on a 4xx, so the page would only
+        # flash the generic error toast while the stale form stayed editable.
+        # The read-only partial replaces this section in place (finding 3-10).
+        return render(
+            request,
+            "crush_lu/pre_screening/_section_locked.html",
+            {
+                "section": section,
+                "call_completed": bool(submission and submission.review_call_completed),
+            },
+        )
 
     try:
         parsed = _parse_section_from_post(section_id, request.POST)
