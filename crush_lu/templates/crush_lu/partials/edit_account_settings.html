@@ -1,19 +1,22 @@
 {% load socialaccount i18n static %}
 
 <div class="max-w-3xl mx-auto">
+    {# The top bar shows the title on phones; the h1 keeps the heading order (8-07). #}
+    <h1 class="sr-only">{% trans "Account Settings" %}</h1>
+
     <!-- Account Info Card -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+    <div class="bg-[var(--color-surface-card)] dark:bg-gray-800 rounded-2xl shadow-crush-sm mb-6 overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                {% include "shared/icons/user-circle.html" with class="w-5 h-5 text-purple-600" %}{% trans "Account Information" %}
-            </h5>
+            <h2 class="text-lg font-semibold text-crush-dark dark:text-white flex items-center gap-2">
+                {% include "shared/icons/user-circle.html" with class="w-5 h-5 text-purple-600 dark:text-purple-300" %}{% trans "Account Information" %}
+            </h2>
         </div>
         <div class="p-6">
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                 <div class="text-gray-500 dark:text-gray-400">{% trans "Email" %}</div>
                 <div class="sm:col-span-2 text-gray-900 dark:text-white flex items-center gap-2">
                     {{ user.email }}
-                    <a href="{% url 'account_email' %}" class="text-xs text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 font-medium">{% trans "Manage" %}</a>
+                    <a href="{% url 'account_email' %}" class="text-xs text-purple-600 dark:text-purple-300 hover:text-purple-700 dark:hover:text-purple-200 font-medium">{% trans "Manage" %}</a>
                 </div>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
@@ -28,11 +31,11 @@
     </div>
 
     <!-- Linked Accounts Card -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+    <div class="bg-[var(--color-surface-card)] dark:bg-gray-800 rounded-2xl shadow-crush-sm mb-6 overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                {% include "shared/icons/link.html" with class="w-5 h-5 text-purple-600" %}{% trans "Linked Accounts" %}
-            </h5>
+            <h2 class="text-lg font-semibold text-crush-dark dark:text-white flex items-center gap-2">
+                {% include "shared/icons/link.html" with class="w-5 h-5 text-purple-600 dark:text-purple-300" %}{% trans "Linked Accounts" %}
+            </h2>
         </div>
         <div class="p-6">
             {% if show_apple_link_banner %}
@@ -57,7 +60,7 @@
 
             <!-- Currently Connected Accounts -->
             {% if crush_social_accounts %}
-            <h6 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">{% trans "Connected" %}</h6>
+            <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">{% trans "Connected" %}</h3>
             <div class="divide-y divide-gray-100 dark:divide-gray-700 mb-6">
                 {% for social in crush_social_accounts %}
                 <div class="py-4 flex justify-between items-center">
@@ -89,7 +92,7 @@
                     <form method="post" action="{% url 'crush_lu:disconnect_social_account' social.id %}"
                           onsubmit="return confirm('{% blocktrans with provider=social.provider|title %}Are you sure you want to disconnect this {{ provider }} account?{% endblocktrans %}');">
                         {% csrf_token %}
-                        <button type="submit" class="border border-red-300 text-red-600 hover:bg-red-50 px-4 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-1">
+                        <button type="submit" class="border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 px-4 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2">
                             {% include "shared/icons/x-mark.html" with class="w-5 h-5" %}{% trans "Disconnect" %}
                         </button>
                     </form>
@@ -105,7 +108,7 @@
 
             <!-- Available Providers to Connect -->
             {% if google_available and not google_connected or facebook_available and not facebook_connected or microsoft_available and not microsoft_connected or apple_available and not apple_connected or luxid_available and not luxid_connected %}
-            <h6 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">{% trans "Connect More Accounts" %}</h6>
+            <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">{% trans "Connect More Accounts" %}</h3>
             <div class="flex flex-wrap gap-2">
                 {% if google_available and not google_connected %}
                 <a href="{% provider_login_url 'google' process='connect' %}" class="border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors flex items-center">
@@ -178,7 +181,7 @@
                 {% endif %}
             </div>
             {% else %}
-            <p class="text-gray-400 dark:text-gray-500 text-sm">{% trans "Social login providers are not configured for this site." %}</p>
+            <p class="text-muted-fg text-sm">{% trans "Social login providers are not configured for this site." %}</p>
             {% endif %}
             {% endif %}
         </div>
@@ -186,19 +189,19 @@
 
     <!-- Social Account Photos Card -->
     {% if social_photos %}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+    <div class="bg-[var(--color-surface-card)] dark:bg-gray-800 rounded-2xl shadow-crush-sm mb-6 overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                {% include "shared/icons/camera.html" with class="w-5 h-5 text-purple-600" %}{% trans "Social Account Photos" %}
-            </h5>
+            <h2 class="text-lg font-semibold text-crush-dark dark:text-white flex items-center gap-2">
+                {% include "shared/icons/camera.html" with class="w-5 h-5 text-purple-600 dark:text-purple-300" %}{% trans "Social Account Photos" %}
+            </h2>
         </div>
         <div class="p-6">
             <p class="text-gray-500 dark:text-gray-400 mb-4">
                 {% trans "Photos from your connected social accounts. To use these photos on your dating profile," %}
                 {% if user.crushprofile and user.crushprofile.is_approved %}
-                <a href="{% url 'crush_lu:edit_profile' %}" class="text-purple-600 hover:text-purple-800">{% trans "go to Edit Profile" %}</a>.
+                <a href="{% url 'crush_lu:edit_profile' %}" class="text-purple-600 hover:text-purple-800 dark:text-purple-300 dark:hover:text-purple-200">{% trans "go to Edit Profile" %}</a>.
                 {% else %}
-                <a href="{% url 'crush_lu:create_profile' %}" class="text-purple-600 hover:text-purple-800">{% trans "complete your profile setup" %}</a>.
+                <a href="{% url 'crush_lu:create_profile' %}" class="text-purple-600 hover:text-purple-800 dark:text-purple-300 dark:hover:text-purple-200">{% trans "complete your profile setup" %}</a>.
                 {% endif %}
             </p>
 
@@ -241,13 +244,13 @@
 
             {% if user.crushprofile and user.crushprofile.is_approved %}
             <div class="text-center mt-6">
-                <a href="{% url 'crush_lu:edit_profile' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                <a href="{% url 'crush_lu:edit_profile' %}" class="btn-crush-outline btn-sm inline-flex items-center gap-2">
                     {% include "shared/icons/cloud-arrow-down.html" with class="w-5 h-5" %}{% trans "Import Photos to Profile" %}
                 </a>
             </div>
             {% elif user.crushprofile %}
             <div class="text-center mt-6">
-                <a href="{% url 'crush_lu:create_profile' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-outline btn-sm inline-flex items-center gap-2">
                     {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}{% trans "Complete Profile to Import" %}
                 </a>
             </div>
@@ -258,27 +261,27 @@
 
     <!-- Password Management Card -->
     {% if crush_social_accounts and not user.has_usable_password %}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+    <div class="bg-[var(--color-surface-card)] dark:bg-gray-800 rounded-2xl shadow-crush-sm mb-6 overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                {% include "shared/icons/key.html" with class="w-5 h-5 text-purple-600" %}{% trans "Password Login" %}
-            </h5>
+            <h2 class="text-lg font-semibold text-crush-dark dark:text-white flex items-center gap-2">
+                {% include "shared/icons/key.html" with class="w-5 h-5 text-purple-600 dark:text-purple-300" %}{% trans "Password Login" %}
+            </h2>
         </div>
         <div class="p-6">
             <p class="text-gray-500 dark:text-gray-400 mb-4">
                 {% blocktrans with email=user.email %}You can set a password to enable login with your email ({{ email }}) in addition to your social accounts.{% endblocktrans %}
             </p>
-            <a href="{% url 'crush_lu:set_password' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+            <a href="{% url 'crush_lu:set_password' %}" class="btn-crush-outline btn-sm inline-flex items-center gap-2">
                 {% include "shared/icons/key.html" with class="w-5 h-5" %}{% trans "Set Password" %}
             </a>
         </div>
     </div>
     {% elif user.has_usable_password %}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+    <div class="bg-[var(--color-surface-card)] dark:bg-gray-800 rounded-2xl shadow-crush-sm mb-6 overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                {% include "shared/icons/key.html" with class="w-5 h-5 text-purple-600" %}{% trans "Password" %}
-            </h5>
+            <h2 class="text-lg font-semibold text-crush-dark dark:text-white flex items-center gap-2">
+                {% include "shared/icons/key.html" with class="w-5 h-5 text-purple-600 dark:text-purple-300" %}{% trans "Password" %}
+            </h2>
         </div>
         <div class="p-6">
             <p class="text-gray-500 dark:text-gray-400 mb-4">
@@ -287,7 +290,7 @@
                 {% trans "You can also login with your connected social accounts." %}
                 {% endif %}
             </p>
-            <a href="{% url 'account_change_password' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+            <a href="{% url 'account_change_password' %}" class="btn-crush-outline btn-sm inline-flex items-center gap-2">
                 {% include "shared/icons/pencil.html" with class="w-5 h-5" %}{% trans "Change Password" %}
             </a>
         </div>
@@ -295,23 +298,23 @@
     {% endif %}
 
     <!-- Profile Link Card -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+    <div class="bg-[var(--color-surface-card)] dark:bg-gray-800 rounded-2xl shadow-crush-sm mb-6 overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                {% include "shared/icons/heart.html" with class="w-5 h-5 text-purple-600" %}{% trans "Dating Profile" %}
-            </h5>
+            <h2 class="text-lg font-semibold text-crush-dark dark:text-white flex items-center gap-2">
+                {% include "shared/icons/heart.html" with class="w-5 h-5 text-purple-600 dark:text-purple-300" %}{% trans "Dating Profile" %}
+            </h2>
         </div>
         <div class="p-6">
-            {% if user.crushprofile %}
             {# Status states ported from /account/settings/ now that pending and rejected profiles reach this page (8-08). #}
             {% with rs=user.crushprofile.review_status vs=user.crushprofile.verification_status %}
+            {% if user.crushprofile %}
             <p class="mb-4">
                 <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium {% if user.crushprofile.is_approved %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300{% elif vs == 'rejected' or rs == 'rejected' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300{% elif rs == 'revision' or vs == 'pending' or rs == 'pending' or rs == 'recontact_coach' or user.crushprofile.completion_status == 'submitted' %}bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300{% else %}bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200{% endif %}">
                     {% if user.crushprofile.is_approved %}{% trans "Approved" %}{% elif vs == 'rejected' or rs == 'rejected' %}{% trans "Not Verified" %}{% elif rs == 'revision' %}{% trans "Revision Needed" %}{% elif vs == 'pending' or rs == 'pending' or rs == 'recontact_coach' or user.crushprofile.completion_status == 'submitted' %}{% trans "Pending Review" %}{% else %}{% trans "Incomplete" %}{% endif %}
                 </span>
             </p>
             {% if user.crushprofile.is_approved %}
-            <a href="{% url 'crush_lu:edit_profile' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+            <a href="{% url 'crush_lu:edit_profile' %}" class="btn-crush-outline btn-sm inline-flex items-center gap-2">
                 {% include "shared/icons/pencil.html" with class="w-5 h-5" %}{% trans "Edit Profile" %}
             </a>
             {% elif vs == 'rejected' or rs == 'rejected' %}
@@ -319,23 +322,23 @@
                 {% trans "View rejection details" %}
             </a>
             {% elif rs == 'revision' %}
-            <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-primary px-4 py-2 rounded-lg inline-flex items-center">
-                {% include "shared/icons/pencil.html" with class="w-5 h-5" %}{% trans "Update Profile" %}
-            </a>
+            {% trans "Update Profile" as cta_label %}
             {% elif vs == 'pending' or rs == 'pending' or rs == 'recontact_coach' or user.crushprofile.completion_status == 'submitted' %}
-            <span class="text-gray-400 dark:text-gray-500 text-sm">{% trans "Profile under review" %}</span>
+            <span class="text-muted-fg text-sm">{% trans "Profile under review" %}</span>
             {% else %}
-            <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-primary px-4 py-2 rounded-lg inline-flex items-center">
-                {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}{% trans "Complete Profile" %}
+            {% trans "Complete Profile" as cta_label %}
+            {% endif %}
+            {% else %}
+            <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "You haven't created a dating profile yet." %}</p>
+            {% trans "Create Profile" as cta_label %}
+            {% endif %}
+            {# One gradient CTA per page (8-07): the three create-profile states share this link. #}
+            {% if cta_label %}
+            <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-primary btn-sm gap-2">
+                {% if rs == 'revision' %}{% include "shared/icons/pencil.html" with class="w-5 h-5" %}{% elif user.crushprofile %}{% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}{% else %}{% include "shared/icons/plus-circle.html" with class="w-5 h-5" %}{% endif %}{{ cta_label }}
             </a>
             {% endif %}
             {% endwith %}
-            {% else %}
-            <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "You haven't created a dating profile yet." %}</p>
-            <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-primary px-4 py-2 rounded-lg inline-flex items-center">
-                {% include "shared/icons/plus-circle.html" with class="w-5 h-5" %}{% trans "Create Profile" %}
-            </a>
-            {% endif %}
         </div>
     </div>
 

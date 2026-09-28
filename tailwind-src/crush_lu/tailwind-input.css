@@ -11825,7 +11825,8 @@ html.dark .crush-connect-cta {
         align-items: center;
         justify-content: space-between;
         padding: 1rem 1.25rem;
-        background: var(--color-white);
+        /* True white on the lavender canvas (8-07): --color-white is tinted. */
+        background: var(--color-surface-card);
         border-radius: 1rem;
         border: 1px solid #e5e7eb;
         text-decoration: none;

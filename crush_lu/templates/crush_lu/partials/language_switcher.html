@@ -3,6 +3,7 @@
 {# Language Switcher Component for Crush.lu #}
 {# Usage: {% include "crush_lu/partials/language_switcher.html" %} #}
 {# For mobile: {% include "crush_lu/partials/language_switcher.html" with mobile=True %} #}
+{# on_card=True: the desktop dropdown's trigger as an outline button, for light card surfaces #}
 {#                                                                                        #}
 {# How it works:                                                                          #}
 {# - Uses Django's set_language view to properly set the django_language cookie           #}
@@ -49,7 +50,7 @@
 <div class="relative" x-data="languageSwitcher" @click.away="close">
     <button type="button"
             @click="toggle"
-            class="nav-link flex items-center gap-1 px-2 py-1"
+            class="{% if on_card %}btn-crush-outline btn-sm inline-flex gap-1{% else %}nav-link flex items-center gap-1 px-2 py-1{% endif %}"
             aria-haspopup="true"
             x-bind:aria-expanded="ariaExpanded">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
