@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, timedelta
 from functools import partial
 
+from django.conf import settings
+from django.core.files.storage import storages
 from django.db import transaction
 from django.db.models import Count
 from django.utils import timezone
 from rest_framework import status
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -462,6 +466,7 @@ def _create_event_drafts(
 
 class SocialPostsView(APIView):
     permission_classes = [IsAdminUser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get(self, request):
         status_filter = request.query_params.get("status")
@@ -475,10 +480,32 @@ class SocialPostsView(APIView):
     def post(self, request):
         serializer = SocialPostSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        requested_status = request.data.get("status")
+        initial_status = (
+            SocialPost.Status.PENDING_REVIEW
+            if requested_status == SocialPost.Status.PENDING_REVIEW
+            else SocialPost.Status.DRAFT
+        )
+
+        uploaded_image = request.FILES.get("image") or request.FILES.get("media")
+        media_url = serializer.validated_data.get("media_url")
+        if uploaded_image:
+            storage = storages["crush_media"]
+            ext = os.path.splitext(uploaded_image.name)[1].lower() or ".jpg"
+            filename = f"social/ai_{timezone.now().strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}{ext}"
+            path = storage.save(filename, uploaded_image)
+            media_url = storage.url(path)
+            if media_url.startswith("/"):
+                media_url = f"{settings.BACKEND_BASE_URL.rstrip('/')}{media_url}"
+
         post = serializer.save(
             user=request.user,
-            status=SocialPost.Status.DRAFT,
-            status_history=[_history_entry(request, SocialPost.Status.DRAFT)],
+            status=initial_status,
+            media_url=media_url,
+            status_history=[
+                _history_entry(request, initial_status, note="Created via Hub API.")
+            ],
         )
         return Response(
             {"post": SocialPostSerializer(post).data}, status=status.HTTP_201_CREATED
