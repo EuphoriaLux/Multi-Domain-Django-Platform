@@ -190,13 +190,12 @@ def _spark_to_crush_connect(request, *args, **kwargs):
 
 def _spark_to_crush_connect_hub(request, *args, **kwargs):
     """UX Wave 3, finding 5-13 (product answer): a permanent, unconditional
-    redirect for the explicitly named member Sparks pages — /sparks/
-    (spark_list), /sparks/received/ (spark_received), spark_detail and, since
-    UX Wave 4 WP12, spark_create_journey — to the Crush Connect hub. Unlike
-    ``_spark_to_crush_connect`` above, these are member-only pages a
-    signed-in member reaches from their own dashboard/nav, so the hub's
-    login gate is the right target (matching "Go to Crush Connect"
-    elsewhere in this retirement). Ignores any
+    redirect for the three explicitly named member Sparks pages — /sparks/
+    (spark_list), /sparks/received/ (spark_received) and spark_detail — to
+    the Crush Connect hub. Unlike ``_spark_to_crush_connect`` above, these
+    three are member-only pages a signed-in member reaches from their own
+    dashboard/nav, so the hub's login gate is the right target (matching
+    "Go to Crush Connect" elsewhere in this retirement). Ignores any
     captured spark_id kwarg for the same NoReverseMatch reason.
     """
     return redirect("crush_lu:crush_connect_hub", permanent=True)
@@ -661,10 +660,12 @@ urlpatterns = [
     path('sparks/', _spark_to_crush_connect_hub, name='spark_list'),
     path('sparks/received/', _spark_to_crush_connect_hub, name='spark_received'),
     path('sparks/<int:spark_id>/', _spark_to_crush_connect_hub, name='spark_detail'),
-    # UX Wave 4 (5-13 product answer): the journey-authoring page follows
-    # the other member Sparks pages to the hub. The three event spark URLs
-    # above keep their teaser target; coach spark tools below are unchanged.
-    path('sparks/<int:spark_id>/create-journey/', _spark_to_crush_connect_hub, name='spark_create_journey'),
+    # spark_create_journey is not one of the three pages named in the
+    # product answer and is only reachable now by a direct URL (spark_detail
+    # no longer links to it) — left wired so a coach-approved spark already
+    # mid-journey-authorship isn't hard-blocked, and because deleting it
+    # would need its own product answer this WP wasn't given.
+    path('sparks/<int:spark_id>/create-journey/', views_crush_spark.spark_create_journey, name='spark_create_journey'),
 
     # Coach spark management — left in place for in-flight cleanup.
     path('coach/sparks/', views_crush_spark.coach_spark_list, name='coach_spark_list'),

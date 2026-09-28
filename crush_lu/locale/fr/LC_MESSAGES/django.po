@@ -43616,8 +43616,3 @@ msgstr "Ce paiement appartient à un autre membre. Statut du paiement : %(status
 msgctxt "donation button"
 msgid "Support"
 msgstr "Soutenir"
-
-#: crush_lu/services/on_break.py
-#, python-format
-msgid "Heads-up: these members are taking a break from Crush.lu right now: %(names)s. You can still invite them."
-msgstr "À noter : ces membres font une pause sur Crush.lu en ce moment : %(names)s. Vous pouvez tout de même les inviter."

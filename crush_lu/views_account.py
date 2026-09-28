@@ -5,7 +5,6 @@ from django.contrib import messages
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
-from django.utils.http import url_has_allowed_host_and_scheme
 from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse, HttpResponse
@@ -1588,13 +1587,6 @@ def referral_redirect(request, code):
     producing ERROR-level log noise.
     """
     referral = capture_referral(request, code, source="link")
-    # A shared event link (build_referral_url(next_url=...), 4-18) lands on
-    # the event; the captured code still credits a later signup.
-    next_url = request.GET.get("next")
-    if next_url and url_has_allowed_host_and_scheme(
-        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
-    ):
-        return redirect(next_url)
     signup_url = reverse("crush_lu:signup")
     if referral:
         return redirect(f"{signup_url}?ref={referral.code}")
