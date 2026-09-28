@@ -28,6 +28,12 @@ one for the context:
 
 When you change a brand color, update **all four** of those locations.
 
+**Seasonal token (not a brand color):** `--color-advent-red` (`#c41e3a`) is the
+Christmas red of the advent pages — day badge, progress bar, available doors,
+QR button. Use `bg-advent-red` / `text-advent-red`, or `var(--color-advent-red)`
+in an advent `<style>` block; never the hex. It lives only in the `@theme`
+block and is scoped to `crush_lu/advent/`; don't use it elsewhere.
+
 ### Border radius
 
 Prefer Tailwind defaults. Only reach for the brand custom scale when the
@@ -174,8 +180,9 @@ Tokens introduced for this surface (in `tailwind-input.css`):
 
 ### Always-dark surfaces
 
-Journey and gift pages (`journey/journey_base.html`, `journey/gift_base.html`,
-`journey/journey_selector.html`) are night-mode experiences. They fill
+Journey, gift and advent pages (`journey/journey_base.html`,
+`journey/gift_base.html`, `journey/journey_selector.html`,
+`advent/advent_base.html`) are night-mode experiences. They fill
 `base.html`'s `{% block theme_lock %}` with ` class="dark" data-theme-lock="dark"`,
 so the global chrome (navbar, tab bar, install card, toasts) takes its dark
 variant. `theme-manager.js` keeps `.dark` there without overwriting the saved

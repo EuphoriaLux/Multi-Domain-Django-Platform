@@ -1,0 +1,17 @@
+{% load i18n crush_connect_tags %}
+{% comment %}
+Top-level desktop "Connect" link (UX Wave 4 · WP10 / 6-05). Gated exactly like
+the mobile bottom-nav Connect tab. The badge (pending requests + unread chats)
+comes from connect_nav_badge_count: two COUNTs cached per user for 60s, never
+the full get_connect_summary(), so the header stays cheap on every page.
+{% endcomment %}
+{% if user|crush_connect_nav_visible %}
+{% connect_nav_badge_count user as connect_badge %}
+<a class="nav-link" href="{% url 'crush_lu:crush_connect_hub' %}" data-nav="crush-connect">
+    {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
+    <span>{% trans "Connect" %}</span>
+    {% if connect_badge %}
+    <span class="badge badge-danger"><span aria-hidden="true">{{ connect_badge }}</span><span class="sr-only">{% blocktrans count counter=connect_badge %}{{ counter }} item needs your attention{% plural %}{{ counter }} items need your attention{% endblocktrans %}</span></span>
+    {% endif %}
+</a>
+{% endif %}
