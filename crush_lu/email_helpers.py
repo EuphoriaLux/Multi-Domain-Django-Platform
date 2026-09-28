@@ -956,6 +956,8 @@ def send_event_cancellation_confirmation(
     from django.utils import translation
     from django.utils.translation import gettext as _
 
+    from .services.credits import late_window_hours, resale_share_percent
+
     # Get user's preferred language
     lang = get_user_preferred_language(user=user, request=request, default="en")
 
@@ -973,6 +975,10 @@ def send_event_cancellation_confirmation(
         "credit_total": sum(credit.amount_cents for credit in credits) / 100,
         "credit_issued": bool(credits),
         "awaiting_resale": awaiting_resale,
+        # Read from settings like the on-site policy note
+        # (_cancellation_policy_note.html); Terms §7.3 stays fixed legal copy.
+        "late_window_hours": late_window_hours(),
+        "resale_share_percent": resale_share_percent(),
         # The payment was refunded to the member's card outside Django (SumUp
         # dashboard / terminal, reconciled by reconcile_sumup_payments).
         "cash_refunded": cash_refunded,
