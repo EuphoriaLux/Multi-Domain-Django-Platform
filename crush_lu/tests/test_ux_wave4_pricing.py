@@ -340,6 +340,50 @@ class PricingPageMemberTests(TestCase):
         self.assertIn("Complete your Premium signup", card)
         self.assertNotIn("Manage your Premium request", card)
 
+    def _paid_transaction(self, membership):
+        from decimal import Decimal
+
+        from crush_lu.models import PaymentTransaction
+
+        return PaymentTransaction.objects.create(
+            transaction_reference=f"CRUSH-PREM-{membership.pk}-paid01",
+            provider=PaymentTransaction.Provider.SUMUP,
+            amount=Decimal("10.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+            user=self.user,
+            premium_membership=membership,
+        )
+
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
+    def test_already_paid_pending_member_is_sent_to_support(self):
+        # Payment captured but Premium never granted: checkout answers 409
+        # (views_payments.create_sumup_premium_checkout) until staff reconcile,
+        # so the pricing page must not offer completion -- only support.
+        self._waitlist(selected=True)
+        self._paid_transaction(self._pending_membership())
+        card = _premium_card(self.client.get("/en/membership/").content.decode())
+        links = _links(card)
+        self.assertEqual(len(links), 1)
+        self.assertEqual(links[0]["href"], "/en/support/")
+        self.assertEqual(links[0]["text"], "Contact support about your Premium payment")
+        self.assertNotIn("Complete your Premium signup", card)
+        self.assertNotIn("Manage your Premium request", card)
+        self.assertNotIn("/premium/coaches/", card)
+        self.assertEqual(self.client.get("/en/support/").status_code, 200)
+
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
+    def test_already_paid_support_link_translated(self):
+        self._waitlist(selected=True)
+        self._paid_transaction(self._pending_membership())
+        card = _premium_card(self.client.get("/de/membership/").content.decode())
+        self.assertIn("Kontaktiere den Support zu deiner Premium-Zahlung", card)
+        self.assertNotIn("Schließ deine Premium-Anmeldung ab", card)
+        card = _premium_card(self.client.get("/fr/membership/").content.decode())
+        self.assertIn("Contactez le support au sujet de votre paiement Premium", card)
+        self.assertNotIn("Finalisez votre inscription Premium", card)
+
     @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
     def test_selected_beta_tester_without_request_sees_waitlist(self):
         from crush_lu.models import CrushConnectWaitlist

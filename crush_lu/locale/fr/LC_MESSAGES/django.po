@@ -43651,3 +43651,11 @@ msgid "%(counter)s item needs your attention"
 msgid_plural "%(counter)s items need your attention"
 msgstr[0] "%(counter)s élément requiert votre attention"
 msgstr[1] "%(counter)s éléments requièrent votre attention"
+
+#: crush_lu/templates/crush_lu/membership.html
+msgid "We have already received a payment for your Premium request."
+msgstr "Nous avons déjà reçu un paiement pour votre demande Premium."
+
+#: crush_lu/templates/crush_lu/membership.html
+msgid "Contact support about your Premium payment"
+msgstr "Contactez le support au sujet de votre paiement Premium"

@@ -56,17 +56,24 @@ def pending_premium_membership(user):
 def pending_premium_state(user):
     """How the pricing page may address the user's open Premium request.
 
-    ``None`` when there is no pending request. ``"complete"`` when checkout
-    would accept it. ``"manage"`` when the beta allowlist refuses its buyer
-    (``views_payments._premium_purchase_refused``, the same predicate that
-    makes create_sumup_premium_checkout answer 403): such a member can still
-    change or cancel the request, but must not be promised completion.
+    ``None`` when there is no pending request. ``"paid"`` when a payment was
+    already captured against it but Premium was never granted
+    (``views_payments._premium_payment_captured``, the predicate that makes
+    create_sumup_premium_checkout answer 409): only staff can reconcile that,
+    so the member is pointed at support, never at checkout. ``"complete"``
+    when checkout would accept it. ``"manage"`` when the beta allowlist
+    refuses its buyer (``views_payments._premium_purchase_refused``, the same
+    predicate that makes create_sumup_premium_checkout answer 403): such a
+    member can still change or cancel the request, but must not be promised
+    completion. ``"paid"`` is checked first, mirroring the checkout's order.
     """
     pending = pending_premium_membership(user)
     if pending is None:
         return None
-    from .views_payments import _premium_purchase_refused
+    from .views_payments import _premium_payment_captured, _premium_purchase_refused
 
+    if _premium_payment_captured(pending):
+        return "paid"
     return "manage" if _premium_purchase_refused(pending) else "complete"
 
 

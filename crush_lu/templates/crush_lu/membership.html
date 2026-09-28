@@ -70,6 +70,9 @@
                 {% if is_premium %}
                 <span class="inline-flex items-center justify-center w-full py-2.5 rounded-xl bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-sm font-semibold">✓ {% trans "Your plan" %}</span>
                 {% elif suppress_native_commerce %}
+                {% elif pending_premium_state == "paid" %}
+                <p class="text-sm text-muted-fg mb-3">{% trans "We have already received a payment for your Premium request." %}</p>
+                <a href="{% url 'crush_lu:support' %}" class="btn-crush-outline btn-block text-center">{% trans "Contact support about your Premium payment" %}</a>
                 {% elif pending_premium_state == "complete" %}
                 <a href="{% url 'crush_lu:premium_choose_coach' %}" class="btn-crush-solid btn-block text-center">{% trans "Complete your Premium signup" %}</a>
                 {% elif pending_premium_state == "manage" %}
