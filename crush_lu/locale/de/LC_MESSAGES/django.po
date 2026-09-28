@@ -33980,6 +33980,27 @@ msgstr "Kontodaten-Einstellungen"
 msgid "Sign in for account controls"
 msgstr "Melde dich an, um dein Konto zu verwalten"
 
+msgid "Report a safety concern"
+msgstr "Sicherheitsproblem melden"
+
+msgid "If someone made you feel unsafe on Crush.lu or at an event, email us and tell us what happened."
+msgstr "Wenn du dich auf Crush.lu oder bei einem Event durch jemanden unsicher gefühlt hast, schreib uns eine E-Mail und erzähl uns, was passiert ist."
+
+msgid "Child Safety"
+msgstr "Kinderschutz"
+
+msgid "Frequently asked questions"
+msgstr "Häufig gestellte Fragen"
+
+msgid "How do I get verified?"
+msgstr "Wie werde ich verifiziert?"
+
+msgid "What happens at an event?"
+msgstr "Was passiert bei einem Event?"
+
+msgid "How do I delete my account?"
+msgstr "Wie lösche ich mein Konto?"
+
 #: templates/crush_lu/terms_of_service.html:4
 msgid "Terms of Service - Crush.lu"
 msgstr "Nutzungsbedingungen - Crush.lu"
