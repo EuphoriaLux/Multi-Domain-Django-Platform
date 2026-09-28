@@ -28802,6 +28802,24 @@ msgstr ""
 msgid "Chapter 1: Photo Puzzle"
 msgstr "Chapitre 1 : Puzzle photo"
 
+#: templates/crush_lu/journey/gift_create.html
+msgctxt "gift wizard step"
+msgid "Story details"
+msgstr "Détails de l'histoire"
+
+#: templates/crush_lu/journey/gift_create.html
+msgctxt "gift wizard step"
+msgid "Add media"
+msgstr "Ajouter des médias"
+
+#: templates/crush_lu/journey/gift_create.html
+msgid "Gift creation steps"
+msgstr "Étapes de création du cadeau"
+
+#: templates/crush_lu/journey/gift_error_summary.html
+msgid "Files are not kept after an error. Please select them again."
+msgstr "Les fichiers ne sont pas conservés après une erreur. Veuillez les sélectionner à nouveau."
+
 #: templates/crush_lu/journey/gift_create.html:111
 msgid ""
 "This photo will be revealed piece by piece as a puzzle. Best with a square "
