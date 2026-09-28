@@ -94,8 +94,13 @@
             <span class="badge-crush-soft shrink-0">{{ event.get_event_type_display }}</span>
         </div>
 
-        {% if reg_status_chip or is_eligible == False %}
+        {% if reg_status_chip or is_eligible == False or entry_filter and event.profile_requirement == "completed" %}
         <div class="flex flex-wrap gap-1.5 mb-2">
+            {% if entry_filter and event.profile_requirement == "completed" %}
+            {# Only on event_list?entry=1 ("See entry events", #1082). #}
+            {% trans "Entry event" as entry_label %}
+            {% include "crush_lu/components/status_badge.html" with tone="success" label=entry_label icon="check-circle" %}
+            {% endif %}
             {% if reg_status_chip %}
             {% include "crush_lu/components/status_badge.html" with tone=reg_status_chip.tone label=reg_status_chip.label %}
             {% endif %}

@@ -5,7 +5,7 @@ crush_lu/tests/test_ux_wave3_event_list.py only asserts on server-rendered
 markup (chip HTML, role=tablist/tab attributes) — nothing exercises a real
 click on a type-filter chip and checks that the matching cards actually
 show/hide via the shared Alpine.store("eventTypeFilter") wired up in
-alpine-components.js (eventTypeFilterChip / eventTypeFilterCard). That
+js/alpine/core.js (eventTypeFilterChip / eventTypeFilterCard). That
 store/attribute wiring (data-filter-type / data-event-type) passes every
 unit test yet could silently do nothing in a real browser (finding WP7-2).
 
