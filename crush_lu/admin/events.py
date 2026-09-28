@@ -286,6 +286,12 @@ class MeetupEventAdminForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # The saved privacy state, read before _post_clean applies the new
+        # audience to the instance. Bound forms carry no registration_audience
+        # initial, so save_related's on-break warning reads this instead.
+        self.was_private = bool(
+            self.instance and self.instance.pk and self.instance.is_private_invitation
+        )
         if not self.is_bound:
             if self.instance and self.instance.pk:
                 audience = (
@@ -2290,11 +2296,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             return
         # 8-13: warn, never block, about newly invited members on a break —
         # direct invited_users and new/changed guest rows in the inline.
-        was_private = (
-            form.initial.get("registration_audience")
-            == MeetupEventAdminForm.PRIVATE_INVITATION
-        )
-        if not was_private:
+        if not form.was_private:
             # Turning an event private (the form's registration_audience;
             # is_private_invitation is not a form field) makes every existing
             # invitee effective, not just the ones added in this save.

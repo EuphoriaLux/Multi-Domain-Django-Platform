@@ -261,11 +261,9 @@ class OnBreakInvitationWarningTests(TestCase):
         request._messages = FallbackStorage(request)
         form = mock.Mock(
             instance=self.event,
-            initial={
-                "invited_users": initial_users,
-                "registration_audience": audience,
-            },
+            initial={"invited_users": initial_users},
             cleaned_data={"invited_users": users},
+            was_private=audience == "private_invitation",
         )
         formsets = [mock.Mock(model=EventInvitation, forms=list(guest_forms))]
         with mock.patch.object(admin.ModelAdmin, "save_related"):
@@ -316,22 +314,36 @@ class OnBreakInvitationWarningTests(TestCase):
         texts = self._event_admin_save_related([], [], audience="completed")
         self.assertTrue(any("taking a break" in t for t in texts), texts)
 
-    def test_real_admin_form_signals_privacy_through_registration_audience(self):
-        # Ties the mocked forms above to the real one: is_private_invitation
-        # is not a form field, so the transition must be read from the
-        # registration_audience initial value.
+    def test_real_admin_form_records_the_saved_privacy_state(self):
+        # Ties the mocked forms above to the real one. is_private_invitation
+        # is not a form field, and a bound (POSTed) form has no
+        # registration_audience initial, so was_private must be captured from
+        # the saved instance in __init__, for bound and unbound forms alike.
         from crush_lu.admin.events import MeetupEventAdminForm
 
         public = _event(title="Public", is_private_invitation=False)
         self.assertNotIn("is_private_invitation", MeetupEventAdminForm().fields)
-        self.assertNotEqual(
-            MeetupEventAdminForm(instance=public).initial["registration_audience"],
-            MeetupEventAdminForm.PRIVATE_INVITATION,
+        self.assertFalse(MeetupEventAdminForm().was_private)
+        self.assertFalse(MeetupEventAdminForm(instance=public).was_private)
+        self.assertTrue(MeetupEventAdminForm(instance=self.event).was_private)
+        bound_private = MeetupEventAdminForm(data={}, instance=self.event)
+        self.assertNotIn("registration_audience", bound_private.initial)
+        self.assertTrue(bound_private.was_private)
+        self.assertFalse(MeetupEventAdminForm(data={}, instance=public).was_private)
+
+    def test_event_admin_does_not_rewarn_on_an_unrelated_edit_of_a_private_event(
+        self,
+    ):
+        # Review P2: an ordinary save of an already-private event must not
+        # re-announce every saved guest row.
+        EventInvitation.objects.create(
+            event=self.event,
+            guest_email="resting@crush.lu",
+            guest_first_name="Mia",
+            guest_last_name="Rest",
         )
-        self.assertEqual(
-            MeetupEventAdminForm(instance=self.event).initial["registration_audience"],
-            MeetupEventAdminForm.PRIVATE_INVITATION,
-        )
+        texts = self._event_admin_save_related([self.member], [self.member])
+        self.assertEqual(texts, [])
 
 
 # ---------------------------------------------------------------------------
