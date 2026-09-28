@@ -720,10 +720,7 @@ def create_sumup_premium_checkout(request, membership_id):
     # Refuse until a human reconciles, rather than trying to self-heal. The
     # remedies differ per cause (refund, coach reassignment, re-selection) and
     # each needs a decision this endpoint cannot make.
-    if PaymentTransaction.objects.filter(
-        premium_membership=membership,
-        status=PaymentTransaction.Status.PAID,
-    ).exists():
+    if _premium_payment_captured(membership):
         logger.error(
             "Refused a second premium checkout for membership %s (user=%s): a "
             "PAID transaction is already recorded against it and Premium was "
@@ -825,10 +822,7 @@ def create_sumup_premium_checkout(request, membership_id):
         still_payable = (
             locked_membership is not None
             and locked_membership.status == "pending"
-            and not PaymentTransaction.objects.filter(
-                premium_membership=membership,
-                status=PaymentTransaction.Status.PAID,
-            ).exists()
+            and not _premium_payment_captured(membership)
         )
         if still_payable:
             PaymentTransaction.objects.create(
@@ -1242,6 +1236,22 @@ def _pay_registration_with_credit(registration, amount):
             tx_obj.transaction_reference if tx_obj is not None else "-",
         )
         return None
+
+
+def _premium_payment_captured(membership):
+    """True when a PAID transaction is already recorded against ``membership``.
+
+    For a still-``pending`` membership this means the money was captured but
+    Premium was never granted, which needs staff reconciliation rather than
+    another charge. One predicate for everyone who must agree on it: both
+    guards in create_sumup_premium_checkout and the pricing page
+    (``views_premium.pending_premium_state``), so the page never offers a
+    checkout this view would refuse with 409.
+    """
+    return PaymentTransaction.objects.filter(
+        premium_membership=membership,
+        status=PaymentTransaction.Status.PAID,
+    ).exists()
 
 
 def _premium_purchase_refused(membership, *, lock=False):
