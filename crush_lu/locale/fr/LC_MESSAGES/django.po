@@ -43587,3 +43587,7 @@ msgstr "Compte gratuit, événements dès 0 €. Premium vous offre un coach per
 #: crush_lu/templates/crush_lu/membership.html:74
 msgid "Complete your Premium signup"
 msgstr "Finalisez votre inscription Premium"
+
+#: crush_lu/templates/crush_lu/membership.html:77
+msgid "Manage your Premium request"
+msgstr "Gérez votre demande Premium"

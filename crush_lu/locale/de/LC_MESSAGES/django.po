@@ -43452,3 +43452,7 @@ msgstr "Kostenloses Konto, Events ab 0 €. Premium bietet dir einen persönlich
 #: crush_lu/templates/crush_lu/membership.html:74
 msgid "Complete your Premium signup"
 msgstr "Schließ deine Premium-Anmeldung ab"
+
+#: crush_lu/templates/crush_lu/membership.html:77
+msgid "Manage your Premium request"
+msgstr "Verwalte deine Premium-Anfrage"

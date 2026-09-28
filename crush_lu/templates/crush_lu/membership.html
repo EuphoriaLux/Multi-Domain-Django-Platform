@@ -70,8 +70,11 @@
                 {% if is_premium %}
                 <span class="inline-flex items-center justify-center w-full py-2.5 rounded-xl bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-sm font-semibold">✓ {% trans "Your plan" %}</span>
                 {% elif suppress_native_commerce %}
-                {% elif has_pending_premium %}
+                {% elif pending_premium_state == "complete" %}
                 <a href="{% url 'crush_lu:premium_choose_coach' %}" class="btn-crush-solid btn-block text-center">{% trans "Complete your Premium signup" %}</a>
+                {% elif pending_premium_state == "manage" %}
+                <p class="text-sm text-muted-fg mb-3">{% trans "Premium is invite-only during the beta." %}</p>
+                <a href="{% url 'crush_lu:premium_choose_coach' %}" class="btn-crush-outline btn-block text-center">{% trans "Manage your Premium request" %}</a>
                 {% elif premium_invite_only %}
                 <p class="text-sm text-muted-fg mb-3">{% trans "Premium is invite-only during the beta." %}</p>
                 <a href="{% url 'crush_lu:crush_connect_teaser' %}" class="btn-crush-solid btn-block text-center">{% trans "Join the Waitlist" %}</a>

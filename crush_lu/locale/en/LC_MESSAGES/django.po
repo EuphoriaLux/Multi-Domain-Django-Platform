@@ -28649,3 +28649,7 @@ msgstr ""
 #: crush_lu/templates/crush_lu/membership.html:74
 msgid "Complete your Premium signup"
 msgstr ""
+
+#: crush_lu/templates/crush_lu/membership.html:77
+msgid "Manage your Premium request"
+msgstr ""

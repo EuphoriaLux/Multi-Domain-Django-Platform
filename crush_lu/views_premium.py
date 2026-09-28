@@ -53,6 +53,23 @@ def pending_premium_membership(user):
     )
 
 
+def pending_premium_state(user):
+    """How the pricing page may address the user's open Premium request.
+
+    ``None`` when there is no pending request. ``"complete"`` when checkout
+    would accept it. ``"manage"`` when the beta allowlist refuses its buyer
+    (``views_payments._premium_purchase_refused``, the same predicate that
+    makes create_sumup_premium_checkout answer 403): such a member can still
+    change or cancel the request, but must not be promised completion.
+    """
+    pending = pending_premium_membership(user)
+    if pending is None:
+        return None
+    from .views_payments import _premium_purchase_refused
+
+    return "manage" if _premium_purchase_refused(pending) else "complete"
+
+
 def _available_coaches():
     """Coaches open to new premium members and not yet at capacity.
 

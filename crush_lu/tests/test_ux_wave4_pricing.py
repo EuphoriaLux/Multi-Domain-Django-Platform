@@ -30,6 +30,40 @@ def _premium_card(html):
     return match.group(0)
 
 
+class _Links(HTMLParser):
+    """Collects each <a>'s class, href and text, in document order."""
+
+    def __init__(self):
+        super().__init__()
+        self.links = []
+        self._current = None
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "a":
+            attrs = dict(attrs)
+            self._current = {
+                "href": attrs.get("href", ""),
+                "class": (attrs.get("class") or "").split(),
+                "text": "",
+            }
+
+    def handle_endtag(self, tag):
+        if tag == "a" and self._current is not None:
+            self._current["text"] = " ".join(self._current["text"].split())
+            self.links.append(self._current)
+            self._current = None
+
+    def handle_data(self, data):
+        if self._current is not None:
+            self._current["text"] += data
+
+
+def _links(html):
+    parser = _Links()
+    parser.feed(html)
+    return parser.links
+
+
 class _HeadMeta(HTMLParser):
     """Collect <title> text and <meta> content by name/property."""
 
@@ -220,10 +254,19 @@ class PricingPageMemberTests(TestCase):
             user=self.user, coach=coach, status="pending"
         )
 
+    def _waitlist(self, *, selected):
+        from crush_lu.models import CrushConnectWaitlist
+
+        return CrushConnectWaitlist.objects.create(
+            user=self.user, selected_as_tester=selected
+        )
+
     @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
     def test_pending_member_in_beta_can_complete_signup(self):
         # premium_choose_coach lets a pending member past the beta funnel, so
-        # the pricing page must link there too, not to the waitlist.
+        # the pricing page must link there too, not to the waitlist. Only a
+        # selected tester may actually pay (_premium_purchase_refused).
+        self._waitlist(selected=True)
         self._pending_membership()
         card = _premium_card(self.client.get("/en/membership/").content.decode())
         self.assertIn('href="/en/premium/coaches/"', card)
@@ -235,11 +278,67 @@ class PricingPageMemberTests(TestCase):
 
     @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
     def test_pending_member_cta_translated(self):
+        self._waitlist(selected=True)
         self._pending_membership()
         card = _premium_card(self.client.get("/de/membership/").content.decode())
         self.assertIn("Schließ deine Premium-Anmeldung ab", card)
         card = _premium_card(self.client.get("/fr/membership/").content.decode())
         self.assertIn("Finalisez votre inscription Premium", card)
+
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
+    def test_selected_tester_with_pending_request_sees_complete(self):
+        self._waitlist(selected=True)
+        self._pending_membership()
+        links = _links(
+            _premium_card(self.client.get("/en/membership/").content.decode())
+        )
+        self.assertEqual(len(links), 1)
+        self.assertEqual(links[0]["href"], "/en/premium/coaches/")
+        self.assertEqual(links[0]["text"], "Complete your Premium signup")
+        self.assertIn("btn-crush-solid", links[0]["class"])
+
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
+    def test_deselected_tester_pending_request_is_not_promised_completion(self):
+        # A deselected tester's pending request is refused at checkout (403,
+        # views_payments._premium_purchase_refused), so the pricing page must
+        # not promise completion -- only a way to manage (cancel) the request.
+        self._waitlist(selected=False)
+        self._pending_membership()
+        card = _premium_card(self.client.get("/en/membership/").content.decode())
+        links = _links(card)
+        self.assertEqual(len(links), 1)
+        self.assertEqual(links[0]["href"], "/en/premium/coaches/")
+        self.assertEqual(links[0]["text"], "Manage your Premium request")
+        self.assertIn("btn-crush-outline", links[0]["class"])
+        self.assertNotIn("Complete your Premium signup", card)
+        self.assertIn("Premium is invite-only during the beta.", card)
+        # The link lands on a page that still renders the cancel path.
+        response = self.client.get("/en/premium/coaches/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'action="/en/premium/cancel/"')
+
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
+    def test_pending_member_never_on_waitlist_is_not_promised_completion(self):
+        self._pending_membership()
+        card = _premium_card(self.client.get("/en/membership/").content.decode())
+        self.assertIn("Manage your Premium request", card)
+        self.assertNotIn("Complete your Premium signup", card)
+
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
+    def test_manage_request_cta_translated(self):
+        self._waitlist(selected=False)
+        self._pending_membership()
+        card = _premium_card(self.client.get("/de/membership/").content.decode())
+        self.assertIn("Verwalte deine Premium-Anfrage", card)
+        card = _premium_card(self.client.get("/fr/membership/").content.decode())
+        self.assertIn("Gérez votre demande Premium", card)
+
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=False)
+    def test_pending_member_without_beta_sees_complete(self):
+        self._pending_membership()
+        card = _premium_card(self.client.get("/en/membership/").content.decode())
+        self.assertIn("Complete your Premium signup", card)
+        self.assertNotIn("Manage your Premium request", card)
 
     @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
     def test_selected_beta_tester_without_request_sees_waitlist(self):
