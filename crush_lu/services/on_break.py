@@ -30,8 +30,8 @@ def warn_if_inviting_on_break(request, *, emails=(), users=()):
         messages.warning(
             request,
             _(
-                "Heads-up, taking a break from Crush.lu right now: %(names)s. "
-                "You can still invite them."
+                "Heads-up: these members are taking a break from Crush.lu "
+                "right now: %(names)s. You can still invite them."
             )
             % {"names": ", ".join(names)},
         )

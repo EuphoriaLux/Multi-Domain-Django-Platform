@@ -184,6 +184,54 @@ class SocialAddressCorrectionTests(TestCase):
         self.assertNotIn('href="/en/signup/"', html)
         self.assertIn("Use a different address", html)
 
+    def test_later_email_signup_in_the_session_cannot_rewrite_the_held_account(
+        self,
+    ):
+        """An abandoned social hold (A) followed by an email signup (B) in
+        the same browser: B's confirmation mail drops A's stashed id, so B
+        typing an address never rewrites account A."""
+        from allauth.account.internal.flows.email_verification import (
+            send_verification_email_to_address,
+        )
+        from allauth.core import context as allauth_context
+
+        other, other_address = _unverified_user("b-signup@example.com")
+        request = RequestFactory().get("/", HTTP_HOST="crush.lu")
+        request.user = AnonymousUser()
+        request.session = SessionStore(session_key=self.client.session.session_key)
+        request._messages = FallbackStorage(request)
+        with allauth_context.request_context(request):
+            send_verification_email_to_address(request, other_address, signup=True)
+        request.session.save()
+
+        session = self.client.session
+        self.assertEqual(session["pending_verification_email"], "b-signup@example.com")
+        self.assertNotIn("pending_verification_user_id", session)
+        html = self.client.get("/accounts/confirm-email/").content.decode()
+        self.assertIn('href="/en/signup/"', html)
+
+        self.client.post(RESEND, {"email": "b-controls@example.com"})
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "typo@exmaple.com")
+        self.assertEqual(
+            list(EmailAddress.objects.filter(user=self.user).values_list("pk")),
+            [(self.address.pk,)],
+        )
+        other.refresh_from_db()
+        self.assertEqual(other.email, "b-signup@example.com")
+
+    def test_stale_held_id_for_another_pending_address_is_dropped(self):
+        """Defence in depth in the view: the stashed id only counts while
+        the session's pending address is that user's unverified row."""
+        session = self.client.session
+        session["pending_verification_email"] = "someone-else@example.com"
+        session.save()
+        self.client.post(RESEND, {"email": "b-controls@example.com"})
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "typo@exmaple.com")
+        self.assertTrue(EmailAddress.objects.filter(pk=self.address.pk).exists())
+        self.assertNotIn("pending_verification_user_id", self.client.session)
+
     def test_pre_login_hold_stashes_the_user_and_the_cooldown(self):
         from allauth.core import context as allauth_context
 
@@ -314,8 +362,15 @@ class SumUpReturnFollowupTests(TestCase):
 
     def test_staff_viewer_gets_neutral_copy_and_the_admin_page(self, _sync):
         tx = self._tx()
+        from django.contrib.auth.models import Permission
+
         staff, _ = _member("staff@crush.lu")
         User.objects.filter(pk=staff.pk).update(is_staff=True)
+        staff.user_permissions.add(
+            Permission.objects.get(
+                codename="view_paymenttransaction", content_type__app_label="crush_lu"
+            )
+        )
         self.client.force_login(staff)
         response = self.client.get(
             "/payments/sumup/return/", {"ref": tx.transaction_reference}
@@ -324,6 +379,23 @@ class SumUpReturnFollowupTests(TestCase):
             response.url,
             f"/crush-admin/crush_lu/paymenttransaction/{tx.pk}/change/",
         )
+        texts = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertEqual(
+            texts,
+            ["This checkout belongs to another member. Payment status: Pending."],
+        )
+
+    def test_staff_without_admin_view_access_goes_to_my_events(self, _sync):
+        """No 403: plain staff without the PaymentTransaction view
+        permission land on My Events, still with the neutral status."""
+        tx = self._tx()
+        staff, _ = _member("staff2@crush.lu")
+        User.objects.filter(pk=staff.pk).update(is_staff=True)
+        self.client.force_login(staff)
+        response = self.client.get(
+            "/payments/sumup/return/", {"ref": tx.transaction_reference}
+        )
+        self.assertIn("/my-events/", response.url)
         texts = [str(m) for m in get_messages(response.wsgi_request)]
         self.assertEqual(
             texts,
@@ -510,6 +582,44 @@ class OnBreakInvitationWarningTests(TestCase):
             request, invitation, form=mock.Mock(changed_data=[]), change=False
         )
         texts = [str(m) for m in get_messages(request)]
+        self.assertTrue(any("taking a break" in t for t in texts), texts)
+
+    def _event_admin_save_related(self, initial_users, users, guest_forms=()):
+        from django.contrib import admin
+
+        from crush_lu.admin import crush_admin_site
+        from crush_lu.admin.events import MeetupEventAdmin
+
+        request = RequestFactory().post("/")
+        request.user = self.coach.user
+        request.session = SessionStore()
+        request._messages = FallbackStorage(request)
+        form = mock.Mock(
+            instance=self.event,
+            initial={"invited_users": initial_users},
+            cleaned_data={"invited_users": users},
+        )
+        formsets = [mock.Mock(model=EventInvitation, forms=list(guest_forms))]
+        with mock.patch.object(admin.ModelAdmin, "save_related"):
+            MeetupEventAdmin(MeetupEvent, crush_admin_site).save_related(
+                request, form, formsets, change=True
+            )
+        return [str(m) for m in get_messages(request)]
+
+    def test_event_admin_warns_for_a_newly_invited_user(self):
+        texts = self._event_admin_save_related([], [self.member])
+        self.assertTrue(any("taking a break" in t for t in texts), texts)
+
+    def test_event_admin_does_not_rewarn_an_already_invited_user(self):
+        texts = self._event_admin_save_related([self.member], [self.member])
+        self.assertEqual(texts, [])
+
+    def test_event_admin_warns_for_a_new_inline_guest_row(self):
+        row = mock.Mock(
+            changed_data=["guest_email"],
+            cleaned_data={"guest_email": "resting@crush.lu", "DELETE": False},
+        )
+        texts = self._event_admin_save_related([], [], guest_forms=[row])
         self.assertTrue(any("taking a break" in t for t in texts), texts)
 
 

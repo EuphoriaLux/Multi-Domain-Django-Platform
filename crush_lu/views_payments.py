@@ -2396,7 +2396,17 @@ def _sumup_return_staff_response(request, tx_obj):
         _("This checkout belongs to another member. Payment status: %(status)s.")
         % {"status": tx_obj.get_status_display()},
     )
-    return redirect("crush_admin:crush_lu_paymenttransaction_change", tx_obj.pk)
+    from crush_lu.admin import crush_admin_site
+
+    model_admin = crush_admin_site._registry.get(PaymentTransaction)
+    if (
+        model_admin is not None
+        and crush_admin_site.has_permission(request)
+        and model_admin.has_view_permission(request, tx_obj)
+    ):
+        return redirect("crush_admin:crush_lu_paymenttransaction_change", tx_obj.pk)
+    # Staff without view access there would hit a 403.
+    return redirect("crush_lu:my_events")
 
 
 def _sumup_return_response(request, tx_obj):

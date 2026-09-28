@@ -4685,9 +4685,14 @@ def stash_pending_verification_email(sender, request, confirmation, signup, **kw
     """
     if request is None or confirmation is None:
         return
-    email = getattr(getattr(confirmation, "email_address", None), "email", None)
+    email_address = getattr(confirmation, "email_address", None)
+    email = getattr(email_address, "email", None)
     if email:
         request.session["pending_verification_email"] = email
+        # A social hold's user id belongs to its own address only (#1059).
+        held = request.session.get("pending_verification_user_id")
+        if held and held != getattr(email_address, "user_id", None):
+            request.session.pop("pending_verification_user_id", None)
 
 
 @receiver(email_confirmed)

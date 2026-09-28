@@ -1733,7 +1733,10 @@ def claim_resend_cooldown(email, force=False):
     ``force`` records a send that already happened (the social pre_login
     hold). ``None`` means the cache backend swallowed an error: fail open
     like ``_may_ask_sumup``; the 3/h IP limit and allauth's per-address
-    limiter still bound the sends.
+    limiter still bound the sends. The claim is taken before the address
+    is looked up (so the response cannot reveal whether it exists): anyone
+    can therefore hold back a resend to an address for one cooldown by
+    posting it first, a small cost bounded by the 3/h IP limit.
     """
     key = f"crush:resend-verification:{_email_digest(email)}"
     if force:
@@ -1748,6 +1751,25 @@ def start_resend_cooldown_display(request, email):
         int(timezone.now().timestamp()) + RESEND_VERIFICATION_COOLDOWN_SECONDS
     )
     request.session["resend_verification_cooldown_hash"] = _email_digest(email)
+
+
+def _held_social_user_id(request):
+    """The social pre_login hold's user id, only while it still owns the
+    session's pending address (an unverified row of that user). A stale id
+    (another signup or login in the same browser since) is dropped, so it
+    can never rewrite a different account than the one being verified."""
+    from allauth.account.models import EmailAddress
+
+    user_id = request.session.get("pending_verification_user_id")
+    if not user_id:
+        return None
+    email = request.session.get("pending_verification_email") or ""
+    if EmailAddress.objects.filter(
+        user_id=user_id, email__iexact=email, verified=False
+    ).exists():
+        return user_id
+    request.session.pop("pending_verification_user_id", None)
+    return None
 
 
 def _replace_pending_social_address(request, typed_email):
@@ -1766,7 +1788,7 @@ def _replace_pending_social_address(request, typed_email):
     from django.core.exceptions import ValidationError
     from django.core.validators import validate_email
 
-    user_id = request.session.get("pending_verification_user_id")
+    user_id = _held_social_user_id(request)
     if not user_id:
         return None
     try:
@@ -1860,6 +1882,7 @@ def resend_verification_email(request):
         # Remember the address so this page can mask it and keep offering
         # resend without needing the visitor to retype it.
         request.session["pending_verification_email"] = email
+        _held_social_user_id(request)
         start_resend_cooldown_display(request, email)
 
     messages.success(

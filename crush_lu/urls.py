@@ -190,12 +190,13 @@ def _spark_to_crush_connect(request, *args, **kwargs):
 
 def _spark_to_crush_connect_hub(request, *args, **kwargs):
     """UX Wave 3, finding 5-13 (product answer): a permanent, unconditional
-    redirect for the three explicitly named member Sparks pages — /sparks/
-    (spark_list), /sparks/received/ (spark_received) and spark_detail — to
-    the Crush Connect hub. Unlike ``_spark_to_crush_connect`` above, these
-    three are member-only pages a signed-in member reaches from their own
-    dashboard/nav, so the hub's login gate is the right target (matching
-    "Go to Crush Connect" elsewhere in this retirement). Ignores any
+    redirect for the explicitly named member Sparks pages — /sparks/
+    (spark_list), /sparks/received/ (spark_received), spark_detail and, since
+    UX Wave 4 WP12, spark_create_journey — to the Crush Connect hub. Unlike
+    ``_spark_to_crush_connect`` above, these are member-only pages a
+    signed-in member reaches from their own dashboard/nav, so the hub's
+    login gate is the right target (matching "Go to Crush Connect"
+    elsewhere in this retirement). Ignores any
     captured spark_id kwarg for the same NoReverseMatch reason.
     """
     return redirect("crush_lu:crush_connect_hub", permanent=True)
