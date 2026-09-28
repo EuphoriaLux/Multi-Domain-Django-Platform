@@ -157,6 +157,42 @@ class WorkflowWiringTests(unittest.TestCase):
             self.assertNotIn("continue-on-error", scan)
 
 
+class MinifiedAlpineBundleWiringTests(unittest.TestCase):
+    """alpine-components.min.js is committed (tests and DEBUG=False render it)
+    and rebuilt on deploy exactly like tailwind.css."""
+
+    MIN_JS = "crush_lu/static/crush_lu/js/alpine-components.min.js"
+
+    def test_pr_ci_blocks_on_a_stale_min_js(self):
+        steps = CI["jobs"]["javascript-lint"]["steps"]
+        check = next(s for s in steps if "npm run build:js" in s.get("run", ""))
+        self.assertIn(f"git diff --exit-code -- {self.MIN_JS}", check["run"])
+        self.assertNotIn("continue-on-error", check)
+        self.assertLess(
+            next(i for i, s in enumerate(steps) if s.get("run") == "npm ci"),
+            steps.index(check),
+        )
+
+    def test_deploy_rebuilds_ships_and_verifies_min_js(self):
+        deploy = workflow("deploy-azure-app-service-optimized.yml")
+        build = deploy["jobs"]["build"]["steps"]
+        self.assertTrue(any("npm run build:js" in s.get("run", "") for s in build))
+        upload = next(s for s in build if s.get("uses", "").startswith("actions/up"))
+        self.assertIn(self.MIN_JS, upload["with"]["path"])
+        steps = deploy["jobs"]["deploy"]["steps"]
+        names = [s.get("name") for s in steps]
+        clear = steps[names.index("Clear tracked CSS bundles")]["run"]
+        verify = steps[names.index("Verify the built CSS landed")]["run"]
+        self.assertIn(self.MIN_JS, clear)
+        self.assertIn(self.MIN_JS, verify)
+
+    def test_esbuild_is_pinned_exactly(self):
+        package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+        version = package["devDependencies"]["esbuild"]
+        self.assertRegex(version, r"^\d+\.\d+\.\d+$")
+        self.assertIn(self.MIN_JS, package["scripts"]["build:js"])
+
+
 class ScopeTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
