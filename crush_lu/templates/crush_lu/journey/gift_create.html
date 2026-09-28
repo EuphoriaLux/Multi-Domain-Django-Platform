@@ -4,27 +4,30 @@
 {% block title %}{% trans "Create a Journey Gift" %} - Crush.lu{% endblock %}
 
 {% block gift_content %}
-<div class="gift-card" x-data="giftCreateForm">
+<div class="gift-card" x-data="giftCreateForm" data-initial-step="{{ initial_step }}">
     <h1 class="gift-title">{% trans "Create a Wonderland Journey" %}</h1>
     <p class="gift-subtitle">{% trans "Create a magical experience for someone special" %}</p>
 
     <!-- Step Navigation -->
-    <div class="step-nav">
-        <div class="step-indicator" x-bind:class="stepOneClass">
-            <span class="step-number">1</span>
-            <span>{% trans "Story Details" %}</span>
-        </div>
-        <div class="step-indicator" x-bind:class="stepTwoClass">
-            <span class="step-number">2</span>
-            <span>{% trans "Add Media" %}</span>
-        </div>
-    </div>
+    <ol class="step-nav" aria-label="{% trans "Gift creation steps" %}">
+        <li class="step-indicator" x-bind:class="stepOneClass" x-bind:aria-current="stepOneCurrent"{% if initial_step == 1 %} aria-current="step"{% endif %}>
+            <span class="step-number" aria-hidden="true">1</span>
+            <span>{% trans "Story details" context "gift wizard step" %}</span>
+        </li>
+        <li class="step-indicator" x-bind:class="stepTwoClass" x-bind:aria-current="stepTwoCurrent"{% if initial_step == 2 %} aria-current="step"{% endif %}>
+            <span class="step-number" aria-hidden="true">2</span>
+            <span>{% trans "Add media" context "gift wizard step" %}</span>
+        </li>
+    </ol>
 
     <form method="post" enctype="multipart/form-data" novalidate class="create-form">
         {% csrf_token %}
 
         <!-- Step 1: Basic Information -->
         <div class="step-content" x-bind:class="stepOneContentClass">
+            {% if step_one_errors %}
+            {% include "crush_lu/journey/gift_error_summary.html" with errors=step_one_errors %}
+            {% endif %}
             <div class="form-group">
                 <label for="id_recipient_name">{{ form.recipient_name.label }}</label>
                 {{ form.recipient_name }}
@@ -94,6 +97,9 @@
 
         <!-- Step 2: Media Upload -->
         <div class="step-content" x-bind:class="stepTwoContentClass">
+            {% if step_two_errors %}
+            {% include "crush_lu/journey/gift_error_summary.html" with errors=step_two_errors files_note=True %}
+            {% endif %}
             <div class="media-info">
                 <p>
                     <strong>{% trans "Optional:" %}</strong>
@@ -105,7 +111,8 @@
             <div class="media-section">
                 <h3 class="media-section-title">
                     <span class="emoji">🧩</span>
-                    {% trans "Chapter 1: Photo Puzzle" %}
+                    1.
+                    {% trans "Photo Puzzle" %}
                 </h3>
                 <p class="help-text mb-4">
                     {% trans "This photo will be revealed piece by piece as a puzzle. Best with a square image (800x800px)." %}
@@ -128,7 +135,8 @@
             <div class="media-section">
                 <h3 class="media-section-title">
                     <span class="emoji">🎞️</span>
-                    {% trans "Chapter 3: Photo Slideshow" %}
+                    2.
+                    {% trans "Photo Slideshow" %}
                 </h3>
                 <p class="help-text mb-4">
                     {% trans "Add up to 5 photos for a beautiful slideshow reveal. Add memories of your time together!" %}
@@ -176,7 +184,8 @@
             <div class="media-section">
                 <h3 class="media-section-title">
                     <span class="emoji">📹</span>
-                    {% trans "Chapter 4: Video Message" %}
+                    3.
+                    {% trans "Video Message" %}
                 </h3>
                 <p class="help-text mb-4">
                     {% trans "Record a heartfelt video message. This will be revealed as the emotional finale of the journey!" %}
@@ -206,7 +215,8 @@
             <div class="media-section">
                 <h3 class="media-section-title">
                     <span class="emoji">🎵</span>
-                    {% trans "Chapter 5: Letter Music" %}
+                    4.
+                    {% trans "Letter Music" %}
                 </h3>
                 <p class="help-text mb-4">
                     {% trans "Add background music that plays while reading your Future Letter in Chapter 5!" %}
@@ -234,7 +244,7 @@
 
             <div class="form-submit">
                 <div class="btn-group">
-                    <button type="button" class="btn-gift-secondary" @click="goToStep1">
+                    <button type="button" class="btn-gift btn-gift-secondary" @click="goToStep1">
                         &larr; {% trans "Back" %}
                     </button>
                     <button type="submit" class="btn-gift btn-gift-primary">

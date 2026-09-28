@@ -15474,10 +15474,8 @@ msgid "No teams yet."
 msgstr "Noch keine Teams."
 
 #: templates/crush_lu/cache/_play_content.html:9
-#, fuzzy
-#| msgid "Too many attempts. Please try again later."
 msgid "Too many attempts. Take a breath and try again in a minute."
-msgstr "Zu viele Versuche. Bitte versuche es später erneut."
+msgstr "Zu viele Versuche. Atme kurz durch und versuch es in einer Minute noch mal."
 
 #: templates/crush_lu/cache/_play_content.html:33
 #: templates/crush_lu/cache/finish.html:14
@@ -28686,6 +28684,24 @@ msgstr ""
 #: templates/crush_lu/journey/gift_create.html:108
 msgid "Chapter 1: Photo Puzzle"
 msgstr "Kapitel 1: Foto Puzzle"
+
+#: templates/crush_lu/journey/gift_create.html
+msgctxt "gift wizard step"
+msgid "Story details"
+msgstr "Details zur Geschichte"
+
+#: templates/crush_lu/journey/gift_create.html
+msgctxt "gift wizard step"
+msgid "Add media"
+msgstr "Medien hinzufügen"
+
+#: templates/crush_lu/journey/gift_create.html
+msgid "Gift creation steps"
+msgstr "Schritte zum Erstellen des Geschenks"
+
+#: templates/crush_lu/journey/gift_error_summary.html
+msgid "Files are not kept after an error. Please select them again."
+msgstr "Dateien werden nach einem Fehler nicht behalten. Bitte wähle sie erneut aus."
 
 #: templates/crush_lu/journey/gift_create.html:111
 msgid ""
@@ -43545,6 +43561,82 @@ msgid_plural "%(counter)s items need your attention"
 msgstr[0] "%(counter)s Eintrag braucht deine Aufmerksamkeit"
 msgstr[1] "%(counter)s Einträge brauchen deine Aufmerksamkeit"
 
+#: templates/crush_lu/event_polls/poll_detail.html
+#, python-format
+msgid "Voting opens %(date)s"
+msgstr "Die Abstimmung startet am %(date)s"
+
+#: templates/crush_lu/event_polls/poll_detail.html
+msgid "Thanks, your vote is in!"
+msgstr "Danke, deine Stimme ist angekommen!"
+
+#: templates/crush_lu/event_polls/_poll_results_partial.html
+msgctxt "poll result"
+msgid "Your vote"
+msgstr "Deine Stimme"
+
+#: templates/crush_lu/event_polls/_poll_results_partial.html
+#, python-format
+msgid "%(counter)s vote"
+msgid_plural "%(counter)s votes"
+msgstr[0] "%(counter)s Stimme"
+msgstr[1] "%(counter)s Stimmen"
+
+#: templates/crush_lu/event_polls/_poll_results_partial.html
+#, python-format
+msgid "%(name)s: %(pct)s%%, %(votes_label)s"
+msgstr "%(name)s: %(pct)s %%, %(votes_label)s"
+
+#: views_event_polls.py
+msgid "Profile required"
+msgstr "Profil erforderlich"
+
+#: views_event_polls.py
+msgid "Poll is not active"
+msgstr "Diese Umfrage ist gerade nicht offen"
+
+#: views_event_polls.py
+msgid "No options selected"
+msgstr "Keine Option ausgewählt"
+
+#: views_event_polls.py
+msgid "Only one choice allowed"
+msgstr "Nur eine Auswahl erlaubt"
+
+#: views_event_polls.py
+msgid "Invalid option"
+msgstr "Ungültige Option"
+
+#: templates/crush_lu/journey/challenges/timeline_sort.html
+msgid ""
+"Drag and drop the events, or use the up and down buttons, to arrange them in"
+" chronological order"
+msgstr ""
+"Ziehe die Ereignisse per Drag-and-Drop oder nutze die Buttons nach oben und "
+"unten, um sie in chronologischer Reihenfolge anzuordnen"
+
+#: templates/crush_lu/journey/challenges/timeline_sort.html
+msgid ""
+"Touch and drag the events, or use the up and down buttons, to arrange them "
+"in chronological order"
+msgstr ""
+"Berühre und ziehe die Ereignisse oder nutze die Buttons nach oben und unten,"
+" um sie in chronologischer Reihenfolge anzuordnen"
+
+#: templates/crush_lu/journey/challenges/timeline_sort.html
+msgid "{item} moved to position {position} of {total}"
+msgstr "{item} ist jetzt auf Position {position} von {total}"
+
+#: templates/crush_lu/journey/challenges/timeline_sort.html
+#, python-format
+msgid "Move “%(event)s” up"
+msgstr "„%(event)s“ nach oben verschieben"
+
+#: templates/crush_lu/journey/challenges/timeline_sort.html
+#, python-format
+msgid "Move “%(event)s” down"
+msgstr "„%(event)s“ nach unten verschieben"
+
 #: crush_lu/views_payments.py
 #, python-format
 msgid "This checkout belongs to another member. Payment status: %(status)s."
@@ -43580,6 +43672,38 @@ msgstr "Wir haben für deine Premium-Anfrage bereits eine Zahlung erhalten."
 #: crush_lu/templates/crush_lu/membership.html
 msgid "Contact support about your Premium payment"
 msgstr "Kontaktiere den Support zu deiner Premium-Zahlung"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "System (Dark)"
+msgstr "System (Dunkel)"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "System (Light)"
+msgstr "System (Hell)"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "Dark Mode"
+msgstr "Dunkelmodus"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "Light Mode"
+msgstr "Hellmodus"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "Switch to light mode"
+msgstr "Zum Hellmodus wechseln"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "Switch to dark mode"
+msgstr "Zum Dunkelmodus wechseln"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "Switch to Light"
+msgstr "Zu Hell wechseln"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "Switch to Dark"
+msgstr "Zu Dunkel wechseln"
 
 # UX Wave 4 · WP13a followups-connect-dashboard
 #: crush_lu/templates/crush_lu/my_connections.html

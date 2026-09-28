@@ -188,6 +188,13 @@ document.addEventListener("alpine:init", function () {
                 if (this.currentStep === 2) return "active";
                 return "";
             },
+            // aria-current on the stepper <li>; false removes the attribute
+            get stepOneCurrent() {
+                return this.currentStep === 1 ? "step" : false;
+            },
+            get stepTwoCurrent() {
+                return this.currentStep === 2 ? "step" : false;
+            },
             get stepOneContentClass() {
                 return this.currentStep === 1 ? "active" : "";
             },
@@ -227,6 +234,18 @@ document.addEventListener("alpine:init", function () {
 
             init: function () {
                 var self = this;
+                // A server re-render with errors opens on the step holding the
+                // first error, and moves focus to that step's error summary.
+                if (this.$el.dataset.initialStep === "2") {
+                    this.currentStep = 2;
+                }
+                this.$nextTick(function () {
+                    var summary = self.$el.querySelector(
+                        ".step-content.active [data-gift-error-summary]"
+                    );
+                    if (summary) summary.focus();
+                });
+
                 // Listen for file changes on chapter1_image
                 var ch1Input = document.getElementById("id_chapter1_image");
                 if (ch1Input) {
@@ -236,7 +255,7 @@ document.addEventListener("alpine:init", function () {
                 }
 
                 // Listen for audio file changes
-                var audioInput = document.getElementById("id_chapter4_audio");
+                var audioInput = document.getElementById("id_chapter5_letter_music");
                 if (audioInput) {
                     audioInput.addEventListener("change", function (e) {
                         self.handleAudioFileChange(e);
@@ -1509,8 +1528,8 @@ document.addEventListener("alpine:init", function () {
             isNotSubmitting: true,
             showSubmitLabel: false,
             feedbackClass: "hidden mt-6",
-            instructionText:
-                "Drag and drop the events to arrange them in chronological order",
+            instructionText: "",
+            positionAnnouncement: "",
             // i18n translations (loaded from data attributes)
             i18n: {
                 perfect: gettext("Perfect!"),
@@ -1519,10 +1538,12 @@ document.addEventListener("alpine:init", function () {
                 errorDefault: gettext("Not quite right. Try rearranging the events!"),
                 errorGeneric: gettext("An error occurred. Please try again."),
                 instructionDesktop: gettext(
-                    "Drag and drop the events to arrange them in chronological order",
+                    "Drag and drop the events, or use the up and down buttons, to arrange them in chronological order",
                 ),
-                instructionTouch:
-                    "Touch and drag the events to arrange them in chronological order",
+                instructionTouch: gettext(
+                    "Touch and drag the events, or use the up and down buttons, to arrange them in chronological order",
+                ),
+                moved: gettext("{item} moved to position {position} of {total}"),
             },
 
             init: function () {
@@ -1549,6 +1570,7 @@ document.addEventListener("alpine:init", function () {
                     this.i18n.instructionDesktop = el.dataset.i18nInstructionDesktop;
                 if (el.dataset.i18nInstructionTouch)
                     this.i18n.instructionTouch = el.dataset.i18nInstructionTouch;
+                if (el.dataset.i18nMoved) this.i18n.moved = el.dataset.i18nMoved;
 
                 // CSP-safe: update instruction text based on device type
                 this._updateInstructionText();
@@ -1624,25 +1646,81 @@ document.addEventListener("alpine:init", function () {
                     chosenClass: "sortable-chosen",
                     dragClass: "sortable-drag",
                     handle: ".timeline-item",
+                    // Taps on the move buttons must not start a drag.
+                    filter: ".timeline-move",
+                    preventOnFilter: false,
                     forceFallback: false,
                     fallbackTolerance: 3,
                     touchStartThreshold: 5,
                     delay: 0,
                     delayOnTouchOnly: true,
-                    onEnd: function () {
+                    onEnd: function (evt) {
                         self.updateNumbers();
+                        self._announcePosition(evt.item);
                     },
                 });
             },
 
             updateNumbers: function () {
-                var items = this.$el.querySelectorAll(".timeline-item");
+                var items = this.$root.querySelectorAll(".timeline-item");
+                var last = items.length - 1;
                 items.forEach(function (item, index) {
                     var numberEl = item.querySelector(".timeline-number");
                     if (numberEl) {
                         numberEl.textContent = index + 1;
                     }
+                    var up = item.querySelector(".timeline-move-up");
+                    var down = item.querySelector(".timeline-move-down");
+                    if (up) up.disabled = index === 0;
+                    if (down) down.disabled = index === last;
                 });
+            },
+
+            // Keyboard/screen-reader alternative to dragging.
+            moveUp: function () {
+                this._moveItem(this.$el, -1);
+            },
+
+            moveDown: function () {
+                this._moveItem(this.$el, 1);
+            },
+
+            _moveItem: function (button, direction) {
+                var item = button.closest(".timeline-item");
+                var sibling =
+                    direction < 0 ? item.previousElementSibling : item.nextElementSibling;
+                if (!sibling) return;
+                if (direction < 0) {
+                    item.parentNode.insertBefore(item, sibling);
+                } else {
+                    item.parentNode.insertBefore(sibling, item);
+                }
+                this.updateNumbers();
+                this._announcePosition(item);
+                // Moving the node drops focus; keep it on a usable button of the item.
+                var other = item.querySelector(
+                    direction < 0 ? ".timeline-move-down" : ".timeline-move-up",
+                );
+                (button.disabled ? other : button).focus();
+            },
+
+            _announcePosition: function (item) {
+                var items = Array.from(this.$root.querySelectorAll(".timeline-item"));
+                var text = item.querySelector(".timeline-text");
+                var label = text ? text.textContent.trim() : "";
+                // Replacer functions: the event text is inserted literally (a
+                // "$&" or "$1" in it is not a replacement pattern), and last,
+                // so a "{total}" inside it is never substituted.
+                this.positionAnnouncement = this.i18n.moved
+                    .replace("{position}", function () {
+                        return String(items.indexOf(item) + 1);
+                    })
+                    .replace("{total}", function () {
+                        return String(items.length);
+                    })
+                    .replace("{item}", function () {
+                        return label;
+                    });
             },
 
             shuffleItems: function () {
@@ -1751,6 +1829,9 @@ document.addEventListener("alpine:init", function () {
                 var items = this.$el.querySelectorAll(".timeline-item");
                 items.forEach(function (item) {
                     item.style.cursor = "default";
+                });
+                this.$root.querySelectorAll(".timeline-move").forEach(function (btn) {
+                    btn.disabled = true;
                 });
             },
         };

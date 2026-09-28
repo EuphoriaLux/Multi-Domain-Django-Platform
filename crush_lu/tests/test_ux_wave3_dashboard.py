@@ -263,7 +263,7 @@ class ProductsPremiumCtaPaddingTests(TestCase):
         html = response.content.decode()
         self.assertIn(
             'class="inline-flex items-center justify-center gap-1.5 w-full px-4 py-2.5 '
-            "rounded-xl bg-white text-crush-purple text-sm font-bold text-center "
+            "rounded-xl bg-white text-crush-purple-dark text-sm font-bold text-center "
             'leading-snug hover:bg-purple-50 transition-colors"',
             html,
         )
