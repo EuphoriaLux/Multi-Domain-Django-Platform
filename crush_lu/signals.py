@@ -37,6 +37,7 @@ from allauth.socialaccount.signals import (
 from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
 
+from azureproject.domains import DEV_DOMAIN_MAPPINGS as _DEV_DOMAIN_MAPPINGS
 from azureproject.domains import DOMAINS as _PLATFORM_DOMAINS
 
 from .utils.image_processing import process_uploaded_image
@@ -376,6 +377,10 @@ def create_user_data_consent(sender, instance, created, **kwargs):
 # up automatically. Mirrors crush_lu/adapter.py:16-17.
 CRUSH_LU_DOMAINS = {"crush.lu", "localhost", "127.0.0.1"}
 CRUSH_LU_DOMAINS.update(_PLATFORM_DOMAINS["crush.lu"].get("aliases", []))
+# Dev aliases such as crush.localhost (#1059).
+CRUSH_LU_DOMAINS.update(
+    host for host, target in _DEV_DOMAIN_MAPPINGS.items() if target == "crush.lu"
+)
 
 
 def _is_crush_domain(request):
@@ -4680,9 +4685,14 @@ def stash_pending_verification_email(sender, request, confirmation, signup, **kw
     """
     if request is None or confirmation is None:
         return
-    email = getattr(getattr(confirmation, "email_address", None), "email", None)
+    email_address = getattr(confirmation, "email_address", None)
+    email = getattr(email_address, "email", None)
     if email:
         request.session["pending_verification_email"] = email
+        # A social hold's user id belongs to its own address only (#1059).
+        held = request.session.get("pending_verification_user_id")
+        if held and held != getattr(email_address, "user_id", None):
+            request.session.pop("pending_verification_user_id", None)
 
 
 @receiver(email_confirmed)
