@@ -79,10 +79,11 @@ def _axe_source():
     return None
 
 
-def _member():
+def _member(*, is_staff=False):
+    # Gift sender pages are staff/coach-only (UX Wave 4 decision C).
     from crush_lu.tests.test_profile_edit_connect_card import _make_member
 
-    return _make_member("chrome-pw@example.com")
+    return _make_member("chrome-pw@example.com", is_staff=is_staff)
 
 
 def _page(browser, live_server, user, *, scheme="light", saved=None):
@@ -185,7 +186,9 @@ def test_system_follows_a_dark_os(browser, live_server):
 
 
 def test_theme_choice_is_locked_on_always_dark_pages(browser, live_server):
-    page = _page(browser, live_server, _member(), scheme="light", saved="light")
+    page = _page(
+        browser, live_server, _member(is_staff=True), scheme="light", saved="light"
+    )
     _open(page, f"{live_server.url}/en/journey/gift/create/")
     assert _is_dark(page)
     # Theme-locked (dark) page: the status bar is dark whatever the OS says.
