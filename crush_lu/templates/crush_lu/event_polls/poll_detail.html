@@ -114,7 +114,7 @@
             </form>
 
             <div x-ref="results" tabindex="-1" class="focus:outline-none">
-                {% if can_vote and poll.show_results_before_close %}
+                {% if show_results or poll.show_results_before_close %}
                 <div class="mt-10">
                     <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">{% trans "Current Results" %}</h2>
                     {% include 'crush_lu/event_polls/_poll_results_partial.html' %}
@@ -140,12 +140,6 @@
 
         {% elif show_results %}
         {% include 'crush_lu/event_polls/_poll_results_partial.html' %}
-        {% endif %}
-
-        {% if poll.is_public and show_results %}
-        <p class="text-center text-xs text-gray-400 dark:text-gray-500 mt-4">
-            {% blocktrans with min=gender_split_min %}Women/men shares are the percentage of all women and of all men voting who picked a theme. They appear once a theme has {{ min }} votes from women and {{ min }} from men.{% endblocktrans %}
-        </p>
         {% endif %}
 
         {% if poll.is_public and poll.is_active %}

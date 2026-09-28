@@ -65,6 +65,13 @@
     {% endfor %}
 </div>
 
+{% if poll.is_public and not hide_counts %}
+{# Part of the partial so the fetch swap after a vote renders it too. #}
+<p class="text-center text-xs text-gray-400 dark:text-gray-500 mt-4">
+    {% blocktrans with min=gender_split_min %}Women/men shares are the percentage of all women and of all men voting who picked a theme. They appear once a theme has {{ min }} votes from women and {{ min }} from men.{% endblocktrans %}
+</p>
+{% endif %}
+
 {% if has_voted %}
 <p class="text-center text-sm text-green-600 dark:text-green-400 mt-6">
     {% trans "Your vote has been recorded. Thank you!" %}

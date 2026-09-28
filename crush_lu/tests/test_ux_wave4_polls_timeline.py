@@ -399,6 +399,129 @@ class PollVoteLanguageTests(TestCase):
             status_code=429,
         )
 
+    def _exhaust_rate_limit(self, lang):
+        for _i in range(10):
+            self.client.post(
+                f"/api/polls/{self.poll.id}/vote/",
+                {"option_ids": [str(self.wine.id)], "lang": lang},
+                HTTP_HOST=HOST,
+                HTTP_ACCEPT_LANGUAGE="en",
+            )
+
+    def test_rate_limited_no_js_vote_uses_the_ballot_language(self):
+        self._exhaust_rate_limit("de")
+        response = self.client.post(
+            f"/api/polls/{self.poll.id}/vote/",
+            {"option_ids": [str(self.wine.id)], "lang": "de"},
+            HTTP_HOST=HOST,
+            HTTP_ACCEPT_LANGUAGE="en",
+        )
+        self.assertEqual(response.status_code, 429)
+        with translation.override("de"):
+            paused = translation.gettext(
+                "For your security, we've temporarily paused this action."
+            )
+        self.assertNotEqual(
+            paused, "For your security, we've temporarily paused this action."
+        )
+        self.assertContains(response, paused.replace("'", "&#x27;"), status_code=429)
+        self.assertNotContains(
+            response, "temporarily paused this action.", status_code=429
+        )
+
+    def test_rate_limited_json_vote_uses_the_ballot_language(self):
+        self._exhaust_rate_limit("fr")
+        response = self.client.post(
+            f"/api/polls/{self.poll.id}/vote/",
+            data=json.dumps({"option_ids": [self.wine.id], "lang": "fr"}),
+            content_type="application/json",
+            HTTP_HOST=HOST,
+            HTTP_ACCEPT_LANGUAGE="en",
+        )
+        self.assertEqual(response.status_code, 429)
+        with translation.override("fr"):
+            expected = translation.gettext("Too many attempts. Please try again later.")
+        self.assertNotEqual(expected, "Too many attempts. Please try again later.")
+        self.assertEqual(response.json()["error"], expected)
+
+
+class PollGenderSplitExplanationTests(TestCase):
+    """The women/men explanation travels with the results partial, so the
+    fetch swap after a vote renders it exactly like a full reload."""
+
+    EXPLANATION = "Women/men shares are the percentage of all women"
+
+    def setUp(self):
+        cache.clear()
+        self.user = make_member()
+        self.client.force_login(self.user)
+        self.poll = make_poll()
+        EventPoll.objects.filter(pk=self.poll.pk).update(is_public=True)
+        self.poll.refresh_from_db()
+        self.wine = self.poll.options.get(name="Wine Night")
+        User = get_user_model()
+        for gender in ("F", "M"):
+            for i in range(5):
+                voter = User.objects.create_user(
+                    username=f"{gender}{i}@example.com",
+                    email=f"{gender}{i}@example.com",
+                    password="x",
+                )
+                EventPollVote.objects.create(
+                    poll=self.poll,
+                    option=self.wine,
+                    user=voter,
+                    voter_gender=gender,
+                )
+
+    def test_ballot_page_before_voting_has_no_explanation(self):
+        response = self.client.get(f"/en/polls/{self.poll.id}/", HTTP_HOST=HOST)
+        self.assertNotContains(response, self.EXPLANATION)
+
+    def test_vote_json_results_html_carries_the_explanation(self):
+        response = self.client.post(
+            f"/api/polls/{self.poll.id}/vote/",
+            data=json.dumps({"option_ids": [self.wine.id], "lang": "en"}),
+            content_type="application/json",
+            HTTP_HOST=HOST,
+        )
+        self.assertEqual(response.status_code, 200)
+        html = response.json()["results_html"]
+        self.assertIn("Women 100% · Men 100%", html)
+        self.assertIn(self.EXPLANATION, html)
+        self.assertIn("once a theme has 5 votes from women and 5 from men", html)
+
+    def test_reload_after_voting_renders_the_explanation_once(self):
+        EventPollVote.objects.create(
+            poll=self.poll, option=self.wine, user=self.user, voter_gender="F"
+        )
+        response = self.client.get(f"/en/polls/{self.poll.id}/", HTTP_HOST=HOST)
+        self.assertContains(response, "Women 100% · Men 100%")
+        self.assertContains(response, self.EXPLANATION, count=1)
+
+
+class UpcomingPollResultsTests(TestCase):
+    """show_results_before_close shows results on an upcoming poll too."""
+
+    def setUp(self):
+        cache.clear()
+        self.user = make_member()
+        self.client.force_login(self.user)
+
+    def _results_bars(self, poll):
+        response = self.client.get(f"/en/polls/{poll.id}/", HTTP_HOST=HOST)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Voting opens ")
+        return _Tags(response.content.decode()).find("div", role="img")
+
+    def test_upcoming_poll_with_early_results_renders_the_results(self):
+        poll = make_poll(starts_in=timedelta(days=2), results_early=True)
+        self.assertEqual(len(self._results_bars(poll)), 2)
+
+    def test_upcoming_poll_without_early_results_hides_them(self):
+        poll = make_poll(starts_in=timedelta(days=2), results_early=False)
+        self.assertEqual(self._results_bars(poll), [])
+
 
 class RateLimitCopyTranslationTests(TestCase):
     """The ballot's explicit 429 copy is compiled for DE and FR (not fuzzy)."""

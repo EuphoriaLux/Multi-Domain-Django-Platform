@@ -166,6 +166,7 @@ def _results_context(request, poll):
         'user_votes': user_votes,
         'has_voted': bool(user_votes),
         'any_gender_split': any_gender_split,
+        'gender_split_min': GENDER_SPLIT_MIN_VOTES,
     }
 
 
@@ -193,7 +194,6 @@ def _render_poll(request, poll):
         'can_suggest': authenticated and poll.is_public and poll.is_active,
         # Voters without a profile gender get an optional "I am..." choice.
         'ask_gender': can_vote and not _profile_voter_gender(request.user),
-        'gender_split_min': GENDER_SPLIT_MIN_VOTES,
         'voter_gender_choices': EventPollVote.VOTER_GENDER_CHOICES,
         'suggestion_form': EventPollSuggestionForm(),
     })
@@ -291,7 +291,6 @@ def _ballot_language(data):
 
 @require_POST
 @crush_login_required
-@ratelimit(key='user', rate='10/m', rate_limited_template='crush_lu/rate_limited.html')
 def poll_vote(request, poll_id):
     """Submit a vote on a poll.
 
@@ -300,7 +299,6 @@ def poll_vote(request, poll_id):
     poll page with a flash message. Either way the reply is in the ballot
     page's language.
     """
-    poll = get_object_or_404(EventPoll, pk=poll_id, is_published=True)
     is_json = request.content_type == 'application/json'
     if is_json:
         try:
@@ -309,8 +307,16 @@ def poll_vote(request, poll_id):
             data = None
     else:
         data = request.POST
+    # The language applies before the rate limit, so its 429 page (or JSON
+    # error) is in the ballot's language too.
     with translation.override(_ballot_language(data)):
-        return _poll_vote(request, poll, is_json, data)
+        return _rate_limited_poll_vote(request, poll_id, is_json, data)
+
+
+@ratelimit(key='user', rate='10/m', rate_limited_template='crush_lu/rate_limited.html')
+def _rate_limited_poll_vote(request, poll_id, is_json, data):
+    poll = get_object_or_404(EventPoll, pk=poll_id, is_published=True)
+    return _poll_vote(request, poll, is_json, data)
 
 
 def _poll_vote(request, poll, is_json, data):
