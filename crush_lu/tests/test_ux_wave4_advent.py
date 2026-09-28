@@ -12,6 +12,7 @@ theme-locked dark. JS behaviour is covered by
 
 import re
 from datetime import date, datetime, timezone as dt_timezone
+from html.parser import HTMLParser
 from pathlib import Path
 from unittest.mock import patch
 
@@ -29,6 +30,37 @@ from crush_lu.models import (
     SpecialUserExperience,
 )
 from crush_lu.models.profiles import UserDataConsent
+
+
+class _TagTextCollector(HTMLParser):
+    """Collect the raw text inside every <script> or <style> element."""
+
+    def __init__(self, tag):
+        super().__init__(convert_charrefs=False)
+        self.tag = tag
+        self.bodies = []
+        self._inside = False
+
+    def handle_starttag(self, tag, attrs):
+        if tag == self.tag:
+            self._inside = True
+            self.bodies.append("")
+
+    def handle_endtag(self, tag):
+        if tag == self.tag:
+            self._inside = False
+
+    def handle_data(self, data):
+        if self._inside:
+            self.bodies[-1] += data
+
+
+def _tag_bodies(html, tag):
+    parser = _TagTextCollector(tag)
+    parser.feed(html)
+    parser.close()
+    return parser.bodies
+
 
 User = get_user_model()
 
@@ -118,16 +150,16 @@ class AdventCalendarPageTests(TestCase):
 
     def test_keyframes_are_css_not_script(self):
         html = self.get_calendar()
-        scripts = re.findall(r"<script[^>]*>(.*?)</script>", html, re.S)
+        scripts = _tag_bodies(html, "script")
         self.assertTrue(scripts)
         for body in scripts:
             self.assertNotIn("@keyframes", body)
-        styles = "".join(re.findall(r"<style[^>]*>(.*?)</style>", html, re.S))
+        styles = "".join(_tag_bodies(html, "style"))
         self.assertIn("@keyframes doorOpen", styles)
 
     def test_qr_locked_door_reads_as_locked_and_links_to_scanner(self):
         html = self.get_calendar()
-        styles = "".join(re.findall(r"<style[^>]*>(.*?)</style>", html, re.S))
+        styles = "".join(_tag_bodies(html, "style"))
         rule = style_rule(styles, ".door-link.qr-required")
         self.assertNotIn("animation", rule)
         self.assertNotIn("cursor: pointer", rule)
@@ -178,7 +210,7 @@ class AdventCalendarPageTests(TestCase):
 
     def test_teaser_is_readable(self):
         html = self.get_calendar()
-        styles = "".join(re.findall(r"<style[^>]*>(.*?)</style>", html, re.S))
+        styles = "".join(_tag_bodies(html, "style"))
         size = re.search(
             r"font-size:\s*([\d.]+)rem", style_rule(styles, ".door-teaser")
         )
@@ -199,7 +231,7 @@ class AdventCalendarPageTests(TestCase):
 
     def test_decorative_motion_honours_reduced_motion(self):
         html = self.get_calendar()
-        styles = "".join(re.findall(r"<style[^>]*>(.*?)</style>", html, re.S))
+        styles = "".join(_tag_bodies(html, "style"))
         sway = re.search(r"@keyframes sway\s*\{(.*?)\n    \}", styles, re.S)
         self.assertIsNotNone(sway)
         self.assertNotIn("margin-left", sway.group(1))
@@ -210,7 +242,7 @@ class AdventCalendarPageTests(TestCase):
         joined = "".join(reduced)
         self.assertIn(".snowflakes", joined)
         self.assertIn(".door-glow", joined)
-        scripts = "".join(re.findall(r"<script[^>]*>(.*?)</script>", html, re.S))
+        scripts = "".join(_tag_bodies(html, "script"))
         self.assertIn("matchMedia('(prefers-reduced-motion: reduce)')", scripts)
 
     def test_advent_pages_are_theme_locked_dark(self):
@@ -221,7 +253,7 @@ class AdventCalendarPageTests(TestCase):
 
     def test_advent_red_is_a_token_not_a_hex(self):
         html = self.get_calendar()
-        styles = "".join(re.findall(r"<style[^>]*>(.*?)</style>", html, re.S))
+        styles = "".join(_tag_bodies(html, "style"))
         self.assertNotIn("#c41e3a", styles.lower())
         self.assertNotIn("196, 30, 58", styles)
         self.assertIn("var(--color-advent-red)", styles)
