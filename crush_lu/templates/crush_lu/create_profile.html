@@ -1186,7 +1186,7 @@
 
 <script nonce="{{ csp_nonce }}">
 // Initialize global phone verification instance
-// Alpine.js components are now defined in alpine-components.js
+// Alpine.js components are now defined in js/alpine/core.js
 document.addEventListener('DOMContentLoaded', function() {
     window.phoneVerification = new PhoneVerification({
         phoneInputId: '{{ form.phone_number.id_for_label }}',

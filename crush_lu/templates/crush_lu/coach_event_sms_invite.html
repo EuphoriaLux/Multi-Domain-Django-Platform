@@ -1,5 +1,6 @@
 {% extends 'crush_lu/base.html' %}
 {% load i18n %}
+{% block pre_alpine_js %}{{ block.super }}{% include "crush_lu/partials/alpine_bundle.html" with bundle="coach" %}{% endblock %}
 
 {% block title %}{% trans "SMS Invite" %} - {{ event.title }} - Crush.lu{% endblock %}
 

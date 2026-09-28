@@ -1,5 +1,5 @@
 {% load i18n %}
-{# Push card state: no service worker answered within 3 s (makePushStatusCheck in alpine-components.js) #}
+{# Push card state: no service worker answered within 3 s (makePushStatusCheck in js/alpine/core.js) #}
 <template x-if="showCheckTimedOut">
     <div class="push-check-timed-out bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex flex-wrap items-center justify-between gap-3">
         <p class="text-sm text-gray-700 dark:text-gray-200">{% trans "We couldn't check notification support on this device." %}</p>
