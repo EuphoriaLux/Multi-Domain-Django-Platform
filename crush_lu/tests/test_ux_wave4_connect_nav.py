@@ -536,3 +536,22 @@ def test_desktop_connect_link_does_not_depend_on_profile_approval(client, settin
     body = _body(client.get("/en/events/"))
 
     assert _desktop_connect(body)["attrs"]["href"] == "/en/crush-connect/home/"
+
+
+def test_connect_navigation_tag_looks_up_the_summary_at_call_time(monkeypatch):
+    """Patching the service must not stick to the tag module across tests.
+
+    The tag used to bind get_connect_summary at import time, so a test that
+    first loaded the tag library while the service was patched left the patch
+    in place for every later test on that worker.
+    """
+    from types import SimpleNamespace
+
+    from crush_lu.services import connect_summary
+    from crush_lu.templatetags import connect_navigation
+
+    sentinel = object()
+    monkeypatch.setattr(connect_summary, "get_connect_summary", lambda user: sentinel)
+    request = SimpleNamespace(user=None)
+
+    assert connect_navigation.connect_navigation({"request": request}) is sentinel
