@@ -43696,6 +43696,16 @@ msgid_plural "%(counter)s items need your attention"
 msgstr[0] "%(counter)s élément requiert votre attention"
 msgstr[1] "%(counter)s éléments requièrent votre attention"
 
+#: crush_lu/views_payments.py
+#, python-format
+msgid "This checkout belongs to another member. Payment status: %(status)s."
+msgstr "Ce paiement appartient à un autre membre. Statut du paiement : %(status)s."
+
+#: crush_lu/templates/crush_lu/components/support_card.html:90 crush_lu/templates/crush_lu/components/support_card.html:145
+msgctxt "donation button"
+msgid "Support"
+msgstr "Soutenir"
+
 # UX Wave 4 · WP7a — legal pages Version 2.1 (clarification)
 #: crush_lu/templates/crush_lu/privacy_policy.html
 msgid "Last Updated: September 28, 2026"
