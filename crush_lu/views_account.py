@@ -1970,29 +1970,21 @@ def export_user_data(request):
         )
         if is_unshared_crush and conn.recipient_id == user.id:
             continue
+        is_requester = conn.requester_id == user.id
+        counterpart = conn.recipient if is_requester else conn.requester
+        counterpart_shared_email = conn.status == "shared" and (
+            conn.recipient_shares_email if is_requester else conn.requester_shares_email
+        )
         visible_connections.append(
             {
                 "event": conn.event.title if conn.event else None,
-                # Once the other member has answered the consent step without
-                # choosing to share their email, it never appears here, in
-                # any status (UX Wave 3, 5-10). Rows where they have not
-                # answered yet keep the existing export contract.
+                # The other member's email is theirs, not the requester's: it
+                # is exported only once they shared it with this member (the
+                # connection is shared and they ticked email at consent), the
+                # same rule connection_detail.html shows it by (UX Wave 4,
+                # decision I). Otherwise it never appears, in any status.
                 "connected_with": (
-                    None
-                    if (
-                        (conn.status == "shared" or conn.recipient_consents_to_share)
-                        and not conn.recipient_shares_email
-                        if conn.requester == user
-                        else (
-                            conn.status == "shared" or conn.requester_consents_to_share
-                        )
-                        and not conn.requester_shares_email
-                    )
-                    else (
-                        conn.recipient.email
-                        if conn.requester == user
-                        else conn.requester.email
-                    )
+                    counterpart.email if counterpart_shared_email else None
                 ),
                 "status": ("with your coach" if is_unshared_crush else conn.status),
                 "created_at": (

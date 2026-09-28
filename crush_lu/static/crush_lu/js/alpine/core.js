@@ -4128,7 +4128,7 @@ document.addEventListener("alpine:init", function () {
                     if (chips.length === 0) {
                         var em = document.createElement("span");
                         em.className =
-                            "text-gray-400 dark:text-gray-500 italic text-sm";
+                            "text-muted-fg italic text-sm";
                         em.textContent = emptyLabel(reviewInterests);
                         reviewInterests.appendChild(em);
                     } else {
@@ -7174,6 +7174,20 @@ document.addEventListener("alpine:init", function () {
      * - localStorage persistence
      * - Smooth transitions
      */
+    // [data-label-<key>, English fallback]; keys match theme_toggle_labels.html.
+    var THEME_TOGGLE_LABELS = [
+        ["system-dark", "System (Dark)"],
+        ["system-light", "System (Light)"],
+        ["dark-mode", "Dark Mode"],
+        ["light-mode", "Light Mode"],
+        ["switch-light-mode", "Switch to light mode"],
+        ["switch-dark-mode", "Switch to dark mode"],
+        ["dark", "Dark"],
+        ["light", "Light"],
+        ["switch-light", "Switch to Light"],
+        ["switch-dark", "Switch to Dark"],
+    ];
+
     function makeThemeToggle() {
         return {
             currentTheme: "light",
@@ -7184,8 +7198,19 @@ document.addEventListener("alpine:init", function () {
             // the toggle is disabled and says why, in the page language.
             lockedLabel: "",
 
+            // Status / aria copy, rendered with {% trans %} as data-label-*
+            // attributes by components/theme_toggle_labels.html (English
+            // fallback where a mount does not include it).
+            labels: {},
+
             init: function () {
                 this.lockedLabel = this.$el.getAttribute("data-locked-label") || "";
+                var el = this.$el;
+                var labels = {};
+                THEME_TOGGLE_LABELS.forEach(function (pair) {
+                    labels[pair[0]] = el.getAttribute("data-label-" + pair[0]) || pair[1];
+                });
+                this.labels = labels;
                 // Initialize from themeManager, and stay in step when another
                 // toggle (navbar / drawer) or the OS changes the theme.
                 this._syncFromManager();
@@ -7266,27 +7291,35 @@ document.addEventListener("alpine:init", function () {
                 // Read the reactive preference (kept in step by
                 // crush:themechange), not localStorage, which Alpine cannot track.
                 if (this.preference === "system") {
-                    return this.isSystemDark ? "System (Dark)" : "System (Light)";
+                    return this.isSystemDark
+                        ? this.labels["system-dark"]
+                        : this.labels["system-light"];
                 }
-                return this.isDark ? "Dark Mode" : "Light Mode";
+                return this.isDark ? this.labels["dark-mode"] : this.labels["light-mode"];
             },
 
             get ariaLabel() {
                 if (this.isLocked) {
                     return this.lockedLabel;
                 }
-                return this.isDark ? "Switch to light mode" : "Switch to dark mode";
+                return this.isDark
+                    ? this.labels["switch-light-mode"]
+                    : this.labels["switch-dark-mode"];
             },
 
             get themeLabel() {
                 if (this.preference === "system") {
-                    return this.isSystemDark ? "System (Dark)" : "System (Light)";
+                    return this.isSystemDark
+                        ? this.labels["system-dark"]
+                        : this.labels["system-light"];
                 }
-                return this.isDark ? "Dark" : "Light";
+                return this.isDark ? this.labels.dark : this.labels.light;
             },
 
             get themeButtonLabel() {
-                return this.isDark ? "Switch to Light" : "Switch to Dark";
+                return this.isDark
+                    ? this.labels["switch-light"]
+                    : this.labels["switch-dark"];
             },
 
             // Methods
@@ -7351,14 +7384,15 @@ document.addEventListener("alpine:init", function () {
                 }
                 return chosen ? selected : idle;
             },
+            // aria-pressed: a locked (always-dark) page has no pressed option.
             get isLightChosen() {
-                return this.preference === "light";
+                return !this.isLocked && this.preference === "light";
             },
             get isDarkChosen() {
-                return this.preference === "dark";
+                return !this.isLocked && this.preference === "dark";
             },
             get isSystemChosen() {
-                return this.preference === "system";
+                return !this.isLocked && this.preference === "system";
             },
             get lightOptionClass() {
                 return this._optionClass(this.isLightChosen);
@@ -9154,7 +9188,8 @@ document.addEventListener("alpine:init", function () {
 
                     btn.classList.toggle("border-2", on);
                     btn.classList.toggle("border-pink-500", on);
-                    btn.classList.toggle("bg-pink-500", on);
+                    // pink-700: white / pink-100 on pink-500 was 2.7 / 2.2:1
+                    btn.classList.toggle("bg-pink-700", on);
                     btn.classList.toggle("shadow-md", on);
                     btn.classList.toggle("border", !on);
                     btn.classList.toggle("border-gray-200", !on);

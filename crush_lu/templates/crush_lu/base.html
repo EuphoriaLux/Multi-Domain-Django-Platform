@@ -817,7 +817,7 @@
                     {% endif %}
 
                     {# Theme Toggle (always visible) #}
-                    <div x-data="themeToggle" class="relative" data-locked-label="{% trans "This experience is always in night mode" %}">
+                    <div x-data="themeToggle" class="relative" {% include "crush_lu/components/theme_toggle_labels.html" %} data-locked-label="{% trans "This experience is always in night mode" %}">
                         <button
                             @click="toggleTheme"
                             x-bind:class="toggleButtonClass"
@@ -1200,7 +1200,7 @@
 
                     {# Mobile Theme Toggle (always visible) #}
                     <div class="border-t border-white/20 my-2"></div>
-                    <div x-data="themeToggle" class="px-4 py-2" data-locked-label="{% trans "This experience is always in night mode" %}">
+                    <div x-data="themeToggle" class="px-4 py-2" {% include "crush_lu/components/theme_toggle_labels.html" %} data-locked-label="{% trans "This experience is always in night mode" %}">
                         <button
                             @click="toggleTheme"
                             x-bind:class="toggleButtonClass"
