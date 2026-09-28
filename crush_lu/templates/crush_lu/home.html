@@ -108,6 +108,15 @@
     </div>
 </section>
 
+<!-- Facts row: event languages only (static). Finding 1-09, UX Wave 4 · WP6 -->
+<div class="home-facts-row flex justify-center mt-6 px-4">
+    <p class="inline-flex items-center gap-2 rounded-full bg-white dark:bg-slate-800 ring-1 ring-crush-purple/20 dark:ring-purple-400/30 shadow-crush-sm px-4 py-2 text-sm font-semibold text-crush-dark dark:text-gray-100">
+        <span class="text-crush-purple-dark dark:text-purple-300" aria-hidden="true">{% include "shared/icons/language.html" with class="w-5 h-5" %}</span>
+        <span aria-hidden="true">{% trans "Events in EN · FR · DE · LU" %}</span>
+        <span class="sr-only">{% trans "Events in English, French, German and Luxembourgish" %}</span>
+    </p>
+</div>
+
 <!-- Features Section -->
 <section class="features-section animate-on-scroll" aria-labelledby="features-heading">
     <h2 id="features-heading" class="sr-only">{% trans "Why Choose Crush.lu" %}</h2>
@@ -136,7 +145,8 @@
             </div>
             <h3 class="feature-title">{% trans "Guided Support" %}</h3>
             <p class="feature-text">
-                {% trans "Our coaches host every event and welcome you in person. Want a personal coach by your side? That's Premium." %}
+                {% trans "Our coaches host every event and welcome you in person. Want a personal coach by your side?" %}
+                <a href="{% url 'crush_lu:membership' %}#pricing" class="font-semibold text-crush-purple-dark dark:text-purple-300 underline underline-offset-2 hover:no-underline">{% trans "That's Premium." %}</a>
             </p>
         </div>
     </div>
@@ -205,10 +215,31 @@
 </section>
 {% endif %}
 
-<!-- Ghost Love Story Section -->
-<div class="animate-on-scroll">
-    {% include "crush_lu/includes/ghost-story-section.html" %}
-</div>
+<!-- What an evening looks like: complements the sign-up steps in How It Works
+     above with the event itself. Captions reuse site copy (home feature card,
+     about.html, event_detail.html); no photos, quotes or numbers. -->
+<section class="evening-strip animate-on-scroll py-12 md:py-16" aria-labelledby="evening-heading">
+    <h2 id="evening-heading" class="text-center mb-10 text-3xl md:text-4xl font-display font-semibold tracking-tight text-crush-dark dark:text-gray-100">
+        {% trans "What an evening looks like" %}
+    </h2>
+    <ol class="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6 list-none p-0 m-0">
+        <li class="text-center">
+            <div class="mx-auto w-24 h-24 mb-4 ghost-glow" aria-hidden="true">{% include "crush_lu/includes/ghost-story-nervous.html" with class="w-full h-full" %}</div>
+            <h3 class="text-lg font-semibold mb-2 text-crush-dark dark:text-gray-100">{% trans "A coach welcomes you" %}</h3>
+            <p class="text-muted-fg m-0">{% trans "Our coaches host every event and welcome you in person." %}</p>
+        </li>
+        <li class="text-center">
+            <div class="mx-auto w-24 h-24 mb-4 ghost-glow" aria-hidden="true">{% include "crush_lu/includes/ghost-story-laughing.html" with class="w-full h-full" %}</div>
+            <h3 class="text-lg font-semibold mb-2 text-crush-dark dark:text-gray-100">{% trans "You meet face-to-face" %}</h3>
+            <p class="text-muted-fg m-0">{% trans "Safe, organized spaces for real conversations" %}</p>
+        </li>
+        <li class="text-center">
+            <div class="mx-auto w-24 h-24 mb-4 ghost-glow" aria-hidden="true">{% include "crush_lu/includes/ghost-story-inlove.html" with class="w-full h-full" %}</div>
+            <h3 class="text-lg font-semibold mb-2 text-crush-dark dark:text-gray-100">{% trans "You choose who to see again" %}</h3>
+            <p class="text-muted-fg m-0">{% trans "After the event, connect with people you clicked with" %}</p>
+        </li>
+    </ol>
+</section>
 
 <!-- CTA Section -->
 {% include "crush_lu/includes/cta_section.html" with variant="ghost" animate=True %}
