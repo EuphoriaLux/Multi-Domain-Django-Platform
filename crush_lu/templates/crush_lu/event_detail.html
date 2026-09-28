@@ -259,13 +259,13 @@
                                 </span>
                                 <span class="text-xs font-bold text-white bg-rose-500 rounded-full px-2 py-0.5">{% trans "Almost full!" %}</span>
                             {% elif event.spots_remaining <= 20 %}
-                                <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-amber-600 dark:text-amber-400">
+                                <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-amber-700 dark:text-amber-400">
                                     <span class="w-2 h-2 rounded-full bg-amber-500"></span>
                                     {% blocktrans with spots=event.spots_remaining %}Spots remaining: {{ spots }}{% endblocktrans %}
                                 </span>
                                 <span class="text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 rounded-full px-2 py-0.5">{% trans "Filling up" %}</span>
                             {% else %}
-                                <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                                <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
                                     <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
                                     {% blocktrans with spots=event.spots_remaining %}Spots remaining: {{ spots }}{% endblocktrans %}
                                 </span>
@@ -655,7 +655,7 @@
                                                 {% if luxid_connect_url %}
                                                 <a href="{{ luxid_connect_url }}" class="btn-crush-solid btn-sm">{% trans "Verify with LuxID" %}</a>
                                                 {% endif %}
-                                                <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-outline btn-sm">{% trans "See entry events" %}</a>
+                                                <a href="{% url 'crush_lu:event_list' %}?entry=1" class="btn-crush-outline btn-sm">{% trans "See entry events" %}</a>
                                             </div>
                                         </div>
                                     </div>
@@ -718,7 +718,7 @@
                                         <div class="flex-1">
                                             <p class="font-semibold text-sm sm:text-base mb-1">{% trans "Coach required" %}</p>
                                             <p class="text-xs sm:text-sm mb-3">{% trans "This event is reserved for members with a personal coach. Attend any event to get your coach assigned." %}</p>
-                                            <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-outline btn-sm">{% trans "See entry events" %}</a>
+                                            <a href="{% url 'crush_lu:event_list' %}?entry=1" class="btn-crush-outline btn-sm">{% trans "See entry events" %}</a>
                                         </div>
                                     </div>
                                 </div>
