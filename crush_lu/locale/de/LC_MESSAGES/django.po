@@ -43398,3 +43398,15 @@ msgstr "Meine Matches"
 #: crush_lu/templates/crush_lu/my_connections.html:11
 msgid "My Matches 💕"
 msgstr "Meine Matches 💕"
+
+#: crush_lu/templates/crush_lu/crush_connect/_connect_subnav.html:19
+msgctxt "Crush Connect subnav"
+msgid "Chats"
+msgstr "Chats"
+
+#: crush_lu/templates/crush_lu/partials/nav_connect_link.html:14
+#, python-format
+msgid "%(counter)s item needs your attention"
+msgid_plural "%(counter)s items need your attention"
+msgstr[0] "%(counter)s Eintrag braucht deine Aufmerksamkeit"
+msgstr[1] "%(counter)s Einträge brauchen deine Aufmerksamkeit"

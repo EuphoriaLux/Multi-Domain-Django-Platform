@@ -8,14 +8,7 @@
 <div class="max-w-2xl mx-auto {% if mode == 'detail' and cfg.key == 'lifestyle' %}px-0 sm:px-4{% else %}px-4{% endif %} py-8 pb-24 lg:pb-10">
 
 {% if mode == "detail" %}
-    {# ── Focused single-section editor ── #}
-    <header class="mb-5">
-        <a href="{% url 'crush_lu:crush_connect_profile_edit' %}"
-           class="inline-flex items-center gap-1 text-sm font-medium text-crush-purple dark:text-crush-pink hover:underline">
-            <span aria-hidden="true">←</span> {% trans "Back to your profile" %}
-        </a>
-    </header>
-
+    {# ── Focused single-section editor (no up-link since UX Wave 4 · WP10) ── #}
     <form data-connect-form data-initial-dirty="{{ form.is_bound|yesno:'true,false' }}" data-unsaved="{% trans 'Leave without saving your changes?' %}" method="post" action="{% url 'crush_lu:crush_connect_profile_edit' %}?section={{ cfg.key }}"
           {% if cfg.key == "lifestyle" %}class="connect-lifestyle-profile"{% endif %}
           novalidate>

@@ -576,7 +576,6 @@
                                         <span class="badge badge-danger">{{ pending_requests_count }}</span>
                                     {% endif %}
                                 </a>
-                                {% include "crush_lu/partials/nav_connect_link.html" %}
                             {% elif profile_status == 'pending' %}
                                 {# PENDING REVIEW: Show status + browse events #}
                                 <a class="nav-link" href="{% url 'crush_lu:dashboard' %}">
@@ -662,6 +661,8 @@
                                 </a>
                                 {% translate "Matches" context "member connections nav" as matches_label %}{% include "crush_lu/partials/nav_locked_item.html" with label=matches_label tooltip=_("Connect after events") %}
                             {% endif %}
+                            {# Outside the profile-status branches: the filter is its only gate, as for the bottom tab. #}
+                            {% include "crush_lu/partials/nav_connect_link.html" %}
 
                             <!-- User Profile Dropdown (always shown for authenticated users) -->
                             <div class="dropdown" @click.away="closeUserMenu">
