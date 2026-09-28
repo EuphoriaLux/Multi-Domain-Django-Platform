@@ -28636,3 +28636,20 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\edit_profile.html:20
 msgid "Continue where you left off"
 
+
+#: crush_lu/templates/crush_lu/membership.html:4
+msgid "Pricing"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/membership.html:7
+#: crush_lu/templates/crush_lu/membership.html:9
+msgid "Free account, events from €0. Premium adds a personal coach and reserved seats."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/membership.html:74
+msgid "Complete your Premium signup"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/membership.html:77
+msgid "Manage your Premium request"
+msgstr ""
