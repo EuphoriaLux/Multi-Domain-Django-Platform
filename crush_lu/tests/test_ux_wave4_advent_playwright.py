@@ -70,7 +70,8 @@ def test_calendar_script_parses_and_phone_gets_fewer_flakes(
 ):
     page.set_viewport_size(PHONE)
     errors = _open_calendar(page, live_server, advent)
-    assert not [e for e in errors if "SyntaxError" in e or "Unexpected" in e], errors
+    # The stray @keyframes used to make the whole calendar script unparsable.
+    assert not [e for e in errors if "unexpected" in e.lower()], errors
     assert page.locator("#snowflakes .snowflake").count() == 20
 
     # Sway runs on `translate`, leaving layout (margin) alone and the fall
