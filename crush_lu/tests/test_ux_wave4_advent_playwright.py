@@ -115,6 +115,54 @@ def test_qr_fab_clears_the_mobile_tab_bar(page, live_server, advent, december):
     assert fab.get_attribute("aria-label") == "Scan QR Code"
 
 
+def _intersects(a, b):
+    return not (
+        a["x"] + a["width"] <= b["x"]
+        or b["x"] + b["width"] <= a["x"]
+        or a["y"] + a["height"] <= b["y"]
+        or b["y"] + b["height"] <= a["y"]
+    )
+
+
+@pytest.fixture
+def whatsapp(transactional_db):
+    from crush_lu.context_processors import _site_config_cache
+    from crush_lu.tests.test_ux_wave4_advent import enable_whatsapp
+
+    enable_whatsapp()
+    yield
+    _site_config_cache["config"] = None
+    _site_config_cache["expires"] = 0
+
+
+@pytest.mark.parametrize("viewport", [PHONE, DESKTOP], ids=["phone", "desktop"])
+def test_qr_fab_does_not_cover_the_whatsapp_fab(
+    page, live_server, advent, december, whatsapp, viewport
+):
+    page.set_viewport_size(viewport)
+    _open_calendar(page, live_server, advent)
+    wa = page.locator("a.crush-whatsapp-btn")
+    fab = page.locator("a.qr-scanner-btn")
+    assert wa.is_visible() and fab.is_visible()
+    wa_box = wa.bounding_box()
+    fab_box = fab.bounding_box()
+    assert not _intersects(wa_box, fab_box), (wa_box, fab_box)
+    # The QR FAB still sits inside the viewport, clear of the tab bar.
+    assert fab_box["y"] >= 0
+    nav = page.locator("nav.bottom-nav")
+    if nav.is_visible():
+        assert fab_box["y"] + fab_box["height"] <= nav.bounding_box()["y"]
+
+
+def test_teaser_door_accessible_name_includes_the_teaser(
+    page, live_server, advent, december
+):
+    page.set_viewport_size(PHONE)
+    _open_calendar(page, live_server, advent)
+    link = page.get_by_role("link", name="Door 2, ready to open A little something")
+    assert link.count() == 1
+
+
 HEARTS = "".join('<div class="heart-bg">&#128149;</div>' for _ in range(15))
 
 

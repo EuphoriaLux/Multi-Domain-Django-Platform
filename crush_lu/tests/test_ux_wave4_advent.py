@@ -25,7 +25,9 @@ from django.test import TestCase
 from crush_lu.models import (
     AdventCalendar,
     AdventDoor,
+    AdventDoorContent,
     AdventProgress,
+    CrushSiteConfig,
     JourneyConfiguration,
     SpecialUserExperience,
 )
@@ -60,6 +62,103 @@ def _tag_bodies(html, tag):
     parser.feed(html)
     parser.close()
     return parser.bodies
+
+
+class _AccessibleName(HTMLParser):
+    """Accessible name of the first <a> with `link_class`, per the ARIA rule
+    that matters here: aria-label wins, else the text content minus
+    aria-hidden subtrees."""
+
+    VOID = {"br", "img", "input", "meta", "link", "hr", "source"}
+
+    def __init__(self, link_class):
+        super().__init__()
+        self.link_class = link_class
+        self.label = None
+        self.text = ""
+        self.found = False
+        self._depth = 0  # element depth inside the link
+        self._hidden_at = None  # depth where an aria-hidden subtree began
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if not self.found:
+            classes = (attrs.get("class") or "").split()
+            if tag == "a" and self.link_class in classes:
+                self.found = True
+                self._depth = 1
+                self.label = attrs.get("aria-label")
+            return
+        if self._depth == 0 or tag in self.VOID:
+            return
+        self._depth += 1
+        if self._hidden_at is None and attrs.get("aria-hidden") == "true":
+            self._hidden_at = self._depth
+
+    def handle_endtag(self, tag):
+        if self._depth == 0 or tag in self.VOID:
+            return
+        if self._hidden_at == self._depth:
+            self._hidden_at = None
+        self._depth -= 1
+
+    def handle_data(self, data):
+        if self._depth and self._hidden_at is None:
+            self.text += data
+
+    def name(self):
+        if self.label is not None:
+            return self.label
+        return " ".join(self.text.split())
+
+
+def accessible_name(html, link_class):
+    parser = _AccessibleName(link_class)
+    parser.feed(html)
+    parser.close()
+    assert parser.found, f"no <a class={link_class}>"
+    return parser.name()
+
+
+class _ElementAttrs(HTMLParser):
+    """Attributes (plus its tag name as ``_tag``) of every element carrying
+    `css_class`."""
+
+    def __init__(self, css_class):
+        super().__init__()
+        self.css_class = css_class
+        self.matches = []
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if self.css_class in (attrs.get("class") or "").split():
+            attrs["_tag"] = tag
+            self.matches.append(attrs)
+
+
+def elements_with_class(html, css_class):
+    parser = _ElementAttrs(css_class)
+    parser.feed(html)
+    parser.close()
+    return parser.matches
+
+
+def enable_whatsapp():
+    """Configure the global WhatsApp FAB and drop the 5-minute config cache."""
+    from crush_lu.context_processors import _site_config_cache
+
+    CrushSiteConfig.objects.update_or_create(
+        pk=1, defaults={"whatsapp_number": "352621000000", "whatsapp_enabled": True}
+    )
+    _site_config_cache["config"] = None
+    _site_config_cache["expires"] = 0
+
+
+def reset_site_config_cache():
+    from crush_lu.context_processors import _site_config_cache
+
+    _site_config_cache["config"] = None
+    _site_config_cache["expires"] = 0
 
 
 User = get_user_model()
@@ -185,13 +284,31 @@ class AdventCalendarPageTests(TestCase):
         html = self.get_calendar()
         expected = {
             1: "Door 1, opened",
-            2: "Door 2, ready to open",
+            3: "Door 3, ready to open",
             4: "Door 4, needs a QR scan to open",
             6: "Door 6, opens December 6",
             7: "Door 7, opens December 7",
         }
         for number, label in expected.items():
             self.assertIn(f'aria-label="{label}"', door_cell(html, number))
+
+    def test_available_door_teaser_is_part_of_its_accessible_name(self):
+        # An aria-label would override the visible teaser for screen readers.
+        html = self.get_calendar()
+        name = accessible_name(door_cell(html, 2), "door-link")
+        self.assertIn("Door 2, ready to open", name)
+        self.assertIn("A little something sweet", name)
+        # The bare door number / emoji are not repeated in the name.
+        self.assertFalse(name.startswith("2"), name)
+        self.assertEqual(
+            accessible_name(door_cell(html, 3), "door-link"), "Door 3, ready to open"
+        )
+
+    def test_available_door_teaser_name_is_translated(self):
+        html = self.get_calendar("fr")
+        name = accessible_name(door_cell(html, 2), "door-link")
+        self.assertIn("Porte 2", name)
+        self.assertIn("A little something sweet", name)
 
     def test_missed_door_without_catch_up_is_not_announced_as_future(self):
         self.calendar.allow_catch_up = False
@@ -228,6 +345,22 @@ class AdventCalendarPageTests(TestCase):
             r"\.qr-scanner-btn\s*\{\s*bottom:\s*calc\(var\(--bottom-nav-height\)"
             r"[^;]*env\(safe-area-inset-bottom",
         )
+
+    def test_qr_fab_stacks_above_the_whatsapp_fab(self):
+        reset_site_config_cache()
+        self.addCleanup(reset_site_config_cache)
+        enable_whatsapp()
+        html = self.get_calendar()
+        self.assertTrue(elements_with_class(html, "crush-whatsapp-btn"))
+        styles = "".join(_tag_bodies(html, "style"))
+        selector = "body:has(.crush-whatsapp-btn) .qr-scanner-btn"
+        rules = re.findall(re.escape(selector) + r"\s*\{([^}]*)\}", styles)
+        # Desktop and below-lg offsets both clear the 56px WhatsApp FAB.
+        self.assertEqual(len(rules), 2, rules)
+        self.assertIn("1.5rem + 56px", rules[0])
+        self.assertIn("4.5rem + 56px", rules[1])
+        for rule in rules:
+            self.assertIn("safe-area-inset-bottom", rule)
 
     def test_decorative_motion_honours_reduced_motion(self):
         html = self.get_calendar()
@@ -298,6 +431,40 @@ class AdventDoorPageTests(TestCase):
             r"@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.bonus-hint\s*\{"
             r"\s*animation:\s*none",
         )
+
+
+class AdventGiftDoorPageTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        make_advent_user(self)
+        door = AdventDoor.objects.get(calendar=self.calendar, door_number=2)
+        door.content_type = "gift_teaser"
+        door.qr_mode = "bonus"
+        door.save()
+        AdventDoorContent.objects.create(
+            door=door, title="A small parcel", bonus_title="You found it"
+        )
+
+    def test_bonus_hint_has_a_dark_treatment(self):
+        with patch(NOW, return_value=DEC_5):
+            response = self.client.get("/en/advent/door/2/", HTTP_HOST="crush.lu")
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "crush_lu/advent/door_gift.html")
+        html = response.content.decode()
+        hints = elements_with_class(html, "bonus-hint")
+        self.assertEqual(len(hints), 1)
+        hint = hints[0]
+        # No pale hardcoded background that the forced dark theme can't reach.
+        self.assertNotIn("#fff3cd", (hint.get("style") or "").lower())
+        classes = hint["class"].split()
+        self.assertTrue(any(c.startswith("dark:bg-") for c in classes), classes)
+        # Bootstrap's text-muted stayed mid-grey on the dark surface; the hint
+        # copy and heading now carry explicit dark-mode text colours.
+        self.assertFalse(elements_with_class(html, "text-muted"))
+        heading = elements_with_class(html, "dark:text-yellow-200")
+        copy = elements_with_class(html, "dark:text-gray-200")
+        self.assertIn("h5", [a["_tag"] for a in heading])
+        self.assertIn("p", [a["_tag"] for a in copy])
 
 
 class SharedStylesheetTests(TestCase):

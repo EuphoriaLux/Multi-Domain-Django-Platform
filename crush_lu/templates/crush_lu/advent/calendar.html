@@ -60,15 +60,23 @@
 
                     {% elif door_data.can_open %}
                         <!-- Door available - can be opened -->
+                        {% if door_data.teaser_text %}
+                        {# No aria-label here: it would replace the visible teaser for screen readers. The state is read from sr-only text, then the teaser. #}
+                        <a href="{% url 'crush_lu:advent_door' door_data.door_number %}" class="door-link available">
+                            <span class="sr-only">{% blocktrans with num=door_data.door_number %}Door {{ num }}, ready to open{% endblocktrans %}</span>
+                            <div class="door-number" aria-hidden="true">{{ door_data.door_number }}</div>
+                            <div class="door-icon" aria-hidden="true">{{ door_data.door_icon|default:"🎄" }}</div>
+                            <div class="door-teaser">{{ door_data.teaser_text }}</div>
+                            <div class="door-glow" aria-hidden="true"></div>
+                        </a>
+                        {% else %}
                         <a href="{% url 'crush_lu:advent_door' door_data.door_number %}" class="door-link available"
                            aria-label="{% blocktrans with num=door_data.door_number %}Door {{ num }}, ready to open{% endblocktrans %}">
                             <div class="door-number">{{ door_data.door_number }}</div>
                             <div class="door-icon">{{ door_data.door_icon|default:"🎄" }}</div>
-                            {% if door_data.teaser_text %}
-                                <div class="door-teaser">{{ door_data.teaser_text }}</div>
-                            {% endif %}
                             <div class="door-glow"></div>
                         </a>
+                        {% endif %}
 
                     {% elif door_data.is_available and door_data.requires_qr and not door_data.has_qr_scanned %}
                         <!-- Door requires QR scan -->

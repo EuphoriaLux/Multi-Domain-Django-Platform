@@ -180,6 +180,21 @@
         }
     }
 
+    /* The global WhatsApp FAB (base.html, when configured) owns the corner:
+       stack the QR FAB directly above it on the same centre line instead of
+       covering it. Its offsets mirror partials/_whatsapp_button.html
+       (56px button at bottom 1.5rem / 4.5rem below lg, right 1.5rem). */
+    body:has(.crush-whatsapp-btn) .qr-scanner-btn {
+        bottom: calc(1.5rem + 56px + 1rem + env(safe-area-inset-bottom, 0px));
+        right: calc(1.5rem - 2px);
+    }
+
+    @media (max-width: 1023px) {
+        body:has(.crush-whatsapp-btn) .qr-scanner-btn {
+            bottom: calc(4.5rem + 56px + 1rem + env(safe-area-inset-bottom, 0px));
+        }
+    }
+
     /* Bonus content styling */
     .bonus-content {
         background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%);
