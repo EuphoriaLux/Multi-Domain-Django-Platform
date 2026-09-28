@@ -30,9 +30,10 @@
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {% for entry in upcoming_registrations %}
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 overflow-hidden flex flex-col">
-            <a href="{% url 'crush_lu:event_detail' entry.event.id %}" class="block">
+            {# Decorative duplicate of the title link below: kept for pointer users, hidden from AT and the tab order (finding 4-15). #}
+            <a href="{% url 'crush_lu:event_detail' entry.event.id %}" class="block" aria-hidden="true" tabindex="-1">
                 {% if entry.event.image %}
-                <img src="{{ entry.event.image.url }}" alt="{{ entry.event.title }}" class="w-full h-40 object-cover" loading="lazy" />
+                <img src="{{ entry.event.image.url }}" alt="" class="w-full h-40 object-cover" loading="lazy" />
                 {% else %}
                 <div class="w-full h-40 bg-gradient-to-br from-crush-purple to-crush-pink"></div>
                 {% endif %}
@@ -139,9 +140,10 @@
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {% for entry in past_registrations %}
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 overflow-hidden flex flex-col opacity-95">
-            <a href="{% url 'crush_lu:event_detail' entry.event.id %}" class="block">
+            {# Decorative duplicate of the title link below: kept for pointer users, hidden from AT and the tab order (finding 4-15). #}
+            <a href="{% url 'crush_lu:event_detail' entry.event.id %}" class="block" aria-hidden="true" tabindex="-1">
                 {% if entry.event.image %}
-                <img src="{{ entry.event.image.url }}" alt="{{ entry.event.title }}" class="w-full h-32 object-cover grayscale-[30%]" loading="lazy" />
+                <img src="{{ entry.event.image.url }}" alt="" class="w-full h-32 object-cover grayscale-[30%]" loading="lazy" />
                 {% else %}
                 <div class="w-full h-32 bg-gradient-to-br from-gray-400 to-gray-600"></div>
                 {% endif %}
