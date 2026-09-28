@@ -74,6 +74,8 @@ def test_keyboard_vote_swaps_results_in_place_with_a_toast(poll_page):
     dialogs = _no_dialogs(page)
     submit = page.get_by_role("button", name="Submit Vote")
     expect(submit).to_be_disabled()
+    header_count = page.locator("[data-poll-total-votes]")
+    expect(header_count).to_have_text("0")
 
     first = page.get_by_role("radio", name="Wine Night")
     first.focus()
@@ -90,6 +92,8 @@ def test_keyboard_vote_swaps_results_in_place_with_a_toast(poll_page):
     expect(page.locator("#toast-container")).to_contain_text("Thanks, your vote is in!")
     expect(page.get_by_text("Your vote has been recorded. Thank you!")).to_be_visible()
     expect(page.get_by_role("img", name="Board Games: 100%, 1 vote")).to_be_visible()
+    # The header count follows the same response as the results.
+    expect(header_count).to_have_text("1")
     expect(page.get_by_role("radio")).to_have_count(0)
     assert page.evaluate("window.__noReload") is True
     # The page-loading overlay must not cover a submit that never navigates.
@@ -200,6 +204,20 @@ def test_move_buttons_reorder_keep_focus_and_announce(timeline_page):
     page.keyboard.press("Enter")
     assert _order(page) == [second, first, order[2]]
     expect(announcer).to_have_text(f"{first} moved to position 2 of 3")
+
+
+def test_announcement_inserts_event_text_literally(timeline_page):
+    page = timeline_page
+    # "$&"/"$1" are String.replace patterns; "{total}" is a placeholder.
+    label = "Rock $& $1 {total} night"
+    page.locator(".timeline-item .timeline-text").first.evaluate(
+        "(el, text) => { el.textContent = text; }", label
+    )
+    item = page.locator(".timeline-item").first
+    item.locator(".timeline-move-down").click()
+    expect(page.locator("p[aria-live=polite]")).to_have_text(
+        f"{label} moved to position 2 of 3"
+    )
 
 
 def test_submit_sends_the_button_sorted_order(timeline_page):

@@ -7840,6 +7840,12 @@ document.addEventListener("alpine:init", function () {
                     results.innerHTML = data.results_html;
                     results.focus();
                 }
+                // The header count sits outside this component; update it from
+                // the same response that renders the results.
+                var total = document.querySelector("[data-poll-total-votes]");
+                if (total && typeof data.total_votes === "number") {
+                    total.textContent = data.total_votes;
+                }
                 window.dispatchEvent(
                     new CustomEvent("show-toast", {
                         detail: { type: "success", message: this._textSuccess },

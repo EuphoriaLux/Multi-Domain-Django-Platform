@@ -1688,10 +1688,20 @@ document.addEventListener("alpine:init", function () {
             _announcePosition: function (item) {
                 var items = Array.from(this.$root.querySelectorAll(".timeline-item"));
                 var text = item.querySelector(".timeline-text");
+                var label = text ? text.textContent.trim() : "";
+                // Replacer functions: the event text is inserted literally (a
+                // "$&" or "$1" in it is not a replacement pattern), and last,
+                // so a "{total}" inside it is never substituted.
                 this.positionAnnouncement = this.i18n.moved
-                    .replace("{item}", text ? text.textContent.trim() : "")
-                    .replace("{position}", items.indexOf(item) + 1)
-                    .replace("{total}", items.length);
+                    .replace("{position}", function () {
+                        return String(items.indexOf(item) + 1);
+                    })
+                    .replace("{total}", function () {
+                        return String(items.length);
+                    })
+                    .replace("{item}", function () {
+                        return label;
+                    });
             },
 
             shuffleItems: function () {

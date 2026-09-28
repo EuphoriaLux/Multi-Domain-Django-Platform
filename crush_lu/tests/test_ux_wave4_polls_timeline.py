@@ -142,6 +142,14 @@ class PollBallotMarkupTests(TestCase):
         classes = [attrs.get("class", "").split() for attrs, _a in buttons]
         self.assertIn(["btn-crush-primary", "btn-block"], classes)
 
+    def test_header_vote_count_has_the_hook_the_ballot_updates(self):
+        poll = make_poll()
+        _response, tags = self._ballot(poll)
+        counts = [
+            attrs for attrs, _a in tags.find("span") if "data-poll-total-votes" in attrs
+        ]
+        self.assertEqual(len(counts), 1)
+
     def test_error_region_is_announced(self):
         poll = make_poll()
         _response, tags = self._ballot(poll)
