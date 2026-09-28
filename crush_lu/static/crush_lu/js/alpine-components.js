@@ -9120,6 +9120,13 @@ document.addEventListener("alpine:init", function () {
                 if (this.currentStep === 2) return "active";
                 return "";
             },
+            // aria-current on the stepper <li>; false removes the attribute
+            get stepOneCurrent() {
+                return this.currentStep === 1 ? "step" : false;
+            },
+            get stepTwoCurrent() {
+                return this.currentStep === 2 ? "step" : false;
+            },
             get stepOneContentClass() {
                 return this.currentStep === 1 ? "active" : "";
             },
@@ -9159,6 +9166,18 @@ document.addEventListener("alpine:init", function () {
 
             init: function () {
                 var self = this;
+                // A server re-render with errors opens on the step holding the
+                // first error, and moves focus to that step's error summary.
+                if (this.$el.dataset.initialStep === "2") {
+                    this.currentStep = 2;
+                }
+                this.$nextTick(function () {
+                    var summary = self.$el.querySelector(
+                        ".step-content.active [data-gift-error-summary]"
+                    );
+                    if (summary) summary.focus();
+                });
+
                 // Listen for file changes on chapter1_image
                 var ch1Input = document.getElementById("id_chapter1_image");
                 if (ch1Input) {
@@ -9168,7 +9187,7 @@ document.addEventListener("alpine:init", function () {
                 }
 
                 // Listen for audio file changes
-                var audioInput = document.getElementById("id_chapter4_audio");
+                var audioInput = document.getElementById("id_chapter5_letter_music");
                 if (audioInput) {
                     audioInput.addEventListener("change", function (e) {
                         self.handleAudioFileChange(e);

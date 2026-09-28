@@ -61,7 +61,10 @@ def coach_required(function):
     return wrapper
 
 
-def ratelimit(key='ip', rate='5/15m', method='POST', block=True, rate_limited_template=None):
+def ratelimit(
+    key='ip', rate='5/15m', method='POST', block=True, rate_limited_template=None,
+    count_if=None,
+):
     """
     Simple rate limiting decorator using Django's cache framework.
 
@@ -77,6 +80,11 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True, rate_limited_te
               {{ wait_message }} instead of the bare text/plain fallback.
               Leave unset for API-style endpoints that should keep the
               existing plain-text/JSON contract.
+        count_if: Optional callable(response) -> bool. When set, a request
+              only checks the current count, and it is counted after the view
+              returns if count_if(response) is true (e.g. only successful
+              creations). Concurrent requests may overshoot the limit by the
+              number in flight.
 
     Example:
         @ratelimit(key='ip', rate='5/15m', method='POST')
@@ -105,9 +113,13 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True, rate_limited_te
             # Get cache key
             cache_key = _get_cache_key(request, key, func.__name__)
 
-            # Count this request (gracefully handle cache errors)
+            # Count this request (gracefully handle cache errors); with
+            # count_if, only peek now and count after a qualifying response.
             try:
-                count = _count_request(cache_key, period_seconds)
+                if count_if is None:
+                    count = _count_request(cache_key, period_seconds)
+                else:
+                    count = cache.get(cache_key, 0) + 1
             except Exception:
                 count = None
             if not isinstance(count, int):
@@ -154,7 +166,13 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True, rate_limited_te
                         status=429
                     )
 
-            return func(request, *args, **kwargs)
+            response = func(request, *args, **kwargs)
+            if count_if is not None and count_if(response):
+                try:
+                    _count_request(cache_key, period_seconds)
+                except Exception:
+                    pass
+            return response
 
         return wrapper
     return decorator
