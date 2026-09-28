@@ -2290,8 +2290,14 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             return
         # 8-13: warn, never block, about newly invited members on a break —
         # direct invited_users and new/changed guest rows in the inline.
-        if "is_private_invitation" in form.changed_data:
-            # Turning an event private makes every existing invitee effective.
+        was_private = (
+            form.initial.get("registration_audience")
+            == MeetupEventAdminForm.PRIVATE_INVITATION
+        )
+        if not was_private:
+            # Turning an event private (the form's registration_audience;
+            # is_private_invitation is not a form field) makes every existing
+            # invitee effective, not just the ones added in this save.
             users = list(form.cleaned_data.get("invited_users") or [])
             emails = list(
                 EventInvitation.objects.filter(event=form.instance).values_list(

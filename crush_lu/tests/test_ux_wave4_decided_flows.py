@@ -248,7 +248,7 @@ class OnBreakInvitationWarningTests(TestCase):
         self.assertTrue(any("taking a break" in t for t in texts), texts)
 
     def _event_admin_save_related(
-        self, initial_users, users, guest_forms=(), changed_data=()
+        self, initial_users, users, guest_forms=(), audience="private_invitation"
     ):
         from django.contrib import admin
 
@@ -261,9 +261,11 @@ class OnBreakInvitationWarningTests(TestCase):
         request._messages = FallbackStorage(request)
         form = mock.Mock(
             instance=self.event,
-            initial={"invited_users": initial_users},
+            initial={
+                "invited_users": initial_users,
+                "registration_audience": audience,
+            },
             cleaned_data={"invited_users": users},
-            changed_data=list(changed_data),
         )
         formsets = [mock.Mock(model=EventInvitation, forms=list(guest_forms))]
         with mock.patch.object(admin.ModelAdmin, "save_related"):
@@ -289,7 +291,8 @@ class OnBreakInvitationWarningTests(TestCase):
         self.assertTrue(any("taking a break" in t for t in texts), texts)
 
     def test_event_admin_warns_existing_invitees_when_made_private(self):
-        # Review P2: public -> private makes unchanged invitees effective.
+        # Review P2: public -> private (via registration_audience, the form's
+        # field) makes unchanged invitees effective.
         EventInvitation.objects.create(
             event=self.event,
             guest_email="resting@crush.lu",
@@ -297,7 +300,7 @@ class OnBreakInvitationWarningTests(TestCase):
             guest_last_name="Rest",
         )
         by_user = self._event_admin_save_related(
-            [self.member], [self.member], changed_data=["is_private_invitation"]
+            [self.member], [self.member], audience="completed"
         )
         self.assertEqual(len(by_user), 1)
         self.assertIn("taking a break", by_user[0])
@@ -310,10 +313,25 @@ class OnBreakInvitationWarningTests(TestCase):
             guest_first_name="Mia",
             guest_last_name="Rest",
         )
-        texts = self._event_admin_save_related(
-            [], [], changed_data=["is_private_invitation"]
-        )
+        texts = self._event_admin_save_related([], [], audience="completed")
         self.assertTrue(any("taking a break" in t for t in texts), texts)
+
+    def test_real_admin_form_signals_privacy_through_registration_audience(self):
+        # Ties the mocked forms above to the real one: is_private_invitation
+        # is not a form field, so the transition must be read from the
+        # registration_audience initial value.
+        from crush_lu.admin.events import MeetupEventAdminForm
+
+        public = _event(title="Public", is_private_invitation=False)
+        self.assertNotIn("is_private_invitation", MeetupEventAdminForm().fields)
+        self.assertNotEqual(
+            MeetupEventAdminForm(instance=public).initial["registration_audience"],
+            MeetupEventAdminForm.PRIVATE_INVITATION,
+        )
+        self.assertEqual(
+            MeetupEventAdminForm(instance=self.event).initial["registration_audience"],
+            MeetupEventAdminForm.PRIVATE_INVITATION,
+        )
 
 
 # ---------------------------------------------------------------------------
