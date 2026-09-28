@@ -583,21 +583,17 @@ def _open_chat_timeline_step(sent_request):
     """The Chat/Coffee step for an ACCEPTED request, or ``None`` once its
     chat is missing or no longer open. Shared by the REVIEW_OPEN and the
     terminal-session branches so neither trusts the request status alone."""
-    from crush_lu.models.crush_connect_cycle import ConnectTemporaryChat
-    from crush_lu.services.connect_chat import sync_chat_state
+    from crush_lu.services.connect_summary import _open_chats
 
     try:
         chat = sent_request.chat
     except ObjectDoesNotExist:
         return None
-    # Chat lifecycle is sync-on-read: an untouched row can still say ACTIVE
-    # after expires_at or a block placed elsewhere (refreshes in place).
-    chat_status = sync_chat_state(chat).status
-    if chat_status not in (
-        ConnectTemporaryChat.Status.ACTIVE,
-        ConnectTemporaryChat.Status.MEETING_SCHEDULED,
-        ConnectTemporaryChat.Status.MEETING_CONFIRMED,
-    ):
+    # A read-only check against the Chats tab's own definition of "open"
+    # (expiry, blocks from any surface, inactive or excluded participants).
+    # Summaries must not run sync_chat_state: rendering the hub may not
+    # close a chat as a side effect.
+    if not _open_chats(chat.participant_1).filter(pk=chat.pk).exists():
         return None
     return _chat_timeline_step(sent_request)
 

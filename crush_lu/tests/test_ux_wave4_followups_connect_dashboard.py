@@ -137,7 +137,8 @@ def test_completed_session_keeps_the_coffee_step_with_a_plan():
 @pytest.mark.django_db
 def test_completed_session_hides_the_timeline_once_an_open_chat_expired():
     # Review P2: the chat row still says ACTIVE after expires_at until it is
-    # synced; the timeline must sync it rather than trust the stale status.
+    # synced; the timeline must not trust the stale status, and (like the
+    # Connect summary) must not close the chat as a side effect of rendering.
     me, _target, chat = _make_open_chat()
     ConnectTemporaryChat.objects.filter(pk=chat.pk).update(
         expires_at=timezone.now() - timedelta(minutes=1)
@@ -146,7 +147,7 @@ def test_completed_session_hides_the_timeline_once_an_open_chat_expired():
 
     assert week_timeline_state(session) is None
     chat.refresh_from_db()
-    assert chat.status == ConnectTemporaryChat.Status.CLOSED
+    assert chat.status == ConnectTemporaryChat.Status.ACTIVE
 
 
 def _review_open_session(me):
@@ -168,8 +169,8 @@ def test_review_open_session_keeps_the_chat_step_while_the_chat_is_open():
 def test_review_open_session_hides_the_timeline_once_an_open_chat_expired():
     # Codex review on #1108: the REVIEW_OPEN fast path returned the Chat step
     # off the request status alone, so a stale ACTIVE chat row past its
-    # expires_at still showed "Chat". It must sync the chat like the
-    # terminal-session branch does.
+    # expires_at still showed "Chat". It must apply the Chats tab's open-chat
+    # rules like the terminal-session branch does, without writing to the row.
     me, _target, chat = _make_open_chat()
     ConnectTemporaryChat.objects.filter(pk=chat.pk).update(
         expires_at=timezone.now() - timedelta(minutes=1)
@@ -178,7 +179,7 @@ def test_review_open_session_hides_the_timeline_once_an_open_chat_expired():
 
     assert week_timeline_state(session) is None
     chat.refresh_from_db()
-    assert chat.status == ConnectTemporaryChat.Status.CLOSED
+    assert chat.status == ConnectTemporaryChat.Status.ACTIVE
 
 
 @pytest.mark.django_db
@@ -208,6 +209,38 @@ def test_completed_session_hides_the_timeline_once_the_chat_ended(chat_status):
     session = _complete(ConnectWeekSession.objects.filter(user=me).first())
 
     assert week_timeline_state(session) is None
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("blocker_is_member", [True, False])
+def test_timeline_hides_a_chat_blocked_elsewhere_without_mutating_it(
+    blocker_is_member,
+):
+    # A block placed from another surface: hidden on the timeline, and the
+    # chat row is left for sync-on-read by the chat itself (the Connect
+    # summary invariant, see test_crush_connect_hub.py).
+    from crush_lu.services.blocking import apply_block
+
+    me, target, chat = _make_open_chat()
+    if blocker_is_member:
+        apply_block(me, target)
+    else:
+        apply_block(target, me)
+
+    assert week_timeline_state(_review_open_session(me)) is None
+    chat.refresh_from_db()
+    assert chat.status == ConnectTemporaryChat.Status.ACTIVE
+
+
+@pytest.mark.django_db
+def test_timeline_hides_a_chat_whose_participant_was_deactivated():
+    # The chat detail 404s once a participant is gone (_participants_available),
+    # so the timeline must not advertise a Chat step for it either.
+    me, target, _chat = _make_open_chat()
+    target.is_active = False
+    target.save(update_fields=["is_active"])
+
+    assert week_timeline_state(_review_open_session(me)) is None
 
 
 @pytest.mark.django_db
