@@ -3,12 +3,14 @@
 {% load analytics %}
 {% load seo_tags %}
 {% load crush_connect_tags %}
+{% load privacy_tags %}
 <!DOCTYPE html>
 {# theme_lock: an always-dark surface (journey, gifts) fills it with class="dark" data-theme-lock="dark"; theme-manager.js keeps .dark there and the toggles stay focusable but aria-disabled, so their explanation is reachable. #}
 <html lang="{{ LANGUAGE_CODE|default:'en' }}"{% if is_native_app %} data-native-app{% endif %}{% block theme_lock %}{% endblock %}>
 <head>
     {% analytics_head %}
-    {% if user.is_authenticated %}{% appinsights_head %}{% endif %}
+    {# Consent-gated. Anonymous visitors get it only on login/signup (#1085): page views send the full URL, so token pages (/book/, /invite/) stay off. #}
+    {% if user.is_authenticated or request|anonymous_telemetry_allowed %}{% appinsights_head %}{% endif %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{% block title %}Crush.lu - Meet New People{% endblock %}</title>
@@ -1306,9 +1308,21 @@
     </main>
 
     <!-- Footer (Tailwind Grid) -->
-    <footer class="{% if user.is_authenticated %}max-lg:hidden{% endif %} bg-crush-dark text-white py-12">
+    {# Members on phones get a compact footer above the tab bar (decision H, #1055): imprint + help/legal links. #}
+    <footer class="{% if user.is_authenticated %}site-footer-member{% endif %} bg-crush-dark text-white py-12">
         <div class="container">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {% if user.is_authenticated %}
+            <nav class="lg:hidden text-center text-sm" aria-label="{% trans "Legal" %}">
+                <ul class="flex flex-wrap justify-center gap-x-4 gap-y-1">
+                    <li><a href="{% url 'crush_lu:support' %}" class="text-white/75 hover:text-white">{% trans "Support" %}</a></li>
+                    <li><a href="{% url 'crush_lu:privacy_policy' %}" class="text-white/75 hover:text-white">{% trans "Privacy Policy" %}</a></li>
+                    <li><a href="{% url 'crush_lu:terms_of_service' %}" class="text-white/75 hover:text-white">{% trans "Terms of Service" %}</a></li>
+                    <li><a href="{% url 'crush_lu:child_safety_standards' %}" class="text-white/75 hover:text-white">{% trans "Child Safety" %}</a></li>
+                </ul>
+                <p class="mt-3 text-xs text-white/75">{% trans "Crush.lu (en cours de constitution)" %} &middot; 10 rue des Bons Malades, L-6462 Echternach, {% trans "Luxembourg" %}</p>
+            </nav>
+            {% endif %}
+            <div class="{% if user.is_authenticated %}max-lg:hidden {% endif %}grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                 <!-- Brand Column -->
                 <div class="lg:col-span-1">
                     <p class="text-xl font-bold mb-4 flex items-center gap-2">{% include "crush_lu/includes/ghost-logo.html" with class="w-7 h-7" %}<span>Crush.lu</span></p>
@@ -1335,6 +1349,8 @@
                         <li><a href="{% url 'crush_lu:privacy_policy' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Privacy Policy" %}</a></li>
                         <li><a href="{% url 'crush_lu:terms_of_service' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Terms of Service" %}</a></li>
                         <li><a href="{% url 'crush_lu:data_deletion' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Data Deletion" %}</a></li>
+                        <li><a href="{% url 'crush_lu:support' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Support" %}</a></li>
+                        <li><a href="{% url 'crush_lu:child_safety_standards' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Child Safety" %}</a></li>
                         <li><a href="#" data-cookie-settings class="text-white/75 hover:text-white transition-colors">{% trans "Cookie Settings" %}</a></li>
                     </ul>
                 </div>
@@ -1379,7 +1395,7 @@
             </div>
 
             <!-- Copyright -->
-            <div class="border-t border-white/20 mt-8 pt-8 text-center">
+            <div class="{% if user.is_authenticated %}max-lg:hidden {% endif %}border-t border-white/20 mt-8 pt-8 text-center">
                 <small class="text-white/75">{% trans "&copy; 2026 Crush.lu - Made with 💕 in Luxembourg" %}</small>
                 {# Imprint: entity + address exactly as the privacy policy names the controller #}
                 <p class="mt-2 text-xs text-white/75">{% trans "Crush.lu (en cours de constitution)" %} &middot; 10 rue des Bons Malades, L-6462 Echternach, {% trans "Luxembourg" %}</p>

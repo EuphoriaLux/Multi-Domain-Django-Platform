@@ -34097,6 +34097,27 @@ msgstr "Contrôles des données du compte"
 msgid "Sign in for account controls"
 msgstr "Connectez-vous pour gérer votre compte"
 
+msgid "Report a safety concern"
+msgstr "Signaler un problème de sécurité"
+
+msgid "If someone made you feel unsafe on Crush.lu or at an event, email us and tell us what happened."
+msgstr "Si quelqu'un vous a fait sentir en insécurité sur Crush.lu ou lors d'un événement, écrivez-nous par e-mail et expliquez-nous ce qui s'est passé."
+
+msgid "Child Safety"
+msgstr "Protection de l'enfance"
+
+msgid "Frequently asked questions"
+msgstr "Questions fréquentes"
+
+msgid "How do I get verified?"
+msgstr "Comment me faire vérifier ?"
+
+msgid "What happens at an event?"
+msgstr "Que se passe-t-il lors d'un événement ?"
+
+msgid "How do I delete my account?"
+msgstr "Comment supprimer mon compte ?"
+
 #: templates/crush_lu/terms_of_service.html:4
 msgid "Terms of Service - Crush.lu"
 msgstr "Conditions d'utilisation - Crush.lu"
@@ -43657,6 +43678,16 @@ msgid_plural "%(counter)s items need your attention"
 msgstr[0] "%(counter)s élément requiert votre attention"
 msgstr[1] "%(counter)s éléments requièrent votre attention"
 
+#: crush_lu/views_payments.py
+#, python-format
+msgid "This checkout belongs to another member. Payment status: %(status)s."
+msgstr "Ce paiement appartient à un autre membre. Statut du paiement : %(status)s."
+
+#: crush_lu/templates/crush_lu/components/support_card.html:90 crush_lu/templates/crush_lu/components/support_card.html:145
+msgctxt "donation button"
+msgid "Support"
+msgstr "Soutenir"
+
 # UX Wave 4 · WP7a — legal pages Version 2.1 (clarification)
 #: crush_lu/templates/crush_lu/privacy_policy.html
 msgid "Last Updated: September 28, 2026"
@@ -43682,6 +43713,11 @@ msgstr "Nous avons déjà reçu un paiement pour votre demande Premium."
 #: crush_lu/templates/crush_lu/membership.html
 msgid "Contact support about your Premium payment"
 msgstr "Contactez le support au sujet de votre paiement Premium"
+
+#: crush_lu/services/on_break.py
+#, python-format
+msgid "Heads-up: these members are taking a break from Crush.lu right now: %(names)s. You can still invite them."
+msgstr "À noter : ces membres font une pause sur Crush.lu en ce moment : %(names)s. Vous pouvez tout de même les inviter."
 
 #: crush_lu/templates/crush_lu/terms_of_service.html:57
 msgid "Each consent is recorded with your IP address, timestamp, and the version of these Terms you accepted. This version is 2.1."

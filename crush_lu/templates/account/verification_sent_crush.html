@@ -24,11 +24,14 @@
                         We've sent a verification link to <strong>{{ email }}</strong>.
                     {% endblocktrans %}
                 </p>
+                {# A held social account corrects its address with "Use a different address" below: signing up again would only log back into it (#1059). #}
+                {% if not social_address_hold %}
                 <p class="text-sm mb-4">
                     <a href="{% url 'crush_lu:signup' %}" class="text-purple-600 dark:text-purple-400 hover:underline">
                         {% trans "Wrong address? Sign up again" %}
                     </a>
                 </p>
+                {% endif %}
             {% else %}
                 <p class="text-gray-500 dark:text-gray-400 mb-4">
                     {% trans "We've sent a verification link to your email address. Click the link in the email to confirm your account." %}
@@ -44,6 +47,7 @@
             <form method="post" action="{% url 'crush_lu:resend_verification' %}" class="mb-3"
                   x-data="resendCooldown"
                   data-cooldown-until="{{ request.session.resend_verification_cooldown_until|default:0 }}"
+                  data-cooldown-hash="{{ request.session.resend_verification_cooldown_hash|default:'' }}"
                   data-server-now="{% now 'U' %}">
                 {% csrf_token %}
                 {% if not pending_email %}
@@ -52,6 +56,7 @@
                            id="id_resend_email"
                            name="email"
                            required
+                           x-on:input="onEmailInput"
                            placeholder="{% trans 'Your email address' %}"
                            class="w-full mb-3 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
                 {% else %}
@@ -61,6 +66,7 @@
                         <input type="email"
                                id="id_resend_email"
                                name="email"
+                               x-on:input="onEmailInput"
                                placeholder="{% trans 'Your email address' %}"
                                class="w-full mt-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
                     </details>

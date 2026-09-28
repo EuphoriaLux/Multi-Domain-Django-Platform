@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse, HttpResponse
@@ -12,6 +13,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.debug import sensitive_post_parameters
 from django.conf import settings
+from django.core.cache import cache
 import logging
 import uuid
 import json
@@ -1600,6 +1602,21 @@ def referral_redirect(request, code):
     producing ERROR-level log noise.
     """
     referral = capture_referral(request, code, source="link")
+    # A shared event link (build_referral_url(next_url=...), 4-18) lands on
+    # the event; the captured code still credits a later signup.
+    # Only a valid code earns the event landing; an unknown/inactive one keeps
+    # the plain signup redirect.
+    next_url = request.GET.get("next")
+    if (
+        referral
+        and next_url
+        and url_has_allowed_host_and_scheme(
+            next_url,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        )
+    ):
+        return redirect(next_url)
     signup_url = reverse("crush_lu:signup")
     if referral:
         return redirect(f"{signup_url}?ref={referral.code}")
@@ -1724,6 +1741,142 @@ RESEND_VERIFICATION_COOLDOWN_SECONDS = getattr(
 )
 
 
+def _email_digest(email):
+    return hashlib.sha256(email.strip().lower().encode()).hexdigest()
+
+
+def claim_resend_cooldown(email, force=False):
+    """Claim the resend cooldown for ``email`` (#1059).
+
+    ``cache.add`` is atomic, so of two overlapping POSTs (a double-click
+    during the synchronous send) only one gets to send. Keyed on the
+    normalised address, not the session: a corrected address is not held
+    back by the typo's cooldown, and rotating cookies does not reset it.
+    ``force`` records a send that already happened (the social pre_login
+    hold). ``None`` means the cache backend swallowed an error: fail open
+    like ``_may_ask_sumup``; the 3/h IP limit and allauth's per-address
+    limiter still bound the sends. The claim is taken before the address
+    is looked up (so the response cannot reveal whether it exists): anyone
+    can therefore hold back a resend to an address for one cooldown by
+    posting it first, a small cost bounded by the 3/h IP limit.
+    """
+    key = f"crush:resend-verification:{_email_digest(email)}"
+    if force:
+        cache.set(key, 1, RESEND_VERIFICATION_COOLDOWN_SECONDS)
+        return True
+    return cache.add(key, 1, RESEND_VERIFICATION_COOLDOWN_SECONDS) is not False
+
+
+def start_resend_cooldown_display(request, email):
+    """Session copy of the cooldown, only for the page's countdown."""
+    request.session["resend_verification_cooldown_until"] = (
+        int(timezone.now().timestamp()) + RESEND_VERIFICATION_COOLDOWN_SECONDS
+    )
+    request.session["resend_verification_cooldown_hash"] = _email_digest(email)
+
+
+# How long the social pre_login hold may rewrite its account's address. The
+# session itself lives for weeks; a shared device must not inherit this.
+SOCIAL_ADDRESS_REWRITE_WINDOW_SECONDS = getattr(
+    settings, "CRUSH_SOCIAL_ADDRESS_REWRITE_WINDOW_SECONDS", 30 * 60
+)
+
+
+def _drop_social_hold(request):
+    request.session.pop("pending_verification_user_id", None)
+    request.session.pop("pending_verification_user_id_at", None)
+
+
+def _held_social_user_id(request):
+    """The social pre_login hold's user id, only while it still owns the
+    session's pending address (an unverified row of that user). A stale id
+    (another signup or login in the same browser since) is dropped, so it
+    can never rewrite a different account than the one being verified.
+    So is one older than SOCIAL_ADDRESS_REWRITE_WINDOW_SECONDS, or without
+    an issued-at (a hold that was already used is cleared)."""
+    from allauth.account.models import EmailAddress
+
+    user_id = request.session.get("pending_verification_user_id")
+    if not user_id:
+        return None
+    issued_at = request.session.get("pending_verification_user_id_at")
+    age = timezone.now().timestamp() - (issued_at or 0)
+    if not issued_at or not 0 <= age <= SOCIAL_ADDRESS_REWRITE_WINDOW_SECONDS:
+        _drop_social_hold(request)
+        return None
+    email = request.session.get("pending_verification_email") or ""
+    if EmailAddress.objects.filter(
+        user_id=user_id, email__iexact=email, verified=False
+    ).exists():
+        return user_id
+    _drop_social_hold(request)
+    return None
+
+
+def _replace_pending_social_address(request, typed_email):
+    """Swap a held social account's unverified address for ``typed_email``.
+
+    Only for the account the social pre_login hold stashed in this session
+    (the visitor just proved the provider login), and only while it has no
+    verified address. The old row is deleted rather than edited: HMAC
+    confirmation keys sign the row's pk, so an edited row would let the
+    link already mailed to the typo confirm the corrected address. An
+    address another account uses is skipped silently, so the caller's
+    response stays identical (ACCOUNT_UNIQUE_EMAIL, no enumeration).
+    """
+    from allauth.account.models import EmailAddress
+    from django.contrib.auth.models import User
+    from django.core.exceptions import ValidationError
+    from django.core.validators import validate_email
+
+    user_id = _held_social_user_id(request)
+    if not user_id:
+        return None
+    # Stored lower-case like the signup form (forms.py): allauth lowercases
+    # login and reset input and then matches exactly.
+    typed_email = typed_email.strip().lower()
+    try:
+        validate_email(typed_email)
+    except ValidationError:
+        return None
+    # validate_email allows 320 characters; the columns are varchar(254), so
+    # a longer address would raise DataError (a 500) on Postgres at the save.
+    if len(typed_email) > min(
+        User._meta.get_field("email").max_length,
+        EmailAddress._meta.get_field("email").max_length,
+    ):
+        return None
+    with transaction.atomic():
+        user = User.objects.select_for_update().filter(pk=user_id).first()
+        if (
+            user is None
+            or EmailAddress.objects.filter(user=user, verified=True).exists()
+        ):
+            return None
+        pending = EmailAddress.objects.filter(user=user, verified=False)
+        if pending.filter(email__iexact=typed_email).exists():
+            return None
+        taken = (
+            EmailAddress.objects.filter(email__iexact=typed_email)
+            .exclude(user=user)
+            .exists()
+            or User.objects.filter(email__iexact=typed_email)
+            .exclude(pk=user.pk)
+            .exists()
+        )
+        if taken:
+            return None
+        pending.delete()
+        user.email = typed_email
+        user.save(update_fields=["email"])
+        address = EmailAddress.objects.create(
+            user=user, email=typed_email, primary=True, verified=False
+        )
+    # One rewrite per provider login: the authorization is spent.
+    _drop_social_hold(request)
+    return address
+
+
 @require_http_methods(["POST"])
 @ratelimit(
     key="ip",
@@ -1743,27 +1896,33 @@ def resend_verification_email(request):
     signed up (or last tried to log in unverified). That session can be
     empty -- a different device, or cookies cleared -- so this also accepts
     an ``email`` POST field from the visible form the template shows in that
-    case. Either way, a per-session 60s cooldown (separate from the hourly
-    IP rate limit above, which guards against abuse) stops the same visitor
-    from re-triggering a send on every reload/back-button; the response
-    stays identical either way.
+    case. A per-address cooldown (``claim_resend_cooldown``, separate from
+    the hourly IP rate limit above, which guards against abuse) stops a
+    re-send on every reload/back-button; the response stays identical
+    either way. For a social account held by pre_login, a typed address
+    replaces the account's unverified one (#1059).
     """
     from allauth.account.models import EmailAddress
 
-    now_ts = int(timezone.now().timestamp())
-    cooldown_until = request.session.get("resend_verification_cooldown_until", 0)
-    still_cooling_down = now_ts < cooldown_until
-
     # A typed address wins over the session one, so a member who mistyped
     # can correct it from the page's "Use a different address" field.
-    email = (request.POST.get("email") or "").strip() or request.session.get(
-        "pending_verification_email"
-    )
+    typed = (request.POST.get("email") or "").strip()
+    email = typed or request.session.get("pending_verification_email")
 
-    if email and not still_cooling_down:
-        email_address = EmailAddress.objects.filter(
-            email__iexact=email, verified=False
-        ).first()
+    if email and claim_resend_cooldown(email):
+        held = _held_social_user_id(request) if typed else None
+        held_email = request.session.get("pending_verification_email")
+        email_address = (
+            _replace_pending_social_address(request, typed) if typed else None
+        )
+        # A rejected correction (invalid, or another account's address)
+        # keeps the session bound to the held account, so a later available
+        # address can still repair it; the response below stays identical.
+        keep_held_binding = bool(held) and email_address is None
+        if email_address is None:
+            email_address = EmailAddress.objects.filter(
+                email__iexact=email, verified=False
+            ).first()
         if email_address:
             # The response must not differ between a known and an unknown
             # address. A mail failure here would otherwise surface as an error
@@ -1782,13 +1941,21 @@ def resend_verification_email(request):
                 logger.exception("Resending the verification email failed")
         # Remember the address so this page can mask it and keep offering
         # resend without needing the visitor to retype it.
-        request.session["pending_verification_email"] = email
-        # Only start the cooldown once we actually resolved an address to
-        # (possibly) send to -- a submission with no session email and no
-        # POST email shouldn't self-lock the visitor's own resend button.
-        request.session["resend_verification_cooldown_until"] = (
-            now_ts + RESEND_VERIFICATION_COOLDOWN_SECONDS
-        )
+        if keep_held_binding:
+            # The generic resend above may have re-stashed the typed address
+            # (email_confirmation_sent signal), so restore the hold.
+            request.session["pending_verification_email"] = held_email
+            request.session["pending_verification_user_id"] = held
+            # Retyping the held address itself resent to it and claimed its
+            # cooldown, so the page's countdown must start for it too.
+            if held_email and typed.lower() == held_email.lower():
+                start_resend_cooldown_display(request, held_email)
+        else:
+            request.session["pending_verification_email"] = email
+            _held_social_user_id(request)
+            # Only for the address the page now shows: a rejected typed
+            # address must not disable resend for the restored one.
+            start_resend_cooldown_display(request, email)
 
     messages.success(
         request,
