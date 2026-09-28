@@ -1,7 +1,7 @@
 """Tests for UX Wave 3 · WP5 (finding 3-14, scoped part) — client-side photo
 downscale/re-encode and alert() removal in the profile-photo upload path.
 
-`photoUpload` in alpine-components.js is plain JS with no Python-visible
+`photoUpload` in the core Alpine bundle (js/alpine/core.js) is plain JS with no Python-visible
 behaviour, so these are structural source assertions (the same pattern
 `test_coach_unverified_profiles.LockOrderInvariantTests` uses for lock
 ordering) rather than executing the component. They fail against
@@ -13,18 +13,15 @@ from pathlib import Path
 
 from django.test import SimpleTestCase
 
-JS_PATH = (
-    Path(__file__).resolve().parent.parent
-    / "static"
-    / "crush_lu"
-    / "js"
-    / "alpine-components.js"
-)
+JS_DIR = Path(__file__).resolve().parent.parent / "static" / "crush_lu" / "js"
+JS_PATH = JS_DIR / "alpine" / "core.js"
+SHARED_PATH = JS_DIR / "alpine" / "shared.js"
 
 
 class PhotoUploadResizeAndToastTests(SimpleTestCase):
     def setUp(self):
         self.src = JS_PATH.read_text(encoding="utf-8")
+        self.shared = SHARED_PATH.read_text(encoding="utf-8")
         # Isolate the photoUpload component body so assertions can't
         # accidentally match some unrelated part of this 15k-line file.
         start = self.src.index('Alpine.data("photoUpload"')
@@ -39,7 +36,7 @@ class PhotoUploadResizeAndToastTests(SimpleTestCase):
         # createImageBitmap({imageOrientation: 'from-image'}) is what bakes
         # EXIF rotation into the pixels — drawImage from a raw <img> does not.
         helper_start = self.src.index("function resizeImageForUpload(")
-        helper_end = self.src.index("function notifyError(")
+        helper_end = self.src.index("var _pendingPhotoUploads", helper_start)
         helper_src = self.src[helper_start:helper_end]
         self.assertIn("imageOrientation", helper_src)
         self.assertIn("from-image", helper_src)
@@ -51,9 +48,13 @@ class PhotoUploadResizeAndToastTests(SimpleTestCase):
         self.assertEqual(self.component_src.count("notifyError("), 4)
 
     def test_notify_error_prefers_the_toast_store_over_alert(self):
-        helper_start = self.src.index("function notifyError(")
-        helper_end = self.src.index('Alpine.data("photoUpload"')
-        helper_src = self.src[helper_start:helper_end]
+        # notifyError is a shared helper the core bundle imports.
+        self.assertRegex(
+            self.src, r'import \{[^}]*\bnotifyError\b[^}]*\} from "\./shared\.js"'
+        )
+        helper_start = self.shared.index("export function notifyError(")
+        helper_end = self.shared.index("export function", helper_start + 1)
+        helper_src = self.shared[helper_start:helper_end]
         self.assertIn('Alpine.store("toasts")', helper_src)
         self.assertIn(".add({", helper_src)
 
@@ -118,7 +119,9 @@ class PhotoUploadResizeAndToastTests(SimpleTestCase):
         """Continue must wait for the live queue and reject new file picks."""
         self.assertIn(".then(waitForPendingPhotoUploads)", self.src)
         self.assertIn("if (_photoStepAdvancing)", self.component_src)
-        template = (Path(__file__).parents[1] / "templates/crush_lu/create_profile.html").read_text(encoding="utf-8")
+        template = (
+            Path(__file__).parents[1] / "templates/crush_lu/create_profile.html"
+        ).read_text(encoding="utf-8")
         for number in (1, 2, 3):
             self.assertIn(
                 f'id="photo{number}" accept="image/*" class="hidden"\n'

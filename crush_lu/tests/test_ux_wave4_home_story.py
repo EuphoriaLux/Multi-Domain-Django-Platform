@@ -21,7 +21,7 @@ from django.template.loader import get_template
 from django.test import TestCase
 
 BASE = Path(settings.BASE_DIR)
-ALPINE_JS = BASE / "crush_lu/static/crush_lu/js/alpine-components.js"
+ALPINE_JS = BASE / "crush_lu/static/crush_lu/js/alpine/core.js"
 TAILWIND_SRC = BASE / "tailwind-src/crush_lu/tailwind-input.css"
 
 

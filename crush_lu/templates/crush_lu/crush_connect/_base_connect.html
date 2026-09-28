@@ -1,5 +1,6 @@
 {% extends 'crush_lu/base.html' %}
 {% load i18n static connect_navigation %}
+{% block pre_alpine_js %}{{ block.super }}{% include "crush_lu/partials/alpine_bundle.html" with bundle="connect" %}{% endblock %}
 {% block extra_js %}{{ block.super }}<script src="{% static 'crush_lu/js/connect-summary.js' %}" defer></script>{% endblock %}
 {% block extra_css %}{{ block.super }}<link rel="stylesheet" href="{% static 'crush_lu/css/connect-mobile.css' %}">{% endblock %}
 {% comment %}
