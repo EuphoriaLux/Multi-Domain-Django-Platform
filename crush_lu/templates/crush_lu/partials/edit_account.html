@@ -107,7 +107,8 @@
 
     <!-- Back button -->
     <div class="action-buttons-container action-buttons-sticky">
-        <a href="{% url 'crush_lu:edit_profile' %}" class="btn-cancel">
+        {# Only verified, approved profiles can open the profile editor; everyone else reaches this list too (8-08). #}
+        <a href="{% if profile.is_approved and profile.verification_status == 'verified' %}{% url 'crush_lu:edit_profile' %}{% else %}{% url 'crush_lu:dashboard' %}{% endif %}" class="btn-cancel">
             {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
             {% trans "Back" %}
         </a>
