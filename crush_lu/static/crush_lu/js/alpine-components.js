@@ -13403,7 +13403,8 @@ document.addEventListener("alpine:init", function () {
     });
 
     // ============================================================
-    // Ghost Story Slideshow
+    // Ghost Story Slideshow - auto-playing, no controls
+    // (includes/ghost-story-compact.html on profile_submitted.html)
     // ============================================================
     Alpine.data("ghostStory", function () {
         return {
@@ -13431,52 +13432,6 @@ document.addEventListener("alpine:init", function () {
             },
             get isScene5() {
                 return this.currentScene === 5;
-            },
-
-            // Navigation state
-            get isFirstScene() {
-                return this.currentScene === 0;
-            },
-            get isLastScene() {
-                return this.currentScene === this.totalScenes - 1;
-            },
-            get isNotFirstScene() {
-                return this.currentScene > 0;
-            },
-            get isNotLastScene() {
-                return this.currentScene < this.totalScenes - 1;
-            },
-
-            // Dot active class getters
-            get dot0Class() {
-                return this.currentScene === 0
-                    ? "ghost-story-dot ghost-story-dot-active"
-                    : "ghost-story-dot";
-            },
-            get dot1Class() {
-                return this.currentScene === 1
-                    ? "ghost-story-dot ghost-story-dot-active"
-                    : "ghost-story-dot";
-            },
-            get dot2Class() {
-                return this.currentScene === 2
-                    ? "ghost-story-dot ghost-story-dot-active"
-                    : "ghost-story-dot";
-            },
-            get dot3Class() {
-                return this.currentScene === 3
-                    ? "ghost-story-dot ghost-story-dot-active"
-                    : "ghost-story-dot";
-            },
-            get dot4Class() {
-                return this.currentScene === 4
-                    ? "ghost-story-dot ghost-story-dot-active"
-                    : "ghost-story-dot";
-            },
-            get dot5Class() {
-                return this.currentScene === 5
-                    ? "ghost-story-dot ghost-story-dot-active"
-                    : "ghost-story-dot";
             },
 
             // Scene container class getters (CSP-safe, no ternary in template)
@@ -13509,19 +13464,6 @@ document.addEventListener("alpine:init", function () {
                 return this.currentScene === 5
                     ? "ghost-story-scene ghost-story-scene-active ghost-story-scene-5"
                     : "ghost-story-scene ghost-story-scene-5";
-            },
-
-            // Pause/play icon
-            get pauseIcon() {
-                return this.isPaused ? "\u25B6" : "\u275A\u275A";
-            },
-            get pauseLabel() {
-                return this.isPaused ? "Play" : "Pause";
-            },
-
-            // Scene counter text
-            get sceneCounter() {
-                return this.currentScene + 1 + " / " + this.totalScenes;
             },
 
             init: function () {
@@ -13572,50 +13514,6 @@ document.addEventListener("alpine:init", function () {
                 } else {
                     this.currentScene = 0;
                 }
-                this.startAutoAdvance();
-            },
-
-            previousScene: function () {
-                if (this.currentScene > 0) {
-                    this.currentScene--;
-                } else {
-                    this.currentScene = this.totalScenes - 1;
-                }
-                this.startAutoAdvance();
-            },
-
-            togglePause: function () {
-                this.isPaused = !this.isPaused;
-                if (this.isPaused) {
-                    this.clearTimer();
-                } else {
-                    this.startAutoAdvance();
-                }
-            },
-
-            // Individual goToScene methods (CSP-safe, no param passing)
-            goToScene0: function () {
-                this.currentScene = 0;
-                this.startAutoAdvance();
-            },
-            goToScene1: function () {
-                this.currentScene = 1;
-                this.startAutoAdvance();
-            },
-            goToScene2: function () {
-                this.currentScene = 2;
-                this.startAutoAdvance();
-            },
-            goToScene3: function () {
-                this.currentScene = 3;
-                this.startAutoAdvance();
-            },
-            goToScene4: function () {
-                this.currentScene = 4;
-                this.startAutoAdvance();
-            },
-            goToScene5: function () {
-                this.currentScene = 5;
                 this.startAutoAdvance();
             },
         };

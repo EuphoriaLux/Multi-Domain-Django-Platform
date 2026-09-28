@@ -27445,6 +27445,34 @@ msgstr ""
 "Nos coachs organisent chaque événement et vous accueillent en personne. Vous"
 " voulez un coach personnel à vos côtés ? C'est Premium."
 
+#: templates/crush_lu/home.html:115
+msgid "Events in EN · FR · DE · LU"
+msgstr "Événements en EN · FR · DE · LU"
+
+#: templates/crush_lu/home.html:116
+msgid "Events in English, French, German and Luxembourgish"
+msgstr "Événements en anglais, français, allemand et luxembourgeois"
+
+#: templates/crush_lu/home.html:222
+msgid "What an evening looks like"
+msgstr "À quoi ressemble une soirée"
+
+#: templates/crush_lu/home.html:227
+msgid "A coach welcomes you"
+msgstr "Un coach vous accueille"
+
+#: templates/crush_lu/home.html:228
+msgid "Our coaches host every event and welcome you in person."
+msgstr "Nos coachs organisent chaque événement et vous accueillent en personne."
+
+#: templates/crush_lu/home.html:232
+msgid "You meet face-to-face"
+msgstr "Vous vous rencontrez en personne"
+
+#: templates/crush_lu/home.html:237
+msgid "You choose who to see again"
+msgstr "Vous choisissez qui revoir"
+
 #: templates/crush_lu/home.html:149 templates/crush_lu/how_it_works.html:54
 #: templates/crush_lu/how_it_works.html:120
 msgid "Create Your Profile"
