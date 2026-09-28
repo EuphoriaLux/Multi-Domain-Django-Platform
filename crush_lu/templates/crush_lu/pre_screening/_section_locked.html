@@ -1,0 +1,26 @@
+{% load i18n %}
+{% comment %}
+Read-only stand-in for a pre-screening section whose answers can no longer be
+changed (call done, submission reviewed or paused). The save endpoint returns
+it with 200 so htmx swaps it over the section in place: same wrapper id, and
+no form, so nothing further auto-saves (finding 3-10).
+{% endcomment %}
+<section id="prescreening-section-{{ section.id }}"
+         class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
+  <header class="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between gap-3">
+    <h3 class="text-base font-bold text-gray-900 dark:text-white mb-0">{{ section.title }}</h3>
+    <span class="inline-flex items-center gap-1 text-xs font-semibold text-gray-700 dark:text-gray-200">
+      {% include "shared/icons/lock-closed.html" with class="w-4 h-4" %}
+      {% trans "Answers locked" %}
+    </span>
+  </header>
+  <div class="px-5 py-4" role="status">
+    <p class="text-sm text-gray-700 dark:text-gray-200 mb-0">
+      {% if call_completed %}
+        {% trans "Your Coach has already completed your screening call." %}
+      {% else %}
+        {% trans "Pre-screening is no longer available for this submission." %}
+      {% endif %}
+    </p>
+  </div>
+</section>
