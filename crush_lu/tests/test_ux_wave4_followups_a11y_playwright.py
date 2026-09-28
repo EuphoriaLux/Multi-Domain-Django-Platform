@@ -6,6 +6,8 @@
 * The pages #1088 / #1077 list have no axe color-contrast nodes, light and
   dark (when axe-core is available: ``AXE_CORE_PATH`` or
   ``node_modules/axe-core/axe.min.js``).
+* native_auth_failed.html (tailwind.css only, no base.html) keeps its outline
+  button at AA in dark mode: a computed-style check that needs no axe-core.
 
 Excluded from the default run (``-m "not playwright"`` in pytest.ini). Run:
     pytest -m playwright crush_lu/tests/test_ux_wave4_followups_a11y_playwright.py -n 0
@@ -85,5 +87,65 @@ def test_axe_color_contrast_is_clean(browser, live_server, theme, path):
         "async () => (await axe.run(document, {runOnly: ['color-contrast']}))"
         ".violations.flatMap(v => v.nodes.map(n => n.target.join(' ') + ' :: '"
         " + ((n.any[0] || {}).message || '')))"
+    )
+    assert nodes == [], nodes
+
+
+# Resolves both colours to sRGB through a canvas (gray-800 is an oklch token)
+# and returns the WCAG contrast ratio, so this check needs no axe-core.
+_CONTRAST_JS = """
+([fgSel, bgSel]) => {
+  const ctx = document.createElement('canvas').getContext('2d');
+  const rgb = (css) => {
+    ctx.clearRect(0, 0, 1, 1);
+    ctx.fillStyle = css;
+    ctx.fillRect(0, 0, 1, 1);
+    return Array.from(ctx.getImageData(0, 0, 1, 1).data.slice(0, 3));
+  };
+  const lum = (c) => {
+    const l = c.map((v) => {
+      v /= 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2];
+  };
+  const fg = lum(rgb(getComputedStyle(document.querySelector(fgSel)).color));
+  const bg = lum(rgb(
+    getComputedStyle(document.querySelector(bgSel)).backgroundColor));
+  return (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05);
+}
+"""
+
+
+def _native_auth_failed(browser, live_server, theme):
+    """The standalone failure page: links tailwind.css only, not base.html."""
+    context = browser.new_context(viewport={"width": 390, "height": 844})
+    context.add_init_script(f"localStorage.setItem('theme', '{theme}');")
+    page = context.new_page()
+    response = page.goto(
+        f"{live_server.url}/api/mobile/ios/auth/complete/no-such-code/",
+        wait_until="load",
+    )
+    assert response is not None and response.status == 400
+    assert _is_dark(page) is (theme == "dark")
+    return page
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_native_auth_failed_outline_button_contrast(browser, live_server, theme):
+    page = _native_auth_failed(browser, live_server, theme)
+    ratio = page.evaluate(_CONTRAST_JS, [".btn-crush-outline", "main"])
+    assert ratio >= 4.5, (theme, round(ratio, 2))
+
+
+def test_native_auth_failed_axe_color_contrast_dark(browser, live_server):
+    axe = _axe_source()
+    if axe is None:
+        pytest.skip("axe-core not available (set AXE_CORE_PATH)")
+    page = _native_auth_failed(browser, live_server, "dark")
+    page.evaluate(axe)
+    nodes = page.evaluate(
+        "async () => (await axe.run(document, {runOnly: ['color-contrast']}))"
+        ".violations.flatMap(v => v.nodes.map(n => n.target.join(' ')))"
     )
     assert nodes == [], nodes

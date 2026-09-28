@@ -5025,8 +5025,10 @@ footer hr {
 }
 
 html.dark .btn-crush-outline {
-    /* base.html's dark --crush-purple (5.4:1 on gray-800); purple-light is 4.47 */
-    color: var(--crush-purple);
+    /* purple-300 (5.3:1 on gray-800; purple-light is 4.47). A theme token, not
+       --crush-purple: its dark value lives in base.html's inline style, which
+       standalone pages such as native_auth_failed.html never load. */
+    color: var(--color-purple-300);
     border-color: var(--crush-purple-light);
 }
 

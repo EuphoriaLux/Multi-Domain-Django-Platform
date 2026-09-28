@@ -9,6 +9,8 @@
   ``data-label-*`` attributes.
 * 6-03 (decision J): each Crush Connect landing card carries a one-line
   subline (the experience pages' approved tagline).
+* The dark outline button reaches AA from tailwind.css alone (pages such as
+  native_auth_failed.html never load base.html's inline dark tokens).
 
 Paths are literal: ``reverse("crush_lu:...")`` builds ``/crush/...`` paths
 that 404 under ``HTTP_HOST=crush.lu``.
@@ -113,6 +115,52 @@ class TextMutedTokenTests(TestCase):
                 encoding="utf-8"
             )
             self.assertNotIn("text-muted dark:text-gray-400", html, name)
+
+
+def _luminance(hex_colour):
+    channels = [int(hex_colour[i : i + 2], 16) / 255 for i in (1, 3, 5)]
+    linear = [
+        c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels
+    ]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def _contrast(a, b):
+    high, low = sorted((_luminance(a), _luminance(b)), reverse=True)
+    return (high + 0.05) / (low + 0.05)
+
+
+class DarkOutlineButtonContrastTests(TestCase):
+    """html.dark .btn-crush-outline must pass AA from the stylesheet alone.
+
+    native_auth_failed.html links only tailwind.css, not base.html, so a
+    colour whose dark value lives in base.html's inline <style> (the dark
+    --crush-purple) falls back to the stylesheet's light value there.
+    Every value the compiled stylesheet itself assigns to the variable must
+    reach 4.5:1 on gray-800, the page's dark surface.
+    """
+
+    GRAY_800 = "#1f2937"
+
+    def test_dark_outline_text_resolves_in_the_stylesheet(self):
+        css = (REPO_ROOT / "crush_lu/static/crush_lu/css/tailwind.css").read_text(
+            encoding="utf-8"
+        )
+        rule = re.search(r"html\.dark \.btn-crush-outline\s*\{([^}]*)\}", css)
+        self.assertIsNotNone(rule)
+        colour = re.search(r"(?:^|;)\s*color:\s*([^;]+)", rule.group(1))
+        self.assertIsNotNone(colour)
+        value = colour.group(1).strip()
+        var = re.fullmatch(r"var\((--[\w-]+)\)", value)
+        if var:
+            values = re.findall(
+                re.escape(var.group(1)) + r":\s*(#[0-9a-fA-F]{6})\b", css
+            )
+        else:
+            values = [value]
+        self.assertTrue(values, f"{value} has no hex value in tailwind.css")
+        ratios = {v: round(_contrast(v.lower(), self.GRAY_800), 2) for v in values}
+        self.assertTrue(all(r >= 4.5 for r in ratios.values()), ratios)
 
 
 class _ThemeToggleAttrs(HTMLParser):
