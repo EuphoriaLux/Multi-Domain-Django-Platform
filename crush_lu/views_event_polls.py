@@ -283,7 +283,8 @@ def _ballot_language(data):
     answer in the browser's Accept-Language instead of the page's language.
     """
     lang = data.get('lang') if isinstance(data, dict) else None
-    if lang in {code for code, _name in settings.LANGUAGES}:
+    # A non-string lang (a list, an object) must not reach the set lookup.
+    if isinstance(lang, str) and lang in {code for code, _n in settings.LANGUAGES}:
         return lang
     return get_language()
 
@@ -346,6 +347,10 @@ def _poll_vote(request, poll, is_json, data):
             return reply(_('Invalid option'))
 
     option_ids = data.get('option_ids', [])
+    if not isinstance(option_ids, list) or not all(
+        type(oid) is int for oid in option_ids
+    ):
+        return reply(_('Invalid option'))
     if not option_ids:
         return reply(_('No options selected'))
 
@@ -369,8 +374,9 @@ def _poll_vote(request, poll, is_json, data):
     voter_gender = earlier_votes.values_list('voter_gender', flat=True).first()
     if voter_gender is None:
         voter_gender = _profile_voter_gender(request.user)
-        if not voter_gender and data.get('gender') in _VOTER_GENDERS:
-            voter_gender = data['gender']
+        gender = data.get('gender')
+        if not voter_gender and isinstance(gender, str) and gender in _VOTER_GENDERS:
+            voter_gender = gender
 
     # Create votes (skip duplicates via unique_together)
     created = 0

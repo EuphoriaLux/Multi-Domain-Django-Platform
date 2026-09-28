@@ -311,6 +311,44 @@ class PollVoteLanguageTests(TestCase):
         )
         self.assertEqual(response.json()["error"], "Keine Option ausgewählt")
 
+    def test_non_string_lang_falls_back_to_the_request_language(self):
+        # A list or object lang must not crash the vote (it once hit a set
+        # lookup and raised "unhashable type").
+        for bad_lang in (["fr"], {}):
+            response = self.client.post(
+                f"/api/polls/{self.poll.id}/vote/",
+                data=json.dumps({"option_ids": [], "lang": bad_lang}),
+                content_type="application/json",
+                HTTP_HOST=HOST,
+                HTTP_ACCEPT_LANGUAGE="de",
+            )
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.json()["error"], "Keine Option ausgewählt")
+
+    def test_malformed_json_option_ids_are_rejected_not_a_500(self):
+        for bad_ids in (5, "1", [[1]], ["1"], [True], {"a": 1}):
+            response = self.client.post(
+                f"/api/polls/{self.poll.id}/vote/",
+                data=json.dumps({"option_ids": bad_ids}),
+                content_type="application/json",
+                HTTP_HOST=HOST,
+            )
+            self.assertEqual(response.status_code, 400, bad_ids)
+            self.assertEqual(response.json()["error"], "Invalid option")
+        self.assertFalse(EventPollVote.objects.exists())
+
+    def test_non_string_gender_is_ignored(self):
+        CrushProfile.objects.filter(user=self.user).update(gender="")
+        response = self.client.post(
+            f"/api/polls/{self.poll.id}/vote/",
+            data=json.dumps({"option_ids": [self.wine.id], "gender": []}),
+            content_type="application/json",
+            HTTP_HOST=HOST,
+        )
+        self.assertEqual(response.status_code, 200)
+        vote = EventPollVote.objects.get(user=self.user)
+        self.assertEqual(vote.voter_gender, "")
+
     def test_no_js_vote_returns_to_the_page_language(self):
         response = self.client.post(
             f"/api/polls/{self.poll.id}/vote/",
