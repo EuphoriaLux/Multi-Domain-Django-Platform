@@ -3,12 +3,14 @@
 {% load analytics %}
 {% load seo_tags %}
 {% load crush_connect_tags %}
+{% load privacy_tags %}
 <!DOCTYPE html>
 {# theme_lock: an always-dark surface (journey, gifts) fills it with class="dark" data-theme-lock="dark"; theme-manager.js keeps .dark there and the toggles stay focusable but aria-disabled, so their explanation is reachable. #}
 <html lang="{{ LANGUAGE_CODE|default:'en' }}"{% if is_native_app %} data-native-app{% endif %}{% block theme_lock %}{% endblock %}>
 <head>
     {% analytics_head %}
-    {% if user.is_authenticated %}{% appinsights_head %}{% endif %}
+    {# Consent-gated. Anonymous visitors get it only on login/signup (#1085): page views send the full URL, so token pages (/book/, /invite/) stay off. #}
+    {% if user.is_authenticated or request|anonymous_telemetry_allowed %}{% appinsights_head %}{% endif %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{% block title %}Crush.lu - Meet New People{% endblock %}</title>
