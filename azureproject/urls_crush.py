@@ -277,7 +277,7 @@ urlpatterns = (
             api_push.run_subscription_health_check,
             name="api_push_health_check",
         ),
-        # Email Preferences API (called from alpine-components.js emailPreferences component)
+        # Email Preferences API (called from js/alpine/core.js emailPreferences component)
         path(
             "api/email/preferences/",
             views.api_update_email_preference,
@@ -360,7 +360,7 @@ urlpatterns = (
             api_android_app.update_android_device_preferences,
             name="api_android_device_preferences",
         ),
-        # Coach Push Notifications API (called from alpine-components.js)
+        # Coach Push Notifications API (called from js/alpine/core.js)
         path(
             "api/coach/push/vapid-public-key/",
             api_coach_push.get_vapid_public_key,
@@ -396,7 +396,7 @@ urlpatterns = (
             api_coach_push.send_test_push,
             name="api_coach_send_test_push",
         ),
-        # Coach Team Stats API (called from alpine-components.js coachTeamStats)
+        # Coach Team Stats API (called from js/alpine/coach.js coachTeamStats)
         path(
             "api/coach/team/claim/",
             views_coach.api_coach_claim_submission,
@@ -574,7 +574,7 @@ urlpatterns = (
             passkit_service.log_endpoint,
             name="passkit_log_legacy",
         ),
-        # CSRF Token Refresh (called from alpine-components.js before final form submit)
+        # CSRF Token Refresh (called from js/alpine/core.js before final form submit)
         path(
             "api/csrf-token/", views_profile.get_csrf_token, name="csrf_token_refresh"
         ),
@@ -584,7 +584,7 @@ urlpatterns = (
             views_profile.welcome_intent_api,
             name="api_welcome_intent",
         ),
-        # Profile Step-by-Step Saving APIs (called from alpine-components.js with hardcoded paths)
+        # Profile Step-by-Step Saving APIs (called from js/alpine/core.js with hardcoded paths)
         path(
             "api/profile/save-step1/",
             views_profile.save_profile_step1,
@@ -636,7 +636,7 @@ urlpatterns = (
             views_profile.delete_photo_draft,
             name="api_delete_photo_draft",
         ),
-        # Social Photo Import APIs (called from alpine-components.js with hardcoded paths)
+        # Social Photo Import APIs (called from js/alpine/core.js with hardcoded paths)
         path(
             "api/profile/social-photos/",
             views_profile.get_social_photos_api,
@@ -647,7 +647,7 @@ urlpatterns = (
             views_profile.import_social_photo,
             name="api_import_social_photo",
         ),
-        # Profile Photo Upload/Delete APIs (called from alpine-components.js with hardcoded paths)
+        # Profile Photo Upload/Delete APIs (called from js/alpine/core.js with hardcoded paths)
         path(
             "api/profile/upload-photo/<int:slot>/",
             views_profile.upload_profile_photo,
@@ -663,7 +663,7 @@ urlpatterns = (
             views.api_profile_settings_autosave,
             name="api_profile_settings_autosave",
         ),
-        # Profile Completion API (called from alpine-components.js with hardcoded paths)
+        # Profile Completion API (called from js/alpine/core.js with hardcoded paths)
         path(
             "api/profile/complete/",
             views_profile.complete_profile_submission,

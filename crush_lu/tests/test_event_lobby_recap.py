@@ -661,8 +661,8 @@ class TestRecapPage:
             reverse("crush_lu:event_lobby", args=[event.pk])
         ).content.decode()
 
-        # DEBUG serves alpine-components.js, everything else the .min.js build.
-        components = re.search(r"js/alpine-components(\.min)?\.js", html)
+        # DEBUG serves js/alpine/core.js, everything else the .min.js build.
+        components = re.search(r"js/alpine/core(\.min)?\.js", html)
         assert components is not None
         assert html.index("event-recap.js") < components.start()
         assert components.start() < html.index("@alpinejs/csp")

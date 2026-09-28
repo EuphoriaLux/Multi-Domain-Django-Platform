@@ -1216,9 +1216,8 @@ def _render_edit_profile_form(request):
     if section == "privacy":
         return _edit_section_privacy(request, profile)
 
-    # --- Section: Account (language, theme, notifications, logout) ---
-    if section == "account":
-        return _edit_section_account(request, profile)
+    # Section "account" never reaches this function: edit_profile() serves it
+    # to every signed-in user before the verified/approved gate (8-08).
 
     # --- Section: About Crush.lu (mobile footer content) ---
     if section == "about_crushlu":
@@ -1894,6 +1893,15 @@ def api_profile_settings_autosave(request):
 @crush_login_required
 def edit_profile(request):
     """Edit existing profile - routes to appropriate edit flow"""
+    # The account drill-down (settings, notifications, danger zone) is open to
+    # every signed-in user, as /account/settings/ is: members without a
+    # profile, pending/incomplete/rejected profiles and coaches (8-08). The
+    # partials render only what a profile-less user can use.
+    if request.GET.get("section") == "account":
+        return _edit_section_account(
+            request, CrushProfile.objects.filter(user=request.user).first()
+        )
+
     try:
         profile = CrushProfile.objects.get(user=request.user)
     except CrushProfile.DoesNotExist:
@@ -2589,8 +2597,22 @@ def membership(request):
         },
     ]
 
+    from django.conf import settings as _settings
+
+    from .views_premium import pending_premium_state, premium_monthly_fee
+
     context = {
         "profile": profile,
+        # Free vs Premium comparison (Decision A, finding 1-01): the price is
+        # rendered from SUMUP_PREMIUM_MONTHLY_FEE, never hardcoded.
+        "premium_monthly_fee": premium_monthly_fee(),
+        "premium_invite_only": getattr(_settings, "PREMIUM_REDIRECTS_TO_BETA", False),
+        # An open request gets a way back in instead of the waitlist (the same
+        # pending predicate premium_choose_coach uses). "complete" only when
+        # checkout would accept it; "manage" when the beta gate refuses the
+        # buyer, so the page never promises a payment that would 403.
+        "pending_premium_state": pending_premium_state(request.user),
+        "is_premium": bool(profile and profile.has_active_premium),
         "referral_url": referral_url,
         "tiers": tiers,
         "current_tier": profile.membership_tier if profile else "basic",
