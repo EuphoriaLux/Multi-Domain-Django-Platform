@@ -9,6 +9,7 @@ from allauth.socialaccount.providers.base import AuthError
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.core.exceptions import ImmediateHttpResponse
 from django.http import HttpResponseForbidden
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 import base64
 import json
@@ -900,6 +901,10 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
                     # The verification page may replace this held account's
                     # typed address ("Use a different address", #1059).
                     request.session["pending_verification_user_id"] = user.pk
+                    # Issued-at: the rewrite is honoured only briefly and once.
+                    request.session["pending_verification_user_id_at"] = int(
+                        timezone.now().timestamp()
+                    )
                     if limiter_consumed:
                         claim_resend_cooldown(address.email, force=True)
                         start_resend_cooldown_display(request, address.email)

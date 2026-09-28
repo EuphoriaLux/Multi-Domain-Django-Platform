@@ -2370,6 +2370,9 @@ def sumup_payment_return(request):
         return redirect("crush_lu:home")
 
     _sync_checkout_with_sumup(tx_obj)
+    # The sync writes a separately locked row, so re-read the status the
+    # response below reports.
+    tx_obj.refresh_from_db()
 
     # This route lives OUTSIDE i18n_patterns (urls_crush.py), so there is no
     # /fr/ or /de/ prefix for LocaleMiddleware to read and it falls back to the

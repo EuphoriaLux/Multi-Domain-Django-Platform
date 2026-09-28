@@ -141,6 +141,7 @@ class SocialAddressCorrectionTests(TestCase):
         session = self.client.session
         session["pending_verification_email"] = "typo@exmaple.com"
         session["pending_verification_user_id"] = self.user.pk
+        session["pending_verification_user_id_at"] = int(timezone.now().timestamp())
         session.save()
 
     def test_typed_address_replaces_the_unverified_one_and_is_mailed(self):
@@ -184,6 +185,62 @@ class SocialAddressCorrectionTests(TestCase):
                 )
             ),
             ["fixed@example.com"],
+        )
+
+    def test_expired_hold_cannot_rewrite_the_account(self):
+        """The hold is honoured only briefly: on a shared device a later
+        visitor of the same long-lived session gets the generic response."""
+        other = Client(HTTP_HOST="crush.lu").post(RESEND, {"email": "nobody@x.lu"})
+        # SOCIAL_ADDRESS_REWRITE_WINDOW_SECONDS is 30 minutes.
+        later = timezone.now() + timezone.timedelta(minutes=31)
+        with mock.patch("django.utils.timezone.now", return_value=later):
+            response = self.client.post(RESEND, {"email": "fixed@example.com"})
+        self.assertEqual(response.url, other.url)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "typo@exmaple.com")
+        self.assertTrue(EmailAddress.objects.filter(pk=self.address.pk).exists())
+        self.assertNotIn("pending_verification_user_id", self.client.session)
+
+    def test_hold_is_consumed_by_one_successful_rewrite(self):
+        self.client.post(RESEND, {"email": "fixed@example.com"})
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "fixed@example.com")
+
+        cache.clear()  # the second POST must not be stopped by the cooldown
+        response = self.client.post(RESEND, {"email": "attacker@example.com"})
+        self.assertEqual(response.status_code, 302)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "fixed@example.com")
+        self.assertEqual(
+            list(
+                EmailAddress.objects.filter(user=self.user).values_list(
+                    "email", flat=True
+                )
+            ),
+            ["fixed@example.com"],
+        )
+        self.assertNotIn("pending_verification_user_id", self.client.session)
+        self.assertNotIn("pending_verification_user_id_at", self.client.session)
+
+    def test_over_long_address_is_rejected_before_any_save(self):
+        """validate_email allows 320 characters, the columns 254: Postgres
+        would raise DataError (a 500), so the correction is refused first
+        and the hold survives for a usable address."""
+        long_email = "a" * 60 + "@" + ".".join(["b" * 60] * 4) + ".com"
+        self.assertGreater(len(long_email), 254)
+        with mock.patch.object(User, "save") as user_save:
+            response = self.client.post(RESEND, {"email": long_email})
+        self.assertEqual(response.status_code, 302)
+        user_save.assert_not_called()
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "typo@exmaple.com")
+        self.assertEqual(
+            list(EmailAddress.objects.filter(user=self.user).values_list("pk")),
+            [(self.address.pk,)],
+        )
+        self.assertFalse(EmailAddress.objects.filter(email=long_email).exists())
+        self.assertEqual(
+            self.client.session["pending_verification_user_id"], self.user.pk
         )
 
     def test_without_the_session_hold_nothing_is_replaced(self):
@@ -274,6 +331,13 @@ class SocialAddressCorrectionTests(TestCase):
                 redirect_url=None,
             )
         self.assertEqual(request.session["pending_verification_user_id"], user.pk)
+        self.assertLessEqual(
+            abs(
+                request.session["pending_verification_user_id_at"]
+                - timezone.now().timestamp()
+            ),
+            5,
+        )
         self.assertFalse(claim_resend_cooldown("held@example.com"))
 
 
@@ -430,6 +494,25 @@ class SumUpReturnFollowupTests(TestCase):
             "/payments/sumup/return/", {"ref": tx.transaction_reference}
         )
         self.assertIn(f"/events/{self.event.pk}/", response.url)
+
+    def test_staff_message_reports_the_status_the_sync_just_recorded(self, _sync):
+        """The sync marks a separately locked row paid; the response must
+        not report the caller's stale in-memory "Pending"."""
+        tx = self._tx()
+        _sync.side_effect = lambda obj: PaymentTransaction.objects.filter(
+            pk=obj.pk
+        ).update(status=PaymentTransaction.Status.PAID)
+        staff, _ = _member("staff3@crush.lu")
+        User.objects.filter(pk=staff.pk).update(is_staff=True)
+        self.client.force_login(staff)
+        response = self.client.get(
+            "/payments/sumup/return/", {"ref": tx.transaction_reference}
+        )
+        texts = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertEqual(
+            texts,
+            ["This checkout belongs to another member. Payment status: Paid."],
+        )
 
     def test_other_member_is_still_refused(self, _sync):
         tx = self._tx()

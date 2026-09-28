@@ -1745,22 +1745,41 @@ def start_resend_cooldown_display(request, email):
     request.session["resend_verification_cooldown_hash"] = _email_digest(email)
 
 
+# How long the social pre_login hold may rewrite its account's address. The
+# session itself lives for weeks; a shared device must not inherit this.
+SOCIAL_ADDRESS_REWRITE_WINDOW_SECONDS = getattr(
+    settings, "CRUSH_SOCIAL_ADDRESS_REWRITE_WINDOW_SECONDS", 30 * 60
+)
+
+
+def _drop_social_hold(request):
+    request.session.pop("pending_verification_user_id", None)
+    request.session.pop("pending_verification_user_id_at", None)
+
+
 def _held_social_user_id(request):
     """The social pre_login hold's user id, only while it still owns the
     session's pending address (an unverified row of that user). A stale id
     (another signup or login in the same browser since) is dropped, so it
-    can never rewrite a different account than the one being verified."""
+    can never rewrite a different account than the one being verified.
+    So is one older than SOCIAL_ADDRESS_REWRITE_WINDOW_SECONDS, or without
+    an issued-at (a hold that was already used is cleared)."""
     from allauth.account.models import EmailAddress
 
     user_id = request.session.get("pending_verification_user_id")
     if not user_id:
+        return None
+    issued_at = request.session.get("pending_verification_user_id_at")
+    age = timezone.now().timestamp() - (issued_at or 0)
+    if not issued_at or not 0 <= age <= SOCIAL_ADDRESS_REWRITE_WINDOW_SECONDS:
+        _drop_social_hold(request)
         return None
     email = request.session.get("pending_verification_email") or ""
     if EmailAddress.objects.filter(
         user_id=user_id, email__iexact=email, verified=False
     ).exists():
         return user_id
-    request.session.pop("pending_verification_user_id", None)
+    _drop_social_hold(request)
     return None
 
 
@@ -1787,6 +1806,13 @@ def _replace_pending_social_address(request, typed_email):
         validate_email(typed_email)
     except ValidationError:
         return None
+    # validate_email allows 320 characters; the columns are varchar(254), so
+    # a longer address would raise DataError (a 500) on Postgres at the save.
+    if len(typed_email) > min(
+        User._meta.get_field("email").max_length,
+        EmailAddress._meta.get_field("email").max_length,
+    ):
+        return None
     with transaction.atomic():
         user = User.objects.select_for_update().filter(pk=user_id).first()
         if (
@@ -1810,9 +1836,12 @@ def _replace_pending_social_address(request, typed_email):
         pending.delete()
         user.email = typed_email
         user.save(update_fields=["email"])
-        return EmailAddress.objects.create(
+        address = EmailAddress.objects.create(
             user=user, email=typed_email, primary=True, verified=False
         )
+    # One rewrite per provider login: the authorization is spent.
+    _drop_social_hold(request)
+    return address
 
 
 @require_http_methods(["POST"])
