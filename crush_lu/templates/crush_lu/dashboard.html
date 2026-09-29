@@ -30,7 +30,7 @@
         </p>
         {% endif %}
     </div>
-    <a href="{% url 'crush_lu:account_settings' %}" class="inline-flex items-center justify-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0 text-sm" aria-label="{% trans "Settings" %}">
+    <a href="{% url 'crush_lu:edit_profile' %}?section=account" class="inline-flex items-center justify-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0 text-sm" aria-label="{% trans "Settings" %}">
         {% include "shared/icons/cog.html" with class="w-4 h-4 sm:w-5 sm:h-5" %}
         <span class="hidden sm:inline">{% trans "Settings" %}</span>
     </a>
@@ -392,7 +392,7 @@ prompt_install_eligible (approved profile or a first booking) holds.
                     {% include "shared/icons/check-circle.html" with class="w-4 h-4 inline mr-1" %}
                     <strong>{% trans "App installed!" %}</strong>
                 </div>
-                <a href="{% url 'crush_lu:account_settings' %}#push-notifications" class="btn-crush-outline inline-flex items-center gap-2 text-xs sm:text-sm">{% include "shared/icons/bell.html" with class="w-4 h-4" %} {% trans "Notification Settings" %}</a>
+                <a href="{% url 'crush_lu:edit_profile' %}?section=account&sub=notifications#push-notifications" class="btn-crush-outline inline-flex items-center gap-2 text-xs sm:text-sm">{% include "shared/icons/bell.html" with class="w-4 h-4" %} {% trans "Notification Settings" %}</a>
             </div>
             <div x-show="canInstallVisible" x-cloak>
                 <h2 class="font-semibold text-base sm:text-lg mb-2">{% trans "📲 Install Crush.lu" %}</h2>

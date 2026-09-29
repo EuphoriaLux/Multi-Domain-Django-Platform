@@ -651,7 +651,7 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
                         return f"/{lang}/onboarding/"
                 except Exception:
                     pass
-            return "/account/settings/"
+            return "/profile/edit/?section=account&sub=settings"
         elif _is_delegation_domain(request):
             return "/account/settings/"
         else:

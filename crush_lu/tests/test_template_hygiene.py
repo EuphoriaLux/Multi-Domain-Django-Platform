@@ -75,7 +75,6 @@ def test_no_csrf_token_read_from_cookie():
 #: that silently does nothing in the browser.
 CSP_ALPINE_DEBT = {
     "admin/crush_lu/email_template_manager.html",
-    "crush_lu/account_settings.html",
     "crush_lu/changelog/list.html",
     "crush_lu/partials/edit_account_notifications.html",
 }

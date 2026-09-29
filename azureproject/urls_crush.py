@@ -126,9 +126,12 @@ def quiz_display_language_redirect(request, event_id):
 # These include health checks, API endpoints, authentication, SEO files, and PWA files
 urlpatterns = (
     [
-        # Redirect bare allauth account pages to the styled crush.lu settings page
-        path("accounts/", lambda req: redirect("/account/settings/")),
-        path("accounts/email/", lambda req: redirect("/account/settings/")),
+        # Redirect bare allauth account pages to the crush.lu account drill-down
+        path("accounts/", lambda req: redirect("/profile/edit/?section=account")),
+        path(
+            "accounts/email/",
+            lambda req: redirect("/profile/edit/?section=account&sub=settings"),
+        ),
         # Redirect allauth's generic signup to the crush.lu signup view so GDPR
         # consent (crushlu_consent / marketing_consent) is always captured
         path("accounts/signup/", lambda req: redirect("/signup/")),
