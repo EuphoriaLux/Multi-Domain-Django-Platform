@@ -42,17 +42,57 @@ jobs:
         run: pip install pip-audit
 
       - name: Run pip-audit
+        shell: bash
         run: |
+          set -uo pipefail
           echo "🔍 Scanning Python dependencies for vulnerabilities..."
-          # PYSEC-2025-183 (PyJWT weak-key advisory) is disputed by PyJWT maintainers
-          # and has no fix version available. PyJWT==2.12.1 is already the latest release
-          # and was pinned to resolve CVE-2026-32597. Ignored until a patched release exists.
-          pip-audit -r requirements.txt --desc on --fix --dry-run \
-            --ignore-vuln PYSEC-2025-183 || {
+          log="$RUNNER_TEMP/pip-audit.log"
+
+          # A PyPI/OSV outage (e.g. "503 Backend is unhealthy") makes pip-audit crash
+          # with pip_audit._service.interface.ServiceError before any audit runs, and
+          # it exits non-zero just like a real finding. Retry those with backoff on
+          # PyPI, then fall back to OSV, and only report findings pip-audit printed.
+          run_audit() {
+            # PYSEC-2025-183 (PyJWT weak-key advisory) is disputed by PyJWT maintainers
+            # and has no fix version available. PyJWT==2.12.1 is already the latest release
+            # and was pinned to resolve CVE-2026-32597. Ignored until a patched release exists.
+            pip-audit -r requirements.txt --desc on --fix --dry-run \
+              --ignore-vuln PYSEC-2025-183 \
+              --vulnerability-service "$1" 2>&1 | tee "$log"
+          }
+          is_service_error() {
+            grep -qE 'ServiceError|ConnectionError|ReadTimeout' "$log"
+          }
+
+          rc=1
+          for service in pypi osv; do
+            [ "$service" = pypi ] && attempts=3 || attempts=2
+            for attempt in $(seq 1 "$attempts"); do
+              echo "── pip-audit ($service, attempt $attempt/$attempts) ──"
+              rc=0
+              run_audit "$service" || rc=$?
+              if [ "$rc" -eq 0 ] || ! is_service_error; then
+                break 2
+              fi
+              echo "::warning::pip-audit hit a $service service error (attempt $attempt/$attempts)"
+              if [ "$attempt" -lt "$attempts" ]; then
+                sleep $((15 * attempt))
+              fi
+            done
+          done
+
+          if [ "$rc" -eq 0 ]; then
+            echo "✅ No known vulnerabilities in dependencies"
+          elif is_service_error; then
+            echo "::error::Vulnerability services (PyPI and OSV) unavailable — no audit ran. Re-run the job later."
+            exit 1
+          elif grep -qE 'Found [0-9]+ known vulnerabilit' "$log"; then
             echo "⚠️ Vulnerabilities found! Review above output."
             exit 1
-          }
-          echo "✅ No known vulnerabilities in dependencies"
+          else
+            echo "::error::pip-audit failed (exit $rc) without reporting vulnerabilities. Review above output."
+            exit 1
+          fi
 
   # Static Application Security Testing (SAST) for Python
   sast-scan:
