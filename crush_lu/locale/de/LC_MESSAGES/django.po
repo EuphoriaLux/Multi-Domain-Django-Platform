@@ -43865,6 +43865,10 @@ msgid "Review the pool and generate groups"
 msgstr "Bewerbungen prüfen und Gruppen bilden"
 
 
+msgid "Review applications and select participants"
+msgstr "Bewerbungen prüfen und Teilnehmende auswählen"
+
+
 msgid "Review the draft groups"
 msgstr "Gruppenentwurf prüfen"
 

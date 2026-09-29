@@ -364,6 +364,15 @@ class CuratedGroupSurfaceTests(TestCase):
         self.assertContains(response, "Curated groups · applications closed")
         self.assertNotContains(response, "Curated groups · applications open")
 
+    def test_cancelled_event_does_not_claim_group_review_is_underway(self):
+        MeetupEvent.objects.filter(pk=self.curated.pk).update(is_cancelled=True)
+
+        response = self._detail(self.curated)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Applications closed")
+        self.assertNotContains(response, "The organiser is reviewing group options.")
+
 
 class CuratedMemberInsightTests(TestCase):
     """Coarse, viewer-only insights on the member event page.
@@ -679,6 +688,8 @@ class CuratedMemberInsightTests(TestCase):
         )
         self.assertContains(response, 'data-curated-member-group="provisional"')
         self.assertContains(response, "Your group is provisional.")
+        self.assertContains(response, "Applications closed")
+        self.assertNotContains(response, "The organiser is reviewing group options.")
         self.assertContains(
             response,
             "You are in a group of 6 people; 5 rounds are planned; everyone gets at least 5 mini-dates.",
@@ -717,6 +728,8 @@ class CuratedMemberInsightTests(TestCase):
         )
         self.assertContains(response, 'data-curated-member-group="locked"')
         self.assertContains(response, "Your group is final.")
+        self.assertContains(response, "Applications closed")
+        self.assertNotContains(response, "The organiser is reviewing group options.")
         self.assertContains(response, "data-curated-own-tables")
         for participant in own:
             self.assertContains(

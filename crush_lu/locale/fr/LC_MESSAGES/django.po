@@ -44019,6 +44019,10 @@ msgid "Review the pool and generate groups"
 msgstr "Examiner les candidatures et créer les groupes"
 
 
+msgid "Review applications and select participants"
+msgstr "Examiner les candidatures et sélectionner les participant·es"
+
+
 msgid "Review the draft groups"
 msgstr "Examiner les groupes provisoires"
 

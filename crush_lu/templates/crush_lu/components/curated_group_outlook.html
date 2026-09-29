@@ -23,7 +23,11 @@ False) for anonymous viewers. The steps below are general to every viewer.
     {% endif %}
     <p class="text-sm sm:text-base text-gray-700 dark:text-gray-200">
         {% if not outlook.application_open %}
-            {% trans "Applications have closed. The organiser is reviewing group options." %}
+            {% if outlook.group or event.is_cancelled %}
+                {% trans "Applications closed" %}
+            {% else %}
+                {% trans "Applications have closed. The organiser is reviewing group options." %}
+            {% endif %}
         {% elif outlook.interest_state == "exploring" %}
             {% trans "The overall application pool is large enough to explore group combinations." %}
         {% else %}

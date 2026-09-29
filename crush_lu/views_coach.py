@@ -2487,11 +2487,11 @@ def coach_edit_challenge(request, challenge_id):
     return render(request, "crush_lu/coach_edit_challenge.html", context)
 
 
-def _attach_registration_stats(events):
+def _attach_registration_stats(events, *, statuses=SEAT_HOLDING_STATUSES):
     """Attach gender_stats, avg_age, and per-gender avg ages to each event."""
     for event in events:
         regs = EventRegistration.objects.filter(
-            event=event, status__in=SEAT_HOLDING_STATUSES
+            event=event, status__in=statuses
         ).select_related("user__crushprofile")
 
         gender_counts = {"M": 0, "F": 0, "other": 0}
@@ -2532,6 +2532,7 @@ def _attach_curated_event_overview(events, now):
         NEXT_ACTION_LABELS,
         NEXT_CANCELLED,
         NEXT_PAST_START_UNGENERATED,
+        NEXT_START,
         _stage,
     )
 
@@ -2585,13 +2586,17 @@ def _attach_curated_event_overview(events, now):
             event.coach_next_step = (
                 _("Wait for applications to close")
                 if now < event.registration_deadline
-                else _("Review the pool and generate groups")
+                else (
+                    _("Review the pool and generate groups")
+                    if event.group_size
+                    else _("Review applications and select participants")
+                )
             )
         else:
             event.coach_next_step = {
                 "draft": _("Review the draft groups"),
                 "provisional": _("Track invitations and payments"),
-                "locked": _("Prepare check-in"),
+                "locked": NEXT_ACTION_LABELS[NEXT_START],
                 "started": _("Rounds underway"),
                 "degraded": _("Repair the group"),
             }[event.coach_group_stage]
@@ -2671,7 +2676,7 @@ def coach_event_list(request):
     past_events = (boundary_past + older_past)[:10]
 
     _attach_registration_stats(upcoming_events)
-    _attach_registration_stats(past_events)
+    _attach_registration_stats(past_events, statuses=("attended",))
     _attach_curated_event_overview(upcoming_events, now)
 
     context = {
@@ -2729,12 +2734,12 @@ def coach_event_detail(request, event_id):
     # Gender pool stats — one entry per active pool, shown as summary pills
     gender_pool_stats = None
     if event.gender_limits_active:
-        pool_confirmed_counts = {}
-        for r in all_confirmed:
+        pool_held_counts = {}
+        for r in seat_holders:
             gender = getattr(getattr(r.user, "crushprofile", None), "gender", None)
             pool = event.get_gender_pool(gender) if gender else None
             if pool:
-                pool_confirmed_counts[pool] = pool_confirmed_counts.get(pool, 0) + 1
+                pool_held_counts[pool] = pool_held_counts.get(pool, 0) + 1
         pool_waitlist_counts = {p: c for p, c in pool_counters.items() if p}
         gender_pool_stats = [
             entry
@@ -2743,7 +2748,7 @@ def coach_event_detail(request, event_id):
                     "key": "m",
                     "symbol": "♂",
                     "label": _("Male"),
-                    "confirmed": pool_confirmed_counts.get("m", 0),
+                    "held": pool_held_counts.get("m", 0),
                     "waitlist": pool_waitlist_counts.get("m", 0),
                     "limit": event.max_participants_m,
                 },
@@ -2751,7 +2756,7 @@ def coach_event_detail(request, event_id):
                     "key": "f",
                     "symbol": "♀",
                     "label": _("Female"),
-                    "confirmed": pool_confirmed_counts.get("f", 0),
+                    "held": pool_held_counts.get("f", 0),
                     "waitlist": pool_waitlist_counts.get("f", 0),
                     "limit": event.max_participants_f,
                 },
@@ -2759,7 +2764,7 @@ def coach_event_detail(request, event_id):
                     "key": "nb",
                     "symbol": "⚬",
                     "label": _("Non-binary"),
-                    "confirmed": pool_confirmed_counts.get("nb", 0),
+                    "held": pool_held_counts.get("nb", 0),
                     "waitlist": pool_waitlist_counts.get("nb", 0),
                     "limit": event.max_participants_nb,
                 },

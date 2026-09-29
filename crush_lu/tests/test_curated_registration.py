@@ -155,6 +155,30 @@ class CuratedSignupTests(CuratedRegistrationTestBase):
         self.assertContains(direct, "Register for Event")
         self.assertContains(direct, "Confirm Registration")
 
+    def test_invalid_htmx_application_keeps_application_copy_on_retry(self):
+        self._login(self.user)
+
+        response = self.client.post(
+            self._register_url(self.curated),
+            {"preferred_age_min": "not-a-number", "preferred_age_max": "25"},
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "crush_lu/_event_registration_form.html")
+        self.assertContains(response, "Submit Application")
+        self.assertNotContains(response, "Confirm Registration")
+        self.assertNotContains(response, "Join Waitlist")
+        self.assertNotContains(response, "registration-waitlist-warning")
+
+        corrected = self.client.post(
+            self._register_url(self.curated),
+            {"preferred_age_min": "25", "preferred_age_max": "40"},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(corrected.status_code, 200)
+        self.assertTemplateUsed(corrected, "crush_lu/_event_registration_success.html")
+
     def test_signup_lands_as_applied(self):
         from crush_lu.models import EventRegistration
 

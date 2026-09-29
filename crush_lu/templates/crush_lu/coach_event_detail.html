@@ -413,9 +413,9 @@ comes next.
     <div class="flex flex-wrap gap-2 mb-4">
         {% for pool in gender_pool_stats %}
         <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border
-            {% if pool.confirmed >= pool.limit %}bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 text-red-700 dark:text-red-300{% else %}bg-gray-50 dark:bg-gray-700/60 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300{% endif %}">
+            {% if pool.held >= pool.limit %}bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 text-red-700 dark:text-red-300{% else %}bg-gray-50 dark:bg-gray-700/60 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300{% endif %}">
             <span class="text-sm leading-none">{{ pool.symbol }}</span>
-            <span class="font-bold">{{ pool.confirmed }}/{{ pool.limit }}</span>
+            <span class="font-bold">{{ pool.held }}/{{ pool.limit }}</span>
             <span class="opacity-70">{{ pool.label }}</span>
         </span>
         {% endfor %}

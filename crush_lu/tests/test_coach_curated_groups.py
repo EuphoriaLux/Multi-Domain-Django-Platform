@@ -296,6 +296,86 @@ class CoachCuratedGroupsPanelTests(TestCase):
         self.assertContains(listing, "Places held")
         self.assertNotContains(listing, "Payment due")
 
+    def test_gender_pool_capacity_includes_pending_payments(self):
+        event = self.make_event(
+            registration_mode="direct",
+            group_size=None,
+            planned_groups=None,
+            max_participants_m=1,
+            max_participants_f=1,
+            max_participants_nb=0,
+        )
+        pending = self.make_applicant(event, 0, gender="M")
+        EventRegistration.objects.filter(pk=pending.pk).update(status="pending")
+
+        response = self.page(event, status="all")
+
+        male_pool = next(
+            pool for pool in response.context["gender_pool_stats"] if pool["key"] == "m"
+        )
+        self.assertEqual(male_pool["held"], 1)
+        self.assertContains(response, "1/1")
+        self.assertEqual(response.context["confirmed_count"], 0)
+
+    def test_legacy_curated_list_uses_manual_selection_next_step(self):
+        event = self.make_event(group_size=None, planned_groups=None)
+        self.make_applicant(event, 0)
+
+        response = self.client.get("/en/coach/events/")
+
+        self.assertEqual(response.status_code, 200)
+        card = next(
+            item for item in response.context["upcoming_events"] if item.pk == event.pk
+        )
+        self.assertEqual(
+            card.coach_next_step, "Review applications and select participants"
+        )
+        self.assertNotContains(response, "Review the pool and generate groups")
+
+    def test_past_event_demographics_count_only_attendees(self):
+        event = self.make_event(
+            registration_mode="direct",
+            group_size=None,
+            planned_groups=None,
+            date_time=timezone.now() - timedelta(days=7),
+            registration_deadline=timezone.now() - timedelta(days=8),
+        )
+        attended = self.make_applicant(event, 0, gender="M")
+        confirmed = self.make_applicant(event, 1, gender="F")
+        EventRegistration.objects.filter(pk=attended.pk).update(status="attended")
+        EventRegistration.objects.filter(pk=confirmed.pk).update(status="confirmed")
+
+        response = self.client.get("/en/coach/events/")
+
+        self.assertEqual(response.status_code, 200)
+        card = next(
+            item for item in response.context["past_events"] if item.pk == event.pk
+        )
+        self.assertEqual(card.attended_count_annotated, 1)
+        self.assertEqual(card.gender_stats, {"M": 1, "F": 0, "other": 0})
+        self.assertIsNone(card.avg_age_f)
+
+    def test_locked_list_names_start_action_after_check_in(self):
+        event = self.make_event()
+        self.certify(event)
+        EventRegistration.objects.filter(event=event).update(
+            status="attended", payment_confirmed=True, payment_date=timezone.now()
+        )
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            date_time=timezone.now() - timedelta(minutes=10)
+        )
+        event.refresh_from_db()
+        lock_current_generation(event, actor=self.coach)
+
+        response = self.client.get("/en/coach/events/")
+
+        self.assertEqual(response.status_code, 200)
+        card = next(
+            item for item in response.context["upcoming_events"] if item.pk == event.pk
+        )
+        self.assertEqual(card.coach_next_step, NEXT_ACTION_LABELS["start"])
+        self.assertNotContains(response, "Prepare check-in")
+
     # -- stages -------------------------------------------------------------
 
     def test_stage_none_before_deadline_waits_and_previews_the_pool(self):
