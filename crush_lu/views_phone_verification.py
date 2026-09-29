@@ -107,14 +107,14 @@ def mark_phone_verified(request):
         logger.warning(f"Invalid JSON in phone verification request: {e}")
         return JsonResponse({
             "success": False,
-            "error": "Invalid JSON format"
+            "error": _("Invalid JSON format")
         }, status=400)
 
     id_token = (payload.get("idToken") or "").strip()
     if not id_token:
         return JsonResponse({
             "success": False,
-            "error": "idToken is required"
+            "error": _("idToken is required")
         }, status=400)
 
     try:
@@ -129,7 +129,7 @@ def mark_phone_verified(request):
             )
             return JsonResponse({
                 "success": False,
-                "error": "Token does not contain a verified phone number"
+                "error": _("Token does not contain a verified phone number")
             }, status=400)
 
         # Get Firebase UID for audit trail
@@ -223,7 +223,7 @@ def mark_phone_verified(request):
         logger.error("Phone verification failed for user %s: %s", request.user.id, type(e).__name__)
         return JsonResponse({
             "success": False,
-            "error": "Phone verification failed. Please try again."
+            "error": _("Phone verification failed. Please try again.")
         }, status=500)
 
 
@@ -247,10 +247,10 @@ def check_phone_available(request):
         data = json.loads(request.body)
         phone_number = data.get('phone_number', '').strip()
     except (json.JSONDecodeError, AttributeError):
-        return JsonResponse({"available": False, "error": "Invalid request"}, status=400)
+        return JsonResponse({"available": False, "error": _("Invalid request")}, status=400)
 
     if not phone_number:
-        return JsonResponse({"available": False, "error": "Phone number is required"}, status=400)
+        return JsonResponse({"available": False, "error": _("Phone number is required")}, status=400)
 
     # Normalize: remove spaces/dashes for comparison
     import re
@@ -342,7 +342,7 @@ def send_whatsapp_otp(request):
     try:
         payload = json.loads(request.body.decode("utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError):
-        return JsonResponse({"success": False, "error": "Invalid JSON format"}, status=400)
+        return JsonResponse({"success": False, "error": _("Invalid JSON format")}, status=400)
 
     phone_number = _canonicalize_phone(payload.get("phone_number", ""))
     if not phone_number:
@@ -431,7 +431,7 @@ def verify_whatsapp_otp(request):
     try:
         payload = json.loads(request.body.decode("utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError):
-        return JsonResponse({"success": False, "error": "Invalid JSON format"}, status=400)
+        return JsonResponse({"success": False, "error": _("Invalid JSON format")}, status=400)
 
     code = (payload.get("code") or "").strip()
     if not code:

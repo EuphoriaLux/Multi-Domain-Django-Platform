@@ -18724,27 +18724,6 @@ msgstr ""
 msgid "Just like on Crush.lu — real connections happen when you show up!"
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\includes\ghost-story-section.html:152
-msgid "Find Your Match"
-msgstr ""
-
-#: .\crush_lu\templates\crush_lu\includes\ghost-story-section.html:168
-msgid "Previous scene"
-msgstr ""
-
-#: .\crush_lu\templates\crush_lu\includes\ghost-story-section.html:176
-#: .\crush_lu\templates\crush_lu\includes\ghost-story-section.html:177
-#: .\crush_lu\templates\crush_lu\includes\ghost-story-section.html:178
-#: .\crush_lu\templates\crush_lu\includes\ghost-story-section.html:179
-#: .\crush_lu\templates\crush_lu\includes\ghost-story-section.html:180
-#: .\crush_lu\templates\crush_lu\includes\ghost-story-section.html:181
-msgid "Scene"
-msgstr ""
-
-#: .\crush_lu\templates\crush_lu\includes\ghost-story-section.html:190
-msgid "Next scene"
-msgstr ""
-
 #: .\crush_lu\templates\crush_lu\invitation_accept_form.html:4
 #: .\crush_lu\templates\crush_lu\invitation_landing.html:223
 msgid "Accept Invitation"
@@ -19136,8 +19115,11 @@ msgid "%(points)s points available"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\multiple_choice.html:44
-msgid "You already answered this question and earned <strong>"
-msgstr ""
+#, python-format
+msgid "You already answered this question and earned <strong>%(points)s point</strong>."
+msgid_plural "You already answered this question and earned <strong>%(points)s points</strong>."
+msgstr[0] ""
+msgstr[1] ""
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\multiple_choice.html:49
 msgid "Answer options"
@@ -19228,8 +19210,11 @@ msgid "Riddle Challenge"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\riddle.html:46
-msgid "You already solved this riddle and earned <strong>"
-msgstr ""
+#, python-format
+msgid "You already solved this riddle and earned <strong>%(points)s point</strong>."
+msgid_plural "You already solved this riddle and earned <strong>%(points)s points</strong>."
+msgstr[0] ""
+msgstr[1] ""
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\riddle.html:52
 #: .\crush_lu\templates\crush_lu\journey\challenges\word_scramble.html:66
@@ -19270,8 +19255,11 @@ msgid "Timeline Challenge"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\timeline_sort.html:44
-msgid "You already sorted this timeline correctly and earned <strong>"
-msgstr ""
+#, python-format
+msgid "You already sorted this timeline correctly and earned <strong>%(points)s point</strong>."
+msgid_plural "You already sorted this timeline correctly and earned <strong>%(points)s points</strong>."
+msgstr[0] ""
+msgstr[1] ""
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\timeline_sort.html:57
 msgid "Sortable timeline events"
@@ -19294,8 +19282,11 @@ msgid "Shuffle"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\word_scramble.html:60
-msgid "You already unscrambled this word and earned <strong>"
-msgstr ""
+#, python-format
+msgid "You already unscrambled this word and earned <strong>%(points)s point</strong>."
+msgid_plural "You already unscrambled this word and earned <strong>%(points)s points</strong>."
+msgstr[0] ""
+msgstr[1] ""
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\word_scramble.html:74
 msgid "Type the unscrambled word..."
@@ -19310,8 +19301,11 @@ msgid "Great choice!"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\would_you_rather.html:43
-msgid "You've already shared your choice and earned <strong>"
-msgstr ""
+#, python-format
+msgid "You've already shared your choice and earned <strong>%(points)s point</strong>."
+msgid_plural "You've already shared your choice and earned <strong>%(points)s points</strong>."
+msgstr[0] ""
+msgstr[1] ""
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\would_you_rather.html:52
 msgid "Choose an option"
@@ -26938,11 +26932,6 @@ msgid ""
 msgstr ""
 "Sent {sent} cancellation email(s); {remaining} remain. Rerun this action to "
 "continue."
-
-msgid ""
-"No payment was recorded for this registration, so no Crush Credit is due."
-msgstr ""
-"No payment was recorded for this registration, so no Crush Credit is due."
 
 msgid ""
 "No payment was recorded for this registration, so no Crush Credit is due."
