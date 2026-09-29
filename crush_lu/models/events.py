@@ -144,6 +144,9 @@ class MeetupEventQuerySet(models.QuerySet):
             applied_count_annotated=Count(
                 "eventregistration", filter=Q(eventregistration__status="applied")
             ),
+            attended_count_annotated=Count(
+                "eventregistration", filter=Q(eventregistration__status="attended")
+            ),
         )
 
 

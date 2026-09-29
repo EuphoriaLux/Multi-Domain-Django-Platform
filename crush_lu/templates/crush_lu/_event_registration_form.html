@@ -10,13 +10,13 @@
     {% csrf_token %}
 
     {% comment %}
-    This partial *is* the swap, so it carries the warning too. Rendering only
-    the button here let the banner above go on describing the capacity at page
-    load: a cancellation in between left "Your gender group is full" above a
-    "Confirm Registration" button, and a pool filling up left "Join Waitlist"
-    with nothing explaining it. One render now produces both.
+    For direct registration this partial carries the capacity warning as well
+    as the button, so an invalid submit cannot leave stale capacity copy
+    outside the swapped form. Curated applications have no waitlist warning.
     {% endcomment %}
-    {% include "crush_lu/components/registration_waitlist_warning.html" %}
+    {% if not event.uses_curated_registration %}
+        {% include "crush_lu/components/registration_waitlist_warning.html" %}
+    {% endif %}
 
     {% if form.non_field_errors %}
         <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 rounded-lg p-4 mb-4">
@@ -63,7 +63,11 @@
     {% if requires_age_confirmation and form.age_confirmation %}
     <div class="bg-amber-50 dark:bg-yellow-900/20 border border-amber-200 dark:border-yellow-700 rounded-lg p-4 mb-4">
         <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">
-            {% trans "Since your profile is not yet verified, please confirm your age to register for this event." %}
+            {% if event.uses_curated_registration %}
+                {% trans "Please confirm your age to apply for this event." %}
+            {% else %}
+                {% trans "Since your profile is not yet verified, please confirm your age to register for this event." %}
+            {% endif %}
         </p>
         <div class="flex items-center gap-3">
             {{ form.age_confirmation }}
@@ -95,7 +99,9 @@
                 the top of this same partial is rendered from the same outlook,
                 so label and banner always agree.
                 {% endcomment %}
-                {% if registration_will_waitlist %}
+                {% if event.uses_curated_registration %}
+                    {% trans "Submit Application" %}
+                {% elif registration_will_waitlist %}
                     {% trans "Join Waitlist" %}
                 {% else %}
                     {% trans "Confirm Registration" %}

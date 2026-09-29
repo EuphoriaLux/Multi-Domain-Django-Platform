@@ -8,11 +8,28 @@ or a claim that headcount alone makes a group viable.
 
 `outlook.viewer_match` is a bucket name, never a count, and the two social
 proof flags are booleans above documented thresholds. Both are absent (None /
-False) for anonymous viewers, who get the card exactly as before.
+False) for anonymous viewers. The application steps appear only before a
+viewer has applied.
 {% endcomment %}
 <div data-curated-group-outlook class="ml-7 space-y-3">
+    {% if not outlook.group and not outlook.already_applied and outlook.application_open %}
+    <div class="rounded-lg border border-purple-200 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 p-3">
+        <p class="font-semibold text-sm text-purple-900 dark:text-purple-200">{% if event.registration_fee > 0 %}{% trans "Apply for a place — no payment now" %}{% else %}{% trans "Apply for a place" %}{% endif %}</p>
+        <ol class="mt-2 space-y-1 text-sm text-purple-900 dark:text-purple-200">
+            <li><strong>1.</strong> {% blocktrans with deadline=event.registration_deadline|date:"DATETIME_FORMAT" %}Apply by {{ deadline }}; applying does not reserve a place.{% endblocktrans %}</li>
+            <li><strong>2.</strong> {% trans "After applications close, we form groups around mutual preferences." %}</li>
+            <li><strong>3.</strong> {% if event.registration_fee > 0 %}{% trans "If selected for a viable group, you will be invited to pay to confirm." %}{% else %}{% trans "If selected for a viable group, we will confirm your place separately." %}{% endif %}</li>
+        </ol>
+    </div>
+    {% endif %}
     <p class="text-sm sm:text-base text-gray-700 dark:text-gray-200">
-        {% if outlook.interest_state == "exploring" %}
+        {% if not outlook.application_open %}
+            {% if outlook.group or event.is_cancelled %}
+                {% trans "Applications closed" %}
+            {% else %}
+                {% trans "Applications have closed. The organiser is reviewing group options." %}
+            {% endif %}
+        {% elif outlook.interest_state == "exploring" %}
             {% trans "The overall application pool is large enough to explore group combinations." %}
         {% else %}
             {% trans "Applications are open and the overall pool is still building." %}
@@ -40,7 +57,9 @@ False) for anonymous viewers, who get the card exactly as before.
     </ul>
     {% endif %}
 
-    <div class="rounded-lg border border-purple-200 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 p-3 text-sm text-purple-900 dark:text-purple-200">
+    <details class="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+    <summary class="cursor-pointer font-medium text-sm text-crush-purple dark:text-purple-400">{% trans "How flexible groups work" %}</summary>
+    <div class="mt-3 text-sm text-gray-700 dark:text-gray-200">
         {% if outlook.group_size %}
             <p>{% blocktrans with size=outlook.group_size %}Groups are designed for around {{ size }} people.{% endblocktrans %}</p>
             {% if outlook.planned_groups %}
@@ -71,4 +90,5 @@ False) for anonymous viewers, who get the card exactly as before.
             <li>{% trans "Groups are finalized before the first round and stay together for the whole evening." %}</li>
         </ul>
     {% endif %}
+    </details>
 </div>

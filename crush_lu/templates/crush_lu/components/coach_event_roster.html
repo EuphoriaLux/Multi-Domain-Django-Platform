@@ -1,0 +1,38 @@
+{% load i18n %}
+<section class="card p-4 sm:p-5 mb-8" data-coach-event-roster>
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+        <h3 class="font-semibold dark:text-white">{% trans "Payment and attendance" %}</h3>
+        <span class="text-sm text-gray-500 dark:text-gray-400">{% blocktrans count count=rows|length %}{{ count }} registration{% plural %}{{ count }} registrations{% endblocktrans %}</span>
+    </div>
+    <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">{% trans "Payment and check-in are tracked separately. An application is not a confirmed place." %}</p>
+    {% if rows %}
+    <div class="space-y-3 md:hidden">
+        {% for row in rows %}
+        {% with reg=row.registration %}
+        <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+            <a href="{% url 'crush_lu:coach_member_overview' reg.user_id %}" class="font-semibold text-crush-purple dark:text-purple-400">{% with profile=reg.user.crushprofile %}{% if profile %}{{ profile.display_name }}{% else %}{{ reg.user.first_name|default:reg.user.username }}{% endif %}{% endwith %}</a>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ reg.get_status_display }}</p>
+            <dl class="grid grid-cols-2 gap-2 mt-3 text-sm">
+                <div><dt class="text-xs text-gray-500 dark:text-gray-400">{% trans "Payment" %}</dt><dd class="font-medium dark:text-white">{{ row.payment }}</dd></div>
+                <div><dt class="text-xs text-gray-500 dark:text-gray-400">{% trans "Attendance" %}</dt><dd class="font-medium dark:text-white">{{ row.arrival }}</dd></div>
+            </dl>
+        </div>
+        {% endwith %}
+        {% endfor %}
+    </div>
+    <div class="hidden md:block overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead><tr class="border-b border-gray-200 dark:border-gray-700 text-left text-gray-500 dark:text-gray-400"><th class="py-2 pr-4">{% trans "Member" %}</th><th class="py-2 pr-4">{% trans "Registration" %}</th><th class="py-2 pr-4">{% trans "Payment" %}</th><th class="py-2">{% trans "Attendance" %}</th></tr></thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for row in rows %}
+                {% with reg=row.registration %}
+                <tr><td class="py-3 pr-4"><a href="{% url 'crush_lu:coach_member_overview' reg.user_id %}" class="font-medium text-crush-purple dark:text-purple-400">{% with profile=reg.user.crushprofile %}{% if profile %}{{ profile.display_name }}{% else %}{{ reg.user.first_name|default:reg.user.username }}{% endif %}{% endwith %}</a></td><td class="py-3 pr-4 dark:text-white">{{ reg.get_status_display }}</td><td class="py-3 pr-4 dark:text-white">{{ row.payment }}</td><td class="py-3 dark:text-white">{{ row.arrival }}</td></tr>
+                {% endwith %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "No registrations yet." %}</p>
+    {% endif %}
+</section>

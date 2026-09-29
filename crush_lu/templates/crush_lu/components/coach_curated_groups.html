@@ -9,7 +9,7 @@ panel (Django admin) and this partial only says which one comes next.
 This partial names other members, their gender and their age. It is included
 from a @coach_required page only and must never be reused on a member surface.
 {% endcomment %}
-<div data-curated-groups-panel class="mb-8">
+<div id="curated-groups-panel" data-curated-groups-panel class="mb-8">
     <div class="flex items-center gap-2 mb-3">
         <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 flex-shrink-0"></span>
         <h3 class="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">{% trans "Curated groups" %}</h3>
@@ -119,6 +119,10 @@ from a @coach_required page only and must never be reused on a member surface.
             </span>
         </div>
 
+        <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">
+            {% if event.registration_fee > 0 %}{% trans "Payment complete" %}: {{ group.payment_complete_count }} · {% trans "Payment due" %}: {{ group.payment_due_count }} · {% endif %}{% trans "Checked in" %}: {{ group.checked_in_count }} / {{ group.active_count }}
+        </p>
+
         <ul class="divide-y divide-gray-100 dark:divide-gray-700">
             {% for member in group.members %}
             <li class="py-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm {% if member.released %}text-gray-400 dark:text-gray-500 line-through{% else %}text-gray-800 dark:text-gray-100{% endif %}">
@@ -133,6 +137,7 @@ from a @coach_required page only and must never be reused on a member surface.
                     <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded">{% trans "Not Verified" %}</span>
                 {% endif %}
                 <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full {% if member.status == 'attended' or member.status == 'confirmed' %}bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300{% elif member.status == 'pending' %}bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300{% elif member.status == 'applied' %}bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300{% else %}bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300{% endif %}">{{ member.status_display }}</span>
+                {% if event.registration_fee > 0 %}<span class="text-xs {% if member.payment_confirmed %}text-green-700 dark:text-green-300{% elif member.status == 'pending' %}text-amber-700 dark:text-amber-300{% else %}text-gray-500 dark:text-gray-400{% endif %}">{% if member.payment_confirmed %}{% trans "Payment complete" %}{% elif member.status == 'pending' %}{% trans "Payment due" %}{% else %}{% trans "Payment not recorded" %}{% endif %}</span>{% endif %}
                 <span class="text-xs text-gray-500 dark:text-gray-400 ml-auto">{% blocktrans count counter=member.dates %}{{ counter }} mini-date{% plural %}{{ counter }} mini-dates{% endblocktrans %}</span>
                 {% if member.released %}<span class="text-xs">{% trans "Released" %}</span>{% endif %}
             </li>

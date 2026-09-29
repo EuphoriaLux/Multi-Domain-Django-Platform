@@ -136,14 +136,19 @@ class CuratedGroupSurfaceTests(TestCase):
                 "several_first_timers",
                 "mostly_verified",
                 "group",
+                "application_open",
+                "already_applied",
             },
         )
         self.assertEqual(outlook["interest_state"], "exploring")
         self.assertEqual(outlook["group_size"], 6)
         self.assertEqual(outlook["planned_groups"], 2)
+        self.assertFalse(outlook["already_applied"])
         self.assertNotIn("by_pool", outlook)
 
         self.assertContains(response, "Flexible groups")
+        self.assertContains(response, "How flexible groups work")
+        self.assertContains(response, "Apply by")
         self.assertContains(response, "Apply for This Event")
         self.assertContains(response, "Applying does not reserve a place.")
         self.assertContains(
@@ -162,6 +167,17 @@ class CuratedGroupSurfaceTests(TestCase):
         self.assertNotContains(response, "Spots remaining:")
         self.assertNotContains(response, "Men:")
         self.assertNotContains(response, "Women:")
+
+    def test_anonymous_curated_page_explains_application_before_login(self):
+        self.client.logout()
+
+        response = self._detail(self.curated)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Log in to apply")
+        self.assertContains(response, "There is no payment now")
+        self.assertContains(response, "How flexible groups work")
+        self.assertNotContains(response, "Confirm Registration")
 
     def test_organiser_only_pool_and_exact_shortage_cannot_reach_template(self):
         aggregate = {
@@ -252,6 +268,9 @@ class CuratedGroupSurfaceTests(TestCase):
         response = self._detail(self.curated)
 
         self.assertContains(response, "Your application is in!")
+        self.assertTrue(response.context["curated_group_outlook"]["already_applied"])
+        self.assertNotContains(response, "Apply for a place — no payment now")
+        self.assertNotContains(response, "Apply by")
         self.assertContains(
             response,
             "will invite you to pay only if you are selected for a viable provisional group",
@@ -290,12 +309,16 @@ class CuratedGroupSurfaceTests(TestCase):
         expectations = {
             "de": (
                 "Flexible Gruppen",
+                "So funktionieren flexible Gruppen",
+                "Bewirb dich um einen Platz — jetzt keine Zahlung",
                 "Deine Bewerbung reserviert keinen Platz.",
                 "Für diese Veranstaltung bewerben",
                 "mindestens fünf gegenseitig passende Mini-Dates pro Person",
             ),
             "fr": (
                 "Groupes flexibles",
+                "Comment fonctionnent les groupes flexibles",
+                "Candidatez pour une place — aucun paiement maintenant",
                 "Votre candidature ne réserve pas de place.",
                 "Postuler à cet événement",
                 "au moins cinq mini-rencontres mutuellement compatibles",
@@ -345,6 +368,15 @@ class CuratedGroupSurfaceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Curated groups · applications closed")
         self.assertNotContains(response, "Curated groups · applications open")
+
+    def test_cancelled_event_does_not_claim_group_review_is_underway(self):
+        MeetupEvent.objects.filter(pk=self.curated.pk).update(is_cancelled=True)
+
+        response = self._detail(self.curated)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Applications closed")
+        self.assertNotContains(response, "The organiser is reviewing group options.")
 
 
 class CuratedMemberInsightTests(TestCase):
@@ -661,6 +693,8 @@ class CuratedMemberInsightTests(TestCase):
         )
         self.assertContains(response, 'data-curated-member-group="provisional"')
         self.assertContains(response, "Your group is provisional.")
+        self.assertContains(response, "Applications closed")
+        self.assertNotContains(response, "The organiser is reviewing group options.")
         self.assertContains(
             response,
             "You are in a group of 6 people; 5 rounds are planned; everyone gets at least 5 mini-dates.",
@@ -699,6 +733,8 @@ class CuratedMemberInsightTests(TestCase):
         )
         self.assertContains(response, 'data-curated-member-group="locked"')
         self.assertContains(response, "Your group is final.")
+        self.assertContains(response, "Applications closed")
+        self.assertNotContains(response, "The organiser is reviewing group options.")
         self.assertContains(response, "data-curated-own-tables")
         for participant in own:
             self.assertContains(

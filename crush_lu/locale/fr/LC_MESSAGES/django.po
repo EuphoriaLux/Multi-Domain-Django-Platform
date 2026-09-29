@@ -43896,3 +43896,234 @@ msgstr "~%(minutes)s min"
 #: crush_lu/templates/crush_lu/advent/calendar.html
 msgid "December %(year)s"
 msgstr "Décembre %(year)s"
+msgid "Invited / holding a place"
+msgstr "Invité·es / place réservée"
+
+
+msgid "Payment complete"
+msgstr "Paiement effectué"
+
+
+msgid "Group status"
+msgstr "État des groupes"
+
+
+msgid "View group details"
+msgstr "Voir les détails des groupes"
+
+
+msgid "Members you coached at this event"
+msgstr "Membres que vous avez accompagnés pour cet événement"
+
+
+msgid "Applied or registered"
+msgstr "Candidature ou inscription"
+
+
+msgid "Places held"
+msgstr "Places réservées"
+
+
+msgid "Applications open"
+msgstr "Candidatures ouvertes"
+
+
+msgid "Applications closed"
+msgstr "Candidatures closes"
+
+
+msgid "Not published"
+msgstr "Non publié"
+
+
+msgid "Payment not recorded"
+msgstr "Paiement non enregistré"
+
+
+msgid "Apply for a place — no payment now"
+msgstr "Candidatez pour une place — aucun paiement maintenant"
+
+
+msgid "Apply for a place"
+msgstr "Candidatez pour une place"
+
+
+msgid "After applications close, we form groups around mutual preferences."
+msgstr ""
+"Après la clôture des candidatures, nous formons des groupes selon les "
+"préférences mutuelles."
+
+
+msgid "If selected for a viable group, you will be invited to pay to confirm."
+msgstr ""
+"Si vous êtes sélectionné·e pour un groupe viable, vous serez invité·e à "
+"payer pour confirmer votre place."
+
+
+msgid "If selected for a viable group, we will confirm your place separately."
+msgstr ""
+"Si vous êtes sélectionné·e pour un groupe viable, nous confirmerons votre "
+"place séparément."
+
+
+msgid "Applications have closed. The organiser is reviewing group options."
+msgstr ""
+"Les candidatures sont closes. L’équipe examine les possibilités de groupes."
+
+
+msgid "How flexible groups work"
+msgstr "Comment fonctionnent les groupes flexibles"
+
+
+msgid ""
+"Apply for a place. There is no payment now, and selection is not guaranteed."
+msgstr ""
+"Candidatez pour une place. Aucun paiement n’est demandé maintenant et la "
+"sélection n’est pas garantie."
+
+
+msgid "Log in to apply"
+msgstr "Connectez-vous pour candidater"
+
+
+msgid "New to Crush.lu?"
+msgstr "Vous découvrez Crush.lu ?"
+
+
+msgid "Price if selected:"
+msgstr "Prix si vous êtes sélectionné·e :"
+
+
+msgid ""
+"Applying is free and does not reserve a place. If a viable group is formed "
+"and you are selected, we will invite you to pay to confirm."
+msgstr ""
+"La candidature est gratuite et ne réserve pas de place. Si un groupe viable "
+"est formé et que vous êtes sélectionné·e, nous vous inviterons à payer pour "
+"confirmer."
+
+
+msgid ""
+"Applying does not reserve a place. If a viable group is formed and you are "
+"selected, we will confirm your place separately."
+msgstr ""
+"La candidature ne réserve pas de place. Si un groupe viable est formé et que"
+" vous êtes sélectionné·e, nous confirmerons votre place séparément."
+
+
+msgid "Submit Application"
+msgstr "Envoyer ma candidature"
+
+
+msgid "Wait for applications to close"
+msgstr "Attendre la clôture des candidatures"
+
+
+msgid "Review the pool and generate groups"
+msgstr "Examiner les candidatures et créer les groupes"
+
+
+msgid "Review applications and select participants"
+msgstr "Examiner les candidatures et sélectionner les participant·es"
+
+
+msgid "Review the draft groups"
+msgstr "Examiner les groupes provisoires"
+
+
+msgid "Open the event to check the next group action"
+msgstr "Ouvrez l’événement pour consulter la prochaine action concernant les groupes"
+
+
+msgid "Track invitations and payments"
+msgstr "Suivre les invitations et les paiements"
+
+
+msgid "Prepare check-in"
+msgstr "Préparer l’accueil"
+
+
+msgid "Rounds underway"
+msgstr "Rencontres en cours"
+
+
+msgid "Repair the group"
+msgstr "Réparer le groupe"
+
+
+msgid "No payment required"
+msgstr "Aucun paiement requis"
+
+
+msgid "Not due"
+msgstr "Pas encore dû"
+
+
+msgid "Awaiting selection"
+msgstr "En attente de sélection"
+
+
+msgid "Awaiting payment"
+msgstr "En attente de paiement"
+
+
+msgid "Payment and attendance"
+msgstr "Paiement et présence"
+
+
+msgid ""
+"Payment and check-in are tracked separately. An application is not a "
+"confirmed place."
+msgstr ""
+"Le paiement et la présence sont suivis séparément. Une candidature ne "
+"confirme pas une place."
+
+
+msgid "Registration"
+msgstr "Inscription"
+
+
+msgid "Payment"
+msgstr "Paiement"
+
+
+msgid "Attendance"
+msgstr "Présence"
+
+
+msgid "No registrations yet."
+msgstr "Aucune inscription pour le moment."
+
+
+#, python-format
+msgid "Apply by %(deadline)s; applying does not reserve a place."
+msgstr ""
+"Candidatez avant le %(deadline)s ; votre candidature ne réserve pas de place."
+
+
+#, python-format
+msgid "%(count)s registration"
+msgid_plural "%(count)s registrations"
+msgstr[0] "%(count)s inscription"
+msgstr[1] "%(count)s inscriptions"
+
+msgid "Draft groups"
+msgstr "Groupes en préparation"
+
+msgid "Selected groups"
+msgstr "Groupes sélectionnés"
+
+msgid "Locked groups"
+msgstr "Groupes définitifs"
+
+msgid "Group needs repair"
+msgstr "Groupe à corriger"
+
+msgid "Please confirm your age to apply for this event."
+msgstr "Veuillez confirmer votre âge pour candidater à cet événement."
+
+msgid "Apply for"
+msgstr "Candidater à"
+
+msgid "Pending / no-show"
+msgstr "En attente / absent·es"

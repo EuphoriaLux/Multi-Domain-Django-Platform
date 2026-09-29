@@ -75,6 +75,24 @@
 </div>
 
 <!-- Stats Cards -->
+{% if event.uses_curated_registration %}
+<div class="grid grid-cols-2 {% if event.registration_fee > 0 %}md:grid-cols-5{% else %}md:grid-cols-4{% endif %} gap-4 mb-6" data-curated-roster-summary>
+    <div class="card p-4 text-center"><p class="text-2xl font-bold dark:text-white">{{ applied_count }}</p><p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Applications" %}</p></div>
+    <div class="card p-4 text-center"><p class="text-2xl font-bold dark:text-white">{% if event.registration_fee > 0 %}{{ payment_due_count }}{% else %}{{ seat_holding_count }}{% endif %}</p><p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% if event.registration_fee > 0 %}{% trans "Payment due" %}{% else %}{% trans "Places held" %}{% endif %}</p></div>
+    {% if event.registration_fee > 0 %}
+    <div class="card p-4 text-center"><p class="text-2xl font-bold dark:text-white">{{ payment_complete_count }}</p><p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Payment complete" %}</p></div>
+    {% endif %}
+    <div class="card p-4 text-center"><p class="text-2xl font-bold dark:text-white">{{ expected_count }}</p><p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Expected" %}</p></div>
+    <div class="card p-4 text-center"><p class="text-2xl font-bold dark:text-white">{{ checked_in_count }}</p><p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Checked in" %}</p></div>
+</div>
+{% if curated_groups_panel %}
+<div class="card p-4 mb-6 border-l-4 border-crush-purple" data-curated-next-step>
+    <p class="font-semibold dark:text-white">{% trans "Group status" %}: {{ curated_stage_label }}</p>
+    <p class="text-sm text-gray-700 dark:text-gray-200 mt-1">{% trans "Next step:" %} {{ curated_groups_panel.next_action_label }}</p>
+    <a href="?status=groups#curated-groups-panel" class="text-sm font-medium text-crush-purple dark:text-purple-400 hover:underline">{% trans "View group details" %} →</a>
+</div>
+{% endif %}
+{% else %}
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
         <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ confirmed_count }}</p>
@@ -93,6 +111,7 @@
         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Total Signups" %}</p>
     </div>
 </div>
+{% endif %}
 
 <!-- Event Control -->
 <div class="mb-6">
@@ -227,14 +246,14 @@
 </div>
 {% endif %}
 
-<!-- Your assigned attendees -->
+<!-- Members onboarded by this coach who applied or registered for this event -->
 {% if coach_recap and coach_recap.onboarded_count %}
 <div class="mb-6">
-    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">{% trans "Your assigned attendees" %}</h3>
+    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">{% trans "Members you coached at this event" %}</h3>
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5">
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
-                <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{% trans "Onboarded" %}</p>
+                <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{% trans "Applied or registered" %}</p>
                 <p class="text-2xl font-bold dark:text-white">{{ coach_recap.onboarded_count }}</p>
             </div>
             <div>
@@ -349,8 +368,15 @@
         {% trans "Groups" %}
         <span class="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-xs rounded-full {% if status_filter == 'groups' %}bg-white/20{% else %}bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300{% endif %}">{{ curated_groups_panel.groups|length }}</span>
     </a>{% endif %}
+    {% if event.uses_curated_registration and event.registration_fee > 0 %}
+    <a href="?status=payment_due" class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 {% if status_filter == 'payment_due' %}bg-amber-600 text-white{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300{% endif %}">{% trans "Payment due" %} {{ payment_due_count }}</a>
+    <a href="?status=payment_complete" class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 {% if status_filter == 'payment_complete' %}bg-green-600 text-white{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300{% endif %}">{% trans "Payment complete" %} {{ payment_complete_count }}</a>
+    {% endif %}
+    {% if event.uses_curated_registration %}
+    <a href="?status=checked_in" class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 {% if status_filter == 'checked_in' %}bg-emerald-600 text-white{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300{% endif %}">{% trans "Checked in" %} {{ checked_in_count }}</a>
+    {% endif %}
     <a href="?status=other" class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg transition-colors {% if status_filter == 'other' %}bg-gray-600 text-white{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700{% endif %}">
-        {% trans "Other" %}
+        {% if event.uses_curated_registration %}{% trans "Pending / no-show" %}{% else %}{% trans "Other" %}{% endif %}
         {% if other_count %}<span class="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-xs rounded-full {% if status_filter == 'other' %}bg-white/20{% else %}bg-gray-100 dark:bg-gray-700{% endif %}">{{ other_count }}</span>{% endif %}
     </a>
 </div>
@@ -363,12 +389,15 @@ curated events without a group size, whose pages must stay byte-identical
 -- which is why even the section marker lives inside the if. Lifecycle
 actions stay in the coach panel (Django admin); this only says which one
 comes next.
-{% endcomment %}{% if curated_groups_panel %}{% if status_filter == 'all' or status_filter == 'groups' %}
+{% endcomment %}{% if curated_groups_panel %}{% if status_filter == 'groups' %}
 <!-- ── Curated groups panel ─────────────────────────────────────────── -->
 {% include "crush_lu/components/coach_curated_groups.html" with panel=curated_groups_panel event=event only %}
 {% endif %}{% endif %}
+{% if event.uses_curated_registration %}{% if status_filter == 'all' or status_filter == 'payment_due' or status_filter == 'payment_complete' or status_filter == 'checked_in' %}
+{% include "crush_lu/components/coach_event_roster.html" with rows=roster_rows only %}
+{% endif %}{% endif %}
 <!-- ── Confirmed section ──────────────────────────────────────────────── -->
-{% if status_filter == 'all' or status_filter == 'confirmed' %}
+{% if status_filter == 'confirmed' or status_filter == 'all' and not event.uses_curated_registration %}
 <div class="mb-8">
     <div class="flex items-center gap-2 mb-3">
         <span class="w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0"></span>
@@ -384,9 +413,9 @@ comes next.
     <div class="flex flex-wrap gap-2 mb-4">
         {% for pool in gender_pool_stats %}
         <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border
-            {% if pool.confirmed >= pool.limit %}bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 text-red-700 dark:text-red-300{% else %}bg-gray-50 dark:bg-gray-700/60 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300{% endif %}">
+            {% if pool.held >= pool.limit %}bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 text-red-700 dark:text-red-300{% else %}bg-gray-50 dark:bg-gray-700/60 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300{% endif %}">
             <span class="text-sm leading-none">{{ pool.symbol }}</span>
-            <span class="font-bold">{{ pool.confirmed }}/{{ pool.limit }}</span>
+            <span class="font-bold">{{ pool.held }}/{{ pool.limit }}</span>
             <span class="opacity-70">{{ pool.label }}</span>
         </span>
         {% endfor %}
@@ -482,7 +511,7 @@ comes next.
 {% endif %}
 
 <!-- ── Waitlist section ───────────────────────────────────────────────── -->
-{% if status_filter == 'all' or status_filter == 'waitlist' %}
+{% if status_filter == 'waitlist' or status_filter == 'all' and not event.uses_curated_registration %}
 <div class="mb-8">
     <div class="flex items-center gap-2 mb-3">
         <span class="w-2.5 h-2.5 rounded-full bg-amber-500 flex-shrink-0"></span>
@@ -605,7 +634,7 @@ lifecycle actions on the event (Generate → Approve → Invite); a direct statu
 change on a registration is refused. Legacy curated events without a group
 size still select by moving rows to Confirmed / Pending Payment in admin.
 {% endcomment %}
-{% if status_filter == 'all' or status_filter == 'applied' %}
+{% if status_filter == 'applied' or status_filter == 'all' and not event.uses_curated_registration %}
 {% if applied_registrations %}
 <div class="mb-8">
     <div class="flex items-center gap-2 mb-3">
@@ -681,7 +710,7 @@ size still select by moving rows to Confirmed / Pending Payment in admin.
 {% endif %}
 
 <!-- ── Other section (pending / no-show) ─────────────────────────────── -->
-{% if status_filter == 'all' or status_filter == 'other' %}
+{% if status_filter == 'other' or status_filter == 'all' and not event.uses_curated_registration %}
 {% if other_registrations %}
 <div class="mb-8">
     <div class="flex items-center gap-2 mb-3">
