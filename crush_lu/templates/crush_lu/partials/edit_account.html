@@ -1,6 +1,6 @@
 {% load i18n %}
 
-<div class="max-w-3xl mx-auto">
+<div class="max-w-3xl mx-auto" x-data="legacySettingsAnchor">
     {# The overview's only heading, so it is the page h1 (8-07); the rows are the cards, as on the Edit Profile list. #}
     <div class="mb-4">
         {% include "crush_lu/components/page_header.html" with title=_("Account") subtitle=_("Manage your account, linked services, and preferences.") class="mb-4" %}

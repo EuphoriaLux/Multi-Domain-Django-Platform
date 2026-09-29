@@ -262,10 +262,14 @@ class TakeABreakViewTests(TestCase):
         self.assertNotContains(response, "taking a break")
 
     def test_account_settings_shows_take_a_break_link_when_active(self):
-        response = self.client.get("/en/account/settings/", HTTP_HOST="crush.lu")
+        response = self.client.get(
+            "/en/profile/edit/?section=account&sub=danger", HTTP_HOST="crush.lu"
+        )
         self.assertContains(response, "/account/take-a-break/")
 
     def test_account_settings_shows_badge_when_on_break(self):
         self.profile.take_a_break()
-        response = self.client.get("/en/account/settings/", HTTP_HOST="crush.lu")
+        response = self.client.get(
+            "/en/profile/edit/?section=account&sub=danger", HTTP_HOST="crush.lu"
+        )
         self.assertContains(response, "Currently on a break")

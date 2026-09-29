@@ -24,11 +24,19 @@ class PWAInstaller {
     }
 
     // Never in the native app shells (<html data-native-app>, from the
-    // is_native_app context flag), nor on account pages, checkout or the
-    // Connect wizard. Elsewhere only from the visitor's 2nd session on.
+    // is_native_app context flag), nor on account pages (incl. the account
+    // drill-down, /profile/edit/?section=account), checkout or the Connect
+    // wizard. Elsewhere only from the visitor's 2nd session on.
     isSuppressed() {
         if (document.body.classList.contains("connect-wizard")) return true;
-        return /^\/([a-z]{2}\/)?(account|payments)\//.test(location.pathname);
+        var path = location.pathname;
+        if (
+            /^\/([a-z]{2}\/)?profile\/edit\/$/.test(path) &&
+            new URLSearchParams(location.search).get("section") === "account"
+        ) {
+            return true;
+        }
+        return /^\/([a-z]{2}\/)?(account|payments)\//.test(path);
     }
 
     // A page view within 30 min of the last one (a reload, an email link, an

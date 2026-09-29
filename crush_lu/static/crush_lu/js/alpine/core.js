@@ -1269,6 +1269,36 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
+    // Retired /account/settings/ (8-08): its 301 lands on the account
+    // drill-down overview, and the browser re-applies the old #anchor. Send
+    // the monolith's anchors to the sub-section that now holds them; an
+    // unknown anchor stays on the overview.
+    var LEGACY_SETTINGS_ANCHORS = {
+        "email-notifications": "notifications",
+        "whatsapp-notifications": "notifications",
+        "push-notifications": "notifications",
+    };
+    Alpine.data("legacySettingsAnchor", function () {
+        return {
+            init: function () {
+                var anchor = window.location.hash.slice(1);
+                if (!anchor) {
+                    return;
+                }
+                if (!Object.prototype.hasOwnProperty.call(LEGACY_SETTINGS_ANCHORS, anchor)) {
+                    history.replaceState(null, "", window.location.pathname + window.location.search);
+                    return;
+                }
+                var params = new URLSearchParams(window.location.search);
+                params.set("section", "account");
+                params.set("sub", LEGACY_SETTINGS_ANCHORS[anchor]);
+                window.location.replace(
+                    window.location.pathname + "?" + params.toString() + "#" + anchor
+                );
+            },
+        };
+    });
+
     // Email preferences component (account settings)
     // Reads initial unsubscribe state from data-unsubscribed attribute
     Alpine.data("emailPreferences", function () {

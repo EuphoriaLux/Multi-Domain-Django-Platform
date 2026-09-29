@@ -84,7 +84,6 @@
             {% endif %}
             <form method="post" action="{% url 'crush_lu:update_whatsapp_preference' %}">
                 {% csrf_token %}
-                <input type="hidden" name="return_to" value="notifications">
                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
                     {% trans "Receive notifications via WhatsApp on:" %}
                     <strong class="text-gray-900 dark:text-white ml-1">{{ profile.phone_number }}</strong>

@@ -166,7 +166,6 @@ class DrillDownPageChromeTests(TestCase):
             ("/en/account/gdpr/", "Data Management"),
             ("/en/account/delete-profile/", "Delete Crush.lu Profile"),
             ("/en/data-deletion/", "Data Deletion"),
-            ("/en/account/settings/", "Settings"),
         ):
             # No subTest: pytest would report a failing subtest as PASSED.
             html = self._get(path)
@@ -214,16 +213,6 @@ class DrillDownPageChromeTests(TestCase):
             block = source[source.index("{% block content %}") :][:400]
             self.assertNotIn("section-container", block, name)
             self.assertNotRegex(block, r'class="[^"]*\bpx-4\b', name)
-
-    def test_account_settings_back_pill_is_desktop_only(self):
-        html = self._get("/en/account/settings/")
-        pill = [
-            a
-            for t, a in _tags(html)
-            if t == "div" and "text-center mt-6" in a.get("class", "")
-        ]
-        self.assertEqual(len(pill), 1)
-        self.assertIn("max-lg:hidden", pill[0]["class"].split())
 
 
 class TopBarAndThemeColorTests(TestCase):

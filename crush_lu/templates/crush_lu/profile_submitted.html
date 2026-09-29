@@ -819,7 +819,7 @@
                             {% trans "Browse Events (while you wait)" %}
                         </a>
                     {% endif %}
-                    <a href="{% url 'crush_lu:account_settings' %}" class="btn-crush-outline inline-flex items-center justify-center gap-2">
+                    <a href="{% url 'crush_lu:edit_profile' %}?section=account" class="btn-crush-outline inline-flex items-center justify-center gap-2">
                         {% include "shared/icons/cog.html" with class="w-4 h-4" %}
                         {% trans "Account Settings" %}
                     </a>
