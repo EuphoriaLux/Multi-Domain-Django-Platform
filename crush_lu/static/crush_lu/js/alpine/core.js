@@ -98,6 +98,19 @@ document.addEventListener("alpine:init", function () {
         },
     });
 
+    // Legal pages' floating "Back to contents" pill. It sits in the corner the
+    // bottom prompts (cookie sheet, install card, push prompt) occupy, so it
+    // steps aside while one of them is the active prompt. Flash messages are
+    // not bottom-anchored and never hide it.
+    Alpine.data("legalBackToContents", function () {
+        return {
+            get visible() {
+                var active = Alpine.store("prompts").active;
+                return active !== "cookie" && active !== "install" && active !== "push";
+            },
+        };
+    });
+
     // UX Wave 3 · WP5 (finding 3-14) — client-side downscale/re-encode
     // before a profile photo is uploaded. Keeps mobile uploads out of the
     // 4-12MB range the coach review queue was seeing. Uses

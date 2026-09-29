@@ -70,8 +70,12 @@ class HowItWorksTimelineTests(TestCase):
         start = css.index(".step-timeline::after")
         rule = css[start : css.index("}", start)]
         self.assertNotIn("width: 100%", rule)
-        self.assertIn("left: 12.5%", rule)
-        self.assertIn("right: 12.5%", rule)
+        # Half a column: (100% - 3 gaps) / 8, gap = md:gap-6 (1.5rem).
+        self.assertIn("left: calc((100% - 3 * 1.5rem) / 8)", rule)
+        self.assertIn("right: calc((100% - 3 * 1.5rem) / 8)", rule)
+        # Vertically anchored to the icon centre: card padding + sm:p-6 +
+        # half the 80px icon (WP14).
+        self.assertIn("top: calc(var(--space-8) + 1.5rem + 40px)", rule)
         # Only the single-row desktop grid (lg: 4 columns) gets the line; at
         # md the grid is 2x2 and a horizontal line would cut between rows.
         media = css.rfind("@media", 0, start)

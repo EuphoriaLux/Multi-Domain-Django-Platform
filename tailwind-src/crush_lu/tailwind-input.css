@@ -12920,8 +12920,10 @@ html.dark .hiw-cta-section p {
 }
 
 /* Timeline connector for desktop: only in the single-row 4-column layout,
-   running from the first icon centre to the last (12.5% = half a column),
-   so it never extends past the grid and cause horizontal scroll. */
+   running from the first icon centre to the last so it never extends past the
+   grid and cause horizontal scroll. Icon centre = .step-card padding-top +
+   the inner card's sm:p-6 (1.5rem) + half the 80px icon; horizontally it is
+   half a column, (100% - 3 gaps) / 8, with the grid's md:gap-6 (1.5rem). */
 @media (min-width: 1024px) {
     .step-timeline {
         position: relative;
@@ -12930,9 +12932,9 @@ html.dark .hiw-cta-section p {
     .step-timeline::after {
         content: "";
         position: absolute;
-        top: calc(1.5rem + 40px);
-        left: 12.5%;
-        right: 12.5%;
+        top: calc(var(--space-8) + 1.5rem + 40px);
+        left: calc((100% - 3 * 1.5rem) / 8);
+        right: calc((100% - 3 * 1.5rem) / 8);
         height: 3px;
         background: linear-gradient(90deg, #9b59b6, #ff6b9d);
         transform: translateY(-50%);
@@ -14135,6 +14137,14 @@ body.connect-wizard main.has-bottom-nav {
         bottom: calc(
             var(--bottom-nav-height) + 1rem + env(safe-area-inset-bottom, 0px)
         );
+    }
+}
+
+/* Unlayered so it beats the layered display above. The pill is a screen-only
+   affordance; a printed policy has nothing to jump back to. */
+@media print {
+    .legal-back-to-contents {
+        display: none;
     }
 }
 

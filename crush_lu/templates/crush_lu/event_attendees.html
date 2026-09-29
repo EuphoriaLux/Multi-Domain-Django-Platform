@@ -58,7 +58,7 @@
     {% else %}
         {% if not event.connection_window_active %}
             <a href="{% url 'crush_lu:crush_connect_hub' %}"
-               class="inline-flex items-center justify-center gap-1 px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-crush-purple to-crush-pink hover:opacity-90 rounded-lg transition-opacity"
+               class="btn-crush-solid btn-sm gap-1"
                title="{% trans 'Connection window closed for this event' %}">
                 {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
                 {% trans "Try Crush Connect" %}
@@ -66,7 +66,7 @@
         {% elif attendee.recap_cta %}
             {# One pair, one flow (§9.1): this pair is in the open Event Recap — no My Crush! button. #}
             <a href="{% url 'crush_lu:event_lobby' event.id %}"
-               class="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-crush-purple to-crush-pink hover:opacity-90 rounded-lg transition-opacity">
+               class="btn-crush-solid btn-sm gap-2">
                 {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
                 {% trans "Find them in your event recap" %}
             </a>
