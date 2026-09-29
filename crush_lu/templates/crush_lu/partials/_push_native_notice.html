@@ -1,11 +1,11 @@
 {% load i18n %}
 {# Replaces the web-push cards inside the native app shells (is_native_app) #}
-<div id="push-notifications-native" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+<div id="push-notifications-native" class="bg-[var(--color-surface-card)] dark:bg-gray-800 rounded-2xl shadow-crush-sm mb-6 overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-        <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-            {% include "shared/icons/bell.html" with class="w-5 h-5 text-purple-600 mr-2" %}
+        <h2 class="text-lg font-semibold text-crush-dark dark:text-white flex items-center gap-2">
+            {% include "shared/icons/bell.html" with class="w-5 h-5 text-purple-600 dark:text-purple-300" %}
             {% trans "Push Notifications" %}
-        </h5>
+        </h2>
     </div>
     <p class="p-6 text-gray-600 dark:text-gray-300">{% trans "Notifications are managed in the app" %}</p>
 </div>
