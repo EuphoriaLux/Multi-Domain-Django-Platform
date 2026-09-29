@@ -16,6 +16,7 @@ from django.test import Client, TestCase
 from django.utils import timezone
 
 from crush_lu.models import CrushProfile, MeetupEvent, UserDataConsent
+from crush_lu.tests.test_ux_wave4_design_sweep import buttons, with_class
 
 User = get_user_model()
 
@@ -377,8 +378,12 @@ class StickyCtaPaymentDueFallbackTests(EventDetailWave3TestBase):
         panel_html = html.split('id="event-cta-panel"')[1].split(
             'id="event-sticky-cta"'
         )[0]
-        # No btn-crush-primary anchor inside the CTA panel for this state...
-        self.assertNotIn("btn-crush-primary", panel_html)
+        # No btn-crush-primary anchor inside the CTA panel for this state (the
+        # card Pay button is the panel's one primary, but it is a <button>,
+        # which the sticky bar's `a.btn-crush-primary` lookup skips)...
+        primaries = with_class(buttons(panel_html), "btn-crush-primary")
+        self.assertEqual([b for b in primaries if "href" in b], [])
+        self.assertEqual(len(primaries), 1)
         # ...so the sticky bar's payment button must be wired up instead.
         self.assertIn('x-show="isPayment"', html)
         self.assertIn('@click="onCtaClick"', html)
@@ -613,9 +618,7 @@ class FactStripReviewRoundThreeTests(EventDetailWave3TestBase):
         html = self._get_detail(event)
         script = html.split("Web Share functionality")[1].split("</script>")[0]
         listener_block = script.split("shareBtn.addEventListener")[1]
-        catch_block = listener_block.split("catch (err) {")[1].split(
-            "} else {"
-        )[0]
+        catch_block = listener_block.split("catch (err) {")[1].split("} else {")[0]
         self.assertIn("AbortError", catch_block)
         self.assertIn("copyLinkFallback();", catch_block)
 

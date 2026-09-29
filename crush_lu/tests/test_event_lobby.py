@@ -1453,7 +1453,9 @@ class TestLobbyCta:
             {"cta": lobby.CTA_ENTER_RECAP, "event": event, "hero": True},
         )
         assert "w-full" in full_width
-        assert "bg-gradient-to-r" in full_width
+        # WP14 (4-11): the gradient is reserved for the one primary CTA.
+        assert "btn-crush-solid" in full_width
+        assert "bg-gradient-to-r" not in full_width
 
     def test_dashboard_recap_cta_is_the_compact_variant(self, client):
         """The hero variant must not leak into the dashboard action strip.
