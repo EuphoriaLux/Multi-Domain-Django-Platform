@@ -640,6 +640,7 @@ class SocialPostDetailView(APIView):
         if new_status == SocialPost.Status.SCHEDULED and new_status != old_status:
             profile_platforms = dict(updated_post.buffer_profile_platforms or {})
             selected_ids = updated_post.buffer_profile_ids or []
+            lookup_error = None
             unresolved_ids = [
                 profile_id
                 for profile_id in selected_ids
@@ -672,7 +673,8 @@ class SocialPostDetailView(APIView):
                         profile["id"]: profile.get("service", "")
                         for profile in list_buffer_profiles()
                     }
-                except BufferServiceError:
+                except BufferServiceError as exc:
+                    lookup_error = exc
                     logger.warning(
                         "Could not resolve Buffer channel platforms for "
                         "post %s; scheduling without platform-specific "
@@ -750,7 +752,11 @@ class SocialPostDetailView(APIView):
                     status=status.HTTP_502_BAD_GATEWAY,
                 )
             except BufferServiceError as exc:
-                if isinstance(exc, BufferAuthError):
+                # A rejected key found by the channel lookup must stay an auth
+                # failure even when the preflight raised first.
+                if isinstance(exc, BufferAuthError) or isinstance(
+                    lookup_error, BufferAuthError
+                ):
                     schedule_error = BUFFER_AUTH_ERROR
                     logger.error(
                         "Buffer scheduling failed for social post %s: "

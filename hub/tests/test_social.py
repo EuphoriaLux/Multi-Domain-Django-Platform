@@ -31,6 +31,7 @@ from hub.claude_service import (
 )
 from hub.image_generator import generate_kpi_card
 from hub.models import HubResource, SocialPost
+from hub.views_social import BUFFER_AUTH_ERROR
 
 User = get_user_model()
 
@@ -1027,6 +1028,31 @@ class SocialMediaTests(TestCase):
         self.assertEqual(post.status, SocialPost.Status.FAILED)
 
     @patch("hub.views_social.list_buffer_profiles")
+    def test_text_only_scheduling_keeps_the_auth_error_from_the_lookup(
+        self, list_profiles
+    ):
+        """A rejected key found by the channel lookup must be reported as the
+        credential error, not the retryable schedule error."""
+        list_profiles.side_effect = BufferAuthError("Key rejected")
+        post = SocialPost.objects.create(
+            user=self.user,
+            content="Publication prête",
+            status=SocialPost.Status.PENDING_REVIEW,
+        )
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {
+                "status": "scheduled",
+                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                "buffer_profile_ids": ["channel_1", "channel_2"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.json()["error"], BUFFER_AUTH_ERROR)
+
+    @patch("hub.views_social.list_buffer_profiles")
     @patch("hub.views_social.create_buffer_update")
     def test_scheduling_survives_buffer_profile_lookup_failure(
         self, dispatch, list_profiles
@@ -1258,11 +1284,14 @@ class SocialMediaTests(TestCase):
         self.assertEqual(post.status, SocialPost.Status.PENDING_REVIEW)
         self.assertEqual(post.dispatched_platforms, [])
 
+    @patch("hub.views_social.list_buffer_profiles", return_value=[])
     @patch(
         "hub.views_social.create_buffer_update",
         side_effect=BufferServiceError("sensitive scheduling diagnostic"),
     )
-    def test_scheduling_does_not_expose_or_persist_service_exception(self, _dispatch):
+    def test_scheduling_does_not_expose_or_persist_service_exception(
+        self, _dispatch, _profiles
+    ):
         post = SocialPost.objects.create(
             user=self.user,
             content="Publication prête",
