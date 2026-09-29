@@ -60,8 +60,11 @@ jobs:
               --ignore-vuln PYSEC-2025-183 \
               --vulnerability-service "$1" 2>&1 | tee "$log"
           }
+          # Depending on the pip-audit version the outage surfaces as a ServiceError
+          # traceback, a logged "Failed to audit dependencies for ...: 503 Server
+          # Error ..." line, or a connection message with a "-s SERVICE" tip.
           is_service_error() {
-            grep -qE 'ServiceError|ConnectionError|ReadTimeout' "$log"
+            grep -qE 'ServiceError|ConnectionError|ReadTimeout|Failed to audit dependencies|[0-9]{3} Server Error|Backend is unhealthy|Could not connect to .* vulnerability feed|not redirecting properly|Try another service with' "$log"
           }
 
           rc=1
