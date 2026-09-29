@@ -31,6 +31,7 @@ from hub.claude_service import (
 )
 from hub.image_generator import generate_kpi_card
 from hub.models import HubResource, SocialPost
+from hub.views_social import BUFFER_AUTH_ERROR
 
 User = get_user_model()
 
@@ -930,6 +931,181 @@ class SocialMediaTests(TestCase):
 
     @patch("hub.views_social.list_buffer_profiles")
     @patch("hub.views_social.create_buffer_update")
+    def test_scheduling_infers_platforms_from_the_buffer_lookup(
+        self, dispatch, list_profiles
+    ):
+        """A platformless post scheduled with only channel ids must not be
+        persisted with platforms=[]: delivery fields are immutable once
+        scheduled, so the lookup result has to be recorded."""
+        dispatch.return_value = {"success": True, "buffer_id": "post_1,post_2"}
+        list_profiles.return_value = [
+            {"id": "channel_1", "service": "facebook"},
+            {"id": "channel_2", "service": "instagram"},
+        ]
+        post = SocialPost.objects.create(
+            user=self.user,
+            content="Publication prête",
+            status=SocialPost.Status.PENDING_REVIEW,
+        )
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {
+                "status": "scheduled",
+                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                "buffer_profile_ids": ["channel_1", "channel_2"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        post.refresh_from_db()
+        self.assertEqual(post.platforms, ["facebook", "instagram"])
+        self.assertEqual(
+            response.json()["post"]["platforms"], ["facebook", "instagram"]
+        )
+
+    @patch("hub.views_social.list_buffer_profiles")
+    @patch("hub.views_social.create_buffer_update")
+    def test_scheduling_failure_keeps_inferred_platforms(self, dispatch, list_profiles):
+        """A normal Buffer failure after the lookup must still persist the
+        platforms and channel mapping the lookup resolved, so the 502 body and
+        a later GET agree."""
+        dispatch.side_effect = BufferServiceError("Buffer rejected the post")
+        list_profiles.return_value = [
+            {"id": "channel_1", "service": "facebook"},
+            {"id": "channel_2", "service": "instagram"},
+        ]
+        post = SocialPost.objects.create(
+            user=self.user,
+            content="Publication prête",
+            status=SocialPost.Status.PENDING_REVIEW,
+        )
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {
+                "status": "scheduled",
+                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                "buffer_profile_ids": ["channel_1", "channel_2"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 502)
+        post.refresh_from_db()
+        self.assertEqual(post.status, SocialPost.Status.FAILED)
+        self.assertEqual(post.platforms, ["facebook", "instagram"])
+        self.assertEqual(
+            post.buffer_profile_platforms,
+            {"channel_1": "facebook", "channel_2": "instagram"},
+        )
+
+    @patch("hub.buffer_service._create_channel_post")
+    @patch("hub.views_social.list_buffer_profiles")
+    def test_text_only_scheduling_after_lookup_failure_posts_nothing(
+        self, list_profiles, create_post
+    ):
+        """With the platforms unresolved a text-only post could hit Instagram,
+        so nothing may be posted to any channel."""
+        list_profiles.side_effect = BufferServiceError("Buffer is down")
+        post = SocialPost.objects.create(
+            user=self.user,
+            content="Publication prête",
+            status=SocialPost.Status.PENDING_REVIEW,
+        )
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {
+                "status": "scheduled",
+                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                "buffer_profile_ids": ["channel_1", "channel_2"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 502)
+        create_post.assert_not_called()
+        post.refresh_from_db()
+        self.assertEqual(post.status, SocialPost.Status.FAILED)
+
+    @patch("hub.views_social.list_buffer_profiles")
+    def test_text_only_scheduling_keeps_the_auth_error_from_the_lookup(
+        self, list_profiles
+    ):
+        """A rejected key found by the channel lookup must be reported as the
+        credential error, not the retryable schedule error."""
+        list_profiles.side_effect = BufferAuthError("Key rejected")
+        post = SocialPost.objects.create(
+            user=self.user,
+            content="Publication prête",
+            status=SocialPost.Status.PENDING_REVIEW,
+        )
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {
+                "status": "scheduled",
+                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                "buffer_profile_ids": ["channel_1", "channel_2"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.json()["error"], BUFFER_AUTH_ERROR)
+
+    @patch("hub.views_social.list_buffer_profiles")
+    @patch("hub.views_social.create_buffer_update")
+    def test_inferred_platforms_only_include_supported_services(
+        self, dispatch, list_profiles
+    ):
+        """A connected channel on a service posts may not declare (e.g. X)
+        must not put that service into the immutable platforms field."""
+        dispatch.return_value = {"success": True, "buffer_id": "post_1,post_2"}
+        list_profiles.return_value = [
+            {"id": "channel_1", "service": "facebook"},
+            {"id": "channel_2", "service": "twitter"},
+        ]
+        post = SocialPost.objects.create(
+            user=self.user,
+            content="Publication prête",
+            status=SocialPost.Status.PENDING_REVIEW,
+        )
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {
+                "status": "scheduled",
+                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                "buffer_profile_ids": ["channel_1", "channel_2"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        post.refresh_from_db()
+        self.assertEqual(post.platforms, ["facebook"])
+
+    @patch("hub.views_social.create_buffer_update")
+    def test_mapped_unsupported_service_is_rejected_at_scheduling(self, dispatch):
+        post = SocialPost.objects.create(
+            user=self.user,
+            content="Publication prête",
+            status=SocialPost.Status.PENDING_REVIEW,
+        )
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {
+                "status": "scheduled",
+                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                "buffer_profile_ids": ["channel_1"],
+                "buffer_profile_platforms": {"channel_1": "twitter"},
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        dispatch.assert_not_called()
+
+    @patch("hub.views_social.list_buffer_profiles")
+    @patch("hub.views_social.create_buffer_update")
     def test_scheduling_survives_buffer_profile_lookup_failure(
         self, dispatch, list_profiles
     ):
@@ -941,6 +1117,7 @@ class SocialMediaTests(TestCase):
         post = SocialPost.objects.create(
             user=self.user,
             content="Publication prête",
+            media_url="https://media.crush.lu/social/card.png",
             status=SocialPost.Status.PENDING_REVIEW,
         )
         response = self.client.patch(
@@ -1159,11 +1336,14 @@ class SocialMediaTests(TestCase):
         self.assertEqual(post.status, SocialPost.Status.PENDING_REVIEW)
         self.assertEqual(post.dispatched_platforms, [])
 
+    @patch("hub.views_social.list_buffer_profiles", return_value=[])
     @patch(
         "hub.views_social.create_buffer_update",
         side_effect=BufferServiceError("sensitive scheduling diagnostic"),
     )
-    def test_scheduling_does_not_expose_or_persist_service_exception(self, _dispatch):
+    def test_scheduling_does_not_expose_or_persist_service_exception(
+        self, _dispatch, _profiles
+    ):
         post = SocialPost.objects.create(
             user=self.user,
             content="Publication prête",
@@ -1302,6 +1482,62 @@ class BufferServiceTests(SimpleTestCase):
         self.assertEqual(result["buffer_id"], "fb_post_1")
         variables = post_request.call_args.kwargs["json"]["variables"]["input"]
         self.assertEqual(variables["metadata"], {"facebook": {"type": "post"}})
+
+    @patch("hub.buffer_service.requests.post")
+    def test_instagram_channel_includes_instagram_metadata(self, post_request):
+        response = Mock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {
+            "data": {
+                "createPost": {
+                    "__typename": "PostActionSuccess",
+                    "post": {"id": "ig_post_1", "status": "buffer", "dueAt": None},
+                }
+            }
+        }
+        post_request.return_value = response
+
+        result = create_buffer_update(
+            text="Instagram Post",
+            profile_ids=["ig_channel_1"],
+            profile_platforms={"ig_channel_1": "instagram"},
+            media_url="https://media.crush.lu/social/card.png",
+        )
+
+        self.assertEqual(result["buffer_id"], "ig_post_1")
+        variables = post_request.call_args.kwargs["json"]["variables"]["input"]
+        self.assertEqual(
+            variables["metadata"],
+            {"instagram": {"type": "post", "shouldShareToFeed": True}},
+        )
+
+    @patch("hub.buffer_service._create_channel_post")
+    def test_instagram_without_media_is_rejected_before_any_channel_is_posted(
+        self, create_post
+    ):
+        with self.assertRaises(BufferServiceError):
+            create_buffer_update(
+                text="Text only",
+                profile_ids=["fb_channel_1", "ig_channel_1"],
+                profile_platforms={
+                    "fb_channel_1": "facebook",
+                    "ig_channel_1": "instagram",
+                },
+            )
+        create_post.assert_not_called()
+
+    @patch("hub.buffer_service._create_channel_post")
+    def test_text_only_post_with_unresolved_channel_is_rejected_before_dispatch(
+        self, create_post
+    ):
+        with self.assertRaises(BufferServiceError):
+            create_buffer_update(
+                text="Text only",
+                profile_ids=["fb_channel_1", "unknown_channel"],
+                profile_platforms={"fb_channel_1": "facebook"},
+                require_resolved_platforms=True,
+            )
+        create_post.assert_not_called()
 
     @patch("hub.buffer_service._create_channel_post")
     def test_partial_failure_reports_already_created_post_ids(self, create_post):

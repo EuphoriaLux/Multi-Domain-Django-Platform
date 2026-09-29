@@ -591,6 +591,11 @@ class SocialPostDetailView(APIView):
                 mapped_platforms = {
                     profile_platforms[profile_id] for profile_id in selected_profile_ids
                 }
+                if not effective_platforms and mapped_platforms:
+                    # Only the platforms a post may declare; a channel on any
+                    # other service then fails the scope check below.
+                    effective_platforms = sorted(mapped_platforms & ALLOWED_PLATFORMS)
+                    serializer.validated_data["platforms"] = effective_platforms
                 if not mapped_platforms.issubset(set(effective_platforms or [])):
                     scheduling_errors["buffer_profile_platforms"] = (
                         BUFFER_PLATFORM_SCOPE_ERROR
@@ -637,6 +642,7 @@ class SocialPostDetailView(APIView):
         if new_status == SocialPost.Status.SCHEDULED and new_status != old_status:
             profile_platforms = dict(updated_post.buffer_profile_platforms or {})
             selected_ids = updated_post.buffer_profile_ids or []
+            lookup_error = None
             unresolved_ids = [
                 profile_id
                 for profile_id in selected_ids
@@ -669,7 +675,8 @@ class SocialPostDetailView(APIView):
                         profile["id"]: profile.get("service", "")
                         for profile in list_buffer_profiles()
                     }
-                except BufferServiceError:
+                except BufferServiceError as exc:
+                    lookup_error = exc
                     logger.warning(
                         "Could not resolve Buffer channel platforms for "
                         "post %s; scheduling without platform-specific "
@@ -686,6 +693,17 @@ class SocialPostDetailView(APIView):
                 # reads updated_post.buffer_profile_platforms, not the local
                 # dict, so the resolution must land on the instance too.
                 updated_post.buffer_profile_platforms = profile_platforms
+                # A platformless post scheduled with only channel ids reaches
+                # here with platforms=[] -- delivery fields are immutable once
+                # scheduled, so record what the lookup resolved now.
+                if not updated_post.platforms:
+                    updated_post.platforms = sorted(
+                        {
+                            profile_platforms[profile_id]
+                            for profile_id in selected_ids
+                            if profile_platforms.get(profile_id) in ALLOWED_PLATFORMS
+                        }
+                    )
             try:
                 result = create_buffer_update(
                     text=updated_post.content,
@@ -693,6 +711,7 @@ class SocialPostDetailView(APIView):
                     profile_platforms=profile_platforms,
                     scheduled_at=updated_post.scheduled_for.isoformat(),
                     media_url=updated_post.media_url,
+                    require_resolved_platforms=True,
                 )
             except BufferPartialFailure as exc:
                 logger.exception(
@@ -721,6 +740,7 @@ class SocialPostDetailView(APIView):
                     update_fields=[
                         "status",
                         "buffer_id",
+                        "platforms",
                         "buffer_profile_platforms",
                         "dispatched_platforms",
                         "status_history",
@@ -734,7 +754,11 @@ class SocialPostDetailView(APIView):
                     status=status.HTTP_502_BAD_GATEWAY,
                 )
             except BufferServiceError as exc:
-                if isinstance(exc, BufferAuthError):
+                # A rejected key found by the channel lookup must stay an auth
+                # failure even when the preflight raised first.
+                if isinstance(exc, BufferAuthError) or isinstance(
+                    lookup_error, BufferAuthError
+                ):
                     schedule_error = BUFFER_AUTH_ERROR
                     logger.error(
                         "Buffer scheduling failed for social post %s: "
@@ -756,7 +780,14 @@ class SocialPostDetailView(APIView):
                     )
                 )
                 updated_post.status_history = history
-                updated_post.save(update_fields=["status", "status_history"])
+                updated_post.save(
+                    update_fields=[
+                        "status",
+                        "status_history",
+                        "platforms",
+                        "buffer_profile_platforms",
+                    ]
+                )
                 return Response(
                     {
                         "error": schedule_error,
@@ -779,6 +810,7 @@ class SocialPostDetailView(APIView):
             updated_post.save(
                 update_fields=[
                     "buffer_id",
+                    "platforms",
                     "buffer_profile_platforms",
                     "dispatched_platforms",
                 ]
