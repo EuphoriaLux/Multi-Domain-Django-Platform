@@ -486,6 +486,12 @@ mechanically. It flags:
   in non-email, non-decorative templates.
 - Deprecated button classes (`.btn-primary`, `.btn-secondary`,
   `.btn-success`, etc.) in non-exempt directories.
+- More than one `.btn-crush-primary` in a template, and hand-rolled
+  `bg-*-600 text-white` `<a>`/`<button>` elements. These two rules run only
+  on files named on the command line (what pre-commit passes), so a
+  directory scan stays clean over the existing debt. A template whose
+  gradient CTAs sit in mutually exclusive branches still counts: render
+  one link and vary its label instead (see `partials/edit_account_settings.html`).
 
 Exempt: `admin/`, anything coach-named, `journey/`, `gift/`, `advent/`,
 `wonderland/`, `pre_screening/`, `welcome.html`, `onboarding/`,

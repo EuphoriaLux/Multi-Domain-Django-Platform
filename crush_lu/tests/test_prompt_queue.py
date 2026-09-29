@@ -116,7 +116,7 @@ class MemberPromptTests(TestCase):
         return response.content.decode()
 
     def test_push_prompt_sits_above_the_nav_and_is_queued(self):
-        html = self._get("/en/account/settings/")
+        html = self._get("/en/profile/edit/?section=account&sub=notifications")
         start = html.index('x-data="pushActivationPrompt"')
         tag = html[start : html.index(">", start)]
         self.assertIn('x-show="visible"', tag)
@@ -124,31 +124,26 @@ class MemberPromptTests(TestCase):
         self.assertIn("Alpine.store('prompts').isActive('push')", html)
 
     def test_native_shell_gets_no_push_prompt(self):
-        html = self._get("/en/account/settings/", **NATIVE)
+        html = self._get(
+            "/en/profile/edit/?section=account&sub=notifications", **NATIVE
+        )
         self.assertNotIn('x-data="pushActivationPrompt"', html)
 
     def test_cookie_sheet_clears_the_tab_bar_on_crush(self):
-        html = self._get("/en/account/settings/")
+        html = self._get("/en/profile/edit/?section=account&sub=notifications")
         start = html.index('id="cookie-consent-banner"')
         tag = html[html.rindex("<div", 0, start) : html.index(">", start)]
         self.assertIn("prompt-above-nav", tag)
         self.assertIn("cookie-banner-toggle", html)
 
-    def test_account_settings_push_card_has_timeout_state(self):
-        html = self._get("/en/account/settings/")
+    def test_edit_profile_push_card_has_timeout_state(self):
+        html = self._get("/en/profile/edit/?section=account&sub=notifications")
         self.assertEqual(html.count('x-if="showCheckTimedOut"'), 1)
         self.assertIn("We couldn't check notification support", html)
         self.assertIn('@click="retryStatusCheck"', html)
 
-    def test_edit_profile_push_card_has_timeout_state(self):
-        html = self._get("/en/profile/edit/?section=account&sub=notifications")
-        self.assertEqual(html.count('x-if="showCheckTimedOut"'), 1)
-
     def test_native_shell_says_notifications_are_managed_in_the_app(self):
-        for path in (
-            "/en/account/settings/",
-            "/en/profile/edit/?section=account&sub=notifications",
-        ):
+        for path in ("/en/profile/edit/?section=account&sub=notifications",):
             # No subTest: pytest without pytest-subtests drops its failures.
             html = self._get(path, **NATIVE)
             self.assertIn("Notifications are managed in the app", html, path)
@@ -156,9 +151,13 @@ class MemberPromptTests(TestCase):
             self.assertNotIn("Checking notification support", html, path)
 
     def test_native_notice_translated(self):
-        html = self._get("/de/account/settings/", **NATIVE)
+        html = self._get(
+            "/de/profile/edit/?section=account&sub=notifications", **NATIVE
+        )
         self.assertIn("Benachrichtigungen werden in der App verwaltet", html)
-        html = self._get("/fr/account/settings/", **NATIVE)
+        html = self._get(
+            "/fr/profile/edit/?section=account&sub=notifications", **NATIVE
+        )
         self.assertIn("Les notifications sont gérées dans l'application", html)
 
 

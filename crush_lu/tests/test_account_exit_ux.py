@@ -86,7 +86,7 @@ def test_legacy_account_delete_post_performs_gdpr_deletion(client):
         **HOST,
     )
     assert resp.status_code == 302
-    assert resp["Location"] == "/en/account/settings/"
+    assert resp["Location"] == "/en/profile/edit/?section=account"
     assert not CrushProfile.objects.filter(user=user).exists()
     assert User.objects.filter(pk=user.pk).exists()
 
@@ -182,7 +182,7 @@ def test_delete_profile_page_labelled_and_confirmed(client):
 def test_settings_danger_zone_has_no_internal_brand_names():
     from django.contrib.auth.models import AnonymousUser
 
-    request = RequestFactory().get("/en/account/settings/")
+    request = RequestFactory().get("/en/profile/edit/?section=account&sub=danger")
     request.user = AnonymousUser()
     with translation.override("en"):
         html = render_to_string(

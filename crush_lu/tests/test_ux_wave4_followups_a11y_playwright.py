@@ -68,7 +68,6 @@ def test_theme_toggle_status_is_translated(browser, live_server):
     [
         "/en/account/gdpr/",
         "/en/account/delete-profile/",
-        "/en/account/settings/",
         "/en/data-deletion/",
         "/en/notifications/",
         "/en/settings/blocked/",

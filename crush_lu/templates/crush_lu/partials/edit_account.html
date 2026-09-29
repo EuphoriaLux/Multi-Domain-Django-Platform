@@ -1,14 +1,11 @@
 {% load i18n %}
 
-<div class="max-w-3xl mx-auto">
-    <div class="section-card mb-4">
-        <h5 class="section-title">
-            {% include "shared/icons/cog-6-tooth.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
-            {% trans "Account" %}
-        </h5>
-        <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">{% trans "Manage your account, linked services, and preferences." %}</p>
+<div class="max-w-3xl mx-auto" x-data="legacySettingsAnchor">
+    {# The overview's only heading, so it is the page h1 (8-07); the rows are the cards, as on the Edit Profile list. #}
+    <div class="mb-4">
+        {% include "crush_lu/components/page_header.html" with title=_("Account") subtitle=_("Manage your account, linked services, and preferences.") class="mb-4" %}
 
-        <div class="divide-y divide-gray-100 dark:divide-gray-700">
+        <div class="space-y-3">
             <!-- Account Settings -->
             <a href="{% url 'crush_lu:edit_profile' %}?section=account&sub=settings"
                class="section-edit-card card-tappable">
@@ -18,7 +15,7 @@
                     </div>
                     <div>
                         <div class="font-medium text-gray-900 dark:text-white">{% trans "Account Settings" %}</div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400">{% trans "Email, linked accounts, password" %}</div>
+                        <div class="text-sm text-muted-fg">{% trans "Email, linked accounts, password" %}</div>
                     </div>
                 </div>
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
@@ -33,7 +30,7 @@
                     </div>
                     <div>
                         <div class="font-medium text-gray-900 dark:text-white">{% trans "Notifications" %}</div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400">{% trans "Email and push notification preferences" %}</div>
+                        <div class="text-sm text-muted-fg">{% trans "Email and push notification preferences" %}</div>
                     </div>
                 </div>
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
@@ -47,13 +44,13 @@
                     </div>
                     <div>
                         <div class="font-medium text-gray-900 dark:text-white">{% trans "Language" %}</div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400">
+                        <div class="text-sm text-muted-fg">
                             {% get_current_language as LANGUAGE_CODE %}
                             {% if LANGUAGE_CODE == 'de' %}Deutsch{% elif LANGUAGE_CODE == 'fr' %}Fran&ccedil;ais{% else %}English{% endif %}
                         </div>
                     </div>
                 </div>
-                {% include "crush_lu/partials/language_switcher.html" %}
+                {% include "crush_lu/partials/language_switcher.html" with on_card=True %}
             </div>
 
             <!-- Theme -->
@@ -64,11 +61,10 @@
                     </div>
                     <div>
                         <div class="font-medium text-gray-900 dark:text-white">{% trans "Theme" %}</div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400" x-text="themeLabel"></div>
+                        <div class="text-sm text-muted-fg" x-text="themeLabel"></div>
                     </div>
                 </div>
-                <button type="button" @click="cycleTheme"
-                        class="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                <button type="button" @click="cycleTheme" class="btn-crush-outline btn-sm shrink-0">
                     <span x-text="themeButtonLabel"></span>
                 </button>
             </div>
@@ -82,7 +78,7 @@
                     </div>
                     <div>
                         <div class="font-medium text-red-600 dark:text-red-400">{% trans "Log Out" %}</div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400">{% trans "Sign out of your account on this device" %}</div>
+                        <div class="text-sm text-muted-fg">{% trans "Sign out of your account on this device" %}</div>
                     </div>
                 </div>
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
@@ -97,7 +93,7 @@
                     </div>
                     <div>
                         <div class="font-medium text-red-600 dark:text-red-400">{% trans "Danger Zone" %}</div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400">{% trans "Delete profile, data management" %}</div>
+                        <div class="text-sm text-muted-fg">{% trans "Delete profile, data management" %}</div>
                     </div>
                 </div>
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>

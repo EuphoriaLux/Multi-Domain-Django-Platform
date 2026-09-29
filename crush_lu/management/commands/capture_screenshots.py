@@ -106,7 +106,7 @@ PAGES = [
     ("Member", "dashboard", "/dashboard/", MEMBER),
     ("Member", "profile-edit", "/profile/edit/", MEMBER),
     ("Member", "preferences", "/profile/preferences/", MEMBER),
-    ("Member", "account-settings", "/account/settings/", MEMBER),
+    ("Member", "account-settings", "/profile/edit/?section=account", MEMBER),
     ("Member", "gdpr", "/account/gdpr/", MEMBER),
     ("Member", "events", "/events/", MEMBER),
     ("Member", "my-events", "/my-events/", MEMBER),

@@ -487,7 +487,7 @@
                                      x-transition:leave-end="opacity-0 scale-95"
                                      x-cloak
                                      class="dropdown-menu">
-                                    <a class="dropdown-item" href="{% url 'crush_lu:account_settings' %}">
+                                    <a class="dropdown-item" href="{% url 'crush_lu:edit_profile' %}?section=account">
                                         {% include "shared/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "Account Settings" %}
                                     </a>
@@ -752,7 +752,7 @@
                                         {% include "shared/icons/sparkles.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "Become a Coach" %}
                                     </a>
-                                    <a class="dropdown-item" href="{% url 'crush_lu:account_settings' %}">
+                                    <a class="dropdown-item" href="{% url 'crush_lu:edit_profile' %}?section=account">
                                         {% include "shared/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "Account Settings" %}
                                     </a>
@@ -999,7 +999,7 @@
 
                             {# Account Section #}
                             <div class="border-t border-white/20 my-2"></div>
-                            <a class="nav-link block" href="{% url 'crush_lu:account_settings' %}">
+                            <a class="nav-link block" href="{% url 'crush_lu:edit_profile' %}?section=account">
                                 {% include "shared/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "Account Settings" %}
                             </a>
@@ -1176,7 +1176,7 @@
                                 {% include "shared/icons/sparkles.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "Become a Coach" %}
                             </a>
-                            <a class="nav-link block" href="{% url 'crush_lu:account_settings' %}">
+                            <a class="nav-link block" href="{% url 'crush_lu:edit_profile' %}?section=account">
                                 {% include "shared/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "Account Settings" %}
                             </a>

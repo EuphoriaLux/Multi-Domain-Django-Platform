@@ -95,7 +95,7 @@ class CrushConsentMiddleware:
         if (
             self.is_on_crush_domain(request)
             and request.user.is_authenticated
-            and self._is_deletion_retry_path(request.path)
+            and self._is_deletion_retry_path(request.path, request.GET)
         ):
             consent = getattr(request.user, "data_consent", None)
             if (
@@ -164,13 +164,23 @@ class CrushConsentMiddleware:
         # Root path is always exempt
         return path == "/"
 
-    def _is_deletion_retry_path(self, path):
-        """Match only self-service routes that can finish a paused erasure."""
+    def _is_deletion_retry_path(self, path, query=None):
+        """Match only self-service routes that can finish a paused erasure.
+
+        That includes the account drill-down overview and its Danger Zone,
+        which renders the Delete action for this state (8-08), so the
+        drawer's Settings link leads somewhere that can finish the deletion.
+        """
 
         for lang_prefix in ["/en/", "/fr/", "/de/"]:
             if path.startswith(lang_prefix):
                 path = "/" + path[len(lang_prefix) :]
                 break
+        if path == "/profile/edit/" and query is not None:
+            return query.get("section") == "account" and query.get("sub", "") in (
+                "",
+                "danger",
+            )
         return path in {
             "/account/delete/",
             "/account/delete-profile/",

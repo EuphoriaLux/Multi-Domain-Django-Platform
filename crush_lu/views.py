@@ -97,8 +97,8 @@ from .views_account import (  # noqa: F401
     delete_crushlu_profile_only,
     delete_full_account,
     data_deletion_status,
-    account_settings,
-    update_email_preferences,
+    account_settings_url,
+    legacy_account_settings,
     update_whatsapp_preference,
     api_update_email_preference,
     email_unsubscribe,
@@ -780,7 +780,7 @@ def create_profile(request):
                 "You cannot create a new Crush.lu profile. Your previous profile was permanently deleted."
             ),
         )
-        return redirect("crush_lu:account_settings")
+        return redirect(account_settings_url())
 
     # Journey guard on GET: a user arriving at /create-profile/ without
     # having finished steps 1–3 (direct URL, stale bookmark, old email link)
@@ -1743,9 +1743,20 @@ def _edit_sub_account_notifications(request, profile):
 
 def _edit_sub_account_danger(request, profile):
     """Handle danger zone sub-section (privacy, delete, logout)."""
+    from crush_lu.models.profiles import UserDataConsent
+
     context = {
         "profile": profile,
         "section": "account",
+        # A deletion that stopped after erasing the CrushProfile leaves the
+        # account banned as "deletion_in_progress": keep its Delete action so
+        # the member can finish it (delete_crushlu_profile_view resumes it).
+        "deletion_retry_in_progress": profile is None
+        and UserDataConsent.objects.filter(
+            user=request.user,
+            crushlu_banned=True,
+            crushlu_ban_reason="deletion_in_progress",
+        ).exists(),
     }
     template = "crush_lu/partials/edit_account_danger.html"
     if request.htmx:
@@ -1894,7 +1905,7 @@ def api_profile_settings_autosave(request):
 def edit_profile(request):
     """Edit existing profile - routes to appropriate edit flow"""
     # The account drill-down (settings, notifications, danger zone) is open to
-    # every signed-in user, as /account/settings/ is: members without a
+    # every signed-in user, as the retired /account/settings/ was: members without a
     # profile, pending/incomplete/rejected profiles and coaches (8-08). The
     # partials render only what a profile-less user can use.
     if request.GET.get("section") == "account":

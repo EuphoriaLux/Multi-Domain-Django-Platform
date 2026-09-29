@@ -116,8 +116,8 @@ document.addEventListener('alpine:init', () => {
                     // Show success message
                     window.dispatchEvent(new CustomEvent('show-toast', { detail: { type: 'success', message: '{% filter escapejs %}{% trans "Push notifications enabled! You will now receive instant alerts." %}{% endfilter %}' }}));
                 } else {
-                    // Fallback: reload to /account/settings/
-                    window.location.href = '/account/settings/#push-notifications';
+                    // Fallback: open the notification settings
+                    window.location.href = '{% url "crush_lu:edit_profile" %}?section=account&sub=notifications#push-notifications';
                 }
             } catch (error) {
                 console.error('Error enabling push:', error);
