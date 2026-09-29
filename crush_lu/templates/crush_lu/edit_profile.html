@@ -33,7 +33,7 @@
 {% endpartialdef %}
 
 {% block title %}{% trans "Edit Your Profile - Crush.lu" %}{% endblock %}
-{% block mobile_page_title %}{% if section == 'photos' %}{% trans "Photos" %}{% elif section == 'event_identity' %}{% trans "Your Event Identity" %}{% elif section == 'contact' %}{% trans "Contact & Location" %}{% elif section == 'privacy' %}{% trans "Privacy" %}{% elif section == 'account' %}{% trans "Account" %}{% elif section == 'about_crushlu' %}{% trans "About Crush.lu" %}{% else %}{% trans "Edit Profile" %}{% endif %}{% endblock %}
+{% block mobile_page_title %}{% if section == 'photos' %}{% trans "Photos" %}{% elif section == 'event_identity' %}{% trans "Your Event Identity" %}{% elif section == 'contact' %}{% trans "Contact & Location" %}{% elif section == 'privacy' %}{% trans "Privacy" %}{% elif section == 'account' %}{% if request.GET.sub == 'settings' %}{% trans "Account Settings" %}{% elif request.GET.sub == 'notifications' %}{% trans "Notifications" %}{% elif request.GET.sub == 'danger' %}{% trans "Danger Zone" %}{% else %}{% trans "Account" %}{% endif %}{% elif section == 'about_crushlu' %}{% trans "About Crush.lu" %}{% else %}{% trans "Edit Profile" %}{% endif %}{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'crush_lu/css/components/profile-creation.css' %}">

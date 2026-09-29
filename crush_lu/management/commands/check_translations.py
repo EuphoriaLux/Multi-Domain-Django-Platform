@@ -10,12 +10,30 @@ Usage:
     python manage.py check_translations --language de
     python manage.py check_translations --no-fuzzy --summary
     python manage.py check_translations --include-js
+
+Also reports translated entries whose msgstr carries an emoji that the msgid
+does not have (e.g. a stray "📲" prefix in one language only).
 """
 
 import os
+import re
 
 import polib
 from django.core.management.base import BaseCommand
+
+# Pictographs, symbols and dingbats (incl. ✓) plus the emoji variation selector.
+EMOJI_RE = re.compile(
+    "[\U0001f000-\U0001faff\u2300-\u23ff\u2600-\u27bf\u2b00-\u2bff\ufe0f]"
+)
+
+
+def added_emoji(entry):
+    """Return the emoji in a translated entry's msgstr that its msgid lacks."""
+    if entry.obsolete or entry.fuzzy:
+        return set()
+    source = entry.msgid + (entry.msgid_plural or "")
+    target = "".join(entry.msgstr_plural.values()) + entry.msgstr
+    return set(EMOJI_RE.findall(target)) - set(EMOJI_RE.findall(source))
 
 
 class Command(BaseCommand):
@@ -84,6 +102,8 @@ class Command(BaseCommand):
         if not options["no_fuzzy"]:
             fuzzy = [e for e in po.fuzzy_entries() if not self._is_admin_only(e)]
 
+        emoji = [e for e in po if added_emoji(e) and not self._is_admin_only(e)]
+
         # Count totals for context
         total = len([e for e in po if not e.obsolete and not self._is_admin_only(e)])
         admin_count = len([e for e in po if not e.obsolete and self._is_admin_only(e)])
@@ -105,6 +125,11 @@ class Command(BaseCommand):
                 if fuzzy
                 else "  Fuzzy: 0"
             )
+        self.stdout.write(
+            self.style.WARNING(f"  Emoji not in msgid: {len(emoji)}")
+            if emoji
+            else "  Emoji not in msgid: 0"
+        )
         translated = total - len(untranslated) - (len(fuzzy) if not options["no_fuzzy"] else 0)
         pct = (translated / total * 100) if total else 100
         self.stdout.write(f"  Coverage: {pct:.1f}%")
@@ -122,6 +147,11 @@ class Command(BaseCommand):
             self.stdout.write("")
             self.stdout.write(self.style.WARNING("  Fuzzy strings:"))
             self._print_entries(fuzzy)
+
+        if emoji:
+            self.stdout.write("")
+            self.stdout.write(self.style.WARNING("  Emoji in msgstr but not msgid:"))
+            self._print_entries(emoji)
 
     def _print_entries(self, entries):
         """Print entries grouped by their first source file."""

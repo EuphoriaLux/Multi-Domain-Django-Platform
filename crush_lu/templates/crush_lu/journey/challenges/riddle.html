@@ -43,9 +43,8 @@
 
         {% if existing_attempt %}
         <!-- Already Completed -->
-        {% with completion_message=_("You already solved this riddle and earned <strong>")|add:existing_attempt.points_earned|stringformat:"s"|add:" points</strong>." %}
+        {% blocktrans count points=existing_attempt.points_earned asvar completion_message %}You already solved this riddle and earned <strong>{{ points }} point</strong>.{% plural %}You already solved this riddle and earned <strong>{{ points }} points</strong>.{% endblocktrans %}
         {% include "crush_lu/journey/partials/already_completed.html" %}
-        {% endwith %}
         {% else %}
         <!-- Answer Input Section -->
         <div x-show="isNotSuccess" x-cloak>
