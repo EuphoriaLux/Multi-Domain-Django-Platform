@@ -519,8 +519,8 @@ def render_event_announcement(event, user, lang):
             'about_url': build_absolute_url('crush_lu:about', lang=lang),
             'events_url': build_absolute_url('crush_lu:event_list', lang=lang),
             'settings_url': build_absolute_url(
-                'crush_lu:account_settings', lang=lang
-            ),
+                'crush_lu:edit_profile', lang=lang
+            ) + '?section=account&sub=notifications',
             'social_links': get_social_links(),
             'LANGUAGE_CODE': lang,
         }
@@ -589,8 +589,8 @@ def _send_newsletter_to_user(newsletter, user, link_rewriter=None):
                     'crush_lu:event_list', lang=lang
                 ),
                 'settings_url': build_absolute_url(
-                    'crush_lu:account_settings', lang=lang
-                ),
+                    'crush_lu:edit_profile', lang=lang
+                ) + '?section=account&sub=notifications',
                 'social_links': get_social_links(),
                 'LANGUAGE_CODE': lang,
             }

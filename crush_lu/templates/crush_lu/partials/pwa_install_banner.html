@@ -1,8 +1,8 @@
 {% load i18n %}
 {# PWA install card: a fixed overlay (no layout shift) above the bottom tab bar, #}
 {# queued behind the cookie sheet and flash messages by Alpine.store("prompts"). #}
-{# pwa-install.js decides when to offer it (2nd session on, not /account/, /payments/, #}
-{# the Connect wizard or a native shell). #}
+{# pwa-install.js decides when to offer it (2nd session on, not /account/, the #}
+{# ?section=account drill-down, /payments/, the Connect wizard or a native shell). #}
 <div x-data="pwaInstallBanner">
     <div id="pwa-install-banner"
          x-show="visible"

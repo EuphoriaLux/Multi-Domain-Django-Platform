@@ -520,9 +520,9 @@ urlpatterns = [
     path('profile/preferences/', views.crush_preferences, name='crush_preferences'),
     path('matches/', RedirectView.as_view(pattern_name='crush_lu:dashboard'), name='matches_list'),
 
-    # Account settings
-    path('account/settings/', views.account_settings, name='account_settings'),
-    path('account/settings/email-preferences/', views.update_email_preferences, name='update_email_preferences'),
+    # Account settings: the monolith is retired (8-08); the old path is a
+    # nameless 301 to the edit_profile?section=account drill-down.
+    path('account/settings/', views.legacy_account_settings),
     path('account/settings/whatsapp-preference/', views.update_whatsapp_preference, name='update_whatsapp_preference'),
     path('account/set-password/', views.set_password, name='set_password'),
     path('account/disconnect/<int:social_account_id>/', views.disconnect_social_account, name='disconnect_social_account'),

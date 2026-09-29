@@ -1444,7 +1444,7 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
 
         self.assertRedirects(
             retry_response,
-            reverse("crush_lu:account_settings"),
+            "/en/profile/edit/?section=account",
             fetch_redirect_response=False,
         )
         self.assertEqual(delete_storage.call_count, 2)
@@ -1467,7 +1467,7 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
 
         self.assertRedirects(
             response,
-            reverse("crush_lu:account_settings"),
+            "/en/profile/edit/?section=account&sub=danger",
             fetch_redirect_response=False,
         )
         delete.assert_not_called()

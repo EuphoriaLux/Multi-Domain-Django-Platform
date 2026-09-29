@@ -410,13 +410,13 @@ class TestGetConnectRedirectUrl(TestCase):
         sa = _make_social_account(self.user, provider="luxid")
 
         url = self.adapter.get_connect_redirect_url(request, sa)
-        self.assertEqual(url, "/account/settings/")
+        self.assertEqual(url, "/profile/edit/?section=account&sub=settings")
 
     def test_non_luxid_provider_goes_to_settings(self):
         request = _make_request(host="crush.lu")
         sa = _make_social_account(self.user, provider="google")
         url = self.adapter.get_connect_redirect_url(request, sa)
-        self.assertEqual(url, "/account/settings/")
+        self.assertEqual(url, "/profile/edit/?section=account&sub=settings")
 
     def test_non_crush_domain_does_not_go_to_profile_submitted(self):
         """Non-crush domains fall through to allauth's default connections page."""

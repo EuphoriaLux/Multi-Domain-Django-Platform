@@ -2189,7 +2189,9 @@ def _build_template_context(request, template_meta, user_id):
             context["connections_url"] = f"{base_url}/en/connections/"
             context["home_url"] = f"{base_url}/en/"
             context["about_url"] = f"{base_url}/en/about/"
-            context["settings_url"] = f"{base_url}/en/account/settings/"
+            context["settings_url"] = (
+                f"{base_url}/en/profile/edit/?section=account&sub=notifications"
+            )
             context["unsubscribe_url"] = f"{base_url}/en/email/unsubscribe/TOKEN/"
 
     # Add event-specific URLs
