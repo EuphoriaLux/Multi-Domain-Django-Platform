@@ -2575,7 +2575,7 @@ def _attach_curated_event_overview(events, now):
         event.coach_expected_count = summary.get("expected", 0)
         event.coach_group_stage = _stage(event, groups_by_event.get(event.pk, []))
         event.coach_group_stage_label = _curated_stage_label(
-            event.coach_group_stage, now < event.registration_deadline
+            event.coach_group_stage, event
         )
         if event.is_cancelled:
             event.coach_group_stage_label = _("Cancelled")
@@ -2605,9 +2605,15 @@ def _attach_curated_event_overview(events, now):
             }[event.coach_group_stage]
 
 
-def _curated_stage_label(stage, applications_open):
+def _curated_stage_label(stage, event):
     if stage == "none":
-        return _("Applications open") if applications_open else _("Applications closed")
+        if not event.is_published:
+            return _("Not published")
+        return (
+            _("Applications open")
+            if event.is_registration_accepting
+            else _("Applications closed")
+        )
     return {
         "draft": _("Draft groups"),
         "provisional": _("Selected groups"),
@@ -2956,7 +2962,7 @@ def coach_event_detail(request, event_id):
             if event.is_cancelled
             else _curated_stage_label(
                 curated_groups_panel["stage"],
-                timezone.now() < event.registration_deadline,
+                event,
             )
         )
 

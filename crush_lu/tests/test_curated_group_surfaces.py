@@ -137,11 +137,13 @@ class CuratedGroupSurfaceTests(TestCase):
                 "mostly_verified",
                 "group",
                 "application_open",
+                "already_applied",
             },
         )
         self.assertEqual(outlook["interest_state"], "exploring")
         self.assertEqual(outlook["group_size"], 6)
         self.assertEqual(outlook["planned_groups"], 2)
+        self.assertFalse(outlook["already_applied"])
         self.assertNotIn("by_pool", outlook)
 
         self.assertContains(response, "Flexible groups")
@@ -266,6 +268,9 @@ class CuratedGroupSurfaceTests(TestCase):
         response = self._detail(self.curated)
 
         self.assertContains(response, "Your application is in!")
+        self.assertTrue(response.context["curated_group_outlook"]["already_applied"])
+        self.assertNotContains(response, "Apply for a place — no payment now")
+        self.assertNotContains(response, "Apply by")
         self.assertContains(
             response,
             "will invite you to pay only if you are selected for a viable provisional group",

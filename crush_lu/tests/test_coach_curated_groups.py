@@ -207,6 +207,18 @@ class CoachCuratedGroupsPanelTests(TestCase):
         for marker in PANEL_MARKERS:
             self.assertNotContains(response, marker)
 
+    def test_unpublished_curated_event_does_not_say_applications_are_open(self):
+        event = self.make_event(
+            is_published=False,
+            registration_deadline=timezone.now() + timedelta(days=2),
+        )
+
+        response = self.page(event, status="groups")
+
+        self.assertFalse(event.is_registration_accepting)
+        self.assertEqual(response.context["curated_stage_label"], "Not published")
+        self.assertNotContains(response, "Group status: Applications open")
+
     def test_groups_tab_renders_only_the_panel(self):
         event = self.make_event()
         self.make_applicants(event)

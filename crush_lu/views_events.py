@@ -1017,6 +1017,8 @@ def _curated_member_outlook(event, *, user=None, profile=None, registration=None
       and the guaranteed minimum, plus -- once locked -- the viewer's OWN
       tables, built the way ``export_user_data`` builds
       ``curated_group_history``.
+    * ``already_applied`` -- only the viewer's own application state, used
+      to hide pre-application instructions after submission.
     """
     if not event.uses_curated_registration:
         return None
@@ -1029,6 +1031,9 @@ def _curated_member_outlook(event, *, user=None, profile=None, registration=None
     outlook = {
         "interest_state": "exploring" if groups_unlocked else "collecting",
         "application_open": event.is_registration_accepting,
+        "already_applied": bool(
+            registration is not None and registration.status == "applied"
+        ),
         "group_size": configured_group_size,
         "planned_groups": event.planned_groups,
         "max_groups": configured_max_groups if configured_group_size else None,

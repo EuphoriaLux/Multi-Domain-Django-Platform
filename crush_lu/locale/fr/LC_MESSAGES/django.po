@@ -43932,6 +43932,10 @@ msgid "Applications closed"
 msgstr "Candidatures closes"
 
 
+msgid "Not published"
+msgstr "Non publié"
+
+
 msgid "Payment not recorded"
 msgstr "Paiement non enregistré"
 

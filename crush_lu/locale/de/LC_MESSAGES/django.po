@@ -43779,6 +43779,10 @@ msgid "Applications closed"
 msgstr "Bewerbungen geschlossen"
 
 
+msgid "Not published"
+msgstr "Nicht veröffentlicht"
+
+
 msgid "Payment not recorded"
 msgstr "Zahlung nicht erfasst"
 

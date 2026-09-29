@@ -8,10 +8,11 @@ or a claim that headcount alone makes a group viable.
 
 `outlook.viewer_match` is a bucket name, never a count, and the two social
 proof flags are booleans above documented thresholds. Both are absent (None /
-False) for anonymous viewers. The steps below are general to every viewer.
+False) for anonymous viewers. The application steps appear only before a
+viewer has applied.
 {% endcomment %}
 <div data-curated-group-outlook class="ml-7 space-y-3">
-    {% if not outlook.group and outlook.application_open %}
+    {% if not outlook.group and not outlook.already_applied and outlook.application_open %}
     <div class="rounded-lg border border-purple-200 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 p-3">
         <p class="font-semibold text-sm text-purple-900 dark:text-purple-200">{% if event.registration_fee > 0 %}{% trans "Apply for a place — no payment now" %}{% else %}{% trans "Apply for a place" %}{% endif %}</p>
         <ol class="mt-2 space-y-1 text-sm text-purple-900 dark:text-purple-200">
