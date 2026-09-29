@@ -145,6 +145,26 @@ class AccountRestyleTests(TestCase):
         self.assertEqual(bad, {})
         self.assertIn("text-red-600", h1s[("approved_coach", "&sub=danger")][0])
 
+    def test_mobile_top_bar_title_follows_the_sub_section(self):
+        # Codex review: the sub-page h1 is sr-only on mobile, so the top-bar
+        # title (the mobile-page-title meta) must name the sub-page too.
+        self.client.force_login(self.users["approved_coach"])
+        titles = {}
+        for sub in SUBS:
+            html = self.client.get(ACCOUNT + sub, HTTP_HOST=HOST).content.decode()
+            marker = 'name="mobile-page-title" content="'
+            start = html.index(marker) + len(marker)
+            titles[sub] = html[start : html.index('"', start)]
+        self.assertEqual(
+            titles,
+            {
+                "": "Account",
+                "&sub=settings": "Account Settings",
+                "&sub=notifications": "Notifications",
+                "&sub=danger": "Danger Zone",
+            },
+        )
+
     def test_cards_use_the_surface_token_not_lavender_bg_white(self):
         offenders = []
         for key, page in self._pages():
@@ -205,6 +225,19 @@ class LinterButtonRuleTests(SimpleTestCase):
         violations = self.lint.scan_file(path)
         self.assertEqual(len(violations), 1)
         self.assertIn(":2: 2 .btn-crush-primary (lines 1, 2)", violations[0])
+
+    def test_flags_gradient_ctas_inside_django_conditionals(self):
+        # Codex review: a class emitted by a template conditional was split
+        # into decorated tokens ("{%btn-crush-primary{%") and never matched.
+        path = self._write(
+            "page.html",
+            '<a class="btn-crush-primary">A</a>\n'
+            '{% if x %}<a class="{% if y %}btn-crush-primary{% endif %} btn-sm">B</a>{% endif %}\n'
+            '<a class="{{ cls }} btn-crush-primary">C</a>\n',
+        )
+        violations = self.lint.scan_file(path)
+        self.assertEqual(len(violations), 1)
+        self.assertIn("3 .btn-crush-primary (lines 1, 2, 3)", violations[0])
 
     def test_one_gradient_cta_and_comments_pass(self):
         path = self._write(

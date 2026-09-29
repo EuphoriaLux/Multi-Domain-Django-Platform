@@ -157,6 +157,7 @@ def scan_file(path: Path, *, check_buttons: bool = True) -> list[str]:
 
 
 _DJANGO_COMMENT = re.compile(r"\{#.*?#\}", re.DOTALL)
+_DJANGO_TAG = re.compile(r"\{%.*?%\}|\{\{.*?\}\}", re.DOTALL)
 _HAND_ROLLED_BG = re.compile(r"^bg-[a-z]+-600$")
 
 
@@ -169,7 +170,10 @@ class _ButtonScanner(HTMLParser):
         self.hand_rolled_lines: list[int] = []
 
     def handle_starttag(self, tag, attrs):
-        classes = (dict(attrs).get("class") or "").split()
+        # Blank {% %} / {{ }} so a class inside a conditional
+        # (`{% if x %}btn-crush-primary{% endif %}`) is still a whole token.
+        raw = _DJANGO_TAG.sub(" ", dict(attrs).get("class") or "")
+        classes = raw.split()
         if "btn-crush-primary" in classes:
             self.primary_lines.append(self.getpos()[0])
         if (
