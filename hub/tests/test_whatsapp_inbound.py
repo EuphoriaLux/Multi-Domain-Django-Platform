@@ -24,9 +24,10 @@ APP_SECRET = "test-app-secret"
 
 
 def _sign(body: bytes) -> str:
-    return "sha256=" + hmac.new(
-        APP_SECRET.encode("utf-8"), body, hashlib.sha256
-    ).hexdigest()
+    return (
+        "sha256="
+        + hmac.new(APP_SECRET.encode("utf-8"), body, hashlib.sha256).hexdigest()
+    )
 
 
 def _post_webhook(client, payload: dict, *, secret_ok: bool = True):
@@ -52,9 +53,7 @@ def _inbound_payload(wa_id="wamid.IN1", frm="352621000001", body="Who is this?")
                         "field": "messages",
                         "value": {
                             "messaging_product": "whatsapp",
-                            "contacts": [
-                                {"profile": {"name": "Alice"}, "wa_id": frm}
-                            ],
+                            "contacts": [{"profile": {"name": "Alice"}, "wa_id": frm}],
                             "messages": [
                                 {
                                     "from": frm,

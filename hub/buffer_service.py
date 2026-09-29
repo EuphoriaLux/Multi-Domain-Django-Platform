@@ -215,6 +215,7 @@ def create_buffer_update(
     scheduled_at: str | None = None,
     media_url: str | None = None,
     profile_platforms: dict[str, str] | None = None,
+    require_resolved_platforms: bool = False,
 ) -> dict:
     """Create one Buffer post per selected channel."""
 
@@ -223,12 +224,19 @@ def create_buffer_update(
 
     profile_platforms = profile_platforms or {}
     # Instagram feed posts need an image and Buffer rejects them without one.
-    # Refuse up front: failing on the Instagram channel after an earlier
-    # channel succeeded would leave a partial external publication.
+    # Refuse up front, before any channel is posted: failing on the Instagram
+    # channel after an earlier one succeeded would leave a partial external
+    # publication. A caller that could not resolve every channel's platform
+    # can ask for text-only posts to be refused too, since an unresolved
+    # channel could be Instagram.
     if not media_url and any(
-        profile_platforms.get(channel_id) == "instagram" for channel_id in profile_ids
+        profile_platforms.get(channel_id) == "instagram"
+        or (require_resolved_platforms and not profile_platforms.get(channel_id))
+        for channel_id in profile_ids
     ):
-        raise BufferServiceError("Instagram posts require an image")
+        raise BufferServiceError(
+            "Text-only posts need every channel resolved and none on Instagram"
+        )
     post_ids = []
     created_profile_ids = []
     for channel_id in profile_ids:

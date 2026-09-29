@@ -965,6 +965,69 @@ class SocialMediaTests(TestCase):
 
     @patch("hub.views_social.list_buffer_profiles")
     @patch("hub.views_social.create_buffer_update")
+    def test_scheduling_failure_keeps_inferred_platforms(self, dispatch, list_profiles):
+        """A normal Buffer failure after the lookup must still persist the
+        platforms and channel mapping the lookup resolved, so the 502 body and
+        a later GET agree."""
+        dispatch.side_effect = BufferServiceError("Buffer rejected the post")
+        list_profiles.return_value = [
+            {"id": "channel_1", "service": "facebook"},
+            {"id": "channel_2", "service": "instagram"},
+        ]
+        post = SocialPost.objects.create(
+            user=self.user,
+            content="Publication prête",
+            status=SocialPost.Status.PENDING_REVIEW,
+        )
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {
+                "status": "scheduled",
+                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                "buffer_profile_ids": ["channel_1", "channel_2"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 502)
+        post.refresh_from_db()
+        self.assertEqual(post.status, SocialPost.Status.FAILED)
+        self.assertEqual(post.platforms, ["facebook", "instagram"])
+        self.assertEqual(
+            post.buffer_profile_platforms,
+            {"channel_1": "facebook", "channel_2": "instagram"},
+        )
+
+    @patch("hub.buffer_service._create_channel_post")
+    @patch("hub.views_social.list_buffer_profiles")
+    def test_text_only_scheduling_after_lookup_failure_posts_nothing(
+        self, list_profiles, create_post
+    ):
+        """With the platforms unresolved a text-only post could hit Instagram,
+        so nothing may be posted to any channel."""
+        list_profiles.side_effect = BufferServiceError("Buffer is down")
+        post = SocialPost.objects.create(
+            user=self.user,
+            content="Publication prête",
+            status=SocialPost.Status.PENDING_REVIEW,
+        )
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {
+                "status": "scheduled",
+                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                "buffer_profile_ids": ["channel_1", "channel_2"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 502)
+        create_post.assert_not_called()
+        post.refresh_from_db()
+        self.assertEqual(post.status, SocialPost.Status.FAILED)
+
+    @patch("hub.views_social.list_buffer_profiles")
+    @patch("hub.views_social.create_buffer_update")
     def test_scheduling_survives_buffer_profile_lookup_failure(
         self, dispatch, list_profiles
     ):
@@ -976,6 +1039,7 @@ class SocialMediaTests(TestCase):
         post = SocialPost.objects.create(
             user=self.user,
             content="Publication prête",
+            media_url="https://media.crush.lu/social/card.png",
             status=SocialPost.Status.PENDING_REVIEW,
         )
         response = self.client.patch(
@@ -1378,6 +1442,19 @@ class BufferServiceTests(SimpleTestCase):
                     "fb_channel_1": "facebook",
                     "ig_channel_1": "instagram",
                 },
+            )
+        create_post.assert_not_called()
+
+    @patch("hub.buffer_service._create_channel_post")
+    def test_text_only_post_with_unresolved_channel_is_rejected_before_dispatch(
+        self, create_post
+    ):
+        with self.assertRaises(BufferServiceError):
+            create_buffer_update(
+                text="Text only",
+                profile_ids=["fb_channel_1", "unknown_channel"],
+                profile_platforms={"fb_channel_1": "facebook"},
+                require_resolved_platforms=True,
             )
         create_post.assert_not_called()
 

@@ -707,6 +707,7 @@ class SocialPostDetailView(APIView):
                     profile_platforms=profile_platforms,
                     scheduled_at=updated_post.scheduled_for.isoformat(),
                     media_url=updated_post.media_url,
+                    require_resolved_platforms=True,
                 )
             except BufferPartialFailure as exc:
                 logger.exception(
@@ -771,7 +772,14 @@ class SocialPostDetailView(APIView):
                     )
                 )
                 updated_post.status_history = history
-                updated_post.save(update_fields=["status", "status_history"])
+                updated_post.save(
+                    update_fields=[
+                        "status",
+                        "status_history",
+                        "platforms",
+                        "buffer_profile_platforms",
+                    ]
+                )
                 return Response(
                     {
                         "error": schedule_error,
