@@ -40,9 +40,8 @@
 
         {% if existing_attempt %}
         <!-- Already Completed -->
-        {% with completion_message=_("You've already shared your choice and earned <strong>")|add:existing_attempt.points_earned|stringformat:"s"|add:" points</strong>."|safe %}
+        {% blocktrans count points=existing_attempt.points_earned asvar completion_message %}You've already shared your choice and earned <strong>{{ points }} point</strong>.{% plural %}You've already shared your choice and earned <strong>{{ points }} points</strong>.{% endblocktrans %}
         {% include "crush_lu/journey/partials/already_completed.html" %}
-        {% endwith %}
         {% else %}
         <!-- Options -->
         <div x-show="isNotSuccess" x-cloak class="journey-wyr-vs-separator" aria-hidden="true">
