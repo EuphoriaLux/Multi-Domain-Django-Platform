@@ -16,6 +16,7 @@ from django.test import Client, TestCase
 from django.utils import timezone
 
 from crush_lu.models import CrushProfile, MeetupEvent, UserDataConsent
+from crush_lu.tests.test_ux_wave4_design_sweep import buttons, with_class
 
 User = get_user_model()
 
@@ -144,9 +145,9 @@ class StickyCtaToastOffsetTests(EventDetailWave3TestBase):
     """
 
     def test_alpine_component_watches_visible_and_offsets_toast_container(self):
-        js_path = finders.find("crush_lu/js/alpine-components.js")
+        js_path = finders.find("crush_lu/js/alpine/core.js")
         self.assertIsNotNone(
-            js_path, "alpine-components.js not found via staticfiles finders"
+            js_path, "alpine/core.js not found via staticfiles finders"
         )
         with open(js_path, encoding="utf-8") as fh:
             js = fh.read()
@@ -177,7 +178,7 @@ class StickyCtaToastOffsetTests(EventDetailWave3TestBase):
         IntersectionObserver, so crossing the md:hidden breakpoint while it
         stays true (rotate/resize) never re-ran the offset calc without a
         resize listener too."""
-        js_path = finders.find("crush_lu/js/alpine-components.js")
+        js_path = finders.find("crush_lu/js/alpine/core.js")
         with open(js_path, encoding="utf-8") as fh:
             js = fh.read()
         start = js.index('Alpine.data("eventStickyCta"')
@@ -340,7 +341,7 @@ class DescriptionClampGateTests(EventDetailWave3TestBase):
         self.assertNotRegex(html, r'id="event-description-text"[^>]*line-clamp-4')
 
     def test_toggle_only_changes_clamp_for_collapsible_descriptions(self):
-        js_path = finders.find("crush_lu/js/alpine-components.js")
+        js_path = finders.find("crush_lu/js/alpine/core.js")
         with open(js_path, encoding="utf-8") as fh:
             js = fh.read()
         start = js.index('Alpine.data("eventDescriptionToggle"')
@@ -377,15 +378,19 @@ class StickyCtaPaymentDueFallbackTests(EventDetailWave3TestBase):
         panel_html = html.split('id="event-cta-panel"')[1].split(
             'id="event-sticky-cta"'
         )[0]
-        # No btn-crush-primary anchor inside the CTA panel for this state...
-        self.assertNotIn("btn-crush-primary", panel_html)
+        # No btn-crush-primary anchor inside the CTA panel for this state (the
+        # card Pay button is the panel's one primary, but it is a <button>,
+        # which the sticky bar's `a.btn-crush-primary` lookup skips)...
+        primaries = with_class(buttons(panel_html), "btn-crush-primary")
+        self.assertEqual([b for b in primaries if "href" in b], [])
+        self.assertEqual(len(primaries), 1)
         # ...so the sticky bar's payment button must be wired up instead.
         self.assertIn('x-show="isPayment"', html)
         self.assertIn('@click="onCtaClick"', html)
         self.assertIn("js-sumup-checkout-detail", html)
 
     def test_init_falls_back_to_the_card_pay_button_and_replays_its_click(self):
-        js_path = finders.find("crush_lu/js/alpine-components.js")
+        js_path = finders.find("crush_lu/js/alpine/core.js")
         with open(js_path, encoding="utf-8") as fh:
             js = fh.read()
         start = js.index('Alpine.data("eventStickyCta"')
@@ -400,7 +405,7 @@ class StickyCtaPaymentDueFallbackTests(EventDetailWave3TestBase):
         """Minor finding: the comment says the bar hides "while that anchor
         is still visible", so the IntersectionObserver must watch the anchor
         (or its payment-button fallback), not #event-cta-panel itself."""
-        js_path = finders.find("crush_lu/js/alpine-components.js")
+        js_path = finders.find("crush_lu/js/alpine/core.js")
         with open(js_path, encoding="utf-8") as fh:
             js = fh.read()
         start = js.index('Alpine.data("eventStickyCta"')
@@ -613,9 +618,7 @@ class FactStripReviewRoundThreeTests(EventDetailWave3TestBase):
         html = self._get_detail(event)
         script = html.split("Web Share functionality")[1].split("</script>")[0]
         listener_block = script.split("shareBtn.addEventListener")[1]
-        catch_block = listener_block.split("catch (err) {")[1].split(
-            "} else {"
-        )[0]
+        catch_block = listener_block.split("catch (err) {")[1].split("} else {")[0]
         self.assertIn("AbortError", catch_block)
         self.assertIn("copyLinkFallback();", catch_block)
 
@@ -623,7 +626,7 @@ class FactStripReviewRoundThreeTests(EventDetailWave3TestBase):
         """Codex review on #1062: a language-blocked member's registration
         anchor is rendered alongside the language warning even though
         event_register rejects them — the sticky bar must not target it."""
-        js_path = finders.find("crush_lu/js/alpine-components.js")
+        js_path = finders.find("crush_lu/js/alpine/core.js")
         with open(js_path, encoding="utf-8") as fh:
             js = fh.read()
         start = js.index('Alpine.data("eventStickyCta"')

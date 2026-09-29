@@ -263,7 +263,7 @@ class ProductsPremiumCtaPaddingTests(TestCase):
         html = response.content.decode()
         self.assertIn(
             'class="inline-flex items-center justify-center gap-1.5 w-full px-4 py-2.5 '
-            "rounded-xl bg-white text-crush-purple text-sm font-bold text-center "
+            "rounded-xl bg-white text-crush-purple-dark text-sm font-bold text-center "
             'leading-snug hover:bg-purple-50 transition-colors"',
             html,
         )
@@ -337,8 +337,9 @@ class MyConnectionsReceivedAnchorTests(TestCase):
         self.assertContains(response, 'id="received"')
 
 
-class DashboardReviewRoundTwoTests(TestCase):
-    """Second Codex review round on #1042."""
+class DashboardRequestMixin:
+    """Shared setup and helpers only — no ``test_*`` methods, so subclasses
+    don't re-run inherited tests (#1083)."""
 
     def setUp(self):
         from django.core.cache import cache
@@ -346,6 +347,28 @@ class DashboardReviewRoundTwoTests(TestCase):
         cache.clear()
         self.user = _make_member("round2@example.com")
         self.client.login(username="round2@example.com", password="testpass123")
+
+    def _pending_request(self):
+        requester = _make_member("round2-requester@example.com")
+        event = _make_event("Past", days_from_now=-3)
+        EventRegistration.objects.create(user=self.user, event=event, status="attended")
+        EventRegistration.objects.create(user=requester, event=event, status="attended")
+        return EventConnection.objects.create(
+            requester=requester, recipient=self.user, event=event, status="pending"
+        )
+
+    def _respond(self, connection, action, current_url):
+        return self.client.post(
+            f"/en/connections/{connection.id}/{action}/",
+            HTTP_HOST="crush.lu",
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_TARGET=f"connection-{connection.id}",
+            HTTP_HX_CURRENT_URL=current_url,
+        )
+
+
+class DashboardReviewRoundTwoTests(DashboardRequestMixin, TestCase):
+    """Second Codex review round on #1042."""
 
     def test_stats_shown_when_more_bookings_than_the_next_event_card(self):
         EventRegistration.objects.create(
@@ -369,24 +392,6 @@ class DashboardReviewRoundTwoTests(TestCase):
         )
         response = self.client.get("/en/dashboard/", HTTP_HOST="crush.lu")
         self.assertFalse(response.context["show_stats_tiles"])
-
-    def _pending_request(self):
-        requester = _make_member("round2-requester@example.com")
-        event = _make_event("Past", days_from_now=-3)
-        EventRegistration.objects.create(user=self.user, event=event, status="attended")
-        EventRegistration.objects.create(user=requester, event=event, status="attended")
-        return EventConnection.objects.create(
-            requester=requester, recipient=self.user, event=event, status="pending"
-        )
-
-    def _respond(self, connection, action, current_url):
-        return self.client.post(
-            f"/en/connections/{connection.id}/{action}/",
-            HTTP_HOST="crush.lu",
-            HTTP_HX_REQUEST="true",
-            HTTP_HX_TARGET=f"connection-{connection.id}",
-            HTTP_HX_CURRENT_URL=current_url,
-        )
 
     def test_inline_accept_on_the_dashboard_refreshes_the_page(self):
         connection = self._pending_request()
@@ -412,7 +417,7 @@ class DashboardReviewRoundTwoTests(TestCase):
         self.assertNotIn("HX-Refresh", response)
 
 
-class DashboardAlreadyProcessedRequestTests(DashboardReviewRoundTwoTests):
+class DashboardAlreadyProcessedRequestTests(DashboardRequestMixin, TestCase):
     def test_request_handled_elsewhere_still_refreshes_the_dashboard(self):
         connection = self._pending_request()
         connection.status = "declined"
@@ -421,7 +426,7 @@ class DashboardAlreadyProcessedRequestTests(DashboardReviewRoundTwoTests):
         self.assertEqual(response["HX-Refresh"], "true")
 
 
-class DashboardHiddenEncounterTests(DashboardReviewRoundTwoTests):
+class DashboardHiddenEncounterTests(DashboardRequestMixin, TestCase):
     """Codex (P1) on #1042: a safety-removed encounter pair must stay
     invisible on the dashboard and must not be acceptable from it."""
 
@@ -446,12 +451,37 @@ class DashboardHiddenEncounterTests(DashboardReviewRoundTwoTests):
     def test_removed_encounter_request_cannot_be_accepted(self):
         connection = self._pending_request()
         self._hide_pair(connection.requester, "removed")
-        self._respond(connection, "accept", "https://crush.lu/en/dashboard/")
+        response = self._respond(connection, "accept", "https://crush.lu/en/dashboard/")
         connection.refresh_from_db()
         self.assertEqual(connection.status, "pending")
+        # #1083: the stale dashboard (header, badge, stats) refreshes too.
+        self.assertEqual(response["HX-Refresh"], "true")
+
+    def test_blocked_request_refreshes_the_dashboard_with_an_error(self):
+        from django.contrib.messages import ERROR, get_messages
+
+        from crush_lu.services.blocking import apply_block
+
+        connection = self._pending_request()
+        apply_block(connection.requester, self.user)
+        response = self._respond(connection, "accept", "https://crush.lu/en/dashboard/")
+        self.assertEqual(response["HX-Refresh"], "true")
+        levels = [m.level for m in get_messages(response.wsgi_request)]
+        self.assertEqual(levels, [ERROR])
+
+    def test_blocked_request_keeps_the_in_place_error_on_connections(self):
+        from crush_lu.services.blocking import apply_block
+
+        connection = self._pending_request()
+        apply_block(self.user, connection.requester)
+        response = self._respond(
+            connection, "accept", "https://crush.lu/en/connections/"
+        )
+        self.assertNotIn("HX-Refresh", response)
+        self.assertContains(response, "This connection is no longer available.")
 
 
-class DashboardHiddenEncounterBadgeCountTests(DashboardReviewRoundTwoTests):
+class DashboardHiddenEncounterBadgeCountTests(DashboardRequestMixin, TestCase):
     """Follow-up on #1042: the context processor that feeds the header badge,
     the "#received" link and "View all requests" must exclude a
     safety-removed encounter's pending request the same way the dashboard's

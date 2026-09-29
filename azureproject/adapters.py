@@ -9,13 +9,14 @@ from allauth.socialaccount.providers.base import AuthError
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.core.exceptions import ImmediateHttpResponse
 from django.http import HttpResponseForbidden
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 import base64
 import json
 import os
 import logging
 
-from azureproject.domains import get_domain_config
+from azureproject.domains import DEV_DOMAIN_MAPPINGS, get_domain_config
 
 logger = logging.getLogger(__name__)
 
@@ -160,9 +161,16 @@ def _get_domain(request):
     return host
 
 
+def _get_mapped_domain(request):
+    """``_get_domain``, with a dev alias (crush.localhost) read as the domain
+    it stands for (#1059). Production hosts are returned unchanged."""
+    domain = _get_domain(request)
+    return DEV_DOMAIN_MAPPINGS.get(domain, domain)
+
+
 def _is_crush_domain(request):
     """Check if request is from crush.lu or localhost (dev default)."""
-    domain = _get_domain(request)
+    domain = _get_mapped_domain(request)
     # crush.lu is the main domain, localhost/127.0.0.1 routes to crush.lu in development
     # Subdomains like test.crush.lu are also crush domains
     return domain in ("crush.lu", "localhost", "127.0.0.1") or domain.endswith(
@@ -197,9 +205,10 @@ def _domain_allows_signup(request, allowed_domains):
 
     Unknown/missing hosts are refused: requests that don't resolve to a
     configured domain fall back to PRODUCTION_DEFAULT's urlconf, and that
-    fallback must not be a way to register.
+    fallback must not be a way to register. A dev alias is gated as the
+    domain it stands for.
     """
-    domain = _get_domain(request)
+    domain = _get_mapped_domain(request)
     if not domain:
         return False
     return (
@@ -642,7 +651,7 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
                         return f"/{lang}/onboarding/"
                 except Exception:
                     pass
-            return "/account/settings/"
+            return "/profile/edit/?section=account&sub=settings"
         elif _is_delegation_domain(request):
             return "/account/settings/"
         else:
@@ -874,10 +883,9 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
                         send_verification_email_to_address,
                     )
 
-                    from django.utils import timezone
-
                     from crush_lu.views_account import (
-                        RESEND_VERIFICATION_COOLDOWN_SECONDS,
+                        claim_resend_cooldown,
+                        start_resend_cooldown_display,
                     )
 
                     # Login stays held even if the mail fails; the member can
@@ -896,11 +904,16 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
                         )
                         limiter_consumed = True
                     request.session["pending_verification_email"] = address.email
+                    # The verification page may replace this held account's
+                    # typed address ("Use a different address", #1059).
+                    request.session["pending_verification_user_id"] = user.pk
+                    # Issued-at: the rewrite is honoured only briefly and once.
+                    request.session["pending_verification_user_id_at"] = int(
+                        timezone.now().timestamp()
+                    )
                     if limiter_consumed:
-                        request.session["resend_verification_cooldown_until"] = (
-                            int(timezone.now().timestamp())
-                            + RESEND_VERIFICATION_COOLDOWN_SECONDS
-                        )
+                        claim_resend_cooldown(address.email, force=True)
+                        start_resend_cooldown_display(request, address.email)
                     return self.respond_email_verification_sent(request, user)
         return None
 

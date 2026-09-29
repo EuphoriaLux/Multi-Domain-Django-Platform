@@ -943,8 +943,8 @@ class TestLobbyPage:
 
         html = client.get(_lobby_url(event)).content.decode()
 
-        # DEBUG serves alpine-components.js, everything else the .min.js build.
-        components = re.search(r"js/alpine-components(\.min)?\.js", html)
+        # DEBUG serves js/alpine/core.js, everything else the .min.js build.
+        components = re.search(r"js/alpine/core(\.min)?\.js", html)
         assert components is not None
         assert html.index("event-lobby.js") < components.start()
         assert components.start() < html.index("@alpinejs/csp")
@@ -1453,7 +1453,9 @@ class TestLobbyCta:
             {"cta": lobby.CTA_ENTER_RECAP, "event": event, "hero": True},
         )
         assert "w-full" in full_width
-        assert "bg-gradient-to-r" in full_width
+        # WP14 (4-11): the gradient is reserved for the one primary CTA.
+        assert "btn-crush-solid" in full_width
+        assert "bg-gradient-to-r" not in full_width
 
     def test_dashboard_recap_cta_is_the_compact_variant(self, client):
         """The hero variant must not leak into the dashboard action strip.

@@ -12849,10 +12849,8 @@ msgstr "Lass uns unser Gespräch fortsetzen…"
 
 #: templates/crush_lu/_request_connection_form.html:49
 #: templates/crush_lu/request_connection.html:76
-#, fuzzy
-#| msgid "Welcome to Crush!"
 msgid "Declare My Crush!"
-msgstr "Willkommen bei Crush!"
+msgstr "Meinen Crush erklären!"
 
 #: templates/crush_lu/_review_guidelines.html:9
 msgid "Review Guidelines"
@@ -13412,7 +13410,7 @@ msgstr "Nachfassen nach Ermessen des Coaches"
 #: templates/crush_lu/_screening_tab_calibration.html:135
 #: templates/crush_lu/auth.html:243 templates/crush_lu/coach_settings.html:95
 msgid "optional"
-msgstr "Fakultativ"
+msgstr "optional"
 
 #: templates/crush_lu/_screening_tab_calibration.html:139
 msgid ""
@@ -13510,14 +13508,8 @@ msgid "About Crush.lu - Our Story, Founders & Press Coverage"
 msgstr "Über Crush.lu - Unsere Geschichte, Gründer & Presseberichterstattung"
 
 #: templates/crush_lu/about.html:7
-msgid ""
-"Meet the founders behind Crush.lu, Luxembourg's coach-curated dating "
-"platform. Featured in Virgule.lu and LuxTimes. Founded by Tom Sawyer and "
-"Wesley Hourdequin."
-msgstr ""
-"Lerne die Gründer von Crush.lu kennen, Luxemburgs von Coaches kuratierter "
-"Dating-Plattform. Vorgestellt in Virgule.lu und LuxTimes. Gegründet von Tom "
-"Sawyer und Wesley Hourdequin."
+msgid "Meet the founders behind Crush.lu, Luxembourg's dating platform with coach-hosted events. Featured in Virgule.lu and LuxTimes. Founded by Tom Sawyer and Wesley Hourdequin."
+msgstr "Lerne die Gründer von Crush.lu kennen, Luxemburgs Dating-Plattform mit von Coaches begleiteten Events. Vorgestellt in Virgule.lu und LuxTimes. Gegründet von Tom Sawyer und Wesley Hourdequin."
 
 #: templates/crush_lu/about.html:10
 msgid ""
@@ -13550,15 +13542,8 @@ msgid "About Crush.lu"
 msgstr "Über Crush.lu"
 
 #: templates/crush_lu/about.html:43
-msgid ""
-"Learn about Crush.lu, Luxembourg's privacy-first dating platform. Founded by"
-" Tom Sawyer and Wesley Hourdequin, bringing authentic connections through "
-"coach-curated profiles and real-world events."
-msgstr ""
-"Erfahre mehr über Crush.lu, Luxemburgs datenschutzorientierte Dating-"
-"Plattform. Gegründet von Tom Sawyer und Wesley Hourdequin, bringen wir "
-"authentische Verbindungen durch Coach-verifizierte Profile und echte "
-"Veranstaltungen."
+msgid "Learn about Crush.lu, Luxembourg's privacy-first dating platform. Founded by Tom Sawyer and Wesley Hourdequin, bringing authentic connections through coach-hosted, real-world events."
+msgstr "Erfahre mehr über Crush.lu, Luxemburgs datenschutzorientierte Dating-Plattform. Gegründet von Tom Sawyer und Wesley Hourdequin, bringen wir authentische Verbindungen durch echte, von Coaches begleitete Veranstaltungen."
 
 #: templates/crush_lu/about.html:47
 msgid ""
@@ -15487,10 +15472,8 @@ msgid "No teams yet."
 msgstr "Noch keine Teams."
 
 #: templates/crush_lu/cache/_play_content.html:9
-#, fuzzy
-#| msgid "Too many attempts. Please try again later."
 msgid "Too many attempts. Take a breath and try again in a minute."
-msgstr "Zu viele Versuche. Bitte versuche es später erneut."
+msgstr "Zu viele Versuche. Atme kurz durch und versuch es in einer Minute noch mal."
 
 #: templates/crush_lu/cache/_play_content.html:33
 #: templates/crush_lu/cache/finish.html:14
@@ -16105,6 +16088,9 @@ msgstr "Letzte Aktualisierung: 14. Januar 2025"
 #: templates/crush_lu/terms_of_service.html:17
 msgid "Table of Contents"
 msgstr "Inhaltsverzeichnis"
+
+msgid "Back to contents"
+msgstr "Zurück zum Inhaltsverzeichnis"
 
 #: templates/crush_lu/child_safety_standards.html:19
 #, fuzzy
@@ -20153,7 +20139,7 @@ msgstr "Dein Vibe"
 #: templates/crush_lu/create_profile.html:751
 #: templates/crush_lu/event_register.html:90
 msgid "Optional"
-msgstr "Fakultativ"
+msgstr "Optional"
 
 #: templates/crush_lu/create_profile.html:706
 #: templates/crush_lu/partials/edit_event_identity.html:149
@@ -26221,13 +26207,8 @@ msgstr ""
 "Events, echte Menschen, echte Verbindungen."
 
 #: templates/crush_lu/event_list.html:13
-msgid ""
-"Speed dating events in Luxembourg for singles. Join Crush.lu for coach-"
-"curated speed dating nights, social mixers, and themed meetups. Book your "
-"next event now."
-msgstr ""
-"Speed Dating Events in Luxemburg für Singles. Crush.lu organisiert Speed-"
-"Dating-Abende, Social Mixer und Themen-Events. Jetzt nächstes Event buchen."
+msgid "Speed dating events in Luxembourg for singles. Join Crush.lu for coach-hosted speed dating nights, social mixers, and themed meetups. Book your next event now."
+msgstr "Speed Dating Events in Luxemburg für Singles. Crush.lu organisiert von Coaches begleitete Speed-Dating-Abende, Social Mixer und Themen-Events. Jetzt nächstes Event buchen."
 
 #: templates/crush_lu/event_list.html:14
 msgid ""
@@ -27265,12 +27246,8 @@ msgstr ""
 "partnersuche luxemburg, singles in luxemburg"
 
 #: templates/crush_lu/home.html:26
-msgid ""
-"Privacy-first dating platform for Luxembourg with coach-curated events and "
-"meaningful connections."
-msgstr ""
-"Datenschutz-orientierte Dating-Plattform für Luxemburg mit von Coaches "
-"kuratierten Events und bedeutungsvollen Verbindungen."
+msgid "Privacy-first dating platform for Luxembourg with coach-hosted events and meaningful connections."
+msgstr "Datenschutz-orientierte Dating-Plattform für Luxemburg mit von Coaches begleiteten Events und bedeutungsvollen Verbindungen."
 
 #: templates/crush_lu/home.html:43
 msgid "How does Crush.lu work?"
@@ -27485,12 +27462,8 @@ msgid "How to Start Dating with Crush.lu"
 msgstr "So startest du das Dating mit Crush.lu"
 
 #: templates/crush_lu/how_it_works.html:43
-msgid ""
-"A step-by-step guide to meeting singles in Luxembourg through Crush.lu's "
-"coach-curated dating events."
-msgstr ""
-"Eine Schritt-für-Schritt-Anleitung zum Kennenlernen von Singles in Luxemburg"
-" durch die von Crush.lus Coaches kuratierten Dating-Events."
+msgid "A step-by-step guide to meeting singles in Luxembourg through Crush.lu's coach-hosted dating events."
+msgstr "Eine Schritt-für-Schritt-Anleitung zum Kennenlernen von Singles in Luxemburg durch die von Coaches begleiteten Dating-Events von Crush.lu."
 
 #: templates/crush_lu/how_it_works.html:55
 msgid ""
@@ -27777,27 +27750,6 @@ msgstr "Glücklich bis ans Ende"
 msgid "Just like on Crush.lu — real connections happen when you show up!"
 msgstr ""
 "Genau wie auf Crush.lu — echte Verbindungen entstehen, wenn du dich zeigst!"
-
-#: templates/crush_lu/includes/ghost-story-section.html:152
-msgid "Find Your Match"
-msgstr "Finde dein Match"
-
-#: templates/crush_lu/includes/ghost-story-section.html:168
-msgid "Previous scene"
-msgstr "Vorherige Szene"
-
-#: templates/crush_lu/includes/ghost-story-section.html:176
-#: templates/crush_lu/includes/ghost-story-section.html:177
-#: templates/crush_lu/includes/ghost-story-section.html:178
-#: templates/crush_lu/includes/ghost-story-section.html:179
-#: templates/crush_lu/includes/ghost-story-section.html:180
-#: templates/crush_lu/includes/ghost-story-section.html:181
-msgid "Scene"
-msgstr "Szene"
-
-#: templates/crush_lu/includes/ghost-story-section.html:190
-msgid "Next scene"
-msgstr "Nächste Szene"
 
 #: templates/crush_lu/includes/journey_stepper.html:14
 #, python-format
@@ -28306,10 +28258,11 @@ msgid "%(points)s points available"
 msgstr "%(points)s Punkte verdient"
 
 #: templates/crush_lu/journey/challenges/multiple_choice.html:44
-msgid "You already answered this question and earned <strong>"
-msgstr ""
-"Du hast diese Frage bereits beantwortet und <strong>%(points)s "
-"Punkte</strong> gesammelt."
+#, python-format
+msgid "You already answered this question and earned <strong>%(points)s point</strong>."
+msgid_plural "You already answered this question and earned <strong>%(points)s points</strong>."
+msgstr[0] "Du hast diese Frage bereits beantwortet und <strong>%(points)s Punkt</strong> gesammelt."
+msgstr[1] "Du hast diese Frage bereits beantwortet und <strong>%(points)s Punkte</strong> gesammelt."
 
 #: templates/crush_lu/journey/challenges/multiple_choice.html:49
 msgid "Answer options"
@@ -28402,10 +28355,11 @@ msgid "Riddle Challenge"
 msgstr "Rätsel-Herausforderung"
 
 #: templates/crush_lu/journey/challenges/riddle.html:46
-msgid "You already solved this riddle and earned <strong>"
-msgstr ""
-"Du hast dieses Rätsel bereits gelöst und <strong>%(points)s Punkte</strong> "
-"verdient."
+#, python-format
+msgid "You already solved this riddle and earned <strong>%(points)s point</strong>."
+msgid_plural "You already solved this riddle and earned <strong>%(points)s points</strong>."
+msgstr[0] "Du hast dieses Rätsel bereits gelöst und <strong>%(points)s Punkt</strong> verdient."
+msgstr[1] "Du hast dieses Rätsel bereits gelöst und <strong>%(points)s Punkte</strong> verdient."
 
 #: templates/crush_lu/journey/challenges/riddle.html:65
 msgid "Select a date using the calendar"
@@ -28445,10 +28399,11 @@ msgid "Timeline Challenge"
 msgstr "Zeitstrahl-Challenge"
 
 #: templates/crush_lu/journey/challenges/timeline_sort.html:44
-msgid "You already sorted this timeline correctly and earned <strong>"
-msgstr ""
-"Du hast diese Zeitleiste bereits richtig sortiert und<strong>%(points)s "
-"Punkte</strong> erhalten."
+#, python-format
+msgid "You already sorted this timeline correctly and earned <strong>%(points)s point</strong>."
+msgid_plural "You already sorted this timeline correctly and earned <strong>%(points)s points</strong>."
+msgstr[0] "Du hast diese Zeitleiste bereits richtig sortiert und <strong>%(points)s Punkt</strong> erhalten."
+msgstr[1] "Du hast diese Zeitleiste bereits richtig sortiert und <strong>%(points)s Punkte</strong> erhalten."
 
 #: templates/crush_lu/journey/challenges/timeline_sort.html:57
 msgid "Sortable timeline events"
@@ -28471,10 +28426,11 @@ msgid "Shuffle"
 msgstr "Shuffle"
 
 #: templates/crush_lu/journey/challenges/word_scramble.html:60
-msgid "You already unscrambled this word and earned <strong>"
-msgstr ""
-"You already unscrambled this word and earned "
-"<strong>%(points)spoints</strong>."
+#, python-format
+msgid "You already unscrambled this word and earned <strong>%(points)s point</strong>."
+msgid_plural "You already unscrambled this word and earned <strong>%(points)s points</strong>."
+msgstr[0] "Du hast dieses Wort bereits entschlüsselt und <strong>%(points)s Punkt</strong> verdient."
+msgstr[1] "Du hast dieses Wort bereits entschlüsselt und <strong>%(points)s Punkte</strong> verdient."
 
 #: templates/crush_lu/journey/challenges/word_scramble.html:74
 msgid "Type the unscrambled word..."
@@ -28489,10 +28445,11 @@ msgid "Great choice!"
 msgstr "Tolle Wahl!"
 
 #: templates/crush_lu/journey/challenges/would_you_rather.html:43
-msgid "You've already shared your choice and earned <strong>"
-msgstr ""
-"Du hast deine Wahl bereits geteilt und <strong>%(points)s Punkte</strong> "
-"gesammelt."
+#, python-format
+msgid "You've already shared your choice and earned <strong>%(points)s point</strong>."
+msgid_plural "You've already shared your choice and earned <strong>%(points)s points</strong>."
+msgstr[0] "Du hast deine Wahl bereits geteilt und <strong>%(points)s Punkt</strong> gesammelt."
+msgstr[1] "Du hast deine Wahl bereits geteilt und <strong>%(points)s Punkte</strong> gesammelt."
 
 #: templates/crush_lu/journey/challenges/would_you_rather.html:52
 msgid "Choose an option"
@@ -28709,6 +28666,24 @@ msgstr ""
 #: templates/crush_lu/journey/gift_create.html:108
 msgid "Chapter 1: Photo Puzzle"
 msgstr "Kapitel 1: Foto Puzzle"
+
+#: templates/crush_lu/journey/gift_create.html
+msgctxt "gift wizard step"
+msgid "Story details"
+msgstr "Details zur Geschichte"
+
+#: templates/crush_lu/journey/gift_create.html
+msgctxt "gift wizard step"
+msgid "Add media"
+msgstr "Medien hinzufügen"
+
+#: templates/crush_lu/journey/gift_create.html
+msgid "Gift creation steps"
+msgstr "Schritte zum Erstellen des Geschenks"
+
+#: templates/crush_lu/journey/gift_error_summary.html
+msgid "Files are not kept after an error. Please select them again."
+msgstr "Dateien werden nach einem Fehler nicht behalten. Bitte wähle sie erneut aus."
 
 #: templates/crush_lu/journey/gift_create.html:111
 msgid ""
@@ -31191,8 +31166,8 @@ msgstr "Crush.lu verwendet eine zweistufige Architektur:"
 #: templates/crush_lu/privacy_policy.html:61
 #: templates/crush_lu/terms_of_service.html:64
 #: templates/crush_lu/terms_of_service.html:94
-msgid "PowerUp Account:"
-msgstr "PowerUp-Konto:"
+msgid "Crush.lu account:"
+msgstr "Crush.lu-Konto:"
 
 #: templates/crush_lu/privacy_policy.html:61
 msgid ""
@@ -31219,13 +31194,8 @@ msgstr ""
 " separaten Einwilligung."
 
 #: templates/crush_lu/privacy_policy.html:65
-msgid ""
-"Each tier requires separate, explicit consent. You may delete your Crush.lu "
-"Profile while keeping your PowerUp Account, or delete everything."
-msgstr ""
-"Jede Stufe erfordert eine separate, ausdrückliche Einwilligung. Sie können "
-"Ihr Crush.lu-Profil löschen und Ihr PowerUp-Konto behalten oder alles "
-"löschen."
+msgid "Each tier requires separate, explicit consent. You may delete your Crush.lu Profile while keeping your Crush.lu account, or delete everything."
+msgstr "Jede Stufe erfordert eine separate, ausdrückliche Einwilligung. Sie können Ihr Crush.lu-Profil löschen und Ihr Crush.lu-Konto behalten oder alles löschen."
 
 #: templates/crush_lu/privacy_policy.html:69
 msgid "3. Data We Collect"
@@ -31354,13 +31324,8 @@ msgid "Privacy flags"
 msgstr "Datenschutzeinstellungen"
 
 #: templates/crush_lu/privacy_policy.html:100
-msgid ""
-"your choices for: display full name or first name only, show exact age or "
-"age range, blur photos until mutual interest"
-msgstr ""
-"Ihre Auswahl für: vollständigen Namen oder nur Vornamen anzeigen, genaues "
-"Alter oder Altersspanne anzeigen, Fotos bis zum gegenseitigen Interesse "
-"weichzeichnen"
+msgid "your choices for: display full name or first name only, show exact age or age range"
+msgstr "Ihre Auswahl für: vollständigen Namen oder nur Vornamen anzeigen, genaues Alter oder Altersspanne anzeigen"
 
 #: templates/crush_lu/privacy_policy.html:101
 msgid "Draft data"
@@ -31793,13 +31758,8 @@ msgstr ""
 "DSGVO gefordert:"
 
 #: templates/crush_lu/privacy_policy.html:194
-msgid ""
-"Two-tier consent: separate records for PowerUp Account and Crush.lu Profile,"
-" each with IP address, timestamp, and terms version accepted"
-msgstr ""
-"Zweistufige Einwilligung: separate Datensätze für PowerUp-Konto und "
-"Crush.lu-Profil, jeweils mit IP-Adresse, Zeitstempel und akzeptierter AGB-"
-"Version"
+msgid "Two-tier consent: separate records for Crush.lu account and Crush.lu Profile, each with IP address, timestamp, and terms version accepted"
+msgstr "Zweistufige Einwilligung: separate Datensätze für Crush.lu-Konto und Crush.lu-Profil, jeweils mit IP-Adresse, Zeitstempel und akzeptierter AGB-Version"
 
 #: templates/crush_lu/privacy_policy.html:195
 msgid "Marketing consent: separate opt-in with timestamp"
@@ -32422,14 +32382,8 @@ msgid "Right to Erasure (Art. 17):"
 msgstr "Recht auf Löschung (Art. 17):"
 
 #: templates/crush_lu/privacy_policy.html:477
-msgid ""
-"Request deletion of your data. You can delete your Crush.lu Profile only "
-"(keeping your PowerUp Account) or delete everything. Use the Data Management"
-" page in your account settings."
-msgstr ""
-"Fordern Sie die Löschung Ihrer Daten an. Sie können nur Ihr Crush.lu-Profil "
-"löschen (und Ihr PowerUp-Konto behalten) oder alles löschen. Nutzen Sie die "
-"Datenverwaltungsseite in Ihren Kontoeinstellungen."
+msgid "Request deletion of your data. You can delete your Crush.lu Profile only (keeping your Crush.lu account) or delete everything. Use the Data Management page in your account settings."
+msgstr "Fordern Sie die Löschung Ihrer Daten an. Sie können nur Ihr Crush.lu-Profil löschen (und Ihr Crush.lu-Konto behalten) oder alles löschen. Nutzen Sie die Datenverwaltungsseite in Ihren Kontoeinstellungen."
 
 #: templates/crush_lu/privacy_policy.html:478
 msgid "Right to Restriction (Art. 18):"
@@ -32656,13 +32610,12 @@ msgstr ""
 "Jedes Foto wird unter einem nutzerspezifischen Pfad mit einem zufälligen "
 "Dateinamen gespeichert"
 
-#: templates/crush_lu/privacy_policy.html:570
-msgid ""
-"The blur feature allows you to obscure your photos until mutual interest is "
-"established"
-msgstr ""
-"Die Weichzeichnungsfunktion ermöglicht es Ihnen, Ihre Fotos bis zum "
-"gegenseitigen Interesse unkenntlich zu machen"
+#~ msgid ""
+#~ "The blur feature allows you to obscure your photos until mutual interest is "
+#~ "established"
+#~ msgstr ""
+#~ "Die Weichzeichnungsfunktion ermöglicht es Ihnen, Ihre Fotos bis zum "
+#~ "gegenseitigen Interesse unkenntlich zu machen"
 
 #: templates/crush_lu/privacy_policy.html:571
 msgid ""
@@ -33667,7 +33620,7 @@ msgstr "Zum Hochladen eines Fotos klicken"
 #: templates/crush_lu/spark_create_journey.html:95
 #: templates/crush_lu/spark_create_journey.html:121
 msgid "(optional)"
-msgstr "Fakultativ"
+msgstr "(optional)"
 
 #: templates/crush_lu/spark_create_journey.html:69
 msgid "Upload up to 5 photos for the slideshow."
@@ -34008,6 +33961,27 @@ msgstr "Kontodaten-Einstellungen"
 msgid "Sign in for account controls"
 msgstr "Melde dich an, um dein Konto zu verwalten"
 
+msgid "Report a safety concern"
+msgstr "Sicherheitsproblem melden"
+
+msgid "If someone made you feel unsafe on Crush.lu or at an event, email us and tell us what happened."
+msgstr "Wenn du dich auf Crush.lu oder bei einem Event durch jemanden unsicher gefühlt hast, schreib uns eine E-Mail und erzähl uns, was passiert ist."
+
+msgid "Child Safety"
+msgstr "Kinderschutz"
+
+msgid "Frequently asked questions"
+msgstr "Häufig gestellte Fragen"
+
+msgid "How do I get verified?"
+msgstr "Wie werde ich verifiziert?"
+
+msgid "What happens at an event?"
+msgstr "Was passiert bei einem Event?"
+
+msgid "How do I delete my account?"
+msgstr "Wie lösche ich mein Konto?"
+
 #: templates/crush_lu/terms_of_service.html:4
 msgid "Terms of Service - Crush.lu"
 msgstr "Nutzungsbedingungen - Crush.lu"
@@ -34125,8 +34099,8 @@ msgstr ""
 "einwilligen in:"
 
 #: templates/crush_lu/terms_of_service.html:53
-msgid "The creation of your PowerUp Account (identity layer)"
-msgstr "Die Erstellung Ihres PowerUp-Kontos (Identitätsebene)"
+msgid "The creation of your Crush.lu account (identity layer)"
+msgstr "Die Erstellung Ihres Crush.lu-Kontos (Identitätsebene)"
 
 #: templates/crush_lu/terms_of_service.html:54
 msgid "The creation of your Crush.lu Profile (dating profile layer)"
@@ -35165,11 +35139,8 @@ msgstr ""
 " Kontoeinstellungen herunter"
 
 #: templates/crush_lu/terms_of_service.html:322
-msgid ""
-"Privacy controls: choose what other users can see (name, age, photo blur)"
-msgstr ""
-"Datenschutzeinstellungen: Wählen Sie, was andere Nutzer sehen können (Name, "
-"Alter, Foto-Weichzeichnung)"
+msgid "Privacy controls: choose what other users can see (name, age)"
+msgstr "Datenschutzeinstellungen: Wählen Sie, was andere Nutzer sehen können (Name, Alter)"
 
 #: templates/crush_lu/terms_of_service.html:323
 msgid ""
@@ -35335,24 +35306,16 @@ msgid "Delete Crush.lu Profile:"
 msgstr "Crush.lu-Profil löschen:"
 
 #: templates/crush_lu/terms_of_service.html:371
-msgid ""
-"Removes your dating profile, photos, connections, and event history. Your "
-"PowerUp Account remains active for other platforms."
-msgstr ""
-"Entfernt Ihr Dating-Profil, Fotos, Verbindungen und Veranstaltungshistorie. "
-"Ihr PowerUp-Konto bleibt für andere Plattformen aktiv."
+msgid "Removes your dating profile, photos, connections, and event history. Your Crush.lu account remains active for other platforms."
+msgstr "Entfernt Ihr Dating-Profil, Fotos, Verbindungen und Veranstaltungshistorie. Ihr Crush.lu-Konto bleibt für andere Plattformen aktiv."
 
 #: templates/crush_lu/terms_of_service.html:372
 msgid "Delete Full Account:"
 msgstr "Gesamtes Konto löschen:"
 
 #: templates/crush_lu/terms_of_service.html:372
-msgid ""
-"Removes your PowerUp Account and all associated data across all platforms. "
-"Your account is anonymised."
-msgstr ""
-"Entfernt Ihr PowerUp-Konto und alle zugehörigen Daten auf allen Plattformen."
-" Ihr Konto wird anonymisiert."
+msgid "Removes your Crush.lu account and all associated data across all platforms. Your account is anonymised."
+msgstr "Entfernt Ihr Crush.lu-Konto und alle zugehörigen Daten auf allen Plattformen. Ihr Konto wird anonymisiert."
 
 #: templates/crush_lu/terms_of_service.html:375
 msgid "17.2 Termination by Us"
@@ -36112,8 +36075,8 @@ msgstr ""
 "Bevor es losgeht: eine kurze Frage, damit wir dich richtig begleiten können."
 
 #: templates/crush_lu/welcome.html:79
-msgid "The road ahead · ≈ 15 min to get started"
-msgstr "Dein Weg · ca. 15 Min. bis zum Start"
+msgid "The road ahead · ≈ %(minutes)s min to get started"
+msgstr "Dein Weg · ca. %(minutes)s Min. bis zum Start"
 
 #: templates/crush_lu/welcome.html:104
 msgid "What makes us different"
@@ -38788,7 +38751,7 @@ msgstr "Gesamtbetrag"
 
 #: crush_lu/templates/crush_lu/payments/sumup_widget.html
 msgid "Confirming your payment — please don't close this page."
-msgstr "Ihre Zahlung wird bestätigt — bitte schließen Sie diese Seite nicht."
+msgstr "Deine Zahlung wird bestätigt — bitte schließ diese Seite nicht."
 
 #: crush_lu/templates/crush_lu/payments/sumup_widget.html
 msgid "Loading secure SumUp payment checkout..."
@@ -38799,12 +38762,8 @@ msgid "Encrypted & PCI-DSS Compliant via SumUp"
 msgstr "Verschlüsselt und PCI-DSS-konform über SumUp"
 
 #: crush_lu/templates/crush_lu/payments/sumup_widget.html
-msgid ""
-"The payment could not be completed. Please check your card details and try "
-"again."
-msgstr ""
-"Die Zahlung konnte nicht abgeschlossen werden. Bitte überprüfen Sie Ihre "
-"Kartendaten und versuchen Sie es erneut."
+msgid "The payment could not be completed. Please check your card details and try again."
+msgstr "Die Zahlung konnte nicht abgeschlossen werden. Bitte überprüfe deine Kartendaten und versuche es erneut."
 
 #: crush_lu/views_payments.py
 msgid "Premium is invite-only during the beta."
@@ -39280,15 +39239,9 @@ msgstr ""
 "Es kann sofort für jedes Crush.lu-Event verwendet werden und behält das "
 "geltende Ablaufdatum."
 
-msgid ""
-"This cancellation is inside 48 hours, so no credit is issued yet. If a "
-"replacement pays for the released seat before the event starts, we'll add "
-"50% of what you paid as Crush Credit."
-msgstr ""
-"Diese Stornierung erfolgt innerhalb von 48 Stunden, daher wird zunächst kein"
-" Guthaben ausgestellt. Bezahlt vor Eventbeginn eine Ersatzperson den frei "
-"gewordenen Platz, schreiben wir dir 50 % deines gezahlten Betrags als Crush "
-"Credit gut."
+#, python-format
+msgid "This cancellation is inside %(hours)s hours, so no credit is issued yet. If a replacement pays for the released seat before the event starts, we'll add %(share)s%% of what you paid as Crush Credit."
+msgstr "Diese Stornierung erfolgt innerhalb von %(hours)s Stunden, daher wird zunächst kein Guthaben ausgestellt. Bezahlt vor Eventbeginn eine Ersatzperson den frei gewordenen Platz, schreiben wir dir %(share)s %% deines gezahlten Betrags als Crush Credit gut."
 
 msgid "Cash / bank transfer"
 msgstr "Barzahlung / Banküberweisung"
@@ -39327,12 +39280,6 @@ msgid ""
 msgstr ""
 "{sent} Absage-E-Mail(s) gesendet; {remaining} stehen noch aus. Führe diese "
 "Aktion erneut aus, um fortzufahren."
-
-msgid ""
-"No payment was recorded for this registration, so no Crush Credit is due."
-msgstr ""
-"Für diese Anmeldung wurde keine Zahlung erfasst, daher ist kein Crush Credit"
-" fällig."
 
 msgid ""
 "No payment was recorded for this registration, so no Crush Credit is due."
@@ -42779,6 +42726,18 @@ msgstr "Mehr lesen"
 msgid "See entry events"
 msgstr "Einstiegs-Events ansehen"
 
+#: templates/crush_lu/includes/event_card.html
+msgid "Entry event"
+msgstr "Einstiegs-Event"
+
+#: templates/crush_lu/event_list.html
+msgid "Showing entry events only"
+msgstr "Es werden nur Einstiegs-Events angezeigt"
+
+#: templates/crush_lu/event_list.html
+msgid "Show all events"
+msgstr "Alle Events anzeigen"
+
 #: templates/crush_lu/event_detail.html:693
 msgid "Contact support"
 msgstr "Support kontaktieren"
@@ -43574,6 +43533,110 @@ msgid_plural "%(counter)s items need your attention"
 msgstr[0] "%(counter)s Eintrag braucht deine Aufmerksamkeit"
 msgstr[1] "%(counter)s Einträge brauchen deine Aufmerksamkeit"
 
+#: templates/crush_lu/event_polls/poll_detail.html
+#, python-format
+msgid "Voting opens %(date)s"
+msgstr "Die Abstimmung startet am %(date)s"
+
+#: templates/crush_lu/event_polls/poll_detail.html
+msgid "Thanks, your vote is in!"
+msgstr "Danke, deine Stimme ist angekommen!"
+
+#: templates/crush_lu/event_polls/_poll_results_partial.html
+msgctxt "poll result"
+msgid "Your vote"
+msgstr "Deine Stimme"
+
+#: templates/crush_lu/event_polls/_poll_results_partial.html
+#, python-format
+msgid "%(counter)s vote"
+msgid_plural "%(counter)s votes"
+msgstr[0] "%(counter)s Stimme"
+msgstr[1] "%(counter)s Stimmen"
+
+#: templates/crush_lu/event_polls/_poll_results_partial.html
+#, python-format
+msgid "%(name)s: %(pct)s%%, %(votes_label)s"
+msgstr "%(name)s: %(pct)s %%, %(votes_label)s"
+
+#: views_event_polls.py
+msgid "Profile required"
+msgstr "Profil erforderlich"
+
+#: views_event_polls.py
+msgid "Poll is not active"
+msgstr "Diese Umfrage ist gerade nicht offen"
+
+#: views_event_polls.py
+msgid "No options selected"
+msgstr "Keine Option ausgewählt"
+
+#: views_event_polls.py
+msgid "Only one choice allowed"
+msgstr "Nur eine Auswahl erlaubt"
+
+#: views_event_polls.py
+msgid "Invalid option"
+msgstr "Ungültige Option"
+
+#: templates/crush_lu/journey/challenges/timeline_sort.html
+msgid ""
+"Drag and drop the events, or use the up and down buttons, to arrange them in"
+" chronological order"
+msgstr ""
+"Ziehe die Ereignisse per Drag-and-Drop oder nutze die Buttons nach oben und "
+"unten, um sie in chronologischer Reihenfolge anzuordnen"
+
+#: templates/crush_lu/journey/challenges/timeline_sort.html
+msgid ""
+"Touch and drag the events, or use the up and down buttons, to arrange them "
+"in chronological order"
+msgstr ""
+"Berühre und ziehe die Ereignisse oder nutze die Buttons nach oben und unten,"
+" um sie in chronologischer Reihenfolge anzuordnen"
+
+#: templates/crush_lu/journey/challenges/timeline_sort.html
+msgid "{item} moved to position {position} of {total}"
+msgstr "{item} ist jetzt auf Position {position} von {total}"
+
+#: templates/crush_lu/journey/challenges/timeline_sort.html
+#, python-format
+msgid "Move “%(event)s” up"
+msgstr "„%(event)s“ nach oben verschieben"
+
+#: templates/crush_lu/journey/challenges/timeline_sort.html
+#, python-format
+msgid "Move “%(event)s” down"
+msgstr "„%(event)s“ nach unten verschieben"
+
+#: crush_lu/views_payments.py
+#, python-format
+msgid "This checkout belongs to another member. Payment status: %(status)s."
+msgstr "Dieser Checkout gehört einem anderen Mitglied. Zahlungsstatus: %(status)s."
+
+#: crush_lu/templates/crush_lu/components/support_card.html:90 crush_lu/templates/crush_lu/components/support_card.html:145
+msgctxt "donation button"
+msgid "Support"
+msgstr "Unterstützen"
+
+# UX Wave 4 · WP7a — legal pages Version 2.1 (clarification)
+#: crush_lu/templates/crush_lu/privacy_policy.html
+msgid "Last Updated: September 28, 2026"
+msgstr "Zuletzt aktualisiert: 28. September 2026"
+
+#: crush_lu/templates/crush_lu/privacy_policy.html
+msgid "Version 2.1"
+msgstr "Version 2.1"
+
+#: crush_lu/templates/crush_lu/privacy_policy.html
+msgid ""
+"This Privacy Policy applies to Version 2.1 of our terms. Your consent "
+"records reference this version number for traceability."
+msgstr ""
+"Diese Datenschutzrichtlinie gilt für Version 2.1 unserer Bedingungen. Ihre "
+"Einwilligungsdatensätze referenzieren diese Versionsnummer zur "
+"Nachverfolgbarkeit."
+
 #: crush_lu/templates/crush_lu/membership.html
 msgid "We have already received a payment for your Premium request."
 msgstr "Wir haben für deine Premium-Anfrage bereits eine Zahlung erhalten."
@@ -43581,3 +43644,102 @@ msgstr "Wir haben für deine Premium-Anfrage bereits eine Zahlung erhalten."
 #: crush_lu/templates/crush_lu/membership.html
 msgid "Contact support about your Premium payment"
 msgstr "Kontaktiere den Support zu deiner Premium-Zahlung"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "System (Dark)"
+msgstr "System (Dunkel)"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "System (Light)"
+msgstr "System (Hell)"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "Dark Mode"
+msgstr "Dunkelmodus"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "Light Mode"
+msgstr "Hellmodus"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "Switch to light mode"
+msgstr "Zum Hellmodus wechseln"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "Switch to dark mode"
+msgstr "Zum Dunkelmodus wechseln"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "Switch to Light"
+msgstr "Zu Hell wechseln"
+
+#: crush_lu/templates/crush_lu/components/theme_toggle_labels.html
+msgid "Switch to Dark"
+msgstr "Zu Dunkel wechseln"
+
+# UX Wave 4 · WP13a followups-connect-dashboard
+#: crush_lu/templates/crush_lu/my_connections.html
+msgid "You're connected, directly or via your coach"
+msgstr "Ihr seid verbunden, direkt oder über deinen Coach"
+
+#: crush_lu/templates/crush_lu/moderation/_block_report_menu.html
+msgid "Also let a Crush Coach know"
+msgstr "Auch einem Crush Coach Bescheid geben"
+
+#: crush_lu/templates/crush_lu/crush_connect/chat_detail.html
+msgid "Meeting safely"
+msgstr "Sicher treffen"
+
+#: crush_lu/services/on_break.py
+#, python-format
+msgid "Heads-up: these members are taking a break from Crush.lu right now: %(names)s. You can still invite them."
+msgstr "Hinweis: Diese Mitglieder machen gerade eine Pause von Crush.lu: %(names)s. Du kannst sie trotzdem einladen."
+
+#: crush_lu/templates/crush_lu/terms_of_service.html:57
+msgid "Each consent is recorded with your IP address, timestamp, and the version of these Terms you accepted. This version is 2.1."
+msgstr "Jede Einwilligung wird mit Ihrer IP-Adresse, einem Zeitstempel und der Version dieser Nutzungsbedingungen, die Sie akzeptiert haben, aufgezeichnet. Diese Version ist 2.1."
+
+# UX Wave 4 · WP15 i18n-sweep
+#: crush_lu/templates/crush_lu/auth.html
+msgid "I agree to the <a href=\"%(terms_url)s\" target=\"_blank\" class=\"%(link_class)s\">Terms of Service</a> and <a href=\"%(privacy_url)s\" target=\"_blank\" class=\"%(link_class)s\">Privacy Policy</a>"
+msgstr "Ich stimme den <a href=\"%(terms_url)s\" target=\"_blank\" class=\"%(link_class)s\">Nutzungsbedingungen</a> und der <a href=\"%(privacy_url)s\" target=\"_blank\" class=\"%(link_class)s\">Datenschutzerklärung</a> zu"
+
+#: crush_lu/views_phone_verification.py
+msgid "Invalid JSON format"
+msgstr "Ungültiges JSON-Format"
+
+#: crush_lu/views_phone_verification.py
+msgid "idToken is required"
+msgstr "idToken ist erforderlich"
+
+#: crush_lu/views_phone_verification.py
+msgid "Token does not contain a verified phone number"
+msgstr "Das Token enthält keine verifizierte Telefonnummer"
+
+#: crush_lu/views_phone_verification.py
+msgid "Phone verification failed. Please try again."
+msgstr "Die Verifizierung der Telefonnummer ist fehlgeschlagen. Bitte versuche es erneut."
+
+#: crush_lu/views_phone_verification.py
+msgid "Invalid request"
+msgstr "Ungültige Anfrage"
+
+#: crush_lu/views_phone_verification.py
+msgid "Phone number is required"
+msgstr "Telefonnummer ist erforderlich"
+
+#: crush_lu/views_account.py
+msgid "An account with this email already exists. Please login or use a different email."
+msgstr "Es gibt bereits ein Konto mit dieser E-Mail-Adresse. Bitte melde dich an oder verwende eine andere E-Mail-Adresse."
+
+#: crush_lu/views_account.py
+msgid "An error occurred while creating your account. Please try again."
+msgstr "Beim Erstellen deines Kontos ist ein Fehler aufgetreten. Bitte versuche es erneut."
+
+#: crush_lu/templates/crush_lu/journey/journey_map.html
+msgid "~%(minutes)s min"
+msgstr "~%(minutes)s Min."
+
+#: crush_lu/templates/crush_lu/advent/calendar.html
+msgid "December %(year)s"
+msgstr "Dezember %(year)s"

@@ -19,12 +19,25 @@ from pathlib import Path
 from django.core.cache import cache
 from django.test import Client, SimpleTestCase, TestCase
 
+from crush_lu.models import EventRegistration
 from crush_lu.tests.test_profile_edit_connect_card import _make_member
+from crush_lu.tests.test_ux_wave3_dashboard import _make_event
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 NATIVE = {"HTTP_X_CRUSH_CLIENT": "ios-app"}
 INSTALL_BUTTON_RE = re.compile(r'<button id="pwa-install-button"[^>]*>')
 DISMISS_BUTTON_RE = re.compile(r'<button id="pwa-dismiss-button"[^>]*>')
+
+
+def _make_eligible_member(username):
+    """An approved member with a first confirmed booking: since UX Wave 4 ·
+    WP13a (decision I) only such a member is offered the install card and
+    the push prompt, so the markup under test renders at all."""
+    user = _make_member(username)
+    EventRegistration.objects.create(
+        user=user, event=_make_event("Prompt event"), status="confirmed"
+    )
+    return user
 
 
 def _install_banner(html):
@@ -36,8 +49,9 @@ class InstallBannerMarkupTests(TestCase):
     def setUp(self):
         cache.clear()
         self.client = Client(HTTP_HOST="crush.lu")
+        self.client.force_login(_make_eligible_member("install@example.com"))
 
-    def _get(self, path="/en/", **extra):
+    def _get(self, path="/en/events/", **extra):
         response = self.client.get(path, **extra)
         self.assertEqual(response.status_code, 200)
         return response.content.decode()
@@ -72,9 +86,9 @@ class InstallBannerMarkupTests(TestCase):
         self.assertIn("x-cloak", tag.split())
 
     def test_fr_install_label_has_no_emoji(self):
-        html = self._get("/fr/")
+        html = self._get("/fr/events/")
         button = INSTALL_BUTTON_RE.search(html).group(0)
-        self.assertIn('aria-label="Installer l\'application Crush.lu"', button)
+        self.assertIn('aria-label="Installer l\'app Crush.lu"', button)
         self.assertNotIn("📲", _install_banner(html))
 
     def test_native_shell_gets_no_install_banner(self):
@@ -92,7 +106,7 @@ class InstallBannerMarkupTests(TestCase):
 class MemberPromptTests(TestCase):
     def setUp(self):
         cache.clear()
-        self.user = _make_member("prompts@example.com")
+        self.user = _make_eligible_member("prompts@example.com")
         self.client = Client(HTTP_HOST="crush.lu")
         self.client.force_login(self.user)
 
@@ -102,7 +116,7 @@ class MemberPromptTests(TestCase):
         return response.content.decode()
 
     def test_push_prompt_sits_above_the_nav_and_is_queued(self):
-        html = self._get("/en/account/settings/")
+        html = self._get("/en/profile/edit/?section=account&sub=notifications")
         start = html.index('x-data="pushActivationPrompt"')
         tag = html[start : html.index(">", start)]
         self.assertIn('x-show="visible"', tag)
@@ -110,31 +124,26 @@ class MemberPromptTests(TestCase):
         self.assertIn("Alpine.store('prompts').isActive('push')", html)
 
     def test_native_shell_gets_no_push_prompt(self):
-        html = self._get("/en/account/settings/", **NATIVE)
+        html = self._get(
+            "/en/profile/edit/?section=account&sub=notifications", **NATIVE
+        )
         self.assertNotIn('x-data="pushActivationPrompt"', html)
 
     def test_cookie_sheet_clears_the_tab_bar_on_crush(self):
-        html = self._get("/en/account/settings/")
+        html = self._get("/en/profile/edit/?section=account&sub=notifications")
         start = html.index('id="cookie-consent-banner"')
         tag = html[html.rindex("<div", 0, start) : html.index(">", start)]
         self.assertIn("prompt-above-nav", tag)
         self.assertIn("cookie-banner-toggle", html)
 
-    def test_account_settings_push_card_has_timeout_state(self):
-        html = self._get("/en/account/settings/")
+    def test_edit_profile_push_card_has_timeout_state(self):
+        html = self._get("/en/profile/edit/?section=account&sub=notifications")
         self.assertEqual(html.count('x-if="showCheckTimedOut"'), 1)
         self.assertIn("We couldn't check notification support", html)
         self.assertIn('@click="retryStatusCheck"', html)
 
-    def test_edit_profile_push_card_has_timeout_state(self):
-        html = self._get("/en/profile/edit/?section=account&sub=notifications")
-        self.assertEqual(html.count('x-if="showCheckTimedOut"'), 1)
-
     def test_native_shell_says_notifications_are_managed_in_the_app(self):
-        for path in (
-            "/en/account/settings/",
-            "/en/profile/edit/?section=account&sub=notifications",
-        ):
+        for path in ("/en/profile/edit/?section=account&sub=notifications",):
             # No subTest: pytest without pytest-subtests drops its failures.
             html = self._get(path, **NATIVE)
             self.assertIn("Notifications are managed in the app", html, path)
@@ -142,9 +151,13 @@ class MemberPromptTests(TestCase):
             self.assertNotIn("Checking notification support", html, path)
 
     def test_native_notice_translated(self):
-        html = self._get("/de/account/settings/", **NATIVE)
+        html = self._get(
+            "/de/profile/edit/?section=account&sub=notifications", **NATIVE
+        )
         self.assertIn("Benachrichtigungen werden in der App verwaltet", html)
-        html = self._get("/fr/account/settings/", **NATIVE)
+        html = self._get(
+            "/fr/profile/edit/?section=account&sub=notifications", **NATIVE
+        )
         self.assertIn("Les notifications sont gérées dans l'application", html)
 
 
@@ -163,9 +176,7 @@ class OtherSitesCookieSheetTests(TestCase):
 
 class PromptQueueSourceTests(SimpleTestCase):
     def test_store_orders_cookie_messages_install_push(self):
-        js = (
-            REPO_ROOT / "crush_lu/static/crush_lu/js/alpine-components.js"
-        ).read_text()
+        js = (REPO_ROOT / "crush_lu/static/crush_lu/js/alpine/core.js").read_text()
         self.assertIn('Alpine.store("prompts"', js)
         self.assertIn('["cookie", "messages", "install", "push"]', js)
         self.assertIn('Alpine.data("flashMessage"', js)

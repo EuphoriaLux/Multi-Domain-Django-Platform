@@ -16,6 +16,7 @@ failing and can be deleted alongside a comment update in settings.py.
 
 Run with: python manage.py test hub.tests.test_secret_key_rotation
 """
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from rest_framework_simplejwt.backends import TokenBackend

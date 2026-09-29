@@ -2,7 +2,7 @@
 
 {# Mobile navigation side drawer — hidden on desktop (lg:+) #}
 {# CSP Alpine build: no inline `$store.…` expressions — state is exposed #}
-{# through the named mobileDrawer component (alpine-components.js) #}
+{# through the named mobileDrawer component (js/alpine/core.js) #}
 <div x-data="mobileDrawer">
     {# Backdrop Overlay (smooth dark fade, closes drawer on click) #}
     <div x-show="drawerOpen"
@@ -81,7 +81,7 @@
                     {% include "shared/icons/user-circle.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500" %}
                     <span>{% trans "Edit Profile" %}</span>
                 </a>
-                <a href="{% url 'crush_lu:account_settings' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm">
+                <a href="{% url 'crush_lu:edit_profile' %}?section=account" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm">
                     {% include "shared/icons/cog.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500" %}
                     <span>{% trans "Account Settings" %}</span>
                 </a>

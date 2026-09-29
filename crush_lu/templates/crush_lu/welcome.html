@@ -77,7 +77,7 @@
 
     <section class="mb-6">
       <h2 class="mb-2 block text-xs font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
-        {% trans "The road ahead · ≈ 15 min to get started" %}
+        {% blocktrans with minutes=journey_total_min %}The road ahead · ≈ {{ minutes }} min to get started{% endblocktrans %}
       </h2>
       <div class="flex flex-col gap-2">
         {% for ch in chapters %}
@@ -88,9 +88,11 @@
           </div>
           <div class="min-w-0 flex-1">
             <div class="text-[13px] font-semibold text-crush-dark dark:text-white">{{ ch.chapter.name }}</div>
+            {% if ch.steps|length != 1 or ch.steps.0.title != ch.chapter.name %}
             <div class="truncate text-[10.5px] text-gray-400 dark:text-gray-500">
               {% for step in ch.steps %}{{ step.title }}{% if not forloop.last %} · {% endif %}{% endfor %}
             </div>
+            {% endif %}
           </div>
           <div class="flex-shrink-0 text-[10.5px] font-semibold tabular-nums text-gray-500 dark:text-gray-400">
             {% if ch.total_min %}{{ ch.total_min }}m{% else %}—{% endif %}

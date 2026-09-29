@@ -17,8 +17,9 @@
         data-i18n-continue="{% trans 'Continue' %}"
         data-i18n-error-default="{% trans 'Not quite right. Try rearranging the events!' %}"
         data-i18n-error-generic="{% trans 'An error occurred. Please try again.' %}"
-        data-i18n-instruction-desktop="{% trans 'Drag and drop the events to arrange them in chronological order' %}"
-        data-i18n-instruction-touch="{% trans 'Touch and drag the events to arrange them in chronological order' %}"
+        data-i18n-instruction-desktop="{% trans 'Drag and drop the events, or use the up and down buttons, to arrange them in chronological order' %}"
+        data-i18n-instruction-touch="{% trans 'Touch and drag the events, or use the up and down buttons, to arrange them in chronological order' %}"
+        data-i18n-moved="{% trans '{item} moved to position {position} of {total}' %}"
         class="journey-card"
     >
         <!-- Challenge Type Badge -->
@@ -41,14 +42,13 @@
 
         {% if existing_attempt %}
         <!-- Already Completed -->
-        {% with completion_message=_("You already sorted this timeline correctly and earned <strong>")|add:existing_attempt.points_earned|stringformat:"s"|add:" points</strong>."|safe %}
+        {% blocktrans count points=existing_attempt.points_earned asvar completion_message %}You already sorted this timeline correctly and earned <strong>{{ points }} point</strong>.{% plural %}You already sorted this timeline correctly and earned <strong>{{ points }} points</strong>.{% endblocktrans %}
         {% include "crush_lu/journey/partials/already_completed.html" %}
-        {% endwith %}
         {% else %}
         <!-- Instructions -->
         <div x-show="isNotSuccess" x-cloak class="instruction-box">
             {% include "shared/icons/hand-raised.html" with class="w-5 h-5" %}
-            <span x-text="instructionText">{% trans "Drag and drop the events to arrange them in chronological order" %}</span>
+            <span x-text="instructionText">{% trans "Drag and drop the events, or use the up and down buttons, to arrange them in chronological order" %}</span>
         </div>
 
         <!-- Timeline -->
@@ -59,10 +59,16 @@
                 <li class="timeline-item" data-original-index="{{ forloop.counter0 }}" role="listitem">
                     <div class="timeline-number" aria-hidden="true">{{ forloop.counter }}</div>
                     <div class="timeline-text">{{ event }}</div>
-                    <div class="drag-handle" aria-hidden="true">&#8942;&#8942;</div>
+                    <div class="timeline-moves">
+                        <button type="button" class="timeline-move timeline-move-up" @click="moveUp"
+                                aria-label="{% blocktrans %}Move “{{ event }}” up{% endblocktrans %}">&#8593;</button>
+                        <button type="button" class="timeline-move timeline-move-down" @click="moveDown"
+                                aria-label="{% blocktrans %}Move “{{ event }}” down{% endblocktrans %}">&#8595;</button>
+                    </div>
                 </li>
                 {% endfor %}
             </ul>
+            <p class="sr-only" aria-live="polite" x-text="positionAnnouncement"></p>
         </div>
 
         <div x-show="isNotSuccess" x-cloak>

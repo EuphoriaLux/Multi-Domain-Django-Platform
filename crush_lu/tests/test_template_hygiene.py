@@ -75,7 +75,6 @@ def test_no_csrf_token_read_from_cookie():
 #: that silently does nothing in the browser.
 CSP_ALPINE_DEBT = {
     "admin/crush_lu/email_template_manager.html",
-    "crush_lu/account_settings.html",
     "crush_lu/changelog/list.html",
     "crush_lu/partials/edit_account_notifications.html",
 }
@@ -92,7 +91,7 @@ def test_no_csp_unsafe_alpine_expressions():
     parse fine and then do nothing at runtime, so the component is inert with
     no console error and no failing view test — the disclosure just never
     opens. Expose getters and methods from an `Alpine.data` component and bind
-    their bare names instead (see `makeModal` in alpine-components.js).
+    their bare names instead (see `makeModal` in js/alpine/core.js).
     """
     offenders = []
     for template in sorted(TEMPLATES_DIR.rglob("*.html")):

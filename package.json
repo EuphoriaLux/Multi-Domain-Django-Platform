@@ -12,23 +12,23 @@
     "watch:css:tableau": "tailwindcss -i ./tailwind-src/tableau/tailwind-input.css -o ./tableau/static/tableau/css/tailwind.css --watch",
     "build:css:arborist": "tailwindcss -i ./tailwind-src/arborist/tailwind-input.css -o ./arborist/static/arborist/css/tailwind.css --minify",
     "watch:css:arborist": "tailwindcss -i ./tailwind-src/arborist/tailwind-input.css -o ./arborist/static/arborist/css/tailwind.css --watch",
-    "build:js": "esbuild crush_lu/static/crush_lu/js/alpine-components.js --minify --log-level=warning --outfile=crush_lu/static/crush_lu/js/alpine-components.min.js",
+    "build:js": "esbuild crush_lu/static/crush_lu/js/alpine/core.js crush_lu/static/crush_lu/js/alpine/coach.js crush_lu/static/crush_lu/js/alpine/quiz.js crush_lu/static/crush_lu/js/alpine/journey.js crush_lu/static/crush_lu/js/alpine/connect.js --bundle --format=iife --minify --log-level=warning --outdir=crush_lu/static/crush_lu/js/alpine --entry-names=[name].min",
     "build:css:all": "npm run build:css && npm run build:css:power-up && npm run build:css:tableau && npm run build:css:arborist",
     "format": "prettier --write \"**/*.{html,js,css}\"",
     "format:check": "prettier --check \"**/*.{html,js,css}\""
   },
   "dependencies": {
-    "alpinejs": "^3.17.3",
-    "htmx.org": "^2.0.10"
+    "alpinejs": "^3.17.4",
+    "htmx.org": "^2.0.11"
   },
   "devDependencies": {
-    "@playwright/mcp": "^0.0.81",
+    "@playwright/mcp": "^0.0.82",
     "@tailwindcss/cli": "^4.3.3",
     "@tailwindcss/forms": "^0.5.7",
     "@tailwindcss/typography": "^0.5.20",
     "@upstash/context7-mcp": "^4.1.1",
-    "esbuild": "0.25.12",
-    "prettier": "^3.9.8",
+    "esbuild": "0.28.2",
+    "prettier": "^3.9.9",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4.1.18"
   },

@@ -8,6 +8,7 @@ not-on-WhatsApp recipients. Delivery/read transitions keep arriving through
 the webhook in ``views_whatsapp.py`` — they key on ``wa_message_id`` and are
 independent of who initiated the send.
 """
+
 from __future__ import annotations
 
 import logging
@@ -74,7 +75,9 @@ def build_components(parameters: dict) -> list[dict]:
     """Convert {"1": "v1", "2": "v2"} → Meta body parameters payload."""
     if not parameters:
         return []
-    ordered = sorted(parameters.items(), key=lambda kv: int(kv[0]) if kv[0].isdigit() else 0)
+    ordered = sorted(
+        parameters.items(), key=lambda kv: int(kv[0]) if kv[0].isdigit() else 0
+    )
     return [
         {
             "type": "body",
@@ -83,8 +86,9 @@ def build_components(parameters: dict) -> list[dict]:
     ]
 
 
-def send_whatsapp_template(*, sender, recipient, template_name, language,
-                           parameters) -> WhatsAppMessage:
+def send_whatsapp_template(
+    *, sender, recipient, template_name, language, parameters
+) -> WhatsAppMessage:
     """Send one approved Meta template message and record its lifecycle.
 
     Always returns the persisted ``WhatsAppMessage`` — callers read
@@ -207,7 +211,10 @@ def fetch_approved_templates(use_cache: bool = True) -> list[dict]:
     for _ in range(TEMPLATES_MAX_PAGES):
         try:
             resp = requests.get(
-                url, headers=headers, params=params, timeout=META_TIMEOUT,
+                url,
+                headers=headers,
+                params=params,
+                timeout=META_TIMEOUT,
             )
         except requests.RequestException:
             logger.exception("WhatsApp templates fetch transport error")

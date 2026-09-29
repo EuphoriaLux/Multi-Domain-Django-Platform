@@ -41,9 +41,9 @@
      class="border-gray-100 bg-white dark:border-gray-700 dark:bg-gray-800 border-b py-3">
   <div class="mx-auto max-w-md px-4">
 
-    <div class="mb-2 flex items-baseline justify-between text-xs font-semibold uppercase tracking-[0.1em] text-gray-500 dark:text-gray-400">
+    <div class="mb-2 flex items-baseline justify-between text-xs font-semibold uppercase tracking-[0.1em] text-muted-fg">
       <span>{{ journey_chapter.label }} · {{ journey_chapter.name }}</span>
-      <span class="tabular-nums text-crush-purple dark:text-purple-300">{{ journey_current }}/{{ journey_total }}</span>
+      <span class="tabular-nums text-crush-purple-dark dark:text-purple-300">{{ journey_current }}/{{ journey_total }}</span>
     </div>
 
     <ol class="relative grid gap-0 px-2 py-1" role="list"
@@ -106,7 +106,7 @@
         true for the LuxID path, not the come-to-an-event path.
       {% endcomment %}
       {% if journey_active.min_duration %}
-      <div class="flex-shrink-0 text-[10px] font-medium tabular-nums text-gray-400 dark:text-gray-500">
+      <div class="flex-shrink-0 text-[10px] font-medium tabular-nums text-muted-fg">
         ≈ {{ journey_active.min_duration }} {% trans "min" %}
       </div>
       {% endif %}

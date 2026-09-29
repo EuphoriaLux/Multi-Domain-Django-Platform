@@ -3,12 +3,14 @@
 {% load analytics %}
 {% load seo_tags %}
 {% load crush_connect_tags %}
+{% load privacy_tags %}
 <!DOCTYPE html>
 {# theme_lock: an always-dark surface (journey, gifts) fills it with class="dark" data-theme-lock="dark"; theme-manager.js keeps .dark there and the toggles stay focusable but aria-disabled, so their explanation is reachable. #}
 <html lang="{{ LANGUAGE_CODE|default:'en' }}"{% if is_native_app %} data-native-app{% endif %}{% block theme_lock %}{% endblock %}>
 <head>
     {% analytics_head %}
-    {% if user.is_authenticated %}{% appinsights_head %}{% endif %}
+    {# Consent-gated. Anonymous visitors get it only on login/signup (#1085): page views send the full URL, so token pages (/book/, /invite/) stay off. #}
+    {% if user.is_authenticated or request|anonymous_telemetry_allowed %}{% appinsights_head %}{% endif %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{% block title %}Crush.lu - Meet New People{% endblock %}</title>
@@ -75,7 +77,7 @@
     <meta property="twitter:image" content="{% block twitter_image %}{{ social_preview_image_url }}{% endblock %}">
 
     <!-- Additional SEO -->
-    <meta name="description" content="{% block meta_description %}Privacy-first dating platform for Luxembourg. Coach-curated profiles and event-based meetups for authentic connections.{% endblock %}">
+    <meta name="description" content="{% block meta_description %}Privacy-first dating platform for Luxembourg. Coach-hosted events and real-world meetups for authentic connections.{% endblock %}">
     <meta name="keywords" content="{% block meta_keywords %}dating luxembourg, meetups luxembourg, singles events, crush.lu, dating events, speed dating luxembourg, singles events luxembourg{% endblock %}">
     <meta name="robots" content="{% block meta_robots %}index, follow{% endblock %}">
     <meta name="author" content="Crush.lu">
@@ -485,7 +487,7 @@
                                      x-transition:leave-end="opacity-0 scale-95"
                                      x-cloak
                                      class="dropdown-menu">
-                                    <a class="dropdown-item" href="{% url 'crush_lu:account_settings' %}">
+                                    <a class="dropdown-item" href="{% url 'crush_lu:edit_profile' %}?section=account">
                                         {% include "shared/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "Account Settings" %}
                                     </a>
@@ -750,7 +752,7 @@
                                         {% include "shared/icons/sparkles.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "Become a Coach" %}
                                     </a>
-                                    <a class="dropdown-item" href="{% url 'crush_lu:account_settings' %}">
+                                    <a class="dropdown-item" href="{% url 'crush_lu:edit_profile' %}?section=account">
                                         {% include "shared/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "Account Settings" %}
                                     </a>
@@ -815,7 +817,7 @@
                     {% endif %}
 
                     {# Theme Toggle (always visible) #}
-                    <div x-data="themeToggle" class="relative" data-locked-label="{% trans "This experience is always in night mode" %}">
+                    <div x-data="themeToggle" class="relative" {% include "crush_lu/components/theme_toggle_labels.html" %} data-locked-label="{% trans "This experience is always in night mode" %}">
                         <button
                             @click="toggleTheme"
                             x-bind:class="toggleButtonClass"
@@ -997,7 +999,7 @@
 
                             {# Account Section #}
                             <div class="border-t border-white/20 my-2"></div>
-                            <a class="nav-link block" href="{% url 'crush_lu:account_settings' %}">
+                            <a class="nav-link block" href="{% url 'crush_lu:edit_profile' %}?section=account">
                                 {% include "shared/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "Account Settings" %}
                             </a>
@@ -1174,7 +1176,7 @@
                                 {% include "shared/icons/sparkles.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "Become a Coach" %}
                             </a>
-                            <a class="nav-link block" href="{% url 'crush_lu:account_settings' %}">
+                            <a class="nav-link block" href="{% url 'crush_lu:edit_profile' %}?section=account">
                                 {% include "shared/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "Account Settings" %}
                             </a>
@@ -1198,7 +1200,7 @@
 
                     {# Mobile Theme Toggle (always visible) #}
                     <div class="border-t border-white/20 my-2"></div>
-                    <div x-data="themeToggle" class="px-4 py-2" data-locked-label="{% trans "This experience is always in night mode" %}">
+                    <div x-data="themeToggle" class="px-4 py-2" {% include "crush_lu/components/theme_toggle_labels.html" %} data-locked-label="{% trans "This experience is always in night mode" %}">
                         <button
                             @click="toggleTheme"
                             x-bind:class="toggleButtonClass"
@@ -1235,11 +1237,12 @@
     {% endif %}
     {% endblock %}
 
-    <!-- PWA install card + push prompt: queued by Alpine.store("prompts"), never in native shells -->
-    {% if not is_native_app %}
-        {% include "crush_lu/partials/pwa_install_banner.html" %}
+    <!-- PWA install card + push prompt: queued by Alpine.store("prompts"), never in native shells.
+         Install only after approval or a first booking, push only after a first booking (prompt_*_eligible). -->
+    {% if not is_native_app and prompt_install_eligible %}
+        {% block pwa_install_banner %}{% include "crush_lu/partials/pwa_install_banner.html" %}{% endblock %}
     {% endif %}
-    {% if user.is_authenticated and not is_native_app %}
+    {% if user.is_authenticated and not is_native_app and prompt_push_eligible %}
         {% include "crush_lu/partials/_push_activation_prompt.html" %}
     {% endif %}
 
@@ -1306,9 +1309,21 @@
     </main>
 
     <!-- Footer (Tailwind Grid) -->
-    <footer class="{% if user.is_authenticated %}max-lg:hidden{% endif %} bg-crush-dark text-white py-12">
+    {# Members on phones get a compact footer above the tab bar (decision H, #1055): imprint + help/legal links. #}
+    <footer class="{% if user.is_authenticated %}site-footer-member{% endif %} bg-crush-dark text-white py-12">
         <div class="container">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {% if user.is_authenticated %}
+            <nav class="lg:hidden text-center text-sm" aria-label="{% trans "Legal" %}">
+                <ul class="flex flex-wrap justify-center gap-x-4 gap-y-1">
+                    <li><a href="{% url 'crush_lu:support' %}" class="text-white/75 hover:text-white">{% trans "Support" %}</a></li>
+                    <li><a href="{% url 'crush_lu:privacy_policy' %}" class="text-white/75 hover:text-white">{% trans "Privacy Policy" %}</a></li>
+                    <li><a href="{% url 'crush_lu:terms_of_service' %}" class="text-white/75 hover:text-white">{% trans "Terms of Service" %}</a></li>
+                    <li><a href="{% url 'crush_lu:child_safety_standards' %}" class="text-white/75 hover:text-white">{% trans "Child Safety" %}</a></li>
+                </ul>
+                <p class="mt-3 text-xs text-white/75">{% trans "Crush.lu (en cours de constitution)" %} &middot; 10 rue des Bons Malades, L-6462 Echternach, {% trans "Luxembourg" %}</p>
+            </nav>
+            {% endif %}
+            <div class="{% if user.is_authenticated %}max-lg:hidden {% endif %}grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                 <!-- Brand Column -->
                 <div class="lg:col-span-1">
                     <p class="text-xl font-bold mb-4 flex items-center gap-2">{% include "crush_lu/includes/ghost-logo.html" with class="w-7 h-7" %}<span>Crush.lu</span></p>
@@ -1335,6 +1350,8 @@
                         <li><a href="{% url 'crush_lu:privacy_policy' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Privacy Policy" %}</a></li>
                         <li><a href="{% url 'crush_lu:terms_of_service' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Terms of Service" %}</a></li>
                         <li><a href="{% url 'crush_lu:data_deletion' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Data Deletion" %}</a></li>
+                        <li><a href="{% url 'crush_lu:support' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Support" %}</a></li>
+                        <li><a href="{% url 'crush_lu:child_safety_standards' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Child Safety" %}</a></li>
                         <li><a href="#" data-cookie-settings class="text-white/75 hover:text-white transition-colors">{% trans "Cookie Settings" %}</a></li>
                     </ul>
                 </div>
@@ -1379,7 +1396,7 @@
             </div>
 
             <!-- Copyright -->
-            <div class="border-t border-white/20 mt-8 pt-8 text-center">
+            <div class="{% if user.is_authenticated %}max-lg:hidden {% endif %}border-t border-white/20 mt-8 pt-8 text-center">
                 <small class="text-white/75">{% trans "&copy; 2026 Crush.lu - Made with 💕 in Luxembourg" %}</small>
                 {# Imprint: entity + address exactly as the privacy policy names the controller #}
                 <p class="mt-2 text-xs text-white/75">{% trans "Crush.lu (en cours de constitution)" %} &middot; 10 rue des Bons Malades, L-6462 Echternach, {% trans "Luxembourg" %}</p>
@@ -1407,7 +1424,7 @@
          Accept-Language and could disagree with this page.
          Deferred: no template calls gettext() inline at parse time, and defer preserves
          document order, so the catalog still lands before every deferred consumer
-         below (toast, confirm-sheet, alpine-components). -->
+         below (toast, confirm-sheet, the Alpine bundles). -->
     <script nonce="{{ csp_nonce }}" defer src="{% url 'javascript-catalog-lang' LANGUAGE_CODE %}"></script>
 
     <!-- HTMX 2.0.4 (HTML-driven interactivity) - deferred for non-blocking load.
@@ -1418,7 +1435,7 @@
          this at build time on purpose. -->
     <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/vendor/htmx-2.0.4.min.js' %}"></script>
 
-    <!-- Toast Notification Component (loads before alpine-components.js) -->
+    <!-- Toast Notification Component (loads before the Alpine bundles) -->
     {% if debug %}
         {% now "U" as ts %}
         <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/toast-component.js' %}?v={{ ts }}"></script>
@@ -1444,19 +1461,14 @@
         <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/confirm-sheet.js' %}"></script>
     {% endif %}
 
+    {% comment %}
+        Feature Alpine bundles (coach, quiz, journey, connect) go in
+        pre_alpine_js via crush_lu/partials/alpine_bundle.html on the pages
+        whose templates use them; test_ux_wave4_js_split checks every x-data.
+    {% endcomment %}
     {% block pre_alpine_js %}{% endblock %}
     <!-- Alpine.js CSP Components (defer maintains order - runs BEFORE Alpine.js) -->
-    {% comment %}
-        Outside DEBUG this serves the esbuild output of `npm run build:js`; the
-        .min.js is committed and CI fails if it drifts from the source, because
-        a missing file 500s every page under the WhiteNoise manifest.
-    {% endcomment %}
-    {% if debug %}
-        {% now "U" as ts %}
-        <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/alpine-components.js' %}?v={{ ts }}"></script>
-    {% else %}
-        <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/alpine-components.min.js' %}"></script>
-    {% endif %}
+    {% include "crush_lu/partials/alpine_bundle.html" with bundle="core" %}
     <!-- Alpine.js 3.13.3 CSP Build (CSP-compliant, no unsafe-eval required).
          Self-hosted - see the HTMX note above. Keep this the @alpinejs/csp
          build, NOT the plain `alpinejs` package: the standard build needs

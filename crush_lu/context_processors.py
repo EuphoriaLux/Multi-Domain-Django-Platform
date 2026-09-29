@@ -54,7 +54,15 @@ _SAFE_NAV_DEFAULTS = {
     # silent_variable_failure), which would 500 the page even with this guard.
     "nav_has_profile": False,
     "nav_is_active_coach": False,
+    "prompt_install_eligible": False,
+    "prompt_push_eligible": False,
 }
+
+
+def _social_address_hold(request):
+    from crush_lu.views_account import _held_social_user_id
+
+    return bool(_held_social_user_id(request))
 
 
 def crush_user_context(request):
@@ -92,6 +100,10 @@ def crush_user_context(request):
             (is_ios_native_app and not ios_native_commerce_enabled)
             or (is_android_native_app and not android_native_commerce_enabled)
         ),
+        # Callable, so only the verification-sent page that reads it pays for
+        # the check: a held social account, still inside its rewrite window
+        # and not yet consumed (#1059). An expired hold is dropped here.
+        "social_address_hold": lambda: _social_address_hold(request),
     }
 
     def _fill_authenticated_context():
@@ -275,6 +287,17 @@ def crush_user_context(request):
             and reg.event.date_time + timedelta(minutes=reg.event.duration_minutes or 0)
             >= now
         ][:5]
+
+        # Prompt gating (UX Wave 4 · WP13a, decision I): the push prompt only
+        # after a first successful booking, the install card only after that
+        # or profile approval. The prompts store adds "never on a first visit".
+        has_booked = EventRegistration.objects.filter(
+            user=request.user, status__in=["confirmed", "attended"]
+        ).exists()
+        context["prompt_push_eligible"] = has_booked
+        context["prompt_install_eligible"] = has_booked or bool(
+            profile and profile.is_approved
+        )
 
         context["upcoming_events"] = upcoming_registrations
         context["upcoming_events_count"] = len(upcoming_registrations)

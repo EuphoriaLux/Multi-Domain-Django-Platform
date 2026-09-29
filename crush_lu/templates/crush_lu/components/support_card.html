@@ -72,7 +72,7 @@
         {% else %}
         {% comment %}
         Behaviour lives in the named `donationCard` component in
-        alpine-components.js (AGENTS.md / STYLE.md §7): Alpine runs under a CSP
+        js/alpine/shared.js (AGENTS.md / STYLE.md §7): Alpine runs under a CSP
         build, so bindings are bare method and getter names, and the clicked
         tier identifies itself through data-amount rather than an argument.
 
@@ -87,7 +87,7 @@
              data-max="500"
              data-default="10"
              data-endpoint="/payments/sumup/create-donation-checkout/"
-             data-label-support="{% trans 'Support' %}"
+             data-label-support="{% trans 'Support' context 'donation button' %}"
              data-msg-min="{% trans 'Minimum contribution amount is €2.00.' %}"
              data-msg-max="{% trans 'Maximum contribution amount is €500. Please contact us for larger contributions.' %}"
              data-msg-preparing="{% trans 'Preparing secure checkout...' %}"
@@ -106,7 +106,7 @@
                     <span class="tier-amount text-base font-extrabold text-gray-900 dark:text-white">€5</span>
                     <span class="tier-label text-[11px] font-medium text-gray-600 dark:text-purple-200">☕ {% trans "Coffee" %}</span>
                 </button>
-                <button type="button" data-amount="10" @click="selectTier" class="py-2.5 px-3 rounded-xl border-2 border-pink-500 bg-pink-500 shadow-md font-bold text-sm text-center flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer transition-all">
+                <button type="button" data-amount="10" @click="selectTier" class="py-2.5 px-3 rounded-xl border-2 border-pink-500 bg-pink-700 shadow-md font-bold text-sm text-center flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer transition-all">
                     <span class="tier-amount text-base font-extrabold text-white">€10</span>
                     <span class="tier-label text-[11px] font-medium text-pink-100">🌟 {% trans "Supporter" %}</span>
                 </button>
@@ -142,7 +142,7 @@
                 </svg>
                 {# Server-rendered to match the component's opening state, so the label is right before Alpine boots and if it never does. #}
                 {# "Support · €10" (#4-10): the full-sentence label wrapped to two lines and lost its side padding on a 390px pill. #}
-                <span x-text="buttonLabel">{% trans "Support" %} · €10</span>
+                <span x-text="buttonLabel">{% trans "Support" context "donation button" %} · €10</span>
             </button>
         </div>
 

@@ -93,7 +93,7 @@
                 </span>
                 <span class="text-white/70 text-sm">
                     <span aria-hidden="true">&#9201;</span>
-                    ~{{ chapter_item.chapter.estimated_duration }} min
+                    {% blocktrans with minutes=chapter_item.chapter.estimated_duration %}~{{ minutes }} min{% endblocktrans %}
                 </span>
             </div>
 

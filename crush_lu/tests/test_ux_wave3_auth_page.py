@@ -59,7 +59,7 @@ class AuthTabsAriaTests(TestCase):
         # Bare-name bindings only: Alpine's CSP-friendly build can't
         # evaluate an inline ternary (isLoginTab ? 'true' : 'false') and
         # silently drops the attribute — see loginAriaSelected/
-        # signupAriaSelected getters in alpine-components.js.
+        # signupAriaSelected getters in js/alpine/core.js.
         self.assertIn('x-bind:aria-selected="loginAriaSelected"', login_tab.group(0))
         self.assertIn('x-bind:aria-selected="signupAriaSelected"', signup_tab.group(0))
         self.assertNotIn("isLoginTab ?", html)
@@ -82,9 +82,7 @@ class AuthTabsAriaTests(TestCase):
         themes: a light-grey pill next to the gradient pill in dark mode,
         indistinguishable from a second active-looking button.
         """
-        with open(
-            "crush_lu/static/crush_lu/js/alpine-components.js", encoding="utf-8"
-        ) as f:
+        with open("crush_lu/static/crush_lu/js/alpine/core.js", encoding="utf-8") as f:
             src = f.read()
         start = src.index('Alpine.data("tabNav"')
         end = src.index("setLogin: function", start)
@@ -345,9 +343,7 @@ class AuthTabsKeyboardTests(TestCase):
         self.assertNotIn("isLoginTab ? '0' : '-1'", html)
 
     def test_keyboard_handler_implements_the_aria_tabs_pattern(self):
-        with open(
-            "crush_lu/static/crush_lu/js/alpine-components.js", encoding="utf-8"
-        ) as f:
+        with open("crush_lu/static/crush_lu/js/alpine/core.js", encoding="utf-8") as f:
             src = f.read()
         start = src.index("onTabKeydown: function")
         end = src.index("};", start)
@@ -362,9 +358,7 @@ class AuthTabsKeyboardTests(TestCase):
         self.assertIn(".click()", handler_src)
 
     def test_only_the_active_tab_is_in_the_tab_index_getters(self):
-        with open(
-            "crush_lu/static/crush_lu/js/alpine-components.js", encoding="utf-8"
-        ) as f:
+        with open("crush_lu/static/crush_lu/js/alpine/core.js", encoding="utf-8") as f:
             src = f.read()
         start = src.index('Alpine.data("tabNav"')
         end = src.index("setLogin: function", start)

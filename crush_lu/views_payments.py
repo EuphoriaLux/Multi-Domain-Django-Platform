@@ -2370,6 +2370,9 @@ def sumup_payment_return(request):
         return redirect("crush_lu:home")
 
     _sync_checkout_with_sumup(tx_obj)
+    # The sync writes a separately locked row, so re-read the status the
+    # response below reports.
+    tx_obj.refresh_from_db()
 
     # This route lives OUTSIDE i18n_patterns (urls_crush.py), so there is no
     # /fr/ or /de/ prefix for LocaleMiddleware to read and it falls back to the
@@ -2391,7 +2394,32 @@ def sumup_payment_return(request):
     # translated confirmation from landing on an English page.
     lang = get_onscreen_language(user=request.user, request=request)
     with override(lang):
+        if request.user.id not in _payment_owner_ids(tx_obj):
+            return _sumup_return_staff_response(request, tx_obj)
         return _sumup_return_response(request, tx_obj)
+
+
+def _sumup_return_staff_response(request, tx_obj):
+    """Staff opening a member's return page (#1079): the member copy ("your
+    spot is reserved… retry below", "You're Premium") and the member pages
+    (event detail looks up the *viewer's* registration) describe someone
+    else, so staff get the status and the transaction's admin page."""
+    messages.info(
+        request,
+        _("This checkout belongs to another member. Payment status: %(status)s.")
+        % {"status": tx_obj.get_status_display()},
+    )
+    from crush_lu.admin import crush_admin_site
+
+    model_admin = crush_admin_site._registry.get(PaymentTransaction)
+    if (
+        model_admin is not None
+        and crush_admin_site.has_permission(request)
+        and model_admin.has_view_permission(request, tx_obj)
+    ):
+        return redirect("crush_admin:crush_lu_paymenttransaction_change", tx_obj.pk)
+    # Staff without view access there would hit a 403.
+    return redirect("crush_lu:my_events")
 
 
 def _sumup_return_response(request, tx_obj):
@@ -2401,6 +2429,9 @@ def _sumup_return_response(request, tx_obj):
     if tx_obj.status == PaymentTransaction.Status.PAID:
         messages.success(request, _("Payment completed successfully! Thank you."))
         if tx_obj.event_registration:
+            # event_detail 404s an unpublished event (#1079).
+            if not tx_obj.event_registration.event.is_published:
+                return redirect("crush_lu:my_events")
             # The route is events/<int:event_id>/ — passing pk raises
             # NoReverseMatch, and it fires *after* the payment is recorded, so
             # the user sees a 500 on a purchase that actually succeeded.
@@ -2517,7 +2548,9 @@ def _sumup_return_response(request, tx_obj):
             # UX Wave 3 · WP8 follow-up).
             if registration.payment_confirmed:
                 messages.success(request, _("This registration is already paid."))
-            elif registration_is_payable(registration, registration.event):
+            elif registration.event.is_published and registration_is_payable(
+                registration, registration.event
+            ):
                 messages.warning(
                     request,
                     _(
@@ -2527,6 +2560,10 @@ def _sumup_return_response(request, tx_obj):
                 )
             else:
                 messages.warning(request, _("Payment is pending or was not completed."))
+            if not registration.event.is_published:
+                # Unpublished mid-checkout (#1079): event_detail would 404 and
+                # drop the message above, and there is no retry to point at.
+                return redirect("crush_lu:my_events")
             return redirect("crush_lu:event_detail", event_id=registration.event.pk)
         messages.warning(request, _("Payment is pending or was not completed."))
 

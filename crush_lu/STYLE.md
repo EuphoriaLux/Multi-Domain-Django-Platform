@@ -176,7 +176,8 @@ Tokens introduced for this surface (in `tailwind-input.css`):
 - `--text-muted` — secondary copy on the lavender surfaces: gray-600 in
   light, gray-400 in dark. Use the `text-muted-fg` utility instead of
   `text-gray-500` (which only reaches ~4.0:1 on `#ede8f4`). The mobile tab
-  bar's inactive labels use it too.
+  bar's inactive labels use it too. The legacy `.text-muted` class maps to
+  the same token, so don't pair it with a `dark:text-*` override.
 
 ### Always-dark surfaces
 
@@ -241,11 +242,10 @@ New on/off settings go through the toggle partial — don't paste the
 `dark:bg-gray-800` track, so the OFF state vanished on dark cards; the partial
 owns the `dark:bg-gray-600` fix in one place.
 
-One legacy primitive remains: `partials/edit_account_notifications.html`
-still builds its switches on the `.peer-toggle` / `.peer-toggle-purple` /
-`.peer-toggle-red` CSS classes (`tailwind-input.css`). Its dark OFF track is
-already gray-600, so it isn't broken — but don't use `.peer-toggle` in new
-code; that page moves onto the partial in its own change.
+The legacy `.peer-toggle` / `.peer-toggle-purple` / `.peer-toggle-red` CSS
+classes (`tailwind-input.css`) no longer have a template caller (the last,
+`partials/edit_account_notifications.html`, moved onto the partial in UX
+Wave 4 · WP9a). Don't use `.peer-toggle` in new code.
 
 ```django
 {% include "crush_lu/components/toggle.html" with name="email_marketing" checked=email_prefs.email_marketing label=_("Marketing & Promotions") help=_("Newsletters, special offers, and promotions") %}
@@ -312,11 +312,22 @@ Some files are legacy / parked and should NOT be touched casually:
 
 ## 7. Alpine.js primitives
 
-Four shared mixin factories live at the top of
-`crush_lu/static/crush_lu/js/alpine-components.js`. Compose them inside
-your named Alpine.data component with the **`mixin`** helper (also in
-that file). They are not themselves Alpine.data registrations because
-the CSP build cannot pass arguments via `x-data`.
+Four mixin factories are documented below. `makeTabs`, `makeConfirm` and
+`makeModal` live in `crush_lu/static/crush_lu/js/alpine/shared.js`, which
+bundle entries import (`import { makeModal, mixin } from "./shared.js";`);
+`makePushStatusCheck` serves only the push settings cards and stays in
+`core.js`. Compose them inside your named Alpine.data component with the
+**`mixin`** helper (also in `shared.js`). They are not themselves
+Alpine.data registrations because the CSP build cannot pass arguments via
+`x-data`.
+
+Components live in per-feature bundles in the same folder: `core.js`
+(shell and site-wide components, loaded by `base.html`) and `coach.js`,
+`quiz.js`, `journey.js`, `connect.js`. A page that uses a feature component
+loads its bundle in `{% block pre_alpine_js %}` with
+`{% include "crush_lu/partials/alpine_bundle.html" with bundle="coach" %}`
+(never `extra_js`, which runs after Alpine starts). Run `npm run build:js`
+and commit the `.min.js` files after editing a bundle.
 
 **Do not use `Object.assign` or spread (`...`)** to compose with these
 — both evaluate the source's getters during the copy (with the wrong
@@ -398,7 +409,7 @@ top-of-page banner treatment, and prefer the toast store if you don't.
 
 ### Prompt queue (`Alpine.store('prompts')`)
 
-Unsolicited prompts share one queue (`alpine-components.js`) that shows **at most
+Unsolicited prompts share one queue (`js/alpine/core.js`) that shows **at most
 one at a time**, in this order: **`cookie`** (the shared cookie sheet, which has no
 Alpine and dispatches a `cookie-banner-toggle` document event), **`messages`**
 (`base.html` flash messages, `x-data="flashMessage"`: each visible one holds the
@@ -409,7 +420,12 @@ getter that also checks `isActive(name)`; `install`/`push` wait for DOMContentLo
 Anchor bottom prompts with `.prompt-above-nav` (clears `.bottom-nav` below `lg`).
 The install card never renders in native shells (`is_native_app`), and
 `pwa-install.js` offers it only from the 2nd session, outside `/account/`,
-`/payments/` and the Connect wizard.
+`/payments/` and the Connect wizard. The store itself never activates
+`install`/`push` on a first visit. `base.html` includes the install card only
+when `prompt_install_eligible` (approved profile or a first confirmed
+booking) and the push prompt only when `prompt_push_eligible` (a first
+confirmed booking). On `/dashboard/` the dashboard's own install card is the
+`install` prompt, so the page empties `{% block pwa_install_banner %}`.
 
 ### Failed HTMX requests
 
@@ -470,6 +486,12 @@ mechanically. It flags:
   in non-email, non-decorative templates.
 - Deprecated button classes (`.btn-primary`, `.btn-secondary`,
   `.btn-success`, etc.) in non-exempt directories.
+- More than one `.btn-crush-primary` in a template, and hand-rolled
+  `bg-*-600 text-white` `<a>`/`<button>` elements. These two rules run only
+  on files named on the command line (what pre-commit passes), so a
+  directory scan stays clean over the existing debt. A template whose
+  gradient CTAs sit in mutually exclusive branches still counts: render
+  one link and vary its label instead (see `partials/edit_account_settings.html`).
 
 Exempt: `admin/`, anything coach-named, `journey/`, `gift/`, `advent/`,
 `wonderland/`, `pre_screening/`, `welcome.html`, `onboarding/`,
@@ -514,7 +536,7 @@ because the ~30 `ghost-story-*` decorations already live there.
 | `ghost-logo-mono.html` | Single color via `currentColor`, mask-punched face | Single-color contexts (emails, watermarks) | `w-7 h-7` |
 
 `ghost-logo-hero.html` has a JS contract: the `ghostEyes` Alpine
-component (`alpine-components.js`) queries `.ghost-eye` / `.ghost-heart`
+component (`js/alpine/core.js`) queries `.ghost-eye` / `.ghost-heart`
 inside the hero section and rewrites their transforms per frame. That
 markup — and the heartbeat's `additive="sum"` — is load-bearing.
 

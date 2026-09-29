@@ -5,13 +5,16 @@ from django.contrib import messages
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
+from urllib.parse import urlencode
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.db import transaction
 from django.db.models import Q
-from django.http import JsonResponse, HttpResponse
+from django.http import HttpResponse, HttpResponsePermanentRedirect, JsonResponse
 from django.views.decorators.http import require_GET, require_http_methods
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.debug import sensitive_post_parameters
 from django.conf import settings
+from django.core.cache import cache
 import logging
 import uuid
 import json
@@ -24,7 +27,6 @@ logger = logging.getLogger(__name__)
 from .models import (
     CrushProfile,
     ProfileSubmission,
-    CoachPushSubscription,
     EventRegistration,
     EventConnection,
     ConnectionMessage,
@@ -699,9 +701,9 @@ def data_deletion_status(request):
 
 
 # LuxID connect-URL resolution lives in crush_lu.luxid so the Crush Connect
-# teaser can share it. Re-exported here under the original private name to keep
-# the existing call site (account_settings) unchanged.
-from crush_lu.luxid import luxid_connect_url as _luxid_connect_url
+# teaser can share it. Re-exported here under the original private name for the
+# account drill-down (views.py).
+from crush_lu.luxid import luxid_connect_url as _luxid_connect_url  # noqa: F401
 
 
 @login_required
@@ -759,252 +761,39 @@ def dev_simulate_luxid_connect(request):
     return redirect("crush_lu:dashboard")
 
 
-@crush_login_required
-def account_settings(request):
+def account_settings_url(sub="", anchor=""):
+    """Path of the account drill-down that replaced /account/settings/ (8-08).
+
+    ``sub`` picks a sub-section (settings, notifications, danger); ``anchor``
+    is appended as a #fragment.
     """
-    Account settings page with delete account option, email preferences,
-    push notification preferences, and linked social accounts management.
-    """
-    import json
-    from allauth.socialaccount.models import SocialApp
-    from django.contrib.sites.models import Site
-    from .models import EmailPreference, PushSubscription
-    from .social_photos import get_all_social_photos
-
-    # Helper function to determine device type from device name
-    def get_device_type(device_name):
-        """Return 'mobile' or 'desktop' based on device name."""
-        mobile_devices = ["Android Chrome", "iPhone Safari"]
-        return "mobile" if device_name in mobile_devices else "desktop"
-
-    # Get or create email preferences for this user
-    email_prefs = EmailPreference.get_or_create_for_user(request.user)
-
-    # Get push subscriptions - show card to all users (JS detects browser support)
-    # PWA status is tracked on UserActivity model for analytics
-    push_subscriptions = []
-    push_subscriptions_json = "[]"
-    try:
-        # Always fetch push subscriptions - card visibility is controlled by JS
-        subs = PushSubscription.objects.filter(user=request.user, enabled=True)
-        for sub in subs:
-            push_subscriptions.append(
-                {
-                    "id": sub.id,
-                    "endpoint": sub.endpoint,  # For current device detection
-                    "device_fingerprint": sub.device_fingerprint
-                    or "",  # Stable device identifier
-                    "device_name": sub.device_name or "Unknown Device",
-                    "device_type": get_device_type(sub.device_name or ""),
-                    "last_used_at": sub.last_used_at,  # Keep as datetime for template filters
-                    "notify_new_messages": sub.notify_new_messages,
-                    "notify_event_reminders": sub.notify_event_reminders,
-                    "notify_new_connections": sub.notify_new_connections,
-                    "notify_profile_updates": sub.notify_profile_updates,
-                }
-            )
-        push_subscriptions_json = json.dumps(push_subscriptions, default=str)
-    except Exception:
-        logger.warning(
-            "Failed to fetch push subscriptions for user %s",
-            request.user.id,
-            exc_info=True,
-        )
-
-    # Check if user is a coach and get coach push subscriptions
-    is_coach = False
-    coach_push_subscriptions = []
-    coach_push_subscriptions_json = "[]"
-    try:
-        if hasattr(request.user, "crushcoach") and request.user.crushcoach.is_active:
-            is_coach = True
-            coach = request.user.crushcoach
-            coach_subs = CoachPushSubscription.objects.filter(coach=coach, enabled=True)
-            for sub in coach_subs:
-                coach_push_subscriptions.append(
-                    {
-                        "id": sub.id,
-                        "endpoint": sub.endpoint,  # For current device detection
-                        "device_fingerprint": sub.device_fingerprint
-                        or "",  # Stable device identifier
-                        "device_name": sub.device_name or "Unknown Device",
-                        "device_type": get_device_type(sub.device_name or ""),
-                        "last_used_at": sub.last_used_at,  # Keep as datetime for template filters
-                        "notify_new_submissions": sub.notify_new_submissions,
-                        "notify_screening_reminders": sub.notify_screening_reminders,
-                        "notify_user_responses": sub.notify_user_responses,
-                        "notify_system_alerts": sub.notify_system_alerts,
-                    }
-                )
-            coach_push_subscriptions_json = json.dumps(
-                coach_push_subscriptions, default=str
-            )
-    except Exception:
-        logger.warning(
-            "Failed to fetch coach push subscriptions for user %s",
-            request.user.id,
-            exc_info=True,
-        )
-
-    # Crush.lu only supports these social providers
-    # (LinkedIn is PowerUP-only, not shown in Crush.lu account settings)
-    # LuxID can be stored as "luxid" (custom provider) or "openid_connect"
-    # (generic OIDC fallback), so both spellings are included.
-    CRUSH_SOCIAL_PROVIDERS = [
-        "google",
-        "facebook",
-        "microsoft",
-        "apple",
-        "luxid",
-        "openid_connect",
-    ]
-
-    # Get connected social providers for this user (filtered to Crush.lu providers)
-    connected_providers = set(
-        request.user.socialaccount_set.values_list("provider", flat=True)
-    )
-
-    # Filter social accounts to only show Crush.lu-supported providers
-    crush_social_accounts = request.user.socialaccount_set.filter(
-        provider__in=CRUSH_SOCIAL_PROVIDERS
-    )
-
-    # Annotate each social account with a resolved display email.
-    # Microsoft stores email in 'mail' or 'userPrincipalName', not 'email'.
-    # LuxID wraps claims inside {"userinfo": {...}} or {"id_token": {...}}.
-    for account in crush_social_accounts:
-        if account.provider == "microsoft":
-            account.display_email = (
-                account.extra_data.get("mail")
-                or account.extra_data.get("userPrincipalName")
-                or account.extra_data.get("email")
-                or ""
-            )
-        elif account.provider in ("luxid", "openid_connect"):
-            _claims = (
-                account.extra_data.get("userinfo")
-                or account.extra_data.get("id_token")
-                or account.extra_data
-            )
-            account.display_email = (
-                _claims.get("email", "") if isinstance(_claims, dict) else ""
-            )
-        else:
-            account.display_email = account.extra_data.get("email", "")
-
-    # Get social photos for import functionality
-    social_photos = get_all_social_photos(request.user)
-
-    # Check which providers are actually configured for this site
-    # This prevents template errors when SocialApp doesn't exist
-    try:
-        current_site = Site.objects.get_current(request)
-        available_providers = set(
-            SocialApp.objects.filter(sites=current_site).values_list(
-                "provider", flat=True
-            )
-        )
-    except Exception:
-        logger.warning("Failed to fetch available social providers", exc_info=True)
-        available_providers = set()
-
-    oidc_app = None
-    if "openid_connect" in available_providers:
-        try:
-            oidc_app = SocialApp.objects.filter(
-                provider="openid_connect", provider_id="luxid", sites=current_site
-            ).first()
-        except Exception:
-            pass
-
-    # Scope the openid_connect connected check to the LuxID-specific OIDC app.
-    # SocialAccount has no app FK in allauth 65.x; route through SocialToken which does.
-    _luxid_oidc_acct_ids: set = set()
-    if oidc_app is not None and "openid_connect" in connected_providers:
-        try:
-            from allauth.socialaccount.models import SocialToken
-
-            _luxid_oidc_acct_ids = set(
-                SocialToken.objects.filter(
-                    account__user=request.user,
-                    account__provider="openid_connect",
-                    app=oidc_app,
-                ).values_list("account_id", flat=True)
-            )
-        except Exception:
-            pass
-    luxid_connected = "luxid" in connected_providers or bool(_luxid_oidc_acct_ids)
-
-    # Annotate is_luxid on each account so templates can brand correctly without
-    # treating every openid_connect account as LuxID.
-    for account in crush_social_accounts:
-        account.is_luxid = (
-            account.provider == "luxid" or account.pk in _luxid_oidc_acct_ids
-        )
-
-    return render(
-        request,
-        "crush_lu/account_settings.html",
-        {
-            "profile": CrushProfile.objects.filter(user=request.user).first(),
-            "email_prefs": email_prefs,
-            "google_connected": "google" in connected_providers,
-            "facebook_connected": "facebook" in connected_providers,
-            "microsoft_connected": "microsoft" in connected_providers,
-            "apple_connected": "apple" in connected_providers,
-            "luxid_connected": luxid_connected,
-            "google_available": "google" in available_providers,
-            "facebook_available": "facebook" in available_providers,
-            "microsoft_available": "microsoft" in available_providers,
-            "apple_available": "apple" in available_providers,
-            "luxid_available": "luxid" in available_providers or oidc_app is not None,
-            "luxid_connect_url": _luxid_connect_url(
-                available_providers, oidc_app=oidc_app
-            ),
-            "crush_social_accounts": crush_social_accounts,  # Filtered list for display
-            "social_photos": social_photos,  # Social photos for import
-            # Apple "Hide My Email" relay detection
-            "is_apple_relay_user": bool(
-                request.user.email
-                and request.user.email.endswith("@privaterelay.appleid.com")
-            ),
-            "show_apple_link_banner": request.GET.get("apple_link") == "1",
-            # Push notification preferences
-            "push_subscriptions": push_subscriptions,
-            "push_subscriptions_json": push_subscriptions_json,
-            # Coach push notification preferences (coaches only)
-            "is_coach": is_coach,
-            "coach_push_subscriptions": coach_push_subscriptions,
-            "coach_push_subscriptions_json": coach_push_subscriptions_json,
-        },
-    )
+    url = reverse("crush_lu:edit_profile") + "?section=account"
+    if sub:
+        url += f"&sub={sub}"
+    if anchor:
+        url += f"#{anchor}"
+    return url
 
 
 @crush_login_required
-@require_http_methods(["GET", "POST"])
-def update_email_preferences(request):
+def legacy_account_settings(request):
+    """Retired /account/settings/ monolith: 301 to the account drill-down.
+
+    Old links, bookmarks and already-sent emails keep working. A #fragment
+    never reaches the server; the browser re-applies it after the redirect and
+    the drill-down's ``legacySettingsAnchor`` component maps it to ``sub=``.
+    ``?apple_link=1`` (Apple relay banner) carries over to the settings card.
     """
-    Handle email preference form submission (POST) or redirect to settings (GET).
-    Kept for backward compatibility — the standalone account_settings page still uses this.
-    """
-    if request.method == "GET":
-        return redirect("crush_lu:account_settings")
-    from .models import EmailPreference
+    if request.GET.get("apple_link") == "1":
+        return HttpResponsePermanentRedirect(
+            account_settings_url("settings") + "&apple_link=1"
+        )
+    return HttpResponsePermanentRedirect(account_settings_url())
 
-    email_prefs = EmailPreference.get_or_create_for_user(request.user)
 
-    # Checkboxes: if checked, the name is in POST data; if unchecked, it's absent
-    email_prefs.unsubscribed_all = "unsubscribed_all" in request.POST
-    email_prefs.email_profile_updates = "email_profile_updates" in request.POST
-    email_prefs.email_event_reminders = "email_event_reminders" in request.POST
-    email_prefs.email_new_connections = "email_new_connections" in request.POST
-    email_prefs.email_new_messages = "email_new_messages" in request.POST
-    email_prefs.email_marketing = "email_marketing" in request.POST
-
-    email_prefs.save()
-
-    messages.success(request, _("Email preferences updated successfully!"))
-    return redirect("crush_lu:account_settings")
+def _whatsapp_preference_redirect(request):
+    """Send the member back to the WhatsApp card in the account drill-down."""
+    return redirect(account_settings_url("notifications", "whatsapp-notifications"))
 
 
 @login_required
@@ -1032,14 +821,14 @@ def update_whatsapp_preference(request):
                     "A verified phone number is required to enable WhatsApp notifications."
                 ),
             )
-            return redirect("crush_lu:account_settings")
+            return _whatsapp_preference_redirect(request)
 
     email_prefs = EmailPreference.get_or_create_for_user(request.user)
     email_prefs.whatsapp_opt_in = wants_opt_in
     email_prefs.save(update_fields=["whatsapp_opt_in"])
 
     messages.success(request, _("WhatsApp notification preference updated."))
-    return redirect("crush_lu:account_settings")
+    return _whatsapp_preference_redirect(request)
 
 
 @login_required
@@ -1196,14 +985,14 @@ def set_password(request):
         messages.info(
             request, _("This feature is only for users who signed up with Facebook.")
         )
-        return redirect("crush_lu:account_settings")
+        return redirect(account_settings_url("settings"))
 
     if has_password:
         messages.info(
             request,
             _('You already have a password set. Use "Change Password" to update it.'),
         )
-        return redirect("crush_lu:account_settings")
+        return redirect(account_settings_url("settings"))
 
     if request.method == "POST":
         form = CrushSetPasswordForm(request.user, request.POST)
@@ -1217,7 +1006,7 @@ def set_password(request):
                 request,
                 "Password set successfully! You can now log in with your email and password.",
             )
-            return redirect("crush_lu:account_settings")
+            return redirect(account_settings_url("settings"))
     else:
         form = CrushSetPasswordForm(request.user)
 
@@ -1249,7 +1038,7 @@ def disconnect_social_account(request, social_account_id):
         )
     except SocialAccount.DoesNotExist:
         messages.error(request, _("Social account not found."))
-        return redirect("crush_lu:account_settings")
+        return redirect(account_settings_url("settings"))
 
     # Security check: ensure user has another login method
     other_social_accounts = request.user.socialaccount_set.exclude(
@@ -1263,7 +1052,7 @@ def disconnect_social_account(request, social_account_id):
             f"Cannot disconnect {social_account.provider.title()} - you need at least one login method. "
             "Set a password first or connect another social account.",
         )
-        return redirect("crush_lu:account_settings")
+        return redirect(account_settings_url("settings"))
 
     # Log the disconnection
     provider_name = social_account.provider.title()
@@ -1277,7 +1066,7 @@ def disconnect_social_account(request, social_account_id):
         _("%(provider_name)s account has been disconnected.")
         % {"provider_name": provider_name},
     )
-    return redirect("crush_lu:account_settings")
+    return redirect(account_settings_url("settings"))
 
 
 @crush_login_required
@@ -1298,8 +1087,8 @@ def apple_relay_link_prompt(request):
             # Log out and redirect to login with ?next pointing to account settings
             logout(request)
             login_url = reverse("crush_lu:login")
-            settings_url = reverse("crush_lu:account_settings")
-            return redirect(f"{login_url}?next={settings_url}%3Fapple_link%3D1")
+            settings_url = account_settings_url("settings") + "&apple_link=1"
+            return redirect(f"{login_url}?{urlencode({'next': settings_url})}")
         else:
             # Continue as new user
             has_profile = hasattr(request.user, "crushprofile")
@@ -1335,7 +1124,7 @@ def delete_crushlu_profile_view(request):
     # one; ordinary profile-less accounts keep the existing safe redirect.
     if profile is None and not deletion_retry_in_progress:
         messages.info(request, _("You do not have a Crush.lu profile to delete."))
-        return redirect("crush_lu:account_settings")
+        return redirect(account_settings_url("danger"))
 
     if request.method == "POST":
         confirm_email = request.POST.get("confirm_email", "").strip()
@@ -1353,7 +1142,7 @@ def delete_crushlu_profile_view(request):
                     "Your Crush.lu profile has been permanently deleted. You cannot create a new profile with this account."
                 ),
             )
-            return redirect("crush_lu:account_settings")
+            return redirect(account_settings_url())
         except Exception as e:
             logger.exception(
                 f"Error deleting Crush.lu profile for user {request.user.id}: {e}"
@@ -1383,11 +1172,11 @@ def take_a_break_view(request):
     profile = CrushProfile.objects.filter(user=request.user).first()
     if profile is None:
         messages.info(request, _("You do not have a Crush.lu profile to pause."))
-        return redirect("crush_lu:account_settings")
+        return redirect(account_settings_url("danger"))
 
     if profile.is_on_break:
         messages.info(request, _("You're already taking a break."))
-        return redirect("crush_lu:account_settings")
+        return redirect(account_settings_url("danger"))
 
     if request.method == "POST":
         profile.take_a_break()
@@ -1452,7 +1241,7 @@ def gdpr_data_management(request):
                         "Your Crush.lu profile has been deleted. Your login account remains active."
                     ),
                 )
-                return redirect("crush_lu:account_settings")
+                return redirect(account_settings_url())
             except Exception as e:
                 logger.exception(
                     f"Error deleting Crush.lu profile for user {request.user.id}: {e}"
@@ -1586,6 +1375,21 @@ def referral_redirect(request, code):
     producing ERROR-level log noise.
     """
     referral = capture_referral(request, code, source="link")
+    # A shared event link (build_referral_url(next_url=...), 4-18) lands on
+    # the event; the captured code still credits a later signup.
+    # Only a valid code earns the event landing; an unknown/inactive one keeps
+    # the plain signup redirect.
+    next_url = request.GET.get("next")
+    if (
+        referral
+        and next_url
+        and url_has_allowed_host_and_scheme(
+            next_url,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        )
+    ):
+        return redirect(next_url)
     signup_url = reverse("crush_lu:signup")
     if referral:
         return redirect(f"{signup_url}?ref={referral.code}")
@@ -1683,13 +1487,18 @@ def signup(request):
                 ):
                     messages.error(
                         request,
-                        "An account with this email already exists. "
-                        "Please login or use a different email.",
+                        _(
+                            "An account with this email already exists. "
+                            "Please login or use a different email."
+                        ),
                     )
                 else:
                     messages.error(
                         request,
-                        "An error occurred while creating your account. Please try again.",
+                        _(
+                            "An error occurred while creating your account. "
+                            "Please try again."
+                        ),
                     )
 
     context = {
@@ -1708,6 +1517,142 @@ def signup(request):
 RESEND_VERIFICATION_COOLDOWN_SECONDS = getattr(
     settings, "ACCOUNT_EMAIL_CONFIRMATION_COOLDOWN", 3 * 60
 )
+
+
+def _email_digest(email):
+    return hashlib.sha256(email.strip().lower().encode()).hexdigest()
+
+
+def claim_resend_cooldown(email, force=False):
+    """Claim the resend cooldown for ``email`` (#1059).
+
+    ``cache.add`` is atomic, so of two overlapping POSTs (a double-click
+    during the synchronous send) only one gets to send. Keyed on the
+    normalised address, not the session: a corrected address is not held
+    back by the typo's cooldown, and rotating cookies does not reset it.
+    ``force`` records a send that already happened (the social pre_login
+    hold). ``None`` means the cache backend swallowed an error: fail open
+    like ``_may_ask_sumup``; the 3/h IP limit and allauth's per-address
+    limiter still bound the sends. The claim is taken before the address
+    is looked up (so the response cannot reveal whether it exists): anyone
+    can therefore hold back a resend to an address for one cooldown by
+    posting it first, a small cost bounded by the 3/h IP limit.
+    """
+    key = f"crush:resend-verification:{_email_digest(email)}"
+    if force:
+        cache.set(key, 1, RESEND_VERIFICATION_COOLDOWN_SECONDS)
+        return True
+    return cache.add(key, 1, RESEND_VERIFICATION_COOLDOWN_SECONDS) is not False
+
+
+def start_resend_cooldown_display(request, email):
+    """Session copy of the cooldown, only for the page's countdown."""
+    request.session["resend_verification_cooldown_until"] = (
+        int(timezone.now().timestamp()) + RESEND_VERIFICATION_COOLDOWN_SECONDS
+    )
+    request.session["resend_verification_cooldown_hash"] = _email_digest(email)
+
+
+# How long the social pre_login hold may rewrite its account's address. The
+# session itself lives for weeks; a shared device must not inherit this.
+SOCIAL_ADDRESS_REWRITE_WINDOW_SECONDS = getattr(
+    settings, "CRUSH_SOCIAL_ADDRESS_REWRITE_WINDOW_SECONDS", 30 * 60
+)
+
+
+def _drop_social_hold(request):
+    request.session.pop("pending_verification_user_id", None)
+    request.session.pop("pending_verification_user_id_at", None)
+
+
+def _held_social_user_id(request):
+    """The social pre_login hold's user id, only while it still owns the
+    session's pending address (an unverified row of that user). A stale id
+    (another signup or login in the same browser since) is dropped, so it
+    can never rewrite a different account than the one being verified.
+    So is one older than SOCIAL_ADDRESS_REWRITE_WINDOW_SECONDS, or without
+    an issued-at (a hold that was already used is cleared)."""
+    from allauth.account.models import EmailAddress
+
+    user_id = request.session.get("pending_verification_user_id")
+    if not user_id:
+        return None
+    issued_at = request.session.get("pending_verification_user_id_at")
+    age = timezone.now().timestamp() - (issued_at or 0)
+    if not issued_at or not 0 <= age <= SOCIAL_ADDRESS_REWRITE_WINDOW_SECONDS:
+        _drop_social_hold(request)
+        return None
+    email = request.session.get("pending_verification_email") or ""
+    if EmailAddress.objects.filter(
+        user_id=user_id, email__iexact=email, verified=False
+    ).exists():
+        return user_id
+    _drop_social_hold(request)
+    return None
+
+
+def _replace_pending_social_address(request, typed_email):
+    """Swap a held social account's unverified address for ``typed_email``.
+
+    Only for the account the social pre_login hold stashed in this session
+    (the visitor just proved the provider login), and only while it has no
+    verified address. The old row is deleted rather than edited: HMAC
+    confirmation keys sign the row's pk, so an edited row would let the
+    link already mailed to the typo confirm the corrected address. An
+    address another account uses is skipped silently, so the caller's
+    response stays identical (ACCOUNT_UNIQUE_EMAIL, no enumeration).
+    """
+    from allauth.account.models import EmailAddress
+    from django.contrib.auth.models import User
+    from django.core.exceptions import ValidationError
+    from django.core.validators import validate_email
+
+    user_id = _held_social_user_id(request)
+    if not user_id:
+        return None
+    # Stored lower-case like the signup form (forms.py): allauth lowercases
+    # login and reset input and then matches exactly.
+    typed_email = typed_email.strip().lower()
+    try:
+        validate_email(typed_email)
+    except ValidationError:
+        return None
+    # validate_email allows 320 characters; the columns are varchar(254), so
+    # a longer address would raise DataError (a 500) on Postgres at the save.
+    if len(typed_email) > min(
+        User._meta.get_field("email").max_length,
+        EmailAddress._meta.get_field("email").max_length,
+    ):
+        return None
+    with transaction.atomic():
+        user = User.objects.select_for_update().filter(pk=user_id).first()
+        if (
+            user is None
+            or EmailAddress.objects.filter(user=user, verified=True).exists()
+        ):
+            return None
+        pending = EmailAddress.objects.filter(user=user, verified=False)
+        if pending.filter(email__iexact=typed_email).exists():
+            return None
+        taken = (
+            EmailAddress.objects.filter(email__iexact=typed_email)
+            .exclude(user=user)
+            .exists()
+            or User.objects.filter(email__iexact=typed_email)
+            .exclude(pk=user.pk)
+            .exists()
+        )
+        if taken:
+            return None
+        pending.delete()
+        user.email = typed_email
+        user.save(update_fields=["email"])
+        address = EmailAddress.objects.create(
+            user=user, email=typed_email, primary=True, verified=False
+        )
+    # One rewrite per provider login: the authorization is spent.
+    _drop_social_hold(request)
+    return address
 
 
 @require_http_methods(["POST"])
@@ -1729,27 +1674,33 @@ def resend_verification_email(request):
     signed up (or last tried to log in unverified). That session can be
     empty -- a different device, or cookies cleared -- so this also accepts
     an ``email`` POST field from the visible form the template shows in that
-    case. Either way, a per-session 60s cooldown (separate from the hourly
-    IP rate limit above, which guards against abuse) stops the same visitor
-    from re-triggering a send on every reload/back-button; the response
-    stays identical either way.
+    case. A per-address cooldown (``claim_resend_cooldown``, separate from
+    the hourly IP rate limit above, which guards against abuse) stops a
+    re-send on every reload/back-button; the response stays identical
+    either way. For a social account held by pre_login, a typed address
+    replaces the account's unverified one (#1059).
     """
     from allauth.account.models import EmailAddress
 
-    now_ts = int(timezone.now().timestamp())
-    cooldown_until = request.session.get("resend_verification_cooldown_until", 0)
-    still_cooling_down = now_ts < cooldown_until
-
     # A typed address wins over the session one, so a member who mistyped
     # can correct it from the page's "Use a different address" field.
-    email = (request.POST.get("email") or "").strip() or request.session.get(
-        "pending_verification_email"
-    )
+    typed = (request.POST.get("email") or "").strip()
+    email = typed or request.session.get("pending_verification_email")
 
-    if email and not still_cooling_down:
-        email_address = EmailAddress.objects.filter(
-            email__iexact=email, verified=False
-        ).first()
+    if email and claim_resend_cooldown(email):
+        held = _held_social_user_id(request) if typed else None
+        held_email = request.session.get("pending_verification_email")
+        email_address = (
+            _replace_pending_social_address(request, typed) if typed else None
+        )
+        # A rejected correction (invalid, or another account's address)
+        # keeps the session bound to the held account, so a later available
+        # address can still repair it; the response below stays identical.
+        keep_held_binding = bool(held) and email_address is None
+        if email_address is None:
+            email_address = EmailAddress.objects.filter(
+                email__iexact=email, verified=False
+            ).first()
         if email_address:
             # The response must not differ between a known and an unknown
             # address. A mail failure here would otherwise surface as an error
@@ -1768,13 +1719,21 @@ def resend_verification_email(request):
                 logger.exception("Resending the verification email failed")
         # Remember the address so this page can mask it and keep offering
         # resend without needing the visitor to retype it.
-        request.session["pending_verification_email"] = email
-        # Only start the cooldown once we actually resolved an address to
-        # (possibly) send to -- a submission with no session email and no
-        # POST email shouldn't self-lock the visitor's own resend button.
-        request.session["resend_verification_cooldown_until"] = (
-            now_ts + RESEND_VERIFICATION_COOLDOWN_SECONDS
-        )
+        if keep_held_binding:
+            # The generic resend above may have re-stashed the typed address
+            # (email_confirmation_sent signal), so restore the hold.
+            request.session["pending_verification_email"] = held_email
+            request.session["pending_verification_user_id"] = held
+            # Retyping the held address itself resent to it and claimed its
+            # cooldown, so the page's countdown must start for it too.
+            if held_email and typed.lower() == held_email.lower():
+                start_resend_cooldown_display(request, held_email)
+        else:
+            request.session["pending_verification_email"] = email
+            _held_social_user_id(request)
+            # Only for the address the page now shows: a rejected typed
+            # address must not disable resend for the restored one.
+            start_resend_cooldown_display(request, email)
 
     messages.success(
         request,
@@ -2016,29 +1975,21 @@ def export_user_data(request):
         )
         if is_unshared_crush and conn.recipient_id == user.id:
             continue
+        is_requester = conn.requester_id == user.id
+        counterpart = conn.recipient if is_requester else conn.requester
+        counterpart_shared_email = conn.status == "shared" and (
+            conn.recipient_shares_email if is_requester else conn.requester_shares_email
+        )
         visible_connections.append(
             {
                 "event": conn.event.title if conn.event else None,
-                # Once the other member has answered the consent step without
-                # choosing to share their email, it never appears here, in
-                # any status (UX Wave 3, 5-10). Rows where they have not
-                # answered yet keep the existing export contract.
+                # The other member's email is theirs, not the requester's: it
+                # is exported only once they shared it with this member (the
+                # connection is shared and they ticked email at consent), the
+                # same rule connection_detail.html shows it by (UX Wave 4,
+                # decision I). Otherwise it never appears, in any status.
                 "connected_with": (
-                    None
-                    if (
-                        (conn.status == "shared" or conn.recipient_consents_to_share)
-                        and not conn.recipient_shares_email
-                        if conn.requester == user
-                        else (
-                            conn.status == "shared" or conn.requester_consents_to_share
-                        )
-                        and not conn.requester_shares_email
-                    )
-                    else (
-                        conn.recipient.email
-                        if conn.requester == user
-                        else conn.requester.email
-                    )
+                    counterpart.email if counterpart_shared_email else None
                 ),
                 "status": ("with your coach" if is_unshared_crush else conn.status),
                 "created_at": (

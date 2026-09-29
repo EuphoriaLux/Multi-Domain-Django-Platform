@@ -543,6 +543,16 @@ def event_list(request):
     visible_upcoming = _filter_private_events(upcoming_events, request.user)
     visible_past = _filter_private_events(past_events, request.user)
 
+    # "See entry events" (#1082): an entry event is one that only asks for a
+    # participation-ready profile (profile_requirement="completed"), so a
+    # not-yet-verified member can join it and get verified there.
+    entry_filter = request.GET.get("entry") == "1"
+    if entry_filter:
+        visible_upcoming = [
+            e for e in visible_upcoming if e.profile_requirement == "completed"
+        ]
+        visible_past = [e for e in visible_past if e.profile_requirement == "completed"]
+
     # Build attendance lookup for past events (only 'attended' status)
     attended_ids = set()
     if request.user.is_authenticated:
@@ -743,6 +753,7 @@ def event_list(request):
         "event_status_chip": event_status_chip,
         "event_eligibility": event_eligibility,
         "event_type_filter_options": present_types,
+        "entry_filter": entry_filter,
     }
     return render(request, "crush_lu/event_list.html", context)
 
@@ -1437,8 +1448,30 @@ def event_detail(request, event_id):
             >= int(event.registration_fee * 100)
         ),
         "luxid_connect_url": luxid_connect_url_value,
+        "event_share_url": _event_share_url(request, user_profile),
     }
     return render(request, "crush_lu/event_detail.html", context)
+
+
+def _event_share_url(request, user_profile):
+    """4-18: a member with a referral code shares their referral link, landing
+    on this event (next=), so a signup from it earns referral points under
+    the existing rules. Everyone else shares the plain page URL."""
+    from .models import ReferralCode
+    from .referrals import build_referral_url
+
+    referral_code = (
+        ReferralCode.objects.filter(referrer=user_profile, is_active=True)
+        .order_by("-created_at")
+        .first()
+        if user_profile is not None
+        else None
+    )
+    if referral_code is None:
+        return request.build_absolute_uri(request.path)
+    return build_referral_url(
+        referral_code.code, request=request, next_url=request.path
+    )
 
 
 def _ical_escape(text):

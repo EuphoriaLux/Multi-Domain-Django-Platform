@@ -145,7 +145,7 @@ html:not(.dark) {
    60.65px tab (6px + 34px icon + 2px + 12.65px label + 6px) plus its 1px border.
    --text-muted is secondary copy on the tinted lavender surfaces: gray-500
    only reaches ~4.0:1 on #ede8f4, gray-600 reaches 6.3:1 (gray-400 on dark).
-   Use it through the text-muted-fg utility. */
+   Use it through the text-muted-fg utility (.text-muted maps to it too). */
 :root {
     --color-surface-card: #ffffff;
     --bottom-nav-height: 61.65px;
@@ -400,7 +400,7 @@ body.journey-bg {
     }
 
     .btn-danger {
-        @apply bg-red-500 px-6 py-3 text-white hover:bg-red-600 focus:ring-red-400 dark:bg-red-600 dark:hover:bg-red-500;
+        @apply bg-red-700 px-6 py-3 text-white hover:bg-red-800 focus:ring-red-400 dark:bg-red-700 dark:hover:bg-red-800;
     }
 
     .btn-warning {
@@ -974,8 +974,10 @@ body.journey-bg {
         @apply text-xl font-bold;
     }
 
+    /* Legacy component class, mapped onto the --text-muted token (dark
+       variant included via html.dark) so it matches text-muted-fg. */
     .text-muted {
-        @apply text-gray-500 dark:text-gray-400;
+        @apply text-muted-fg;
     }
 
     .text-gradient {
@@ -2491,8 +2493,8 @@ body.journey-bg {
     }
 
     .timeline-item {
-        @apply relative cursor-move rounded-2xl border-2 transition-all duration-300 select-none;
-        padding: 1.25rem 1.25rem 1.25rem 70px;
+        @apply relative flex cursor-move items-center gap-3 rounded-2xl border-2 transition-all duration-300 select-none;
+        padding: 1.25rem 1rem 1.25rem 70px;
         margin: 1rem 0;
         border-color: rgba(255, 255, 255, 0.2);
         background: rgba(255, 255, 255, 0.05);
@@ -2534,13 +2536,31 @@ body.journey-bg {
     }
 
     .timeline-text {
-        @apply text-lg leading-relaxed;
-        padding-right: 2.5rem;
+        @apply min-w-0 flex-1 text-lg leading-relaxed;
     }
 
-    .drag-handle {
-        @apply absolute top-1/2 right-5 text-2xl opacity-50;
-        transform: translateY(-50%);
+    /* Move up/down: the keyboard and screen-reader way to reorder (44px targets). */
+    .timeline-moves {
+        @apply flex shrink-0 gap-1;
+    }
+
+    .timeline-move {
+        @apply flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border-2 text-xl font-bold;
+        border-color: rgba(255, 255, 255, 0.3);
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .timeline-move:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.2);
+    }
+
+    .timeline-move:focus-visible {
+        outline: 3px solid var(--color-crush-pink);
+        outline-offset: 2px;
+    }
+
+    .timeline-move:disabled {
+        @apply cursor-not-allowed opacity-30;
     }
 
     .instruction-box {
@@ -2664,17 +2684,11 @@ body.journey-bg {
         }
 
         .timeline-item {
-            padding: 1rem 1rem 1rem 60px;
+            padding: 0.75rem 0.5rem 0.75rem 60px;
         }
 
         .timeline-text {
             font-size: 1rem;
-        }
-
-        .drag-handle {
-            right: 0.625rem;
-            font-size: 1.875rem;
-            opacity: 0.7;
         }
 
         .instruction-box {
@@ -4970,7 +4984,8 @@ footer hr {
 
 .btn-crush-outline {
     background: transparent;
-    color: var(--crush-purple);
+    /* purple-dark text: crush-purple only reaches 4.0:1 on the lavender card */
+    color: var(--crush-purple-dark);
     border: 2px solid var(--crush-purple);
     font-weight: var(--font-semibold);
     padding: var(--space-3) var(--space-8);
@@ -5022,8 +5037,17 @@ footer hr {
 }
 
 html.dark .btn-crush-outline {
-    color: var(--crush-purple-light);
+    /* purple-300 (5.3:1 on gray-800; purple-light is 4.47). A theme token, not
+       --crush-purple: its dark value lives in base.html's inline style, which
+       standalone pages such as native_auth_failed.html never load. */
+    color: var(--color-purple-300);
     border-color: var(--crush-purple-light);
+}
+
+/* Keep the hover label white on the gradient: the rule above outranks
+   .btn-crush-outline:hover. */
+html.dark .btn-crush-outline:hover {
+    color: white;
 }
 
 /* Hero Button */
@@ -8489,7 +8513,7 @@ html.dark .progress-bar-container {
 }
 
 .step-nav {
-    @apply mb-8 flex flex-col justify-center gap-2.5 sm:flex-row;
+    @apply mb-8 flex list-none flex-row flex-wrap justify-center gap-2.5 p-0;
 }
 
 .step-indicator {
@@ -10747,12 +10771,14 @@ html.dark .poll-option:hover {
     background: rgba(0, 0, 0, 0.3);
     border: 2px solid rgba(255, 255, 255, 0.5);
 }
-.poll-option-check-active {
+.poll-option-check-active,
+.poll-option-card:has(.poll-option-input:checked) .poll-option-check {
     background: #9b59b6;
     border-color: white;
     box-shadow: 0 2px 8px rgba(155, 89, 182, 0.4);
 }
-html.dark .poll-option-check-active {
+html.dark .poll-option-check-active,
+html.dark .poll-option-card:has(.poll-option-input:checked) .poll-option-check {
     background: #8b5cf6;
     box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
 }
@@ -10761,22 +10787,38 @@ html.dark .poll-option-check-active {
     @apply p-4;
 }
 
-.poll-option-selected {
-    border-color: #9b59b6;
-    background: rgba(155, 89, 182, 0.1);
+/* Ballot options are <label>s around a native radio/checkbox (keyboard and
+   screen-reader operable); the card mirrors the input's state via :has(). */
+.poll-option-input {
+    @apply h-5 w-5 shrink-0 cursor-pointer;
+    accent-color: var(--color-crush-purple);
 }
-.poll-option-card.poll-option-selected {
+html.dark .poll-option-input {
+    accent-color: #8b5cf6;
+}
+.poll-option-card:has(.poll-option-input:focus-visible) {
+    outline: 3px solid var(--color-crush-purple);
+    outline-offset: 2px;
+}
+.poll-option-card:has(.poll-option-input:disabled) {
+    @apply cursor-not-allowed opacity-75;
+    transform: none;
+}
+.poll-option-check-mark {
+    opacity: 0;
+}
+.poll-option-card:has(.poll-option-input:checked) .poll-option-check-mark {
+    opacity: 1;
+}
+.poll-option-card:has(.poll-option-input:checked) {
     border-color: #9b59b6;
     background: var(--color-white);
     box-shadow:
         0 0 0 1px #9b59b6,
         0 4px 12px rgba(155, 89, 182, 0.2);
 }
-html.dark .poll-option-selected {
+html.dark .poll-option-card:has(.poll-option-input:checked) {
     border-color: #8b5cf6;
-    background: rgba(139, 92, 246, 0.15);
-}
-html.dark .poll-option-card.poll-option-selected {
     background: rgba(30, 41, 59, 0.8);
     box-shadow:
         0 0 0 1px #8b5cf6,
@@ -11789,7 +11831,8 @@ html.dark .crush-connect-cta {
         align-items: center;
         justify-content: space-between;
         padding: 1rem 1.25rem;
-        background: var(--color-white);
+        /* True white on the lavender canvas (8-07): --color-white is tinted. */
+        background: var(--color-surface-card);
         border-radius: 1rem;
         border: 1px solid #e5e7eb;
         text-decoration: none;
@@ -12883,8 +12926,12 @@ html.dark .hiw-cta-section p {
     color: #94a3b8;
 }
 
-/* Timeline connector for desktop */
-@media (min-width: 768px) {
+/* Timeline connector for desktop: only in the single-row 4-column layout,
+   running from the first icon centre to the last so it never extends past the
+   grid and cause horizontal scroll. Icon centre = .step-card padding-top +
+   the inner card's sm:p-6 (1.5rem) + half the 80px icon; horizontally it is
+   half a column, (100% - 3 gaps) / 8, with the grid's md:gap-6 (1.5rem). */
+@media (min-width: 1024px) {
     .step-timeline {
         position: relative;
     }
@@ -12892,9 +12939,9 @@ html.dark .hiw-cta-section p {
     .step-timeline::after {
         content: "";
         position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 100%;
+        top: calc(var(--space-8) + 1.5rem + 40px);
+        left: calc((100% - 3 * 1.5rem) / 8);
+        right: calc((100% - 3 * 1.5rem) / 8);
         height: 3px;
         background: linear-gradient(90deg, #9b59b6, #ff6b9d);
         transform: translateY(-50%);
@@ -14032,6 +14079,79 @@ body.connect-wizard main.has-bottom-nav {
 @media (max-width: 1023px) {
     body:has(.bottom-nav) .prompt-above-nav {
         bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+    }
+}
+
+/* Members' footer below lg (decision H, #1055): only the compact imprint +
+   help/legal block, and only where the tab bar is rendered (focused flows
+   such as the Connect wizard drop both). Its bottom padding clears the fixed
+   tab bar and the home-indicator inset, so the links sit above the bar. */
+@media (max-width: 1023px) {
+    .site-footer-member {
+        display: none;
+    }
+    body:has(.bottom-nav) .site-footer-member {
+        display: block;
+        margin-top: 0;
+        padding-top: 1.5rem;
+        padding-bottom: calc(
+            var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 1.5rem
+        );
+    }
+}
+
+/* =============================================================================
+   LEGAL PROSE (privacy_policy.html, terms_of_service.html)
+   Preflight strips list bullets and block margins; this scoped class restores
+   a readable long-form rhythm for the legal pages without pulling in
+   @tailwindcss/typography's full reset. Headings keep the base scale one step
+   down: h3 = section, h4 = subsection.
+   ============================================================================= */
+@layer components {
+    .legal-prose h3 {
+        @apply mt-10 mb-3 scroll-mt-24 text-xl sm:text-2xl;
+    }
+    .legal-prose h4 {
+        @apply mt-6 mb-2 scroll-mt-24 text-lg;
+    }
+    .legal-prose p {
+        @apply mb-4 leading-relaxed;
+    }
+    .legal-prose ul:not(.list-none) {
+        @apply mb-4 list-disc space-y-1.5 pl-6 leading-relaxed;
+    }
+    .legal-prose ul.list-none {
+        @apply mb-4 space-y-1;
+    }
+    .legal-prose li::marker {
+        @apply text-crush-purple;
+    }
+    /* dark: on ::marker compiles to an invalid ::marker:where() selector. */
+    html.dark .legal-prose li::marker {
+        @apply text-crush-pink;
+    }
+    .legal-prose :is(p, li, td) a {
+        @apply text-crush-purple-dark underline underline-offset-2 dark:text-purple-300;
+    }
+    .legal-prose [role="region"] {
+        @apply mb-4 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-crush-purple;
+    }
+    .legal-back-to-contents {
+        @apply fixed left-4 z-40 inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-crush-purple-dark shadow-crush-md dark:border-gray-600 dark:bg-gray-800 dark:text-purple-300 lg:hidden;
+        bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+    }
+    body:has(.bottom-nav) .legal-back-to-contents {
+        bottom: calc(
+            var(--bottom-nav-height) + 1rem + env(safe-area-inset-bottom, 0px)
+        );
+    }
+}
+
+/* Unlayered so it beats the layered display above. The pill is a screen-only
+   affordance; a printed policy has nothing to jump back to. */
+@media print {
+    .legal-back-to-contents {
+        display: none;
     }
 }
 

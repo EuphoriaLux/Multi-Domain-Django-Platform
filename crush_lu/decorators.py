@@ -61,7 +61,10 @@ def coach_required(function):
     return wrapper
 
 
-def ratelimit(key='ip', rate='5/15m', method='POST', block=True, rate_limited_template=None):
+def ratelimit(
+    key='ip', rate='5/15m', method='POST', block=True, rate_limited_template=None,
+    count_if=None,
+):
     """
     Simple rate limiting decorator using Django's cache framework.
 
@@ -77,6 +80,12 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True, rate_limited_te
               {{ wait_message }} instead of the bare text/plain fallback.
               Leave unset for API-style endpoints that should keep the
               existing plain-text/JSON contract.
+        count_if: Optional callable(response) -> bool. When set, a request
+              reserves a slot atomically before the view runs and keeps it
+              only if count_if(response) is true (e.g. only successful
+              creations); otherwise, or if the view raises, the slot is
+              released. Concurrent requests therefore can never exceed the
+              limit together.
 
     Example:
         @ratelimit(key='ip', rate='5/15m', method='POST')
@@ -105,7 +114,10 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True, rate_limited_te
             # Get cache key
             cache_key = _get_cache_key(request, key, func.__name__)
 
-            # Count this request (gracefully handle cache errors)
+            # Count this request (gracefully handle cache errors). With
+            # count_if this is a reservation, released below unless the
+            # response qualifies; a peek-then-count let a concurrent burst
+            # all pass on one read.
             try:
                 count = _count_request(cache_key, period_seconds)
             except Exception:
@@ -121,6 +133,10 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True, rate_limited_te
                 request.limited_retry_after = _remaining_window_seconds(
                     cache_key, period_seconds
                 )
+                if block and count_if is not None:
+                    # A refused request never counts toward a success-only
+                    # cap; the counter stays at or above the limit.
+                    _release_request(cache_key)
                 if block:
                     # Return JSON for API/AJAX requests, plain text for browser requests
                     if (
@@ -154,7 +170,16 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True, rate_limited_te
                         status=429
                     )
 
-            return func(request, *args, **kwargs)
+            if count_if is None:
+                return func(request, *args, **kwargs)
+            try:
+                response = func(request, *args, **kwargs)
+            except BaseException:
+                _release_request(cache_key)
+                raise
+            if not count_if(response):
+                _release_request(cache_key)
+            return response
 
         return wrapper
     return decorator
@@ -217,6 +242,23 @@ def _count_request(cache_key, period_seconds):
             _record_window_deadline(cache_key, period_seconds)
             return 1
         return cache.incr(cache_key)
+
+
+def _release_request(cache_key):
+    """
+    Give back a slot reserved by _count_request().
+
+    decr() is atomic and keeps the expiry add() set; on a missing key it
+    raises rather than creating one, so a release never extends the window
+    or leaves a counter without a timeout. A release that lands in a newer
+    window than its reservation could drive the counter below zero; undo it.
+    """
+    try:
+        if cache.decr(cache_key) < 0:
+            cache.incr(cache_key)
+    except Exception:
+        # Evicted or expired (nothing left to release) or cache unavailable.
+        pass
 
 
 def _parse_period(period_str):

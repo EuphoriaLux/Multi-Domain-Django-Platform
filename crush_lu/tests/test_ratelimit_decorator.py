@@ -8,6 +8,9 @@ Two bypasses are pinned here:
   connection a fresh counter. The key must be the client address alone.
 * The counter was read, compared, then written, so a concurrent burst could all
   read the same value and pass together. The count must come from ``incr()``.
+  That holds for ``count_if`` too: a success-only cap reserves its slot
+  atomically before the view runs and releases it if the response doesn't
+  qualify, instead of peeking before the view and counting after it.
 """
 
 from __future__ import annotations
@@ -42,6 +45,24 @@ def soft_view(request):
 @ratelimit(key="ip", rate="3/m", method="POST")
 def burst_view(request):
     return HttpResponse("ok")
+
+
+# Every run of a success-only view is recorded, the way gift_create creates
+# (and emails) a gift, so tests can count what got past the limiter.
+executed = []
+
+
+def _created(response):
+    return response.status_code == 302
+
+
+@ratelimit(key="ip", rate="2/m", method="POST", count_if=_created)
+def success_only_view(request):
+    outcome = request.POST.get("outcome", "create")
+    executed.append(outcome)
+    if outcome == "raise":
+        raise RuntimeError("view failed")
+    return HttpResponse(status=302 if outcome == "create" else 400)
 
 
 class _InterleavingCache:
@@ -82,6 +103,7 @@ class RateLimitDecoratorTests(SimpleTestCase):
     def setUp(self):
         # Tests share one ratelimit counter per key; start every test from zero.
         cache.clear()
+        executed.clear()
         self.factory = RequestFactory()
 
     def _post(self, view=ip_view, xhr=True, **meta):
@@ -175,6 +197,112 @@ class RateLimitDecoratorTests(SimpleTestCase):
         # Four requests against a limit of three: exactly one is refused.
         self.assertEqual(nested, [200, 200, 200])
         self.assertEqual(outer, 429)
+
+    def test_concurrent_success_only_burst_cannot_exceed_the_limit(self):
+        # count_if used to peek (get) before the view and count after it, so
+        # every request in flight read the same pre-limit value and ran.
+        nested = []
+
+        def interleave():
+            for _ in range(3):
+                nested.append(
+                    self._post(
+                        view=success_only_view,
+                        HTTP_X_FORWARDED_FOR="203.0.113.7:1",
+                    ).status_code
+                )
+
+        with patch("crush_lu.decorators.cache", _InterleavingCache(cache, interleave)):
+            outer = self._post(
+                view=success_only_view, HTTP_X_FORWARDED_FOR="203.0.113.7:2"
+            ).status_code
+
+        # Four concurrent successful creates against a limit of two: exactly
+        # two views run, and the rest are refused.
+        self.assertEqual(nested, [302, 302, 429])
+        self.assertEqual(outer, 429)
+        self.assertEqual(executed, ["create", "create"])
+
+    def _success_only_key(self, xff):
+        request = self.factory.post("/", HTTP_X_FORWARDED_FOR=xff)
+        return _get_cache_key(request, "ip", "success_only_view")
+
+    def test_success_only_rejected_response_releases_its_slot(self):
+        xff = "203.0.113.7:1"
+        statuses = [
+            self._post(
+                view=success_only_view,
+                data={"outcome": outcome},
+                HTTP_X_FORWARDED_FOR=xff,
+            ).status_code
+            for outcome in ("invalid", "create", "invalid", "invalid", "create")
+        ]
+        count_at_cap = cache.get(self._success_only_key(xff))
+
+        # Capped: every POST is refused without running the view, and a
+        # refusal doesn't give back a slot a success holds.
+        capped = [
+            self._post(
+                view=success_only_view,
+                data={"outcome": outcome},
+                HTTP_X_FORWARDED_FOR=xff,
+            ).status_code
+            for outcome in ("invalid", "create", "create")
+        ]
+
+        self.assertEqual(statuses, [400, 302, 400, 400, 302])
+        self.assertEqual(count_at_cap, 2)
+        self.assertEqual(capped, [429, 429, 429])
+        self.assertEqual(
+            executed, ["invalid", "create", "invalid", "invalid", "create"]
+        )
+        self.assertEqual(cache.get(self._success_only_key(xff)), 2)
+
+    def test_success_only_view_that_raises_releases_its_slot(self):
+        xff = "203.0.113.7:1"
+        with self.assertRaises(RuntimeError):
+            self._post(
+                view=success_only_view,
+                data={"outcome": "raise"},
+                HTTP_X_FORWARDED_FOR=xff,
+            )
+        statuses = [
+            self._post(view=success_only_view, HTTP_X_FORWARDED_FOR=xff).status_code
+            for _ in range(3)
+        ]
+        self.assertEqual(statuses, [302, 302, 429])
+
+    def test_success_only_release_keeps_the_window_expiry(self):
+        xff = "203.0.113.7:1"
+        self._post(view=success_only_view, HTTP_X_FORWARDED_FOR=xff)
+        key = self._success_only_key(xff)
+        internal_key = cache.make_key(key)
+        expiry = cache._expire_info[internal_key]
+
+        self._post(
+            view=success_only_view,
+            data={"outcome": "invalid"},
+            HTTP_X_FORWARDED_FOR=xff,
+        )
+
+        self.assertEqual(cache.get(key), 1)
+        self.assertEqual(cache._expire_info[internal_key], expiry)
+
+    def test_success_only_release_after_expiry_creates_no_counter(self):
+        xff = "203.0.113.7:1"
+        key = _get_cache_key(
+            self.factory.post("/", HTTP_X_FORWARDED_FOR=xff), "ip", "expiring_view"
+        )
+
+        @ratelimit(key="ip", rate="2/m", method="POST", count_if=_created)
+        def expiring_view(request):
+            cache.delete(key)  # the window expires while the view runs
+            return HttpResponse(status=400)
+
+        response = self._post(view=expiring_view, HTTP_X_FORWARDED_FOR=xff)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIsNone(cache.get(key))
 
     def test_counter_evicted_between_add_and_incr_restarts_at_one(self):
         real_incr = cache.incr

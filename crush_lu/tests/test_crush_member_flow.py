@@ -739,12 +739,11 @@ class TestRecipientPrivacy:
             request = factory.get("/")
             request.user = crusher
             data = json.loads(export_user_data(request).content)
-            rows = [
-                r for r in data.get("connections", [])
-                if r["connected_with"] == target.email
-            ]
+            rows = data.get("connections", [])
             assert len(rows) == 1
             assert rows[0]["status"] == "with your coach"
+            # The target never shared their email with the crusher.
+            assert rows[0]["connected_with"] is None
 
     def test_my_events_mutual_count_hides_reciprocal_crush(self, client):
         """After reciprocal declarations, both members' my_events mutual-match

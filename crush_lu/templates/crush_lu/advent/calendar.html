@@ -9,7 +9,7 @@
     {% if calendar.calendar_description %}
         <p class="subtitle">{{ calendar.calendar_description }}</p>
     {% else %}
-        <p class="subtitle">December {{ calendar.year }}</p>
+        <p class="subtitle">{% blocktrans with year=calendar.year %}December {{ year }}{% endblocktrans %}</p>
     {% endif %}
 
     <div class="advent-progress">

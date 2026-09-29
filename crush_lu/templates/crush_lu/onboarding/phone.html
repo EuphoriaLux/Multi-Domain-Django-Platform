@@ -193,7 +193,7 @@
       Continue button — revealed once phone_verified flips. The
       phoneVerificationComponent dispatches the window `phone-verified`
       event on success; onboardingPhoneContinue (registered in
-      alpine-components.js) listens for it and exposes isVerified /
+      js/alpine/core.js) listens for it and exposes isVerified /
       isNotVerified getters so this stays CSP-friendly (no inline
       object literals or ! operators).
     {% endcomment %}

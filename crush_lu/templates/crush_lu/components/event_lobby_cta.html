@@ -37,7 +37,7 @@ tests pass while the page is broken. Assert on the rendered PAGE.
 Disclosure rules (§5.3 as amended 2026-07-18) live entirely in the service —
 callers pass the computed state through and never re-derive eligibility.
 {% endcomment %}
-{% with hero_class="flex items-center justify-center gap-2 w-full py-3 sm:py-4 px-4 bg-gradient-to-r from-crush-purple to-crush-pink text-white font-semibold rounded-lg transition-all hover:shadow-lg text-sm sm:text-base" compact_class="btn-crush-solid btn-sm inline-flex items-center justify-center gap-2 text-center" %}
+{% with hero_class="btn-crush-solid w-full gap-2" compact_class="btn-crush-solid btn-sm inline-flex items-center justify-center gap-2 text-center" %}
 {% if cta == "enter_live" %}
     <a href="{% url 'crush_lu:event_lobby' event.id %}"
        class="{% if hero %}{{ hero_class }}{% else %}{{ compact_class }}{% if full_width_mobile %} w-full sm:w-auto{% endif %}{% endif %}">

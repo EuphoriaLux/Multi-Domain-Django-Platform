@@ -322,27 +322,20 @@ class WhatsAppWebhookView(View):
         # one save would clobber the other's status_history append.
         with transaction.atomic():
             try:
-                message = (
-                    WhatsAppMessage.objects.select_for_update()
-                    .get(wa_message_id=wa_id)
+                message = WhatsAppMessage.objects.select_for_update().get(
+                    wa_message_id=wa_id
                 )
             except WhatsAppMessage.DoesNotExist:
-                logger.info(
-                    "WhatsApp webhook for unknown wa_message_id=%s", wa_id
-                )
+                logger.info("WhatsApp webhook for unknown wa_message_id=%s", wa_id)
                 return
             except WhatsAppMessage.MultipleObjectsReturned:
                 logger.warning("Multiple rows share wa_message_id=%s", wa_id)
                 return
 
-            message.status_history = (message.status_history or []) + [
-                history_entry
-            ]
+            message.status_history = (message.status_history or []) + [history_entry]
             if _STATUS_RANK[new_status] >= _STATUS_RANK[message.status]:
                 message.status = new_status
-            message.save(
-                update_fields=["status", "status_history", "updated_at"]
-            )
+            message.save(update_fields=["status", "status_history", "updated_at"])
             _maybe_flag_not_on_whatsapp(
                 message.recipient, history_entry.get("error_code")
             )

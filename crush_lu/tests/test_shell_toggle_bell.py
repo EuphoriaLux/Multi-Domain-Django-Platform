@@ -2,7 +2,8 @@
 
 UX review Wave 1, findings 8-04 and 8-03.
 
-* 8-04 — ``account_settings.html`` carried ~15 inline copies of one toggle
+* 8-04 — the retired ``account_settings.html`` carried ~15 inline copies of
+  one toggle
   switch whose track had an unprefixed ``dark:bg-gray-800``: on the
   ``dark:bg-gray-800`` cards the OFF state was invisible (only the white knob
   showed). The copies now render through ``components/toggle.html`` with a
@@ -69,38 +70,6 @@ def _switch_inputs(html):
         and attrs.get("type") == "checkbox"
         and "peer" in (attrs.get("class") or "").split()
     ]
-
-
-def _checkbox_contract(html):
-    """The form/JS-facing contract of every toggle switch on the page.
-
-    Everything a submit, an Alpine binding or the push-preference event
-    delegation reads: name, id, value, checked, data-* keys, Alpine
-    ``:checked``/``@change`` and the non-styling hook classes. Styling classes
-    and ``role`` are deliberately excluded — those are what the refactor
-    changes.
-    """
-    contract = []
-    for attrs in _switch_inputs(html):
-        hooks = sorted(
-            c
-            for c in (attrs.get("class") or "").split()
-            if c not in {"sr-only", "peer"}
-        )
-        contract.append(
-            {
-                "name": attrs.get("name"),
-                "id": attrs.get("id"),
-                "value": attrs.get("value"),
-                "checked": "checked" in attrs,
-                "pref_key": attrs.get("data-pref-key"),
-                "has_subscription_id": "data-subscription-id" in attrs,
-                "x_checked": attrs.get(":checked"),
-                "x_change": attrs.get("@change"),
-                "hooks": hooks,
-            }
-        )
-    return contract
 
 
 def _toggle(name=None, checked=False, pref_key=None, hooks=(), **extra):
@@ -196,13 +165,13 @@ class AccountSettingsToggleComponentTests(TestCase):
         self.client.login(username="toggles@example.com", password="testpass123")
 
     def _html(self):
-        response = self.client.get("/en/account/settings/", HTTP_HOST="crush.lu")
+        # /account/settings/ is retired (8-08); its notification switches
+        # live in the drill-down's notifications sub-section.
+        response = self.client.get(
+            "/en/profile/edit/?section=account&sub=notifications", HTTP_HOST="crush.lu"
+        )
         self.assertEqual(response.status_code, 200)
         return response.content.decode()
-
-    def test_form_contract_is_unchanged(self):
-        """Names, values, ids, checked states and JS hooks match main."""
-        self.assertEqual(_checkbox_contract(self._html()), EXPECTED_SETTINGS_CHECKBOXES)
 
     def test_push_toggles_carry_their_subscription_ids(self):
         ids = {
@@ -230,7 +199,8 @@ class AccountSettingsToggleComponentTests(TestCase):
             self.assertIn("after:bg-white", classes)
             self.assertIn("peer-focus:ring-4", classes)
         source = (
-            REPO_ROOT / "crush_lu/templates/crush_lu/account_settings.html"
+            REPO_ROOT
+            / "crush_lu/templates/crush_lu/partials/edit_account_notifications.html"
         ).read_text(encoding="utf-8")
         self.assertNotIn("after:content-['']", source)
         self.assertEqual(
@@ -246,7 +216,9 @@ class AccountSettingsToggleComponentTests(TestCase):
 
     def test_labels_passed_with_underscore_stay_translated(self):
         """_("…") include args hit the same msgids the old {% trans %} did."""
-        response = self.client.get("/de/account/settings/", HTTP_HOST="crush.lu")
+        response = self.client.get(
+            "/de/profile/edit/?section=account&sub=notifications", HTTP_HOST="crush.lu"
+        )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Event-Erinnerungen")
         self.assertContains(
@@ -267,12 +239,8 @@ class AccountSettingsToggleComponentTests(TestCase):
             self.assertIn("peer-checked:bg-purple-600", tracks[index])
 
     def test_permission_denied_boxes_have_dark_mode_classes(self):
-        # Both settings surfaces show the same "Notifications blocked" box:
-        # /account/settings/ and Edit profile > Account > Notifications.
-        for template in (
-            "account_settings.html",
-            "partials/edit_account_notifications.html",
-        ):
+        # Edit profile > Account > Notifications (the monolith is retired).
+        for template in ("partials/edit_account_notifications.html",):
             source = (REPO_ROOT / "crush_lu/templates/crush_lu" / template).read_text(
                 encoding="utf-8"
             )
@@ -457,7 +425,7 @@ class MobileTopBarBellTests(TestCase):
 
     def test_desktop_bell_broadcasts_and_mobile_bar_follows(self):
         """Source-level wiring check for the CSP-safe event bridge."""
-        js = (REPO_ROOT / "crush_lu/static/crush_lu/js/alpine-components.js").read_text(
+        js = (REPO_ROOT / "crush_lu/static/crush_lu/js/alpine/core.js").read_text(
             encoding="utf-8"
         )
         bell = js.split('Alpine.data("notificationBell"', 1)[1].split(

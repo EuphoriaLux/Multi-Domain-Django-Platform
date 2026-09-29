@@ -110,9 +110,8 @@ def get_email_base_urls(user, request):
         "home_url": get_user_language_url(user, "crush_lu:home", request),
         "about_url": get_user_language_url(user, "crush_lu:about", request),
         "events_url": get_user_language_url(user, "crush_lu:event_list", request),
-        "settings_url": get_user_language_url(
-            user, "crush_lu:account_settings", request
-        ),
+        "settings_url": get_user_language_url(user, "crush_lu:edit_profile", request)
+        + "?section=account&sub=notifications",
         "terms_url": get_user_language_url(user, "crush_lu:terms_of_service", request),
     }
 
@@ -670,7 +669,8 @@ def send_event_registration_confirmation(registration, request=None):
             "home_url": build_absolute_url("crush_lu:home", lang=lang),
             "about_url": build_absolute_url("crush_lu:about", lang=lang),
             "events_url": build_absolute_url("crush_lu:event_list", lang=lang),
-            "settings_url": build_absolute_url("crush_lu:account_settings", lang=lang),
+            "settings_url": build_absolute_url("crush_lu:edit_profile", lang=lang)
+            + "?section=account&sub=notifications",
             "social_links": get_social_links(),
             "LANGUAGE_CODE": lang,
         }
@@ -956,6 +956,8 @@ def send_event_cancellation_confirmation(
     from django.utils import translation
     from django.utils.translation import gettext as _
 
+    from .services.credits import late_window_hours, resale_share_percent
+
     # Get user's preferred language
     lang = get_user_preferred_language(user=user, request=request, default="en")
 
@@ -973,6 +975,10 @@ def send_event_cancellation_confirmation(
         "credit_total": sum(credit.amount_cents for credit in credits) / 100,
         "credit_issued": bool(credits),
         "awaiting_resale": awaiting_resale,
+        # Read from settings like the on-site policy note
+        # (_cancellation_policy_note.html); Terms §7.3 stays fixed legal copy.
+        "late_window_hours": late_window_hours(),
+        "resale_share_percent": resale_share_percent(),
         # The payment was refunded to the member's card outside Django (SumUp
         # dashboard / terminal, reconciled by reconcile_sumup_payments).
         "cash_refunded": cash_refunded,
@@ -2313,7 +2319,8 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
             "home_url": build_absolute_url("crush_lu:home", lang=lang),
             "about_url": build_absolute_url("crush_lu:about", lang=lang),
             "events_url": build_absolute_url("crush_lu:event_list", lang=lang),
-            "settings_url": build_absolute_url("crush_lu:account_settings", lang=lang),
+            "settings_url": build_absolute_url("crush_lu:edit_profile", lang=lang)
+            + "?section=account&sub=notifications",
             "social_links": get_social_links(),
         }
 
