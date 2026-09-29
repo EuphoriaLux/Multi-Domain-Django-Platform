@@ -222,6 +222,13 @@ def create_buffer_update(
         raise BufferServiceError("Select at least one Buffer channel")
 
     profile_platforms = profile_platforms or {}
+    # Instagram feed posts need an image and Buffer rejects them without one.
+    # Refuse up front: failing on the Instagram channel after an earlier
+    # channel succeeded would leave a partial external publication.
+    if not media_url and any(
+        profile_platforms.get(channel_id) == "instagram" for channel_id in profile_ids
+    ):
+        raise BufferServiceError("Instagram posts require an image")
     post_ids = []
     created_profile_ids = []
     for channel_id in profile_ids:

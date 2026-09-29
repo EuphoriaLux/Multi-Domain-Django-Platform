@@ -930,6 +930,41 @@ class SocialMediaTests(TestCase):
 
     @patch("hub.views_social.list_buffer_profiles")
     @patch("hub.views_social.create_buffer_update")
+    def test_scheduling_infers_platforms_from_the_buffer_lookup(
+        self, dispatch, list_profiles
+    ):
+        """A platformless post scheduled with only channel ids must not be
+        persisted with platforms=[]: delivery fields are immutable once
+        scheduled, so the lookup result has to be recorded."""
+        dispatch.return_value = {"success": True, "buffer_id": "post_1,post_2"}
+        list_profiles.return_value = [
+            {"id": "channel_1", "service": "facebook"},
+            {"id": "channel_2", "service": "instagram"},
+        ]
+        post = SocialPost.objects.create(
+            user=self.user,
+            content="Publication prête",
+            status=SocialPost.Status.PENDING_REVIEW,
+        )
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {
+                "status": "scheduled",
+                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                "buffer_profile_ids": ["channel_1", "channel_2"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        post.refresh_from_db()
+        self.assertEqual(post.platforms, ["facebook", "instagram"])
+        self.assertEqual(
+            response.json()["post"]["platforms"], ["facebook", "instagram"]
+        )
+
+    @patch("hub.views_social.list_buffer_profiles")
+    @patch("hub.views_social.create_buffer_update")
     def test_scheduling_survives_buffer_profile_lookup_failure(
         self, dispatch, list_profiles
     ):
@@ -1330,6 +1365,21 @@ class BufferServiceTests(SimpleTestCase):
             variables["metadata"],
             {"instagram": {"type": "post", "shouldShareToFeed": True}},
         )
+
+    @patch("hub.buffer_service._create_channel_post")
+    def test_instagram_without_media_is_rejected_before_any_channel_is_posted(
+        self, create_post
+    ):
+        with self.assertRaises(BufferServiceError):
+            create_buffer_update(
+                text="Text only",
+                profile_ids=["fb_channel_1", "ig_channel_1"],
+                profile_platforms={
+                    "fb_channel_1": "facebook",
+                    "ig_channel_1": "instagram",
+                },
+            )
+        create_post.assert_not_called()
 
     @patch("hub.buffer_service._create_channel_post")
     def test_partial_failure_reports_already_created_post_ids(self, create_post):

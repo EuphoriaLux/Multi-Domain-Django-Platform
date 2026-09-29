@@ -689,6 +689,17 @@ class SocialPostDetailView(APIView):
                 # reads updated_post.buffer_profile_platforms, not the local
                 # dict, so the resolution must land on the instance too.
                 updated_post.buffer_profile_platforms = profile_platforms
+                # A platformless post scheduled with only channel ids reaches
+                # here with platforms=[] -- delivery fields are immutable once
+                # scheduled, so record what the lookup resolved now.
+                if not updated_post.platforms:
+                    updated_post.platforms = sorted(
+                        {
+                            profile_platforms[profile_id]
+                            for profile_id in selected_ids
+                            if profile_id in profile_platforms
+                        }
+                    )
             try:
                 result = create_buffer_update(
                     text=updated_post.content,
@@ -724,6 +735,7 @@ class SocialPostDetailView(APIView):
                     update_fields=[
                         "status",
                         "buffer_id",
+                        "platforms",
                         "buffer_profile_platforms",
                         "dispatched_platforms",
                         "status_history",
@@ -782,6 +794,7 @@ class SocialPostDetailView(APIView):
             updated_post.save(
                 update_fields=[
                     "buffer_id",
+                    "platforms",
                     "buffer_profile_platforms",
                     "dispatched_platforms",
                 ]
