@@ -44027,6 +44027,10 @@ msgid "Review the draft groups"
 msgstr "Examiner les groupes provisoires"
 
 
+msgid "Open the event to check the next group action"
+msgstr "Ouvrez l’événement pour consulter la prochaine action concernant les groupes"
+
+
 msgid "Track invitations and payments"
 msgstr "Suivre les invitations et les paiements"
 

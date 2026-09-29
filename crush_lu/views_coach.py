@@ -2594,7 +2594,10 @@ def _attach_curated_event_overview(events, now):
             )
         else:
             event.coach_next_step = {
-                "draft": _("Review the draft groups"),
+                # The event page checks whether a draft needs regeneration or
+                # must wait for a reopened deadline. Keep this list card
+                # neutral instead of suggesting approval of a stale draft.
+                "draft": _("Open the event to check the next group action"),
                 "provisional": _("Track invitations and payments"),
                 "locked": NEXT_ACTION_LABELS[NEXT_START],
                 "started": _("Rounds underway"),

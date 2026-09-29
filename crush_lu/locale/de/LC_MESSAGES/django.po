@@ -43873,6 +43873,10 @@ msgid "Review the draft groups"
 msgstr "Gruppenentwurf prüfen"
 
 
+msgid "Open the event to check the next group action"
+msgstr "Öffne das Event, um den nächsten Schritt für die Gruppen zu prüfen"
+
+
 msgid "Track invitations and payments"
 msgstr "Einladungen und Zahlungen verfolgen"
 

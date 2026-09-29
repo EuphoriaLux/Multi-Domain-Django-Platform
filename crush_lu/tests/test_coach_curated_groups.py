@@ -376,6 +376,38 @@ class CoachCuratedGroupsPanelTests(TestCase):
         self.assertEqual(card.coach_next_step, NEXT_ACTION_LABELS["start"])
         self.assertNotContains(response, "Prepare check-in")
 
+    def test_draft_list_does_not_suggest_approving_a_stale_draft(self):
+        event = self.make_event()
+        self.make_applicants(event)
+        generate_group_projection(event, deterministic_seed="coach-panel")
+        self.make_applicant(event, 6)
+
+        with patch(
+            "crush_lu.services.curated_group_insights.project_event_groups",
+            side_effect=AssertionError("the event list must not run the projector"),
+        ):
+            response = self.client.get("/en/coach/events/")
+
+        self.assertEqual(response.status_code, 200)
+        card = next(
+            item for item in response.context["upcoming_events"] if item.pk == event.pk
+        )
+        self.assertEqual(card.coach_group_stage, "draft")
+        self.assertEqual(
+            card.coach_next_step, "Open the event to check the next group action"
+        )
+        self.assertNotContains(response, "Review the draft groups")
+
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            registration_deadline=timezone.now() + timedelta(days=1)
+        )
+        reopened = self.client.get("/en/coach/events/")
+        reopened_card = next(
+            item for item in reopened.context["upcoming_events"] if item.pk == event.pk
+        )
+        self.assertEqual(reopened_card.coach_group_stage, "draft")
+        self.assertEqual(reopened_card.coach_next_step, card.coach_next_step)
+
     # -- stages -------------------------------------------------------------
 
     def test_stage_none_before_deadline_waits_and_previews_the_pool(self):
