@@ -1054,6 +1054,58 @@ class SocialMediaTests(TestCase):
 
     @patch("hub.views_social.list_buffer_profiles")
     @patch("hub.views_social.create_buffer_update")
+    def test_inferred_platforms_only_include_supported_services(
+        self, dispatch, list_profiles
+    ):
+        """A connected channel on a service posts may not declare (e.g. X)
+        must not put that service into the immutable platforms field."""
+        dispatch.return_value = {"success": True, "buffer_id": "post_1,post_2"}
+        list_profiles.return_value = [
+            {"id": "channel_1", "service": "facebook"},
+            {"id": "channel_2", "service": "twitter"},
+        ]
+        post = SocialPost.objects.create(
+            user=self.user,
+            content="Publication prête",
+            status=SocialPost.Status.PENDING_REVIEW,
+        )
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {
+                "status": "scheduled",
+                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                "buffer_profile_ids": ["channel_1", "channel_2"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        post.refresh_from_db()
+        self.assertEqual(post.platforms, ["facebook"])
+
+    @patch("hub.views_social.create_buffer_update")
+    def test_mapped_unsupported_service_is_rejected_at_scheduling(self, dispatch):
+        post = SocialPost.objects.create(
+            user=self.user,
+            content="Publication prête",
+            status=SocialPost.Status.PENDING_REVIEW,
+        )
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {
+                "status": "scheduled",
+                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                "buffer_profile_ids": ["channel_1"],
+                "buffer_profile_platforms": {"channel_1": "twitter"},
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        dispatch.assert_not_called()
+
+    @patch("hub.views_social.list_buffer_profiles")
+    @patch("hub.views_social.create_buffer_update")
     def test_scheduling_survives_buffer_profile_lookup_failure(
         self, dispatch, list_profiles
     ):

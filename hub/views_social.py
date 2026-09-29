@@ -592,7 +592,9 @@ class SocialPostDetailView(APIView):
                     profile_platforms[profile_id] for profile_id in selected_profile_ids
                 }
                 if not effective_platforms and mapped_platforms:
-                    effective_platforms = sorted(mapped_platforms)
+                    # Only the platforms a post may declare; a channel on any
+                    # other service then fails the scope check below.
+                    effective_platforms = sorted(mapped_platforms & ALLOWED_PLATFORMS)
                     serializer.validated_data["platforms"] = effective_platforms
                 if not mapped_platforms.issubset(set(effective_platforms or [])):
                     scheduling_errors["buffer_profile_platforms"] = (
@@ -699,7 +701,7 @@ class SocialPostDetailView(APIView):
                         {
                             profile_platforms[profile_id]
                             for profile_id in selected_ids
-                            if profile_id in profile_platforms
+                            if profile_platforms.get(profile_id) in ALLOWED_PLATFORMS
                         }
                     )
             try:
