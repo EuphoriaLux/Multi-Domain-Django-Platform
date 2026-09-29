@@ -88,7 +88,7 @@ class InstallBannerMarkupTests(TestCase):
     def test_fr_install_label_has_no_emoji(self):
         html = self._get("/fr/events/")
         button = INSTALL_BUTTON_RE.search(html).group(0)
-        self.assertIn('aria-label="Installer l\'application Crush.lu"', button)
+        self.assertIn('aria-label="Installer l\'app Crush.lu"', button)
         self.assertNotIn("📲", _install_banner(html))
 
     def test_native_shell_gets_no_install_banner(self):
