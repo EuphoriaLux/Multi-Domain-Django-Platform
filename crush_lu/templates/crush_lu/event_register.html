@@ -3,13 +3,15 @@
 {% load i18n %}
 {% load static %}
 
-{% block title %}{% trans "Register for" %} {{ event.title }} - Crush.lu{% endblock %}
+{% block title %}{% if event.uses_curated_registration %}{% trans "Apply for" %}{% else %}{% trans "Register for" %}{% endif %} {{ event.title }} - Crush.lu{% endblock %}
 
 {% block content %}
 {# Track event registration page view in Application Insights #}
 {% appinsights_event "event_registration_started" event_type=event.event_type %}
+{% if not event.uses_curated_registration %}
 {% ga4_event "begin_checkout" item_id=event.id item_name=event.title %}
 {% fb_event "InitiateCheckout" %}
+{% endif %}
 
 {# Alpine.js component for dynamic form behavior #}
 <div x-data="eventRegistration"
@@ -26,7 +28,7 @@
         </a>
 
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            {% trans "Register for Event" %}
+            {% if event.uses_curated_registration %}{% trans "Apply for This Event" %}{% else %}{% trans "Register for Event" %}{% endif %}
         </h1>
 
         <!-- Event Quick Info -->
@@ -47,10 +49,14 @@
             </div>
             {% if event.registration_fee > 0 %}
                 <div class="mt-3 pt-3 border-t border-white/20">
-                    <p class="font-semibold">{% trans "Event Fee:" %} €{{ event.registration_fee }}</p>
+                    <p class="font-semibold">{% if event.uses_curated_registration %}{% trans "Price if selected:" %}{% else %}{% trans "Event Fee:" %}{% endif %} €{{ event.registration_fee }}</p>
                 </div>
             {% endif %}
         </div>
+
+        {% if event.uses_curated_registration %}
+        <p class="text-sm text-gray-700 dark:text-gray-200">{% if event.registration_fee > 0 %}{% trans "Applying is free and does not reserve a place. If a viable group is formed and you are selected, we will invite you to pay to confirm." %}{% else %}{% trans "Applying does not reserve a place. If a viable group is formed and you are selected, we will confirm your place separately." %}{% endif %}</p>
+        {% endif %}
 
     </div>
 
@@ -72,7 +78,7 @@
         outside would still be describing the capacity at page load. See the
         component for the two ways that desynced.
         {% endcomment %}
-        {% include "crush_lu/components/registration_waitlist_warning.html" %}
+        {% if not event.uses_curated_registration %}{% include "crush_lu/components/registration_waitlist_warning.html" %}{% endif %}
 
         <!-- Dietary Restrictions (Conditional) -->
         {% if event.has_food_component %}
@@ -136,7 +142,7 @@
                 {% trans "Age Verification" %}
             </label>
             <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">
-                {% trans "Since your profile is not yet verified, please confirm your age to register for this event." %}
+                {% if event.uses_curated_registration %}{% trans "Please confirm your age to apply for this event." %}{% else %}{% trans "Since your profile is not yet verified, please confirm your age to register for this event." %}{% endif %}
             </p>
             <div class="flex items-center gap-3">
                 {{ form.age_confirmation }}
@@ -159,7 +165,9 @@
                     :disabled="isSubmitting"
                     class="btn-crush-primary flex-1 py-3 text-lg font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2">
                 <span x-show="showSubmitText" x-cloak>
-                    {% if registration_will_waitlist %}
+                    {% if event.uses_curated_registration %}
+                        {% trans "Submit Application" %}
+                    {% elif registration_will_waitlist %}
                         {% trans "Join Waitlist" %}
                     {% else %}
                         {% trans "Confirm Registration" %}

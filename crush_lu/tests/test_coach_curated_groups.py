@@ -160,7 +160,7 @@ class CoachCuratedGroupsPanelTests(TestCase):
         html = re.sub(r'name="csrfmiddlewaretoken" value="[^"]+"', "csrf", html)
         return re.sub(r"\?status=\w+", "", html)
 
-    def page(self, event, status=None, language="en"):
+    def page(self, event, status="groups", language="en"):
         url = f"/{language}/coach/events/{event.pk}/"
         if status:
             url = f"{url}?status={status}"
@@ -180,7 +180,7 @@ class CoachCuratedGroupsPanelTests(TestCase):
             status="confirmed",
         )
 
-        default = self.page(event)
+        default = self.page(event, status="all")
         groups_tab = self.page(event, status="groups")
         unknown_tab = self.page(event, status="bogus")
 
@@ -200,7 +200,7 @@ class CoachCuratedGroupsPanelTests(TestCase):
         event = self.make_event(group_size=None, planned_groups=None)
         self.make_applicants(event, 3)
 
-        response = self.page(event)
+        response = self.page(event, status="all")
 
         self.assertIsNone(response.context["curated_groups_panel"])
         self.assertContains(response, "awaiting selection")
@@ -217,6 +217,84 @@ class CoachCuratedGroupsPanelTests(TestCase):
         self.assertContains(response, "data-curated-groups-panel")
         self.assertContains(response, "data-curated-groups-tab")
         self.assertNotContains(response, "awaiting selection")
+
+        roster = self.page(event, status="all")
+        self.assertContains(roster, "data-coach-event-roster")
+        self.assertNotContains(roster, "data-curated-groups-panel")
+
+    def test_roster_separates_application_payment_and_check_in(self):
+        event = self.make_event()
+        applied = self.make_applicant(event, 0, status="applied")
+        pending = self.make_applicant(event, 1)
+        confirmed = self.make_applicant(event, 2)
+        attended = self.make_applicant(event, 3)
+        no_show = self.make_applicant(event, 4)
+        # Model lifecycle blocks piecemeal seat grants; these rows represent
+        # the states that the bulk workflow has already produced.
+        EventRegistration.objects.filter(pk=pending.pk).update(status="pending")
+        for registration, status in (
+            (confirmed, "confirmed"),
+            (attended, "attended"),
+            (no_show, "no_show"),
+        ):
+            EventRegistration.objects.filter(pk=registration.pk).update(
+                status=status, payment_confirmed=True
+            )
+
+        response = self.page(event, status="all")
+        self.assertEqual(response.context["applied_count"], 1)
+        self.assertEqual(response.context["seat_holding_count"], 3)
+        self.assertEqual(response.context["confirmed_count"], 2)
+        self.assertEqual(response.context["payment_due_count"], 1)
+        self.assertEqual(response.context["payment_complete_count"], 3)
+        self.assertEqual(response.context["checked_in_count"], 1)
+        self.assertEqual(response.context["expected_count"], 1)
+        self.assertEqual(response.context["total_registrations"], 5)
+        self.assertContains(response, "data-coach-event-roster")
+        self.assertNotContains(response, "data-curated-groups-panel")
+        rows = {row["registration"].pk: row for row in response.context["roster_rows"]}
+        self.assertEqual(rows[applied.pk]["payment"], "Not due")
+        self.assertEqual(rows[pending.pk]["payment"], "Payment due")
+        self.assertEqual(rows[confirmed.pk]["payment"], "Payment complete")
+        self.assertEqual(rows[attended.pk]["arrival"], "Checked in")
+        self.assertEqual(rows[no_show.pk]["arrival"], "No-show")
+
+        for status, expected_ids in (
+            ("payment_due", {pending.pk}),
+            ("payment_complete", {confirmed.pk, attended.pk, no_show.pk}),
+            ("checked_in", {attended.pk}),
+        ):
+            filtered = self.page(event, status=status)
+            self.assertEqual(
+                {row["registration"].pk for row in filtered.context["roster_rows"]},
+                expected_ids,
+            )
+
+        listing = self.client.get("/en/coach/events/")
+        self.assertEqual(listing.status_code, 200)
+        card = next(
+            item for item in listing.context["upcoming_events"] if item.pk == event.pk
+        )
+        self.assertEqual(card.applied_count_annotated, 1)
+        self.assertEqual(card.coach_payment_due_count, 1)
+        self.assertEqual(card.coach_payment_complete_count, 3)
+        self.assertEqual(card.coach_expected_count, 1)
+        self.assertEqual(card.attended_count_annotated, 1)
+
+    def test_free_curated_roster_never_suggests_payment_is_due(self):
+        event = self.make_event(registration_fee=Decimal("0.00"))
+        registration = self.make_applicant(event, 0)
+        EventRegistration.objects.filter(pk=registration.pk).update(status="confirmed")
+
+        detail = self.page(event, status="all")
+        self.assertEqual(detail.context["expected_count"], 1)
+        self.assertContains(detail, "No payment required")
+        self.assertNotContains(detail, "Payment due")
+
+        listing = self.client.get("/en/coach/events/")
+        self.assertEqual(listing.status_code, 200)
+        self.assertContains(listing, "Places held")
+        self.assertNotContains(listing, "Payment due")
 
     # -- stages -------------------------------------------------------------
 

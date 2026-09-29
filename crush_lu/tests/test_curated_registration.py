@@ -21,6 +21,7 @@ Run with: pytest crush_lu/tests/test_curated_registration.py -v
 """
 
 from datetime import date, timedelta
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
@@ -34,8 +35,6 @@ class CuratedRegistrationTestBase(TestCase):
 
     def setUp(self):
         from django.core.cache import cache
-
-        from crush_lu.models import MeetupEvent
 
         # event_register is @ratelimit(key="user", rate="5/h", method="POST"),
         # and the cache is NOT rolled back between tests while the user PK
@@ -138,6 +137,24 @@ class CuratedModeGatingTests(CuratedRegistrationTestBase):
 
 
 class CuratedSignupTests(CuratedRegistrationTestBase):
+    def test_paid_application_form_explains_when_payment_happens(self):
+        self.curated.registration_fee = Decimal("15.50")
+        self.curated.save(update_fields=["registration_fee"])
+        self._login(self.user)
+
+        response = self.client.get(self._register_url(self.curated))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Apply for This Event")
+        self.assertContains(response, "Price if selected:")
+        self.assertContains(response, "Applying is free and does not reserve a place")
+        self.assertContains(response, "Submit Application")
+        self.assertNotContains(response, "Confirm Registration")
+
+        direct = self.client.get(self._register_url(self.direct))
+        self.assertContains(direct, "Register for Event")
+        self.assertContains(direct, "Confirm Registration")
+
     def test_signup_lands_as_applied(self):
         from crush_lu.models import EventRegistration
 

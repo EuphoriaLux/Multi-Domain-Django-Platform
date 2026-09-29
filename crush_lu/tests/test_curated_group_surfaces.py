@@ -136,6 +136,7 @@ class CuratedGroupSurfaceTests(TestCase):
                 "several_first_timers",
                 "mostly_verified",
                 "group",
+                "application_open",
             },
         )
         self.assertEqual(outlook["interest_state"], "exploring")
@@ -144,6 +145,8 @@ class CuratedGroupSurfaceTests(TestCase):
         self.assertNotIn("by_pool", outlook)
 
         self.assertContains(response, "Flexible groups")
+        self.assertContains(response, "How flexible groups work")
+        self.assertContains(response, "Apply by")
         self.assertContains(response, "Apply for This Event")
         self.assertContains(response, "Applying does not reserve a place.")
         self.assertContains(
@@ -162,6 +165,17 @@ class CuratedGroupSurfaceTests(TestCase):
         self.assertNotContains(response, "Spots remaining:")
         self.assertNotContains(response, "Men:")
         self.assertNotContains(response, "Women:")
+
+    def test_anonymous_curated_page_explains_application_before_login(self):
+        self.client.logout()
+
+        response = self._detail(self.curated)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Log in to apply")
+        self.assertContains(response, "There is no payment now")
+        self.assertContains(response, "How flexible groups work")
+        self.assertNotContains(response, "Confirm Registration")
 
     def test_organiser_only_pool_and_exact_shortage_cannot_reach_template(self):
         aggregate = {
@@ -290,12 +304,16 @@ class CuratedGroupSurfaceTests(TestCase):
         expectations = {
             "de": (
                 "Flexible Gruppen",
+                "So funktionieren flexible Gruppen",
+                "Bewirb dich um einen Platz — jetzt keine Zahlung",
                 "Deine Bewerbung reserviert keinen Platz.",
                 "Für diese Veranstaltung bewerben",
                 "mindestens fünf gegenseitig passende Mini-Dates pro Person",
             ),
             "fr": (
                 "Groupes flexibles",
+                "Comment fonctionnent les groupes flexibles",
+                "Candidatez pour une place — aucun paiement maintenant",
                 "Votre candidature ne réserve pas de place.",
                 "Postuler à cet événement",
                 "au moins cinq mini-rencontres mutuellement compatibles",

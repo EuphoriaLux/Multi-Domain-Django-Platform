@@ -1028,6 +1028,7 @@ def _curated_member_outlook(event, *, user=None, profile=None, registration=None
 
     outlook = {
         "interest_state": "exploring" if groups_unlocked else "collecting",
+        "application_open": event.is_registration_accepting,
         "group_size": configured_group_size,
         "planned_groups": event.planned_groups,
         "max_groups": configured_max_groups if configured_group_size else None,

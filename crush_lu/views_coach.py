@@ -2524,6 +2524,120 @@ def _attach_registration_stats(events):
     return events
 
 
+def _attach_curated_event_overview(events, now):
+    """Attach a cheap coach summary without running the grouping projector."""
+    from .models.events import CuratedEventGroup
+    from .services.curated_group_insights import (
+        CURRENT_GENERATION_STATUSES,
+        NEXT_ACTION_LABELS,
+        NEXT_CANCELLED,
+        NEXT_PAST_START_UNGENERATED,
+        _stage,
+    )
+
+    curated = [event for event in events if event.uses_curated_registration]
+    if not curated:
+        return
+    event_ids = [event.pk for event in curated]
+    counts = {}
+    for row in (
+        EventRegistration.objects.filter(event_id__in=event_ids)
+        .exclude(status="cancelled")
+        .values("event_id", "status", "payment_confirmed")
+        .annotate(total=Count("pk"))
+    ):
+        summary = counts.setdefault(
+            row["event_id"], {"due": 0, "paid": 0, "holding": 0, "expected": 0}
+        )
+        if row["status"] == "pending" and not row["payment_confirmed"]:
+            summary["due"] += row["total"]
+        if row["payment_confirmed"]:
+            summary["paid"] += row["total"]
+        if row["status"] in SEAT_HOLDING_STATUSES:
+            summary["holding"] += row["total"]
+        if row["status"] == "confirmed":
+            summary["expected"] += row["total"]
+
+    groups_by_event = {}
+    for group in CuratedEventGroup.objects.filter(
+        event_id__in=event_ids, status__in=CURRENT_GENERATION_STATUSES
+    ).order_by("event_id", "-generation", "group_number"):
+        current = groups_by_event.setdefault(group.event_id, [])
+        if not current or current[0].generation == group.generation:
+            current.append(group)
+
+    for event in curated:
+        summary = counts.get(event.pk, {})
+        event.coach_payment_due_count = summary.get("due", 0)
+        event.coach_payment_complete_count = summary.get("paid", 0)
+        event.coach_holding_count = summary.get("holding", 0)
+        event.coach_expected_count = summary.get("expected", 0)
+        event.coach_group_stage = _stage(event, groups_by_event.get(event.pk, []))
+        event.coach_group_stage_label = _curated_stage_label(
+            event.coach_group_stage, now < event.registration_deadline
+        )
+        if event.is_cancelled:
+            event.coach_group_stage_label = _("Cancelled")
+            event.coach_next_step = NEXT_ACTION_LABELS[NEXT_CANCELLED]
+        elif event.coach_group_stage == "none" and now >= event.date_time:
+            event.coach_next_step = NEXT_ACTION_LABELS[NEXT_PAST_START_UNGENERATED]
+        elif event.coach_group_stage == "none":
+            event.coach_next_step = (
+                _("Wait for applications to close")
+                if now < event.registration_deadline
+                else _("Review the pool and generate groups")
+            )
+        else:
+            event.coach_next_step = {
+                "draft": _("Review the draft groups"),
+                "provisional": _("Track invitations and payments"),
+                "locked": _("Prepare check-in"),
+                "started": _("Rounds underway"),
+                "degraded": _("Repair the group"),
+            }[event.coach_group_stage]
+
+
+def _curated_stage_label(stage, applications_open):
+    if stage == "none":
+        return _("Applications open") if applications_open else _("Applications closed")
+    return {
+        "draft": _("Draft groups"),
+        "provisional": _("Selected groups"),
+        "locked": _("Locked groups"),
+        "started": _("Rounds underway"),
+        "degraded": _("Group needs repair"),
+    }[stage]
+
+
+def _coach_roster_rows(registrations, event):
+    """Present payment and arrival separately from the registration status."""
+    rows = []
+    for registration in registrations:
+        if event.registration_fee <= 0:
+            payment = _("No payment required")
+        elif registration.payment_confirmed:
+            payment = _("Payment complete")
+        elif registration.status == "pending":
+            payment = _("Payment due")
+        elif registration.status in ("confirmed", "attended"):
+            payment = _("Payment not recorded")
+        else:
+            payment = _("Not due")
+
+        arrival = {
+            "applied": _("Awaiting selection"),
+            "pending": _("Awaiting payment"),
+            "confirmed": _("Expected"),
+            "attended": _("Checked in"),
+            "no_show": _("No-show"),
+            "waitlist": _("Waitlist"),
+        }.get(registration.status, registration.get_status_display())
+        rows.append(
+            {"registration": registration, "payment": payment, "arrival": arrival}
+        )
+    return rows
+
+
 @coach_required
 def coach_event_list(request):
     """Coach dashboard for managing events and viewing attendees"""
@@ -2558,9 +2672,11 @@ def coach_event_list(request):
 
     _attach_registration_stats(upcoming_events)
     _attach_registration_stats(past_events)
+    _attach_curated_event_overview(upcoming_events, now)
 
     context = {
         "coach": request.coach,
+        "now": now,
         "upcoming_events": upcoming_events,
         "past_events": past_events,
     }
@@ -2579,11 +2695,10 @@ def coach_event_detail(request, event_id):
         .order_by("registered_at")
     )
 
-    # Split by status group (order preserved = FIFO within each group)
-    # Seat-holding: a pending (unpaid) row already consumes capacity, so the
-    # organiser view must count it. Otherwise a fully reserved paid event
-    # shows every spot free while new members are being waitlisted.
-    all_confirmed = [r for r in all_regs if r.status in SEAT_HOLDING_STATUSES]
+    # A pending payment holds capacity, but is neither confirmed nor paid.
+    # Keep the displayed roster buckets disjoint from the capacity count.
+    seat_holders = [r for r in all_regs if r.status in SEAT_HOLDING_STATUSES]
+    all_confirmed = [r for r in all_regs if r.status in ("confirmed", "attended")]
     all_waitlisted = [r for r in all_regs if r.status == "waitlist"]
     all_other = [r for r in all_regs if r.status in ("pending", "no_show")]
     # Curated applications. A bucket of their own rather than folded into
@@ -2665,6 +2780,8 @@ def coach_event_detail(request, event_id):
     status_filters = ("all", "confirmed", "waitlist", "other", "applied")
     if curated_groups_panel is not None:
         status_filters += ("groups",)
+    if event.uses_curated_registration:
+        status_filters += ("payment_due", "payment_complete", "checked_in")
     if status_filter not in status_filters:
         status_filter = "all"
 
@@ -2684,9 +2801,25 @@ def coach_event_detail(request, event_id):
         reg.latest_submission = latest_submissions.get(reg.user_id)
 
     confirmed_count = len(all_confirmed)
+    seat_holding_count = len(seat_holders)
+    payment_due_count = sum(
+        r.status == "pending" and not r.payment_confirmed for r in all_regs
+    )
+    payment_complete_count = sum(r.payment_confirmed for r in all_regs)
+    checked_in_count = sum(r.status == "attended" for r in all_regs)
+    expected_count = sum(r.status == "confirmed" for r in all_regs)
+    roster_registrations = all_regs
+    if status_filter == "payment_due":
+        roster_registrations = [
+            r for r in all_regs if r.status == "pending" and not r.payment_confirmed
+        ]
+    elif status_filter == "payment_complete":
+        roster_registrations = [r for r in all_regs if r.payment_confirmed]
+    elif status_filter == "checked_in":
+        roster_registrations = [r for r in all_regs if r.status == "attended"]
     waitlist_count = len(all_waitlisted)
     other_count = len(all_other)
-    spots_remaining = max(0, event.max_participants - confirmed_count)
+    spots_remaining = max(0, event.max_participants - seat_holding_count)
 
     # Post-event activity: connections and sparks
     from .models.crush_spark import CrushSpark
@@ -2763,7 +2896,9 @@ def coach_event_detail(request, event_id):
         ).count()
 
         coach_recap = {
-            "onboarded_count": len(onboarded_user_ids),
+            "onboarded_count": len(
+                {r.user_id for r in all_regs if r.user_id in onboarded_user_ids}
+            ),
             "attended_count": attended_count_mine,
             "senders_count": senders_count,
             "mutual_count": mutual_count,
@@ -2806,6 +2941,17 @@ def coach_event_detail(request, event_id):
         lobby_feature_enabled() and event.is_published and not event.is_cancelled
     )
 
+    curated_stage_label = None
+    if curated_groups_panel:
+        curated_stage_label = (
+            _("Cancelled")
+            if event.is_cancelled
+            else _curated_stage_label(
+                curated_groups_panel["stage"],
+                timezone.now() < event.registration_deadline,
+            )
+        )
+
     context = {
         "coach": request.coach,
         "event": event,
@@ -2815,20 +2961,19 @@ def coach_event_detail(request, event_id):
         "applied_registrations": all_applied,
         "applied_count": len(all_applied),
         "confirmed_count": confirmed_count,
+        "seat_holding_count": seat_holding_count,
+        "payment_due_count": payment_due_count,
+        "payment_complete_count": payment_complete_count,
+        "checked_in_count": checked_in_count,
+        "expected_count": expected_count,
         "waitlist_count": waitlist_count,
         "other_count": other_count,
         "spots_remaining": spots_remaining,
-        # Applications are counted here even though they hold no seat: this is
-        # the organiser's "how many people signed up" figure, and a curated
-        # event with ten applications and nobody selected yet would otherwise
-        # report zero while rendering ten cards underneath it. Capacity is a
-        # separate number (confirmed_count / spots_remaining) and deliberately
-        # still excludes them.
-        "total_registrations": (
-            confirmed_count + waitlist_count + other_count + len(all_applied)
-        ),
+        "total_registrations": len(all_regs),
+        "roster_rows": _coach_roster_rows(roster_registrations, event),
         "status_filter": status_filter,
         "curated_groups_panel": curated_groups_panel,
+        "curated_stage_label": curated_stage_label,
         "gender_pool_stats": gender_pool_stats,
         "connection_count": connection_count,
         "mutual_connections": mutual_connections,

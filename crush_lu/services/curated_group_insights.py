@@ -428,6 +428,7 @@ def _person(registration, *, dates=None, released=False, reasons=()):
         "verified": bool(profile is not None and profile.is_approved),
         "status": registration.status,
         "status_display": registration.get_status_display(),
+        "payment_confirmed": registration.payment_confirmed,
         "dates": dates,
         "released": released,
         "reasons": [INELIGIBILITY_LABELS.get(code, code) for code in reasons],
@@ -540,6 +541,19 @@ def _group_card(group, memberships, participants):
         "degraded_from": degradation.get("from_status") or "",
         "members": members,
         "active_count": len(active_ids),
+        "payment_complete_count": sum(
+            member["payment_confirmed"] for member in members if not member["released"]
+        ),
+        "payment_due_count": sum(
+            member["status"] == "pending" and not member["payment_confirmed"]
+            for member in members
+            if not member["released"]
+        ),
+        "checked_in_count": sum(
+            member["status"] == "attended"
+            for member in members
+            if not member["released"]
+        ),
         "projected_size": projected_size,
         "rounds": rounds,
         "minimum_dates": minimum_dates,
