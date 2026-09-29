@@ -180,7 +180,7 @@
                 {% trans "For more detailed control," %}
                 <a href="{% url 'crush_lu:login' %}" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "log in" %}</a>
                 {% trans "and visit your" %}
-                <a href="{% url 'crush_lu:account_settings' %}" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "account settings" %}</a>.
+                <a href="{% url 'crush_lu:edit_profile' %}?section=account&sub=notifications" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "account settings" %}</a>.
             </p>
         </div>
     </div>

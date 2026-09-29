@@ -35,7 +35,8 @@
             </h5>
         </div>
         <div class="p-6 space-y-6">
-            {# Pausing and deleting act on the Crush.lu profile: without one, only the GDPR dashboard applies (8-08). #}
+            {# Pausing and deleting act on the Crush.lu profile: without one, only the GDPR dashboard applies (8-08), #}
+            {# unless a deletion stopped halfway: then Delete stays so the member can finish it. #}
             {% if profile %}
             <!-- Take a break (UX Wave 3 - WP13): reversible pause, above deletion -->
             <div>
@@ -51,7 +52,9 @@
                 </a>
                 {% endif %}
             </div>
+            {% endif %}
 
+            {% if profile or deletion_retry_in_progress %}
             <!-- Delete Crush.lu profile -->
             <div>
                 <h6 class="font-semibold text-red-600 mb-2">{% trans "Delete Crush.lu Profile" %}</h6>

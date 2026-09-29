@@ -285,7 +285,7 @@ def test_top_bar_back_works_from_the_keyboard(browser, live_server):
 
 def test_account_settings_has_no_mobile_back_pill(browser, live_server):
     page = _page(browser, live_server, _member())
-    _open(page, f"{live_server.url}/en/account/settings/")
+    _open(page, f"{live_server.url}/en/profile/edit/?section=account")
     expect(page.locator(".top-bar-mobile-back")).to_be_visible()
     expect(page.get_by_role("link", name="Back to Dashboard")).to_be_hidden()
 

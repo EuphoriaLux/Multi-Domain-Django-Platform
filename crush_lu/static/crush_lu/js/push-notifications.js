@@ -356,8 +356,11 @@
         navigator.serviceWorker.addEventListener("message", (event) => {
             if (event.data && event.data.type === "PUSH_SUBSCRIPTION_REFRESHED") {
                 // Subscription was automatically refreshed by service worker
-                // Reload subscription list if on settings page
-                if (window.location.pathname.includes("/account/settings")) {
+                // Reload subscription list if on the notifications settings page
+                if (
+                    window.location.pathname.includes("/profile/edit") &&
+                    window.location.search.includes("sub=notifications")
+                ) {
                     window.location.reload();
                 }
             }

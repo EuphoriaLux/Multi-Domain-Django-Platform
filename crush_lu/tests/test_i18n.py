@@ -1536,7 +1536,10 @@ class EmailBaseURLsTests(SiteTestMixin, TestCase):
         self.assertIn('/de/', base_urls['home_url'])
         self.assertIn('/de/about/', base_urls['about_url'])
         self.assertIn('/de/events/', base_urls['events_url'])
-        self.assertIn('/de/account/settings/', base_urls['settings_url'])
+        self.assertIn(
+            '/de/profile/edit/?section=account&sub=notifications',
+            base_urls['settings_url'],
+        )
 
     def test_get_email_base_urls_french_user(self):
         """Test get_email_base_urls works for French users."""

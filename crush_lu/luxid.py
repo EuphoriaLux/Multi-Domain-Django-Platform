@@ -55,7 +55,7 @@ def luxid_connect_url(available_providers, oidc_app=None):
 def get_luxid_connect_url(request):
     """Resolve the LuxID connect URL for the current request's site.
 
-    Mirrors the provider lookup in ``views_account.account_settings`` so callers
+    Mirrors the provider lookup in ``views._edit_sub_account_settings`` so callers
     that only have a ``request`` (e.g. the Crush Connect teaser) can render a
     "Connect LuxID" CTA. Returns ``None`` when LuxID isn't configured.
     """

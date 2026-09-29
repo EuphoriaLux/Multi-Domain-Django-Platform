@@ -1458,7 +1458,7 @@ class CookieSettingsTriggerTests(TestCase):
         )
 
         response = client.get(
-            "/en/account/settings/", HTTP_HOST="crush.lu", follow=True
+            "/en/profile/edit/?section=account&sub=danger", HTTP_HOST="crush.lu"
         )
 
         self.assertEqual(response.status_code, 200)
