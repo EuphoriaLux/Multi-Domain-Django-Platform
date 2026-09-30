@@ -102,21 +102,21 @@
             {% endif %}
 
             <!-- Navigation buttons -->
-            <div class="door-navigation flex justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div class="door-navigation flex flex-wrap items-center justify-between gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                 {% if door_number > 1 %}
-                    <a href="{% url 'crush_lu:advent_door' door_number|add:'-1' %}" class="inline-flex items-center gap-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
+                    <a href="{% url 'crush_lu:advent_door' door_number|add:'-1' %}" class="inline-flex items-center gap-1 px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
                         {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Previous" %}
                     </a>
                 {% else %}
                     <span></span>
                 {% endif %}
 
-                <a href="{% url 'crush_lu:advent_calendar' %}" class="btn-crush-primary inline-flex items-center gap-1 px-4 py-2">
+                <a href="{% url 'crush_lu:advent_calendar' %}" class="btn-crush-primary inline-flex items-center gap-1 px-3 sm:px-4 py-2">
                     {% include "shared/icons/squares-2x2.html" with class="w-5 h-5" %} {% trans "Calendar" %}
                 </a>
 
                 {% if door_number < 24 %}
-                    <a href="{% url 'crush_lu:advent_door' door_number|add:'1' %}" class="inline-flex items-center gap-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
+                    <a href="{% url 'crush_lu:advent_door' door_number|add:'1' %}" class="inline-flex items-center gap-1 px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
                         {% trans "Next" %} {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
                     </a>
                 {% else %}
@@ -126,45 +126,4 @@
         </div>
     </div>
 </div>
-
-<style>
-    .door-badge {
-        text-align: center;
-    }
-
-    .door-message {
-        font-size: 1.1rem;
-        line-height: 1.8;
-        color: #333;
-    }
-
-    html.dark .door-message {
-        color: #d1d5db;
-    }
-
-    .newly-opened-message {
-        animation: fadeInUp 0.5s ease-out;
-    }
-
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    .bonus-hint {
-        animation: pulse 2s infinite;
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-        .bonus-hint {
-            animation: none;
-        }
-    }
-</style>
 {% endblock %}

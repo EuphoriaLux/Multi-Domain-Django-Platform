@@ -13,7 +13,7 @@
         <div class="door-content-card poem-card">
             <!-- Door number badge -->
             <div class="door-badge mb-4">
-                <span class="badge bg-danger fs-4 px-4 py-2">{% blocktrans with num=door_number %}Day {{ num }}{% endblocktrans %}</span>
+                <span class="inline-block rounded-full bg-advent-red text-white text-xl font-semibold px-4 py-2">{% blocktrans with num=door_number %}Day {{ num }}{% endblocktrans %}</span>
             </div>
 
             {% if content %}
@@ -101,7 +101,7 @@
         padding: 2rem;
         background: rgba(255,255,255,0.7);
         border-radius: 12px;
-        border-left: 4px solid #c41e3a;
+        border-left: 4px solid var(--color-advent-red);
     }
 
     html.dark .poem-content {
