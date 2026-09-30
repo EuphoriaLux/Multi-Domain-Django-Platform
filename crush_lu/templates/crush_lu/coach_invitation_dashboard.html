@@ -112,7 +112,7 @@
                     </span>
                 </div>
                 <div class="flex gap-2">
-                    <form method="post" class="inline" onsubmit="return confirm('{% trans "Approve this guest?" %}');">
+                    <form method="post" class="inline" data-confirm="{% trans 'Approve this guest?' %}" data-confirm-style="neutral" data-confirm-label="{% trans 'Approve' %}">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="approve_guest">
                         <input type="hidden" name="invitation_id" value="{{ invitation.id }}">
