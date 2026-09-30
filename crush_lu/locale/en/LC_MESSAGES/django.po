@@ -28642,3 +28642,7 @@ msgstr ""
 #: crush_lu/templates/crush_lu/membership.html:77
 msgid "Manage your Premium request"
 msgstr ""
+
+#: crush_lu/templates/crush_lu/auth.html
+msgid "Create your Crush.lu account"
+msgstr ""

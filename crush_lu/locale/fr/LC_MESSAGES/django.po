@@ -44127,3 +44127,7 @@ msgstr "Candidater à"
 
 msgid "Pending / no-show"
 msgstr "En attente / absent·es"
+
+#: crush_lu/templates/crush_lu/auth.html
+msgid "Create your Crush.lu account"
+msgstr "Créez votre compte Crush.lu"

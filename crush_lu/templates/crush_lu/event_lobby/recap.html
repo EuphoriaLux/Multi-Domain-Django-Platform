@@ -64,7 +64,7 @@
 
         {# Recap photo grid (§7.7): live mutuals first w/ name, others photo-only. #}
         <div x-show="notClosed">
-            <div id="recap-grid" role="list" class="grid grid-cols-3 gap-2.5">
+            <div id="recap-grid" class="grid grid-cols-3 gap-2.5">
                 {% for entry in roster %}
                 <button type="button"
                         data-handle="{{ entry.handle }}"

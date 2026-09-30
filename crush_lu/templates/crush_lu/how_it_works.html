@@ -118,7 +118,7 @@
                 <div class="step-icon">
                     📝
                 </div>
-                <h3>{% trans "Create Your Profile" %}</h3>
+                <h2>{% trans "Create Your Profile" %}</h2>
                 <p>
                     {% trans "Share who you are, what you love, and what you're looking for. Add photos and let your personality shine through. Authenticity is key!" %}
                 </p>
@@ -132,7 +132,7 @@
                 <div class="step-icon">
                     🎯
                 </div>
-                <h3>{% trans "Get Verified" %}</h3>
+                <h2>{% trans "Get Verified" %}</h2>
                 <p>
                     {% trans "Come to an event and a coach verifies you in person, or connect your LuxID — instant, no waiting. That's how we keep the community authentic." %}
                 </p>
@@ -146,7 +146,7 @@
                 <div class="step-icon">
                     🎉
                 </div>
-                <h3>{% trans "Browse Events" %}</h3>
+                <h2>{% trans "Browse Events" %}</h2>
                 <p>
                     {% trans "Explore speed dating nights, social mixers, themed events, and outdoor adventures. Find what excites you!" %}
                 </p>
@@ -165,7 +165,7 @@
                 <div class="step-icon">
                     💕
                 </div>
-                <h3>{% trans "Make Connections" %}</h3>
+                <h2>{% trans "Make Connections" %}</h2>
                 <p>
                     {% trans "Show up, be yourself, and meet amazing people face-to-face. Real relationships start with real conversations." %}
                 </p>
@@ -179,10 +179,10 @@
     <h2>{% trans "Privacy & Safety First" %}</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div class="feature-column">
-            <h5>
+            <h3>
                 <span class="feature-icon">🔒</span>
                 {% trans "Your Privacy Matters" %}
-            </h5>
+            </h3>
             {# Claim only what is true today. Photos are served only behind login, from the private crush_private container, never publicly or to crawlers (robots.txt disallows /media/ and /api/): views_media.serve_profile_photo (can_view_profile_photo: owner, active coaches, any approved member viewing an approved profile - no match or shared-event check) and views_quiz.quiz_display_photo (/api/quiz/photo/<user_id>/: any logged-in user, approved profiles). They also leave the site via the noreply@crush.lu Outlook contact sync (services/graph_contacts.py) and, if show_photo_on_wallet, the member's own wallet pass (wallet_pass.py). Connect only surfaces members with photo_share_consent (services/crush_connect.py). No blur. Spec: ai-memory-hub/specs/2026-08-24-crush-connect-repo-product-doc.md #}
             <ul class="feature-list">
                 <li>{% trans "Control what information you share" %}</li>
@@ -193,10 +193,10 @@
             </ul>
         </div>
         <div class="feature-column">
-            <h5>
+            <h3>
                 <span class="feature-icon">✅</span>
                 {% trans "Community Standards" %}
-            </h5>
+            </h3>
             <ul class="feature-list">
                 <li>{% trans "Every member verified in person or via LuxID" %}</li>
                 <li>{% trans "Zero tolerance for inappropriate behavior" %}</li>
@@ -214,17 +214,17 @@
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         <div class="text-center p-4 sm:p-6">
             <div class="text-4xl sm:text-5xl mb-3 sm:mb-4">🚫</div>
-            <h5 class="font-semibold dark:text-white mb-2">{% trans "No Endless Swiping" %}</h5>
+            <h3 class="text-lg font-semibold dark:text-white mb-2">{% trans "No Endless Swiping" %}</h3>
             <p class="text-gray-600 dark:text-gray-300">{% trans "We focus on quality over quantity. Real events, real people." %}</p>
         </div>
         <div class="text-center p-4 sm:p-6">
             <div class="text-4xl sm:text-5xl mb-3 sm:mb-4">👥</div>
-            <h5 class="font-semibold dark:text-white mb-2">{% trans "Human-Curated" %}</h5>
+            <h3 class="text-lg font-semibold dark:text-white mb-2">{% trans "Human-Curated" %}</h3>
             <p class="text-gray-600 dark:text-gray-300">{% trans "Real people, verified in person or via LuxID — not algorithms." %}</p>
         </div>
         <div class="text-center p-4 sm:p-6">
             <div class="text-4xl sm:text-5xl mb-3 sm:mb-4">🇱🇺</div>
-            <h5 class="font-semibold dark:text-white mb-2">{% trans "Luxembourg-Focused" %}</h5>
+            <h3 class="text-lg font-semibold dark:text-white mb-2">{% trans "Luxembourg-Focused" %}</h3>
             <p class="text-gray-600 dark:text-gray-300">{% trans "Built for our small community with privacy in mind." %}</p>
         </div>
     </div>

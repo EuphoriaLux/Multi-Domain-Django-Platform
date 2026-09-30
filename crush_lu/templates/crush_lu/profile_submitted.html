@@ -38,7 +38,7 @@
                     {% include "shared/icons/shield-check.html" with class="w-8 h-8 md:w-10 md:h-10 text-white" %}
                 </div>
             </div>
-            <h2 data-status-line class="mt-4 mb-6 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% if path_locked %}{% trans "Your profile is ready. Next: complete your Premium membership." %}{% elif luxid_unavailable %}{% trans "Your profile is ready. Next: get verified at an event." %}{% else %}{% trans "Your profile is ready. Next: get verified at an event or with LuxID." %}{% endif %}</h2>
+            <h1 data-status-line class="mt-4 mb-6 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% if path_locked %}{% trans "Your profile is ready. Next: complete your Premium membership." %}{% elif luxid_unavailable %}{% trans "Your profile is ready. Next: get verified at an event." %}{% else %}{% trans "Your profile is ready. Next: get verified at an event or with LuxID." %}{% endif %}</h1>
 
             {# If the user already connected LuxID but isn't verified yet, reassure them (view lazily verifies + redirects normally; this is an edge state). #}
             {# Gate on the LuxID link itself: an empty luxid_connect_url also means "LuxID not configured / lookup failed", which must not read as "connected". #}
@@ -82,7 +82,7 @@
                             {% include "shared/icons/envelope.html" with class="w-5 h-5 text-amber-600 dark:text-amber-400" %}
                         </div>
                         <div class="flex-1">
-                            <h3 class="font-semibold text-amber-900 dark:text-amber-100 mb-1">{% trans "Book your screening call" %}</h3>
+                            <h2 class="text-2xl font-semibold text-amber-900 dark:text-amber-100 mb-1">{% trans "Book your screening call" %}</h2>
                             <p class="text-sm text-amber-800 dark:text-amber-200 mb-3">
                                 {% trans "We've sent you an email with a direct booking link — or pick a slot right now from here." %}
                             </p>
@@ -102,7 +102,7 @@
                             {% include "shared/icons/arrow-path.html" with class="w-5 h-5 text-blue-600 dark:text-blue-400" %}
                         </div>
                         <div class="flex-1">
-                            <h3 class="font-semibold text-blue-900 dark:text-blue-100 mb-1">{% trans "Reassigned for a faster review" %}</h3>
+                            <h2 class="text-2xl font-semibold text-blue-900 dark:text-blue-100 mb-1">{% trans "Reassigned for a faster review" %}</h2>
                             <p class="text-sm text-blue-800 dark:text-blue-200 mb-0">
                                 {% trans "Your profile is now with a different coach who can get back to you sooner. Thanks for your patience." %}
                             </p>
@@ -116,7 +116,7 @@
                             {% include "shared/icons/phone.html" with class="w-5 h-5 text-purple-600 dark:text-purple-400" %}
                         </div>
                         <div class="flex-1">
-                            <h3 class="font-semibold text-purple-900 dark:text-purple-100 mb-1">{% trans "Your coach is waiting to hear from you" %}</h3>
+                            <h2 class="text-2xl font-semibold text-purple-900 dark:text-purple-100 mb-1">{% trans "Your coach is waiting to hear from you" %}</h2>
                             <p class="text-sm text-purple-800 dark:text-purple-200 mb-0">
                                 {% if recontact_days_remaining is not None and recontact_days_remaining > 0 %}
                                     {% blocktrans count days=recontact_days_remaining %}You have {{ days }} day left to get in touch before your profile is paused.{% plural %}You have {{ days }} days left to get in touch before your profile is paused.{% endblocktrans %}
@@ -134,7 +134,7 @@
                             {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-600 dark:text-gray-300" %}
                         </div>
                         <div class="flex-1">
-                            <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-1">{% trans "Profile paused" %}</h3>
+                            <h2 class="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-1">{% trans "Profile paused" %}</h2>
                             <p class="text-sm text-gray-700 dark:text-gray-300 mb-0">
                                 {% trans "Your review is on hold. Check your inbox for a reactivation link — you can resume any time." %}
                             </p>
@@ -183,7 +183,7 @@
                             {% include "shared/icons/shield-check.html" with class="w-8 h-8 md:w-10 md:h-10 text-white" %}
                         </div>
                     </div>
-                    <h2 class="mt-4 mb-2 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Verify your identity" %}</h2>
+                    <h1 class="mt-4 mb-2 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Verify your identity" %}</h1>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
                         {% trans "One last step to complete your profile approval." %}
                     </p>
@@ -191,7 +191,7 @@
                     {# ── Primary LuxID Hero Card ── #}
                     <div class="mb-6 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-700 text-white shadow-lg overflow-hidden">
                         <div class="px-6 py-7 text-center">
-                            <h3 class="text-xl font-bold mb-2">{% trans "Verify instantly with LuxID" %}</h3>
+                            <h2 class="text-xl font-bold mb-2">{% trans "Verify instantly with LuxID" %}</h2>
                             <p class="text-indigo-100 mb-6 text-sm leading-relaxed">
                                 {% trans "Connect your LuxID account and get approved in seconds — no screening call, no waiting." %}
                             </p>
@@ -246,7 +246,7 @@
                             {% include "shared/icons/hourglass.html" with class="w-8 h-8 md:w-10 md:h-10 text-white" %}
                         </div>
                     </div>
-                    <h2 class="mt-4 mb-2 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Under Review" %}</h2>
+                    <h1 class="mt-4 mb-2 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Under Review" %}</h1>
                     <div class="flex justify-center mb-4">
                         <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
                               x-bind:class="waitBadgeClass">
@@ -289,10 +289,10 @@
                     {# ── Section 3: Review Progress Timeline ── #}
                     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 shadow-sm mb-6 text-left overflow-hidden">
                         <div class="px-5 py-4">
-                            <h3 class="text-sm font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                            <h2 class="text-sm font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                                 {% include "shared/icons/list-bullet.html" with class="w-4 h-4 text-crush-purple" %}
                                 {% trans "Review Progress" %}
-                            </h3>
+                            </h2>
                             <div class="space-y-0">
                                 <div class="flex gap-3">
                                     <div class="flex flex-col items-center">
@@ -631,7 +631,7 @@
                             {% include "shared/icons/pencil.html" with class="w-8 h-8 md:w-10 md:h-10 text-white" %}
                         </div>
                     </div>
-                    <h2 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Almost There! A Few Tweaks Needed" %}</h2>
+                    <h1 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Almost There! A Few Tweaks Needed" %}</h1>
                     <p class="text-base text-amber-600 dark:text-amber-300 mb-6 font-medium">
                         {% trans "Your coach has reviewed your profile and suggested a few improvements." %}
                     </p>
@@ -642,7 +642,7 @@
                             {% include "shared/icons/chat-bubble-left.html" with class="w-5 h-5" %}
                         </div>
                         <div class="flex-1">
-                            <h5 class="font-semibold mb-2">{% trans "Coach Feedback:" %}</h5>
+                            <h2 class="text-lg dark:text-gray-100 font-semibold mb-2">{% trans "Coach Feedback:" %}</h2>
                             <div class="text-sm">{{ submission.feedback_to_user|linebreaks }}</div>
                         </div>
                     </div>
@@ -663,7 +663,7 @@
                             {% include "shared/icons/check-circle.html" with class="w-8 h-8 md:w-10 md:h-10 text-white" %}
                         </div>
                     </div>
-                    <h2 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Approved!" %}</h2>
+                    <h1 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Approved!" %}</h1>
                     <p class="text-base text-green-600 dark:text-green-300 mb-6 font-medium">
                         {% if has_luxid_account %}
                             {% trans "Your identity was verified via LuxID — no screening call needed." %}
@@ -693,7 +693,7 @@
                             {% include "shared/icons/phone.html" with class="w-8 h-8 md:w-10 md:h-10 text-white" %}
                         </div>
                     </div>
-                    <h2 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Coach Needs to Speak With You" %}</h2>
+                    <h1 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Coach Needs to Speak With You" %}</h1>
                     <p class="text-base text-purple-600 dark:text-purple-300 mb-6 font-medium">
                         {% trans "Your coach tried to reach you but couldn't connect. Please contact them to complete your screening call." %}
                     </p>
@@ -703,7 +703,7 @@
                             {% include "shared/icons/phone.html" with class="w-5 h-5" %}
                         </div>
                         <div class="flex-1">
-                            <h5 class="font-semibold mb-2">{% trans "Next Steps:" %}</h5>
+                            <h2 class="text-lg dark:text-gray-100 font-semibold mb-2">{% trans "Next Steps:" %}</h2>
                             <ol class="mb-0 list-decimal ml-5 space-y-1 text-sm">
                                 <li>{% trans "Contact your coach using the information below" %}</li>
                                 <li>{% trans "Schedule a time for your screening call" %}</li>
@@ -718,7 +718,7 @@
                             {% include "shared/icons/check-circle.html" with class="w-8 h-8 md:w-10 md:h-10 text-white" %}
                         </div>
                     </div>
-                    <h2 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Submitted Successfully!" %}</h2>
+                    <h1 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Submitted Successfully!" %}</h1>
                     <p class="text-base text-gray-600 dark:text-gray-300 mb-6">
                         {% trans "Your profile has been submitted for review by our Crush Coaches." %}
                     </p>
