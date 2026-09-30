@@ -66,7 +66,9 @@ def _axe_nodes(page, include):
 def test_connect_subnav_tabs_reach_aa(browser, live_server, theme):
     from crush_lu.tests.test_profile_edit_connect_card import _make_member
 
-    page = _page(browser, live_server, theme, _make_member("wp10@example.com", is_staff=True))
+    page = _page(
+        browser, live_server, theme, _make_member("wp10@example.com", is_staff=True)
+    )
     response = page.goto(f"{live_server.url}/en/crush-connect/home/")
     assert response is not None and response.ok
     tabs = page.locator(".connect-local-nav a")

@@ -721,7 +721,7 @@ body.journey-bg {
 
     .badge-primary,
     .bg-primary {
-        @apply bg-crush-purple text-white dark:bg-purple-600;
+        @apply bg-purple-600 text-white dark:bg-purple-600;
     }
 
     .badge-secondary,
@@ -746,7 +746,7 @@ body.journey-bg {
 
     .badge-info,
     .bg-info {
-        @apply bg-blue-500 text-white dark:bg-blue-600;
+        @apply bg-blue-700 text-white dark:bg-blue-600;
     }
 
     /* =========================================================================
@@ -1253,7 +1253,7 @@ body.journey-bg {
         color: #9b59b6;
     } /* crush-purple */
     .text-secondary {
-        color: #6b7280;
+        color: var(--text-muted);
     } /* gray-600 */
     .text-success {
         color: #16a34a;
@@ -5701,7 +5701,7 @@ html.dark .btn-crush-outline:hover {
 
 .photo-upload-card .photo-help {
     font-size: var(--text-xs);
-    color: var(--crush-gray);
+    color: var(--text-muted);
     margin-top: var(--space-2);
 }
 

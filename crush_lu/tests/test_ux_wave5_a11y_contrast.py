@@ -67,7 +67,9 @@ class ContrastFloorTokenTests(SimpleTestCase):
 
     def test_named_helper_text_uses_the_muted_utility(self):
         auth = (TEMPLATES / "crush_lu" / "auth.html").read_text(encoding="utf-8")
-        optional = re.search(r'<span class="([^"]*)">\(\{% trans "optional" %\}\)', auth)
+        optional = re.search(
+            r'<span class="([^"]*)">\(\{% trans "optional" %\}\)', auth
+        )
         self.assertIsNotNone(optional)
         self.assertIn("text-muted-fg", optional.group(1))
         self.assertNotIn("text-gray-400", optional.group(1))
