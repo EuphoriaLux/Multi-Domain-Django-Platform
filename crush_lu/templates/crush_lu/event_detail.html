@@ -165,6 +165,24 @@
                     {% endif %}
                 </div>
 
+                {# Wave 5 (R9): a member who owes payment sees the status right under the fact strip, #}
+                {# with no "Pay now" link - the single primary pay action is the card button in #}
+                {# #event-cta-panel below (mirrored by the mobile sticky bar). #}
+                {% if user.is_authenticated and user_registration %}{% registration_tone user_registration event as pay_tone %}{% endif %}
+                {% if pay_tone == 'payment_due' %}
+                <div id="event-payment-status" class="bg-amber-50 dark:bg-yellow-900/30 border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 border rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+                    <div class="flex items-start gap-2">
+                        <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <div class="flex-1">
+                            <p class="font-semibold text-sm sm:text-base mb-1">{% blocktrans with amount=event.registration_fee %}Payment due — €{{ amount }}{% endblocktrans %}</p>
+                            <p class="text-xs sm:text-sm mb-0">{% trans "Your spot is reserved. Complete payment below to confirm it." %}</p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
                 {# Description section: collapsed after ~4 lines behind "Read more" (#4-03) #}
                 <div class="mb-6 sm:mb-8" x-data="eventDescriptionToggle" {% if event.description|wordcount > 40 %}data-collapsible="true"{% endif %}>
                     <div id="event-description-text" x-ref="description" class="prose dark:prose-invert prose-sm sm:prose-base max-w-none text-gray-600 dark:text-gray-300{% if event.description|wordcount > 40 %} line-clamp-4{% endif %}">{{ event.description|linebreaks }}</div>
@@ -179,6 +197,7 @@
 
                 {# Event information grid with visual cards #}
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+                    {% if pay_tone != 'payment_due' %}
                     {# Date & Time card #}
                     <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-100 dark:border-gray-700">
                         <div class="flex items-center gap-2 mb-2">
@@ -192,6 +211,7 @@
                             <span class="text-gray-500 dark:text-gray-400">{% blocktrans with time=event.date_time|date:"TIME_FORMAT" duration=event.duration_minutes %}{{ time }} ({{ duration }} minutes){% endblocktrans %}</span>
                         </p>
                     </div>
+                    {% endif %}
 
                     {# Location card #}
                     <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-100 dark:border-gray-700">
@@ -275,6 +295,7 @@
                         {% endif %}
                     </div>
 
+                    {% if pay_tone != 'payment_due' %}
                     {# Price card #}
                     <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-100 dark:border-gray-700">
                         <div class="flex items-center gap-2 mb-2">
@@ -292,6 +313,7 @@
                             {% endif %}
                         </p>
                     </div>
+                    {% endif %}
                 </div>
                 {% endif %}
 
@@ -476,6 +498,7 @@
                         {# unpaid-fee test, so a waitlisted seat on a paid event no longer reads as #}
                         {# "payment due — your spot is reserved". #}
                         {% registration_tone user_registration event as reg_tone %}
+                        {% if reg_tone != 'payment_due' %}
                         <div class="{% if reg_tone == 'applied' %}bg-purple-50 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700 text-purple-800 dark:text-purple-300{% elif reg_tone == 'payment_due' %}bg-amber-50 dark:bg-yellow-900/30 border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300{% elif reg_tone == 'confirmed' %}bg-green-50 dark:bg-emerald-900/30 border-green-200 dark:border-emerald-700 text-green-800 dark:text-emerald-300{% elif reg_tone == 'waitlist' %}bg-amber-50 dark:bg-yellow-900/30 border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300{% else %}bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300{% endif %} border rounded-lg p-3 sm:p-4 mb-4">
                             <div class="flex items-start gap-2">
                                 <svg class="w-5 h-5 flex-shrink-0 mt-0.5 {% if reg_tone == 'applied' %}text-purple-600 dark:text-purple-400{% elif reg_tone == 'payment_due' or reg_tone == 'waitlist' %}text-amber-600 dark:text-yellow-400{% elif reg_tone == 'confirmed' %}text-green-600 dark:text-emerald-400{% else %}text-blue-600 dark:text-blue-400{% endif %}" fill="currentColor" viewBox="0 0 20 20">
@@ -492,10 +515,6 @@
                                     {% elif reg_tone == 'waitlist' %}
                                     <p class="font-semibold text-sm sm:text-base mb-1">{% trans "You're on the waitlist" %}</p>
                                     <p class="text-xs sm:text-sm">{% trans "We'll email you if a spot opens up. No payment is needed until then." %}</p>
-                                    {% elif reg_tone == 'payment_due' %}
-                                    <p class="font-semibold text-sm sm:text-base mb-1">{% blocktrans with amount=event.registration_fee %}Payment due — €{{ amount }}{% endblocktrans %}</p>
-                                    <p class="text-xs sm:text-sm mb-2">{% trans "Your spot is reserved. Complete payment below to confirm it." %}</p>
-                                    <a href="#event-payment-actions" class="btn-crush-solid btn-sm inline-flex">{% trans "Pay now" %}</a>
                                     {% elif reg_tone == 'payment_unavailable' %}
                                     <p class="font-semibold text-sm sm:text-base mb-1">{% trans "This registration cannot be paid for in its current state." %}</p>
                                     {% elif reg_tone == 'confirmed' %}
@@ -509,7 +528,8 @@
                                     {% endif %}
                                 </div>
                             </div>
-                        </div>{% if curated_group_outlook.group %}
+                        </div>
+                        {% endif %}{% if curated_group_outlook.group %}
                         {% include "crush_lu/components/curated_member_group.html" with group=curated_group_outlook.group only %}{% endif %}
                         {% comment %}
                           The status test is load-bearing on a paid curated
@@ -523,7 +543,7 @@
                           that is designed to fail (#4-10).
                         {% endcomment %}
                         {% if reg_tone == 'payment_due' %}
-                        {# Anchor target for the "Pay now" link in the status card above (#4-09). #}
+                        {# Anchor target for the ticket page "Pay now" link (#4-09). #}
                         <div id="event-payment-actions">
                         {% if has_sufficient_crush_credit %}
                         <button type="button" x-data="sumupCheckoutButton" @click="start" :disabled="isLoading"
