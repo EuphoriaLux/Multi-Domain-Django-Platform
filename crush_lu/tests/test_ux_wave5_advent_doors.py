@@ -57,7 +57,16 @@ class AdventDoorTemplateTests(SimpleTestCase):
             self.assertIn("door-navigation flex flex-wrap", _read(name), name)
 
     def test_door_card_padding_shrinks_on_phones(self):
-        self.assertRegex(
-            _read("advent_base.html"),
+        src = _read("advent_base.html")
+        small = re.search(
             r"max-width:\s*480px\)\s*\{\s*\.door-content-card\s*\{\s*padding:\s*1\.25rem",
+            src,
         )
+        medium = re.search(
+            r"max-width:\s*768px\)\s*\{[^@]*?\.door-content-card\s*\{[^}]*padding:\s*1\.5rem",
+            src,
+        )
+        self.assertIsNotNone(small)
+        self.assertIsNotNone(medium)
+        # Same specificity: the 480px rule only applies if it comes later.
+        self.assertGreater(small.start(), medium.start())
