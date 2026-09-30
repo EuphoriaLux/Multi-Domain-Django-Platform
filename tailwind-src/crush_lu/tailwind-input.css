@@ -184,12 +184,21 @@ html.dark {
     --color-gray-500: var(--color-gray-400);
 }
 
+/* Always-dark stage (Quiz Night participant/host/projector): <html> is not
+   .dark in light mode, so the light-mode floor above would turn its muted
+   text dark-on-dark. Restore the stock steps inside the stage. */
+.quiz-stage-shell {
+    --color-gray-400: oklch(70.7% 0.022 261.325);
+    --color-gray-500: oklch(55.1% 0.027 264.364);
+    --color-green-600: oklch(62.7% 0.194 149.214);
+}
+
 html.dark .dark\:text-purple-400:not(:is(:hover, :focus-visible)[class*="hover:text-"]),
 html.dark .text-crush-purple:not([class*="dark:text-"], :is(:hover, :focus-visible)[class*="hover:text-"]) {
     color: var(--color-purple-200);
 }
 
-html:not(.dark) .text-crush-purple:not(:is(:hover, :focus-visible)[class*="hover:text-"]) {
+html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :is(:hover, :focus-visible)[class*="hover:text-"]) {
     color: var(--color-purple-600);
 }
 
