@@ -28642,3 +28642,11 @@ msgstr ""
 #: crush_lu/templates/crush_lu/membership.html:77
 msgid "Manage your Premium request"
 msgstr ""
+
+#: views_events.py
+msgid "This event has been cancelled — you don't need to do anything. Your Crush Credit is on its way, and you can reply to the cancellation email if you would rather have your money back."
+msgstr "This event has been cancelled — you don't need to do anything. Your Crush Credit is on its way, and you can reply to the cancellation email if you would rather have your money back."
+
+#: views_events.py
+msgid "This event has been cancelled — you don't need to do anything. No payment was recorded for your registration, so there is no Crush Credit to expect."
+msgstr "This event has been cancelled — you don't need to do anything. No payment was recorded for your registration, so there is no Crush Credit to expect."

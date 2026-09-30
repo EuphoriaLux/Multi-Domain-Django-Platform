@@ -38,6 +38,15 @@ CONSUMER_DOMAINS = [
 ]
 
 
+def _host_is_delegations(host):
+    """delegations.lu, its ``delegation.localhost`` dev alias, or bare localhost."""
+    from azureproject.domains import get_canonical_domain
+
+    return host in ('localhost', '127.0.0.1') or (
+        get_canonical_domain(host) == 'delegations.lu'
+    )
+
+
 def _is_delegation_domain(request):
     """Check if current request is from delegations.lu domain"""
     if not request:
@@ -47,7 +56,7 @@ def _is_delegation_domain(request):
     except KeyError:
         # During tests, the request may not have SERVER_NAME set
         return False
-    return host in ['delegations.lu', 'localhost', '127.0.0.1']
+    return _host_is_delegations(host)
 
 
 def _is_consumer_email(email):

@@ -2178,6 +2178,23 @@ def event_register(request, event_id):
     return render(request, template, context)
 
 
+def _registration_money_was_held(registration):
+    """True when Crush.lu took (or already returned) money for this seat.
+
+    ``payment_confirmed`` alone is not enough: the organiser-cancellation
+    sweep clears it as it issues the credit, so a member who was already
+    credited would otherwise read as unpaid. A PAID transaction survives the
+    sweep and keeps them on the credit message.
+    """
+    return (
+        registration.payment_confirmed
+        or PaymentTransaction.objects.filter(
+            event_registration=registration,
+            status=PaymentTransaction.Status.PAID,
+        ).exists()
+    )
+
+
 def _event_cancel_refusal(request, event, registration):
     """Redirect (with its message) when this registration cannot be cancelled.
 
@@ -2202,15 +2219,27 @@ def _event_cancel_refusal(request, event, registration):
     # reading the cancellation email and clicking "cancel my place"
     # lands exactly there.
     if event.is_cancelled:
-        messages.info(
-            request,
-            _(
-                "This event has been cancelled — you don't need to do "
-                "anything. Your Crush Credit is on its way, and you can "
-                "reply to the cancellation email if you would rather "
-                "have your money back."
-            ),
-        )
+        if _registration_money_was_held(registration):
+            messages.info(
+                request,
+                _(
+                    "This event has been cancelled — you don't need to do "
+                    "anything. Your Crush Credit is on its way, and you can "
+                    "reply to the cancellation email if you would rather "
+                    "have your money back."
+                ),
+            )
+        else:
+            # Nothing was captured, so there is no credit to announce and no
+            # refund to offer (#1052).
+            messages.info(
+                request,
+                _(
+                    "This event has been cancelled — you don't need to do "
+                    "anything. No payment was recorded for your "
+                    "registration, so there is no Crush Credit to expect."
+                ),
+            )
         return redirect("crush_lu:event_detail", event_id=event.id)
 
     now = timezone.now()
