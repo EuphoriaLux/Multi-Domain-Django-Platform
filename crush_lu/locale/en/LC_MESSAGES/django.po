@@ -28650,3 +28650,7 @@ msgstr "This event has been cancelled — you don't need to do anything. Your Cr
 #: views_events.py
 msgid "This event has been cancelled — you don't need to do anything. No payment was recorded for your registration, so there is no Crush Credit to expect."
 msgstr "This event has been cancelled — you don't need to do anything. No payment was recorded for your registration, so there is no Crush Credit to expect."
+
+#: views_events.py
+msgid "This event has been cancelled — you don't need to do anything. Your payment has already been handled. If you have questions, reply to the cancellation email."
+msgstr "This event has been cancelled — you don't need to do anything. Your payment has already been handled. If you have questions, reply to the cancellation email."

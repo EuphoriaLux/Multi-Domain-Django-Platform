@@ -179,9 +179,9 @@ def _is_crush_domain(request):
 
 
 def _is_delegation_domain(request):
-    """Check if request is from delegations.lu."""
-    domain = _get_domain(request)
-    return domain == "delegations.lu"
+    """Check if request is from delegations.lu (or its delegation.localhost
+    dev alias, #1116)."""
+    return _get_mapped_domain(request) == "delegations.lu"
 
 
 # Domains where a visitor may create their own account.

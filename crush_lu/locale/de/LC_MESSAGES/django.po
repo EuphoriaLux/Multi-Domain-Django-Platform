@@ -43981,3 +43981,7 @@ msgstr "Dieses Event wurde abgesagt – du musst nichts tun. Dein Crush Credit i
 #: views_events.py
 msgid "This event has been cancelled — you don't need to do anything. No payment was recorded for your registration, so there is no Crush Credit to expect."
 msgstr "Dieses Event wurde abgesagt – du musst nichts tun. Für deine Anmeldung wurde keine Zahlung erfasst, daher ist kein Crush Credit zu erwarten."
+
+#: views_events.py
+msgid "This event has been cancelled — you don't need to do anything. Your payment has already been handled. If you have questions, reply to the cancellation email."
+msgstr "Dieses Event wurde abgesagt – du musst nichts tun. Deine Zahlung wurde bereits abgewickelt. Wenn du Fragen hast, antworte auf die Absage-E-Mail."

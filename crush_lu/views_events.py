@@ -2178,21 +2178,32 @@ def event_register(request, event_id):
     return render(request, template, context)
 
 
-def _registration_money_was_held(registration):
-    """True when Crush.lu took (or already returned) money for this seat.
+def _registration_payment_state(registration):
+    """``"held"``, ``"refunded"`` or ``None`` for the money on this seat.
 
     ``payment_confirmed`` alone is not enough: the organiser-cancellation
     sweep clears it as it issues the credit, so a member who was already
     credited would otherwise read as unpaid. A PAID transaction survives the
-    sweep and keeps them on the credit message.
+    sweep and keeps them on the credit message. A REFUNDED transaction means
+    the cash already went back (credits.py and reconcile_sumup_payments flip
+    the source payment), so they paid but must not be promised a credit.
     """
-    return (
-        registration.payment_confirmed
-        or PaymentTransaction.objects.filter(
+    if registration.payment_confirmed:
+        return "held"
+    statuses = set(
+        PaymentTransaction.objects.filter(
             event_registration=registration,
-            status=PaymentTransaction.Status.PAID,
-        ).exists()
+            status__in=[
+                PaymentTransaction.Status.PAID,
+                PaymentTransaction.Status.REFUNDED,
+            ],
+        ).values_list("status", flat=True)
     )
+    if PaymentTransaction.Status.PAID in statuses:
+        return "held"
+    if statuses:
+        return "refunded"
+    return None
 
 
 def _event_cancel_refusal(request, event, registration):
@@ -2219,7 +2230,8 @@ def _event_cancel_refusal(request, event, registration):
     # reading the cancellation email and clicking "cancel my place"
     # lands exactly there.
     if event.is_cancelled:
-        if _registration_money_was_held(registration):
+        payment_state = _registration_payment_state(registration)
+        if payment_state == "held":
             messages.info(
                 request,
                 _(
@@ -2227,6 +2239,17 @@ def _event_cancel_refusal(request, event, registration):
                     "anything. Your Crush Credit is on its way, and you can "
                     "reply to the cancellation email if you would rather "
                     "have your money back."
+                ),
+            )
+        elif payment_state == "refunded":
+            # Their payment was already returned: no credit to promise, and
+            # no claim that nothing was paid.
+            messages.info(
+                request,
+                _(
+                    "This event has been cancelled — you don't need to do "
+                    "anything. Your payment has already been handled. If you "
+                    "have questions, reply to the cancellation email."
                 ),
             )
         else:

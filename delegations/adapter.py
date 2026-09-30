@@ -21,9 +21,7 @@ class DelegationSocialAccountAdapter(DefaultSocialAccountAdapter):
         if not request:
             return False
         host = request.get_host().split(':')[0].lower()
-        from delegations.signals import _host_is_delegations
-
-        return _host_is_delegations(host)
+        return host in ['delegations.lu', 'localhost', '127.0.0.1']
 
     def is_auto_signup_allowed(self, request, sociallogin):
         """
@@ -77,9 +75,7 @@ class DelegationAccountAdapter(DefaultAccountAdapter):
         if not request:
             return False
         host = request.get_host().split(':')[0].lower()
-        from delegations.signals import _host_is_delegations
-
-        return _host_is_delegations(host)
+        return host in ['delegations.lu', 'localhost', '127.0.0.1']
 
     def get_login_redirect_url(self, request):
         """

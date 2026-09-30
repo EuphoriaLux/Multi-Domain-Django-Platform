@@ -44135,3 +44135,7 @@ msgstr "Cet événement a été annulé — vous n’avez rien à faire. Votre C
 #: views_events.py
 msgid "This event has been cancelled — you don't need to do anything. No payment was recorded for your registration, so there is no Crush Credit to expect."
 msgstr "Cet événement a été annulé — vous n’avez rien à faire. Aucun paiement n’a été enregistré pour votre inscription ; aucun Crush Credit n’est donc à prévoir."
+
+#: views_events.py
+msgid "This event has been cancelled — you don't need to do anything. Your payment has already been handled. If you have questions, reply to the cancellation email."
+msgstr "Cet événement a été annulé — vous n’avez rien à faire. Votre paiement a déjà été traité. Si vous avez des questions, répondez à l’e-mail d’annulation."

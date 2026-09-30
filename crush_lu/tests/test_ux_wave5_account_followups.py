@@ -107,25 +107,44 @@ class ReplacePendingSocialAddressTests(TestCase):
 
 
 class DelegationDevAliasTests(TestCase):
+    """#1116: the live adapters (azureproject.adapters, the ones settings.py
+    wires in) must read delegation.localhost as delegations.lu."""
+
     @override_settings(ALLOWED_HOSTS=["*"])
-    def test_delegation_localhost_counts_as_the_delegation_domain(self):
-        from delegations.adapter import (
-            DelegationAccountAdapter,
-            DelegationSocialAccountAdapter,
-        )
-        from delegations.signals import _is_delegation_domain
+    def test_live_adapter_helper_reads_the_dev_alias(self):
+        from azureproject.adapters import _is_delegation_domain
 
         request = RequestFactory().get("/", HTTP_HOST="delegation.localhost:8000")
         self.assertTrue(_is_delegation_domain(request))
-        self.assertTrue(DelegationAccountAdapter()._is_delegation_domain(request))
-        self.assertTrue(DelegationSocialAccountAdapter()._is_delegation_domain(request))
 
     @override_settings(ALLOWED_HOSTS=["*"])
-    def test_other_dev_aliases_are_not_delegations(self):
-        from delegations.signals import _is_delegation_domain
+    def test_login_redirect_routes_delegation_alias_users(self):
+        from django.contrib.auth import get_user_model
 
-        request = RequestFactory().get("/", HTTP_HOST="crush.localhost:8000")
-        self.assertFalse(_is_delegation_domain(request))
+        from azureproject.adapters import MultiDomainAccountAdapter
+
+        user = get_user_model().objects.create_user(
+            username="deleg@example.com", email="deleg@example.com", password="x"
+        )
+        adapter = MultiDomainAccountAdapter()
+        urls = {}
+        for host in ("delegations.lu", "delegation.localhost:8000"):
+            request = RequestFactory().get("/", HTTP_HOST=host)
+            request.user = user
+            request.session = {}
+            urls[host] = adapter.get_login_redirect_url(request)
+        self.assertEqual(urls["delegations.lu"], urls["delegation.localhost:8000"])
+
+    @override_settings(ALLOWED_HOSTS=["*"])
+    def test_signals_helper_and_other_aliases(self):
+        from azureproject.adapters import _is_delegation_domain
+        from delegations.signals import _is_delegation_domain as signals_check
+
+        alias = RequestFactory().get("/", HTTP_HOST="delegation.localhost:8000")
+        self.assertTrue(signals_check(alias))
+        crush = RequestFactory().get("/", HTTP_HOST="crush.localhost:8000")
+        self.assertFalse(signals_check(crush))
+        self.assertFalse(_is_delegation_domain(crush))
 
 
 class DeadSparkJourneyTests(TestCase):
@@ -189,6 +208,29 @@ class OrganiserCancelRefusalCopyTests(TestCase):
         texts = self._texts(registration)
         self.assertIn("Your Crush Credit is on its way", texts[0])
 
+    def test_refunded_registrant_is_not_told_nothing_was_paid(self):
+        """Cash already went back (credits.py / SumUp reconcile flip the
+        payment to REFUNDED): they paid, so no 'no payment' claim, and no
+        credit promise either."""
+        registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="confirmed"
+        )
+        PaymentTransaction.objects.create(
+            transaction_reference="W5-REFUNDED",
+            sumup_checkout_id="CHK-W5-REFUNDED",
+            amount=Decimal("15.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.REFUNDED,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=registration,
+        )
+        texts = self._texts(registration)
+        self.assertEqual(len(texts), 1)
+        self.assertNotIn("No payment was recorded", texts[0])
+        self.assertNotIn("on its way", texts[0])
+        self.assertIn("already been handled", texts[0])
+
     def test_translations_exist(self):
         from django.utils import translation
 
@@ -197,6 +239,12 @@ class OrganiserCancelRefusalCopyTests(TestCase):
             "No payment was recorded for your registration, so there is no "
             "Crush Credit to expect."
         )
+        handled = (
+            "This event has been cancelled — you don't need to do anything. "
+            "Your payment has already been handled. If you have questions, "
+            "reply to the cancellation email."
+        )
         for lang in ("de", "fr"):
             with translation.override(lang):
                 self.assertNotEqual(translation.gettext(msgid), msgid)
+                self.assertNotEqual(translation.gettext(handled), handled)
