@@ -181,3 +181,70 @@ def test_axe_dashboard_touched_elements_are_clean(browser, live_server, theme):
         ".violations.flatMap(v => v.nodes.map(n => n.target.join(' ')))"
     )
     assert nodes == [], nodes
+
+
+REWARD_TYPES = ["future_letter", "poem", "photo_slideshow", "voice_message"]
+
+LUMINANCE_JS = """
+(el) => {
+    const v = getComputedStyle(el).backgroundColor.match(/[\\d.]+/g).map(Number);
+    const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+    return 0.2126 * f(v[0]) + 0.7152 * f(v[1]) + 0.0722 * f(v[2]);
+}
+"""
+
+
+def _reward_player(name):
+    """A member whose completed chapter holds one reward of each type."""
+    from django.utils import timezone
+
+    from crush_lu.models import ChapterProgress, JourneyReward
+    from crush_lu.tests.test_journey_api_scoping import _make_player
+
+    player = _make_player(name, "Well done", points=100)
+    ChapterProgress.objects.create(
+        journey_progress=player.progress,
+        chapter=player.chapter,
+        is_completed=True,
+        completed_at=timezone.now(),
+    )
+    rewards = {
+        kind: JourneyReward.objects.create(
+            chapter=player.chapter,
+            reward_type=kind,
+            title=f"{kind} title",
+            message="Dear you,\n\nThis is the body of the message.",
+        )
+        for kind in REWARD_TYPES
+    }
+    return player.user, rewards
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_letter_paper_is_white_and_reward_pages_pass_axe(browser, live_server, theme):
+    """Review fix: --jy-w is purple in light mode, which had turned the
+    letter paper into a purple card with invisible title and signature."""
+    user, rewards = _reward_player(f"Rw{theme}")
+    page = _page(browser, live_server, user, theme)
+    # prefers-reduced-motion shows the paper at once (no 2s slide-in delay).
+    page.emulate_media(color_scheme=theme, reduced_motion="reduce")
+    axe = _axe_source()
+    for kind, reward in rewards.items():
+        page.goto(f"{live_server.url}/en/journey/reward/{reward.id}/")
+        page.wait_for_load_state("load")
+        page.wait_for_timeout(300)
+        if kind == "future_letter":
+            paper = page.locator(".letter-paper")
+            assert paper.count() == 1
+            assert paper.evaluate(LUMINANCE_JS) > 0.85, theme
+            for sel in (".letter-date", ".letter-signature"):
+                ratio = page.locator(sel).first.evaluate(CONTRAST_JS)
+                assert ratio >= 3.0, (theme, sel, ratio)
+        if axe is None:
+            continue
+        page.evaluate(axe)
+        nodes = page.evaluate(
+            "async () => (await axe.run(document, {runOnly: ['color-contrast']}))"
+            ".violations.flatMap(v => v.nodes.map(n => n.target.join(' ')))"
+        )
+        assert nodes == [], (kind, theme, nodes)

@@ -3148,7 +3148,8 @@ html:not(.dark) body.journey-bg #main-content :is(
     .letter-paper {
         @apply relative mx-auto my-10 rounded-2xl p-8 md:p-12;
         max-width: 700px;
-        background: rgb(var(--jy-w) / 0.95);
+        /* Literal paper: stays white in both themes (--jy-w is purple in light). */
+        background: rgba(255, 255, 255, 0.95);
         backdrop-filter: blur(10px);
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
         animation: letter-slide-up 1s ease forwards;
