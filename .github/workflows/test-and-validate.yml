@@ -234,7 +234,7 @@ jobs:
           npm ci
 
       - name: Install Chromium for Playwright
-        run: npx playwright install --with-deps chromium
+        run: python -m playwright install --with-deps chromium
 
       - name: Run axe smoke tests
         env:
