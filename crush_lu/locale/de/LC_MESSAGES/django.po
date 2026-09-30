@@ -17316,7 +17316,7 @@ msgstr "Durchschnitt: %(min)s – %(max)s"
 #: templates/crush_lu/coach_dashboard.html:570
 #: templates/crush_lu/membership.html:108
 msgid "Membership Tiers"
-msgstr "Mitgliedschaftsstufen"
+msgstr "Mitgliedsstufen"
 
 #: templates/crush_lu/coach_dashboard.html:587
 #: templates/crush_lu/coach_edit_profile.html:214

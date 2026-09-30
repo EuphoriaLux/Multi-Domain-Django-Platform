@@ -178,3 +178,11 @@ class InlineConfirmRemovedTests(TestCase):
             encoding="utf-8"
         )
         self.assertIn('data-confirm-style="neutral"', invite_src)
+
+
+class GermanTierHeadingTests(TestCase):
+    def test_membership_tiers_heading_fits_a_390px_column(self):
+        with translation.override("de"):
+            self.assertEqual(translation.gettext("Membership Tiers"), "Mitgliedsstufen")
+        source = (TEMPLATES / "membership.html").read_text(encoding="utf-8")
+        self.assertIn("break-words", source)
