@@ -10,6 +10,7 @@ from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+import datetime
 import json
 import logging
 
@@ -55,7 +56,9 @@ def advent_calendar_view(request):
             context = {
                 'calendar': calendar,
                 'is_december': False,
-                'message': 'The Advent Calendar will be available in December!'
+                'message': _('The Advent Calendar will be available in December!'),
+                'days': range(1, 25),
+                'start_date': datetime.date(calendar.year, 12, 1),
             }
             return render(request, 'crush_lu/advent/calendar_locked.html', context)
 
