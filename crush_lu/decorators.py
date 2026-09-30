@@ -1,5 +1,6 @@
 import math
 import time
+import uuid
 from functools import wraps
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -120,8 +121,10 @@ def ratelimit(
             # all pass on one read.
             try:
                 count = _count_request(cache_key, period_seconds)
+                generation = _window_generation(cache_key)
             except Exception:
                 count = None
+                generation = None
             if not isinstance(count, int):
                 # Cache unavailable - allow request to proceed. django_redis
                 # with IGNORE_EXCEPTIONS returns None instead of raising.
@@ -136,7 +139,7 @@ def ratelimit(
                 if block and count_if is not None:
                     # A refused request never counts toward a success-only
                     # cap; the counter stays at or above the limit.
-                    _release_request(cache_key)
+                    _release_request(cache_key, generation)
                 if block:
                     # Return JSON for API/AJAX requests, plain text for browser requests
                     if (
@@ -175,10 +178,10 @@ def ratelimit(
             try:
                 response = func(request, *args, **kwargs)
             except BaseException:
-                _release_request(cache_key)
+                _release_request(cache_key, generation)
                 raise
             if not count_if(response):
-                _release_request(cache_key)
+                _release_request(cache_key, generation)
             return response
 
         return wrapper
@@ -189,8 +192,21 @@ def _window_deadline_key(cache_key):
     return f"{cache_key}:deadline"
 
 
+def _generation_key(cache_key):
+    return f"{cache_key}:generation"
+
+
+def _window_generation(cache_key):
+    """The token of the window a reservation was just counted in."""
+    return cache.get(_generation_key(cache_key))
+
+
 def _record_window_deadline(cache_key, period_seconds):
-    """Track expiry for cache backends without a native TTL method."""
+    """Track expiry for cache backends without a native TTL method.
+
+    Also stamps the new window with a fresh generation token, so a release
+    can tell whether it still belongs to the window it reserved in."""
+    cache.set(_generation_key(cache_key), uuid.uuid4().hex, period_seconds)
     cache.set(
         _window_deadline_key(cache_key),
         time.time() + period_seconds,
@@ -244,9 +260,13 @@ def _count_request(cache_key, period_seconds):
         return cache.incr(cache_key)
 
 
-def _release_request(cache_key):
+def _release_request(cache_key, generation=None):
     """
     Give back a slot reserved by _count_request().
+
+    ``generation`` is the window token read at reservation time. If the window
+    has since expired and a new one started, the slot is already gone with the
+    old counter: releasing would take a count from the new window (#1111).
 
     decr() is atomic and keeps the expiry add() set; on a missing key it
     raises rather than creating one, so a release never extends the window
@@ -254,6 +274,8 @@ def _release_request(cache_key):
     window than its reservation could drive the counter below zero; undo it.
     """
     try:
+        if generation is not None and cache.get(_generation_key(cache_key)) != generation:
+            return
         if cache.decr(cache_key) < 0:
             cache.incr(cache_key)
     except Exception:

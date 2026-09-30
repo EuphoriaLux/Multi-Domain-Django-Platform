@@ -11,6 +11,7 @@ Excluded from the default run (``-m "not playwright"`` in pytest.ini). Run:
     pytest -m playwright crush_lu/tests/test_ux_wave4_gift_wizard_playwright.py -n 0
 """
 
+import base64
 import json
 
 import pytest
@@ -120,3 +121,45 @@ def test_media_error_reopens_step_two_with_focused_summary(browser, live_server)
     # Step 1 is hidden; the recipient name the user typed is kept.
     expect(page.locator("#id_recipient_name")).to_be_hidden()
     expect(page.locator("#id_recipient_name")).to_have_value("Marie")
+
+
+PIXEL_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+)
+
+
+def test_next_with_missing_story_fields_focuses_the_first_invalid_one(
+    browser, live_server
+):
+    page = _page(browser, live_server)
+    page.fill("#id_location_first_met", "Luxembourg City")
+    page.get_by_role("button", name="Next: Add Media").click()
+    expect(page.locator("#id_recipient_name")).to_be_focused()
+    expect(page.locator("#id_recipient_name")).to_have_attribute("aria-invalid", "true")
+    expect(page.locator("ol.step-nav > li").nth(0)).to_have_attribute(
+        "aria-current", "step"
+    )
+
+
+def test_slideshow_pick_shows_a_thumbnail_and_back_refocuses_step_one(
+    browser, live_server
+):
+    page = _page(browser, live_server)
+    _fill_story(page)
+    page.get_by_role("button", name="Next: Add Media").click()
+    expect(page.locator(".media-info")).to_be_focused()
+
+    tile = page.locator(".slideshow-item").nth(1)
+    expect(tile.locator(".file-upload-preview")).to_be_hidden()
+    tile.locator("input[type=file]").set_input_files(
+        {"name": "p.png", "mimeType": "image/png", "buffer": PIXEL_PNG}
+    )
+    expect(tile.locator(".file-upload-preview img")).to_be_visible()
+
+    page.locator("#id_chapter5_letter_music").set_input_files(
+        {"name": "notes.txt", "mimeType": "text/plain", "buffer": b"hello"}
+    )
+    expect(page.get_by_text("Invalid audio format.", exact=False)).to_be_visible()
+
+    page.get_by_role("button", name="Back").click()
+    expect(page.locator("#id_recipient_name")).to_be_focused()

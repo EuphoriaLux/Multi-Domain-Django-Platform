@@ -304,6 +304,38 @@ class RateLimitDecoratorTests(SimpleTestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIsNone(cache.get(key))
 
+    def test_release_after_window_rollover_leaves_the_new_window_counted(self):
+        # #1111: a reservation straddling the window expiry used to release
+        # into the NEXT window, giving that window one free request.
+        xff = "203.0.113.7:1"
+        clock = [1_000_000.0]
+        key = _get_cache_key(
+            self.factory.post("/", HTTP_X_FORWARDED_FOR=xff), "ip", "straddle_view"
+        )
+
+        @ratelimit(key="ip", rate="2/m", method="POST", count_if=_created)
+        def straddle_view(request):
+            if request.POST.get("outcome") == "straddle":
+                clock[
+                    0
+                ] += 901  # window A (rate "2/m" parses as 15 minutes) expires while the view runs
+                # A second request starts window B and is counted there.
+                self._post(
+                    view=straddle_view,
+                    data={"outcome": "create"},
+                    HTTP_X_FORWARDED_FOR=xff,
+                )
+                return HttpResponse(status=400)  # A's slot is released now
+            return HttpResponse(status=302)
+
+        with patch("time.time", side_effect=lambda: clock[0]):
+            self._post(
+                view=straddle_view,
+                data={"outcome": "straddle"},
+                HTTP_X_FORWARDED_FOR=xff,
+            )
+            self.assertEqual(cache.get(key), 1)
+
     def test_counter_evicted_between_add_and_incr_restarts_at_one(self):
         real_incr = cache.incr
         evicted = []

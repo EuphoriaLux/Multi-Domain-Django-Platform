@@ -28699,7 +28699,7 @@ msgstr "Klicke oder ziehe ein Foto zum Hochladen"
 
 #: templates/crush_lu/journey/gift_create.html:131
 msgid "Chapter 3: Photo Slideshow"
-msgstr "Schritt 3: Fotos gespeichert"
+msgstr "Kapitel 3: Foto-Diashow"
 
 #: templates/crush_lu/journey/gift_create.html:134
 msgid ""
@@ -43973,3 +43973,19 @@ msgstr "Bewerbung für"
 
 msgid "Pending / no-show"
 msgstr "Ausstehend / nicht erschienen"
+
+#: crush_lu/templates/crush_lu/journey/gift_create.html
+msgid "e.g., Marie, Sunshine"
+msgstr "z.B., Marie, Sonnenschein"
+
+#: crush_lu/templates/crush_lu/journey/gift_create.html
+msgid "Add background music that plays while your recipient reads your Future Letter!"
+msgstr "Füge Hintergrundmusik hinzu, die läuft, während die beschenkte Person deinen Zukunftsbrief liest!"
+
+#: crush_lu/templates/crush_lu/journey/gift_create.html
+msgid "Audio file is too large. Maximum size is 10 MB."
+msgstr "Die Audiodatei ist zu groß. Die maximale Größe beträgt 10 MB."
+
+#: crush_lu/templates/crush_lu/journey/gift_create.html
+msgid "Video file is too large. Maximum size is 50 MB."
+msgstr "Die Videodatei ist zu groß. Die maximale Größe beträgt 50 MB."

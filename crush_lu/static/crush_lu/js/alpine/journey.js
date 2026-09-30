@@ -147,6 +147,8 @@ document.addEventListener("alpine:init", function () {
     Alpine.data("giftCreateForm", function () {
         return {
             currentStep: 1,
+            // Component root; $el is the event's element inside handlers
+            rootEl: null,
             // Chapter 1 image state
             chapter1HasFileFlag: false,
             chapter1Preview: "",
@@ -234,6 +236,7 @@ document.addEventListener("alpine:init", function () {
 
             init: function () {
                 var self = this;
+                this.rootEl = this.$el;
                 // A server re-render with errors opens on the step holding the
                 // first error, and moves focus to that step's error summary.
                 if (this.$el.dataset.initialStep === "2") {
@@ -270,6 +273,16 @@ document.addEventListener("alpine:init", function () {
                     });
                 }
 
+                // Slideshow thumbnails
+                var slideInputs = this.rootEl.querySelectorAll(
+                    "[data-slideshow-grid] input[type=file]"
+                );
+                slideInputs.forEach(function (input) {
+                    input.addEventListener("change", function (e) {
+                        self.handleSlideshowFileChange(e);
+                    });
+                });
+
                 // Add visual feedback for all file inputs
                 var fileInputs = document.querySelectorAll('input[type="file"]');
                 fileInputs.forEach(function (input) {
@@ -284,6 +297,32 @@ document.addEventListener("alpine:init", function () {
                         }
                     });
                 });
+            },
+
+            // Server-translated client error text (data-i18n-* on the root)
+            message: function (name) {
+                return this.rootEl.dataset["i18n" + name.charAt(0).toUpperCase() + name.slice(1)] || "";
+            },
+
+            // Thumbnail for a slideshow slot, shown inside its upload tile
+            handleSlideshowFileChange: function (event) {
+                var input = event.target;
+                var wrapper = input.closest(".file-upload-wrapper");
+                var preview = wrapper && wrapper.querySelector(".file-upload-preview");
+                if (!preview) return;
+                var img = preview.querySelector("img");
+                var file = input.files && input.files[0];
+                if (file && file.type.indexOf("image/") === 0) {
+                    var reader = new FileReader();
+                    reader.onload = function (e) {
+                        img.src = e.target.result;
+                        preview.classList.add("show");
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    img.removeAttribute("src");
+                    preview.classList.remove("show");
+                }
             },
 
             formatFileSize: function (bytes) {
@@ -320,37 +359,46 @@ document.addEventListener("alpine:init", function () {
                 var locationMet = document.getElementById("id_location_first_met");
 
                 var isValid = true;
+                var firstInvalid = null;
 
-                if (!recipientName.value.trim()) {
-                    recipientName.classList.add("is-invalid");
-                    isValid = false;
-                } else {
-                    recipientName.classList.remove("is-invalid");
-                }
+                [
+                    [recipientName, !recipientName.value.trim()],
+                    [dateMet, !dateMet.value],
+                    [locationMet, !locationMet.value.trim()],
+                ].forEach(function (pair) {
+                    var field = pair[0];
+                    field.classList.toggle("is-invalid", pair[1]);
+                    field.setAttribute("aria-invalid", pair[1] ? "true" : "false");
+                    if (pair[1]) {
+                        isValid = false;
+                        if (!firstInvalid) firstInvalid = field;
+                    }
+                });
 
-                if (!dateMet.value) {
-                    dateMet.classList.add("is-invalid");
-                    isValid = false;
-                } else {
-                    dateMet.classList.remove("is-invalid");
-                }
-
-                if (!locationMet.value.trim()) {
-                    locationMet.classList.add("is-invalid");
-                    isValid = false;
-                } else {
-                    locationMet.classList.remove("is-invalid");
-                }
+                if (firstInvalid) firstInvalid.focus();
 
                 if (isValid) {
+                    var self = this;
                     this.currentStep = 2;
                     window.scrollTo({ top: 0, behavior: "smooth" });
+                    // Keyboard and screen-reader users land on the new step
+                    this.$nextTick(function () {
+                        var intro = self.rootEl.querySelector(".media-info");
+                        if (intro) {
+                            intro.focus({ preventScroll: true });
+                        }
+                    });
                 }
             },
 
             goToStep1: function () {
+                var self = this;
                 this.currentStep = 1;
                 window.scrollTo({ top: 0, behavior: "smooth" });
+                this.$nextTick(function () {
+                    var first = self.rootEl.querySelector("#id_recipient_name");
+                    if (first) first.focus({ preventScroll: true });
+                });
             },
 
             handleChapter1FileChange: function (event) {
@@ -382,8 +430,7 @@ document.addEventListener("alpine:init", function () {
                 if (file) {
                     // Validate file type
                     if (!this.isValidAudioFile(file)) {
-                        this.audioError =
-                            "Invalid audio format. Please use MP3, WAV, or M4A files.";
+                        this.audioError = this.message("audioFormat");
                         this.audioHasFileFlag = false;
                         this.audioFileName = "";
                         this.audioFileSize = "";
@@ -394,8 +441,7 @@ document.addEventListener("alpine:init", function () {
 
                     // Validate file size (10MB max)
                     if (file.size > 10 * 1024 * 1024) {
-                        this.audioError =
-                            "Audio file is too large. Maximum size is 10 MB.";
+                        this.audioError = this.message("audioSize");
                         this.audioHasFileFlag = false;
                         this.audioFileName = "";
                         this.audioFileSize = "";
@@ -423,8 +469,7 @@ document.addEventListener("alpine:init", function () {
                 if (file) {
                     // Validate file type
                     if (!this.isValidVideoFile(file)) {
-                        this.videoError =
-                            "Invalid video format. Please use MP4 or MOV files.";
+                        this.videoError = this.message("videoFormat");
                         this.videoHasFileFlag = false;
                         this.videoFileName = "";
                         this.videoFileSize = "";
@@ -435,8 +480,7 @@ document.addEventListener("alpine:init", function () {
 
                     // Validate file size (50MB max)
                     if (file.size > 50 * 1024 * 1024) {
-                        this.videoError =
-                            "Video file is too large. Maximum size is 50 MB.";
+                        this.videoError = this.message("videoSize");
                         this.videoHasFileFlag = false;
                         this.videoFileName = "";
                         this.videoFileSize = "";
