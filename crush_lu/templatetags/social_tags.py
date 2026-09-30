@@ -173,3 +173,26 @@ def has_luxid(providers):
         if provider.id == "luxid" or getattr(app, "provider_id", "") == "luxid":
             return True
     return False
+
+
+@register.simple_tag(takes_context=True)
+def luxid_available(context):
+    """True when the LuxID button is offered on this request (footer copy gate).
+
+    Same provider list as ``{% get_providers %}`` in ``crush_lu/auth.html``,
+    memoised on the request because the footer renders on every page. Never
+    raises: a broken provider registry must not 500 a page over one sentence.
+    """
+    request = context.get("request")
+    cached = getattr(request, "_crush_luxid_available", None)
+    if cached is not None:
+        return cached
+    try:
+        from allauth.socialaccount.templatetags.socialaccount import get_providers
+
+        result = has_luxid(get_providers(context))
+    except Exception:  # pragma: no cover - defensive
+        result = False
+    if request is not None:
+        request._crush_luxid_available = result
+    return result
