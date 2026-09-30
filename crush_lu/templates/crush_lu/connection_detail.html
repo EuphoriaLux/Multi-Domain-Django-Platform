@@ -530,7 +530,7 @@
 {% endblock %}
 
 {% block extra_js %}
-{% if debug %}
+{% if assets_dev %}
     {% now "U" as ts %}
     <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/connection-chat.js' %}?v={{ ts }}"></script>
 {% else %}

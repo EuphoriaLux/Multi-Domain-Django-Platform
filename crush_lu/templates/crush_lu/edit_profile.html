@@ -228,6 +228,11 @@
 
 {% endblock %}
 
+{# The account > notifications section (pushPreferences) drives window.CrushPush. #}
+{% block push_js %}
+<script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/push-notifications.js' %}"></script>
+{% endblock %}
+
 {% block extra_js %}
 {% if section_template %}
 <!-- intl-tel-input JS (needed for about section phone field) -->
