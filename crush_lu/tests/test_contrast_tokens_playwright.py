@@ -64,11 +64,11 @@ def _axe_source():
     return None
 
 
-def _member(*, is_staff=False):
+def _member(*, is_staff=False, email="contrast@example.com"):
     # Gift sender pages are staff/coach-only (UX Wave 4 decision C).
     from crush_lu.tests.test_profile_edit_connect_card import _make_member
 
-    return _make_member("contrast@example.com", is_staff=is_staff)
+    return _make_member(email, is_staff=is_staff)
 
 
 def _page(browser, live_server, user, theme):
@@ -103,41 +103,28 @@ def _open(page, url):
     page.wait_for_function("() => window.Alpine && Alpine.store('prompts')")
 
 
-def test_gift_page_stays_dark_under_a_light_preference(browser, live_server):
+def test_gift_page_follows_a_light_preference(browser, live_server):
+    """UX Wave 5 · WP14: journey/gift pages are no longer forced navy."""
     page = _page(browser, live_server, _member(is_staff=True), "light")
     _open(page, f"{live_server.url}/en/journey/gift/create/")
 
-    assert page.evaluate("() => document.documentElement.classList.contains('dark')")
-    # The saved preference is untouched, so other pages stay light.
-    assert page.evaluate("() => localStorage.getItem('theme')") == "light"
-    # Global chrome takes its dark variant (7-03: lavender bar under navy page).
-    nav_bg = page.evaluate(
-        "() => getComputedStyle(document.querySelector('nav.bottom-nav')).backgroundColor"
-    )
-    assert nav_bg == "rgb(15, 23, 42)"
-
-    toggle = page.locator("[x-data='themeToggle'] button").first
-    # aria-disabled, not disabled: it stays focusable so the reason is read.
-    assert toggle.get_attribute("aria-disabled") == "true"
-    assert toggle.evaluate("el => !el.disabled && el.tabIndex === 0")
-    # A real activation is still a no-op.
-    toggle.dispatch_event("click")
-    assert page.evaluate("() => document.documentElement.classList.contains('dark')")
-    assert toggle.get_attribute("title") == LOCKED_LABEL
-    assert toggle.get_attribute("aria-label") == LOCKED_LABEL
-
-    # Even a scripted toggle cannot switch the page to light.
-    page.evaluate("() => window.themeManager.toggleTheme()")
-    assert page.evaluate("() => document.documentElement.classList.contains('dark')")
-    assert page.evaluate("() => localStorage.getItem('theme')") == "light"
-
-    _open(page, f"{live_server.url}/en/dashboard/")
     assert not page.evaluate(
         "() => document.documentElement.classList.contains('dark')"
     )
+    assert page.evaluate("() => localStorage.getItem('theme')") == "light"
+    body_bg = page.evaluate("() => getComputedStyle(document.body).backgroundImage")
+    assert "26, 26, 46" not in body_bg  # not the navy gradient
     toggle = page.locator("[x-data='themeToggle'] button").first
     assert toggle.get_attribute("aria-disabled") is None
-    assert toggle.get_attribute("title") is None
+
+    # The dark preference keeps the navy page.
+    page = _page(
+        browser, live_server, _member(is_staff=True, email="dark@example.com"), "dark"
+    )
+    _open(page, f"{live_server.url}/en/journey/gift/create/")
+    assert page.evaluate("() => document.documentElement.classList.contains('dark')")
+    body_bg = page.evaluate("() => getComputedStyle(document.body).backgroundImage")
+    assert "26, 26, 46" in body_bg
 
 
 @pytest.mark.parametrize("theme", ["light", "dark"])

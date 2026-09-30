@@ -74,7 +74,7 @@
         <div class="mt-auto flex flex-col gap-2">
             {% if user_attended %}
             <a href="{% url 'crush_lu:event_attendees' event.id %}" class="btn-crush-solid w-full text-center block py-2 min-h-11">
-                {% trans "My Connections" %}
+                {% trans "My Matches" %}
             </a>
             {% endif %}
             <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn-crush-outline btn-sm text-base w-full min-h-11 inline-flex items-center justify-center">

@@ -179,12 +179,20 @@ Tokens introduced for this surface (in `tailwind-input.css`):
   bar's inactive labels use it too. The legacy `.text-muted` class maps to
   the same token, so don't pair it with a `dark:text-*` override.
 
-### Always-dark surfaces
+### Journey, gift and advent surfaces
 
-Journey, gift and advent pages (`journey/journey_base.html`,
-`journey/gift_base.html`, `journey/journey_selector.html`,
-`advent/advent_base.html`) are night-mode experiences. They fill
-`base.html`'s `{% block theme_lock %}` with ` class="dark" data-theme-lock="dark"`,
+Journey and gift pages (`journey/journey_base.html`, `journey/gift_base.html`,
+`journey/journey_selector.html`) follow the member's theme: light is a light
+lavender page, dark keeps the navy one (`body.journey-bg` in
+`tailwind-input.css`). They were an always-dark surface until UX Wave 5 (WP14);
+do not put `theme_lock` back on them. Inside `<main>` the light theme re-points
+`--color-white` (Tailwind's `text-white` / `border-white/NN` / `bg-white/NN`) and
+`--jy-w` / `--jy-b` (the literal white/black alpha glass in the journey CSS) to
+ink, and coloured surfaces (gradient buttons, badges) restore white. New
+journey CSS should use `rgb(var(--jy-w) / A)` instead of `rgba(255, 255, 255, A)`.
+
+Advent pages (`advent/advent_base.html`) stay a night-mode experience. They
+fill `base.html`'s `{% block theme_lock %}` with ` class="dark" data-theme-lock="dark"`,
 so the global chrome (navbar, tab bar, install card, toasts) takes its dark
 variant. `theme-manager.js` keeps `.dark` there without overwriting the saved
 preference, and the theme toggles are disabled with an explanation.

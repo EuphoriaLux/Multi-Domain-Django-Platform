@@ -1420,6 +1420,49 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
+    // WhatsApp opt-in: saves the moment the switch flips and confirms with a
+    // toast. The surrounding <form> still posts as the no-JS fallback.
+    Alpine.data("whatsappPreference", function () {
+        return {
+            save: function (event) {
+                var checkbox = event.target;
+                var value = checkbox.checked;
+                // $el is the switch inside an event handler, so go via the form.
+                var form = checkbox.closest("form");
+                var csrf = form.querySelector('input[name="csrfmiddlewaretoken"]');
+                var fail = function () {
+                    checkbox.checked = !value;
+                    Alpine.store("toasts").add({
+                        type: "error",
+                        message: form.getAttribute("data-error-message"),
+                    });
+                };
+                fetch("/api/email/preferences/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": csrf ? csrf.value : "",
+                    },
+                    body: JSON.stringify({ key: "whatsapp_opt_in", value: value }),
+                })
+                    .then(function (response) {
+                        return response.json();
+                    })
+                    .then(function (data) {
+                        if (!data.success) {
+                            fail();
+                            return;
+                        }
+                        Alpine.store("toasts").add({
+                            type: "success",
+                            message: form.getAttribute("data-saved-message"),
+                        });
+                    })
+                    .catch(fail);
+            },
+        };
+    });
+
     Alpine.data("profileSectionAutosave", function () {
         return {
             saveUrl: "",
@@ -1731,6 +1774,7 @@ document.addEventListener("alpine:init", function () {
             isDisabling: false,
             errorMessage: "",
             permissionDenied: false,
+            blockedPlatform: "desktop",
             isLoading: true,
             currentEndpoint: null, // For identifying "This device" by endpoint
             currentFingerprint: null, // Stable device fingerprint (fallback for endpoint)
@@ -1777,6 +1821,17 @@ document.addEventListener("alpine:init", function () {
             },
             get showPermissionDenied() {
                 return !this.isLoading && this.permissionDenied;
+            },
+            // Platform-aware "blocked" copy (#1064): each OS has its own path
+            // back to the permission, so one generic sentence misleads.
+            get blockedOnIos() {
+                return this.blockedPlatform === "ios";
+            },
+            get blockedOnAndroid() {
+                return this.blockedPlatform === "android";
+            },
+            get blockedOnDesktop() {
+                return this.blockedPlatform === "desktop";
             },
             get showNotSupported() {
                 return !this.isLoading && !this.isSupported;
@@ -1834,6 +1889,16 @@ document.addEventListener("alpine:init", function () {
                 // Check if permission was denied
                 if ("Notification" in window && Notification.permission === "denied") {
                     this.permissionDenied = true;
+                }
+                // iPadOS Safari reports a desktop "Macintosh" UA; touch points tell it apart.
+                var ua = navigator.userAgent || "";
+                if (
+                    /iPhone|iPad|iPod/.test(ua) ||
+                    (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
+                ) {
+                    this.blockedPlatform = "ios";
+                } else if (/Android/i.test(ua)) {
+                    this.blockedPlatform = "android";
                 }
 
                 // Detect current device endpoint for "This device" badge

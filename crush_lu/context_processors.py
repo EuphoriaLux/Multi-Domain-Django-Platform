@@ -89,6 +89,7 @@ def crush_user_context(request):
         "is_ios_native_app": is_ios_native_app,
         "is_android_native_app": is_android_native_app,
         "is_native_app": is_ios_native_app or is_android_native_app,
+        "android_app_package": getattr(settings, "ANDROID_APP_PACKAGE", "lu.crush.app"),
         "is_ios_device": is_ios,
         "is_android_device": is_android,
         "ios_native_commerce_enabled": ios_native_commerce_enabled,

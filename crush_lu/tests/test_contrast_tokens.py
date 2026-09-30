@@ -6,9 +6,10 @@
 * 3-03 — the navbar "Complete Profile" badge counts the same onboarding steps
   as the journey stepper (N/5), is hidden on pages that render the stepper,
   and its badge is no longer white on pink.
-* 7-03 — journey and gift pages render ``<html class="dark"
-  data-theme-lock="dark">`` so the global chrome takes its dark variant, and
-  the theme toggles explain why they are disabled.
+* 7-03 — advent pages render ``<html class="dark" data-theme-lock="dark">`` so
+  the global chrome takes its dark variant, and the theme toggles explain why
+  they are disabled. Journey and gift pages follow the member's theme again
+  (UX Wave 5 · WP14).
 
 The runtime (theme-manager.js, axe contrast) is covered by
 ``test_contrast_tokens_playwright.py``.
@@ -156,7 +157,7 @@ class NavProgressMarkupTests(TestCase):
 
 
 class ThemeLockMarkupTests(TestCase):
-    """7-03: journey and gift pages are an explicit dark surface."""
+    """7-03: only advent stays an explicit dark surface; journeys are themed."""
 
     def setUp(self):
         cache.clear()
@@ -170,12 +171,14 @@ class ThemeLockMarkupTests(TestCase):
         html = response.content.decode()
         return HTML_TAG_RE.search(html).group(0), html
 
-    def test_gift_pages_lock_the_dark_theme(self):
-        for path in ("/en/journey/gift/create/", "/en/journey/gifts/"):
-            with self.subTest(path=path):
-                tag, _ = self._html_tag(path)
-                self.assertIn('class="dark"', tag)
-                self.assertIn('data-theme-lock="dark"', tag)
+    def test_gift_pages_follow_the_user_theme(self):
+        tags = [
+            self._html_tag(path)[0]
+            for path in ("/en/journey/gift/create/", "/en/journey/gifts/")
+        ]
+        for tag in tags:
+            self.assertNotIn("data-theme-lock", tag)
+            self.assertNotIn('class="dark"', tag)
 
     def test_regular_pages_follow_the_user_theme(self):
         tag, html = self._html_tag("/en/dashboard/")
@@ -191,19 +194,26 @@ class ThemeLockMarkupTests(TestCase):
             ("fr", "Cette expérience est toujours en mode nuit"),
         ):
             with self.subTest(lang=lang):
-                _, html = self._html_tag(f"/{lang}/journey/gift/create/")
+                _, html = self._html_tag(f"/{lang}/dashboard/")
                 self.assertIn(f'data-locked-label="{label}"', html)
 
-    def test_journey_templates_fill_the_theme_lock_block(self):
+    def test_journey_templates_do_not_lock_the_theme(self):
         base = REPO_ROOT / "crush_lu" / "templates" / "crush_lu" / "journey"
         for name in ("journey_base.html", "gift_base.html", "journey_selector.html"):
             with self.subTest(template=name):
                 source = (base / name).read_text(encoding="utf-8")
-                self.assertIn(
-                    '{% block theme_lock %} class="dark" data-theme-lock="dark"'
-                    "{% endblock %}",
-                    source,
-                )
+                self.assertNotIn("theme_lock", source)
+                self.assertIn("journey-bg", source)
+
+    def test_journey_light_theme_is_light(self):
+        css = (
+            REPO_ROOT / "tailwind-src" / "crush_lu" / "tailwind-input.css"
+        ).read_text(encoding="utf-8")
+        # Dark keeps the navy gradient; light gets its own page background.
+        self.assertIn("body.journey-bg {", css)
+        self.assertIn("html:not(.dark) body.journey-bg {", css)
+        light = css.split("html:not(.dark) body.journey-bg {", 1)[1].split("}", 1)[0]
+        self.assertNotIn("--color-journey-dark", light)
 
 
 class MutedTextMarkupTests(TestCase):

@@ -204,6 +204,117 @@ body.journey-bg {
     color: white;
 }
 
+/* White-alpha glass on the navy page. --jy-w is the "ink" of the journey
+   surfaces (white on navy); the light theme flips it below. */
+:root {
+    --jy-w: 255 255 255;
+    --jy-b: 0 0 0;
+}
+
+/* Light theme (UX Wave 5 · WP14, 7-03 remainder): the journey and gift pages
+   follow the member's theme instead of forcing navy. Tailwind v4 utilities
+   read var(--color-white), so re-pointing it inside <main> turns every
+   text-white / border-white/NN / bg-white/NN on the page into dark ink;
+   coloured surfaces (gradient buttons, badges) put it back to white. */
+html:not(.dark) body.journey-bg {
+    background: linear-gradient(135deg, #f6f1fb 0%, #ede8f4 50%, #e5ebf7 100%);
+    color: var(--color-crush-dark);
+}
+
+html:not(.dark) body.journey-bg #main-content {
+    --color-white: var(--color-crush-dark);
+    --jy-w: 142 68 173;
+    --jy-b: 255 255 255;
+    --jy-accent: var(--color-crush-purple-dark);
+    --color-crush-light: var(--color-crush-dark);
+    --color-green-300: #166534;
+}
+
+/* base.html's critical CSS ships an unlayered .text-white{color:#fff} that
+   would otherwise win over the re-pointed variable. */
+html:not(.dark) body.journey-bg #main-content .text-white {
+    color: var(--color-white);
+}
+
+html:not(.dark) body.journey-bg #main-content :is(
+    .journey-btn-primary,
+    .btn-crush-primary,
+    .btn-crush-solid,
+    .journey-enter-btn,
+    .journey-final-response-btn,
+    .btn-gift-primary,
+    .gift-landing .cta-primary,
+    .journey-progress-fill,
+    .journey-toast,
+    .reveal-points-badge,
+    .letter-audio-play-btn,
+    .step-indicator.active,
+    .step-indicator.completed .step-number,
+    .journey-mc-option-card.selected .option-label
+) {
+    --color-white: #fff;
+    --jy-w: 255 255 255;
+}
+
+/* Gradient-clipped titles: the pink end of the brand gradient is 2.6:1 on
+   the lavender page, so the light theme ends on the darker pink. */
+html:not(.dark) body.journey-bg #main-content :is(
+    .journey-title,
+    .journey-title-xl,
+    .journey-stat-value,
+    .journey-selector-title,
+    .journey-points-display,
+    .journey-open-question,
+    .journey-wyr-question,
+    .poem-title,
+    .voice-title,
+    .letter-title,
+    .slideshow-title,
+    .reveal-title,
+    .video-title,
+    .gift-title
+) {
+    background-image: linear-gradient(
+        135deg,
+        var(--color-crush-purple-dark),
+        var(--color-pink-700)
+    );
+}
+
+/* Surfaces that were a literal navy disc / card on the dark page. */
+html:not(.dark) body.journey-bg #main-content :is(.journey-chapter-icon, .gift-card) {
+    background: rgb(255 255 255 / 0.9);
+}
+
+html:not(.dark) body.journey-bg #main-content .text-crush-pink {
+    color: var(--color-pink-700);
+}
+
+html:not(.dark) body.journey-bg #main-content :is(
+    .journey-subtitle,
+    .journey-writing-prompt h4,
+    .journey-back-link,
+    .slideshow-download-btn,
+    .slideshow-nav-btn
+) {
+    color: var(--jy-accent);
+}
+
+html:not(.dark) body.journey-bg #main-content :is(
+    .journey-message-success,
+    .journey-message-error,
+    .journey-message-warning,
+    .journey-status-pill,
+    .journey-badge-warning,
+    .journey-difficulty-medium,
+    .char-counter.warning,
+    .char-counter.error,
+    .poem-content,
+    .slideshow-caption
+) {
+    color: var(--color-crush-dark);
+}
+
 /* =============================================================================
    ALPINE.JS CLOAK
    Prevents flash of unstyled content before Alpine initializes
@@ -1348,39 +1459,39 @@ body.journey-bg {
     /* Journey Card - Glassmorphic style */
     .journey-card {
         @apply rounded-2xl p-6 md:p-8;
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
         backdrop-filter: blur(15px);
         -webkit-backdrop-filter: blur(15px);
-        border: 2px solid rgba(255, 255, 255, 0.2);
+        border: 2px solid rgb(var(--jy-w) / 0.2);
         box-shadow: var(--shadow-journey-card);
     }
 
     .journey-card-hover {
         @apply rounded-2xl p-6 transition-all duration-300 md:p-8;
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
         backdrop-filter: blur(15px);
         -webkit-backdrop-filter: blur(15px);
-        border: 2px solid rgba(255, 255, 255, 0.2);
+        border: 2px solid rgb(var(--jy-w) / 0.2);
         box-shadow: var(--shadow-journey-card);
     }
 
     .journey-card-hover:hover {
         @apply -translate-y-2;
-        background: rgba(255, 255, 255, 0.15);
+        background: rgb(var(--jy-w) / 0.15);
         box-shadow: 0 15px 50px rgba(0, 0, 0, 0.4);
     }
 
     /* Journey Navigation Button */
     .journey-nav-btn {
         @apply inline-flex items-center gap-2 rounded-[25px] border border-white/20 px-4 py-2.5 text-sm font-medium text-white/90 transition-all duration-200;
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
     }
 
     .journey-nav-btn:hover {
         @apply text-white;
-        background: rgba(255, 255, 255, 0.2);
+        background: rgb(var(--jy-w) / 0.2);
     }
 
     .journey-nav-btn:focus-visible {
@@ -1412,11 +1523,11 @@ body.journey-bg {
     /* Journey Secondary Button */
     .journey-btn-secondary {
         @apply inline-flex items-center justify-center gap-2 rounded-xl border border-white/30 px-6 py-3 font-semibold text-white transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50;
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
     }
 
     .journey-btn-secondary:hover:not(:disabled) {
-        background: rgba(255, 255, 255, 0.2);
+        background: rgb(var(--jy-w) / 0.2);
     }
 
     .journey-btn-secondary:focus-visible {
@@ -1490,7 +1601,7 @@ body.journey-bg {
     .journey-progress-bar {
         @apply relative overflow-hidden rounded-full;
         height: 30px;
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
         border: 2px solid rgba(255, 107, 157, 0.3);
         box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
     }
@@ -1530,7 +1641,7 @@ body.journey-bg {
     /* Journey Stat Card */
     .journey-stat-card {
         @apply rounded-2xl p-5 text-center md:p-6;
-        background: rgba(255, 255, 255, 0.08);
+        background: rgb(var(--jy-w) / 0.08);
         backdrop-filter: blur(15px);
         -webkit-backdrop-filter: blur(15px);
         border: 2px solid rgba(255, 107, 157, 0.3);
@@ -1583,8 +1694,8 @@ body.journey-bg {
     /* Journey Input */
     .journey-input {
         @apply w-full rounded-xl px-5 py-4 text-lg text-white transition-all duration-300 placeholder:text-white/50;
-        background: rgba(255, 255, 255, 0.1);
-        border: 2px solid rgba(255, 255, 255, 0.3);
+        background: rgb(var(--jy-w) / 0.1);
+        border: 2px solid rgb(var(--jy-w) / 0.3);
     }
 
     .journey-input:focus {
@@ -1647,7 +1758,7 @@ body.journey-bg {
         background: rgba(26, 26, 46, 0.95);
         backdrop-filter: blur(15px);
         -webkit-backdrop-filter: blur(15px);
-        border: 5px solid rgba(255, 255, 255, 0.15);
+        border: 5px solid rgb(var(--jy-w) / 0.15);
     }
 
     /* Journey Completion Badge */
@@ -1858,7 +1969,7 @@ body.journey-bg {
 
     .journey-chapter-info {
         @apply relative mx-10 flex-1 overflow-hidden p-8;
-        background: rgba(255, 255, 255, 0.08);
+        background: rgb(var(--jy-w) / 0.08);
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
         border-radius: 20px;
@@ -1883,7 +1994,7 @@ body.journey-bg {
 
     .chapter-unlocked .journey-chapter-info:hover,
     .chapter-current .journey-chapter-info:hover {
-        background: rgba(255, 255, 255, 0.12);
+        background: rgb(var(--jy-w) / 0.12);
         transform: translateY(-8px) scale(1.02);
         box-shadow: 0 15px 40px rgba(255, 107, 157, 0.4);
     }
@@ -1916,7 +2027,7 @@ body.journey-bg {
         background: linear-gradient(
             90deg,
             transparent,
-            rgba(255, 255, 255, 0.3),
+            rgb(var(--jy-w) / 0.3),
             transparent
         );
         animation: journey-progress-shine 2s infinite;
@@ -2029,8 +2140,8 @@ body.journey-bg {
 
     .journey-selector-card {
         @apply relative block overflow-hidden rounded-2xl border-2 p-8 text-white no-underline transition-all duration-300;
-        background: rgba(255, 255, 255, 0.05);
-        border-color: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.05);
+        border-color: rgb(var(--jy-w) / 0.1);
     }
 
     .journey-selector-card::before {
@@ -2108,7 +2219,7 @@ body.journey-bg {
 
     .journey-selector-progress-bar {
         @apply h-2.5 overflow-hidden rounded-[10px];
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
     }
 
     .journey-selector-progress-meter {
@@ -2230,8 +2341,8 @@ body.journey-bg {
 
     .journey-challenge-card {
         @apply relative mb-5 rounded-2xl border-2 p-6 pt-12 transition-all duration-300;
-        border-color: rgba(255, 255, 255, 0.2);
-        background: rgba(255, 255, 255, 0.1);
+        border-color: rgb(var(--jy-w) / 0.2);
+        background: rgb(var(--jy-w) / 0.1);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
     }
@@ -2263,8 +2374,8 @@ body.journey-bg {
     .journey-final-response-btn:focus-visible {
         @apply outline-none;
         box-shadow:
-            0 0 0 2px rgba(255, 255, 255, 0.5),
-            0 0 0 4px rgba(255, 255, 255, 0.25);
+            0 0 0 2px rgb(var(--jy-w) / 0.5),
+            0 0 0 4px rgb(var(--jy-w) / 0.25);
     }
 
     .journey-final-response-yes {
@@ -2329,12 +2440,12 @@ body.journey-bg {
 
     .journey-mc-option-card {
         @apply flex cursor-pointer items-center gap-4 rounded-2xl border-2 p-5 transition-all duration-300;
-        border-color: rgba(255, 255, 255, 0.2);
-        background: rgba(255, 255, 255, 0.05);
+        border-color: rgb(var(--jy-w) / 0.2);
+        background: rgb(var(--jy-w) / 0.05);
     }
 
     .journey-mc-option-card:hover {
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
         border-color: var(--color-crush-purple);
         transform: translateX(0.5rem);
     }
@@ -2382,8 +2493,8 @@ body.journey-bg {
     .journey-text-input {
         @apply w-full rounded-2xl border-2 text-lg leading-relaxed text-white transition-all duration-300;
         padding: 1.25rem;
-        border-color: rgba(255, 255, 255, 0.3);
-        background: rgba(255, 255, 255, 0.05);
+        border-color: rgb(var(--jy-w) / 0.3);
+        background: rgb(var(--jy-w) / 0.05);
         min-height: 200px;
         resize: vertical;
         font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
@@ -2392,12 +2503,12 @@ body.journey-bg {
     .journey-text-input:focus {
         outline: none;
         border-color: var(--color-crush-purple);
-        background: rgba(255, 255, 255, 0.08);
+        background: rgb(var(--jy-w) / 0.08);
         box-shadow: 0 0 30px rgba(155, 89, 182, 0.3);
     }
 
     .journey-text-input::placeholder {
-        color: rgba(255, 255, 255, 0.4);
+        color: rgb(var(--jy-w) / 0.4);
         font-style: italic;
     }
 
@@ -2440,21 +2551,21 @@ body.journey-bg {
 
     .journey-personal-message {
         @apply my-5 rounded-xl p-5 text-lg leading-relaxed italic;
-        background: rgba(0, 0, 0, 0.2);
+        background: rgb(var(--jy-b) / 0.2);
         border-left: 4px solid var(--color-crush-pink);
     }
 
     .journey-user-response {
         @apply mt-4 rounded-xl p-5 italic;
         opacity: 0.9;
-        background: rgba(255, 255, 255, 0.05);
+        background: rgb(var(--jy-w) / 0.05);
     }
 
     .journey-scrambled-word {
         @apply my-8 rounded-2xl p-8 text-center text-2xl font-bold uppercase md:text-3xl;
         letter-spacing: 3px;
         word-spacing: 15px;
-        background: rgba(0, 0, 0, 0.2);
+        background: rgb(var(--jy-b) / 0.2);
         border: 3px dashed var(--color-crush-purple);
         color: var(--color-crush-pink);
         line-height: 1.5;
@@ -2463,12 +2574,12 @@ body.journey-bg {
 
     .journey-shuffle-btn {
         @apply mx-auto flex items-center justify-center gap-2 rounded-xl border-2 px-6 py-2.5 text-white transition-all duration-300;
-        border-color: rgba(255, 255, 255, 0.3);
-        background: rgba(255, 255, 255, 0.1);
+        border-color: rgb(var(--jy-w) / 0.3);
+        background: rgb(var(--jy-w) / 0.1);
     }
 
     .journey-shuffle-btn:hover {
-        background: rgba(255, 255, 255, 0.2);
+        background: rgb(var(--jy-w) / 0.2);
         transform: rotate(360deg);
     }
 
@@ -2496,13 +2607,13 @@ body.journey-bg {
         @apply relative flex cursor-move items-center gap-3 rounded-2xl border-2 transition-all duration-300 select-none;
         padding: 1.25rem 1rem 1.25rem 70px;
         margin: 1rem 0;
-        border-color: rgba(255, 255, 255, 0.2);
-        background: rgba(255, 255, 255, 0.05);
+        border-color: rgb(var(--jy-w) / 0.2);
+        background: rgb(var(--jy-w) / 0.05);
         touch-action: pan-y;
     }
 
     .timeline-item:hover {
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
         transform: translateX(0.25rem);
     }
 
@@ -2518,7 +2629,7 @@ body.journey-bg {
     }
 
     .timeline-item.sortable-chosen {
-        background: rgba(255, 255, 255, 0.15);
+        background: rgb(var(--jy-w) / 0.15);
     }
 
     .timeline-number {
@@ -2546,12 +2657,12 @@ body.journey-bg {
 
     .timeline-move {
         @apply flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border-2 text-xl font-bold;
-        border-color: rgba(255, 255, 255, 0.3);
-        background: rgba(255, 255, 255, 0.08);
+        border-color: rgb(var(--jy-w) / 0.3);
+        background: rgb(var(--jy-w) / 0.08);
     }
 
     .timeline-move:hover:not(:disabled) {
-        background: rgba(255, 255, 255, 0.2);
+        background: rgb(var(--jy-w) / 0.2);
     }
 
     .timeline-move:focus-visible {
@@ -2587,8 +2698,8 @@ body.journey-bg {
 
     .journey-wyr-vs-text {
         @apply inline-block rounded-full px-8 py-2.5 text-2xl font-bold;
-        background: rgba(255, 255, 255, 0.1);
-        border: 2px solid rgba(255, 255, 255, 0.3);
+        background: rgb(var(--jy-w) / 0.1);
+        border: 2px solid rgb(var(--jy-w) / 0.3);
         color: var(--color-crush-pink);
     }
 
@@ -2600,8 +2711,8 @@ body.journey-bg {
     .journey-wyr-option-card {
         @apply relative flex cursor-pointer flex-col items-center overflow-hidden rounded-2xl border-[3px] text-center transition-all duration-400;
         padding: 2.5rem;
-        border-color: rgba(255, 255, 255, 0.2);
-        background: rgba(255, 255, 255, 0.05);
+        border-color: rgb(var(--jy-w) / 0.2);
+        background: rgb(var(--jy-w) / 0.05);
         min-height: 250px;
     }
 
@@ -2699,14 +2810,14 @@ body.journey-bg {
     /* Journey riddle text styling */
     .journey-riddle-text {
         @apply rounded-2xl p-6 text-center text-lg leading-relaxed italic md:p-8 md:text-xl;
-        background: rgba(0, 0, 0, 0.2);
+        background: rgb(var(--jy-b) / 0.2);
         border-left: 4px solid var(--color-crush-purple);
     }
 
     /* Journey Rewards - Poem */
     .poem-card {
         @apply relative overflow-hidden rounded-2xl border-2 p-8 md:p-12;
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
         backdrop-filter: blur(20px);
         border-color: rgba(255, 215, 0, 0.3);
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
@@ -2749,7 +2860,7 @@ body.journey-bg {
     .poem-content {
         @apply rounded-xl p-8 text-center text-xl leading-loose whitespace-pre-line italic md:p-10 md:text-2xl;
         font-family: "Georgia", serif;
-        background: rgba(0, 0, 0, 0.2);
+        background: rgb(var(--jy-b) / 0.2);
         border-left: 4px solid rgba(255, 215, 0, 0.5);
         color: #f8f9fa;
     }
@@ -2817,7 +2928,7 @@ body.journey-bg {
     /* Journey Rewards - Voice Message */
     .voice-card {
         @apply relative overflow-hidden rounded-2xl border-2 p-8 md:p-12;
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
         backdrop-filter: blur(20px);
         border-color: rgba(255, 107, 157, 0.3);
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
@@ -2859,13 +2970,13 @@ body.journey-bg {
 
     .voice-intro {
         @apply mb-8 text-center text-xl italic;
-        color: rgba(255, 255, 255, 0.9);
+        color: rgb(var(--jy-w) / 0.9);
     }
 
     .voice-media-container {
         @apply my-8 rounded-2xl p-8 md:p-10;
-        background: rgba(0, 0, 0, 0.3);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-b) / 0.3);
+        border: 1px solid rgb(var(--jy-w) / 0.1);
     }
 
     .voice-audio-wrapper {
@@ -2905,7 +3016,7 @@ body.journey-bg {
 
     .voice-text-message {
         @apply mt-8 rounded-xl p-6 text-center text-lg whitespace-pre-line md:p-8 md:text-xl;
-        background: rgba(255, 255, 255, 0.05);
+        background: rgb(var(--jy-w) / 0.05);
         border-left: 4px solid rgba(255, 107, 157, 0.5);
     }
 
@@ -3031,13 +3142,13 @@ body.journey-bg {
         transform: translateX(-50%);
         font-size: 1.5rem;
         box-shadow: 0 5px 15px rgba(255, 107, 157, 0.5);
-        border: 3px solid rgba(255, 255, 255, 0.3);
+        border: 3px solid rgb(var(--jy-w) / 0.3);
     }
 
     .letter-paper {
         @apply relative mx-auto my-10 rounded-2xl p-8 md:p-12;
         max-width: 700px;
-        background: rgba(255, 255, 255, 0.95);
+        background: rgb(var(--jy-w) / 0.95);
         backdrop-filter: blur(10px);
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
         animation: letter-slide-up 1s ease forwards;
@@ -3129,7 +3240,7 @@ body.journey-bg {
 
     .letter-audio {
         @apply relative z-10 mt-8 pt-8 text-center;
-        border-top: 1px dashed rgba(255, 255, 255, 0.3);
+        border-top: 1px dashed rgb(var(--jy-w) / 0.3);
     }
 
     .letter-audio-label {
@@ -3252,7 +3363,7 @@ body.journey-bg {
     /* Journey Rewards - Photo Slideshow */
     .slideshow-card {
         @apply relative overflow-hidden rounded-2xl border-2 p-8 md:p-12;
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
         backdrop-filter: blur(20px);
         border-color: rgba(255, 215, 0, 0.3);
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
@@ -3324,7 +3435,7 @@ body.journey-bg {
 
     .slideshow-caption {
         @apply mt-5 rounded-xl p-6 text-center text-lg whitespace-pre-line italic md:p-8 md:text-xl;
-        background: rgba(0, 0, 0, 0.2);
+        background: rgb(var(--jy-b) / 0.2);
         color: #f8f9fa;
     }
 
@@ -3433,7 +3544,7 @@ body.journey-bg {
 
     .slideshow-nav-btn {
         @apply pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300 md:h-12 md:w-12;
-        background: rgba(0, 0, 0, 0.5);
+        background: rgb(var(--jy-b) / 0.5);
         backdrop-filter: blur(8px);
         color: #ffd700;
         border: 2px solid rgba(255, 215, 0, 0.3);
@@ -3495,7 +3606,7 @@ body.journey-bg {
     /* Keyboard hint */
     .slideshow-hint {
         @apply mt-4 text-center text-sm opacity-60;
-        color: rgba(255, 255, 255, 0.7);
+        color: rgb(var(--jy-w) / 0.7);
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -3527,7 +3638,7 @@ body.journey-bg {
     /* Journey Rewards - Photo Reveal */
     .reveal-card {
         @apply relative overflow-hidden rounded-2xl border-2 p-8 md:p-12;
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
         backdrop-filter: blur(20px);
         border-color: rgba(255, 215, 0, 0.3);
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
@@ -3569,7 +3680,7 @@ body.journey-bg {
 
     .reveal-message {
         @apply mb-10 text-center text-xl italic;
-        color: rgba(255, 255, 255, 0.9);
+        color: rgb(var(--jy-w) / 0.9);
     }
 
     .reveal-instruction {
@@ -3593,13 +3704,13 @@ body.journey-bg {
         grid-template-columns: repeat(4, 1fr);
         grid-template-rows: repeat(4, 1fr);
         gap: 0;
-        background: rgba(0, 0, 0, 0.25);
+        background: rgb(var(--jy-b) / 0.25);
     }
 
     .reveal-puzzle-piece {
         @apply relative cursor-pointer overflow-hidden;
         transition: all 0.3s ease;
-        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+        box-shadow: inset 0 0 0 1px rgb(var(--jy-w) / 0.08);
     }
 
     .reveal-puzzle-piece.locked {
@@ -3757,7 +3868,7 @@ body.journey-bg {
 
     .reveal-puzzle-overlay {
         @apply pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl;
-        background: rgba(0, 0, 0, 0.5);
+        background: rgb(var(--jy-b) / 0.5);
         opacity: 0;
         transition: opacity 0.5s;
     }
@@ -3779,7 +3890,7 @@ body.journey-bg {
 
     .reveal-progress-bar {
         @apply relative mx-auto my-8 h-8 w-full max-w-xl overflow-hidden rounded-2xl border-2;
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
         border-color: rgba(255, 215, 0, 0.3);
     }
 
@@ -3817,7 +3928,7 @@ body.journey-bg {
 
     .reveal-tip {
         @apply mt-3 text-sm italic;
-        color: rgba(255, 255, 255, 0.7);
+        color: rgb(var(--jy-w) / 0.7);
     }
 
     .journey-toast {
@@ -8476,12 +8587,12 @@ html.dark .progress-bar-container {
 
 .btn-gift-secondary {
     @apply border border-white/30 text-white;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgb(var(--jy-w) / 0.1);
 }
 
 .btn-gift-secondary:hover {
     @apply -translate-y-px;
-    background: rgba(255, 255, 255, 0.2);
+    background: rgb(var(--jy-w) / 0.2);
 }
 
 .create-form {
@@ -8649,7 +8760,7 @@ html.dark .progress-bar-container {
 }
 
 .gift-item:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgb(var(--jy-w) / 0.08);
 }
 
 .gift-item-header {
@@ -8730,7 +8841,7 @@ html.dark .progress-bar-container {
 
 .share-btn:hover {
     @apply -translate-y-0.5;
-    background: rgba(255, 255, 255, 0.15);
+    background: rgb(var(--jy-w) / 0.15);
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
@@ -9025,12 +9136,12 @@ html.dark .progress-bar-container {
 
 .gift-landing .feature-card {
     @apply flex items-center gap-4 rounded-2xl border border-white/10 p-4 transition-all duration-300 md:flex-col md:gap-0 md:p-5 md:text-center;
-    background: rgba(255, 255, 255, 0.06);
+    background: rgb(var(--jy-w) / 0.06);
 }
 
 .gift-landing .feature-card:hover {
     @apply border-crush-purple/30 -translate-y-1;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgb(var(--jy-w) / 0.1);
 }
 
 .gift-landing .feature-icon {
@@ -9060,7 +9171,7 @@ html.dark .progress-bar-container {
 .gift-landing .chapter-node {
     @apply w-[140px] flex-shrink-0 rounded-2xl border-2 border-white/15 p-5 text-center md:w-[120px] md:p-4;
     scroll-snap-align: center;
-    background: rgba(255, 255, 255, 0.05);
+    background: rgb(var(--jy-w) / 0.05);
     opacity: 0;
     transform: translateY(30px);
     animation: chapterReveal 0.5s ease-out forwards;
@@ -9113,7 +9224,7 @@ html.dark .progress-bar-container {
 
 .gift-landing .outcome-section {
     @apply my-10 rounded-2xl border border-white/10 p-6;
-    background: rgba(255, 255, 255, 0.06);
+    background: rgb(var(--jy-w) / 0.06);
 }
 
 .gift-landing .outcome-grid {
