@@ -43957,13 +43957,6 @@ msgid "Pending / no-show"
 msgstr "Ausstehend / nicht erschienen"
 
 # UX Wave 5 · WP15 i18n-rest
-#: templates/crush_lu/event_polls/poll_detail.html:24
-#, python-format
-msgid "<span data-poll-total-votes>%(counter)s</span> vote"
-msgid_plural "<span data-poll-total-votes>%(counter)s</span> votes"
-msgstr[0] "<span data-poll-total-votes>%(counter)s</span> Stimme"
-msgstr[1] "<span data-poll-total-votes>%(counter)s</span> Stimmen"
-
 #: templates/crush_lu/journey/challenges/open_text.html:53
 #, python-format
 msgid ""

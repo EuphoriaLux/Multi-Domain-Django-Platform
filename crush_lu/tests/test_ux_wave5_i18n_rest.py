@@ -4,6 +4,7 @@ Plural vote/point counts, the single-sentence consent line, FR tone and
 "Connect Week" / "Mix" terminology, and the last inline ``confirm()`` calls.
 """
 
+import json
 import re
 from pathlib import Path
 from types import SimpleNamespace
@@ -56,12 +57,34 @@ class PollVoteCountPluralTests(TestCase):
     def test_detail_keeps_the_hook_and_pluralises(self):
         self._vote(self.user)
         page = self.client.get(f"/en/polls/{self.poll.id}/", HTTP_HOST=HOST)
-        self.assertContains(
-            page, "<span data-poll-total-votes>1</span> vote<", html=False
-        )
+        self.assertContains(page, "<span data-poll-total-votes>1 vote</span>")
         fr = self.client.get(f"/fr/polls/{self.poll.id}/", HTTP_HOST=HOST)
-        self.assertContains(fr, "<span data-poll-total-votes>1</span> vote<")
-        self.assertNotContains(fr, "<span data-poll-total-votes>1</span> votes")
+        self.assertContains(fr, "<span data-poll-total-votes>1 vote</span>")
+        self.assertNotContains(fr, "1 votes")
+
+    def _post_vote(self, lang):
+        option = self.poll.options.first()
+        return self.client.post(
+            f"/api/polls/{self.poll.id}/vote/",
+            data=json.dumps({"option_ids": [option.id]}),
+            content_type="application/json",
+            HTTP_HOST=HOST,
+            headers={"Accept-Language": lang},
+        ).json()
+
+    def test_vote_json_carries_a_plural_aware_label(self):
+        # 1 -> 2 is the regression: the label must flip to the plural form.
+        self._vote(make_member("first@example.com"))
+        data = self._post_vote("en")
+        self.assertEqual(data["total_votes"], 2)
+        self.assertEqual(data["total_votes_label"], "2 votes")
+
+    def test_vote_json_label_singular(self):
+        self.assertEqual(self._post_vote("en")["total_votes_label"], "1 vote")
+
+    def test_vote_js_uses_the_server_label(self):
+        js = (CRUSH_LU / "static/crush_lu/js/alpine/core.js").read_text("utf-8")
+        self.assertIn("total.textContent = data.total_votes_label", js)
 
 
 class PointsPluralTests(TestCase):
@@ -153,6 +176,14 @@ class FrenchCatalogueTests(TestCase):
 
     def test_compiled_catalogue_matches(self):
         with translation.override("fr"):
+            self.assertEqual(translation.gettext("Approve"), "Approuver")
+            self.assertIn(
+                "Prénom et tranche d'âge",
+                translation.gettext(
+                    "First name and age range only — and you can leave anytime "
+                    "from settings."
+                ),
+            )
             self.assertEqual(translation.gettext("Join the Mix"), "Rejoindre le Mix")
             self.assertEqual(
                 translation.gettext("or verify by SMS"), "ou vérifiez par SMS"

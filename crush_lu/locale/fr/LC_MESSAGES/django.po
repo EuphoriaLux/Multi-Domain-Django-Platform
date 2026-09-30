@@ -18130,7 +18130,7 @@ msgstr "Approuver cet invité ?"
 #: templates/crush_lu/coach_invitation_dashboard.html:119
 #: templates/crush_lu/coach_spark_assign.html:68
 msgid "Approve"
-msgstr "Approuvé"
+msgstr "Approuver"
 
 #: templates/crush_lu/coach_invitation_dashboard.html:124
 #: templates/crush_lu/coach_spark_assign.html:73
@@ -21472,15 +21472,11 @@ msgid "Join the mix — free"
 msgstr "Rejoignez le Mix — gratuit"
 
 #: templates/crush_lu/crush_connect/experiences/in-the-mix.html:73
-#, fuzzy
-#| msgid ""
-#| "First name and age range only, photo blurred until it's mutual — and you can"
-#| " leave anytime from settings."
 msgid ""
 "First name and age range only — and you can leave anytime from settings."
 msgstr ""
-"Prénom et tranche d'âge uniquement, photo floutée jusqu'à ce que ce soit "
-"réciproque — et vous pouvez partir à tout moment depuis les réglages."
+"Prénom et tranche d'âge uniquement — et vous pouvez partir à tout moment "
+"depuis les réglages."
 
 #: templates/crush_lu/crush_connect/experiences/read-the-photo.html:4
 msgid "Read the Photo — Crush Connect"
@@ -22126,15 +22122,11 @@ msgid "Not set yet"
 msgstr "Pas encore renseigné"
 
 #: templates/crush_lu/crush_connect/profile_edit.html:73
-#, fuzzy
-#| msgid ""
-#| "Your full name, exact age and unblurred photos are never shown until a date "
-#| "is confirmed."
 msgid ""
 "Your full name and exact age are never shown until a date is confirmed."
 msgstr ""
-"Votre nom complet, votre âge exact et vos photos non floutées ne sont "
-"montrés qu'une fois un rendez-vous confirmé."
+"Votre nom complet et votre âge exact ne sont jamais montrés tant qu'un "
+"rendez-vous n'est pas confirmé."
 
 #: templates/crush_lu/crush_connect/spark_compose.html:4
 msgid "Read the photo — Crush Connect"
@@ -44113,13 +44105,6 @@ msgid "Pending / no-show"
 msgstr "En attente / absent·es"
 
 # UX Wave 5 · WP15 i18n-rest
-#: templates/crush_lu/event_polls/poll_detail.html:24
-#, python-format
-msgid "<span data-poll-total-votes>%(counter)s</span> vote"
-msgid_plural "<span data-poll-total-votes>%(counter)s</span> votes"
-msgstr[0] "<span data-poll-total-votes>%(counter)s</span> vote"
-msgstr[1] "<span data-poll-total-votes>%(counter)s</span> votes"
-
 #: templates/crush_lu/journey/challenges/open_text.html:53
 #, python-format
 msgid ""

@@ -21,7 +21,7 @@
         {% endif %}
 
         <div class="flex flex-wrap items-center gap-3 text-sm text-gray-500 dark:text-gray-400 mb-8">
-            <span>{% blocktrans count counter=total_votes %}<span data-poll-total-votes>{{ counter }}</span> vote{% plural %}<span data-poll-total-votes>{{ counter }}</span> votes{% endblocktrans %}</span>
+            <span data-poll-total-votes>{% blocktrans count counter=total_votes %}{{ counter }} vote{% plural %}{{ counter }} votes{% endblocktrans %}</span>
             {% if poll.is_active %}
             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                 {% trans "Active" %}
