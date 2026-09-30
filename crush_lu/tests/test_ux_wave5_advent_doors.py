@@ -48,4 +48,16 @@ class AdventDoorTemplateTests(SimpleTestCase):
             self.assertIsNotNone(guard, name)
 
     def test_door_nav_row_wraps(self):
-        self.assertIn("door-navigation flex flex-wrap", _read("door_default.html"))
+        for name in (
+            "door_default.html",
+            "door_photo.html",
+            "door_gift.html",
+            "door_poem.html",
+        ):
+            self.assertIn("door-navigation flex flex-wrap", _read(name), name)
+
+    def test_door_card_padding_shrinks_on_phones(self):
+        self.assertRegex(
+            _read("advent_base.html"),
+            r"max-width:\s*480px\)\s*\{\s*\.door-content-card\s*\{\s*padding:\s*1\.25rem",
+        )

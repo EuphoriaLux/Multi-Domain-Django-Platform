@@ -102,7 +102,7 @@
             {% endif %}
 
             <!-- Navigation buttons -->
-            <div class="door-navigation flex flex-wrap items-center justify-between gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div class="door-navigation flex flex-wrap items-center justify-center sm:justify-between gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                 {% if door_number > 1 %}
                     <a href="{% url 'crush_lu:advent_door' door_number|add:'-1' %}" class="inline-flex items-center gap-1 px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
                         {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Previous" %}
