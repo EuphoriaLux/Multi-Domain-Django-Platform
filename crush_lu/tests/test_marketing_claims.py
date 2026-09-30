@@ -15,6 +15,8 @@ that everyone is verified before meeting anyone.
 Spec: ai-memory-hub/specs/2026-08-24-crush-connect-repo-product-doc.md
 """
 
+from unittest import mock
+
 from django.core.cache import cache
 from django.template.loader import render_to_string
 from django.test import TestCase
@@ -77,7 +79,13 @@ class MarketingClaimsTests(TestCase):
         cache.clear()
 
     def _get(self, path):
-        response = self.client.get(path, HTTP_HOST=HOST)
+        # The footer only promises LuxID when the LuxID button is offered
+        # (WP3 R12), so these claim checks render with LuxID configured.
+        with mock.patch(
+            "allauth.socialaccount.templatetags.socialaccount.get_providers",
+            return_value=[mock.Mock(id="luxid", app=None)],
+        ):
+            response = self.client.get(path, HTTP_HOST=HOST)
         self.assertEqual(response.status_code, 200, path)
         return response.content.decode()
 
