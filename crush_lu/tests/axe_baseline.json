@@ -1,0 +1,41 @@
+{
+  "advent/dark": {
+    "aria-progressbar-name": 1
+  },
+  "advent/light": {
+    "aria-progressbar-name": 1
+  },
+  "connect-hub/dark": {
+    "color-contrast": 4
+  },
+  "connect-hub/light": {
+    "color-contrast": 11
+  },
+  "dashboard/dark": {
+    "color-contrast": 1
+  },
+  "dashboard/light": {
+    "color-contrast": 2
+  },
+  "event-detail/dark": {
+    "color-contrast": 2
+  },
+  "event-detail/light": {
+    "color-contrast": 3
+  },
+  "events/light": {
+    "color-contrast": 4
+  },
+  "login/dark": {
+    "color-contrast": 1
+  },
+  "login/light": {
+    "color-contrast": 1
+  },
+  "signup/dark": {
+    "color-contrast": 3
+  },
+  "signup/light": {
+    "color-contrast": 6
+  }
+}
