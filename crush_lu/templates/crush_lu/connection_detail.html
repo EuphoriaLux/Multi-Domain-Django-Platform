@@ -292,7 +292,7 @@
                                     {% if connection.shared_at %}
                                         <small class="text-gray-500 dark:text-gray-400">{{ connection.shared_at|date:"DATETIME_FORMAT" }}</small>
                                     {% else %}
-                                        <small class="text-green-600 dark:text-green-400">{% trans "You can now see each other's contact information" %}</small>
+                                        <small class="text-green-600 dark:text-green-400">{% trans "You can now see the details each of you chose to share" %}</small>
                                     {% endif %}
                                 {% else %}
                                     <small class="text-gray-500 dark:text-gray-400">{% trans "Waiting for consents..." %}</small>
@@ -331,7 +331,7 @@
                         {% trans "Consent Required" %}
                     </h3>
                     <p class="text-gray-600 dark:text-gray-300 mb-4">
-                        {% blocktrans with name=other_profile.display_name %}Your Crush Coach has approved this connection! Before your contact information is shared with {{ name }}, we need your explicit consent.{% endblocktrans %}
+                        {% blocktrans with name=other_profile.display_name %}Your Crush Coach has approved this connection! Before your name and profile are shared with {{ name }}, we need your explicit consent.{% endblocktrans %}
                     </p>
 
                     <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200 rounded-lg p-4 mb-4">
@@ -342,11 +342,11 @@
                             {% else %}
                                 <li>{% trans "First name only:" %} {{ request.user.crushprofile.display_name }}</li>
                             {% endif %}
-                            {% if request.user.crushprofile.phone_number %}
-                                <li>{% trans "Phone:" %} {{ request.user.crushprofile.phone_number }}</li>
-                            {% endif %}
                             <li>{% trans "Profile details and photos" %}</li>
                         </ul>
+                        <p class="text-xs mt-2 mb-0">
+                            {% trans "Your email address and phone number are only shared if you tick them below." %}
+                        </p>
                         <p class="text-xs mt-2 mb-0">
                             {% trans "Nothing is shared until you both consent." %}
                         </p>
@@ -358,16 +358,25 @@
                         <div class="flex items-center gap-2 mb-3">
                             <input class="w-4 h-4 text-purple-600 border-gray-300 dark:border-gray-600 rounded focus:ring-purple-500" type="checkbox" id="consent_checkbox" required>
                             <label class="text-sm text-gray-700 dark:text-gray-200" for="consent_checkbox">
-                                {% blocktrans with name=other_profile.display_name %}I consent to share my contact information with {{ name }}{% endblocktrans %}
+                                {% blocktrans with name=other_profile.display_name %}I consent to share my name, profile details and photos with {{ name }}{% endblocktrans %}
                             </label>
                         </div>
 
-                        <div class="flex items-center gap-2 mb-4">
+                        <div class="flex items-center gap-2 mb-3">
                             <input class="w-4 h-4 text-purple-600 border-gray-300 dark:border-gray-600 rounded focus:ring-purple-500" type="checkbox" id="share_email_checkbox" name="share_email">
                             <label class="text-sm text-gray-700 dark:text-gray-200" for="share_email_checkbox">
                                 {% blocktrans with name=other_profile.display_name %}Also share my email address with {{ name }}{% endblocktrans %}
                             </label>
                         </div>
+
+                        {% if request.user.crushprofile.phone_number %}
+                            <div class="flex items-center gap-2 mb-4">
+                                <input class="w-4 h-4 text-purple-600 border-gray-300 dark:border-gray-600 rounded focus:ring-purple-500" type="checkbox" id="share_phone_checkbox" name="share_phone">
+                                <label class="text-sm text-gray-700 dark:text-gray-200" for="share_phone_checkbox">
+                                    {% blocktrans with name=other_profile.display_name %}Also share my phone number with {{ name }}{% endblocktrans %}
+                                </label>
+                            </div>
+                        {% endif %}
 
                         <div class="flex flex-col sm:flex-row gap-3">
                             <button type="submit" name="consent" value="yes"
@@ -398,7 +407,7 @@
                 <div class="card-bordered border-l-4 border-l-green-500 p-6">
                     <h3 class="font-semibold text-green-600 dark:text-green-400 flex items-center gap-2 mb-6">
                         {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
-                        {% trans "Contact Information Shared!" %}
+                        {% trans "Details Shared!" %}
                     </h3>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
@@ -414,11 +423,15 @@
                                     {% blocktrans with name=other_profile.display_name %}{{ name }} chose not to share their email.{% endblocktrans %}
                                 </p>
                             {% endif %}
-                            {% if other_profile.phone_number %}
+                            {% if other_shares_phone %}
                                 <div class="flex items-center gap-2 text-sm">
                                     {% include "shared/icons/phone.html" with class="w-4 h-4 text-gray-400 dark:text-gray-500" %}
                                     <a href="tel:{{ other_profile.phone_number }}" class="text-purple-600 dark:text-purple-400 hover:underline">{{ other_profile.phone_number }}</a>
                                 </div>
+                            {% else %}
+                                <p class="text-xs text-gray-400 dark:text-gray-500 italic">
+                                    {% blocktrans with name=other_profile.display_name %}{{ name }} chose not to share their phone number.{% endblocktrans %}
+                                </p>
                             {% endif %}
                             {% if other_profile.show_full_name %}
                                 <div class="flex items-center gap-2 text-sm">
@@ -457,7 +470,7 @@
                                 {% trans "WhatsApp" %}
                             </a>
                         {% endif %}
-                        {% if other_profile.phone_number %}
+                        {% if other_shares_phone %}
                             <a href="tel:{{ other_profile.phone_number }}" class="btn-crush-outline inline-flex items-center gap-2">
                                 {% include "shared/icons/phone.html" with class="w-5 h-5" %}
                                 {% trans "Call" %}

@@ -1980,6 +1980,10 @@ def export_user_data(request):
         counterpart_shared_email = conn.status == "shared" and (
             conn.recipient_shares_email if is_requester else conn.requester_shares_email
         )
+        counterpart_shared_phone = conn.status == "shared" and (
+            conn.recipient_shares_phone if is_requester else conn.requester_shares_phone
+        )
+        counterpart_profile = getattr(counterpart, "crushprofile", None)
         visible_connections.append(
             {
                 "event": conn.event.title if conn.event else None,
@@ -1990,6 +1994,24 @@ def export_user_data(request):
                 # decision I). Otherwise it never appears, in any status.
                 "connected_with": (
                     counterpart.email if counterpart_shared_email else None
+                ),
+                # Same opt-in rule as email: the counterpart's phone is
+                # exported only once they chose to share it (UX Wave 5 WP4).
+                "connected_with_phone": (
+                    (counterpart_profile.phone_number or None)
+                    if counterpart_shared_phone and counterpart_profile
+                    else None
+                ),
+                # What THIS member chose to share with the counterpart.
+                "you_shared_email": (
+                    conn.requester_shares_email
+                    if is_requester
+                    else conn.recipient_shares_email
+                ),
+                "you_shared_phone": (
+                    conn.requester_shares_phone
+                    if is_requester
+                    else conn.recipient_shares_phone
                 ),
                 "status": ("with your coach" if is_unshared_crush else conn.status),
                 "created_at": (

@@ -1132,6 +1132,7 @@ def connection_detail(request, connection_id):
 
             consent_value = consent_choice == "yes"
             share_email = "share_email" in request.POST
+            share_phone = "share_phone" in request.POST
 
             # Conditional updates, like "not_now" above: a stale save must
             # never restore coach_approved over a concurrent decline, and the
@@ -1144,6 +1145,7 @@ def connection_detail(request, connection_id):
                 **{
                     f"{side}_consents_to_share": consent_value,
                     f"{side}_shares_email": share_email,
+                    f"{side}_shares_phone": share_phone,
                 }
             )
             if not updated_rows:
@@ -1288,9 +1290,21 @@ def connection_detail(request, connection_id):
     ):
         user_already_consented = True
 
-    # WhatsApp number (clean phone for wa.me link, only when shared)
+    # Did the OTHER side opt in to sharing their phone number? Opt-in, default
+    # off (UX Wave 5 WP4): phone, tel: link and WhatsApp all hang off this.
+    other_shares_phone = bool(
+        (
+            connection.recipient_shares_phone
+            if is_requester
+            else connection.requester_shares_phone
+        )
+        and other_profile
+        and other_profile.phone_number
+    )
+
+    # WhatsApp number (clean phone for wa.me link, only when shared AND opted in)
     whatsapp_number = ""
-    if connection.status == "shared" and other_profile and other_profile.phone_number:
+    if connection.status == "shared" and other_shares_phone:
         whatsapp_number = re.sub(r"[^\d+]", "", other_profile.phone_number)
 
     # Did the OTHER side choose to share their email? (finding 5-10: email is
@@ -1313,6 +1327,7 @@ def connection_detail(request, connection_id):
         "user_already_consented": user_already_consented,
         "whatsapp_number": whatsapp_number,
         "other_shares_email": other_shares_email,
+        "other_shares_phone": other_shares_phone,
         # Pre-`shared` crush lead: the requester sees only this neutral
         # "with your coach" state — identical whether the lead is pending,
         # mid-coach-workflow, or silently declined.
