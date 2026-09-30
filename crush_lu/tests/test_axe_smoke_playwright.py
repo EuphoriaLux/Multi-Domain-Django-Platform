@@ -1,8 +1,10 @@
 """Playwright: axe-core accessibility smoke gate for ~10 key crush.lu pages.
 
 Issue #1117 guardrail. The page-level axe tests elsewhere in this package
-skip silently when axe-core is missing; this one never does (axe-core is a
-devDependency, ``npm ci`` installs it) and it guards the whole journey:
+skip silently when axe-core is missing. This one skips only on a developer
+machine; when ``CI`` or ``GITHUB_ACTIONS`` is set, missing axe-core or
+Playwright is a hard failure, so the gate can never go green with no coverage
+(axe-core is a devDependency, ``npm ci`` installs it). It guards the journey:
 
     home, events, event detail, login, signup, dashboard, connections (the
     ``/matches/`` URL only redirects to the dashboard), Connect hub, account
@@ -33,7 +35,12 @@ from unittest.mock import patch
 
 import pytest
 
-pytest.importorskip("playwright")
+IN_CI = bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"))
+
+if IN_CI:
+    import playwright  # noqa: F401  (ImportError in CI fails collection, loudly)
+else:
+    pytest.importorskip("playwright")
 
 from django.conf import settings  # noqa: E402
 from django.test import Client  # noqa: E402
@@ -134,9 +141,16 @@ def _session_cookie(user):
     return client.cookies[settings.SESSION_COOKIE_NAME].value
 
 
-@pytest.mark.skipif(
-    not AXE_PATH.is_file(), reason="axe-core missing: run `npm ci` (devDependency)"
-)
+@pytest.fixture(autouse=True)
+def _require_axe():
+    if AXE_PATH.is_file():
+        return
+    msg = "axe-core missing: run `npm ci` (devDependency)"
+    if IN_CI:
+        pytest.fail(msg)
+    pytest.skip(msg)
+
+
 @pytest.mark.parametrize("slug,theme", CASES, ids=[f"{s}-{t}" for s, t in CASES])
 def test_no_new_serious_axe_violations(browser, live_server, world, slug, theme):
     who, path = PAGES[slug]
