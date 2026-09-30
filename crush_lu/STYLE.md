@@ -21,7 +21,7 @@ Crush Connect). Each starts with `@reference "../tailwind-input.css";` (so
 `@apply` and theme tokens still work), builds to `static/crush_lu/css/<name>.css`
 via `npm run build:css` and is linked from the page's `extra_css` block.
 A new rule used by only those pages goes in the feature file; anything shared
-stays in `tailwind-input.css`. Feature files load AFTER `tailwind.css`, so a
+stays in `tailwind-input.css`. `npm run watch:css` only watches the base\nbundle: while editing a feature file also run `npm run watch:css:journey` or\n`npm run watch:css:marketing` (or `npm run build:css:features` once). Feature files load AFTER `tailwind.css`, so a
 rule moved out must not share a class with a later rule left behind.
 
 ---

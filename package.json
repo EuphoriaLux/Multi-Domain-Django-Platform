@@ -10,6 +10,8 @@
     "build:css:journey": "tailwindcss -i ./tailwind-src/crush_lu/features/journey.css -o ./crush_lu/static/crush_lu/css/journey.css --minify",
     "build:css:marketing": "tailwindcss -i ./tailwind-src/crush_lu/features/marketing.css -o ./crush_lu/static/crush_lu/css/marketing.css --minify",
     "watch:css": "tailwindcss -i ./tailwind-src/crush_lu/tailwind-input.css -o ./crush_lu/static/crush_lu/css/tailwind.css --watch",
+    "watch:css:journey": "tailwindcss -i ./tailwind-src/crush_lu/features/journey.css -o ./crush_lu/static/crush_lu/css/journey.css --watch",
+    "watch:css:marketing": "tailwindcss -i ./tailwind-src/crush_lu/features/marketing.css -o ./crush_lu/static/crush_lu/css/marketing.css --watch",
     "build:css:power-up": "tailwindcss -i ./tailwind-src/power_up/tailwind-input.css -o ./power_up/static/power_up/css/tailwind.css --minify",
     "watch:css:power-up": "tailwindcss -i ./tailwind-src/power_up/tailwind-input.css -o ./power_up/static/power_up/css/tailwind.css --watch",
     "build:css:tableau": "tailwindcss -i ./tailwind-src/tableau/tailwind-input.css -o ./tableau/static/tableau/css/tailwind.css --minify",

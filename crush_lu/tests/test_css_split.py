@@ -6,14 +6,17 @@ are linked only by the pages that use them.
 """
 
 import datetime
+import re
 from pathlib import Path
+from unittest.mock import patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import TestCase
 
-from crush_lu.models import JourneyGift
+from crush_lu.models import AdventDoor, AdventDoorContent, JourneyGift
+from crush_lu.tests.test_ux_wave4_advent import NOW, make_advent_user
 
 HOST = {"HTTP_HOST": "crush.lu"}
 CSS_DIR = Path(settings.BASE_DIR) / "crush_lu" / "static" / "crush_lu" / "css"
@@ -75,3 +78,80 @@ class FeatureStylesheetLinkTests(TestCase):
         ).content.decode()
         self.assertIn(JOURNEY_LINK, html)
         self.assertNotIn(MARKETING_LINK, html)
+
+    def test_crush_connect_links_marketing_css_only(self):
+        html = self.client.get("/en/crush-connect/", **HOST).content.decode()
+        self.assertIn(MARKETING_LINK, html)
+        self.assertNotIn(JOURNEY_LINK, html)
+
+    def _advent_door_html(self, content_type, template):
+        make_advent_user(self)
+        door = AdventDoor.objects.get(calendar=self.calendar, door_number=2)
+        door.content_type = content_type
+        door.save()
+        AdventDoorContent.objects.create(door=door, title="A small parcel")
+        with patch(
+            NOW,
+            return_value=datetime.datetime(
+                2024, 12, 5, 12, tzinfo=datetime.timezone.utc
+            ),
+        ):
+            response = self.client.get("/en/advent/door/2/", **HOST)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, template)
+        return response.content.decode()
+
+    def test_advent_gift_door_links_journey_css(self):
+        html = self._advent_door_html("gift_teaser", "crush_lu/advent/door_gift.html")
+        self.assertIn(JOURNEY_LINK, html)
+
+    def test_advent_poem_door_links_journey_css(self):
+        html = self._advent_door_html("poem", "crush_lu/advent/door_poem.html")
+        self.assertIn(JOURNEY_LINK, html)
+
+
+class FeatureStylesheetTemplateTests(TestCase):
+    """Static guard for pages that are costly to render in a test."""
+
+    TEMPLATES = Path(settings.BASE_DIR) / "crush_lu" / "templates" / "crush_lu"
+
+    def _read(self, rel):
+        return (self.TEMPLATES / rel).read_text(encoding="utf-8")
+
+    def test_templates_link_their_feature_stylesheet(self):
+        expected = {
+            "journey/journey_base.html": "journey",
+            "journey/gift_base.html": "journey",
+            "journey/journey_selector.html": "journey",
+            "advent/door_poem.html": "journey",
+            "advent/door_gift.html": "journey",
+            "crush_connect.html": "marketing",
+        }
+        missing = [
+            rel
+            for rel, name in expected.items()
+            if f"{{% static 'crush_lu/css/{name}.css' %}}" not in self._read(rel)
+        ]
+        self.assertEqual(missing, [])
+
+    def test_journey_children_keep_the_inherited_stylesheet(self):
+        # journey_base.html links journey.css in extra_css (and offers
+        # extra_journey_css); a child overriding extra_css must call
+        # block.super or it silently loses the stylesheet.
+        offenders = []
+        for rel in ("journey", "advent"):
+            for path in (self.TEMPLATES / rel).rglob("*.html"):
+                text = path.read_text(encoding="utf-8")
+                for m in re.finditer(
+                    r"{% block extra_css %}(.*?){% endblock %}", text, re.S
+                ):
+                    body = m.group(1)
+                    if path.name in (
+                        "journey_base.html",
+                        "gift_base.html",
+                        "advent_base.html",
+                    ):
+                        continue
+                    if "block.super" not in body and "css/journey.css" not in body:
+                        offenders.append(str(path.relative_to(self.TEMPLATES)))
+        self.assertEqual(offenders, [])
