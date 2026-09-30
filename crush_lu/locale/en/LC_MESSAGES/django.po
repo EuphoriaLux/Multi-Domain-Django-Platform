@@ -10023,7 +10023,7 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\advent\calendar_locked.html:22
 #, python-format
-msgid "The magic begins on <strong>%(date)s</strong>"
+msgid "The magic begins on <strong>December 1st, %(year)s</strong>"
 msgstr ""
 
 #: crush_lu/views_advent.py:53

@@ -19,7 +19,7 @@
             <h2 class="mb-4">{% trans "Your Advent Calendar Awaits!" %}</h2>
 
             <p class="lead mb-4">
-                {% blocktrans with date=start_date|date:"DATE_FORMAT" %}The magic begins on <strong>{{ date }}</strong>{% endblocktrans %}
+                {% blocktrans with year=calendar.year %}The magic begins on <strong>December 1st, {{ year }}</strong>{% endblocktrans %}
             </p>
 
             <div class="countdown-preview mb-4">

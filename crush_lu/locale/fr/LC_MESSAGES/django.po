@@ -14685,8 +14685,8 @@ msgstr "Votre calendrier de l'Avent vous attend !"
 
 #: templates/crush_lu/advent/calendar_locked.html:22
 #, python-format
-msgid "The magic begins on <strong>%(date)s</strong>"
-msgstr "La magie commence le <strong>%(date)s</strong>"
+msgid "The magic begins on <strong>December 1st, %(year)s</strong>"
+msgstr "La magie commence le <strong>1er décembre %(year)s</strong>"
 
 #: crush_lu/views_advent.py:53
 msgid "The Advent Calendar will be available in December!"
