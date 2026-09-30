@@ -4,7 +4,11 @@
   "private": true,
   "scripts": {
     "test:smoke": "pytest -m \"playwright and smoke\" --tb=short -q",
-    "build:css": "tailwindcss -i ./tailwind-src/crush_lu/tailwind-input.css -o ./crush_lu/static/crush_lu/css/tailwind.css --minify",
+    "build:css": "npm run build:css:base && npm run build:css:features",
+    "build:css:base": "tailwindcss -i ./tailwind-src/crush_lu/tailwind-input.css -o ./crush_lu/static/crush_lu/css/tailwind.css --minify",
+    "build:css:features": "npm run build:css:journey && npm run build:css:marketing",
+    "build:css:journey": "tailwindcss -i ./tailwind-src/crush_lu/features/journey.css -o ./crush_lu/static/crush_lu/css/journey.css --minify",
+    "build:css:marketing": "tailwindcss -i ./tailwind-src/crush_lu/features/marketing.css -o ./crush_lu/static/crush_lu/css/marketing.css --minify",
     "watch:css": "tailwindcss -i ./tailwind-src/crush_lu/tailwind-input.css -o ./crush_lu/static/crush_lu/css/tailwind.css --watch",
     "build:css:power-up": "tailwindcss -i ./tailwind-src/power_up/tailwind-input.css -o ./power_up/static/power_up/css/tailwind.css --minify",
     "watch:css:power-up": "tailwindcss -i ./tailwind-src/power_up/tailwind-input.css -o ./power_up/static/power_up/css/tailwind.css --watch",

@@ -11,6 +11,21 @@ though they share `azureproject/` infrastructure.
 
 ---
 
+## 0. Where page-only CSS lives
+
+`tailwind.css` (built from `tailwind-input.css`) is loaded on every page, so
+CSS that only one family of pages needs lives in a feature stylesheet instead:
+`tailwind-src/crush_lu/features/journey.css` (journey, gifts, rewards, advent
+poem/gift doors) and `features/marketing.css` (about, how it works, Crush Coach,
+Crush Connect). Each starts with `@reference "../tailwind-input.css";` (so
+`@apply` and theme tokens still work), builds to `static/crush_lu/css/<name>.css`
+via `npm run build:css` and is linked from the page's `extra_css` block.
+A new rule used by only those pages goes in the feature file; anything shared
+stays in `tailwind-input.css`. Feature files load AFTER `tailwind.css`, so a
+rule moved out must not share a class with a later rule left behind.
+
+---
+
 ## 1. Design tokens
 
 ### Colors

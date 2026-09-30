@@ -18,6 +18,8 @@ build/
 
 # Tailwind CSS build output — generated file, not hand-authored
 crush_lu/static/crush_lu/css/tailwind.css
+crush_lu/static/crush_lu/css/journey.css
+crush_lu/static/crush_lu/css/marketing.css
 
 # JS files with syntax prettier cannot parse
 vinsdelux/static/vinsdelux/js/enhanced-map.js
