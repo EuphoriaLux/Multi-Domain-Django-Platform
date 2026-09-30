@@ -125,3 +125,87 @@ class TermsVersionWriterTests(TestCase):
         row = UserDataConsent.objects.filter(user=user).first()
         self.assertIsNotNone(row)
         self.assertEqual(row.powerup_terms_version, "8.8")
+
+    def test_signup_form_save_stamps_crushlu_consent(self):
+        from allauth.account.forms import SignupForm
+        from django.test import RequestFactory
+
+        from crush_lu.forms import CrushSignupForm
+
+        user = User.objects.create_user("sf", "sf@example.com", "pw12345678")
+        UserDataConsent.objects.filter(user=user).delete()
+        request = RequestFactory().post("/en/signup/", **HOST)
+        form = CrushSignupForm()
+        form.cleaned_data = {
+            "first_name": "Sam",
+            "last_name": "",
+            "crushlu_consent": True,
+            "marketing_consent": False,
+        }
+        with mock.patch.object(
+            SignupForm, "save", return_value=user
+        ), mock.patch.object(legal, "CURRENT_TERMS_VERSION", "2.2"):
+            form.save(request)
+        row = _fresh(user)
+        self.assertTrue(row.crushlu_consent_given)
+        self.assertEqual(row.crushlu_terms_version, "2.2")
+
+    def test_oauth_implicit_consent_branch_stamps(self):
+        from crush_lu import signals
+
+        signals._thread_local.oauth_consent_data = {
+            "crushlu_consent": True,
+            "crushlu_consent_ip": "1.2.3.4",
+        }
+        try:
+            with mock.patch.object(legal, "CURRENT_TERMS_VERSION", "3.3"):
+                user = User.objects.create_user("oa", "oa@example.com", "pw12345678")
+        finally:
+            signals._thread_local.oauth_consent_data = None
+        row = _fresh(user)
+        self.assertTrue(row.crushlu_consent_given)
+        self.assertEqual(row.crushlu_terms_version, "3.3")
+        self.assertEqual(row.powerup_terms_version, "3.3")
+
+    def test_social_signup_hook_stamps_with_update_fields(self):
+        from types import SimpleNamespace
+
+        from django.test import RequestFactory
+
+        from crush_lu.signals import record_interactive_social_signup_consent
+
+        user = User.objects.create_user("ss", "ss@example.com", "pw12345678")
+        UserDataConsent.objects.filter(user=user).update(
+            crushlu_consent_given=False, crushlu_terms_version="1.0"
+        )
+        request = RequestFactory().post(
+            "/accounts/3rdparty/signup/", {"crushlu_consent": "on"}, **HOST
+        )
+        request.resolver_match = SimpleNamespace(url_name="socialaccount_signup")
+        with mock.patch.object(legal, "CURRENT_TERMS_VERSION", "4.4"):
+            record_interactive_social_signup_consent(
+                sender=None, request=request, user=user, sociallogin=object()
+            )
+        row = _fresh(user)
+        self.assertTrue(row.crushlu_consent_given)
+        self.assertEqual(row.crushlu_terms_version, "4.4")
+
+    def test_account_data_view_get_or_create_stamps_powerup(self):
+        from django.test import RequestFactory
+
+        from crush_lu import views_account
+
+        user = User.objects.create_user("ad", "ad@example.com", "pw12345678")
+        UserDataConsent.objects.filter(user=user).delete()
+        # Call the view directly: the consent middleware would redirect a user
+        # without a consent row before the view ever ran.
+        request = RequestFactory().get("/en/account/gdpr/", **HOST)
+        request.user = user
+        with mock.patch.object(legal, "CURRENT_TERMS_VERSION", "5.5"):
+            try:
+                views_account.gdpr_data_management(request)
+            except Exception:  # rendering needs the full middleware stack
+                pass
+        row = UserDataConsent.objects.filter(user=user).first()
+        self.assertIsNotNone(row)
+        self.assertEqual(row.powerup_terms_version, "5.5")
