@@ -15,6 +15,7 @@ Paths are literal: ``reverse("crush_lu:...")`` builds ``/crush/...`` paths that
 import re
 
 import pytest
+from django.utils import timezone
 from django.core.cache import cache
 from django.template.loader import render_to_string
 
@@ -179,3 +180,76 @@ class TestCantonMapAccessibleNames:
             rf'<input type="text" id="{re.escape(label_for.group(1))}"[^>]*readonly',
             html,
         )
+
+
+def _page_headings(html):
+    """Headings inside the page body, skipping the cookie banner / footer."""
+    start = html.index("<h1")
+    end = html.find("<footer", start)
+    return _headings(html[start : end if end != -1 else None])
+
+
+class TestMemberPagesKeepOneH1AndNoSkips:
+    """Onboarding phone + create-profile were h4/h3 step titles under no h1."""
+
+    @pytest.mark.parametrize(
+        "path,state",
+        [
+            ("/en/onboarding/phone/", {"phone_verified": False}),
+            (
+                "/en/create-profile/",
+                {"phone_verified": True, "verification_status": "incomplete"},
+            ),
+        ],
+    )
+    def test_onboarding_steps_have_one_h1_and_no_skipped_level(
+        self, client, path, state
+    ):
+        user = _make_member("wp9_steps", membership=False, luxid=False)
+        CrushProfile.objects.filter(user=user).update(
+            is_approved=False,
+            welcome_seen_at=timezone.now(),
+            coach_intro_seen_at=timezone.now(),
+            **state,
+        )
+        _login(client, user)
+        response = client.get(path, HTTP_HOST=HOST)
+        assert response.status_code == 200, response.get("Location")
+        headings = _page_headings(_body(response))
+        assert [level for level, _ in headings].count(1) == 1, headings
+        _assert_no_skipped_level(headings)
+
+    def test_password_change_page_has_an_h1(self, client):
+        user = _make_member("wp9_account", membership=False)
+        _login(client, user)
+        response = client.get("/accounts/password/change/", HTTP_HOST=HOST)
+        assert response.status_code == 200
+        headings = _headings(_body(response))
+        assert 1 in [level for level, _ in headings], headings
+
+    def test_email_management_template_has_an_h1(self, rf):
+        # /accounts/email/ redirects on crush.lu, so render the template itself.
+        user = _make_member("wp9_email", membership=False)
+        request = rf.get("/accounts/email/", HTTP_HOST=HOST)
+        request.user = user
+        html = render_to_string(
+            "account/email_crush.html",
+            {"emailaddresses": [], "request": request, "user": user},
+            request=request,
+        )
+        assert 1 in [level for level, _ in _headings(html)]
+
+
+class TestLoginLogoutPagesHaveAnH1:
+    def test_login_page_has_an_h1(self, client):
+        response = client.get("/accounts/login/", HTTP_HOST=HOST)
+        assert response.status_code == 200
+        assert 1 in [level for level, _ in _headings(_body(response))]
+
+    def test_logout_page_has_an_h1(self, client):
+        # Anonymous visitors are bounced to the home page, so sign in first.
+        user = _make_member("wp9_logout", membership=False)
+        _login(client, user)
+        response = client.get("/accounts/logout/", HTTP_HOST=HOST)
+        assert response.status_code == 200
+        assert 1 in [level for level, _ in _headings(_body(response))]
