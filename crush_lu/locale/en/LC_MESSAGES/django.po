@@ -13230,8 +13230,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\connection_detail.html:292
 #, python-format
 msgid ""
-"Your Crush Coach has approved this connection! Before your name and profile "
-"are shared with %(name)s, we need your explicit consent."
+"Your Crush Coach has approved this connection! Before your name and "
+"profile are shared with %(name)s, we need your explicit consent."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\connection_detail.html:296
@@ -13262,6 +13262,22 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\connection_detail.html:336
 msgid "Details Shared!"
+msgstr ""
+
+#: templates/crush_lu/connection_detail.html:348
+msgid ""
+"Your email address and phone number are only shared if you tick them "
+"below."
+msgstr ""
+
+#: templates/crush_lu/connection_detail.html:376
+#, python-format
+msgid "Also share my phone number with %(name)s"
+msgstr ""
+
+#: templates/crush_lu/connection_detail.html:433
+#, python-format
+msgid "%(name)s chose not to share their phone number."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\connection_detail.html:364
@@ -19116,12 +19132,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\multiple_choice.html:44
 #, python-format
-msgid ""
-"You already answered this question and earned <strong>%(points)s "
-"point</strong>."
-msgid_plural ""
-"You already answered this question and earned <strong>%(points)s "
-"points</strong>."
+msgid "You already answered this question and earned <strong>%(points)s point</strong>."
+msgid_plural "You already answered this question and earned <strong>%(points)s points</strong>."
 msgstr[0] ""
 msgstr[1] ""
 
@@ -19215,11 +19227,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\riddle.html:46
 #, python-format
-msgid ""
-"You already solved this riddle and earned <strong>%(points)s point</strong>."
-msgid_plural ""
-"You already solved this riddle and earned <strong>%(points)s "
-"points</strong>."
+msgid "You already solved this riddle and earned <strong>%(points)s point</strong>."
+msgid_plural "You already solved this riddle and earned <strong>%(points)s points</strong>."
 msgstr[0] ""
 msgstr[1] ""
 
@@ -19263,12 +19272,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\timeline_sort.html:44
 #, python-format
-msgid ""
-"You already sorted this timeline correctly and earned <strong>%(points)s "
-"point</strong>."
-msgid_plural ""
-"You already sorted this timeline correctly and earned <strong>%(points)s "
-"points</strong>."
+msgid "You already sorted this timeline correctly and earned <strong>%(points)s point</strong>."
+msgid_plural "You already sorted this timeline correctly and earned <strong>%(points)s points</strong>."
 msgstr[0] ""
 msgstr[1] ""
 
@@ -19294,12 +19299,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\word_scramble.html:60
 #, python-format
-msgid ""
-"You already unscrambled this word and earned <strong>%(points)s "
-"point</strong>."
-msgid_plural ""
-"You already unscrambled this word and earned <strong>%(points)s "
-"points</strong>."
+msgid "You already unscrambled this word and earned <strong>%(points)s point</strong>."
+msgid_plural "You already unscrambled this word and earned <strong>%(points)s points</strong>."
 msgstr[0] ""
 msgstr[1] ""
 
@@ -19317,12 +19318,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\would_you_rather.html:43
 #, python-format
-msgid ""
-"You've already shared your choice and earned <strong>%(points)s "
-"point</strong>."
-msgid_plural ""
-"You've already shared your choice and earned <strong>%(points)s "
-"points</strong>."
+msgid "You've already shared your choice and earned <strong>%(points)s point</strong>."
+msgid_plural "You've already shared your choice and earned <strong>%(points)s points</strong>."
 msgstr[0] ""
 msgstr[1] ""
 
@@ -25942,7 +25939,7 @@ msgid "Connection request declined."
 msgstr ""
 
 #: .\crush_lu\views_connections.py:752
-msgid "Contact information is now shared!"
+msgid "The details you each chose to share are now visible!"
 msgstr ""
 
 #: .\crush_lu\views_connections.py:754
@@ -27066,14 +27063,8 @@ msgstr ""
 msgid "Your Connect profile is paused"
 msgstr "Your Connect profile is paused"
 
-msgid ""
-"You are hidden from new Drops, Connect Week cards, Sparks, requests, and "
-"Event Lobbies. Your Crush.lu account, events, Premium membership, profile "
-"answers, and existing chats are unchanged."
-msgstr ""
-"You are hidden from new Drops, Connect Week cards, Sparks, requests, and "
-"Event Lobbies. Your Crush.lu account, events, Premium membership, profile "
-"answers, and existing chats are unchanged."
+msgid "You are hidden from new Drops, Connect Week cards, Sparks, requests, and Event Lobbies. Your Crush.lu account, events, Premium membership, profile answers, and existing chats are unchanged."
+msgstr "You are hidden from new Drops, Connect Week cards, Sparks, requests, and Event Lobbies. Your Crush.lu account, events, Premium membership, profile answers, and existing chats are unchanged."
 
 msgid "Reactivate Crush Connect"
 msgstr "Reactivate Crush Connect"
@@ -27108,12 +27099,8 @@ msgstr "Reactivate"
 msgid "Crush Connect is paused"
 msgstr "Crush Connect is paused"
 
-msgid ""
-"You are hidden from new Connect activity. Your profile and existing chats "
-"are preserved."
-msgstr ""
-"You are hidden from new Connect activity. Your profile and existing chats "
-"are preserved."
+msgid "You are hidden from new Connect activity. Your profile and existing chats are preserved."
+msgstr "You are hidden from new Connect activity. Your profile and existing chats are preserved."
 
 msgid "Review or reactivate"
 msgstr "Review or reactivate"
@@ -27127,34 +27114,20 @@ msgstr "Back to Crush Connect"
 msgid "Pause your Connect profile?"
 msgstr "Pause your Connect profile?"
 
-msgid ""
-"Take a break without deleting your Crush.lu account or repeating Connect "
-"onboarding later."
-msgstr ""
-"Take a break without deleting your Crush.lu account or repeating Connect "
-"onboarding later."
+msgid "Take a break without deleting your Crush.lu account or repeating Connect onboarding later."
+msgstr "Take a break without deleting your Crush.lu account or repeating Connect onboarding later."
 
-msgid ""
-"Your card is removed from new Drops, Connect Weeks, Sparks, requests, and "
-"Event Lobbies."
-msgstr ""
-"Your card is removed from new Drops, Connect Weeks, Sparks, requests, and "
-"Event Lobbies."
+msgid "Your card is removed from new Drops, Connect Weeks, Sparks, requests, and Event Lobbies."
+msgstr "Your card is removed from new Drops, Connect Weeks, Sparks, requests, and Event Lobbies."
 
-msgid ""
-"Your answers, preferences, Premium membership, and event access stay "
-"unchanged."
-msgstr ""
-"Your answers, preferences, Premium membership, and event access stay "
-"unchanged."
+msgid "Your answers, preferences, Premium membership, and event access stay unchanged."
+msgstr "Your answers, preferences, Premium membership, and event access stay unchanged."
 
 msgid "You can reactivate instantly whenever you are ready."
 msgstr "You can reactivate instantly whenever you are ready."
 
-msgid ""
-"Your existing temporary chats remain available until their normal expiry."
-msgstr ""
-"Your existing temporary chats remain available until their normal expiry."
+msgid "Your existing temporary chats remain available until their normal expiry."
+msgstr "Your existing temporary chats remain available until their normal expiry."
 
 msgid "Keep Connect active"
 msgstr "Keep Connect active"
@@ -27165,22 +27138,14 @@ msgstr "Crush Connect is paused. Your profile is hidden from new connections."
 msgid "Crush Connect is active again."
 msgstr "Crush Connect is active again."
 
-msgid ""
-"Set while the member has paused Crush Connect; onboarding and existing chats"
-" are preserved"
-msgstr ""
-"Set while the member has paused Crush Connect; onboarding and existing chats"
-" are preserved"
+msgid "Set while the member has paused Crush Connect; onboarding and existing chats are preserved"
+msgstr "Set while the member has paused Crush Connect; onboarding and existing chats are preserved"
 
 msgid "Member pause"
 msgstr "Member pause"
 
-msgid ""
-"A member-controlled pause hides them from new Crush Connect discovery while "
-"preserving onboarding and existing chats."
-msgstr ""
-"A member-controlled pause hides them from new Crush Connect discovery while "
-"preserving onboarding and existing chats."
+msgid "A member-controlled pause hides them from new Crush Connect discovery while preserving onboarding and existing chats."
+msgstr "A member-controlled pause hides them from new Crush Connect discovery while preserving onboarding and existing chats."
 
 #: email_helpers.py
 msgid "Your Premium membership payment receipt"
@@ -27253,8 +27218,7 @@ msgid "Thank you!"
 msgstr ""
 
 #: templates/crush_lu/components/curated_group_outlook.html
-msgid ""
-"The overall application pool is large enough to explore group combinations."
+msgid "The overall application pool is large enough to explore group combinations."
 msgstr ""
 
 #: templates/crush_lu/components/curated_group_outlook.html
@@ -27268,12 +27232,8 @@ msgstr ""
 
 #: templates/crush_lu/components/curated_group_outlook.html
 #, python-format
-msgid ""
-"The organiser currently plans one group, subject to compatible applications "
-"and a viable round schedule."
-msgid_plural ""
-"The organiser currently plans %(count)s groups, subject to compatible "
-"applications and a viable round schedule."
+msgid "The organiser currently plans one group, subject to compatible applications and a viable round schedule."
+msgid_plural "The organiser currently plans %(count)s groups, subject to compatible applications and a viable round schedule."
 msgstr[0] ""
 msgstr[1] ""
 
@@ -27289,39 +27249,27 @@ msgid "One flexible group can run at the venue."
 msgstr ""
 
 #: templates/crush_lu/components/curated_group_outlook.html
-msgid ""
-"The group size and number of groups will be set after applications are "
-"reviewed."
+msgid "The group size and number of groups will be set after applications are reviewed."
 msgstr ""
 
 #: templates/crush_lu/components/curated_group_outlook.html
-msgid ""
-"Applying does not reserve a place. Selection depends on mutual preferences "
-"producing a viable round schedule, and a place is not guaranteed."
+msgid "Applying does not reserve a place. Selection depends on mutual preferences producing a viable round schedule, and a place is not guaranteed."
 msgstr ""
 
 #: templates/crush_lu/components/curated_group_outlook.html
-msgid ""
-"If selected for a viable provisional group, you will be invited to pay. You "
-"are not charged when you apply."
+msgid "If selected for a viable provisional group, you will be invited to pay. You are not charged when you apply."
 msgstr ""
 
 #: templates/crush_lu/components/curated_group_outlook.html
-msgid ""
-"If selected for a viable provisional group, you will receive a separate "
-"confirmation."
+msgid "If selected for a viable provisional group, you will receive a separate confirmation."
 msgstr ""
 
 #: templates/crush_lu/components/curated_group_outlook.html
-msgid ""
-"Groups are finalized before the first round and stay together for the whole "
-"evening."
+msgid "Groups are finalized before the first round and stay together for the whole evening."
 msgstr ""
 
 #: templates/crush_lu/components/curated_group_outlook.html
-msgid ""
-"Every finalized group is scheduled to give each participant at least five "
-"mutually compatible mini-dates, with seven as the goal."
+msgid "Every finalized group is scheduled to give each participant at least five mutually compatible mini-dates, with seven as the goal."
 msgstr ""
 
 #: templates/crush_lu/components/event_registration_cta_label.html
@@ -27333,16 +27281,11 @@ msgid "Flexible groups"
 msgstr ""
 
 #: templates/crush_lu/event_detail.html
-msgid ""
-"The organiser reviews mutual preferences and will invite you to pay only if "
-"you are selected for a viable provisional group. Selection is not "
-"guaranteed."
+msgid "The organiser reviews mutual preferences and will invite you to pay only if you are selected for a viable provisional group. Selection is not guaranteed."
 msgstr ""
 
 #: templates/crush_lu/event_detail.html
-msgid ""
-"The organiser reviews mutual preferences and will confirm your place only if"
-" a viable provisional group can be formed. Selection is not guaranteed."
+msgid "The organiser reviews mutual preferences and will confirm your place only if a viable provisional group can be formed. Selection is not guaranteed."
 msgstr ""
 
 #: templates/crush_lu/event_detail.html
@@ -27353,8 +27296,7 @@ msgstr ""
 msgid "to apply for this event."
 msgstr ""
 
-#: email_helpers.py
-#: templates/crush_lu/emails/curated_group_payment_remedy.html
+#: email_helpers.py templates/crush_lu/emails/curated_group_payment_remedy.html
 #, python-brace-format
 msgid "Your payment for {title} was returned"
 msgstr ""
@@ -27363,59 +27305,39 @@ msgid "Your payment was returned"
 msgstr ""
 
 #, python-format
-msgid ""
-"When your payment for <strong>%(title)s</strong> completed, we could no "
-"longer honour the selected place under its certified terms. We therefore did"
-" not confirm a place."
+msgid "When your payment for <strong>%(title)s</strong> completed, we could no longer honour the selected place under its certified terms. We therefore did not confirm a place."
 msgstr ""
 
 #, python-format
-msgid ""
-"We've immediately returned %(amount)s EUR in Crush Credit to your account."
+msgid "We've immediately returned %(amount)s EUR in Crush Credit to your account."
 msgstr ""
 
-msgid ""
-"Because we could not provide the selected place you paid for, you may ask "
-"for a cash refund instead. Reply to this email and we will arrange it. If "
-"you spend any of the credit, the cash option closes."
+msgid "Because we could not provide the selected place you paid for, you may ask for a cash refund instead. Reply to this email and we will arrange it. If you spend any of the credit, the cash option closes."
 msgstr ""
 
-msgid ""
-"The cash-refund option has closed because some or all of this credit has "
-"already been used."
+msgid "The cash-refund option has closed because some or all of this credit has already been used."
 msgstr ""
 
-msgid ""
-"This booking was paid with Crush Credit, so its original value has been "
-"restored on its original expiry dates."
+msgid "This booking was paid with Crush Credit, so its original value has been restored on its original expiry dates."
 msgstr ""
 
-msgid ""
-"The full value was returned as Crush Credit. Reply to this email if you need"
-" us to review the original payment method."
+msgid "The full value was returned as Crush Credit. Reply to this email if you need us to review the original payment method."
 msgstr ""
 
-msgid ""
-"Your application remains in the pool. We will contact you if a new viable "
-"group is selected; you will not be charged again automatically."
+msgid "Your application remains in the pool. We will contact you if a new viable group is selected; you will not be charged again automatically."
 msgstr ""
 
-msgid ""
-"That evening can no longer be re-formed. No place was confirmed, and you "
-"will not be charged again automatically."
+msgid "That evening can no longer be re-formed. No place was confirmed, and you will not be charged again automatically."
 msgstr ""
 
 #: views_payments.py
-msgid ""
-"A payment checkout is already being prepared. Please wait and try again."
+msgid "A payment checkout is already being prepared. Please wait and try again."
 msgstr ""
 
-msgid ""
-"The registration changed while payment was being prepared. Please try again."
+msgid "The registration changed while payment was being prepared. Please try again."
 msgstr ""
 
-msgid ""
-"The event price changed while payment was being prepared. Please try again."
+msgid "The event price changed while payment was being prepared. Please try again."
 msgstr ""
 
 msgid "This registration is no longer available."
@@ -27446,24 +27368,17 @@ msgid "Hello %(first_name)s,"
 msgstr ""
 
 #, python-format
-msgid ""
-"The selected group for <strong>%(title)s</strong> can no longer go ahead as "
-"planned, so we have returned your application to the selection pool."
+msgid "The selected group for <strong>%(title)s</strong> can no longer go ahead as planned, so we have returned your application to the selection pool."
 msgstr ""
 
 msgid "No payment was taken for this place."
 msgstr ""
 
-msgid ""
-"We will reconsider your application if another viable group can be formed. "
-"We will contact you before any payment is required."
+msgid "We will reconsider your application if another viable group can be formed. We will contact you before any payment is required."
 msgstr ""
 
-msgid ""
-"You do not need to do anything to stay in the pool. If your plans have "
-"changed, you can withdraw from the event page."
+msgid "You do not need to do anything to stay in the pool. If your plans have changed, you can withdraw from the event page."
 msgstr ""
-
 #: email_helpers.py
 msgid "Your application for {title} stays in the pool"
 msgstr ""
@@ -27760,7 +27675,6 @@ msgid "%(count)d member already held a seat when this projection ran."
 msgid_plural "%(count)d members already held a seat when this projection ran."
 msgstr[0] ""
 msgstr[1] ""
-
 #: services/curated_group_insights.py
 msgid ""
 "The projector refused this pool, so groups can be neither generated nor "
@@ -27785,7 +27699,6 @@ msgid ""
 "The event has ended without round one being marked as started. Nothing left "
 "to do here."
 msgstr ""
-
 #: services/curated_group_insights.py
 msgid ""
 "The projector finds no viable group in this pool: nobody can be seated with "
@@ -28060,8 +27973,8 @@ msgstr ""
 msgctxt "crush cookie banner"
 msgid ""
 "We use cookies to enhance your experience. Analytics cookies help us "
-"understand how you use our site. You can accept all cookies or customize "
-"your preferences."
+"understand how you use our site. You can accept all cookies or customize your"
+" preferences."
 msgstr ""
 
 #. Crush.lu variant of the shared cookie banner
@@ -28108,9 +28021,7 @@ msgid "Unread notifications: {count}"
 msgstr ""
 
 #: theme ballot
-msgid ""
-"Anyone can view; any logged-in account can vote (no approved profile "
-"needed)."
+msgid "Anyone can view; any logged-in account can vote (no approved profile needed)."
 msgstr ""
 
 #: theme ballot
@@ -28142,8 +28053,7 @@ msgid "Please describe your idea in 200 characters or fewer."
 msgstr ""
 
 #: theme ballot
-msgid ""
-"Log in or create a free Crush.lu account to vote. No dating profile needed."
+msgid "Log in or create a free Crush.lu account to vote. No dating profile needed."
 msgstr ""
 
 #: theme ballot
@@ -28151,9 +28061,7 @@ msgid "Log in to vote"
 msgstr ""
 
 #: theme ballot
-msgid ""
-"When a theme gets enough votes, we plan it. If you voted for it, you'll hear"
-" first."
+msgid "When a theme gets enough votes, we plan it. If you voted for it, you'll hear first."
 msgstr ""
 
 #: theme ballot
@@ -28161,8 +28069,7 @@ msgid "Missing your kind of night?"
 msgstr ""
 
 #: theme ballot
-msgid ""
-"Suggest a theme. A coach reviews every idea before it goes on the ballot."
+msgid "Suggest a theme. A coach reviews every idea before it goes on the ballot."
 msgstr ""
 
 #: theme ballot
@@ -28191,9 +28098,7 @@ msgstr ""
 
 #: theme ballot
 #, python-format
-msgid ""
-"%(count)d suggestion(s) added as poll options. Add translations and an image"
-" on the poll."
+msgid "%(count)d suggestion(s) added as poll options. Add translations and an image on the poll."
 msgstr ""
 
 #: theme ballot
@@ -28207,10 +28112,7 @@ msgstr ""
 
 #: theme ballot
 #, python-format
-msgid ""
-"Women/men shares are the percentage of all women and of all men voting who "
-"picked a theme. They appear once a theme has %(min)s votes from women and "
-"%(min)s from men."
+msgid "Women/men shares are the percentage of all women and of all men voting who picked a theme. They appear once a theme has %(min)s votes from women and %(min)s from men."
 msgstr ""
 
 #: theme ballot
@@ -28219,9 +28121,7 @@ msgid "Women %(women)s%% · Men %(men)s%%"
 msgstr ""
 
 #: .\crush_lu\forms.py:1204
-msgid ""
-"We'll email them the gift. Only enter an address if they know you're sending"
-" this."
+msgid "We'll email them the gift. Only enter an address if they know you're sending this."
 msgstr ""
 
 #: crush_lu/views_journey_gift.py
@@ -28229,9 +28129,7 @@ msgid "You can send a Wonderland gift once a coach has approved your profile."
 msgstr ""
 
 #: crush_lu/views_journey_gift.py
-msgid ""
-"Thanks for letting us know. This gift is now closed and our team has been "
-"notified."
+msgid "Thanks for letting us know. This gift is now closed and our team has been notified."
 msgstr ""
 
 #: crush_lu/views_journey_gift.py
@@ -28239,9 +28137,7 @@ msgid "This gift is no longer active."
 msgstr ""
 
 #: crush_lu/views_journey_gift.py
-msgid ""
-"We couldn't send your report right now. The gift is still open. Please try "
-"again in a moment."
+msgid "We couldn't send your report right now. The gift is still open. Please try again in a moment."
 msgstr ""
 
 #: crush_lu/templates/crush_lu/journey/partials/gift_sender_badge.html
@@ -28254,8 +28150,7 @@ msgid "verified Crush.lu member"
 msgstr ""
 
 #: crush_lu/templates/crush_lu/journey/partials/gift_report_form.html
-msgid ""
-"Close this gift and let the Crush.lu team know? The link will stop working."
+msgid "Close this gift and let the Crush.lu team know? The link will stop working."
 msgstr ""
 
 #: crush_lu/templates/crush_lu/journey/partials/gift_report_form.html
@@ -28294,8 +28189,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\base.html:1210
 #: .\crush_lu\templates\crush_lu\partials\edit_about_crushlu.html:126
 msgid ""
-"Your privacy matters. Members are verified instantly with LuxID or in person"
-" at an event."
+"Your privacy matters. Members are verified instantly with LuxID or in person "
+"at an event."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\how_it_works.html:108
@@ -28304,9 +28199,9 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\how_it_works.html:188
 msgid ""
-"Your photos are never public or shown to search engines — you need a "
-"Crush.lu account to see them, and Crush Connect asks before showing your "
-"photo to your matches."
+"Your photos are never public or shown to search engines — you need a Crush.lu"
+" account to see them, and Crush Connect asks before showing your photo to "
+"your matches."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\how_it_works.html:189
@@ -28347,43 +28242,23 @@ msgstr "What happens to your payment"
 
 #: crush_lu/templates/crush_lu/event_cancel.html
 #, python-format
-msgid ""
-"You'll get %(amount)s EUR back as Crush Credit, ready to use on any Crush.lu"
-" event."
-msgstr ""
-"You'll get %(amount)s EUR back as Crush Credit, ready to use on any Crush.lu"
-" event."
+msgid "You'll get %(amount)s EUR back as Crush Credit, ready to use on any Crush.lu event."
+msgstr "You'll get %(amount)s EUR back as Crush Credit, ready to use on any Crush.lu event."
 
 #: crush_lu/templates/crush_lu/event_cancel.html
 #, python-format
-msgid ""
-"No refund: the event starts in less than %(hours)s hours. Your seat is "
-"released for someone else, and if someone takes it and pays before the event"
-" starts, you'll get %(share)s EUR back as Crush Credit."
-msgstr ""
-"No refund: the event starts in less than %(hours)s hours. Your seat is "
-"released for someone else, and if someone takes it and pays before the event"
-" starts, you'll get %(share)s EUR back as Crush Credit."
+msgid "No refund: the event starts in less than %(hours)s hours. Your seat is released for someone else, and if someone takes it and pays before the event starts, you'll get %(share)s EUR back as Crush Credit."
+msgstr "No refund: the event starts in less than %(hours)s hours. Your seat is released for someone else, and if someone takes it and pays before the event starts, you'll get %(share)s EUR back as Crush Credit."
 
 #: crush_lu/templates/crush_lu/event_cancel.html
 #, python-format
-msgid ""
-"You'll get %(amount)s EUR back as Crush Credit. It returns to your balance "
-"with its original expiry dates, so any part that has already expired can't "
-"be used again."
-msgstr ""
-"You'll get %(amount)s EUR back as Crush Credit. It returns to your balance "
-"with its original expiry dates, so any part that has already expired can't "
-"be used again."
+msgid "You'll get %(amount)s EUR back as Crush Credit. It returns to your balance with its original expiry dates, so any part that has already expired can't be used again."
+msgstr "You'll get %(amount)s EUR back as Crush Credit. It returns to your balance with its original expiry dates, so any part that has already expired can't be used again."
 
 #: crush_lu/templates/crush_lu/event_cancel.html
 #, python-format
-msgid ""
-"No refund: the event starts in less than %(hours)s hours. Your seat is "
-"released for someone else."
-msgstr ""
-"No refund: the event starts in less than %(hours)s hours. Your seat is "
-"released for someone else."
+msgid "No refund: the event starts in less than %(hours)s hours. Your seat is released for someone else."
+msgstr "No refund: the event starts in less than %(hours)s hours. Your seat is released for someone else."
 
 #: crush_lu/templates/crush_lu/event_cancel.html
 msgid "Keep my seat"
@@ -28391,14 +28266,8 @@ msgstr "Keep my seat"
 
 #: crush_lu/templates/crush_lu/partials/_cancellation_policy_note.html
 #, python-format
-msgid ""
-"Cancel before %(date)s at %(time)s for full Crush Credit. After that there's"
-" no refund, but you get %(share)s%% back as Crush Credit if someone takes "
-"your seat and pays before the event."
-msgstr ""
-"Cancel before %(date)s at %(time)s for full Crush Credit. After that there's"
-" no refund, but you get %(share)s%% back as Crush Credit if someone takes "
-"your seat and pays before the event."
+msgid "Cancel before %(date)s at %(time)s for full Crush Credit. After that there's no refund, but you get %(share)s%% back as Crush Credit if someone takes your seat and pays before the event."
+msgstr "Cancel before %(date)s at %(time)s for full Crush Credit. After that there's no refund, but you get %(share)s%% back as Crush Credit if someone takes your seat and pays before the event."
 
 #: crush_lu/templates/crush_lu/payments/sumup_widget.html
 msgid "Back to event"
@@ -28406,14 +28275,8 @@ msgstr "Back to event"
 
 #: crush_lu/templates/crush_lu/partials/_cancellation_policy_note.html
 #, python-format
-msgid ""
-"The event starts in less than %(hours)s hours, so cancelling gives no "
-"refund, but you get %(share)s%% back as Crush Credit if someone takes your "
-"seat and pays before the event."
-msgstr ""
-"The event starts in less than %(hours)s hours, so cancelling gives no "
-"refund, but you get %(share)s%% back as Crush Credit if someone takes your "
-"seat and pays before the event."
+msgid "The event starts in less than %(hours)s hours, so cancelling gives no refund, but you get %(share)s%% back as Crush Credit if someone takes your seat and pays before the event."
+msgstr "The event starts in less than %(hours)s hours, so cancelling gives no refund, but you get %(share)s%% back as Crush Credit if someone takes your seat and pays before the event."
 
 #: views_events.py:2051
 msgid ""
@@ -28469,8 +28332,8 @@ msgstr ""
 
 #: templates/crush_lu/gdpr_data_management.html
 msgid ""
-"Your email and sign-in methods. It can also be used for other services run "
-"by the same operator."
+"Your email and sign-in methods. It can also be used for other services run by"
+" the same operator."
 msgstr ""
 
 #: templates/crush_lu/gdpr_data_management.html
@@ -28546,8 +28409,7 @@ msgstr ""
 #: templates/crush_lu/moderation/blocked_members.html
 #, python-format
 msgid ""
-"Unblock %(name)s? They'll be able to see you at events and contact you "
-"again."
+"Unblock %(name)s? They'll be able to see you at events and contact you again."
 msgstr ""
 
 #: templates/crush_lu/moderation/blocked_members.html
@@ -28565,10 +28427,10 @@ msgstr ""
 msgid "As seen in"
 msgstr ""
 
-#: templates/crush_lu/base.html:806 templates/crush_lu/base.html:1186
+#: templates/crush_lu/base.html:806
+#: templates/crush_lu/base.html:1186
 msgid "This experience is always in night mode"
 msgstr ""
-
 # UX Wave 3 · WP1 verify-email
 # UX Wave 3 · WP1 verify-email
 # UX Wave 3 · WP1 verify-email
@@ -28577,6 +28439,7 @@ msgstr ""
 #: crush_lu/templates/account/verification_sent_crush.html
 msgid "Use a different address"
 msgstr ""
+
 
 # UX Wave 3 · WP6 event-detail
 #: crush_lu/templates/crush_lu/event_detail.html
@@ -28625,6 +28488,7 @@ msgstr ""
 #: crush_lu/templates/crush_lu/dashboard.html:18
 msgid "See Crush Connect above"
 msgstr ""
+
 
 # UX Wave 3 · WP10 match-moment
 #: crush_lu/templates/crush_lu/my_connections.html
@@ -28775,15 +28639,16 @@ msgid "Add a photo to continue where you left off."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\edit_profile.html:20
+msgid "Continue where you left off"
+
+
 #: crush_lu/templates/crush_lu/membership.html:4
 msgid "Pricing"
 msgstr ""
 
 #: crush_lu/templates/crush_lu/membership.html:7
 #: crush_lu/templates/crush_lu/membership.html:9
-msgid ""
-"Free account, events from €0. Premium adds a personal coach and reserved "
-"seats."
+msgid "Free account, events from €0. Premium adds a personal coach and reserved seats."
 msgstr ""
 
 #: crush_lu/templates/crush_lu/membership.html:74
@@ -28792,19 +28657,4 @@ msgstr ""
 
 #: crush_lu/templates/crush_lu/membership.html:77
 msgid "Manage your Premium request"
-msgstr ""
-
-#: crush_lu/templates/crush_lu/connection_detail.html:0
-msgid ""
-"Your email address and phone number are only shared if you tick them below."
-msgstr ""
-
-#: crush_lu/templates/crush_lu/connection_detail.html:0
-#, python-format
-msgid "Also share my phone number with %(name)s"
-msgstr ""
-
-#: crush_lu/templates/crush_lu/connection_detail.html:0
-#, python-format
-msgid "%(name)s chose not to share their phone number."
 msgstr ""

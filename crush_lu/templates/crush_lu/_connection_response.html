@@ -12,7 +12,7 @@
             </h3>
             {% if connection.status == 'shared' %}
                 <p class="text-gray-700 dark:text-gray-200 text-sm mb-3">
-                    {% blocktrans with name=connection.requester.crushprofile.display_name %}You and {{ name }} can already see each other's contact info — no waiting needed.{% endblocktrans %}
+                    {% blocktrans with name=connection.requester.crushprofile.display_name %}You and {{ name }} can now see each other's profile details — no waiting needed.{% endblocktrans %}
                 </p>
             {% else %}
                 <p class="text-gray-700 dark:text-gray-200 text-sm mb-3">

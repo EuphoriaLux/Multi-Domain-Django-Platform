@@ -8,6 +8,7 @@ so a phone that was never explicitly granted is not shared.
 Paths are literal (``reverse("crush_lu:...")`` 404s under HTTP_HOST=crush.lu).
 """
 
+from django.contrib.messages import get_messages
 from django.core.cache import cache
 from django.test import Client, TestCase
 
@@ -133,3 +134,34 @@ class MatchPhoneConsentTests(TestCase):
         # False, never a silent share.
         self.assertFalse(self.conn.requester_shares_phone)
         self.assertFalse(self.conn.recipient_shares_phone)
+
+    def test_consent_flash_names_details_not_contact_information(self):
+        self.conn.recipient_consents_to_share = True
+        self.conn.save()
+        response = self._client(self.me).post(
+            self._url(), {"consent": "yes"}, HTTP_HOST=HOST
+        )
+        flashed = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertEqual(
+            flashed, ["The details you each chose to share are now visible!"]
+        )
+
+    def test_same_gender_auto_share_copy_and_phone_stay_private(self):
+        # The auto-share path never shows the consent form, so no phone is
+        # offered or shared; the copy must not promise contact info.
+        CrushProfile.objects.filter(user=self.other).update(gender="F")
+        self.conn.status = "pending"
+        self.conn.save()
+        response = self._client(self.other).post(
+            f"/en/connections/{self.conn.id}/accept/",
+            HTTP_HOST=HOST,
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_TARGET=f"connection-{self.conn.id}",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.conn.refresh_from_db()
+        self.assertEqual(self.conn.status, "shared")
+        self.assertFalse(self.conn.requester_shares_phone)
+        self.assertFalse(self.conn.recipient_shares_phone)
+        self.assertContains(response, "each other's profile details")
+        self.assertNotContains(response, "contact info")

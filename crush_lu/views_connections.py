@@ -1166,7 +1166,9 @@ def connection_detail(request, connection_id):
                 recipient_consents_to_share=True,
             ).update(status="shared")
             if shared_rows:
-                messages.success(request, _("Contact information is now shared!"))
+                messages.success(
+                    request, _("The details you each chose to share are now visible!")
+                )
             else:
                 messages.success(request, _("Your consent has been recorded."))
 
