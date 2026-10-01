@@ -232,6 +232,16 @@ if (workbox) {
     // Cache Cleanup on Activation - Clean up old caches from previous versions
     // ============================================================================
 
+    // The iOS app shell must not sit on the old worker (and its cached pages
+    // and tickets, which may carry tracking tags) until the member taps
+    // "Update Now" in pwa-update.js: take over as soon as this one installs.
+    // pwa-update.js reloads the page on controllerchange.
+    self.addEventListener("install", () => {
+        if (/CrushLUApp\//.test(self.navigator.userAgent || "")) {
+            self.skipWaiting();
+        }
+    });
+
     self.addEventListener("activate", (event) => {
         event.waitUntil(
             (async () => {
