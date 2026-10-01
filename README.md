@@ -193,6 +193,11 @@ pytest -m "not playwright"
 pytest -m "playwright and smoke"
 # equivalent: npm run test:smoke
 
+# Run the axe accessibility gate (needs `npm ci`; fails only on NEW critical/serious
+# violations vs crush_lu/tests/axe_baseline.json; ratchet with AXE_UPDATE_BASELINE=1)
+pytest -m "playwright and axe_smoke" -n 0
+# equivalent: npm run test:axe
+
 # Run specific app tests
 pytest crush_lu/tests/
 
