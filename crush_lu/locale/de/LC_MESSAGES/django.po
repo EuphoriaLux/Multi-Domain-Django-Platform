@@ -17319,7 +17319,7 @@ msgstr "Durchschnitt: %(min)s – %(max)s"
 #: templates/crush_lu/coach_dashboard.html:570
 #: templates/crush_lu/membership.html:108
 msgid "Membership Tiers"
-msgstr "Mitgliedschaftsstufen"
+msgstr "Mitgliedsstufen"
 
 #: templates/crush_lu/coach_dashboard.html:587
 #: templates/crush_lu/coach_edit_profile.html:214
@@ -28313,15 +28313,6 @@ msgstr "Teile deine Gedanken frei mit – es gibt keine falschen Antworten ✨"
 msgid "Already Submitted!"
 msgstr "Bereits eingereicht!"
 
-#: templates/crush_lu/journey/challenges/open_text.html:53
-#, python-format
-msgid ""
-"You've already shared your response and earned <strong>%(points)s "
-"points</strong>."
-msgstr ""
-"Du hast deine Antwort bereits geteilt und <strong>%(points)s Punkte</strong>"
-" verdient."
-
 #: templates/crush_lu/journey/challenges/open_text.html:60
 msgid "Your Response:"
 msgstr "Deine Antwort:"
@@ -29103,15 +29094,6 @@ msgstr "Reise beginnen"
 #: templates/crush_lu/journey/partials/already_completed.html:8
 msgid "Already Completed!"
 msgstr "Bereits abgeschlossen!"
-
-#: templates/crush_lu/journey/partials/already_completed.html:14
-#, python-format
-msgid ""
-"You already completed this challenge and earned <strong>%(points)s "
-"points</strong>."
-msgstr ""
-"Du hast diese Herausforderung bereits abgeschlossen und <strong>%(points)s "
-"Punkte</strong> verdient."
 
 # Coach Dashboard translations
 #: templates/crush_lu/journey/partials/challenge_header.html:9
@@ -44001,6 +43983,37 @@ msgstr "Bewerbung für"
 
 msgid "Pending / no-show"
 msgstr "Ausstehend / nicht erschienen"
+
+# UX Wave 5 · WP15 i18n-rest
+#: templates/crush_lu/journey/challenges/open_text.html:53
+#, python-format
+msgid ""
+"You've already shared your response and earned <strong>%(points)s "
+"point</strong>."
+msgid_plural ""
+"You've already shared your response and earned <strong>%(points)s "
+"points</strong>."
+msgstr[0] ""
+"Du hast deine Antwort bereits geteilt und <strong>%(points)s Punkt</strong> "
+"verdient."
+msgstr[1] ""
+"Du hast deine Antwort bereits geteilt und <strong>%(points)s Punkte</strong> "
+"verdient."
+
+#: templates/crush_lu/journey/partials/already_completed.html:14
+#, python-format
+msgid ""
+"You already completed this challenge and earned <strong>%(points)s "
+"point</strong>."
+msgid_plural ""
+"You already completed this challenge and earned <strong>%(points)s "
+"points</strong>."
+msgstr[0] ""
+"Du hast diese Herausforderung bereits abgeschlossen und <strong>%(points)s "
+"Punkt</strong> verdient."
+msgstr[1] ""
+"Du hast diese Herausforderung bereits abgeschlossen und <strong>%(points)s "
+"Punkte</strong> verdient."
 
 #: WP14 settings-and-journey
 msgid "Pause all emails"

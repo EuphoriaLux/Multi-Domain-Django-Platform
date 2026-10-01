@@ -88,8 +88,9 @@
                         {% endif %}
                     </div>
                     {% if crush_social_accounts.count > 1 or user.has_usable_password %}
+                    {% blocktrans with provider=social.provider|title asvar disconnect_question %}Are you sure you want to disconnect this {{ provider }} account?{% endblocktrans %}
                     <form method="post" action="{% url 'crush_lu:disconnect_social_account' social.id %}"
-                          onsubmit="return confirm('{% blocktrans with provider=social.provider|title %}Are you sure you want to disconnect this {{ provider }} account?{% endblocktrans %}');">
+                          data-confirm="{{ disconnect_question }}" data-confirm-label="{% trans 'Disconnect' %}">
                         {% csrf_token %}
                         <button type="submit" class="border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 px-4 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2">
                             {% include "shared/icons/x-mark.html" with class="w-5 h-5" %}{% trans "Disconnect" %}
