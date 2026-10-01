@@ -959,8 +959,8 @@
                             </svg>
                             <div class="flex-1">
                                 <p class="text-xs sm:text-sm">
-                                    <a href="{% url 'crush_lu:login' %}?next={{ request.path }}" class="font-semibold underline">{% trans "Log in" %}</a> {% trans "or" %}
-                                    <a href="{% url 'crush_lu:signup' %}" class="font-semibold underline">{% trans "sign up" %}</a>
+                                    <a href="{% url 'crush_lu:login' %}?next={{ request.path }}" class="font-semibold underline text-blue-800 hover:text-blue-900 dark:text-blue-200 dark:hover:text-blue-100">{% trans "Log in" %}</a> {% trans "or" %}
+                                    <a href="{% url 'crush_lu:signup' %}" class="font-semibold underline text-blue-800 hover:text-blue-900 dark:text-blue-200 dark:hover:text-blue-100">{% trans "sign up" %}</a>
                                     {% if event.uses_curated_registration %}{% trans "to apply for this event." %}{% else %}{% trans "to register for this event." %}{% endif %}
                                 </p>
                             </div>

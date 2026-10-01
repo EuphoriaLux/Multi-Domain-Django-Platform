@@ -317,7 +317,7 @@
                 {% include "shared/icons/pencil.html" with class="w-5 h-5" %}{% trans "Edit Profile" %}
             </a>
             {% elif vs == 'rejected' or rs == 'rejected' %}
-            <a href="{% url 'crush_lu:profile_rejected' %}" class="text-red-600 dark:text-red-400 hover:text-red-800 text-sm underline">
+            <a href="{% url 'crush_lu:profile_rejected' %}" class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm underline">
                 {% trans "View rejection details" %}
             </a>
             {% elif rs == 'revision' %}
