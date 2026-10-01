@@ -170,7 +170,9 @@ def _hearts_page(page, live_server):
     page.goto(f"{live_server.url}/static/crush_lu/css/tailwind.css")
     page.set_content(
         f'<html><head><link rel="stylesheet" href="{live_server.url}'
-        f'/static/crush_lu/css/tailwind.css"></head><body>'
+        f'/static/crush_lu/css/tailwind.css">'
+        f'<link rel="stylesheet" href="{live_server.url}'
+        f'/static/crush_lu/css/journey.css"></head><body>'
         f'<div class="journey-hearts">{HEARTS}</div></body></html>'
     )
     page.wait_for_load_state("load")
