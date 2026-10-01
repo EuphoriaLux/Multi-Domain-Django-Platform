@@ -28828,7 +28828,7 @@ msgstr ""
 
 #: templates/crush_lu/journey/gift_create.html:116
 msgid "Click or drag to upload photo"
-msgstr "Clique ou glisse pour télécharger une photo"
+msgstr "Cliquez ou glissez pour télécharger une photo"
 
 #: templates/crush_lu/journey/gift_create.html:131
 msgid "Chapter 3: Photo Slideshow"
@@ -44134,6 +44134,22 @@ msgstr "Candidater à"
 
 msgid "Pending / no-show"
 msgstr "En attente / absent·es"
+
+#: crush_lu/templates/crush_lu/journey/gift_create.html
+msgid "e.g., Marie, Sunshine"
+msgstr "p. ex., Marie, Soleil"
+
+#: crush_lu/templates/crush_lu/journey/gift_create.html
+msgid "Add background music that plays while your recipient reads your Future Letter!"
+msgstr "Ajoutez une musique de fond qui jouera pendant que le destinataire lira votre Lettre du futur !"
+
+#: crush_lu/templates/crush_lu/journey/gift_create.html
+msgid "Audio file is too large. Maximum size is 10 MB."
+msgstr "Le fichier audio est trop volumineux. La taille maximale est de 10 MB."
+
+#: crush_lu/templates/crush_lu/journey/gift_create.html
+msgid "Video file is too large. Maximum size is 50 MB."
+msgstr "Le fichier vidéo est trop volumineux. La taille maximale est de 50 MB."
 
 # UX Wave 5 · WP15 i18n-rest
 #: templates/crush_lu/journey/challenges/open_text.html:53
