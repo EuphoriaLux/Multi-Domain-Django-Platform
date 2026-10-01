@@ -1,3 +1,6 @@
+from datetime import date, datetime
+import re
+
 from rest_framework import serializers
 
 from .constants import SOCIAL_CONTENT_MAX_LENGTH
@@ -300,6 +303,11 @@ class SocialPostSerializer(serializers.ModelSerializer):
     featured_profile_id = serializers.CharField(read_only=True)
     source_event_id = serializers.CharField(read_only=True)
     source_event_title = serializers.SerializerMethodField()
+    review_fingerprint = serializers.SerializerMethodField()
+    posting_suggestion = serializers.SerializerMethodField()
+    generation_key = serializers.CharField(
+        max_length=200, required=False, allow_null=True, allow_blank=False
+    )
 
     class Meta:
         model = SocialPost
@@ -319,9 +327,14 @@ class SocialPostSerializer(serializers.ModelSerializer):
             "content",
             "media_url",
             "media_urls",
+            "generation_key",
+            "source_metadata",
+            "review_fingerprint",
+            "posting_suggestion",
             "status",
             "scheduled_for",
             "buffer_id",
+            "buffer_delivery_uncertain",
             "article_id",
             "status_history",
             "created_at",
@@ -334,6 +347,7 @@ class SocialPostSerializer(serializers.ModelSerializer):
             "source_event_id",
             "source_event_title",
             "buffer_id",
+            "buffer_delivery_uncertain",
             "dispatched_platforms",
             "article_id",
             "status_history",
@@ -346,6 +360,61 @@ class SocialPostSerializer(serializers.ModelSerializer):
 
     def get_source_event_title(self, obj):
         return obj.source_event.title if obj.source_event_id else None
+
+    def get_review_fingerprint(self, obj):
+        from .social_planning import review_fingerprint
+
+        return review_fingerprint(obj)
+
+    def get_posting_suggestion(self, obj):
+        from .social_planning import posting_proposal
+
+        return posting_proposal(obj, occupied=self.context.get("reserved_times"))
+
+    def validate_generation_key(self, value):
+        if value is not None and not re.fullmatch(r"[A-Za-z0-9:_./-]{1,200}", value):
+            raise serializers.ValidationError("Use a bounded automation run key.")
+        if self.instance and value != self.instance.generation_key:
+            raise serializers.ValidationError(
+                "The automation identity cannot be changed."
+            )
+        return value
+
+    def validate_source_metadata(self, value):
+        allowed = {
+            "posting_date",
+            "source_url",
+            "title",
+            "checked_at",
+            "event_date",
+            "region",
+            "first_party",
+            "data_period",
+            "posting_reason",
+        }
+        if not isinstance(value, dict) or set(value) - allowed:
+            raise serializers.ValidationError(
+                "Provide only supported source/proposal fields."
+            )
+        for key, item in value.items():
+            if key == "first_party":
+                if not isinstance(item, bool):
+                    raise serializers.ValidationError("first_party must be boolean.")
+            elif item is not None and (not isinstance(item, str) or len(item) > 500):
+                raise serializers.ValidationError("Source fields must be bounded text.")
+        try:
+            for key in ("posting_date", "event_date"):
+                if value.get(key):
+                    date.fromisoformat(value[key])
+            if value.get("checked_at"):
+                datetime.fromisoformat(value["checked_at"].replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise serializers.ValidationError("Invalid source date.") from exc
+        if value.get("source_url"):
+            serializers.URLField().run_validation(value["source_url"])
+            if not value["source_url"].startswith("https://"):
+                raise serializers.ValidationError("Source URLs must use HTTPS.")
+        return value
 
     def validate_platforms(self, value):
         allowed = {"instagram", "facebook", "linkedin"}

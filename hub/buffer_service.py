@@ -33,6 +33,10 @@ class BufferAuthError(BufferServiceError):
     """
 
 
+class BufferDeliveryUnknown(BufferServiceError):
+    """A mutation may have succeeded; reconcile in Buffer before retrying."""
+
+
 class BufferPartialFailure(BufferServiceError):
     """Raised when Buffer created some channel posts before a later failure."""
 
@@ -91,9 +95,17 @@ def _graphql(query: str, variables: dict | None = None) -> dict:
                 f"Buffer rejected the configured API key (HTTP {status_code})"
             ) from exc
         logger.exception("Buffer GraphQL request failed")
+        if "mutation CreatePost" in query and status_code and status_code >= 500:
+            raise BufferDeliveryUnknown(
+                "Buffer delivery response is uncertain"
+            ) from exc
         raise BufferServiceError("Buffer is temporarily unavailable") from exc
     except (requests.RequestException, ValueError) as exc:
         logger.exception("Buffer GraphQL request failed")
+        if "mutation CreatePost" in query:
+            raise BufferDeliveryUnknown(
+                "Buffer delivery response is uncertain"
+            ) from exc
         raise BufferServiceError("Buffer is temporarily unavailable") from exc
 
     if payload.get("errors"):
@@ -135,6 +147,10 @@ def list_buffer_profiles() -> list[dict]:
             service
             avatar
             isQueuePaused
+            isDisconnected
+            isLocked
+            timezone
+            postingSchedule {{ day paused times }}
           }}
         }}
         """)
@@ -148,6 +164,10 @@ def list_buffer_profiles() -> list[dict]:
             or channel.get("name")
             or channel["id"],
             "is_queue_paused": bool(channel.get("isQueuePaused")),
+            "is_disconnected": bool(channel.get("isDisconnected")),
+            "is_locked": bool(channel.get("isLocked")),
+            "timezone": channel.get("timezone") or "Europe/Luxembourg",
+            "posting_schedule": channel.get("postingSchedule") or [],
         }
         for channel in data.get("channels", [])
     ]
@@ -207,7 +227,7 @@ def _create_channel_post(
     try:
         return result["post"]["id"]
     except (KeyError, TypeError) as exc:
-        raise BufferServiceError("Buffer returned no post identifier") from exc
+        raise BufferDeliveryUnknown("Buffer returned no post identifier") from exc
 
 
 def create_buffer_update(
