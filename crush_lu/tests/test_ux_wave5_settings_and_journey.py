@@ -297,3 +297,50 @@ def test_whatsapp_saves_are_serialised_in_click_order():
     block = core[core.index('"whatsappPreference"') :]
     block = block[: block.index('"profileSectionAutosave"')]
     assert "this.queue = this.queue.then(" in block
+
+
+# Round-2 review: the light conversion was incomplete. The exhaustive guard is
+# test_journey_light_contrast_playwright.py (it measures every template); these
+# source checks keep the eight reported surfaces pinned in the default run.
+
+
+def _light(selector_fragment, declaration):
+    return any(
+        selector_fragment in sel and declaration in body for sel, body in _light_rules()
+    )
+
+
+def test_light_certificate_surfaces_and_nav_button():
+    assert _light(
+        ".certificate-card {", "background: rgb(255 255 255 / 0.8)"
+    ) or _light(".certificate-card", "background: rgb(255 255 255 / 0.8)")
+    assert _light(".certificate-card .certificate-title", "var(--color-crush-dark)")
+    assert _light(".certificate-text", "color: var(--color-crush-dark)")
+    assert _light(".nav-btn", "color: var(--color-crush-dark)")
+
+
+def test_light_gift_alerts_and_landing_headings():
+    for kind in ("success", "error", "warning", "info"):
+        assert _light(f".gift-message-{kind}", "color: #")
+    sel = next(
+        sel
+        for sel, body in _light_rules()
+        if "background-image" in body and ".gift-landing .hero-title" in sel
+    )
+    assert ".gift-landing .hero-recipient" in sel
+
+
+def test_light_slideshow_counter_difficulty_and_progress_label():
+    assert _light(".slideshow-counter", "color: #6b4800")
+    for level in ("easy", "hard"):
+        assert _light(f".journey-difficulty-{level}", "color: #")
+    assert _light(".journey-progress-label", "background: rgb(255 255 255")
+
+
+def test_light_gradient_surfaces_keep_white_text():
+    css = CSS_SRC.read_text(encoding="utf-8")
+    reset = css[css.index(".journey-btn-primary,") :]
+    reset = reset[: reset.index("--color-white: #fff")]
+    for cls in (".reveal-piece-number", ".reveal-complete-message", ".timeline-number"):
+        assert cls in reset, cls
+    assert _light(".timeline-number", "color: #fff")

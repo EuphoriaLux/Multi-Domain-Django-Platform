@@ -226,9 +226,18 @@ html:not(.dark) body.journey-bg #main-content {
     --color-white: var(--color-crush-dark);
     --jy-w: 142 68 173;
     --jy-b: 255 255 255;
-    --jy-accent: var(--color-crush-purple-dark);
     --color-crush-light: var(--color-crush-dark);
     --color-green-300: #166534;
+    /* Brand fills carry white text: the dark-page purple/pink/green are
+       4.0 / 2.7 / 3.1:1 against white, so the light theme uses the deeper
+       tokens everywhere #main-content reads them (button and badge
+       gradients, gradient titles, success text). */
+    --color-crush-purple: var(--color-crush-purple-dark);
+    --color-crush-pink: var(--color-pink-700);
+    --color-crush-success: #196c2e;
+    --color-journey-success: #166534;
+    --jy-accent: #6c3483;
+    --jy-pink: #9d2a52;
 }
 
 /* base.html's critical CSS ships an unlayered .text-white{color:#fff} that
@@ -251,7 +260,15 @@ html:not(.dark) body.journey-bg #main-content :is(
     .letter-audio-play-btn,
     .step-indicator.active,
     .step-indicator.completed .step-number,
-    .journey-mc-option-card.selected .option-label
+    .journey-mc-option-card.selected .option-label,
+    .action-btn,
+    .journey-final-response-btn,
+    .reveal-complete-message,
+    .reveal-piece-number,
+    .timeline-number,
+    .slideshow-photo-placeholder,
+    .bg-crush-success,
+    .cta-section
 ) {
     --color-white: #fff;
     --jy-w: 255 255 255;
@@ -273,7 +290,13 @@ html:not(.dark) body.journey-bg #main-content :is(
     .slideshow-title,
     .reveal-title,
     .video-title,
-    .gift-title
+    .gift-title,
+    .certificate-journey-title,
+    .gift-landing .hero-title,
+    .gift-landing .hero-recipient,
+    .claim-recipient,
+    .gift-code-box .code,
+    .journey-wyr-option-card .option-label
 ) {
     background-image: linear-gradient(
         135deg,
@@ -288,7 +311,7 @@ html:not(.dark) body.journey-bg #main-content :is(.journey-chapter-icon, .gift-c
 }
 
 html:not(.dark) body.journey-bg #main-content .text-crush-pink {
-    color: var(--color-pink-700);
+    color: var(--jy-pink);
 }
 
 html:not(.dark) body.journey-bg #main-content :is(
@@ -339,6 +362,178 @@ html:not(.dark) body.journey-bg #main-content .video-text-message {
    `color: #f8f9fa` hover rule must not turn its text near-white. */
 html:not(.dark) body.journey-bg #main-content .journey-selector-card:hover {
     color: var(--color-crush-dark);
+}
+
+/* Round 2 of the light journey conversion (every text/background pair on the
+   journey, gift and reward templates is swept by
+   test_journey_light_contrast_playwright.py). */
+
+/* Muted copy: text-white/NN becomes dark ink at NN% alpha, which is 3:1 on the
+   lavender page; use a solid-enough ink instead. */
+html:not(.dark) body.journey-bg #main-content :is(
+    .text-white\/50,
+    .text-white\/60,
+    .text-white\/70,
+    .text-white\/80,
+    .text-white\/90,
+    .claim-hint,
+    .claim-message-label,
+    .direct-link-box :is(.label, .link),
+    .gift-code-box .label,
+    .gift-item-code,
+    .gift-item-dates,
+    .hint-text,
+    .gift-landing :is(.chapter-number, .chapter-theme, .feature-desc, .message-label),
+    .step-indicator:not(.active):not(.completed)
+) {
+    color: rgb(44 62 80 / 0.88);
+}
+
+html:not(.dark) body.journey-bg #main-content :is(.reveal-message, .voice-intro, .certificate-text) {
+    color: var(--color-crush-dark);
+}
+
+/* Certificate (card + page): translucent-white card with white copy. */
+html:not(.dark) body.journey-bg #main-content .certificate-card {
+    background: rgb(255 255 255 / 0.8);
+    border-color: rgb(142 68 173 / 0.25);
+    box-shadow: 0 20px 50px rgb(142 68 173 / 0.18);
+}
+
+html:not(.dark) body.journey-bg #main-content .certificate-card .certificate-title {
+    color: var(--color-crush-dark);
+}
+
+html:not(.dark) body.journey-bg #main-content .certificate .certificate-title {
+    background-image: linear-gradient(135deg, #8a5a00, #a34a00);
+}
+
+html:not(.dark) body.journey-bg #main-content :is(.certificate-subtitle, .signature-label) {
+    color: #566566;
+}
+
+html:not(.dark) body.journey-bg #main-content .nav-btn {
+    background: rgb(255 255 255 / 0.75);
+    border-color: rgb(142 68 173 / 0.35);
+    color: var(--color-crush-dark);
+}
+
+html:not(.dark) body.journey-bg #main-content .nav-btn:hover {
+    background: #fff;
+    color: var(--color-crush-dark);
+}
+
+/* Slideshow: gold-on-glass controls become dark gold on the pale card. */
+html:not(.dark) body.journey-bg #main-content :is(.slideshow-download-btn, .slideshow-download-btn:hover, .slideshow-counter) {
+    color: #6b4800;
+}
+
+/* Hard-coded hex gradients behind white text. */
+html:not(.dark) body.journey-bg #main-content :is(.action-btn, .letter-audio-play-btn) {
+    background-image: linear-gradient(
+        135deg,
+        var(--color-crush-purple),
+        var(--color-crush-pink)
+    );
+}
+
+html:not(.dark) body.journey-bg #main-content .action-btn-secondary {
+    background-image: linear-gradient(135deg, #1f6fa5, #1b7a43);
+}
+
+html:not(.dark) body.journey-bg #main-content .journey-final-response-yes {
+    background-image: linear-gradient(135deg, var(--color-crush-pink), #9c2f96);
+}
+
+html:not(.dark) body.journey-bg #main-content .journey-final-response-thinking {
+    background-image: linear-gradient(135deg, var(--color-crush-purple), #4458b8);
+}
+
+/* Gold badge: white on gold is 1.4:1, so it takes dark ink. */
+html:not(.dark) body.journey-bg #main-content .reveal-points-badge {
+    --color-white: var(--color-crush-dark);
+    color: var(--color-crush-dark);
+}
+
+/* The native bar's label sits on the fill at high progress and on the track at
+   low progress, so it carries its own pale chip instead of choosing a side. */
+html:not(.dark) body.journey-bg #main-content .journey-progress-label {
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+    padding: 0 0.5rem;
+    border-radius: 9999px;
+    background: rgb(255 255 255 / 0.88);
+    color: var(--color-crush-dark);
+}
+
+html:not(.dark) body.journey-bg #main-content :is(.timeline-number, .slideshow-photo-placeholder) {
+    color: #fff;
+}
+
+/* 80% copy over a tinted card sits just under 4.5:1 once the tint darkens. */
+html:not(.dark) body.journey-bg #main-content .opacity-80 {
+    opacity: 0.92;
+}
+
+/* Difficulty labels (easy and hard were still the dark-page hues). */
+html:not(.dark) body.journey-bg #main-content .journey-difficulty-easy {
+    color: #0f6b3a;
+}
+
+html:not(.dark) body.journey-bg #main-content .journey-difficulty-hard {
+    color: #a8281b;
+}
+
+/* Gift alerts: *-50 text over a pale fill. */
+html:not(.dark) body.journey-bg #main-content .gift-message-success {
+    color: #065f46;
+}
+
+html:not(.dark) body.journey-bg #main-content .gift-message-error {
+    color: #991b1b;
+}
+
+html:not(.dark) body.journey-bg #main-content .gift-message-warning {
+    color: #92400e;
+}
+
+html:not(.dark) body.journey-bg #main-content .gift-message-info {
+    color: #1e40af;
+}
+
+/* Gift list status pills. */
+html:not(.dark) body.journey-bg #main-content .status-claimed {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+html:not(.dark) body.journey-bg #main-content .status-completed {
+    background: #ede9fe;
+    color: #5b21b6;
+}
+
+html:not(.dark) body.journey-bg #main-content .status-expired {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+html:not(.dark) body.journey-bg #main-content .status-pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+/* Gift landing CTA panel is a coloured surface: deeper gradient, white copy. */
+html:not(.dark) body.journey-bg #main-content .gift-landing .cta-section {
+    background: linear-gradient(
+        135deg,
+        var(--color-crush-purple),
+        var(--color-crush-pink)
+    );
+}
+
+html:not(.dark) body.journey-bg #main-content .gift-landing .cta-section :is(.cta-hint, .cta-secondary, .cta-secondary a) {
+    color: #fff;
 }
 
 /* =============================================================================
