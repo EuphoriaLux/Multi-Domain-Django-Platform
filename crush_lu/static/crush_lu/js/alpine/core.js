@@ -1424,6 +1424,9 @@ document.addEventListener("alpine:init", function () {
     // toast. The surrounding <form> still posts as the no-JS fallback.
     Alpine.data("whatsappPreference", function () {
         return {
+            // Tail of the write queue. Rapid flips must reach the server in
+            // click order, or an earlier "on" can land after a later "off".
+            queue: Promise.resolve(),
             save: function (event) {
                 var checkbox = event.target;
                 var value = checkbox.checked;
@@ -1431,34 +1434,40 @@ document.addEventListener("alpine:init", function () {
                 var form = checkbox.closest("form");
                 var csrf = form.querySelector('input[name="csrfmiddlewaretoken"]');
                 var fail = function () {
-                    checkbox.checked = !value;
+                    // Only roll back if no later flip has superseded this one.
+                    if (checkbox.checked === value) {
+                        checkbox.checked = !value;
+                    }
                     Alpine.store("toasts").add({
                         type: "error",
                         message: form.getAttribute("data-error-message"),
                     });
                 };
-                fetch("/api/email/preferences/", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRFToken": csrf ? csrf.value : "",
-                    },
-                    body: JSON.stringify({ key: "whatsapp_opt_in", value: value }),
-                })
-                    .then(function (response) {
-                        return response.json();
+                var send = function () {
+                    return fetch("/api/email/preferences/", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRFToken": csrf ? csrf.value : "",
+                        },
+                        body: JSON.stringify({ key: "whatsapp_opt_in", value: value }),
                     })
-                    .then(function (data) {
-                        if (!data.success) {
-                            fail();
-                            return;
-                        }
-                        Alpine.store("toasts").add({
-                            type: "success",
-                            message: form.getAttribute("data-saved-message"),
-                        });
-                    })
-                    .catch(fail);
+                        .then(function (response) {
+                            return response.json();
+                        })
+                        .then(function (data) {
+                            if (!data.success) {
+                                fail();
+                                return;
+                            }
+                            Alpine.store("toasts").add({
+                                type: "success",
+                                message: form.getAttribute("data-saved-message"),
+                            });
+                        })
+                        .catch(fail);
+                };
+                this.queue = this.queue.then(send);
             },
         };
     });

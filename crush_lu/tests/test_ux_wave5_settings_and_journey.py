@@ -240,3 +240,60 @@ def test_snowflakes_sit_behind_the_page_content():
     assert "z-index: 0" in snow
     lift = base[base.index(".advent-container > :where(:not(.snowflakes))") :]
     assert "z-index: 1" in lift[: lift.index("}")]
+
+
+# --- Codex review follow-ups ---------------------------------------------------
+
+CSS_SRC = ROOT.parent / "tailwind-src" / "crush_lu" / "tailwind-input.css"
+LIGHT = "html:not(.dark) body.journey-bg #main-content"
+
+
+def _light_rules():
+    css = CSS_SRC.read_text(encoding="utf-8")
+    return re.findall(re.escape(LIGHT) + r"([^{]*)\{([^}]*)\}", css)
+
+
+def test_light_video_reward_copy_is_dark_ink():
+    colour_rules = [
+        sel
+        for sel, body in _light_rules()
+        if re.search(r"(^|;)\s*color:\s*var\(--color-crush-dark\)", body)
+    ]
+    assert any(".video-intro" in sel for sel in colour_rules)
+    surfaces = {sel.strip(): body for sel, body in _light_rules()}
+    for cls in (".video-card", ".video-media-container", ".video-text-message"):
+        assert cls in surfaces, cls
+    # The 0.9-alpha white instruction must not survive on the lavender page.
+    assert "rgb(255 255 255 / 0.7)" in surfaces[".video-card"]
+
+
+def test_light_selector_card_hover_keeps_dark_text():
+    hover = {sel.strip(): body for sel, body in _light_rules()}
+    rule = hover.get(".journey-selector-card:hover")
+    assert rule is not None
+    assert "color: var(--color-crush-dark)" in rule
+
+
+def test_android_settings_intent_is_handled_natively():
+    java = (
+        ROOT.parent
+        / "mobile/android/CrushLU/app/src/main/java/lu/crush/app/MainActivity.java"
+    ).read_text(encoding="utf-8")
+    # openExternal() adds CATEGORY_BROWSABLE, which the system settings
+    # activity lacks, so the shell must start this intent itself.
+    handler = java[java.index("boolean openAppNotificationSettings(") :]
+    handler = handler[: handler.index("private void openExternal")]
+    assert "Settings.ACTION_APP_NOTIFICATION_SETTINGS" in handler
+    assert "Settings.EXTRA_APP_PACKAGE, getPackageName()" in handler
+    assert "CATEGORY_BROWSABLE" not in handler
+    nav = java[java.index("private boolean handleNavigation") :]
+    assert nav.index("openAppNotificationSettings(uri)") < nav.index(
+        "openExternal(uri)"
+    )
+
+
+def test_whatsapp_saves_are_serialised_in_click_order():
+    core = (ROOT / "static/crush_lu/js/alpine/core.js").read_text(encoding="utf-8")
+    block = core[core.index('"whatsappPreference"') :]
+    block = block[: block.index('"profileSectionAutosave"')]
+    assert "this.queue = this.queue.then(" in block

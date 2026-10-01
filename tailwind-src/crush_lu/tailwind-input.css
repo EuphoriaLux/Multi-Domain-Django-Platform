@@ -311,8 +311,33 @@ html:not(.dark) body.journey-bg #main-content :is(
     .char-counter.warning,
     .char-counter.error,
     .poem-content,
-    .slideshow-caption
+    .slideshow-caption,
+    .video-intro
 ) {
+    color: var(--color-crush-dark);
+}
+
+/* Video reward: the card, player tray and caption were tuned for the navy
+   page (white-alpha glass, black tray); on lavender they get purple-tinted
+   light surfaces. The video itself keeps its dark frame. */
+html:not(.dark) body.journey-bg #main-content .video-card {
+    background: rgb(255 255 255 / 0.7);
+    box-shadow: 0 20px 60px rgb(142 68 173 / 0.18);
+}
+
+html:not(.dark) body.journey-bg #main-content .video-media-container {
+    background: rgb(142 68 173 / 0.08);
+    border-color: rgb(142 68 173 / 0.2);
+}
+
+html:not(.dark) body.journey-bg #main-content .video-text-message {
+    background: rgb(142 68 173 / 0.06);
+    color: var(--color-crush-dark);
+}
+
+/* The selector card stays a pale surface on hover, so the dark-page
+   `color: #f8f9fa` hover rule must not turn its text near-white. */
+html:not(.dark) body.journey-bg #main-content .journey-selector-card:hover {
     color: var(--color-crush-dark);
 }
 

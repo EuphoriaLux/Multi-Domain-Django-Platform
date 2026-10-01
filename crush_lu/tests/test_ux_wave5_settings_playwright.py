@@ -88,3 +88,34 @@ def test_pause_all_emails_switch_persists_and_dims_the_list(browser, live_server
     page.wait_for_function("() => document.querySelector('.opacity-50')")
     page.wait_for_timeout(500)
     assert EmailPreference.objects.get(user=user).unsubscribed_all is True
+
+
+def test_whatsapp_rapid_flips_reach_the_server_in_click_order(browser, live_server):
+    """Codex review: a slow first write must not land after the second."""
+    from crush_lu.models import EmailPreference
+
+    user = _member()
+    page = _page(browser, live_server, user)
+    seen = []
+    pending = []
+
+    def handle(route):
+        seen.append(json.loads(route.request.post_data)["value"])
+        if len(seen) == 1:
+            pending.append(route)  # hold the first write open
+        else:
+            route.continue_()
+
+    page.route("**/api/email/preferences/", handle)
+    switch = page.locator("input[name='whatsapp_opt_in']")
+    switch.evaluate("el => el.click()")
+    switch.evaluate("el => el.click()")
+    page.wait_for_timeout(700)
+    # Second write is queued behind the first, not racing it.
+    assert seen == [True]
+    pending[0].continue_()
+    page.wait_for_function(
+        "() => document.querySelectorAll('#toast-container > *').length >= 2"
+    )
+    assert seen == [True, False]
+    assert EmailPreference.objects.get(user=user).whatsapp_opt_in is False
