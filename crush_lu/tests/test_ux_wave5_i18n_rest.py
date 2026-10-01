@@ -164,6 +164,23 @@ class FrenchCatalogueTests(TestCase):
         self.assertIn("vous faire vérifier", curiosity.msgstr)
         self.assertNotIn("Viens", curiosity.msgstr)
 
+    def test_connect_readiness_card_is_one_register(self):
+        # The card heading is "Votre ..."; its neighbouring strings used tu.
+        fr = _fr_entries()
+        card = [
+            e.msgstr
+            for e in fr.values()
+            if any("_readiness_checklist" in path for path, _ in e.occurrences)
+        ]
+        self.assertEqual(len(card), 3)
+        for text in card:
+            self.assertNotRegex(text, r"\b(tu|ton|ta|tes|toi|te)\b|complète\b", text)
+        questions = fr[
+            "Choose and answer three questions so matched members can discover "
+            "you in the same respectful way."
+        ].msgstr
+        self.assertNotRegex(questions, r"\b(tu|ton|ta|tes|toi|te)\b|Choisis\b")
+
     def test_mix_is_named_not_translated_as_a_game(self):
         fr = _fr_entries()
         self.assertEqual(fr["Join the Mix"].msgstr, "Rejoindre le Mix")

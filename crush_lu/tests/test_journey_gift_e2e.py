@@ -324,7 +324,6 @@ class TestGiftClaimNewUser:
         page.fill('input[name="first_name"]', 'New')
         page.fill('input[name="last_name"]', 'User')
         page.fill('input[name="password1"]', 'TestPass123!')
-        page.fill('input[name="password2"]', 'TestPass123!')
 
         # Signup requires the Crush.lu data-processing consent checkbox
         # (crushlu_consent, `required`) — without checking it the form

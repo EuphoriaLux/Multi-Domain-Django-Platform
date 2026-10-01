@@ -39710,8 +39710,8 @@ msgid ""
 "Choose and answer three questions so matched members can discover you in the"
 " same respectful way."
 msgstr ""
-"Choisis trois questions et réponds-y pour que les membres proposés puissent "
-"te découvrir de la même manière respectueuse."
+"Choisissez trois questions et répondez-y pour que les membres proposés "
+"puissent vous découvrir de la même manière respectueuse."
 
 #: crush_lu/views_crush_connect.py
 msgid "Choose my questions"
@@ -39723,14 +39723,14 @@ msgstr "Votre préparation Connect"
 
 #: crush_lu/templates/crush_lu/crush_connect/_readiness_checklist.html
 msgid "To receive your 3 suggestions each day, complete these steps"
-msgstr "Pour recevoir tes 3 propositions par jour, complète ces étapes"
+msgstr "Pour recevoir vos 3 propositions par jour, complétez ces étapes"
 
 #: crush_lu/templates/crush_lu/crush_connect/_readiness_checklist.html
 msgid ""
 "Each status below comes from your current profile. Incomplete steps link "
 "directly to the right screen."
 msgstr ""
-"Chaque statut ci-dessous vient de ton profil actuel. Les étapes incomplètes "
+"Chaque statut ci-dessous vient de votre profil actuel. Les étapes incomplètes "
 "mènent directement au bon écran."
 
 #: crush_lu/views_crush_connect.py
