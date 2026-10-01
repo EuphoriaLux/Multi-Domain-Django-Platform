@@ -9,7 +9,7 @@
     <!-- Header -->
     <div class="text-center mb-8">
         <h1 class="text-3xl font-bold mb-3">{% trans "My Matches 💕" %}</h1>
-        <p class="text-lg text-muted-fg">{% trans "Track your connection requests and active connections" %}</p>
+        <p class="text-lg text-muted-fg">{% trans "Track your match requests and active matches" %}</p>
     </div>
 
     {# People I've Met cross-link — only rendered for members with confirmed encounters #}
@@ -47,12 +47,12 @@
         </div>
     {% endif %}
 
-    <!-- Active Connections -->
+    <!-- Active Matches -->
     {% if active_connections %}
         <div class="mb-8">
             <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
                 {% include "shared/icons/users.html" with class="w-5 h-5" %}
-                <span>{% trans "Active Connections" %}</span>
+                <span>{% trans "Active Matches" %}</span>
             </h2>
 
             <div class="space-y-4">

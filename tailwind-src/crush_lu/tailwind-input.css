@@ -1295,8 +1295,8 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
     /* Journey Input */
     .journey-input {
         @apply w-full rounded-xl px-5 py-4 text-lg text-white transition-all duration-300 placeholder:text-white/50;
-        background: rgba(255, 255, 255, 0.1);
-        border: 2px solid rgba(255, 255, 255, 0.3);
+        background: rgb(var(--jy-w) / 0.1);
+        border: 2px solid rgb(var(--jy-w) / 0.3);
     }
 
     .journey-input:focus {
@@ -1342,7 +1342,7 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
         background: rgba(26, 26, 46, 0.95);
         backdrop-filter: blur(15px);
         -webkit-backdrop-filter: blur(15px);
-        border: 5px solid rgba(255, 255, 255, 0.15);
+        border: 5px solid rgb(var(--jy-w) / 0.15);
     }
 
     /* Journey Completion Badge */
@@ -1359,7 +1359,7 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
 
     .journey-chapter-info {
         @apply relative mx-10 flex-1 overflow-hidden p-8;
-        background: rgba(255, 255, 255, 0.08);
+        background: rgb(var(--jy-w) / 0.08);
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
         border-radius: 20px;
@@ -1384,7 +1384,7 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
 
     .chapter-unlocked .journey-chapter-info:hover,
     .chapter-current .journey-chapter-info:hover {
-        background: rgba(255, 255, 255, 0.12);
+        background: rgb(var(--jy-w) / 0.12);
         transform: translateY(-8px) scale(1.02);
         box-shadow: 0 15px 40px rgba(255, 107, 157, 0.4);
     }
@@ -1430,8 +1430,8 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
 
     .journey-selector-card {
         @apply relative block overflow-hidden rounded-2xl border-2 p-8 text-white no-underline transition-all duration-300;
-        background: rgba(255, 255, 255, 0.05);
-        border-color: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.05);
+        border-color: rgb(var(--jy-w) / 0.1);
     }
 
     .journey-selector-card::before {
@@ -1532,8 +1532,8 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
 
     .journey-challenge-card {
         @apply relative mb-5 rounded-2xl border-2 p-6 pt-12 transition-all duration-300;
-        border-color: rgba(255, 255, 255, 0.2);
-        background: rgba(255, 255, 255, 0.1);
+        border-color: rgb(var(--jy-w) / 0.2);
+        background: rgb(var(--jy-w) / 0.1);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
     }
@@ -1564,12 +1564,12 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
 
     .journey-mc-option-card {
         @apply flex cursor-pointer items-center gap-4 rounded-2xl border-2 p-5 transition-all duration-300;
-        border-color: rgba(255, 255, 255, 0.2);
-        background: rgba(255, 255, 255, 0.05);
+        border-color: rgb(var(--jy-w) / 0.2);
+        background: rgb(var(--jy-w) / 0.05);
     }
 
     .journey-mc-option-card:hover {
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
         border-color: var(--color-crush-purple);
         transform: translateX(0.5rem);
     }
@@ -1616,13 +1616,13 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
         @apply relative flex cursor-move items-center gap-3 rounded-2xl border-2 transition-all duration-300 select-none;
         padding: 1.25rem 1rem 1.25rem 70px;
         margin: 1rem 0;
-        border-color: rgba(255, 255, 255, 0.2);
-        background: rgba(255, 255, 255, 0.05);
+        border-color: rgb(var(--jy-w) / 0.2);
+        background: rgb(var(--jy-w) / 0.05);
         touch-action: pan-y;
     }
 
     .timeline-item:hover {
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
         transform: translateX(0.25rem);
     }
 
@@ -1638,7 +1638,7 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
     }
 
     .timeline-item.sortable-chosen {
-        background: rgba(255, 255, 255, 0.15);
+        background: rgb(var(--jy-w) / 0.15);
     }
 
     .timeline-number {
@@ -1661,12 +1661,12 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
 
     .timeline-move {
         @apply flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border-2 text-xl font-bold;
-        border-color: rgba(255, 255, 255, 0.3);
-        background: rgba(255, 255, 255, 0.08);
+        border-color: rgb(var(--jy-w) / 0.3);
+        background: rgb(var(--jy-w) / 0.08);
     }
 
     .timeline-move:hover:not(:disabled) {
-        background: rgba(255, 255, 255, 0.2);
+        background: rgb(var(--jy-w) / 0.2);
     }
 
     .timeline-move:focus-visible {
@@ -1681,8 +1681,8 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
     .journey-wyr-option-card {
         @apply relative flex cursor-pointer flex-col items-center overflow-hidden rounded-2xl border-[3px] text-center transition-all duration-400;
         padding: 2.5rem;
-        border-color: rgba(255, 255, 255, 0.2);
-        background: rgba(255, 255, 255, 0.05);
+        border-color: rgb(var(--jy-w) / 0.2);
+        background: rgb(var(--jy-w) / 0.05);
         min-height: 250px;
     }
 
@@ -1761,7 +1761,7 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
     /* Journey Rewards - Photo Reveal */
     .reveal-card {
         @apply relative overflow-hidden rounded-2xl border-2 p-8 md:p-12;
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
         backdrop-filter: blur(20px);
         border-color: rgba(255, 215, 0, 0.3);
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
@@ -1792,7 +1792,7 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
     .reveal-puzzle-piece {
         @apply relative cursor-pointer overflow-hidden;
         transition: all 0.3s ease;
-        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+        box-shadow: inset 0 0 0 1px rgb(var(--jy-w) / 0.08);
     }
 
     .reveal-puzzle-piece.locked {
@@ -1935,7 +1935,7 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
 
     .reveal-puzzle-overlay {
         @apply pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl;
-        background: rgba(0, 0, 0, 0.5);
+        background: rgb(var(--jy-b) / 0.5);
         opacity: 0;
         transition: opacity 0.5s;
     }
@@ -5377,12 +5377,12 @@ html.dark .progress-bar-container {
 
 .btn-gift-secondary {
     @apply border border-white/30 text-white;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgb(var(--jy-w) / 0.1);
 }
 
 .btn-gift-secondary:hover {
     @apply -translate-y-px;
-    background: rgba(255, 255, 255, 0.2);
+    background: rgb(var(--jy-w) / 0.2);
 }
 
 .form-submit {
@@ -5394,11 +5394,11 @@ html.dark .progress-bar-container {
 }
 
 .step-nav {
-    @apply mb-8 flex list-none flex-row flex-wrap justify-center gap-2.5 p-0;
+    @apply mb-8 flex list-none flex-row flex-wrap justify-center gap-2.5 p-0 max-[360px]:flex-col max-[360px]:items-stretch;
 }
 
 .step-indicator {
-    @apply flex items-center justify-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm text-white/50 transition-all duration-300;
+    @apply flex items-center justify-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm text-white/50 transition-all duration-300 max-[360px]:px-3 max-[360px]:text-[0.8125rem];
 }
 
 .step-indicator.active {
@@ -5487,7 +5487,7 @@ html.dark .progress-bar-container {
 
 .share-btn:hover {
     @apply -translate-y-0.5;
-    background: rgba(255, 255, 255, 0.15);
+    background: rgb(var(--jy-w) / 0.15);
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
@@ -5667,12 +5667,12 @@ html.dark .progress-bar-container {
 
 .gift-landing .feature-card {
     @apply flex items-center gap-4 rounded-2xl border border-white/10 p-4 transition-all duration-300 md:flex-col md:gap-0 md:p-5 md:text-center;
-    background: rgba(255, 255, 255, 0.06);
+    background: rgb(var(--jy-w) / 0.06);
 }
 
 .gift-landing .feature-card:hover {
     @apply border-crush-purple/30 -translate-y-1;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgb(var(--jy-w) / 0.1);
 }
 
 .gift-landing .feature-icon {
@@ -5702,7 +5702,7 @@ html.dark .progress-bar-container {
 .gift-landing .chapter-node {
     @apply w-[140px] flex-shrink-0 rounded-2xl border-2 border-white/15 p-5 text-center md:w-[120px] md:p-4;
     scroll-snap-align: center;
-    background: rgba(255, 255, 255, 0.05);
+    background: rgb(var(--jy-w) / 0.05);
     opacity: 0;
     transform: translateY(30px);
     animation: chapterReveal 0.5s ease-out forwards;
@@ -5755,7 +5755,7 @@ html.dark .progress-bar-container {
 
 .gift-landing .outcome-section {
     @apply my-10 rounded-2xl border border-white/10 p-6;
-    background: rgba(255, 255, 255, 0.06);
+    background: rgb(var(--jy-w) / 0.06);
 }
 
 .gift-landing .outcome-grid {

@@ -14388,7 +14388,7 @@ msgstr ""
 #: templates/crush_lu/partials/edit_account_notifications.html:176
 #: templates/crush_lu/partials/edit_account_notifications.html:395
 msgid "Notifications blocked"
-msgstr "Paramètres de notification"
+msgstr "Notifications bloquées"
 
 #: templates/crush_lu/account_settings.html:571
 #: templates/crush_lu/partials/edit_account_notifications.html:178
@@ -18133,7 +18133,7 @@ msgstr "Approuver cet invité ?"
 #: templates/crush_lu/coach_invitation_dashboard.html:119
 #: templates/crush_lu/coach_spark_assign.html:68
 msgid "Approve"
-msgstr "Approuvé"
+msgstr "Approuver"
 
 #: templates/crush_lu/coach_invitation_dashboard.html:124
 #: templates/crush_lu/coach_spark_assign.html:73
@@ -21121,7 +21121,7 @@ msgstr "Rejoindre la liste d'attente"
 
 #: templates/crush_lu/crush_connect/catalogue_status.html:4
 msgid "You're in the mix — Crush Connect"
-msgstr "Vous êtes de la partie — Crush Connect"
+msgstr "Vous êtes dans le Mix — Crush Connect"
 
 #: templates/crush_lu/crush_connect/catalogue_status.html:14
 msgid "Action needed"
@@ -21129,7 +21129,7 @@ msgstr "Action requise"
 
 #: templates/crush_lu/crush_connect/catalogue_status.html:17
 msgid "You're almost in the mix."
-msgstr "Vous êtes presque de la partie."
+msgstr "Vous êtes presque dans le Mix."
 
 #: templates/crush_lu/crush_connect/catalogue_status.html:20
 msgid ""
@@ -21151,7 +21151,7 @@ msgstr "Vous y êtes"
 
 #: templates/crush_lu/crush_connect/catalogue_status.html:32
 msgid "You're in the mix."
-msgstr "Vous êtes de la partie."
+msgstr "Vous êtes dans le Mix."
 
 #: templates/crush_lu/crush_connect/catalogue_status.html:35
 msgid ""
@@ -21484,8 +21484,8 @@ msgid ""
 "You're in the mix. We tell you the moment someone reads you right or a coach"
 " picks you."
 msgstr ""
-"Vous êtes de la partie. Nous vous prévenons dès que quelqu'un vous lit bien "
-"ou qu'un coach vous choisit."
+"Vous êtes dans le Mix. Nous vous prévenons dès que quelqu'un vous lit bien ou"
+" qu'un coach vous choisit."
 
 #: templates/crush_lu/crush_connect/experiences/in-the-mix.html:60
 msgid "See your status"
@@ -21493,18 +21493,14 @@ msgstr "Voir votre statut"
 
 #: templates/crush_lu/crush_connect/experiences/in-the-mix.html:65
 msgid "Join the mix — free"
-msgstr "Rejoignez la partie — gratuit"
+msgstr "Rejoignez le Mix — gratuit"
 
 #: templates/crush_lu/crush_connect/experiences/in-the-mix.html:73
-#, fuzzy
-#| msgid ""
-#| "First name and age range only, photo blurred until it's mutual — and you can"
-#| " leave anytime from settings."
 msgid ""
 "First name and age range only — and you can leave anytime from settings."
 msgstr ""
-"Prénom et tranche d'âge uniquement, photo floutée jusqu'à ce que ce soit "
-"réciproque — et vous pouvez partir à tout moment depuis les réglages."
+"Prénom et tranche d'âge uniquement — et vous pouvez partir à tout moment "
+"depuis les réglages."
 
 #: templates/crush_lu/crush_connect/experiences/read-the-photo.html:4
 msgid "Read the Photo — Crush Connect"
@@ -21817,7 +21813,7 @@ msgid ""
 "You're in the mix. Coaches can pick you, Sparks can find you — no feed, no "
 "games."
 msgstr ""
-"Vous êtes de la partie. Les coachs peuvent vous choisir, les Sparks peuvent "
+"Vous êtes dans le Mix. Les coachs peuvent vous choisir, les Sparks peuvent "
 "vous trouver — pas de fil, pas de jeux."
 
 #: templates/crush_lu/crush_connect/hub.html:27
@@ -21839,7 +21835,7 @@ msgstr "Le récapitulatif de l'événement est prêt"
 
 #: templates/crush_lu/crush_connect/hub.html:96
 msgid "You're in the mix"
-msgstr "Vous êtes de la partie"
+msgstr "Vous êtes dans le Mix"
 
 #: templates/crush_lu/crush_connect/hub.html:97
 msgid "Discoverable, LuxID-verified — a coach can pick you any week."
@@ -22150,15 +22146,11 @@ msgid "Not set yet"
 msgstr "Pas encore renseigné"
 
 #: templates/crush_lu/crush_connect/profile_edit.html:73
-#, fuzzy
-#| msgid ""
-#| "Your full name, exact age and unblurred photos are never shown until a date "
-#| "is confirmed."
 msgid ""
 "Your full name and exact age are never shown until a date is confirmed."
 msgstr ""
-"Votre nom complet, votre âge exact et vos photos non floutées ne sont "
-"montrés qu'une fois un rendez-vous confirmé."
+"Votre nom complet et votre âge exact ne sont jamais montrés tant qu'un "
+"rendez-vous n'est pas confirmé."
 
 #: templates/crush_lu/crush_connect/spark_compose.html:4
 msgid "Read the photo — Crush Connect"
@@ -23599,7 +23591,7 @@ msgstr "Vous recevez cet e-mail car votre demande de connexion a été acceptée
 
 #: templates/crush_lu/emails/crush_connect_catalogue_welcome.html:6
 msgid "You're in the mix!"
-msgstr "Vous êtes de la partie !"
+msgstr "Vous êtes dans le Mix !"
 
 #: templates/crush_lu/emails/crush_connect_catalogue_welcome.html:11
 msgid "You've opted in to Crush Connect."
@@ -25439,8 +25431,9 @@ msgid ""
 "Curiosity is a great starting point. Come to an event to meet the community "
 "and get verified in person — no commitment needed."
 msgstr ""
-"La curiosité est un excellent point de départ. Viens à un événement pour "
-"rencontrer la communauté et te faire vérifier en personne — sans engagement."
+"La curiosité est un excellent point de départ. Venez à un événement pour "
+"rencontrer la communauté et vous faire vérifier en personne — sans "
+"engagement."
 
 #: templates/crush_lu/emails/profile_submission_confirmation.html:21
 msgid ""
@@ -28443,15 +28436,6 @@ msgstr "Partagez vos pensées librement - il n'y a pas de mauvaises réponses"
 msgid "Already Submitted!"
 msgstr "Profil soumis"
 
-#: templates/crush_lu/journey/challenges/open_text.html:53
-#, python-format
-msgid ""
-"You've already shared your response and earned <strong>%(points)s "
-"points</strong>."
-msgstr ""
-"Vous avez déjà partagé votre réponse et gagné <strong>%(points)s "
-"points</strong>."
-
 #: templates/crush_lu/journey/challenges/open_text.html:60
 msgid "Your Response:"
 msgstr "Vos événements"
@@ -28844,7 +28828,7 @@ msgstr ""
 
 #: templates/crush_lu/journey/gift_create.html:116
 msgid "Click or drag to upload photo"
-msgstr "Clique ou glisse pour télécharger une photo"
+msgstr "Cliquez ou glissez pour télécharger une photo"
 
 #: templates/crush_lu/journey/gift_create.html:131
 msgid "Chapter 3: Photo Slideshow"
@@ -29231,14 +29215,6 @@ msgstr "Votre Parcours Vinicole"
 msgid "Already Completed!"
 msgstr "Terminé"
 
-#: templates/crush_lu/journey/partials/already_completed.html:14
-#, python-format
-msgid ""
-"You already completed this challenge and earned <strong>%(points)s "
-"points</strong>."
-msgstr ""
-"Vous avez déjà terminé ce défi et gagné <strong>%(points)s points</strong>."
-
 #: templates/crush_lu/journey/partials/challenge_header.html:9
 #: templates/crush_lu/journey/rewards/future_letter.html:12
 #: templates/crush_lu/journey/rewards/photo_reveal.html:17
@@ -29540,7 +29516,7 @@ msgstr ""
 
 #: templates/crush_lu/membership.html:92
 msgid "Add it to Apple Wallet or Google Wallet"
-msgstr "Ajoute-la à Apple Wallet ou Google Wallet"
+msgstr "Ajoutez-la à Apple Wallet ou Google Wallet"
 
 #: templates/crush_lu/membership.html:124
 msgid "Starting tier"
@@ -30082,7 +30058,7 @@ msgstr ""
 
 #: templates/crush_lu/onboarding/phone.html:76
 msgid "or verify by SMS"
-msgstr "ou vérifie par SMS"
+msgstr "ou vérifiez par SMS"
 
 #: templates/crush_lu/onboarding/phone.html:93
 msgid ""
@@ -30200,7 +30176,7 @@ msgstr ""
 # form.
 #: templates/crush_lu/partials/_connect_status_strip.html:45
 msgid "Almost in the Mix"
-msgstr "Presque de la partie"
+msgstr "Presque dans le Mix"
 
 #: templates/crush_lu/partials/_connect_status_strip.html:46
 msgid ""
@@ -30215,7 +30191,7 @@ msgstr ""
 # brand term; "the mix" rendered "la partie" per the existing Connect copy.
 #: templates/crush_lu/partials/_connect_status_strip.html:58
 msgid "You're in the Mix"
-msgstr "Vous êtes de la partie"
+msgstr "Vous êtes dans le Mix"
 
 #: templates/crush_lu/partials/_connect_status_strip.html:59
 msgid ""
@@ -30230,7 +30206,7 @@ msgstr "Voir mon statut"
 
 #: templates/crush_lu/partials/_connect_status_strip.html:71
 msgid "You're not in the Mix yet"
-msgstr "Vous n'êtes pas encore de la partie"
+msgstr "Vous n'êtes pas encore dans le Mix"
 
 #: templates/crush_lu/partials/_connect_status_strip.html:72
 msgid ""
@@ -30243,7 +30219,7 @@ msgstr ""
 #: templates/crush_lu/partials/_connect_status_strip.html:75
 #: templates/crush_lu/partials/_products.html:47
 msgid "Join the Mix"
-msgstr "Rejoindre la partie"
+msgstr "Rejoindre le Mix"
 
 #: templates/crush_lu/partials/_event_identity_presentation.html:25
 msgid "Ask me about"
@@ -30312,7 +30288,7 @@ msgstr "Billet Standard"
 
 #: templates/crush_lu/partials/_products.html:67
 msgid "Come to an event and meet people in person."
-msgstr "Viens à un événement et rencontre des gens en personne."
+msgstr "Venez à un événement et rencontrez des gens en personne."
 
 #: templates/crush_lu/partials/_products.html:70
 msgid "Entry to one event"
@@ -39734,8 +39710,8 @@ msgid ""
 "Choose and answer three questions so matched members can discover you in the"
 " same respectful way."
 msgstr ""
-"Choisis trois questions et réponds-y pour que les membres proposés puissent "
-"te découvrir de la même manière respectueuse."
+"Choisissez trois questions et répondez-y pour que les membres proposés "
+"puissent vous découvrir de la même manière respectueuse."
 
 #: crush_lu/views_crush_connect.py
 msgid "Choose my questions"
@@ -39743,18 +39719,18 @@ msgstr "Choisir mes questions"
 
 #: crush_lu/templates/crush_lu/crush_connect/_readiness_checklist.html
 msgid "Your Connect readiness"
-msgstr "Ta préparation Connect"
+msgstr "Votre préparation Connect"
 
 #: crush_lu/templates/crush_lu/crush_connect/_readiness_checklist.html
 msgid "To receive your 3 suggestions each day, complete these steps"
-msgstr "Pour recevoir tes 3 propositions par jour, complète ces étapes"
+msgstr "Pour recevoir vos 3 propositions par jour, complétez ces étapes"
 
 #: crush_lu/templates/crush_lu/crush_connect/_readiness_checklist.html
 msgid ""
 "Each status below comes from your current profile. Incomplete steps link "
 "directly to the right screen."
 msgstr ""
-"Chaque statut ci-dessous vient de ton profil actuel. Les étapes incomplètes "
+"Chaque statut ci-dessous vient de votre profil actuel. Les étapes incomplètes "
 "mènent directement au bon écran."
 
 #: crush_lu/views_crush_connect.py
@@ -39798,8 +39774,8 @@ msgid ""
 "the full Connect Week."
 msgstr ""
 "Chaque personne dans Connect est vérifiée et bien réelle. Liez votre LuxID, "
-"ou faites-vous vérifier en personne par un Crush Coach lors d'un événement —"
-" la vérification en événement débloque en plus toute la Semaine Connect."
+"ou faites-vous vérifier en personne par un Crush Coach lors d'un événement — "
+"la vérification en événement débloque en plus toute la Connect Week."
 
 msgid "See events"
 msgstr "Voir les événements"
@@ -39815,7 +39791,7 @@ msgstr ""
 "Activez-le pour apparaître dans Connect."
 
 msgid "Your Connect Week is open"
-msgstr "Votre Semaine Connect est ouverte"
+msgstr "Votre Connect Week est ouverte"
 
 msgid ""
 "LuxID and in-person verified — the highest trust level. Three new profiles a"
@@ -39834,7 +39810,7 @@ msgstr ""
 "inviterez."
 
 msgid "Open my Connect Week"
-msgstr "Ouvrir ma Semaine Connect"
+msgstr "Ouvrir ma Connect Week"
 
 msgid ""
 "Members can see you and ask to meet you — you decide who to answer. Verify "
@@ -39848,20 +39824,20 @@ msgid "My requests"
 msgstr "Mes demandes"
 
 msgid "Your Connect Week is waiting"
-msgstr "Votre Semaine Connect vous attend"
+msgstr "Votre Connect Week vous attend"
 
 msgid ""
 "You're verified in person, so the full Connect Week is yours: three profiles"
 " a day for a week, then one request to the person you'd most like to meet. "
 "Opt in free — you choose what you share."
 msgstr ""
-"Vous êtes vérifié en personne : toute la Semaine Connect vous revient — "
-"trois profils par jour pendant une semaine, puis une demande adressée à la "
-"personne que vous aimeriez le plus rencontrer. Participation gratuite : vous"
-" choisissez ce que vous partagez."
+"Vous êtes vérifié en personne : toute la Connect Week vous revient — trois "
+"profils par jour pendant une semaine, puis une demande adressée à la personne"
+" que vous aimeriez le plus rencontrer. Participation gratuite : vous "
+"choisissez ce que vous partagez."
 
 msgid "Start my Connect Week"
-msgstr "Démarrer ma Semaine Connect"
+msgstr "Démarrer ma Connect Week"
 
 msgid "You're not in Crush Connect yet"
 msgstr "Vous n'êtes pas encore dans Crush Connect"
@@ -39875,7 +39851,7 @@ msgstr ""
 " ce que vous partagez."
 
 msgid "How was your Connect Week?"
-msgstr "Comment s'est passée votre Semaine Connect ?"
+msgstr "Comment s'est passée votre Connect Week ?"
 
 msgid ""
 "Two taps. Your answer is private, goes to the Crush.lu team only, and shapes"
@@ -39935,9 +39911,9 @@ msgid ""
 "You verified in person at one of our events, which unlocks the full Connect "
 "Week — the deliberate, seven-day way to meet someone here."
 msgstr ""
-"Vous vous êtes fait vérifier en personne lors d'un de nos événements, ce qui"
-" débloque toute la Semaine Connect — la façon posée, en sept jours, de "
-"rencontrer quelqu'un ici."
+"Vous vous êtes fait vérifier en personne lors d'un de nos événements, ce qui "
+"débloque toute la Connect Week — la façon posée, en sept jours, de rencontrer"
+" quelqu'un ici."
 
 msgid "How your week works:"
 msgstr "Comment se déroule votre semaine :"
@@ -39984,7 +39960,7 @@ msgstr ""
 " découle."
 
 msgid "Crush Connect is open, and you're in the Mix."
-msgstr "Crush Connect est ouvert, et vous êtes de la partie."
+msgstr "Crush Connect est ouvert, et vous êtes dans le Mix."
 
 msgid ""
 "Your LuxID is verified, so you are visible to other members and can receive "
@@ -39999,8 +39975,8 @@ msgstr "Ce que cela signifie dès maintenant :"
 msgid ""
 "Members going through their Connect Week can see your card and choose you"
 msgstr ""
-"Les membres qui vivent leur Semaine Connect voient votre carte et peuvent "
-"vous choisir"
+"Les membres qui vivent leur Connect Week voient votre carte et peuvent vous "
+"choisir"
 
 msgid ""
 "If someone picks you, the request lands in your inbox and you have 24 hours "
@@ -40027,9 +40003,9 @@ msgid ""
 "active Connect Week: three profiles a day and your own weekly request to "
 "send."
 msgstr ""
-"Venez à un événement et faites-vous vérifier en personne par un Crush Coach."
-" Cela débloque la Semaine Connect active : trois profils par jour et votre "
-"propre demande hebdomadaire."
+"Venez à un événement et faites-vous vérifier en personne par un Crush Coach. "
+"Cela débloque la Connect Week active : trois profils par jour et votre propre"
+" demande hebdomadaire."
 
 msgid "See my Connect status"
 msgstr "Voir mon statut Connect"
@@ -40069,7 +40045,7 @@ msgid ""
 " and that route also unlocks the full Connect Week."
 msgstr ""
 "Venez à un événement Crush.lu. Un Crush Coach vous vérifie en personne à "
-"l'entrée — et cette voie débloque en plus toute la Semaine Connect."
+"l'entrée — et cette voie débloque en plus toute la Connect Week."
 
 msgid "Why we insist on this"
 msgstr "Pourquoi nous y tenons"
@@ -42038,7 +42014,7 @@ msgstr ""
 
 msgid "%(name)s chose you after their Connect Week. Take a look and decide."
 msgstr ""
-"%(name)s vous a choisi(e) après sa semaine Connect. Jetez un œil et décidez."
+"%(name)s vous a choisi(e) après sa Connect Week. Jetez un œil et décidez."
 
 msgid "%(name)s wants to get to know you"
 msgstr "%(name)s souhaite faire votre connaissance"
@@ -42047,7 +42023,7 @@ msgid ""
 "<strong>%(name)s</strong> spent their Connect Week getting to know a handful"
 " of profiles — and chose you."
 msgstr ""
-"<strong>%(name)s</strong> a passé sa semaine Connect à découvrir quelques "
+"<strong>%(name)s</strong> a passé sa Connect Week à découvrir quelques "
 "profils – et vous a choisi(e)."
 
 msgid "You have 24 hours to answer"
@@ -42092,9 +42068,9 @@ msgid ""
 "You verified in person at one of our events, which unlocks the full Connect "
 "Week — the deliberate, five-day way to meet someone here."
 msgstr ""
-"Vous vous êtes fait vérifier en personne lors d'un de nos événements, ce qui"
-" débloque toute la Semaine Connect — la façon posée, en cinq jours, de "
-"rencontrer quelqu'un ici."
+"Vous vous êtes fait vérifier en personne lors d'un de nos événements, ce qui "
+"débloque toute la Connect Week — la façon posée, en cinq jours, de rencontrer"
+" quelqu'un ici."
 
 msgid "Two profiles a day, for five days — no endless feed, no swiping"
 msgstr ""
@@ -42104,9 +42080,9 @@ msgid ""
 "Come to one event and verify in person with a Crush Coach. That unlocks the "
 "active Connect Week: two profiles a day and your own weekly request to send."
 msgstr ""
-"Venez à un événement et faites-vous vérifier en personne par un Crush Coach."
-" Cela débloque la Semaine Connect active : deux profils par jour et votre "
-"propre demande hebdomadaire."
+"Venez à un événement et faites-vous vérifier en personne par un Crush Coach. "
+"Cela débloque la Connect Week active : deux profils par jour et votre propre "
+"demande hebdomadaire."
 
 msgid ""
 "LuxID and in-person verified — the highest trust level. Two new profiles a "
@@ -42137,17 +42113,17 @@ msgid ""
 " day for five days, then one request to the person you'd most like to meet. "
 "Opt in free — you choose what you share."
 msgstr ""
-"Vous êtes vérifié en personne : toute la Semaine Connect vous revient — deux"
-" profils par jour pendant cinq jours, puis une demande adressée à la "
-"personne que vous aimeriez le plus rencontrer. Participation gratuite : vous"
-" choisissez ce que vous partagez."
+"Vous êtes vérifié en personne : toute la Connect Week vous revient — deux "
+"profils par jour pendant cinq jours, puis une demande adressée à la personne "
+"que vous aimeriez le plus rencontrer. Participation gratuite : vous "
+"choisissez ce que vous partagez."
 
 msgid ""
 "Your profile photo is missing. It blocks access to your daily Connect Week "
 "suggestions; add it now in Photos."
 msgstr ""
 "Votre photo de profil est manquante. Sans elle, vous n'avez pas accès à vos "
-"suggestions quotidiennes de la Semaine Connect ; ajoutez-la maintenant dans "
+"suggestions quotidiennes de la Connect Week ; ajoutez-la maintenant dans "
 "Photos."
 
 msgid ""
@@ -44170,6 +44146,87 @@ msgstr "Cet événement a été annulé — vous n’avez rien à faire. Aucun p
 #: views_events.py
 msgid "This event has been cancelled — you don't need to do anything. Your payment has already been handled. If you have questions, reply to the cancellation email."
 msgstr "Cet événement a été annulé — vous n’avez rien à faire. Votre paiement a déjà été traité. Si vous avez des questions, répondez à l’e-mail d’annulation."
+
+#: crush_lu/templates/crush_lu/journey/gift_create.html
+msgid "e.g., Marie, Sunshine"
+msgstr "p. ex., Marie, Soleil"
+
+#: crush_lu/templates/crush_lu/journey/gift_create.html
+msgid "Add background music that plays while your recipient reads your Future Letter!"
+msgstr "Ajoutez une musique de fond qui jouera pendant que le destinataire lira votre Lettre du futur !"
+
+#: crush_lu/templates/crush_lu/journey/gift_create.html
+msgid "Audio file is too large. Maximum size is 10 MB."
+msgstr "Le fichier audio est trop volumineux. La taille maximale est de 10 MB."
+
+#: crush_lu/templates/crush_lu/journey/gift_create.html
+msgid "Video file is too large. Maximum size is 50 MB."
+msgstr "Le fichier vidéo est trop volumineux. La taille maximale est de 50 MB."
+
+# UX Wave 5 · WP15 i18n-rest
+#: templates/crush_lu/journey/challenges/open_text.html:53
+#, python-format
+msgid ""
+"You've already shared your response and earned <strong>%(points)s "
+"point</strong>."
+msgid_plural ""
+"You've already shared your response and earned <strong>%(points)s "
+"points</strong>."
+msgstr[0] ""
+"Vous avez déjà partagé votre réponse et gagné <strong>%(points)s "
+"point</strong>."
+msgstr[1] ""
+"Vous avez déjà partagé votre réponse et gagné <strong>%(points)s "
+"points</strong>."
+
+#: templates/crush_lu/journey/partials/already_completed.html:14
+#, python-format
+msgid ""
+"You already completed this challenge and earned <strong>%(points)s "
+"point</strong>."
+msgid_plural ""
+"You already completed this challenge and earned <strong>%(points)s "
+"points</strong>."
+msgstr[0] ""
+"Vous avez déjà terminé ce défi et gagné <strong>%(points)s point</strong>."
+msgstr[1] ""
+"Vous avez déjà terminé ce défi et gagné <strong>%(points)s points</strong>."
+
+#: WP14 settings-and-journey
+msgid "Pause all emails"
+msgstr "Mettre tous les e-mails en pause"
+
+#: WP14 settings-and-journey
+msgid "Your choices above are kept, so you can pick up where you left off."
+msgstr "Vos choix ci-dessus sont conservés : vous pourrez reprendre là où vous vous êtes arrêté."
+
+#: WP14 settings-and-journey
+msgid "All emails are paused. Turn off the switch at the bottom of this card to receive them again."
+msgstr "Tous les e-mails sont en pause. Désactivez l'interrupteur en bas de cette carte pour les recevoir à nouveau."
+
+#: WP14 settings-and-journey
+msgid "Notifications are blocked for this site. Tap the lock icon in your browser's address bar, open Permissions, and allow notifications."
+msgstr "Les notifications sont bloquées pour ce site. Touchez l'icône de cadenas dans la barre d'adresse de votre navigateur, ouvrez Autorisations et autorisez les notifications."
+
+#: WP14 settings-and-journey
+msgid "Notifications are blocked. On iPhone, open Settings, then Notifications, choose Crush.lu and allow notifications."
+msgstr "Les notifications sont bloquées. Sur iPhone, ouvrez Réglages, puis Notifications, choisissez Crush.lu et autorisez les notifications."
+
+#: WP14 settings-and-journey
+msgid "If you aren't receiving notifications, check that they are allowed for Crush.lu in your phone's settings."
+msgstr "Si vous ne recevez pas de notifications, vérifiez qu'elles sont autorisées pour Crush.lu dans les réglages de votre téléphone."
+
+#: WP14 settings-and-journey
+msgid "Open notification settings"
+msgstr "Ouvrir les réglages de notification"
+
+#: WP14 settings-and-journey
+msgid "Track your match requests and active matches"
+msgstr "Suivez vos demandes d'affinité et vos affinités actives"
+
+#: WP14 settings-and-journey
+msgid "Active Matches"
+msgstr "Affinités actives"
 
 #: crush_lu/templates/crush_lu/auth.html
 msgid "Create your Crush.lu account"

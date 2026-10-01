@@ -64,11 +64,11 @@ def _axe_source():
     return None
 
 
-def _member(*, is_staff=False):
+def _member(*, is_staff=False, email="contrast@example.com"):
     # Gift sender pages are staff/coach-only (UX Wave 4 decision C).
     from crush_lu.tests.test_profile_edit_connect_card import _make_member
 
-    return _make_member("contrast@example.com", is_staff=is_staff)
+    return _make_member(email, is_staff=is_staff)
 
 
 def _page(browser, live_server, user, theme):
@@ -103,41 +103,28 @@ def _open(page, url):
     page.wait_for_function("() => window.Alpine && Alpine.store('prompts')")
 
 
-def test_gift_page_stays_dark_under_a_light_preference(browser, live_server):
+def test_gift_page_follows_a_light_preference(browser, live_server):
+    """UX Wave 5 · WP14: journey/gift pages are no longer forced navy."""
     page = _page(browser, live_server, _member(is_staff=True), "light")
     _open(page, f"{live_server.url}/en/journey/gift/create/")
 
-    assert page.evaluate("() => document.documentElement.classList.contains('dark')")
-    # The saved preference is untouched, so other pages stay light.
-    assert page.evaluate("() => localStorage.getItem('theme')") == "light"
-    # Global chrome takes its dark variant (7-03: lavender bar under navy page).
-    nav_bg = page.evaluate(
-        "() => getComputedStyle(document.querySelector('nav.bottom-nav')).backgroundColor"
-    )
-    assert nav_bg == "rgb(15, 23, 42)"
-
-    toggle = page.locator("[x-data='themeToggle'] button").first
-    # aria-disabled, not disabled: it stays focusable so the reason is read.
-    assert toggle.get_attribute("aria-disabled") == "true"
-    assert toggle.evaluate("el => !el.disabled && el.tabIndex === 0")
-    # A real activation is still a no-op.
-    toggle.dispatch_event("click")
-    assert page.evaluate("() => document.documentElement.classList.contains('dark')")
-    assert toggle.get_attribute("title") == LOCKED_LABEL
-    assert toggle.get_attribute("aria-label") == LOCKED_LABEL
-
-    # Even a scripted toggle cannot switch the page to light.
-    page.evaluate("() => window.themeManager.toggleTheme()")
-    assert page.evaluate("() => document.documentElement.classList.contains('dark')")
-    assert page.evaluate("() => localStorage.getItem('theme')") == "light"
-
-    _open(page, f"{live_server.url}/en/dashboard/")
     assert not page.evaluate(
         "() => document.documentElement.classList.contains('dark')"
     )
+    assert page.evaluate("() => localStorage.getItem('theme')") == "light"
+    body_bg = page.evaluate("() => getComputedStyle(document.body).backgroundImage")
+    assert "26, 26, 46" not in body_bg  # not the navy gradient
     toggle = page.locator("[x-data='themeToggle'] button").first
     assert toggle.get_attribute("aria-disabled") is None
-    assert toggle.get_attribute("title") is None
+
+    # The dark preference keeps the navy page.
+    page = _page(
+        browser, live_server, _member(is_staff=True, email="dark@example.com"), "dark"
+    )
+    _open(page, f"{live_server.url}/en/journey/gift/create/")
+    assert page.evaluate("() => document.documentElement.classList.contains('dark')")
+    body_bg = page.evaluate("() => getComputedStyle(document.body).backgroundImage")
+    assert "26, 26, 46" in body_bg
 
 
 @pytest.mark.parametrize("theme", ["light", "dark"])
@@ -194,3 +181,70 @@ def test_axe_dashboard_touched_elements_are_clean(browser, live_server, theme):
         ".violations.flatMap(v => v.nodes.map(n => n.target.join(' ')))"
     )
     assert nodes == [], nodes
+
+
+REWARD_TYPES = ["future_letter", "poem", "photo_slideshow", "voice_message"]
+
+LUMINANCE_JS = """
+(el) => {
+    const v = getComputedStyle(el).backgroundColor.match(/[\\d.]+/g).map(Number);
+    const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+    return 0.2126 * f(v[0]) + 0.7152 * f(v[1]) + 0.0722 * f(v[2]);
+}
+"""
+
+
+def _reward_player(name):
+    """A member whose completed chapter holds one reward of each type."""
+    from django.utils import timezone
+
+    from crush_lu.models import ChapterProgress, JourneyReward
+    from crush_lu.tests.test_journey_api_scoping import _make_player
+
+    player = _make_player(name, "Well done", points=100)
+    ChapterProgress.objects.create(
+        journey_progress=player.progress,
+        chapter=player.chapter,
+        is_completed=True,
+        completed_at=timezone.now(),
+    )
+    rewards = {
+        kind: JourneyReward.objects.create(
+            chapter=player.chapter,
+            reward_type=kind,
+            title=f"{kind} title",
+            message="Dear you,\n\nThis is the body of the message.",
+        )
+        for kind in REWARD_TYPES
+    }
+    return player.user, rewards
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_letter_paper_is_white_and_reward_pages_pass_axe(browser, live_server, theme):
+    """Review fix: --jy-w is purple in light mode, which had turned the
+    letter paper into a purple card with invisible title and signature."""
+    user, rewards = _reward_player(f"Rw{theme}")
+    page = _page(browser, live_server, user, theme)
+    # prefers-reduced-motion shows the paper at once (no 2s slide-in delay).
+    page.emulate_media(color_scheme=theme, reduced_motion="reduce")
+    axe = _axe_source()
+    for kind, reward in rewards.items():
+        page.goto(f"{live_server.url}/en/journey/reward/{reward.id}/")
+        page.wait_for_load_state("load")
+        page.wait_for_timeout(300)
+        if kind == "future_letter":
+            paper = page.locator(".letter-paper")
+            assert paper.count() == 1
+            assert paper.evaluate(LUMINANCE_JS) > 0.85, theme
+            for sel in (".letter-date", ".letter-signature"):
+                ratio = page.locator(sel).first.evaluate(CONTRAST_JS)
+                assert ratio >= 3.0, (theme, sel, ratio)
+        if axe is None:
+            continue
+        page.evaluate(axe)
+        nodes = page.evaluate(
+            "async () => (await axe.run(document, {runOnly: ['color-contrast']}))"
+            ".violations.flatMap(v => v.nodes.map(n => n.target.join(' ')))"
+        )
+        assert nodes == [], (kind, theme, nodes)
