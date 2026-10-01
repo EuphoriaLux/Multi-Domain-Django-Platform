@@ -16063,10 +16063,8 @@ msgstr ""
 "Fehlt etwas oder ist etwas unklar? Schreib uns – wir lesen jede Nachricht."
 
 #: templates/crush_lu/child_safety_standards.html:4
-#, fuzzy
-#| msgid "Change Password - Crush.lu"
 msgid "Child Safety Standards - Crush.lu"
-msgstr "Passwort ändern – Crush.lu"
+msgstr "Kinderschutzstandards – Crush.lu"
 
 #: templates/crush_lu/child_safety_standards.html:5
 msgid ""
@@ -16074,12 +16072,13 @@ msgid ""
 "sexual abuse and exploitation (CSAE), reporting mechanisms, and safety "
 "enforcement."
 msgstr ""
+"Die Kinderschutzstandards von Crush.lu – unsere veröffentlichten "
+"Verpflichtungen gegen sexuellen Missbrauch und sexuelle Ausbeutung von "
+"Kindern (CSAE), Meldewege und Durchsetzung."
 
 #: templates/crush_lu/child_safety_standards.html:12
-#, fuzzy
-#| msgid "Community Standards"
 msgid "Child Safety Standards"
-msgstr "Gemeinschaftsstandards"
+msgstr "Kinderschutzstandards"
 
 #: templates/crush_lu/child_safety_standards.html:13
 #, fuzzy
@@ -42288,6 +42287,11 @@ msgstr ""
 
 #: templates/crush_lu/base.html:1289
 #: templates/crush_lu/partials/edit_about_crushlu.html:123
+msgid "Your privacy matters. Members are verified in person at an event."
+msgstr ""
+"Deine Privatsphäre ist uns wichtig. Mitglieder werden persönlich bei einer "
+"Veranstaltung verifiziert."
+
 msgid ""
 "Your privacy matters. Members are verified instantly with LuxID or in person "
 "at an event."
