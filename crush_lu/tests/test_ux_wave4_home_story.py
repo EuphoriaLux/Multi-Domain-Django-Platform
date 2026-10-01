@@ -23,6 +23,14 @@ from django.test import TestCase
 BASE = Path(settings.BASE_DIR)
 ALPINE_JS = BASE / "crush_lu/static/crush_lu/js/alpine/core.js"
 TAILWIND_SRC = BASE / "tailwind-src/crush_lu/tailwind-input.css"
+FEATURE_SRC = BASE / "tailwind-src/crush_lu/features"
+
+
+def _css_src():
+    """Main input plus the per-feature sheets split out of it (WP11a)."""
+    parts = [TAILWIND_SRC.read_text(encoding="utf-8")]
+    parts += [p.read_text(encoding="utf-8") for p in sorted(FEATURE_SRC.glob("*.css"))]
+    return "\n".join(parts)
 
 
 class _ClassScope(HTMLParser):
@@ -209,7 +217,7 @@ class HomeStoryTests(TestCase):
         # Auto-play the compact story needs stays.
         for member in ("scene0Class", "startAutoAdvance", "nextScene"):
             self.assertIn(member, component)
-        css = TAILWIND_SRC.read_text(encoding="utf-8")
+        css = _css_src()
         for selector in (
             ".ghost-story-section",
             ".ghost-story-nav-btn",
@@ -232,7 +240,7 @@ class HomeStoryTests(TestCase):
     def test_about_stat_grid_has_no_empty_column(self):
         html = self._get("/en/about/")
         self.assertEqual(html.count('class="about-stat-card"'), 2)
-        css = TAILWIND_SRC.read_text(encoding="utf-8")
+        css = _css_src()
         rule = css.index(".about-stats-section {")
         self.assertNotIn(
             "repeat(3, 1fr)",

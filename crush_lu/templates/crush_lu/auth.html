@@ -286,7 +286,7 @@
                                 <div>
                                     <label for="id_last_name" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                                         {% trans "Last Name" %}
-                                        <span class="text-xs font-normal text-gray-500 dark:text-gray-400 whitespace-nowrap">({% trans "optional" %})</span>
+                                        <span class="font-normal text-muted-fg whitespace-nowrap">({% trans "optional" %})</span>
                                     </label>
                                     <input type="text" class="w-full px-4 py-3 border {% if signup_form.last_name.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                            id="id_last_name" name="last_name" autocomplete="family-name"

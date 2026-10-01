@@ -228,6 +228,17 @@
 
 {% endblock %}
 
+{% comment %}
+Only the account > notifications section (pushPreferences) drives window.CrushPush,
+and the native shells render a notice there instead, so no other edit_profile
+view (index, photos, privacy, native) downloads the bundle.
+{% endcomment %}
+{% block push_js %}
+{% if section == 'account' and request.GET.sub == 'notifications' and not is_native_app %}
+<script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/push-notifications.js' %}"></script>
+{% endif %}
+{% endblock %}
+
 {% block extra_js %}
 {% if section_template %}
 <!-- intl-tel-input JS (needed for about section phone field) -->

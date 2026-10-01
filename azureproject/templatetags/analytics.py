@@ -282,7 +282,8 @@ def analytics_head(context):
     Render GA4 gtag.js script in the <head> section with Google Consent Mode v2.
 
     Implements Google's advanced consent mode requirements:
-    1. Sets default consent state BEFORE gtag.js loads
+    1. Sets all four signals to denied BEFORE gtag.js loads, then updates to
+       granted only for a group whose stored choice is a current acceptance
     2. Configures all 4 required consent types:
        - ad_storage, ad_user_data, ad_personalization, analytics_storage
     3. Respects existing cookie consent preferences
@@ -331,36 +332,39 @@ def analytics_head(context):
     analytics_granted = granted("analytics")
     marketing_granted = granted("marketing")
 
-    # A granted default is only true for this response. Served again later
-    # (_declined_in_browser_js), the page must not send its page view under a
-    # grant the visitor has withdrawn since: a refusal flag in the browser
-    # turns the group back to denied before gtag('config') below. Consent
-    # commands run in dataLayer order, so this update lands before the page
-    # view. A denied default needs no such check (a live acceptance never
-    # outranks the server's answer).
-    refusal_updates = []
+    # Consent Mode v2 with DENIED defaults (owner decision E, #1036 item 7):
+    # every response defaults all four signals to denied, whatever the stored
+    # choice. A returning visitor's current grant is then applied as an
+    # update, which runs in dataLayer order, i.e. before gtag('config') sends
+    # the page view. The update is guarded in the browser
+    # (_declined_in_browser_js / _stale_in_browser_js): a copy of this page
+    # served later (service worker, history restore) must not re-grant after
+    # a refusal recorded since, so it simply stays denied. Withdrawing consent
+    # on a live page is the banner's gtag('consent', 'update', ...) back to
+    # denied (core/templates/includes/cookie_banner.html).
+    grant_updates = []
     if analytics_granted == "granted":
         stale = _stale_in_browser_js(
             "analytics", _request_cookie_group_version(request, "analytics")
         )
-        refusal_updates.append(
-            f"  if ({_declined_in_browser_js('analytics')} || {stale}) "
-            "gtag('consent', 'update', {'analytics_storage': 'denied'});"
+        grant_updates.append(
+            f"  if (!({_declined_in_browser_js('analytics')} || {stale})) "
+            "gtag('consent', 'update', {'analytics_storage': 'granted'});"
         )
     if marketing_granted == "granted":
         stale = _stale_in_browser_js(
             "marketing", _request_cookie_group_version(request, "marketing")
         )
-        refusal_updates.append(
-            f"  if ({_declined_in_browser_js('marketing')} || {stale}) "
-            "gtag('consent', 'update', {'ad_storage': 'denied', "
-            "'ad_user_data': 'denied', 'ad_personalization': 'denied'});"
+        grant_updates.append(
+            f"  if (!({_declined_in_browser_js('marketing')} || {stale})) "
+            "gtag('consent', 'update', {'ad_storage': 'granted', "
+            "'ad_user_data': 'granted', 'ad_personalization': 'granted'});"
         )
-    if refusal_updates:
-        refusal_updates.insert(
-            0, "  // A copy of this page served later: a refusal recorded since wins."
+    if grant_updates:
+        grant_updates.insert(
+            0, "  // Stored choice, re-checked in the browser for kept copies."
         )
-    refusal_js = "".join("\n" + line for line in refusal_updates)
+    grant_js = "".join("\n" + line for line in grant_updates)
 
     # Get current language for multi-language tracking
     # This allows GA4 to track page views with language context
@@ -373,14 +377,14 @@ def analytics_head(context):
   window.dataLayer = window.dataLayer || [];
   function gtag(){{dataLayer.push(arguments);}}
 
-  // Set default consent state BEFORE gtag.js loads (Google Consent Mode v2)
+  // Denied defaults BEFORE gtag.js loads (Google Consent Mode v2)
   gtag('consent', 'default', {{
-    'ad_storage': '{marketing_granted}',
-    'ad_user_data': '{marketing_granted}',
-    'ad_personalization': '{marketing_granted}',
-    'analytics_storage': '{analytics_granted}',
+    'ad_storage': 'denied',
+    'ad_user_data': 'denied',
+    'ad_personalization': 'denied',
+    'analytics_storage': 'denied',
     'wait_for_update': 500
-  }});{refusal_js}
+  }});{grant_js}
 </script>
 <script async src="https://www.googletagmanager.com/gtag/js?id={ga4_id}"{nonce_attr}></script>
 <script{nonce_attr}>
