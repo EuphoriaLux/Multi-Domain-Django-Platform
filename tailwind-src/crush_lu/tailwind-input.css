@@ -194,8 +194,12 @@ html.dark {
     --color-green-600: oklch(62.7% 0.194 149.214);
 }
 
-html.dark .dark\:text-purple-400:not(:is(:hover, :focus-visible)[class*="hover:text-"]),
-html.dark .text-crush-purple:not([class*="dark:text-"], :is(:hover, :focus-visible)[class*="hover:text-"]) {
+/* Only a dark:hover:text-* variant exempts the hover state; a light-only
+   hover:text-* keeps the floor (else hover drops below 3:1). Form controls
+   are excluded: the forms plugin paints checked ones with currentColor under a
+   white glyph, and purple-200 there is 1.9:1 (the brand purple is 4.7:1). */
+html.dark .dark\:text-purple-400:not(input, :is(:hover, :focus-visible)[class*="dark:hover:text-"]),
+html.dark .text-crush-purple:not(input, [class*="dark:text-"], :is(:hover, :focus-visible)[class*="dark:hover:text-"]) {
     color: var(--color-purple-200);
 }
 

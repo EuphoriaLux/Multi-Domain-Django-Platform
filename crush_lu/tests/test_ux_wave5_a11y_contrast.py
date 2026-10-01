@@ -44,8 +44,8 @@ class ContrastFloorTokenTests(SimpleTestCase):
     def test_dark_purple_text_uses_a_lighter_step_without_touching_brand_hexes(self):
         compact = BUILT_CSS.replace(" ", "").replace("\n", "")
         self.assertIn(
-            "html.dark.dark\\:text-purple-400:not(:is(:hover,:focus-visible)"
-            "[class*=hover\\:text-])",
+            "html.dark.dark\\:text-purple-400:not(input,:is(:hover,:focus-visible)"
+            '[class*="dark:hover:text-"])',
             compact,
         )
         # The brand scale itself is unchanged (four-place brand sync).
@@ -78,6 +78,34 @@ class ContrastFloorTokenTests(SimpleTestCase):
         spam = re.search(r'<p class="([^"]*)">\s*\{% blocktrans %\}\s*If you don', sent)
         self.assertIsNotNone(spam)
         self.assertIn("text-muted-fg", spam.group(1))
+
+
+class DarkPurpleFloorScopeTests(SimpleTestCase):
+    """PR #1136 review: the dark purple floor must not break controls/hovers."""
+
+    @staticmethod
+    def _floor_selector(css):
+        match = re.search(
+            r"html\.dark\s*\.dark\\:text-purple-400:not\([^{]*\{", css, re.DOTALL
+        )
+        return _compact(match.group(0)) if match else ""
+
+    def test_floor_skips_form_controls(self):
+        # Checked checkboxes/radios paint background:currentColor under a white
+        # glyph; purple-200 there is 1.9:1 (brand purple is 4.7:1).
+        for css in (INPUT_CSS, BUILT_CSS):
+            selector = self._floor_selector(css)
+            self.assertNotEqual(selector, "")
+            self.assertEqual(selector.count(":not(input,"), 2, selector)
+
+    def test_light_only_hover_variants_keep_the_floor(self):
+        # Only an explicit dark:hover:text-* may release the hover state.
+        for css in (INPUT_CSS, BUILT_CSS):
+            selector = self._floor_selector(css)
+            self.assertEqual(selector.count('[class*="dark:hover:text-"]'), 2)
+            self.assertNotIn(
+                '[class*="hover:text-"]', selector.replace("dark:hover", "")
+            )
 
 
 class DarkHoverVariantTests(SimpleTestCase):
