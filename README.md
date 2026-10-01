@@ -94,7 +94,8 @@ See `.env.example` for all available options.
 
 ```bash
 npm install
-npm run build:css        # Build for Crush.lu
+python scripts/build_assets.py   # Build all generated crush.lu assets (CSS, JS, .mo) -- they are not committed
+npm run build:css        # Build CSS for Crush.lu only
 npm run build:css:all    # Build all variants
 npm run watch:css        # Watch mode for development
 ```
