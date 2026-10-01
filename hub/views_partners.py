@@ -71,6 +71,8 @@ class PartnerDetailView(generics.RetrieveUpdateDestroyAPIView):
         partner = self.get_object()
         # Money rows and (soon) events point at a partner; deleting one erases
         # that history link, so steer the caller to the Archived stage instead.
+        # TODO(step 2): also block when MeetupEvent.partner rows exist, once that
+        # FK lands (spec: ai-memory-hub/specs/2026-10-01-hub-partner-and-offers.md).
         if partner.payments_out.exists():
             return Response(
                 {
