@@ -185,28 +185,85 @@ class TokenRemapIsTextOnlyTests(SimpleTestCase):
                     for token in self.TOKENS:
                         self.assertNotIn(token + ":", body, selector)
 
-    def test_remaps_are_scoped_to_elements_with_a_text_utility(self):
-        for selector, body in self._rules(BUILT_CSS):
-            if "--font-sans" in body:
+    FLOOR_PREFIXES = ("html:not(.dark):is(", "html:not(.dark)[", "html.dark:is(")
+
+    def _floor_and_reset(self, css):
+        floors, resets = [], []
+        for selector, body in self._rules(css):
+            if "--font-sans" in body or not any(t + ":" in body for t in self.TOKENS):
                 continue
-            if any(t + ":" in body for t in self.TOKENS):
-                self.assertTrue(
-                    selector.startswith(
-                        ("html:not(.dark):is(", "html:not(.dark)[", "html.dark:is(")
-                    ),
-                    selector[:80],
-                )
-                self.assertRegex(selector, r"text-(gray|green)-|\.btn-close|\.form-")
-                self.assertNotRegex(selector, r"\[class\*=\"?(bg|border|ring|from|to)-")
+            (resets if selector.startswith(":where(") else floors).append(
+                (selector, body)
+            )
+        return floors, resets
+
+    def test_remaps_are_scoped_to_elements_with_a_text_utility(self):
+        floors, _ = self._floor_and_reset(BUILT_CSS)
+        self.assertEqual(len(floors), 4)
+        for selector, _body in floors:
+            self.assertTrue(selector.startswith(self.FLOOR_PREFIXES), selector[:80])
+            self.assertRegex(selector, r"text-(gray|green)-|\.btn-close|\.form-")
+            self.assertNotRegex(selector, r"\[class\*=\"?(bg|border|ring|from|to)-")
+
+    def test_stock_steps_are_copied_on_root_before_any_redefinition(self):
+        # The descendant reset reads these copies; they must come from the theme
+        # tokens on :root, where nothing is redefined.
+        for css in (INPUT_CSS, BUILT_CSS):
+            compact = _compact(css)
+            for step in ("gray-400", "gray-500", "green-600"):
+                self.assertIn(f"--stock-{step}:var(--color-{step})", compact, step)
+
+    def test_descendants_of_floored_elements_are_reset_to_stock(self):
+        # Custom properties inherit: without this reset a floored parent turned a
+        # child's `bg-gray-400` dot into gray-600 (coach_member_overview.html).
+        for css in (INPUT_CSS, BUILT_CSS):
+            _, resets = self._floor_and_reset(css)
+            self.assertEqual(len(resets), 1)
+            selector, body = resets[0]
+            self.assertTrue(selector.endswith(")*"), selector[-20:])
+            for step in ("gray-400", "gray-500", "green-600"):
+                self.assertIn(f"--color-{step}:var(--stock-{step})", body)
+
+    @staticmethod
+    def _items(list_text):
+        # top-level comma split of a selector list ("[class*=a],.b,.tableth")
+        items, depth, cur = [], 0, ""
+        for ch in list_text:
+            depth += ch in "([" and 1 or ch in ")]" and -1 or 0
+            if ch == "," and depth == 0:
+                items.append(cur)
+                cur = ""
+            else:
+                cur += ch
+        return [*items, cur]
+
+    @classmethod
+    def _triggers(cls, selector):
+        rest = re.sub(r"^html(:not\(\.dark\)|\.dark)", "", selector)
+        rest = re.sub(r":not\(\.quiz-stage-shell,\.quiz-stage-shell\*\)$", "", rest)
+        if rest.startswith(":is(") and rest.endswith(")"):
+            return cls._items(rest[4:-1])
+        return [rest]
+
+    def test_every_floor_trigger_is_also_a_reset_trigger(self):
+        # A trigger that floors but is missing from the reset leaks to children.
+        for css in (INPUT_CSS, BUILT_CSS):
+            floors, resets = self._floor_and_reset(css)
+            reset_items = set(
+                self._items(re.match(r":where\((.*)\)\*$", resets[0][0]).group(1))
+            )
+            self.assertGreaterEqual(len(reset_items), 14)
+            for selector, _body in floors:
+                triggers = self._triggers(selector)
+                self.assertTrue(triggers, selector)
+                for trigger in triggers:
+                    self.assertIn(trigger, reset_items, selector[:90])
 
     def test_component_text_colours_are_named_in_the_floor(self):
         # Component classes that read these tokens for their own text colour
         # must be named in the floor, or they silently lose it.
-        floor = " ".join(
-            selector
-            for selector, body in self._rules(BUILT_CSS)
-            if any(t + ":" in body for t in self.TOKENS) and "--font-sans" not in body
-        )
+        floors, _ = self._floor_and_reset(BUILT_CSS)
+        floor = " ".join(selector for selector, _body in floors)
         offenders = set()
         for selector, body in self._rules(BUILT_CSS):
             if not re.search(
@@ -222,6 +279,44 @@ class TokenRemapIsTextOnlyTests(SimpleTestCase):
                 if part and part not in floor:
                     offenders.add(part)
         self.assertEqual(sorted(offenders), [])
+
+    def test_no_element_pairs_a_floored_text_utility_with_a_same_step_fill(self):
+        # The one leak the descendant reset cannot cover: the redefinition lands
+        # on the element itself, so `text-gray-400 ... bg-gray-400` on ONE
+        # element would recolour its own background.
+        offenders = []
+        sources = [
+            *TEMPLATES.rglob("*.html"),
+            *(REPO_ROOT / "crush_lu" / "static" / "crush_lu" / "js").rglob("*.js"),
+            *(REPO_ROOT / "crush_lu").glob("*.py"),
+        ]
+        for path in sorted(sources):
+            if ".min." in path.name:
+                continue
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for match in re.finditer(
+                r"[\"'`]([^\"'`\n]*(?:text|placeholder)-[^\"'`\n]*)[\"'`]", text
+            ):
+                classes = match.group(1).split()
+                for step in ("gray-400", "gray-500", "green-600"):
+                    floored = any(
+                        re.fullmatch(
+                            rf"(?:[\w\[\]=-]+:)*(?:text|placeholder)-{step}(/\d+)?", c
+                        )
+                        for c in classes
+                    )
+                    filled = [
+                        c
+                        for c in classes
+                        if re.fullmatch(
+                            rf"(?:[\w\[\]=-]+:)*-?(?:bg|border(?:-[xytblrse])?|ring|from|to|via"
+                            rf"|shadow|divide|outline|accent|fill|stroke|decoration|caret)-{step}(/\d+)?",
+                            c,
+                        )
+                    ]
+                    if floored and filled:
+                        offenders.append(f"{path.name}: {step} {filled}")
+        self.assertEqual(offenders, [])
 
 
 class DarkHoverVariantTests(SimpleTestCase):

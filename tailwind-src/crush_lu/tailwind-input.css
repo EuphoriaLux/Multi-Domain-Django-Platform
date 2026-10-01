@@ -183,7 +183,48 @@ html.dark {
    match, so every variant - hover:, dark:, placeholder:, marker: - is covered
    and the cascade between variants is untouched). Component classes that read
    the token for their own text colour are listed explicitly; a test fails when
-   a new one appears. The always-dark Quiz Night stage keeps the stock steps. */
+   a new one appears. The always-dark Quiz Night stage keeps the stock steps.
+
+   Why a token and not `color:` on the selector: an unlayered `color` rule
+   would beat every layered utility, so `text-gray-500 hover:text-white`,
+   `md:text-gray-700` or `dark:text-gray-300` would stop winning; redefining
+   the token keeps Tailwind's own cascade for every variant.
+
+   NO LEAK TO DESCENDANTS. Custom properties inherit, so the redefinition would
+   reach a child's `bg-gray-400` dot or `border-gray-500` (the activity banner
+   in coach_member_overview.html). Every descendant of a floored element is
+   therefore reset to the stock step, read from the --stock-* copies taken on
+   :root before any redefinition. A descendant that carries its own text
+   utility is floored again by its own, more specific rule. The only remaining
+   leak is an element that carries a text utility AND a bg/border/ring utility
+   of the same step on itself; a test over the templates and JS forbids that. */
+:root {
+    --stock-gray-400: var(--color-gray-400);
+    --stock-gray-500: var(--color-gray-500);
+    --stock-green-600: var(--color-green-600);
+}
+
+:where(
+        [class*="text-gray-400"],
+        [class*="placeholder-gray-400"],
+        [class*="text-gray-500"],
+        [class*="placeholder-gray-500"],
+        [class*="text-green-600"],
+        .btn-close,
+        .form-control,
+        .input-crush,
+        select.form-select,
+        .journey-icon,
+        .journey-icon--idle,
+        .form-text,
+        .table th,
+        .connect-label-hint
+    ) * {
+    --color-gray-400: var(--stock-gray-400);
+    --color-gray-500: var(--stock-gray-500);
+    --color-green-600: var(--stock-green-600);
+}
+
 html:not(.dark) :is([class*="text-gray-400"], [class*="placeholder-gray-400"], .btn-close, .form-control, .input-crush, select.form-select, .journey-icon):not(.quiz-stage-shell, .quiz-stage-shell *) {
     --color-gray-400: var(--text-muted);
 }
