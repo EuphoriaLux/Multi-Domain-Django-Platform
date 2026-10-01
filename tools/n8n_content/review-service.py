@@ -123,6 +123,13 @@ def telegram(method, payload):
 
 def notify_review(record):
     script, post = record["script"], record["post"]
+    source = (script.get("source_idea") or {}).get("facts", {})
+    provenance = (
+        f'\n\nPosting date: {script.get("posting_date", "today")}\n'
+        f'Source: {source["source_url"]}\nChecked: {source["checked_at"][:10]}'
+        if source.get("source_url") and source.get("checked_at")
+        else ""
+    )
     album_caption = (
         record.get("comparison_label")
         if record.get("visual_only")
@@ -225,7 +232,8 @@ def notify_review(record):
                 if record.get("preview_only")
                 else f'Post {post["id"]}'
             )
-            + f' · review {record["revision"]}',
+            + f' · review {record["revision"]}'
+            + provenance,
             "reply_markup": {"inline_keyboard": buttons},
         },
     )

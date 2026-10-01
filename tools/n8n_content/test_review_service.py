@@ -152,6 +152,13 @@ class ReviewTests(unittest.TestCase):
             "slides": [{"title": f"Card {i}"} for i in range(5)],
             "caption_en": "Advice",
             "caption_fr": "Conseil",
+            "posting_date": "2026-10-08",
+            "source_idea": {
+                "facts": {
+                    "source_url": "https://crush.lu/en/events/27/",
+                    "checked_at": "2026-10-01T12:00:00+02:00",
+                }
+            },
         }
         body = {
             "run_key": "preview-1",
@@ -163,6 +170,10 @@ class ReviewTests(unittest.TestCase):
         }
         result = review.deliver(body)
         record = review.load(result["review_id"])
+        message_text = telegram.call_args.args[1]["text"]
+        self.assertIn("https://crush.lu/en/events/27/", message_text)
+        self.assertIn("2026-10-08", message_text)
+        self.assertEqual(record["script"]["source_idea"], script["source_idea"])
         self.assertEqual(
             [Path(p).read_bytes() for p in record["preview_files"]],
             [bytes([i]) for i in range(5)],
