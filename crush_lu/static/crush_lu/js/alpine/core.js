@@ -5359,6 +5359,15 @@ document.addEventListener("alpine:init", function () {
                 if (this.focusedIndex >= 0 && this.focusedIndex < this.regions.length) {
                     var region = this.regions[this.focusedIndex];
                     region.element.classList.add("region-focused");
+                    // DOM focus stays on the listbox <svg>, so point it at the active
+                    // option; otherwise screen readers never announce the new region.
+                    var svg = this.$el.querySelector("svg");
+                    if (svg) {
+                        svg.setAttribute(
+                            "aria-activedescendant",
+                            region.element.id || region.id
+                        );
+                    }
                     this.hoverRegion(region.id, region.name);
                 }
             },
@@ -5366,6 +5375,7 @@ document.addEventListener("alpine:init", function () {
             _clearFocus: function () {
                 var svg = this.$el.querySelector("svg");
                 if (!svg) return;
+                svg.removeAttribute("aria-activedescendant");
                 var focusedElements = svg.querySelectorAll(".region-focused");
                 for (var i = 0; i < focusedElements.length; i++) {
                     focusedElements[i].classList.remove("region-focused");

@@ -19,7 +19,7 @@ from django.utils import timezone
 from django.core.cache import cache
 from django.template.loader import render_to_string
 
-from crush_lu.models import CrushProfile
+from crush_lu.models import CrushProfile, ProfileSubmission
 from crush_lu.models.profiles import UserDataConsent
 from crush_lu.tests.test_event_lobby import (
     _end_event,
@@ -134,6 +134,69 @@ class TestHeadingOutlines:
         assert any(text.startswith("Your profile is ready") for text in page_h1)
         assert "data-status-line" in html
         assert not re.search(r"<h2[^>]*data-status-line", html)
+
+    def test_paused_submission_still_has_an_h1(self, client):
+        # The paused state skips the whole status block, so its banner is the
+        # page title (it used to be an h2 and the page had no h1 at all).
+        user = _make_member("wp9_paused", membership=False, luxid=False)
+        profile = CrushProfile.objects.get(user=user)
+        CrushProfile.objects.filter(user=user).update(
+            is_approved=False, verification_status="pending"
+        )
+        ProfileSubmission.objects.create(
+            profile=profile, status="pending", is_paused=True
+        )
+        _login(client, user)
+        response = client.get("/en/profile-submitted/", HTTP_HOST=HOST)
+        assert response.status_code == 200
+        headings = _headings(_body(response))
+        assert [text for level, text in headings if level == 1] == ["Profile paused"]
+        _assert_no_skipped_level(headings)
+
+
+class TestJourneyCreateProfileTitle:
+    def test_h1_is_a_real_title_not_tiny_metadata(self, client):
+        # In the journey flow the visible caption is a 10px label; the page
+        # title must not be that tiny h1 (it is screen-reader-only text).
+        user = _make_member("wp9_journey_title", membership=False, luxid=False)
+        CrushProfile.objects.filter(user=user).update(
+            is_approved=False,
+            welcome_seen_at=timezone.now(),
+            coach_intro_seen_at=timezone.now(),
+            phone_verified=True,
+            verification_status="incomplete",
+        )
+        _login(client, user)
+        html = _body(client.get("/en/create-profile/", HTTP_HOST=HOST))
+        assert not re.search(r"<h1[^>]*text-\[10px\]", html)
+        assert re.search(r'<h1 class="sr-only">\s*Build your profile\s*</h1>', html)
+
+
+class TestCantonMapKeyboardAnnouncements:
+    def test_focused_option_becomes_the_active_descendant(self):
+        # DOM focus stays on the listbox <svg>, so arrow-key navigation must
+        # move aria-activedescendant or the new option labels are never read.
+        from pathlib import Path
+
+        from django.conf import settings
+
+        js = (
+            Path(settings.BASE_DIR)
+            / "crush_lu"
+            / "static"
+            / "crush_lu"
+            / "js"
+            / "alpine"
+            / "core.js"
+        ).read_text(encoding="utf-8")
+        start = js.index("_applyFocus: function")
+        end = js.index("selectRegion: function", start)
+        block = js[start:end]
+        assert (
+            'setAttribute(\n                            "aria-activedescendant"'
+            in block
+        )
+        assert 'removeAttribute("aria-activedescendant")' in block
 
 
 class TestLobbyGridsAreNotBrokenLists:

@@ -143,10 +143,11 @@
               caption so the inner multi-step wizard reveals itself without
               competing with the journey rail above.
             {% endcomment %}
+            <h1 class="sr-only">{% trans "Build your profile" %}</h1>
             <div class="mt-4 flex items-baseline justify-between gap-3">
-                <h1 class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-fg">
+                <p class="mb-0 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-fg" aria-hidden="true">
                     {% trans "Build your profile" %}
-                </h1>
+                </p>
                 <span class="text-xs font-medium tabular-nums text-crush-purple-dark dark:text-purple-300" x-text="stepLabel"></span>
             </div>
             {% endif %}
