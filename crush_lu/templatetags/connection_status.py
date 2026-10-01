@@ -25,7 +25,7 @@ _STATUS_BADGE_MAP = {
     "accepted": (_("Assigned to Coach"), "info", "clock"),
     "coach_reviewing": (_("Coach Reviewing"), "primary", "user"),
     "coach_approved": (_("Pending Your Consent"), "warning", "check-circle"),
-    "shared": (_("Contacts Shared!"), "success", "check-circle"),
+    "shared": (_("Profiles Shared!"), "success", "check-circle"),
     "declined": (_("Declined"), "danger", "x-circle"),
     "pending": (_("Awaiting Response"), "warning", "clock"),
 }
