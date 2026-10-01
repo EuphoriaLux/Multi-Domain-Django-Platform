@@ -236,7 +236,7 @@ def _markup(path):
     src = path.read_text(encoding="utf-8")
     src = re.sub(r"\{#.*?#\}", "", src, flags=re.S)
     src = re.sub(r"\{% comment %\}.*?\{% endcomment %\}", "", src, flags=re.S)
-    src = re.sub(r"<script\b.*?</script>", "", src, flags=re.S | re.I)
+    src = re.sub(r"<script\b.*?</script\s*[^>]*>", "", src, flags=re.S | re.I)
     src = re.sub(r"\{%\s*(?:trans|translate)\s+(['\"])(.*?)\1.*?%\}", r"\2", src)
     src = re.sub(r"\{%.*?%\}", "", src, flags=re.S)
     src = re.sub(r"\{\{.*?\}\}", "Sample", src, flags=re.S)
