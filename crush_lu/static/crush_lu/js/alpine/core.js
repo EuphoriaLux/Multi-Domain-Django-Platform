@@ -5301,11 +5301,16 @@ document.addEventListener("alpine:init", function () {
                 });
 
                 svg.addEventListener("focus", function () {
-                    if (self.focusedIndex < 0 && self.regions.length > 0) {
+                    if (self.regions.length === 0) {
+                        return;
+                    }
+                    if (self.focusedIndex < 0) {
                         var selectedIndex = self._getSelectedIndex();
                         self.focusedIndex = selectedIndex >= 0 ? selectedIndex : 0;
-                        self._applyFocus();
                     }
+                    // blur clears the active descendant but keeps the index, so
+                    // re-apply on every focus to restore it when the user tabs back.
+                    self._applyFocus();
                 });
 
                 svg.addEventListener("blur", function () {

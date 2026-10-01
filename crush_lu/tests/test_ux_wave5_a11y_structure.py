@@ -198,6 +198,28 @@ class TestCantonMapKeyboardAnnouncements:
         )
         assert 'removeAttribute("aria-activedescendant")' in block
 
+    def test_refocus_reapplies_the_active_descendant(self):
+        # blur clears aria-activedescendant but keeps focusedIndex, so the
+        # focus handler must re-apply it even when the index is already set.
+        from pathlib import Path
+
+        from django.conf import settings
+
+        js = (
+            Path(settings.BASE_DIR)
+            / "crush_lu"
+            / "static"
+            / "crush_lu"
+            / "js"
+            / "alpine"
+            / "core.js"
+        ).read_text(encoding="utf-8")
+        start = js.index('svg.addEventListener("focus"')
+        end = js.index('svg.addEventListener("blur"', start)
+        block = js[start:end]
+        assert "if (self.focusedIndex < 0 && self.regions.length > 0)" not in block
+        assert "self._applyFocus();" in block
+
 
 class TestLobbyGridsAreNotBrokenLists:
     def test_lobby_and_recap_grids_have_no_role_list(self, client):
