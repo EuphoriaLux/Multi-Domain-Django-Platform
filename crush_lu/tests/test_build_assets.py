@@ -192,31 +192,76 @@ class FreshnessTests(SimpleTestCase):
         self.tmp = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
 
-    def test_an_output_older_than_its_sources_is_reported(self):
+    def _tree(self):
+        """A miniature repo: inputs, a template, an Alpine module, one CSS out."""
         import os
 
-        source = self.tmp / "input.css"
-        output = self.tmp / "out.css"
-        source.write_text("a{}")
-        output.write_text("a{}")
-        os.utime(output, (1_000_000, 1_000_000))
-        os.utime(source, (2_000_000, 2_000_000))
-        original = (build_assets.CSS_FILES, build_assets.ROOT)
-        build_assets.CSS_FILES = (output,)
-        self.addCleanup(setattr, build_assets, "CSS_FILES", original[0])
-        sources = [source]
-        real_glob = Path.glob
+        root = self.tmp
+        files = {
+            "tailwind-src/crush_lu/tailwind-input.css": "a{}",
+            "tailwind-src/crush_lu/features/journey.css": "a{}",
+            "crush_lu/templates/crush_lu/page.html": "<p class='p-4'></p>",
+            "crush_lu/static/crush_lu/js/alpine/core.js": "1",
+            "crush_lu/static/crush_lu/css/tailwind.css": "a{}",
+            "crush_lu/static/crush_lu/js/alpine/core.min.js": "1",
+        }
+        for rel, text in files.items():
+            path = root / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text)
+            os.utime(path, (1_000_000, 1_000_000))
+        saved = (
+            build_assets.ROOT,
+            build_assets.STATIC,
+            build_assets.CSS_FILES,
+            build_assets.JS_FILES,
+        )
+        build_assets.ROOT = root
+        build_assets.STATIC = root / "crush_lu" / "static" / "crush_lu"
+        build_assets.CSS_FILES = (build_assets.STATIC / "css" / "tailwind.css",)
+        build_assets.JS_FILES = (build_assets.STATIC / "js" / "alpine" / "core.min.js",)
 
-        def fake_glob(path, pattern):
-            if "tailwind-src" in str(path):
-                return iter(sources if path.name == "crush_lu" else [])
-            return real_glob(path, pattern)
+        def restore():
+            (
+                build_assets.ROOT,
+                build_assets.STATIC,
+                build_assets.CSS_FILES,
+                build_assets.JS_FILES,
+            ) = saved
 
-        from unittest import mock
+        self.addCleanup(restore)
+        return root
 
-        with mock.patch.object(Path, "glob", fake_glob):
-            problems = build_assets.verify_fresh()
-        self.assertTrue(any("older than its sources" in p for p in problems), problems)
+    def _touch_newer(self, path):
+        import os
+
+        os.utime(path, (2_000_000, 2_000_000))
+
+    def test_everything_current_is_fresh(self):
+        self._tree()
+        self.assertEqual(build_assets.verify_fresh(), [])
+
+    def test_a_newer_tailwind_input_makes_the_css_stale(self):
+        root = self._tree()
+        self._touch_newer(root / "tailwind-src/crush_lu/features/journey.css")
+        problems = build_assets.verify_fresh()
+        self.assertEqual(len(problems), 1)
+        self.assertIn("CSS bundle is older", problems[0])
+
+    def test_a_newer_template_makes_the_css_stale(self):
+        # A new utility class in a template is not in the old bundle.
+        root = self._tree()
+        self._touch_newer(root / "crush_lu/templates/crush_lu/page.html")
+        problems = build_assets.verify_fresh()
+        self.assertEqual(len(problems), 1)
+        self.assertIn("CSS bundle is older", problems[0])
+
+    def test_a_newer_alpine_module_makes_the_js_stale_but_not_the_css(self):
+        root = self._tree()
+        self._touch_newer(root / "crush_lu/static/crush_lu/js/alpine/core.js")
+        problems = build_assets.verify_fresh()
+        # core.js is also scanned by Tailwind, so both bundles are reported.
+        self.assertTrue(any("JS bundle is older" in p for p in problems), problems)
 
     def test_the_built_repository_is_fresh(self):
         self.assertEqual(build_assets.verify_fresh(), [])

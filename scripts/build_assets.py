@@ -117,20 +117,21 @@ def _newest(paths) -> float:
 def verify_fresh() -> list[str]:
     """Built CSS/JS must not be older than the sources they are built from.
 
-    Direct sources only: the Tailwind input files and the Alpine modules. (The
-    CSS also depends on the classes used in templates; rebuild after template
-    work too, which `build_assets.py` always does.) Skipped on deploy, where
+    CSS depends on the Tailwind inputs *and* on the files Tailwind scans for
+    class names (the ``@source`` trees in tailwind-input.css), so templates and
+    non-minified JS count too. Python files are not checked (they would flag
+    every edit; rebuild after adding classes in Python). The Alpine bundles
+    depend on the modules under ``js/alpine``. Skipped on deploy, where the
     mtimes of a restored artifact are meaningless.
     """
+    alpine_dir = STATIC / "js" / "alpine"
     css_sources = [
         *(ROOT / "tailwind-src" / "crush_lu").glob("*.css"),
         *(ROOT / "tailwind-src" / "crush_lu" / "features").glob("*.css"),
+        *(ROOT / "crush_lu" / "templates").rglob("*.html"),
+        *(p for p in (STATIC / "js").rglob("*.js") if not p.name.endswith(".min.js")),
     ]
-    js_sources = [
-        p
-        for p in (STATIC / "js" / "alpine").glob("*.js")
-        if not p.name.endswith(".min.js")
-    ]
+    js_sources = [p for p in alpine_dir.glob("*.js") if not p.name.endswith(".min.js")]
     problems = []
     for outputs, sources, label in (
         (CSS_FILES, css_sources, "CSS"),
