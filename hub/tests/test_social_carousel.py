@@ -5,6 +5,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from PIL import Image
@@ -22,6 +23,9 @@ def png(index=0, size=(1080, 1080)):
 
 class SocialCarouselTests(TestCase):
     def setUp(self):
+        # DRF throttle counters live in the cache and every test's user gets
+        # the same pk, so tests would otherwise share one 120/min bucket.
+        cache.clear()
         self.user = get_user_model().objects.create_user(
             username="carousel-staff", email="staff@example.com", is_staff=True
         )
