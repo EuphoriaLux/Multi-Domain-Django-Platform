@@ -40,6 +40,14 @@ class FeatureStylesheetFilesTests(TestCase):
         # The global bundle keeps genuinely shared component rules.
         self.assertIn(".btn-primary", base)
 
+    def test_runtime_library_classes_stay_in_the_global_bundle(self):
+        # HTMX adds these classes itself, so no template or script mentions
+        # them; they looked like dead selectors but every hx-* swap uses them.
+        base = (CSS_DIR / "tailwind.css").read_text(encoding="utf-8")
+        self.assertIn(".htmx-swapping", base)
+        self.assertIn(".htmx-settling", base)
+        self.assertIn(".htmx-request", base)
+
     def test_feature_sources_reference_the_main_input(self):
         src = Path(settings.BASE_DIR) / "tailwind-src" / "crush_lu" / "features"
         for name in ("journey", "marketing"):

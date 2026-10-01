@@ -1045,7 +1045,18 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
         @apply pointer-events-none opacity-70;
     }
 
-    
+    /* Smooth swap transitions. HTMX adds these classes at runtime, so no template
+       mentions them; they are not dead selectors. */
+    .htmx-swapping {
+        @apply opacity-50;
+        transition: opacity 200ms ease-out;
+    }
+
+    .htmx-settling {
+        @apply opacity-100;
+        transition: opacity 200ms ease-in;
+    }
+
 
     /* =========================================================================
      ANIMATIONS
