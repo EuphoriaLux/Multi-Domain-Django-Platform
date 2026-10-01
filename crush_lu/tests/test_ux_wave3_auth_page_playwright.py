@@ -134,7 +134,6 @@ def test_failed_signup_focuses_first_invalid_field(page, live_server):
     page.locator("#id_first_name").fill("Dup")
     page.locator("#id_email").fill("wave3-dupe@example.com")
     page.locator("#id_password1").fill("Str0ng-pass-2026!")
-    page.locator("#id_password2").fill("Str0ng-pass-2026!")
     page.locator("#id_crushlu_consent").check()
     page.locator("#signup-submit-btn").click()
 
