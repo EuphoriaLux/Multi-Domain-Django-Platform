@@ -659,3 +659,79 @@ class PartnerReviewRegressionTests(ThrottleIsolatedTestCase):
                 f"/hub/locations/{partner.pk}", payload, format="json"
             )
             self.assertEqual(response.status_code, 400, list(payload))
+
+    def test_name_and_city_fit_the_event_fields_they_prefill(self):
+        base = {"maxCapacity": 10, "address": "x", "city": "y"}
+        long_name = self.client.post(
+            "/hub/locations", {**base, "name": "n" * 201}, format="json"
+        )
+        long_city = self.client.post(
+            "/hub/locations", {**base, "name": "ok", "city": "c" * 101}, format="json"
+        )
+        self.assertEqual(long_name.status_code, 400)
+        self.assertEqual(long_city.status_code, 400)
+
+    def test_offer_capacity_cannot_exceed_the_venue(self):
+        partner = make_partner(max_capacity=20)
+        url = f"/hub/locations/{partner.pk}/offers"
+        too_big = self.client.post(
+            url, self.offer_payload(maxParticipants=100), format="json"
+        )
+        fits = self.client.post(
+            url, self.offer_payload(maxParticipants=20), format="json"
+        )
+        self.assertEqual(too_big.status_code, 400)
+        self.assertEqual(fits.status_code, 201, fits.data)
+
+        patched = self.client.patch(
+            f"{url}/{fits.data['id']}", {"maxParticipants": 21}, format="json"
+        )
+        self.assertEqual(patched.status_code, 400)
+
+    def test_lowering_venue_capacity_below_an_offer_is_rejected(self):
+        partner = make_partner(max_capacity=60)
+        make_offer(partner, max_participants=40)
+        lower = self.client.patch(
+            f"/hub/locations/{partner.pk}", {"maxCapacity": 30}, format="json"
+        )
+        same = self.client.patch(
+            f"/hub/locations/{partner.pk}", {"maxCapacity": 40}, format="json"
+        )
+        self.assertEqual(lower.status_code, 400)
+        self.assertIn("maxCapacity", lower.data)
+        self.assertEqual(same.status_code, 200, same.data)
+
+    def test_age_range_uses_model_defaults_on_create(self):
+        partner = make_partner()
+        url = f"/hub/locations/{partner.pk}/offers"
+        # Default maxAge is 99 and default minAge is 18: both would violate the
+        # DB constraint if only one side were supplied.
+        for payload in ({"minAge": 100}, {"maxAge": 17}):
+            response = self.client.post(
+                url, self.offer_payload(**payload), format="json"
+            )
+            self.assertEqual(response.status_code, 400, payload)
+
+    def test_blank_legacy_address_is_treated_as_absent(self):
+        created = self.client.post(
+            "/hub/locations",
+            {
+                "name": "Structured",
+                "maxCapacity": 10,
+                "address": "",
+                "addressStreet": "rue du Nord",
+                "addressNumber": "7",
+                "addressPostcode": "2229",
+                "addressTown": "Luxembourg",
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertEqual(created.data["address"], "rue du Nord 7, L-2229 Luxembourg")
+
+        partner = make_partner(address="Keep me, 1234 Town")
+        kept = self.client.patch(
+            f"/hub/locations/{partner.pk}", {"address": ""}, format="json"
+        )
+        self.assertEqual(kept.status_code, 200, kept.data)
+        self.assertEqual(kept.data["address"], "Keep me, 1234 Town")

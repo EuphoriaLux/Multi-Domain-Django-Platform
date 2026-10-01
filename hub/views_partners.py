@@ -92,7 +92,12 @@ class PartnerOffersView(generics.ListCreateAPIView):
     serializer_class = PartnerOfferSerializer
 
     def get_partner(self):
-        return get_object_or_404(Location, pk=self.kwargs["pk"])
+        if not hasattr(self, "_partner"):
+            self._partner = get_object_or_404(Location, pk=self.kwargs["pk"])
+        return self._partner
+
+    def get_serializer_context(self):
+        return {**super().get_serializer_context(), "partner": self.get_partner()}
 
     def get_queryset(self):
         return PartnerOffer.objects.filter(location_id=self.get_partner().pk)

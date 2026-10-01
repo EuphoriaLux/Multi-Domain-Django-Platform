@@ -84,8 +84,12 @@ class LocationContactSerializer(serializers.ModelSerializer):
 
 class LocationSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)
+    # name and city are copied into MeetupEvent.location (200) and
+    # MeetupEvent.address_town (100) by the event prefill, so the API holds
+    # them to those limits rather than the wider Location columns.
+    name = serializers.CharField(max_length=200)
     address = serializers.CharField(required=False, allow_blank=True)
-    city = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    city = serializers.CharField(required=False, allow_blank=True, max_length=100)
     country = serializers.CharField(required=False, max_length=100)
 
     maxCapacity = _f(serializers.IntegerField, "max_capacity", min_value=1)
@@ -293,6 +297,11 @@ class LocationSerializer(serializers.ModelSerializer):
                 return attrs[key]
             return getattr(instance, key, None) if instance else None
 
+        # An explicit blank legacy address means "not given": compose it from
+        # the structured fields (or leave the stored one), never erase it.
+        if "address" in attrs and not attrs["address"]:
+            del attrs["address"]
+
         errors = {}
         max_capacity = current("max_capacity")
         seated = current("seated_capacity")
@@ -319,6 +328,15 @@ class LocationSerializer(serializers.ModelSerializer):
             attrs["city"] = attrs["address_town"]
         if instance is None and not attrs.get("city"):
             errors["city"] = "Give a city or the structured town."
+        if instance is not None and max_capacity is not None:
+            largest = max(
+                instance.offers.values_list("max_participants", flat=True),
+                default=0,
+            )
+            if largest > max_capacity:
+                errors["maxCapacity"] = (
+                    f"An offer here seats {largest}; lower or edit it first."
+                )
         if errors:
             raise serializers.ValidationError(errors)
         return attrs
@@ -518,7 +536,12 @@ class PartnerOfferSerializer(serializers.ModelSerializer):
         def current(key):
             if key in attrs:
                 return attrs[key]
-            return getattr(instance, key, None) if instance else None
+            if instance:
+                return getattr(instance, key)
+            # Create: an omitted field takes the model default, which is what
+            # will actually be saved (and checked by the DB constraints).
+            field = PartnerOffer._meta.get_field(key)
+            return field.default if field.has_default() else None
 
         errors = {}
         if instance is None:
@@ -534,11 +557,14 @@ class PartnerOfferSerializer(serializers.ModelSerializer):
         min_age, max_age = current("min_age"), current("max_age")
         if min_age is not None and max_age is not None and min_age > max_age:
             errors["maxAge"] = "Maximum age must not be below minimum age."
+        total = current("max_participants")
+        partner = instance.location if instance else self.context.get("partner")
+        if partner is not None and total is not None and total > partner.max_capacity:
+            errors["maxParticipants"] = (
+                f"This venue holds at most {partner.max_capacity} people."
+            )
         # Same rules as MeetupEvent.clean(), so a saved offer always yields a
         # draft that can become a valid event.
-        total = current("max_participants")
-        if total is None:
-            total = PartnerOffer._meta.get_field("max_participants").default
         caps = [
             current("max_participants_m"),
             current("max_participants_f"),
