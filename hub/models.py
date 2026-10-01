@@ -549,6 +549,7 @@ class SocialPost(models.Model):
     hook = models.CharField(max_length=255, blank=True, default="")
     content = models.TextField(blank=True, default="")
     media_url = models.URLField(blank=True, null=True, default=None)
+    media_urls = models.JSONField(default=list, blank=True)
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.DRAFT
     )

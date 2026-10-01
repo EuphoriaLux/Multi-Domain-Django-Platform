@@ -159,6 +159,7 @@ def _create_channel_post(
     text: str,
     scheduled_at: str | None,
     media_url: str | None,
+    media_urls: list[str] | None = None,
     platform: str | None = None,
 ) -> str:
     post_input: dict = {
@@ -172,12 +173,13 @@ def _create_channel_post(
     }
     if scheduled_at:
         post_input["dueAt"] = scheduled_at
-    if media_url:
-        if not _is_public_media_url(media_url):
+    images = media_urls or ([media_url] if media_url else [])
+    if images:
+        if any(not _is_public_media_url(url) for url in images):
             raise BufferServiceError(
                 "Buffer media must use a publicly reachable HTTP(S) URL"
             )
-        post_input["assets"] = [{"image": {"url": media_url}}]
+        post_input["assets"] = [{"image": {"url": url}} for url in images]
 
     metadata: dict = {}
     if platform == "facebook":
@@ -214,6 +216,7 @@ def create_buffer_update(
     profile_ids: list[str],
     scheduled_at: str | None = None,
     media_url: str | None = None,
+    media_urls: list[str] | None = None,
     profile_platforms: dict[str, str] | None = None,
     require_resolved_platforms: bool = False,
 ) -> dict:
@@ -223,13 +226,21 @@ def create_buffer_update(
         raise BufferServiceError("Select at least one Buffer channel")
 
     profile_platforms = profile_platforms or {}
+    images = media_urls or ([media_url] if media_url else [])
+    # Validate the entire deck before creating any external channel post.
+    if len(images) > 5:
+        raise BufferServiceError("Provide up to five images")
+    if any(not _is_public_media_url(url) for url in images):
+        raise BufferServiceError(
+            "Buffer media must use a publicly reachable HTTP(S) URL"
+        )
     # Instagram feed posts need an image and Buffer rejects them without one.
     # Refuse up front, before any channel is posted: failing on the Instagram
     # channel after an earlier one succeeded would leave a partial external
     # publication. A caller that could not resolve every channel's platform
     # can ask for text-only posts to be refused too, since an unresolved
     # channel could be Instagram.
-    if not media_url and any(
+    if not images and any(
         profile_platforms.get(channel_id) == "instagram"
         or (require_resolved_platforms and not profile_platforms.get(channel_id))
         for channel_id in profile_ids
@@ -247,6 +258,7 @@ def create_buffer_update(
                     text=text,
                     scheduled_at=scheduled_at,
                     media_url=media_url,
+                    media_urls=media_urls,
                     platform=profile_platforms.get(channel_id),
                 )
             )

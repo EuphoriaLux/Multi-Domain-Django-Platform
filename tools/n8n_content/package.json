@@ -1,0 +1,8 @@
+{
+  "name": "crush-content-renderer",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {"start": "node render-server.cjs", "test": "node --test renderer.test.cjs workflow.test.cjs"},
+  "dependencies": {"sharp": "0.35.4"},
+  "engines": {"node": ">=22"}
+}

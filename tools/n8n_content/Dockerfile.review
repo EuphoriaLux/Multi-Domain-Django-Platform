@@ -1,0 +1,8 @@
+FROM python:3.12-slim
+RUN pip install --no-cache-dir requests==2.32.5
+WORKDIR /app
+COPY review-service.py ./
+RUN useradd -u 1000 -m review && mkdir /data && chown review:review /data
+USER review
+EXPOSE 8093
+CMD ["python", "-u", "review-service.py"]

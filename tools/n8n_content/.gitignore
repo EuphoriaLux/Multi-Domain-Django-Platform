@@ -1,0 +1,9 @@
+live-inventory.redacted.json
+preview-assets/
+preview/
+.npm-cache/
+node_modules/
+bound/
+*.env
+*.sqlite*
+__pycache__/

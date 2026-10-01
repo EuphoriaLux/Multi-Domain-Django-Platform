@@ -318,6 +318,7 @@ class SocialPostSerializer(serializers.ModelSerializer):
             "hook",
             "content",
             "media_url",
+            "media_urls",
             "status",
             "scheduled_for",
             "buffer_id",
@@ -388,6 +389,37 @@ class SocialPostSerializer(serializers.ModelSerializer):
                 "characters."
             )
         return value
+
+    def validate_media_urls(self, value):
+        if not isinstance(value, list) or len(value) > 5:
+            raise serializers.ValidationError("Provide up to five ordered image URLs.")
+        validator = serializers.URLField(
+            max_length=SocialPost._meta.get_field("media_url").max_length
+        )
+        urls = [validator.run_validation(url) for url in value]
+        if len(set(urls)) != len(urls):
+            raise serializers.ValidationError("Carousel images must be distinct.")
+        return urls
+
+    def validate(self, attrs):
+        if "media_urls" in attrs and attrs["media_urls"]:
+            cover = attrs["media_urls"][0]
+            if attrs.get("media_url") and attrs["media_url"] != cover:
+                raise serializers.ValidationError(
+                    {"media_url": "The cover must be the first carousel image."}
+                )
+            attrs["media_url"] = cover
+        elif (
+            self.instance
+            and self.instance.media_urls
+            and "media_url" in attrs
+            and "media_urls" not in attrs
+            and attrs["media_url"] != self.instance.media_url
+        ):
+            raise serializers.ValidationError(
+                {"media_urls": "Replace the ordered carousel with its cover."}
+            )
+        return attrs
 
 
 class EventCancellationSummarySerializer(serializers.Serializer):

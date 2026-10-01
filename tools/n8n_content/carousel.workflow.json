@@ -1,0 +1,426 @@
+{
+  "name": "Crush.lu v2 - Five-slide coaching carousel",
+  "active": false,
+  "nodes": [
+    {
+      "id": "manual-generate-review",
+      "name": "Manual Generate Review",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "twice-weekly",
+      "name": "Twice Weekly",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                2,
+                5
+              ],
+              "triggerAtHour": 10,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "authenticated-generate",
+      "name": "Authenticated Generate",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "crush-carousel-generate-v2",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "Crush Generation Webhook"
+        }
+      }
+    },
+    {
+      "id": "select-topic",
+      "name": "Select Topic",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const themes = [\n  {\n    id: \"icebreakers\",\n    name: \"Multilingual Icebreakers in Luxembourg\",\n    description: \"How to gracefully initiate conversations across French, English, German, and Luxembourgish in afterwork settings without feeling awkward.\",\n    takeaway: \"Use observational situational openers rather than rehearsed lines. Acknowledge language fluidity with a smile.\",\n    ghostScene: \"ghost_scene_chatting_pair.svg\",\n    mascotAction: \"Two cute 3D Crush ghost figurines having a cheerful multilingual coffee chat at a cozy terrace table in Luxembourg Grund overlooking the stone bridge\"\n  },\n  {\n    id: \"burnout\",\n    name: \"Overcoming Dating App Fatigue\",\n    description: \"Why infinite swiping leads to emotional exhaustion for singles aged 30-49, and how intentional, slow-dating beats endless texting.\",\n    takeaway: \"Cap active chats to 2 people at a time, move to a 20-minute coffee or walk within 5 days of matching.\",\n    ghostScene: \"ghost_scene_phone.svg\",\n    mascotAction: \"The 3D Crush ghost mascot sitting on a park bench in Parc de Merl, taking a peaceful breather away from a smartphone, enjoying real-life fresh air\"\n  },\n  {\n    id: \"first_date_lux\",\n    name: \"Crafting a Low-Pressure First Date in Luxembourg\",\n    description: \"Moving away from stiff formal dinners towards relaxed, high-connection settings in Luxembourg-Ville.\",\n    takeaway: \"Opt for dynamic dates: an exhibition at Mudam followed by coffee, or a scenic stroll in Grund.\",\n    ghostScene: \"ghost_scene_discover.svg\",\n    mascotAction: \"The 3D Crush ghost mascot with a mini paper map discovering the scenic Pfaffenthal panoramic elevator and the Alzette river trail in Luxembourg\"\n  },\n  {\n    id: \"expat_bubbles\",\n    name: \"Escaping Expat Social Bubbles\",\n    description: \"How internationals and locals can genuinely connect beyond superficial 'where are you from' small talk.\",\n    takeaway: \"Ask questions about current passions and favorite hidden spots rather than job titles and origin stories.\",\n    ghostScene: \"ghost_scene_party.svg\",\n    mascotAction: \"The 3D Crush ghost mascot happily stepping between two friendly conversation circles at an afterwork mixer in Clausen Luxembourg\"\n  },\n  {\n    id: \"green_flags\",\n    name: \"Green Flags in 30+ Dating\",\n    description: \"Recognizing emotional maturity, prompt communication, LuxID verification reliability, and consistency early on.\",\n    takeaway: \"Look for alignment between words and actions, respectful boundary awareness, and enthusiasm for meeting in person.\",\n    ghostScene: \"ghost_scene_approved.svg\",\n    mascotAction: \"The 3D Crush ghost mascot giving an approving thumbs up next to a glowing green badge in an upscale Luxembourg cafe\"\n  },\n  {\n    id: \"confidence_reset\",\n    name: \"Post-Divorce & Starting Fresh in Luxembourg\",\n    description: \"Re-entering the dating scene after a long relationship with clarity, confidence, and self-compassion.\",\n    takeaway: \"Define what you genuinely desire today rather than repeating past compromises. You are dating from experience now.\",\n    ghostScene: \"ghost_scene_unlock.svg\",\n    mascotAction: \"The 3D Crush ghost mascot standing tall in front of the illuminated Belval blast furnaces at dusk, glowing with renewed confidence and a warm heart\"\n  }\n];\n\nconst now = new Date();\nconst local = new Date(now.toLocaleString('en-US', {timeZone:'Europe/Luxembourg'}));\nconst day = local.getDay();\nconst week = Math.floor((Date.UTC(local.getFullYear(),local.getMonth(),local.getDate()) - Date.UTC(2026,8,28))/(7*86400000));\nconst slot = week*2 + (day >= 5 ? 1 : 0);\nconst override = $json.body?.topic;\nconst selected = override ? themes.find(t=>t.id===override) : themes[((slot%themes.length)+themes.length)%themes.length];\nif(!selected) throw new Error('Unknown topic');\nconst mapping = {events:'promo',proof:'milestone',coach_tips:'dating_tip',trust:'community',founding_members:'community'};\nreturn [{json:{...selected,kind:\"carousel\",hubPillar:'dating_tip'}}];"
+      }
+    },
+    {
+      "id": "generate-structured-copy",
+      "name": "Generate Structured Copy",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        400,
+        0
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "=You write useful, honest Crush.lu coaching content for adults 30–49 in Luxembourg.\nReturn ONLY a JSON object. No markdown fences, preamble, emojis or fabricated stats.\nEnglish is primary. French captions always use vous. Never claim zero fake profiles,\nguaranteed safety, sold-out seats, prices, member counts or an available founding offer\nwithout an explicitly provided dated source. LuxID verifies identity, not behaviour.\nDescribe suggested local walks or cafes as suggestions; never invent events or testimonials.\nRespect boundaries; avoid diagnostic or therapeutic promises and pressure to date.\nEach advice slide adds one practical idea. Keep titles under 80 characters, body under\n200 characters, captions under 1400 characters INCLUDING CTA and 3–5 hashtags.\nCTA URL: https://crush.lu/en/ (FR: https://crush.lu/fr/). Do not invent deep links.\nSchema: {\"slides\":[{\"title\":\"...\",\"body\":\"...\"}],\"caption_en\":\"...\",\n\"caption_fr\":\"...\",\"visualPrompt\":\"...\"}.\nThe cover artwork must preserve the supplied reference ghost proportions: matte white,\npurple eyes, blush cheeks, pink heart. Use an authentic Luxembourg scene. No text, logos\nor badges in the generated artwork; deterministic overlays supply those.\n\nTopic: {{ $json.name }}\nGuidance: {{ $json.description }}\nMake exactly FIVE slides: hook, struggle, mindset, practical action, CTA.\nMascot idea: {{ $json.mascotAction }}",
+        "options": {
+          "maxIterations": 1
+        }
+      }
+    },
+    {
+      "id": "subscription-chat-model",
+      "name": "Subscription Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        400,
+        0
+      ],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-6-luna",
+          "mode": "list"
+        },
+        "responsesApiEnabled": false,
+        "options": {
+          "timeout": 45000,
+          "maxRetries": 0,
+          "maxTokens": 2500
+        }
+      },
+      "credentials": {
+        "openAiApi": {
+          "name": "Crush Subscription Bridge"
+        }
+      }
+    },
+    {
+      "id": "validate-script",
+      "name": "Validate Script",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const raw = $json.output || $json.text;\nif (typeof raw !== 'string') throw new Error('LLM returned no text');\nlet parsed; try { parsed = JSON.parse(raw); } catch { throw new Error('Copy must be strict JSON; repair the prompt before sending'); }\nconst selected = $('Select Topic').first().json;\nconst count = selected.kind === 'carousel' ? 5 : 1;\nif (!Array.isArray(parsed.slides) || parsed.slides.length !== count) throw new Error('Incomplete slide script');\nfor (const s of parsed.slides) {\n  if (typeof s.title !== 'string' || !s.title.trim() || s.title.length > 100 || typeof s.body !== 'string' || s.body.length > 300) throw new Error('Slide text exceeds readable limits');\n}\nfor (const key of ['caption_en','caption_fr']) {\n  if (typeof parsed[key] !== 'string' || !parsed[key].trim() || parsed[key].length > 1500) throw new Error('Caption exceeds Hub 1500 / Instagram 2199 / LinkedIn 3000 limits');\n  if ((parsed[key].match(/#[\\p{L}\\p{N}_]+/gu)||[]).length > 5) throw new Error('Too many hashtags');\n}\nif (typeof parsed.visualPrompt !== 'string' || !parsed.visualPrompt.trim() || parsed.visualPrompt.length > 2000) throw new Error('Invalid image prompt');\nconst script = {slides:parsed.slides, caption_en:parsed.caption_en, caption_fr:parsed.caption_fr,\n  visualPrompt:parsed.visualPrompt, ghostScene:selected.ghostScene, language:'en', pillar:selected.hubPillar};\nreturn [{json:{script,run_key:`${$workflow.id}:${$execution.id}`}}];\n"
+      }
+    },
+    {
+      "id": "load-mascot-reference",
+      "name": "Load Mascot Reference",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://content-renderer:8092/reference",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { ghostScene: $('Validate Script').first().json.script.ghostScene } }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "Crush Renderer Bearer"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "prepare-reference-binary",
+      "name": "Prepare Reference Binary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const raw = $json.image_base64;\nif (!raw) throw new Error('Renderer returned no reference');\nconst reference = await this.helpers.prepareBinaryData(Buffer.from(raw,'base64'), 'reference.png', 'image/png');\nreturn [{json:$json, binary:{reference}}];"
+      }
+    },
+    {
+      "id": "generate-grounded-cover",
+      "name": "Generate Grounded Cover",
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        0
+      ],
+      "parameters": {
+        "resource": "image",
+        "operation": "edit",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash-image",
+          "mode": "list"
+        },
+        "prompt": "={{ $('Validate Script').first().json.script.visualPrompt + ' Preserve the reference mascot exactly. No letters, logos or watermark. Square composition.' }}",
+        "images": {
+          "values": [
+            {
+              "binaryPropertyName": "reference"
+            }
+          ]
+        },
+        "options": {
+          "binaryPropertyOutput": "cover"
+        }
+      },
+      "credentials": {
+        "googlePalmApi": {
+          "name": "Crush Gemini API"
+        }
+      }
+    },
+    {
+      "id": "prepare-render-request",
+      "name": "Prepare Render Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const cover = await this.helpers.getBinaryDataBuffer(0, 'cover');\nconst previous = $('Validate Script').first().json;\nreturn [{json:{...previous,cover_base64:cover.toString('base64')}}];"
+      }
+    },
+    {
+      "id": "render-complete-deck",
+      "name": "Render Complete Deck",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1600,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://content-renderer:8092/render",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {script:$json.script,cover_base64:$json.cover_base64} }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "Crush Renderer Bearer"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "store-and-send-review",
+      "name": "Store and Send Review",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1800,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://content-review:8093/deliver",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { script: $('Validate Script').first().json.script, images:$json.images, run_key: `${$workflow.id}:${$execution.id}`, review_id:null } }}",
+        "options": {
+          "timeout": 180000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "Crush Review Bearer"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Generate Review": {
+      "main": [
+        [
+          {
+            "node": "Select Topic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Twice Weekly": {
+      "main": [
+        [
+          {
+            "node": "Select Topic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authenticated Generate": {
+      "main": [
+        [
+          {
+            "node": "Select Topic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Topic": {
+      "main": [
+        [
+          {
+            "node": "Generate Structured Copy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Subscription Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Generate Structured Copy",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Structured Copy": {
+      "main": [
+        [
+          {
+            "node": "Validate Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Script": {
+      "main": [
+        [
+          {
+            "node": "Load Mascot Reference",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Mascot Reference": {
+      "main": [
+        [
+          {
+            "node": "Prepare Reference Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Reference Binary": {
+      "main": [
+        [
+          {
+            "node": "Generate Grounded Cover",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Grounded Cover": {
+      "main": [
+        [
+          {
+            "node": "Prepare Render Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Render Request": {
+      "main": [
+        [
+          {
+            "node": "Render Complete Deck",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render Complete Deck": {
+      "main": [
+        [
+          {
+            "node": "Store and Send Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Luxembourg",
+    "executionTimeout": 240,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false,
+    "errorWorkflow": "__ERROR_WORKFLOW_ID__"
+  }
+}

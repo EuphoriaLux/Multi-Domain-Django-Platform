@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import logging
 import os
+import hashlib
+import json
+from secrets import compare_digest
+from io import BytesIO
 from datetime import datetime, timedelta
 from functools import partial
 
@@ -17,6 +21,8 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.exceptions import ValidationError
+from PIL import Image, UnidentifiedImageError
 
 from crush_lu.models import CrushProfile, EventConnection, MeetupEvent
 from crush_lu.utils.i18n import build_absolute_url
@@ -70,6 +76,7 @@ SCHEDULING_FIELDS = {
     "content",
     "scheduled_for",
     "media_url",
+    "media_urls",
     "platforms",
     "buffer_profile_ids",
     "buffer_profile_platforms",
@@ -464,6 +471,71 @@ def _create_event_drafts(
     return posts, created_count
 
 
+def _uploaded_social_images(request):
+    """Validate all carousel files before writing any to public storage."""
+    images = request.FILES.getlist("images")
+    if not images:
+        image = request.FILES.get("image") or request.FILES.get("media")
+        images = [image] if image else []
+    if len(images) > 5:
+        raise ValidationError({"images": "At most five images are supported."})
+    if request.FILES.getlist("images"):
+        dimensions = []
+        for image in images:
+            if image.size > 8 * 1024 * 1024:
+                raise ValidationError({"images": "Each image must be under 8 MiB."})
+            try:
+                with Image.open(BytesIO(image.read())) as decoded:
+                    if decoded.format not in {"PNG", "JPEG"}:
+                        raise ValueError("Unsupported image")
+                    dimensions.append(decoded.size)
+                    decoded.verify()
+            except (
+                UnidentifiedImageError,
+                Image.DecompressionBombError,
+                OSError,
+                ValueError,
+            ) as exc:
+                raise ValidationError(
+                    {"images": "Use valid PNG or JPEG files."}
+                ) from exc
+            finally:
+                image.seek(0)
+        if any(size != (1080, 1080) for size in dimensions):
+            raise ValidationError({"images": "Carousel slides must be 1080×1080."})
+    return images
+
+
+def _social_review_fingerprint(post):
+    payload = {
+        field: getattr(post, field)
+        for field in ("content", "media_urls", "media_url", "platforms", "language")
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+
+
+def _save_social_images(images):
+    storage = storages["crush_media"]
+    paths, urls = [], []
+    try:
+        for image in images:
+            ext = os.path.splitext(image.name)[1].lower()
+            if ext not in {".png", ".jpg", ".jpeg"}:
+                ext = ".png"
+            filename = f"social/ai_{timezone.now().strftime('%Y%m%d_%H%M%S')}_{os.urandom(8).hex()}{ext}"
+            path = storage.save(filename, image)
+            paths.append(path)
+            url = storage.url(path)
+            if url.startswith("/"):
+                url = f"{settings.BACKEND_BASE_URL.rstrip('/')}{url}"
+            urls.append(url)
+    except Exception:
+        for path in paths:
+            storage.delete(path)
+        raise
+    return urls
+
+
 class SocialPostsView(APIView):
     permission_classes = [IsAdminUser]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
@@ -488,16 +560,12 @@ class SocialPostsView(APIView):
             else SocialPost.Status.DRAFT
         )
 
-        uploaded_image = request.FILES.get("image") or request.FILES.get("media")
+        uploaded_images = _uploaded_social_images(request)
         media_url = serializer.validated_data.get("media_url")
-        if uploaded_image:
-            storage = storages["crush_media"]
-            ext = os.path.splitext(uploaded_image.name)[1].lower() or ".jpg"
-            filename = f"social/ai_{timezone.now().strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}{ext}"
-            path = storage.save(filename, uploaded_image)
-            media_url = storage.url(path)
-            if media_url.startswith("/"):
-                media_url = f"{settings.BACKEND_BASE_URL.rstrip('/')}{media_url}"
+        if uploaded_images:
+            urls = _save_social_images(uploaded_images)
+            media_url = urls[0]
+            serializer.validated_data["media_urls"] = urls
 
         post = serializer.save(
             user=request.user,
@@ -514,6 +582,14 @@ class SocialPostsView(APIView):
 
 class SocialPostDetailView(APIView):
     permission_classes = [IsAdminUser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get(self, request, pk):
+        try:
+            post = SocialPost.objects.get(pk=pk)
+        except SocialPost.DoesNotExist:
+            return Response({"error": "Post not found"}, status=404)
+        return Response({"post": SocialPostSerializer(post).data})
 
     @transaction.atomic
     def patch(self, request, pk):
@@ -524,9 +600,27 @@ class SocialPostDetailView(APIView):
                 {"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
+        expected = request.data.get("review_fingerprint")
+        if expected is not None and (
+            not isinstance(expected, str)
+            or not compare_digest(
+                expected.encode(), _social_review_fingerprint(post).encode()
+            )
+        ):
+            return Response({"error": "Post changed since this review."}, status=409)
+
         requested_status = request.data.get("status", post.status)
         serializer = SocialPostSerializer(post, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
+        uploaded_images = _uploaded_social_images(request)
+        if uploaded_images:
+            if post.status in PROMOTED_STATUSES or post.buffer_id:
+                return Response({"error": SCHEDULED_EDIT_ERROR}, status=409)
+            if requested_status == SocialPost.Status.SCHEDULED:
+                return Response(
+                    {"error": "Review replacement images before scheduling."},
+                    status=400,
+                )
         if requested_status == SocialPost.Status.SCHEDULED:
             if post.buffer_id and post.status != SocialPost.Status.SCHEDULED:
                 return Response(
@@ -615,7 +709,7 @@ class SocialPostDetailView(APIView):
                 return Response(scheduling_errors, status=status.HTTP_400_BAD_REQUEST)
 
         old_status = post.status
-        if post.status == SocialPost.Status.SCHEDULED:
+        if post.status in PROMOTED_STATUSES or post.buffer_id:
             changed_delivery_fields = sorted(
                 field
                 for field in SCHEDULING_FIELDS
@@ -630,6 +724,9 @@ class SocialPostDetailView(APIView):
                     },
                     status=status.HTTP_409_CONFLICT,
                 )
+        if uploaded_images:
+            urls = _save_social_images(uploaded_images)
+            serializer.validated_data.update(media_url=urls[0], media_urls=urls)
         updated_post = serializer.save()
         new_status = updated_post.status
 
@@ -711,6 +808,7 @@ class SocialPostDetailView(APIView):
                     profile_platforms=profile_platforms,
                     scheduled_at=updated_post.scheduled_for.isoformat(),
                     media_url=updated_post.media_url,
+                    media_urls=updated_post.media_urls,
                     require_resolved_platforms=True,
                 )
             except BufferPartialFailure as exc:
