@@ -104,13 +104,14 @@ class LegacyStepRedirectTests(_MemberMixin, TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn("/profile-submitted/", response["Location"])
 
-    def test_screening_call_with_premium_submission_renders(self):
+    def test_screening_call_with_premium_submission_redirects(self):
+        # Wave 5 (R13): no page promises "a day or two" of coach approval.
         ProfileSubmission.objects.create(
             profile=self.profile, coach=self._make_coach(), status="pending"
         )
         response = self._get("/en/onboarding/screening-call/")
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "crush_lu/onboarding/screening_call.html")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/profile-submitted/", response["Location"])
 
     def test_meet_coach_without_submission_redirects_to_get_verified(self):
         response = self._get("/en/onboarding/meet-coach/")

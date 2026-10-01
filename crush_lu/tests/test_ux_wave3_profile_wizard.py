@@ -131,16 +131,6 @@ class SingleMainLandmarkTests(_SiteMixin, TestCase):
             template_name="crush_lu/onboarding/meet_coach.html",
         )
 
-    def test_screening_call_has_one_main(self):
-        CrushProfile.objects.create(
-            user=self.user,
-            welcome_seen_at=timezone.now(),
-            phone_verified=True,
-            phone_number="+352621000000",
-            coach_intro_seen_at=timezone.now(),
-        )
-        self._assert_single_main("/onboarding/screening-call/")
-
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
 class PhoneStepAccessibilityTests(_SiteMixin, TestCase):
