@@ -159,7 +159,7 @@ if (workbox) {
         modulePathPrefix: "/static/crush_lu/workbox/",
     });
 
-    const CACHE_VERSION = "crush-v29-push-subscription-refresh";
+    const CACHE_VERSION = "crush-v30-ios-tracking-off";
 
     // Set cache name prefix - AFTER setConfig()
     workbox.core.setCacheNameDetails({
@@ -246,6 +246,12 @@ if (workbox) {
                         )
                         .map((name) => caches.delete(name)),
                 );
+
+                // "crush-pages" is named without the version suffix, so the
+                // sweep above never reaches it. Drop it on every new worker:
+                // pages cached before the iOS app stopped loading tracking
+                // tags (App Review 5.1.2) must not come back from the cache.
+                await caches.delete("crush-pages");
 
                 // Cache the offline page
                 const cache = await caches.open(workbox.core.cacheNames.runtime);
