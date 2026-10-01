@@ -55,7 +55,8 @@ def advent_calendar_view(request):
             context = {
                 'calendar': calendar,
                 'is_december': False,
-                'message': 'The Advent Calendar will be available in December!'
+                'message': _('The Advent Calendar will be available in December!'),
+                'days': range(1, 25),
             }
             return render(request, 'crush_lu/advent/calendar_locked.html', context)
 
