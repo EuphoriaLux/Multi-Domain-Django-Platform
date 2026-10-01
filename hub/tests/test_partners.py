@@ -1,9 +1,10 @@
 from datetime import date, time
 
+from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.db import IntegrityError, connection, transaction
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
@@ -14,6 +15,7 @@ from crush_lu.models.crush_connect_cycle import (
     ConnectWeeklyRequest,
 )
 from crush_lu.models.events import MeetupEvent
+from hub.admin import LocationAdmin
 from hub.models import (
     OFFER_EVENT_TYPE_CHOICES,
     Location,
@@ -735,3 +737,89 @@ class PartnerReviewRegressionTests(ThrottleIsolatedTestCase):
         )
         self.assertEqual(kept.status_code, 200, kept.data)
         self.assertEqual(kept.data["address"], "Keep me, 1234 Town")
+
+    def test_offer_languages_include_luxembourgish_but_nothing_else(self):
+        partner = make_partner()
+        url = f"/hub/locations/{partner.pk}/offers"
+        lux = self.client.post(
+            url, self.offer_payload(languages=["lu", "en"]), format="json"
+        )
+        bad = self.client.post(url, self.offer_payload(languages=["es"]), format="json")
+        self.assertEqual(lux.status_code, 201, lux.data)
+        self.assertEqual(lux.data["languages"], ["lu", "en"])
+        self.assertEqual(bad.status_code, 400)
+        # The draft hands the same list to MeetupEvent.languages.
+        draft = self.client.get(f"/hub/offers/{lux.data['id']}/event-draft")
+        self.assertEqual(draft.data["fields"]["languages"], ["lu", "en"])
+
+
+class ContactInlineAdminTests(ThrottleIsolatedTestCase):
+    def setUp(self):
+        super().setUp()
+        self.admin_user = User.objects.create_superuser("root", "root@example.com", "x")
+        self.partner = make_partner()
+        self.first = LocationContact.objects.create(
+            location=self.partner, name="First", is_primary=True
+        )
+        self.second = LocationContact.objects.create(
+            location=self.partner, name="Second"
+        )
+
+    def formset(self, rows):
+        """The real inline formset, bound to ``rows`` (one dict per contact form)."""
+        request = RequestFactory().post("/")
+        request.user = self.admin_user
+        inline = LocationAdmin(Location, admin.site).get_inline_instances(
+            request, self.partner
+        )[0]
+        data = {
+            "contacts-TOTAL_FORMS": str(len(rows)),
+            "contacts-INITIAL_FORMS": str(sum(1 for row in rows if "id" in row)),
+            "contacts-MIN_NUM_FORMS": "0",
+            "contacts-MAX_NUM_FORMS": "1000",
+        }
+        for index, row in enumerate(rows):
+            for key, value in row.items():
+                data[f"contacts-{index}-{key}"] = value
+            data[f"contacts-{index}-location"] = str(self.partner.pk)
+        return inline.get_formset(request, self.partner)(
+            data, instance=self.partner, prefix="contacts"
+        )
+
+    def test_primary_can_move_between_saved_contacts(self):
+        formset = self.formset(
+            [
+                {"id": self.first.pk, "name": "First"},
+                {"id": self.second.pk, "name": "Second", "is_primary": "on"},
+            ]
+        )
+        self.assertTrue(formset.is_valid(), formset.errors)
+        formset.save()
+        self.first.refresh_from_db()
+        self.second.refresh_from_db()
+        self.assertFalse(self.first.is_primary)
+        self.assertTrue(self.second.is_primary)
+
+    def test_an_unchanged_primary_stays_primary(self):
+        formset = self.formset(
+            [
+                {"id": self.first.pk, "name": "First", "is_primary": "on"},
+                {"id": self.second.pk, "name": "Second renamed"},
+            ]
+        )
+        self.assertTrue(formset.is_valid(), formset.errors)
+        formset.save()
+        self.first.refresh_from_db()
+        self.assertTrue(self.first.is_primary)
+
+    def test_two_primaries_in_one_submission_are_rejected(self):
+        formset = self.formset(
+            [
+                {"id": self.first.pk, "name": "First", "is_primary": "on"},
+                {"id": self.second.pk, "name": "Second", "is_primary": "on"},
+            ]
+        )
+        self.assertFalse(formset.is_valid())
+        self.assertIn(
+            "Only one contact can be primary.", str(formset.non_form_errors())
+        )

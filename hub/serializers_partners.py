@@ -13,6 +13,7 @@ from rest_framework import serializers
 from crush_lu.models.echo_lu import EchoVenue
 
 from .models import (
+    OFFER_EVENT_LANGUAGES,
     OFFER_EVENT_TYPE_CHOICES,
     Location,
     LocationContact,
@@ -488,7 +489,7 @@ class PartnerOfferSerializer(serializers.ModelSerializer):
     )
     setupNotes = _f(serializers.CharField, "setup_notes", allow_blank=True)
     languages = serializers.ListField(
-        child=serializers.ChoiceField(choices=OFFER_LANGUAGES), required=False
+        child=serializers.ChoiceField(choices=OFFER_EVENT_LANGUAGES), required=False
     )
     updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
 

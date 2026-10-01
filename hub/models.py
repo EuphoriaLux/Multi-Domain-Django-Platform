@@ -309,6 +309,12 @@ class LocationContact(models.Model):
         return f"{self.name} — {self.location.name}"
 
 
+# Languages an event can be conducted in: ``MeetupEvent.languages`` /
+# ``MeetupEvent.LANGUAGE_DISPLAY`` also allow Luxembourgish, unlike the three
+# modeltranslation languages used for titles and descriptions.
+OFFER_EVENT_LANGUAGES = ("en", "de", "fr", "lu")
+
+
 # Mirrors ``crush_lu.MeetupEvent.EVENT_TYPE_CHOICES``. Copied rather than
 # imported because crush_lu may not be loaded when this module is; a test pins
 # the two lists together.
@@ -403,9 +409,9 @@ class PartnerOffer(models.Model):
         ):
             errors["weekdays"] = "Use a list of weekday numbers from 0 to 6."
         if not isinstance(self.languages, list) or any(
-            language not in ("en", "de", "fr") for language in self.languages
+            language not in OFFER_EVENT_LANGUAGES for language in self.languages
         ):
-            errors["languages"] = "Use a list containing only en, de or fr."
+            errors["languages"] = "Use a list containing only en, de, fr or lu."
         if self.min_age is not None and self.min_age < 18:
             errors["min_age"] = "Minimum age must be at least 18."
         if self.max_age is not None and self.max_age > 120:
