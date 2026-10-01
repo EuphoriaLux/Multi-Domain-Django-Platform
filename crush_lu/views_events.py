@@ -2214,6 +2214,15 @@ def _registration_payment_state(registration):
         return "held"
     if statuses:
         return "refunded"
+    # A legacy hand-confirmed paid seat has no transaction, yet the sweep
+    # credits it (the event fee) and clears payment_confirmed: the credit the
+    # sweep just issued for this cycle is the evidence.
+    if CrushCredit.objects.filter(
+        source_registration=registration,
+        reason=CrushCredit.Reason.EVENT_CANCELLED,
+        issued_at__gte=registration.registered_at,
+    ).exists():
+        return "held"
     return None
 
 

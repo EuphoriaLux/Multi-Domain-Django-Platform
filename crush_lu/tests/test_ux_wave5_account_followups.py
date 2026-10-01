@@ -284,6 +284,29 @@ class OrganiserCancelRefusalCopyTests(TestCase):
         self.assertEqual(len(texts), 1)
         self.assertIn("on its way", texts[0])
 
+    def test_legacy_registration_credited_by_the_sweep_is_not_unpaid(self):
+        """A hand-confirmed seat with no PaymentTransaction is credited by the
+        sweep (event fee), which clears payment_confirmed: the credit issued
+        for this cycle must keep the member on the credit message."""
+        from crush_lu.models.credits import CrushCredit
+
+        registration = EventRegistration.objects.create(
+            user=self.user,
+            event=self.event,
+            status="confirmed",
+            payment_confirmed=False,
+        )
+        CrushCredit.objects.create(
+            user=self.user,
+            amount_cents=1500,
+            reason=CrushCredit.Reason.EVENT_CANCELLED,
+            source_registration=registration,
+        )
+        texts = self._texts(registration)
+        self.assertEqual(len(texts), 1)
+        self.assertIn("on its way", texts[0])
+        self.assertNotIn("No payment was recorded", texts[0])
+
     def test_translations_exist(self):
         from django.utils import translation
 

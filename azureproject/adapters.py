@@ -924,9 +924,14 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
                         # A session that already counts down for this address
                         # keeps its own deadline.
                         until = resend_cooldown_until(address.email)
-                        already_counting = request.session.get(
-                            "resend_verification_cooldown_hash"
-                        ) == _email_digest(address.email)
+                        already_counting = (
+                            request.session.get("resend_verification_cooldown_hash")
+                            == _email_digest(address.email)
+                            and request.session.get(
+                                "resend_verification_cooldown_until", 0
+                            )
+                            > int(timezone.now().timestamp())
+                        )
                         if until and not already_counting:
                             start_resend_cooldown_display(
                                 request, address.email, until=until
