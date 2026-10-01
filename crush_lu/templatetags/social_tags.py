@@ -179,18 +179,22 @@ def has_luxid(providers):
 def luxid_available(context):
     """True when the LuxID button is offered on this request (footer copy gate).
 
-    Same provider list as ``{% get_providers %}`` in ``crush_lu/auth.html``,
-    memoised on the request because the footer renders on every page. Never
-    raises: a broken provider registry must not 500 a page over one sentence.
+    Same availability as the LuxID button in ``crush_lu/auth.html``: a LuxID app
+    configured for the current site (DB) or in settings. It asks allauth's
+    read-only ``list_apps`` and never goes through ``list_providers``:
+    ``MultiDomainSocialAccountAdapter.list_providers`` has a recovery branch
+    that *writes* (it links the Apple app to the current site), which must not
+    run from a footer rendered on every page. Memoised on the request. Never
+    raises: a broken registry must not 500 a page over one sentence.
     """
     request = context.get("request")
     cached = getattr(request, "_crush_luxid_available", None)
     if cached is not None:
         return cached
     try:
-        from allauth.socialaccount.templatetags.socialaccount import get_providers
+        from allauth.socialaccount.adapter import get_adapter
 
-        result = has_luxid(get_providers(context))
+        result = bool(get_adapter().list_apps(request, provider="luxid"))
     except Exception:  # pragma: no cover - defensive
         result = False
     if request is not None:

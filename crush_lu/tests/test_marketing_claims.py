@@ -82,8 +82,8 @@ class MarketingClaimsTests(TestCase):
         # The footer only promises LuxID when the LuxID button is offered
         # (WP3 R12), so these claim checks render with LuxID configured.
         with mock.patch(
-            "allauth.socialaccount.templatetags.socialaccount.get_providers",
-            return_value=[mock.Mock(id="luxid", app=None)],
+            "allauth.socialaccount.adapter.DefaultSocialAccountAdapter.list_apps",
+            return_value=[mock.Mock()],
         ):
             response = self.client.get(path, HTTP_HOST=HOST)
         self.assertEqual(response.status_code, 200, path)

@@ -21,7 +21,7 @@ from crush_lu.tests.test_crush_connect import HUB_URL, _login_eligible, _make_us
 pytestmark = pytest.mark.urls("azureproject.urls_crush")
 
 FOOTER_LUXID = "Your privacy matters. Members are verified instantly with LuxID"
-GET_PROVIDERS = "allauth.socialaccount.templatetags.socialaccount.get_providers"
+LIST_APPS = "allauth.socialaccount.adapter.DefaultSocialAccountAdapter.list_apps"
 
 
 @pytest.fixture(autouse=True)
@@ -68,15 +68,30 @@ def test_hub_tile_says_in_the_mix_when_visible(client, settings):
 
 @pytest.mark.django_db
 def test_footer_promises_luxid_only_when_offered(client):
-    luxid = mock.Mock(id="luxid", app=None)
-    with mock.patch(GET_PROVIDERS, return_value=[luxid]):
+    with mock.patch(LIST_APPS, return_value=[mock.Mock()]):
         offered = _body(client.get("/en/about/"))
-    with mock.patch(GET_PROVIDERS, return_value=[]):
+    cache.clear()
+    with mock.patch(LIST_APPS, return_value=[]):
         absent = _body(client.get("/en/about/"))
 
     assert FOOTER_LUXID in offered
     assert FOOTER_LUXID not in absent
     assert "Members are verified in person at an event." in absent
+
+
+@pytest.mark.django_db
+def test_footer_check_never_links_other_apps_to_the_site(client):
+    """The footer renders on every page; it must not trigger the adapter's
+    ``list_providers`` recovery, which links an unlinked Apple app to the
+    current site (a write that could expose another domain's OAuth app)."""
+    from allauth.socialaccount.models import SocialApp
+
+    apple = SocialApp.objects.create(
+        provider="apple", name="Apple", client_id="apple-id", secret="s"
+    )
+    assert apple.sites.count() == 0
+    assert client.get("/en/about/").status_code == 200
+    assert apple.sites.count() == 0
 
 
 @pytest.mark.parametrize("lang", ["de", "fr"])
