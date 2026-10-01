@@ -10,6 +10,30 @@ def flag_existing_contacts_primary(apps, schema_editor):
     apps.get_model("hub", "LocationContact").objects.update(is_primary=True)
 
 
+def collapse_contacts_to_one(apps, schema_editor):
+    """Reverse: the old schema allows one contact per location.
+
+    Keeps the primary (else the oldest) contact and appends each dropped
+    contact's details to the location's notes, so a rollback after the
+    multi-contact feature was used loses no information.
+    """
+    Location = apps.get_model("hub", "Location")
+    Contact = apps.get_model("hub", "LocationContact")
+    for location in Location.objects.filter(contacts__isnull=False).distinct():
+        contacts = list(location.contacts.order_by("-is_primary", "id"))
+        for dropped in contacts[1:]:
+            details = ", ".join(
+                part
+                for part in (dropped.name, dropped.role, dropped.email, dropped.phone)
+                if part
+            )
+            note = f"Contact removed on rollback: {details}"
+            location.notes = f"{location.notes}\n{note}".strip()
+        if len(contacts) > 1:
+            location.save(update_fields=["notes"])
+            Contact.objects.filter(id__in=[c.id for c in contacts[1:]]).delete()
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -265,7 +289,7 @@ class Migration(migrations.Migration):
         ),
         # The contact was a OneToOne, so every existing row is its location's only
         # contact: flag it primary before the one-primary constraint exists.
-        migrations.RunPython(flag_existing_contacts_primary, migrations.RunPython.noop),
+        migrations.RunPython(flag_existing_contacts_primary, collapse_contacts_to_one),
         migrations.AddConstraint(
             model_name="locationcontact",
             constraint=models.UniqueConstraint(

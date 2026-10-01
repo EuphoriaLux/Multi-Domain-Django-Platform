@@ -1,10 +1,18 @@
-from datetime import time
+from datetime import date, time
 
 from django.contrib.auth import get_user_model
-from django.db import IntegrityError, transaction
+from django.core.cache import cache
+from django.db import IntegrityError, connection, transaction
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
+from crush_lu.models.crush_connect_cycle import (
+    ConnectCoffeeDate,
+    ConnectTemporaryChat,
+    ConnectWeekSession,
+    ConnectWeeklyRequest,
+)
 from crush_lu.models.events import MeetupEvent
 from hub.models import (
     OFFER_EVENT_TYPE_CHOICES,
@@ -17,6 +25,21 @@ from hub.models import (
 from hub.partner_services import build_event_prefill
 
 User = get_user_model()
+
+
+class ThrottleIsolatedTestCase(TestCase):
+    """DRF's user throttle counts per user id in the shared cache.
+
+    SQLite rolls back primary keys but not the cache, so every test's staff user
+    is user 1 and their request counts pile up on one xdist worker until an
+    unrelated test (here a hub social test) gets a 429. Clear it before and
+    after (AGENTS.md "Traps").
+    """
+
+    def setUp(self):
+        super().setUp()
+        cache.clear()
+        self.addCleanup(cache.clear)
 
 
 def make_partner(**overrides):
@@ -69,8 +92,9 @@ class PartnerModelTests(TestCase):
         self.assertEqual(partner.primary_contact.name, "Amy")
 
 
-class PartnerAPITests(TestCase):
+class PartnerAPITests(ThrottleIsolatedTestCase):
     def setUp(self):
+        super().setUp()
         self.staff = User.objects.create_user(
             username="partner_coach", password="password123", is_staff=True
         )
@@ -230,18 +254,31 @@ class PartnerAPITests(TestCase):
             self.assertEqual(getattr(self.client, method)(path).status_code, 403, path)
 
     def test_list_does_not_query_per_partner(self):
-        for index in range(5):
+        def add_partner(index):
             partner = make_partner(name=f"Bar {index}")
             LocationContact.objects.create(location=partner, name="c", is_primary=True)
             make_offer(partner)
-        with self.assertNumQueries(4):  # partners + contacts + offers + steps
-            response = self.client.get("/hub/locations")
+
+        def count_list_queries():
+            with CaptureQueriesContext(connection) as queries:
+                response = self.client.get("/hub/locations")
+            return len(queries), response
+
+        add_partner(0)
+        count_list_queries()  # warm one-off lookups (Sites framework)
+        one_partner, _ = count_list_queries()
+        for index in range(1, 5):
+            add_partner(index)
+        five_partners, response = count_list_queries()
+
+        self.assertEqual(five_partners, one_partner)
         self.assertEqual(len(response.data["items"]), 5)
         self.assertEqual(response.data["items"][0]["offerCount"], 1)
 
 
-class PartnerOfferAPITests(TestCase):
+class PartnerOfferAPITests(ThrottleIsolatedTestCase):
     def setUp(self):
+        super().setUp()
         self.staff = User.objects.create_user(
             username="offer_coach", password="password123", is_staff=True
         )
@@ -386,8 +423,9 @@ class PartnerOfferAPITests(TestCase):
         self.assertEqual(MeetupEvent.objects.count(), before)
 
 
-class PartnerOnboardingAPITests(TestCase):
+class PartnerOnboardingAPITests(ThrottleIsolatedTestCase):
     def setUp(self):
+        super().setUp()
         self.staff = User.objects.create_user(
             username="onboard_coach", password="password123", is_staff=True
         )
@@ -448,3 +486,142 @@ class PartnerOnboardingAPITests(TestCase):
         self.assertEqual(
             listing.data["items"][0]["onboardingProgress"], {"done": 1, "total": 8}
         )
+
+
+class PartnerReviewRegressionTests(ThrottleIsolatedTestCase):
+    def setUp(self):
+        super().setUp()
+        self.staff = User.objects.create_user(
+            username="review_coach", password="password123", is_staff=True
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.staff)
+
+    def offer_payload(self, **overrides):
+        payload = {"name": "Offer", "eventType": "mixer", "title": {"en": "Mixer"}}
+        payload.update(overrides)
+        return payload
+
+    def test_delete_blocked_when_a_connect_coffee_date_uses_the_partner(self):
+        partner = make_partner(name="Coffee bar")
+        alice = User.objects.create_user("alice", "a@example.com")
+        bob = User.objects.create_user("bob", "b@example.com")
+        request = ConnectWeeklyRequest.objects.create(
+            session=ConnectWeekSession.objects.create(user=alice),
+            requester=alice,
+            recipient=bob,
+            status=ConnectWeeklyRequest.Status.ACCEPTED,
+        )
+        chat = ConnectTemporaryChat.objects.create(
+            request=request, participant_1=alice, participant_2=bob
+        )
+        ConnectCoffeeDate.objects.create(
+            chat=chat,
+            proposer=alice,
+            venue_location=partner,
+            proposed_date=date(2026, 12, 1),
+        )
+
+        response = self.client.delete(f"/hub/locations/{partner.pk}")
+
+        self.assertEqual(response.status_code, 409)
+        self.assertTrue(Location.objects.filter(pk=partner.pk).exists())
+
+    def test_patching_the_town_moves_the_legacy_city_unless_given(self):
+        partner = make_partner(city="Luxembourg")
+        moved = self.client.patch(
+            f"/hub/locations/{partner.pk}", {"addressTown": "Esch"}, format="json"
+        )
+        self.assertEqual(moved.data["city"], "Esch")
+        self.assertIn("Esch", moved.data["address"])
+
+        explicit = self.client.patch(
+            f"/hub/locations/{partner.pk}",
+            {"addressTown": "Differdange", "city": "Custom"},
+            format="json",
+        )
+        self.assertEqual(explicit.data["city"], "Custom")
+
+    def test_partner_numbers_are_bounded(self):
+        partner = make_partner()
+        for payload in (
+            {"minimumSpend": "-1"},
+            {"depositAmount": "-0.01"},
+            {"latitude": "91"},
+            {"latitude": "-91"},
+            {"longitude": "181"},
+            {"longitude": "-181"},
+        ):
+            response = self.client.patch(
+                f"/hub/locations/{partner.pk}", payload, format="json"
+            )
+            self.assertEqual(response.status_code, 400, payload)
+        ok = self.client.patch(
+            f"/hub/locations/{partner.pk}",
+            {"latitude": "49.6116", "longitude": "-6.1319", "minimumSpend": "0"},
+            format="json",
+        )
+        self.assertEqual(ok.status_code, 200, ok.data)
+
+    def test_offer_title_length_is_capped_per_language(self):
+        partner = make_partner()
+        response = self.client.post(
+            f"/hub/locations/{partner.pk}/offers",
+            self.offer_payload(title={"en": "ok", "fr": "x" * 201}),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("title", response.data)
+
+    def test_offer_ages_follow_meetup_event_bounds(self):
+        partner = make_partner()
+        for payload in ({"minAge": 17}, {"maxAge": 121}):
+            response = self.client.post(
+                f"/hub/locations/{partner.pk}/offers",
+                self.offer_payload(**payload),
+                format="json",
+            )
+            self.assertEqual(response.status_code, 400, payload)
+
+    def test_offer_gender_caps_are_all_or_none_and_within_total(self):
+        partner = make_partner()
+        url = f"/hub/locations/{partner.pk}/offers"
+        partial = self.client.post(
+            url, self.offer_payload(maxParticipantsM=5), format="json"
+        )
+        too_many = self.client.post(
+            url,
+            self.offer_payload(
+                maxParticipants=10,
+                maxParticipantsM=5,
+                maxParticipantsF=5,
+                maxParticipantsNb=5,
+            ),
+            format="json",
+        )
+        fine = self.client.post(
+            url,
+            self.offer_payload(
+                maxParticipants=15,
+                maxParticipantsM=5,
+                maxParticipantsF=5,
+                maxParticipantsNb=5,
+            ),
+            format="json",
+        )
+        self.assertEqual(partial.status_code, 400)
+        self.assertEqual(too_many.status_code, 400)
+        self.assertEqual(fine.status_code, 201, fine.data)
+
+        # PATCH is validated against the stored values too.
+        shrink = self.client.patch(
+            f"{url}/{fine.data['id']}", {"maxParticipants": 12}, format="json"
+        )
+        self.assertEqual(shrink.status_code, 400)
+
+    def test_model_clean_mirrors_the_serializer_rules(self):
+        from django.core.exceptions import ValidationError
+
+        offer = make_offer(make_partner(), min_age=17)
+        with self.assertRaises(ValidationError):
+            offer.full_clean(exclude=["location"])

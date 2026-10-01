@@ -69,15 +69,17 @@ class PartnerDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def destroy(self, request, *args, **kwargs):
         partner = self.get_object()
-        # Money rows and (soon) events point at a partner; deleting one erases
-        # that history link, so steer the caller to the Archived stage instead.
-        # TODO(step 2): also block when MeetupEvent.partner rows exist, once that
-        # FK lands (spec: ai-memory-hub/specs/2026-10-01-hub-partner-and-offers.md).
-        if partner.payments_out.exists():
+        # Payments and member-facing Connect coffee dates point at a partner
+        # with SET_NULL: deleting one blanks the venue on scheduled and past
+        # coffee dates (``propose_venue`` leaves the custom name empty for a
+        # partner venue) and erases the payment link. Steer to Archived.
+        # TODO(step 2): also block when MeetupEvent.partner rows exist, once
+        # that FK lands (spec: ai-memory-hub/specs/2026-10-01-hub-partner-and-offers.md).
+        if partner.payments_out.exists() or partner.connect_coffee_dates.exists():
             return Response(
                 {
-                    "detail": "This partner has recorded payments. "
-                    "Set its stage to Archived instead of deleting it."
+                    "detail": "This partner is referenced by payments or Connect "
+                    "coffee dates. Set its stage to Archived instead of deleting it."
                 },
                 status=status.HTTP_409_CONFLICT,
             )

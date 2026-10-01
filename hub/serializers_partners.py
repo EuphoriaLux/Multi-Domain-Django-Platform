@@ -48,6 +48,7 @@ def _money(source, **kwargs):
     kwargs.setdefault("read_only", False)
     kwargs.setdefault("required", False)
     kwargs.setdefault("allow_null", True)
+    kwargs.setdefault("min_value", 0)
     return MoneyField(source=source, **kwargs)
 
 
@@ -139,6 +140,8 @@ class LocationSerializer(serializers.ModelSerializer):
     latitude = serializers.DecimalField(
         max_digits=9,
         decimal_places=6,
+        min_value=-90,
+        max_value=90,
         coerce_to_string=False,
         required=False,
         allow_null=True,
@@ -146,6 +149,8 @@ class LocationSerializer(serializers.ModelSerializer):
     longitude = serializers.DecimalField(
         max_digits=9,
         decimal_places=6,
+        min_value=-180,
+        max_value=180,
         coerce_to_string=False,
         required=False,
         allow_null=True,
@@ -308,11 +313,12 @@ class LocationSerializer(serializers.ModelSerializer):
             attrs["address"] = self._compose_address(current)
         if instance is None and not attrs.get("address"):
             errors["address"] = "Give an address or the structured street and town."
+        # ``city`` is the legacy field the live SPA still shows: follow the
+        # structured town unless the caller sets the city explicitly.
+        if not attrs.get("city") and attrs.get("address_town"):
+            attrs["city"] = attrs["address_town"]
         if instance is None and not attrs.get("city"):
-            if attrs.get("address_town"):
-                attrs["city"] = attrs["address_town"]
-            else:
-                errors["city"] = "Give a city or the structured town."
+            errors["city"] = "Give a city or the structured town."
         if errors:
             raise serializers.ValidationError(errors)
         return attrs
@@ -386,8 +392,9 @@ class TranslatedTextField(serializers.Field):
     the caller's locale.
     """
 
-    def __init__(self, base, **kwargs):
+    def __init__(self, base, max_length=None, **kwargs):
         self.base = base
+        self.max_length = max_length
         kwargs["source"] = "*"
         kwargs.setdefault("required", False)
         super().__init__(**kwargs)
@@ -412,7 +419,12 @@ class TranslatedTextField(serializers.Field):
                 value = ""
             if not isinstance(value, str):
                 raise serializers.ValidationError(f"{lang} must be text.")
-            values[f"{self.base}_{lang}"] = value.strip()
+            value = value.strip()
+            if self.max_length and len(value) > self.max_length:
+                raise serializers.ValidationError(
+                    f"{lang} must be at most {self.max_length} characters."
+                )
+            values[f"{self.base}_{lang}"] = value
         return values
 
 
@@ -442,15 +454,13 @@ class PartnerOfferSerializer(serializers.ModelSerializer):
     maxParticipantsNb = _f(
         serializers.IntegerField, "max_participants_nb", min_value=0, allow_null=True
     )
-    minAge = _f(serializers.IntegerField, "min_age", min_value=0)
-    maxAge = _f(serializers.IntegerField, "max_age", min_value=0)
+    minAge = _f(serializers.IntegerField, "min_age", min_value=18)
+    maxAge = _f(serializers.IntegerField, "max_age", max_value=120)
 
-    registrationFee = _money(
-        "registration_fee", max_digits=6, allow_null=False, min_value=0
-    )
+    registrationFee = _money("registration_fee", max_digits=6, allow_null=False)
     partnerCostNotes = _f(serializers.CharField, "partner_cost_notes", allow_blank=True)
 
-    title = TranslatedTextField("title")
+    title = TranslatedTextField("title", max_length=200)
     description = TranslatedTextField("description")
     hasFoodComponent = _f(serializers.BooleanField, "has_food_component")
     allowPlusOnes = _f(serializers.BooleanField, "allow_plus_ones")
@@ -524,6 +534,22 @@ class PartnerOfferSerializer(serializers.ModelSerializer):
         min_age, max_age = current("min_age"), current("max_age")
         if min_age is not None and max_age is not None and min_age > max_age:
             errors["maxAge"] = "Maximum age must not be below minimum age."
+        # Same rules as MeetupEvent.clean(), so a saved offer always yields a
+        # draft that can become a valid event.
+        caps = [
+            current("max_participants_m"),
+            current("max_participants_f"),
+            current("max_participants_nb"),
+        ]
+        set_caps = [cap for cap in caps if cap is not None]
+        if 0 < len(set_caps) < 3:
+            errors["maxParticipantsM"] = (
+                "Set all three gender caps together, or leave them all blank."
+            )
+        elif len(set_caps) == 3 and sum(set_caps) > current("max_participants"):
+            errors["maxParticipantsM"] = (
+                "The gender caps must not add up to more than the total capacity."
+            )
         if errors:
             raise serializers.ValidationError(errors)
         return attrs

@@ -406,12 +406,35 @@ class PartnerOffer(models.Model):
             language not in ("en", "de", "fr") for language in self.languages
         ):
             errors["languages"] = "Use a list containing only en, de or fr."
+        if self.min_age is not None and self.min_age < 18:
+            errors["min_age"] = "Minimum age must be at least 18."
+        if self.max_age is not None and self.max_age > 120:
+            errors["max_age"] = "Maximum age cannot exceed 120."
         if (
             self.min_age is not None
             and self.max_age is not None
             and self.min_age > self.max_age
         ):
             errors["max_age"] = "Maximum age must not be below minimum age."
+        # Mirrors MeetupEvent.clean(): all three gender caps or none, summing
+        # to no more than the total.
+        caps = [
+            cap
+            for cap in (
+                self.max_participants_m,
+                self.max_participants_f,
+                self.max_participants_nb,
+            )
+            if cap is not None
+        ]
+        if 0 < len(caps) < 3:
+            errors["max_participants_m"] = (
+                "Set all three gender caps together, or leave them all blank."
+            )
+        elif len(caps) == 3 and sum(caps) > (self.max_participants or 0):
+            errors["max_participants_m"] = (
+                "The gender caps must not add up to more than the total capacity."
+            )
         if errors:
             raise ValidationError(errors)
 
