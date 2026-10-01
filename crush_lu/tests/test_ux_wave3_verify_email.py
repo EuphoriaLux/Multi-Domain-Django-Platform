@@ -40,6 +40,7 @@ from django.core.cache import cache
 from django.template.loader import render_to_string
 from django.test import Client, RequestFactory, TestCase, override_settings
 from django.urls import resolve
+from django.utils import timezone
 from django.utils import translation
 
 from azureproject.adapters import MultiDomainSocialAccountAdapter
@@ -578,6 +579,39 @@ class SocialLoginVerificationRateLimitTests(SocialLoginRequiresVerifiedEmailTest
         self.assertIsNotNone(self._pre_login(self._request(), user, signup=False))
         self.assertEqual(len(mail.outbox), 1)
 
+    def test_second_session_shows_the_shared_cooldown_immediately(self):
+        # A second browser logs in during the first one's cooldown: no mail is
+        # sent (limiter not consumed), but its page must still count down
+        # instead of opening with a live Resend button (#1116).
+        user, _address = _unverified_user("shared@example.com")
+        first = self._request()
+        self.assertIsNotNone(self._pre_login(first, user))
+        second = self._request()
+        self.assertIsNotNone(self._pre_login(second, user, signup=False))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(
+            second.session["resend_verification_cooldown_until"],
+            first.session["resend_verification_cooldown_until"],
+        )
+        self.assertIn("resend_verification_cooldown_hash", second.session)
+
+    def test_expired_session_deadline_is_refreshed_from_the_shared_one(self):
+        # The hash is never cleared when a countdown runs out, so a stale
+        # session deadline for the same address must not block the refresh.
+        user, _address = _unverified_user("stale@example.com")
+        first = self._request()
+        self.assertIsNotNone(self._pre_login(first, user))
+        second = self._request()
+        second.session["resend_verification_cooldown_hash"] = first.session[
+            "resend_verification_cooldown_hash"
+        ]
+        second.session["resend_verification_cooldown_until"] = 1
+        self.assertIsNotNone(self._pre_login(second, user, signup=False))
+        self.assertEqual(
+            second.session["resend_verification_cooldown_until"],
+            first.session["resend_verification_cooldown_until"],
+        )
+
 
 class ConfirmationBannerScopeTests(TestCase):
     def setUp(self):
@@ -730,7 +764,9 @@ class SocialLoginRateLimitedRetryTests(SocialLoginRequiresVerifiedEmailTests):
         user, _address = _unverified_user("retry@example.com")
         request = self._request()
         self.assertIsNotNone(self._pre_login(request, user))  # sends, sets deadline
-        request.session["resend_verification_cooldown_until"] = 12345
+        # Still in the future, so the session's own deadline is kept.
+        future = int(timezone.now().timestamp()) + 600
+        request.session["resend_verification_cooldown_until"] = future
         self.assertIsNotNone(self._pre_login(request, user, signup=False))  # limited
         self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(request.session["resend_verification_cooldown_until"], 12345)
+        self.assertEqual(request.session["resend_verification_cooldown_until"], future)

@@ -19,7 +19,7 @@ from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_http_methods
 
 from .decorators import crush_login_required, coach_required
-from .forms_crush_spark import CoachSparkAssignForm, SparkJourneyForm, SparkRequestForm
+from .forms_crush_spark import CoachSparkAssignForm, SparkRequestForm
 from .models import (
     CrushCoach,
     EventRegistration,
@@ -119,68 +119,6 @@ def spark_request(request, event_id):
         "max_sparks": event.max_sparks_per_event,
     }
     return render(request, "crush_lu/spark_request.html", context)
-
-
-@crush_login_required
-def spark_create_journey(request, spark_id):
-    """Multi-step form for sender to create journey content (upload media, write message)."""
-    spark = get_object_or_404(
-        CrushSpark.objects.select_related("event", "recipient__crushprofile"),
-        id=spark_id,
-        sender=request.user,
-        status__in=[CrushSpark.Status.COACH_ASSIGNED, CrushSpark.Status.COACH_APPROVED],
-    )
-
-    if request.method == "POST":
-        form = SparkJourneyForm(request.POST, request.FILES, instance=spark)
-        if form.is_valid():
-            form.save()
-
-            # Create the Wonderland journey
-            from .utils.journey_creator import create_spark_wonderland_journey
-
-            try:
-                journey, special_exp = create_spark_wonderland_journey(spark)
-                spark.journey = journey
-                spark.special_experience = special_exp
-                spark.status = CrushSpark.Status.JOURNEY_CREATED
-                spark.journey_created_at = timezone.now()
-                spark.save(
-                    update_fields=[
-                        "journey",
-                        "special_experience",
-                        "status",
-                        "journey_created_at",
-                    ]
-                )
-
-                # Deliver to recipient
-                spark.status = CrushSpark.Status.DELIVERED
-                spark.delivered_at = timezone.now()
-                spark.save(update_fields=["status", "delivered_at"])
-
-                messages.success(
-                    request,
-                    _("Your anonymous journey has been created and delivered!"),
-                )
-                return redirect("crush_lu:spark_detail", spark_id=spark.id)
-
-            except Exception as e:
-                logger.error(
-                    f"Failed to create spark journey {spark.id}: {e}", exc_info=True
-                )
-                messages.error(
-                    request,
-                    _("There was an error creating the journey. Please try again."),
-                )
-    else:
-        form = SparkJourneyForm(instance=spark)
-
-    context = {
-        "form": form,
-        "spark": spark,
-    }
-    return render(request, "crush_lu/spark_create_journey.html", context)
 
 
 # =============================================================================

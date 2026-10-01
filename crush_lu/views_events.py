@@ -2178,6 +2178,54 @@ def event_register(request, event_id):
     return render(request, template, context)
 
 
+def _registration_payment_state(registration):
+    """``"held"``, ``"refunded"`` or ``None`` for the money on this seat.
+
+    ``payment_confirmed`` alone is not enough: the organiser-cancellation
+    sweep clears it as it issues the credit, so a member who was already
+    credited would otherwise read as unpaid. A PAID transaction survives the
+    sweep and keeps them on the credit message. A REFUNDED transaction means
+    the cash already went back (credits.py and reconcile_sumup_payments flip
+    the source payment), so they paid but must not be promised a credit.
+
+    Only transactions from the current registration cycle count: a cancelled
+    seat is reused on re-registration (``registered_at`` is reset) and its old
+    PAID row stays linked, but the sweep credits only ``payment_confirmed``
+    rows, so an earlier cycle's payment promises nothing. A checkout opened in
+    an earlier cycle but captured in this one does count (``paid_at``).
+    """
+    if registration.payment_confirmed:
+        return "held"
+    statuses = set(
+        PaymentTransaction.objects.filter(
+            # A checkout opened before the member cancelled and re-registered can
+            # still be captured late and confirm the reused seat, so the capture
+            # time counts as well as the checkout's creation time.
+            Q(created_at__gte=registration.registered_at)
+            | Q(paid_at__gte=registration.registered_at),
+            event_registration=registration,
+            status__in=[
+                PaymentTransaction.Status.PAID,
+                PaymentTransaction.Status.REFUNDED,
+            ],
+        ).values_list("status", flat=True)
+    )
+    if PaymentTransaction.Status.PAID in statuses:
+        return "held"
+    if statuses:
+        return "refunded"
+    # A legacy hand-confirmed paid seat has no transaction, yet the sweep
+    # credits it (the event fee) and clears payment_confirmed: the credit the
+    # sweep just issued for this cycle is the evidence.
+    if CrushCredit.objects.filter(
+        source_registration=registration,
+        reason=CrushCredit.Reason.EVENT_CANCELLED,
+        issued_at__gte=registration.registered_at,
+    ).exists():
+        return "held"
+    return None
+
+
 def _event_cancel_refusal(request, event, registration):
     """Redirect (with its message) when this registration cannot be cancelled.
 
@@ -2202,15 +2250,39 @@ def _event_cancel_refusal(request, event, registration):
     # reading the cancellation email and clicking "cancel my place"
     # lands exactly there.
     if event.is_cancelled:
-        messages.info(
-            request,
-            _(
-                "This event has been cancelled — you don't need to do "
-                "anything. Your Crush Credit is on its way, and you can "
-                "reply to the cancellation email if you would rather "
-                "have your money back."
-            ),
-        )
+        payment_state = _registration_payment_state(registration)
+        if payment_state == "held":
+            messages.info(
+                request,
+                _(
+                    "This event has been cancelled — you don't need to do "
+                    "anything. Your Crush Credit is on its way, and you can "
+                    "reply to the cancellation email if you would rather "
+                    "have your money back."
+                ),
+            )
+        elif payment_state == "refunded":
+            # Their payment was already returned: no credit to promise, and
+            # no claim that nothing was paid.
+            messages.info(
+                request,
+                _(
+                    "This event has been cancelled — you don't need to do "
+                    "anything. Your payment has already been handled. If you "
+                    "have questions, reply to the cancellation email."
+                ),
+            )
+        else:
+            # Nothing was captured, so there is no credit to announce and no
+            # refund to offer (#1052).
+            messages.info(
+                request,
+                _(
+                    "This event has been cancelled — you don't need to do "
+                    "anything. No payment was recorded for your "
+                    "registration, so there is no Crush Credit to expect."
+                ),
+            )
         return redirect("crush_lu:event_detail", event_id=event.id)
 
     now = timezone.now()

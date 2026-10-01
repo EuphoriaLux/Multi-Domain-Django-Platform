@@ -1538,17 +1538,38 @@ def claim_resend_cooldown(email, force=False):
     can therefore hold back a resend to an address for one cooldown by
     posting it first, a small cost bounded by the 3/h IP limit.
     """
-    key = f"crush:resend-verification:{_email_digest(email)}"
+    key = _resend_cooldown_key(email)
+    until = int(timezone.now().timestamp()) + RESEND_VERIFICATION_COOLDOWN_SECONDS
     if force:
-        cache.set(key, 1, RESEND_VERIFICATION_COOLDOWN_SECONDS)
+        cache.set(key, until, RESEND_VERIFICATION_COOLDOWN_SECONDS)
         return True
-    return cache.add(key, 1, RESEND_VERIFICATION_COOLDOWN_SECONDS) is not False
+    return cache.add(key, until, RESEND_VERIFICATION_COOLDOWN_SECONDS) is not False
 
 
-def start_resend_cooldown_display(request, email):
+def _resend_cooldown_key(email):
+    return f"crush:resend-verification:{_email_digest(email)}"
+
+
+def resend_cooldown_until(email):
+    """Unix time the address's cooldown ends, or ``None`` if unknown/expired.
+
+    The claim stores its own deadline, so a session that lost the claim to
+    another one (or to a reload) can still show the real countdown.
+    """
+    until = cache.get(_resend_cooldown_key(email))
+    now = int(timezone.now().timestamp())
+    if (
+        isinstance(until, int)
+        and now < until <= now + RESEND_VERIFICATION_COOLDOWN_SECONDS
+    ):
+        return until
+    return None
+
+
+def start_resend_cooldown_display(request, email, until=None):
     """Session copy of the cooldown, only for the page's countdown."""
     request.session["resend_verification_cooldown_until"] = (
-        int(timezone.now().timestamp()) + RESEND_VERIFICATION_COOLDOWN_SECONDS
+        until or int(timezone.now().timestamp()) + RESEND_VERIFICATION_COOLDOWN_SECONDS
     )
     request.session["resend_verification_cooldown_hash"] = _email_digest(email)
 
@@ -1624,15 +1645,26 @@ def _replace_pending_social_address(request, typed_email):
         EmailAddress._meta.get_field("email").max_length,
     ):
         return None
+    session_email = (request.session.get("pending_verification_email") or "").lower()
     with transaction.atomic():
+        # EmailAddress before User: allauth's confirmation writes the address
+        # row and then the user, so the opposite order could deadlock on
+        # Postgres when the old link is confirmed mid-correction (#1116).
+        rows = list(
+            EmailAddress.objects.select_for_update()
+            .filter(user_id=user_id)
+            .order_by("pk")
+        )
         user = User.objects.select_for_update().filter(pk=user_id).first()
-        if (
-            user is None
-            or EmailAddress.objects.filter(user=user, verified=True).exists()
-        ):
+        if user is None or any(row.verified for row in rows):
             return None
-        pending = EmailAddress.objects.filter(user=user, verified=False)
-        if pending.filter(email__iexact=typed_email).exists():
+        pending = [row for row in rows if not row.verified]
+        if any(row.email.lower() == typed_email for row in pending):
+            return None
+        # Only the held row (the address this session was sent to) goes; any
+        # other unverified row of the account is not the visitor's to drop.
+        held_rows = [row for row in pending if row.email.lower() == session_email]
+        if not held_rows:
             return None
         taken = (
             EmailAddress.objects.filter(email__iexact=typed_email)
@@ -1644,11 +1676,13 @@ def _replace_pending_social_address(request, typed_email):
         )
         if taken:
             return None
-        pending.delete()
+        held_pks = [row.pk for row in held_rows]
+        EmailAddress.objects.filter(pk__in=held_pks).delete()
+        keeps_primary = any(row.primary for row in rows if row.pk not in held_pks)
         user.email = typed_email
         user.save(update_fields=["email"])
         address = EmailAddress.objects.create(
-            user=user, email=typed_email, primary=True, verified=False
+            user=user, email=typed_email, primary=not keeps_primary, verified=False
         )
     # One rewrite per provider login: the authorization is spent.
     _drop_social_hold(request)
@@ -1687,7 +1721,19 @@ def resend_verification_email(request):
     typed = (request.POST.get("email") or "").strip()
     email = typed or request.session.get("pending_verification_email")
 
-    if email and claim_resend_cooldown(email):
+    if email and not claim_resend_cooldown(email):
+        # Another session (or an earlier click) already holds this address's
+        # cooldown, so nothing is sent -- but this page must still keep the
+        # address and count down, or the button stays live while every
+        # submit is silently dropped and burns the 3/h IP limit (#1116).
+        held = _held_social_user_id(request) if typed else None
+        held_email = request.session.get("pending_verification_email")
+        if not held or (held_email and typed.lower() == held_email.lower()):
+            request.session["pending_verification_email"] = email
+            until = resend_cooldown_until(email)
+            if until:
+                start_resend_cooldown_display(request, email, until=until)
+    elif email:
         held = _held_social_user_id(request) if typed else None
         held_email = request.session.get("pending_verification_email")
         email_address = (

@@ -28663,6 +28663,18 @@ msgstr ""
 msgid "Manage your Premium request"
 msgstr ""
 
+#: views_events.py
+msgid "This event has been cancelled — you don't need to do anything. Your Crush Credit is on its way, and you can reply to the cancellation email if you would rather have your money back."
+msgstr "This event has been cancelled — you don't need to do anything. Your Crush Credit is on its way, and you can reply to the cancellation email if you would rather have your money back."
+
+#: views_events.py
+msgid "This event has been cancelled — you don't need to do anything. No payment was recorded for your registration, so there is no Crush Credit to expect."
+msgstr "This event has been cancelled — you don't need to do anything. No payment was recorded for your registration, so there is no Crush Credit to expect."
+
+#: views_events.py
+msgid "This event has been cancelled — you don't need to do anything. Your payment has already been handled. If you have questions, reply to the cancellation email."
+msgstr "This event has been cancelled — you don't need to do anything. Your payment has already been handled. If you have questions, reply to the cancellation email."
+
 #: crush_lu/templates/crush_lu/journey/gift_create.html
 msgid "e.g., Marie, Sunshine"
 msgstr ""
