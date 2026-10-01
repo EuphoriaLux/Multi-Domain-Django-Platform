@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "test:smoke": "pytest -m \"playwright and smoke\" --tb=short -q",
+    "test:axe": "pytest -m \"playwright and axe_smoke\" -n 0 --tb=short -q",
     "build:css": "tailwindcss -i ./tailwind-src/crush_lu/tailwind-input.css -o ./crush_lu/static/crush_lu/css/tailwind.css --minify",
     "watch:css": "tailwindcss -i ./tailwind-src/crush_lu/tailwind-input.css -o ./crush_lu/static/crush_lu/css/tailwind.css --watch",
     "build:css:power-up": "tailwindcss -i ./tailwind-src/power_up/tailwind-input.css -o ./power_up/static/power_up/css/tailwind.css --minify",
@@ -27,6 +28,7 @@
     "@tailwindcss/forms": "^0.5.7",
     "@tailwindcss/typography": "^0.5.20",
     "@upstash/context7-mcp": "^4.1.1",
+    "axe-core": "^4.13.0",
     "esbuild": "0.28.2",
     "prettier": "^3.9.9",
     "prettier-plugin-tailwindcss": "^0.8.1",
