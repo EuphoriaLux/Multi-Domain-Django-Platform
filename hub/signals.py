@@ -22,16 +22,26 @@ def delete_undispatched_event_posts(sender, instance, using, **kwargs):
     work, so it goes with the event.
 
     Posts that already reached Buffer (SCHEDULED, PUBLISHED, or holding a
-    `buffer_id`) are kept: the external publication outlives the event row, and
+    `buffer_id`, or an uncertain delivery) are kept: the external publication outlives the event row, and
     their IDs and status history are what reconciles it.
     """
 
-    dispatched = Q(
-        status__in=[SocialPost.Status.SCHEDULED, SocialPost.Status.PUBLISHED]
-    ) | ~Q(buffer_id="")
+    dispatched = (
+        Q(status__in=[SocialPost.Status.SCHEDULED, SocialPost.Status.PUBLISHED])
+        | ~Q(buffer_id="")
+        | Q(buffer_delivery_uncertain=True)
+    )
     (
         SocialPost.objects.using(using)
         .filter(source_event=instance)
         .exclude(dispatched)
         .delete()
     )
+    # SET_NULL will erase the link, so remember that this copy's event is gone:
+    # it must never be scheduled again, even after its delivery is reconciled.
+    for post in SocialPost.objects.using(using).filter(source_event=instance):
+        post.source_metadata = {
+            **(post.source_metadata or {}),
+            "source_event_deleted": True,
+        }
+        post.save(update_fields=["source_metadata"])

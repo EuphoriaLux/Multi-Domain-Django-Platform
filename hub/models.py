@@ -549,11 +549,17 @@ class SocialPost(models.Model):
     hook = models.CharField(max_length=255, blank=True, default="")
     content = models.TextField(blank=True, default="")
     media_url = models.URLField(blank=True, null=True, default=None)
+    media_urls = models.JSONField(default=list, blank=True)
+    generation_key = models.CharField(
+        max_length=200, unique=True, null=True, blank=True
+    )
+    source_metadata = models.JSONField(default=dict, blank=True)
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.DRAFT
     )
     scheduled_for = models.DateTimeField(blank=True, null=True, default=None)
     buffer_id = models.CharField(max_length=255, blank=True, default="")
+    buffer_delivery_uncertain = models.BooleanField(default=False)
     article_id = models.CharField(max_length=255, blank=True, default="")
     status_history = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
