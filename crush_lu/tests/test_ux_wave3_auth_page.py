@@ -205,7 +205,6 @@ class SignupFieldAriaTests(TestCase):
                 "first_name": "Dup",
                 "email": "dupe@example.com",
                 "password1": "Str0ng-pass-2026!",
-                "password2": "Str0ng-pass-2026!",
                 "crushlu_consent": "on",
             },
         )
@@ -384,7 +383,6 @@ class SignupConsentCheckboxAriaTests(TestCase):
                 "first_name": "NoConsent",
                 "email": "no-consent@example.com",
                 "password1": "Str0ng-pass-2026!",
-                "password2": "Str0ng-pass-2026!",
                 # crushlu_consent intentionally omitted
             },
         )

@@ -75,6 +75,8 @@ jobs:
           # is the repo root, so the download restores each file in place.
           path: |
             crush_lu/static/crush_lu/css/tailwind.css
+            crush_lu/static/crush_lu/css/journey.css
+            crush_lu/static/crush_lu/css/marketing.css
             power_up/static/power_up/css/tailwind.css
             tableau/static/tableau/css/tailwind.css
             arborist/static/arborist/css/tailwind.css
@@ -116,6 +118,8 @@ jobs:
         run: |
           set -e
           rm -f crush_lu/static/crush_lu/css/tailwind.css \
+                crush_lu/static/crush_lu/css/journey.css \
+                crush_lu/static/crush_lu/css/marketing.css \
                 power_up/static/power_up/css/tailwind.css \
                 tableau/static/tableau/css/tailwind.css \
                 arborist/static/arborist/css/tailwind.css \
@@ -140,6 +144,8 @@ jobs:
         run: |
           set -e
           for f in crush_lu/static/crush_lu/css/tailwind.css \
+                   crush_lu/static/crush_lu/css/journey.css \
+                   crush_lu/static/crush_lu/css/marketing.css \
                    power_up/static/power_up/css/tailwind.css \
                    tableau/static/tableau/css/tailwind.css \
                    arborist/static/arborist/css/tailwind.css \

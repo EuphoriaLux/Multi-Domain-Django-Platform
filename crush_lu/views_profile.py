@@ -1443,42 +1443,25 @@ def meet_coach_step(request):
     return render(request, "crush_lu/onboarding/meet_coach.html", context)
 
 
-# ─── Onboarding Step 7: Screening call ─────────────────────────────────────
+# ─── Legacy: Screening call ────────────────────────────────────────────────
 
 
 @crush_login_required
 @require_http_methods(["GET"])
 def screening_call_step(request):
     """
-    Step 7 of the journey. Locked until the submission is approved. Points
-    the user at the booking flow for the screening call.
-
-    Only the Premium coach path still has a screening call. Everyone else —
-    no live ProfileSubmission, or an expired one — gets verified at an event
-    or via LuxID, so an old link or bookmark lands on the get-verified page
-    instead of a "locked until approval" story that no longer exists.
+    Legacy URL kept for old links and bookmarks. The screening-call step no
+    longer exists (verification happens at an event or via LuxID), so this
+    only routes: a verified member to the dashboard, a rejected submission to
+    the one verdict page, everyone else to the get-verified page.
     """
     profile = CrushProfile.objects.filter(user=request.user).first()
     if profile is None:
         return redirect("crush_lu:onboarding_entry")
 
     if profile.verification_status == "verified":
-        # Verified at an event or via LuxID: a later coach rejection of the
-        # submission leaves the profile live, so there is no verdict to show.
         return redirect("crush_lu:dashboard")
     submission = ProfileSubmission.latest_for_profile(profile)
-    if submission is None:
-        return redirect("crush_lu:profile_submitted")
-    if submission.status == "rejected":
-        # A rejection is final: the one verdict page, not "locked until approval".
+    if submission is not None and submission.status == "rejected":
         return redirect("crush_lu:profile_rejected")
-    approved = submission is not None and submission.status == "approved"
-
-    context = {
-        "profile": profile,
-        "submission": submission,
-        "approved": approved,
-        "call_completed": approved and submission.review_call_completed,
-    }
-    context.update(onboarding.stepper_context(current=5))
-    return render(request, "crush_lu/onboarding/screening_call.html", context)
+    return redirect("crush_lu:profile_submitted")

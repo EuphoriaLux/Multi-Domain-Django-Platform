@@ -60,6 +60,15 @@ class CrushSignupForm(SignupForm):
     # whether to render the "Sign in with this email" CTA.
     email_taken = False
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # UX Wave 5 (owner decision F): crush.lu signup has no "Confirm
+        # password" field - the show-password toggle covers typos. Dropping
+        # the field also drops allauth's password1 == password2 check, which
+        # only runs when password2 is in cleaned_data. Other domains keep
+        # ACCOUNT_SIGNUP_FIELDS' password2 through their own forms.
+        self.fields.pop("password2", None)
+
     def clean_email(self):
         """
         Check if email already exists
