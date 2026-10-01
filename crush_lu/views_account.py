@@ -1955,7 +1955,13 @@ def export_user_data(request):
     # Connections
     connections = EventConnection.objects.filter(
         Q(requester=user) | Q(recipient=user)
-    ).select_related("requester", "recipient", "event")
+    ).select_related(
+        "requester",
+        "recipient",
+        "event",
+        "requester__crushprofile",
+        "recipient__crushprofile",
+    )
     # Privacy ("My Crush!", spec §5): a recipient's export must not name
     # their secret admirer — incoming pre-`shared` crush rows are suppressed
     # entirely. The requester's own export keeps their own outgoing

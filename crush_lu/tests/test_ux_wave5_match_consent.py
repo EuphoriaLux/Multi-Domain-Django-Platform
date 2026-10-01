@@ -10,7 +10,9 @@ Paths are literal (``reverse("crush_lu:...")`` 404s under HTTP_HOST=crush.lu).
 
 from django.contrib.messages import get_messages
 from django.core.cache import cache
+from django.db import connection
 from django.test import Client, TestCase
+from django.test.utils import CaptureQueriesContext
 
 from crush_lu.models import CrushProfile, EventConnection, UserDataConsent
 from crush_lu.tests.test_event_lobby import (
@@ -123,6 +125,31 @@ class MatchPhoneConsentTests(TestCase):
         # The requester did: the recipient's export names it.
         self.assertEqual(theirs["connected_with_phone"], PHONE_ME)
         self.assertFalse(theirs["you_shared_phone"])
+
+    def test_export_query_count_does_not_grow_with_connections(self):
+        self._share(recipient_shares_phone=True)
+        _export(self.me)  # warm one-off caches (consent row, content types)
+        with CaptureQueriesContext(connection) as one:
+            _export(self.me)
+        for i in range(3):
+            extra = _make_member(f"wp4_extra{i}", gender="M", membership=False)
+            CrushProfile.objects.filter(user=extra).update(
+                phone_number=f"+35269333333{i}"
+            )
+            EventConnection.objects.create(
+                requester=self.me,
+                recipient=extra,
+                event=self.conn.event,
+                flow=EventConnection.FLOW_LEGACY,
+                status="shared",
+                requester_consents_to_share=True,
+                recipient_consents_to_share=True,
+                recipient_shares_phone=True,
+            )
+        with CaptureQueriesContext(connection) as many:
+            exported = _export(self.me)
+        self.assertEqual(len(exported["connections"]), 4)
+        self.assertEqual(len(many), len(one))
 
     def test_export_hides_phone_before_shared(self):
         self.conn.recipient_shares_phone = True
