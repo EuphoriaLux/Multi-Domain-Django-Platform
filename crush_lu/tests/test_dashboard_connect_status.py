@@ -58,9 +58,7 @@ class DashboardConnectStatusStripTests(TestCase):
         self.assertContains(response, self.LUXID_BANNER)
         self.assertNotContains(response, self.JOIN_CTA)
         self.assertNotContains(response, self.IN_MIX)
-        self.assertNotContains(
-            response, reverse("crush_lu:crush_connect_onboarding")
-        )
+        self.assertNotContains(response, reverse("crush_lu:crush_connect_onboarding"))
         self.assertNotContains(
             response, reverse("crush_lu:crush_connect_catalogue_status")
         )
@@ -108,9 +106,7 @@ class DashboardConnectStatusStripTests(TestCase):
         self.assertContains(response, reverse("crush_lu:crush_connect_hub"))
 
         for language in ("de", "fr"):
-            localized = self.client.get(
-                f"/{language}/dashboard/", HTTP_HOST="crush.lu"
-            )
+            localized = self.client.get(f"/{language}/dashboard/", HTTP_HOST="crush.lu")
             self.assertEqual(localized.status_code, 200)
             self.assertContains(localized, "<span>Connect</span>", html=True)
             self.assertContains(localized, 'aria-label="Crush Connect"')
@@ -168,9 +164,7 @@ class DashboardConnectStatusStripTests(TestCase):
         self.assertNotContains(response, self.JOIN_CTA)
         self.assertNotContains(response, self.IN_MIX)
 
-    @override_settings(
-        CRUSH_CONNECT_LAUNCHED=False, CRUSH_CONNECT_CANDIDATE_OPEN=False
-    )
+    @override_settings(CRUSH_CONNECT_LAUNCHED=False, CRUSH_CONNECT_CANDIDATE_OPEN=False)
     def test_prelaunch_hides_mix_states_for_non_staff(self):
         _link_luxid(self.user)
         response = self._get()
@@ -184,9 +178,7 @@ class DashboardConnectStatusStripTests(TestCase):
         response = self._get()
         self.assertContains(response, self.LUXID_BANNER)
 
-    @override_settings(
-        CRUSH_CONNECT_LAUNCHED=False, CRUSH_CONNECT_CANDIDATE_OPEN=False
-    )
+    @override_settings(CRUSH_CONNECT_LAUNCHED=False, CRUSH_CONNECT_CANDIDATE_OPEN=False)
     def test_prelaunch_staff_sees_join_cta(self):
         staff = _make_member("staff@example.com", is_staff=True)
         _link_luxid(staff)
@@ -260,9 +252,7 @@ class DashboardConnectStatusStripTests(TestCase):
         # The strip prompts to link LuxID instead of confirming discoverability.
         self.assertContains(response, self.LUXID_BANNER)
 
-    @override_settings(
-        CRUSH_CONNECT_LAUNCHED=False, CRUSH_CONNECT_CANDIDATE_OPEN=False
-    )
+    @override_settings(CRUSH_CONNECT_LAUNCHED=False, CRUSH_CONNECT_CANDIDATE_OPEN=False)
     def test_products_footer_not_in_mix_prelaunch_non_staff(self):
         """Pre-launch (flags off, non-staff), a full membership is still bounced
         by the launch gate — matching the status strip, the card must not claim
@@ -389,7 +379,7 @@ class DashboardConnectStatusStripTests(TestCase):
 
         french = self.client.get("/fr/dashboard/", HTTP_HOST="crush.lu")
         self.assertEqual(french.status_code, 200)
-        self.assertContains(french, "Votre Semaine Connect est ouverte")
+        self.assertContains(french, "Votre Connect Week est ouverte")
         self.assertNotContains(french, self.CONNECT_WEEK)
 
     @override_settings(CRUSH_CONNECT_LAUNCHED=True)

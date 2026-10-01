@@ -17319,7 +17319,7 @@ msgstr "Durchschnitt: %(min)s – %(max)s"
 #: templates/crush_lu/coach_dashboard.html:570
 #: templates/crush_lu/membership.html:108
 msgid "Membership Tiers"
-msgstr "Mitgliedschaftsstufen"
+msgstr "Mitgliedsstufen"
 
 #: templates/crush_lu/coach_dashboard.html:587
 #: templates/crush_lu/coach_edit_profile.html:214
@@ -28313,15 +28313,6 @@ msgstr "Teile deine Gedanken frei mit – es gibt keine falschen Antworten ✨"
 msgid "Already Submitted!"
 msgstr "Bereits eingereicht!"
 
-#: templates/crush_lu/journey/challenges/open_text.html:53
-#, python-format
-msgid ""
-"You've already shared your response and earned <strong>%(points)s "
-"points</strong>."
-msgstr ""
-"Du hast deine Antwort bereits geteilt und <strong>%(points)s Punkte</strong>"
-" verdient."
-
 #: templates/crush_lu/journey/challenges/open_text.html:60
 msgid "Your Response:"
 msgstr "Deine Antwort:"
@@ -29103,15 +29094,6 @@ msgstr "Reise beginnen"
 #: templates/crush_lu/journey/partials/already_completed.html:8
 msgid "Already Completed!"
 msgstr "Bereits abgeschlossen!"
-
-#: templates/crush_lu/journey/partials/already_completed.html:14
-#, python-format
-msgid ""
-"You already completed this challenge and earned <strong>%(points)s "
-"points</strong>."
-msgstr ""
-"Du hast diese Herausforderung bereits abgeschlossen und <strong>%(points)s "
-"Punkte</strong> verdient."
 
 # Coach Dashboard translations
 #: templates/crush_lu/journey/partials/challenge_header.html:9
@@ -44017,6 +43999,73 @@ msgstr "Die Audiodatei ist zu groß. Die maximale Größe beträgt 10 MB."
 #: crush_lu/templates/crush_lu/journey/gift_create.html
 msgid "Video file is too large. Maximum size is 50 MB."
 msgstr "Die Videodatei ist zu groß. Die maximale Größe beträgt 50 MB."
+
+# UX Wave 5 · WP15 i18n-rest
+#: templates/crush_lu/journey/challenges/open_text.html:53
+#, python-format
+msgid ""
+"You've already shared your response and earned <strong>%(points)s "
+"point</strong>."
+msgid_plural ""
+"You've already shared your response and earned <strong>%(points)s "
+"points</strong>."
+msgstr[0] ""
+"Du hast deine Antwort bereits geteilt und <strong>%(points)s Punkt</strong> "
+"verdient."
+msgstr[1] ""
+"Du hast deine Antwort bereits geteilt und <strong>%(points)s Punkte</strong> "
+"verdient."
+
+#: templates/crush_lu/journey/partials/already_completed.html:14
+#, python-format
+msgid ""
+"You already completed this challenge and earned <strong>%(points)s "
+"point</strong>."
+msgid_plural ""
+"You already completed this challenge and earned <strong>%(points)s "
+"points</strong>."
+msgstr[0] ""
+"Du hast diese Herausforderung bereits abgeschlossen und <strong>%(points)s "
+"Punkt</strong> verdient."
+msgstr[1] ""
+"Du hast diese Herausforderung bereits abgeschlossen und <strong>%(points)s "
+"Punkte</strong> verdient."
+
+#: WP14 settings-and-journey
+msgid "Pause all emails"
+msgstr "Alle E-Mails pausieren"
+
+#: WP14 settings-and-journey
+msgid "Your choices above are kept, so you can pick up where you left off."
+msgstr "Deine Auswahl oben bleibt erhalten, du kannst also später einfach weitermachen."
+
+#: WP14 settings-and-journey
+msgid "All emails are paused. Turn off the switch at the bottom of this card to receive them again."
+msgstr "Alle E-Mails sind pausiert. Schalte den Schalter unten in dieser Karte aus, um sie wieder zu erhalten."
+
+#: WP14 settings-and-journey
+msgid "Notifications are blocked for this site. Tap the lock icon in your browser's address bar, open Permissions, and allow notifications."
+msgstr "Benachrichtigungen sind für diese Seite blockiert. Tippe auf das Schloss-Symbol in der Adressleiste deines Browsers, öffne Berechtigungen und erlaube Benachrichtigungen."
+
+#: WP14 settings-and-journey
+msgid "Notifications are blocked. On iPhone, open Settings, then Notifications, choose Crush.lu and allow notifications."
+msgstr "Benachrichtigungen sind blockiert. Öffne auf dem iPhone die Einstellungen, dann Mitteilungen, wähle Crush.lu und erlaube Mitteilungen."
+
+#: WP14 settings-and-journey
+msgid "If you aren't receiving notifications, check that they are allowed for Crush.lu in your phone's settings."
+msgstr "Wenn du keine Benachrichtigungen erhältst, prüfe in den Einstellungen deines Handys, ob sie für Crush.lu erlaubt sind."
+
+#: WP14 settings-and-journey
+msgid "Open notification settings"
+msgstr "Benachrichtigungseinstellungen öffnen"
+
+#: WP14 settings-and-journey
+msgid "Track your match requests and active matches"
+msgstr "Verfolge deine Match-Anfragen und aktiven Matches"
+
+#: WP14 settings-and-journey
+msgid "Active Matches"
+msgstr "Aktive Matches"
 
 #: crush_lu/templates/crush_lu/auth.html
 msgid "Create your Crush.lu account"
