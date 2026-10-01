@@ -119,3 +119,68 @@ def test_whatsapp_rapid_flips_reach_the_server_in_click_order(browser, live_serv
     )
     assert seen == [True, False]
     assert EmailPreference.objects.get(user=user).whatsapp_opt_in is False
+
+
+BLOCKED_UAS = {
+    "desktop": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0 Safari/537.36",
+        "click the lock icon in your browser's address bar and allow",
+    ),
+    "android": (
+        "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36",
+        "open Permissions, and allow notifications",
+    ),
+    "ios": (
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+        "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 "
+        "Safari/604.1",
+        "open Settings, then Notifications, choose Crush.lu",
+    ),
+}
+
+
+@pytest.mark.parametrize("platform", sorted(BLOCKED_UAS))
+def test_coach_card_shows_platform_specific_blocked_guidance(
+    browser, live_server, platform
+):
+    """Codex review: the Coach card must not fall back to generic copy."""
+    from crush_lu.models import CrushCoach
+
+    user = _member()
+    CrushCoach.objects.create(user=user, is_active=True)
+    ua, expected = BLOCKED_UAS[platform]
+    context = browser.new_context(viewport=PHONE, user_agent=ua)
+    context.route(
+        "**://fonts.g*.com/**",
+        lambda route: route.fulfill(status=200, content_type="text/css", body=""),
+    )
+    client = Client()
+    client.force_login(user)
+    context.add_cookies(
+        [
+            {
+                "name": settings.SESSION_COOKIE_NAME,
+                "value": client.cookies[settings.SESSION_COOKIE_NAME].value,
+                "url": live_server.url,
+            },
+            {"name": "cookie_consent", "value": DECLINED, "url": live_server.url},
+        ]
+    )
+    context.add_init_script(
+        "Object.defineProperty(Notification, 'permission', {get: () => 'denied'});"
+    )
+    page = context.new_page()
+    page.goto(f"{live_server.url}{NOTIFICATIONS}")
+    page.wait_for_function("() => window.Alpine && Alpine.store('toasts')")
+    card = page.locator("#coach-push-notifications, [x-data='coachPushPreferences']")
+    card.get_by_text("Notifications blocked").wait_for()
+    visible = card.locator("p:visible", has_text="blocked").all_inner_texts()
+    visible += card.locator("p:visible", has_text="allow").all_inner_texts()
+    text = " ".join(visible)
+    assert expected in text, text
+    assert "Allow notifications in your browser settings" not in text
+    # Exactly one platform paragraph is shown.
+    shown = [t for t in card.locator("p:visible").all_inner_texts() if "allow" in t]
+    assert len(shown) == 1, shown

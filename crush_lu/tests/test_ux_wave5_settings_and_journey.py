@@ -344,3 +344,33 @@ def test_light_gradient_surfaces_keep_white_text():
     for cls in (".reveal-piece-number", ".reveal-complete-message", ".timeline-number"):
         assert cls in reset, cls
     assert _light(".timeline-number", "color: #fff")
+
+
+# Round-3 review: pale palette tokens, placeholders, coach blocked guidance.
+
+
+def test_light_theme_overrides_the_pale_emerald_token():
+    css = CSS_SRC.read_text(encoding="utf-8")
+    block = css[css.index(LIGHT + " {") :]
+    block = block[: block.index("}")]
+    # .step-indicator.completed and .file-name use text-emerald-300.
+    assert "--color-emerald-300: #047857" in block
+
+
+def test_light_theme_placeholders_are_opaque_dark_ink():
+    assert _light(":is(input, textarea)::placeholder", "opacity: 1")
+    assert _light(":is(input, textarea)::placeholder", "color: #3b4856")
+
+
+def test_coach_push_card_shares_the_platform_detection():
+    core = (ROOT / "static/crush_lu/js/alpine/core.js").read_text(encoding="utf-8")
+    assert "function makeBlockedPlatform()" in core
+    for name in ("pushPreferences", "coachPushPreferences"):
+        start = core.index(f'Alpine.data("{name}"')
+        assert "makeBlockedPlatform()" in core[start : start + 200], name
+    template = _source("partials", "edit_account_notifications.html")
+    coach = template[template.index("Coach Push Notifications Card") :]
+    denied = coach[coach.index("showPermissionDenied") :][:2500]
+    for getter in ("blockedOnDesktop", "blockedOnAndroid", "blockedOnIos"):
+        assert f'x-show="{getter}"' in denied
+    assert "Allow notifications in your browser settings" not in denied

@@ -236,6 +236,13 @@ html:not(.dark) body.journey-bg #main-content {
     --color-crush-pink: var(--color-pink-700);
     --color-crush-success: #196c2e;
     --color-journey-success: #166534;
+    /* Pale palette steps the dark-page utilities reach for (text-emerald-300
+       on the gift wizard's completed step and file name, red-400 errors). */
+    --color-emerald-300: #047857;
+    --color-red-300: #b91c1c;
+    --color-red-400: #b91c1c;
+    --color-amber-300: #92400e;
+    --color-purple-200: #5b21b6;
     --jy-accent: #6c3483;
     --jy-pink: #9d2a52;
 }
@@ -384,7 +391,17 @@ html:not(.dark) body.journey-bg #main-content :is(
     .gift-item-dates,
     .hint-text,
     .gift-landing :is(.chapter-number, .chapter-theme, .feature-desc, .message-label),
-    .step-indicator:not(.active):not(.completed)
+    .step-indicator:not(.active):not(.completed),
+    .create-form :is(.help-text, .form-group label),
+    .empty-state,
+    .file-upload-text,
+    .gift-subtitle,
+    .gift-landing :is(.hero-from, .hero-login, .section-title),
+    .claim-info p,
+    .media-info p,
+    .media-section-title,
+    .sharing-suite h3,
+    .status-message
 ) {
     color: rgb(44 62 80 / 0.88);
 }
@@ -534,6 +551,28 @@ html:not(.dark) body.journey-bg #main-content .gift-landing .cta-section {
 
 html:not(.dark) body.journey-bg #main-content .gift-landing .cta-section :is(.cta-hint, .cta-secondary, .cta-secondary a) {
     color: #fff;
+}
+
+/* Placeholders: the dark-page ones are white/purple at 40-50% alpha. */
+html:not(.dark) body.journey-bg #main-content :is(input, textarea)::placeholder {
+    color: #3b4856;
+    opacity: 1;
+}
+
+html:not(.dark) body.journey-bg #main-content .journey-status-info {
+    color: var(--jy-pink);
+}
+
+html:not(.dark) body.journey-bg #main-content .journey-status-success {
+    color: #14532d;
+}
+
+html:not(.dark) body.journey-bg #main-content .journey-status-error {
+    color: #9b1c1c;
+}
+
+html:not(.dark) body.journey-bg #main-content :is(.journey-mc-option-card, .journey-wyr-option-card).selected {
+    background: rgb(142 68 173 / 0.16);
 }
 
 /* =============================================================================

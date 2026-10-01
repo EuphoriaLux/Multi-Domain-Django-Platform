@@ -39,14 +39,49 @@ JOURNEY_TEMPLATES = (
 )
 VIEWPORTS = {"phone": (390, 844), "desktop": (1280, 900)}
 
+# JS-toggled states (Alpine getters, classList.add in journey.js and the gift
+# wizard): (classes, hosts) - the classes are put on the elements the page's JS
+# puts them on, hidden ones are shown, then everything is measured again.
+STATES = [
+    ([], ""),
+    (["completed"], ".step-indicator, .journey-selector-card, .journey-challenge-card"),
+    (["active"], ".step-indicator, .step-content"),
+    (["has-file"], ".file-upload-wrapper"),
+    (["show"], ".file-upload-preview"),
+    (["selected"], ".journey-mc-option-card, .journey-wyr-option-card"),
+    (["incorrect"], ".journey-mc-option-card"),
+    (["is-invalid"], "input, textarea, select"),
+    (["copied"], ".share-btn"),
+    (["warning"], ".char-counter"),
+    (["error"], ".char-counter"),
+    (["journey-status-success"], '[x-bind\\:class="statusClass"]'),
+    (["journey-status-error"], '[x-bind\\:class="statusClass"]'),
+    (["journey-status-info"], '[x-bind\\:class="statusClass"]'),
+    (
+        ["journey-message-success", "p-6", "text-center"],
+        '[x-bind\\:class="feedbackClass"]',
+    ),
+    (
+        ["journey-message-error", "p-6", "text-center"],
+        '[x-bind\\:class="feedbackClass"]',
+    ),
+]
+
 # class-signature -> reason. Keep this empty unless a pair is genuinely
 # decorative (e.g. aria-hidden glyphs).
 ALLOW = {}
 
 SWEEP_JS = r"""
-(markup) => {
+({markup, classes, hosts}) => {
     const main = document.querySelector('#main-content');
     main.innerHTML = markup;
+    // Dynamic text sources (x-text / x-html) are empty until Alpine fills them.
+    main.querySelectorAll('[x-text], [x-html]').forEach(e => {
+        if (!e.textContent.trim() && !e.children.length) e.textContent = 'Sample';
+    });
+    // JS-toggled states (step .completed, upload .has-file / .show, selected,
+    // incorrect, status and counter variants...): put the classes on every
+    // element, un-hide them, and measure the result.
     // Settled state: no entrance animations, scroll-reveals shown.
     if (!document.getElementById('sweep-settle')) {
         const st = document.createElement('style');
@@ -55,8 +90,20 @@ SWEEP_JS = r"""
         document.head.appendChild(st);
     }
     main.querySelectorAll('.animate-on-scroll').forEach(e => e.classList.add('visible'));
+    if (classes.length) {
+        main.querySelectorAll(hosts).forEach(e => {
+            e.classList.remove('hidden');
+            classes.forEach(c => e.classList.add(c));
+            if (!e.textContent.trim() && !e.children.length) e.textContent = 'Sample';
+        });
+    }
     const ctx = document.createElement('canvas').getContext('2d', {willReadFrequently: true});
+    const rgbaCache = new Map();
     const toRgba = (css) => {
+        if (!rgbaCache.has(css)) rgbaCache.set(css, convert(css));
+        return rgbaCache.get(css).slice();
+    };
+    const convert = (css) => {
         ctx.clearRect(0, 0, 1, 1);
         ctx.fillStyle = '#000';
         ctx.fillStyle = css;
@@ -157,6 +204,28 @@ SWEEP_JS = r"""
             out.push({sig, text: text.slice(0, 40), ratio: Math.round(worst * 100) / 100, need, pair});
         }
     }
+    // ::placeholder colours against the field background.
+    for (const el of main.querySelectorAll('input[placeholder], textarea[placeholder]')) {
+        if (!el.getClientRects().length || !el.getAttribute('placeholder').trim()) continue;
+        const ph = getComputedStyle(el, '::placeholder');
+        const fg = toRgba(ph.color);
+        fg[3] *= parseFloat(ph.opacity);
+        const own = toRgba(getComputedStyle(el).backgroundColor);
+        const bgs = backgrounds(el, true);
+        let worst = Infinity, pair = '';
+        for (const bg of bgs) {
+            const solid = over(bg, [255, 255, 255, 1]);
+            const r = ratio(over(fg, solid), solid);
+            if (r < worst) { worst = r; pair = 'placeholder ' + fg.map(v => Math.round(v * 100) / 100) + ' on ' + solid.map(Math.round); }
+        }
+        if (worst < 4.5) {
+            const sig = '::placeholder of ' + el.tagName.toLowerCase() + '.' + Array.from(el.classList).sort().join('.');
+            if (!seen.has(sig)) {
+                seen.add(sig);
+                out.push({sig, text: el.getAttribute('placeholder').slice(0, 40), ratio: Math.round(worst * 100) / 100, need: 4.5, pair});
+            }
+        }
+    }
     return out;
 }
 """
@@ -221,13 +290,24 @@ def test_every_light_journey_text_pair_reaches_aa(browser, live_server, viewport
     failures = {}
     for path in TEMPLATES:
         rel = str(path.relative_to(JOURNEY_TEMPLATES))
-        for hit in page.evaluate(SWEEP_JS, _markup(path)):
-            if hit["sig"] in ALLOW:
-                continue
-            failures.setdefault(
-                hit["sig"],
-                f"{rel}: {hit['text']!r} {hit['ratio']}<{hit['need']} [{hit['pair']}]",
+        markup = _markup(path)
+        baseline = set()
+        for state, hosts in STATES:
+            hits = page.evaluate(
+                SWEEP_JS, {"markup": markup, "classes": state, "hosts": hosts}
             )
+            if not state:
+                baseline = {hit["sig"] for hit in hits}
+            for hit in hits:
+                # A state pass only reports what the state itself broke.
+                if hit["sig"] in ALLOW or (state and hit["sig"] in baseline):
+                    continue
+                key = hit["sig"] + (f"  [state: {'.'.join(state)}]" if state else "")
+                failures.setdefault(
+                    key,
+                    f"{rel}: {hit['text']!r} {hit['ratio']}<{hit['need']}"
+                    f" [{hit['pair']}]",
+                )
     report = "\n".join(
         f"  {sig}  <- {where}" for sig, where in sorted(failures.items())
     )

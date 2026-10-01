@@ -208,6 +208,35 @@ document.addEventListener("alpine:init", function () {
     // sw-unregister), so give up on the "Checking…" spinner after 3 s and
     // offer a Retry. A late answer still settles the card normally.
     var PUSH_CHECK_TIMEOUT_MS = 3000;
+    // Platform-aware "blocked" copy (#1064): each OS has its own path back to
+    // the notification permission, so one generic sentence misleads. Shared by
+    // the member and the coach push cards (compose with mixin(), never spread).
+    function makeBlockedPlatform() {
+        return {
+            blockedPlatform: "desktop",
+            get blockedOnIos() {
+                return this.blockedPlatform === "ios";
+            },
+            get blockedOnAndroid() {
+                return this.blockedPlatform === "android";
+            },
+            get blockedOnDesktop() {
+                return this.blockedPlatform === "desktop";
+            },
+            _detectBlockedPlatform: function () {
+                // iPadOS Safari reports a desktop "Macintosh" UA; touch points tell it apart.
+                var ua = navigator.userAgent || "";
+                if (
+                    /iPhone|iPad|iPod/.test(ua) ||
+                    (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
+                ) {
+                    this.blockedPlatform = "ios";
+                } else if (/Android/i.test(ua)) {
+                    this.blockedPlatform = "android";
+                }
+            },
+        };
+    }
     function makePushStatusCheck() {
         return {
             checkTimedOut: false,
@@ -1774,7 +1803,7 @@ document.addEventListener("alpine:init", function () {
     // Handles both enabling push and managing preferences
     // Uses event delegation for CSP compliance - no inline event handlers
     Alpine.data("pushPreferences", function () {
-        return mixin(makePushStatusCheck(), {
+        return mixin(mixin(makePushStatusCheck(), makeBlockedPlatform()), {
             subscriptions: [],
             isSupported: false,
             isSubscribed: false,
@@ -1783,7 +1812,6 @@ document.addEventListener("alpine:init", function () {
             isDisabling: false,
             errorMessage: "",
             permissionDenied: false,
-            blockedPlatform: "desktop",
             isLoading: true,
             currentEndpoint: null, // For identifying "This device" by endpoint
             currentFingerprint: null, // Stable device fingerprint (fallback for endpoint)
@@ -1830,17 +1858,6 @@ document.addEventListener("alpine:init", function () {
             },
             get showPermissionDenied() {
                 return !this.isLoading && this.permissionDenied;
-            },
-            // Platform-aware "blocked" copy (#1064): each OS has its own path
-            // back to the permission, so one generic sentence misleads.
-            get blockedOnIos() {
-                return this.blockedPlatform === "ios";
-            },
-            get blockedOnAndroid() {
-                return this.blockedPlatform === "android";
-            },
-            get blockedOnDesktop() {
-                return this.blockedPlatform === "desktop";
             },
             get showNotSupported() {
                 return !this.isLoading && !this.isSupported;
@@ -1899,16 +1916,7 @@ document.addEventListener("alpine:init", function () {
                 if ("Notification" in window && Notification.permission === "denied") {
                     this.permissionDenied = true;
                 }
-                // iPadOS Safari reports a desktop "Macintosh" UA; touch points tell it apart.
-                var ua = navigator.userAgent || "";
-                if (
-                    /iPhone|iPad|iPod/.test(ua) ||
-                    (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
-                ) {
-                    this.blockedPlatform = "ios";
-                } else if (/Android/i.test(ua)) {
-                    this.blockedPlatform = "android";
-                }
+                this._detectBlockedPlatform();
 
                 // Detect current device endpoint for "This device" badge
                 this._detectCurrentEndpoint();
@@ -2600,7 +2608,7 @@ document.addEventListener("alpine:init", function () {
     // Coach push notification preferences component (account settings and coach dashboard)
     // Separate from user push preferences - completely independent system
     Alpine.data("coachPushPreferences", function () {
-        return mixin(makePushStatusCheck(), {
+        return mixin(mixin(makePushStatusCheck(), makeBlockedPlatform()), {
             subscriptions: [],
             isSupported: false,
             isSubscribed: false,
@@ -2691,6 +2699,7 @@ document.addEventListener("alpine:init", function () {
                 if ("Notification" in window && Notification.permission === "denied") {
                     this.permissionDenied = true;
                 }
+                this._detectBlockedPlatform();
 
                 // Detect current device endpoint for "This device" badge
                 this._detectCurrentEndpoint();
