@@ -123,6 +123,11 @@ def telegram(method, payload):
 
 def notify_review(record):
     script, post = record["script"], record["post"]
+    album_caption = (
+        record.get("comparison_label")
+        if record.get("visual_only")
+        else script["slides"][0]["title"]
+    )
     if record.get("preview_only"):
         with ExitStack() as handles:
             files = {
@@ -142,11 +147,7 @@ def notify_review(record):
                             {
                                 "type": "photo",
                                 "media": f"attach://slide{i}",
-                                **(
-                                    {"caption": script["slides"][0]["title"]}
-                                    if i == 0
-                                    else {}
-                                ),
+                                **({"caption": album_caption} if i == 0 else {}),
                             }
                             for i in range(5)
                         ]
@@ -157,7 +158,7 @@ def notify_review(record):
                 payload = {
                     "chat_id": CHAT,
                     "photo": "attach://slide0",
-                    "caption": script["slides"][0]["title"],
+                    "caption": album_caption,
                 }
             response = requests.post(
                 f"https://api.telegram.org/bot{BOT}/{method}",
@@ -169,6 +170,14 @@ def notify_review(record):
                 raise RuntimeError(
                     f"Telegram preview upload failed; HTTP {response.status_code}"
                 )
+            if record.get("visual_only"):
+                sent = response.json()["result"]
+                record["message_id"] = (
+                    sent[0]["message_id"]
+                    if isinstance(sent, list)
+                    else sent["message_id"]
+                )
+                return  # Visual comparisons send pictures only, without post captions or buttons.
     elif len(post["media_urls"] or [post["media_url"]]) == 5:
         urls = post["media_urls"]
         telegram(
@@ -225,6 +234,8 @@ def notify_review(record):
 
 def deliver(body):
     script, images = body["script"], body["images"]
+    if body.get("visual_only") is True and not PREVIEW_ONLY:
+        raise ValueError("Visual-only delivery requires preview mode")
     if len(images) != len(script["slides"]) or len(images) not in {1, 5}:
         raise ValueError("A complete ordered image set is required")
     for key in ("caption_en", "caption_fr"):
@@ -277,6 +288,10 @@ def deliver(body):
                     "revision": 0,
                     "created": time.time(),
                     "preview_only": PREVIEW_ONLY,
+                    "visual_only": body.get("visual_only") is True,
+                    "comparison_label": str(
+                        body.get("comparison_label", "Visual comparison")
+                    )[:100],
                 }
                 db.execute(
                     "INSERT INTO reviews VALUES (?,?,?)",

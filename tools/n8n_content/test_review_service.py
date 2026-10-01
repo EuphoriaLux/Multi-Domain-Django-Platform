@@ -191,6 +191,45 @@ class ReviewTests(unittest.TestCase):
             telegram.call_args.args[1]["reply_markup"]["inline_keyboard"], []
         )
 
+    @patch.object(review, "hub")
+    @patch.object(review, "telegram")
+    @patch.object(review.requests, "post")
+    def test_visual_comparison_sends_only_album_without_post_captions(
+        self, request, telegram, hub
+    ):
+        import base64
+
+        review.PREVIEW_ONLY = True
+        request.return_value = Mock(
+            ok=True, json=lambda: {"ok": True, "result": [{"message_id": 999}]}
+        )
+        script = {
+            "slides": [{"title": f"Card {i}"} for i in range(5)],
+            "caption_en": "Do not send English post",
+            "caption_fr": "Do not send French post",
+        }
+        body = {
+            "run_key": "visual-only",
+            "script": script,
+            "visual_only": True,
+            "comparison_label": "Comparison A",
+            "images": [
+                {"image_base64": base64.b64encode(bytes([i])).decode()}
+                for i in range(5)
+            ],
+        }
+        result = review.deliver(body)
+        record = review.load(result["review_id"])
+        self.assertEqual(record["message_id"], 999)
+        media = json.loads(request.call_args.kwargs["data"]["media"])
+        self.assertEqual(media[0]["caption"], "Comparison A")
+        self.assertEqual(len(media), 5)
+        telegram.assert_not_called()
+        hub.assert_not_called()
+        review.PREVIEW_ONLY = False
+        with self.assertRaisesRegex(ValueError, "requires preview"):
+            review.deliver({**body, "run_key": "blocked-visual"})
+
 
 if __name__ == "__main__":
     unittest.main()
