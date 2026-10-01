@@ -304,8 +304,8 @@
     "timezone": "Europe/Luxembourg",
     "executionTimeout": 240,
     "saveDataErrorExecution": "all",
-    "saveDataSuccessExecution": "none",
-    "saveManualExecutions": false,
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
     "errorWorkflow": "__ERROR_WORKFLOW_ID__"
   }
 }

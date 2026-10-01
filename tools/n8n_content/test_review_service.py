@@ -24,6 +24,7 @@ class ReviewTests(unittest.TestCase):
         review.REVIEWERS = {99}
         review.ENABLE_PUBLISH = True
         review.PREVIEW_ONLY = False
+        review.POLL_CALLBACKS = True
         self.post = {
             "id": "123",
             "status": "pending_review",
@@ -184,6 +185,11 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual(review.load(result["review_id"])["revision"], 2)
         self.assertIn("already been used", review.callback(query))
         hub.assert_not_called()
+        with patch.object(review, "POLL_CALLBACKS", False):
+            review.notify_review(review.load(record["id"]))
+        self.assertEqual(
+            telegram.call_args.args[1]["reply_markup"]["inline_keyboard"], []
+        )
 
 
 if __name__ == "__main__":

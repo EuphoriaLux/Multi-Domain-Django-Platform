@@ -86,7 +86,7 @@
     "timezone": "Europe/Luxembourg",
     "executionTimeout": 240,
     "saveDataErrorExecution": "all",
-    "saveDataSuccessExecution": "none",
-    "saveManualExecutions": false
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true
   }
 }
