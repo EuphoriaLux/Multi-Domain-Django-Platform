@@ -208,6 +208,14 @@ def patch_allauth_statekit():
             state = OAuthState.get_and_consume_state(state_id)
             if state:
                 logger.info(f"[OAUTH] State {state_id[:8]}... retrieved from database (cross-browser)")
+                # No usable session on this callback: put the native-app
+                # handoff marker back so error/cancel pages stay the app's.
+                try:
+                    from crush_lu.mobile_auth import restore_mobile_handoff_from_state
+
+                    restore_mobile_handoff_from_state(request, state)
+                except Exception as e:
+                    logger.error(f"[OAUTH] Failed to restore native-app handoff: {e}")
                 return state
             else:
                 # State not found - this is an error condition

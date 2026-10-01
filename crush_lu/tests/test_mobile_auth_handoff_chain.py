@@ -263,6 +263,60 @@ def test_handoff_resumes_when_session_is_lost_entirely(crush_client, google_user
     ]
 
 
+def _callback_request_without_session(state_id):
+    from django.contrib.sessions.backends.db import SessionStore
+    from django.test import RequestFactory
+
+    request = RequestFactory().get(
+        "/accounts/google/login/callback/", {"state": state_id, "code": "x"}
+    )
+    request.session = SessionStore()
+    return request
+
+
+def test_lost_session_callback_restores_the_ios_marker(crush_client, google_user):
+    """When the callback has no session, the OAuth state is recovered from the
+    database. The handoff pinned in it must be restored to the new session so
+    error and cancellation pages are still recognised as the iOS auth sheet
+    (no tracking tags, no consent banner: App Review 5.1.2)."""
+    from allauth.socialaccount.internal import statekit
+
+    from crush_lu.ios_app_utils import is_ios_tracking_suppressed
+    from crush_lu.oauth_statekit import ensure_patched
+
+    ensure_patched()
+    crush_client.get(HANDOFF_PATH, {"redirect_uri": "crushlu://auth"})
+    state_id = _start_provider_login(crush_client, "/accounts/google/login/")
+
+    request = _callback_request_without_session(state_id)
+    assert not is_ios_tracking_suppressed(request)
+
+    assert statekit.unstash_state(request, state_id) is not None
+
+    data = request.session[SESSION_KEY]
+    assert data["platform"] == "ios"
+    assert data["redirect_uri"] == "crushlu://auth"
+    assert is_ios_tracking_suppressed(request)
+
+
+def test_lost_session_callback_without_a_handoff_stays_a_web_login(
+    crush_client, google_user
+):
+    from allauth.socialaccount.internal import statekit
+
+    from crush_lu.ios_app_utils import is_ios_tracking_suppressed
+    from crush_lu.oauth_statekit import ensure_patched
+
+    ensure_patched()
+    state_id = _start_provider_login(crush_client, "/accounts/google/login/")
+
+    request = _callback_request_without_session(state_id)
+    assert statekit.unstash_state(request, state_id) is not None
+
+    assert SESSION_KEY not in request.session
+    assert not is_ios_tracking_suppressed(request)
+
+
 def test_abandoned_flag_does_not_hijack_a_login_with_an_explicit_next(
     crush_client, google_user
 ):
