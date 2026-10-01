@@ -54,6 +54,12 @@
         animation: bounce 2s infinite;
     }
 
+    @media (prefers-reduced-motion: reduce) {
+        .locked-icon {
+            animation: none;
+        }
+    }
+
     @keyframes bounce {
         0%, 100% { transform: translateY(0); }
         50% { transform: translateY(-10px); }
