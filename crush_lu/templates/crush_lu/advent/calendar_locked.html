@@ -24,9 +24,9 @@
 
             <div class="countdown-preview mb-4">
                 <div class="grid grid-cols-6 md:grid-cols-12 gap-2 justify-items-center">
-                    {% for day in "123456789101112131415161718192021222324"|make_list %}
+                    {% for day in days %}
                         <div class="preview-door">
-                            {{ forloop.counter }}
+                            {{ day }}
                         </div>
                     {% endfor %}
                 </div>
@@ -52,6 +52,12 @@
 
     .locked-icon {
         animation: bounce 2s infinite;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .locked-icon {
+            animation: none;
+        }
     }
 
     @keyframes bounce {
