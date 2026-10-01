@@ -39,8 +39,8 @@ from django.core import mail
 from django.core.cache import cache
 from django.template.loader import render_to_string
 from django.test import Client, RequestFactory, TestCase, override_settings
-from django.utils import timezone
 from django.urls import resolve
+from django.utils import timezone
 from django.utils import translation
 
 from azureproject.adapters import MultiDomainSocialAccountAdapter
