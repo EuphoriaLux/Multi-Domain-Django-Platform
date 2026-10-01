@@ -26,6 +26,9 @@ create no Hub posts and cannot publish, even if publishing is otherwise enabled.
 Set `POLL_CALLBACKS=false` for send-only Telegram reviews without action buttons.
 This allows the existing bot to keep its current update consumer; error alerts
 are still sent. Hermes currently uses this setting at the user's request.
+For picture-only comparisons, authenticated generation accepts `visual_only: true`
+and a short `comparison_label`. In preview mode this sends only the image album,
+without the social captions or action buttons; normal runs remain unchanged.
 
 `preview.cjs` renders a local template preview from existing brand assets placed
 in `preview-assets/`. It does not call Gemini. Generated previews, local audit

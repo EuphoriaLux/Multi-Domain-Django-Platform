@@ -183,6 +183,11 @@ return [{{json:{{...previous,cover_base64:cover.toString('base64')}}}}];""",
                 if regeneration
                 else "review_id:null"
             )
+            + (
+                ", visual_only: $('Select Topic').first().json.visualOnly === true, comparison_label: $('Select Topic').first().json.comparisonLabel"
+                if not regeneration
+                else ""
+            )
             + " } }}",
             "Crush Review Bearer",
             1800,
@@ -239,7 +244,7 @@ const mapping = {{events:'promo',proof:'milestone',coach_tips:'dating_tip',trust
         + json.dumps(kind)
         + ",hubPillar:"
         + ("'dating_tip'" if carousel else "mapping[selected.id]")
-        + "}}];"
+        + ",visualOnly:$json.body?.visual_only===true,comparisonLabel:String($json.body?.comparison_label || '').slice(0,100)}}];"
     )
     wf["nodes"] = [
         node("Manual Generate Review", "n8n-nodes-base.manualTrigger", {}),
