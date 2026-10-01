@@ -22,13 +22,15 @@ def delete_undispatched_event_posts(sender, instance, using, **kwargs):
     work, so it goes with the event.
 
     Posts that already reached Buffer (SCHEDULED, PUBLISHED, or holding a
-    `buffer_id`) are kept: the external publication outlives the event row, and
+    `buffer_id`, or an uncertain delivery) are kept: the external publication outlives the event row, and
     their IDs and status history are what reconciles it.
     """
 
-    dispatched = Q(
-        status__in=[SocialPost.Status.SCHEDULED, SocialPost.Status.PUBLISHED]
-    ) | ~Q(buffer_id="")
+    dispatched = (
+        Q(status__in=[SocialPost.Status.SCHEDULED, SocialPost.Status.PUBLISHED])
+        | ~Q(buffer_id="")
+        | Q(buffer_delivery_uncertain=True)
+    )
     (
         SocialPost.objects.using(using)
         .filter(source_event=instance)

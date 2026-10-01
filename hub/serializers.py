@@ -1,6 +1,7 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import re
 
+from django.utils import timezone
 from rest_framework import serializers
 
 from .constants import SOCIAL_CONTENT_MAX_LENGTH
@@ -405,7 +406,13 @@ class SocialPostSerializer(serializers.ModelSerializer):
         try:
             for key in ("posting_date", "event_date"):
                 if value.get(key):
-                    date.fromisoformat(value[key])
+                    parsed = date.fromisoformat(value[key])
+                    if key == "posting_date":
+                        today = timezone.localdate()
+                        if not today <= parsed <= today + timedelta(days=90):
+                            raise serializers.ValidationError(
+                                "posting_date must be today or within 90 days."
+                            )
             if value.get("checked_at"):
                 datetime.fromisoformat(value["checked_at"].replace("Z", "+00:00"))
         except ValueError as exc:

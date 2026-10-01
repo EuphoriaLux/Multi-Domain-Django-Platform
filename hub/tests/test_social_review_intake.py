@@ -331,19 +331,91 @@ class HubReviewIntakeTests(TestCase):
                 _graphql(query)
         self.assertNotIsInstance(raised.exception, BufferDeliveryUnknown)
 
-    def test_reconcile_refuses_posts_with_a_buffer_record(self):
+    def test_reconcile_keeps_known_deliveries_of_a_partial_failure(self):
         post = self.post_for_review()
+        post.status = "failed"
         post.buffer_delivery_uncertain = True
         post.buffer_id = "abc"
+        post.dispatched_platforms = ["instagram"]
         post.save()
         response = self.client.patch(
             f"/hub/social/posts/{post.pk}/",
             {"reconcile": "not_delivered"},
             format="json",
         )
-        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.status_code, 200)
         post.refresh_from_db()
-        self.assertTrue(post.buffer_delivery_uncertain)
+        self.assertFalse(post.buffer_delivery_uncertain)
+        self.assertEqual(post.status, "failed")
+        self.assertEqual(post.buffer_id, "abc")
+        self.assertEqual(post.dispatched_platforms, ["instagram"])
+        from hub.views_social import _event_post_dispatched_platforms
+
+        self.assertEqual(_event_post_dispatched_platforms(post), {"instagram"})
+
+    def test_reconcile_requires_an_uncertain_delivery(self):
+        post = self.post_for_review()
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}/",
+            {"reconcile": "not_delivered"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 409)
+
+    def test_intake_rejects_out_of_range_posting_date(self):
+        for value in ("9999-12-31", "2001-01-01"):
+            response = self.client.post(
+                "/hub/social/posts/",
+                {"content": "x", "source_metadata": {"posting_date": value}},
+                format="json",
+            )
+            self.assertEqual(response.status_code, 400, value)
+
+    def test_automation_intake_rechecks_a_taken_proposed_slot(self):
+        taken = timezone.now() + timedelta(days=3)
+        SocialPost.objects.create(
+            user=self.user, content="Held", status="pending_review", scheduled_for=taken
+        )
+        response = self.client.post(
+            "/hub/social/posts/",
+            {
+                "content": "Auto",
+                "generation_key": "run-1",
+                "scheduled_for": taken.isoformat(),
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        got = datetime.fromisoformat(response.json()["post"]["scheduled_for"])
+        self.assertGreaterEqual(abs(got - taken), timedelta(hours=1))
+
+    def test_deleting_an_event_keeps_posts_with_uncertain_delivery(self):
+        from crush_lu.models import MeetupEvent
+
+        now = timezone.now()
+        event = MeetupEvent.objects.create(
+            title="Soirée",
+            description="Une soirée.",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="Rue 1",
+            date_time=now + timedelta(days=7),
+            registration_deadline=now + timedelta(days=5),
+            is_published=True,
+        )
+        uncertain = SocialPost.objects.create(
+            user=self.user,
+            content="Uncertain",
+            status="failed",
+            source_event=event,
+            buffer_delivery_uncertain=True,
+        )
+        plain = SocialPost.objects.create(
+            user=self.user, content="Plain", status="draft", source_event=event
+        )
+        event.delete()
+        self.assertTrue(SocialPost.objects.filter(pk=uncertain.pk).exists())
+        self.assertFalse(SocialPost.objects.filter(pk=plain.pk).exists())
 
     @patch("hub.views_social.create_buffer_update")
     def test_expired_source_or_stale_time_blocks_approval(self, buffer):

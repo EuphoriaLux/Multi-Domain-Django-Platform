@@ -654,7 +654,9 @@ class SocialPostsView(APIView):
         if uploaded_images:
             urls = _save_social_images(uploaded_images)
             post.media_url, post.media_urls = urls[0], urls
-        if not post.scheduled_for:
+        # Automation intake (carries a generation key) may submit a time read
+        # earlier from the planning endpoint, so recheck it under the lock too.
+        if not post.scheduled_for or key:
             if connection.vendor == "postgresql":
                 # Two concurrent intakes must not pick the same free slot: hold
                 # a transaction-scoped lock until this post's time is committed.
@@ -662,6 +664,12 @@ class SocialPostsView(APIView):
                     cursor.execute(
                         "SELECT pg_advisory_xact_lock(%s)", [_SLOT_ALLOCATION_LOCK]
                     )
+            if post.scheduled_for and any(
+                abs(post.scheduled_for - booked) < timedelta(hours=1)
+                for booked in reserved_times(post.pk)
+            ):
+                post.scheduled_for = None
+        if not post.scheduled_for:
             proposal = posting_proposal(post)
             if proposal["scheduled_for"]:
                 post.scheduled_for = datetime.fromisoformat(proposal["scheduled_for"])
@@ -687,41 +695,40 @@ class SocialPostDetailView(APIView):
         return Response({"post": SocialPostSerializer(post).data})
 
     def _reconcile(self, request, post):
-        """Let staff confirm in Buffer that an uncertain delivery created nothing.
+        """Let staff confirm in Buffer that the uncertain channel delivered nothing.
 
-        Only the unknown-response case qualifies: a stored Buffer id or any
-        dispatched platform means a publication exists and must be handled in
-        Buffer instead. The post returns to draft so it is reviewed again.
+        The flag only ever describes the channel that returned an unknown
+        response. When earlier channels are known to have succeeded (a stored
+        Buffer id), that delivery is kept as is and the post stays failed; with
+        no known delivery the post returns to draft to be reviewed again.
         """
         if request.data.get("reconcile") != "not_delivered":
             return Response({"error": "Unsupported reconcile value."}, status=400)
-        if (
-            not post.buffer_delivery_uncertain
-            or post.buffer_id
-            or post.dispatched_platforms
-        ):
+        if not post.buffer_delivery_uncertain:
             return Response(
-                {"error": "Only an uncertain delivery with no Buffer record applies."},
+                {"error": "Only an uncertain delivery can be reconciled."},
                 status=status.HTTP_409_CONFLICT,
             )
+        partial = bool(post.buffer_id or post.dispatched_platforms)
         post.buffer_delivery_uncertain = False
-        post.status = SocialPost.Status.DRAFT
+        fields = ["buffer_delivery_uncertain", "status_history", "updated_at"]
+        if not partial:
+            post.status = SocialPost.Status.DRAFT
+            fields.append("status")
         post.status_history = [
             *(post.status_history or []),
             _history_entry(
                 request,
-                SocialPost.Status.DRAFT,
-                note="Staff confirmed in Buffer that nothing was delivered.",
+                post.status,
+                note=(
+                    "Staff confirmed in Buffer that the uncertain channel "
+                    "delivered nothing; earlier deliveries are unchanged."
+                    if partial
+                    else "Staff confirmed in Buffer that nothing was delivered."
+                ),
             ),
         ]
-        post.save(
-            update_fields=[
-                "buffer_delivery_uncertain",
-                "status",
-                "status_history",
-                "updated_at",
-            ]
-        )
+        post.save(update_fields=fields)
         return Response({"post": SocialPostSerializer(post).data})
 
     @transaction.atomic
