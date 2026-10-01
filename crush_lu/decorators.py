@@ -120,8 +120,7 @@ def ratelimit(
             # response qualifies; a peek-then-count let a concurrent burst
             # all pass on one read.
             try:
-                count = _count_request(cache_key, period_seconds)
-                generation = _window_generation(cache_key)
+                count, generation = _count_request(cache_key, period_seconds)
             except Exception:
                 count = None
                 generation = None
@@ -196,22 +195,20 @@ def _generation_key(cache_key):
     return f"{cache_key}:generation"
 
 
-def _window_generation(cache_key):
-    """The token of the window a reservation was just counted in."""
-    return cache.get(_generation_key(cache_key))
-
-
 def _record_window_deadline(cache_key, period_seconds):
     """Track expiry for cache backends without a native TTL method.
 
     Also stamps the new window with a fresh generation token, so a release
-    can tell whether it still belongs to the window it reserved in."""
-    cache.set(_generation_key(cache_key), uuid.uuid4().hex, period_seconds)
+    can tell whether it still belongs to the window it reserved in. Returns
+    the token so the request that created the window knows it for certain."""
+    token = uuid.uuid4().hex
+    cache.set(_generation_key(cache_key), token, period_seconds)
     cache.set(
         _window_deadline_key(cache_key),
         time.time() + period_seconds,
         period_seconds,
     )
+    return token
 
 
 def _remaining_window_seconds(cache_key, period_seconds):
@@ -238,7 +235,11 @@ def _remaining_window_seconds(cache_key, period_seconds):
 
 def _count_request(cache_key, period_seconds):
     """
-    Count one request in the key's window and return the new total.
+    Count one request in the key's window; return ``(total, generation)``.
+
+    ``generation`` is the token of the window the increment landed in, or
+    None when that cannot be established (see below), in which case the slot
+    is never released.
 
     add() creates the counter, with the window's expiry, only if it is absent,
     and incr() returns the incremented value, so concurrent requests each get
@@ -247,24 +248,35 @@ def _count_request(cache_key, period_seconds):
     Requests over the limit are counted too; incr() keeps the expiry that
     add() set, so they never extend the window.
     """
+    before = cache.get(_generation_key(cache_key))
+    created = None
     if cache.add(cache_key, 0, period_seconds):
-        _record_window_deadline(cache_key, period_seconds)
+        created = _record_window_deadline(cache_key, period_seconds)
     try:
-        return cache.incr(cache_key)
+        count = cache.incr(cache_key)
     except ValueError:
         # Evicted between add() and incr(): start a fresh window with this
         # request, unless a concurrent request already did.
         if cache.add(cache_key, 1, period_seconds):
-            _record_window_deadline(cache_key, period_seconds)
-            return 1
-        return cache.incr(cache_key)
+            return 1, _record_window_deadline(cache_key, period_seconds)
+        created = None
+        count = cache.incr(cache_key)
+    if created is not None:
+        return count, created
+    # Joined an existing window. Reading the token on both sides of the
+    # increment proves which window counted it: a window rollover in between
+    # changes the token, and then the owner is unknown. An unknown owner is
+    # never released, so the race can only cost a slot, never grant one.
+    after = cache.get(_generation_key(cache_key))
+    return count, (before if before is not None and before == after else None)
 
 
 def _release_request(cache_key, generation=None):
     """
     Give back a slot reserved by _count_request().
 
-    ``generation`` is the window token read at reservation time. If the window
+    ``generation`` is the window token the reservation was counted in (see
+    _count_request); None means unknown, and nothing is released. If the window
     has since expired and a new one started, the slot is already gone with the
     old counter: releasing would take a count from the new window (#1111).
 
@@ -274,7 +286,7 @@ def _release_request(cache_key, generation=None):
     window than its reservation could drive the counter below zero; undo it.
     """
     try:
-        if generation is not None and cache.get(_generation_key(cache_key)) != generation:
+        if generation is None or cache.get(_generation_key(cache_key)) != generation:
             return
         if cache.decr(cache_key) < 0:
             cache.incr(cache_key)

@@ -315,6 +315,9 @@ document.addEventListener("alpine:init", function () {
                 if (file && file.type.indexOf("image/") === 0) {
                     var reader = new FileReader();
                     reader.onload = function (e) {
+                        // A slower read of an earlier pick must not overwrite
+                        // the thumbnail of the file the input now holds.
+                        if (input.files[0] !== file) return;
                         img.src = e.target.result;
                         preview.classList.add("show");
                     };

@@ -439,3 +439,34 @@ class RateLimitDecoratorTests(SimpleTestCase):
         self.assertEqual(
             self._post(HTTP_X_FORWARDED_FOR="203.0.113.7:1").status_code, 200
         )
+
+    def test_rollover_between_increment_and_token_read_never_releases(self):
+        # The window can roll over after our increment but before we learn its
+        # token. The owner is then unknown, so the slot must not be released
+        # into the new window (it would grant that window a free request).
+        from crush_lu.decorators import (
+            _count_request,
+            _record_window_deadline,
+            _release_request,
+        )
+
+        key = "ratelimit:rollover:test"
+        cache.delete(key)
+        cache.add(key, 0, 900)
+        _record_window_deadline(key, 900)
+        real_incr = cache.incr
+
+        def incr_then_roll_over(name, *args, **kwargs):
+            value = real_incr(name, *args, **kwargs)
+            cache.delete(key)  # window A expires...
+            cache.add(key, 1, 900)  # ...and a concurrent request opens window B
+            _record_window_deadline(key, 900)
+            return value
+
+        with patch.object(cache, "incr", side_effect=incr_then_roll_over):
+            count, generation = _count_request(key, 900)
+
+        self.assertEqual(count, 1)
+        self.assertIsNone(generation)
+        _release_request(key, generation)
+        self.assertEqual(cache.get(key), 1)

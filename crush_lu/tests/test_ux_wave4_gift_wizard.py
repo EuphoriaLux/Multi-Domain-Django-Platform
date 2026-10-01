@@ -295,6 +295,14 @@ class GiftWizardRestTests(GiftWizardTestBase):
             self.assertNotIn("Invalid audio format.", source, name)
             self.assertNotIn("too large. Maximum", source, name)
 
+    def test_stale_thumbnail_reads_cannot_overwrite_the_selection(self):
+        for name in ("alpine/journey.js", "alpine/journey.min.js"):
+            source = (JS_DIR / name).read_text(encoding="utf-8")
+            start = source.index("readAsDataURL")
+            # The onload callback sits just before readAsDataURL.
+            callback = source[max(0, start - 600) : start]
+            self.assertRegex(callback, r"files\[0\]\s*[!=]==\s*\w+", name)
+
     def test_slideshow_tiles_have_thumbnail_slots(self):
         html = self.client.get(CREATE_URL).content.decode()
         self.assertEqual(html.count('class="slideshow-item"'), 5)
