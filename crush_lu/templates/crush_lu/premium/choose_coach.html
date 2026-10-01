@@ -24,7 +24,7 @@
             {% blocktrans with coach_name=pending_membership.coach.user.first_name %}You've chosen {{ coach_name }} — payment pending.{% endblocktrans %}
           </p>
           <p class="mb-0 text-xs text-emerald-700 dark:text-emerald-400">
-            {% trans "Complete your payment below to activate your premium membership and unlock your personal coach." %}
+            {% if pending_premium_state == "manage" %}{% trans "Premium is invite-only during the beta." %}{% else %}{% trans "Complete your payment below to activate your premium membership and unlock your personal coach." %}{% endif %}
           </p>
         </div>
         <form method="post" action="{% url 'crush_lu:premium_cancel_membership' %}" class="flex-shrink-0">
@@ -34,6 +34,7 @@
           </button>
         </form>
       </div>
+      {% if pending_premium_state != "manage" %}
       <button data-membership-id="{{ pending_membership.id }}" class="js-sumup-premium-checkout w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-xl shadow transition-all duration-200 cursor-pointer">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
@@ -46,6 +47,7 @@
         {% endcomment %}
         <span>{% blocktrans with amount=premium_monthly_fee %}Pay Premium Subscription (€{{ amount }} / month){% endblocktrans %}</span>
       </button>
+      {% endif %}
     </div>
     <script nonce="{{ csp_nonce }}">
       // CSRF_COOKIE_HTTPONLY is True, so document.cookie can't see csrftoken.

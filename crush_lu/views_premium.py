@@ -141,6 +141,9 @@ def premium_choose_coach(request):
     context = {
         "coaches": _available_coaches(),
         "pending_membership": pending,
+        # "manage" = the beta allowlist refuses this buyer at checkout (403), so
+        # the template must not offer the pay button (same predicate as /membership/).
+        "pending_premium_state": pending_premium_state(request.user),
         # The price shown must come from the same setting the checkout charges
         # (views_payments.create_sumup_premium_checkout reads it too). The label
         # used to hard-code "€10.00 / month", so changing SUMUP_PREMIUM_MONTHLY_FEE

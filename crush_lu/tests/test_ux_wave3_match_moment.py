@@ -284,7 +284,7 @@ class AcceptCelebratoryCardTests(TestCase):
         # The old copy never explained *when* — the mini-timeline does.
         self.assertIn("Coach reviews", body)
         self.assertIn("You both consent", body)
-        self.assertIn("Contacts shared", body)
+        self.assertIn("Profiles shared", body)
         self.connection.refresh_from_db()
         self.assertEqual(self.connection.status, "accepted")
 

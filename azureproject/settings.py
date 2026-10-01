@@ -378,6 +378,7 @@ TEMPLATES = [
                 "django.template.context_processors.i18n",  # Ensure this line is present
                 "crush_lu.context_processors.crush_user_context",  # Crush.lu user context
                 "crush_lu.context_processors.social_preview_context",  # Crush.lu social preview (PR #47)
+                "crush_lu.context_processors.assets_dev_mode",  # readable JS/CSS sources under DEBUG (not tied to INTERNAL_IPS)
                 "crush_lu.context_processors.firebase_config",  # Firebase config for phone verification
                 "crush_lu.context_processors.site_config_context",  # WhatsApp button & site config
                 "azureproject.content_images_context.content_images_context",  # Content images (Azure Blob)
