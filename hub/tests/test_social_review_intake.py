@@ -235,6 +235,46 @@ class HubReviewIntakeTests(TestCase):
         self.assertEqual(edit.status_code, 409)
         self.assertEqual(buffer.call_count, 1)
 
+    @patch("hub.views_social.list_buffer_profiles", return_value=PROFILES)
+    @patch(
+        "hub.views_social.create_buffer_update",
+        side_effect=BufferDeliveryUnknown("Timeout"),
+    )
+    def test_reconciled_uncertain_delivery_can_be_reviewed_again(
+        self, buffer, profiles
+    ):
+        post = self.post_for_review()
+        self.client.patch(
+            f"/hub/social/posts/{post.pk}/", self.approval(post), format="json"
+        )
+        post.refresh_from_db()
+        self.assertTrue(post.buffer_delivery_uncertain)
+        url = f"/hub/social/posts/{post.pk}/"
+        bad = self.client.patch(url, {"reconcile": "delivered"}, format="json")
+        self.assertEqual(bad.status_code, 400)
+        ok = self.client.patch(url, {"reconcile": "not_delivered"}, format="json")
+        self.assertEqual(ok.status_code, 200)
+        post.refresh_from_db()
+        self.assertFalse(post.buffer_delivery_uncertain)
+        self.assertEqual(post.status, "draft")
+        self.assertIn("Staff confirmed", post.status_history[-1]["note"])
+        again = self.client.patch(url, {"reconcile": "not_delivered"}, format="json")
+        self.assertEqual(again.status_code, 409)
+
+    def test_reconcile_refuses_posts_with_a_buffer_record(self):
+        post = self.post_for_review()
+        post.buffer_delivery_uncertain = True
+        post.buffer_id = "abc"
+        post.save()
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}/",
+            {"reconcile": "not_delivered"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 409)
+        post.refresh_from_db()
+        self.assertTrue(post.buffer_delivery_uncertain)
+
     @patch("hub.views_social.create_buffer_update")
     def test_expired_source_or_stale_time_blocks_approval(self, buffer):
         post = self.post_for_review()

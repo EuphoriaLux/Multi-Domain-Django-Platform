@@ -683,6 +683,44 @@ class SocialPostDetailView(APIView):
             return Response({"error": "Post not found"}, status=404)
         return Response({"post": SocialPostSerializer(post).data})
 
+    def _reconcile(self, request, post):
+        """Let staff confirm in Buffer that an uncertain delivery created nothing.
+
+        Only the unknown-response case qualifies: a stored Buffer id or any
+        dispatched platform means a publication exists and must be handled in
+        Buffer instead. The post returns to draft so it is reviewed again.
+        """
+        if request.data.get("reconcile") != "not_delivered":
+            return Response({"error": "Unsupported reconcile value."}, status=400)
+        if (
+            not post.buffer_delivery_uncertain
+            or post.buffer_id
+            or post.dispatched_platforms
+        ):
+            return Response(
+                {"error": "Only an uncertain delivery with no Buffer record applies."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        post.buffer_delivery_uncertain = False
+        post.status = SocialPost.Status.DRAFT
+        post.status_history = [
+            *(post.status_history or []),
+            _history_entry(
+                request,
+                SocialPost.Status.DRAFT,
+                note="Staff confirmed in Buffer that nothing was delivered.",
+            ),
+        ]
+        post.save(
+            update_fields=[
+                "buffer_delivery_uncertain",
+                "status",
+                "status_history",
+                "updated_at",
+            ]
+        )
+        return Response({"post": SocialPostSerializer(post).data})
+
     @transaction.atomic
     def patch(self, request, pk):
         try:
@@ -691,6 +729,9 @@ class SocialPostDetailView(APIView):
             return Response(
                 {"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND
             )
+
+        if request.data.get("reconcile") is not None:
+            return self._reconcile(request, post)
 
         expected = request.data.get("review_fingerprint")
         for supplied in (expected, request.data.get("edit_fingerprint")):
