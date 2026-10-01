@@ -90,6 +90,26 @@ class MatchPhoneConsentTests(TestCase):
         )
         self.assertContains(fr, "Avant que les détails de votre profil")
 
+    def test_shared_state_without_contact_details_promises_no_contacts(self):
+        # Both sides left email and phone unticked (or the row predates the
+        # opt-ins): profile details are shared, no contact channel is.
+        self._share()
+        en = self._client(self.me).get(self._url(), HTTP_HOST=HOST)
+        self.assertContains(en, "Profiles Shared")
+        self.assertNotContains(en, "Contacts Shared")
+        # Migrated rows never declined: the copy must not say they chose to.
+        self.assertNotContains(en, "chose not to share their phone")
+        de = self._client(self.me).get(
+            f"/de/connections/{self.conn.id}/", HTTP_HOST=HOST
+        )
+        self.assertContains(de, "Profile geteilt")
+        self.assertContains(de, "hat die Telefonnummer nicht geteilt")
+        fr = self._client(self.me).get(
+            f"/fr/connections/{self.conn.id}/", HTTP_HOST=HOST
+        )
+        self.assertContains(fr, "Profils partagés")
+        self.assertContains(fr, "a pas partagé son numéro de téléphone")
+
     def test_consent_without_phone_checkbox_does_not_share_phone(self):
         response = self._client(self.me).post(
             self._url(), {"consent": "yes"}, HTTP_HOST=HOST
@@ -114,7 +134,7 @@ class MatchPhoneConsentTests(TestCase):
         self.assertNotContains(response, PHONE_OTHER)
         self.assertNotContains(response, "tel:")
         self.assertNotContains(response, "wa.me")
-        self.assertContains(response, "chose not to share their phone number")
+        self.assertContains(response, "did not share their phone number")
 
     def test_counterpart_sees_phone_after_opt_in(self):
         self._share(recipient_shares_phone=True)

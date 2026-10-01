@@ -19747,8 +19747,8 @@ msgstr "Vous :"
 
 #: templates/crush_lu/connection_detail.html:293
 #: templatetags/connection_status.py:28
-msgid "Contacts Shared!"
-msgstr "Contacts partagés !"
+msgid "Profiles Shared!"
+msgstr "Profils partagés !"
 
 #: templates/crush_lu/connection_detail.html:298
 msgid "You can now see the details each of you chose to share"
@@ -19827,8 +19827,8 @@ msgstr "Partager aussi mon numéro de téléphone avec %(name)s"
 
 #: templates/crush_lu/connection_detail.html:433
 #, python-format
-msgid "%(name)s chose not to share their phone number."
-msgstr "%(name)s a choisi de ne pas partager son numéro de téléphone."
+msgid "%(name)s did not share their phone number."
+msgstr "%(name)s n'a pas partagé son numéro de téléphone."
 
 #: templates/crush_lu/connection_detail.html:409
 msgid "Next Steps"
@@ -44158,3 +44158,11 @@ msgstr "Candidater à"
 
 msgid "Pending / no-show"
 msgstr "En attente / absent·es"
+
+#: templates/crush_lu/connection_detail.html:58
+msgid "Profiles Shared"
+msgstr "Profils partagés"
+
+#: templates/crush_lu/_connection_response.html:36
+msgid "Profiles shared"
+msgstr "Profils partagés"

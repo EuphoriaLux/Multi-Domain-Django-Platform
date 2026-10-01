@@ -8192,7 +8192,7 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\_connection_card.html:48
 #: .\crush_lu\templates\crush_lu\connection_detail.html:249
-msgid "Contacts Shared!"
+msgid "Profiles Shared!"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\_connection_card.html:57
@@ -13281,7 +13281,7 @@ msgstr ""
 
 #: templates/crush_lu/connection_detail.html:433
 #, python-format
-msgid "%(name)s chose not to share their phone number."
+msgid "%(name)s did not share their phone number."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\connection_detail.html:364
@@ -28661,4 +28661,12 @@ msgstr ""
 
 #: crush_lu/templates/crush_lu/membership.html:77
 msgid "Manage your Premium request"
+msgstr ""
+
+#: templates/crush_lu/connection_detail.html:58
+msgid "Profiles Shared"
+msgstr ""
+
+#: templates/crush_lu/_connection_response.html:36
+msgid "Profiles shared"
 msgstr ""

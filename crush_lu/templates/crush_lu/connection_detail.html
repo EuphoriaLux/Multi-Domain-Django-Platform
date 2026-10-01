@@ -55,7 +55,7 @@
         {% elif connection.status == 'shared' %}
             <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-green-400/20 text-green-100 border border-green-400/30">
                 {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
-                {% trans "Contacts Shared" %}
+                {% trans "Profiles Shared" %}
             </span>
         {% elif connection.status == 'declined' %}
             <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-red-400/20 text-red-100 border border-red-400/30">
@@ -287,7 +287,7 @@
                                 {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
                             </div>
                             <div>
-                                <h4 class="font-medium text-gray-900 dark:text-white">{% trans "Contacts Shared!" %}</h4>
+                                <h4 class="font-medium text-gray-900 dark:text-white">{% trans "Profiles Shared!" %}</h4>
                                 {% if connection.status == 'shared' %}
                                     {% if connection.shared_at %}
                                         <small class="text-gray-500 dark:text-gray-400">{{ connection.shared_at|date:"DATETIME_FORMAT" }}</small>
@@ -430,7 +430,7 @@
                                 </div>
                             {% else %}
                                 <p class="text-xs text-gray-400 dark:text-gray-500 italic">
-                                    {% blocktrans with name=other_profile.display_name %}{{ name }} chose not to share their phone number.{% endblocktrans %}
+                                    {% blocktrans with name=other_profile.display_name %}{{ name }} did not share their phone number.{% endblocktrans %}
                                 </p>
                             {% endif %}
                             {% if other_profile.show_full_name %}
