@@ -299,6 +299,34 @@ def test_lost_session_callback_restores_the_ios_marker(crush_client, google_user
     assert is_ios_tracking_suppressed(request)
 
 
+def test_session_callback_restores_an_expired_ios_marker(crush_client, google_user):
+    """The session survives but the handoff flag has expired (its lifetime
+    starts at sheet entry, the OAuth state's at provider start): the state
+    found in the session still carries the pinned handoff, so restore it."""
+    from allauth.socialaccount.internal import statekit
+
+    from crush_lu.ios_app_utils import is_ios_tracking_suppressed
+    from crush_lu.oauth_statekit import ensure_patched
+
+    ensure_patched()
+    crush_client.get(HANDOFF_PATH, {"redirect_uri": "crushlu://auth"})
+    state_id = _start_provider_login(crush_client, "/accounts/google/login/")
+
+    # Same session (state is in it), but the handoff flag has expired.
+    session = crush_client.session
+    session[SESSION_KEY]["expires"] = time.time() - 1
+    session.save()
+
+    request = _callback_request_without_session(state_id)
+    request.session = session
+    assert not is_ios_tracking_suppressed(request)
+
+    assert statekit.unstash_state(request, state_id) is not None
+
+    assert request.session[SESSION_KEY]["expires"] > time.time()
+    assert is_ios_tracking_suppressed(request)
+
+
 def test_lost_session_callback_without_a_handoff_stays_a_web_login(
     crush_client, google_user
 ):

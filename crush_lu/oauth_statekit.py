@@ -177,6 +177,22 @@ def patch_allauth_statekit():
 
         return state_id
 
+    def _restore_handoff(request, state) -> None:
+        """Put a native-app handoff pinned in the OAuth state back on the session.
+
+        Needed whichever lookup found the state: with no usable session the
+        flag is gone, and with a live session it may have expired (its
+        10-minute lifetime starts at sheet entry, the state's at provider
+        start). Without it, error and cancellation pages stop looking like the
+        iOS auth sheet and serve tracking tags and the consent banner.
+        """
+        try:
+            from crush_lu.mobile_auth import restore_mobile_handoff_from_state
+
+            restore_mobile_handoff_from_state(request, state)
+        except Exception as e:
+            logger.error(f"[OAUTH] Failed to restore native-app handoff: {e}")
+
     def db_unstash_state(request, state_id: str) -> Optional[Dict[str, Any]]:
         """
         Enhanced unstash_state that tries session first, then database.
@@ -192,6 +208,7 @@ def patch_allauth_statekit():
         state = _original_unstash_state(request, state_id)
         if state is not None:
             logger.debug(f"[OAUTH] State {state_id[:8]}... found in session")
+            _restore_handoff(request, state)
             # Also clean up database record
             try:
                 from crush_lu.models import OAuthState
@@ -208,14 +225,7 @@ def patch_allauth_statekit():
             state = OAuthState.get_and_consume_state(state_id)
             if state:
                 logger.info(f"[OAUTH] State {state_id[:8]}... retrieved from database (cross-browser)")
-                # No usable session on this callback: put the native-app
-                # handoff marker back so error/cancel pages stay the app's.
-                try:
-                    from crush_lu.mobile_auth import restore_mobile_handoff_from_state
-
-                    restore_mobile_handoff_from_state(request, state)
-                except Exception as e:
-                    logger.error(f"[OAUTH] Failed to restore native-app handoff: {e}")
+                _restore_handoff(request, state)
                 return state
             else:
                 # State not found - this is an error condition
