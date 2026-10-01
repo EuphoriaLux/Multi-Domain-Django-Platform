@@ -21,8 +21,11 @@ Audit, deployment order, verification and rollback:
 Deploy the backend migration before running the new workflow definitions.
 For LAN verification before the backend rollout, set `PREVIEW_ONLY=true` and
 `ENABLE_PUBLISH=false`. This stores the complete deck on the review volume and
-uploads it directly to Telegram. Preview reviews have regeneration only; they
+uploads it directly to Telegram. Preview reviews can offer regeneration; they
 create no Hub posts and cannot publish, even if publishing is otherwise enabled.
+Set `POLL_CALLBACKS=false` for send-only Telegram reviews without action buttons.
+This allows the existing bot to keep its current update consumer; error alerts
+are still sent. Hermes currently uses this setting at the user's request.
 
 `preview.cjs` renders a local template preview from existing brand assets placed
 in `preview-assets/`. It does not call Gemini. Generated previews, local audit

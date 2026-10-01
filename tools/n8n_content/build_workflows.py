@@ -62,8 +62,8 @@ def workflow(name, error_id="__ERROR_WORKFLOW_ID__"):
             "timezone": "Europe/Luxembourg",
             "executionTimeout": 240,
             "saveDataErrorExecution": "all",
-            "saveDataSuccessExecution": "none",
-            "saveManualExecutions": False,
+            "saveDataSuccessExecution": "all",
+            "saveManualExecutions": True,
             "errorWorkflow": error_id,
         },
     }

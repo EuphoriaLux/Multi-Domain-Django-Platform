@@ -113,6 +113,7 @@ else:
         "TELEGRAM_REVIEWER_IDS": "7483594372",
         "ENABLE_PUBLISH": "false",
         "PREVIEW_ONLY": "true",
+        "POLL_CALLBACKS": "false",
     }
     env_path.write_text("".join(f"{name}={value}\n" for name, value in values.items()))
     os.chmod(env_path, 0o600)

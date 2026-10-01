@@ -40,6 +40,7 @@ REGENERATE = os.environ.get(
 )
 ENABLE_PUBLISH = os.environ.get("ENABLE_PUBLISH", "false").lower() == "true"
 PREVIEW_ONLY = os.environ.get("PREVIEW_ONLY", "false").lower() == "true"
+POLL_CALLBACKS = os.environ.get("POLL_CALLBACKS", "true").lower() == "true"
 
 
 @contextmanager
@@ -197,9 +198,11 @@ def notify_review(record):
     buttons = [
         [{"text": "🔄 Regenerate visual", "callback_data": f"r:{data}"}],
     ]
+    if not POLL_CALLBACKS:
+        buttons = []
     if not record.get("preview_only"):
         buttons.append([{"text": "📝 Open in Hub CRM", "url": HUB_UI}])
-    if ENABLE_PUBLISH and not record.get("preview_only"):
+    if POLL_CALLBACKS and ENABLE_PUBLISH and not record.get("preview_only"):
         buttons.insert(
             0, [{"text": "🚀 Publish to Buffer now", "callback_data": f"p:{data}"}]
         )
@@ -343,11 +346,17 @@ def callback(query):
     if not match:
         return "Invalid action."
     action, review_id, revision = match.groups()
+    return perform_action(
+        action, review_id, int(revision), query["message"].get("message_id")
+    )
+
+
+def perform_action(action, review_id, revision, message_id=None):
     with LOCK:
         record = load(review_id)
-        if record["state"] != "pending_review" or record["revision"] != int(revision):
+        if record["state"] != "pending_review" or record["revision"] != revision:
             return "This review has already been used. Open the latest review or Hub."
-        if query["message"].get("message_id") != record.get("message_id"):
+        if message_id is not None and message_id != record.get("message_id"):
             return "This button belongs to an older review."
         if time.time() - record["created"] > 7 * 86400:
             return "Review expired. Open Hub to review current copy."
@@ -513,6 +522,18 @@ def poll():
             time.sleep(5)
 
 
+def poll_errors_only():
+    while True:
+        try:
+            flush_errors()
+        except Exception as error:
+            print(
+                json.dumps({"component": "error-alerts", "error": redact(error)}),
+                flush=True,
+            )
+        time.sleep(10)
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *_args):
         pass  # Access logs must not expose callback IDs or request bodies.
@@ -555,6 +576,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(200, deliver(body))
             if self.path == "/errors":
                 return self.reply(200, dead_letter(body))
+            if self.path == "/regenerate":
+                with LOCK:
+                    record = load(body["review_id"])
+                    result = perform_action("r", record["id"], record["revision"])
+                return self.reply(200, {"result": result})
             self.reply(404, {"error": "Not found"})
         except Exception as error:
             self.reply(409, {"error": redact(error)})
@@ -566,9 +592,12 @@ if __name__ == "__main__":
             "Configure REVIEW_TOKEN, TELEGRAM_BOT_TOKEN, HUB_ADMIN_API_KEY, TELEGRAM_CHAT_ID and TELEGRAM_REVIEWER_IDS"
         )
     initialize()
-    if telegram("getWebhookInfo", {}).get("url"):
+    if POLL_CALLBACKS and telegram("getWebhookInfo", {}).get("url"):
         raise SystemExit(
             "Bot webhook exists; use a dedicated bot without changing the existing consumer"
         )
-    threading.Thread(target=poll, daemon=True).start()
+    if POLL_CALLBACKS:
+        threading.Thread(target=poll, daemon=True).start()
+    else:
+        threading.Thread(target=poll_errors_only, daemon=True).start()
     ThreadingHTTPServer(("0.0.0.0", 8093), Handler).serve_forever()

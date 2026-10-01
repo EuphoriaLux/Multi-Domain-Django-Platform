@@ -24,6 +24,7 @@ services:
       TELEGRAM_REVIEWER_IDS: ${TELEGRAM_REVIEWER_IDS:?Configure numeric reviewer IDs}
       ENABLE_PUBLISH: ${ENABLE_PUBLISH:-false}
       PREVIEW_ONLY: ${PREVIEW_ONLY:-false}
+      POLL_CALLBACKS: ${POLL_CALLBACKS:-true}
       REGENERATE_URL: http://n8n:5678/webhook/crush-visual-regenerate-v2
     volumes:
       - content_reviews:/data
