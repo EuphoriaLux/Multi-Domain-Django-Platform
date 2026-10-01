@@ -25,6 +25,12 @@ from .serializers import MoneyField
 
 OFFER_LANGUAGES = ("en", "de", "fr")
 
+# Largest value a PostgreSQL ``integer`` column holds. An explicitly declared
+# IntegerField drops the bound ModelSerializer would infer, and SQLite never
+# complains, so without this a huge number is a database error (500) in
+# production instead of a 400.
+DB_INTEGER_MAX = 2_147_483_647
+
 # Fields the SPA models as optional: omitted from the payload when null, the
 # same convention the finance serializers use.
 _OMIT_WHEN_NULL = (
@@ -43,6 +49,8 @@ _OMIT_WHEN_NULL = (
 def _f(field_class, source, **kwargs):
     """A camelCase field bound to a snake_case model attribute, optional on write."""
     kwargs.setdefault("required", False)
+    if issubclass(field_class, serializers.IntegerField):
+        kwargs.setdefault("max_value", DB_INTEGER_MAX)
     return field_class(source=source, **kwargs)
 
 
@@ -76,7 +84,7 @@ class PrimaryContactSerializer(serializers.ModelSerializer):
 
 
 class LocationContactSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField(required=False)
+    id = serializers.IntegerField(required=False, max_value=DB_INTEGER_MAX)
     isPrimary = serializers.BooleanField(source="is_primary", required=False)
 
     class Meta:
@@ -490,7 +498,7 @@ class PartnerOfferSerializer(serializers.ModelSerializer):
     maxParticipantsNb = _f(
         serializers.IntegerField, "max_participants_nb", min_value=0, allow_null=True
     )
-    minAge = _f(serializers.IntegerField, "min_age", min_value=18)
+    minAge = _f(serializers.IntegerField, "min_age", min_value=18, max_value=120)
     maxAge = _f(serializers.IntegerField, "max_age", max_value=120)
 
     registrationFee = _money("registration_fee", max_digits=6, allow_null=False)

@@ -892,6 +892,38 @@ class PartnerReviewRegressionTests(ThrottleIsolatedTestCase):
         self.assertGreater(first.updated_at, old)
         self.assertGreater(second.updated_at, old)  # renamed + now primary
 
+    def test_integers_beyond_the_database_range_are_a_400_not_a_500(self):
+        # PostgreSQL integer columns top out at 2**31 - 1; SQLite does not
+        # care, so only the serializer bound can catch this in tests.
+        too_big = 2**31
+        partner = make_partner()
+        for payload in ({"maxCapacity": too_big}, {"seatedCapacity": too_big}):
+            response = self.client.patch(
+                f"/hub/locations/{partner.pk}", payload, format="json"
+            )
+            self.assertEqual(response.status_code, 400, payload)
+
+        created = self.client.post(
+            "/hub/locations",
+            {"name": "Big", "address": "x", "city": "y", "maxCapacity": too_big},
+            format="json",
+        )
+        self.assertEqual(created.status_code, 400)
+
+        url = f"/hub/locations/{partner.pk}/offers"
+        for field in (
+            "maxParticipants",
+            "maxParticipantsM",
+            "maxParticipantsF",
+            "maxParticipantsNb",
+            "durationMinutes",
+            "minAge",
+        ):
+            response = self.client.post(
+                url, self.offer_payload(**{field: too_big}), format="json"
+            )
+            self.assertEqual(response.status_code, 400, field)
+
 
 class ContactInlineAdminTests(ThrottleIsolatedTestCase):
     def setUp(self):
