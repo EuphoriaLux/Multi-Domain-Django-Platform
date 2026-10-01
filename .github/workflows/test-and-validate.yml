@@ -233,6 +233,11 @@ jobs:
           pip install pytest pytest-django pytest-xdist
           npm ci
 
+      - name: Build Tailwind CSS
+        # The deploy workflow serves a freshly built bundle; audit that, not a
+        # possibly stale checked-in copy.
+        run: npm run build:css
+
       - name: Install Chromium for Playwright
         run: python -m playwright install --with-deps chromium
 

@@ -12,7 +12,8 @@ Playwright is a hard failure, so the gate can never go green with no coverage
 
 It fails only on NEW critical or serious violations. What is tolerated today
 lives in ``axe_baseline.json`` (``page/theme`` -> ``rule id`` -> the CSS
-selectors of the tolerated nodes, digits normalised). A page fails when a node
+selectors of the tolerated nodes; only digits inside attribute values are
+normalised). A page fails when a node
 is not in its baseline entry, so swapping one bad element for another still
 fails even if the count is unchanged. Fewer nodes than the baseline is a pass
 with a ratchet hint.
@@ -95,8 +96,21 @@ async () => {
 
 
 def _fingerprints(violation):
-    """Stable node identities: selectors with ids/indexes (digits) normalised."""
-    return sorted(re.sub(r"\d+", "N", t) for t in violation["targets"])
+    """Stable node identities for the baseline.
+
+    Only digits inside attribute values are normalised (a seeded event pk in
+    ``href="/en/events/12/"`` differs per run). ``nth-child`` indexes and
+    Tailwind class digits are structural and stable, and must stay so that
+    distinct nodes such as the four timeline steps are not aliased.
+    """
+
+    def _attr(match):
+        return match.group(1) + re.sub(r"\d+", "N", match.group(2)) + match.group(3)
+
+    return sorted(
+        re.sub(r'(\[[^\]]*?=")([^"]*)(")', _attr, target)
+        for target in violation["targets"]
+    )
 
 
 def _load_baseline():

@@ -21,12 +21,12 @@
     "color-contrast": [
       ".connect-local-nav > a[href$=\"home/\"]",
       ".connect-week-timeline-next",
-      ".connect-week-timeline-step:nth-child(N) > .connect-week-timeline-label",
-      ".connect-week-timeline-step:nth-child(N) > .connect-week-timeline-label",
-      ".connect-week-timeline-step:nth-child(N) > .connect-week-timeline-label",
-      ".connect-week-timeline-step:nth-child(N) > .connect-week-timeline-label",
+      ".connect-week-timeline-step:nth-child(2) > .connect-week-timeline-label",
+      ".connect-week-timeline-step:nth-child(3) > .connect-week-timeline-label",
+      ".connect-week-timeline-step:nth-child(4) > .connect-week-timeline-label",
+      ".connect-week-timeline-step:nth-child(5) > .connect-week-timeline-label",
       ".is-current > .connect-week-timeline-label",
-      ".tracking-\\[N\\.Nem\\]",
+      ".tracking-\\[0\\.12em\\]",
       "a[href$=\"chats/\"]",
       "a[href$=\"inbox/\"]",
       "time"
@@ -34,13 +34,13 @@
   },
   "dashboard/dark": {
     "color-contrast": [
-      ".tracking-\\[N\\.Nem\\]"
+      ".tracking-\\[0\\.08em\\]"
     ]
   },
   "dashboard/light": {
     "color-contrast": [
-      ".tracking-\\[N\\.Nem\\]",
-      ".truncate.dark\\:text-gray-N.text-gray-N"
+      ".tracking-\\[0\\.08em\\]",
+      ".truncate.dark\\:text-gray-400.text-gray-500"
     ]
   },
   "event-detail/dark": {
@@ -51,7 +51,7 @@
   },
   "event-detail/light": {
     "color-contrast": [
-      ".gap-N\\.N.inline-flex.font-semibold > .text-green-N.dark\\:text-green-N",
+      ".gap-1\\.5.inline-flex.font-semibold > .text-green-600.dark\\:text-green-300",
       ".underline.font-semibold[href$=\"signup/\"]",
       "a[href=\"/en/login/?next=/en/events/N/\"]"
     ]
@@ -59,19 +59,19 @@
   "events/light": {
     "color-contrast": [
       ".badge-crush-soft",
-      ".gap-N\\.N.inline-flex:nth-child(N)",
-      ".gap-N\\.N.inline-flex:nth-child(N)",
-      ".text-green-N"
+      ".gap-1\\.5.inline-flex:nth-child(1)",
+      ".gap-1\\.5.inline-flex:nth-child(2)",
+      ".text-green-600"
     ]
   },
   "login/dark": {
     "color-contrast": [
-      ".hover\\:text-purple-N"
+      ".hover\\:text-purple-700"
     ]
   },
   "login/light": {
     "color-contrast": [
-      ".mt-N > .text-gray-N.dark\\:text-gray-N"
+      ".mt-6 > .text-gray-500.dark\\:text-gray-400"
     ]
   },
   "signup/dark": {
@@ -86,8 +86,8 @@
       ".font-normal",
       ".hover\\:underline[href$=\"privacy-policy/\"][target=\"_blank\"]",
       ".hover\\:underline[href$=\"terms-of-service/\"][target=\"_blank\"]",
-      ".items-start > .text-gray-N.dark\\:text-gray-N",
-      ".mt-N > .text-gray-N.dark\\:text-gray-N",
+      ".items-start > .text-gray-500.dark\\:text-gray-400",
+      ".mt-6 > .text-gray-500.dark\\:text-gray-400",
       ".password-strength-default"
     ]
   }
