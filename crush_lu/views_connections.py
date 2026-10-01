@@ -889,7 +889,7 @@ def respond_connection(request, connection_id, action):
                     {"connection": connection, "action": "accept"},
                 ),
                 (
-                    _("Connection accepted! Contact info is now shared.")
+                    _("Connection accepted! You can now see each other's profile details.")
                     if connection.is_same_gender
                     else _(
                         "Connection accepted! A coach will help facilitate "
@@ -900,7 +900,7 @@ def respond_connection(request, connection_id, action):
         if connection.is_same_gender:
             messages.success(
                 request,
-                _("Connection accepted! Contact info is now shared."),
+                _("Connection accepted! You can now see each other's profile details."),
             )
         else:
             messages.success(

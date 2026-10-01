@@ -8,11 +8,16 @@ so a phone that was never explicitly granted is not shared.
 Paths are literal (``reverse("crush_lu:...")`` 404s under HTTP_HOST=crush.lu).
 """
 
+from pathlib import Path
+
 from django.contrib.messages import get_messages
 from django.core.cache import cache
 from django.db import connection
+from django.template import Context, Template
 from django.test import Client, TestCase
 from django.test.utils import CaptureQueriesContext
+from django.utils import translation
+from django.utils.translation import gettext
 
 from crush_lu.models import CrushProfile, EventConnection, UserDataConsent
 from crush_lu.tests.test_event_lobby import (
@@ -109,6 +114,38 @@ class MatchPhoneConsentTests(TestCase):
         )
         self.assertContains(fr, "Profils partagés")
         self.assertContains(fr, "a pas partagé son numéro de téléphone")
+
+    def test_shared_status_badge_is_translated_and_promises_no_contacts(self):
+        # The My Connections card renders the badge from the canonical tag
+        # map; its label must exist in every catalog, not fall back to English.
+        self._share()
+        template = Template(
+            "{% load connection_status %}{% connection_status_badge c %}"
+        )
+        html = {}
+        for lang in ("en", "de", "fr"):
+            with translation.override(lang):
+                html[lang] = template.render(Context({"c": self.conn}))
+        self.assertIn("Profiles Shared!", html["en"])
+        self.assertIn("Profile geteilt!", html["de"])
+        self.assertIn("Profils partagés !", html["fr"])
+        self.assertNotIn("Contacts", html["en"])
+
+    def test_same_gender_accept_messages_do_not_claim_contact_info_shared(self):
+        # Both accept paths (HTMX toast + non-HTMX message) share one msgid.
+        source = (
+            Path(__file__).resolve().parents[1] / "views_connections.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("Contact info is now shared", source)
+        message = "Connection accepted! You can now see each other's profile details."
+        self.assertEqual(source.count(message), 2)
+        translated = {}
+        for lang in ("en", "de", "fr"):
+            with translation.override(lang):
+                translated[lang] = gettext(message)
+        self.assertEqual(translated["en"], message)
+        self.assertIn("Profilangaben", translated["de"])
+        self.assertIn("détails du profil", translated["fr"])
 
     def test_consent_without_phone_checkbox_does_not_share_phone(self):
         response = self._client(self.me).post(

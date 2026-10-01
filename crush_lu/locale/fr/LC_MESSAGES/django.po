@@ -37414,8 +37414,8 @@ msgid "You are not registered for this event."
 msgstr "Vous n'êtes pas inscrit à cet événement."
 
 #: views_connections.py:855
-msgid "Connection accepted! Contact info is now shared."
-msgstr "Connexion acceptée ! Vos coordonnées sont maintenant partagées."
+msgid "Connection accepted! You can now see each other's profile details."
+msgstr "Connexion acceptée ! Vous pouvez maintenant voir les détails du profil de l'autre."
 
 #: views_connections.py:861
 msgid "Connection accepted! A coach will help facilitate your introduction."

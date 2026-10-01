@@ -25931,7 +25931,7 @@ msgid "You are not registered for this event."
 msgstr ""
 
 #: .\crush_lu\views_connections.py:648
-msgid "Connection accepted! Contact info is now shared."
+msgid "Connection accepted! You can now see each other's profile details."
 msgstr ""
 
 #: .\crush_lu\views_connections.py:653
