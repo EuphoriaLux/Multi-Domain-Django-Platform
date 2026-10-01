@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import hashlib
 import json
 from secrets import compare_digest
 from io import BytesIO
 from datetime import datetime, timedelta
 from functools import partial
+from urllib.parse import urlparse
 
 from django.conf import settings
 from django.core.files.storage import storages
@@ -353,6 +355,9 @@ def _refresh_event_draft(
         "media_url": _event_media_url(event, request),
         "platforms": platforms,
     }
+    if post.media_url != refreshed["media_url"]:
+        # A stale ordered deck would otherwise override the refreshed image.
+        refreshed["media_urls"] = []
     if post.platforms != platforms:
         refreshed["buffer_profile_ids"] = []
         refreshed["buffer_profile_platforms"] = {}
@@ -471,46 +476,66 @@ def _create_event_drafts(
     return posts, created_count
 
 
+_FORMAT_EXTENSIONS = {"PNG": ".png", "JPEG": ".jpg"}
+_DECK_FORMATS = set(_FORMAT_EXTENSIONS)
+_SOCIAL_BLOB_RE = re.compile(r"/(social/ai_[A-Za-z0-9_.]+)$")
+
+
 def _uploaded_social_images(request):
-    """Validate all carousel files before writing any to public storage."""
-    images = request.FILES.getlist("images")
-    if not images:
-        image = request.FILES.get("image") or request.FILES.get("media")
-        images = [image] if image else []
+    """Validate all uploaded files before writing any to public storage."""
+    deck = request.FILES.getlist("images")
+    legacy = request.FILES.get("image") or request.FILES.get("media")
+    images = deck or ([legacy] if legacy else [])
     if len(images) > 5:
         raise ValidationError({"images": "At most five images are supported."})
-    if request.FILES.getlist("images"):
-        dimensions = []
+    if not deck:
+        # Legacy single-file callers keep their original bytes and extension.
         for image in images:
-            if image.size > 8 * 1024 * 1024:
-                raise ValidationError({"images": "Each image must be under 8 MiB."})
-            try:
-                with Image.open(BytesIO(image.read())) as decoded:
-                    if decoded.format not in {"PNG", "JPEG"}:
-                        raise ValueError("Unsupported image")
-                    dimensions.append(decoded.size)
-                    decoded.verify()
-            except (
-                UnidentifiedImageError,
-                Image.DecompressionBombError,
-                OSError,
-                ValueError,
-            ) as exc:
-                raise ValidationError(
-                    {"images": "Use valid PNG or JPEG files."}
-                ) from exc
-            finally:
-                image.seek(0)
-        if any(size != (1080, 1080) for size in dimensions):
-            raise ValidationError({"images": "Carousel slides must be 1080×1080."})
+            image.detected_extension = os.path.splitext(image.name)[1].lower() or ".jpg"
+        return images
+    dimensions = []
+    for image in images:
+        if image.size > 8 * 1024 * 1024:
+            raise ValidationError({"images": "Each image must be under 8 MiB."})
+        try:
+            with Image.open(BytesIO(image.read())) as decoded:
+                if decoded.format not in _DECK_FORMATS:
+                    raise ValueError("Unsupported image")
+                image.detected_extension = _FORMAT_EXTENSIONS[decoded.format]
+                dimensions.append(decoded.size)
+                decoded.verify()
+        except (
+            UnidentifiedImageError,
+            Image.DecompressionBombError,
+            OSError,
+            ValueError,
+        ) as exc:
+            raise ValidationError({"images": "Use valid PNG or JPEG files."}) from exc
+        finally:
+            image.seek(0)
+    if any(size != (1080, 1080) for size in dimensions):
+        raise ValidationError({"images": "Carousel slides must be 1080×1080."})
     return images
 
 
+def _delete_superseded_social_blobs(old_urls, new_urls):
+    """Remove deck files replaced by a successful regeneration (best effort)."""
+    storage = storages["crush_media"]
+    for url in set(old_urls) - set(new_urls):
+        match = _SOCIAL_BLOB_RE.search(urlparse(url).path)
+        if not match:
+            continue
+        try:
+            storage.delete(match.group(1))
+        except Exception:
+            logger.warning("Could not delete superseded social blob %s", url)
+
+
+_REVIEWED_FIELDS = ("content", "media_urls", "media_url", "platforms", "language")
+
+
 def _social_review_fingerprint(post):
-    payload = {
-        field: getattr(post, field)
-        for field in ("content", "media_urls", "media_url", "platforms", "language")
-    }
+    payload = {field: getattr(post, field) for field in _REVIEWED_FIELDS}
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
 
 
@@ -519,9 +544,7 @@ def _save_social_images(images):
     paths, urls = [], []
     try:
         for image in images:
-            ext = os.path.splitext(image.name)[1].lower()
-            if ext not in {".png", ".jpg", ".jpeg"}:
-                ext = ".png"
+            ext = image.detected_extension
             filename = f"social/ai_{timezone.now().strftime('%Y%m%d_%H%M%S')}_{os.urandom(8).hex()}{ext}"
             path = storage.save(filename, image)
             paths.append(path)
@@ -613,6 +636,19 @@ class SocialPostDetailView(APIView):
         serializer = SocialPostSerializer(post, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         uploaded_images = _uploaded_social_images(request)
+        if expected is not None:
+            # The fingerprint authorizes exactly what was reviewed, so a
+            # request that also alters reviewed fields is not covered by it.
+            altered = uploaded_images or any(
+                field in serializer.validated_data
+                and serializer.validated_data[field] != getattr(post, field)
+                for field in _REVIEWED_FIELDS
+            )
+            if altered:
+                return Response(
+                    {"error": "Reviewed content cannot change with a fingerprint."},
+                    status=409,
+                )
         if uploaded_images:
             if post.status in PROMOTED_STATUSES or post.buffer_id:
                 return Response({"error": SCHEDULED_EDIT_ERROR}, status=409)
@@ -726,6 +762,10 @@ class SocialPostDetailView(APIView):
                 )
         if uploaded_images:
             urls = _save_social_images(uploaded_images)
+            old_urls = [*(post.media_urls or []), post.media_url or ""]
+            transaction.on_commit(
+                partial(_delete_superseded_social_blobs, old_urls, urls)
+            )
             serializer.validated_data.update(media_url=urls[0], media_urls=urls)
         updated_post = serializer.save()
         new_status = updated_post.status

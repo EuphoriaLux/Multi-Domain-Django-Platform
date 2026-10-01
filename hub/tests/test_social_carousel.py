@@ -175,3 +175,57 @@ class SocialCarouselTests(TestCase):
                 media_urls=["https://cdn.crush.lu/ok.png", "http://localhost/bad.png"],
             )
         graphql.assert_not_called()
+
+    @patch("hub.views_social.create_buffer_update")
+    def test_fingerprint_rejects_changed_reviewed_fields(self, buffer):
+        from hub.views_social import _social_review_fingerprint
+
+        post = SocialPost.objects.create(
+            user=self.user, content="Reviewed copy", status="pending_review"
+        )
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}/",
+            {
+                "status": "scheduled",
+                "content": "Swapped after review",
+                "review_fingerprint": _social_review_fingerprint(post),
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 409)
+        buffer.assert_not_called()
+
+    def test_replacing_a_deck_deletes_the_superseded_files(self):
+        with TemporaryDirectory() as root, self.storage(root):
+            created = self.client.post(
+                "/hub/social/posts/",
+                {"content": "Deck", "images": [png(0), png(1)]},
+                format="multipart",
+            )
+            post = SocialPost.objects.get(pk=created.json()["post"]["id"])
+            old = list(post.media_urls)
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self.client.patch(
+                    f"/hub/social/posts/{post.pk}/",
+                    {"images": [png(2)]},
+                    format="multipart",
+                )
+            self.assertEqual(response.status_code, 200)
+            from django.core.files.storage import storages
+
+            for url in old:
+                name = url.split("/media/", 1)[1]
+                self.assertFalse(storages["crush_media"].exists(name))
+
+    def test_legacy_upload_keeps_its_real_extension(self):
+        stream = io.BytesIO()
+        Image.new("RGB", (10, 10)).save(stream, "GIF")
+        gif = SimpleUploadedFile("a.gif", stream.getvalue(), "image/gif")
+        with TemporaryDirectory() as root, self.storage(root):
+            response = self.client.post(
+                "/hub/social/posts/",
+                {"content": "Legacy", "image": gif},
+                format="multipart",
+            )
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response.json()["post"]["media_url"].endswith(".gif"))
