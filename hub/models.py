@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
 from django.db.models import F, Q
 
@@ -160,6 +161,59 @@ class Location(models.Model):
     notes = models.TextField(blank=True, default="")
     tags = models.JSONField(default=list, blank=True)
 
+    # Structured address, same shape as ``crush_lu.MeetupEvent`` so an offer can
+    # prefill an event verbatim. ``address`` stays as the legacy free text.
+    address_street = models.CharField(max_length=200, blank=True, default="")
+    address_number = models.CharField(max_length=20, blank=True, default="")
+    address_postcode = models.CharField(
+        max_length=4,
+        blank=True,
+        default="",
+        validators=[
+            RegexValidator(
+                regex=r"^[0-9]{4}$",
+                message="Luxembourg postcodes are exactly four digits.",
+            )
+        ],
+    )
+    address_town = models.CharField(max_length=100, blank=True, default="")
+    canton = models.CharField(max_length=200, blank=True, default="")
+    latitude = models.DecimalField(
+        max_digits=9, decimal_places=6, blank=True, null=True
+    )
+    longitude = models.DecimalField(
+        max_digits=9, decimal_places=6, blank=True, null=True
+    )
+
+    website = models.URLField(blank=True, default="")
+    opening_hours = models.TextField(blank=True, default="")
+    blackout_notes = models.TextField(blank=True, default="")
+    house_rules = models.TextField(blank=True, default="")
+
+    # Structured deal terms; ``commercial_terms`` keeps the free-text version.
+    minimum_spend = models.DecimalField(
+        max_digits=8, decimal_places=2, blank=True, null=True
+    )
+    revenue_share_percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+    )
+    deposit_amount = models.DecimalField(
+        max_digits=8, decimal_places=2, blank=True, null=True
+    )
+
+    # String FK: hub already imports crush_lu, never the other way round.
+    echo_venue = models.ForeignKey(
+        "crush_lu.EchoVenue",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="partners",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -213,25 +267,198 @@ class Location(models.Model):
     def __str__(self):
         return f"{self.name} ({self.city})"
 
+    @property
+    def primary_contact(self):
+        """The flagged primary contact, else the first one, else ``None``.
+
+        Iterates ``contacts.all()`` so a ``prefetch_related("contacts")`` is
+        honoured and the list endpoint stays at one query for contacts.
+        """
+        contacts = list(self.contacts.all())
+        for contact in contacts:
+            if contact.is_primary:
+                return contact
+        return contacts[0] if contacts else None
+
 
 class LocationContact(models.Model):
-    location = models.OneToOneField(
+    location = models.ForeignKey(
         Location,
         on_delete=models.CASCADE,
-        related_name="primary_contact",
+        related_name="contacts",
     )
     name = models.CharField(max_length=255)
     role = models.CharField(max_length=255, blank=True, default="")
     email = models.EmailField(blank=True, default="")
     phone = models.CharField(max_length=50, blank=True, default="")
+    is_primary = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["name"]
+        ordering = ["-is_primary", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["location"],
+                condition=Q(is_primary=True),
+                name="hub_locationcontact_one_primary_per_location",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.name} — {self.location.name}"
+
+
+# Mirrors ``crush_lu.MeetupEvent.EVENT_TYPE_CHOICES``. Copied rather than
+# imported because crush_lu may not be loaded when this module is; a test pins
+# the two lists together.
+OFFER_EVENT_TYPE_CHOICES = [
+    ("speed_dating", "Speed Dating"),
+    ("mixer", "Social Mixer"),
+    ("activity", "Activity Meetup"),
+    ("themed", "Themed Event"),
+    ("quiz_night", "Quiz Night"),
+    ("crush_cache", "Crush Cache Hunt"),
+]
+
+
+class PartnerOffer(models.Model):
+    """One reusable way of running an event at a partner venue.
+
+    A partner can hold several offers, including several of the same event
+    type (weekday vs weekend speed dating at different fees). An offer only
+    *prefills* a new event; the event keeps its own copy, so editing an offer
+    never rewrites past or live events.
+
+    ``title`` and ``description`` are modeltranslation fields (see
+    ``hub/translation.py``), like ``MeetupEvent``'s.
+
+    Spec: ai-memory-hub/specs/2026-10-01-hub-partner-and-offers.md
+    """
+
+    location = models.ForeignKey(
+        Location, on_delete=models.CASCADE, related_name="offers"
+    )
+    name = models.CharField(max_length=120)
+    event_type = models.CharField(max_length=20, choices=OFFER_EVENT_TYPE_CHOICES)
+    is_active = models.BooleanField(default=True)
+
+    weekdays = models.JSONField(
+        default=list, blank=True, help_text="Weekdays, 0 = Monday … 6 = Sunday."
+    )
+    start_time = models.TimeField(blank=True, null=True)
+    duration_minutes = models.PositiveIntegerField(default=120)
+
+    max_participants = models.PositiveIntegerField(default=20)
+    max_participants_m = models.PositiveIntegerField(blank=True, null=True)
+    max_participants_f = models.PositiveIntegerField(blank=True, null=True)
+    max_participants_nb = models.PositiveIntegerField(blank=True, null=True)
+    min_age = models.PositiveIntegerField(default=18)
+    max_age = models.PositiveIntegerField(default=99)
+
+    registration_fee = models.DecimalField(
+        max_digits=6, decimal_places=2, default=0, help_text="Event fee in EUR."
+    )
+    partner_cost_notes = models.TextField(blank=True, default="")
+
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True, default="")
+    has_food_component = models.BooleanField(default=False)
+    allow_plus_ones = models.BooleanField(default=False)
+
+    space_used = models.CharField(max_length=200, blank=True, default="")
+    setup_notes = models.TextField(blank=True, default="")
+    languages = models.JSONField(default=list, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["location__name", "event_type", "name"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(max_participants__gte=1),
+                name="hub_partneroffer_max_participants_positive",
+            ),
+            models.CheckConstraint(
+                condition=Q(min_age__lte=F("max_age")),
+                name="hub_partneroffer_valid_age_range",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        from crush_lu.models.events import MAX_EVENT_DURATION_MINUTES
+
+        errors = {}
+        if self.duration_minutes is not None and not (
+            1 <= self.duration_minutes <= MAX_EVENT_DURATION_MINUTES
+        ):
+            errors["duration_minutes"] = (
+                f"Duration must be between 1 and {MAX_EVENT_DURATION_MINUTES} minutes."
+            )
+        if not isinstance(self.weekdays, list) or any(
+            isinstance(day, bool) or not isinstance(day, int) or not 0 <= day <= 6
+            for day in self.weekdays
+        ):
+            errors["weekdays"] = "Use a list of weekday numbers from 0 to 6."
+        if not isinstance(self.languages, list) or any(
+            language not in ("en", "de", "fr") for language in self.languages
+        ):
+            errors["languages"] = "Use a list containing only en, de or fr."
+        if (
+            self.min_age is not None
+            and self.max_age is not None
+            and self.min_age > self.max_age
+        ):
+            errors["max_age"] = "Maximum age must not be below minimum age."
+        if errors:
+            raise ValidationError(errors)
+
+    def __str__(self):
+        return f"{self.name} @ {self.location.name}"
+
+
+class PartnerOnboardingStep(models.Model):
+    """One onboarding checklist item for a partner; done when ``done_at`` is set.
+
+    Rows are created lazily: a partner with no rows simply has every step open.
+    """
+
+    class Key(models.TextChoices):
+        CONTACT_MADE = "contact_made", "First contact made"
+        TERMS_AGREED = "terms_agreed", "Terms agreed"
+        VENUE_VISIT = "venue_visit", "Venue visit done"
+        PHOTOS = "photos", "Photos collected"
+        HOUSE_RULES = "house_rules", "House rules recorded"
+        TEST_EVENT = "test_event", "Test event held"
+        ECHO_VENUE_REGISTERED = "echo_venue_registered", "echo.lu venue registered"
+        ACTIVE = "active", "Partner active"
+
+    location = models.ForeignKey(
+        Location, on_delete=models.CASCADE, related_name="onboarding_steps"
+    )
+    key = models.CharField(max_length=30, choices=Key.choices)
+    done_at = models.DateTimeField(blank=True, null=True)
+    done_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="+",
+    )
+    notes = models.TextField(blank=True, default="")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["location", "key"],
+                name="hub_partneronboardingstep_unique_key",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.location.name}: {self.key}"
 
 
 class PaymentStatus(models.TextChoices):

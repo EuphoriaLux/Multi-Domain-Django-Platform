@@ -1,4 +1,5 @@
 from django.contrib import admin
+from modeltranslation.admin import TabbedTranslationAdmin
 
 from .models import (
     HubProfile,
@@ -7,6 +8,8 @@ from .models import (
     HubTimelineEvent,
     Location,
     LocationContact,
+    PartnerOffer,
+    PartnerOnboardingStep,
     PaymentIn,
     PaymentOut,
     Payroll,
@@ -49,7 +52,12 @@ class HubTimelineEventAdmin(admin.ModelAdmin):
 class LocationContactInline(admin.StackedInline):
     model = LocationContact
     extra = 0
-    max_num = 1
+
+
+class PartnerOnboardingStepInline(admin.TabularInline):
+    model = PartnerOnboardingStep
+    extra = 0
+    raw_id_fields = ("done_by",)
 
 
 @admin.register(Location)
@@ -72,7 +80,24 @@ class LocationAdmin(admin.ModelAdmin):
     )
     search_fields = ("name", "address", "city", "account_manager", "notes")
     date_hierarchy = "last_contact_date"
-    inlines = (LocationContactInline,)
+    raw_id_fields = ("echo_venue",)
+    inlines = (LocationContactInline, PartnerOnboardingStepInline)
+
+
+@admin.register(PartnerOffer)
+class PartnerOfferAdmin(TabbedTranslationAdmin):
+    list_display = (
+        "name",
+        "location",
+        "event_type",
+        "is_active",
+        "registration_fee",
+        "max_participants",
+    )
+    list_filter = ("event_type", "is_active")
+    search_fields = ("name", "title", "location__name")
+    list_select_related = ("location",)
+    autocomplete_fields = ("location",)
 
 
 @admin.register(LocationContact)

@@ -5,6 +5,14 @@ from .views_events import (
     EventCancellationDetailView,
     EventCancellationsView,
 )
+from .views_partners import (
+    OfferEventDraftView,
+    PartnerDetailView,
+    PartnerOfferDetailView,
+    PartnerOffersView,
+    PartnerOnboardingView,
+    PartnersView,
+)
 from .views_finance import (
     PaymentsInView,
     PaymentsOutView,
@@ -43,8 +51,38 @@ urlpatterns = [
     path("resources/", views.ResourcesView.as_view()),
     path("timeline", views.TimelineView.as_view(), name="timeline"),
     path("timeline/", views.TimelineView.as_view()),
-    path("locations", views.LocationsView.as_view(), name="locations"),
-    path("locations/", views.LocationsView.as_view()),
+    # Partners (hub.Location): CRUD, their offers and the onboarding checklist.
+    path("locations", PartnersView.as_view(), name="locations"),
+    path("locations/", PartnersView.as_view()),
+    path("locations/<int:pk>", PartnerDetailView.as_view(), name="location_detail"),
+    path("locations/<int:pk>/", PartnerDetailView.as_view()),
+    path(
+        "locations/<int:pk>/offers",
+        PartnerOffersView.as_view(),
+        name="location_offers",
+    ),
+    path("locations/<int:pk>/offers/", PartnerOffersView.as_view()),
+    path(
+        "locations/<int:pk>/offers/<int:offer_pk>",
+        PartnerOfferDetailView.as_view(),
+        name="location_offer_detail",
+    ),
+    path(
+        "locations/<int:pk>/offers/<int:offer_pk>/",
+        PartnerOfferDetailView.as_view(),
+    ),
+    path(
+        "locations/<int:pk>/onboarding",
+        PartnerOnboardingView.as_view(),
+        name="location_onboarding",
+    ),
+    path("locations/<int:pk>/onboarding/", PartnerOnboardingView.as_view()),
+    path(
+        "offers/<int:pk>/event-draft",
+        OfferEventDraftView.as_view(),
+        name="offer_event_draft",
+    ),
+    path("offers/<int:pk>/event-draft/", OfferEventDraftView.as_view()),
     path("team", TeamMembersView.as_view(), name="team"),
     path("team/", TeamMembersView.as_view()),
     # Aggregate analytics only: provider credentials and member rows stay server-side.
