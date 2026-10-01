@@ -38,7 +38,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("crush_lu", "0258_eventconnection_shares_phone_opt_in"),
-        ("hub", "0009_paymentin_payroll_refund_paymentout"),
+        ("hub", "0011_socialpost_automation_review"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
