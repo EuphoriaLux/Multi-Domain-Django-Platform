@@ -11,10 +11,10 @@
         <!-- Current Emails -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
             <div class="border-b border-gray-100 dark:border-gray-700 px-6 py-4">
-                <h5 class="font-semibold flex items-center gap-2 dark:text-white">
+                <h1 class="text-lg font-semibold flex items-center gap-2 dark:text-white">
                     {% include "shared/icons/envelope.html" with class="w-5 h-5" %}
                     {% trans "Manage Email Addresses" %}
-                </h5>
+                </h1>
             </div>
             <div class="p-6">
                 {% if emailaddresses %}
@@ -88,10 +88,10 @@
         {% if can_add_email %}
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mt-6">
             <div class="border-b border-gray-100 dark:border-gray-700 px-6 py-4">
-                <h5 class="font-semibold flex items-center gap-2 dark:text-white">
+                <h2 class="text-lg font-semibold flex items-center gap-2 dark:text-white">
                     {% include "shared/icons/plus-circle.html" with class="w-5 h-5" %}
                     {% trans "Add Email Address" %}
-                </h5>
+                </h2>
             </div>
             <div class="p-6">
                 <form method="post" action="{% url 'account_email' %}">

@@ -286,7 +286,7 @@
     </a>
     <a href="{% url 'crush_lu:my_connections' %}" class="card-bordered p-3.5 sm:p-4 text-center rounded-xl no-underline hover:border-crush-purple/40 transition-colors">
         <p class="text-xl sm:text-2xl font-bold text-crush-purple mb-0.5">{{ connection_count|default:0 }}</p>
-        <p class="text-xs text-muted-fg mb-0">{% trans "Connections" %}</p>
+        <p class="text-xs text-muted-fg mb-0">{% translate "Matches" context "member connections nav" %}</p>
     </a>
 </div>
 {% endif %}

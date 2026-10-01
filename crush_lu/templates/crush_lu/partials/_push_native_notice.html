@@ -7,5 +7,18 @@
             {% trans "Push Notifications" %}
         </h2>
     </div>
-    <p class="p-6 text-gray-600 dark:text-gray-300">{% trans "Notifications are managed in the app" %}</p>
+    <div class="p-6">
+        <p class="text-gray-600 dark:text-gray-300 mb-0">{% trans "Notifications are managed in the app" %}</p>
+        {# #1064: if notifications are blocked, the way back is the phone's own settings. #}
+        <p class="text-sm text-muted-fg mt-2 mb-0">{% trans "If you aren't receiving notifications, check that they are allowed for Crush.lu in your phone's settings." %}</p>
+        {% if is_ios_native_app %}
+        <a href="app-settings:" class="btn-crush-outline btn-sm mt-4 inline-flex items-center gap-2" data-os-settings-link>
+            {% include "shared/icons/cog.html" with class="w-4 h-4" %}{% trans "Open notification settings" %}
+        </a>
+        {% elif is_android_native_app %}
+        <a href="intent:#Intent;action=android.settings.APP_NOTIFICATION_SETTINGS;S.android.provider.extra.APP_PACKAGE={{ android_app_package }};end" class="btn-crush-outline btn-sm mt-4 inline-flex items-center gap-2" data-os-settings-link>
+            {% include "shared/icons/cog.html" with class="w-4 h-4" %}{% trans "Open notification settings" %}
+        </a>
+        {% endif %}
+    </div>
 </div>

@@ -14388,7 +14388,7 @@ msgstr ""
 #: templates/crush_lu/partials/edit_account_notifications.html:176
 #: templates/crush_lu/partials/edit_account_notifications.html:395
 msgid "Notifications blocked"
-msgstr "Paramètres de notification"
+msgstr "Notifications bloquées"
 
 #: templates/crush_lu/account_settings.html:571
 #: templates/crush_lu/partials/edit_account_notifications.html:178
@@ -44163,6 +44163,46 @@ msgstr[0] ""
 "Vous avez déjà terminé ce défi et gagné <strong>%(points)s point</strong>."
 msgstr[1] ""
 "Vous avez déjà terminé ce défi et gagné <strong>%(points)s points</strong>."
+
+#: WP14 settings-and-journey
+msgid "Pause all emails"
+msgstr "Mettre tous les e-mails en pause"
+
+#: WP14 settings-and-journey
+msgid "Your choices above are kept, so you can pick up where you left off."
+msgstr "Vos choix ci-dessus sont conservés : vous pourrez reprendre là où vous vous êtes arrêté."
+
+#: WP14 settings-and-journey
+msgid "All emails are paused. Turn off the switch at the bottom of this card to receive them again."
+msgstr "Tous les e-mails sont en pause. Désactivez l'interrupteur en bas de cette carte pour les recevoir à nouveau."
+
+#: WP14 settings-and-journey
+msgid "Notifications are blocked for this site. Tap the lock icon in your browser's address bar, open Permissions, and allow notifications."
+msgstr "Les notifications sont bloquées pour ce site. Touchez l'icône de cadenas dans la barre d'adresse de votre navigateur, ouvrez Autorisations et autorisez les notifications."
+
+#: WP14 settings-and-journey
+msgid "Notifications are blocked. On iPhone, open Settings, then Notifications, choose Crush.lu and allow notifications."
+msgstr "Les notifications sont bloquées. Sur iPhone, ouvrez Réglages, puis Notifications, choisissez Crush.lu et autorisez les notifications."
+
+#: WP14 settings-and-journey
+msgid "If you aren't receiving notifications, check that they are allowed for Crush.lu in your phone's settings."
+msgstr "Si vous ne recevez pas de notifications, vérifiez qu'elles sont autorisées pour Crush.lu dans les réglages de votre téléphone."
+
+#: WP14 settings-and-journey
+msgid "Open notification settings"
+msgstr "Ouvrir les réglages de notification"
+
+#: WP14 settings-and-journey
+msgid "Track your match requests and active matches"
+msgstr "Suivez vos demandes d'affinité et vos affinités actives"
+
+#: WP14 settings-and-journey
+msgid "Active Matches"
+msgstr "Affinités actives"
+
+#: crush_lu/templates/crush_lu/auth.html
+msgid "Create your Crush.lu account"
+msgstr "Créez votre compte Crush.lu"
 
 #: templates/crush_lu/connection_detail.html:58
 msgid "Profiles Shared"
