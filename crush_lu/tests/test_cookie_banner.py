@@ -908,6 +908,40 @@ class GoogleConsentDefaultsTests(SimpleTestCase):
             self.assertEqual(len(defaults), 4)
             self.assertEqual(set(defaults.values()), {"denied"})
 
+    def _updates(self, rendered):
+        return re.findall(r"gtag\('consent', 'update', \{([^}]*)\}", rendered)
+
+    def test_defaults_are_always_denied_and_precede_config(self):
+        """Owner decision E (#1036 item 7): Consent Mode v2 denied defaults,
+        even for a visitor whose stored choice is a current acceptance."""
+        accepted = {
+            "cookie_consent_analytics": "accept:",
+            "cookie_consent_marketing": "accept:",
+        }
+        for rendered in (
+            self._render({}),
+            self._render(accepted),
+            self._render({}, library=True),
+            self._render(with_request=False),
+        ):
+            self.assertEqual(
+                self._defaults(rendered),
+                {
+                    "ad_storage": "denied",
+                    "ad_user_data": "denied",
+                    "ad_personalization": "denied",
+                    "analytics_storage": "denied",
+                },
+            )
+            self.assertLess(
+                rendered.index("gtag('consent', 'default'"),
+                rendered.index("googletagmanager.com/gtag/js"),
+            )
+            self.assertLess(
+                rendered.index("gtag('consent', 'default'"),
+                rendered.index("gtag('config'"),
+            )
+
     def test_a_banner_refusal_outranks_a_stale_library_acceptance(self):
         rendered = self._render(
             {
@@ -918,8 +952,9 @@ class GoogleConsentDefaultsTests(SimpleTestCase):
         )
 
         self.assertEqual(set(self._defaults(rendered).values()), {"denied"})
+        self.assertEqual(self._updates(rendered), [])
 
-    def test_a_current_acceptance_grants_per_group(self):
+    def test_a_current_acceptance_grants_per_group_by_update(self):
         rendered = self._render(
             {
                 "cookie_consent_analytics": "accept:",
@@ -927,22 +962,43 @@ class GoogleConsentDefaultsTests(SimpleTestCase):
             }
         )
 
-        defaults = self._defaults(rendered)
-        self.assertEqual(defaults["analytics_storage"], "granted")
-        self.assertEqual(defaults["ad_storage"], "denied")
-        self.assertEqual(defaults["ad_user_data"], "denied")
-        self.assertEqual(defaults["ad_personalization"], "denied")
+        updates = self._updates(rendered)
+        self.assertEqual(len(updates), 1)
+        self.assertIn("'analytics_storage': 'granted'", updates[0])
+        self.assertNotIn("ad_storage", updates[0])
+        self.assertLess(
+            rendered.index("gtag('consent', 'default'"),
+            rendered.index("gtag('consent', 'update'"),
+        )
+        self.assertLess(
+            rendered.index("gtag('consent', 'update'"), rendered.index("gtag('config'")
+        )
+
+    def test_marketing_acceptance_grants_the_ad_signals_only(self):
+        rendered = self._render(
+            {
+                "cookie_consent_analytics": "decline",
+                "cookie_consent_marketing": "accept:",
+            }
+        )
+
+        updates = self._updates(rendered)
+        self.assertEqual(len(updates), 1)
+        self.assertNotIn("analytics_storage", updates[0])
+        for key in ("ad_storage", "ad_user_data", "ad_personalization"):
+            self.assertIn(f"'{key}': 'granted'", updates[0])
 
     def test_the_library_cookie_alone_still_counts(self):
         rendered = self._render({}, library=True)
 
-        self.assertEqual(set(self._defaults(rendered).values()), {"granted"})
+        self.assertEqual(len(self._updates(rendered)), 2)
+        self.assertIn("'analytics_storage': 'granted'", rendered)
 
-    def test_a_granted_default_yields_to_a_later_refusal_in_the_browser(self):
-        """A granted default is only true for this response. Served again
-        later (the service worker's copy of the page), a refusal recorded
-        since must turn the group back to denied before gtag('config') sends
-        the page view. The defaults themselves stay as rendered."""
+    def test_a_granted_update_yields_to_a_later_refusal_in_the_browser(self):
+        """A grant is only true for this response. Served again later (the
+        service worker's copy of the page), a refusal recorded since must keep
+        the group denied: the grant update is skipped in the browser, before
+        gtag('config') sends the page view."""
         rendered = self._render(
             {
                 "cookie_consent_analytics": "accept:",
@@ -950,10 +1006,9 @@ class GoogleConsentDefaultsTests(SimpleTestCase):
             }
         )
 
-        self.assertEqual(set(self._defaults(rendered).values()), {"granted"})
         guards = (
-            "if (%s ||" % ANALYTICS_DECLINED_JS,
-            "if (%s ||" % MARKETING_DECLINED_JS,
+            "if (!(%s ||" % ANALYTICS_DECLINED_JS,
+            "if (!(%s ||" % MARKETING_DECLINED_JS,
         )
         for guard in guards:
             self.assertIn(guard, rendered)
@@ -962,8 +1017,8 @@ class GoogleConsentDefaultsTests(SimpleTestCase):
             )
             self.assertLess(rendered.index(guard), rendered.index("gtag('config'"))
 
-    def test_only_a_granted_group_gets_the_refusal_check(self):
-        """A denied default has nothing to take back: a live acceptance never
+    def test_only_a_granted_group_gets_the_browser_check(self):
+        """A denied group has nothing to grant: a live acceptance never
         outranks the server's refusal or its "ask again"."""
         mixed = self._render(
             {
@@ -976,6 +1031,28 @@ class GoogleConsentDefaultsTests(SimpleTestCase):
         for denied in (self._render({}), self._render(with_request=False)):
             self.assertNotIn("=decline", denied)
             self.assertNotIn("gtag('consent', 'update'", denied)
+
+    def test_scripts_carry_the_csp_nonce(self):
+        request = RequestFactory().get("/")
+        request.COOKIES.update({"cookie_consent_analytics": "accept:"})
+        request._csp_nonce = "n0nce"
+        rendered = Template("{% load analytics %}{% analytics_head %}").render(
+            Context({"GOOGLE_ANALYTICS_GTAG_PROPERTY_ID": "G-TEST", "request": request})
+        )
+        self.assertEqual(rendered.count("<script"), 3)
+        self.assertEqual(rendered.count(' nonce="n0nce"'), 3)
+
+    def test_withdrawal_updates_back_to_denied_in_the_banner(self):
+        from pathlib import Path
+
+        banner = (
+            Path(__file__).resolve().parents[2]
+            / "core/templates/includes/cookie_banner.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn("gtag('consent', 'update', {", banner)
+        self.assertIn(
+            "'analytics_storage': consent.analytics ? 'granted' : 'denied'", banner
+        )
 
 
 class ConsentVersionTests(TestCase):
@@ -2041,17 +2118,12 @@ def test_a_cached_accepted_page_honours_a_later_refusal(page):
     calls = _data_layer(page)
     commands = [c[:2] for c in calls]
     config = commands.index(["config", "G-TEST123"])
-    # The kept copy's default still says granted (it is the rendered HTML)...
+    # The default is denied and the kept copy's grant update is skipped, so
+    # nothing re-grants before the page view is configured.
     default = calls[commands.index(["consent", "default"])][2]
-    assert default["analytics_storage"] == "granted"
-    # ...but both groups are denied again before the page view is configured.
+    assert default["analytics_storage"] == "denied"
     before_config = [c[2] for c in calls[:config] if c[:2] == ["consent", "update"]]
-    assert {"analytics_storage": "denied"} in before_config
-    assert {
-        "ad_storage": "denied",
-        "ad_user_data": "denied",
-        "ad_personalization": "denied",
-    } in before_config
+    assert not any("granted" in u.values() for u in before_config)
     # The banner's own update on load says denied too.
     last_update = [c[2] for c in calls if c[:2] == ["consent", "update"]][-1]
     assert last_update["analytics_storage"] == "denied"
