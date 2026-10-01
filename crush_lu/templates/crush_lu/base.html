@@ -1515,6 +1515,9 @@
         {% include "crush_lu/partials/mobile_drawer.html" %}
     {% endif %}
 
+    {# Native iOS app: no tracking/ad cookies are set, so there is nothing to consent to (App Review 5.1.2). #}
+    {% if not is_ios_native_app %}
     {% include "includes/cookie_banner.html" with cookie_banner_variant="crush" %}
+    {% endif %}
 </body>
 </html>

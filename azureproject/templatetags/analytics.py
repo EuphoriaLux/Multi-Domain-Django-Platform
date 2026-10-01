@@ -28,7 +28,20 @@ from django.middleware.csp import get_nonce
 from django.utils.dateparse import parse_datetime
 from django.utils.safestring import mark_safe
 
+from crush_lu.ios_app_utils import is_ios_native_request
+
 register = template.Library()
+
+
+def _tracking_suppressed(context):
+    """
+    True inside the native iOS app shell: no GA4 / Meta Pixel / ad tags at all.
+
+    App Review (guideline 5.1.2) treats these as tracking that needs App
+    Tracking Transparency. The app does not track, so the tags are never emitted.
+    """
+    request = context.get("request")
+    return request is not None and is_ios_native_request(request)
 
 
 def _json_default(value):
@@ -294,6 +307,9 @@ def analytics_head(context):
 
     This tag should be placed near the top of <head> for best performance.
     """
+    if _tracking_suppressed(context):
+        return ""
+
     ga4_id = context.get("GOOGLE_ANALYTICS_GTAG_PROPERTY_ID")
 
     if not ga4_id:
@@ -406,6 +422,9 @@ def analytics_body(context):
     its own, so emitting it earlier would fire PageView before any choice.
     This tag should be placed right after the opening <body> tag.
     """
+    if _tracking_suppressed(context):
+        return ""
+
     fb_pixel_id = context.get("FACEBOOK_PIXEL_ID")
 
     if not fb_pixel_id:
@@ -501,6 +520,9 @@ def ga4_event(context, event_name, **params):
         {% ga4_event "purchase" value=99.99 currency="EUR" %}
         {% ga4_event "sign_up" method="LinkedIn" %}
     """
+    if _tracking_suppressed(context):
+        return ""
+
     ga4_id = context.get("GOOGLE_ANALYTICS_GTAG_PROPERTY_ID")
 
     if not ga4_id:
@@ -532,6 +554,9 @@ def fb_event(context, event_name, **params):
         {% fb_event "Purchase" value=99.99 currency="EUR" %}
         {% fb_event "Lead" %}
     """
+    if _tracking_suppressed(context):
+        return ""
+
     fb_pixel_id = context.get("FACEBOOK_PIXEL_ID")
 
     if not fb_pixel_id:
