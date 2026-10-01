@@ -179,9 +179,9 @@ def _is_crush_domain(request):
 
 
 def _is_delegation_domain(request):
-    """Check if request is from delegations.lu."""
-    domain = _get_domain(request)
-    return domain == "delegations.lu"
+    """Check if request is from delegations.lu (or its delegation.localhost
+    dev alias, #1116)."""
+    return _get_mapped_domain(request) == "delegations.lu"
 
 
 # Domains where a visitor may create their own account.
@@ -884,7 +884,9 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
                     )
 
                     from crush_lu.views_account import (
+                        _email_digest,
                         claim_resend_cooldown,
+                        resend_cooldown_until,
                         start_resend_cooldown_display,
                     )
 
@@ -914,6 +916,26 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
                     if limiter_consumed:
                         claim_resend_cooldown(address.email, force=True)
                         start_resend_cooldown_display(request, address.email)
+                    else:
+                        # Another session already holds this address's
+                        # cooldown: show its real deadline now, so the page
+                        # does not open with a live Resend button whose first
+                        # click is silently dropped (#1116).
+                        # A session that already counts down for this address
+                        # keeps its own deadline.
+                        until = resend_cooldown_until(address.email)
+                        already_counting = (
+                            request.session.get("resend_verification_cooldown_hash")
+                            == _email_digest(address.email)
+                            and request.session.get(
+                                "resend_verification_cooldown_until", 0
+                            )
+                            > int(timezone.now().timestamp())
+                        )
+                        if until and not already_counting:
+                            start_resend_cooldown_display(
+                                request, address.email, until=until
+                            )
                     return self.respond_email_verification_sent(request, user)
         return None
 
