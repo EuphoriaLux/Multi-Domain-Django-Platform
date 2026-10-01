@@ -261,6 +261,50 @@ class HubReviewIntakeTests(TestCase):
         again = self.client.patch(url, {"reconcile": "not_delivered"}, format="json")
         self.assertEqual(again.status_code, 409)
 
+    def test_partial_failure_with_unknown_channel_stays_uncertain(self):
+        from hub.buffer_service import BufferPartialFailure
+        from hub.views_social import _event_post_dispatched_platforms
+
+        post = self.post_for_review()
+        post.buffer_profile_ids = ["ig", "fb"]
+        post.save()
+        failure = BufferPartialFailure(["p1"], ["ig"], uncertain=True)
+        with (
+            patch("hub.views_social.list_buffer_profiles", return_value=PROFILES),
+            patch("hub.views_social.create_buffer_update", side_effect=failure),
+        ):
+            response = self.client.patch(
+                f"/hub/social/posts/{post.pk}/", self.approval(post), format="json"
+            )
+        self.assertEqual(response.status_code, 502)
+        post.refresh_from_db()
+        self.assertTrue(post.buffer_delivery_uncertain)
+        self.assertEqual(
+            _event_post_dispatched_platforms(post), {"instagram", "facebook"}
+        )
+
+    def test_buffer_partial_failure_flags_unknown_channel(self):
+        from hub.buffer_service import BufferPartialFailure, create_buffer_update
+
+        calls = iter(["p1", BufferDeliveryUnknown("Timeout")])
+
+        def post_channel(**kwargs):
+            result = next(calls)
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+        with patch("hub.buffer_service._create_channel_post", side_effect=post_channel):
+            with self.assertRaises(BufferPartialFailure) as raised:
+                create_buffer_update(
+                    text="x",
+                    profile_ids=["ig", "fb"],
+                    profile_platforms={"ig": "facebook", "fb": "facebook"},
+                    media_url="https://cdn.crush.lu/a.png",
+                )
+        self.assertTrue(raised.exception.uncertain)
+        self.assertEqual(raised.exception.created_profile_ids, ["ig"])
+
     def test_reconcile_refuses_posts_with_a_buffer_record(self):
         post = self.post_for_review()
         post.buffer_delivery_uncertain = True

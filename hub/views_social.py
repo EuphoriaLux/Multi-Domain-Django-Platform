@@ -333,10 +333,13 @@ def _event_post_is_dispatched(post: SocialPost) -> bool:
 
 
 def _event_post_dispatched_platforms(post: SocialPost) -> set[str]:
+    if post.buffer_delivery_uncertain:
+        # An uncertain delivery may already exist in Buffer until reconciled,
+        # including on a channel after one that is known to have succeeded.
+        return set(post.dispatched_platforms or []) | set(post.platforms or [])
     if post.dispatched_platforms:
         return set(post.dispatched_platforms)
-    if post.status in PROMOTED_STATUSES or post.buffer_delivery_uncertain:
-        # An uncertain delivery may already exist in Buffer until reconciled.
+    if post.status in PROMOTED_STATUSES:
         return set(post.platforms or [])
     return set()
 
@@ -1028,6 +1031,7 @@ class SocialPostDetailView(APIView):
                     updated_post.pk,
                 )
                 updated_post.status = SocialPost.Status.FAILED
+                updated_post.buffer_delivery_uncertain = exc.uncertain
                 updated_post.buffer_id = ",".join(exc.created_post_ids)
                 updated_post.dispatched_platforms = list(
                     dict.fromkeys(
@@ -1052,6 +1056,7 @@ class SocialPostDetailView(APIView):
                         "platforms",
                         "buffer_profile_platforms",
                         "dispatched_platforms",
+                        "buffer_delivery_uncertain",
                         "status_history",
                     ]
                 )

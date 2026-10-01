@@ -44,10 +44,13 @@ class BufferPartialFailure(BufferServiceError):
         self,
         created_post_ids: list[str],
         created_profile_ids: list[str] | None = None,
+        uncertain: bool = False,
     ):
         super().__init__("Buffer created only some requested channel posts")
         self.created_post_ids = created_post_ids
         self.created_profile_ids = created_profile_ids or []
+        # True when the failing channel may still have been accepted by Buffer.
+        self.uncertain = uncertain
 
 
 def _is_public_media_url(url: str) -> bool:
@@ -285,7 +288,11 @@ def create_buffer_update(
             created_profile_ids.append(channel_id)
         except BufferServiceError as exc:
             if post_ids:
-                raise BufferPartialFailure(post_ids, created_profile_ids) from exc
+                raise BufferPartialFailure(
+                    post_ids,
+                    created_profile_ids,
+                    uncertain=isinstance(exc, BufferDeliveryUnknown),
+                ) from exc
             raise
     return {
         "success": True,
