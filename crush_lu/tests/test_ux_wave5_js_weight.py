@@ -93,6 +93,23 @@ class DeferredPushAndInstallScriptTests(TestCase):
         self.assertEqual(_count(html, "push-notifications.js"), 1)
         self.assertIn('x-data="pushPreferences"', html)
 
+    def test_other_profile_edit_views_do_not_load_push_script(self):
+        # Without a booking the push bundle must load only where
+        # pushPreferences exists: not on the section index, photos, privacy
+        # or the native-app notification notice.
+        self.client.force_login(_make_member("elsewhere@example.com"))
+        counts = {
+            path: _count(self._get(path, **extra), "push-notifications.js")
+            for path, extra in (
+                ("/en/profile/edit/", {}),
+                ("/en/profile/edit/?section=photos", {}),
+                ("/en/profile/edit/?section=privacy", {}),
+                ("/en/profile/edit/?section=account&sub=settings", {}),
+                ("/en/profile/edit/?section=account&sub=notifications", NATIVE),
+            )
+        }
+        self.assertEqual(set(counts.values()), {0}, counts)
+
     def test_notification_settings_load_push_script_once_when_eligible(self):
         self.client.force_login(self._booked_member("both@example.com"))
         html = self._get("/en/profile/edit/?section=account&sub=notifications")
