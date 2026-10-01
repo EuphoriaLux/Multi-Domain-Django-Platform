@@ -401,6 +401,18 @@ class EventConnection(models.Model):
         default=False,
         help_text=_("Recipient chose to include their email in what is shared")
     )
+    # Phone is opt-in exactly like email (UX Wave 5 WP4, finding R2). Existing
+    # rows are NOT backfilled: phone was never asked about before, so no one
+    # has explicitly granted it and the safe default is "not shared" (the
+    # counterpart stops seeing it; the member can still hand it over in chat).
+    requester_shares_phone = models.BooleanField(
+        default=False,
+        help_text=_("Requester chose to include their phone number in what is shared"),
+    )
+    recipient_shares_phone = models.BooleanField(
+        default=False,
+        help_text=_("Recipient chose to include their phone number in what is shared"),
+    )
 
     # Timestamps
     requested_at = models.DateTimeField(auto_now_add=True)

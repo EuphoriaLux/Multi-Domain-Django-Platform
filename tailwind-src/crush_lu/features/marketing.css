@@ -463,7 +463,7 @@ html.dark .founder-card p {
     padding-top: 1rem;
     border-top: 1px solid rgba(155, 89, 182, 0.15);
     font-style: italic;
-    color: #6b7280;
+    color: var(--text-muted);
     font-size: clamp(0.85rem, 1.8vw, 0.9rem);
 }
 html.dark .founder-quote {
@@ -519,7 +519,7 @@ html.dark .press-card {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: #9b59b6;
+    color: var(--color-purple-700);
     margin-bottom: 0.25rem;
 }
 html.dark .press-publication {
@@ -527,11 +527,11 @@ html.dark .press-publication {
 }
 .press-date {
     font-size: 0.8rem;
-    color: #9ca3af;
+    color: var(--text-muted);
     margin-bottom: 0.75rem;
 }
 html.dark .press-date {
-    color: #6b7280;
+    color: #9ca3af;
 }
 .press-card h3 {
     font-size: clamp(1rem, 2.5vw, 1.15rem);
@@ -544,7 +544,7 @@ html.dark .press-card h3 {
     color: #f1f5f9;
 }
 .press-quote {
-    color: #6b7280;
+    color: var(--text-muted);
     font-style: italic;
     font-size: clamp(0.85rem, 1.8vw, 0.9rem);
     line-height: 1.6;
@@ -560,7 +560,7 @@ html.dark .press-quote {
     gap: 0.35rem;
     font-size: 0.9rem;
     font-weight: 600;
-    color: #9b59b6;
+    color: var(--color-purple-700);
     text-decoration: none;
 }
 html.dark .press-link {
@@ -602,7 +602,7 @@ html.dark .about-stat-card {
     margin-bottom: 0.25rem;
 }
 .about-stat-label {
-    color: #6c757d;
+    color: var(--text-muted);
     font-size: clamp(0.75rem, 1.8vw, 0.95rem);
 }
 html.dark .about-stat-label {
@@ -703,7 +703,7 @@ html.dark .about-why-card h5 {
     color: #f1f5f9;
 }
 .about-why-card p {
-    color: #6b7280;
+    color: var(--text-muted);
     font-size: clamp(0.85rem, 1.8vw, 0.95rem);
     line-height: 1.6;
 }
@@ -742,7 +742,7 @@ html.dark .about-cta-section h2 {
 }
 .about-cta-section p {
     font-size: clamp(1rem, 2.5vw, 1.25rem);
-    color: #6c757d;
+    color: var(--text-muted);
     margin-bottom: 1.5rem;
     max-width: 600px;
     margin-left: auto;
@@ -1123,7 +1123,7 @@ html.dark .hiw-cta-section h2 {
 }
 .hiw-cta-section p {
     font-size: clamp(1rem, 2.5vw, 1.25rem);
-    color: #6c757d;
+    color: var(--text-muted);
     margin-bottom: 1.5rem;
     max-width: 600px;
     margin-left: auto;
@@ -1386,7 +1386,7 @@ html.dark .coach-stat-card {
     margin-bottom: 0.125rem;
 }
 .coach-stat-label {
-    color: #6c757d;
+    color: var(--text-muted);
     font-size: clamp(0.7rem, 1.6vw, 0.9rem);
 }
 html.dark .coach-stat-label {
@@ -1410,7 +1410,7 @@ html.dark .coach-stat-label {
     margin-bottom: 0.5rem;
 }
 .page-crush-coach .section-header p {
-    color: #6c757d;
+    color: var(--text-muted);
     font-size: clamp(0.95rem, 2vw, 1.1rem);
     max-width: 600px;
     margin: 0 auto;
@@ -1514,7 +1514,7 @@ html.dark .responsibility-card h4 {
     color: #f1f5f9;
 }
 .responsibility-card p {
-    color: #6c757d;
+    color: var(--text-muted);
     font-size: clamp(0.85rem, 1.6vw, 0.95rem);
     line-height: 1.6;
 }
@@ -1554,7 +1554,7 @@ html.dark .reassurance-block {
 .reassurance-quote {
     font-size: clamp(1.1rem, 2.5vw, 1.3rem);
     font-weight: 600;
-    color: #9b59b6;
+    color: var(--color-purple-700);
     font-style: italic;
     margin-bottom: 1rem;
     padding-left: 1rem;
@@ -1572,7 +1572,7 @@ html.dark .reassurance-quote {
 .commitment-list li {
     padding: 0.4rem 0;
     font-size: clamp(0.9rem, 1.8vw, 1rem);
-    color: #6c757d;
+    color: var(--text-muted);
     display: flex;
     align-items: center;
     gap: 0.5rem;
