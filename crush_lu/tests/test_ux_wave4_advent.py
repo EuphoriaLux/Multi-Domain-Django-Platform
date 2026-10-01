@@ -423,11 +423,13 @@ class AdventDoorPageTests(TestCase):
         self.assertIn("text-muted-fg", body)
 
     def test_bonus_hint_pulse_is_guarded(self):
-        AdventDoor.objects.filter(door_number=2).update(qr_mode="bonus")
-        html = self.get_door()
-        self.assertIn("bonus-hint", html)
+        # The pulse rule lives in the compiled stylesheet (moved out of the
+        # inline <style> block in Wave 5).
+        css = (
+            Path(settings.BASE_DIR) / "tailwind-src/crush_lu/tailwind-input.css"
+        ).read_text(encoding="utf-8")
         self.assertRegex(
-            html,
+            css,
             r"@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.bonus-hint\s*\{"
             r"\s*animation:\s*none",
         )
