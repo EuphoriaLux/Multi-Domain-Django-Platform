@@ -213,13 +213,16 @@ class StaleJourneyProgressTests(NamesakeFixtureMixin, TestCase):
             "/en/journey/chapter/1/",
             f"/en/journey/chapter/1/challenge/{self.challenge.pk}/",
             f"/en/journey/reward/{self.reward.pk}/",
-            "/en/journey/certificate/",
         ):
-            with self.subTest(path=path):
-                response = self.client.get(path, HTTP_HOST=HOST)
+            response = self.client.get(path, HTTP_HOST=HOST)
 
-                self.assertEqual(response.status_code, 302)
-                self.assertNotIn(b"OWNER-PRIVATE", response.content)
+            self.assertEqual(response.status_code, 200, path)
+            self.assertTemplateUsed(response, "crush_lu/no_journey.html")
+            self.assertNotIn(b"OWNER-PRIVATE", response.content)
+
+        certificate = self.client.get("/en/journey/certificate/", HTTP_HOST=HOST)
+        self.assertEqual(certificate.status_code, 302)
+        self.assertNotIn(b"OWNER-PRIVATE", certificate.content)
 
     def test_stale_progress_is_denied_by_the_journey_api(self):
         self.client.force_login(self.namesake)
@@ -303,7 +306,8 @@ class StaleJourneyProgressTests(NamesakeFixtureMixin, TestCase):
 
         response = self.client.get("/en/journey/chapter/1/", HTTP_HOST=HOST)
 
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "crush_lu/no_journey.html")
         self.assertNotIn(b"OWNER-PRIVATE", response.content)
 
 
