@@ -1,0 +1,10 @@
+.env
+*.env
+backups/
+*.import.json
+deployment.json
+node_modules/
+__pycache__/
+preview/
+preview-assets/
+bound/

@@ -23,6 +23,7 @@ class ReviewTests(unittest.TestCase):
         review.CHAT = "-123"
         review.REVIEWERS = {99}
         review.ENABLE_PUBLISH = True
+        review.PREVIEW_ONLY = False
         self.post = {
             "id": "123",
             "status": "pending_review",
@@ -135,6 +136,54 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual(count, 1)
         self.assertNotIn("example-review-secret", raw)
         self.assertNotIn("example.com", raw)
+
+    @patch.object(review, "hub")
+    @patch.object(review, "telegram", return_value={"message_id": 789})
+    @patch.object(review.requests, "post")
+    def test_preview_stores_ordered_deck_and_never_writes_hub(
+        self, request, telegram, hub
+    ):
+        import base64
+
+        review.PREVIEW_ONLY = True
+        request.return_value = Mock(ok=True, json=lambda: {"ok": True})
+        script = {
+            "slides": [{"title": f"Card {i}"} for i in range(5)],
+            "caption_en": "Advice",
+            "caption_fr": "Conseil",
+        }
+        body = {
+            "run_key": "preview-1",
+            "script": script,
+            "images": [
+                {"image_base64": base64.b64encode(bytes([i])).decode()}
+                for i in range(5)
+            ],
+        }
+        result = review.deliver(body)
+        record = review.load(result["review_id"])
+        self.assertEqual(
+            [Path(p).read_bytes() for p in record["preview_files"]],
+            [bytes([i]) for i in range(5)],
+        )
+        self.assertEqual(len(json.loads(request.call_args.kwargs["data"]["media"])), 5)
+        buttons = telegram.call_args.args[1]["reply_markup"]["inline_keyboard"]
+        self.assertEqual(len(buttons), 1)
+        query = {
+            "from": {"id": 99},
+            "message": {"chat": {"id": -123}, "message_id": 789},
+            "data": f"p:{record['id']}:1",
+        }
+        self.assertIn("disabled", review.callback(query))
+        query["data"] = f"r:{record['id']}:1"
+        review.callback(query)
+        self.assertEqual(review.load(record["id"])["state"], "regenerating")
+        result = review.deliver(
+            {**body, "review_id": record["id"], "run_key": "preview-regen"}
+        )
+        self.assertEqual(review.load(result["review_id"])["revision"], 2)
+        self.assertIn("already been used", review.callback(query))
+        hub.assert_not_called()
 
 
 if __name__ == "__main__":

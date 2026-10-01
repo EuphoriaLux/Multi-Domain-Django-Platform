@@ -23,6 +23,7 @@ services:
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:?Configure the review chat}
       TELEGRAM_REVIEWER_IDS: ${TELEGRAM_REVIEWER_IDS:?Configure numeric reviewer IDs}
       ENABLE_PUBLISH: ${ENABLE_PUBLISH:-false}
+      PREVIEW_ONLY: ${PREVIEW_ONLY:-false}
       REGENERATE_URL: http://n8n:5678/webhook/crush-visual-regenerate-v2
     volumes:
       - content_reviews:/data

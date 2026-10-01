@@ -17,7 +17,7 @@ import sqlite3
 import threading
 import time
 import uuid
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -39,6 +39,7 @@ REGENERATE = os.environ.get(
     "REGENERATE_URL", "http://n8n:5678/webhook/crush-visual-regenerate-v2"
 )
 ENABLE_PUBLISH = os.environ.get("ENABLE_PUBLISH", "false").lower() == "true"
+PREVIEW_ONLY = os.environ.get("PREVIEW_ONLY", "false").lower() == "true"
 
 
 @contextmanager
@@ -121,8 +122,54 @@ def telegram(method, payload):
 
 def notify_review(record):
     script, post = record["script"], record["post"]
-    urls = post["media_urls"] or [post["media_url"]]
-    if len(urls) == 5:
+    if record.get("preview_only"):
+        with ExitStack() as handles:
+            files = {
+                f"slide{i}": (
+                    Path(path).name,
+                    handles.enter_context(open(path, "rb")),
+                    "image/png",
+                )
+                for i, path in enumerate(record["preview_files"])
+            }
+            if len(files) == 5:
+                method = "sendMediaGroup"
+                payload = {
+                    "chat_id": CHAT,
+                    "media": json.dumps(
+                        [
+                            {
+                                "type": "photo",
+                                "media": f"attach://slide{i}",
+                                **(
+                                    {"caption": script["slides"][0]["title"]}
+                                    if i == 0
+                                    else {}
+                                ),
+                            }
+                            for i in range(5)
+                        ]
+                    ),
+                }
+            else:
+                method = "sendPhoto"
+                payload = {
+                    "chat_id": CHAT,
+                    "photo": "attach://slide0",
+                    "caption": script["slides"][0]["title"],
+                }
+            response = requests.post(
+                f"https://api.telegram.org/bot{BOT}/{method}",
+                data=payload,
+                files=files,
+                timeout=(5, 75),
+            )
+            if not response.ok or not response.json().get("ok"):
+                raise RuntimeError(
+                    f"Telegram preview upload failed; HTTP {response.status_code}"
+                )
+    elif len(post["media_urls"] or [post["media_url"]]) == 5:
+        urls = post["media_urls"]
         telegram(
             "sendMediaGroup",
             {
@@ -142,16 +189,17 @@ def notify_review(record):
             "sendPhoto",
             {
                 "chat_id": CHAT,
-                "photo": urls[0],
+                "photo": post["media_url"],
                 "caption": script["slides"][0]["title"],
             },
         )
     data = f'{record["id"]}:{record["revision"]}'
     buttons = [
         [{"text": "🔄 Regenerate visual", "callback_data": f"r:{data}"}],
-        [{"text": "📝 Open in Hub CRM", "url": HUB_UI}],
     ]
-    if ENABLE_PUBLISH:
+    if not record.get("preview_only"):
+        buttons.append([{"text": "📝 Open in Hub CRM", "url": HUB_UI}])
+    if ENABLE_PUBLISH and not record.get("preview_only"):
         buttons.insert(
             0, [{"text": "🚀 Publish to Buffer now", "callback_data": f"p:{data}"}]
         )
@@ -159,7 +207,13 @@ def notify_review(record):
         "sendMessage",
         {
             "chat_id": CHAT,
-            "text": f'FR\n{script["caption_fr"]}\n\nEN\n{script["caption_en"]}\n\nPost {post["id"]} · review {record["revision"]}',
+            "text": f'FR\n{script["caption_fr"]}\n\nEN\n{script["caption_en"]}\n\n'
+            + (
+                "PREVIEW · Hub and publishing disabled"
+                if record.get("preview_only")
+                else f'Post {post["id"]}'
+            )
+            + f' · review {record["revision"]}',
             "reply_markup": {"inline_keyboard": buttons},
         },
     )
@@ -183,7 +237,11 @@ def deliver(body):
                 raise ValueError(
                     "Regeneration is no longer pending or copy was changed"
                 )
-            current = hub("GET", record["post"]["id"])
+            current = (
+                record["post"]
+                if record.get("preview_only")
+                else hub("GET", record["post"]["id"])
+            )
             if (
                 current["status"] not in {"draft", "pending_review", "approved"}
                 or current["buffer_id"]
@@ -215,6 +273,7 @@ def deliver(body):
                     "state": "upload_unknown",
                     "revision": 0,
                     "created": time.time(),
+                    "preview_only": PREVIEW_ONLY,
                 }
                 db.execute(
                     "INSERT INTO reviews VALUES (?,?,?)",
@@ -228,7 +287,20 @@ def deliver(body):
             files.append(
                 ("images", (f"slide-{i+1:02d}.png", io.BytesIO(raw), "image/png"))
             )
-        if record.get("post"):
+        if record.get("preview_only"):
+            folder = DB.parent / "previews" / record["id"] / str(record["revision"] + 1)
+            folder.mkdir(parents=True, exist_ok=False)
+            record["preview_files"] = []
+            for i, (_field, (_name, content, _mime)) in enumerate(files):
+                path = folder / f"slide-{i+1:02d}.png"
+                path.write_bytes(content.getvalue())
+                record["preview_files"].append(str(path))
+            record["post"] = {
+                "id": "preview-" + record["id"],
+                "status": "pending_review",
+                "buffer_id": "",
+            }
+        elif record.get("post"):
             record["post"] = hub(
                 "PATCH",
                 record["post"]["id"],
@@ -279,9 +351,13 @@ def callback(query):
             return "This button belongs to an older review."
         if time.time() - record["created"] > 7 * 86400:
             return "Review expired. Open Hub to review current copy."
-        if action == "p" and not ENABLE_PUBLISH:
+        if action == "p" and (not ENABLE_PUBLISH or record.get("preview_only")):
             return "Publishing is disabled. Use Hub."
-        post = hub("GET", record["post"]["id"])
+        post = (
+            record["post"]
+            if record.get("preview_only")
+            else hub("GET", record["post"]["id"])
+        )
         if (
             post["status"] not in {"draft", "pending_review", "approved"}
             or post["buffer_id"]

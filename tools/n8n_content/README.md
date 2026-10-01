@@ -19,6 +19,10 @@ reviewer IDs and the Hub machine credential. Publishing defaults to disabled.
 Audit, deployment order, verification and rollback:
 `ai-memory-hub/reviews/2026-10-01-n8n-content-pipeline.md`.
 Deploy the backend migration before running the new workflow definitions.
+For LAN verification before the backend rollout, set `PREVIEW_ONLY=true` and
+`ENABLE_PUBLISH=false`. This stores the complete deck on the review volume and
+uploads it directly to Telegram. Preview reviews have regeneration only; they
+create no Hub posts and cannot publish, even if publishing is otherwise enabled.
 
 `preview.cjs` renders a local template preview from existing brand assets placed
 in `preview-assets/`. It does not call Gemini. Generated previews, local audit
