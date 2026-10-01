@@ -1317,7 +1317,7 @@ class JourneyGiftForm(forms.ModelForm):
         max_length=100,
         required=True,
         widget=forms.TextInput(attrs={
-            'placeholder': _('e.g., My Crush, Marie, Sunshine'),
+            'placeholder': _('e.g., Marie, Sunshine'),
             'class': 'gift-input gift-input-lg'
         }),
         label=_('Name/Nickname for the Journey'),
