@@ -1511,6 +1511,10 @@
 
     {% block extra_js %}{% endblock %}
 
+    {% if suppress_ios_tracking %}
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/ios-tracking-cleanup.js' %}"></script>
+    {% endif %}
+
     {% if user.is_authenticated %}
         {% include "crush_lu/partials/mobile_drawer.html" %}
     {% endif %}

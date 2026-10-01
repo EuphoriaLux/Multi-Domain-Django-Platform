@@ -78,3 +78,5 @@ class IosTrackingSuppressedTests(TestCase):
         sheet = self.client.get(url, HTTP_HOST="crush.lu")
         self.assertNotContains(sheet, "cookie-consent-banner")
         self.assertNotContains(sheet, "data-cookie-settings")
+        self.assertContains(sheet, "ios-tracking-cleanup.js")
+        self.assertNotContains(plain, "ios-tracking-cleanup.js")
