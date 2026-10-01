@@ -62,6 +62,16 @@ jobs:
           npm run build:js
           echo "✅ CSS + JS build complete"
 
+      # The crush_lu .mo files are generated from the committed .po files (not
+      # committed). A missing or malformed .mo 500s or untranslates every DE/FR
+      # request, so build them and prove all generated assets exist and match
+      # their sources before anything is uploaded.
+      - name: Compile translations and verify all generated assets
+        run: |
+          pip install -q polib==1.2.0
+          python scripts/build_assets.py --no-npm
+          python scripts/build_assets.py --check
+
       # Without this the build above is decorative: the runner is discarded and
       # the `deploy` job checks out afresh, so `collectstatic` packages the CSS
       # that happens to be COMMITTED rather than the CSS just built. A stale
@@ -90,6 +100,7 @@ jobs:
             crush_lu/static/crush_lu/js/alpine/journey.min.js.map
             crush_lu/static/crush_lu/js/alpine/connect.min.js
             crush_lu/static/crush_lu/js/alpine/connect.min.js.map
+            crush_lu/locale/*/LC_MESSAGES/*.mo
           # Fail loudly rather than silently deploying stale CSS again.
           if-no-files-found: error
           retention-days: 1
@@ -133,6 +144,7 @@ jobs:
                 crush_lu/static/crush_lu/js/alpine/journey.min.js.map \
                 crush_lu/static/crush_lu/js/alpine/connect.min.js \
                 crush_lu/static/crush_lu/js/alpine/connect.min.js.map
+          rm -f crush_lu/locale/*/LC_MESSAGES/*.mo
           echo "🧹 Tracked CSS removed — only the artifact can satisfy the check below"
 
       - name: Download built CSS
@@ -168,6 +180,14 @@ jobs:
         with:
           python-version: '3.12'
           cache: 'pip'
+
+      # Last gate before packaging: the downloaded artifact must hold every
+      # generated asset, and each .mo must load and match its .po. Nothing is
+      # deployed to staging (and so nothing can be swapped) without this.
+      - name: Verify generated assets and compiled translations
+        run: |
+          pip install -q polib==1.2.0
+          python scripts/build_assets.py --check --no-freshness
 
       - name: Build deployment package locally
         env:

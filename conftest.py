@@ -28,6 +28,42 @@ sys.modules['pywebpush'] = mock_pywebpush
 os.environ.setdefault('DJANGO_ALLOW_ASYNC_UNSAFE', 'true')
 
 
+def pytest_sessionstart(session):
+    """Stop early, with one clear message, when generated assets are missing.
+
+    The Crush.lu CSS/JS bundles and compiled .mo files are not committed (see
+    scripts/build_assets.py). Without them dozens of tests fail with confusing
+    errors (untranslated DE/FR pages, missing static files), so check once on
+    the controller process; xdist workers skip it. Set
+    SKIP_ASSET_CHECK=1 to bypass (e.g. when running a single pure-unit test).
+    """
+    if os.environ.get("SKIP_ASSET_CHECK") or hasattr(session.config, "workerinput"):
+        return
+    scripts_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts")
+    sys.path.insert(0, scripts_dir)
+    try:
+        import build_assets
+    finally:
+        sys.path.remove(scripts_dir)
+    problems = (
+        build_assets.verify_files(build_assets.CSS_FILES, "CSS bundle")
+        + build_assets.verify_files(build_assets.JS_FILES, "JS bundle")
+        + build_assets.verify_translations()
+    )
+    # Staleness only blocks when the developer can actually rebuild (Node
+    # installed); without node_modules, existing bundles are used as they are.
+    if os.path.isdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "node_modules")):
+        problems += build_assets.verify_fresh()
+    if problems:
+        pytest.exit(
+            "Generated assets are missing or stale:\n  - "
+            + "\n  - ".join(problems)
+            + "\n\nRun: python scripts/build_assets.py  (npm ci first for CSS/JS; "
+            "--no-npm for translations only), or set SKIP_ASSET_CHECK=1.",
+            returncode=3,
+        )
+
+
 def pytest_configure(config):
     """
     Hook called early in pytest startup to configure Django settings.

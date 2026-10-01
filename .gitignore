@@ -63,7 +63,8 @@ logs_export/
 crm_plan/
 
 # Translations
-# Note: We DO commit locale/*.mo files for Django i18n (see !locale/ exception below)
+# Note: other apps' locale/*.mo files are committed (see the !locale/ exception
+# below); crush_lu's are generated and ignored again in the block further down.
 *.pot
 
 # BUT allow Django translation .mo files in locale directory
@@ -162,8 +163,16 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Tailwind CSS - NOW COMMITTED so Oryx can collectstatic them
-# Build with: npm run build:css:all
+# Generated Crush.lu assets: NOT committed (they caused a merge conflict on every
+# Wave of PRs). Built by `python scripts/build_assets.py` locally, in CI, and in
+# the deploy workflow, which ships them to Azure. Other platforms' CSS
+# (power_up, tableau, arborist) and the other apps' .mo files stay committed.
+/crush_lu/static/crush_lu/css/tailwind.css
+/crush_lu/static/crush_lu/css/journey.css
+/crush_lu/static/crush_lu/css/marketing.css
+/crush_lu/static/crush_lu/js/alpine/*.min.js
+/crush_lu/static/crush_lu/js/alpine/*.min.js.map
+/crush_lu/locale/*/LC_MESSAGES/*.mo
 
 # Build outputs
 *.tsbuildinfo

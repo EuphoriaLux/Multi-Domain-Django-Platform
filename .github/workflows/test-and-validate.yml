@@ -82,6 +82,19 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-django pytest-xdist
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # The Crush.lu CSS/JS bundles and compiled .mo files are not committed;
+      # tests (and conftest's asset check) need them built from source.
+      - name: Build generated assets (CSS, JS, translations)
+        run: |
+          npm ci
+          python scripts/build_assets.py
+
       # No --cov: the Codecov upload had been failing for months (no
       # CODECOV_TOKEN configured) and nothing consumed the report, so the
       # coverage tracing overhead was pure waste. If coverage is wanted
@@ -185,18 +198,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Blocking: pytest and production (DEBUG=False) serve the COMMITTED
-      # Alpine bundles (js/alpine/*.min.js), so they must match the sources.
-      # esbuild is pinned exactly, so a rebuild is byte-identical when nothing
-      # drifted. `git status` also catches a new bundle that was never added.
-      - name: Verify the Alpine .min.js bundles are up to date
+      # Blocking: the Alpine bundles are generated, not committed, so this job
+      # proves the sources still bundle (esbuild is pinned exactly) and that
+      # every expected bundle and source map was produced.
+      - name: Build the Alpine .min.js bundles
         run: |
           npm run build:js
-          if [ -n "$(git status --porcelain -- crush_lu/static/crush_lu/js/alpine/)" ]; then
-            git status --short -- crush_lu/static/crush_lu/js/alpine/
-            echo "::error::Alpine bundles are stale: run 'npm run build:js' and commit js/alpine/*.min.js"
-            exit 1
-          fi
+          for bundle in core coach quiz journey connect; do
+            test -s "crush_lu/static/crush_lu/js/alpine/${bundle}.min.js" || { echo "::error::${bundle}.min.js missing"; exit 1; }
+            test -s "crush_lu/static/crush_lu/js/alpine/${bundle}.min.js.map" || { echo "::error::${bundle}.min.js.map missing"; exit 1; }
+          done
 
       - name: Check JavaScript/CSS formatting (advisory)
         run: npm run format:check
@@ -233,10 +244,9 @@ jobs:
           pip install pytest pytest-django pytest-xdist
           npm ci
 
-      - name: Build Tailwind CSS
-        # The deploy workflow serves a freshly built bundle; audit that, not a
-        # possibly stale checked-in copy.
-        run: npm run build:css
+      - name: Build generated assets (CSS, JS, translations)
+        # The deploy workflow serves freshly built bundles; audit those.
+        run: python scripts/build_assets.py
 
       - name: Install Chromium for Playwright
         run: python -m playwright install --with-deps chromium

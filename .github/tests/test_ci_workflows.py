@@ -158,8 +158,9 @@ class WorkflowWiringTests(unittest.TestCase):
 
 
 class MinifiedAlpineBundleWiringTests(unittest.TestCase):
-    """Every Alpine bundle's .min.js is committed (tests and DEBUG=False render
-    it) and rebuilt on deploy exactly like tailwind.css."""
+    """Every Alpine bundle's .min.js is generated (git-ignored; see
+    scripts/build_assets.py), built in PR CI, and rebuilt and shipped on deploy
+    exactly like tailwind.css."""
 
     ALPINE_DIR = "crush_lu/static/crush_lu/js/alpine"
 
@@ -173,11 +174,14 @@ class MinifiedAlpineBundleWiringTests(unittest.TestCase):
         self.assertEqual(self.entries, ["coach", "connect", "core", "journey", "quiz"])
         self.min_js = [f"{self.ALPINE_DIR}/{e}.min.js" for e in self.entries]
 
-    def test_pr_ci_blocks_on_a_stale_min_js(self):
+    def test_pr_ci_proves_every_min_js_builds(self):
         steps = CI["jobs"]["javascript-lint"]["steps"]
         check = next(s for s in steps if "npm run build:js" in s.get("run", ""))
-        # --porcelain covers modified AND untracked (never-committed) bundles.
-        self.assertIn(f"git status --porcelain -- {self.ALPINE_DIR}/", check["run"])
+        # The bundles are not committed, so the job asserts that the build
+        # produced every bundle and its source map instead of diffing.
+        for entry in self.entries:
+            self.assertIn(entry, check["run"])
+        self.assertIn(".min.js.map", check["run"])
         self.assertIn("exit 1", check["run"])
         self.assertNotIn("continue-on-error", check)
         self.assertLess(
