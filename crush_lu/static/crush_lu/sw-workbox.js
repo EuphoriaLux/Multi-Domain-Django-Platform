@@ -159,7 +159,7 @@ if (workbox) {
         modulePathPrefix: "/static/crush_lu/workbox/",
     });
 
-    const CACHE_VERSION = "crush-v29-push-subscription-refresh";
+    const CACHE_VERSION = "crush-v30-ios-tracking-off";
 
     // Set cache name prefix - AFTER setConfig()
     workbox.core.setCacheNameDetails({
@@ -232,6 +232,16 @@ if (workbox) {
     // Cache Cleanup on Activation - Clean up old caches from previous versions
     // ============================================================================
 
+    // The iOS app shell must not sit on the old worker (and its cached pages
+    // and tickets, which may carry tracking tags) until the member taps
+    // "Update Now" in pwa-update.js: take over as soon as this one installs.
+    // pwa-update.js reloads the page on controllerchange.
+    self.addEventListener("install", () => {
+        if (/CrushLUApp\//.test(self.navigator.userAgent || "")) {
+            self.skipWaiting();
+        }
+    });
+
     self.addEventListener("activate", (event) => {
         event.waitUntil(
             (async () => {
@@ -246,6 +256,21 @@ if (workbox) {
                         )
                         .map((name) => caches.delete(name)),
                 );
+
+                // "crush-pages" is named without the version suffix, so the
+                // sweep above never reaches it. Drop it on every new worker:
+                // pages cached before the iOS app stopped loading tracking
+                // tags (App Review 5.1.2) must not come back from the cache.
+                await caches.delete("crush-pages");
+                // Event tickets live in their own year-long cache so a member
+                // can still scan at the door offline, which is why web
+                // visitors keep it. The iOS app shell (its UA carries
+                // CrushLUApp/) must not replay a ticket page cached before
+                // tracking was switched off, so it drops the copies once; the
+                // next online visit caches a tracker-free ticket again.
+                if (/CrushLUApp\//.test(self.navigator.userAgent || "")) {
+                    await caches.delete(TICKET_CACHE);
+                }
 
                 // Cache the offline page
                 const cache = await caches.open(workbox.core.cacheNames.runtime);

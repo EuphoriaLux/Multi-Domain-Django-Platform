@@ -33,7 +33,7 @@ up, bouncing that user into the app. Two rules bound that blast radius:
 """
 
 import time
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 SESSION_KEY = "mobile_auth_handoff"
 
@@ -111,6 +111,27 @@ def is_mobile_handoff_path(url):
         return False
     platform = path[len(_HANDOFF_PREFIX) : -len(_HANDOFF_SUFFIX_PATH)]
     return platform in ("ios", "android")
+
+
+def restore_mobile_handoff_from_state(request, state):
+    """Re-stash the session flag from a native-app handoff pinned in OAuth state.
+
+    When the callback arrives with no usable session, the state is recovered
+    from the database against a brand-new session that carries no handoff flag
+    (see the module docstring). Restoring it keeps the rest of that request,
+    including error and cancellation pages and the login page they redirect
+    to, recognisable as the app's auth sheet (e.g. so no tracking tags or
+    consent banner are served to it). Only a URL this module could have
+    produced is honoured.
+    """
+    nxt = state.get("next") if isinstance(state, dict) else None
+    if not hasattr(request, "session") or not is_mobile_handoff_path(nxt):
+        return False
+    parts = urlsplit(nxt)
+    platform = parts.path[len(_HANDOFF_PREFIX) : -len(_HANDOFF_SUFFIX_PATH)]
+    redirect_uri = (parse_qs(parts.query).get("redirect_uri") or [""])[0]
+    stash_mobile_handoff(request, platform, redirect_uri)
+    return True
 
 
 def clear_mobile_handoff(request):
