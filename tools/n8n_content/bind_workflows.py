@@ -16,7 +16,7 @@ root = Path(__file__).parent
 mapping = json.loads(Path(args.mapping).read_text())
 output = Path(args.output)
 output.mkdir(parents=True, exist_ok=True)
-for kind in ("editorial", "carousel", "regenerate", "errors"):
+for kind in ("editorial", "carousel", "regenerate", "errors", "ideas"):
     workflow = json.loads((root / f"{kind}.workflow.json").read_text(encoding="utf-8"))
     for node in workflow["nodes"]:
         for credential in node.get("credentials", {}).values():

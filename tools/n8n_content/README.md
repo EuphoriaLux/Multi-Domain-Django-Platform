@@ -1,6 +1,6 @@
 # Crush content pipeline tooling
 
-Build the four inactive n8n imports with `python build_workflows.py`. Topic inputs
+Build the five inactive n8n imports with `python build_workflows.py`. Topic inputs
 are versioned under `selectors/`; no production export or credentials are needed
 to rebuild the definitions.
 
@@ -33,3 +33,33 @@ without the social captions or action buttons; normal runs remain unchanged.
 `preview.cjs` renders a local template preview from existing brand assets placed
 in `preview-assets/`. It does not call Gemini. Generated previews, local audit
 snapshots and bound payloads are gitignored.
+
+## Luxembourg idea feed
+
+`content-ideas` is an internal authenticated service with a durable SQLite volume.
+It reads public sources through the existing self-hosted Firecrawl API on Hermes.
+The source registry is `idea-sources.json`; refresh is bounded to two restricted
+searches and twelve page reads. It never calls a model, downloads pictures, sends
+messages, reads member data or publishes. An n8n collector runs daily at 08:00
+Europe/Luxembourg, with manual and authenticated webhook alternatives.
+
+The v2 generators select a sourced idea before generating copy. Input
+`posting_date: "YYYY-MM-DD"` chooses the intended posting day (today by default),
+up to 90 days ahead; it does not schedule publication. Event sources need a recent
+successful read within 48 hours and an event 1–21 days after that posting day.
+Places/context expire after 14 days; census context always carries its data period.
+Missing dates, expired events and pages outside the registered hosts are excluded.
+Only validated title/date/region/provenance fields enter the model, never raw pages.
+
+Selection reserves a source for one hour. Successful review delivery records use;
+source cooldown is seven days, exact idea cooldown fourteen days, and recent region
+repetition is penalized. Concurrent runs reserve different sources. Replays keep
+the same reservation. Failed runs do not consume completed history. No available
+idea or an unavailable feed falls back to the six established coaching themes.
+An explicit `topic` override, or `use_feed: false`, keeps the original selection.
+
+Reviews retain `posting_date` and `source_idea`; normal Telegram review captions
+show the source and check date. Picture-only delivery retains its original behavior.
+Run `python -m unittest discover -s tools/n8n_content -p test_idea_feed.py` and the
+existing workflow/coordinator checks. Deployment and rollback:
+`ai-memory-hub/reviews/2026-10-01-firecrawl-idea-feed.md`.

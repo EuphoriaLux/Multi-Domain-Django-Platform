@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
-for(const kind of ['editorial','carousel','regenerate','errors']) {
+for(const kind of ['editorial','carousel','regenerate','errors','ideas']) {
   test(`${kind} workflow has valid edges, code and no embedded secrets`,()=>{
     const wf=JSON.parse(fs.readFileSync(path.join(__dirname,`${kind}.workflow.json`)));
     assert.equal(wf.active,false);
@@ -37,4 +37,34 @@ test('caption and slide guardrails reject bad output before any image or publica
   assert.equal((await invoke(payload))[0].json.script.slides.length,5);
   await assert.rejects(()=>invoke({...payload,caption_en:'x'.repeat(1501)}),/Caption/);
   await assert.rejects(()=>invoke({...payload,slides:payload.slides.slice(0,4)}),/Incomplete/);
+});
+
+test('source selection precedes copy; history is consumed after successful delivery',()=>{
+  for(const kind of ['editorial','carousel']) {
+    const wf=JSON.parse(fs.readFileSync(path.join(__dirname,`${kind}.workflow.json`)));
+    assert.equal(wf.connections['Apply Sourced Idea'].main[0][0].node,'Generate Structured Copy');
+    assert.equal(wf.connections['Store and Send Review'].main[0][0].node,'Record Reviewed Idea');
+    assert.equal(wf.nodes.find(n=>n.name==='Select Sourced Idea').onError,'continueRegularOutput');
+    assert.equal(wf.nodes.find(n=>n.name==='Record Reviewed Idea').onError,'continueRegularOutput');
+  }
+});
+
+test('explicit future posting dates determine fallback slot and invalid dates fail early',async()=>{
+  const wf=JSON.parse(fs.readFileSync(path.join(__dirname,'carousel.workflow.json')));
+  const run=new AsyncFunction('$json',wf.nodes.find(n=>n.name==='Select Topic').parameters.jsCode);
+  const future=new Date(Date.now()+12*86400000).toISOString().slice(0,10);
+  const selected=(await run({body:{posting_date:future}}))[0].json;
+  assert.equal(selected.postingDate,future);
+  await assert.rejects(()=>run({body:{posting_date:'2026-02-30'}}),/posting_date/);
+  assert.equal((await run({body:{topic:'icebreakers'}}))[0].json.skipFeed,true);
+});
+
+test('feed errors retain the original evergreen selection and review flags',async()=>{
+  const wf=JSON.parse(fs.readFileSync(path.join(__dirname,'carousel.workflow.json')));
+  const run=new AsyncFunction('$json','$',wf.nodes.find(n=>n.name==='Apply Sourced Idea').parameters.jsCode);
+  const base={kind:'carousel',name:'Evergreen theme',postingDate:'2026-10-08',visualOnly:true};
+  const result=(await run({error:'Service unavailable'},()=>({first:()=>({json:base})})))[0].json;
+  assert.equal(result.name,base.name);
+  assert.equal(result.visualOnly,true);
+  assert.equal(result.sourceIdea,null);
 });

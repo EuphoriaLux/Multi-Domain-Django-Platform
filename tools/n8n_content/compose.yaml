@@ -1,5 +1,16 @@
 # Merge into the existing svc stack after completing the rollout checklist.
 services:
+  content-ideas:
+    build:
+      context: .
+      dockerfile: Dockerfile.ideas
+    restart: unless-stopped
+    environment:
+      IDEA_TOKEN: ${REVIEW_TOKEN:?Configure the internal bearer secret}
+      FIRECRAWL_URL: http://hermes.fritz.box:3002
+    volumes:
+      - content_ideas:/data
+    networks: [n8n]
   content-renderer:
     build:
       context: .
@@ -30,6 +41,7 @@ services:
       - content_reviews:/data
     networks: [n8n]
 volumes:
+  content_ideas:
   content_reviews:
 networks:
   n8n:

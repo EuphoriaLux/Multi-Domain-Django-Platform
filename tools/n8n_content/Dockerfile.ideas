@@ -1,0 +1,9 @@
+FROM python:3.12-slim
+RUN apt-get update && apt-get install -y --no-install-recommends tzdata && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir requests==2.32.5
+WORKDIR /app
+COPY --chown=1000:1000 idea-feed.py idea-sources.json ./
+RUN useradd -u 1000 -m ideas && mkdir /data && chown ideas:ideas /data
+USER ideas
+EXPOSE 8094
+CMD ["python", "-u", "idea-feed.py"]
