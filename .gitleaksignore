@@ -15,3 +15,10 @@
 # Redacted key fragment in an incident write-up (added 2025-10-19, deleted
 # 2025-10-21), not a usable key.
 9e804cc3f790f753d21a9bd852f6029568d35a2f:SECURITY_ALERT_API_KEYS.md:generic-api-key:8
+
+# Hermes deploy scripts (commits 2396315, aadfffb) mapped credential names to n8n
+# credential IDs: internal object identifiers, not secret values (the secrets stay
+# in n8n). The scripts moved to the separate crush-content-automation repo (removed
+# in d603db8).
+239631595eed47eef6d983c26a4439461ea1d9f4:tools/n8n_content/deploy_hermes.py:generic-api-key:122
+aadfffbf2b3933096e1e82bd8f2ce74469745cc5:tools/n8n_content/deploy_ideas_hermes.py:generic-api-key:159
