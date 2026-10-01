@@ -11,9 +11,11 @@ Playwright is a hard failure, so the gate can never go green with no coverage
     drill-down (GDPR), advent calendar -- each in light and dark mode at 390px.
 
 It fails only on NEW critical or serious violations. What is tolerated today
-lives in ``axe_baseline.json`` (``page/theme`` -> ``rule id`` -> node count).
-A page fails when a rule is not in its baseline entry, or has more nodes than
-the entry allows. Fewer nodes than the baseline is a pass with a ratchet hint.
+lives in ``axe_baseline.json`` (``page/theme`` -> ``rule id`` -> the CSS
+selectors of the tolerated nodes, digits normalised). A page fails when a node
+is not in its baseline entry, so swapping one bad element for another still
+fails even if the count is unchanged. Fewer nodes than the baseline is a pass
+with a ratchet hint.
 
 Ratchet the baseline down (or record a deliberate exception):
 
@@ -29,9 +31,13 @@ Excluded from the default run (``-m "not playwright"`` in pytest.ini). Run:
 
 import json
 import os
+import re
+from collections import Counter
+from contextlib import nullcontext
 from datetime import datetime, timezone as dt_timezone
 from pathlib import Path
 from unittest.mock import patch
+from urllib.parse import urlparse
 
 import pytest
 
@@ -43,6 +49,7 @@ else:
     pytest.importorskip("playwright")
 
 from django.conf import settings  # noqa: E402
+from django.core.cache import cache  # noqa: E402
 from django.test import Client  # noqa: E402
 
 pytestmark = [
@@ -81,11 +88,15 @@ async () => {
     return r.violations.map(v => ({
         id: v.id,
         impact: v.impact,
-        nodes: v.nodes.length,
-        targets: v.nodes.slice(0, 3).map(n => n.target.join(' ')),
+        targets: v.nodes.map(n => n.target.join(' ')),
     }));
 }
 """
+
+
+def _fingerprints(violation):
+    """Stable node identities: selectors with ids/indexes (digits) normalised."""
+    return sorted(re.sub(r"\d+", "N", t) for t in violation["targets"])
 
 
 def _load_baseline():
@@ -110,6 +121,9 @@ def world(transactional_db, settings):
     from crush_lu.tests.test_crush_connect import _grant_consent, _make_user
     from crush_lu.tests.test_ux_wave4_advent import make_advent_user
 
+    # SQLite reuses primary keys across tests and the nav badge cache key is
+    # just the user pk, so a stale entry would change the rendered DOM.
+    cache.clear()
     settings.CRUSH_CONNECT_LAUNCHED = True
     member = _make_user(username="axe_smoke")
     _grant_consent(member)
@@ -177,11 +191,23 @@ def test_no_new_serious_axe_violations(browser, live_server, world, slug, theme)
     context.add_init_script(f"localStorage.setItem('theme', '{theme}');")
     page = context.new_page()
     try:
-        with patch(ADVENT_NOW, return_value=DEC_5):
-            response = page.goto(
-                f"{live_server.url}{path.format(event=world['event'].id)}"
-            )
+        # Freeze the clock for the advent page only: the patch replaces
+        # django.utils.timezone.now process-wide, which would skew every
+        # other page's event/deadline logic against the real-time fixtures.
+        freeze = (
+            patch(ADVENT_NOW, return_value=DEC_5)
+            if slug == "advent"
+            else (nullcontext())
+        )
+        with freeze:
+            expected = path.format(event=world["event"].id)
+            response = page.goto(f"{live_server.url}{expected}")
             assert response is not None and response.ok, (path, response)
+            # A redirect (login, consent, feature gate) would audit the wrong
+            # page and leave the named surface uncovered while staying green.
+            assert (
+                urlparse(page.url).path == expected
+            ), f"{path} redirected to {page.url}"
             page.wait_for_load_state("load")
             page.wait_for_timeout(500)
             page.evaluate(AXE_PATH.read_text(encoding="utf-8"))
@@ -194,29 +220,33 @@ def test_no_new_serious_axe_violations(browser, live_server, world, slug, theme)
 
     if UPDATE:
         data = _load_baseline()
-        data[key] = {rule: v["nodes"] for rule, v in found.items()}
+        data[key] = {rule: _fingerprints(v) for rule, v in found.items()}
         if not data[key]:
             data.pop(key)
         _save_baseline(data)
         return
 
     allowed = _load_baseline().get(key, {})
-    regressions = [
-        f"{rule}: {v['nodes']} node(s), baseline {allowed.get(rule, 0)} "
-        f"({v['impact']}) e.g. {v['targets']}"
-        for rule, v in sorted(found.items())
-        if v["nodes"] > allowed.get(rule, 0)
-    ]
+    regressions = []
+    improved = []
+    for rule, v in sorted(found.items()):
+        new_nodes = Counter(_fingerprints(v)) - Counter(allowed.get(rule, []))
+        if new_nodes:
+            regressions.append(
+                f"{rule} ({v['impact']}): {sum(new_nodes.values())} new node(s) "
+                f"not in the baseline, e.g. {sorted(new_nodes)[:3]}"
+            )
+    for rule, targets in sorted(allowed.items()):
+        gone = Counter(targets) - Counter(
+            _fingerprints(found[rule]) if rule in found else []
+        )
+        if gone:
+            improved.append(f"{rule}: -{sum(gone.values())}")
     assert not regressions, (
         f"New critical/serious axe violations on {key} ({path}):\n  "
         + "\n  ".join(regressions)
-        + "\nFix them; do not raise axe_baseline.json."
+        + "\nFix them; do not extend axe_baseline.json."
     )
-    improved = [
-        f"{rule}: {allowed[rule]} -> {found.get(rule, {}).get('nodes', 0)}"
-        for rule in sorted(allowed)
-        if found.get(rule, {}).get("nodes", 0) < allowed[rule]
-    ]
     if improved:
         print(
             f"axe ratchet: {key} improved ({', '.join(improved)}); "

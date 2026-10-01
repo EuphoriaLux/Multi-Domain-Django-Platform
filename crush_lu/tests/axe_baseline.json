@@ -1,41 +1,94 @@
 {
   "advent/dark": {
-    "aria-progressbar-name": 1
+    "aria-progressbar-name": [
+      ".progress-bar"
+    ]
   },
   "advent/light": {
-    "aria-progressbar-name": 1
+    "aria-progressbar-name": [
+      ".progress-bar"
+    ]
   },
   "connect-hub/dark": {
-    "color-contrast": 4
+    "color-contrast": [
+      ".connect-local-nav > a[href$=\"home/\"]",
+      "a[href$=\"chats/\"]",
+      "a[href$=\"inbox/\"]",
+      "a[href$=\"week/\"]"
+    ]
   },
   "connect-hub/light": {
-    "color-contrast": 11
+    "color-contrast": [
+      ".connect-local-nav > a[href$=\"home/\"]",
+      ".connect-week-timeline-next",
+      ".connect-week-timeline-step:nth-child(N) > .connect-week-timeline-label",
+      ".connect-week-timeline-step:nth-child(N) > .connect-week-timeline-label",
+      ".connect-week-timeline-step:nth-child(N) > .connect-week-timeline-label",
+      ".connect-week-timeline-step:nth-child(N) > .connect-week-timeline-label",
+      ".is-current > .connect-week-timeline-label",
+      ".tracking-\\[N\\.Nem\\]",
+      "a[href$=\"chats/\"]",
+      "a[href$=\"inbox/\"]",
+      "time"
+    ]
   },
   "dashboard/dark": {
-    "color-contrast": 1
+    "color-contrast": [
+      ".tracking-\\[N\\.Nem\\]"
+    ]
   },
   "dashboard/light": {
-    "color-contrast": 2
+    "color-contrast": [
+      ".tracking-\\[N\\.Nem\\]",
+      ".truncate.dark\\:text-gray-N.text-gray-N"
+    ]
   },
   "event-detail/dark": {
-    "color-contrast": 2
+    "color-contrast": [
+      ".underline.font-semibold[href$=\"signup/\"]",
+      "a[href=\"/en/login/?next=/en/events/N/\"]"
+    ]
   },
   "event-detail/light": {
-    "color-contrast": 3
+    "color-contrast": [
+      ".gap-N\\.N.inline-flex.font-semibold > .text-green-N.dark\\:text-green-N",
+      ".underline.font-semibold[href$=\"signup/\"]",
+      "a[href=\"/en/login/?next=/en/events/N/\"]"
+    ]
   },
   "events/light": {
-    "color-contrast": 4
+    "color-contrast": [
+      ".badge-crush-soft",
+      ".gap-N\\.N.inline-flex:nth-child(N)",
+      ".gap-N\\.N.inline-flex:nth-child(N)",
+      ".text-green-N"
+    ]
   },
   "login/dark": {
-    "color-contrast": 1
+    "color-contrast": [
+      ".hover\\:text-purple-N"
+    ]
   },
   "login/light": {
-    "color-contrast": 1
+    "color-contrast": [
+      ".mt-N > .text-gray-N.dark\\:text-gray-N"
+    ]
   },
   "signup/dark": {
-    "color-contrast": 3
+    "color-contrast": [
+      ".font-normal",
+      ".hover\\:underline[href$=\"privacy-policy/\"][target=\"_blank\"]",
+      ".hover\\:underline[href$=\"terms-of-service/\"][target=\"_blank\"]"
+    ]
   },
   "signup/light": {
-    "color-contrast": 6
+    "color-contrast": [
+      ".font-normal",
+      ".hover\\:underline[href$=\"privacy-policy/\"][target=\"_blank\"]",
+      ".hover\\:underline[href$=\"terms-of-service/\"][target=\"_blank\"]",
+      ".items-start > .text-gray-N.dark\\:text-gray-N",
+      ".mt-N > .text-gray-N.dark\\:text-gray-N",
+      ".password-strength-default"
+    ]
   }
 }
