@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "test:smoke": "pytest -m \"playwright and smoke\" --tb=short -q",
+    "test:axe": "pytest -m \"playwright and axe_smoke\" -n 0 --tb=short -q",
     "build:css": "npm run build:css:base && npm run build:css:features",
     "build:css:base": "tailwindcss -i ./tailwind-src/crush_lu/tailwind-input.css -o ./crush_lu/static/crush_lu/css/tailwind.css --minify",
     "build:css:features": "npm run build:css:journey && npm run build:css:marketing",
@@ -33,6 +34,7 @@
     "@tailwindcss/forms": "^0.5.7",
     "@tailwindcss/typography": "^0.5.20",
     "@upstash/context7-mcp": "^4.1.1",
+    "axe-core": "^4.13.0",
     "esbuild": "0.28.2",
     "prettier": "^3.9.9",
     "prettier-plugin-tailwindcss": "^0.8.1",
