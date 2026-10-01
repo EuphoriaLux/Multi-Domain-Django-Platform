@@ -18,6 +18,14 @@ TEMPLATES = REPO_ROOT / "crush_lu" / "templates"
 INPUT_CSS = (REPO_ROOT / "tailwind-src" / "crush_lu" / "tailwind-input.css").read_text(
     encoding="utf-8"
 )
+# Page-only rules (press, coach, about...) live in the feature sources, not in the
+# shared tailwind-input.css, since the CSS split (WP11a).
+FEATURE_CSS = "".join(
+    path.read_text(encoding="utf-8")
+    for path in sorted(
+        (REPO_ROOT / "tailwind-src" / "crush_lu" / "features").glob("*.css")
+    )
+)
 BUILT_CSS = (
     REPO_ROOT / "crush_lu" / "static" / "crush_lu" / "css" / "tailwind.css"
 ).read_text(encoding="utf-8")
@@ -378,11 +386,12 @@ class ComponentContrastPinTests(SimpleTestCase):
             ".photo-upload-card .photo-help",
             ".coach-stat-label",
         ):
-            body = _rule_body(INPUT_CSS, selector)
+            body = _rule_body(INPUT_CSS + FEATURE_CSS, selector)
             self.assertNotEqual(body, "", selector)
             self.assertIn("color:var(--text-muted)", body, selector)
         self.assertIn(
-            "color:var(--color-purple-700)", _rule_body(INPUT_CSS, ".press-publication")
+            "color:var(--color-purple-700)",
+            _rule_body(INPUT_CSS + FEATURE_CSS, ".press-publication"),
         )
 
 
