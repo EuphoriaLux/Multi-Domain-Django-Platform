@@ -79,3 +79,23 @@ class SignupWithoutConfirmPasswordTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertTrue(User.objects.filter(email="nina-w5@example.com").exists())
+
+
+class PhoneContinueIsSolidTests(TestCase):
+    """STYLE.md §2: "Continue" is the solid variant, not the hero gradient."""
+
+    def test_continue_link_uses_solid_variant(self):
+        from pathlib import Path
+
+        from django.conf import settings
+
+        html = (
+            Path(settings.BASE_DIR)
+            / "crush_lu"
+            / "templates"
+            / "crush_lu"
+            / "onboarding"
+            / "phone.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn('class="btn-crush-solid w-full"', html)
+        self.assertNotIn("btn-crush-primary", html)
