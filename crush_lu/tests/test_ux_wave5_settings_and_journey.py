@@ -245,11 +245,20 @@ def test_snowflakes_sit_behind_the_page_content():
 # --- Codex review follow-ups ---------------------------------------------------
 
 CSS_SRC = ROOT.parent / "tailwind-src" / "crush_lu" / "tailwind-input.css"
+FEATURES = ROOT.parent / "tailwind-src" / "crush_lu" / "features"
+
+
+def _source_css():
+    """The global input plus the per-feature sheets (journey rules live there)."""
+    parts = [CSS_SRC.read_text(encoding="utf-8")]
+    parts += [p.read_text(encoding="utf-8") for p in sorted(FEATURES.glob("*.css"))]
+    return "\n".join(parts)
+
 LIGHT = "html:not(.dark) body.journey-bg #main-content"
 
 
 def _light_rules():
-    css = CSS_SRC.read_text(encoding="utf-8")
+    css = _source_css()
     return re.findall(re.escape(LIGHT) + r"([^{]*)\{([^}]*)\}", css)
 
 
@@ -338,7 +347,7 @@ def test_light_slideshow_counter_difficulty_and_progress_label():
 
 
 def test_light_gradient_surfaces_keep_white_text():
-    css = CSS_SRC.read_text(encoding="utf-8")
+    css = _source_css()
     reset = css[css.index(".journey-btn-primary,") :]
     reset = reset[: reset.index("--color-white: #fff")]
     for cls in (".reveal-piece-number", ".reveal-complete-message", ".timeline-number"):
@@ -350,7 +359,7 @@ def test_light_gradient_surfaces_keep_white_text():
 
 
 def test_light_theme_overrides_the_pale_emerald_token():
-    css = CSS_SRC.read_text(encoding="utf-8")
+    css = _source_css()
     block = css[css.index(LIGHT + " {") :]
     block = block[: block.index("}")]
     # .step-indicator.completed and .file-name use text-emerald-300.

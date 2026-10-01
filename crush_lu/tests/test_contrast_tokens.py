@@ -206,9 +206,10 @@ class ThemeLockMarkupTests(TestCase):
                 self.assertIn("journey-bg", source)
 
     def test_journey_light_theme_is_light(self):
-        css = (
-            REPO_ROOT / "tailwind-src" / "crush_lu" / "tailwind-input.css"
-        ).read_text(encoding="utf-8")
+        css = TAILWIND_INPUT.read_text(encoding="utf-8") + "\n".join(
+            p.read_text(encoding="utf-8")
+            for p in sorted((TAILWIND_INPUT.parent / "features").glob("*.css"))
+        )
         # Dark keeps the navy gradient; light gets its own page background.
         self.assertIn("body.journey-bg {", css)
         self.assertIn("html:not(.dark) body.journey-bg {", css)
