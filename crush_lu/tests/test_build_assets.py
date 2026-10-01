@@ -119,6 +119,11 @@ class TranslationBuildTests(SimpleTestCase):
         build_assets.LOCALE = self.tmp
         build_assets.LANGUAGES = ("fr",)
         build_assets.MIN_DJANGO_ENTRIES = {}  # a tiny catalogue is fine here
+        self.original_required = build_assets.REQUIRED_CATALOGUES
+        build_assets.REQUIRED_CATALOGUES = {"fr": ("django",)}
+        self.addCleanup(
+            setattr, build_assets, "REQUIRED_CATALOGUES", self.original_required
+        )
         self.addCleanup(
             setattr, build_assets, "MIN_DJANGO_ENTRIES", self.original_floor
         )
@@ -142,6 +147,25 @@ class TranslationBuildTests(SimpleTestCase):
         self.assertEqual(len(problems), 1)
         self.assertIn("only", problems[0])
 
+    def test_a_deleted_required_catalogue_fails_instead_of_being_skipped(self):
+        self.po_path.unlink()
+        problems = build_assets.verify_translations()
+        self.assertEqual(len(problems), 1)
+        self.assertIn("required catalogue missing", problems[0])
+        with self.assertRaises(SystemExit):
+            build_assets.build_translations()
+
+    def test_a_plural_forms_header_the_runtime_parser_rejects_is_reported(self):
+        # polib compiles and re-reads this happily; Django's gettext would
+        # raise when loading the locale, turning every request into a 500.
+        po = polib.pofile(str(self.po_path))
+        po.metadata["Plural-Forms"] = "nplurals=2; plural=(n ! 1);"
+        po.save(str(self.po_path))
+        build_assets.build_translations()
+        problems = build_assets.verify_translations()
+        self.assertEqual(len(problems), 1)
+        self.assertIn("runtime gettext parser", problems[0])
+
     def test_a_missing_mo_is_reported(self):
         problems = build_assets.verify_translations()
         self.assertEqual(len(problems), 1)
@@ -161,6 +185,49 @@ class TranslationBuildTests(SimpleTestCase):
         problems = build_assets.verify_translations()
         self.assertEqual(len(problems), 1)
         self.assertIn("unreadable", problems[0])
+
+
+class FreshnessTests(SimpleTestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+
+    def test_an_output_older_than_its_sources_is_reported(self):
+        import os
+
+        source = self.tmp / "input.css"
+        output = self.tmp / "out.css"
+        source.write_text("a{}")
+        output.write_text("a{}")
+        os.utime(output, (1_000_000, 1_000_000))
+        os.utime(source, (2_000_000, 2_000_000))
+        original = (build_assets.CSS_FILES, build_assets.ROOT)
+        build_assets.CSS_FILES = (output,)
+        self.addCleanup(setattr, build_assets, "CSS_FILES", original[0])
+        sources = [source]
+        real_glob = Path.glob
+
+        def fake_glob(path, pattern):
+            if "tailwind-src" in str(path):
+                return iter(sources if path.name == "crush_lu" else [])
+            return real_glob(path, pattern)
+
+        from unittest import mock
+
+        with mock.patch.object(Path, "glob", fake_glob):
+            problems = build_assets.verify_fresh()
+        self.assertTrue(any("older than its sources" in p for p in problems), problems)
+
+    def test_the_built_repository_is_fresh(self):
+        self.assertEqual(build_assets.verify_fresh(), [])
+
+    def test_deploy_skips_the_freshness_check_but_dev_runs_it(self):
+        deploy = (WORKFLOWS / "deploy-azure-app-service-optimized.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("build_assets.py --check --no-freshness", deploy)
+        conftest = (ROOT / "conftest.py").read_text(encoding="utf-8")
+        self.assertIn("verify_fresh()", conftest)
 
 
 class WorkflowsBuildTheAssetsTests(SimpleTestCase):

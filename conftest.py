@@ -48,6 +48,7 @@ def pytest_sessionstart(session):
     problems = (
         build_assets.verify_files(build_assets.CSS_FILES, "CSS bundle")
         + build_assets.verify_files(build_assets.JS_FILES, "JS bundle")
+        + build_assets.verify_fresh()
         + build_assets.verify_translations()
     )
     if problems:

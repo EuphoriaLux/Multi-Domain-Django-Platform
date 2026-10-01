@@ -26,6 +26,7 @@ step can run ``--check`` and refuse to ship without the files.
 from __future__ import annotations
 
 import argparse
+import gettext
 import shutil
 import subprocess
 import sys
@@ -50,13 +51,21 @@ JS_FILES = tuple(
 MIN_DJANGO_ENTRIES = {"de": 1000, "fr": 1000}
 
 
+# Catalogues the site cannot ship without. A deleted or renamed one must fail
+# the build, not silently drop that language back to English.
+REQUIRED_CATALOGUES = {
+    "en": ("django",),
+    "de": ("django", "djangojs"),
+    "fr": ("django", "djangojs"),
+}
+
+
 def _po_mo_pairs():
-    """(po, mo) for every crush_lu catalogue that exists in the repo."""
+    """(po, mo) for every required crush_lu catalogue, present or not."""
     for lang in LANGUAGES:
-        for domain in ("django", "djangojs"):
+        for domain in REQUIRED_CATALOGUES.get(lang, ("django",)):
             po = LOCALE / lang / "LC_MESSAGES" / f"{domain}.po"
-            if po.exists():
-                yield po, po.with_suffix(".mo")
+            yield po, po.with_suffix(".mo")
 
 
 def build_node_assets() -> None:
@@ -68,12 +77,19 @@ def build_node_assets() -> None:
     for script in ("build:css", "build:js"):
         print(f"-> npm run {script}")
         subprocess.run([npm, "run", script], cwd=ROOT, check=True)
+    # Tailwind and esbuild leave an output untouched when its content did not
+    # change, which would make an up-to-date file look older than its sources.
+    for output in (*CSS_FILES, *JS_FILES):
+        if output.is_file():
+            output.touch()
 
 
 def build_translations() -> None:
     import polib
 
     for po_path, mo_path in _po_mo_pairs():
+        if not po_path.is_file():
+            sys.exit(f"Required catalogue is missing: {_rel(po_path)}")
         print(f"-> {_rel(mo_path)}")
         # save_as_mofile skips fuzzy and obsolete entries, like msgfmt.
         polib.pofile(str(po_path)).save_as_mofile(str(mo_path))
@@ -94,6 +110,41 @@ def verify_files(paths, label: str) -> list[str]:
     return problems
 
 
+def _newest(paths) -> float:
+    return max((p.stat().st_mtime for p in paths if p.is_file()), default=0.0)
+
+
+def verify_fresh() -> list[str]:
+    """Built CSS/JS must not be older than the sources they are built from.
+
+    Direct sources only: the Tailwind input files and the Alpine modules. (The
+    CSS also depends on the classes used in templates; rebuild after template
+    work too, which `build_assets.py` always does.) Skipped on deploy, where
+    mtimes of a restored artifact are meaningless.
+    """
+    css_sources = [
+        *(ROOT / "tailwind-src" / "crush_lu").glob("*.css"),
+        *(ROOT / "tailwind-src" / "crush_lu" / "features").glob("*.css"),
+    ]
+    js_sources = [
+        p
+        for p in (STATIC / "js" / "alpine").glob("*.js")
+        if not p.name.endswith(".min.js")
+    ]
+    problems = []
+    for outputs, sources, label in (
+        (CSS_FILES, css_sources, "CSS"),
+        (JS_FILES, js_sources, "JS"),
+    ):
+        newest = _newest(sources)
+        for output in outputs:
+            if output.is_file() and output.stat().st_mtime < newest:
+                problems.append(
+                    f"{label} bundle is older than its sources: {_rel(output)}"
+                )
+    return problems
+
+
 def verify_translations() -> list[str]:
     """Every .mo loads, and holds exactly the translated entries of its .po."""
     import polib
@@ -101,6 +152,9 @@ def verify_translations() -> list[str]:
     problems = []
     for po_path, mo_path in _po_mo_pairs():
         rel = _rel(mo_path)
+        if not po_path.is_file():
+            problems.append(f"required catalogue missing: {_rel(po_path)}")
+            continue
         if not mo_path.is_file() or mo_path.stat().st_size == 0:
             problems.append(f".mo missing or empty: {rel}")
             continue
@@ -112,6 +166,17 @@ def verify_translations() -> list[str]:
             }
         except Exception as exc:  # a malformed .mo is the production hazard
             problems.append(f".mo unreadable ({exc}): {rel}")
+            continue
+        # polib accepts a broken Plural-Forms header that the runtime parser
+        # (the one Django uses to load the locale) rejects, which would turn
+        # every request in that language into a 500. Load it the same way.
+        try:
+            with mo_path.open("rb") as handle:
+                gettext.GNUTranslations(handle)
+        except Exception as exc:
+            problems.append(
+                f".mo rejected by the runtime gettext parser ({exc}): {rel}"
+            )
             continue
         source = polib.pofile(str(po_path))
         expected = {
@@ -134,6 +199,11 @@ def main(argv=None) -> int:
     )
     parser.add_argument("--no-npm", action="store_true", help="skip the CSS/JS build")
     parser.add_argument("--no-mo", action="store_true", help="skip the translations")
+    parser.add_argument(
+        "--no-freshness",
+        action="store_true",
+        help="skip the older-than-sources check (deploy: artifact mtimes)",
+    )
     args = parser.parse_args(argv)
 
     if not args.check:
@@ -146,6 +216,8 @@ def main(argv=None) -> int:
     if not args.no_npm:
         problems += verify_files(CSS_FILES, "CSS bundle")
         problems += verify_files(JS_FILES, "JS bundle")
+        if not args.no_freshness:
+            problems += verify_fresh()
     if not args.no_mo:
         problems += verify_translations()
 
