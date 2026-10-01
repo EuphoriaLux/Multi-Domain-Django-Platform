@@ -256,12 +256,21 @@ class FreshnessTests(SimpleTestCase):
         self.assertEqual(len(problems), 1)
         self.assertIn("CSS bundle is older", problems[0])
 
-    def test_a_newer_alpine_module_makes_the_js_stale_but_not_the_css(self):
+    def test_a_newer_alpine_module_makes_both_bundles_stale(self):
+        # core.js feeds the Alpine bundle and is also scanned by Tailwind for
+        # class names, so the CSS and the JS output are both reported.
         root = self._tree()
         self._touch_newer(root / "crush_lu/static/crush_lu/js/alpine/core.js")
         problems = build_assets.verify_fresh()
-        # core.js is also scanned by Tailwind, so both bundles are reported.
+        self.assertTrue(any("CSS bundle is older" in p for p in problems), problems)
         self.assertTrue(any("JS bundle is older" in p for p in problems), problems)
+
+    def test_minified_output_is_not_a_css_source(self):
+        # core.min.js is rebuilt after the CSS, so counting it would make a
+        # fresh CSS bundle look stale right after every build.
+        root = self._tree()
+        self._touch_newer(root / "crush_lu/static/crush_lu/js/alpine/core.min.js")
+        self.assertEqual(build_assets.verify_fresh(), [])
 
     def test_the_built_repository_is_fresh(self):
         self.assertEqual(build_assets.verify_fresh(), [])

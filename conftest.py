@@ -48,9 +48,12 @@ def pytest_sessionstart(session):
     problems = (
         build_assets.verify_files(build_assets.CSS_FILES, "CSS bundle")
         + build_assets.verify_files(build_assets.JS_FILES, "JS bundle")
-        + build_assets.verify_fresh()
         + build_assets.verify_translations()
     )
+    # Staleness only blocks when the developer can actually rebuild (Node
+    # installed); without node_modules, existing bundles are used as they are.
+    if os.path.isdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "node_modules")):
+        problems += build_assets.verify_fresh()
     if problems:
         pytest.exit(
             "Generated assets are missing or stale:\n  - "
