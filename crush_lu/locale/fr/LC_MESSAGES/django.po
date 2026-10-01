@@ -14688,6 +14688,10 @@ msgstr "Votre calendrier de l'Avent vous attend !"
 msgid "The magic begins on <strong>December 1st, %(year)s</strong>"
 msgstr "La magie commence le <strong>1er décembre %(year)s</strong>"
 
+#: crush_lu/views_advent.py:53
+msgid "The Advent Calendar will be available in December!"
+msgstr "Le calendrier de l'Avent sera disponible en décembre !"
+
 #: templates/crush_lu/advent/calendar_locked.html:36
 msgid "24 doors filled with surprises, just for you."
 msgstr "24 portes remplies de surprises, rien que pour vous."
