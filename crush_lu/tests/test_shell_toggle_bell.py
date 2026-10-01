@@ -233,9 +233,11 @@ class AccountSettingsToggleComponentTests(TestCase):
             for tag, attrs in _tags(html)
             if "after:content-['']" in (attrs.get("class") or "")
         ]
-        self.assertIn("peer-checked:bg-red-500", tracks[0])  # unsubscribe all
+        # "Pause all emails" is a plain purple switch (WP14), after the five
+        # granular email switches; it is no longer the red destructive variant.
+        self.assertNotIn("peer-checked:bg-red-500", tracks[5])
         self.assertIn("peer-checked:bg-green-600", tracks[6])  # WhatsApp
-        for index in (1, 2, 3, 4, 5, 7, 14):
+        for index in (0, 1, 2, 3, 4, 5, 7, 14):
             self.assertIn("peer-checked:bg-purple-600", tracks[index])
 
     def test_permission_denied_boxes_have_dark_mode_classes(self):

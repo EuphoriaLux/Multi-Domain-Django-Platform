@@ -10,6 +10,7 @@ import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.View;
 import android.webkit.CookieManager;
 import android.webkit.GeolocationPermissions;
@@ -668,6 +669,33 @@ public class MainActivity extends AppCompatActivity {
         return headers;
     }
 
+    /**
+     * The settings page's "Open notification settings" link is an intent: URI.
+     * openExternal() adds CATEGORY_BROWSABLE, which the system notification
+     * settings activity does not declare, so that route resolves to nothing.
+     * Build the intent natively instead, always for this app's own package
+     * (the page's extras are never trusted). Returns false for any other
+     * intent: URI so it keeps going through openExternal().
+     */
+    private boolean openAppNotificationSettings(Uri uri) {
+        try {
+            Intent parsed = Intent.parseUri(uri.toString(), Intent.URI_INTENT_SCHEME);
+            if (!Settings.ACTION_APP_NOTIFICATION_SETTINGS.equals(parsed.getAction())) {
+                return false;
+            }
+        } catch (URISyntaxException exception) {
+            return false;
+        }
+        Intent intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
+        try {
+            startActivity(intent);
+        } catch (ActivityNotFoundException | SecurityException exception) {
+            // No settings screen to show; nothing more to do.
+        }
+        return true;
+    }
+
     private void openExternal(Uri uri) {
         Intent intent;
         if ("intent".equals(uri.getScheme())) {
@@ -764,6 +792,9 @@ public class MainActivity extends AppCompatActivity {
             String scheme = schemeOf(uri);
             if (AUTH_SCHEME.equals(scheme)) {
                 handleUri(uri);
+                return true;
+            }
+            if (scheme.equals("intent") && openAppNotificationSettings(uri)) {
                 return true;
             }
             if (scheme.equals("tel") || scheme.equals("mailto") || scheme.equals("whatsapp") || scheme.equals("intent")) {
