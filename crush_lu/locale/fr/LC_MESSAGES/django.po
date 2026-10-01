@@ -14688,6 +14688,10 @@ msgstr "Votre calendrier de l'Avent vous attend !"
 msgid "The magic begins on <strong>December 1st, %(year)s</strong>"
 msgstr "La magie commence le <strong>1er décembre %(year)s</strong>"
 
+#: crush_lu/views_advent.py:53
+msgid "The Advent Calendar will be available in December!"
+msgstr "Le calendrier de l'Avent sera disponible en décembre !"
+
 #: templates/crush_lu/advent/calendar_locked.html:36
 msgid "24 doors filled with surprises, just for you."
 msgstr "24 portes remplies de surprises, rien que pour vous."
@@ -16119,10 +16123,8 @@ msgstr ""
 "message."
 
 #: templates/crush_lu/child_safety_standards.html:4
-#, fuzzy
-#| msgid "Change Password - Crush.lu"
 msgid "Child Safety Standards - Crush.lu"
-msgstr "Changer le mot de passe - Crush.lu"
+msgstr "Normes de protection de l'enfance - Crush.lu"
 
 #: templates/crush_lu/child_safety_standards.html:5
 msgid ""
@@ -16130,12 +16132,13 @@ msgid ""
 "sexual abuse and exploitation (CSAE), reporting mechanisms, and safety "
 "enforcement."
 msgstr ""
+"Les normes de protection de l'enfance de Crush.lu — nos engagements "
+"publiés contre les abus et l'exploitation sexuels d'enfants (CSAE), les "
+"mécanismes de signalement et l'application des règles."
 
 #: templates/crush_lu/child_safety_standards.html:12
-#, fuzzy
-#| msgid "Community Standards"
 msgid "Child Safety Standards"
-msgstr "Standards de la communauté"
+msgstr "Normes de protection de l'enfance"
 
 #: templates/crush_lu/child_safety_standards.html:13
 #, fuzzy
@@ -42411,6 +42414,11 @@ msgstr ""
 
 #: templates/crush_lu/base.html:1289
 #: templates/crush_lu/partials/edit_about_crushlu.html:123
+msgid "Your privacy matters. Members are verified in person at an event."
+msgstr ""
+"Votre vie privée compte. Les membres sont vérifiés en personne lors d'un "
+"événement."
+
 msgid ""
 "Your privacy matters. Members are verified instantly with LuxID or in person "
 "at an event."

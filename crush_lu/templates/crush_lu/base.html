@@ -4,6 +4,7 @@
 {% load seo_tags %}
 {% load crush_connect_tags %}
 {% load privacy_tags %}
+{% load social_tags %}
 <!DOCTYPE html>
 {# theme_lock: an always-dark surface (journey, gifts) fills it with class="dark" data-theme-lock="dark"; theme-manager.js keeps .dark there and the toggles stay focusable but aria-disabled, so their explanation is reachable. #}
 <html lang="{{ LANGUAGE_CODE|default:'en' }}"{% if is_native_app %} data-native-app{% endif %}{% block theme_lock %}{% endblock %}>
@@ -1362,7 +1363,9 @@
                 <div>
                     <p class="font-semibold mb-4 text-white/90">{% trans "Privacy First" %}</p>
                     {# LuxID verification is instant, with no coach review; some event audiences admit unverified profiles, so no "before meeting anyone" guarantee. Spec: ai-memory-hub/specs/2026-08-24-crush-connect-repo-product-doc.md #}
-                    <p class="text-white/75">{% trans "Your privacy matters. Members are verified instantly with LuxID or in person at an event." %}</p>
+                    {# Only promise LuxID when its button is offered (same predicate as auth.html). #}
+                    {% luxid_available as luxid_offered %}
+                    <p class="text-white/75">{% if luxid_offered %}{% trans "Your privacy matters. Members are verified instantly with LuxID or in person at an event." %}{% else %}{% trans "Your privacy matters. Members are verified in person at an event." %}{% endif %}</p>
                     {% if whatsapp_enabled and whatsapp_number %}
                     <p class="text-white/75 mt-4">
                         <a href="https://wa.me/{{ whatsapp_number }}" target="_blank" rel="noopener noreferrer"
