@@ -2187,12 +2187,18 @@ def _registration_payment_state(registration):
     sweep and keeps them on the credit message. A REFUNDED transaction means
     the cash already went back (credits.py and reconcile_sumup_payments flip
     the source payment), so they paid but must not be promised a credit.
+
+    Only transactions from the current registration cycle count: a cancelled
+    seat is reused on re-registration (``registered_at`` is reset) and its old
+    PAID row stays linked, but the sweep credits only ``payment_confirmed``
+    rows, so an earlier cycle's payment promises nothing.
     """
     if registration.payment_confirmed:
         return "held"
     statuses = set(
         PaymentTransaction.objects.filter(
             event_registration=registration,
+            created_at__gte=registration.registered_at,
             status__in=[
                 PaymentTransaction.Status.PAID,
                 PaymentTransaction.Status.REFUNDED,

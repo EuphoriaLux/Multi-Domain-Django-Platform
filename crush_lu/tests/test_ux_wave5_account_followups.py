@@ -231,6 +231,33 @@ class OrganiserCancelRefusalCopyTests(TestCase):
         self.assertNotIn("on its way", texts[0])
         self.assertIn("already been handled", texts[0])
 
+    def test_payment_from_an_earlier_registration_cycle_is_ignored(self):
+        """Cancel + credit + re-register reuses the row and resets
+        registered_at; the old PAID row must not promise a credit the sweep
+        (payment_confirmed rows only) will never issue."""
+        registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        old = PaymentTransaction.objects.create(
+            transaction_reference="W5-OLD-CYCLE",
+            sumup_checkout_id="CHK-W5-OLD-CYCLE",
+            amount=Decimal("15.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=registration,
+        )
+        PaymentTransaction.objects.filter(pk=old.pk).update(
+            created_at=timezone.now() - timezone.timedelta(days=3)
+        )
+        registration.registered_at = timezone.now()
+        registration.save(update_fields=["registered_at"])
+        texts = self._texts(registration)
+        self.assertEqual(len(texts), 1)
+        self.assertNotIn("on its way", texts[0])
+        self.assertIn("No payment was recorded", texts[0])
+
     def test_translations_exist(self):
         from django.utils import translation
 
