@@ -95,6 +95,28 @@ async () => {
 """
 
 
+# Scroll-reveal sections (.animate-on-scroll) start at opacity 0 and fade in
+# over 0.6s once an observer marks them visible, so a fixed sleep made axe see
+# them hidden, half-faded or fully visible depending on runner speed. Reveal
+# them all and let every finite animation/transition finish before auditing.
+SETTLE_JS = """
+async () => {
+    document.querySelectorAll('.animate-on-scroll').forEach(
+        el => el.classList.add('visible')
+    );
+    const finite = () => document.getAnimations().filter(
+        a => a.effect && a.effect.getComputedTiming().iterations !== Infinity
+    );
+    const timeout = new Promise(resolve => setTimeout(resolve, 5000));
+    await Promise.race([
+        Promise.all(finite().map(a => a.finished.catch(() => {}))),
+        timeout,
+    ]);
+    await new Promise(resolve => requestAnimationFrame(() => resolve()));
+}
+"""
+
+
 def _fingerprints(violation):
     """Stable node identities for the baseline.
 
@@ -223,7 +245,7 @@ def test_no_new_serious_axe_violations(browser, live_server, world, slug, theme)
                 urlparse(page.url).path == expected
             ), f"{path} redirected to {page.url}"
             page.wait_for_load_state("load")
-            page.wait_for_timeout(500)
+            page.evaluate(SETTLE_JS)
             page.evaluate(AXE_PATH.read_text(encoding="utf-8"))
             violations = page.evaluate(AXE_JS)
     finally:
