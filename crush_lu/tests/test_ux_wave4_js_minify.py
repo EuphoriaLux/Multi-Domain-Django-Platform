@@ -171,7 +171,13 @@ class MinifiedBundleFileTests(TestCase):
                 )
             self.assertEqual(
                 sorted(p.name for p in Path(tmp).iterdir()),
-                sorted(p.name for p in ALPINE_DIR.glob("*.min.js")),
+                sorted(
+                    p.name
+                    for p in [
+                        *ALPINE_DIR.glob("*.min.js"),
+                        *ALPINE_DIR.glob("*.min.js.map"),
+                    ]
+                ),
             )
 
 
@@ -197,8 +203,7 @@ class ShellServesMinifiedBundleTests(TestCase):
 
     @override_settings(DEBUG=True)
     def test_debug_shell_keeps_the_readable_source(self):
-        # The test client's REMOTE_ADDR (127.0.0.1) is in INTERNAL_IPS, so the
-        # debug context processor exposes `debug`, as on a dev machine.
+        # `assets_dev` follows settings.DEBUG alone (WP11b), not INTERNAL_IPS.
         html = self.client.get("/en/", HTTP_HOST=HOST).content.decode()
         srcs = _script_srcs(html)
         self.assertTrue(any(dev_src("core") in s for s in srcs), srcs)
@@ -224,7 +229,7 @@ class AdminBaseSiteTests(TestCase):
         set_urlconf("azureproject.urls_crush")
         try:
             template = engines["django"].from_string(path.read_text("utf-8"))
-            return template.render({"debug": debug}, request)
+            return template.render({"assets_dev": debug}, request)
         finally:
             set_urlconf(None)
 

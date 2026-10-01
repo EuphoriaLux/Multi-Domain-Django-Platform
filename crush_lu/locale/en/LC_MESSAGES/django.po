@@ -8192,7 +8192,7 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\_connection_card.html:48
 #: .\crush_lu\templates\crush_lu\connection_detail.html:249
-msgid "Contacts Shared!"
+msgid "Profiles Shared!"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\_connection_card.html:57
@@ -13215,7 +13215,7 @@ msgid "You:"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\connection_detail.html:254
-msgid "You can now see each other's contact information"
+msgid "You can now see the details each of you chose to share"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\connection_detail.html:257
@@ -13234,8 +13234,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\connection_detail.html:292
 #, python-format
 msgid ""
-"Your Crush Coach has approved this connection! Before your contact "
-"information is shared with %(name)s, we need your explicit consent."
+"Your Crush Coach has approved this connection! Before your profile details "
+"and photos are shared with %(name)s, we need your explicit consent."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\connection_detail.html:296
@@ -13252,7 +13252,7 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\connection_detail.html:314
 #, python-format
-msgid "I consent to share my contact information with %(name)s"
+msgid "I consent to share my profile details and photos with %(name)s"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\connection_detail.html:320
@@ -13265,7 +13265,23 @@ msgid "You've given consent! Waiting for %(name)s to consent as well..."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\connection_detail.html:336
-msgid "Contact Information Shared!"
+msgid "Details Shared!"
+msgstr ""
+
+#: templates/crush_lu/connection_detail.html:348
+msgid ""
+"Your email address and phone number are only shared if you tick them "
+"below."
+msgstr ""
+
+#: templates/crush_lu/connection_detail.html:376
+#, python-format
+msgid "Also share my phone number with %(name)s"
+msgstr ""
+
+#: templates/crush_lu/connection_detail.html:433
+#, python-format
+msgid "%(name)s did not share their phone number."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\connection_detail.html:364
@@ -25915,7 +25931,7 @@ msgid "You are not registered for this event."
 msgstr ""
 
 #: .\crush_lu\views_connections.py:648
-msgid "Connection accepted! Contact info is now shared."
+msgid "Connection accepted! You can now see each other's profile details."
 msgstr ""
 
 #: .\crush_lu\views_connections.py:653
@@ -25927,7 +25943,7 @@ msgid "Connection request declined."
 msgstr ""
 
 #: .\crush_lu\views_connections.py:752
-msgid "Contact information is now shared!"
+msgid "The details you each chose to share are now visible!"
 msgstr ""
 
 #: .\crush_lu\views_connections.py:754
@@ -28645,4 +28661,16 @@ msgstr ""
 
 #: crush_lu/templates/crush_lu/membership.html:77
 msgid "Manage your Premium request"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/auth.html
+msgid "Create your Crush.lu account"
+msgstr ""
+
+#: templates/crush_lu/connection_detail.html:58
+msgid "Profiles Shared"
+msgstr ""
+
+#: templates/crush_lu/_connection_response.html:36
+msgid "Profiles shared"
 msgstr ""
