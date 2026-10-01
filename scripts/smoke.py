@@ -17,6 +17,7 @@ listed; the script never stops at the first one).
 
 import argparse
 import json
+import re
 import ssl
 import sys
 import urllib.error
@@ -110,6 +111,35 @@ def check_readyz(base):
         print(f"  ok   {name} {payload['checks']}")
 
 
+def check_generated_assets(base):
+    """The generated (not committed) assets shipped: DE/FR render and the
+    compiled stylesheet the home page links is served and non-trivial."""
+    global passes
+    for lang in ("de", "fr"):
+        check(
+            f"{lang} home renders",
+            f"{base}/{lang}/",
+            contains=f'lang="{lang}"',
+        )
+    name = "tailwind.css is served"
+    try:
+        _, _, html = fetch(f"{base}/en/")
+        match = re.search(rb'href="([^"]*crush_lu/css/tailwind[^"]*\.css)"', html)
+        if not match:
+            raise ValueError("home page links no crush_lu tailwind stylesheet")
+        href = match.group(1).decode()
+        url = href if href.startswith("http") else f"{base}{href}"
+        _, _, css = fetch(url)
+        if len(css) < 50_000:
+            raise ValueError(f"{url} is only {len(css)} bytes")
+    except Exception as exc:  # noqa: BLE001
+        failures.append(f"{name}: {base} -> {type(exc).__name__}: {exc}")
+        print(f"  FAIL {name}: {exc}")
+    else:
+        passes += 1
+        print(f"  ok   {name}")
+
+
 def smoke_domain(base, deep, home_path="/"):
     print(f"\n{base}")
     check("healthz", f"{base}/healthz/", contains="OK")
@@ -119,6 +149,7 @@ def smoke_domain(base, deep, home_path="/"):
         check("sitemap", f"{base}/sitemap.xml", contains="<urlset")
         check("robots", f"{base}/robots.txt", contains="Disallow")
         check("login page", f"{base}/accounts/login/")
+        check_generated_assets(base)
         check(
             "anonymous dashboard redirects to login",
             f"{base}/en/dashboard/",

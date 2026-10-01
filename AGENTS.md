@@ -21,10 +21,15 @@ pytest                              # Playwright excluded, stops on first failur
 pytest crush_lu/tests/test_models.py::TestCrushProfile::test_age_calculation  # single test
 pytest -m playwright                # run ONLY the browser tests (slow)
 black . && ruff check .             # format + lint (88-col, config in pyproject.toml)
-npm run build:css                   # Tailwind for crush.lu; build:css:all for every platform
+python scripts/build_assets.py       # build the generated crush.lu assets (see below); run after clone/pull
+npm run build:css                   # Tailwind for crush.lu only; build:css:all for every platform
 ```
 
 `pytest.ini` sets `addopts = -x -n auto --dist worksteal -m "not playwright" --reuse-db`: tests stop at the **first failure**, run in **parallel**, **reuse the test DB**, and **skip Playwright** unless you ask for it. Locally the test DB is file-based (`test_db.sqlite3_gw*`), so `--reuse-db` really skips the migration replay — run `pytest --create-db` once after pulling new migrations or after a `-m playwright` run. Tests hash passwords with MD5 (set in `conftest.py`) — never assert on hash algorithm or timing. `testpaths` lists the collected test dirs (`crush_lu/tests`, `hub/tests`, `power_up/tests`, `power_up/finops/tests`, `power_up/atmos/tests`, `arborist/tests`, …) — other apps' tests aren't collected by default (`entreprinder/tests.py` exists but doesn't match `python_files = test_*.py`, and has drifted/failing tests — repair before wiring it in).
+
+### Generated assets are not committed
+
+The crush.lu **CSS** (`css/tailwind.css`, `journey.css`, `marketing.css`), the **Alpine bundles** (`js/alpine/*.min.js` + `.map`) and the crush_lu **`.mo`** files (`locale/*/LC_MESSAGES/*.mo`) are git-ignored: committing them made every parallel PR conflict. Build them with **`python scripts/build_assets.py`** (`npm ci` first for CSS/JS; `--no-npm` compiles only the translations, `--check` verifies without building). `pytest` stops at session start with that instruction if anything is missing **or older than its sources** (Tailwind inputs, templates, non-minified JS, Alpine modules; so rebuild after template edits; the staleness part applies only when `node_modules` is installed; `SKIP_ASSET_CHECK=1` bypasses all of it). CI, the axe job and the deploy workflow run the same script; the deploy proves every `.mo` loads and matches its `.po` before packaging. The `.po` files, the other platforms' CSS and the other apps' `.mo` files stay committed. Edit the **sources** (`tailwind-src/…`, `js/alpine/*.js`, `.po`), never the built files.
 
 ### Switching which site you see locally
 
@@ -131,7 +136,7 @@ These failures pass every local check and surface only later. Read them before p
 
 **SQLite rolls back PK sequences but not the cache.** Every test's viewer ends up as user 2 and they share one `@ratelimit` counter, so a 429 surfaces as an unrelated `DoesNotExist`. Call `cache.clear()` in `setUp`, and run the suite on SQLite before calling anything verified.
 
-**`gettext` is not installed in this dev environment.** Build `.mo` files **only** via `polib.save_as_mofile`. A malformed `.mo` 500s every DE and FR request in production.
+**`gettext` is not installed in this dev environment.** Build `.mo` files **only** via `polib.save_as_mofile` (`scripts/build_assets.py` does this). A malformed `.mo` 500s every DE and FR request in production.
 
 **FR is not uniformly `vous`.** Measured 2026-08-28: **30 of 7,919** single-line `msgstr` entries use informal address (`tu`/`ton`/`tes`/`toi`), clustered in the coach and onboarding mails. Measure before copying a neighbouring string's tone — and measure with **Python, not `grep`**. In the C locale `grep -E '\btes\b'` matches the `tes` inside `êtes`, because the multi-byte `ê` reads as a word boundary — so it counts *`vous êtes`*, the formal form, as informal and reports 105. That is the trap this entry is about, sprung on the entry itself.
 
