@@ -305,6 +305,32 @@ class HubReviewIntakeTests(TestCase):
         self.assertTrue(raised.exception.uncertain)
         self.assertEqual(raised.exception.created_profile_ids, ["ig"])
 
+    def test_future_drafts_reserve_their_proposed_slot(self):
+        from hub.social_planning import reserved_times
+
+        slot = timezone.now() + timedelta(days=3)
+        SocialPost.objects.create(user=self.user, content="Draft", scheduled_for=slot)
+        self.assertIn(slot, reserved_times())
+
+    @patch("hub.buffer_service.requests.post")
+    def test_graphql_execution_error_after_mutation_is_uncertain(self, post):
+        from hub.buffer_service import BufferServiceError, _graphql
+
+        query = "mutation CreatePost($input: CreatePostInput!) { createPost { x } }"
+        post.return_value.raise_for_status.return_value = None
+        post.return_value.json.return_value = {
+            "errors": [{"message": "resolver failed", "path": ["createPost", "post"]}]
+        }
+        with self.settings(BUFFER_API_KEY="k"):
+            with self.assertRaises(BufferDeliveryUnknown):
+                _graphql(query)
+            post.return_value.json.return_value = {
+                "errors": [{"message": "invalid input"}]
+            }
+            with self.assertRaises(BufferServiceError) as raised:
+                _graphql(query)
+        self.assertNotIsInstance(raised.exception, BufferDeliveryUnknown)
+
     def test_reconcile_refuses_posts_with_a_buffer_record(self):
         post = self.post_for_review()
         post.buffer_delivery_uncertain = True

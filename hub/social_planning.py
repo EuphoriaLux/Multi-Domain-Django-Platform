@@ -47,7 +47,7 @@ def reserved_times(exclude_id=None):
 
     return list(
         SocialPost.objects.filter(
-            status__in=["pending_review", "approved", "scheduled"],
+            status__in=["draft", "pending_review", "approved", "scheduled"],
             scheduled_for__gte=timezone.now(),
         )
         .exclude(pk=exclude_id)

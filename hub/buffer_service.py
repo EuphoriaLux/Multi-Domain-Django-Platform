@@ -112,7 +112,15 @@ def _graphql(query: str, variables: dict | None = None) -> dict:
         raise BufferServiceError("Buffer is temporarily unavailable") from exc
 
     if payload.get("errors"):
-        message = payload["errors"][0].get("message", "Buffer GraphQL error")
+        errors = payload["errors"]
+        message = errors[0].get("message", "Buffer GraphQL error")
+        if "mutation CreatePost" in query and any(
+            isinstance(error, dict) and error.get("path") for error in errors
+        ):
+            # An error with a path failed while executing the mutation, after
+            # Buffer may already have created the post. Parse and validation
+            # errors carry no path and were rejected before anything ran.
+            raise BufferDeliveryUnknown(message)
         raise BufferServiceError(message)
     return payload.get("data") or {}
 
