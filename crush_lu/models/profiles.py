@@ -2731,6 +2731,41 @@ class UserDataConsent(models.Model):
         verbose_name = _("User Data Consent")
         verbose_name_plural = _("User Data Consents")
 
+    # (given flag, date field, terms-version field) per consent layer.
+    _CONSENT_LAYERS = (
+        ("powerup_consent_given", "powerup_consent_date", "powerup_terms_version"),
+        ("crushlu_consent_given", "crushlu_consent_date", "crushlu_terms_version"),
+    )
+
+    def save(self, *args, **kwargs):
+        """Stamp ``legal.CURRENT_TERMS_VERSION`` on every consent (re)recorded.
+
+        A layer is stamped when consent is given and the row is new, consent
+        flipped from not-given to given, or the consent date was re-recorded.
+        Rows saved for unrelated reasons keep their historical version.
+        """
+        from crush_lu import legal
+
+        old = None
+        if not self._state.adding and self.pk:
+            old = (
+                type(self)
+                .objects.filter(pk=self.pk)
+                .values(*[f for layer in self._CONSENT_LAYERS for f in layer[:2]])
+                .first()
+            )
+        stamped = []
+        for given_f, date_f, version_f in self._CONSENT_LAYERS:
+            if not getattr(self, given_f):
+                continue
+            if old is None or not old[given_f] or old[date_f] != getattr(self, date_f):
+                setattr(self, version_f, legal.CURRENT_TERMS_VERSION)
+                stamped.append(version_f)
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None and stamped:
+            kwargs["update_fields"] = list(set(update_fields) | set(stamped))
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"Consent for {self.user.username}"
 
