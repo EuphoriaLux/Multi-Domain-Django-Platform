@@ -258,6 +258,32 @@ class OrganiserCancelRefusalCopyTests(TestCase):
         self.assertNotIn("on its way", texts[0])
         self.assertIn("No payment was recorded", texts[0])
 
+    def test_late_capture_of_an_earlier_checkout_counts(self):
+        """A checkout opened before cancel + re-register, captured afterwards,
+        confirmed the reused seat: the member did pay in this cycle."""
+        registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        late = PaymentTransaction.objects.create(
+            transaction_reference="W5-LATE",
+            sumup_checkout_id="CHK-W5-LATE",
+            amount=Decimal("15.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=registration,
+        )
+        registration.registered_at = timezone.now() - timezone.timedelta(hours=1)
+        registration.save(update_fields=["registered_at"])
+        PaymentTransaction.objects.filter(pk=late.pk).update(
+            created_at=timezone.now() - timezone.timedelta(days=3),
+            paid_at=timezone.now(),
+        )
+        texts = self._texts(registration)
+        self.assertEqual(len(texts), 1)
+        self.assertIn("on its way", texts[0])
+
     def test_translations_exist(self):
         from django.utils import translation
 

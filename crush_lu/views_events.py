@@ -2191,14 +2191,19 @@ def _registration_payment_state(registration):
     Only transactions from the current registration cycle count: a cancelled
     seat is reused on re-registration (``registered_at`` is reset) and its old
     PAID row stays linked, but the sweep credits only ``payment_confirmed``
-    rows, so an earlier cycle's payment promises nothing.
+    rows, so an earlier cycle's payment promises nothing. A checkout opened in
+    an earlier cycle but captured in this one does count (``paid_at``).
     """
     if registration.payment_confirmed:
         return "held"
     statuses = set(
         PaymentTransaction.objects.filter(
+            # A checkout opened before the member cancelled and re-registered can
+            # still be captured late and confirm the reused seat, so the capture
+            # time counts as well as the checkout's creation time.
+            Q(created_at__gte=registration.registered_at)
+            | Q(paid_at__gte=registration.registered_at),
             event_registration=registration,
-            created_at__gte=registration.registered_at,
             status__in=[
                 PaymentTransaction.Status.PAID,
                 PaymentTransaction.Status.REFUNDED,
