@@ -578,6 +578,22 @@ class SocialLoginVerificationRateLimitTests(SocialLoginRequiresVerifiedEmailTest
         self.assertIsNotNone(self._pre_login(self._request(), user, signup=False))
         self.assertEqual(len(mail.outbox), 1)
 
+    def test_second_session_shows_the_shared_cooldown_immediately(self):
+        # A second browser logs in during the first one's cooldown: no mail is
+        # sent (limiter not consumed), but its page must still count down
+        # instead of opening with a live Resend button (#1116).
+        user, _address = _unverified_user("shared@example.com")
+        first = self._request()
+        self.assertIsNotNone(self._pre_login(first, user))
+        second = self._request()
+        self.assertIsNotNone(self._pre_login(second, user, signup=False))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(
+            second.session["resend_verification_cooldown_until"],
+            first.session["resend_verification_cooldown_until"],
+        )
+        self.assertIn("resend_verification_cooldown_hash", second.session)
+
 
 class ConfirmationBannerScopeTests(TestCase):
     def setUp(self):
