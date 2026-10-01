@@ -625,3 +625,37 @@ class PartnerReviewRegressionTests(ThrottleIsolatedTestCase):
         offer = make_offer(make_partner(), min_age=17)
         with self.assertRaises(ValidationError):
             offer.full_clean(exclude=["location"])
+
+    def test_gender_caps_without_total_use_the_model_default_capacity(self):
+        partner = make_partner()
+        url = f"/hub/locations/{partner.pk}/offers"
+        # Default capacity is 20: 5+5+5 fits, 8+8+8 does not (400, not a 500).
+        fits = self.client.post(
+            url,
+            self.offer_payload(
+                maxParticipantsM=5, maxParticipantsF=5, maxParticipantsNb=5
+            ),
+            format="json",
+        )
+        over = self.client.post(
+            url,
+            self.offer_payload(
+                maxParticipantsM=8, maxParticipantsF=8, maxParticipantsNb=8
+            ),
+            format="json",
+        )
+        self.assertEqual(fits.status_code, 201, fits.data)
+        self.assertEqual(over.status_code, 400)
+
+    def test_text_fields_respect_the_model_column_lengths(self):
+        partner = make_partner()
+        for payload in (
+            {"website": "https://example.com/" + "a" * 200},
+            {"city": "c" * 256},
+            {"country": "c" * 101},
+            {"canton": "c" * 201},
+        ):
+            response = self.client.patch(
+                f"/hub/locations/{partner.pk}", payload, format="json"
+            )
+            self.assertEqual(response.status_code, 400, list(payload))

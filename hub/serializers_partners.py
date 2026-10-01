@@ -85,8 +85,8 @@ class LocationContactSerializer(serializers.ModelSerializer):
 class LocationSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)
     address = serializers.CharField(required=False, allow_blank=True)
-    city = serializers.CharField(required=False, allow_blank=True)
-    country = serializers.CharField(required=False)
+    city = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    country = serializers.CharField(required=False, max_length=100)
 
     maxCapacity = _f(serializers.IntegerField, "max_capacity", min_value=1)
     seatedCapacity = _f(
@@ -136,7 +136,7 @@ class LocationSerializer(serializers.ModelSerializer):
     addressTown = _f(
         serializers.CharField, "address_town", allow_blank=True, max_length=100
     )
-    canton = serializers.CharField(required=False, allow_blank=True)
+    canton = serializers.CharField(required=False, allow_blank=True, max_length=200)
     latitude = serializers.DecimalField(
         max_digits=9,
         decimal_places=6,
@@ -156,7 +156,7 @@ class LocationSerializer(serializers.ModelSerializer):
         allow_null=True,
     )
 
-    website = serializers.URLField(required=False, allow_blank=True)
+    website = serializers.URLField(required=False, allow_blank=True, max_length=200)
     openingHours = _f(serializers.CharField, "opening_hours", allow_blank=True)
     blackoutNotes = _f(serializers.CharField, "blackout_notes", allow_blank=True)
     houseRules = _f(serializers.CharField, "house_rules", allow_blank=True)
@@ -536,6 +536,9 @@ class PartnerOfferSerializer(serializers.ModelSerializer):
             errors["maxAge"] = "Maximum age must not be below minimum age."
         # Same rules as MeetupEvent.clean(), so a saved offer always yields a
         # draft that can become a valid event.
+        total = current("max_participants")
+        if total is None:
+            total = PartnerOffer._meta.get_field("max_participants").default
         caps = [
             current("max_participants_m"),
             current("max_participants_f"),
@@ -546,7 +549,7 @@ class PartnerOfferSerializer(serializers.ModelSerializer):
             errors["maxParticipantsM"] = (
                 "Set all three gender caps together, or leave them all blank."
             )
-        elif len(set_caps) == 3 and sum(set_caps) > current("max_participants"):
+        elif len(set_caps) == 3 and sum(set_caps) > total:
             errors["maxParticipantsM"] = (
                 "The gender caps must not add up to more than the total capacity."
             )
