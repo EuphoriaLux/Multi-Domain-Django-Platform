@@ -303,6 +303,14 @@ class GiftWizardRestTests(GiftWizardTestBase):
             callback = source[max(0, start - 600) : start]
             self.assertRegex(callback, r"files\[0\]\s*[!=]==\s*\w+", name)
 
+    def test_thumbnail_falls_back_to_the_extension_without_a_mime_type(self):
+        for name in ("alpine/journey.js", "alpine/journey.min.js"):
+            source = (JS_DIR / name).read_text(encoding="utf-8")
+            start = source.index("handleSlideshowFileChange")
+            block = source[start : source.index("readAsDataURL", start)]
+            self.assertRegex(block, r"jpe\?g", name)
+            self.assertIn("heic", block, name)
+
     def test_slideshow_tiles_have_thumbnail_slots(self):
         html = self.client.get(CREATE_URL).content.decode()
         self.assertEqual(html.count('class="slideshow-item"'), 5)

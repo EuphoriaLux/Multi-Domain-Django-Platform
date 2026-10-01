@@ -470,3 +470,26 @@ class RateLimitDecoratorTests(SimpleTestCase):
         self.assertIsNone(generation)
         _release_request(key, generation)
         self.assertEqual(cache.get(key), 1)
+
+    def test_rollover_between_generation_check_and_decrement_is_undone(self):
+        # The generation check passes, then the window rolls over before the
+        # decrement lands: the decrement hit the new window, so it is given back.
+        from crush_lu.decorators import _record_window_deadline, _release_request
+
+        key = "ratelimit:rollover:decr"
+        cache.delete(key)
+        cache.add(key, 0, 900)
+        generation = _record_window_deadline(key, 900)
+        cache.incr(key)  # our reservation in window A
+        real_decr = cache.decr
+
+        def roll_over_then_decr(name, *args, **kwargs):
+            cache.delete(key)  # window A expires...
+            cache.add(key, 1, 900)  # ...window B opens with one request
+            _record_window_deadline(key, 900)
+            return real_decr(name, *args, **kwargs)
+
+        with patch.object(cache, "decr", side_effect=roll_over_then_decr):
+            _release_request(key, generation)
+
+        self.assertEqual(cache.get(key), 1)

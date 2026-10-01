@@ -290,6 +290,10 @@ def _release_request(cache_key, generation=None):
             return
         if cache.decr(cache_key) < 0:
             cache.incr(cache_key)
+        elif cache.get(_generation_key(cache_key)) != generation:
+            # The window rolled over between the check and the decrement, so
+            # the decrement landed in the new window: give it back.
+            cache.incr(cache_key)
     except Exception:
         # Evicted or expired (nothing left to release) or cache unavailable.
         pass

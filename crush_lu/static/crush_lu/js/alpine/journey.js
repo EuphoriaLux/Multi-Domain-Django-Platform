@@ -312,7 +312,13 @@ document.addEventListener("alpine:init", function () {
                 if (!preview) return;
                 var img = preview.querySelector("img");
                 var file = input.files && input.files[0];
-                if (file && file.type.indexOf("image/") === 0) {
+                // Some browsers/OSes leave File.type empty for a real photo, so
+                // fall back to the extension (as the audio/video handlers do).
+                var isImage =
+                    file &&
+                    (file.type.indexOf("image/") === 0 ||
+                        (!file.type && /\.(jpe?g|png|gif|webp|avif|heic|heif|bmp)$/i.test(file.name)));
+                if (isImage) {
                     var reader = new FileReader();
                     reader.onload = function (e) {
                         // A slower read of an earlier pick must not overwrite
