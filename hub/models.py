@@ -179,10 +179,18 @@ class Location(models.Model):
     address_town = models.CharField(max_length=100, blank=True, default="")
     canton = models.CharField(max_length=200, blank=True, default="")
     latitude = models.DecimalField(
-        max_digits=9, decimal_places=6, blank=True, null=True
+        max_digits=9,
+        decimal_places=6,
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(-90), MaxValueValidator(90)],
     )
     longitude = models.DecimalField(
-        max_digits=9, decimal_places=6, blank=True, null=True
+        max_digits=9,
+        decimal_places=6,
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(-180), MaxValueValidator(180)],
     )
 
     website = models.URLField(blank=True, default="")
@@ -249,6 +257,14 @@ class Location(models.Model):
             errors["seated_capacity"] = (
                 "Seated capacity must be between 1 and maximum capacity."
             )
+        if self.pk and self.max_capacity is not None:
+            largest = max(
+                self.offers.values_list("max_participants", flat=True), default=0
+            )
+            if largest > self.max_capacity:
+                errors["max_capacity"] = (
+                    f"An offer here seats {largest}; lower or edit it first."
+                )
         allowed_event_types = set(self.EventType.values)
         if not isinstance(self.compatible_event_types, list) or any(
             not isinstance(event_type, str) or event_type not in allowed_event_types
@@ -403,6 +419,12 @@ class PartnerOffer(models.Model):
             errors["duration_minutes"] = (
                 f"Duration must be between 1 and {MAX_EVENT_DURATION_MINUTES} minutes."
             )
+        if self.location_id and self.max_participants is not None:
+            venue_capacity = self.location.max_capacity
+            if self.max_participants > venue_capacity:
+                errors["max_participants"] = (
+                    f"This venue holds at most {venue_capacity} people."
+                )
         if not isinstance(self.weekdays, list) or any(
             isinstance(day, bool) or not isinstance(day, int) or not 0 <= day <= 6
             for day in self.weekdays

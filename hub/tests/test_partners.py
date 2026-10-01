@@ -79,6 +79,48 @@ class OfferContractTests(TestCase):
 
 
 class PartnerModelTests(TestCase):
+    def test_offer_capacity_is_checked_against_the_venue_in_model_clean(self):
+        from django.core.exceptions import ValidationError
+
+        partner = make_partner(max_capacity=20)
+        offer = make_offer(partner, max_participants=100)
+        with self.assertRaises(ValidationError) as caught:
+            offer.full_clean()
+        self.assertIn("max_participants", caught.exception.message_dict)
+
+        offer.max_participants = 20
+        offer.full_clean()
+
+    def test_venue_capacity_cannot_drop_below_an_offer_in_model_clean(self):
+        from django.core.exceptions import ValidationError
+
+        partner = make_partner(max_capacity=60)
+        make_offer(partner, max_participants=40)
+        partner.max_capacity = 30
+        with self.assertRaises(ValidationError) as caught:
+            partner.full_clean()
+        self.assertIn("max_capacity", caught.exception.message_dict)
+
+        partner.max_capacity = 40
+        partner.full_clean()
+
+    def test_coordinates_are_bounded_on_the_model(self):
+        from django.core.exceptions import ValidationError
+
+        for field, value in (
+            ("latitude", 999),
+            ("latitude", -91),
+            ("longitude", -500),
+            ("longitude", 181),
+        ):
+            partner = make_partner(**{field: value})
+            with self.assertRaises(ValidationError) as caught:
+                partner.full_clean()
+            self.assertIn(field, caught.exception.message_dict)
+            partner.delete()
+        valid = make_partner(latitude="49.6116", longitude="6.1319")
+        valid.full_clean()
+
     def test_only_one_primary_contact_per_partner(self):
         partner = make_partner()
         LocationContact.objects.create(location=partner, name="A", is_primary=True)
@@ -530,7 +572,7 @@ class PartnerReviewRegressionTests(ThrottleIsolatedTestCase):
         self.assertTrue(Location.objects.filter(pk=partner.pk).exists())
 
     def test_patching_the_town_moves_the_legacy_city_unless_given(self):
-        partner = make_partner(city="Luxembourg")
+        partner = make_partner(city="Luxembourg", address_street="rue du Nord")
         moved = self.client.patch(
             f"/hub/locations/{partner.pk}", {"addressTown": "Esch"}, format="json"
         )
@@ -751,6 +793,32 @@ class PartnerReviewRegressionTests(ThrottleIsolatedTestCase):
         # The draft hands the same list to MeetupEvent.languages.
         draft = self.client.get(f"/hub/offers/{lux.data['id']}/event-draft")
         self.assertEqual(draft.data["fields"]["languages"], ["lu", "en"])
+
+    def test_a_lone_structured_field_is_not_a_complete_address(self):
+        base = {"name": "Stub", "maxCapacity": 10, "city": "Luxembourg"}
+        number_only = self.client.post(
+            "/hub/locations", {**base, "addressNumber": "7"}, format="json"
+        )
+        self.assertEqual(number_only.status_code, 400)
+        self.assertIn("address", number_only.data)
+
+        street_only = self.client.post(
+            "/hub/locations",
+            {**base, "name": "Street", "addressStreet": "rue du Nord"},
+            format="json",
+        )
+        self.assertEqual(street_only.status_code, 201, street_only.data)
+        # No structured town: the city stands in for it.
+        self.assertEqual(street_only.data["address"], "rue du Nord, Luxembourg")
+
+    def test_patching_a_lone_structured_field_keeps_the_legacy_address(self):
+        partner = make_partner(address="Keep me, 1234 Town")
+        response = self.client.patch(
+            f"/hub/locations/{partner.pk}", {"addressNumber": "7"}, format="json"
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["address"], "Keep me, 1234 Town")
+        self.assertEqual(response.data["addressNumber"], "7")
 
 
 class ContactInlineAdminTests(ThrottleIsolatedTestCase):

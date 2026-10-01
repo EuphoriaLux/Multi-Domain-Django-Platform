@@ -320,9 +320,13 @@ class LocationSerializer(serializers.ModelSerializer):
             "address_town",
         )
         if any(key in attrs for key in structured) and "address" not in attrs:
-            attrs["address"] = self._compose_address(current)
+            # Only a complete street + town overwrites the legacy address; a
+            # lone house number or postcode must not replace it with a stub.
+            composed = self._compose_address(current)
+            if composed:
+                attrs["address"] = composed
         if instance is None and not attrs.get("address"):
-            errors["address"] = "Give an address or the structured street and town."
+            errors["address"] = "Give an address, or a structured street and town."
         # ``city`` is the legacy field the live SPA still shows: follow the
         # structured town unless the caller sets the city explicitly.
         if not attrs.get("city") and attrs.get("address_town"):
@@ -344,18 +348,19 @@ class LocationSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def _compose_address(current):
+        """The legacy one-line address, or ``""`` unless street and town are both known."""
+        street_name = current("address_street")
+        town_name = current("address_town") or current("city")
+        if not street_name or not town_name:
+            return ""
         street = " ".join(
-            part
-            for part in (current("address_street"), current("address_number"))
-            if part
+            part for part in (street_name, current("address_number")) if part
         )
         postcode = current("address_postcode")
         town = " ".join(
-            part
-            for part in (f"L-{postcode}" if postcode else "", current("address_town"))
-            if part
+            part for part in (f"L-{postcode}" if postcode else "", town_name) if part
         )
-        return ", ".join(part for part in (street, town) if part)
+        return ", ".join((street, town))
 
     # -- writes ------------------------------------------------------------
 
