@@ -1,7 +1,10 @@
 """App Review 5.1.2: the native iOS shell must load no tracking tags or consent banner."""
 
 from django.template import Context, Template
+from django.contrib.sessions.backends.db import SessionStore
 from django.test import RequestFactory, TestCase
+
+from crush_lu.mobile_auth import stash_mobile_handoff
 
 
 def _render(request):
@@ -35,3 +38,17 @@ class IosTrackingSuppressedTests(TestCase):
         out = _render(request)
         self.assertIn("googletagmanager.com", out)
         self.assertIn("fbevents.js", out)
+
+    def _request_with_handoff(self, platform):
+        request = RequestFactory().get("/accounts/login/")
+        request.session = SessionStore()
+        stash_mobile_handoff(request, platform, "crushlu://auth")
+        return request
+
+    def test_ios_auth_sheet_emits_no_tracking_tags(self):
+        self.assertEqual(_render(self._request_with_handoff("ios")).strip(), "")
+
+    def test_android_auth_sheet_is_not_treated_as_ios(self):
+        self.assertIn(
+            "googletagmanager.com", _render(self._request_with_handoff("android"))
+        )
