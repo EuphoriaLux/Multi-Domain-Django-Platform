@@ -2366,6 +2366,20 @@ html:not(.dark) body.journey-bg #main-content :is(.journey-mc-option-card, .jour
 .slideshow-item .file-upload-text {
     @apply text-xs;
 }
+/* Thumbnail fills the tile once a photo is picked (7-06). It sits above the
+   text but must not swallow clicks meant for the file input. */
+.slideshow-item .file-upload-wrapper {
+    @apply overflow-hidden;
+}
+
+.slideshow-item .file-upload-preview {
+    @apply pointer-events-none absolute inset-0 m-0;
+}
+
+.slideshow-item .file-upload-preview img {
+    @apply h-full max-h-none w-full max-w-none rounded-none object-cover;
+}
+
 .media-info {
     @apply mb-6 rounded-xl border border-purple-400/30 bg-purple-500/15 p-4;
 }

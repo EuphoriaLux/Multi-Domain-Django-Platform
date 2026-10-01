@@ -5394,11 +5394,11 @@ html.dark .progress-bar-container {
 }
 
 .step-nav {
-    @apply mb-8 flex list-none flex-row flex-wrap justify-center gap-2.5 p-0;
+    @apply mb-8 flex list-none flex-row flex-wrap justify-center gap-2.5 p-0 max-[360px]:flex-col max-[360px]:items-stretch;
 }
 
 .step-indicator {
-    @apply flex items-center justify-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm text-white/50 transition-all duration-300;
+    @apply flex items-center justify-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm text-white/50 transition-all duration-300 max-[360px]:px-3 max-[360px]:text-[0.8125rem];
 }
 
 .step-indicator.active {
