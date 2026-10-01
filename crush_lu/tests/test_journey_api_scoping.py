@@ -540,7 +540,8 @@ class MultiJourneyScopingTests(TestCase):
         chapter = self.client.get("/en/journey/chapter/1/", HTTP_HOST=HOST)
         progress = self.client.get(PROGRESS_URL, HTTP_HOST=HOST)
 
-        self.assertEqual(chapter.status_code, 302)
+        self.assertEqual(chapter.status_code, 200)
+        self.assertTemplateUsed(chapter, "crush_lu/no_journey.html")
         self.assertEqual(progress.status_code, 404)
 
     # --- save_state -------------------------------------------------------

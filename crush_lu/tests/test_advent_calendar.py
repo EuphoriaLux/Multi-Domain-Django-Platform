@@ -155,6 +155,23 @@ class AdventCalendarViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "crush_lu/advent/calendar_locked.html")
 
+    def test_locked_page_has_24_tiles_and_localized_date(self):
+        year = self.calendar.year
+        with patch(NOW, return_value=utc(year, 11, 15, 12, 0)):
+            en = self.client.get("/en/advent/", HTTP_HOST="crush.lu")
+            de = self.client.get("/de/advent/", HTTP_HOST="crush.lu")
+
+        html = en.content.decode()
+        self.assertEqual(html.count('class="preview-door"'), 24)
+        self.assertIn(f"December 1st, {year}", html)
+        self.assertIn(f"1. Dezember {year}", de.content.decode())
+        with patch(NOW, return_value=utc(year, 11, 15, 12, 0)):
+            fr = self.client.get("/fr/advent/", HTTP_HOST="crush.lu")
+        fr_html = fr.content.decode()
+        self.assertIn(f"1er décembre {year}", fr_html)
+        self.assertNotIn("Décembre", fr_html)
+        self.assertIn("Der Adventskalender", de.content.decode())
+
 
 class CreateAdventCalendarCommandTests(TestCase):
     def test_creates_calendar_doors_and_qr_tokens(self):

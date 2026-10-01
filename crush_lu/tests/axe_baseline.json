@@ -64,6 +64,14 @@
       ".text-green-600"
     ]
   },
+  "home/light": {
+    "color-contrast": [
+      ".badge-crush-soft",
+      ".gap-1\\.5.inline-flex.items-center:nth-child(1)",
+      ".gap-1\\.5.inline-flex.items-center:nth-child(2)",
+      ".text-green-600"
+    ]
+  },
   "login/dark": {
     "color-contrast": [
       ".hover\\:text-purple-700"
