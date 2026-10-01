@@ -16123,10 +16123,8 @@ msgstr ""
 "message."
 
 #: templates/crush_lu/child_safety_standards.html:4
-#, fuzzy
-#| msgid "Change Password - Crush.lu"
 msgid "Child Safety Standards - Crush.lu"
-msgstr "Changer le mot de passe - Crush.lu"
+msgstr "Normes de protection de l'enfance - Crush.lu"
 
 #: templates/crush_lu/child_safety_standards.html:5
 msgid ""
@@ -16134,12 +16132,13 @@ msgid ""
 "sexual abuse and exploitation (CSAE), reporting mechanisms, and safety "
 "enforcement."
 msgstr ""
+"Les normes de protection de l'enfance de Crush.lu — nos engagements "
+"publiés contre les abus et l'exploitation sexuels d'enfants (CSAE), les "
+"mécanismes de signalement et l'application des règles."
 
 #: templates/crush_lu/child_safety_standards.html:12
-#, fuzzy
-#| msgid "Community Standards"
 msgid "Child Safety Standards"
-msgstr "Standards de la communauté"
+msgstr "Normes de protection de l'enfance"
 
 #: templates/crush_lu/child_safety_standards.html:13
 #, fuzzy
@@ -19748,12 +19747,14 @@ msgstr "Vous :"
 
 #: templates/crush_lu/connection_detail.html:293
 #: templatetags/connection_status.py:28
-msgid "Contacts Shared!"
-msgstr "Contacts partagés !"
+msgid "Profiles Shared!"
+msgstr "Profils partagés !"
 
 #: templates/crush_lu/connection_detail.html:298
-msgid "You can now see each other's contact information"
-msgstr "Vous pouvez maintenant voir vos informations de contact respectives"
+msgid "You can now see the details each of you chose to share"
+msgstr ""
+"Vous pouvez maintenant voir les informations que chacun a choisi de "
+"partager"
 
 #: templates/crush_lu/connection_detail.html:301
 msgid "Waiting for consents..."
@@ -19771,12 +19772,12 @@ msgstr "Consentement requis"
 #: templates/crush_lu/connection_detail.html:337
 #, python-format
 msgid ""
-"Your Crush Coach has approved this connection! Before your contact "
-"information is shared with %(name)s, we need your explicit consent."
+"Your Crush Coach has approved this connection! Before your profile details "
+"and photos are shared with %(name)s, we need your explicit consent."
 msgstr ""
-"Votre Crush Coach a approuvé cette connexion ! Avant que vos informations de"
-" contact ne soient partagées avec %(name)s, nous avons besoin de votre "
-"consentement explicite."
+"Votre Crush Coach a approuvé cette connexion ! Avant que les détails de "
+"votre profil et vos photos ne soient partagés avec %(name)s, nous avons "
+"besoin de votre consentement explicite."
 
 #: templates/crush_lu/connection_detail.html:341
 msgid "What will be shared:"
@@ -19792,8 +19793,9 @@ msgstr "Détails du profil et photos"
 
 #: templates/crush_lu/connection_detail.html:359
 #, python-format
-msgid "I consent to share my contact information with %(name)s"
-msgstr "Je consens à partager mes informations de contact avec %(name)s"
+msgid "I consent to share my profile details and photos with %(name)s"
+msgstr ""
+"Je consens à partager les détails de mon profil et mes photos avec %(name)s"
 
 #: templates/crush_lu/connection_detail.html:365
 msgid "Give Consent"
@@ -19807,8 +19809,26 @@ msgstr ""
 "%(name)s..."
 
 #: templates/crush_lu/connection_detail.html:381
-msgid "Contact Information Shared!"
-msgstr "Coordonnées partagées !"
+msgid "Details Shared!"
+msgstr "Informations partagées !"
+
+#: templates/crush_lu/connection_detail.html:348
+msgid ""
+"Your email address and phone number are only shared if you tick them "
+"below."
+msgstr ""
+"Votre adresse e-mail et votre numéro de téléphone ne sont partagés que si "
+"vous les cochez ci-dessous."
+
+#: templates/crush_lu/connection_detail.html:376
+#, python-format
+msgid "Also share my phone number with %(name)s"
+msgstr "Partager aussi mon numéro de téléphone avec %(name)s"
+
+#: templates/crush_lu/connection_detail.html:433
+#, python-format
+msgid "%(name)s did not share their phone number."
+msgstr "%(name)s n'a pas partagé son numéro de téléphone."
 
 #: templates/crush_lu/connection_detail.html:409
 msgid "Next Steps"
@@ -37394,8 +37414,8 @@ msgid "You are not registered for this event."
 msgstr "Vous n'êtes pas inscrit à cet événement."
 
 #: views_connections.py:855
-msgid "Connection accepted! Contact info is now shared."
-msgstr "Connexion acceptée ! Vos coordonnées sont maintenant partagées."
+msgid "Connection accepted! You can now see each other's profile details."
+msgstr "Connexion acceptée ! Vous pouvez maintenant voir les détails du profil de l'autre."
 
 #: views_connections.py:861
 msgid "Connection accepted! A coach will help facilitate your introduction."
@@ -37407,8 +37427,10 @@ msgid "Connection request declined."
 msgstr "Demande de connexion refusée."
 
 #: views_connections.py:1012
-msgid "Contact information is now shared!"
-msgstr "Les coordonnées sont maintenant partagées !"
+msgid "The details you each chose to share are now visible!"
+msgstr ""
+"Les informations que chacun a choisi de partager sont maintenant visibles "
+"!"
 
 #: views_connections.py:1014
 msgid "Your consent has been recorded."
@@ -42415,6 +42437,11 @@ msgstr ""
 
 #: templates/crush_lu/base.html:1289
 #: templates/crush_lu/partials/edit_about_crushlu.html:123
+msgid "Your privacy matters. Members are verified in person at an event."
+msgstr ""
+"Votre vie privée compte. Les membres sont vérifiés en personne lors d'un "
+"événement."
+
 msgid ""
 "Your privacy matters. Members are verified instantly with LuxID or in person "
 "at an event."
@@ -43293,11 +43320,11 @@ msgstr "%(name)s a choisi de ne pas partager son e-mail."
 #: templates/crush_lu/_connection_response.html:15
 #, python-format
 msgid ""
-"You and %(name)s can already see each other's contact info — no waiting "
+"You and %(name)s can now see each other's profile details — no waiting "
 "needed."
 msgstr ""
-"Vous et %(name)s pouvez déjà voir vos informations de contact respectives — "
-"pas besoin d'attendre."
+"Vous et %(name)s pouvez maintenant voir les informations de profil de "
+"l'autre — pas besoin d'attendre."
 
 #: templates/crush_lu/_connection_response.html:19
 #, python-format
@@ -44135,3 +44162,11 @@ msgstr "En attente / absent·es"
 #: crush_lu/templates/crush_lu/auth.html
 msgid "Create your Crush.lu account"
 msgstr "Créez votre compte Crush.lu"
+
+#: templates/crush_lu/connection_detail.html:58
+msgid "Profiles Shared"
+msgstr "Profils partagés"
+
+#: templates/crush_lu/_connection_response.html:36
+msgid "Profiles shared"
+msgstr "Profils partagés"

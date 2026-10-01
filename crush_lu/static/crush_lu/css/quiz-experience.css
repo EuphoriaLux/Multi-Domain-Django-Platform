@@ -14,7 +14,7 @@
     --quiz-stage-raised: var(--color-slate-800);
     --quiz-stage-soft: color-mix(in srgb, var(--color-slate-700) 72%, transparent);
     --quiz-text: var(--color-white);
-    --quiz-text-muted: var(--color-gray-400);
+    --quiz-text-muted: oklch(70.7% 0.022 261.325); /* literal: the stage is always dark, the light-mode gray floor must not reach it */
     --quiz-line: color-mix(in srgb, var(--color-white) 10%, transparent);
     --quiz-radius: 1.25rem;
     --quiz-radius-small: 0.875rem;

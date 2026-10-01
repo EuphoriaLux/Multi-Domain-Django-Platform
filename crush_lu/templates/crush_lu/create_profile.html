@@ -4,12 +4,6 @@
 {% block title %}{% trans "Create Your Profile - Crush.lu" %}{% endblock %}
 
 {% block extra_css %}
-<!-- intl-tel-input CSS -->
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/css/intlTelInput.css">
-<!-- Custom intl-tel-input styling for Crush.lu -->
-<link rel="stylesheet" href="{% static 'crush_lu/css/components/intl-tel-input.css' %}">
 <!-- Canton Map CSS -->
 <link rel="stylesheet" href="{% static 'crush_lu/css/components/canton-map.css' %}">
 {% endblock %}
@@ -1162,75 +1156,6 @@
         </form>
     </div>
 
-    {% include "crush_lu/includes/phone_otp_modal.html" %}
 </div>
 {% endblock %}
 
-{% block extra_js %}
-<!-- Firebase SDK for phone authentication -->
-<script nonce="{{ csp_nonce }}" src="https://www.gstatic.com/firebasejs/12.10.0/firebase-app-compat.js"></script>
-<script nonce="{{ csp_nonce }}" src="https://www.gstatic.com/firebasejs/12.10.0/firebase-auth-compat.js"></script>
-
-<!-- intl-tel-input JS -->
-<script nonce="{{ csp_nonce }}" src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/intlTelInput.min.js"></script>
-
-<!-- Firebase Configuration -->
-<script nonce="{{ csp_nonce }}">
-    window.FIREBASE_API_KEY = "{{ firebase_api_key }}";
-    window.FIREBASE_AUTH_DOMAIN = "{{ firebase_auth_domain }}";
-    window.FIREBASE_PROJECT_ID = "{{ firebase_project_id }}";
-</script>
-
-<!-- Phone verification module -->
-<script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/phone-verification.js' %}"></script>
-
-<script nonce="{{ csp_nonce }}">
-// Initialize global phone verification instance
-// Alpine.js components are now defined in js/alpine/core.js
-document.addEventListener('DOMContentLoaded', function() {
-    window.phoneVerification = new PhoneVerification({
-        phoneInputId: '{{ form.phone_number.id_for_label }}',
-        verifyButtonId: 'verify-phone-btn',
-        recaptchaContainerId: 'recaptcha-container',
-        csrfToken: '{{ csrf_token }}',
-        onCodeSent: function(phone) {
-            // Find the modal element and call showCodeStep via Alpine
-            var modal = document.querySelector('[x-data="phoneVerificationModal"]');
-            if (modal && modal._x_dataStack && modal._x_dataStack[0]) {
-                modal._x_dataStack[0].showCodeStep(phone);
-            }
-        },
-        onVerified: function(phoneNumber) {
-            window.dispatchEvent(new CustomEvent('phone-verified', { detail: phoneNumber }));
-        },
-        onError: function(error) {
-            console.error('Phone verification error:', error);
-        }
-    });
-});
-
-// Listen for verification events
-window.addEventListener('phone-verified', function(e) {
-    var phoneInput = document.getElementById('{{ form.phone_number.id_for_label }}');
-    if (phoneInput) {
-        // Use intlTelInput's setNumber() if available, otherwise set directly
-        // This ensures the full international number is properly handled
-        if (window.itiInstance) {
-            window.itiInstance.setNumber(e.detail);
-        }
-        // Also set the input value directly for form submission
-        // (important when intlTelInput is destroyed or not managing the input)
-        phoneInput.value = e.detail;
-        phoneInput.readOnly = true;
-    }
-
-    // Update hidden input
-    var hiddenInput = document.querySelector('[name="phone_verified"]');
-    if (hiddenInput) hiddenInput.value = 'true';
-
-    // Update continue button
-    var continueBtn = document.getElementById('step1-continue-btn');
-    if (continueBtn) continueBtn.disabled = false;
-});
-</script>
-{% endblock %}
