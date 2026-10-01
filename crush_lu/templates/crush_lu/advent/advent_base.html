@@ -266,6 +266,13 @@
             padding: 1.5rem;
         }
     }
+
+    /* Must stay after the 768px block: same specificity, later rule wins */
+    @media (max-width: 480px) {
+        .door-content-card {
+            padding: 1.25rem;
+        }
+    }
 </style>
 {% endblock %}
 
