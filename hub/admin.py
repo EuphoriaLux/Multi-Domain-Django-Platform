@@ -2,6 +2,7 @@ from django import forms
 from django.contrib import admin
 from django.core.exceptions import ValidationError
 from django.forms.models import BaseInlineFormSet
+from django.utils import timezone
 from modeltranslation.admin import TabbedTranslationAdmin
 
 from .models import (
@@ -88,7 +89,9 @@ class LocationContactInlineFormSet(BaseInlineFormSet):
             keep = [
                 form.instance.pk for form in self._primary_forms() if form.instance.pk
             ]
-            self.instance.contacts.exclude(pk__in=keep).update(is_primary=False)
+            self.instance.contacts.filter(is_primary=True).exclude(pk__in=keep).update(
+                is_primary=False, updated_at=timezone.now()
+            )
         return super().save(commit)
 
 

@@ -8,6 +8,7 @@ Spec: ai-memory-hub/specs/2026-10-01-hub-partner-and-offers.md
 """
 
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers
 
 from crush_lu.models.echo_lu import EchoVenue
@@ -275,6 +276,11 @@ class LocationSerializer(serializers.ModelSerializer):
     def validate_contacts(self, contacts):
         if sum(1 for contact in contacts if contact.get("is_primary")) > 1:
             raise serializers.ValidationError("Only one contact can be primary.")
+        # Nested serializers inherit the root's ``partial=True`` on PATCH, which
+        # would let a new contact through without the name the model needs.
+        for contact in contacts:
+            if "id" not in contact and not contact.get("name"):
+                raise serializers.ValidationError("A new contact needs a name.")
         ids = [contact["id"] for contact in contacts if "id" in contact]
         if len(ids) != len(set(ids)):
             raise serializers.ValidationError("A contact id appears twice.")
@@ -393,7 +399,11 @@ class LocationSerializer(serializers.ModelSerializer):
         """
         kept = {contact["id"] for contact in contacts if "id" in contact}
         location.contacts.exclude(id__in=kept).delete()
-        location.contacts.update(is_primary=False)
+        # ``QuerySet.update()`` skips ``auto_now``, so stamp updated_at here.
+        now = timezone.now()
+        location.contacts.filter(is_primary=True).update(
+            is_primary=False, updated_at=now
+        )
         has_primary = any(contact.get("is_primary") for contact in contacts)
         for index, data in enumerate(contacts):
             data = dict(data)
@@ -404,7 +414,9 @@ class LocationSerializer(serializers.ModelSerializer):
             if contact_id is None:
                 LocationContact.objects.create(location=location, **data)
             else:
-                LocationContact.objects.filter(id=contact_id).update(**data)
+                LocationContact.objects.filter(id=contact_id).update(
+                    **data, updated_at=now
+                )
 
 
 class TranslatedTextField(serializers.Field):

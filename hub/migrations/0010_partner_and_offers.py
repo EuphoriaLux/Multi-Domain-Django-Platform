@@ -103,6 +103,7 @@ class Migration(migrations.Migration):
                         default=0,
                         help_text="Event fee in EUR.",
                         max_digits=6,
+                        validators=[django.core.validators.MinValueValidator(0)],
                     ),
                 ),
                 ("partner_cost_notes", models.TextField(blank=True, default="")),
@@ -209,7 +210,11 @@ class Migration(migrations.Migration):
             model_name="location",
             name="deposit_amount",
             field=models.DecimalField(
-                blank=True, decimal_places=2, max_digits=8, null=True
+                blank=True,
+                decimal_places=2,
+                max_digits=8,
+                null=True,
+                validators=[django.core.validators.MinValueValidator(0)],
             ),
         ),
         migrations.AddField(
@@ -260,7 +265,11 @@ class Migration(migrations.Migration):
             model_name="location",
             name="minimum_spend",
             field=models.DecimalField(
-                blank=True, decimal_places=2, max_digits=8, null=True
+                blank=True,
+                decimal_places=2,
+                max_digits=8,
+                null=True,
+                validators=[django.core.validators.MinValueValidator(0)],
             ),
         ),
         migrations.AddField(

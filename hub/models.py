@@ -200,7 +200,11 @@ class Location(models.Model):
 
     # Structured deal terms; ``commercial_terms`` keeps the free-text version.
     minimum_spend = models.DecimalField(
-        max_digits=8, decimal_places=2, blank=True, null=True
+        max_digits=8,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(0)],
     )
     revenue_share_percent = models.DecimalField(
         max_digits=5,
@@ -210,7 +214,11 @@ class Location(models.Model):
         validators=[MinValueValidator(0), MaxValueValidator(100)],
     )
     deposit_amount = models.DecimalField(
-        max_digits=8, decimal_places=2, blank=True, null=True
+        max_digits=8,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(0)],
     )
 
     # String FK: hub already imports crush_lu, never the other way round.
@@ -257,6 +265,12 @@ class Location(models.Model):
             errors["seated_capacity"] = (
                 "Seated capacity must be between 1 and maximum capacity."
             )
+        if self.canton:
+            # Imported here: crush_lu may not be loaded when this module is.
+            from crush_lu.models.events import CANTON_CHOICES
+
+            if self.canton not in {value for value, _label in CANTON_CHOICES}:
+                errors["canton"] = "Unknown canton."
         if self.pk and self.max_capacity is not None:
             largest = max(
                 self.offers.values_list("max_participants", flat=True), default=0
@@ -379,7 +393,11 @@ class PartnerOffer(models.Model):
     max_age = models.PositiveIntegerField(default=99)
 
     registration_fee = models.DecimalField(
-        max_digits=6, decimal_places=2, default=0, help_text="Event fee in EUR."
+        max_digits=6,
+        decimal_places=2,
+        default=0,
+        help_text="Event fee in EUR.",
+        validators=[MinValueValidator(0)],
     )
     partner_cost_notes = models.TextField(blank=True, default="")
 

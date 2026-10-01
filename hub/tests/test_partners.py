@@ -79,6 +79,32 @@ class OfferContractTests(TestCase):
 
 
 class PartnerModelTests(TestCase):
+    def test_deal_amounts_and_fee_cannot_be_negative_on_the_model(self):
+        from django.core.exceptions import ValidationError
+
+        for field in ("minimum_spend", "deposit_amount"):
+            partner = make_partner(**{field: "-1.00"})
+            with self.assertRaises(ValidationError) as caught:
+                partner.full_clean()
+            self.assertIn(field, caught.exception.message_dict)
+            partner.delete()
+        offer = make_offer(make_partner(), registration_fee="-5.00")
+        with self.assertRaises(ValidationError) as caught:
+            offer.full_clean()
+        self.assertIn("registration_fee", caught.exception.message_dict)
+
+    def test_unknown_canton_is_rejected_on_the_model(self):
+        from django.core.exceptions import ValidationError
+
+        partner = make_partner(canton="atlantis")
+        with self.assertRaises(ValidationError) as caught:
+            partner.full_clean()
+        self.assertIn("canton", caught.exception.message_dict)
+        partner.canton = "Luxembourg"
+        partner.full_clean()
+        partner.canton = ""
+        partner.full_clean()
+
     def test_offer_capacity_is_checked_against_the_venue_in_model_clean(self):
         from django.core.exceptions import ValidationError
 
@@ -819,6 +845,52 @@ class PartnerReviewRegressionTests(ThrottleIsolatedTestCase):
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(response.data["address"], "Keep me, 1234 Town")
         self.assertEqual(response.data["addressNumber"], "7")
+
+    def test_new_contacts_need_a_name_even_on_patch(self):
+        partner = make_partner()
+        LocationContact.objects.create(location=partner, name="Keep", is_primary=True)
+        for contacts in ([{}], [{"role": "Chef"}], [{"name": "  "}]):
+            response = self.client.patch(
+                f"/hub/locations/{partner.pk}", {"contacts": contacts}, format="json"
+            )
+            self.assertEqual(response.status_code, 400, contacts)
+        # Nothing was replaced.
+        self.assertEqual(
+            list(partner.contacts.values_list("name", flat=True)), ["Keep"]
+        )
+
+    def test_contact_sync_refreshes_updated_at(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        partner = make_partner()
+        old = timezone.now() - timedelta(days=30)
+        first = LocationContact.objects.create(
+            location=partner, name="First", is_primary=True
+        )
+        second = LocationContact.objects.create(location=partner, name="Second")
+        LocationContact.objects.filter(pk__in=[first.pk, second.pk]).update(
+            updated_at=old
+        )
+
+        response = self.client.patch(
+            f"/hub/locations/{partner.pk}",
+            {
+                "contacts": [
+                    {"id": first.pk, "name": "First", "isPrimary": False},
+                    {"id": second.pk, "name": "Second renamed", "isPrimary": True},
+                ]
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.data)
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertFalse(first.is_primary)  # flag moved
+        self.assertGreater(first.updated_at, old)
+        self.assertGreater(second.updated_at, old)  # renamed + now primary
 
 
 class ContactInlineAdminTests(ThrottleIsolatedTestCase):
