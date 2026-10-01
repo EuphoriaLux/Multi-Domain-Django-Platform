@@ -19701,12 +19701,12 @@ msgstr "Zustimmung erforderlich"
 #: templates/crush_lu/connection_detail.html:337
 #, python-format
 msgid ""
-"Your Crush Coach has approved this connection! Before your name and "
-"profile are shared with %(name)s, we need your explicit consent."
+"Your Crush Coach has approved this connection! Before your profile details "
+"and photos are shared with %(name)s, we need your explicit consent."
 msgstr ""
-"Dein Crush Coach hat diese Verbindung genehmigt! Bevor dein Name und dein "
-"Profil mit %(name)s geteilt werden, benötigen wir deine ausdrückliche "
-"Zustimmung."
+"Dein Crush Coach hat diese Verbindung genehmigt! Bevor deine Profilangaben "
+"und deine Fotos mit %(name)s geteilt werden, benötigen wir deine "
+"ausdrückliche Zustimmung."
 
 #: templates/crush_lu/connection_detail.html:341
 msgid "What will be shared:"
@@ -19722,10 +19722,9 @@ msgstr "Profildetails und Fotos"
 
 #: templates/crush_lu/connection_detail.html:359
 #, python-format
-msgid "I consent to share my name, profile details and photos with %(name)s"
+msgid "I consent to share my profile details and photos with %(name)s"
 msgstr ""
-"Ich stimme zu, meinen Namen, meine Profilangaben und meine Fotos mit "
-"%(name)s zu teilen"
+"Ich stimme zu, meine Profilangaben und meine Fotos mit %(name)s zu teilen"
 
 #: templates/crush_lu/connection_detail.html:365
 msgid "Give Consent"

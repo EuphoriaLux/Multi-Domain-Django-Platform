@@ -13234,8 +13234,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\connection_detail.html:292
 #, python-format
 msgid ""
-"Your Crush Coach has approved this connection! Before your name and "
-"profile are shared with %(name)s, we need your explicit consent."
+"Your Crush Coach has approved this connection! Before your profile details "
+"and photos are shared with %(name)s, we need your explicit consent."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\connection_detail.html:296
@@ -13252,7 +13252,7 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\connection_detail.html:314
 #, python-format
-msgid "I consent to share my name, profile details and photos with %(name)s"
+msgid "I consent to share my profile details and photos with %(name)s"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\connection_detail.html:320

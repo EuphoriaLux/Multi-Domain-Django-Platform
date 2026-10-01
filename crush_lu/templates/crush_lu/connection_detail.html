@@ -331,7 +331,7 @@
                         {% trans "Consent Required" %}
                     </h3>
                     <p class="text-gray-600 dark:text-gray-300 mb-4">
-                        {% blocktrans with name=other_profile.display_name %}Your Crush Coach has approved this connection! Before your name and profile are shared with {{ name }}, we need your explicit consent.{% endblocktrans %}
+                        {% blocktrans with name=other_profile.display_name %}Your Crush Coach has approved this connection! Before your profile details and photos are shared with {{ name }}, we need your explicit consent.{% endblocktrans %}
                     </p>
 
                     <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200 rounded-lg p-4 mb-4">
@@ -358,7 +358,7 @@
                         <div class="flex items-center gap-2 mb-3">
                             <input class="w-4 h-4 text-purple-600 border-gray-300 dark:border-gray-600 rounded focus:ring-purple-500" type="checkbox" id="consent_checkbox" required>
                             <label class="text-sm text-gray-700 dark:text-gray-200" for="consent_checkbox">
-                                {% blocktrans with name=other_profile.display_name %}I consent to share my name, profile details and photos with {{ name }}{% endblocktrans %}
+                                {% blocktrans with name=other_profile.display_name %}I consent to share my profile details and photos with {{ name }}{% endblocktrans %}
                             </label>
                         </div>
 

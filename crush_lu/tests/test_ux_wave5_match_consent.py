@@ -73,6 +73,23 @@ class MatchPhoneConsentTests(TestCase):
         # The phone is no longer listed as unconditionally shared.
         self.assertNotContains(response, PHONE_ME)
 
+    def test_consent_copy_does_not_claim_visible_name_is_withheld(self):
+        # The page already shows the counterpart's name, age and city before
+        # consent, so the prompt may only name what consent really unlocks.
+        en = self._client(self.me).get(self._url(), HTTP_HOST=HOST)
+        self.assertContains(en, "Before your profile details and photos are shared")
+        self.assertContains(en, "share my profile details and photos with")
+        self.assertNotContains(en, "Before your name and profile")
+        self.assertNotContains(en, "share my name, profile details")
+        de = self._client(self.me).get(
+            f"/de/connections/{self.conn.id}/", HTTP_HOST=HOST
+        )
+        self.assertContains(de, "Bevor deine Profilangaben und deine Fotos")
+        fr = self._client(self.me).get(
+            f"/fr/connections/{self.conn.id}/", HTTP_HOST=HOST
+        )
+        self.assertContains(fr, "Avant que les détails de votre profil")
+
     def test_consent_without_phone_checkbox_does_not_share_phone(self):
         response = self._client(self.me).post(
             self._url(), {"consent": "yes"}, HTTP_HOST=HOST
