@@ -75,7 +75,7 @@ def test_keyboard_vote_swaps_results_in_place_with_a_toast(poll_page):
     submit = page.get_by_role("button", name="Submit Vote")
     expect(submit).to_be_disabled()
     header_count = page.locator("[data-poll-total-votes]")
-    expect(header_count).to_have_text("0")
+    expect(header_count).to_have_text("0 votes")
 
     first = page.get_by_role("radio", name="Wine Night")
     first.focus()
@@ -93,7 +93,7 @@ def test_keyboard_vote_swaps_results_in_place_with_a_toast(poll_page):
     expect(page.get_by_text("Your vote has been recorded. Thank you!")).to_be_visible()
     expect(page.get_by_role("img", name="Board Games: 100%, 1 vote")).to_be_visible()
     # The header count follows the same response as the results.
-    expect(header_count).to_have_text("1")
+    expect(header_count).to_have_text("1 vote")
     expect(page.get_by_role("radio")).to_have_count(0)
     assert page.evaluate("window.__noReload") is True
     # The page-loading overlay must not cover a submit that never navigates.

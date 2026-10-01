@@ -19,7 +19,6 @@ Excluded from the default run (``-m "not playwright"`` in pytest.ini). Run:
 
 import json
 import os
-import re
 from pathlib import Path
 
 import pytest
@@ -185,33 +184,21 @@ def test_system_follows_a_dark_os(browser, live_server):
     assert page.evaluate("() => localStorage.getItem('theme')") is None
 
 
-def test_theme_choice_is_locked_on_always_dark_pages(browser, live_server):
+def test_theme_choice_is_free_on_journey_pages(browser, live_server):
+    """UX Wave 5 · WP14: gift/journey pages follow the theme (advent stays locked)."""
     page = _page(
         browser, live_server, _member(is_staff=True), scheme="light", saved="light"
     )
     _open(page, f"{live_server.url}/en/journey/gift/create/")
-    assert _is_dark(page)
-    # Theme-locked (dark) page: the status bar is dark whatever the OS says.
-    assert page.evaluate(THEME_COLORS_JS) == ["#0f172a", "#0f172a"]
+    assert not _is_dark(page)
 
     choice = _open_drawer(page)
     buttons = choice.get_by_role("button")
     assert buttons.count() == 3
     for i in range(3):
-        expect(buttons.nth(i)).to_have_attribute("aria-disabled", "true")
-        expect(buttons.nth(i)).to_have_attribute("title", LOCKED_LABEL)
-    expect(choice.get_by_text(LOCKED_LABEL)).to_be_visible()
-
-    # No option looks pressed or clickable while the page is forced dark.
-    for i in range(3):
-        expect(buttons.nth(i)).to_have_class(re.compile(r"\bcursor-not-allowed\b"))
-        expect(buttons.nth(i)).not_to_have_class(re.compile(r"\bshadow-sm\b"))
-
-    # aria-disabled keeps them focusable; a real activation is still a no-op.
-    choice.get_by_role("button", name="Light").dispatch_event("click")
-    choice.get_by_role("button", name="System").dispatch_event("click")
+        expect(buttons.nth(i)).not_to_have_attribute("aria-disabled", "true")
+    choice.get_by_role("button", name="Dark").click()
     assert _is_dark(page)
-    assert page.evaluate("() => localStorage.getItem('theme')") == "light"
 
 
 def test_other_theme_labels_follow_a_drawer_pick(browser, live_server):

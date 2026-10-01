@@ -170,7 +170,7 @@
             <h2 class="text-xs font-bold uppercase tracking-[0.12em] text-lobby-dim mb-2.5">
                 {% trans "People here now" %}
             </h2>
-            <div id="lobby-grid" role="list" class="grid grid-cols-3 gap-2.5">
+            <div id="lobby-grid" class="grid grid-cols-3 gap-2.5">
                 {% for entry in roster %}
                 {% if entry.already_met %}
                 <button type="button" disabled

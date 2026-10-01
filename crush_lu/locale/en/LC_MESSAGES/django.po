@@ -28663,6 +28663,25 @@ msgstr ""
 msgid "Manage your Premium request"
 msgstr ""
 
+#: crush_lu/templates/crush_lu/journey/gift_create.html
+msgid "e.g., Marie, Sunshine"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/journey/gift_create.html
+msgid "Add background music that plays while your recipient reads your Future Letter!"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/journey/gift_create.html
+msgid "Audio file is too large. Maximum size is 10 MB."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/journey/gift_create.html
+msgid "Video file is too large. Maximum size is 50 MB."
+
+#: crush_lu/templates/crush_lu/auth.html
+msgid "Create your Crush.lu account"
+msgstr ""
+
 #: templates/crush_lu/connection_detail.html:58
 msgid "Profiles Shared"
 msgstr ""
