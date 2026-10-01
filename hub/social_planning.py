@@ -8,6 +8,8 @@ from zoneinfo import ZoneInfo
 from django.utils import timezone
 
 LUXEMBOURG = ZoneInfo("Europe/Luxembourg")
+# The furthest ahead a proposal or supplied automation time may fall.
+PLANNING_HORIZON = timedelta(days=91)
 REVIEW_FIELDS = (
     "content",
     "media_urls",
@@ -43,11 +45,18 @@ def source_deadline(post, metadata=None):
 
 
 def reserved_times(exclude_id=None):
+    from django.db.models import Q
+
     from .models import SocialPost
 
+    # A failed post that Buffer may already hold (a known or uncertain delivery)
+    # keeps its slot until it is reconciled.
+    held = Q(status__in=["draft", "pending_review", "approved", "scheduled"]) | (
+        Q(status="failed") & (~Q(buffer_id="") | Q(buffer_delivery_uncertain=True))
+    )
     return list(
         SocialPost.objects.filter(
-            status__in=["draft", "pending_review", "approved", "scheduled"],
+            held,
             scheduled_for__gte=timezone.now(),
         )
         .exclude(pk=exclude_id)
@@ -144,6 +153,8 @@ def posting_proposal(
         fallback = datetime.combine(day, time(18, 30), LUXEMBOURG)
         for candidate in options + [fallback]:
             if candidate < earliest or (deadline and candidate >= deadline):
+                continue
+            if candidate > now + PLANNING_HORIZON:
                 continue
             if any(abs(candidate - booked) < timedelta(hours=1) for booked in occupied):
                 continue

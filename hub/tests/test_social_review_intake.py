@@ -70,6 +70,12 @@ class PostingProposalTests(SimpleTestCase):
         proposal = posting_proposal(now=now, profiles=profiles, occupied=[])
         self.assertEqual(proposal["scheduled_for"], "2026-10-05T17:00:00+02:00")
 
+    def test_proposals_stop_at_the_planning_horizon(self):
+        now = datetime(2026, 10, 5, 9, tzinfo=ZoneInfo("Europe/Luxembourg"))
+        far = (now + timedelta(days=95)).date().isoformat()
+        proposal = posting_proposal(posting_date=far, now=now, occupied=[])
+        self.assertIsNone(proposal["scheduled_for"])
+
     def test_review_window_and_winter_timezone(self):
         now = datetime(2026, 10, 26, 17, tzinfo=ZoneInfo("Europe/Luxembourg"))
         proposal = posting_proposal(now=now, occupied=[])
@@ -417,6 +423,53 @@ class HubReviewIntakeTests(TestCase):
         self.assertEqual(response.status_code, 201)
         got = datetime.fromisoformat(response.json()["post"]["scheduled_for"])
         self.assertGreaterEqual(got - timezone.now(), timedelta(hours=3, minutes=59))
+
+    def test_failed_posts_with_a_buffer_record_keep_their_slot(self):
+        from hub.social_planning import reserved_times
+
+        slot = timezone.now() + timedelta(days=3)
+        other = timezone.now() + timedelta(days=4)
+        SocialPost.objects.create(
+            user=self.user,
+            content="Partial",
+            status="failed",
+            buffer_id="abc",
+            scheduled_for=slot,
+        )
+        SocialPost.objects.create(
+            user=self.user,
+            content="Unknown",
+            status="failed",
+            buffer_delivery_uncertain=True,
+            scheduled_for=other,
+        )
+        SocialPost.objects.create(
+            user=self.user,
+            content="Plain failure",
+            status="failed",
+            scheduled_for=timezone.now() + timedelta(days=5),
+        )
+        held = reserved_times()
+        self.assertIn(slot, held)
+        self.assertIn(other, held)
+        self.assertEqual(len(held), 2)
+
+    def test_automation_intake_replaces_a_time_after_the_source_deadline(self):
+        event_day = (timezone.localdate() + timedelta(days=10)).isoformat()
+        late = timezone.now() + timedelta(days=30)
+        response = self.client.post(
+            "/hub/social/posts/",
+            {
+                "content": "Auto",
+                "generation_key": "run-deadline",
+                "scheduled_for": late.isoformat(),
+                "source_metadata": {"event_date": event_day},
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        got = datetime.fromisoformat(response.json()["post"]["scheduled_for"])
+        self.assertLess(got.date().isoformat(), event_day)
 
     def test_automation_intake_rechecks_a_taken_proposed_slot(self):
         taken = timezone.now() + timedelta(days=3)

@@ -45,6 +45,7 @@ from .image_generator import (
 from .models import HubResource, SocialPost
 from .serializers import SocialPostSerializer
 from .social_planning import (
+    PLANNING_HORIZON,
     REVIEW_FIELDS,
     posting_proposal,
     reserved_times,
@@ -597,7 +598,7 @@ PLANNING_WINDOW_ERROR = "Choose a time within the next 90 days."
 
 def _beyond_planning_horizon(when) -> bool:
     """The planning endpoint offers at most 90 days ahead (plus a day of slack)."""
-    return when > timezone.now() + timedelta(days=91)
+    return when > timezone.now() + PLANNING_HORIZON
 
 
 # Arbitrary constant key for the Postgres advisory lock guarding slot allocation.
@@ -678,9 +679,11 @@ class SocialPostsView(APIView):
                     cursor.execute(
                         "SELECT pg_advisory_xact_lock(%s)", [_SLOT_ALLOCATION_LOCK]
                     )
+            deadline = source_deadline(post) if post.scheduled_for else None
             if post.scheduled_for and (
                 # Same four-hour review window the planning endpoint keeps.
                 post.scheduled_for < timezone.now() + timedelta(hours=4)
+                or (deadline and post.scheduled_for >= deadline)
                 or any(
                     abs(post.scheduled_for - booked) < timedelta(hours=1)
                     for booked in reserved_times(post.pk)
