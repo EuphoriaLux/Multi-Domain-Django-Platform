@@ -678,9 +678,13 @@ class SocialPostsView(APIView):
                     cursor.execute(
                         "SELECT pg_advisory_xact_lock(%s)", [_SLOT_ALLOCATION_LOCK]
                     )
-            if post.scheduled_for and any(
-                abs(post.scheduled_for - booked) < timedelta(hours=1)
-                for booked in reserved_times(post.pk)
+            if post.scheduled_for and (
+                # Same four-hour review window the planning endpoint keeps.
+                post.scheduled_for < timezone.now() + timedelta(hours=4)
+                or any(
+                    abs(post.scheduled_for - booked) < timedelta(hours=1)
+                    for booked in reserved_times(post.pk)
+                )
             ):
                 post.scheduled_for = None
         if not post.scheduled_for:

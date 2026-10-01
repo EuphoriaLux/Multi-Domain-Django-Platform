@@ -38,6 +38,38 @@ class PostingProposalTests(SimpleTestCase):
         )
         self.assertEqual(second["scheduled_for"], "2026-10-05T19:00:00+02:00")
 
+    def test_linkedin_only_deployment_uses_its_configured_slot(self):
+        now = datetime(2026, 10, 5, 9, tzinfo=ZoneInfo("Europe/Luxembourg"))
+        profiles = [
+            {
+                "id": "li",
+                "service": "linkedin",
+                "timezone": "Europe/Luxembourg",
+                "posting_schedule": [{"day": "mon", "times": ["17:15"]}],
+            }
+        ]
+        proposal = posting_proposal(now=now, profiles=profiles, occupied=[])
+        self.assertEqual(proposal["scheduled_for"], "2026-10-05T17:15:00+02:00")
+
+    def test_unrelated_linkedin_account_does_not_narrow_instagram_slots(self):
+        now = datetime(2026, 10, 5, 9, tzinfo=ZoneInfo("Europe/Luxembourg"))
+        profiles = [
+            {
+                **p,
+                "posting_schedule": [{"day": "mon", "times": ["17:00"]}],
+            }
+            for p in PROFILES
+        ] + [
+            {
+                "id": "li",
+                "service": "linkedin",
+                "timezone": "Europe/Luxembourg",
+                "posting_schedule": [{"day": "tue", "times": ["08:00"]}],
+            }
+        ]
+        proposal = posting_proposal(now=now, profiles=profiles, occupied=[])
+        self.assertEqual(proposal["scheduled_for"], "2026-10-05T17:00:00+02:00")
+
     def test_review_window_and_winter_timezone(self):
         now = datetime(2026, 10, 26, 17, tzinfo=ZoneInfo("Europe/Luxembourg"))
         proposal = posting_proposal(now=now, occupied=[])
@@ -370,6 +402,21 @@ class HubReviewIntakeTests(TestCase):
                 format="json",
             )
             self.assertEqual(response.status_code, 400, value)
+
+    def test_automation_intake_replaces_a_time_inside_the_review_window(self):
+        soon = timezone.now() + timedelta(minutes=30)
+        response = self.client.post(
+            "/hub/social/posts/",
+            {
+                "content": "Auto",
+                "generation_key": "run-soon",
+                "scheduled_for": soon.isoformat(),
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        got = datetime.fromisoformat(response.json()["post"]["scheduled_for"])
+        self.assertGreaterEqual(got - timezone.now(), timedelta(hours=3, minutes=59))
 
     def test_automation_intake_rechecks_a_taken_proposed_slot(self):
         taken = timezone.now() + timedelta(days=3)

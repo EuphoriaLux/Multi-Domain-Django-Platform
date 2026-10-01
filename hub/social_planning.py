@@ -103,9 +103,20 @@ def posting_proposal(
                 p.get(k) for k in ("is_queue_paused", "is_disconnected", "is_locked")
             )
         ]
-        for service in ("instagram", "facebook")
+        for service in ("instagram", "facebook", "linkedin")
     }
-    selected = [items[0] for items in candidates.values() if len(items) == 1]
+    selected = [
+        candidates[service][0]
+        for service in ("instagram", "facebook")
+        if len(candidates[service]) == 1
+    ]
+    # LinkedIn only shapes the slot when the post targets it, or when it is the
+    # only network connected; otherwise an unrelated account would narrow it.
+    linkedin = candidates["linkedin"]
+    if len(linkedin) == 1 and (
+        (post and "linkedin" in (post.platforms or [])) or not selected
+    ):
+        selected.append(linkedin[0])
     for offset in range(21):
         day = first_day + timedelta(days=offset)
         common = None
