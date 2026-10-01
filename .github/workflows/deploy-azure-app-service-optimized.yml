@@ -75,14 +75,21 @@ jobs:
           # is the repo root, so the download restores each file in place.
           path: |
             crush_lu/static/crush_lu/css/tailwind.css
+            crush_lu/static/crush_lu/css/journey.css
+            crush_lu/static/crush_lu/css/marketing.css
             power_up/static/power_up/css/tailwind.css
             tableau/static/tableau/css/tailwind.css
             arborist/static/arborist/css/tailwind.css
             crush_lu/static/crush_lu/js/alpine/core.min.js
+            crush_lu/static/crush_lu/js/alpine/core.min.js.map
             crush_lu/static/crush_lu/js/alpine/coach.min.js
+            crush_lu/static/crush_lu/js/alpine/coach.min.js.map
             crush_lu/static/crush_lu/js/alpine/quiz.min.js
+            crush_lu/static/crush_lu/js/alpine/quiz.min.js.map
             crush_lu/static/crush_lu/js/alpine/journey.min.js
+            crush_lu/static/crush_lu/js/alpine/journey.min.js.map
             crush_lu/static/crush_lu/js/alpine/connect.min.js
+            crush_lu/static/crush_lu/js/alpine/connect.min.js.map
           # Fail loudly rather than silently deploying stale CSS again.
           if-no-files-found: error
           retention-days: 1
@@ -111,14 +118,21 @@ jobs:
         run: |
           set -e
           rm -f crush_lu/static/crush_lu/css/tailwind.css \
+                crush_lu/static/crush_lu/css/journey.css \
+                crush_lu/static/crush_lu/css/marketing.css \
                 power_up/static/power_up/css/tailwind.css \
                 tableau/static/tableau/css/tailwind.css \
                 arborist/static/arborist/css/tailwind.css \
                 crush_lu/static/crush_lu/js/alpine/core.min.js \
+                crush_lu/static/crush_lu/js/alpine/core.min.js.map \
                 crush_lu/static/crush_lu/js/alpine/coach.min.js \
+                crush_lu/static/crush_lu/js/alpine/coach.min.js.map \
                 crush_lu/static/crush_lu/js/alpine/quiz.min.js \
+                crush_lu/static/crush_lu/js/alpine/quiz.min.js.map \
                 crush_lu/static/crush_lu/js/alpine/journey.min.js \
-                crush_lu/static/crush_lu/js/alpine/connect.min.js
+                crush_lu/static/crush_lu/js/alpine/journey.min.js.map \
+                crush_lu/static/crush_lu/js/alpine/connect.min.js \
+                crush_lu/static/crush_lu/js/alpine/connect.min.js.map
           echo "🧹 Tracked CSS removed — only the artifact can satisfy the check below"
 
       - name: Download built CSS
@@ -130,14 +144,21 @@ jobs:
         run: |
           set -e
           for f in crush_lu/static/crush_lu/css/tailwind.css \
+                   crush_lu/static/crush_lu/css/journey.css \
+                   crush_lu/static/crush_lu/css/marketing.css \
                    power_up/static/power_up/css/tailwind.css \
                    tableau/static/tableau/css/tailwind.css \
                    arborist/static/arborist/css/tailwind.css \
                    crush_lu/static/crush_lu/js/alpine/core.min.js \
+                   crush_lu/static/crush_lu/js/alpine/core.min.js.map \
                    crush_lu/static/crush_lu/js/alpine/coach.min.js \
+                   crush_lu/static/crush_lu/js/alpine/coach.min.js.map \
                    crush_lu/static/crush_lu/js/alpine/quiz.min.js \
+                   crush_lu/static/crush_lu/js/alpine/quiz.min.js.map \
                    crush_lu/static/crush_lu/js/alpine/journey.min.js \
-                   crush_lu/static/crush_lu/js/alpine/connect.min.js; do
+                   crush_lu/static/crush_lu/js/alpine/journey.min.js.map \
+                   crush_lu/static/crush_lu/js/alpine/connect.min.js \
+                   crush_lu/static/crush_lu/js/alpine/connect.min.js.map; do
             test -s "$f" || { echo "❌ missing or empty after download: $f"; exit 1; }
           done
           echo "✅ All four CSS bundles + the Alpine .min.js bundles restored from the artifact"

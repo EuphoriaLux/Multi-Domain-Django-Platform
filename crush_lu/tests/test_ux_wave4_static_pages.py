@@ -33,6 +33,14 @@ HOST = {"HTTP_HOST": "crush.lu"}
 TAILWIND_INPUT = (
     Path(settings.BASE_DIR) / "tailwind-src" / "crush_lu" / "tailwind-input.css"
 )
+FEATURE_SRC = Path(settings.BASE_DIR) / "tailwind-src" / "crush_lu" / "features"
+
+
+def _css_src():
+    """Main input plus the per-feature sheets split out of it (WP11a)."""
+    parts = [TAILWIND_INPUT.read_text(encoding="utf-8")]
+    parts += [p.read_text(encoding="utf-8") for p in sorted(FEATURE_SRC.glob("*.css"))]
+    return "\n".join(parts)
 
 
 class _Collector(HTMLParser):
@@ -66,7 +74,7 @@ class HowItWorksTimelineTests(TestCase):
     """1-07: the connector is sized from the grid, never 100% past its start."""
 
     def test_timeline_connector_is_bounded_to_the_grid(self):
-        css = TAILWIND_INPUT.read_text(encoding="utf-8")
+        css = _css_src()
         start = css.index(".step-timeline::after")
         rule = css[start : css.index("}", start)]
         self.assertNotIn("width: 100%", rule)
@@ -130,7 +138,7 @@ class LegalPagesStructureTests(TestCase):
             self.assertTrue(attrs.get("aria-label"))
 
     def test_legal_prose_css_restores_bullets_and_underlines_links(self):
-        css = TAILWIND_INPUT.read_text(encoding="utf-8")
+        css = _css_src()
         start = css.index("LEGAL PROSE")
         block = css[start : start + 3000]
         self.assertIn(".legal-prose ul:not(.list-none)", block)

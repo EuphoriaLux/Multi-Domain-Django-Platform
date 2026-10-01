@@ -4,7 +4,11 @@
 {% block title %}{% trans "Create a Journey Gift" %} - Crush.lu{% endblock %}
 
 {% block gift_content %}
-<div class="gift-card" x-data="giftCreateForm" data-initial-step="{{ initial_step }}">
+<div class="gift-card" x-data="giftCreateForm" data-initial-step="{{ initial_step }}"
+     data-i18n-audio-format="{% trans "Invalid audio format. Please use MP3, WAV, or M4A files." %}"
+     data-i18n-audio-size="{% trans "Audio file is too large. Maximum size is 10 MB." %}"
+     data-i18n-video-format="{% trans "Invalid video format. Please use MP4 or MOV files." %}"
+     data-i18n-video-size="{% trans "Video file is too large. Maximum size is 50 MB." %}">
     <h1 class="gift-title">{% trans "Create a Wonderland Journey" %}</h1>
     <p class="gift-subtitle">{% trans "Create a magical experience for someone special" %}</p>
 
@@ -26,10 +30,10 @@
         <!-- Step 1: Basic Information -->
         <div class="step-content" x-bind:class="stepOneContentClass">
             {% if step_one_errors %}
-            {% include "crush_lu/journey/gift_error_summary.html" with errors=step_one_errors %}
+            {% include "crush_lu/journey/gift_error_summary.html" with errors=step_one_errors files_note=had_uploads %}
             {% endif %}
             <div class="form-group">
-                <label for="id_recipient_name">{{ form.recipient_name.label }}</label>
+                <label for="id_recipient_name">{{ form.recipient_name.label }} {% include "crush_lu/journey/partials/gift_required_marker.html" %}</label>
                 {{ form.recipient_name }}
                 {% if form.recipient_name.help_text %}
                 <p class="help-text">{{ form.recipient_name.help_text }}</p>
@@ -40,7 +44,7 @@
             </div>
 
             <div class="form-group">
-                <label for="id_date_first_met">{{ form.date_first_met.label }}</label>
+                <label for="id_date_first_met">{{ form.date_first_met.label }} {% include "crush_lu/journey/partials/gift_required_marker.html" %}</label>
                 {{ form.date_first_met }}
                 {% if form.date_first_met.help_text %}
                 <p class="help-text">{{ form.date_first_met.help_text }}</p>
@@ -51,7 +55,7 @@
             </div>
 
             <div class="form-group">
-                <label for="id_location_first_met">{{ form.location_first_met.label }}</label>
+                <label for="id_location_first_met">{{ form.location_first_met.label }} {% include "crush_lu/journey/partials/gift_required_marker.html" %}</label>
                 {{ form.location_first_met }}
                 {% if form.location_first_met.help_text %}
                 <p class="help-text">{{ form.location_first_met.help_text }}</p>
@@ -100,7 +104,7 @@
             {% if step_two_errors %}
             {% include "crush_lu/journey/gift_error_summary.html" with errors=step_two_errors files_note=True %}
             {% endif %}
-            <div class="media-info">
+            <div class="media-info" tabindex="-1">
                 <p>
                     <strong>{% trans "Optional:" %}</strong>
                     {% trans "Add photos and voice/video messages to make the journey extra special. These will be revealed as rewards when your recipient completes challenges!" %}
@@ -141,42 +145,17 @@
                 <p class="help-text mb-4">
                     {% trans "Add up to 5 photos for a beautiful slideshow reveal. Add memories of your time together!" %}
                 </p>
-                <div class="slideshow-grid">
+                <div class="slideshow-grid" data-slideshow-grid>
+                    {% for field in slideshow_fields %}
                     <div class="slideshow-item">
                         <div class="file-upload-wrapper">
-                            {{ form.chapter3_image_1 }}
+                            {{ field }}
                             <div class="file-upload-icon">🖼️</div>
-                            <div class="file-upload-text">{% trans "Photo" %} 1</div>
+                            <div class="file-upload-text">{% trans "Photo" %} {{ forloop.counter }}</div>
+                            <div class="file-upload-preview"><img alt=""></div>
                         </div>
                     </div>
-                    <div class="slideshow-item">
-                        <div class="file-upload-wrapper">
-                            {{ form.chapter3_image_2 }}
-                            <div class="file-upload-icon">🖼️</div>
-                            <div class="file-upload-text">{% trans "Photo" %} 2</div>
-                        </div>
-                    </div>
-                    <div class="slideshow-item">
-                        <div class="file-upload-wrapper">
-                            {{ form.chapter3_image_3 }}
-                            <div class="file-upload-icon">🖼️</div>
-                            <div class="file-upload-text">{% trans "Photo" %} 3</div>
-                        </div>
-                    </div>
-                    <div class="slideshow-item">
-                        <div class="file-upload-wrapper">
-                            {{ form.chapter3_image_4 }}
-                            <div class="file-upload-icon">🖼️</div>
-                            <div class="file-upload-text">{% trans "Photo" %} 4</div>
-                        </div>
-                    </div>
-                    <div class="slideshow-item">
-                        <div class="file-upload-wrapper">
-                            {{ form.chapter3_image_5 }}
-                            <div class="file-upload-icon">🖼️</div>
-                            <div class="file-upload-text">{% trans "Photo" %} 5</div>
-                        </div>
-                    </div>
+                    {% endfor %}
                 </div>
             </div>
 
@@ -219,7 +198,7 @@
                     {% trans "Letter Music" %}
                 </h3>
                 <p class="help-text mb-4">
-                    {% trans "Add background music that plays while reading your Future Letter in Chapter 5!" %}
+                    {% trans "Add background music that plays while your recipient reads your Future Letter!" %}
                 </p>
 
                 <div>

@@ -187,6 +187,10 @@ def gift_create(request):
             "initial_step": initial_step,
             "step_one_errors": step_errors[1],
             "step_two_errors": step_errors[2],
+            # Uploads are dropped on a re-render; say so whenever the failed
+            # POST carried any, whichever step's summary is showing (#1111).
+            "had_uploads": bool(request.FILES),
+            "slideshow_fields": [form[f"chapter3_image_{n}"] for n in range(1, 6)],
         },
     )
 
@@ -254,7 +258,7 @@ def gift_claim(request, gift_code):
     if request.method == "POST":
         try:
             # Claim the gift - this creates the journey
-            journey = gift.claim(request.user)
+            gift.claim(request.user)
 
             # Clear session gift code if present
             if "pending_gift_code" in request.session:

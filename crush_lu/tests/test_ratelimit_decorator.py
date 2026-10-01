@@ -304,6 +304,38 @@ class RateLimitDecoratorTests(SimpleTestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIsNone(cache.get(key))
 
+    def test_release_after_window_rollover_leaves_the_new_window_counted(self):
+        # #1111: a reservation straddling the window expiry used to release
+        # into the NEXT window, giving that window one free request.
+        xff = "203.0.113.7:1"
+        clock = [1_000_000.0]
+        key = _get_cache_key(
+            self.factory.post("/", HTTP_X_FORWARDED_FOR=xff), "ip", "straddle_view"
+        )
+
+        @ratelimit(key="ip", rate="2/m", method="POST", count_if=_created)
+        def straddle_view(request):
+            if request.POST.get("outcome") == "straddle":
+                clock[
+                    0
+                ] += 901  # window A (rate "2/m" parses as 15 minutes) expires while the view runs
+                # A second request starts window B and is counted there.
+                self._post(
+                    view=straddle_view,
+                    data={"outcome": "create"},
+                    HTTP_X_FORWARDED_FOR=xff,
+                )
+                return HttpResponse(status=400)  # A's slot is released now
+            return HttpResponse(status=302)
+
+        with patch("time.time", side_effect=lambda: clock[0]):
+            self._post(
+                view=straddle_view,
+                data={"outcome": "straddle"},
+                HTTP_X_FORWARDED_FOR=xff,
+            )
+            self.assertEqual(cache.get(key), 1)
+
     def test_counter_evicted_between_add_and_incr_restarts_at_one(self):
         real_incr = cache.incr
         evicted = []
@@ -407,3 +439,57 @@ class RateLimitDecoratorTests(SimpleTestCase):
         self.assertEqual(
             self._post(HTTP_X_FORWARDED_FOR="203.0.113.7:1").status_code, 200
         )
+
+    def test_rollover_between_increment_and_token_read_never_releases(self):
+        # The window can roll over after our increment but before we learn its
+        # token. The owner is then unknown, so the slot must not be released
+        # into the new window (it would grant that window a free request).
+        from crush_lu.decorators import (
+            _count_request,
+            _record_window_deadline,
+            _release_request,
+        )
+
+        key = "ratelimit:rollover:test"
+        cache.delete(key)
+        cache.add(key, 0, 900)
+        _record_window_deadline(key, 900)
+        real_incr = cache.incr
+
+        def incr_then_roll_over(name, *args, **kwargs):
+            value = real_incr(name, *args, **kwargs)
+            cache.delete(key)  # window A expires...
+            cache.add(key, 1, 900)  # ...and a concurrent request opens window B
+            _record_window_deadline(key, 900)
+            return value
+
+        with patch.object(cache, "incr", side_effect=incr_then_roll_over):
+            count, generation = _count_request(key, 900)
+
+        self.assertEqual(count, 1)
+        self.assertIsNone(generation)
+        _release_request(key, generation)
+        self.assertEqual(cache.get(key), 1)
+
+    def test_rollover_between_generation_check_and_decrement_is_undone(self):
+        # The generation check passes, then the window rolls over before the
+        # decrement lands: the decrement hit the new window, so it is given back.
+        from crush_lu.decorators import _record_window_deadline, _release_request
+
+        key = "ratelimit:rollover:decr"
+        cache.delete(key)
+        cache.add(key, 0, 900)
+        generation = _record_window_deadline(key, 900)
+        cache.incr(key)  # our reservation in window A
+        real_decr = cache.decr
+
+        def roll_over_then_decr(name, *args, **kwargs):
+            cache.delete(key)  # window A expires...
+            cache.add(key, 1, 900)  # ...window B opens with one request
+            _record_window_deadline(key, 900)
+            return real_decr(name, *args, **kwargs)
+
+        with patch.object(cache, "decr", side_effect=roll_over_then_decr):
+            _release_request(key, generation)
+
+        self.assertEqual(cache.get(key), 1)

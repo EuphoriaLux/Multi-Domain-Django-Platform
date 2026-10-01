@@ -43,7 +43,7 @@ def gate_needs(name, platform=True):
     needs = {job: {"result": "success"} for job in CI["jobs"][name]["needs"]}
     needs["changes"]["outputs"] = {"run-platform": str(platform).lower()}
     if not platform:
-        for job in ("run-tests", "javascript-lint", "django-deploy-check"):
+        for job in ("run-tests", "axe-smoke", "javascript-lint", "django-deploy-check"):
             if job in needs:
                 needs[job]["result"] = "skipped"
     return needs

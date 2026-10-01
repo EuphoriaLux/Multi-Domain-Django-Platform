@@ -2,7 +2,7 @@
 
 A gift can email any address from the Crush.lu domain, so creation is limited
 to approved, non-banned members and capped at 5 POSTs a day. Recipients see
-who sent it ("Created by <first name> · verified Crush.lu member") and can
+who sent it (first name in the intro sentence, plus a "verified Crush.lu member" line) and can
 close and report it, which expires the gift and alerts the team.
 
 Paths are literal: ``reverse("crush_lu:...")`` builds ``/crush/...`` paths
@@ -161,7 +161,8 @@ class GiftTrustLineTests(GiftAbuseTestBase):
 
         response = self.client.get(f"/en/journey/gift/{gift.gift_code}/")
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Created by Alice")
+        self.assertNotContains(response, "Created by")
+        self.assertContains(response, "<strong>Alice</strong>", count=1)
         self.assertContains(response, "verified Crush.lu member")
         self.assertNotContains(response, "Lastname")
         self.assertContains(response, f"/en/journey/gift/{gift.gift_code}/report/")
@@ -172,7 +173,8 @@ class GiftTrustLineTests(GiftAbuseTestBase):
         gift = self._gift(sender)
 
         response = self.client.get(f"/en/journey/gift/{gift.gift_code}/")
-        self.assertContains(response, "Created by Legacy")
+        self.assertNotContains(response, "Created by")
+        self.assertContains(response, "<strong>Legacy</strong>", count=1)
         self.assertNotContains(response, "verified Crush.lu member")
 
     def test_claim_page_shows_trust_line_and_report(self):
@@ -182,7 +184,8 @@ class GiftTrustLineTests(GiftAbuseTestBase):
 
         response = self.client.get(f"/en/journey/gift/{gift.gift_code}/claim/")
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Created by Alice")
+        self.assertNotContains(response, "Created by")
+        self.assertContains(response, "<strong>Alice</strong>", count=1)
         self.assertContains(response, "verified Crush.lu member")
         self.assertContains(response, f"/en/journey/gift/{gift.gift_code}/report/")
 
@@ -495,7 +498,8 @@ class GiftSenderVerifiedBadgeTests(GiftAbuseTestBase):
         gift = self._gift(sender)
 
         response = self.client.get(f"/en/journey/gift/{gift.gift_code}/")
-        self.assertContains(response, "Created by Alice")
+        self.assertNotContains(response, "Created by")
+        self.assertContains(response, "<strong>Alice</strong>", count=1)
         self.assertNotContains(response, "verified Crush.lu member")
 
     def test_inactive_sender_account_is_not_called_verified(self):
@@ -505,5 +509,6 @@ class GiftSenderVerifiedBadgeTests(GiftAbuseTestBase):
         gift = self._gift(sender)
 
         response = self.client.get(f"/en/journey/gift/{gift.gift_code}/")
-        self.assertContains(response, "Created by Alice")
+        self.assertNotContains(response, "Created by")
+        self.assertContains(response, "<strong>Alice</strong>", count=1)
         self.assertNotContains(response, "verified Crush.lu member")

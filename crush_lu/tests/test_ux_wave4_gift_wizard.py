@@ -11,6 +11,7 @@ Paths are literal: ``reverse("crush_lu:...")`` builds ``/crush/...`` paths
 that 404 under ``HTTP_HOST=crush.lu``.
 """
 
+import base64
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -23,6 +24,9 @@ User = get_user_model()
 
 CREATE_URL = "/en/journey/gift/create/"
 JS_DIR = Path(__file__).resolve().parents[1] / "static" / "crush_lu" / "js"
+PIXEL_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+)
 VALID = {
     "recipient_name": "Marie",
     "date_first_met": "2024-02-14",
@@ -256,3 +260,81 @@ class GiftCreateRateLimitTests(GiftWizardTestBase):
         self.assertEqual(self.client.post(CREATE_URL, {}).status_code, 429)
         # GET still renders the form.
         self.assertEqual(self.client.get(CREATE_URL).status_code, 200)
+
+
+class GiftWizardRestTests(GiftWizardTestBase):
+    """Wave 5 · WP13: the remainders of 7-06/7-07 (#1111)."""
+
+    def test_step_one_failure_with_uploads_shows_the_reselect_note(self):
+        # A valid image, so only step one fails.
+        photo = SimpleUploadedFile("puzzle.png", PIXEL_PNG, "image/png")
+        response = self.client.post(
+            CREATE_URL, {**VALID, "recipient_name": "", "chapter1_image": photo}
+        )
+        elements = _parse(response)
+        self.assertEqual(len(_find(elements, "div", role="alert")), 1)
+        self.assertContains(response, "Please select them again.")
+
+    def test_step_one_failure_without_uploads_has_no_note(self):
+        response = self.client.post(CREATE_URL, {**VALID, "recipient_name": ""})
+        self.assertNotContains(response, "select them again")
+
+    def test_story_labels_carry_a_visible_required_marker(self):
+        html = self.client.get(CREATE_URL).content.decode()
+        self.assertEqual(html.count("(Required)"), 3)
+
+    def test_client_errors_are_served_translated_from_the_page(self):
+        de = self.client.get("/de/journey/gift/create/").content.decode()
+        self.assertIn('data-i18n-audio-size="Die Audiodatei ist zu groß.', de)
+        fr = self.client.get("/fr/journey/gift/create/").content.decode()
+        self.assertIn('data-i18n-video-size="Le fichier vidéo est trop volumineux.', fr)
+
+    def test_script_has_no_hardcoded_english_client_errors(self):
+        for name in ("alpine/journey.js", "alpine/journey.min.js"):
+            source = (JS_DIR / name).read_text(encoding="utf-8")
+            self.assertNotIn("Invalid audio format.", source, name)
+            self.assertNotIn("too large. Maximum", source, name)
+
+    def test_stale_thumbnail_reads_cannot_overwrite_the_selection(self):
+        for name in ("alpine/journey.js", "alpine/journey.min.js"):
+            source = (JS_DIR / name).read_text(encoding="utf-8")
+            start = source.index("readAsDataURL")
+            # The onload callback sits just before readAsDataURL.
+            callback = source[max(0, start - 600) : start]
+            self.assertRegex(callback, r"files\[0\]\s*[!=]==\s*\w+", name)
+
+    def test_thumbnail_falls_back_to_the_extension_without_a_mime_type(self):
+        for name in ("alpine/journey.js", "alpine/journey.min.js"):
+            source = (JS_DIR / name).read_text(encoding="utf-8")
+            start = source.index("handleSlideshowFileChange")
+            block = source[start : source.index("readAsDataURL", start)]
+            self.assertRegex(block, r"jpe\?g", name)
+            self.assertIn("heic", block, name)
+
+    def test_slideshow_tiles_have_thumbnail_slots(self):
+        html = self.client.get(CREATE_URL).content.decode()
+        self.assertEqual(html.count('class="slideshow-item"'), 5)
+        # Five slideshow slots plus the photo puzzle's own preview.
+        self.assertEqual(html.count('class="file-upload-preview"'), 6)
+
+    def test_letter_music_help_does_not_number_a_chapter(self):
+        self.assertNotContains(self.client.get(CREATE_URL), "in Chapter 5")
+
+    def test_recipient_placeholder_is_short(self):
+        self.assertContains(
+            self.client.get(CREATE_URL), 'placeholder="e.g., Marie, Sunshine"'
+        )
+
+    def test_reported_translations_are_fixed(self):
+        from django.utils import translation
+
+        with translation.override("de"):
+            self.assertEqual(
+                translation.gettext("Chapter 3: Photo Slideshow"),
+                "Kapitel 3: Foto-Diashow",
+            )
+        with translation.override("fr"):
+            self.assertEqual(
+                translation.gettext("Click or drag to upload photo"),
+                "Cliquez ou glissez pour télécharger une photo",
+            )

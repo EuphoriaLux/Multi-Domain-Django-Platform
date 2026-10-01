@@ -34,15 +34,9 @@
             {% if email_prefs.unsubscribed_all %}
             <div class="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-200 rounded-lg p-4 mb-4">
                 {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 flex-shrink-0" %}
-                {% trans "You have unsubscribed from all emails. Toggle the switch below to re-enable notifications." %}
+                {% trans "All emails are paused. Turn off the switch at the bottom of this card to receive them again." %}
             </div>
             {% endif %}
-
-            <div class="mb-6">
-                {% include "crush_lu/components/toggle.html" with checked=email_prefs.unsubscribed_all tone="red" inline=True x_checked="unsubscribeAll" x_change="toggleUnsubscribe" label=_("Unsubscribe from ALL emails") %}
-            </div>
-
-            <hr class="my-6 border-gray-200 dark:border-gray-700">
 
             <div x-bind:class="unsubscribeAllClass">
                 <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">{% trans "Choose which emails you'd like to receive:" %}</p>
@@ -61,6 +55,11 @@
                     {% include "crush_lu/components/toggle.html" with checked=email_prefs.email_marketing input_class="email-pref-toggle" pref_key="email_marketing" label=_("Marketing & Promotions") help=_("Newsletters, special offers, and promotions") %}
                 </div>
             </div>
+
+            <hr class="my-6 border-gray-200 dark:border-gray-700">
+
+            {% trans "Your choices above are kept, so you can pick up where you left off." as pause_help %}
+            {% include "crush_lu/components/toggle.html" with checked=email_prefs.unsubscribed_all x_checked="unsubscribeAll" x_change="toggleUnsubscribe" label=_("Pause all emails") help=pause_help %}
         </div>
     </div>
 
@@ -82,20 +81,26 @@
                 </p>
             </div>
             {% endif %}
-            <form method="post" action="{% url 'crush_lu:update_whatsapp_preference' %}">
+            <form method="post" action="{% url 'crush_lu:update_whatsapp_preference' %}"
+                  x-data="whatsappPreference"
+                  data-saved-message="{% trans "WhatsApp notification preference updated." %}"
+                  data-error-message="{% trans "Error saving. Please try again." %}">
                 {% csrf_token %}
                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
                     {% trans "Receive notifications via WhatsApp on:" %}
                     <strong class="text-gray-900 dark:text-white ml-1">{{ profile.phone_number }}</strong>
                 </p>
 
-                {% include "crush_lu/components/toggle.html" with name="whatsapp_opt_in" checked=email_prefs.whatsapp_opt_in tone="green" label=_("Enable WhatsApp Notifications") help=_("Match alerts, new messages, and event reminders sent to your WhatsApp number.") %}
+                {% include "crush_lu/components/toggle.html" with name="whatsapp_opt_in" checked=email_prefs.whatsapp_opt_in tone="green" label=_("Enable WhatsApp Notifications") x_change="save" help=_("Match alerts, new messages, and event reminders sent to your WhatsApp number.") %}
 
-                <div class="mt-6">
-                    <button type="submit" class="btn-crush-solid btn-sm gap-2">
-                        {% include "shared/icons/check.html" with class="w-5 h-5" %}{% trans "Save WhatsApp preferences" %}
-                    </button>
-                </div>
+                {# Saves instantly with JS on; the button is the no-JS fallback. #}
+                <noscript>
+                    <div class="mt-6">
+                        <button type="submit" class="btn-crush-solid btn-sm gap-2">
+                            {% include "shared/icons/check.html" with class="w-5 h-5" %}{% trans "Save WhatsApp preferences" %}
+                        </button>
+                    </div>
+                </noscript>
             </form>
             {% else %}
             <div class="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
@@ -166,8 +171,14 @@
                         {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 text-amber-500 dark:text-amber-400 mr-2 flex-shrink-0 mt-0.5" %}
                         <div>
                             <p class="font-medium text-amber-800 dark:text-amber-200">{% trans "Notifications blocked" %}</p>
-                            <p class="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                            <p x-show="blockedOnDesktop" class="text-sm text-amber-700 dark:text-amber-300 mt-1">
                                 {% trans "You've blocked notifications for this site. To enable them, click the lock icon in your browser's address bar and allow notifications." %}
+                            </p>
+                            <p x-show="blockedOnAndroid" x-cloak class="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                                {% trans "Notifications are blocked for this site. Tap the lock icon in your browser's address bar, open Permissions, and allow notifications." %}
+                            </p>
+                            <p x-show="blockedOnIos" x-cloak class="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                                {% trans "Notifications are blocked. On iPhone, open Settings, then Notifications, choose Crush.lu and allow notifications." %}
                             </p>
                         </div>
                     </div>
@@ -343,8 +354,14 @@
                         {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 text-amber-500 dark:text-amber-400 mr-2 flex-shrink-0 mt-0.5" %}
                         <div>
                             <p class="font-medium text-amber-800 dark:text-amber-200">{% trans "Notifications blocked" %}</p>
-                            <p class="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                                {% trans "Allow notifications in your browser settings to receive coach alerts." %}
+                            <p x-show="blockedOnDesktop" class="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                                {% trans "You've blocked notifications for this site. To enable them, click the lock icon in your browser's address bar and allow notifications." %}
+                            </p>
+                            <p x-show="blockedOnAndroid" x-cloak class="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                                {% trans "Notifications are blocked for this site. Tap the lock icon in your browser's address bar, open Permissions, and allow notifications." %}
+                            </p>
+                            <p x-show="blockedOnIos" x-cloak class="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                                {% trans "Notifications are blocked. On iPhone, open Settings, then Notifications, choose Crush.lu and allow notifications." %}
                             </p>
                         </div>
                     </div>

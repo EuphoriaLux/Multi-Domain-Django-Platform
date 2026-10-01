@@ -198,7 +198,7 @@
 {% endblock %}
 
 {% block pre_alpine_js %}
-{% if debug %}
+{% if assets_dev %}
     {% now "U" as ts %}
     <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/quiz-media.js' %}?v={{ ts }}"></script>
     <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/quiz-live.js' %}?v={{ ts }}"></script>

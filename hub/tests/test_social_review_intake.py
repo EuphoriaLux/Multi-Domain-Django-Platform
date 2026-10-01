@@ -241,3 +241,30 @@ class HubReviewIntakeTests(TestCase):
             )
             self.assertEqual(response.status_code, 400, response.data)
         self.assertFalse(SocialPost.objects.exists())
+
+    @patch("hub.views_social.create_buffer_update")
+    def test_editing_returns_a_new_review_and_stale_edits_cannot_overwrite_it(
+        self, buffer
+    ):
+        post = self.post_for_review()
+        original = review_fingerprint(post)
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}/",
+            {
+                "content": "Edited caption",
+                "status": "pending_review",
+                "edit_fingerprint": original,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertNotEqual(response.data["post"]["review_fingerprint"], original)
+        stale = self.client.patch(
+            f"/hub/social/posts/{post.pk}/",
+            {"content": "Stale overwrite", "edit_fingerprint": original},
+            format="json",
+        )
+        self.assertEqual(stale.status_code, 409)
+        post.refresh_from_db()
+        self.assertEqual(post.content, "Edited caption")
+        buffer.assert_not_called()

@@ -89,6 +89,7 @@ def crush_user_context(request):
         "is_ios_native_app": is_ios_native_app,
         "is_android_native_app": is_android_native_app,
         "is_native_app": is_ios_native_app or is_android_native_app,
+        "android_app_package": getattr(settings, "ANDROID_APP_PACKAGE", "lu.crush.app"),
         "is_ios_device": is_ios,
         "is_android_device": is_android,
         "ios_native_commerce_enabled": ios_native_commerce_enabled,
@@ -364,6 +365,18 @@ def social_preview_context(request):
     return {
         "social_preview_image_url": settings.SOCIAL_PREVIEW_IMAGE_URL,
     }
+
+
+def assets_dev_mode(request):
+    """Expose ``assets_dev``: serve readable JS sources and cache-busted CSS.
+
+    Templates used to branch on Django's ``debug`` context variable, which the
+    ``debug`` context processor only sets when the client IP is in
+    ``INTERNAL_IPS``. That made the minified/source switch depend on where the
+    request came from (a phone on the LAN got the minified bundles in dev).
+    ``settings.DEBUG`` alone decides now.
+    """
+    return {"assets_dev": bool(settings.DEBUG)}
 
 
 def firebase_config(request):

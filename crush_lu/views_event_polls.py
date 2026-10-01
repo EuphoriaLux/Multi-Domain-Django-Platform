@@ -18,7 +18,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.conf import settings
 from django.utils import translation
-from django.utils.translation import get_language, gettext_lazy as _
+from django.utils.translation import get_language, gettext_lazy as _, ngettext
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 from django.contrib import messages
@@ -424,6 +424,11 @@ def _poll_vote(request, poll, is_json, data):
         'success': True,
         'created': created,
         'total_votes': total_votes,
+        # Server-rendered so the singular/plural form follows the locale's
+        # plural rules (the page renders the same msgid).
+        'total_votes_label': ngettext(
+            '%(counter)s vote', '%(counter)s votes', total_votes
+        ) % {'counter': total_votes},
         'results': results,
         'results_html': render_to_string(
             'crush_lu/event_polls/_poll_results_region.html',
