@@ -30,22 +30,22 @@
     /* Journey Card - Glassmorphic style */
     .journey-card {
         @apply rounded-2xl p-6 md:p-8;
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
         backdrop-filter: blur(15px);
         -webkit-backdrop-filter: blur(15px);
-        border: 2px solid rgba(255, 255, 255, 0.2);
+        border: 2px solid rgb(var(--jy-w) / 0.2);
         box-shadow: var(--shadow-journey-card);
     }
     /* Journey Navigation Button */
     .journey-nav-btn {
         @apply inline-flex items-center gap-2 rounded-[25px] border border-white/20 px-4 py-2.5 text-sm font-medium text-white/90 transition-all duration-200;
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
     }
     .journey-nav-btn:hover {
         @apply text-white;
-        background: rgba(255, 255, 255, 0.2);
+        background: rgb(var(--jy-w) / 0.2);
     }
     .journey-nav-btn:focus-visible {
         @apply ring-crush-purple ring-2 ring-offset-2 outline-none;
@@ -54,10 +54,10 @@
     /* Journey Secondary Button */
     .journey-btn-secondary {
         @apply inline-flex items-center justify-center gap-2 rounded-xl border border-white/30 px-6 py-3 font-semibold text-white transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50;
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
     }
     .journey-btn-secondary:hover:not(:disabled) {
-        background: rgba(255, 255, 255, 0.2);
+        background: rgb(var(--jy-w) / 0.2);
     }
     .journey-btn-secondary:focus-visible {
         @apply ring-2 ring-white/50 ring-offset-2 outline-none;
@@ -84,7 +84,7 @@
     .journey-progress-bar {
         @apply relative overflow-hidden rounded-full;
         height: 30px;
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
         border: 2px solid rgba(255, 107, 157, 0.3);
         box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
     }
@@ -110,7 +110,7 @@
     /* Journey Stat Card */
     .journey-stat-card {
         @apply rounded-2xl p-5 text-center md:p-6;
-        background: rgba(255, 255, 255, 0.08);
+        background: rgb(var(--jy-w) / 0.08);
         backdrop-filter: blur(15px);
         -webkit-backdrop-filter: blur(15px);
         border: 2px solid rgba(255, 107, 157, 0.3);
@@ -453,7 +453,7 @@
     }
     .journey-selector-progress-bar {
         @apply h-2.5 overflow-hidden rounded-[10px];
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
     }
     .journey-status-pill {
         @apply mt-4 inline-block rounded-full px-4 py-1.5 text-xs font-semibold;
@@ -517,8 +517,8 @@
     .journey-final-response-btn:focus-visible {
         @apply outline-none;
         box-shadow:
-            0 0 0 2px rgba(255, 255, 255, 0.5),
-            0 0 0 4px rgba(255, 255, 255, 0.25);
+            0 0 0 2px rgb(var(--jy-w) / 0.5),
+            0 0 0 4px rgb(var(--jy-w) / 0.25);
     }
     .journey-final-response-yes {
         background: linear-gradient(135deg, var(--color-crush-pink), #c850c0);
@@ -576,8 +576,8 @@
     .journey-text-input {
         @apply w-full rounded-2xl border-2 text-lg leading-relaxed text-white transition-all duration-300;
         padding: 1.25rem;
-        border-color: rgba(255, 255, 255, 0.3);
-        background: rgba(255, 255, 255, 0.05);
+        border-color: rgb(var(--jy-w) / 0.3);
+        background: rgb(var(--jy-w) / 0.05);
         min-height: 200px;
         resize: vertical;
         font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
@@ -585,11 +585,11 @@
     .journey-text-input:focus {
         outline: none;
         border-color: var(--color-crush-purple);
-        background: rgba(255, 255, 255, 0.08);
+        background: rgb(var(--jy-w) / 0.08);
         box-shadow: 0 0 30px rgba(155, 89, 182, 0.3);
     }
     .journey-text-input::placeholder {
-        color: rgba(255, 255, 255, 0.4);
+        color: rgb(var(--jy-w) / 0.4);
         font-style: italic;
     }
     .journey-writing-prompt {
@@ -613,19 +613,19 @@
     }
     .journey-personal-message {
         @apply my-5 rounded-xl p-5 text-lg leading-relaxed italic;
-        background: rgba(0, 0, 0, 0.2);
+        background: rgb(var(--jy-b) / 0.2);
         border-left: 4px solid var(--color-crush-pink);
     }
     .journey-user-response {
         @apply mt-4 rounded-xl p-5 italic;
         opacity: 0.9;
-        background: rgba(255, 255, 255, 0.05);
+        background: rgb(var(--jy-w) / 0.05);
     }
     .journey-scrambled-word {
         @apply my-8 rounded-2xl p-8 text-center text-2xl font-bold uppercase md:text-3xl;
         letter-spacing: 3px;
         word-spacing: 15px;
-        background: rgba(0, 0, 0, 0.2);
+        background: rgb(var(--jy-b) / 0.2);
         border: 3px dashed var(--color-crush-purple);
         color: var(--color-crush-pink);
         line-height: 1.5;
@@ -633,11 +633,11 @@
     }
     .journey-shuffle-btn {
         @apply mx-auto flex items-center justify-center gap-2 rounded-xl border-2 px-6 py-2.5 text-white transition-all duration-300;
-        border-color: rgba(255, 255, 255, 0.3);
-        background: rgba(255, 255, 255, 0.1);
+        border-color: rgb(var(--jy-w) / 0.3);
+        background: rgb(var(--jy-w) / 0.1);
     }
     .journey-shuffle-btn:hover {
-        background: rgba(255, 255, 255, 0.2);
+        background: rgb(var(--jy-w) / 0.2);
         transform: rotate(360deg);
     }
     .timeline-container {
@@ -682,8 +682,8 @@
     }
     .journey-wyr-vs-text {
         @apply inline-block rounded-full px-8 py-2.5 text-2xl font-bold;
-        background: rgba(255, 255, 255, 0.1);
-        border: 2px solid rgba(255, 255, 255, 0.3);
+        background: rgb(var(--jy-w) / 0.1);
+        border: 2px solid rgb(var(--jy-w) / 0.3);
         color: var(--color-crush-pink);
     }
     .journey-wyr-options-container {
@@ -739,13 +739,13 @@
     /* Journey riddle text styling */
     .journey-riddle-text {
         @apply rounded-2xl p-6 text-center text-lg leading-relaxed italic md:p-8 md:text-xl;
-        background: rgba(0, 0, 0, 0.2);
+        background: rgb(var(--jy-b) / 0.2);
         border-left: 4px solid var(--color-crush-purple);
     }
     /* Journey Rewards - Poem */
     .poem-card {
         @apply relative overflow-hidden rounded-2xl border-2 p-8 md:p-12;
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
         backdrop-filter: blur(20px);
         border-color: rgba(255, 215, 0, 0.3);
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
@@ -783,7 +783,7 @@
     .poem-content {
         @apply rounded-xl p-8 text-center text-xl leading-loose whitespace-pre-line italic md:p-10 md:text-2xl;
         font-family: "Georgia", serif;
-        background: rgba(0, 0, 0, 0.2);
+        background: rgb(var(--jy-b) / 0.2);
         border-left: 4px solid rgba(255, 215, 0, 0.5);
         color: #f8f9fa;
     }
@@ -842,7 +842,7 @@
     /* Journey Rewards - Voice Message */
     .voice-card {
         @apply relative overflow-hidden rounded-2xl border-2 p-8 md:p-12;
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
         backdrop-filter: blur(20px);
         border-color: rgba(255, 107, 157, 0.3);
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
@@ -879,12 +879,12 @@
     }
     .voice-intro {
         @apply mb-8 text-center text-xl italic;
-        color: rgba(255, 255, 255, 0.9);
+        color: rgb(var(--jy-w) / 0.9);
     }
     .voice-media-container {
         @apply my-8 rounded-2xl p-8 md:p-10;
-        background: rgba(0, 0, 0, 0.3);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-b) / 0.3);
+        border: 1px solid rgb(var(--jy-w) / 0.1);
     }
     .voice-audio-wrapper {
         @apply flex flex-col items-center gap-5;
@@ -917,7 +917,7 @@
     }
     .voice-text-message {
         @apply mt-8 rounded-xl p-6 text-center text-lg whitespace-pre-line md:p-8 md:text-xl;
-        background: rgba(255, 255, 255, 0.05);
+        background: rgb(var(--jy-w) / 0.05);
         border-left: 4px solid rgba(255, 107, 157, 0.5);
     }
     .voice-heart {
@@ -1031,7 +1031,7 @@
         transform: translateX(-50%);
         font-size: 1.5rem;
         box-shadow: 0 5px 15px rgba(255, 107, 157, 0.5);
-        border: 3px solid rgba(255, 255, 255, 0.3);
+        border: 3px solid rgb(var(--jy-w) / 0.3);
     }
     .letter-paper {
         @apply relative mx-auto my-10 rounded-2xl p-8 md:p-12;
@@ -1114,7 +1114,7 @@
     }
     .letter-audio {
         @apply relative z-10 mt-8 pt-8 text-center;
-        border-top: 1px dashed rgba(255, 255, 255, 0.3);
+        border-top: 1px dashed rgb(var(--jy-w) / 0.3);
     }
     .letter-audio-label {
         @apply mb-4 flex items-center justify-center gap-2 text-lg italic;
@@ -1218,7 +1218,7 @@
     /* Journey Rewards - Photo Slideshow */
     .slideshow-card {
         @apply relative overflow-hidden rounded-2xl border-2 p-8 md:p-12;
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
         backdrop-filter: blur(20px);
         border-color: rgba(255, 215, 0, 0.3);
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
@@ -1280,7 +1280,7 @@
     }
     .slideshow-caption {
         @apply mt-5 rounded-xl p-6 text-center text-lg whitespace-pre-line italic md:p-8 md:text-xl;
-        background: rgba(0, 0, 0, 0.2);
+        background: rgb(var(--jy-b) / 0.2);
         color: #f8f9fa;
     }
     .slideshow-download-btn {
@@ -1375,7 +1375,7 @@
     }
     .slideshow-nav-btn {
         @apply pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300 md:h-12 md:w-12;
-        background: rgba(0, 0, 0, 0.5);
+        background: rgb(var(--jy-b) / 0.5);
         backdrop-filter: blur(8px);
         color: #ffd700;
         border: 2px solid rgba(255, 215, 0, 0.3);
@@ -1420,7 +1420,7 @@
     /* Keyboard hint */
     .slideshow-hint {
         @apply mt-4 text-center text-sm opacity-60;
-        color: rgba(255, 255, 255, 0.7);
+        color: rgb(var(--jy-w) / 0.7);
     }
     @media (prefers-reduced-motion: reduce) {
         .slideshow-card::before,
@@ -1458,7 +1458,7 @@
     }
     .reveal-message {
         @apply mb-10 text-center text-xl italic;
-        color: rgba(255, 255, 255, 0.9);
+        color: rgb(var(--jy-w) / 0.9);
     }
     .reveal-instruction {
         @apply mb-5 text-center text-lg opacity-80;
@@ -1478,7 +1478,7 @@
         grid-template-columns: repeat(4, 1fr);
         grid-template-rows: repeat(4, 1fr);
         gap: 0;
-        background: rgba(0, 0, 0, 0.25);
+        background: rgb(var(--jy-b) / 0.25);
     }
     .reveal-piece-image {
         position: absolute;
@@ -1496,7 +1496,7 @@
     }
     .reveal-progress-bar {
         @apply relative mx-auto my-8 h-8 w-full max-w-xl overflow-hidden rounded-2xl border-2;
-        background: rgba(255, 255, 255, 0.1);
+        background: rgb(var(--jy-w) / 0.1);
         border-color: rgba(255, 215, 0, 0.3);
     }
     .reveal-progress-meter {
@@ -1520,7 +1520,7 @@
     }
     .reveal-tip {
         @apply mt-3 text-sm italic;
-        color: rgba(255, 255, 255, 0.7);
+        color: rgb(var(--jy-w) / 0.7);
     }
     .journey-toast {
         @apply fixed top-5 right-5 z-[99999] rounded-xl px-6 py-4 font-bold text-white;
@@ -1686,6 +1686,376 @@ body.journey-bg {
     min-height: 100vh;
     min-height: 100dvh;
     color: white;
+}
+
+/* White-alpha glass on the navy page. --jy-w is the "ink" of the journey
+   surfaces (white on navy); the light theme flips it below. */
+:root {
+    --jy-w: 255 255 255;
+    --jy-b: 0 0 0;
+}
+
+/* Light theme (UX Wave 5 · WP14, 7-03 remainder): the journey and gift pages
+   follow the member's theme instead of forcing navy. Tailwind v4 utilities
+   read var(--color-white), so re-pointing it inside <main> turns every
+   text-white / border-white/NN / bg-white/NN on the page into dark ink;
+   coloured surfaces (gradient buttons, badges) put it back to white. */
+html:not(.dark) body.journey-bg {
+    background: linear-gradient(135deg, #f6f1fb 0%, #ede8f4 50%, #e5ebf7 100%);
+    color: var(--color-crush-dark);
+}
+
+html:not(.dark) body.journey-bg #main-content {
+    --color-white: var(--color-crush-dark);
+    --jy-w: 142 68 173;
+    --jy-b: 255 255 255;
+    --color-crush-light: var(--color-crush-dark);
+    --color-green-300: #166534;
+    /* Brand fills carry white text: the dark-page purple/pink/green are
+       4.0 / 2.7 / 3.1:1 against white, so the light theme uses the deeper
+       tokens everywhere #main-content reads them (button and badge
+       gradients, gradient titles, success text). */
+    --color-crush-purple: var(--color-crush-purple-dark);
+    --color-crush-pink: var(--color-pink-700);
+    --color-crush-success: #196c2e;
+    --color-journey-success: #166534;
+    /* Pale palette steps the dark-page utilities reach for (text-emerald-300
+       on the gift wizard's completed step and file name, red-400 errors). */
+    --color-emerald-300: #047857;
+    --color-red-300: #b91c1c;
+    --color-red-400: #b91c1c;
+    --color-amber-300: #92400e;
+    --color-purple-200: #5b21b6;
+    --jy-accent: #6c3483;
+    --jy-pink: #9d2a52;
+}
+
+/* base.html's critical CSS ships an unlayered .text-white{color:#fff} that
+   would otherwise win over the re-pointed variable. */
+html:not(.dark) body.journey-bg #main-content .text-white {
+    color: var(--color-white);
+}
+
+html:not(.dark) body.journey-bg #main-content :is(
+    .journey-btn-primary,
+    .btn-crush-primary,
+    .btn-crush-solid,
+    .journey-enter-btn,
+    .journey-final-response-btn,
+    .btn-gift-primary,
+    .gift-landing .cta-primary,
+    .journey-progress-fill,
+    .journey-toast,
+    .reveal-points-badge,
+    .letter-audio-play-btn,
+    .step-indicator.active,
+    .step-indicator.completed .step-number,
+    .journey-mc-option-card.selected .option-label,
+    .action-btn,
+    .journey-final-response-btn,
+    .reveal-complete-message,
+    .reveal-piece-number,
+    .timeline-number,
+    .slideshow-photo-placeholder,
+    .bg-crush-success,
+    .cta-section
+) {
+    --color-white: #fff;
+    --jy-w: 255 255 255;
+}
+
+/* Gradient-clipped titles: the pink end of the brand gradient is 2.6:1 on
+   the lavender page, so the light theme ends on the darker pink. */
+html:not(.dark) body.journey-bg #main-content :is(
+    .journey-title,
+    .journey-title-xl,
+    .journey-stat-value,
+    .journey-selector-title,
+    .journey-points-display,
+    .journey-open-question,
+    .journey-wyr-question,
+    .poem-title,
+    .voice-title,
+    .letter-title,
+    .slideshow-title,
+    .reveal-title,
+    .video-title,
+    .gift-title,
+    .certificate-journey-title,
+    .gift-landing .hero-title,
+    .gift-landing .hero-recipient,
+    .claim-recipient,
+    .gift-code-box .code,
+    .journey-wyr-option-card .option-label
+) {
+    background-image: linear-gradient(
+        135deg,
+        var(--color-crush-purple-dark),
+        var(--color-pink-700)
+    );
+}
+
+/* Surfaces that were a literal navy disc / card on the dark page. */
+html:not(.dark) body.journey-bg #main-content :is(.journey-chapter-icon, .gift-card) {
+    background: rgb(255 255 255 / 0.9);
+}
+
+html:not(.dark) body.journey-bg #main-content .text-crush-pink {
+    color: var(--jy-pink);
+}
+
+html:not(.dark) body.journey-bg #main-content :is(
+    .journey-subtitle,
+    .journey-writing-prompt h4,
+    .journey-back-link,
+    .slideshow-download-btn,
+    .slideshow-nav-btn
+) {
+    color: var(--jy-accent);
+}
+
+html:not(.dark) body.journey-bg #main-content :is(
+    .journey-message-success,
+    .journey-message-error,
+    .journey-message-warning,
+    .journey-status-pill,
+    .journey-badge-warning,
+    .journey-difficulty-medium,
+    .char-counter.warning,
+    .char-counter.error,
+    .poem-content,
+    .slideshow-caption,
+    .video-intro
+) {
+    color: var(--color-crush-dark);
+}
+
+/* Video reward: the card, player tray and caption were tuned for the navy
+   page (white-alpha glass, black tray); on lavender they get purple-tinted
+   light surfaces. The video itself keeps its dark frame. */
+html:not(.dark) body.journey-bg #main-content .video-card {
+    background: rgb(255 255 255 / 0.7);
+    box-shadow: 0 20px 60px rgb(142 68 173 / 0.18);
+}
+
+html:not(.dark) body.journey-bg #main-content .video-media-container {
+    background: rgb(142 68 173 / 0.08);
+    border-color: rgb(142 68 173 / 0.2);
+}
+
+html:not(.dark) body.journey-bg #main-content .video-text-message {
+    background: rgb(142 68 173 / 0.06);
+    color: var(--color-crush-dark);
+}
+
+/* The selector card stays a pale surface on hover, so the dark-page
+   `color: #f8f9fa` hover rule must not turn its text near-white. */
+html:not(.dark) body.journey-bg #main-content .journey-selector-card:hover {
+    color: var(--color-crush-dark);
+}
+
+/* Round 2 of the light journey conversion (every text/background pair on the
+   journey, gift and reward templates is swept by
+   test_journey_light_contrast_playwright.py). */
+
+/* Muted copy: text-white/NN becomes dark ink at NN% alpha, which is 3:1 on the
+   lavender page; use a solid-enough ink instead. */
+html:not(.dark) body.journey-bg #main-content :is(
+    .text-white\/50,
+    .text-white\/60,
+    .text-white\/70,
+    .text-white\/80,
+    .text-white\/90,
+    .claim-hint,
+    .claim-message-label,
+    .direct-link-box :is(.label, .link),
+    .gift-code-box .label,
+    .gift-item-code,
+    .gift-item-dates,
+    .hint-text,
+    .gift-landing :is(.chapter-number, .chapter-theme, .feature-desc, .message-label),
+    .step-indicator:not(.active):not(.completed),
+    .create-form :is(.help-text, .form-group label),
+    .empty-state,
+    .file-upload-text,
+    .gift-subtitle,
+    .gift-landing :is(.hero-from, .hero-login, .section-title),
+    .claim-info p,
+    .media-info p,
+    .media-section-title,
+    .sharing-suite h3,
+    .status-message
+) {
+    color: rgb(44 62 80 / 0.88);
+}
+
+html:not(.dark) body.journey-bg #main-content :is(.reveal-message, .voice-intro, .certificate-text) {
+    color: var(--color-crush-dark);
+}
+
+/* Certificate (card + page): translucent-white card with white copy. */
+html:not(.dark) body.journey-bg #main-content .certificate-card {
+    background: rgb(255 255 255 / 0.8);
+    border-color: rgb(142 68 173 / 0.25);
+    box-shadow: 0 20px 50px rgb(142 68 173 / 0.18);
+}
+
+html:not(.dark) body.journey-bg #main-content .certificate-card .certificate-title {
+    color: var(--color-crush-dark);
+}
+
+html:not(.dark) body.journey-bg #main-content .certificate .certificate-title {
+    background-image: linear-gradient(135deg, #8a5a00, #a34a00);
+}
+
+html:not(.dark) body.journey-bg #main-content :is(.certificate-subtitle, .signature-label) {
+    color: #566566;
+}
+
+html:not(.dark) body.journey-bg #main-content .nav-btn {
+    background: rgb(255 255 255 / 0.75);
+    border-color: rgb(142 68 173 / 0.35);
+    color: var(--color-crush-dark);
+}
+
+html:not(.dark) body.journey-bg #main-content .nav-btn:hover {
+    background: #fff;
+    color: var(--color-crush-dark);
+}
+
+/* Slideshow: gold-on-glass controls become dark gold on the pale card. */
+html:not(.dark) body.journey-bg #main-content :is(.slideshow-download-btn, .slideshow-download-btn:hover, .slideshow-counter) {
+    color: #6b4800;
+}
+
+/* Hard-coded hex gradients behind white text. */
+html:not(.dark) body.journey-bg #main-content :is(.action-btn, .letter-audio-play-btn) {
+    background-image: linear-gradient(
+        135deg,
+        var(--color-crush-purple),
+        var(--color-crush-pink)
+    );
+}
+
+html:not(.dark) body.journey-bg #main-content .action-btn-secondary {
+    background-image: linear-gradient(135deg, #1f6fa5, #1b7a43);
+}
+
+html:not(.dark) body.journey-bg #main-content .journey-final-response-yes {
+    background-image: linear-gradient(135deg, var(--color-crush-pink), #9c2f96);
+}
+
+html:not(.dark) body.journey-bg #main-content .journey-final-response-thinking {
+    background-image: linear-gradient(135deg, var(--color-crush-purple), #4458b8);
+}
+
+/* Gold badge: white on gold is 1.4:1, so it takes dark ink. */
+html:not(.dark) body.journey-bg #main-content .reveal-points-badge {
+    --color-white: var(--color-crush-dark);
+    color: var(--color-crush-dark);
+}
+
+/* The native bar's label sits on the fill at high progress and on the track at
+   low progress, so it carries its own pale chip instead of choosing a side. */
+html:not(.dark) body.journey-bg #main-content .journey-progress-label {
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+    padding: 0 0.5rem;
+    border-radius: 9999px;
+    background: rgb(255 255 255 / 0.88);
+    color: var(--color-crush-dark);
+}
+
+html:not(.dark) body.journey-bg #main-content :is(.timeline-number, .slideshow-photo-placeholder) {
+    color: #fff;
+}
+
+/* 80% copy over a tinted card sits just under 4.5:1 once the tint darkens. */
+html:not(.dark) body.journey-bg #main-content .opacity-80 {
+    opacity: 0.92;
+}
+
+/* Difficulty labels (easy and hard were still the dark-page hues). */
+html:not(.dark) body.journey-bg #main-content .journey-difficulty-easy {
+    color: #0f6b3a;
+}
+
+html:not(.dark) body.journey-bg #main-content .journey-difficulty-hard {
+    color: #a8281b;
+}
+
+/* Gift alerts: *-50 text over a pale fill. */
+html:not(.dark) body.journey-bg #main-content .gift-message-success {
+    color: #065f46;
+}
+
+html:not(.dark) body.journey-bg #main-content .gift-message-error {
+    color: #991b1b;
+}
+
+html:not(.dark) body.journey-bg #main-content .gift-message-warning {
+    color: #92400e;
+}
+
+html:not(.dark) body.journey-bg #main-content .gift-message-info {
+    color: #1e40af;
+}
+
+/* Gift list status pills. */
+html:not(.dark) body.journey-bg #main-content .status-claimed {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+html:not(.dark) body.journey-bg #main-content .status-completed {
+    background: #ede9fe;
+    color: #5b21b6;
+}
+
+html:not(.dark) body.journey-bg #main-content .status-expired {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+html:not(.dark) body.journey-bg #main-content .status-pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+/* Gift landing CTA panel is a coloured surface: deeper gradient, white copy. */
+html:not(.dark) body.journey-bg #main-content .gift-landing .cta-section {
+    background: linear-gradient(
+        135deg,
+        var(--color-crush-purple),
+        var(--color-crush-pink)
+    );
+}
+
+html:not(.dark) body.journey-bg #main-content .gift-landing .cta-section :is(.cta-hint, .cta-secondary, .cta-secondary a) {
+    color: #fff;
+}
+
+/* Placeholders: the dark-page ones are white/purple at 40-50% alpha. */
+html:not(.dark) body.journey-bg #main-content :is(input, textarea)::placeholder {
+    color: #3b4856;
+    opacity: 1;
+}
+
+html:not(.dark) body.journey-bg #main-content .journey-status-info {
+    color: var(--jy-pink);
+}
+
+html:not(.dark) body.journey-bg #main-content .journey-status-success {
+    color: #14532d;
+}
+
+html:not(.dark) body.journey-bg #main-content .journey-status-error {
+    color: #9b1c1c;
+}
+
+html:not(.dark) body.journey-bg #main-content :is(.journey-mc-option-card, .journey-wyr-option-card).selected {
+    background: rgb(142 68 173 / 0.16);
 }
 @keyframes journey-float-hearts {
     0% {
@@ -2012,7 +2382,7 @@ body.journey-bg {
     @apply mb-4 rounded-2xl border border-white/10 bg-white/5 p-5 transition-all duration-300;
 }
 .gift-item:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgb(var(--jy-w) / 0.08);
 }
 .gift-item-header {
     @apply flex flex-col items-start justify-between gap-3 sm:flex-row;

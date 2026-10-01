@@ -63,7 +63,7 @@
         {% if is_past %}
         {# Simplified past event card body #}
         <div class="flex justify-between items-start mb-3">
-            <h3 class="font-semibold text-lg mb-0 dark:text-white">{{ event.title }}</h3>
+            <h{{ heading_level|default:"3" }} class="font-semibold text-lg mb-0 dark:text-white">{{ event.title }}</h{{ heading_level|default:"3" }}>
             <span class="badge-crush-soft">{{ event.get_event_type_display }}</span>
         </div>
 
@@ -74,7 +74,7 @@
         <div class="mt-auto flex flex-col gap-2">
             {% if user_attended %}
             <a href="{% url 'crush_lu:event_attendees' event.id %}" class="btn-crush-solid w-full text-center block py-2 min-h-11">
-                {% trans "My Connections" %}
+                {% trans "My Matches" %}
             </a>
             {% endif %}
             <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn-crush-outline btn-sm text-base w-full min-h-11 inline-flex items-center justify-center">
@@ -90,7 +90,7 @@
         {% endif %}
         {% with reg_status_chip=event_status_chip|get_item:event.id is_eligible=event_eligibility|get_item:event.id %}
         <div class="flex justify-between items-start gap-2 mb-2">
-            <h3 class="font-semibold text-lg mb-0 dark:text-white">{{ event.title }}</h3>
+            <h{{ heading_level|default:"3" }} class="font-semibold text-lg mb-0 dark:text-white">{{ event.title }}</h{{ heading_level|default:"3" }}>
             <span class="badge-crush-soft shrink-0">{{ event.get_event_type_display }}</span>
         </div>
 

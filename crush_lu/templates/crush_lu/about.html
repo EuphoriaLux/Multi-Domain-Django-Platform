@@ -266,10 +266,10 @@
         <h2 class="about-section-title">{% trans "The Crush Coach Difference" %}</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="about-feature-column">
-                <h5>
+                <h3>
                     <span class="about-feature-icon">&#128272;</span>
                     {% trans "Human Verification" %}
-                </h5>
+                </h3>
                 {# Only Crush Connect strictly requires verification (services/crush_connect.py); some event audiences admit unverified profiles. Spec: ai-memory-hub/specs/2026-08-24-crush-connect-repo-product-doc.md #}
                 <ul class="about-feature-list">
                     <li>{% trans "SMS verification confirms your phone number" %}</li>
@@ -280,10 +280,10 @@
                 </ul>
             </div>
             <div class="about-feature-column">
-                <h5>
+                <h3>
                     <span class="about-feature-icon">&#127881;</span>
                     {% trans "Real Events" %}
-                </h5>
+                </h3>
                 <ul class="about-feature-list">
                     <li>{% trans "Speed dating nights in curated venues" %}</li>
                     <li>{% trans "Voting system so you choose who you meet" %}</li>
@@ -308,7 +308,7 @@
             <div class="about-why-emoji" aria-hidden="true">
                 {% include "crush_lu/includes/ghost-story-cuddling.html" with class="w-12 h-12 ghost-glow" %}
             </div>
-            <h5>{% trans "Small Community, Big Heart" %}</h5>
+            <h3>{% trans "Small Community, Big Heart" %}</h3>
             <p>{% trans "With around 680,000 residents, Luxembourg is small enough to feel personal but big enough to miss the right person. We bridge that gap." %}</p>
         </div>
         <div class="about-why-card">
@@ -316,14 +316,14 @@
                 {% include "crush_lu/includes/ghost-story-approved.html" with class="w-12 h-12 ghost-glow" %}
             </div>
             {# Claim only what is true today. Photos are served only behind login, from the private crush_private container, never publicly or to crawlers (robots.txt disallows /media/ and /api/): views_media.serve_profile_photo (can_view_profile_photo: owner, active coaches, any approved member viewing an approved profile - no match or shared-event check) and views_quiz.quiz_display_photo (/api/quiz/photo/<user_id>/: any logged-in user, approved profiles). They also leave the site via the noreply@crush.lu Outlook contact sync (services/graph_contacts.py) and, if show_photo_on_wallet, the member's own wallet pass (wallet_pass.py). Connect only surfaces members with photo_share_consent (services/crush_connect.py). No blur. Spec: ai-memory-hub/specs/2026-08-24-crush-connect-repo-product-doc.md #}
-            <h5>{% trans "Privacy First" %}</h5>
+            <h3>{% trans "Privacy First" %}</h3>
             <p>{% trans "In a small country, discretion matters. No public browsing: your photos are never public or shown to search engines, you need a Crush.lu account to see them, and Crush Connect asks before showing your photo to your matches." %}</p>
         </div>
         <div class="about-why-card">
             <div class="about-why-emoji" aria-hidden="true">
                 {% include "crush_lu/includes/ghost-story-party.html" with class="w-12 h-12 ghost-glow" %}
             </div>
-            <h5>{% trans "Multicultural" %}</h5>
+            <h3>{% trans "Multicultural" %}</h3>
             <p>{% trans "Luxembourg hosts 170+ nationalities. Our platform brings together this rich diversity through shared experiences and real events." %}</p>
         </div>
     </div>

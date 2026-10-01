@@ -50,7 +50,7 @@
                 {% include "shared/icons/check-circle.html" with class="w-6 h-6" %}
                 {% trans "Already Submitted!" %}
             </h3>
-            <p>{% blocktrans with points=existing_attempt.points_earned %}You've already shared your response and earned <strong>{{ points }} points</strong>.{% endblocktrans %}</p>
+            <p>{% blocktrans count points=existing_attempt.points_earned %}You've already shared your response and earned <strong>{{ points }} point</strong>.{% plural %}You've already shared your response and earned <strong>{{ points }} points</strong>.{% endblocktrans %}</p>
 
             <div class="journey-personal-message">
                 {{ challenge.success_message|linebreaks }}

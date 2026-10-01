@@ -40,10 +40,8 @@
                             >
                             <span class="text-sm">
                                 <strong class="block mb-1">{% trans "Required: Crush.lu Terms & Privacy" %}</strong>
-                                {% trans "I agree to the" %}
-                                <a href="{% url 'crush_lu:terms_of_service' %}" target="_blank" class="text-crush-purple hover:underline">{% trans "Terms of Service" %}</a>
-                                {% trans "and" %}
-                                <a href="{% url 'crush_lu:privacy_policy' %}" target="_blank" class="text-crush-purple hover:underline">{% trans "Privacy Policy" %}</a>
+                                {% url 'crush_lu:terms_of_service' as terms_url %}{% url 'crush_lu:privacy_policy' as privacy_url %}
+                                {% with link_class="text-crush-purple hover:underline" %}{% blocktrans trimmed %}I agree to the <a href="{{ terms_url }}" target="_blank" class="{{ link_class }}">Terms of Service</a> and <a href="{{ privacy_url }}" target="_blank" class="{{ link_class }}">Privacy Policy</a>{% endblocktrans %}{% endwith %}
                             </span>
                         </label>
                     </div>

@@ -24,7 +24,7 @@
                     <p class="text-gray-600 dark:text-gray-400 text-xs sm:text-sm mb-3 line-clamp-2">{{ poll.description|truncatewords:30 }}</p>
                     {% endif %}
                     <div class="flex items-center justify-between text-sm">
-                        <span class="text-crush-purple dark:text-violet-400 font-medium">{{ poll.total_votes }} {% trans "votes" %}</span>
+                        <span class="text-crush-purple dark:text-violet-400 font-medium">{% blocktrans count counter=poll.total_votes %}{{ counter }} vote{% plural %}{{ counter }} votes{% endblocktrans %}</span>
                         {% if poll.id in user_voted_poll_ids %}
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                             {% trans "Voted" %}
@@ -52,7 +52,7 @@
                 <div class="p-5 sm:p-6">
                     <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">{{ poll.title }}</h3>
                     <div class="flex items-center justify-between text-sm">
-                        <span class="text-gray-500 dark:text-gray-400">{{ poll.total_votes }} {% trans "votes" %}</span>
+                        <span class="text-gray-500 dark:text-gray-400">{% blocktrans count counter=poll.total_votes %}{{ counter }} vote{% plural %}{{ counter }} votes{% endblocktrans %}</span>
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
                             {% trans "Closed" %}
                         </span>

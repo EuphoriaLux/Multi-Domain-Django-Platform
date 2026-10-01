@@ -28663,6 +28663,10 @@ msgstr ""
 msgid "Manage your Premium request"
 msgstr ""
 
+#: crush_lu/templates/crush_lu/auth.html
+msgid "Create your Crush.lu account"
+msgstr ""
+
 #: templates/crush_lu/connection_detail.html:58
 msgid "Profiles Shared"
 msgstr ""
