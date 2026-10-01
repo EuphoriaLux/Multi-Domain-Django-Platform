@@ -389,6 +389,76 @@ class HubReviewIntakeTests(TestCase):
         got = datetime.fromisoformat(response.json()["post"]["scheduled_for"])
         self.assertGreaterEqual(abs(got - taken), timedelta(hours=1))
 
+    @patch("hub.views_social.create_buffer_update")
+    def test_automation_posts_always_require_the_review_fingerprint(self, buffer):
+        post = self.post_for_review()
+        post.generation_key = "run-fp"
+        post.save()
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}/",
+            {
+                "status": "scheduled",
+                "buffer_profile_ids": ["ig", "fb"],
+                "buffer_profile_platforms": {"ig": "instagram", "fb": "facebook"},
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        buffer.assert_not_called()
+
+    def test_automation_intake_rejects_a_schedule_beyond_the_window(self):
+        response = self.client.post(
+            "/hub/social/posts/",
+            {
+                "content": "x",
+                "generation_key": "run-far",
+                "scheduled_for": "9999-12-31T18:30:00Z",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_orphaned_uncertain_post_is_never_retryable(self):
+        from crush_lu.models import MeetupEvent
+
+        now = timezone.now()
+        event = MeetupEvent.objects.create(
+            title="Soirée",
+            description="Une soirée.",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="Rue 1",
+            date_time=now + timedelta(days=7),
+            registration_deadline=now + timedelta(days=5),
+            is_published=True,
+        )
+        post = SocialPost.objects.create(
+            user=self.user,
+            content="Uncertain",
+            status="failed",
+            source_event=event,
+            buffer_delivery_uncertain=True,
+            scheduled_for=now + timedelta(days=2),
+        )
+        event.delete()
+        post.refresh_from_db()
+        self.assertTrue(post.source_metadata["source_event_deleted"])
+        url = f"/hub/social/posts/{post.pk}/"
+        ok = self.client.patch(url, {"reconcile": "not_delivered"}, format="json")
+        self.assertEqual(ok.status_code, 200)
+        post.refresh_from_db()
+        self.assertEqual(post.status, "failed")
+        retry = self.client.patch(
+            url,
+            {"status": "scheduled", "buffer_profile_ids": ["ig"]},
+            format="json",
+        )
+        self.assertEqual(retry.status_code, 409)
+        echoed = self.client.patch(
+            url, {"source_metadata": post.source_metadata}, format="json"
+        )
+        self.assertEqual(echoed.status_code, 200)
+
     def test_deleting_an_event_keeps_posts_with_uncertain_delivery(self):
         from crush_lu.models import MeetupEvent
 

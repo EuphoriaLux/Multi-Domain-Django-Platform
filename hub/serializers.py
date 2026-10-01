@@ -393,6 +393,9 @@ class SocialPostSerializer(serializers.ModelSerializer):
             "data_period",
             "posting_reason",
         }
+        if isinstance(value, dict):
+            # Server-controlled: tolerate a client echoing it back, never trust it.
+            value = {k: v for k, v in value.items() if k != "source_event_deleted"}
         if not isinstance(value, dict) or set(value) - allowed:
             raise serializers.ValidationError(
                 "Provide only supported source/proposal fields."
@@ -421,6 +424,10 @@ class SocialPostSerializer(serializers.ModelSerializer):
             serializers.URLField().run_validation(value["source_url"])
             if not value["source_url"].startswith("https://"):
                 raise serializers.ValidationError("Source URLs must use HTTPS.")
+        if self.instance and (self.instance.source_metadata or {}).get(
+            "source_event_deleted"
+        ):
+            value = {**value, "source_event_deleted": True}
         return value
 
     def validate_platforms(self, value):

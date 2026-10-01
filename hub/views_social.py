@@ -592,6 +592,14 @@ def _save_social_images(images):
     return urls
 
 
+PLANNING_WINDOW_ERROR = "Choose a time within the next 90 days."
+
+
+def _beyond_planning_horizon(when) -> bool:
+    """The planning endpoint offers at most 90 days ahead (plus a day of slack)."""
+    return when > timezone.now() + timedelta(days=91)
+
+
 # Arbitrary constant key for the Postgres advisory lock guarding slot allocation.
 _SLOT_ALLOCATION_LOCK = 0x48554253
 
@@ -637,6 +645,12 @@ class SocialPostsView(APIView):
             ],
         }
         key = defaults.pop("generation_key", None)
+        if (
+            key
+            and defaults.get("scheduled_for")
+            and _beyond_planning_horizon(defaults["scheduled_for"])
+        ):
+            return Response({"scheduled_for": PLANNING_WINDOW_ERROR}, status=400)
         if key:
             post, created = SocialPost.objects.get_or_create(
                 generation_key=key, defaults=defaults
@@ -709,7 +723,14 @@ class SocialPostDetailView(APIView):
                 {"error": "Only an uncertain delivery can be reconciled."},
                 status=status.HTTP_409_CONFLICT,
             )
-        partial = bool(post.buffer_id or post.dispatched_platforms)
+        # A known delivery, or a post whose event was deleted, must not become
+        # retryable again: only the uncertainty is resolved.
+        keep_failed = bool(
+            post.buffer_id
+            or post.dispatched_platforms
+            or (post.source_metadata or {}).get("source_event_deleted")
+        )
+        partial = keep_failed
         post.buffer_delivery_uncertain = False
         fields = ["buffer_delivery_uncertain", "status_history", "updated_at"]
         if not partial:
@@ -816,7 +837,9 @@ class SocialPostDetailView(APIView):
                     is_private_invitation=False,
                     date_time__gte=timezone.now(),
                 ).first()
-            if post.source_event_id and not linked_event:
+            if (post.source_event_id and not linked_event) or (
+                post.source_metadata or {}
+            ).get("source_event_deleted"):
                 return Response(
                     {"error": EVENT_INELIGIBLE_ERROR},
                     status=status.HTTP_409_CONFLICT,
@@ -834,6 +857,8 @@ class SocialPostDetailView(APIView):
                 and scheduled_for <= timezone.now()
             ):
                 scheduling_errors["scheduled_for"] = "Choose a future publication time"
+            elif post.generation_key and _beyond_planning_horizon(scheduled_for):
+                scheduling_errors["scheduled_for"] = PLANNING_WINDOW_ERROR
             elif source_deadline(
                 post, serializer.validated_data.get("source_metadata")
             ) and scheduled_for >= source_deadline(
@@ -854,9 +879,10 @@ class SocialPostDetailView(APIView):
             if scheduling_errors:
                 return Response(scheduling_errors, status=status.HTTP_400_BAD_REQUEST)
             if (
-                request.data.get("approval_mode") == "hub"
-                and post.status != SocialPost.Status.SCHEDULED
-            ):
+                request.data.get("approval_mode") == "hub" or post.generation_key
+            ) and post.status != SocialPost.Status.SCHEDULED:
+                # Automation-originated posts always need the reviewed
+                # fingerprint and live account check, whatever the caller sends.
                 if not expected:
                     return Response(
                         {"error": "Refresh the review before approving."}, status=400
