@@ -28,32 +28,15 @@ from django.middleware.csp import get_nonce
 from django.utils.dateparse import parse_datetime
 from django.utils.safestring import mark_safe
 
-from crush_lu.ios_app_utils import is_ios_native_request
-from crush_lu.mobile_auth import SESSION_KEY as MOBILE_HANDOFF_SESSION_KEY
-from crush_lu.mobile_auth import peek_mobile_handoff_url
+from crush_lu.ios_app_utils import is_ios_tracking_suppressed
 
 register = template.Library()
 
 
 def _tracking_suppressed(context):
-    """
-    True inside the native iOS app shell: no GA4 / Meta Pixel / App Insights tags.
-
-    App Review (guideline 5.1.2) treats these as tracking that needs App
-    Tracking Transparency. The app does not track, so the tags are never emitted.
-    """
+    """True where iOS must get no GA4 / Meta Pixel / App Insights tags."""
     request = context.get("request")
-    if request is None:
-        return False
-    if is_ios_native_request(request):
-        return True
-    # The login sheet (ASWebAuthenticationSession) is a plain browser request
-    # until login completes; only the handoff's session flag marks it as the
-    # app's. Kept out of is_ios_native_request so commerce stays visible in
-    # Safari after an abandoned sheet; the flag expires after 10 minutes.
-    if peek_mobile_handoff_url(request) is None:
-        return False
-    return request.session[MOBILE_HANDOFF_SESSION_KEY].get("platform") == "ios"
+    return request is not None and is_ios_tracking_suppressed(request)
 
 
 def _json_default(value):

@@ -52,3 +52,29 @@ class IosTrackingSuppressedTests(TestCase):
         self.assertIn(
             "googletagmanager.com", _render(self._request_with_handoff("android"))
         )
+
+    def test_context_flag_covers_native_shell_and_ios_sheet(self):
+        from crush_lu.ios_app_utils import is_ios_tracking_suppressed
+
+        native = RequestFactory().get("/", HTTP_X_CRUSH_CLIENT="ios-app")
+        self.assertTrue(is_ios_tracking_suppressed(native))
+        self.assertTrue(is_ios_tracking_suppressed(self._request_with_handoff("ios")))
+        self.assertFalse(
+            is_ios_tracking_suppressed(self._request_with_handoff("android"))
+        )
+
+    def test_page_omits_consent_ui_in_ios_sheet_but_not_in_browser(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        url = "/en/login/"
+        plain = self.client.get(url, HTTP_HOST="crush.lu")
+        self.assertContains(plain, "cookie-consent-banner")
+        session = self.client.session
+        stash_mobile_handoff(
+            type("R", (), {"session": session})(), "ios", "crushlu://auth"
+        )
+        session.save()
+        sheet = self.client.get(url, HTTP_HOST="crush.lu")
+        self.assertNotContains(sheet, "cookie-consent-banner")
+        self.assertNotContains(sheet, "data-cookie-settings")
