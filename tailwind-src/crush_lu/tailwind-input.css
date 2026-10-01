@@ -124,6 +124,7 @@
      available doors, QR button). Scoped to crush_lu/advent/ — not a brand color.
      =================== */
     --color-advent-red: #c41e3a;
+    --color-advent-coral: #ff6b6b;
 }
 
 /* =============================================================================
@@ -14383,5 +14384,45 @@ body.connect-wizard main.has-bottom-nav {
     }
     .lobby-mutual-item > p {
         @apply mb-0 font-display font-semibold text-lobby-ink;
+    }
+}
+
+/* Advent door_default.html (moved from inline <style>) */
+.door-badge {
+    text-align: center;
+}
+
+.door-message {
+    font-size: 1.1rem;
+    line-height: 1.8;
+    color: #333;
+}
+
+html.dark .door-message {
+    color: #d1d5db;
+}
+
+.newly-opened-message {
+    animation: fadeInUp 0.5s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.bonus-hint {
+    animation: pulse 2s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bonus-hint {
+        animation: none;
     }
 }
