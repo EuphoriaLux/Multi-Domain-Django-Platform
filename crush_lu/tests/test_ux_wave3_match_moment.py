@@ -391,8 +391,7 @@ class SparkListRetirementTests(TestCase):
         an in-flight spark (the case #433's guard was protecting) now gets
         redirected — the member has no page for it any more, by design.
         The coach keeps coach_spark_list/coach_spark_assign (coach-only) to
-        see and resolve it, and spark_create_journey stays reachable by
-        direct URL."""
+        see and resolve it (spark_create_journey now redirects too)."""
         CrushSpark.objects.create(
             event=self.event,
             sender=self.user,

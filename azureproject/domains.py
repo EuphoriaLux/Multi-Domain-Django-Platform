@@ -147,6 +147,22 @@ def get_domain_config(host):
     return None
 
 
+def get_canonical_domain(host):
+    """Return the DOMAINS key a host belongs to, or None.
+
+    Resolves primary domains, production aliases (www.*) and the
+    ``*.localhost`` dev aliases in DEV_DOMAIN_MAPPINGS, so callers that gate
+    on "which site is this" do not have to compare raw hosts.
+    """
+    host = host.split(':')[0].lower().rstrip('.')
+    if host in DOMAINS:
+        return host
+    for domain, config in DOMAINS.items():
+        if host in config.get('aliases', []):
+            return domain
+    return DEV_DOMAIN_MAPPINGS.get(host)
+
+
 def get_urlconf_for_host(host):
     """
     Get the URL configuration module for a given host.

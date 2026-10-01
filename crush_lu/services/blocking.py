@@ -128,12 +128,13 @@ def apply_block(blocker, blocked, reason="") -> None:
 def cancel_legacy_sparks(user_a, user_b) -> int:
     """Cancel any in-flight legacy ``CrushSpark`` (Wonderland journey) between the pair.
 
-    ``spark_create_journey`` (unlike ``sparks/`` and ``spark_detail``, which
-    now 301-redirect — UX Wave 3, finding 5-13) stays reachable by direct
-    URL, so a block must still cancel an identified-pair Spark — otherwise
-    the sender could still build/deliver the journey and both sides keep
-    seeing it. Only rows with an identified recipient form a pair; terminal
-    states are left alone. Returns the count.
+    Every member-facing Spark page (``sparks/``, ``spark_detail`` and
+    ``spark_create_journey``) now 301-redirects to the Connect hub (UX Wave 3
+    finding 5-13, Wave 4 WP12), but a legacy row can still be in flight and
+    the coach panel still resolves it, so a block must cancel an
+    identified-pair Spark -- otherwise both sides keep seeing it. Only rows
+    with an identified recipient form a pair; terminal states are left
+    alone. Returns the count.
     """
     from crush_lu.models import CrushSpark
 
