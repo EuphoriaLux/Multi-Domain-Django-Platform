@@ -28678,6 +28678,10 @@ msgstr ""
 #: crush_lu/templates/crush_lu/journey/gift_create.html
 msgid "Video file is too large. Maximum size is 50 MB."
 
+#: crush_lu/templates/crush_lu/auth.html
+msgid "Create your Crush.lu account"
+msgstr ""
+
 #: templates/crush_lu/connection_detail.html:58
 msgid "Profiles Shared"
 msgstr ""

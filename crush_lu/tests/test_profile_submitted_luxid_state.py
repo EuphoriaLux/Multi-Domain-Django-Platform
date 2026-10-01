@@ -66,7 +66,7 @@ def _assert_no_skipped_heading_level(testcase, html):
     """Going deeper, the page content's outline (its h2 through the options
     partial's Premium teaser) may only step down one level at a time. The
     shell's own headings (install prompt, cookie dialog) are left out."""
-    start = html.index("<h2")
+    start = html.index("<h1")
     headings = _headings(html[start : html.index("Discover Premium", start)])
     testcase.assertTrue(headings, "no headings rendered")
     for (prev_level, prev_text), (level, text) in zip(headings, headings[1:]):
@@ -173,7 +173,7 @@ class TestProfileSubmittedLuxidBanner(_SiteMixin, TestCase):
         h4 hanging straight under the page h2."""
         html = self._get().content.decode()
 
-        self.assertIn((3, COLLAPSED_HEADING), _headings(html))
+        self.assertIn((2, COLLAPSED_HEADING), _headings(html))
         self.assertLess(html.index(COLLAPSED_HEADING), html.index(EVENT_CARD))
         _assert_no_skipped_heading_level(self, html)
 
@@ -188,7 +188,7 @@ class TestProfileSubmittedLuxidBanner(_SiteMixin, TestCase):
         self.assertIsNotNone(response.context["submission"])
         self.assertTrue(response.context["luxid_unavailable"])
         html = response.content.decode()
-        self.assertIn((3, COLLAPSED_HEADING), _headings(html))
+        self.assertIn((2, COLLAPSED_HEADING), _headings(html))
         self.assertLess(html.index(COLLAPSED_HEADING), html.index(EVENT_CARD))
         self.assertNotIn("Two ways to get verified", html)
         _assert_no_skipped_heading_level(self, html)
@@ -349,7 +349,7 @@ class TestVerificationOptionsFlags(_SiteMixin, TestCase):
         self.assertNotIn(LUXID_CARD, html)
         self.assertIn(LUXID_COLLAPSED, html)
         self.assertNotIn("Two ways to get verified", html)
-        self.assertIn((3, COLLAPSED_HEADING), _headings(html))
+        self.assertIn((2, COLLAPSED_HEADING), _headings(html))
         self.assertIn("border-2", _event_card_tag(html).split())
 
     def test_connected_flag_marks_the_luxid_card_connected(self):

@@ -33,6 +33,9 @@
             <div class="p-6 md:p-10">
                 <!-- Tab Navigation - Alpine.js Tabs -->
                 <div x-data="tabNav" data-initial-tab="{% if mode == 'signup' %}signup{% else %}login{% endif %}" class="auth-tabs-container mb-6">
+                    {# Page heading for assistive tech: the tab pair below is the visible title, so this stays sr-only and follows the active tab. #}
+                    <h1 class="sr-only" x-show="isLoginTab" {% if mode == 'signup' %}x-cloak{% endif %}>{% trans "Login to your Crush.lu account" %}</h1>
+                    <h1 class="sr-only" x-show="isSignupTab" {% if mode != 'signup' %}x-cloak{% endif %}>{% trans "Create your Crush.lu account" %}</h1>
                     {% comment %}
                       Reassurance + progress hint shown only on the signup tab.
                       Surfaces what the user otherwise only sees AFTER signing

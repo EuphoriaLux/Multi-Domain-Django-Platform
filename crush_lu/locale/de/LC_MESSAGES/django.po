@@ -44018,6 +44018,10 @@ msgstr "Die Audiodatei ist zu groß. Die maximale Größe beträgt 10 MB."
 msgid "Video file is too large. Maximum size is 50 MB."
 msgstr "Die Videodatei ist zu groß. Die maximale Größe beträgt 50 MB."
 
+#: crush_lu/templates/crush_lu/auth.html
+msgid "Create your Crush.lu account"
+msgstr "Erstelle dein Crush.lu-Konto"
+
 #: templates/crush_lu/connection_detail.html:58
 msgid "Profiles Shared"
 msgstr "Profile geteilt"

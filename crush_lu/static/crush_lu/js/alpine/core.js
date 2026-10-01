@@ -5301,11 +5301,16 @@ document.addEventListener("alpine:init", function () {
                 });
 
                 svg.addEventListener("focus", function () {
-                    if (self.focusedIndex < 0 && self.regions.length > 0) {
+                    if (self.regions.length === 0) {
+                        return;
+                    }
+                    if (self.focusedIndex < 0) {
                         var selectedIndex = self._getSelectedIndex();
                         self.focusedIndex = selectedIndex >= 0 ? selectedIndex : 0;
-                        self._applyFocus();
                     }
+                    // blur clears the active descendant but keeps the index, so
+                    // re-apply on every focus to restore it when the user tabs back.
+                    self._applyFocus();
                 });
 
                 svg.addEventListener("blur", function () {
@@ -5359,6 +5364,15 @@ document.addEventListener("alpine:init", function () {
                 if (this.focusedIndex >= 0 && this.focusedIndex < this.regions.length) {
                     var region = this.regions[this.focusedIndex];
                     region.element.classList.add("region-focused");
+                    // DOM focus stays on the listbox <svg>, so point it at the active
+                    // option; otherwise screen readers never announce the new region.
+                    var svg = this.$el.querySelector("svg");
+                    if (svg) {
+                        svg.setAttribute(
+                            "aria-activedescendant",
+                            region.element.id || region.id
+                        );
+                    }
                     this.hoverRegion(region.id, region.name);
                 }
             },
@@ -5366,6 +5380,7 @@ document.addEventListener("alpine:init", function () {
             _clearFocus: function () {
                 var svg = this.$el.querySelector("svg");
                 if (!svg) return;
+                svg.removeAttribute("aria-activedescendant");
                 var focusedElements = svg.querySelectorAll(".region-focused");
                 for (var i = 0; i < focusedElements.length; i++) {
                     focusedElements[i].classList.remove("region-focused");
