@@ -229,3 +229,28 @@ class SocialCarouselTests(TestCase):
             )
         self.assertEqual(response.status_code, 201)
         self.assertTrue(response.json()["post"]["media_url"].endswith(".gif"))
+
+    def test_shared_deck_files_are_not_deleted(self):
+        with TemporaryDirectory() as root, self.storage(root):
+            created = self.client.post(
+                "/hub/social/posts/",
+                {"content": "Deck", "images": [png(0)]},
+                format="multipart",
+            )
+            post = SocialPost.objects.get(pk=created.json()["post"]["id"])
+            SocialPost.objects.create(
+                user=self.user,
+                content="Other",
+                media_url=post.media_url,
+                media_urls=list(post.media_urls),
+            )
+            with self.captureOnCommitCallbacks(execute=True):
+                self.client.patch(
+                    f"/hub/social/posts/{post.pk}/",
+                    {"images": [png(1)]},
+                    format="multipart",
+                )
+            from django.core.files.storage import storages
+
+            name = post.media_urls[0].split("/media/", 1)[1]
+            self.assertTrue(storages["crush_media"].exists(name))
