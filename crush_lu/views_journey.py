@@ -251,14 +251,12 @@ def chapter_view(request, chapter_number):
                 if journey_id is not None else None
             )
             if journey_progress is None:
-                messages.warning(request, _('No active journey found.'))
-                return redirect('crush_lu:journey_selector')
+                return render_no_journey(request)
         else:
             journey_progress = JourneyProgress.wonderland_for(request.user)
 
         if not journey_progress:
-            messages.warning(request, _('No active journey found.'))
-            return redirect('crush_lu:dashboard')
+            return render_no_journey(request)
 
         # Get the chapter
         chapter = get_object_or_404(
@@ -503,8 +501,7 @@ def challenge_view(request, chapter_number, challenge_id):
     try:
         accessible = JourneyProgress.accessible_to(request.user)
         if not accessible.exists():
-            messages.warning(request, _('No active journey found.'))
-            return redirect('crush_lu:dashboard')
+            return render_no_journey(request)
 
         # The challenge must sit in this chapter of one of the user's journeys
         challenge = get_object_or_404(
@@ -581,8 +578,7 @@ def reward_view(request, reward_id):
     try:
         accessible = JourneyProgress.accessible_to(request.user)
         if not accessible.exists():
-            messages.warning(request, _('No active journey found.'))
-            return redirect('crush_lu:dashboard')
+            return render_no_journey(request)
 
         # SECURITY: Fetch reward AND verify it belongs to one of the user's
         # journeys in ONE query. This prevents IDOR attacks where users guess

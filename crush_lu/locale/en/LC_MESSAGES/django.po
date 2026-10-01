@@ -10026,6 +10026,10 @@ msgstr ""
 msgid "The magic begins on <strong>December 1st, %(year)s</strong>"
 msgstr ""
 
+#: crush_lu/views_advent.py:53
+msgid "The Advent Calendar will be available in December!"
+msgstr ""
+
 #: .\crush_lu\templates\crush_lu\advent\calendar_locked.html:36
 msgid "24 doors filled with surprises, just for you."
 msgstr ""
