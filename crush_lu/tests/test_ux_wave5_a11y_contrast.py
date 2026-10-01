@@ -30,22 +30,39 @@ TAG_RE = re.compile(r"<[a-zA-Z][^<>]*?class=\"[^\"]*\"[^<>]*>", re.DOTALL)
 
 class ContrastFloorTokenTests(SimpleTestCase):
     def test_light_mode_gray_helper_text_resolves_to_the_muted_token(self):
-        # gray-500 is ~4.2:1 on #f0ecf5 and gray-400 ~2.4:1; both must read as
-        # --text-muted (gray-600) in light mode, in source and in the build.
-        for css in (INPUT_CSS, BUILT_CSS.replace(" ", "")):
-            compact = css.replace(" ", "").replace("\n", "")
-            self.assertIn("html:not(.dark){--color-gray-400:var(--text-muted)", compact)
-            self.assertIn("--color-gray-500:var(--text-muted)", compact)
+        # gray-500 is ~4.2:1 on #f0ecf5 and gray-400 ~2.4:1; text utilities must
+        # read as --text-muted (gray-600) in light mode, in source and build.
+        for css in (INPUT_CSS, BUILT_CSS):
+            compact = _compact(css)
+            self.assertRegex(
+                compact,
+                r"html:not\(\.dark\):is\(\[class\*=\"?text-gray-400\"?\][^{]*\)[^{]*"
+                r"\{--color-gray-400:var\(--text-muted\)",
+            )
+            self.assertRegex(
+                compact,
+                r"html:not\(\.dark\):is\(\[class\*=\"?text-gray-500\"?\][^{]*\)[^{]*"
+                r"\{--color-gray-500:var\(--text-muted\)",
+            )
+            self.assertRegex(
+                compact,
+                r"html:not\(\.dark\)\[class\*=\"?text-green-600\"?\][^{]*"
+                r"\{--color-green-600:var\(--color-green-800\)",
+            )
 
-    def test_dark_mode_gray_500_is_lifted_to_gray_400(self):
-        compact = BUILT_CSS.replace(" ", "").replace("\n", "")
-        self.assertIn("html.dark{--color-gray-500:var(--color-gray-400)", compact)
+    def test_dark_mode_gray_500_text_is_lifted_to_gray_400(self):
+        for css in (INPUT_CSS, BUILT_CSS):
+            self.assertRegex(
+                _compact(css),
+                r"html\.dark:is\(\[class\*=\"?text-gray-500\"?\][^{]*\)"
+                r"\{--color-gray-500:var\(--color-gray-400\)",
+            )
 
     def test_dark_purple_text_uses_a_lighter_step_without_touching_brand_hexes(self):
-        compact = BUILT_CSS.replace(" ", "").replace("\n", "")
+        compact = _compact(BUILT_CSS)
         self.assertIn(
-            "html.dark.dark\\:text-purple-400:not(input,:is(:hover,:focus-visible)"
-            '[class*="dark:hover:text-"])',
+            "html.dark.dark\\:text-purple-400:not(input,[class~=bg-white]"
+            ':not([class*=dark\\:bg-]),:hover[class*="dark:hover:text-"])',
             compact,
         )
         # The brand scale itself is unchanged (four-place brand sync).
@@ -106,6 +123,105 @@ class DarkPurpleFloorScopeTests(SimpleTestCase):
             self.assertNotIn(
                 '[class*="hover:text-"]', selector.replace("dark:hover", "")
             )
+
+    def test_keyboard_focus_never_releases_the_floor(self):
+        # :focus-visible grouped with :hover let a dark:hover:text-* class drop
+        # the forgot-password link to base purple-400 (3.5:1) while tabbing.
+        for css in (INPUT_CSS, BUILT_CSS):
+            self.assertNotIn("focus-visible", self._floor_selector(css))
+            light = re.search(
+                r"html:not\(\.dark\)\s*\.text-crush-purple:not\([^{]*\{", css
+            )
+            self.assertIsNotNone(light)
+            self.assertNotIn("focus-visible", light.group(0))
+
+    def test_floor_skips_literal_white_surfaces(self):
+        # bg-white without a dark:bg-* step stays true white in dark mode, where
+        # purple-200 is 1.93:1 and the brand purple 4.67:1.
+        for css in (INPUT_CSS, BUILT_CSS):
+            selector = self._floor_selector(css)
+            self.assertEqual(
+                selector.count(r"[class~=bg-white]:not([class*=dark\:bg-])")
+                + selector.count('[class~="bg-white"]:not([class*="dark:bg-"])'),
+                2,
+                selector,
+            )
+
+    def test_every_white_surface_cta_is_reached_by_that_exclusion(self):
+        # The sweep behind the fix: text-crush-purple on a bg-white element with
+        # no dark:bg-* step and no dark:text-* step (those opt out already).
+        hits = []
+        for path in sorted(TEMPLATES.rglob("*.html")):
+            for tag in TAG_RE.findall(path.read_text(encoding="utf-8")):
+                cls = re.search(r'class="([^"]*)"', tag).group(1).split()
+                if (
+                    "text-crush-purple" in cls
+                    and "bg-white" in cls
+                    and not any(c.startswith("dark:bg-") for c in cls)
+                ):
+                    hits.append(path.name)
+        self.assertIn("_verification_journey.html", hits)
+
+
+class TokenRemapIsTextOnlyTests(SimpleTestCase):
+    """PR #1136 review: gray/green steps are shared by bg/border/ring utilities."""
+
+    TOKENS = ("--color-gray-400", "--color-gray-500", "--color-green-600")
+    SHARED_SELECTORS = (":root", "html", "html.dark", "html:not(.dark)", ".dark")
+
+    @staticmethod
+    def _rules(css):
+        return re.findall(r"([^{}]+)\{([^{}]*)\}", _compact(css))
+
+    def test_no_token_is_remapped_on_html_or_root(self):
+        # A remap on <html> reaches every bg-/border-/ring-/gradient utility:
+        # `bg-gray-500 text-white` fell to 2.5:1 and `dark:hover:bg-gray-500`
+        # under gray-200 text to 2.05:1.
+        for css in (INPUT_CSS, BUILT_CSS):
+            for selector, body in self._rules(css):
+                if "--font-sans" in body or "--color-gray-50:" in body:
+                    continue  # the @theme definitions themselves
+                if selector.strip() in self.SHARED_SELECTORS:
+                    for token in self.TOKENS:
+                        self.assertNotIn(token + ":", body, selector)
+
+    def test_remaps_are_scoped_to_elements_with_a_text_utility(self):
+        for selector, body in self._rules(BUILT_CSS):
+            if "--font-sans" in body:
+                continue
+            if any(t + ":" in body for t in self.TOKENS):
+                self.assertTrue(
+                    selector.startswith(
+                        ("html:not(.dark):is(", "html:not(.dark)[", "html.dark:is(")
+                    ),
+                    selector[:80],
+                )
+                self.assertRegex(selector, r"text-(gray|green)-|\.btn-close|\.form-")
+                self.assertNotRegex(selector, r"\[class\*=\"?(bg|border|ring|from|to)-")
+
+    def test_component_text_colours_are_named_in_the_floor(self):
+        # Component classes that read these tokens for their own text colour
+        # must be named in the floor, or they silently lose it.
+        floor = " ".join(
+            selector
+            for selector, body in self._rules(BUILT_CSS)
+            if any(t + ":" in body for t in self.TOKENS) and "--font-sans" not in body
+        )
+        offenders = set()
+        for selector, body in self._rules(BUILT_CSS):
+            if not re.search(
+                r"(?:^|;)color:var\(--color-(?:gray-(?:400|500)|green-600)\)", body
+            ):
+                continue
+            stripped = re.sub(r":where\([^)]*\)|::?[a-z-]+(\([^)]*\))?", "", selector)
+            for part in stripped.split(","):
+                if re.match(
+                    r"^\.(?:[a-z-]+\\:)*(?:text|placeholder|marker|hover|dark)", part
+                ):
+                    continue  # a utility, reached by the substring selectors
+                if part and part not in floor:
+                    offenders.add(part)
+        self.assertEqual(sorted(offenders), [])
 
 
 class DarkHoverVariantTests(SimpleTestCase):
@@ -244,9 +360,13 @@ class AlwaysDarkSurfaceTests(SimpleTestCase):
         self.assertIn("text-gray-400", text)
 
     def test_quiz_stage_keeps_stock_grays_and_purple(self):
-        body = _rule_body(BUILT_CSS, ".quiz-stage-shell")
-        self.assertIn("--color-gray-400:oklch(70.7%.022261.325)", body)
-        self.assertIn("--color-gray-500:oklch(55.1%.027264.364)", body)
+        compact = _compact(BUILT_CSS)
+        for token in ("gray-400", "gray-500", "green-600"):
+            pattern = (
+                r"html:not\(\.dark\)[^{}]*:not\(\.quiz-stage-shell,\.quiz-stage-shell\*\)"
+                r"\{--color-" + token + ":"
+            )
+            self.assertRegex(compact, pattern, token)
         compact = _compact(BUILT_CSS)
         self.assertIn(
             "html:not(.dark).text-crush-purple:not(.quiz-stage-shell*,", compact
