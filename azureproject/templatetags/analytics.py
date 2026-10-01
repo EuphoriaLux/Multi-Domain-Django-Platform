@@ -35,7 +35,7 @@ register = template.Library()
 
 def _tracking_suppressed(context):
     """
-    True inside the native iOS app shell: no GA4 / Meta Pixel / ad tags at all.
+    True inside the native iOS app shell: no GA4 / Meta Pixel / App Insights tags.
 
     App Review (guideline 5.1.2) treats these as tracking that needs App
     Tracking Transparency. The app does not track, so the tags are never emitted.
@@ -622,6 +622,9 @@ def appinsights_head(context):
         window.appInsights.trackEvent({name: 'ButtonClicked', properties: {buttonId: 'signup'}});
         window.appInsights.trackPageView({name: 'Profile Page'});
     """
+    if _tracking_suppressed(context):
+        return ""
+
     connection_string = context.get("APPLICATIONINSIGHTS_CONNECTION_STRING")
 
     if not connection_string:
@@ -737,6 +740,9 @@ def appinsights_event(context, event_name, **params):
 
     This renders a script tag that calls trackEvent on the App Insights SDK.
     """
+    if _tracking_suppressed(context):
+        return ""
+
     connection_string = context.get("APPLICATIONINSIGHTS_CONNECTION_STRING")
 
     if not connection_string:

@@ -7,7 +7,7 @@ from django.test import RequestFactory, TestCase
 def _render(request):
     tpl = Template(
         "{% load analytics %}{% analytics_head %}{% analytics_body %}"
-        '{% ga4_event "x" %}{% fb_event "Lead" %}'
+        '{% ga4_event "x" %}{% fb_event "Lead" %}{% appinsights_head %}{% appinsights_event "e" %}'
     )
     return tpl.render(
         Context(
@@ -15,6 +15,7 @@ def _render(request):
                 "request": request,
                 "GOOGLE_ANALYTICS_GTAG_PROPERTY_ID": "G-TEST",
                 "FACEBOOK_PIXEL_ID": "12345",
+                "APPLICATIONINSIGHTS_CONNECTION_STRING": "InstrumentationKey=00000000-0000-0000-0000-000000000000",
             }
         )
     )

@@ -1352,7 +1352,9 @@
                         <li><a href="{% url 'crush_lu:data_deletion' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Data Deletion" %}</a></li>
                         <li><a href="{% url 'crush_lu:support' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Support" %}</a></li>
                         <li><a href="{% url 'crush_lu:child_safety_standards' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Child Safety" %}</a></li>
+                        {% if not is_ios_native_app %}
                         <li><a href="#" data-cookie-settings class="text-white/75 hover:text-white transition-colors">{% trans "Cookie Settings" %}</a></li>
+                        {% endif %}
                     </ul>
                 </div>
 
