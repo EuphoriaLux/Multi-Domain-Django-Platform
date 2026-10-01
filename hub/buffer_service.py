@@ -33,6 +33,10 @@ class BufferAuthError(BufferServiceError):
     """
 
 
+class BufferDeliveryUnknown(BufferServiceError):
+    """A mutation may have succeeded; reconcile in Buffer before retrying."""
+
+
 class BufferPartialFailure(BufferServiceError):
     """Raised when Buffer created some channel posts before a later failure."""
 
@@ -40,10 +44,13 @@ class BufferPartialFailure(BufferServiceError):
         self,
         created_post_ids: list[str],
         created_profile_ids: list[str] | None = None,
+        uncertain: bool = False,
     ):
         super().__init__("Buffer created only some requested channel posts")
         self.created_post_ids = created_post_ids
         self.created_profile_ids = created_profile_ids or []
+        # True when the failing channel may still have been accepted by Buffer.
+        self.uncertain = uncertain
 
 
 def _is_public_media_url(url: str) -> bool:
@@ -91,13 +98,29 @@ def _graphql(query: str, variables: dict | None = None) -> dict:
                 f"Buffer rejected the configured API key (HTTP {status_code})"
             ) from exc
         logger.exception("Buffer GraphQL request failed")
+        if "mutation CreatePost" in query and status_code and status_code >= 500:
+            raise BufferDeliveryUnknown(
+                "Buffer delivery response is uncertain"
+            ) from exc
         raise BufferServiceError("Buffer is temporarily unavailable") from exc
     except (requests.RequestException, ValueError) as exc:
         logger.exception("Buffer GraphQL request failed")
+        if "mutation CreatePost" in query:
+            raise BufferDeliveryUnknown(
+                "Buffer delivery response is uncertain"
+            ) from exc
         raise BufferServiceError("Buffer is temporarily unavailable") from exc
 
     if payload.get("errors"):
-        message = payload["errors"][0].get("message", "Buffer GraphQL error")
+        errors = payload["errors"]
+        message = errors[0].get("message", "Buffer GraphQL error")
+        if "mutation CreatePost" in query and any(
+            isinstance(error, dict) and error.get("path") for error in errors
+        ):
+            # An error with a path failed while executing the mutation, after
+            # Buffer may already have created the post. Parse and validation
+            # errors carry no path and were rejected before anything ran.
+            raise BufferDeliveryUnknown(message)
         raise BufferServiceError(message)
     return payload.get("data") or {}
 
@@ -135,6 +158,10 @@ def list_buffer_profiles() -> list[dict]:
             service
             avatar
             isQueuePaused
+            isDisconnected
+            isLocked
+            timezone
+            postingSchedule {{ day paused times }}
           }}
         }}
         """)
@@ -148,6 +175,10 @@ def list_buffer_profiles() -> list[dict]:
             or channel.get("name")
             or channel["id"],
             "is_queue_paused": bool(channel.get("isQueuePaused")),
+            "is_disconnected": bool(channel.get("isDisconnected")),
+            "is_locked": bool(channel.get("isLocked")),
+            "timezone": channel.get("timezone") or "Europe/Luxembourg",
+            "posting_schedule": channel.get("postingSchedule") or [],
         }
         for channel in data.get("channels", [])
     ]
@@ -159,6 +190,7 @@ def _create_channel_post(
     text: str,
     scheduled_at: str | None,
     media_url: str | None,
+    media_urls: list[str] | None = None,
     platform: str | None = None,
 ) -> str:
     post_input: dict = {
@@ -172,12 +204,13 @@ def _create_channel_post(
     }
     if scheduled_at:
         post_input["dueAt"] = scheduled_at
-    if media_url:
-        if not _is_public_media_url(media_url):
+    images = media_urls or ([media_url] if media_url else [])
+    if images:
+        if any(not _is_public_media_url(url) for url in images):
             raise BufferServiceError(
                 "Buffer media must use a publicly reachable HTTP(S) URL"
             )
-        post_input["assets"] = [{"image": {"url": media_url}}]
+        post_input["assets"] = [{"image": {"url": url}} for url in images]
 
     metadata: dict = {}
     if platform == "facebook":
@@ -205,7 +238,7 @@ def _create_channel_post(
     try:
         return result["post"]["id"]
     except (KeyError, TypeError) as exc:
-        raise BufferServiceError("Buffer returned no post identifier") from exc
+        raise BufferDeliveryUnknown("Buffer returned no post identifier") from exc
 
 
 def create_buffer_update(
@@ -214,6 +247,7 @@ def create_buffer_update(
     profile_ids: list[str],
     scheduled_at: str | None = None,
     media_url: str | None = None,
+    media_urls: list[str] | None = None,
     profile_platforms: dict[str, str] | None = None,
     require_resolved_platforms: bool = False,
 ) -> dict:
@@ -223,13 +257,21 @@ def create_buffer_update(
         raise BufferServiceError("Select at least one Buffer channel")
 
     profile_platforms = profile_platforms or {}
+    images = media_urls or ([media_url] if media_url else [])
+    # Validate the entire deck before creating any external channel post.
+    if len(images) > 5:
+        raise BufferServiceError("Provide up to five images")
+    if any(not _is_public_media_url(url) for url in images):
+        raise BufferServiceError(
+            "Buffer media must use a publicly reachable HTTP(S) URL"
+        )
     # Instagram feed posts need an image and Buffer rejects them without one.
     # Refuse up front, before any channel is posted: failing on the Instagram
     # channel after an earlier one succeeded would leave a partial external
     # publication. A caller that could not resolve every channel's platform
     # can ask for text-only posts to be refused too, since an unresolved
     # channel could be Instagram.
-    if not media_url and any(
+    if not images and any(
         profile_platforms.get(channel_id) == "instagram"
         or (require_resolved_platforms and not profile_platforms.get(channel_id))
         for channel_id in profile_ids
@@ -247,13 +289,18 @@ def create_buffer_update(
                     text=text,
                     scheduled_at=scheduled_at,
                     media_url=media_url,
+                    media_urls=media_urls,
                     platform=profile_platforms.get(channel_id),
                 )
             )
             created_profile_ids.append(channel_id)
         except BufferServiceError as exc:
             if post_ids:
-                raise BufferPartialFailure(post_ids, created_profile_ids) from exc
+                raise BufferPartialFailure(
+                    post_ids,
+                    created_profile_ids,
+                    uncertain=isinstance(exc, BufferDeliveryUnknown),
+                ) from exc
             raise
     return {
         "success": True,

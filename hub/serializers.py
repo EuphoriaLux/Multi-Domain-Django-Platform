@@ -1,3 +1,7 @@
+from datetime import date, datetime, timedelta
+import re
+
+from django.utils import timezone
 from rest_framework import serializers
 
 from .constants import SOCIAL_CONTENT_MAX_LENGTH
@@ -223,6 +227,11 @@ class SocialPostSerializer(serializers.ModelSerializer):
     featured_profile_id = serializers.CharField(read_only=True)
     source_event_id = serializers.CharField(read_only=True)
     source_event_title = serializers.SerializerMethodField()
+    review_fingerprint = serializers.SerializerMethodField()
+    posting_suggestion = serializers.SerializerMethodField()
+    generation_key = serializers.CharField(
+        max_length=200, required=False, allow_null=True, allow_blank=False
+    )
 
     class Meta:
         model = SocialPost
@@ -241,9 +250,15 @@ class SocialPostSerializer(serializers.ModelSerializer):
             "hook",
             "content",
             "media_url",
+            "media_urls",
+            "generation_key",
+            "source_metadata",
+            "review_fingerprint",
+            "posting_suggestion",
             "status",
             "scheduled_for",
             "buffer_id",
+            "buffer_delivery_uncertain",
             "article_id",
             "status_history",
             "created_at",
@@ -256,6 +271,7 @@ class SocialPostSerializer(serializers.ModelSerializer):
             "source_event_id",
             "source_event_title",
             "buffer_id",
+            "buffer_delivery_uncertain",
             "dispatched_platforms",
             "article_id",
             "status_history",
@@ -268,6 +284,74 @@ class SocialPostSerializer(serializers.ModelSerializer):
 
     def get_source_event_title(self, obj):
         return obj.source_event.title if obj.source_event_id else None
+
+    def get_review_fingerprint(self, obj):
+        from .social_planning import review_fingerprint
+
+        return review_fingerprint(obj)
+
+    def get_posting_suggestion(self, obj):
+        from .social_planning import posting_proposal
+
+        return posting_proposal(obj, occupied=self.context.get("reserved_times"))
+
+    def validate_generation_key(self, value):
+        if value is not None and not re.fullmatch(r"[A-Za-z0-9:_./-]{1,200}", value):
+            raise serializers.ValidationError("Use a bounded automation run key.")
+        if self.instance and value != self.instance.generation_key:
+            raise serializers.ValidationError(
+                "The automation identity cannot be changed."
+            )
+        return value
+
+    def validate_source_metadata(self, value):
+        allowed = {
+            "posting_date",
+            "source_url",
+            "title",
+            "checked_at",
+            "event_date",
+            "region",
+            "first_party",
+            "data_period",
+            "posting_reason",
+        }
+        if isinstance(value, dict):
+            # Server-controlled: tolerate a client echoing it back, never trust it.
+            value = {k: v for k, v in value.items() if k != "source_event_deleted"}
+        if not isinstance(value, dict) or set(value) - allowed:
+            raise serializers.ValidationError(
+                "Provide only supported source/proposal fields."
+            )
+        for key, item in value.items():
+            if key == "first_party":
+                if not isinstance(item, bool):
+                    raise serializers.ValidationError("first_party must be boolean.")
+            elif item is not None and (not isinstance(item, str) or len(item) > 500):
+                raise serializers.ValidationError("Source fields must be bounded text.")
+        try:
+            for key in ("posting_date", "event_date"):
+                if value.get(key):
+                    parsed = date.fromisoformat(value[key])
+                    if key == "posting_date":
+                        today = timezone.localdate()
+                        if not today <= parsed <= today + timedelta(days=90):
+                            raise serializers.ValidationError(
+                                "posting_date must be today or within 90 days."
+                            )
+            if value.get("checked_at"):
+                datetime.fromisoformat(value["checked_at"].replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise serializers.ValidationError("Invalid source date.") from exc
+        if value.get("source_url"):
+            serializers.URLField().run_validation(value["source_url"])
+            if not value["source_url"].startswith("https://"):
+                raise serializers.ValidationError("Source URLs must use HTTPS.")
+        if self.instance and (self.instance.source_metadata or {}).get(
+            "source_event_deleted"
+        ):
+            value = {**value, "source_event_deleted": True}
+        return value
 
     def validate_platforms(self, value):
         allowed = {"instagram", "facebook", "linkedin"}
@@ -311,6 +395,37 @@ class SocialPostSerializer(serializers.ModelSerializer):
                 "characters."
             )
         return value
+
+    def validate_media_urls(self, value):
+        if not isinstance(value, list) or len(value) > 5:
+            raise serializers.ValidationError("Provide up to five ordered image URLs.")
+        validator = serializers.URLField(
+            max_length=SocialPost._meta.get_field("media_url").max_length
+        )
+        urls = [validator.run_validation(url) for url in value]
+        if len(set(urls)) != len(urls):
+            raise serializers.ValidationError("Carousel images must be distinct.")
+        return urls
+
+    def validate(self, attrs):
+        if "media_urls" in attrs and attrs["media_urls"]:
+            cover = attrs["media_urls"][0]
+            if attrs.get("media_url") and attrs["media_url"] != cover:
+                raise serializers.ValidationError(
+                    {"media_url": "The cover must be the first carousel image."}
+                )
+            attrs["media_url"] = cover
+        elif (
+            self.instance
+            and self.instance.media_urls
+            and "media_url" in attrs
+            and "media_urls" not in attrs
+            and attrs["media_url"] != self.instance.media_url
+        ):
+            raise serializers.ValidationError(
+                {"media_urls": "Replace the ordered carousel with its cover."}
+            )
+        return attrs
 
 
 class EventCancellationSummarySerializer(serializers.Serializer):

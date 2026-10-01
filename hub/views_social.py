@@ -4,25 +4,33 @@ from __future__ import annotations
 
 import logging
 import os
+import re
+from secrets import compare_digest
+from io import BytesIO
 from datetime import datetime, timedelta
 from functools import partial
+from urllib.parse import urlparse
 
 from django.conf import settings
 from django.core.files.storage import storages
-from django.db import transaction
-from django.db.models import Count
+from django.db import connection, transaction
+from django.db.models import Count, TextField
+from django.db.models.functions import Cast
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.exceptions import ValidationError
+from PIL import Image, UnidentifiedImageError
 
 from crush_lu.models import CrushProfile, EventConnection, MeetupEvent
 from crush_lu.utils.i18n import build_absolute_url
 
 from .buffer_service import (
     BufferAuthError,
+    BufferDeliveryUnknown,
     BufferPartialFailure,
     BufferServiceError,
     create_buffer_update,
@@ -36,6 +44,14 @@ from .image_generator import (
 )
 from .models import HubResource, SocialPost
 from .serializers import SocialPostSerializer
+from .social_planning import (
+    PLANNING_HORIZON,
+    REVIEW_FIELDS,
+    posting_proposal,
+    reserved_times,
+    review_fingerprint,
+    source_deadline,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +86,8 @@ SCHEDULING_FIELDS = {
     "content",
     "scheduled_for",
     "media_url",
+    "media_urls",
+    "source_metadata",
     "platforms",
     "buffer_profile_ids",
     "buffer_profile_platforms",
@@ -308,10 +326,18 @@ def _event_copy_validation_error(
 
 
 def _event_post_is_dispatched(post: SocialPost) -> bool:
-    return post.status in PROMOTED_STATUSES or bool(post.buffer_id)
+    return (
+        post.status in PROMOTED_STATUSES
+        or bool(post.buffer_id)
+        or post.buffer_delivery_uncertain
+    )
 
 
 def _event_post_dispatched_platforms(post: SocialPost) -> set[str]:
+    if post.buffer_delivery_uncertain:
+        # An uncertain delivery may already exist in Buffer until reconciled,
+        # including on a channel after one that is known to have succeeded.
+        return set(post.dispatched_platforms or []) | set(post.platforms or [])
     if post.dispatched_platforms:
         return set(post.dispatched_platforms)
     if post.status in PROMOTED_STATUSES:
@@ -346,6 +372,11 @@ def _refresh_event_draft(
         "media_url": _event_media_url(event, request),
         "platforms": platforms,
     }
+    superseded_urls = []
+    if post.media_url != refreshed["media_url"]:
+        # A stale ordered deck would otherwise override the refreshed image.
+        superseded_urls = [*(post.media_urls or []), post.media_url or ""]
+        refreshed["media_urls"] = []
     if post.platforms != platforms:
         refreshed["buffer_profile_ids"] = []
         refreshed["buffer_profile_platforms"] = {}
@@ -371,6 +402,10 @@ def _refresh_event_draft(
     post.status_history = history
     changed_fields.append("status_history")
     post.save(update_fields=[*dict.fromkeys(changed_fields), "updated_at"])
+    if superseded_urls:
+        transaction.on_commit(
+            partial(_delete_superseded_social_blobs, superseded_urls, [])
+        )
     return post
 
 
@@ -464,6 +499,112 @@ def _create_event_drafts(
     return posts, created_count
 
 
+_FORMAT_EXTENSIONS = {"PNG": ".png", "JPEG": ".jpg"}
+_DECK_FORMATS = set(_FORMAT_EXTENSIONS)
+_SOCIAL_BLOB_RE = re.compile(r"/(social/ai_[A-Za-z0-9_.]+)$")
+
+
+def _uploaded_social_images(request):
+    """Validate all uploaded files before writing any to public storage."""
+    deck = request.FILES.getlist("images")
+    legacy = request.FILES.get("image") or request.FILES.get("media")
+    images = deck or ([legacy] if legacy else [])
+    if len(images) > 5:
+        raise ValidationError({"images": "At most five images are supported."})
+    if not deck:
+        # Legacy single-file callers keep their original bytes and extension.
+        for image in images:
+            image.detected_extension = os.path.splitext(image.name)[1].lower() or ".jpg"
+        return images
+    dimensions = []
+    for image in images:
+        if image.size > 8 * 1024 * 1024:
+            raise ValidationError({"images": "Each image must be under 8 MiB."})
+        try:
+            with Image.open(BytesIO(image.read())) as decoded:
+                if decoded.format not in _DECK_FORMATS:
+                    raise ValueError("Unsupported image")
+                image.detected_extension = _FORMAT_EXTENSIONS[decoded.format]
+                dimensions.append(decoded.size)
+                decoded.verify()
+        except (
+            UnidentifiedImageError,
+            Image.DecompressionBombError,
+            OSError,
+            ValueError,
+        ) as exc:
+            raise ValidationError({"images": "Use valid PNG or JPEG files."}) from exc
+        finally:
+            image.seek(0)
+    if any(size != (1080, 1080) for size in dimensions):
+        raise ValidationError({"images": "Carousel slides must be 1080×1080."})
+    return images
+
+
+def _social_blob_still_referenced(url):
+    """True when any post still points at this file as its cover or in a deck."""
+    return (
+        SocialPost.objects.filter(media_url=url).exists()
+        or SocialPost.objects.annotate(deck=Cast("media_urls", TextField()))
+        .filter(deck__contains=url)
+        .exists()
+    )
+
+
+def _delete_superseded_social_blobs(old_urls, new_urls):
+    """Remove deck files replaced by a successful regeneration (best effort)."""
+    storage = storages["crush_media"]
+    for url in set(old_urls) - set(new_urls):
+        match = _SOCIAL_BLOB_RE.search(urlparse(url).path)
+        if not match:
+            continue
+        if _social_blob_still_referenced(url):
+            continue
+        try:
+            storage.delete(match.group(1))
+        except Exception:
+            logger.warning("Could not delete superseded social blob %s", url)
+
+
+_REVIEWED_FIELDS = REVIEW_FIELDS
+
+
+def _social_review_fingerprint(post):
+    return review_fingerprint(post)
+
+
+def _save_social_images(images):
+    storage = storages["crush_media"]
+    paths, urls = [], []
+    try:
+        for image in images:
+            ext = image.detected_extension
+            filename = f"social/ai_{timezone.now().strftime('%Y%m%d_%H%M%S')}_{os.urandom(8).hex()}{ext}"
+            path = storage.save(filename, image)
+            paths.append(path)
+            url = storage.url(path)
+            if url.startswith("/"):
+                url = f"{settings.BACKEND_BASE_URL.rstrip('/')}{url}"
+            urls.append(url)
+    except Exception:
+        for path in paths:
+            storage.delete(path)
+        raise
+    return urls
+
+
+PLANNING_WINDOW_ERROR = "Choose a time within the next 90 days."
+
+
+def _beyond_planning_horizon(when) -> bool:
+    """The planning endpoint offers at most 90 days ahead (plus a day of slack)."""
+    return when > timezone.now() + PLANNING_HORIZON
+
+
+# Arbitrary constant key for the Postgres advisory lock guarding slot allocation.
+_SLOT_ALLOCATION_LOCK = 0x48554253
+
+
 class SocialPostsView(APIView):
     permission_classes = [IsAdminUser]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
@@ -475,8 +616,15 @@ class SocialPostsView(APIView):
         )
         if status_filter:
             queryset = queryset.filter(status=status_filter)
-        return Response({"items": SocialPostSerializer(queryset, many=True).data})
+        return Response(
+            {
+                "items": SocialPostSerializer(
+                    queryset, many=True, context={"reserved_times": reserved_times()}
+                ).data
+            }
+        )
 
+    @transaction.atomic
     def post(self, request):
         serializer = SocialPostSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -488,25 +636,69 @@ class SocialPostsView(APIView):
             else SocialPost.Status.DRAFT
         )
 
-        uploaded_image = request.FILES.get("image") or request.FILES.get("media")
-        media_url = serializer.validated_data.get("media_url")
-        if uploaded_image:
-            storage = storages["crush_media"]
-            ext = os.path.splitext(uploaded_image.name)[1].lower() or ".jpg"
-            filename = f"social/ai_{timezone.now().strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}{ext}"
-            path = storage.save(filename, uploaded_image)
-            media_url = storage.url(path)
-            if media_url.startswith("/"):
-                media_url = f"{settings.BACKEND_BASE_URL.rstrip('/')}{media_url}"
-
-        post = serializer.save(
-            user=request.user,
-            status=initial_status,
-            media_url=media_url,
-            status_history=[
+        uploaded_images = _uploaded_social_images(request)
+        defaults = {
+            **serializer.validated_data,
+            "user": request.user,
+            "status": initial_status,
+            "status_history": [
                 _history_entry(request, initial_status, note="Created via Hub API.")
             ],
-        )
+        }
+        key = defaults.pop("generation_key", None)
+        if (
+            key
+            and defaults.get("scheduled_for")
+            and _beyond_planning_horizon(defaults["scheduled_for"])
+        ):
+            return Response({"scheduled_for": PLANNING_WINDOW_ERROR}, status=400)
+        if key:
+            post, created = SocialPost.objects.get_or_create(
+                generation_key=key, defaults=defaults
+            )
+            if not created:
+                if post.user_id != request.user.pk:
+                    return Response(
+                        {"error": "Automation key already exists."}, status=409
+                    )
+                return Response(
+                    {"post": SocialPostSerializer(post).data, "cached": True}
+                )
+        else:
+            post = SocialPost.objects.create(**defaults)
+        if uploaded_images:
+            urls = _save_social_images(uploaded_images)
+            post.media_url, post.media_urls = urls[0], urls
+        # Automation intake (carries a generation key) may submit a time read
+        # earlier from the planning endpoint, so recheck it under the lock too.
+        if not post.scheduled_for or key:
+            if connection.vendor == "postgresql":
+                # Two concurrent intakes must not pick the same free slot: hold
+                # a transaction-scoped lock until this post's time is committed.
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT pg_advisory_xact_lock(%s)", [_SLOT_ALLOCATION_LOCK]
+                    )
+            deadline = source_deadline(post) if post.scheduled_for else None
+            if post.scheduled_for and (
+                # Same four-hour review window the planning endpoint keeps.
+                post.scheduled_for < timezone.now() + timedelta(hours=4)
+                or (deadline and post.scheduled_for >= deadline)
+                or any(
+                    abs(post.scheduled_for - booked) < timedelta(hours=1)
+                    for booked in reserved_times(post.pk)
+                )
+            ):
+                post.scheduled_for = None
+        if not post.scheduled_for:
+            proposal = posting_proposal(post)
+            if proposal["scheduled_for"]:
+                post.scheduled_for = datetime.fromisoformat(proposal["scheduled_for"])
+                post.source_metadata = {
+                    **post.source_metadata,
+                    "posting_reason": proposal["reason"],
+                }
+        post.save()
         return Response(
             {"post": SocialPostSerializer(post).data}, status=status.HTTP_201_CREATED
         )
@@ -514,6 +706,58 @@ class SocialPostsView(APIView):
 
 class SocialPostDetailView(APIView):
     permission_classes = [IsAdminUser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get(self, request, pk):
+        try:
+            post = SocialPost.objects.get(pk=pk)
+        except SocialPost.DoesNotExist:
+            return Response({"error": "Post not found"}, status=404)
+        return Response({"post": SocialPostSerializer(post).data})
+
+    def _reconcile(self, request, post):
+        """Let staff confirm in Buffer that the uncertain channel delivered nothing.
+
+        The flag only ever describes the channel that returned an unknown
+        response. When earlier channels are known to have succeeded (a stored
+        Buffer id), that delivery is kept as is and the post stays failed; with
+        no known delivery the post returns to draft to be reviewed again.
+        """
+        if request.data.get("reconcile") != "not_delivered":
+            return Response({"error": "Unsupported reconcile value."}, status=400)
+        if not post.buffer_delivery_uncertain:
+            return Response(
+                {"error": "Only an uncertain delivery can be reconciled."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        # A known delivery, or a post whose event was deleted, must not become
+        # retryable again: only the uncertainty is resolved.
+        keep_failed = bool(
+            post.buffer_id
+            or post.dispatched_platforms
+            or (post.source_metadata or {}).get("source_event_deleted")
+        )
+        partial = keep_failed
+        post.buffer_delivery_uncertain = False
+        fields = ["buffer_delivery_uncertain", "status_history", "updated_at"]
+        if not partial:
+            post.status = SocialPost.Status.DRAFT
+            fields.append("status")
+        post.status_history = [
+            *(post.status_history or []),
+            _history_entry(
+                request,
+                post.status,
+                note=(
+                    "Staff confirmed in Buffer that the uncertain channel "
+                    "delivered nothing; earlier deliveries are unchanged."
+                    if partial
+                    else "Staff confirmed in Buffer that nothing was delivered."
+                ),
+            ),
+        ]
+        post.save(update_fields=fields)
+        return Response({"post": SocialPostSerializer(post).data})
 
     @transaction.atomic
     def patch(self, request, pk):
@@ -524,11 +768,54 @@ class SocialPostDetailView(APIView):
                 {"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
+        if request.data.get("reconcile") is not None:
+            return self._reconcile(request, post)
+
+        expected = request.data.get("review_fingerprint")
+        for supplied in (expected, request.data.get("edit_fingerprint")):
+            if supplied is not None and (
+                not isinstance(supplied, str)
+                or not compare_digest(
+                    supplied.encode(), _social_review_fingerprint(post).encode()
+                )
+            ):
+                return Response(
+                    {"error": "Post changed since this review."}, status=409
+                )
+
         requested_status = request.data.get("status", post.status)
         serializer = SocialPostSerializer(post, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
+        uploaded_images = _uploaded_social_images(request)
+        if expected is not None:
+            # The fingerprint authorizes exactly what was reviewed, so a
+            # request that also alters reviewed fields is not covered by it.
+            altered = uploaded_images or any(
+                field in serializer.validated_data
+                and serializer.validated_data[field] != getattr(post, field)
+                for field in _REVIEWED_FIELDS
+            )
+            if altered:
+                return Response(
+                    {"error": "Reviewed content cannot change with a fingerprint."},
+                    status=409,
+                )
+        if uploaded_images:
+            if (
+                post.status in PROMOTED_STATUSES
+                or post.buffer_id
+                or post.buffer_delivery_uncertain
+            ):
+                return Response({"error": SCHEDULED_EDIT_ERROR}, status=409)
+            if requested_status == SocialPost.Status.SCHEDULED:
+                return Response(
+                    {"error": "Review replacement images before scheduling."},
+                    status=400,
+                )
         if requested_status == SocialPost.Status.SCHEDULED:
-            if post.buffer_id and post.status != SocialPost.Status.SCHEDULED:
+            if (
+                post.buffer_id or post.buffer_delivery_uncertain
+            ) and post.status != SocialPost.Status.SCHEDULED:
                 return Response(
                     {
                         "error": (
@@ -557,7 +844,9 @@ class SocialPostDetailView(APIView):
                     is_private_invitation=False,
                     date_time__gte=timezone.now(),
                 ).first()
-            if post.source_event_id and not linked_event:
+            if (post.source_event_id and not linked_event) or (
+                post.source_metadata or {}
+            ).get("source_event_deleted"):
                 return Response(
                     {"error": EVENT_INELIGIBLE_ERROR},
                     status=status.HTTP_409_CONFLICT,
@@ -570,6 +859,21 @@ class SocialPostDetailView(APIView):
                 scheduling_errors["scheduled_for"] = "Choose a publication time"
             elif linked_event and scheduled_for >= linked_event.date_time:
                 scheduling_errors["scheduled_for"] = EVENT_SCHEDULE_ERROR
+            elif (
+                post.status != SocialPost.Status.SCHEDULED
+                and scheduled_for <= timezone.now()
+            ):
+                scheduling_errors["scheduled_for"] = "Choose a future publication time"
+            elif post.generation_key and _beyond_planning_horizon(scheduled_for):
+                scheduling_errors["scheduled_for"] = PLANNING_WINDOW_ERROR
+            elif source_deadline(
+                post, serializer.validated_data.get("source_metadata")
+            ) and scheduled_for >= source_deadline(
+                post, serializer.validated_data.get("source_metadata")
+            ):
+                scheduling_errors["scheduled_for"] = (
+                    "Publication must precede the source event day"
+                )
             selected_profile_ids = serializer.validated_data.get(
                 "buffer_profile_ids", post.buffer_profile_ids
             )
@@ -579,6 +883,42 @@ class SocialPostDetailView(APIView):
             effective_platforms = serializer.validated_data.get(
                 "platforms", post.platforms
             )
+            if scheduling_errors:
+                return Response(scheduling_errors, status=status.HTTP_400_BAD_REQUEST)
+            if (
+                request.data.get("approval_mode") == "hub" or post.generation_key
+            ) and post.status != SocialPost.Status.SCHEDULED:
+                # Automation-originated posts always need the reviewed
+                # fingerprint and live account check, whatever the caller sends.
+                if not expected:
+                    return Response(
+                        {"error": "Refresh the review before approving."}, status=400
+                    )
+                try:
+                    channels = {p["id"]: p for p in list_buffer_profiles()}
+                except BufferServiceError:
+                    return Response({"error": BUFFER_PROFILES_ERROR}, status=503)
+                if any(
+                    channel_id not in channels
+                    or any(
+                        channels[channel_id].get(k)
+                        for k in ("is_queue_paused", "is_disconnected", "is_locked")
+                    )
+                    for channel_id in selected_profile_ids
+                ):
+                    return Response(
+                        {
+                            "error": "A selected Buffer account is unavailable. Refresh its connection."
+                        },
+                        status=409,
+                    )
+                profile_platforms = {
+                    channel_id: channels[channel_id]["service"]
+                    for channel_id in selected_profile_ids
+                }
+                serializer.validated_data["buffer_profile_platforms"] = (
+                    profile_platforms
+                )
             if not selected_profile_ids:
                 scheduling_errors["buffer_profile_ids"] = "Select a Buffer channel"
             elif all(
@@ -615,7 +955,11 @@ class SocialPostDetailView(APIView):
                 return Response(scheduling_errors, status=status.HTTP_400_BAD_REQUEST)
 
         old_status = post.status
-        if post.status == SocialPost.Status.SCHEDULED:
+        if (
+            post.status in PROMOTED_STATUSES
+            or post.buffer_id
+            or post.buffer_delivery_uncertain
+        ):
             changed_delivery_fields = sorted(
                 field
                 for field in SCHEDULING_FIELDS
@@ -630,6 +974,13 @@ class SocialPostDetailView(APIView):
                     },
                     status=status.HTTP_409_CONFLICT,
                 )
+        if uploaded_images:
+            urls = _save_social_images(uploaded_images)
+            old_urls = [*(post.media_urls or []), post.media_url or ""]
+            transaction.on_commit(
+                partial(_delete_superseded_social_blobs, old_urls, urls)
+            )
+            serializer.validated_data.update(media_url=urls[0], media_urls=urls)
         updated_post = serializer.save()
         new_status = updated_post.status
 
@@ -711,6 +1062,7 @@ class SocialPostDetailView(APIView):
                     profile_platforms=profile_platforms,
                     scheduled_at=updated_post.scheduled_for.isoformat(),
                     media_url=updated_post.media_url,
+                    media_urls=updated_post.media_urls,
                     require_resolved_platforms=True,
                 )
             except BufferPartialFailure as exc:
@@ -719,6 +1071,7 @@ class SocialPostDetailView(APIView):
                     updated_post.pk,
                 )
                 updated_post.status = SocialPost.Status.FAILED
+                updated_post.buffer_delivery_uncertain = exc.uncertain
                 updated_post.buffer_id = ",".join(exc.created_post_ids)
                 updated_post.dispatched_platforms = list(
                     dict.fromkeys(
@@ -743,6 +1096,7 @@ class SocialPostDetailView(APIView):
                         "platforms",
                         "buffer_profile_platforms",
                         "dispatched_platforms",
+                        "buffer_delivery_uncertain",
                         "status_history",
                     ]
                 )
@@ -771,6 +1125,11 @@ class SocialPostDetailView(APIView):
                         "Buffer scheduling failed for social post %s", updated_post.pk
                     )
                 updated_post.status = SocialPost.Status.FAILED
+                updated_post.buffer_delivery_uncertain = isinstance(
+                    exc, BufferDeliveryUnknown
+                )
+                if updated_post.buffer_delivery_uncertain:
+                    schedule_error = "Buffer delivery is uncertain. Reconcile in Buffer before retrying."
                 history = list(updated_post.status_history or [])
                 history.append(
                     _history_entry(
@@ -784,6 +1143,7 @@ class SocialPostDetailView(APIView):
                     update_fields=[
                         "status",
                         "status_history",
+                        "buffer_delivery_uncertain",
                         "platforms",
                         "buffer_profile_platforms",
                     ]
@@ -817,6 +1177,41 @@ class SocialPostDetailView(APIView):
             )
 
         return Response({"post": SocialPostSerializer(updated_post).data})
+
+
+class SocialPlanningSlotView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        # Force a real database-column check before advertising the intake contract.
+        SocialPost.objects.values("generation_key", "source_metadata").first()
+        requested = request.query_params.get("posting_date")
+        if requested:
+            try:
+                target = datetime.strptime(requested, "%Y-%m-%d").date()
+                today = timezone.localdate()
+                if target < today or target > today + timedelta(days=90):
+                    raise ValueError
+            except ValueError:
+                return Response(
+                    {"error": "posting_date must be today or within 90 days"},
+                    status=400,
+                )
+        try:
+            profiles = list_buffer_profiles()
+        except BufferServiceError:
+            profiles = []
+        proposal = posting_proposal(posting_date=requested, profiles=profiles)
+        if not proposal["scheduled_for"]:
+            return Response({"error": proposal["reason"]}, status=503)
+        return Response(
+            {
+                "intake_version": 1,
+                "review_in_hub": True,
+                "posting_date": proposal["scheduled_for"][:10],
+                **proposal,
+            }
+        )
 
 
 class SocialGenerateView(APIView):

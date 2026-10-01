@@ -34,6 +34,7 @@ from .views_social import (
     SocialGenerateView,
     SocialKpisSummaryView,
     SocialPostDetailView,
+    SocialPlanningSlotView,
     SocialPostsView,
     SocialUpcomingEventsView,
 )
@@ -117,6 +118,12 @@ urlpatterns = [
     # Social Media Marketing Routes
     path("social/posts", SocialPostsView.as_view(), name="social_posts"),
     path("social/posts/", SocialPostsView.as_view()),
+    path(
+        "social/planning-slot",
+        SocialPlanningSlotView.as_view(),
+        name="social_planning_slot",
+    ),
+    path("social/planning-slot/", SocialPlanningSlotView.as_view()),
     path(
         "social/posts/<int:pk>",
         SocialPostDetailView.as_view(),
