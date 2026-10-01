@@ -194,7 +194,9 @@ def luxid_available(context):
     try:
         from allauth.socialaccount.adapter import get_adapter
 
-        result = bool(get_adapter().list_apps(request, provider="luxid"))
+        apps = get_adapter().list_apps(request, provider="luxid")
+        # allauth's {% get_providers %} drops apps flagged settings.hidden.
+        result = any(not app.settings.get("hidden") for app in apps)
     except Exception:  # pragma: no cover - defensive
         result = False
     if request is not None:

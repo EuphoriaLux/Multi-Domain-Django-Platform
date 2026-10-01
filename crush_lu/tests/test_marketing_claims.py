@@ -83,7 +83,7 @@ class MarketingClaimsTests(TestCase):
         # (WP3 R12), so these claim checks render with LuxID configured.
         with mock.patch(
             "allauth.socialaccount.adapter.DefaultSocialAccountAdapter.list_apps",
-            return_value=[mock.Mock()],
+            return_value=[mock.Mock(settings={})],
         ):
             response = self.client.get(path, HTTP_HOST=HOST)
         self.assertEqual(response.status_code, 200, path)

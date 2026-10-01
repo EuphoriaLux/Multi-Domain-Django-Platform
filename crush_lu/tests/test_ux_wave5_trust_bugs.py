@@ -68,15 +68,21 @@ def test_hub_tile_says_in_the_mix_when_visible(client, settings):
 
 @pytest.mark.django_db
 def test_footer_promises_luxid_only_when_offered(client):
-    with mock.patch(LIST_APPS, return_value=[mock.Mock()]):
+    with mock.patch(LIST_APPS, return_value=[mock.Mock(settings={})]):
         offered = _body(client.get("/en/about/"))
     cache.clear()
     with mock.patch(LIST_APPS, return_value=[]):
         absent = _body(client.get("/en/about/"))
 
+    cache.clear()
+    with mock.patch(LIST_APPS, return_value=[mock.Mock(settings={"hidden": True})]):
+        hidden = _body(client.get("/en/about/"))
+
     assert FOOTER_LUXID in offered
     assert FOOTER_LUXID not in absent
     assert "Members are verified in person at an event." in absent
+    # allauth hides settings.hidden apps from the login page, so the footer must too
+    assert FOOTER_LUXID not in hidden
 
 
 @pytest.mark.django_db
