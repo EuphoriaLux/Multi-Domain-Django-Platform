@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 
 from django.conf import settings
 from django.core.files.storage import storages
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Count, TextField
 from django.db.models.functions import Cast
 from django.utils import timezone
@@ -45,6 +45,7 @@ from .image_generator import (
 from .models import HubResource, SocialPost
 from .serializers import SocialPostSerializer
 from .social_planning import (
+    REVIEW_FIELDS,
     posting_proposal,
     reserved_times,
     review_fingerprint,
@@ -334,7 +335,8 @@ def _event_post_is_dispatched(post: SocialPost) -> bool:
 def _event_post_dispatched_platforms(post: SocialPost) -> set[str]:
     if post.dispatched_platforms:
         return set(post.dispatched_platforms)
-    if post.status in PROMOTED_STATUSES:
+    if post.status in PROMOTED_STATUSES or post.buffer_delivery_uncertain:
+        # An uncertain delivery may already exist in Buffer until reconciled.
         return set(post.platforms or [])
     return set()
 
@@ -560,7 +562,7 @@ def _delete_superseded_social_blobs(old_urls, new_urls):
             logger.warning("Could not delete superseded social blob %s", url)
 
 
-_REVIEWED_FIELDS = ("content", "media_urls", "media_url", "platforms", "language")
+_REVIEWED_FIELDS = REVIEW_FIELDS
 
 
 def _social_review_fingerprint(post):
@@ -585,6 +587,10 @@ def _save_social_images(images):
             storage.delete(path)
         raise
     return urls
+
+
+# Arbitrary constant key for the Postgres advisory lock guarding slot allocation.
+_SLOT_ALLOCATION_LOCK = 0x48554253
 
 
 class SocialPostsView(APIView):
@@ -646,6 +652,13 @@ class SocialPostsView(APIView):
             urls = _save_social_images(uploaded_images)
             post.media_url, post.media_urls = urls[0], urls
         if not post.scheduled_for:
+            if connection.vendor == "postgresql":
+                # Two concurrent intakes must not pick the same free slot: hold
+                # a transaction-scoped lock until this post's time is committed.
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT pg_advisory_xact_lock(%s)", [_SLOT_ALLOCATION_LOCK]
+                    )
             proposal = posting_proposal(post)
             if proposal["scheduled_for"]:
                 post.scheduled_for = datetime.fromisoformat(proposal["scheduled_for"])

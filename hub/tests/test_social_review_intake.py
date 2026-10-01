@@ -137,6 +137,35 @@ class HubReviewIntakeTests(TestCase):
             self.assertIsNotNone(first.data["post"]["scheduled_for"])
         buffer.assert_not_called()
 
+    @patch("hub.views_social.create_buffer_update")
+    def test_fingerprint_rejects_changed_time_or_provenance(self, buffer):
+        post = self.post_for_review()
+        for change in (
+            {"scheduled_for": (timezone.now() + timedelta(days=9)).isoformat()},
+            {"source_metadata": {"title": "Swapped after review"}},
+        ):
+            response = self.client.patch(
+                f"/hub/social/posts/{post.pk}/",
+                {**self.approval(post), **change},
+                format="json",
+            )
+            self.assertEqual(response.status_code, 409, change)
+        buffer.assert_not_called()
+
+    def test_uncertain_event_delivery_reserves_its_platforms(self):
+        from hub.views_social import _event_post_dispatched_platforms
+
+        post = SocialPost(
+            status="failed",
+            platforms=["instagram", "facebook"],
+            buffer_delivery_uncertain=True,
+        )
+        self.assertEqual(
+            _event_post_dispatched_platforms(post), {"instagram", "facebook"}
+        )
+        post.buffer_delivery_uncertain = False
+        self.assertEqual(_event_post_dispatched_platforms(post), set())
+
     @patch("hub.views_social.list_buffer_profiles", return_value=PROFILES)
     @patch(
         "hub.views_social.create_buffer_update",
