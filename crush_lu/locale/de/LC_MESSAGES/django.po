@@ -44002,6 +44002,10 @@ msgstr "Bewerbung für"
 msgid "Pending / no-show"
 msgstr "Ausstehend / nicht erschienen"
 
+#: crush_lu/templates/crush_lu/auth.html
+msgid "Create your Crush.lu account"
+msgstr "Erstelle dein Crush.lu-Konto"
+
 #: templates/crush_lu/connection_detail.html:58
 msgid "Profiles Shared"
 msgstr "Profile geteilt"

@@ -631,7 +631,9 @@ html.dark .about-coach-section {
 .about-feature-column {
     margin-bottom: 1.5rem;
 }
-.about-feature-column h5 {
+.about-feature-column h3 {
+    line-height: calc(1.75 / 1.125);
+    font-weight: 500;
     font-size: clamp(1.1rem, 2.5vw, 1.3rem);
     margin-bottom: 1rem;
     color: #2c3e50;
@@ -639,7 +641,7 @@ html.dark .about-coach-section {
     align-items: center;
     gap: 0.5rem;
 }
-html.dark .about-feature-column h5 {
+html.dark .about-feature-column h3 {
     color: #f1f5f9;
 }
 .about-feature-icon {
@@ -693,13 +695,14 @@ html.dark .about-why-card {
     font-size: 2.5rem;
     margin-bottom: 0.75rem;
 }
-.about-why-card h5 {
+.about-why-card h3 {
+    line-height: calc(1.75 / 1.125);
     font-size: clamp(1rem, 2.5vw, 1.15rem);
     font-weight: 600;
     color: #2c3e50;
     margin-bottom: 0.5rem;
 }
-html.dark .about-why-card h5 {
+html.dark .about-why-card h3 {
     color: #f1f5f9;
 }
 .about-why-card p {
@@ -835,7 +838,7 @@ html.dark .about-cta-section p {
         margin-bottom: 2rem;
     }
 
-    .about-feature-column h5 {
+    .about-feature-column h3 {
         margin-bottom: 1.5rem;
     }
 
@@ -1012,13 +1015,14 @@ html.dark .step-card {
         transform: translateY(-10px);
     }
 }
-.step-card h3 {
+.step-card h2 {
+    line-height: calc(2 / 1.5);
     font-size: clamp(1.25rem, 3vw, 1.5rem);
     margin-bottom: 0.75rem;
     color: #2c3e50;
     font-weight: 600;
 }
-html.dark .step-card h3 {
+html.dark .step-card h2 {
     color: #f1f5f9;
 }
 .step-card p {
@@ -1080,7 +1084,9 @@ html.dark .step-card p {
 .feature-column {
     margin-bottom: 1.5rem;
 }
-.feature-column h5 {
+.feature-column h3 {
+    line-height: calc(1.75 / 1.125);
+    font-weight: 500;
     font-size: clamp(1.1rem, 2.5vw, 1.3rem);
     margin-bottom: 1rem;
     color: #2c3e50;
@@ -1088,7 +1094,7 @@ html.dark .step-card p {
     align-items: center;
     gap: 0.5rem;
 }
-html.dark .feature-column h5 {
+html.dark .feature-column h3 {
     color: #f1f5f9;
 }
 /* CTA Section */
@@ -1179,7 +1185,7 @@ html.dark .hiw-cta-section p {
         margin-bottom: 1.5rem;
     }
 
-    .step-card h3 {
+    .step-card h2 {
         margin-bottom: 1rem;
     }
 
@@ -1206,7 +1212,7 @@ html.dark .hiw-cta-section p {
         margin-bottom: 2rem;
     }
 
-    .feature-column h5 {
+    .feature-column h3 {
         margin-bottom: 1.5rem;
     }
 
