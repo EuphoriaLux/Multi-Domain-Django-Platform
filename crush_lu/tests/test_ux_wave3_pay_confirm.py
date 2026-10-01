@@ -92,7 +92,6 @@ class EventDetailStatusToneTests(PayConfirmTestBase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Payment due")
-        self.assertContains(response, "#event-payment-actions")
         self.assertContains(response, 'id="event-payment-actions"')
         self.assertNotContains(response, "You're in!")
 

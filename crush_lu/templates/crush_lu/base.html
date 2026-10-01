@@ -4,6 +4,7 @@
 {% load seo_tags %}
 {% load crush_connect_tags %}
 {% load privacy_tags %}
+{% load social_tags %}
 <!DOCTYPE html>
 {# theme_lock: an always-dark surface (journey, gifts) fills it with class="dark" data-theme-lock="dark"; theme-manager.js keeps .dark there and the toggles stay focusable but aria-disabled, so their explanation is reachable. #}
 <html lang="{{ LANGUAGE_CODE|default:'en' }}"{% if is_native_app %} data-native-app{% endif %}{% block theme_lock %}{% endblock %}>
@@ -201,7 +202,7 @@
     </style>
 
     <!-- Tailwind CSS (all styles bundled) -->
-    {% if debug %}
+    {% if assets_dev %}
         {% now "U" as ts %}
         <link rel="stylesheet" href="{% static 'crush_lu/css/tailwind.css' %}?v={{ ts }}">
     {% else %}
@@ -1360,7 +1361,9 @@
                 <div>
                     <p class="font-semibold mb-4 text-white/90">{% trans "Privacy First" %}</p>
                     {# LuxID verification is instant, with no coach review; some event audiences admit unverified profiles, so no "before meeting anyone" guarantee. Spec: ai-memory-hub/specs/2026-08-24-crush-connect-repo-product-doc.md #}
-                    <p class="text-white/75">{% trans "Your privacy matters. Members are verified instantly with LuxID or in person at an event." %}</p>
+                    {# Only promise LuxID when its button is offered (same predicate as auth.html). #}
+                    {% luxid_available as luxid_offered %}
+                    <p class="text-white/75">{% if luxid_offered %}{% trans "Your privacy matters. Members are verified instantly with LuxID or in person at an event." %}{% else %}{% trans "Your privacy matters. Members are verified in person at an event." %}{% endif %}</p>
                     {% if whatsapp_enabled and whatsapp_number %}
                     <p class="text-white/75 mt-4">
                         <a href="https://wa.me/{{ whatsapp_number }}" target="_blank" rel="noopener noreferrer"
@@ -1436,7 +1439,7 @@
     <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/vendor/htmx-2.0.4.min.js' %}"></script>
 
     <!-- Toast Notification Component (loads before the Alpine bundles) -->
-    {% if debug %}
+    {% if assets_dev %}
         {% now "U" as ts %}
         <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/toast-component.js' %}?v={{ ts }}"></script>
     {% else %}
@@ -1446,7 +1449,7 @@
     <!-- Global HTMX failure handler: resets isSubmitting + shows an error toast
          on htmx:responseError / sendError / timeout (per-element opt-out: see
          the script header) -->
-    {% if debug %}
+    {% if assets_dev %}
         {% now "U" as ts %}
         <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/htmx-error-toast.js' %}?v={{ ts }}"></script>
     {% else %}
@@ -1454,7 +1457,7 @@
     {% endif %}
 
     <!-- Confirmation sheet (intercepts htmx:confirm; must load with defer like HTMX) -->
-    {% if debug %}
+    {% if assets_dev %}
         {% now "U" as ts %}
         <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/confirm-sheet.js' %}?v={{ ts }}"></script>
     {% else %}
@@ -1489,17 +1492,28 @@
     <!-- WhatsApp FAB: tuck away when it would cover a primary CTA -->
     <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/whatsapp-fab.js' %}"></script>
 
-    <!-- Push Notifications (PWA) -->
-    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/push-notifications.js' %}"></script>
+    {% comment %}
+        push-notifications.js (13 KB) only where something drives it: the push
+        activation prompt (same condition as its include above), or a page that
+        overrides the push_js block (the notification settings). pwa-install.js
+        only where the install banner is rendered (same condition as its include).
+        Everyone else never downloads either.
+    {% endcomment %}
+    {% if user.is_authenticated and not is_native_app and prompt_push_eligible %}
+        <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/push-notifications.js' %}"></script>
+    {% else %}
+        {% block push_js %}{% endblock %}
+    {% endif %}
 
-    <!-- PWA Install Prompt -->
-    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/pwa-install.js' %}"></script>
+    {% if not is_native_app and prompt_install_eligible %}
+        <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/pwa-install.js' %}"></script>
+    {% endif %}
 
     <!-- PWA Update Handler -->
     <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/pwa-update.js' %}"></script>
 
     <!-- PWA Service Worker Registration -->
-    {% if debug %}
+    {% if assets_dev %}
     <!-- DEBUG mode: Unregister any existing SW to prevent caching issues -->
     <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/sw-unregister.js' %}"></script>
     {% else %}

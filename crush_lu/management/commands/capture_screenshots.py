@@ -135,7 +135,6 @@ PAGES = [
     # Coach review only exists on the paid/Premium path. Grouped on its own so
     # the gallery never presents it as the normal onboarding journey.
     ("Premium (coach path)", "onboarding-meet-coach", "/onboarding/meet-coach/", REVIEW),
-    ("Premium (coach path)", "onboarding-screening-call", "/onboarding/screening-call/", REVIEW),
     ("Premium (coach path)", "profile-submitted", "/profile-submitted/", REVIEW),
 ]
 

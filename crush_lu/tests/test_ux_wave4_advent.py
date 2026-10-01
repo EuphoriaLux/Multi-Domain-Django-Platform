@@ -166,6 +166,9 @@ User = get_user_model()
 NOW = "crush_lu.models.advent.timezone.now"
 DEC_5 = datetime(2024, 12, 5, 12, 0, tzinfo=dt_timezone.utc)
 TAILWIND_INPUT = Path(settings.BASE_DIR) / "tailwind-src/crush_lu/tailwind-input.css"
+# Journey rules live in their own stylesheet (WP11a css-weight), loaded by the
+# journey pages and the two advent door pages that reuse them.
+JOURNEY_CSS_SRC = Path(settings.BASE_DIR) / "tailwind-src/crush_lu/features/journey.css"
 
 
 def make_advent_user(test):
@@ -476,9 +479,9 @@ class SharedStylesheetTests(TestCase):
         self.assertIn("--color-advent-red: #c41e3a;", theme)
 
     def test_journey_hearts_honour_reduced_motion_and_small_screens(self):
-        css = TAILWIND_INPUT.read_text(encoding="utf-8")
+        css = JOURNEY_CSS_SRC.read_text(encoding="utf-8")
         blocks = re.findall(
-            r"@media \(prefers-reduced-motion: reduce\) \{(.*?)\n\}", css, re.S
+            r"@media \(prefers-reduced-motion: reduce\) \{(.*?)\n\s*\}", css, re.S
         )
         self.assertTrue(any(".journey-hearts .heart-bg" in b for b in blocks))
         self.assertRegex(

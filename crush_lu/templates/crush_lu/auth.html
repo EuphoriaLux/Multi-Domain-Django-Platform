@@ -33,6 +33,9 @@
             <div class="p-6 md:p-10">
                 <!-- Tab Navigation - Alpine.js Tabs -->
                 <div x-data="tabNav" data-initial-tab="{% if mode == 'signup' %}signup{% else %}login{% endif %}" class="auth-tabs-container mb-6">
+                    {# Page heading for assistive tech: the tab pair below is the visible title, so this stays sr-only and follows the active tab. #}
+                    <h1 class="sr-only" x-show="isLoginTab" {% if mode == 'signup' %}x-cloak{% endif %}>{% trans "Login to your Crush.lu account" %}</h1>
+                    <h1 class="sr-only" x-show="isSignupTab" {% if mode != 'signup' %}x-cloak{% endif %}>{% trans "Create your Crush.lu account" %}</h1>
                     {% comment %}
                       Reassurance + progress hint shown only on the signup tab.
                       Surfaces what the user otherwise only sees AFTER signing
@@ -286,7 +289,7 @@
                                 <div>
                                     <label for="id_last_name" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                                         {% trans "Last Name" %}
-                                        <span class="font-normal text-gray-400 dark:text-gray-500 whitespace-nowrap">({% trans "optional" %})</span>
+                                        <span class="font-normal text-muted-fg whitespace-nowrap">({% trans "optional" %})</span>
                                     </label>
                                     <input type="text" class="w-full px-4 py-3 border {% if signup_form.last_name.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                            id="id_last_name" name="last_name" autocomplete="family-name"
@@ -350,28 +353,6 @@
                                     <p class="password-strength-label mt-1 text-xs text-gray-500 dark:text-gray-400"></p>
                                 </div>
                                 <p class="password-strength-default mt-1 text-sm text-gray-500 dark:text-gray-400">{% trans "At least 8 characters — mix letters, numbers and symbols for a strong password." %}</p>
-                            </div>
-
-                            <div class="mb-4">
-                                <label for="id_password2" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Confirm Password" %}</label>
-                                <div class="relative">
-                                    <input type="password" class="w-full px-4 py-3 pr-12 border {% if signup_form.password2.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-                                           id="id_password2" name="password2" autocomplete="new-password" required
-                                           aria-invalid="{% if signup_form.password2.errors %}true{% else %}false{% endif %}"
-                                           {% if signup_form.password2.errors %}aria-describedby="id_password2_error"{% endif %}
-                                           data-password-match>
-                                    <button type="button"
-                                            class="password-toggle absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                                            data-target="id_password2"
-                                            aria-label="{% trans 'Show password' %}">
-                                        <svg class="h-5 w-5 password-eye" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                                        <svg class="h-5 w-5 password-eye-off hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
-                                    </button>
-                                </div>
-                                {% if signup_form.password2.errors %}
-                                    <p id="id_password2_error" role="alert" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ signup_form.password2.errors.0 }}</p>
-                                {% endif %}
-                                <p class="password-match-hint mt-1 hidden text-sm"></p>
                             </div>
 
                             <!-- Consent Checkboxes -->
@@ -449,8 +430,6 @@ var _i18n = {
     pwGood: '{% filter escapejs %}{% trans "Good password" %}{% endfilter %}',
     pwStrong: '{% filter escapejs %}{% trans "Strong password" %}{% endfilter %}',
     pwTooShort: '{% filter escapejs %}{% trans "Too short — at least 8 characters" %}{% endfilter %}',
-    pwMatch: '{% filter escapejs %}{% trans "Passwords match" %}{% endfilter %}',
-    pwNoMatch: '{% filter escapejs %}{% trans "Passwords don\'t match yet" %}{% endfilter %}'
 };
 /**
  * Unified Auth Page Handler
@@ -622,28 +601,6 @@ var _i18n = {
                 label.textContent = txt;
                 label.className = 'password-strength-label mt-1 text-xs ' + (score >= 3 ? 'text-emerald-600 dark:text-emerald-400' : score === 2 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400');
             });
-        }
-
-        // Password match hint
-        var pwMatch = document.querySelector('[data-password-match]');
-        if (pwMatch && pwInput) {
-            var hint = pwMatch.parentElement.parentElement.querySelector('.password-match-hint');
-            function checkMatch() {
-                if (!pwMatch.value) {
-                    hint.classList.add('hidden');
-                    return;
-                }
-                hint.classList.remove('hidden');
-                if (pwMatch.value === pwInput.value) {
-                    hint.textContent = '✓ ' + _i18n.pwMatch;
-                    hint.className = 'password-match-hint mt-1 text-sm text-emerald-600 dark:text-emerald-400';
-                } else {
-                    hint.textContent = _i18n.pwNoMatch;
-                    hint.className = 'password-match-hint mt-1 text-sm text-amber-600 dark:text-amber-400';
-                }
-            }
-            pwMatch.addEventListener('input', checkMatch);
-            pwInput.addEventListener('input', checkMatch);
         }
 
         // Autofocus, but only for a pointer that doesn't need a virtual

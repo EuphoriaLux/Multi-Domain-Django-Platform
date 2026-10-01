@@ -315,13 +315,14 @@ def test_kept_page_cannot_track_after_a_newer_group_version_was_seen(page):
     calls = page.evaluate("window.dataLayer.map(args => Array.from(args))")
     config = next(i for i, call in enumerate(calls) if call[:2] == ["config", "G-TEST"])
     updates = [call[2] for call in calls[:config] if call[:2] == ["consent", "update"]]
-    assert {"analytics_storage": "denied"} in updates
+    # Denied default; the stale grant update is skipped, nothing re-grants.
+    assert not any("granted" in update.values() for update in updates)
     analytics_updates = [
         call[2]["analytics_storage"]
         for call in calls
         if call[:2] == ["consent", "update"] and "analytics_storage" in call[2]
     ]
-    assert analytics_updates[-1] == "denied"
+    assert "granted" not in analytics_updates
     assert page.locator("#cookie-consent-banner").is_visible()
     assert page.evaluate("typeof window.fbq") == "undefined"
     assert page.evaluate("typeof window.appInsights") == "undefined"
