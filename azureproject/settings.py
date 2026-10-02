@@ -149,8 +149,7 @@ WEEKLY_KPI_RECIPIENTS = [
     if addr.strip()
 ]
 
-# Where a captured-but-not-applied Premium payment is reported (#925): one
-# email per new PremiumPaymentRecoveryCase, sent from the payment's on_commit.
+# Alert recipient for each new PremiumPaymentRecoveryCase (#925).
 PREMIUM_RECOVERY_ALERT_EMAIL = os.getenv("PREMIUM_RECOVERY_ALERT_EMAIL", "tom@crush.lu")
 # Where the alert's admin link points; a staging slot must not link to prod.
 PREMIUM_RECOVERY_ADMIN_BASE_URL = os.getenv(

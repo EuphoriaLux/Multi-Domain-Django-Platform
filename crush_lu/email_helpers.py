@@ -785,10 +785,7 @@ def send_premium_membership_payment_receipt(payment, request=None):
 
 
 def send_premium_payment_recovery_notice(payment, request=None):
-    """Tell the member a captured Premium payment was not applied (#925).
-
-    Not the receipt template: that one says the membership is now active.
-    """
+    """Tell the member a captured Premium payment was not applied (#925)."""
     return _send_payment_receipt(
         payment,
         subject_message=gettext_noop("Payment received"),

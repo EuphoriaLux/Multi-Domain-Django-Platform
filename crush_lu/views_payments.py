@@ -31,10 +31,7 @@ from crush_lu.models.payments import EventCheckoutCreationClaim, PaymentTransact
 from crush_lu.models.premium_recovery import PremiumPaymentRecoveryCase
 from crush_lu.models.profiles import CrushProfile, PremiumMembership
 from crush_lu.services.event_payments import registration_is_payable
-from crush_lu.services.premium_recovery import (
-    open_case_safely as open_premium_recovery_case_safely,
-)
-from crush_lu.services.premium_recovery import reason_for_membership_status
+from crush_lu.services import premium_recovery
 from crush_lu.services.credits import (
     cancellation_policy,
     credit_registration_for_cancelled_event,
@@ -1093,7 +1090,7 @@ def _send_premium_membership_receipt_safely(payment):
 def _queue_premium_recovery_case(payment, reason, detail=""):
     """Open the #925 recovery case once the PAID record has committed."""
     transaction.on_commit(
-        lambda: open_premium_recovery_case_safely(payment.pk, reason, detail)
+        lambda: premium_recovery.open_case_safely(payment.pk, reason, detail)
     )
 
 
@@ -1723,9 +1720,7 @@ def _apply_paid_checkout(tx_obj, data):
                 return
 
             if pm.status != "pending":
-                # Already active (a second checkout captured after the first
-                # activated: duplicate capture) or cancelled before the
-                # capture arrived. Used to fall through in silence.
+                # Already active (duplicate capture) or cancelled first.
                 logger.error(
                     "SumUp payment %s completed for PremiumMembership %s "
                     "(user=%s, status=%s) — payment recorded, NOT applied, "
@@ -1736,7 +1731,7 @@ def _apply_paid_checkout(tx_obj, data):
                     pm.status,
                 )
                 _queue_premium_recovery_case(
-                    locked, reason_for_membership_status(pm.status)
+                    locked, premium_recovery.reason_for_membership_status(pm.status)
                 )
             else:
                 # No pre-setting of payment_confirmed/payment_date here.
@@ -1784,9 +1779,8 @@ def _apply_paid_checkout(tx_obj, data):
                         pm.coach_id,
                         exc,
                     )
-                    # confirm() re-reads the status under its own lock, so ask
-                    # the database why it refused: still pending = coach full.
-                    # A missing CrushProfile used to escape and roll back PAID.
+                    # confirm() re-reads status under its own lock: ask the DB
+                    # why it refused (still pending = coach full).
                     status = (
                         PremiumMembership.objects.filter(pk=pm.pk)
                         .values_list("status", flat=True)
@@ -1795,7 +1789,7 @@ def _apply_paid_checkout(tx_obj, data):
                     _queue_premium_recovery_case(
                         locked,
                         (
-                            reason_for_membership_status(status)
+                            premium_recovery.reason_for_membership_status(status)
                             if isinstance(exc, ValueError)
                             else PremiumPaymentRecoveryCase.Reason.OTHER
                         ),
@@ -2477,17 +2471,13 @@ def _sumup_return_response(request, tx_obj):
     readable — every path here returns a redirect."""
     if tx_obj.status == PaymentTransaction.Status.PAID:
         recovery_case = (
-            PremiumPaymentRecoveryCase.objects.filter(
+            tx_obj.premium_membership_id
+            and PremiumPaymentRecoveryCase.objects.filter(
                 payment=tx_obj, status=PremiumPaymentRecoveryCase.Status.OPEN
-            )
-            .select_related("payment")
-            .first()
-            if tx_obj.premium_membership_id
-            else None
+            ).exists()
         )
-        if recovery_case is None:
-            # #925: "completed successfully" next to the D1 warning is a mixed
-            # signal when this payment was not applied.
+        if not recovery_case:
+            # #925: no "completed successfully" next to the D1 warning.
             messages.success(request, _("Payment completed successfully! Thank you."))
         if tx_obj.event_registration:
             # event_detail 404s an unpublished event (#1079).
@@ -2511,9 +2501,8 @@ def _sumup_return_response(request, tx_obj):
             pm = tx_obj.premium_membership
             pm.refresh_from_db()
             if recovery_case:
-                # #925 D1. Checked first: a duplicate capture finds the
-                # membership active, but THIS payment was not applied.
-                payment = recovery_case.payment
+                # #925 D1, first: a duplicate capture finds pm active.
+                payment = tx_obj
                 messages.warning(
                     request,
                     _(
@@ -2524,8 +2513,7 @@ def _sumup_return_response(request, tx_obj):
                         "help."
                     )
                     % {
-                        # localize() matches {{ amount }} on the other
-                        # surfaces (10,00 in DE/FR).
+                        # localize() matches {{ amount }} (10,00 in DE/FR).
                         "amount": localize(payment.amount),
                         "currency": payment.currency,
                         "reference": payment.transaction_reference,

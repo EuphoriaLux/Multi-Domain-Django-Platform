@@ -439,11 +439,7 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
 
 
 class PremiumPaymentRecoveryCaseAdmin(admin.ModelAdmin):
-    """Captured Premium payments that were not applied (#925).
-
-    Visibility only; resolution tooling is a separate change. Cases are
-    opened by ``_apply_paid_checkout``, never by hand, so nothing is editable.
-    """
+    """Read-only: cases are opened by ``_apply_paid_checkout`` (#925)."""
 
     list_display = (
         "payment",
@@ -458,17 +454,7 @@ class PremiumPaymentRecoveryCaseAdmin(admin.ModelAdmin):
     search_fields = ("payment__transaction_reference", "user__email")
     ordering = ("-created_at",)
     list_select_related = ("payment", "user")
-    readonly_fields = (
-        "payment",
-        "user",
-        "premium_membership",
-        "reason",
-        "status",
-        "detail",
-        "created_at",
-        "member_notified_at",
-        "staff_alerted_at",
-    )
+    readonly_fields = list_display + ("premium_membership", "detail")
 
     def has_add_permission(self, request):
         return False

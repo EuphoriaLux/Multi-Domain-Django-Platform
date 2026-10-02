@@ -78,11 +78,7 @@ def pending_premium_state(user):
 
 
 def open_recovery_case(user):
-    """The member's OPEN PremiumPaymentRecoveryCase, or None (#925).
-
-    While one is open the money is with us and not applied, so member pages
-    show the D1 notice instead of any pay CTA.
-    """
+    """The member's OPEN recovery case (#925): pages show it, not a pay CTA."""
     from .models import PremiumPaymentRecoveryCase
 
     if not user.is_authenticated:

@@ -1,10 +1,7 @@
 """Open a recovery case when a captured Premium payment is not applied (#925).
 
-Runs from ``transaction.on_commit`` in ``_apply_paid_checkout``: the PAID
-record is the only proof of a real charge, so nothing here may roll it back.
-Every step is caught and logged. Emails go out only when this call created
-the case, so a replayed webhook or browser return never mails twice.
-
+Runs on_commit after the PAID record, so nothing here may roll it back; emails
+go out only when this call created the case (replays never mail twice).
 Spec: ai-memory-hub/specs/2026-09-13-crush-premium-payment-recovery.md
 """
 
@@ -85,8 +82,7 @@ def _alert_staff_safely(case):
             args=[case.pk],
             urlconf="azureproject.urls_crush",
         )
-        # English only: the Coach Panel is English, whatever language the
-        # request that captured the payment was in.
+        # English only: the Coach Panel is English.
         with translation.override("en"):
             reason = str(case.get_reason_display())
         message = (

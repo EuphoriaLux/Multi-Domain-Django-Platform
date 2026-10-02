@@ -1,10 +1,6 @@
 """Durable record of a captured Premium payment that was NOT applied (#925).
 
-SumUp has the money by the time ``_apply_paid_checkout`` refuses to grant
-Premium, so the refusal used to leave only a log line nobody is alerted on.
-One case per payment: the OneToOne is what makes opening a case idempotent
-when the webhook and the browser return replay the same capture.
-
+The OneToOne on payment makes opening a case idempotent across replays.
 Spec: ai-memory-hub/specs/2026-09-13-crush-premium-payment-recovery.md
 """
 
@@ -15,7 +11,6 @@ from django.utils.translation import gettext_lazy as _
 
 class PremiumPaymentRecoveryCase(models.Model):
     class Reason(models.TextChoices):
-        # Product decisions D2-D4 on #925 decide the remedy per reason.
         DUPLICATE_CAPTURE = "duplicate_capture", _("Duplicate capture")
         COACH_UNAVAILABLE = "coach_unavailable", _("Coach unavailable")
         REQUEST_CANCELLED = "request_cancelled", _("Request cancelled")
@@ -31,8 +26,7 @@ class PremiumPaymentRecoveryCase(models.Model):
         on_delete=models.PROTECT,
         related_name="premium_recovery_case",
     )
-    # The member the money belongs to (premium_membership.user), not the
-    # account that opened the checkout — staff can open one for a member.
+    # premium_membership.user, not whoever opened the checkout.
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
