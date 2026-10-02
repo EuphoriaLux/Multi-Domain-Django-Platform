@@ -166,11 +166,90 @@ class ContactChoicesTests(TestCase):
         self.assertNotContains(en, PRE_OPT_IN_COPY)
         self.assertContains(en, "did not share their phone number")
 
-    def test_rows_shared_after_the_opt_in_keep_the_choice_copy(self):
+    def test_coach_share_without_a_choice_says_not_shared_yet(self):
+        # Coach/auto shares leave both opt-ins False: the other member was
+        # never asked, so "chose not to" would be untrue.
         self._share()
         en = self._client(self.me).get(self._url(), HTTP_HOST=HOST)
         self.assertNotContains(en, PRE_OPT_IN_COPY)
+        self.assertNotContains(en, "chose not to share their email")
+        self.assertNotContains(en, "did not share their phone number")
+        self.assertContains(en, "hasn't shared their email yet.")
+        self.assertContains(en, "hasn't shared their phone number yet.")
+        de = self._client(self.me).get(self._url("de"), HTTP_HOST=HOST)
+        self.assertContains(de, "hat noch keine Telefonnummer geteilt.")
+        fr = self._client(self.me).get(self._url("fr"), HTTP_HOST=HOST)
+        self.assertContains(fr, "pas encore partagé son e-mail.")
+
+    def test_choice_copy_once_the_other_member_has_saved(self):
+        self._share()
+        self._choose(self.other)  # saved with nothing ticked
+        en = self._client(self.me).get(self._url(), HTTP_HOST=HOST)
+        self.assertContains(en, "chose not to share their email")
         self.assertContains(en, "did not share their phone number")
+
+    def test_consent_form_choice_on_a_pre_opt_in_row_counts_as_a_choice(self):
+        # Requested before both opt-in migrations, consented on the real form
+        # afterwards: the unticked email/phone are an explicit choice.
+        EventConnection.objects.filter(pk=self.conn.pk).update(requested_at=PRE_OPT_IN)
+        self._client(self.me).post(self._url(), {"consent": "yes"}, HTTP_HOST=HOST)
+        self._client(self.other).post(self._url(), {"consent": "yes"}, HTTP_HOST=HOST)
+        self.conn.refresh_from_db()
+        self.assertEqual(self.conn.status, "shared")
+        self.assertIsNotNone(self.conn.shared_at)
+        self.assertEqual(
+            [a["details"]["side"] for a in self.conn.system_actions],
+            ["requester", "recipient"],
+        )
+        en = self._client(self.me).get(self._url(), HTTP_HOST=HOST)
+        self.assertNotContains(en, PRE_OPT_IN_COPY)
+        self.assertContains(en, "chose not to share their email")
+        self.assertContains(en, "did not share their phone number")
+
+    def test_consent_form_keeps_shares_and_stale_guard(self):
+        self._client(self.me).post(
+            self._url(), {"consent": "yes", "share_email": "on"}, HTTP_HOST=HOST
+        )
+        self.conn.refresh_from_db()
+        self.assertTrue(self.conn.requester_consents_to_share)
+        self.assertTrue(self.conn.requester_shares_email)
+        self.assertEqual(self.conn.status, "coach_approved")
+        EventConnection.objects.filter(pk=self.conn.pk).update(status="declined")
+        self._client(self.other).post(self._url(), {"consent": "yes"}, HTTP_HOST=HOST)
+        self.conn.refresh_from_db()
+        self.assertEqual(self.conn.status, "declined")
+        self.assertFalse(self.conn.recipient_consents_to_share)
+
+
+class CoachNextActionLabelTests(TestCase):
+    def test_shared_row_reads_introduction_made(self):
+        from crush_lu.views_coach import _compute_connection_next_action
+
+        a = _make_member("wp6_na_a", gender="F", membership=False)
+        b = _make_member("wp6_na_b", gender="M", membership=False)
+        conn = EventConnection(requester=a, recipient=b, status="shared")
+        with translation.override("en"):
+            action = _compute_connection_next_action(conn, None)
+            self.assertEqual(str(action["what_label"]), "Introduction made")
+
+
+class CoachDashboardConfirmCopyTests(TestCase):
+    def test_hunt_confirm_sheet_strings_are_translated(self):
+        from django.utils.translation import gettext
+
+        expected = {
+            "de": ("Jagd beenden", "Teams automatisch bilden"),
+            "fr": ("Terminer la chasse", "Former les équipes automatiquement"),
+        }
+        for lang, (finish, auto) in expected.items():
+            with translation.override(lang):
+                self.assertEqual(gettext("Finish Hunt"), finish)
+                self.assertEqual(gettext("Auto-form teams"), auto)
+                for msgid in (
+                    "Finish the hunt for all teams?",
+                    "Place all unassigned attendees into new teams?",
+                ):
+                    self.assertNotEqual(gettext(msgid), msgid)
 
 
 class OptInSinceCacheTests(TestCase):

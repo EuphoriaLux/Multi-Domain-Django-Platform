@@ -4665,7 +4665,7 @@ def _compute_connection_next_action(conn, current_coach):
         return {
             "kind": "done",
             "who_label": "",
-            "what_label": _("Contact info shared"),
+            "what_label": _("Introduction made"),
             "is_for_coach": False,
             "icon": "check",
         }

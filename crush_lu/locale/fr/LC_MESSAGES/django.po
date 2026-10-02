@@ -15752,21 +15752,19 @@ msgstr "Démarrer le Quiz"
 
 #: templates/crush_lu/cache/coach_dashboard.html:46
 msgid "Finish the hunt for all teams?"
-msgstr ""
+msgstr "Terminer la chasse pour toutes les équipes ?"
 
 #: templates/crush_lu/cache/coach_dashboard.html:48
-#, fuzzy
-#| msgid "Finish"
 msgid "Finish Hunt"
-msgstr "Terminer"
+msgstr "Terminer la chasse"
 
 #: templates/crush_lu/cache/coach_dashboard.html:53
 msgid "Place all unassigned attendees into new teams?"
-msgstr ""
+msgstr "Répartir tous les participants non assignés dans de nouvelles équipes ?"
 
 #: templates/crush_lu/cache/coach_dashboard.html:56
 msgid "Auto-form teams"
-msgstr ""
+msgstr "Former les équipes automatiquement"
 
 #: templates/crush_lu/cache/coach_dashboard.html:62
 msgid "QR sheet (PDF)"
@@ -44228,3 +44226,20 @@ msgid "%(points)s point available"
 msgid_plural "%(points)s points available"
 msgstr[0] "%(points)s point disponible"
 msgstr[1] "%(points)s points disponibles"
+
+# UX Wave 6 · WP5 flows-rest
+#: templates/crush_lu/connection_detail.html
+#, python-format
+msgid "%(name)s hasn't shared their email yet."
+msgstr "%(name)s n'a pas encore partagé son e-mail."
+
+# UX Wave 6 · WP5 flows-rest
+#: templates/crush_lu/connection_detail.html
+#, python-format
+msgid "%(name)s hasn't shared their phone number yet."
+msgstr "%(name)s n'a pas encore partagé son numéro de téléphone."
+
+# UX Wave 6 · WP5 flows-rest
+#: templates/crush_lu/connection_detail.html
+msgid "Your contact details"
+msgstr "Vos coordonnées"

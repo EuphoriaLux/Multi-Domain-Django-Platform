@@ -415,9 +415,13 @@
                                 </div>
                             {% elif other_email_predates_choice %}
                                 <p class="text-xs text-gray-500 dark:text-gray-400 italic">{% trans "Shared before contact choices were available" %}</p>
-                            {% else %}
+                            {% elif other_has_chosen %}
                                 <p class="text-xs text-gray-400 dark:text-gray-500 italic">
                                     {% blocktrans with name=other_profile.display_name %}{{ name }} chose not to share their email.{% endblocktrans %}
+                                </p>
+                            {% else %}
+                                <p class="text-xs text-gray-400 dark:text-gray-500 italic">
+                                    {% blocktrans with name=other_profile.display_name %}{{ name }} hasn't shared their email yet.{% endblocktrans %}
                                 </p>
                             {% endif %}
                             {% if other_shares_phone %}
@@ -427,9 +431,13 @@
                                 </div>
                             {% elif other_phone_predates_choice %}
                                 <p class="text-xs text-gray-500 dark:text-gray-400 italic">{% trans "Shared before contact choices were available" %}</p>
-                            {% else %}
+                            {% elif other_has_chosen %}
                                 <p class="text-xs text-gray-400 dark:text-gray-500 italic">
                                     {% blocktrans with name=other_profile.display_name %}{{ name }} did not share their phone number.{% endblocktrans %}
+                                </p>
+                            {% else %}
+                                <p class="text-xs text-gray-400 dark:text-gray-500 italic">
+                                    {% blocktrans with name=other_profile.display_name %}{{ name }} hasn't shared their phone number yet.{% endblocktrans %}
                                 </p>
                             {% endif %}
                             {% if other_profile.show_full_name %}
@@ -481,6 +489,8 @@
                     {# for introductions made by a coach or the same-gender auto-share. #}
                     <form method="post" class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700" data-testid="contact-choices">
                         {% csrf_token %}
+                        <fieldset>
+                        <legend class="text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">{% trans "Your contact details" %}</legend>
                         <div class="flex items-center gap-2 mb-3">
                             <input class="w-4 h-4 text-purple-600 border-gray-300 dark:border-gray-600 rounded focus:ring-purple-500" type="checkbox" id="own_share_email" name="share_email"{% if own_shares_email %} checked{% endif %}>
                             <label class="text-sm text-gray-700 dark:text-gray-200" for="own_share_email">
@@ -495,6 +505,7 @@
                                 </label>
                             </div>
                         {% endif %}
+                        </fieldset>
                         <button type="submit" name="contact_choices" value="1" class="btn-crush-outline btn-sm">{% trans "Save changes" %}</button>
                     </form>
                 </div>
