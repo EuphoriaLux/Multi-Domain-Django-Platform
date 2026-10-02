@@ -163,3 +163,76 @@ class FeatureStylesheetTemplateTests(TestCase):
                     if "block.super" not in body and "css/journey.css" not in body:
                         offenders.append(str(path.relative_to(self.TEMPLATES)))
         self.assertEqual(offenders, [])
+
+
+class RuntimeLibraryClassTests(TestCase):
+    """WP6 css-slice-2 (#1149): classes that a library adds at runtime.
+
+    No template mentions these classes literally (HTMX, Alpine, SortableJS and
+    intl-tel-input put them on the DOM themselves), so a dead-selector sweep
+    sees them as unused. Every page that loads the library must also load a
+    stylesheet that still has a rule for each of them.
+    """
+
+    TEMPLATES = Path(settings.BASE_DIR) / "crush_lu" / "templates"
+    STATIC = Path(settings.BASE_DIR) / "crush_lu" / "static"
+
+    # (library, script marker in a template, runtime selectors)
+    LIBRARIES = (
+        (
+            "htmx",
+            "js/vendor/htmx-",
+            (".htmx-request", ".htmx-swapping", ".htmx-settling", ".htmx-indicator"),
+        ),
+        ("alpine", "alpinejs-csp-", ("[x-cloak]",)),
+        (
+            "sortable",
+            "js/vendor/sortable-",
+            (".sortable-ghost", ".sortable-chosen", ".sortable-drag"),
+        ),
+        (
+            "intl-tel-input",
+            "intlTelInput.min.js",
+            (".iti", ".iti__selected-country", ".iti__country", ".iti__dial-code"),
+        ),
+    )
+
+    @staticmethod
+    def _has_rule(css, selector):
+        # Not followed by a name character, so ".iti" is not satisfied by
+        # ".iti__country" alone.
+        return re.search(re.escape(selector) + r"(?![\w-])", css) is not None
+
+    def _linked_css(self, name):
+        """Concatenated local stylesheets linked by a template or its parents."""
+        css = []
+        seen = set()
+        while name and name not in seen:
+            seen.add(name)
+            path = self.TEMPLATES / name
+            if not path.exists():
+                break
+            text = path.read_text(encoding="utf-8")
+            for rel in re.findall(r"{% static '(crush_lu/css/[^']+\.css)' %}", text):
+                css.append((self.STATIC / rel).read_text(encoding="utf-8"))
+            m = re.search(r"{%\s*extends\s+[\"']([^\"']+)[\"']", text)
+            name = m.group(1) if m else None
+        return "\n".join(css)
+
+    def test_pages_loading_a_library_keep_its_runtime_rules(self):
+        missing = []
+        checked = set()
+        for path in sorted((self.TEMPLATES / "crush_lu").rglob("*.html")):
+            name = str(path.relative_to(self.TEMPLATES)).replace("\\", "/")
+            text = path.read_text(encoding="utf-8")
+            for library, marker, selectors in self.LIBRARIES:
+                if marker not in text:
+                    continue
+                checked.add(library)
+                css = self._linked_css(name)
+                for selector in selectors:
+                    if not self._has_rule(css, selector):
+                        missing.append(f"{name} ({library}): {selector}")
+        # Every library is found on at least one page, so the scan is live.
+        self.assertEqual(checked, {lib for lib, _m, _s in self.LIBRARIES})
+        self.assertEqual(missing, [])
