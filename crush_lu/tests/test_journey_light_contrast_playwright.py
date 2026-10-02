@@ -266,6 +266,9 @@ def _page(browser, live_server, viewport):
         "**://fonts.g*.com/**",
         lambda route: route.fulfill(status=200, content_type="text/css", body=""),
     )
+    # _markup turns {{ url }} into relative "Sample" srcs; answer them here so
+    # the live_server log is not flooded with 404s.
+    context.route("**/Sample*", lambda route: route.fulfill(status=204))
     client = Client()
     client.force_login(user)
     context.add_cookies(
