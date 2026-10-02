@@ -40,6 +40,56 @@ class FeatureStylesheetFilesTests(TestCase):
         # The global bundle keeps genuinely shared component rules.
         self.assertIn(".btn-primary", base)
 
+    @staticmethod
+    def _has_rule(css, selector):
+        return re.search(re.escape(selector) + r"(?![\w-])", css) is not None
+
+    def test_journey_gift_upload_and_certificate_rules_left_the_global_bundle(self):
+        # WP6 css-slice-2 (#1149): the rest of the journey, gift wizard,
+        # gift landing, file upload and certificate rules.
+        base = (CSS_DIR / "tailwind.css").read_text(encoding="utf-8")
+        journey = (CSS_DIR / "journey.css").read_text(encoding="utf-8")
+        moved = (
+            ".journey-btn-primary",
+            ".journey-selector-card",
+            ".journey-mc-option-card",
+            ".timeline-item",
+            ".reveal-puzzle-piece",
+            ".gift-card",
+            ".btn-gift",
+            ".gift-input",
+            ".step-indicator",
+            ".gift-landing .hero-recipient",
+            ".file-upload-wrapper",
+            ".file-upload-preview",
+            ".certificate",
+            ".certificate-confetti",
+            ".nav-btn",
+            "@keyframes giftFadeInUp",
+        )
+        in_base = [sel for sel in moved if self._has_rule(base, sel)]
+        not_in_journey = [sel for sel in moved if not self._has_rule(journey, sel)]
+        self.assertEqual(in_base, [])
+        self.assertEqual(not_in_journey, [])
+
+    def test_shared_and_order_guarded_rules_stay_in_the_global_bundle(self):
+        base = (CSS_DIR / "tailwind.css").read_text(encoding="utf-8")
+        kept = (
+            # Shared by the profile editors, not gift-only.
+            ".photo-upload-card",
+            # Global nav link and the global contrast floor rules.
+            ".nav-link.special-journey",
+            ".journey-icon",
+            # Kept because a later global rule targets the same class
+            # (.feature-card / .cta-section); moving them would flip the
+            # cascade order.
+            ".gift-landing .feature-card",
+            ".gift-landing .cta-section",
+            # Used by the coach progress page too.
+            "html.dark .stat-label",
+        )
+        self.assertEqual([sel for sel in kept if not self._has_rule(base, sel)], [])
+
     def test_runtime_library_classes_stay_in_the_global_bundle(self):
         # HTMX adds these classes itself, so no template or script mentions
         # them; they looked like dead selectors but every hx-* swap uses them.
@@ -141,6 +191,70 @@ class FeatureStylesheetTemplateTests(TestCase):
             if f"{{% static 'crush_lu/css/{name}.css' %}}" not in self._read(rel)
         ]
         self.assertEqual(missing, [])
+
+    JOURNEY_ONLY_PREFIXES = (
+        "journey-",
+        "gift-",
+        "btn-gift",
+        "certificate",
+        "file-upload-",
+        "reveal-",
+        "timeline-",
+        "step-indicator",
+        "share-btn",
+        "claim-form",
+        "nav-btn",
+    )
+
+    def test_pages_using_journey_only_classes_link_journey_css(self):
+        """A class whose only rule is in journey.css needs journey.css."""
+        base = (CSS_DIR / "tailwind.css").read_text(encoding="utf-8")
+        journey = (CSS_DIR / "journey.css").read_text(encoding="utf-8")
+        names = re.compile(r"\.(-?[A-Za-z_][\w-]*)")
+        journey_only = {
+            c
+            for c in set(names.findall(journey)) - set(names.findall(base))
+            if c.startswith(self.JOURNEY_ONLY_PREFIXES)
+        }
+        self.assertIn("certificate", journey_only)
+        self.assertIn("file-upload-wrapper", journey_only)
+
+        texts, parent = {}, {}
+        for path in self.TEMPLATES.rglob("*.html"):
+            name = "crush_lu/" + str(path.relative_to(self.TEMPLATES)).replace(
+                "\\", "/"
+            )
+            texts[name] = path.read_text(encoding="utf-8")
+            m = re.search(r"{%\s*extends\s+[\"']([^\"']+)[\"']", texts[name])
+            parent[name] = m.group(1) if m else None
+
+        def links(name, seen=()):
+            # The page itself, a parent, or (for a partial) every includer.
+            chain = name
+            while chain:
+                if "css/journey.css" in texts.get(chain, ""):
+                    return True
+                chain = parent.get(chain)
+            if parent.get(name) is None:
+                includers = [
+                    n
+                    for n, t in texts.items()
+                    if re.search(r"{%\s*include\s+[\"']" + re.escape(name), t)
+                ]
+                return bool(includers) and all(
+                    n not in seen and links(n, seen + (name,)) for n in includers
+                )
+            return False
+
+        offenders = []
+        for name, text in texts.items():
+            used = set()
+            for m in re.finditer(r'class="([^"]*)"', text):
+                used |= set(re.sub(r"{[{%].*?[%}]}", " ", m.group(1)).split())
+            hits = sorted(used & journey_only)
+            if hits and not links(name):
+                offenders.append(f"{name}: {hits[:3]}")
+        self.assertEqual(offenders, [])
 
     def test_journey_children_keep_the_inherited_stylesheet(self):
         # journey_base.html links journey.css in extra_css (and offers
