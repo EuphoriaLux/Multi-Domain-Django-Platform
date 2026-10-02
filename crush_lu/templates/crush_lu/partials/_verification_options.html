@@ -15,7 +15,10 @@
 {% endcomment %}
 <div class="flex justify-center px-4 pb-10">
   <div class="w-full max-w-3xl">
-    {% if path_locked %}
+    {% if path_locked and premium_path_recovery_case %}
+    {# #925 D1: a captured payment was not applied, so no "payment pending" claim and no link to the pay page. #}
+    {% include "crush_lu/partials/_premium_recovery_notice.html" with premium_recovery_case=premium_path_recovery_case %}
+    {% elif path_locked %}
     {# A premium path is already chosen — don't re-offer all three (avoids accidentally picking a second coach). Show a single summary instead. #}
     <div class="mb-4 text-center">
       <h2 class="text-lg font-bold text-gray-900 dark:text-white">

@@ -160,6 +160,16 @@ class FailurePathCaseTests(_Base):
         self.membership.refresh_from_db()
         self.assertEqual(self.membership.status, "active")
 
+    def test_duplicate_and_cancelled_paths_write_an_error_log(self):
+        # The log is the only trace if both mails fail.
+        self._apply(self._tx("REC-LOG-1"))
+        second = self._tx("REC-LOG-2")
+        with self.assertLogs("crush_lu.views_payments", level="ERROR") as logs:
+            self._apply(second)
+        output = "\n".join(logs.output)
+        self.assertIn("REC-LOG-2", output)
+        self.assertIn("status=active", output)
+
     @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
     def test_revoked_beta_tester_opens_beta_revoked_case(self):
         tx = self._tx("REC-BETA")
@@ -281,6 +291,17 @@ class NotificationTests(_Base):
         )
         self.assertIsNotNone(case.staff_alerted_at)
 
+    @override_settings(PREMIUM_RECOVERY_ADMIN_BASE_URL="https://test.crush.lu")
+    def test_alert_link_host_is_a_setting(self):
+        _, case = self._case_via_coach_full("REC-STAGING")
+        body = self._alerts()[0].body
+        self.assertIn(
+            f"https://test.crush.lu/crush-admin/crush_lu/premiumpaymentrecoverycase/"
+            f"{case.pk}/change/",
+            body,
+        )
+        self.assertNotIn("https://crush.lu/", body)
+
     @override_settings(PREMIUM_RECOVERY_ALERT_EMAIL="ops@example.invalid")
     def test_alert_address_is_a_setting(self):
         self._case_via_coach_full("REC-SETTING")
@@ -389,6 +410,64 @@ class MemberNoticeTests(_Base):
         texts = [str(m) for m in response.context["messages"]]
         self.assertTrue(any(t.startswith(D1_START) for t in texts), texts)
         self.assertFalse(any("You're Premium" in t for t in texts), texts)
+
+    def test_return_page_skips_generic_success_when_case_is_open(self):
+        response = self.client.get(
+            "/payments/sumup/return/", {"ref": "REC-PAGE"}, follow=True
+        )
+        texts = [str(m) for m in response.context["messages"]]
+        self.assertFalse(any("completed successfully" in t for t in texts), texts)
+
+    def test_return_page_amount_is_localized_like_the_other_surfaces(self):
+        self.profile.preferred_language = "de"
+        self.profile.save(update_fields=["preferred_language"])
+        response = self.client.get(
+            "/payments/sumup/return/", {"ref": "REC-PAGE"}, follow=True
+        )
+        texts = [str(m) for m in response.context["messages"]]
+        notice = [t for t in texts if "REC-PAGE" in t]
+        self.assertEqual(len(notice), 1, texts)
+        self.assertIn("10,00 EUR", notice[0])
+
+
+class PendingVerificationNoticeTests(_Base):
+    """A pending profile on the Premium path keeps its membership 'pending'
+    while a coach_unavailable case is open: the path copy must not then say
+    "payment pending" or link back to the pay page (#925 D1)."""
+
+    def setUp(self):
+        super().setUp()
+        self.tx = self._tx("REC-PEND", status=PaymentTransaction.Status.PAID)
+        PremiumPaymentRecoveryCase.objects.create(
+            payment=self.tx,
+            user=self.member,
+            premium_membership=self.membership,
+            reason=Reason.COACH_UNAVAILABLE,
+        )
+        self.profile.verification_status = "pending"
+        self.profile.completion_status = "submitted"
+        self.profile.save(update_fields=["verification_status", "completion_status"])
+        self.client = Client(HTTP_HOST="crush.lu")
+        self.client.force_login(self.member)
+
+    def test_dashboard_drops_payment_pending_and_pay_link(self):
+        response = self.client.get("/en/dashboard/")
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertNotIn("payment pending", html)
+        self.assertNotIn("/en/premium/coaches/", html)
+        self.assertIn('data-testid="premium-recovery-notice"', html)
+        self.assertIn('data-testid="premium-recovery-path"', html)
+
+    def test_profile_submitted_shows_notice_not_payment_pending(self):
+        response = self.client.get("/en/profile-submitted/")
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertNotIn("Payment pending", html)
+        self.assertNotIn("/en/premium/coaches/", html)
+        self.assertNotIn("complete your Premium membership", html)
+        self.assertIn('data-testid="premium-recovery-notice"', html)
+        self.assertIn("REC-PEND", html)
 
 
 class AdminVisibilityTests(_Base):

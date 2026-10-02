@@ -95,7 +95,7 @@ def _alert_staff_safely(case):
             f"Member: {case.user.email} (user {case.user_id})\n"
             f"Amount: {payment.amount} {payment.currency}\n"
             f"Reference: {payment.transaction_reference}\n"
-            f"Case: https://crush.lu{admin_path}\n"
+            f"Case: {settings.PREMIUM_RECOVERY_ADMIN_BASE_URL}{admin_path}\n"
         )
         if send_domain_email(
             subject=f"[Crush.lu] Premium payment not applied: "

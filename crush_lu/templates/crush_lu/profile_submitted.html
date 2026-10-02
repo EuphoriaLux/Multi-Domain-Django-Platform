@@ -38,7 +38,7 @@
                     {% include "shared/icons/shield-check.html" with class="w-8 h-8 md:w-10 md:h-10 text-white" %}
                 </div>
             </div>
-            <h1 data-status-line class="mt-4 mb-6 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% if path_locked %}{% trans "Your profile is ready. Next: complete your Premium membership." %}{% elif luxid_unavailable %}{% trans "Your profile is ready. Next: get verified at an event." %}{% else %}{% trans "Your profile is ready. Next: get verified at an event or with LuxID." %}{% endif %}</h1>
+            <h1 data-status-line class="mt-4 mb-6 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% if path_locked and premium_path_recovery_case %}{% trans "Payment received" %}{% elif path_locked %}{% trans "Your profile is ready. Next: complete your Premium membership." %}{% elif luxid_unavailable %}{% trans "Your profile is ready. Next: get verified at an event." %}{% else %}{% trans "Your profile is ready. Next: get verified at an event or with LuxID." %}{% endif %}</h1>
 
             {# If the user already connected LuxID but isn't verified yet, reassure them (view lazily verifies + redirects normally; this is an edge state). #}
             {# Gate on the LuxID link itself: an empty luxid_connect_url also means "LuxID not configured / lookup failed", which must not read as "connected". #}

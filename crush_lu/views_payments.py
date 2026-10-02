@@ -15,6 +15,7 @@ from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.formats import localize
 from django.utils.translation import gettext as _
 from django.utils.translation import override
 from django.views.decorators.csrf import csrf_exempt
@@ -1725,6 +1726,15 @@ def _apply_paid_checkout(tx_obj, data):
                 # Already active (a second checkout captured after the first
                 # activated: duplicate capture) or cancelled before the
                 # capture arrived. Used to fall through in silence.
+                logger.error(
+                    "SumUp payment %s completed for PremiumMembership %s "
+                    "(user=%s, status=%s) — payment recorded, NOT applied, "
+                    "manual refund review required.",
+                    locked.transaction_reference,
+                    pm.id,
+                    pm.user_id,
+                    pm.status,
+                )
                 _queue_premium_recovery_case(
                     locked, reason_for_membership_status(pm.status)
                 )
@@ -2466,7 +2476,19 @@ def _sumup_return_response(request, tx_obj):
     activated language. Split out only so the ``override`` block above stays
     readable — every path here returns a redirect."""
     if tx_obj.status == PaymentTransaction.Status.PAID:
-        messages.success(request, _("Payment completed successfully! Thank you."))
+        recovery_case = (
+            PremiumPaymentRecoveryCase.objects.filter(
+                payment=tx_obj, status=PremiumPaymentRecoveryCase.Status.OPEN
+            )
+            .select_related("payment")
+            .first()
+            if tx_obj.premium_membership_id
+            else None
+        )
+        if recovery_case is None:
+            # #925: "completed successfully" next to the D1 warning is a mixed
+            # signal when this payment was not applied.
+            messages.success(request, _("Payment completed successfully! Thank you."))
         if tx_obj.event_registration:
             # event_detail 404s an unpublished event (#1079).
             if not tx_obj.event_registration.event.is_published:
@@ -2488,17 +2510,10 @@ def _sumup_return_response(request, tx_obj):
             # end up, so the confirmation is not conditional on onboarding.
             pm = tx_obj.premium_membership
             pm.refresh_from_db()
-            case = (
-                PremiumPaymentRecoveryCase.objects.filter(
-                    payment=tx_obj, status=PremiumPaymentRecoveryCase.Status.OPEN
-                )
-                .select_related("payment")
-                .first()
-            )
-            if case:
+            if recovery_case:
                 # #925 D1. Checked first: a duplicate capture finds the
                 # membership active, but THIS payment was not applied.
-                payment = case.payment
+                payment = recovery_case.payment
                 messages.warning(
                     request,
                     _(
@@ -2509,7 +2524,9 @@ def _sumup_return_response(request, tx_obj):
                         "help."
                     )
                     % {
-                        "amount": payment.amount,
+                        # localize() matches {{ amount }} on the other
+                        # surfaces (10,00 in DE/FR).
+                        "amount": localize(payment.amount),
                         "currency": payment.currency,
                         "reference": payment.transaction_reference,
                     },
