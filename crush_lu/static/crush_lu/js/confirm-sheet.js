@@ -99,7 +99,7 @@
         optInput = optWrap && optWrap.querySelector("[data-confirm-option-input]");
 
         acceptBtn.addEventListener("click", function () {
-            optionChecked = !!(optWrap && !optWrap.hidden && optInput.checked);
+            optionChecked = !!(optWrap && optInput && !optWrap.hidden && optInput.checked);
             settle(true);
         });
         cancelBtn.addEventListener("click", function () {

@@ -197,7 +197,12 @@ html.dark {
    :root before any redefinition. A descendant that carries its own text
    utility is floored again by its own, more specific rule. The only remaining
    leak is an element that carries a text utility AND a bg/border/ring utility
-   of the same step on itself; a test over the templates and JS forbids that. */
+   of the same step on itself; a test over the templates and JS forbids that.
+
+   BASE LINKS. The base-layer `a` default also uses the purple-200 floor in
+   dark mode (see the `a` rule below). Unlike the utility floor it has no
+   exclusion for always-light surfaces: a bare link on a literal `bg-white`
+   card with no `dark:bg-*` step needs its own explicit text colour. */
 :root {
     --stock-gray-400: var(--color-gray-400);
     --stock-gray-500: var(--color-gray-500);
