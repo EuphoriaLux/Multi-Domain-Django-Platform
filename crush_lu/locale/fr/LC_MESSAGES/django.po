@@ -8180,28 +8180,28 @@ msgstr "Vos 3 questions"
 
 #: pre_screening_notifications.py:156
 msgid "Your Coach is getting ready — 3 minutes, 13 questions"
-msgstr "Ton Coach se prépare — 3 minutes, 13 questions"
+msgstr "Votre Coach se prépare — 3 minutes, 13 questions"
 
 #: pre_screening_notifications.py:158
 #: templates/crush_lu/emails/pre_screening_invite.html:4
 msgid "Help your Coach prepare — 3 minutes, 13 questions"
-msgstr "Aide ton Coach à se préparer — 3 minutes, 13 questions"
+msgstr "Aidez votre Coach à se préparer — 3 minutes, 13 questions"
 
 #: pre_screening_notifications.py:204
 msgid "Meet your Coach better"
-msgstr "Mieux connaître ton Coach"
+msgstr "Mieux connaître votre Coach"
 
 #: pre_screening_notifications.py:205
 msgid "Answer 13 quick questions before your call"
-msgstr "Réponds à 13 questions rapides avant ton appel"
+msgstr "Répondez à 13 questions rapides avant votre appel"
 
 #: pre_screening_schema.py:39
 msgid "Confirm your details"
-msgstr "Confirme tes informations"
+msgstr "Confirmez vos informations"
 
 #: pre_screening_schema.py:46
 msgid "Where do you live?"
-msgstr "Où habites-tu ?"
+msgstr "Où habitez-vous ?"
 
 #: pre_screening_schema.py:50
 msgid "Luxembourg – Luxembourg City"
@@ -8229,7 +8229,7 @@ msgstr "Belgique (région frontalière)"
 
 #: pre_screening_schema.py:65
 msgid "Languages you can comfortably speak at a social event"
-msgstr "Langues que tu parles à l'aise lors d'un événement social"
+msgstr "Langues que vous parlez à l'aise lors d'un événement social"
 
 #: pre_screening_schema.py:77
 msgid "Luxembourgish"
@@ -8237,11 +8237,11 @@ msgstr "Luxembourgeois"
 
 #: pre_screening_schema.py:86
 msgid "You are 18 or older"
-msgstr "Tu as 18 ans ou plus"
+msgstr "Vous avez 18 ans ou plus"
 
 #: pre_screening_schema.py:94
 msgid "How did you hear about Crush.lu?"
-msgstr "Comment as-tu entendu parler de Crush.lu ?"
+msgstr "Comment avez-vous entendu parler de Crush.lu ?"
 
 #: pre_screening_schema.py:96
 msgid "A friend or family member"
@@ -8277,7 +8277,7 @@ msgstr "Comprendre Crush.lu"
 
 #: pre_screening_schema.py:118
 msgid "What is Crush.lu to you?"
-msgstr "Qu'est-ce que Crush.lu représente pour toi ?"
+msgstr "Qu'est-ce que Crush.lu représente pour vous ?"
 
 #: pre_screening_schema.py:120
 msgid "A way to meet people in real life through events"
@@ -8299,9 +8299,7 @@ msgstr "Je suis encore en train d'y réfléchir"
 msgid ""
 "Our events are small (15–25 people) and in person. How often would you "
 "realistically attend?"
-msgstr ""
-"Nos événements sont petits (15 à 25 personnes) et en présentiel. À quelle "
-"fréquence y participerais-tu réalistement ?"
+msgstr "Nos événements sont petits (15 à 25 personnes) et en présentiel. À quelle fréquence y participeriez-vous réalistement ?"
 
 #: pre_screening_schema.py:134
 msgid "Once a week if there's a good one"
@@ -8321,7 +8319,7 @@ msgstr "Je veux surtout des rencontres en ligne, pas tellement d'événements"
 
 #: pre_screening_schema.py:144
 msgid "Which of these sounds most like what you want?"
-msgstr "Laquelle de ces options te correspond le mieux ?"
+msgstr "Laquelle de ces options vous correspond le mieux ?"
 
 #: pre_screening_schema.py:146
 msgid "Meet many people quickly, figure it out from there"
@@ -8343,9 +8341,7 @@ msgstr "Une relation sérieuse dès que possible"
 msgid ""
 "Our Crush Coaches review every profile and help introduce people. How do you"
 " feel about that?"
-msgstr ""
-"Nos Crush Coaches examinent chaque profil et aident à présenter les gens. "
-"Qu'en penses-tu ?"
+msgstr "Nos Crush Coaches examinent chaque profil et aident à présenter les gens. Qu'en pensez-vous ?"
 
 #: pre_screening_schema.py:161
 msgid "Love it — human help makes this feel safer"
@@ -8365,7 +8361,7 @@ msgstr "Je préférerais sans intermédiaire"
 
 #: pre_screening_schema.py:173
 msgid "What are you most looking forward to? (pick up to 3)"
-msgstr "Qu'est-ce qui te motive le plus ? (choisis-en jusqu'à 3)"
+msgstr "Qu'est-ce qui vous motive le plus ? (choisissez-en jusqu'à 3)"
 
 #: pre_screening_schema.py:175
 msgid "Meeting new people at events"
@@ -8393,11 +8389,11 @@ msgstr "Je découvre, sans pression"
 
 #: pre_screening_schema.py:190
 msgid "In your own words"
-msgstr "Dans tes propres mots"
+msgstr "Dans vos propres mots"
 
 #: pre_screening_schema.py:197
 msgid "In one sentence, what kind of person are you hoping to meet?"
-msgstr "En une phrase, quel genre de personne espères-tu rencontrer ?"
+msgstr "En une phrase, quel genre de personne espérez-vous rencontrer ?"
 
 #: pre_screening_schema.py:198
 msgid "Someone curious, who likes walking and asking questions…"
@@ -8406,9 +8402,7 @@ msgstr "Une personne curieuse, qui aime marcher et poser des questions…"
 #: pre_screening_schema.py:205
 msgid ""
 "Is there anything you'd like your Coach to know before the call? (optional)"
-msgstr ""
-"Y a-t-il quelque chose que tu aimerais que ton coach sache avant l'appel ? "
-"(facultatif)"
+msgstr "Y a-t-il quelque chose que vous aimeriez que votre coach sache avant l'appel ? (facultatif)"
 
 #: pre_screening_schema.py:206
 msgid "I'm a bit shy at first — hope that's okay."
@@ -8473,12 +8467,12 @@ msgstr "Doit être une liste de choix."
 #: pre_screening_schema.py:476
 #, python-format
 msgid "Pick at least %(n)d."
-msgstr "Choisis au moins %(n)d."
+msgstr "Choisissez au moins %(n)d."
 
 #: pre_screening_schema.py:481
 #, python-format
 msgid "Pick at most %(n)d."
-msgstr "Choisis au maximum %(n)d."
+msgstr "Choisissez au maximum %(n)d."
 
 #: pre_screening_schema.py:487
 msgid "Must be text."
@@ -15461,22 +15455,21 @@ msgstr "&copy; 2026 Crush.lu - Fait avec 💕 au Luxembourg"
 #: templates/crush_lu/book_screening.html:12
 #: templates/crush_lu/profile_submitted.html:78
 msgid "Book your screening call"
-msgstr "Réserve ton appel de présélection"
+msgstr "Réservez votre appel de présélection"
 
 #: templates/crush_lu/book_screening.html:15
 msgid "Pick any slot below. Times shown in Europe/Luxembourg."
-msgstr ""
-"Choisis un créneau ci-dessous. Horaires affichés en Europe/Luxembourg."
+msgstr "Choisissez un créneau ci-dessous. Horaires affichés en Europe/Luxembourg."
 
 #: templates/crush_lu/book_screening.html:30
 #: templates/crush_lu/emails/screening_confirmed.html:5
 msgid "You're booked"
-msgstr "Ton créneau est réservé"
+msgstr "Votre créneau est réservé"
 
 #: templates/crush_lu/book_screening.html:33
 #, python-format
 msgid "Your screening call with Coach %(coach)s is confirmed."
-msgstr "Ton appel de présélection avec le Coach %(coach)s est confirmé."
+msgstr "Votre appel de présélection avec le Coach %(coach)s est confirmé."
 
 #: templates/crush_lu/book_screening.html:37
 #: templates/crush_lu/emails/screening_confirmed.html:18
@@ -15490,7 +15483,7 @@ msgstr "Annuler la réservation"
 
 #: templates/crush_lu/book_screening.html:61 views.py:236
 msgid "Your coach"
-msgstr "Ton Coach"
+msgstr "Votre Coach"
 
 #: templates/crush_lu/book_screening.html:89
 #, python-format
@@ -15503,17 +15496,13 @@ msgstr[1] "+ %(more)s créneaux disponibles de plus"
 msgid ""
 "No coaches are accepting bookings right now. Your assigned coach will reach "
 "out directly."
-msgstr ""
-"Aucun coach n'accepte de réservations pour le moment. Ton Coach assigné te "
-"contactera directement."
+msgstr "Aucun coach n'accepte de réservations pour le moment. Votre Coach assigné vous contactera directement."
 
 #: templates/crush_lu/book_screening.html:103
 msgid ""
 "If you no longer have access to this email address, reply to your coach's "
 "last message and we'll reschedule manually."
-msgstr ""
-"Si tu n'as plus accès à cette adresse e-mail, réponds au dernier message de "
-"ton Coach et nous replanifierons manuellement."
+msgstr "Si vous n'avez plus accès à cette adresse e-mail, répondez au dernier message de votre Coach et nous replanifierons manuellement."
 
 # Coach Dashboard translations
 #: templates/crush_lu/cache/_leaderboard.html:4
@@ -24710,39 +24699,33 @@ msgstr "Merci de faire partie de la communauté Crush.lu !"
 #: templates/crush_lu/pre_screening.html:16
 #: templates/crush_lu/profile_submitted.html:481
 msgid "Help your Coach prepare"
-msgstr "Aide ton Coach à se préparer"
+msgstr "Aidez votre Coach à se préparer"
 
 #: templates/crush_lu/emails/pre_screening_invite.html:8
 #: templates/crush_lu/emails/pre_screening_invite.txt:1
 #, python-format
 msgid "Hi %(name)s,"
-msgstr "Salut %(name)s,"
+msgstr "Bonjour %(name)s,"
 
 #: templates/crush_lu/emails/pre_screening_invite.html:11
 #: templates/crush_lu/emails/pre_screening_invite.txt:3
 msgid ""
 "A quick nudge — your Coach is getting ready to call you about your profile."
-msgstr ""
-"Un petit rappel — ton Coach se prépare à t'appeler au sujet de ton profil."
+msgstr "Un petit rappel — votre Coach se prépare à vous appeler au sujet de votre profil."
 
 #: templates/crush_lu/emails/pre_screening_invite.html:12
 #: templates/crush_lu/emails/pre_screening_invite.txt:5
 msgid ""
 "Before they do, please take 3 minutes to answer a few questions. It makes "
 "the call much smoother and means we can focus on you, not paperwork."
-msgstr ""
-"Avant cela, prends 3 minutes pour répondre à quelques questions. Cela rend "
-"l'appel bien plus fluide et nous permet de nous concentrer sur toi, pas sur "
-"la paperasse."
+msgstr "Avant cela, prenez 3 minutes pour répondre à quelques questions. Cela rend l'appel bien plus fluide et nous permet de nous concentrer sur vous, pas sur la paperasse."
 
 #: templates/crush_lu/emails/pre_screening_invite.html:14
 #: templates/crush_lu/emails/pre_screening_invite.txt:5
 msgid ""
 "Thank you for submitting your profile! While your Coach gets ready to reach "
 "out, we have a small favour to ask."
-msgstr ""
-"Merci d'avoir soumis ton profil ! Pendant que ton Coach se prépare à te "
-"contacter, nous avons un petit service à te demander."
+msgstr "Merci d'avoir soumis votre profil ! Pendant que votre Coach se prépare à vous contacter, nous avons un petit service à vous demander."
 
 #: templates/crush_lu/emails/pre_screening_invite.html:15
 #: templates/crush_lu/emails/pre_screening_invite.txt:7
@@ -24750,9 +24733,7 @@ msgid ""
 "Could you answer 13 quick questions about yourself and what you're looking "
 "for? It takes about 3 minutes and really helps your Coach prepare for the "
 "call."
-msgstr ""
-"Peux-tu répondre à 13 questions rapides sur toi et ce que tu recherches ? "
-"Cela prend environ 3 minutes et aide vraiment ton Coach à préparer l'appel."
+msgstr "Pourriez-vous répondre à 13 questions rapides sur vous et ce que vous recherchez ? Cela prend environ 3 minutes et aide vraiment votre Coach à préparer l'appel."
 
 #: templates/crush_lu/emails/pre_screening_invite.html:20
 msgid "Answer the pre-screening questions"
@@ -24761,12 +24742,12 @@ msgstr "Répondre aux questions préalables"
 #: templates/crush_lu/emails/pre_screening_invite.html:25
 #: templates/crush_lu/emails/pre_screening_invite.txt:11
 msgid "Why we ask:"
-msgstr "Pourquoi on te demande :"
+msgstr "Pourquoi nous vous le demandons :"
 
 #: templates/crush_lu/emails/pre_screening_invite.html:27
 #: templates/crush_lu/emails/pre_screening_invite.txt:12
 msgid "Your Coach won't waste time on basics during the call"
-msgstr "Ton Coach ne perdra pas de temps avec les bases pendant l'appel"
+msgstr "Votre Coach ne perdra pas de temps avec les bases pendant l'appel"
 
 #: templates/crush_lu/emails/pre_screening_invite.html:28
 #: templates/crush_lu/emails/pre_screening_invite.txt:13
@@ -24777,16 +24758,14 @@ msgstr ""
 #: templates/crush_lu/emails/pre_screening_invite.html:29
 #: templates/crush_lu/emails/pre_screening_invite.txt:14
 msgid "You stay in control of what you share"
-msgstr "Tu gardes le contrôle de ce que tu partages"
+msgstr "Vous gardez le contrôle de ce que vous partagez"
 
 #: templates/crush_lu/emails/pre_screening_invite.html:34
 #: templates/crush_lu/emails/pre_screening_invite.txt:16
 msgid ""
 "It's entirely optional — if you'd rather just wait for the call, that's fine"
 " too."
-msgstr ""
-"C'est entièrement optionnel — si tu préfères simplement attendre l'appel, "
-"c'est bien aussi."
+msgstr "C'est entièrement optionnel — si vous préférez simplement attendre l'appel, c'est bien aussi."
 
 #: templates/crush_lu/emails/pre_screening_invite.txt:9
 msgid "Link:"
@@ -25547,7 +25526,7 @@ msgstr "À très vite,"
 
 #: templates/crush_lu/emails/screening_fallback_offered.html:5
 msgid "Pick a time that works for you"
-msgstr "Choisis un créneau qui te convient"
+msgstr "Choisissez un créneau qui vous convient"
 
 #: templates/crush_lu/emails/screening_fallback_offered.html:8
 msgid "Your coach is running a little behind"
@@ -26627,20 +26606,16 @@ msgstr ""
 
 #: templates/crush_lu/event_lobby/recap.html:4
 #: templates/crush_lu/event_lobby/recap.html:28
-#, fuzzy
-#| msgid "When did you first meet?"
 msgid "Who did you meet?"
-msgstr "Quand vous etes-vous rencontres pour la premiere fois ?"
+msgstr "Qui avez-vous rencontré ?"
 
 #: templates/crush_lu/event_lobby/recap.html:18
 msgid "Confirmed. They only find out if they confirm you too."
 msgstr ""
 
 #: templates/crush_lu/event_lobby/recap.html:19
-#, fuzzy
-#| msgid "You are already registered for this event."
 msgid "You already confirmed you met this person."
-msgstr "Vous êtes déjà inscrit à cet événement."
+msgstr "Vous avez déjà confirmé avoir rencontré cette personne."
 
 #: templates/crush_lu/event_lobby/recap.html:21
 #, python-brace-format
@@ -26653,10 +26628,8 @@ msgid "The recap window has closed."
 msgstr ""
 
 #: templates/crush_lu/event_lobby/recap.html:32
-#, fuzzy
-#| msgid "to confirm:"
 msgid "left to confirm"
-msgstr "Confirmé"
+msgstr "restant pour confirmer"
 
 #: templates/crush_lu/event_lobby/recap.html:36
 msgid "people from the event believe you met."
@@ -26670,16 +26643,12 @@ msgstr ""
 
 #: templates/crush_lu/event_lobby/recap.html:55
 #: templates/crush_lu/event_lobby/recap.html:104
-#, fuzzy
-#| msgid "People I've Met"
 msgid "See People I've Met"
 msgstr "Mes rencontres"
 
 #: templates/crush_lu/event_lobby/recap.html:74
-#, fuzzy
-#| msgid "Confirm your details"
 msgid "Confirm you met this participant"
-msgstr "Confirme tes informations"
+msgstr "Confirmez que vous avez rencontré cette personne"
 
 #: templates/crush_lu/event_lobby/recap.html:88
 msgid "No one else joined this lobby."
@@ -26690,10 +26659,8 @@ msgid "Tiles with a name are people you both wanted to meet at the event."
 msgstr ""
 
 #: templates/crush_lu/event_lobby/recap.html:114
-#, fuzzy
-#| msgid "Did you meet someone?"
 msgid "Did you meet in person?"
-msgstr "Vous avez rencontré quelqu'un ?"
+msgstr "Vous êtes-vous rencontrés en personne ?"
 
 #: templates/crush_lu/event_lobby/recap.html:117
 msgid ""
@@ -29940,7 +29907,7 @@ msgstr ""
 
 #: templates/crush_lu/onboarding/coach_intro.html:4
 msgid "Meet the coach team"
-msgstr "Rencontre l'équipe de coachs"
+msgstr "Rencontrez l'équipe de coachs"
 
 #: templates/crush_lu/onboarding/coach_intro.html:15
 msgid "Real coaches, real events."
@@ -29951,11 +29918,7 @@ msgid ""
 "Crush.lu is about real people meeting in person — no bots, no algorithms "
 "deciding who belongs. Our coaches host the events and verify new members "
 "face-to-face when you come along. No online review, no screening call."
-msgstr ""
-"Crush.lu, c'est de vraies personnes qui se rencontrent en personne — pas de "
-"bots, pas d'algorithmes qui décident qui a sa place. Nos coachs organisent "
-"les événements et vérifient les nouveaux membres en personne quand tu viens."
-" Pas d'examen en ligne, pas d'entretien."
+msgstr "Crush.lu, c'est de vraies personnes qui se rencontrent en personne — pas de bots, pas d'algorithmes qui décident qui a sa place. Nos coachs organisent les événements et vérifient les nouveaux membres en personne quand vous venez. Pas d'examen en ligne, pas d'entretien."
 
 #: templates/crush_lu/onboarding/coach_intro.html:24
 msgid "What a coach does"
@@ -29963,15 +29926,15 @@ msgstr "Le rôle du coach"
 
 #: templates/crush_lu/onboarding/coach_intro.html:28
 msgid "Hosts our events and welcomes you in person"
-msgstr "Organise nos événements et t'accueille en personne"
+msgstr "Organise nos événements et vous accueille en personne"
 
 #: templates/crush_lu/onboarding/coach_intro.html:31
 msgid "Verifies you face-to-face when you arrive — that's all it takes"
-msgstr "Te vérifie en personne à ton arrivée — c'est tout ce qu'il faut"
+msgstr "Vous vérifie en personne à votre arrivée — c'est tout ce qu'il faut"
 
 #: templates/crush_lu/onboarding/coach_intro.html:34
 msgid "Is your point of contact if anything feels off"
-msgstr "Est ton point de contact si quelque chose ne va pas"
+msgstr "Est votre point de contact si quelque chose ne va pas"
 
 #: templates/crush_lu/onboarding/coach_intro.html:42
 msgid "A few of our coaches"
@@ -29979,7 +29942,7 @@ msgstr "Quelques-uns de nos coachs"
 
 #: templates/crush_lu/onboarding/coach_intro.html:61
 msgid "Meet them in person at your first event."
-msgstr "Rencontre-les en personne à ton premier événement."
+msgstr "Rencontrez-les en personne à votre premier événement."
 
 #: templates/crush_lu/onboarding/coach_intro.html:73
 msgid "Got it — let's build my profile"
@@ -30989,18 +30952,14 @@ msgstr "Questions préalables – Crush.lu"
 msgid ""
 "Answer a few quick questions so your Crush Coach can prepare for your review"
 " call."
-msgstr ""
-"Réponds à quelques questions rapides pour que ton Crush Coach puisse "
-"préparer ton appel."
+msgstr "Répondez à quelques questions rapides pour que votre Crush Coach puisse préparer votre appel."
 
 #: templates/crush_lu/pre_screening.html:19
 msgid ""
 "A few quick questions about you and what you're looking for. Your Coach will"
 " see your answers before the call so you don't have to cover the basics "
 "twice."
-msgstr ""
-"Quelques questions rapides sur toi et ce que tu recherches. Ton Coach verra "
-"tes réponses avant l'appel pour que tu n'aies pas à tout redire."
+msgstr "Quelques questions rapides sur vous et ce que vous recherchez. Votre Coach verra vos réponses avant l'appel pour que vous n'ayez pas à tout redire."
 
 #: templates/crush_lu/pre_screening.html:39
 msgid "Back to review status"
@@ -31016,7 +30975,7 @@ msgstr "Envoyer au Coach"
 
 #: templates/crush_lu/pre_screening/_finalize.html:22
 msgid "Complete all required questions to submit."
-msgstr "Réponds à toutes les questions obligatoires pour envoyer."
+msgstr "Répondez à toutes les questions obligatoires pour envoyer."
 
 #: templates/crush_lu/pre_screening/_progress.html:7
 #, python-format
@@ -31025,7 +30984,7 @@ msgstr "%(done)s sections sur %(total)s complétées"
 
 #: templates/crush_lu/pre_screening/_progress.html:11
 msgid "Submitted — you can still edit until the call"
-msgstr "Envoyé — tu peux encore modifier jusqu'à l'appel"
+msgstr "Envoyé — vous pouvez encore modifier jusqu'à l'appel"
 
 #: templates/crush_lu/pre_screening/_progress.html:13
 msgid "Estimated 3 minutes"
@@ -31050,21 +31009,19 @@ msgstr "Ce champ est obligatoire."
 #: templates/crush_lu/pre_screening/_q_multi_select.html:21
 #, python-format
 msgid "Pick up to %(n)s."
-msgstr "Choisis jusqu'à %(n)s."
+msgstr "Choisissez jusqu'à %(n)s."
 
 #: templates/crush_lu/pre_screening/_q_multi_select.html:26
 msgid "Please adjust your selection."
-msgstr "Merci d'ajuster ta sélection."
+msgstr "Merci d'ajuster votre sélection."
 
 #: templates/crush_lu/pre_screening/_q_readonly_confirm.html:17
 msgid "Not set yet — tap Edit to add it."
-msgstr "Pas encore défini — appuie sur Modifier pour l'ajouter."
+msgstr "Pas encore défini — appuyez sur Modifier pour l'ajouter."
 
 #: templates/crush_lu/pre_screening/_q_readonly_confirm.html:50
 msgid "We couldn't read this from your profile. Tap Edit and set it."
-msgstr ""
-"Nous n'avons pas pu lire cette information depuis ton profil. Appuie sur "
-"Modifier pour la renseigner."
+msgstr "Nous n'avons pas pu lire cette information depuis votre profil. Appuyez sur Modifier pour la renseigner."
 
 #: templates/crush_lu/pre_screening/_q_single_select.html:22
 msgid "Please choose one option."
@@ -32750,6 +32707,14 @@ msgid ""
 msgstr ""
 "Chaque photo est stockée sous un chemin spécifique à l'utilisateur avec un "
 "nom de fichier aléatoire"
+
+#: templates/crush_lu/about.html:154
+msgid "Members are verified in person at an event. Every event is thoughtfully organized. Every connection is meaningful. That's not an algorithm's promise - it's our commitment."
+msgstr "Les membres sont vérifiés en personne lors d'un événement. Chaque événement est organisé avec soin. Chaque connexion est significative. Ce n'est pas la promesse d'un algorithme - c'est notre engagement."
+
+#: templates/socialaccount/signup_crush.html:84
+msgid "Get verified in person at an event"
+msgstr "Faites-vous vérifier en personne lors d'un événement"
 
 #~ msgid ""
 #~ "The blur feature allows you to obscure your photos until mutual interest is "
@@ -36367,7 +36332,7 @@ msgstr ""
 
 #: templates/socialaccount/signup_crush.html:76
 msgid "Start attending events and meeting people!"
-msgstr "Commence à participer aux événements et à rencontrer des gens !"
+msgstr "Commencez à participer aux événements et à rencontrer des gens !"
 
 #: templates/socialaccount/signup_crush.html:82
 msgid "Login here"
@@ -38211,7 +38176,7 @@ msgstr "Aucune soumission de profil trouvée."
 
 #: views_pre_screening.py:230
 msgid "Your Coach has already completed your screening call."
-msgstr "Ton Coach a déjà complété ton appel de présélection."
+msgstr "Votre Coach a déjà complété votre appel de présélection."
 
 #: views_pre_screening.py:235
 msgid "Pre-screening is no longer available for this submission."
@@ -38229,7 +38194,7 @@ msgstr ""
 
 #: views_pre_screening.py:417
 msgid "Your pre-screening answers have been sent to your Coach. Thank you!"
-msgstr "Tes réponses ont été envoyées à ton Coach. Merci !"
+msgstr "Vos réponses ont été envoyées à votre Coach. Merci !"
 
 #: views_premium.py:70 views_premium.py:113
 msgid "Create your profile first to go premium."
