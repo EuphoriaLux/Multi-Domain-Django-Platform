@@ -6848,7 +6848,7 @@ msgstr "Durch Empfehlungen verdiente Punkte"
 
 #: models/profiles.py:734
 msgid "Membership tier based on referral activity"
-msgstr "Stufe basierend auf Empfehlungsaktivität"
+msgstr "Empfehlungsstufe basierend auf Empfehlungsaktivität"
 
 #: models/profiles.py:749
 msgid "Permanently assigned coach (set at first event attendance)"
@@ -26553,7 +26553,7 @@ msgstr ""
 
 #: templates/crush_lu/event_lobby/recap.html:32
 msgid "left to confirm"
-msgstr "übrig zum Bestätigen"
+msgstr "noch zum Bestätigen"
 
 #: templates/crush_lu/event_lobby/recap.html:36
 msgid "people from the event believe you met."
@@ -31656,7 +31656,7 @@ msgstr ""
 
 #: templates/crush_lu/privacy_policy.html:173
 msgid "Referral points and membership tier (basic, bronze, silver, gold)"
-msgstr "Empfehlungspunkte und Stufe (Basic, Bronze, Silber, Gold)"
+msgstr "Empfehlungspunkte und Empfehlungsstufe (Basic, Bronze, Silber, Gold)"
 
 #: templates/crush_lu/privacy_policy.html:176
 msgid "3.10 Notification Data"

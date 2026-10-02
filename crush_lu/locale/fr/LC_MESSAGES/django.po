@@ -24705,7 +24705,7 @@ msgstr "Aidez votre Coach à se préparer"
 #: templates/crush_lu/emails/pre_screening_invite.txt:1
 #, python-format
 msgid "Hi %(name)s,"
-msgstr "Salut %(name)s,"
+msgstr "Bonjour %(name)s,"
 
 #: templates/crush_lu/emails/pre_screening_invite.html:11
 #: templates/crush_lu/emails/pre_screening_invite.txt:3
@@ -26629,7 +26629,7 @@ msgstr ""
 
 #: templates/crush_lu/event_lobby/recap.html:32
 msgid "left to confirm"
-msgstr "restantes pour confirmer"
+msgstr "pour confirmer"
 
 #: templates/crush_lu/event_lobby/recap.html:36
 msgid "people from the event believe you met."

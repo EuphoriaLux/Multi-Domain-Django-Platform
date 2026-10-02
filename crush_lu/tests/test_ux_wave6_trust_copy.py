@@ -210,6 +210,11 @@ class FrenchVousRegisterTests(SimpleTestCase):
         )
         self.assertTrue(entry.msgstr.startswith("Tu peux"))
 
+    def test_pre_screening_invite_greeting_is_formal(self):
+        # The invite body uses vous, so its greeting must not be "Salut".
+        entry = _po("fr").find("Hi %(name)s,")
+        self.assertEqual(entry.msgstr, "Bonjour %(name)s,")
+
 
 RECAP = {
     "Confirm you met this participant": (
@@ -221,7 +226,7 @@ RECAP = {
         "Vous avez déjà confirmé avoir rencontré cette personne.",
         "Du hast bereits bestätigt, dass du diese Person getroffen hast.",
     ),
-    "left to confirm": ("restantes pour confirmer", "übrig zum Bestätigen"),
+    "left to confirm": ("pour confirmer", "noch zum Bestätigen"),
     "Did you meet in person?": (
         "Vous êtes-vous rencontrés en personne ?",
         "Habt ihr euch persönlich getroffen?",
@@ -258,5 +263,9 @@ class GermanReferralTierTests(SimpleTestCase):
             "Empfehlungspunkte und Stufen haben keinen Geldwert",
         )
         msgstrs = [de.find(msgid).msgstr for msgid in REFERRAL_TIER_MSGIDS]
-        self.assertTrue(all("Stufe" in text for text in msgstrs), msgstrs)
+        self.assertTrue(all("stufe" in text.lower() for text in msgstrs), msgstrs)
         self.assertFalse(any("Mitglied" in text for text in msgstrs), msgstrs)
+        # Name the referral tier explicitly where a bare "Stufe" could be
+        # confused with the privacy policy's consent tiers.
+        for msgid in REFERRAL_TIER_MSGIDS[:2]:
+            self.assertIn("Empfehlungsstufe", de.find(msgid).msgstr)
