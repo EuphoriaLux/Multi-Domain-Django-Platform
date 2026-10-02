@@ -173,6 +173,38 @@ class ContactChoicesTests(TestCase):
         self.assertContains(en, "did not share their phone number")
 
 
+class OptInSinceCacheTests(TestCase):
+    """A missing recorder row is not cached for the life of the process."""
+
+    def setUp(self):
+        cache.clear()
+        from crush_lu import views_connections
+
+        self.views = views_connections
+        self.name = views_connections.EMAIL_OPT_IN_MIGRATION
+        cache_dict = getattr(views_connections, "_OPT_IN_SINCE_CACHE", None)
+        if cache_dict is not None:
+            cache_dict.clear()
+        clear = getattr(views_connections._opt_in_available_since, "cache_clear", None)
+        if clear:
+            clear()
+
+    def test_missing_row_is_retried_once_it_exists(self):
+        from django.db.migrations.recorder import MigrationRecorder
+
+        rows = MigrationRecorder.Migration.objects.filter(
+            app="crush_lu", name=self.name
+        )
+        applied = rows.values_list("applied", flat=True).first()
+        rows.delete()
+        with self.assertLogs("crush_lu.views_connections", level="WARNING"):
+            self.assertIsNone(self.views._opt_in_available_since(self.name))
+        MigrationRecorder.Migration.objects.create(
+            app="crush_lu", name=self.name, applied=applied
+        )
+        self.assertEqual(self.views._opt_in_available_since(self.name), applied)
+
+
 class PointsAvailablePluralTests(TestCase):
     """#1058: the open-text points aria-label is plural-aware."""
 

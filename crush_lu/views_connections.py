@@ -3,7 +3,6 @@ Connection-related views for Crush.lu
 Handles event attendee connections, connection requests, and messaging
 """
 
-import functools
 import re
 from collections import OrderedDict
 
@@ -1026,17 +1025,27 @@ EMAIL_OPT_IN_MIGRATION = "0255_eventconnection_recipient_shares_email_and_more"
 PHONE_OPT_IN_MIGRATION = "0258_eventconnection_shares_phone_opt_in"
 
 
-@functools.lru_cache(maxsize=None)
+_OPT_IN_SINCE_CACHE = {}
+
+
 def _opt_in_available_since(migration_name):
     """When this database gained the opt-in column: the migration's applied
-    time, i.e. the deploy that started asking. None if it cannot be read."""
+    time, i.e. the deploy that started asking. None if it cannot be read
+    (not cached, so a later recorder row is picked up without a restart)."""
+    if migration_name in _OPT_IN_SINCE_CACHE:
+        return _OPT_IN_SINCE_CACHE[migration_name]
     from django.db.migrations.recorder import MigrationRecorder
 
-    return (
+    applied = (
         MigrationRecorder.Migration.objects.filter(app="crush_lu", name=migration_name)
         .values_list("applied", flat=True)
         .first()
     )
+    if applied is None:
+        logger.warning("No applied time recorded for migration %s", migration_name)
+    else:
+        _OPT_IN_SINCE_CACHE[migration_name] = applied
+    return applied
 
 
 def _predates_choice(connection, side, migration_name):
