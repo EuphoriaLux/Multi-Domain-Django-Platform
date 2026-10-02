@@ -6848,7 +6848,7 @@ msgstr "Durch Empfehlungen verdiente Punkte"
 
 #: models/profiles.py:734
 msgid "Membership tier based on referral activity"
-msgstr "Mitgliedschaftsstufe basierend auf Empfehlungsaktivität"
+msgstr "Stufe basierend auf Empfehlungsaktivität"
 
 #: models/profiles.py:749
 msgid "Permanently assigned coach (set at first event attendance)"
@@ -26530,20 +26530,16 @@ msgstr ""
 
 #: templates/crush_lu/event_lobby/recap.html:4
 #: templates/crush_lu/event_lobby/recap.html:28
-#, fuzzy
-#| msgid "When did you first meet?"
 msgid "Who did you meet?"
-msgstr "Wann habt ihr euch zum ersten Mal getroffen?"
+msgstr "Wen hast du getroffen?"
 
 #: templates/crush_lu/event_lobby/recap.html:18
 msgid "Confirmed. They only find out if they confirm you too."
 msgstr ""
 
 #: templates/crush_lu/event_lobby/recap.html:19
-#, fuzzy
-#| msgid "You are already registered for this event."
 msgid "You already confirmed you met this person."
-msgstr "Du bist bereits für diese Veranstaltung angemeldet."
+msgstr "Du hast bereits bestätigt, dass du diese Person getroffen hast."
 
 #: templates/crush_lu/event_lobby/recap.html:21
 #, python-brace-format
@@ -26556,10 +26552,8 @@ msgid "The recap window has closed."
 msgstr ""
 
 #: templates/crush_lu/event_lobby/recap.html:32
-#, fuzzy
-#| msgid "to confirm:"
 msgid "left to confirm"
-msgstr "Bestätigt"
+msgstr "übrig zum Bestätigen"
 
 #: templates/crush_lu/event_lobby/recap.html:36
 msgid "people from the event believe you met."
@@ -26579,10 +26573,8 @@ msgid "See People I've Met"
 msgstr "Meine Begegnungen"
 
 #: templates/crush_lu/event_lobby/recap.html:74
-#, fuzzy
-#| msgid "Confirm your details"
 msgid "Confirm you met this participant"
-msgstr "Bestätige deine Angaben"
+msgstr "Bestätige, dass du diese Person getroffen hast"
 
 #: templates/crush_lu/event_lobby/recap.html:88
 msgid "No one else joined this lobby."
@@ -26593,10 +26585,8 @@ msgid "Tiles with a name are people you both wanted to meet at the event."
 msgstr ""
 
 #: templates/crush_lu/event_lobby/recap.html:114
-#, fuzzy
-#| msgid "Did you meet someone?"
 msgid "Did you meet in person?"
-msgstr "Hast du jemanden getroffen?"
+msgstr "Habt ihr euch persönlich getroffen?"
 
 #: templates/crush_lu/event_lobby/recap.html:117
 msgid ""
@@ -31666,8 +31656,7 @@ msgstr ""
 
 #: templates/crush_lu/privacy_policy.html:173
 msgid "Referral points and membership tier (basic, bronze, silver, gold)"
-msgstr ""
-"Empfehlungspunkte und Mitgliedschaftsstufe (Basic, Bronze, Silber, Gold)"
+msgstr "Empfehlungspunkte und Stufe (Basic, Bronze, Silber, Gold)"
 
 #: templates/crush_lu/privacy_policy.html:176
 msgid "3.10 Notification Data"
@@ -32613,6 +32602,14 @@ msgid ""
 msgstr ""
 "Jedes Foto wird unter einem nutzerspezifischen Pfad mit einem zufälligen "
 "Dateinamen gespeichert"
+
+#: templates/crush_lu/about.html:154
+msgid "Members are verified in person at an event. Every event is thoughtfully organized. Every connection is meaningful. That's not an algorithm's promise - it's our commitment."
+msgstr "Mitglieder werden persönlich bei einer Veranstaltung verifiziert. Jede Veranstaltung wird sorgfältig organisiert. Jede Verbindung ist bedeutungsvoll. Das ist kein Versprechen eines Algorithmus - es ist unser Engagement."
+
+#: templates/socialaccount/signup_crush.html:84
+msgid "Get verified in person at an event"
+msgstr "Verifiziere dich persönlich bei einem Event"
 
 #~ msgid ""
 #~ "The blur feature allows you to obscure your photos until mutual interest is "
@@ -35009,8 +35006,7 @@ msgstr ""
 
 #: templates/crush_lu/terms_of_service.html:282
 msgid "Points contribute to membership tiers: Basic, Bronze, Silver, Gold"
-msgstr ""
-"Punkte tragen zu Mitgliedschaftsstufen bei: Basic, Bronze, Silber, Gold"
+msgstr "Punkte tragen zu den Stufen bei: Basic, Bronze, Silber, Gold"
 
 #: templates/crush_lu/terms_of_service.html:283
 msgid "Referral points and tiers have no monetary value"
@@ -35397,7 +35393,7 @@ msgstr ""
 
 #: templates/crush_lu/terms_of_service.html:398
 msgid "Referral points and membership tier are forfeited"
-msgstr "Empfehlungspunkte und Mitgliedschaftsstufe verfallen"
+msgstr "Empfehlungspunkte und Stufe verfallen"
 
 #: templates/crush_lu/terms_of_service.html:402
 msgid "18. Dispute Resolution"

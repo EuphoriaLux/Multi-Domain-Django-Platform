@@ -1,5 +1,5 @@
 {% extends 'crush_lu/base.html' %}
-{% load static i18n %}
+{% load static i18n social_tags %}
 
 {% block title %}{% trans "About Crush.lu - Made in Luxembourg Dating Platform | Press & Founders" %}{% endblock %}
 
@@ -146,8 +146,10 @@
                     {% trans "We're bringing back authentic connections in Luxembourg's dating scene. In a world of endless swiping and superficial matches, Crush.lu takes a different approach. We believe that real relationships start with real conversations, face-to-face." %}
                 </p>
                 {# LuxID verification is instant (no coach review); in-person verification happens at events. Not "verified before meeting anyone": some event audiences admit unverified profiles. Spec: ai-memory-hub/specs/2026-08-24-crush-connect-repo-product-doc.md #}
+                {# Only promise LuxID when its button is offered (same gate as the footer). #}
+                {% luxid_available as luxid_offered %}
                 <p>
-                    {% trans "Members are verified instantly with LuxID or in person at an event. Every event is thoughtfully organized. Every connection is meaningful. That's not an algorithm's promise - it's our commitment." %}
+                    {% if luxid_offered %}{% trans "Members are verified instantly with LuxID or in person at an event. Every event is thoughtfully organized. Every connection is meaningful. That's not an algorithm's promise - it's our commitment." %}{% else %}{% trans "Members are verified in person at an event. Every event is thoughtfully organized. Every connection is meaningful. That's not an algorithm's promise - it's our commitment." %}{% endif %}
                 </p>
             </div>
         </div>
@@ -338,7 +340,7 @@
     </a>
     <div class="mt-6">
         <small class="text-gray-500 dark:text-gray-400">
-            {% trans "No credit card required" %} &bull; {% trans "Free to join" %} &bull; {% trans "Cancel anytime" %}
+            {% trans "Join free, upgrade when you want your own coach. Cancel anytime." %}
         </small>
     </div>
 </div>
