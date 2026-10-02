@@ -18,7 +18,8 @@
  * options above) on the <form> itself. data-confirm-when="<checkbox name>"
  * asks only while that checkbox is ticked. data-confirm-option="<input name>"
  * plus data-confirm-option-label="..." adds an unticked checkbox to the sheet
- * and writes its state ("1" / "") into that form input on confirm. The
+ * and writes its state ("1" / "") into that form input on confirm (without
+ * <dialog> support, a second native confirm() asks the option label). The
  * confirmed re-submit keeps the
  * clicked submit button (requestSubmit(submitter)). A form whose submit
  * buttons ask different questions puts data-confirm (and -style / -label) on
@@ -29,6 +30,9 @@
 
     var dialog, msgEl, acceptBtn, cancelBtn, defaultLabel, optWrap, optInput;
     var resolveFn = null;
+    // Whether the optional checkbox (data-confirm-option) was ticked on the
+    // last accepted confirmation, from the sheet or the native fallback.
+    var optionChecked = false;
 
     function resolvePending(result) {
         if (resolveFn) {
@@ -47,11 +51,20 @@
 
     function openConfirm(message, opts) {
         opts = opts || {};
+        optionChecked = false;
         return new Promise(function (resolve) {
             // Old WebViews without <dialog>: fall back to the native prompt
-            // rather than silently confirming.
+            // rather than silently confirming. The optional checkbox becomes
+            // a second native question, asked only once the first is accepted.
             if (!dialog || typeof dialog.showModal !== "function") {
-                resolve(window.confirm(message));
+                var ok = window.confirm(message);
+                optionChecked = !!(ok && opts.optionLabel &&
+                    window.confirm(opts.optionLabel));
+                // Resolve after the submit event: requestSubmit() is a no-op
+                // while the form is still firing it.
+                setTimeout(function () {
+                    resolve(ok);
+                }, 0);
                 return;
             }
             resolvePending(false); // settle any dangling promise first
@@ -86,6 +99,7 @@
         optInput = optWrap && optWrap.querySelector("[data-confirm-option-input]");
 
         acceptBtn.addEventListener("click", function () {
+            optionChecked = !!(optWrap && !optWrap.hidden && optInput.checked);
             settle(true);
         });
         cancelBtn.addEventListener("click", function () {
@@ -173,7 +187,7 @@
             var opt = form.elements.namedItem(
                 source.getAttribute("data-confirm-option") || "",
             );
-            if (opt && optInput) opt.value = optInput.checked ? "1" : "";
+            if (opt) opt.value = optionChecked ? "1" : "";
             form.setAttribute("data-confirmed", "1");
             if (typeof form.requestSubmit === "function") {
                 form.requestSubmit(submitter);
