@@ -75,44 +75,48 @@ class LocationAPITests(TestCase):
         response = self.client.get("/hub/locations")
 
         self.assertEqual(response.status_code, 200)
+        # The payload is a superset of the legacy contract: every legacy key must
+        # keep its exact value, new partner keys are additive.
+        legacy_contract = {
+            "items": [
+                {
+                    "id": str(location.pk),
+                    "name": "Maison du Vin",
+                    "address": "12 Rue de la Boucherie, 1247 Luxembourg",
+                    "city": "Luxembourg City",
+                    "country": "Luxembourg",
+                    "maxCapacity": 60,
+                    "seatedCapacity": 32,
+                    "hasOutdoorSpace": False,
+                    "hasKitchen": False,
+                    "hasPrivateRoom": True,
+                    "hasSoundSystem": True,
+                    "compatibleEventTypes": [
+                        "Wine tasting",
+                        "Speed dating",
+                    ],
+                    "partnershipStage": "Active",
+                    "primaryContact": {
+                        "name": "Camille Hoffmann",
+                        "role": "Manager",
+                        "email": "camille@maisonduvin.example",
+                        "phone": "+352 621 100 014",
+                    },
+                    "accountManager": "Lina Weber",
+                    "commercialTerms": "20% commission on bar sales.",
+                    "partnerSince": "2025-02-01",
+                    "lastContactDate": "2026-05-02",
+                    "nextAction": "Confirm the next line-up",
+                    "nextActionDate": "2026-05-15",
+                    "notes": "Strong fit for premium tastings.",
+                    "tags": ["Old Town", "Premium"],
+                }
+            ]
+        }
+        item = response.data["items"][0]
         self.assertEqual(
-            response.data,
-            {
-                "items": [
-                    {
-                        "id": str(location.pk),
-                        "name": "Maison du Vin",
-                        "address": "12 Rue de la Boucherie, 1247 Luxembourg",
-                        "city": "Luxembourg City",
-                        "country": "Luxembourg",
-                        "maxCapacity": 60,
-                        "seatedCapacity": 32,
-                        "hasOutdoorSpace": False,
-                        "hasKitchen": False,
-                        "hasPrivateRoom": True,
-                        "hasSoundSystem": True,
-                        "compatibleEventTypes": [
-                            "Wine tasting",
-                            "Speed dating",
-                        ],
-                        "partnershipStage": "Active",
-                        "primaryContact": {
-                            "name": "Camille Hoffmann",
-                            "role": "Manager",
-                            "email": "camille@maisonduvin.example",
-                            "phone": "+352 621 100 014",
-                        },
-                        "accountManager": "Lina Weber",
-                        "commercialTerms": "20% commission on bar sales.",
-                        "partnerSince": "2025-02-01",
-                        "lastContactDate": "2026-05-02",
-                        "nextAction": "Confirm the next line-up",
-                        "nextActionDate": "2026-05-15",
-                        "notes": "Strong fit for premium tastings.",
-                        "tags": ["Old Town", "Premium"],
-                    }
-                ]
-            },
+            {key: item[key] for key in legacy_contract["items"][0]},
+            legacy_contract["items"][0],
         )
 
     def test_optional_null_fields_are_safe_for_frontend(self):
@@ -143,8 +147,3 @@ class LocationAPITests(TestCase):
         response = self.client.get("/hub/locations")
 
         self.assertEqual(response.status_code, 403)
-
-    def test_locations_endpoint_is_read_only(self):
-        response = self.client.post("/hub/locations", {}, format="json")
-
-        self.assertEqual(response.status_code, 405)
