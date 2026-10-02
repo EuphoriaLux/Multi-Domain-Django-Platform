@@ -4,6 +4,7 @@ Spec: ai-memory-hub/specs/2026-10-01-hub-partner-and-offers.md
 """
 
 from django.db import transaction
+from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status
@@ -73,17 +74,29 @@ class PartnerDetailView(generics.RetrieveUpdateDestroyAPIView):
         # with SET_NULL: deleting one blanks the venue on scheduled and past
         # coffee dates (``propose_venue`` leaves the custom name empty for a
         # partner venue) and erases the payment link. Steer to Archived.
-        # TODO(step 2): also block when MeetupEvent.partner rows exist, once
-        # that FK lands (spec: ai-memory-hub/specs/2026-10-01-hub-partner-and-offers.md).
-        if partner.payments_out.exists() or partner.connect_coffee_dates.exists():
+        if (
+            partner.payments_out.exists()
+            or partner.connect_coffee_dates.exists()
+            or partner.meetup_events.exists()
+            or PartnerOffer.objects.filter(
+                location=partner, meetup_events__isnull=False
+            ).exists()
+        ):
             return Response(
                 {
-                    "detail": "This partner is referenced by payments or Connect "
-                    "coffee dates. Set its stage to Archived instead of deleting it."
+                    "detail": "This partner is referenced by events, payments or "
+                    "Connect coffee dates. Set its stage to Archived instead of deleting it."
                 },
                 status=status.HTTP_409_CONFLICT,
             )
-        partner.delete()
+        try:
+            partner.delete()
+        except ProtectedError:
+            # A reference may have been created after the checks above.
+            return Response(
+                {"detail": "This partner is referenced. Archive it instead."},
+                status=status.HTTP_409_CONFLICT,
+            )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -118,6 +131,24 @@ class PartnerOfferDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return PartnerOffer.objects.filter(location_id=self.kwargs["pk"])
+
+    def destroy(self, request, *args, **kwargs):
+        offer = self.get_object()
+        if offer.meetup_events.exists():
+            return Response(
+                {
+                    "detail": "This offer is referenced by events. Deactivate it instead."
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+        try:
+            offer.delete()
+        except ProtectedError:
+            return Response(
+                {"detail": "This offer is referenced. Deactivate it instead."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class OfferEventDraftView(APIView):

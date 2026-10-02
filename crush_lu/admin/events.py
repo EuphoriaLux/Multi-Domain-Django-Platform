@@ -834,6 +834,28 @@ class CuratedEventGroupAdmin(admin.ModelAdmin):
 
 class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
     form = MeetupEventAdminForm
+
+    def get_changeform_initial_data(self, request):
+        initial = super().get_changeform_initial_data(request)
+        offer_id = request.GET.get("offer_id")
+        if offer_id:
+            from django.http import Http404
+            from hub.models import PartnerOffer
+            from hub.partner_services import build_event_prefill
+
+            try:
+                offer = PartnerOffer.objects.select_related("location").get(
+                    pk=int(offer_id), is_active=True
+                )
+            except (ValueError, PartnerOffer.DoesNotExist) as exc:
+                raise Http404("This offer is unavailable.") from exc
+            if offer.location.partnership_stage in ("Paused", "Archived"):
+                raise Http404("This partner is unavailable for new events.")
+            # IDs select the current server-side preset. Never trust a snapshot
+            # passed in a query string, and never copy commercial/contact data.
+            initial.update(build_event_prefill(offer)["fields"])
+        return initial
+
     list_display = (
         "title",
         "event_type",
@@ -956,6 +978,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             {
                 "fields": (
                     "canton",
+                    ("partner", "offer"),
                     "location",
                     ("address_number", "address_street"),
                     ("address_postcode", "address_town"),
