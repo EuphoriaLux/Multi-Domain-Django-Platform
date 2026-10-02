@@ -992,7 +992,6 @@ msgstr "Hat Dating-Profil"
 #: templates/crush_lu/journey/rewards/photo_slideshow.html:99
 #: templates/crush_lu/journey/rewards/photo_slideshow.html:108
 #: templates/crush_lu/journey/rewards/photo_slideshow.html:117
-#: templates/crush_lu/spark_create_journey.html:79
 msgid "Photo"
 msgstr "Foto"
 
@@ -2622,7 +2621,6 @@ msgid "Slideshow Photo 5"
 msgstr "Slideshow-Foto 5"
 
 #: forms.py:1230 models/journey.py:308
-#: templates/crush_lu/spark_create_journey.html:94
 msgid "Video Message"
 msgstr "Videonachricht"
 
@@ -2934,10 +2932,9 @@ msgstr ""
 msgid "Who caught your eye?"
 msgstr "Wer ist dir aufgefallen?"
 
-#: forms_crush_spark.py:52 templates/crush_lu/spark_create_journey.html:27
-msgid "Write a personal message that will be revealed in Chapter 6..."
-msgstr ""
-"Schreibe eine persönliche Nachricht, die in Kapitel 6 enthüllt wird..."
+#~ msgid "Write a personal message that will be revealed in Chapter 6..."
+#~ msgstr ""
+#~ "Schreibe eine persönliche Nachricht, die in Kapitel 6 enthüllt wird..."
 
 #: forms_crush_spark.py:58
 msgid "Your personal message (revealed with your identity)"
@@ -5809,7 +5806,7 @@ msgstr "Gedicht/Brief"
 msgid "Voice Recording"
 msgstr "Sprachaufnahme"
 
-#: models/journey.py:309 templates/crush_lu/spark_create_journey.html:65
+#: models/journey.py:309
 msgid "Photo Slideshow"
 msgstr "Foto-Diashow"
 
@@ -16673,11 +16670,8 @@ msgstr "Einseitig"
 msgid "Needs Review"
 msgstr "Prüfung erforderlich"
 
-#: templates/crush_lu/coach_connection_review.html:79
-#: templates/crush_lu/coach_connections.html:37
-#: templates/crush_lu/connection_detail.html:58
-msgid "Contacts Shared"
-msgstr "Kontakte geteilt!"
+#~ msgid "Contacts Shared"
+#~ msgstr "Kontakte geteilt!"
 
 #: templates/crush_lu/coach_connection_review.html:114
 #: templates/crush_lu/coach_connection_review.html:531
@@ -16900,11 +16894,9 @@ msgstr "Die Einführung schreiben"
 msgid "Needs both consents and an approved lead."
 msgstr "Benötigt beide Zustimmungen und einen genehmigten Kontakt."
 
-#: templates/crush_lu/coach_connection_review.html:385
 #, fuzzy
-#| msgid "Coach's guidance for the introduction"
-msgid "Contacts shared — the introduction is done."
-msgstr "Anleitung des Coaches für die Vorstellung"
+#~ msgid "Contacts shared — the introduction is done."
+#~ msgstr "Anleitung des Coaches für die Vorstellung"
 
 #: templates/crush_lu/coach_connection_review.html:394
 #: templates/crush_lu/connection_detail.html:251
@@ -16999,9 +16991,8 @@ msgstr "Antwort erhalten"
 msgid "Coach approved"
 msgstr "Coach hat genehmigt"
 
-#: templates/crush_lu/coach_connection_review.html:551
-msgid "Contacts shared"
-msgstr "Kontakte geteilt!"
+#~ msgid "Contacts shared"
+#~ msgstr "Kontakte geteilt!"
 
 #: templates/crush_lu/coach_connections.html:17
 msgid "Connection Management"
@@ -19712,9 +19703,8 @@ msgstr ""
 msgid "What will be shared:"
 msgstr "Was geteilt wird:"
 
-#: templates/crush_lu/connection_detail.html:343
-msgid "Full name:"
-msgstr "Vollständiger Name:"
+#~ msgid "Full name:"
+#~ msgstr "Vollständiger Name:"
 
 #: templates/crush_lu/connection_detail.html:348
 msgid "Profile details and photos"
@@ -33580,91 +33570,71 @@ msgstr "Oder melde dich per E-Mail an"
 msgid "Your password must contain at least 8 characters."
 msgstr "Dein Passwort muss mindestens 8 Zeichen enthalten."
 
-#: templates/crush_lu/spark_create_journey.html:4
-#: templates/crush_lu/spark_detail.html:68
-msgid "Create Journey"
-msgstr "Reise erstellen"
+#~ msgid "Create Journey"
+#~ msgstr "Reise erstellen"
 
-#: templates/crush_lu/spark_create_journey.html:10
-msgid "Create Your Anonymous Journey"
-msgstr "Erstelle deine anonyme Reise"
+#~ msgid "Create Your Anonymous Journey"
+#~ msgstr "Erstelle deine anonyme Reise"
 
-#: templates/crush_lu/spark_create_journey.html:12
-msgid ""
-"Add photos, a video, and a personal message for your Secret Admirer journey."
-msgstr ""
-"Füge Fotos, ein Video und eine persönliche Nachricht für deine Geheime-"
-"Verehrer-Reise hinzu."
+#~ msgid ""
+#~ "Add photos, a video, and a personal message for your Secret Admirer journey."
+#~ msgstr ""
+#~ "Füge Fotos, ein Video und eine persönliche Nachricht für deine Geheime-"
+#~ "Verehrer-Reise hinzu."
 
-#: templates/crush_lu/spark_create_journey.html:22
-msgid "Personal Message"
-msgstr "Persönliche Nachricht"
+#~ msgid "Personal Message"
+#~ msgstr "Persönliche Nachricht"
 
-#: templates/crush_lu/spark_create_journey.html:24
-msgid ""
-"This message will be revealed along with your identity when they complete "
-"Chapter 6."
-msgstr ""
-"Diese Nachricht wird zusammen mit Ihrer Identität enthüllt, wenn sie Kapitel"
-" 6 abschließen."
+#~ msgid ""
+#~ "This message will be revealed along with your identity when they complete "
+#~ "Chapter 6."
+#~ msgstr ""
+#~ "Diese Nachricht wird zusammen mit Ihrer Identität enthüllt, wenn sie Kapitel"
+#~ " 6 abschließen."
 
-#: templates/crush_lu/spark_create_journey.html:40
 msgid "Photo Puzzle"
 msgstr "Foto-Puzzle"
 
-#: templates/crush_lu/spark_create_journey.html:43
-msgid "Upload a photo that will be revealed as puzzle pieces."
-msgstr "Lade ein Foto hoch, das als Puzzleteile enthüllt wird."
+#~ msgid "Upload a photo that will be revealed as puzzle pieces."
+#~ msgstr "Lade ein Foto hoch, das als Puzzleteile enthüllt wird."
 
-#: templates/crush_lu/spark_create_journey.html:50
-msgid "Click to upload photo"
-msgstr "Zum Hochladen eines Fotos klicken"
+#~ msgid "Click to upload photo"
+#~ msgstr "Zum Hochladen eines Fotos klicken"
 
-#: templates/crush_lu/spark_create_journey.html:66
-#: templates/crush_lu/spark_create_journey.html:95
-#: templates/crush_lu/spark_create_journey.html:121
 msgid "(optional)"
 msgstr "(optional)"
 
-#: templates/crush_lu/spark_create_journey.html:69
-msgid "Upload up to 5 photos for the slideshow."
-msgstr "Lade bis zu 5 Fotos für die Slideshow hoch."
+#~ msgid "Upload up to 5 photos for the slideshow."
+#~ msgstr "Lade bis zu 5 Fotos für die Slideshow hoch."
 
-#: templates/crush_lu/spark_create_journey.html:98
-msgid "Record or upload a video message (MP4, MOV - max 50MB)."
-msgstr ""
-"Nimm eine Videonachricht auf oder lade sie hoch (MP4, MOV – max. 50 MB)."
+#~ msgid "Record or upload a video message (MP4, MOV - max 50MB)."
+#~ msgstr ""
+#~ "Nimm eine Videonachricht auf oder lade sie hoch (MP4, MOV – max. 50 MB)."
 
-#: templates/crush_lu/spark_create_journey.html:105
-msgid "Click to upload video"
-msgstr "Zum Hochladen eines Videos klicken"
+#~ msgid "Click to upload video"
+#~ msgstr "Zum Hochladen eines Videos klicken"
 
-#: templates/crush_lu/spark_create_journey.html:120
-msgid "Background Music"
-msgstr "Hintergrundmusik"
+#~ msgid "Background Music"
+#~ msgstr "Hintergrundmusik"
 
-#: templates/crush_lu/spark_create_journey.html:124
-msgid ""
-"Upload background music for the Future Letter (MP3, WAV, M4A - max 10MB)."
-msgstr ""
-"Lade Hintergrundmusik für den Zukunftsbrief hoch (MP3, WAV, M4A – max. 10 "
-"MB)."
+#~ msgid ""
+#~ "Upload background music for the Future Letter (MP3, WAV, M4A - max 10MB)."
+#~ msgstr ""
+#~ "Lade Hintergrundmusik für den Zukunftsbrief hoch (MP3, WAV, M4A – max. 10 "
+#~ "MB)."
 
-#: templates/crush_lu/spark_create_journey.html:131
-msgid "Click to upload audio"
-msgstr "Zum Hochladen von Audio klicken"
+#~ msgid "Click to upload audio"
+#~ msgstr "Zum Hochladen von Audio klicken"
 
-#: templates/crush_lu/spark_create_journey.html:144
-msgid ""
-"Once you submit, the journey will be created and delivered anonymously. Your"
-" identity will only be revealed when the recipient completes Chapter 6."
-msgstr ""
-"Nach dem Absenden wird die Reise anonym erstellt und zugestellt. Deine "
-"Identität wird erst enthüllt, wenn der Empfänger Kapitel 6 abschließt."
+#~ msgid ""
+#~ "Once you submit, the journey will be created and delivered anonymously. Your"
+#~ " identity will only be revealed when the recipient completes Chapter 6."
+#~ msgstr ""
+#~ "Nach dem Absenden wird die Reise anonym erstellt und zugestellt. Deine "
+#~ "Identität wird erst enthüllt, wenn der Empfänger Kapitel 6 abschließt."
 
-#: templates/crush_lu/spark_create_journey.html:149
-msgid "Create & Deliver Journey"
-msgstr "Reise erstellen & senden"
+#~ msgid "Create & Deliver Journey"
+#~ msgstr "Reise erstellen & senden"
 
 # Coach Dashboard translations
 #: templates/crush_lu/spark_detail.html:11
@@ -37077,11 +37047,9 @@ msgstr "Antwortete am"
 msgid "Recipient decline recorded."
 msgstr "Antwortete am"
 
-#: views_coach.py:4565
 #, fuzzy
-#| msgid "Introduction Message"
-msgid "Introduction made — contacts shared."
-msgstr "Einführungsnachricht"
+#~ msgid "Introduction made — contacts shared."
+#~ msgstr "Einführungsnachricht"
 
 #: views_coach.py:4571
 #, fuzzy
@@ -42762,13 +42730,12 @@ msgid_plural "%(spots)s spots left"
 msgstr[0] "%(spots)s Platz übrig"
 msgstr[1] "%(spots)s Plätze übrig"
 
-#: crush_lu/templates/crush_lu/event_detail.html
-msgid ""
-"Could not copy the link. Long-press or select it from the address bar "
-"instead."
-msgstr ""
-"Der Link konnte nicht kopiert werden. Halte ihn gedrückt oder markiere ihn "
-"in der Adressleiste."
+#~ msgid ""
+#~ "Could not copy the link. Long-press or select it from the address bar "
+#~ "instead."
+#~ msgstr ""
+#~ "Der Link konnte nicht kopiert werden. Halte ihn gedrückt oder markiere ihn "
+#~ "in der Adressleiste."
 
 # UX Wave 3 · WP5 photos-booking
 # UX Wave 3 · WP5 photos-booking
@@ -43118,9 +43085,8 @@ msgstr "Crush Connect oben ansehen"
 # UX Wave 3 · WP10 match-moment
 # UX Wave 3 · WP10 match-moment
 # UX Wave 3 . WP10 match-moment (findings 5-09, 5-10, 5-13, 5-14, 5-15)
-#: templates/crush_lu/connection_detail.html:343
-msgid "First name only:"
-msgstr "Nur Vorname:"
+#~ msgid "First name only:"
+#~ msgstr "Nur Vorname:"
 
 #: templates/crush_lu/connection_detail.html:351
 msgid "Nothing is shared until you both consent."
@@ -44090,3 +44056,26 @@ msgstr "Profile geteilt"
 #: templates/crush_lu/_connection_response.html:36
 msgid "Profiles shared"
 msgstr "Profile geteilt"
+
+# UX Wave 6 · WP5 flows-rest
+#: templates/crush_lu/event_detail.html
+msgid "Could not copy the link. Long-press or select it here instead:"
+msgstr "Der Link konnte nicht kopiert werden. Halte ihn hier gedrückt oder markiere ihn:"
+
+# UX Wave 6 · WP5 flows-rest
+#: templates/crush_lu/coach_connection_review.html
+msgid "Introduction made"
+msgstr "Vorstellung erfolgt"
+
+# UX Wave 6 · WP5 flows-rest
+#: templates/crush_lu/connection_detail.html
+msgid "Shared before contact choices were available"
+msgstr "Geteilt, bevor die Kontaktauswahl verfügbar war"
+
+# UX Wave 6 · WP5 flows-rest
+#: templates/crush_lu/journey/challenges/open_text.html
+#, python-format
+msgid "%(points)s point available"
+msgid_plural "%(points)s points available"
+msgstr[0] "%(points)s Punkt verfügbar"
+msgstr[1] "%(points)s Punkte verfügbar"

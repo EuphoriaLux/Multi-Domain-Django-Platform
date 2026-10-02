@@ -5595,9 +5595,9 @@ def coach_connection_review(request, connection_id):
                         connection.save(
                             update_fields=["status", "shared_at", "system_actions"]
                         )
-                        messages.success(
-                            request, _("Introduction made — contacts shared.")
-                        )
+                        # Email and phone stay opt-in: each member chooses
+                        # them on the shared connection page (#1146).
+                        messages.success(request, _("Introduction made"))
                     else:
                         messages.error(
                             request,
