@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 import uuid
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from functools import partial
@@ -41,6 +42,7 @@ from crush_lu.services.credits import (
     settle_pending_resale_credit,
 )
 from crush_lu.services.sumup import (
+    CLOSED_CHECKOUT_STATUSES,
     SumUpClient,
     SumUpConfigurationError,
     SumUpError,
@@ -689,6 +691,183 @@ def create_sumup_event_checkout(request, registration_id):
     )
 
 
+_PREMIUM_CHECKOUT_RETIRED_REASON = (
+    "Retired while settling this membership's checkouts — deactivated at SumUp "
+    "before any card was charged, so at most one checkout stays payable."
+)
+_PREMIUM_CHECKOUT_ABANDONED_REASON = (
+    "Retired because the membership stopped being pending — deactivated at "
+    "SumUp before any card was charged."
+)
+# Old rows closed per click; the rest wait for the next click (#925 D6). The
+# time budget keeps a slow SumUp (10 s timeouts) well under gunicorn's 120 s.
+_PREMIUM_CHECKOUT_RETIRE_LIMIT = 10
+_PREMIUM_CHECKOUT_RETIRE_BUDGET_SECONDS = 30
+_monotonic = time.monotonic  # patched by tests
+_SUMUP_PAID_STATUSES = frozenset({"PAID", "SUCCESSFUL"})
+
+
+def _sumup_status(remote):
+    return (remote.get("status") or "").upper()
+
+
+def _premium_payment_received_response():
+    return JsonResponse(
+        {
+            "error": _(
+                "We have already received a payment for this membership. "
+                "Please contact support@crush.lu so we can finish setting "
+                "it up."
+            )
+        },
+        status=409,
+    )
+
+
+def _reusable_premium_checkout(row, remote, *, amount, customer_id, description):
+    """True when ``row`` can be handed out again instead of opening another.
+
+    Only a checkout SumUp still reports as PENDING, for the price, customer and
+    coach description this request would use, qualifies: a stale price,
+    another opener's tokenised customer or a receipt naming the previous coach
+    must be retired, not reused.
+    """
+    try:
+        remote_amount = Decimal(str(remote.get("amount")))
+    except (ArithmeticError, TypeError, ValueError):
+        return False
+    return (
+        _sumup_status(remote) == "PENDING"
+        and remote_amount == amount
+        and remote.get("description") == description
+        and (remote.get("currency") or "").upper() == "EUR"
+        and row.amount == amount
+        and row.currency == "EUR"
+        and row.sumup_customer_id == customer_id
+    )
+
+
+def _close_premium_checkout(client, checkout_id):
+    """``"closed"``, ``"paid"`` or ``"open"`` for one checkout at SumUp.
+
+    Same proof as ``ensure_checkout_not_payable`` (a DELETE, else one read),
+    but that single read also tells a captured checkout apart. Any SumUpError
+    (including a missing API key) counts as ``"open"`` so the caller answers
+    with its JSON refusal instead of a 500.
+    """
+    try:
+        if client.deactivate_checkout(checkout_id):
+            return "closed"
+        status = _sumup_status(client.get_checkout(checkout_id))
+    except SumUpError:
+        return "open"
+    if status in _SUMUP_PAID_STATUSES:
+        return "paid"
+    return "closed" if status in CLOSED_CHECKOUT_STATUSES else "open"
+
+
+def _settle_pending_premium_checkouts(
+    client, membership, *, amount, customer_id, description
+):
+    """Reuse or retire this membership's PENDING checkouts (#925 D6).
+
+    Network phase, no lock held. Every click used to insert another payable
+    checkout, so a member who opened the page twice could be charged twice.
+    The newest one is reused when SumUp still reports it payable on the same
+    terms (read-only ``get_checkout``); every other one is closed with
+    _close_premium_checkout, which never reports a captured checkout as
+    closed. Returns ``(state, reuse_row, retired_ids, known_ids)`` where
+    ``state`` is ``"ok"``, ``"paid"`` (SumUp captured one -- leave it to
+    _apply_paid_checkout / reconciliation, but still close the others) or
+    ``"open"`` (one could not be proven closed, the newest one's state is
+    unknown, or the per-click count or time budget ran out).
+    """
+    pending = list(
+        PaymentTransaction.objects.filter(
+            premium_membership=membership,
+            status=PaymentTransaction.Status.PENDING,
+        ).order_by("-created_at", "-pk")
+    )
+    known_ids = {row.pk for row in pending}
+    reuse_row, retired_ids, paid = None, set(), False
+    deadline = _monotonic() + _PREMIUM_CHECKOUT_RETIRE_BUDGET_SECONDS
+    for index, row in enumerate(r for r in pending if r.sumup_checkout_id):
+        if index == 0:
+            try:
+                remote = client.get_checkout(row.sumup_checkout_id)
+            except SumUpError:
+                # Possibly live (mid-3DS in another tab): never close it blind.
+                return "open", None, retired_ids, known_ids
+            if _sumup_status(remote) in _SUMUP_PAID_STATUSES:
+                paid = True
+                continue
+            if _reusable_premium_checkout(
+                row,
+                remote,
+                amount=amount,
+                customer_id=customer_id,
+                description=description,
+            ):
+                reuse_row = row
+                continue
+        if (
+            len(retired_ids) >= _PREMIUM_CHECKOUT_RETIRE_LIMIT
+            or _monotonic() > deadline
+        ):
+            return "paid" if paid else "open", None, retired_ids, known_ids
+        outcome = _close_premium_checkout(client, row.sumup_checkout_id)
+        if outcome == "paid":
+            paid = True
+        elif outcome != "closed":
+            return "paid" if paid else "open", None, retired_ids, known_ids
+        else:
+            retired_ids.add(row.pk)
+    if paid:
+        # A capture exists: the kept newest checkout must not take a second one.
+        if reuse_row is not None and (
+            _close_premium_checkout(client, reuse_row.sumup_checkout_id) == "closed"
+        ):
+            retired_ids.add(reuse_row.pk)
+        return "paid", None, retired_ids, known_ids
+    return "ok", reuse_row, retired_ids, known_ids
+
+
+def _lock_premium_checkout_state(
+    membership_id, retired_ids, reason=_PREMIUM_CHECKOUT_RETIRED_REASON
+):
+    """Lock payments -> membership, retire closed rows, report what is left.
+
+    LOCK ORDER matches the refund sweep (reconcile_sumup_payments.
+    _reconcile_refunded: related payment rows in PK order, then
+    PremiumMembership) and completion (payment row, then confirm() locks the
+    membership), so no cycle is possible. Must run inside ``atomic()``.
+    Returns ``(membership_or_None, PENDING rows still open)``; a row that
+    SumUp closed is CANCELLED here unless a capture made it PAID meanwhile.
+    """
+    locked_rows = list(
+        PaymentTransaction.objects.select_for_update()
+        .filter(premium_membership_id=membership_id)
+        .order_by("pk")
+    )
+    locked_membership = (
+        PremiumMembership.objects.select_for_update().filter(pk=membership_id).first()
+    )
+    for row in locked_rows:
+        if row.pk in retired_ids and row.status == PaymentTransaction.Status.PENDING:
+            row.status = PaymentTransaction.Status.CANCELLED
+            row.failure_reason = reason
+            row.save(update_fields=["status", "failure_reason", "updated_at"])
+    # A fresh read now that the membership lock is held: inserts happen under
+    # that lock, so a checkout another click published meanwhile is visible.
+    still_pending = list(
+        PaymentTransaction.objects.filter(
+            premium_membership_id=membership_id,
+            status=PaymentTransaction.Status.PENDING,
+        ).order_by("pk")
+    )
+    return locked_membership, still_pending
+
+
 @login_required
 @require_POST
 def create_sumup_premium_checkout(request, membership_id):
@@ -728,16 +907,7 @@ def create_sumup_premium_checkout(request, membership_id):
             membership.id,
             membership.user_id,
         )
-        return JsonResponse(
-            {
-                "error": _(
-                    "We have already received a payment for this membership. "
-                    "Please contact support@crush.lu so we can finish setting "
-                    "it up."
-                )
-            },
-            status=409,
-        )
+        return _premium_payment_received_response()
 
     # Ask the beta allowlist again, here, at the moment money is about to move.
     # views_premium checks it when the pending membership is MINTED, and nothing
@@ -761,70 +931,118 @@ def create_sumup_premium_checkout(request, membership_id):
 
     fee = getattr(settings, "SUMUP_PREMIUM_MONTHLY_FEE", 10.00)
     amount = Decimal(str(fee))
-
-    checkout_ref = f"CRUSH-PREM-{membership.id}-{uuid.uuid4().hex[:6]}"
-    description = f"Crush Connect Premium - Coach {membership.coach}"
-    return_url = request.build_absolute_uri(
-        f"/payments/sumup/return/?ref={checkout_ref}"
-    )
-
     sumup_customer_id = f"crush-user-{request.user.id}"
+    description = f"Crush Connect Premium - Coach {membership.coach}"
     client = SumUpClient()
 
-    # Ensure customer object exists on SumUp side
-    try:
-        client.create_customer(
-            customer_id=sumup_customer_id,
-            email=request.user.email or f"user{request.user.id}@crush.lu",
-            name=request.user.get_full_name() or request.user.username,
+    # At most one payable checkout per membership (#925 D6): reuse the newest
+    # one or close the older ones before a new one can exist.
+    state, reuse_row, retired_ids, known_ids = _settle_pending_premium_checkouts(
+        client,
+        membership,
+        amount=amount,
+        customer_id=sumup_customer_id,
+        description=description,
+    )
+    # Record every checkout SumUp closed now, whatever happens next: an early
+    # return below must not leave closed checkouts PENDING for the sweep.
+    if retired_ids:
+        with transaction.atomic():
+            _lock_premium_checkout_state(membership.pk, retired_ids)
+    if state == "paid":
+        logger.error(
+            "Refused a premium checkout for membership %s (user=%s): SumUp "
+            "reports an earlier checkout PAID that is not recorded yet — left "
+            "for completion or reconciliation, not another charge.",
+            membership.id,
+            membership.user_id,
         )
-    except SumUpError as exc:
-        logger.info("SumUp customer creation returned (may already exist): %s", exc)
-
-    try:
-        checkout_data = client.create_checkout(
-            amount=float(amount),
-            currency="EUR",
-            checkout_reference=checkout_ref,
-            description=description,
-            return_url=return_url,
-            customer_id=sumup_customer_id,
-            purpose="SETUP_RECURRING_PAYMENT",
+        return _premium_payment_received_response()
+    if state == "open":
+        logger.warning(
+            "Could not close every earlier checkout for premium membership %s",
+            membership.id,
         )
-    except SumUpError as exc:
-        logger.error("Failed to create SumUp premium checkout: %s", exc)
         return JsonResponse(
             {
                 "error": _(
-                    "Unable to initiate payment at the moment. Please try again later."
+                    "Your earlier card checkout could not be closed. "
+                    "Please wait and try again."
                 )
             },
-            status=500,
+            status=409,
         )
 
-    checkout_id = checkout_data.get("id")
-    if not checkout_id:
-        return JsonResponse(
-            {"error": _("SumUp did not return a valid checkout ID.")}, status=500
+    if reuse_row is not None:
+        checkout_ref = reuse_row.transaction_reference
+        checkout_id = reuse_row.sumup_checkout_id
+    else:
+        checkout_ref = f"CRUSH-PREM-{membership.id}-{uuid.uuid4().hex[:6]}"
+        return_url = request.build_absolute_uri(
+            f"/payments/sumup/return/?ref={checkout_ref}"
         )
 
-    # Re-check under the membership lock before publishing the row. The checks
-    # above ran unlocked and before the SumUp call, so the refund sweep
-    # (reconcile_sumup_payments) can have cancelled this membership, or a
-    # capture paid it, in between; a row inserted anyway would be a payable
-    # checkout against a membership that can no longer be activated.
+        # Ensure customer object exists on SumUp side
+        try:
+            client.create_customer(
+                customer_id=sumup_customer_id,
+                email=request.user.email or f"user{request.user.id}@crush.lu",
+                name=request.user.get_full_name() or request.user.username,
+            )
+        except SumUpError as exc:
+            logger.info("SumUp customer creation returned (may already exist): %s", exc)
+
+        try:
+            checkout_data = client.create_checkout(
+                amount=float(amount),
+                currency="EUR",
+                checkout_reference=checkout_ref,
+                description=description,
+                return_url=return_url,
+                customer_id=sumup_customer_id,
+                purpose="SETUP_RECURRING_PAYMENT",
+            )
+        except SumUpError as exc:
+            logger.error("Failed to create SumUp premium checkout: %s", exc)
+            return JsonResponse(
+                {
+                    "error": _(
+                        "Unable to initiate payment at the moment. Please try again later."
+                    )
+                },
+                status=500,
+            )
+
+        checkout_id = checkout_data.get("id")
+        if not checkout_id:
+            return JsonResponse(
+                {"error": _("SumUp did not return a valid checkout ID.")}, status=500
+            )
+
+    # Re-check under the payments -> membership lock before publishing. The
+    # checks above ran unlocked and around SumUp calls, so the refund sweep
+    # (reconcile_sumup_payments) can have cancelled this membership, a capture
+    # paid it, or another click published its own checkout in between.
     with transaction.atomic():
-        locked_membership = (
-            PremiumMembership.objects.select_for_update()
-            .filter(pk=membership.pk)
-            .first()
+        locked_membership, still_pending = _lock_premium_checkout_state(
+            membership.pk, set()
         )
-        still_payable = (
-            locked_membership is not None
-            and locked_membership.status == "pending"
-            and not _premium_payment_captured(membership)
-        )
-        if still_payable:
+        pending_ids = {row.pk for row in still_pending}
+        error, not_pending = None, False
+        if (
+            locked_membership is None
+            or locked_membership.status != "pending"
+            or _premium_payment_captured(membership)
+        ):
+            error, not_pending = _("This membership is not pending payment."), True
+        elif not pending_ids <= known_ids or (
+            reuse_row is not None and reuse_row.pk not in pending_ids
+        ):
+            error = _(
+                "A payment checkout is already being prepared. "
+                "Please wait and try again."
+            )
+        elif reuse_row is None:
             PaymentTransaction.objects.create(
                 transaction_reference=checkout_ref,
                 provider=PaymentTransaction.Provider.SUMUP,
@@ -838,11 +1056,18 @@ def create_sumup_premium_checkout(request, membership_id):
                 premium_membership=membership,
                 raw_response=checkout_data,
             )
-    if not still_payable:
-        client.deactivate_checkout(checkout_id)
-        return JsonResponse(
-            {"error": _("This membership is not pending payment.")}, status=409
-        )
+    if error is not None:
+        if reuse_row is None:
+            client.deactivate_checkout(checkout_id)
+        elif not_pending and _close_premium_checkout(client, checkout_id) == "closed":
+            # A saved widget link must not charge a membership that ended.
+            with transaction.atomic():
+                _lock_premium_checkout_state(
+                    membership.pk,
+                    {reuse_row.pk},
+                    reason=_PREMIUM_CHECKOUT_ABANDONED_REASON,
+                )
+        return JsonResponse({"error": error}, status=409)
 
     return JsonResponse(
         {
