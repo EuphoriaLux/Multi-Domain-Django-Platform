@@ -784,6 +784,16 @@ def send_premium_membership_payment_receipt(payment, request=None):
     )
 
 
+def send_premium_payment_recovery_notice(payment, request=None):
+    """Tell the member a captured Premium payment was not applied (#925)."""
+    return _send_payment_receipt(
+        payment,
+        subject_message=gettext_noop("Payment received"),
+        template_name="crush_lu/emails/premium_payment_recovery_notice.html",
+        request=request,
+    )
+
+
 def send_donation_payment_receipt(payment, request=None):
     """Thank and receipt a member whose donation was captured."""
     return _send_payment_receipt(

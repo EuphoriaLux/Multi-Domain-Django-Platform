@@ -77,6 +77,27 @@ def pending_premium_state(user):
     return "manage" if _premium_purchase_refused(pending) else "complete"
 
 
+def open_recovery_case(user):
+    """The member's OPEN recovery case (#925): pages show it, not a pay CTA.
+
+    Only for a current (pending/active) or deleted membership: a case on an
+    old cancelled request must not take over a new one."""
+    from .models import PremiumPaymentRecoveryCase
+
+    if not user.is_authenticated:
+        return None
+    current = Q(premium_membership__isnull=True) | Q(
+        premium_membership__status__in=("pending", "active")
+    )
+    return (
+        PremiumPaymentRecoveryCase.objects.filter(
+            current, user=user, status=PremiumPaymentRecoveryCase.Status.OPEN
+        )
+        .select_related("payment")
+        .first()
+    )
+
+
 def _available_coaches():
     """Coaches open to new premium members and not yet at capacity.
 

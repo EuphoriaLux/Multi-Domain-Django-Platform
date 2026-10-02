@@ -44090,3 +44090,19 @@ msgstr "Profile geteilt"
 #: templates/crush_lu/_connection_response.html:36
 msgid "Profiles shared"
 msgstr "Profile geteilt"
+
+#: templates/crush_lu/partials/_premium_recovery_copy.html:1 views_payments.py
+#, python-format
+msgid ""
+"We received your payment of %(amount)s %(currency)s, but it has not been "
+"applied to your Premium membership. Please do not pay again. Reference: "
+"%(reference)s. Contact support@crush.lu if you need help."
+msgstr ""
+"Wir haben deine Zahlung von %(amount)s %(currency)s erhalten, sie wurde aber"
+" nicht auf deine Premium-Mitgliedschaft angerechnet. Bitte zahle nicht "
+"erneut. Referenz: %(reference)s. Wende dich an support@crush.lu, wenn du "
+"Hilfe brauchst."
+
+#: templates/crush_lu/emails/premium_payment_recovery_notice.html:14
+msgid "Our team will contact you about the next step."
+msgstr "Unser Team meldet sich bei dir wegen des nächsten Schritts."

@@ -15,6 +15,7 @@ from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.formats import localize
 from django.utils.translation import gettext as _
 from django.utils.translation import override
 from django.views.decorators.csrf import csrf_exempt
@@ -27,8 +28,10 @@ from crush_lu.models.events import (
     MeetupEvent,
 )
 from crush_lu.models.payments import EventCheckoutCreationClaim, PaymentTransaction
+from crush_lu.models.premium_recovery import PremiumPaymentRecoveryCase
 from crush_lu.models.profiles import CrushProfile, PremiumMembership
 from crush_lu.services.event_payments import registration_is_payable
+from crush_lu.services import premium_recovery
 from crush_lu.services.credits import (
     cancellation_policy,
     credit_registration_for_cancelled_event,
@@ -1084,6 +1087,13 @@ def _send_premium_membership_receipt_safely(payment):
         )
 
 
+def _queue_premium_recovery_case(payment, reason, detail=""):
+    """Open the #925 recovery case once the PAID record has committed."""
+    transaction.on_commit(
+        lambda: premium_recovery.open_case_safely(payment.pk, reason, detail)
+    )
+
+
 def _send_donation_receipt_safely(payment):
     """Send a donation receipt without affecting an already-captured payment."""
     from .email_helpers import send_donation_payment_receipt
@@ -1704,9 +1714,31 @@ def _apply_paid_checkout(tx_obj, data):
                     pm.user_id,
                     pm.coach_id,
                 )
+                _queue_premium_recovery_case(
+                    locked,
+                    (
+                        PremiumPaymentRecoveryCase.Reason.BETA_REVOKED
+                        if pm.status == "pending"
+                        else premium_recovery.reason_for_membership_status(pm.status)
+                    ),
+                )
                 return
 
-            if pm.status == "pending":
+            if pm.status != "pending":
+                # Already active (duplicate capture) or cancelled first.
+                logger.error(
+                    "SumUp payment %s completed for PremiumMembership %s "
+                    "(user=%s, status=%s) — payment recorded, NOT applied, "
+                    "manual refund review required.",
+                    locked.transaction_reference,
+                    pm.id,
+                    pm.user_id,
+                    pm.status,
+                )
+                _queue_premium_recovery_case(
+                    locked, premium_recovery.reason_for_membership_status(pm.status)
+                )
+            else:
                 # No pre-setting of payment_confirmed/payment_date here.
                 # ``confirm()`` sets both itself on success, and on failure it
                 # raises *before* its own save(), so assigning them first only
@@ -1726,7 +1758,7 @@ def _apply_paid_checkout(tx_obj, data):
                             payment
                         )
                     )
-                except ValueError as exc:
+                except (ValueError, CrushProfile.DoesNotExist) as exc:
                     # Same contract as the event-registration branch above:
                     # SumUp has already captured the money by the time this
                     # runs, so the transaction stays PAID — dropping it would
@@ -1751,6 +1783,22 @@ def _apply_paid_checkout(tx_obj, data):
                         pm.user_id,
                         pm.coach_id,
                         exc,
+                    )
+                    # confirm() re-reads status under its own lock: ask the DB
+                    # why it refused (still pending = coach full).
+                    status = (
+                        PremiumMembership.objects.filter(pk=pm.pk)
+                        .values_list("status", flat=True)
+                        .first()
+                    )
+                    _queue_premium_recovery_case(
+                        locked,
+                        (
+                            premium_recovery.reason_for_membership_status(status)
+                            if isinstance(exc, ValueError)
+                            else PremiumPaymentRecoveryCase.Reason.OTHER
+                        ),
+                        detail=str(exc),
                     )
 
         elif locked.purpose == PaymentTransaction.Purpose.DONATION:
@@ -2427,7 +2475,15 @@ def _sumup_return_response(request, tx_obj):
     activated language. Split out only so the ``override`` block above stays
     readable — every path here returns a redirect."""
     if tx_obj.status == PaymentTransaction.Status.PAID:
-        messages.success(request, _("Payment completed successfully! Thank you."))
+        recovery_case = (
+            tx_obj.premium_membership_id
+            and PremiumPaymentRecoveryCase.objects.filter(
+                payment=tx_obj, status=PremiumPaymentRecoveryCase.Status.OPEN
+            ).exists()
+        )
+        if not recovery_case:
+            # #925: no "completed successfully" next to the D1 warning.
+            messages.success(request, _("Payment completed successfully! Thank you."))
         if tx_obj.event_registration:
             # event_detail 404s an unpublished event (#1079).
             if not tx_obj.event_registration.event.is_published:
@@ -2449,7 +2505,26 @@ def _sumup_return_response(request, tx_obj):
             # end up, so the confirmation is not conditional on onboarding.
             pm = tx_obj.premium_membership
             pm.refresh_from_db()
-            if pm.status == "active":
+            if recovery_case:
+                # #925 D1, first: a duplicate capture finds pm active.
+                payment = tx_obj
+                messages.warning(
+                    request,
+                    _(
+                        "We received your payment of %(amount)s %(currency)s, "
+                        "but it has not been applied to your Premium "
+                        "membership. Please do not pay again. Reference: "
+                        "%(reference)s. Contact support@crush.lu if you need "
+                        "help."
+                    )
+                    % {
+                        # localize() matches {{ amount }} (10,00 in DE/FR).
+                        "amount": localize(payment.amount),
+                        "currency": payment.currency,
+                        "reference": payment.transaction_reference,
+                    },
+                )
+            elif pm.status == "active":
                 # Only claim Premium once confirm() actually granted it. When
                 # the coach filled up mid-flight the charge is real but the
                 # entitlement is not (see _apply_paid_checkout) — telling that

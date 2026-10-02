@@ -436,3 +436,31 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
         # This is the record of money moving. Deleting one loses the only
         # evidence that a member was charged.
         return False
+
+
+class PremiumPaymentRecoveryCaseAdmin(admin.ModelAdmin):
+    """Opened by ``_apply_paid_checkout`` (#925); staff may only set status."""
+
+    list_display = (
+        "payment",
+        "user",
+        "reason",
+        "status",
+        "created_at",
+        "member_notified_at",
+        "staff_alerted_at",
+    )
+    list_filter = ("status", "reason", "created_at")
+    search_fields = ("payment__transaction_reference", "user__email")
+    ordering = ("-created_at",)
+    list_select_related = ("payment", "user")
+    readonly_fields = tuple(f for f in list_display if f != "status") + (
+        "premium_membership",
+        "detail",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

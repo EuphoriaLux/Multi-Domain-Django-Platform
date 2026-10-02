@@ -304,10 +304,13 @@ def _verification_path_context(profile, user):
       - ``""``      ⇐ no path chosen yet (generic hero).
 
     Returns a context dict (empty-ish unless pending) with ``premium_pending``,
-    ``chosen_path`` and ``path_locked`` (premium can only be one coach at a
+    ``chosen_path``, ``premium_path_recovery_case`` and ``path_locked`` (premium
+    can only be one coach at a
     time, so it locks the options grid against accidental re-selection).
     """
     from .models import PremiumMembership
+
+    from .views_premium import open_recovery_case
 
     if profile.verification_status != "pending":
         return {"chosen_path": "", "premium_pending": None, "path_locked": False}
@@ -346,6 +349,10 @@ def _verification_path_context(profile, user):
         "chosen_path": chosen_path,
         "premium_pending": premium_pending,
         "path_locked": bool(premium_pending),
+        # #925 D1: no "payment pending" copy or pay link while a case is open.
+        "premium_path_recovery_case": (
+            open_recovery_case(user) if premium_pending else None
+        ),
     }
 
 
@@ -391,6 +398,8 @@ def dashboard(request):
     """User dashboard - always shows the dating profile dashboard.
     Coaches access their coach dashboard via the dedicated Coach tab.
     """
+    from .views_premium import open_recovery_case
+
     # Regular user dashboard
     try:
         profile = CrushProfile.objects.select_related("assigned_coach__user").get(
@@ -693,6 +702,7 @@ def dashboard(request):
             "next_event": next_event,
             "greeting": greeting,
             "apple_wallet_enabled": _is_apple_wallet_configured(),
+            "premium_recovery_case": open_recovery_case(request.user),
             **_verification_path_context(profile, request.user),
         }
     except CrushProfile.DoesNotExist:
@@ -2610,6 +2620,7 @@ def membership(request):
 
     from django.conf import settings as _settings
 
+    from .views_premium import open_recovery_case
     from .views_premium import pending_premium_state, premium_monthly_fee
 
     context = {
@@ -2623,6 +2634,7 @@ def membership(request):
         # checkout would accept it; "manage" when the beta gate refuses the
         # buyer, so the page never promises a payment that would 403.
         "pending_premium_state": pending_premium_state(request.user),
+        "premium_recovery_case": open_recovery_case(request.user),
         "is_premium": bool(profile and profile.has_active_premium),
         "referral_url": referral_url,
         "tiers": tiers,

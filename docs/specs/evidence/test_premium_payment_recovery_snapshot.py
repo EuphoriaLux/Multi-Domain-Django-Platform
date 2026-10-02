@@ -77,7 +77,7 @@ class PremiumRecoverySnapshotTests(TestCase):
         self.membership.refresh_from_db()
         self.profile.refresh_from_db()
 
-    def test_second_capture_is_paid_without_a_second_receipt_or_log(self):
+    def test_second_capture_is_paid_without_a_second_receipt_but_logged(self):
         first, second = self.payment("first"), self.payment("second")
         self.capture(first)
         with patch("crush_lu.views_payments.logger") as logger:
@@ -87,17 +87,17 @@ class PremiumRecoverySnapshotTests(TestCase):
         self.assertEqual(self.membership.status, "active")
         self.assertEqual(self.receipt.call_count, 1)
         self.assertEqual(self.receipt.call_args.args[0].pk, first.pk)
-        self.assertEqual(logger.mock_calls, [])
+        logger.error.assert_called_once()  # #925: now opens a recovery case
         self.assertEqual(second.failure_reason, "")
 
-    def test_pre_cancelled_membership_capture_is_silent(self):
+    def test_pre_cancelled_membership_capture_is_logged(self):
         payment = self.payment("cancelled-before-capture")
         self.membership.cancel()
         with patch("crush_lu.views_payments.logger") as logger:
             self.capture(payment)
         self.assertEqual(payment.status, "paid")
         self.assertEqual(self.membership.status, "cancelled")
-        self.assertEqual(logger.mock_calls, [])
+        logger.error.assert_called_once()  # #925: now opens a recovery case
         self.receipt.assert_not_called()
 
     def test_capacity_recovery_cannot_be_retried_by_replaying_paid_checkout(self):
