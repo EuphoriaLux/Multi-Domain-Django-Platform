@@ -16,7 +16,8 @@ is a deliberate exception in ``ALLOW`` with a reason.
 
 Add a class to a journey template and it is covered automatically.
 
-Excluded from the default run (``-m "not playwright"`` in pytest.ini). Run:
+Excluded from the default run (``-m "not playwright"`` in pytest.ini); CI runs
+it in the axe-smoke job (``-m "playwright and axe_smoke"``). Run:
     pytest -m playwright crush_lu/tests/test_journey_light_contrast_playwright.py -n 0
 """
 
@@ -31,7 +32,12 @@ pytest.importorskip("playwright")
 from django.conf import settings  # noqa: E402
 from django.test import Client  # noqa: E402
 
-pytestmark = [pytest.mark.playwright, pytest.mark.django_db(transaction=True)]
+# axe_smoke puts this sweep in CI's accessibility job (#1147).
+pytestmark = [
+    pytest.mark.playwright,
+    pytest.mark.axe_smoke,
+    pytest.mark.django_db(transaction=True),
+]
 
 DECLINED = json.dumps({"essential": True, "analytics": False, "marketing": False})
 JOURNEY_TEMPLATES = (
