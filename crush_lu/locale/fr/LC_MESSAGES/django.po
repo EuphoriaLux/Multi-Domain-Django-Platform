@@ -25526,7 +25526,7 @@ msgstr "À très vite,"
 
 #: templates/crush_lu/emails/screening_fallback_offered.html:5
 msgid "Pick a time that works for you"
-msgstr "Choisis un créneau qui te convient"
+msgstr "Choisissez un créneau qui vous convient"
 
 #: templates/crush_lu/emails/screening_fallback_offered.html:8
 msgid "Your coach is running a little behind"
@@ -26629,7 +26629,7 @@ msgstr ""
 
 #: templates/crush_lu/event_lobby/recap.html:32
 msgid "left to confirm"
-msgstr "pour confirmer"
+msgstr "restant pour confirmer"
 
 #: templates/crush_lu/event_lobby/recap.html:36
 msgid "people from the event believe you met."
@@ -26643,8 +26643,6 @@ msgstr ""
 
 #: templates/crush_lu/event_lobby/recap.html:55
 #: templates/crush_lu/event_lobby/recap.html:104
-#, fuzzy
-#| msgid "People I've Met"
 msgid "See People I've Met"
 msgstr "Mes rencontres"
 
@@ -36334,7 +36332,7 @@ msgstr ""
 
 #: templates/socialaccount/signup_crush.html:76
 msgid "Start attending events and meeting people!"
-msgstr "Commence à participer aux événements et à rencontrer des gens !"
+msgstr "Commencez à participer aux événements et à rencontrer des gens !"
 
 #: templates/socialaccount/signup_crush.html:82
 msgid "Login here"

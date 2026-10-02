@@ -69,6 +69,12 @@ class LuxidClaimGatingTests(TestCase):
         )
         self.assertNotIn(INSTANT_LUXID, absent)
         self.assertIn(ABOUT_NO_LUXID, absent)
+        # The "Human Verification" list must not promise LuxID either.
+        self.assertIn("Or instant verification with LuxID", offered)
+        absent_list = absent[absent.index("about-feature-list") :]
+        absent_list = absent_list[: absent_list.index("</ul>")]
+        self.assertIn("In-person verification by a coach", absent_list)
+        self.assertNotIn("LuxID", absent_list)
 
     def test_about_no_luxid_variant_is_translated(self):
         de = self._about([], "de")
@@ -122,6 +128,10 @@ class LuxidClaimGatingTests(TestCase):
             self.assertNotIn("fuzzy", entry.flags)
             self.assertNotIn("LuxID", entry.msgstr)
 
+    def test_signup_next_steps_fr_uses_vous(self):
+        entry = _po("fr").find("Start attending events and meeting people!")
+        self.assertTrue(entry.msgstr.startswith("Commencez "), entry.msgstr)
+
 
 class CtaMicrocopyTests(TestCase):
     """Decision C: reuse the existing Join-free msgid, no new copy."""
@@ -148,6 +158,8 @@ class CtaMicrocopyTests(TestCase):
         )
         self.assertIn("Jederzeit kündbar.", de[de.index("about-cta-section") :])
         self.assertIn("Résiliable à tout moment.", fr[fr.index("about-cta-section") :])
+        # House style is lowercase du/dein.
+        self.assertIn("wenn du deinen eigenen Coach", de)
 
     def test_default_cta_section_uses_join_free_copy(self):
         out = html.unescape(
@@ -166,6 +178,8 @@ VOUS_SOURCES = (
     "templates/crush_lu/pre_screening/",
     "templates/crush_lu/onboarding/coach_intro.html",
     "templates/crush_lu/emails/pre_screening_invite.",
+    "templates/crush_lu/emails/screening_fallback_offered.",
+    "templates/crush_lu/emails/screening_confirmed.",
     "pre_screening_schema.py",
     "pre_screening_notifications.py",
     "views_pre_screening.py",
@@ -226,11 +240,12 @@ RECAP = {
         "Vous avez déjà confirmé avoir rencontré cette personne.",
         "Du hast bereits bestätigt, dass du diese Person getroffen hast.",
     ),
-    "left to confirm": ("pour confirmer", "noch zum Bestätigen"),
+    "left to confirm": ("restant pour confirmer", "verbleibend zum Bestätigen"),
     "Did you meet in person?": (
         "Vous êtes-vous rencontrés en personne ?",
         "Habt ihr euch persönlich getroffen?",
     ),
+    "See People I've Met": ("Mes rencontres", "Meine Begegnungen"),
 }
 
 
@@ -241,7 +256,8 @@ class RecapTranslationTests(SimpleTestCase):
         for msgid, (fr_text, de_text) in RECAP.items():
             for po, expected in ((fr, fr_text), (de, de_text)):
                 entry = po.find(msgid)
-                if "fuzzy" in entry.flags or entry.msgstr != expected:
+                stale = entry.previous_msgid is not None
+                if "fuzzy" in entry.flags or stale or entry.msgstr != expected:
                     wrong.append((msgid, entry.msgstr, entry.flags))
         self.assertEqual(wrong, [])
 

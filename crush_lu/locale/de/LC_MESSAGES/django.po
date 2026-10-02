@@ -20848,7 +20848,7 @@ msgstr "Einfache, ehrliche Preise"
 #: templates/crush_lu/crush_connect.html:217
 msgid "Join free, upgrade when you want your own coach. Cancel anytime."
 msgstr ""
-"Tritt kostenlos bei und upgrade, wenn Du Deinen eigenen Coach willst. "
+"Tritt kostenlos bei und upgrade, wenn du deinen eigenen Coach willst. "
 "Jederzeit kündbar."
 
 #: templates/crush_lu/crush_connect.html:222
@@ -26553,7 +26553,7 @@ msgstr ""
 
 #: templates/crush_lu/event_lobby/recap.html:32
 msgid "left to confirm"
-msgstr "noch zum Bestätigen"
+msgstr "verbleibend zum Bestätigen"
 
 #: templates/crush_lu/event_lobby/recap.html:36
 msgid "people from the event believe you met."
@@ -26567,8 +26567,6 @@ msgstr ""
 
 #: templates/crush_lu/event_lobby/recap.html:55
 #: templates/crush_lu/event_lobby/recap.html:104
-#, fuzzy
-#| msgid "People I've Met"
 msgid "See People I've Met"
 msgstr "Meine Begegnungen"
 

@@ -276,7 +276,7 @@
                 <ul class="about-feature-list">
                     <li>{% trans "SMS verification confirms your phone number" %}</li>
                     <li>{% trans "In-person verification by a coach when you attend an event" %}</li>
-                    <li>{% trans "Or instant verification with LuxID, Luxembourg's official login" %}</li>
+                    {% if luxid_offered %}<li>{% trans "Or instant verification with LuxID, Luxembourg's official login" %}</li>{% endif %}
                     <li>{% trans "Crush Connect only matches verified members — real people only" %}</li>
                     <li>{% trans "No bots, no catfishing, no fake accounts" %}</li>
                 </ul>
