@@ -28,7 +28,7 @@ from crush_lu.models.profiles import (
     PremiumMembership,
     UserDataConsent,
 )
-from crush_lu.services.sumup import SumUpClient, SumUpConfigurationError
+from crush_lu.services.sumup import SumUpClient, SumUpConfigurationError, SumUpError
 
 User = get_user_model()
 
@@ -107,6 +107,7 @@ class PremiumCheckoutLockTests(TestCase):
         self.sumup["create_customer"].side_effect = None
         self.sumup["create_customer"].return_value = {}
         self.remote = {}
+        self.description = f"Crush Connect Premium - Coach {self.coach}"
         self.sumup["get_checkout"].side_effect = lambda checkout_id: dict(
             self.remote[checkout_id]
         )
@@ -120,6 +121,7 @@ class PremiumCheckoutLockTests(TestCase):
                 "status": "PENDING",
                 "amount": kwargs["amount"],
                 "currency": kwargs["currency"],
+                "description": kwargs["description"],
             }
             return {"id": checkout_id, "status": "PENDING"}
 
@@ -142,6 +144,7 @@ class PremiumCheckoutLockTests(TestCase):
             "status": status,
             "amount": float(amount),
             "currency": "EUR",
+            "description": self.description,
         }
         return row
 
@@ -192,7 +195,7 @@ class PremiumCheckoutLockTests(TestCase):
         self.assertEqual(deactivated, {"CHK_OLD", "CHK_STALE_PRICE"})
         for row in (older, newest):
             row.refresh_from_db()
-            self.assertIn("Retired by a newer premium checkout", row.failure_reason)
+            self.assertIn("Retired while settling", row.failure_reason)
 
     def test_reuse_retires_the_older_checkouts(self):
         self._pending_row("CHK_OLD")
@@ -341,6 +344,134 @@ class PremiumCheckoutLockTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(locked, ["PaymentTransaction", "PremiumMembership"])
+
+    def _deactivate_ok(self):
+        self.sumup["deactivate_checkout"].side_effect = None
+        self.sumup["deactivate_checkout"].return_value = True
+
+    def test_retirement_is_recorded_when_create_checkout_fails(self):
+        """A checkout already closed at SumUp must not stay PENDING locally."""
+        self._pending_row("CHK_OLD")
+        self._pending_row("CHK_STALE", amount="15.00")
+        self._deactivate_ok()
+        self.sumup["create_checkout"].side_effect = SumUpError("boom")
+
+        with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+            response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(
+            self._statuses(), {"CHK_OLD": "cancelled", "CHK_STALE": "cancelled"}
+        )
+
+    def test_retirement_is_recorded_when_checkout_id_is_missing(self):
+        self._pending_row("CHK_STALE", status="EXPIRED")
+        self._deactivate_ok()
+        self.sumup["create_checkout"].side_effect = lambda **kw: {}
+
+        response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(self._statuses(), {"CHK_STALE": "cancelled"})
+
+    def test_successful_newest_checkout_is_a_received_payment(self):
+        self._pending_row("CHK_DONE", status="SUCCESSFUL")
+
+        with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+            response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("already received a payment", response.json()["error"])
+        self.sumup["deactivate_checkout"].assert_not_called()
+
+    def test_successful_older_checkout_is_a_received_payment(self):
+        self._pending_row("CHK_OLD_DONE", status="SUCCESSFUL")
+        self._pending_row("CHK_NEWEST", status="EXPIRED")
+        self.sumup["deactivate_checkout"].side_effect = lambda checkout_id: (
+            checkout_id != "CHK_OLD_DONE"
+        )
+
+        with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+            response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("already received a payment", response.json()["error"])
+        self.assertEqual(self._statuses()["CHK_OLD_DONE"], "pending")
+
+    def test_unreadable_newest_checkout_is_left_open(self):
+        """A transient read error must not DELETE a possibly live checkout."""
+        self._pending_row("CHK_LIVE")
+        self.sumup["get_checkout"].side_effect = SumUpError("timeout")
+
+        with self.assertLogs("crush_lu.views_payments", level="WARNING"):
+            response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("could not be closed", response.json()["error"])
+        self.sumup["deactivate_checkout"].assert_not_called()
+        self.assertEqual(self.created, [])
+        self.assertEqual(self._statuses(), {"CHK_LIVE": "pending"})
+
+    def test_paid_older_checkout_closes_the_reusable_newest_one(self):
+        """Once SumUp holds a capture, no checkout may stay payable."""
+        self._pending_row("CHK_OLD_PAID", status="PAID")
+        self._pending_row("CHK_NEWEST")
+        self.sumup["deactivate_checkout"].side_effect = lambda checkout_id: (
+            checkout_id != "CHK_OLD_PAID"
+        )
+
+        with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+            response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("already received a payment", response.json()["error"])
+        self.assertEqual(
+            self._statuses(), {"CHK_OLD_PAID": "pending", "CHK_NEWEST": "cancelled"}
+        )
+        row = PaymentTransaction.objects.get(sumup_checkout_id="CHK_NEWEST")
+        self.assertNotIn("newer", row.failure_reason)
+
+    def test_refused_delete_reads_the_checkout_once(self):
+        self._pending_row("CHK_OLD_PAID", status="PAID")
+        self._pending_row("CHK_NEWEST", status="EXPIRED")
+        self.sumup["deactivate_checkout"].side_effect = lambda checkout_id: (
+            checkout_id != "CHK_OLD_PAID"
+        )
+
+        with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+            self.client.post(self.url)
+
+        reads = [c.args[0] for c in self.sumup["get_checkout"].call_args_list]
+        self.assertEqual(reads.count("CHK_OLD_PAID"), 1)
+
+    def test_checkout_naming_a_previous_coach_is_not_reused(self):
+        self._pending_row("CHK_OLD_COACH")
+        self.remote["CHK_OLD_COACH"]["description"] = "Crush Connect Premium - Coach X"
+        self._deactivate_ok()
+
+        response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["checkout_id"], "CHK_NEW_1")
+        self.assertEqual(
+            self._statuses(), {"CHK_OLD_COACH": "cancelled", "CHK_NEW_1": "pending"}
+        )
+
+    def test_retiring_stops_when_the_time_budget_runs_out(self):
+        for n in range(3):
+            self._pending_row(f"CHK_LEGACY_{n}", status="EXPIRED")
+        self._deactivate_ok()
+        ticks = iter([0, 0, 0, 31, 31, 31])
+
+        with patch(
+            "crush_lu.views_payments._monotonic", side_effect=lambda: next(ticks)
+        ), self.assertLogs("crush_lu.views_payments", level="WARNING"):
+            response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(self.sumup["deactivate_checkout"].call_count, 2)
+        self.assertEqual(list(self._statuses().values()).count("cancelled"), 2)
+        self.assertEqual(self.created, [])
 
 
 class PremiumCheckoutLockOrderTests(TestCase):

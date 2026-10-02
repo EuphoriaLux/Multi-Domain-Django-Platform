@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 import uuid
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from functools import partial
@@ -41,6 +42,7 @@ from crush_lu.services.credits import (
     settle_pending_resale_credit,
 )
 from crush_lu.services.sumup import (
+    CLOSED_CHECKOUT_STATUSES,
     SumUpClient,
     SumUpConfigurationError,
     SumUpError,
@@ -690,31 +692,54 @@ def create_sumup_event_checkout(request, registration_id):
 
 
 _PREMIUM_CHECKOUT_RETIRED_REASON = (
-    "Retired by a newer premium checkout — deactivated at SumUp before any card "
-    "was charged, so only one checkout per membership stays payable."
+    "Retired while settling this membership's checkouts — deactivated at SumUp "
+    "before any card was charged, so at most one checkout stays payable."
 )
 _PREMIUM_CHECKOUT_ABANDONED_REASON = (
     "Retired because the membership stopped being pending — deactivated at "
     "SumUp before any card was charged."
 )
-# Old rows closed per click; the rest wait for the next click (#925 D6).
+# Old rows closed per click; the rest wait for the next click (#925 D6). The
+# time budget keeps a slow SumUp (10 s timeouts) well under gunicorn's 120 s.
 _PREMIUM_CHECKOUT_RETIRE_LIMIT = 10
+_PREMIUM_CHECKOUT_RETIRE_BUDGET_SECONDS = 30
+_monotonic = time.monotonic  # patched by tests
+_SUMUP_PAID_STATUSES = frozenset({"PAID", "SUCCESSFUL"})
 
 
-def _reusable_premium_checkout(row, remote, *, amount, customer_id):
+def _sumup_status(remote):
+    return (remote.get("status") or "").upper()
+
+
+def _premium_payment_received_response():
+    return JsonResponse(
+        {
+            "error": _(
+                "We have already received a payment for this membership. "
+                "Please contact support@crush.lu so we can finish setting "
+                "it up."
+            )
+        },
+        status=409,
+    )
+
+
+def _reusable_premium_checkout(row, remote, *, amount, customer_id, description):
     """True when ``row`` can be handed out again instead of opening another.
 
-    Only a checkout SumUp still reports as PENDING, for the price and customer
-    this request would use, qualifies: a stale price or another opener's
-    tokenised customer must be retired, not reused.
+    Only a checkout SumUp still reports as PENDING, for the price, customer and
+    coach description this request would use, qualifies: a stale price,
+    another opener's tokenised customer or a receipt naming the previous coach
+    must be retired, not reused.
     """
     try:
         remote_amount = Decimal(str(remote.get("amount")))
     except (ArithmeticError, TypeError, ValueError):
         return False
     return (
-        (remote.get("status") or "").upper() == "PENDING"
+        _sumup_status(remote) == "PENDING"
         and remote_amount == amount
+        and remote.get("description") == description
         and (remote.get("currency") or "").upper() == "EUR"
         and row.amount == amount
         and row.currency == "EUR"
@@ -725,30 +750,37 @@ def _reusable_premium_checkout(row, remote, *, amount, customer_id):
 def _close_premium_checkout(client, checkout_id):
     """``"closed"``, ``"paid"`` or ``"open"`` for one checkout at SumUp.
 
-    Any SumUpError (including a missing API key) counts as ``"open"`` so the
-    caller answers with its JSON refusal instead of a 500.
+    Same proof as ``ensure_checkout_not_payable`` (a DELETE, else one read),
+    but that single read also tells a captured checkout apart. Any SumUpError
+    (including a missing API key) counts as ``"open"`` so the caller answers
+    with its JSON refusal instead of a 500.
     """
     try:
-        if client.ensure_checkout_not_payable(checkout_id):
+        if client.deactivate_checkout(checkout_id):
             return "closed"
-        remote = client.get_checkout(checkout_id)
+        status = _sumup_status(client.get_checkout(checkout_id))
     except SumUpError:
         return "open"
-    return "paid" if (remote.get("status") or "").upper() == "PAID" else "open"
+    if status in _SUMUP_PAID_STATUSES:
+        return "paid"
+    return "closed" if status in CLOSED_CHECKOUT_STATUSES else "open"
 
 
-def _settle_pending_premium_checkouts(client, membership, *, amount, customer_id):
+def _settle_pending_premium_checkouts(
+    client, membership, *, amount, customer_id, description
+):
     """Reuse or retire this membership's PENDING checkouts (#925 D6).
 
     Network phase, no lock held. Every click used to insert another payable
     checkout, so a member who opened the page twice could be charged twice.
     The newest one is reused when SumUp still reports it payable on the same
     terms (read-only ``get_checkout``); every other one is closed with
-    ``ensure_checkout_not_payable``, which never reports a PAID checkout as
+    _close_premium_checkout, which never reports a captured checkout as
     closed. Returns ``(state, reuse_row, retired_ids, known_ids)`` where
     ``state`` is ``"ok"``, ``"paid"`` (SumUp captured one -- leave it to
-    _apply_paid_checkout / reconciliation) or ``"open"`` (one could not be
-    proven closed, or more than _PREMIUM_CHECKOUT_RETIRE_LIMIT were pending).
+    _apply_paid_checkout / reconciliation, but still close the others) or
+    ``"open"`` (one could not be proven closed, the newest one's state is
+    unknown, or the per-click count or time budget ran out).
     """
     pending = list(
         PaymentTransaction.objects.filter(
@@ -757,26 +789,46 @@ def _settle_pending_premium_checkouts(client, membership, *, amount, customer_id
         ).order_by("-created_at", "-pk")
     )
     known_ids = {row.pk for row in pending}
-    reuse_row, retired_ids = None, set()
+    reuse_row, retired_ids, paid = None, set(), False
+    deadline = _monotonic() + _PREMIUM_CHECKOUT_RETIRE_BUDGET_SECONDS
     for index, row in enumerate(r for r in pending if r.sumup_checkout_id):
         if index == 0:
             try:
                 remote = client.get_checkout(row.sumup_checkout_id)
             except SumUpError:
-                remote = {}
-            if (remote.get("status") or "").upper() == "PAID":
-                return "paid", None, retired_ids, known_ids
+                # Possibly live (mid-3DS in another tab): never close it blind.
+                return "open", None, retired_ids, known_ids
+            if _sumup_status(remote) in _SUMUP_PAID_STATUSES:
+                paid = True
+                continue
             if _reusable_premium_checkout(
-                row, remote, amount=amount, customer_id=customer_id
+                row,
+                remote,
+                amount=amount,
+                customer_id=customer_id,
+                description=description,
             ):
                 reuse_row = row
                 continue
-        if len(retired_ids) >= _PREMIUM_CHECKOUT_RETIRE_LIMIT:
-            return "open", None, retired_ids, known_ids
+        if (
+            len(retired_ids) >= _PREMIUM_CHECKOUT_RETIRE_LIMIT
+            or _monotonic() > deadline
+        ):
+            return "paid" if paid else "open", None, retired_ids, known_ids
         outcome = _close_premium_checkout(client, row.sumup_checkout_id)
-        if outcome != "closed":
-            return outcome, None, retired_ids, known_ids
-        retired_ids.add(row.pk)
+        if outcome == "paid":
+            paid = True
+        elif outcome != "closed":
+            return "paid" if paid else "open", None, retired_ids, known_ids
+        else:
+            retired_ids.add(row.pk)
+    if paid:
+        # A capture exists: the kept newest checkout must not take a second one.
+        if reuse_row is not None and (
+            _close_premium_checkout(client, reuse_row.sumup_checkout_id) == "closed"
+        ):
+            retired_ids.add(reuse_row.pk)
+        return "paid", None, retired_ids, known_ids
     return "ok", reuse_row, retired_ids, known_ids
 
 
@@ -855,16 +907,7 @@ def create_sumup_premium_checkout(request, membership_id):
             membership.id,
             membership.user_id,
         )
-        return JsonResponse(
-            {
-                "error": _(
-                    "We have already received a payment for this membership. "
-                    "Please contact support@crush.lu so we can finish setting "
-                    "it up."
-                )
-            },
-            status=409,
-        )
+        return _premium_payment_received_response()
 
     # Ask the beta allowlist again, here, at the moment money is about to move.
     # views_premium checks it when the pending membership is MINTED, and nothing
@@ -889,14 +932,21 @@ def create_sumup_premium_checkout(request, membership_id):
     fee = getattr(settings, "SUMUP_PREMIUM_MONTHLY_FEE", 10.00)
     amount = Decimal(str(fee))
     sumup_customer_id = f"crush-user-{request.user.id}"
+    description = f"Crush Connect Premium - Coach {membership.coach}"
     client = SumUpClient()
 
     # At most one payable checkout per membership (#925 D6): reuse the newest
     # one or close the older ones before a new one can exist.
     state, reuse_row, retired_ids, known_ids = _settle_pending_premium_checkouts(
-        client, membership, amount=amount, customer_id=sumup_customer_id
+        client,
+        membership,
+        amount=amount,
+        customer_id=sumup_customer_id,
+        description=description,
     )
-    if state != "ok" and retired_ids:
+    # Record every checkout SumUp closed now, whatever happens next: an early
+    # return below must not leave closed checkouts PENDING for the sweep.
+    if retired_ids:
         with transaction.atomic():
             _lock_premium_checkout_state(membership.pk, retired_ids)
     if state == "paid":
@@ -907,16 +957,7 @@ def create_sumup_premium_checkout(request, membership_id):
             membership.id,
             membership.user_id,
         )
-        return JsonResponse(
-            {
-                "error": _(
-                    "We have already received a payment for this membership. "
-                    "Please contact support@crush.lu so we can finish setting "
-                    "it up."
-                )
-            },
-            status=409,
-        )
+        return _premium_payment_received_response()
     if state == "open":
         logger.warning(
             "Could not close every earlier checkout for premium membership %s",
@@ -937,7 +978,6 @@ def create_sumup_premium_checkout(request, membership_id):
         checkout_id = reuse_row.sumup_checkout_id
     else:
         checkout_ref = f"CRUSH-PREM-{membership.id}-{uuid.uuid4().hex[:6]}"
-        description = f"Crush Connect Premium - Coach {membership.coach}"
         return_url = request.build_absolute_uri(
             f"/payments/sumup/return/?ref={checkout_ref}"
         )
@@ -985,7 +1025,7 @@ def create_sumup_premium_checkout(request, membership_id):
     # paid it, or another click published its own checkout in between.
     with transaction.atomic():
         locked_membership, still_pending = _lock_premium_checkout_state(
-            membership.pk, retired_ids
+            membership.pk, set()
         )
         pending_ids = {row.pk for row in still_pending}
         error, not_pending = None, False
