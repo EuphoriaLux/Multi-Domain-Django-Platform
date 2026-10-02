@@ -206,7 +206,9 @@ def _record_window_deadline(cache_key, period_seconds):
     counter's add(), a full-period token outlived it, so a release could see
     the old token on a counter a new window had already re-created, and its
     decrement took a slot from that window without being given back. A token
-    that is gone first makes that release a no-op, which only costs a slot."""
+    that is gone first makes that release a no-op, which only costs a slot.
+    A 1-second period ('1s') cannot expire the token early (the TTL floor is
+    1), so this guard does nothing there; no rate uses an 's' period."""
     token = uuid.uuid4().hex
     cache.set(_generation_key(cache_key), token, max(1, period_seconds - 1))
     cache.set(
@@ -245,7 +247,9 @@ def _count_request(cache_key, period_seconds):
 
     ``generation`` is the token of the window the increment landed in, or
     None when that cannot be established (see below), in which case the slot
-    is never released.
+    is never released. That includes a request counted in its window's last
+    second, after the token (which expires a second early) is already gone:
+    such a reservation is never released.
 
     add() creates the counter, with the window's expiry, only if it is absent,
     and incr() returns the incremented value, so concurrent requests each get

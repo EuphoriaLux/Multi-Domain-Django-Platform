@@ -500,7 +500,13 @@ class RateLimitDecoratorTests(SimpleTestCase):
         # the counter expired could then decrement a counter a new window had
         # re-created (before that window recorded its own token), and the
         # still-old token hid it: the new window got a free request.
+        from django.core.cache import caches
+        from django.core.cache.backends.locmem import LocMemCache
+
         from crush_lu.decorators import _record_window_deadline, _release_request
+
+        if not isinstance(caches["default"], LocMemCache):
+            self.skipTest("drives LocMemCache expiry internals")
 
         key = "ratelimit:rollover:expiry"
         internal_key = cache.make_key(key)
