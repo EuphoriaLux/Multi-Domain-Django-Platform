@@ -103,6 +103,8 @@ def _alert_staff_safely(case):
         ):
             case.staff_alerted_at = timezone.now()
             case.save(update_fields=["staff_alerted_at"])
+        else:
+            logger.warning("Premium recovery staff alert not sent: case %s", case.pk)
     except Exception as exc:
         logger.error(
             "Failed to send Premium recovery staff alert for case %s: %s",

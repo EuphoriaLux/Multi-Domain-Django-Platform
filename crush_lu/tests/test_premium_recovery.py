@@ -471,7 +471,7 @@ class PendingVerificationNoticeTests(_Base):
 
 
 class AdminVisibilityTests(_Base):
-    def test_case_is_registered_read_only_on_the_coach_panel(self):
+    def test_case_is_registered_on_the_coach_panel(self):
         from crush_lu.admin import crush_admin_site
 
         model_admin = crush_admin_site._registry[PremiumPaymentRecoveryCase]
@@ -496,6 +496,102 @@ class AdminVisibilityTests(_Base):
         response = client.get("/crush-admin/crush_lu/premiumpaymentrecoverycase/")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "REC-ADMIN")
+
+
+class CaseLifecycleTests(_Base):
+    """Review of #925 PR 1/3: a case must be resolvable, and an old case must
+    not take over a member's later, unrelated Premium request."""
+
+    def _case(self, ref, membership, reason=Reason.COACH_UNAVAILABLE):
+        return PremiumPaymentRecoveryCase.objects.create(
+            payment=self._tx(ref, status=PaymentTransaction.Status.PAID),
+            user=self.member,
+            premium_membership=membership,
+            reason=reason,
+        )
+
+    def _member_client(self):
+        self.profile.verification_status = "verified"
+        self.profile.save(update_fields=["verification_status"])
+        client = Client(HTTP_HOST="crush.lu")
+        client.force_login(self.member)
+        return client
+
+    def test_staff_can_resolve_a_case_but_not_rewrite_it(self):
+        case = self._case("REC-RESOLVE", self.membership)
+        admin = User.objects.create_superuser(
+            username="rec-staff@example.invalid",
+            email="rec-staff@example.invalid",
+            password="pass12345",
+        )
+        client = Client(HTTP_HOST="crush.lu")
+        client.force_login(admin)
+        url = f"/crush-admin/crush_lu/premiumpaymentrecoverycase/{case.pk}/change/"
+        response = client.post(
+            url, {"status": "resolved", "reason": "other", "detail": "x"}
+        )
+        self.assertEqual(response.status_code, 302, response.content[:500])
+        case.refresh_from_db()
+        self.assertEqual(case.status, PremiumPaymentRecoveryCase.Status.RESOLVED)
+        self.assertEqual(case.reason, Reason.COACH_UNAVAILABLE)
+        self.assertEqual(case.detail, "")
+
+    def test_payment_and_claim_admins_stay_read_only(self):
+        from crush_lu.admin import crush_admin_site
+        from crush_lu.models.payments import EventCheckoutCreationClaim
+
+        for model in (PaymentTransaction, EventCheckoutCreationClaim):
+            self.assertFalse(
+                crush_admin_site._registry[model].has_change_permission(None), model
+            )
+
+    def test_case_on_old_cancelled_request_does_not_hide_a_new_one(self):
+        self.membership.status = "cancelled"
+        self.membership.save(update_fields=["status"])
+        self._case("REC-OLD", self.membership, Reason.REQUEST_CANCELLED)
+        PremiumMembership.objects.create(
+            user=self.member, coach=self.coach, status="pending"
+        )
+        client = self._member_client()
+        for path in ("/en/dashboard/", "/en/membership/"):
+            html = client.get(path).content.decode()
+            self.assertNotIn('data-testid="premium-recovery-notice"', html, path)
+
+    def test_case_with_deleted_membership_still_shows(self):
+        self._case("REC-NULL", None, Reason.OTHER)
+        html = self._member_client().get("/en/dashboard/").content.decode()
+        self.assertIn('data-testid="premium-recovery-notice"', html)
+
+    def test_active_member_with_duplicate_case_keeps_your_plan(self):
+        self.membership.status = "active"
+        self.membership.save(update_fields=["status"])
+        self._case("REC-PLAN", self.membership, Reason.DUPLICATE_CAPTURE)
+        html = self._member_client().get("/en/membership/").content.decode()
+        card = re.search(r'id="premium-plan".*?</section>', html, re.S).group(0)
+        self.assertIn("Your plan", card)
+
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
+    def test_duplicate_capture_after_beta_revocation_is_duplicate(self):
+        self.membership.status = "active"
+        self.membership.save(update_fields=["status"])
+        tx = self._tx("REC-DUP-BETA")
+        with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+            self._apply(tx)
+        case = PremiumPaymentRecoveryCase.objects.get(payment=tx)
+        self.assertEqual(case.reason, Reason.DUPLICATE_CAPTURE)
+
+    def test_unsent_staff_alert_is_logged(self):
+        self._fill_the_coach()
+        tx = self._tx("REC-NOSEND")
+        with patch("azureproject.email_utils.send_domain_email", return_value=0):
+            with self.assertLogs(
+                "crush_lu.services.premium_recovery", "WARNING"
+            ) as logs:
+                with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+                    self._apply(tx)
+        self.assertIn("staff alert not sent", "\n".join(logs.output))
+        case = PremiumPaymentRecoveryCase.objects.get(payment=tx)
+        self.assertIsNone(case.staff_alerted_at)
 
 
 class RecoveryLockOrderTests(TestCase):

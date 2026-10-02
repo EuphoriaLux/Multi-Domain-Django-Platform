@@ -1715,7 +1715,12 @@ def _apply_paid_checkout(tx_obj, data):
                     pm.coach_id,
                 )
                 _queue_premium_recovery_case(
-                    locked, PremiumPaymentRecoveryCase.Reason.BETA_REVOKED
+                    locked,
+                    (
+                        PremiumPaymentRecoveryCase.Reason.BETA_REVOKED
+                        if pm.status == "pending"
+                        else premium_recovery.reason_for_membership_status(pm.status)
+                    ),
                 )
                 return
 

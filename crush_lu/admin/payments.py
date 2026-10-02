@@ -439,7 +439,7 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
 
 
 class PremiumPaymentRecoveryCaseAdmin(admin.ModelAdmin):
-    """Read-only: cases are opened by ``_apply_paid_checkout`` (#925)."""
+    """Opened by ``_apply_paid_checkout`` (#925); staff may only set status."""
 
     list_display = (
         "payment",
@@ -454,12 +454,12 @@ class PremiumPaymentRecoveryCaseAdmin(admin.ModelAdmin):
     search_fields = ("payment__transaction_reference", "user__email")
     ordering = ("-created_at",)
     list_select_related = ("payment", "user")
-    readonly_fields = list_display + ("premium_membership", "detail")
+    readonly_fields = tuple(f for f in list_display if f != "status") + (
+        "premium_membership",
+        "detail",
+    )
 
     def has_add_permission(self, request):
-        return False
-
-    def has_change_permission(self, request, obj=None):
         return False
 
     def has_delete_permission(self, request, obj=None):
