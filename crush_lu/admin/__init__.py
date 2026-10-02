@@ -226,7 +226,11 @@ from .event_lobby import (
 
 from .metrics import WeeklyMetricsSnapshotAdmin
 
-from .payments import EventCheckoutCreationClaimAdmin, PaymentTransactionAdmin
+from .payments import (
+    EventCheckoutCreationClaimAdmin,
+    PaymentTransactionAdmin,
+    PremiumPaymentRecoveryCaseAdmin,
+)
 
 from .credits import (
     CashRefundQueueFilter,
@@ -364,6 +368,7 @@ from crush_lu.models import (
     WeeklyMetricsSnapshot,
     EventCheckoutCreationClaim,
     PaymentTransaction,
+    PremiumPaymentRecoveryCase,
     CrushCredit,
     CreditRedemption,
     UserReport,
@@ -409,6 +414,7 @@ crush_admin_site.register(EventFeedback, EventFeedbackAdmin)
 # Payments (SumUp) — event fees and Connect Premium in one place
 crush_admin_site.register(PaymentTransaction, PaymentTransactionAdmin)
 crush_admin_site.register(EventCheckoutCreationClaim, EventCheckoutCreationClaimAdmin)
+crush_admin_site.register(PremiumPaymentRecoveryCase, PremiumPaymentRecoveryCaseAdmin)
 
 # Crush Credit — the store-credit ledger that replaced cash refunds
 crush_admin_site.register(CrushCredit, CrushCreditAdmin)

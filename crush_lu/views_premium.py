@@ -77,6 +77,25 @@ def pending_premium_state(user):
     return "manage" if _premium_purchase_refused(pending) else "complete"
 
 
+def open_recovery_case(user):
+    """The member's OPEN PremiumPaymentRecoveryCase, or None (#925).
+
+    While one is open the money is with us and not applied, so member pages
+    show the D1 notice instead of any pay CTA.
+    """
+    from .models import PremiumPaymentRecoveryCase
+
+    if not user.is_authenticated:
+        return None
+    return (
+        PremiumPaymentRecoveryCase.objects.filter(
+            user=user, status=PremiumPaymentRecoveryCase.Status.OPEN
+        )
+        .select_related("payment")
+        .first()
+    )
+
+
 def _available_coaches():
     """Coaches open to new premium members and not yet at capacity.
 

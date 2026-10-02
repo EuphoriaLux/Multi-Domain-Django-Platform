@@ -31,3 +31,4 @@ from .echo_lu import *
 from .crush_connect_cycle import *
 from .custom_sms import *
 from .email_delivery import *
+from .premium_recovery import PremiumPaymentRecoveryCase  # noqa: F401

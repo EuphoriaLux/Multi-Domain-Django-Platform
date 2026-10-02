@@ -67,7 +67,10 @@
                     <li class="flex items-start gap-2 text-gray-700 dark:text-gray-300"><span class="text-crush-purple dark:text-purple-300" aria-hidden="true">✓</span> {% trans "Reserved event seats" %}</li>
                     <li class="flex items-start gap-2 font-semibold text-gray-900 dark:text-white"><span class="text-crush-purple dark:text-purple-300" aria-hidden="true">★</span> {% trans "Crush Connect — Connect Week + human Coach Pick" %}</li>
                 </ul>
-                {% if is_premium %}
+                {% if premium_recovery_case %}
+                {# #925: payment captured, not applied -- D1 notice, never a pay CTA #}
+                {% include "crush_lu/partials/_premium_recovery_notice.html" %}
+                {% elif is_premium %}
                 <span class="inline-flex items-center justify-center w-full py-2.5 rounded-xl bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-sm font-semibold">✓ {% trans "Your plan" %}</span>
                 {% elif suppress_native_commerce %}
                 <p class="text-sm text-muted-fg text-center" data-testid="premium-outside-app">{% trans "Available outside the mobile app" %}</p>

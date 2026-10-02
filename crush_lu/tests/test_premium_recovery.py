@@ -1,0 +1,447 @@
+"""#925: a captured Premium payment that is NOT applied opens a recovery case.
+
+PR 1/3: the durable case, created on commit and idempotently; the member
+notice (pages + email) and the staff alert. No SumUp call is ever allowed:
+the client and the socket layer are patched to fail loudly.
+
+Spec: ai-memory-hub/specs/2026-09-13-crush-premium-payment-recovery.md
+"""
+
+import inspect
+import re
+from decimal import Decimal
+from unittest.mock import patch
+
+from django.contrib.auth import get_user_model
+from django.core import mail
+from django.core.cache import cache
+from django.test import Client, TestCase, override_settings
+
+from crush_lu.models import (
+    CrushCoach,
+    CrushProfile,
+    PremiumMembership,
+    PremiumPaymentRecoveryCase,
+)
+from crush_lu.models.payments import PaymentTransaction
+from crush_lu.models.profiles import UserDataConsent
+from crush_lu.views_payments import _apply_paid_checkout
+
+User = get_user_model()
+Reason = PremiumPaymentRecoveryCase.Reason
+
+ALERT = "alerts@example.invalid"
+D1_START = "We received your payment of"
+
+
+@override_settings(PREMIUM_REDIRECTS_TO_BETA=False, PREMIUM_RECOVERY_ALERT_EMAIL=ALERT)
+class _Base(TestCase):
+    def setUp(self):
+        cache.clear()
+        no_network = self.enterContext(
+            patch(
+                "socket.socket.connect",
+                side_effect=AssertionError("premium recovery must not hit the net"),
+            )
+        )
+        self.addCleanup(no_network.assert_not_called)
+        sumup = self.enterContext(
+            patch(
+                "crush_lu.views_payments.SumUpClient",
+                side_effect=AssertionError("SumUp must not be called"),
+            )
+        )
+        self.addCleanup(sumup.assert_not_called)
+        self.member = User.objects.create_user(
+            username="rec-member@example.invalid",
+            email="rec-member@example.invalid",
+            password="pass12345",
+            first_name="Mia",
+        )
+        UserDataConsent.objects.update_or_create(
+            user=self.member,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        self.profile = CrushProfile.objects.create(
+            user=self.member, gender="F", location="Luxembourg"
+        )
+        coach_user = User.objects.create_user(
+            username="rec-coach@example.invalid",
+            email="rec-coach@example.invalid",
+            password="pass12345",
+        )
+        self.coach = CrushCoach.objects.create(
+            user=coach_user,
+            is_active=True,
+            accepting_premium=True,
+            max_premium_members=1,
+        )
+        self.membership = PremiumMembership.objects.create(
+            user=self.member, coach=self.coach, status="pending"
+        )
+
+    def _tx(self, ref, status=PaymentTransaction.Status.PENDING):
+        return PaymentTransaction.objects.create(
+            transaction_reference=ref,
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id=f"CHK_{ref}",
+            amount=Decimal("10.00"),
+            currency="EUR",
+            status=status,
+            purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+            user=self.member,
+            premium_membership=self.membership,
+        )
+
+    def _apply(self, tx):
+        with self.captureOnCommitCallbacks(execute=True):
+            _apply_paid_checkout(tx, {"status": "PAID"})
+        tx.refresh_from_db()
+
+    def _fill_the_coach(self):
+        rival = User.objects.create_user(
+            username="rec-rival@example.invalid", password="pass12345"
+        )
+        CrushProfile.objects.create(user=rival, gender="M")
+        PremiumMembership.objects.create(
+            user=rival, coach=self.coach, status="active", payment_confirmed=True
+        )
+
+    def _alerts(self):
+        return [m for m in mail.outbox if m.to == [ALERT]]
+
+    def _member_mails(self):
+        return [m for m in mail.outbox if m.to == [self.member.email]]
+
+
+class FailurePathCaseTests(_Base):
+    def _assert_one_case(self, tx, reason):
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+        cases = list(PremiumPaymentRecoveryCase.objects.all())
+        self.assertEqual(len(cases), 1)
+        case = cases[0]
+        self.assertEqual(case.payment_id, tx.pk)
+        self.assertEqual(case.reason, reason)
+        self.assertEqual(case.status, PremiumPaymentRecoveryCase.Status.OPEN)
+        self.assertEqual(case.user_id, self.member.pk)
+        self.assertEqual(case.premium_membership_id, self.membership.pk)
+        return case
+
+    def test_coach_full_opens_coach_unavailable_case(self):
+        tx = self._tx("REC-FULL")
+        self._fill_the_coach()
+        with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+            self._apply(tx)
+        self._assert_one_case(tx, Reason.COACH_UNAVAILABLE)
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "pending")
+
+    def test_cancelled_request_opens_request_cancelled_case(self):
+        tx = self._tx("REC-CANC")
+        self.membership.status = "cancelled"
+        self.membership.save(update_fields=["status"])
+        self._apply(tx)
+        self._assert_one_case(tx, Reason.REQUEST_CANCELLED)
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "cancelled")
+
+    def test_second_capture_opens_duplicate_capture_case(self):
+        first = self._tx("REC-DUP-1")
+        second = self._tx("REC-DUP-2")
+        self._apply(first)
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "active")
+        self.assertFalse(PremiumPaymentRecoveryCase.objects.exists())
+        mail.outbox.clear()
+
+        self._apply(second)
+        self._assert_one_case(second, Reason.DUPLICATE_CAPTURE)
+        # D2: membership untouched.
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "active")
+
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
+    def test_revoked_beta_tester_opens_beta_revoked_case(self):
+        tx = self._tx("REC-BETA")
+        with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+            self._apply(tx)
+        self._assert_one_case(tx, Reason.BETA_REVOKED)
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "pending")
+
+    def test_missing_profile_keeps_paid_and_opens_other_case(self):
+        """confirm() raised CrushProfile.DoesNotExist uncaught, rolling the
+        PAID record back -- the only local trace of a real charge."""
+        self.profile.delete()
+        tx = self._tx("REC-NOPROF")
+        with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+            self._apply(tx)
+        self._assert_one_case(tx, Reason.OTHER)
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "pending")
+
+    def test_successful_confirmation_opens_no_case(self):
+        tx = self._tx("REC-OK")
+        self._apply(tx)
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "active")
+        self.assertFalse(PremiumPaymentRecoveryCase.objects.exists())
+        self.assertEqual(self._alerts(), [])
+
+
+class OnCommitAndIdempotencyTests(_Base):
+    def test_case_is_created_only_after_commit(self):
+        tx = self._tx("REC-COMMIT")
+        self._fill_the_coach()
+        with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+            with self.captureOnCommitCallbacks(execute=False) as callbacks:
+                _apply_paid_checkout(tx, {"status": "PAID"})
+        self.assertFalse(PremiumPaymentRecoveryCase.objects.exists())
+        self.assertEqual(mail.outbox, [])
+        tx.refresh_from_db()
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+
+        for callback in callbacks:
+            callback()
+        self.assertEqual(PremiumPaymentRecoveryCase.objects.count(), 1)
+
+    def test_case_failure_never_rolls_back_paid(self):
+        tx = self._tx("REC-BOOM")
+        self._fill_the_coach()
+        with patch(
+            "crush_lu.models.PremiumPaymentRecoveryCase.objects.get_or_create",
+            side_effect=RuntimeError("db down"),
+        ):
+            with self.assertLogs(level="ERROR") as logs:
+                self._apply(tx)
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+        self.assertTrue(any("recovery case" in line for line in logs.output))
+
+    def test_replay_keeps_one_case_one_member_mail_one_alert(self):
+        from crush_lu.services.premium_recovery import open_case_safely
+
+        tx = self._tx("REC-REPLAY")
+        self._fill_the_coach()
+        with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+            self._apply(tx)
+        # Webhook + browser return replaying the same capture.
+        self._apply(tx)
+        self._apply(tx)
+        # A racing second callback that got past the PAID guard.
+        with self.captureOnCommitCallbacks(execute=True):
+            open_case_safely(tx.pk, Reason.COACH_UNAVAILABLE)
+
+        self.assertEqual(PremiumPaymentRecoveryCase.objects.count(), 1)
+        self.assertEqual(len(self._member_mails()), 1)
+        self.assertEqual(len(self._alerts()), 1)
+
+
+class NotificationTests(_Base):
+    def _case_via_coach_full(self, ref="REC-MAIL"):
+        tx = self._tx(ref)
+        self._fill_the_coach()
+        with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+            self._apply(tx)
+        return tx, PremiumPaymentRecoveryCase.objects.get(payment=tx)
+
+    def test_member_email_carries_d1_and_d5_not_the_receipt(self):
+        tx, case = self._case_via_coach_full()
+        mails = self._member_mails()
+        self.assertEqual(len(mails), 1)
+        body = mails[0].body
+        self.assertIn(D1_START, body)
+        self.assertIn("10.00 EUR", body)
+        self.assertIn(tx.transaction_reference, body)
+        self.assertIn("Please do not pay again.", body)
+        self.assertIn("Our team will contact you about the next step.", body)
+        self.assertNotIn("now active", body)
+        self.assertIsNotNone(case.member_notified_at)
+
+    def test_member_email_uses_preferred_language(self):
+        self.profile.preferred_language = "fr"
+        self.profile.save(update_fields=["preferred_language"])
+        self._case_via_coach_full("REC-FR")
+        body = self._member_mails()[0].body
+        self.assertIn("Nous avons bien reçu votre paiement", body)
+        self.assertIn("Notre équipe vous contactera", body)
+
+    def test_staff_alert_names_reason_member_amount_reference_and_link(self):
+        tx, case = self._case_via_coach_full("REC-ALERT")
+        alerts = self._alerts()
+        self.assertEqual(len(alerts), 1)
+        body = alerts[0].body
+        self.assertIn("Coach unavailable", body)
+        self.assertIn(self.member.email, body)
+        self.assertIn("10.00 EUR", body)
+        self.assertIn(tx.transaction_reference, body)
+        self.assertIn(
+            f"https://crush.lu/crush-admin/crush_lu/premiumpaymentrecoverycase/"
+            f"{case.pk}/change/",
+            body,
+        )
+        self.assertIsNotNone(case.staff_alerted_at)
+
+    @override_settings(PREMIUM_RECOVERY_ALERT_EMAIL="ops@example.invalid")
+    def test_alert_address_is_a_setting(self):
+        self._case_via_coach_full("REC-SETTING")
+        self.assertEqual(
+            [m.to for m in mail.outbox if m.to != [self.member.email]],
+            [["ops@example.invalid"]],
+        )
+
+    def test_mail_failures_are_logged_never_raised(self):
+        tx = self._tx("REC-MAILFAIL")
+        self._fill_the_coach()
+        with patch(
+            "azureproject.email_utils.send_domain_email",
+            side_effect=RuntimeError("graph down"),
+        ), patch(
+            "crush_lu.email_helpers.send_domain_email",
+            side_effect=RuntimeError("graph down"),
+        ):
+            with self.assertLogs(level="ERROR") as logs:
+                self._apply(tx)
+        case = PremiumPaymentRecoveryCase.objects.get(payment=tx)
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+        self.assertIsNone(case.member_notified_at)
+        self.assertIsNone(case.staff_alerted_at)
+        output = "\n".join(logs.output)
+        self.assertIn("recovery notice", output)
+        self.assertIn("staff alert", output)
+
+
+class MemberNoticeTests(_Base):
+    def setUp(self):
+        super().setUp()
+        self.tx = self._tx("REC-PAGE", status=PaymentTransaction.Status.PAID)
+        self.case = PremiumPaymentRecoveryCase.objects.create(
+            payment=self.tx,
+            user=self.member,
+            premium_membership=self.membership,
+            reason=Reason.COACH_UNAVAILABLE,
+        )
+        self.profile.verification_status = "verified"
+        self.profile.save(update_fields=["verification_status"])
+        self.client = Client(HTTP_HOST="crush.lu")
+        self.client.force_login(self.member)
+
+    def _resolve(self):
+        self.case.status = PremiumPaymentRecoveryCase.Status.RESOLVED
+        self.case.save(update_fields=["status"])
+
+    def _notice_shown(self, html):
+        return 'data-testid="premium-recovery-notice"' in html
+
+    def test_dashboard_shows_notice_instead_of_pay_cta(self):
+        html = self.client.get("/en/dashboard/").content.decode()
+        self.assertTrue(self._notice_shown(html))
+        self.assertIn(D1_START, html)
+        self.assertIn("REC-PAGE", html)
+        self.assertIn("Please do not pay again.", html)
+        self.assertNotIn("Go Premium — first month free", html)
+
+    def test_dashboard_hides_notice_once_resolved(self):
+        self._resolve()
+        html = self.client.get("/en/dashboard/").content.decode()
+        self.assertFalse(self._notice_shown(html))
+        self.assertIn("Go Premium — first month free", html)
+
+    def _premium_card(self, html):
+        match = re.search(r'id="premium-plan".*?</section>', html, re.S)
+        self.assertIsNotNone(match, "Premium plan card missing")
+        return match.group(0)
+
+    def test_membership_page_shows_notice_instead_of_pay_cta(self):
+        card = self._premium_card(self.client.get("/en/membership/").content.decode())
+        self.assertTrue(self._notice_shown(card))
+        self.assertIn("REC-PAGE", card)
+        for cta in ("/premium/coaches/", "/crush-connect/", "/support/"):
+            self.assertNotIn(cta, card)
+
+    def test_membership_page_hides_notice_once_resolved(self):
+        self._resolve()
+        html = self.client.get("/en/membership/").content.decode()
+        self.assertFalse(self._notice_shown(html))
+
+    def test_notice_is_translated(self):
+        html = self.client.get("/de/membership/").content.decode()
+        self.assertIn("Wir haben deine Zahlung von", html)
+        self.assertIn("Bitte zahle nicht erneut.", html)
+
+    def test_return_page_shows_d1_notice(self):
+        response = self.client.get(
+            "/payments/sumup/return/", {"ref": "REC-PAGE"}, follow=True
+        )
+        texts = [str(m) for m in response.context["messages"]]
+        self.assertTrue(
+            any(t.startswith(D1_START) and "REC-PAGE" in t for t in texts), texts
+        )
+        self.assertFalse(any("could not activate" in t for t in texts), texts)
+
+    def test_return_page_on_duplicate_capture_does_not_claim_premium(self):
+        self.membership.status = "active"
+        self.membership.save(update_fields=["status"])
+        self.case.reason = Reason.DUPLICATE_CAPTURE
+        self.case.save(update_fields=["reason"])
+        response = self.client.get(
+            "/payments/sumup/return/", {"ref": "REC-PAGE"}, follow=True
+        )
+        texts = [str(m) for m in response.context["messages"]]
+        self.assertTrue(any(t.startswith(D1_START) for t in texts), texts)
+        self.assertFalse(any("You're Premium" in t for t in texts), texts)
+
+
+class AdminVisibilityTests(_Base):
+    def test_case_is_registered_read_only_on_the_coach_panel(self):
+        from crush_lu.admin import crush_admin_site
+
+        model_admin = crush_admin_site._registry[PremiumPaymentRecoveryCase]
+        self.assertIn("reason", model_admin.list_filter)
+        self.assertIn("status", model_admin.list_filter)
+        self.assertFalse(model_admin.has_add_permission(None))
+        self.assertFalse(model_admin.has_delete_permission(None))
+
+    def test_superuser_can_open_the_changelist(self):
+        admin = User.objects.create_superuser(
+            username="rec-admin@example.invalid",
+            email="rec-admin@example.invalid",
+            password="pass12345",
+        )
+        client = Client(HTTP_HOST="crush.lu")
+        client.force_login(admin)
+        PremiumPaymentRecoveryCase.objects.create(
+            payment=self._tx("REC-ADMIN", status=PaymentTransaction.Status.PAID),
+            user=self.member,
+            reason=Reason.OTHER,
+        )
+        response = client.get("/crush-admin/crush_lu/premiumpaymentrecoverycase/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "REC-ADMIN")
+
+
+class RecoveryLockOrderTests(TestCase):
+    """SQLite ignores select_for_update, so lock order is asserted on source.
+
+    Opening a case must add no lock and must not move before the payment lock:
+    PaymentTransaction is locked before CrushProfile (via confirm()), and the
+    case is opened on commit, after every lock is released.
+    """
+
+    def test_payment_lock_precedes_profile_lock_and_case_queueing(self):
+        from crush_lu import views_payments
+
+        src = inspect.getsource(views_payments._apply_paid_checkout)
+        payment = src.index("PaymentTransaction.objects.select_for_update")
+        self.assertLess(payment, src.index("CrushProfile.objects.select_for_update"))
+        self.assertLess(payment, src.index("pm.confirm()"))
+        self.assertLess(payment, src.index("_queue_premium_recovery_case("))
+
+    def test_case_is_opened_on_commit_and_takes_no_lock(self):
+        from crush_lu import views_payments
+        from crush_lu.services import premium_recovery
+
+        queue_src = inspect.getsource(views_payments._queue_premium_recovery_case)
+        self.assertIn("transaction.on_commit(", queue_src)
+        self.assertIsNone(
+            re.search(r"select_for_update", inspect.getsource(premium_recovery))
+        )
