@@ -347,6 +347,13 @@ class LocationSerializer(serializers.ModelSerializer):
             attrs["city"] = attrs["address_town"]
         if instance is None and not attrs.get("city"):
             errors["city"] = "Give a city or the structured town."
+        elif instance is not None and "city" in attrs and not attrs["city"]:
+            # An explicit blank city on update: the legacy field is required, so
+            # fall back to the stored structured town or refuse the blank.
+            if instance.address_town:
+                attrs["city"] = instance.address_town
+            else:
+                errors["city"] = "Give a city or the structured town."
         if instance is not None and max_capacity is not None:
             largest = max(
                 instance.offers.values_list("max_participants", flat=True),

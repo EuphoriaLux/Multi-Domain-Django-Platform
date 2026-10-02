@@ -924,6 +924,30 @@ class PartnerReviewRegressionTests(ThrottleIsolatedTestCase):
             )
             self.assertEqual(response.status_code, 400, field)
 
+    def test_blank_city_falls_back_to_the_stored_town_or_is_rejected(self):
+        with_town = make_partner(city="Luxembourg", address_town="Esch")
+        fallback = self.client.patch(
+            f"/hub/locations/{with_town.pk}", {"city": ""}, format="json"
+        )
+        self.assertEqual(fallback.status_code, 200, fallback.data)
+        self.assertEqual(fallback.data["city"], "Esch")
+
+        without_town = make_partner(name="No town", city="Luxembourg")
+        rejected = self.client.patch(
+            f"/hub/locations/{without_town.pk}", {"city": ""}, format="json"
+        )
+        self.assertEqual(rejected.status_code, 400)
+        self.assertIn("city", rejected.data)
+        without_town.refresh_from_db()
+        self.assertEqual(without_town.city, "Luxembourg")
+
+        # Omitting city leaves it alone.
+        untouched = self.client.patch(
+            f"/hub/locations/{without_town.pk}", {"notes": "hello"}, format="json"
+        )
+        self.assertEqual(untouched.status_code, 200)
+        self.assertEqual(untouched.data["city"], "Luxembourg")
+
 
 class ContactInlineAdminTests(ThrottleIsolatedTestCase):
     def setUp(self):
