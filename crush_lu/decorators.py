@@ -200,9 +200,15 @@ def _record_window_deadline(cache_key, period_seconds):
 
     Also stamps the new window with a fresh generation token, so a release
     can tell whether it still belongs to the window it reserved in. Returns
-    the token so the request that created the window knows it for certain."""
+    the token so the request that created the window knows it for certain.
+
+    The token expires a second before the counter (#1150). Written after the
+    counter's add(), a full-period token outlived it, so a release could see
+    the old token on a counter a new window had already re-created, and its
+    decrement took a slot from that window without being given back. A token
+    that is gone first makes that release a no-op, which only costs a slot."""
     token = uuid.uuid4().hex
-    cache.set(_generation_key(cache_key), token, period_seconds)
+    cache.set(_generation_key(cache_key), token, max(1, period_seconds - 1))
     cache.set(
         _window_deadline_key(cache_key),
         time.time() + period_seconds,

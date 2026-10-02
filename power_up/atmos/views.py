@@ -1122,7 +1122,7 @@ def order_print_payload(request, pk):
     the server can't reach a printer behind the bar's router, but the
     Android device standing next to it can — see
     crush_lu/services/ticket_printer.py and triggerRawBtPrint in
-    crush_lu/static/crush_lu/js/alpine-components.js).
+    crush_lu/static/crush_lu/js/alpine/coach.js).
 
     GET and read-only on purpose: it mutates nothing, so staff can reprint a
     served order's ticket as often as paper jams demand. Fetched via
