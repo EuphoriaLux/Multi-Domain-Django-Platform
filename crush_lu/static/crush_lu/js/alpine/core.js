@@ -1456,17 +1456,23 @@ document.addEventListener("alpine:init", function () {
             // Tail of the write queue. Rapid flips must reach the server in
             // click order, or an earlier "on" can land after a later "off".
             queue: Promise.resolve(),
+            // #1147: each flip gets an increasing change id. Only the latest
+            // change may move the switch, and it moves it to the last value
+            // the server confirmed -- comparing checkbox.checked instead
+            // let an on -> off -> on run roll back a superseded failure.
+            seq: 0,
+            confirmed: null,
             save: function (event) {
+                var self = this;
                 var checkbox = event.target;
                 var value = checkbox.checked;
+                var id = ++self.seq;
+                if (self.confirmed === null) self.confirmed = !value;
                 // $el is the switch inside an event handler, so go via the form.
                 var form = checkbox.closest("form");
                 var csrf = form.querySelector('input[name="csrfmiddlewaretoken"]');
                 var fail = function () {
-                    // Only roll back if no later flip has superseded this one.
-                    if (checkbox.checked === value) {
-                        checkbox.checked = !value;
-                    }
+                    if (id === self.seq) checkbox.checked = self.confirmed;
                     Alpine.store("toasts").add({
                         type: "error",
                         message: form.getAttribute("data-error-message"),
@@ -1489,6 +1495,8 @@ document.addEventListener("alpine:init", function () {
                                 fail();
                                 return;
                             }
+                            self.confirmed = value;
+                            if (id === self.seq) checkbox.checked = value;
                             Alpine.store("toasts").add({
                                 type: "success",
                                 message: form.getAttribute("data-saved-message"),

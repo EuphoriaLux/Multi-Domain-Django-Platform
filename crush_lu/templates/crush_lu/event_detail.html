@@ -1045,11 +1045,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // #1116: show shareUrl itself, not the address bar, so a manual copy
+    // keeps the member's ?ref and its referral credit. Duration 0: the toast
+    // stays until dismissed, giving time to long-press or select the link.
     function notifyCopyFailed() {
         if (window.Alpine && Alpine.store('toasts')) {
             Alpine.store('toasts').add({
                 type: 'error',
-                message: '{% trans "Could not copy the link. Long-press or select it from the address bar instead."|escapejs %}'
+                message: '{% trans "Could not copy the link. Long-press or select it here instead:"|escapejs %}' + ' ' + shareUrl,
+                duration: 0
             });
         }
     }

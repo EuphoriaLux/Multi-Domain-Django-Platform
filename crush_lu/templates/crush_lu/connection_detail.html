@@ -337,11 +337,6 @@
                     <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200 rounded-lg p-4 mb-4">
                         <h4 class="font-medium mb-2">{% trans "What will be shared:" %}</h4>
                         <ul class="list-disc list-inside text-sm space-y-1">
-                            {% if request.user.crushprofile.show_full_name %}
-                                <li>{% trans "Full name:" %} {{ request.user.crushprofile.display_name }}</li>
-                            {% else %}
-                                <li>{% trans "First name only:" %} {{ request.user.crushprofile.display_name }}</li>
-                            {% endif %}
                             <li>{% trans "Profile details and photos" %}</li>
                         </ul>
                         <p class="text-xs mt-2 mb-0">
@@ -418,9 +413,15 @@
                                     {% include "shared/icons/envelope.html" with class="w-4 h-4 text-gray-400 dark:text-gray-500" %}
                                     <a href="mailto:{{ other_user.email }}" class="text-purple-600 dark:text-purple-400 hover:underline">{{ other_user.email }}</a>
                                 </div>
-                            {% else %}
+                            {% elif other_email_predates_choice %}
+                                <p class="text-xs text-gray-500 dark:text-gray-400 italic">{% trans "Shared before contact choices were available" %}</p>
+                            {% elif other_has_chosen %}
                                 <p class="text-xs text-gray-400 dark:text-gray-500 italic">
                                     {% blocktrans with name=other_profile.display_name %}{{ name }} chose not to share their email.{% endblocktrans %}
+                                </p>
+                            {% else %}
+                                <p class="text-xs text-gray-400 dark:text-gray-500 italic">
+                                    {% blocktrans with name=other_profile.display_name %}{{ name }} hasn't shared their email yet.{% endblocktrans %}
                                 </p>
                             {% endif %}
                             {% if other_shares_phone %}
@@ -428,9 +429,15 @@
                                     {% include "shared/icons/phone.html" with class="w-4 h-4 text-gray-400 dark:text-gray-500" %}
                                     <a href="tel:{{ other_profile.phone_number }}" class="text-purple-600 dark:text-purple-400 hover:underline">{{ other_profile.phone_number }}</a>
                                 </div>
-                            {% else %}
+                            {% elif other_phone_predates_choice %}
+                                <p class="text-xs text-gray-500 dark:text-gray-400 italic">{% trans "Shared before contact choices were available" %}</p>
+                            {% elif other_has_chosen %}
                                 <p class="text-xs text-gray-400 dark:text-gray-500 italic">
                                     {% blocktrans with name=other_profile.display_name %}{{ name }} did not share their phone number.{% endblocktrans %}
+                                </p>
+                            {% else %}
+                                <p class="text-xs text-gray-400 dark:text-gray-500 italic">
+                                    {% blocktrans with name=other_profile.display_name %}{{ name }} hasn't shared their phone number yet.{% endblocktrans %}
                                 </p>
                             {% endif %}
                             {% if other_profile.show_full_name %}
@@ -477,6 +484,30 @@
                             </a>
                         {% endif %}
                     </div>
+
+                    {# Own contact choices (#1146): the same opt-ins as the consent form, #}
+                    {# for introductions made by a coach or the same-gender auto-share. #}
+                    <form method="post" class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700" data-testid="contact-choices">
+                        {% csrf_token %}
+                        <fieldset>
+                        <legend class="text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">{% trans "Your contact details" %}</legend>
+                        <div class="flex items-center gap-2 mb-3">
+                            <input class="w-4 h-4 text-purple-600 border-gray-300 dark:border-gray-600 rounded focus:ring-purple-500" type="checkbox" id="own_share_email" name="share_email"{% if own_shares_email %} checked{% endif %}>
+                            <label class="text-sm text-gray-700 dark:text-gray-200" for="own_share_email">
+                                {% blocktrans with name=other_profile.display_name %}Also share my email address with {{ name }}{% endblocktrans %}
+                            </label>
+                        </div>
+                        {% if request.user.crushprofile.phone_number %}
+                            <div class="flex items-center gap-2 mb-3">
+                                <input class="w-4 h-4 text-purple-600 border-gray-300 dark:border-gray-600 rounded focus:ring-purple-500" type="checkbox" id="own_share_phone" name="share_phone"{% if own_shares_phone %} checked{% endif %}>
+                                <label class="text-sm text-gray-700 dark:text-gray-200" for="own_share_phone">
+                                    {% blocktrans with name=other_profile.display_name %}Also share my phone number with {{ name }}{% endblocktrans %}
+                                </label>
+                            </div>
+                        {% endif %}
+                        </fieldset>
+                        <button type="submit" name="contact_choices" value="1" class="btn-crush-outline btn-sm">{% trans "Save changes" %}</button>
+                    </form>
                 </div>
             {% endif %}
 

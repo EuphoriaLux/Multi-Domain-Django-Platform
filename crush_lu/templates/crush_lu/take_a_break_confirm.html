@@ -22,14 +22,11 @@
                 </p>
             </div>
 
-            <form method="post">
+            {% trans "Take a break now? You can resume any time from your dashboard." as break_question %}
+            <form method="post" data-confirm="{{ break_question }}" data-confirm-style="neutral" data-confirm-label="{% trans 'Take a Break' %}">
                 {% csrf_token %}
                 <div class="flex gap-4">
-                    <button
-                        type="submit"
-                        class="btn-crush-outline"
-                        onclick="return confirm('{% filter escapejs %}{% trans "Take a break now? You can resume any time from your dashboard." %}{% endfilter %}')"
-                    >
+                    <button type="submit" class="btn-crush-outline">
                         {% trans "Take a Break" %}
                     </button>
                     <a href="{% url 'crush_lu:edit_profile' %}?section=account&sub=danger" class="btn-crush-outline">
