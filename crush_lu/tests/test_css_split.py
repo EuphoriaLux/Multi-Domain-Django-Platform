@@ -24,6 +24,19 @@ JOURNEY_LINK = "crush_lu/css/journey.css"
 MARKETING_LINK = "crush_lu/css/marketing.css"
 
 
+def _has_rule(css, selector):
+    """True when ``selector`` ends the subject of some rule in ``css``.
+
+    After the selector only pseudo-classes or pseudo-elements may follow
+    before the ``{`` or ``,`` that closes the selector. So
+    ``.htmx-request .spinner`` is not a rule for ``.htmx-request``, and
+    ``.timeline-item.sortable-ghost`` is not one for ``.timeline-item``
+    (it is one for ``.sortable-ghost``, which is the class that rule styles).
+    """
+    pattern = re.escape(selector) + r"(?::{1,2}[\w-]+(?:\([^(){}]*\))?)*\s*[{,]"
+    return re.search(pattern, css) is not None
+
+
 class FeatureStylesheetFilesTests(TestCase):
     def test_built_files_exist_and_split_the_rules(self):
         base = (CSS_DIR / "tailwind.css").read_text(encoding="utf-8")
@@ -39,10 +52,6 @@ class FeatureStylesheetFilesTests(TestCase):
         self.assertNotIn(".how-it-works-hero", base)
         # The global bundle keeps genuinely shared component rules.
         self.assertIn(".btn-primary", base)
-
-    @staticmethod
-    def _has_rule(css, selector):
-        return re.search(re.escape(selector) + r"(?![\w-])", css) is not None
 
     def test_journey_gift_upload_and_certificate_rules_left_the_global_bundle(self):
         # WP6 css-slice-2 (#1149): the rest of the journey, gift wizard,
@@ -67,8 +76,12 @@ class FeatureStylesheetFilesTests(TestCase):
             ".nav-btn",
             "@keyframes giftFadeInUp",
         )
-        in_base = [sel for sel in moved if self._has_rule(base, sel)]
-        not_in_journey = [sel for sel in moved if not self._has_rule(journey, sel)]
+        # Any mention counts here (not only a rule whose subject it is), so a
+        # leftover descendant or compound rule is caught too.
+        in_base = [
+            sel for sel in moved if re.search(re.escape(sel) + r"(?![\w-])", base)
+        ]
+        not_in_journey = [sel for sel in moved if not _has_rule(journey, sel)]
         self.assertEqual(in_base, [])
         self.assertEqual(not_in_journey, [])
 
@@ -88,7 +101,7 @@ class FeatureStylesheetFilesTests(TestCase):
             # Used by the coach progress page too.
             "html.dark .stat-label",
         )
-        self.assertEqual([sel for sel in kept if not self._has_rule(base, sel)], [])
+        self.assertEqual([sel for sel in kept if not _has_rule(base, sel)], [])
 
     def test_runtime_library_classes_stay_in_the_global_bundle(self):
         # HTMX adds these classes itself, so no template or script mentions
@@ -206,19 +219,18 @@ class FeatureStylesheetTemplateTests(TestCase):
         "nav-btn",
     )
 
-    def test_pages_using_journey_only_classes_link_journey_css(self):
-        """A class whose only rule is in journey.css needs journey.css."""
+    def _journey_only_classes(self):
         base = (CSS_DIR / "tailwind.css").read_text(encoding="utf-8")
         journey = (CSS_DIR / "journey.css").read_text(encoding="utf-8")
         names = re.compile(r"\.(-?[A-Za-z_][\w-]*)")
-        journey_only = {
+        return {
             c
             for c in set(names.findall(journey)) - set(names.findall(base))
             if c.startswith(self.JOURNEY_ONLY_PREFIXES)
         }
-        self.assertIn("certificate", journey_only)
-        self.assertIn("file-upload-wrapper", journey_only)
 
+    def _template_graph(self):
+        """Template texts by name, plus a function telling if one links journey.css."""
         texts, parent = {}, {}
         for path in self.TEMPLATES.rglob("*.html"):
             name = "crush_lu/" + str(path.relative_to(self.TEMPLATES)).replace(
@@ -246,14 +258,70 @@ class FeatureStylesheetTemplateTests(TestCase):
                 )
             return False
 
+        return texts, links
+
+    def test_pages_using_journey_only_classes_link_journey_css(self):
+        """A class whose only rule is in journey.css needs journey.css.
+
+        Scans literal ``class="..."`` attributes and the quoted class names in
+        Alpine ``:class`` / ``x-bind:class`` bindings. Classes that Python form
+        widgets and journey.js add are covered by the two tests below.
+        """
+        journey_only = self._journey_only_classes()
+        self.assertIn("certificate", journey_only)
+        self.assertIn("file-upload-wrapper", journey_only)
+        texts, links = self._template_graph()
+
         offenders = []
         for name, text in texts.items():
             used = set()
-            for m in re.finditer(r'class="([^"]*)"', text):
+            for m in re.finditer(r'(?<![\w:-])class="([^"]*)"', text):
                 used |= set(re.sub(r"{[{%].*?[%}]}", " ", m.group(1)).split())
+            for m in re.finditer(r'(?:x-bind)?:class="([^"]*)"', text):
+                for quoted in re.findall(r"'([^']*)'", m.group(1)):
+                    used |= set(quoted.split())
             hits = sorted(used & journey_only)
             if hits and not links(name):
                 offenders.append(f"{name}: {hits[:3]}")
+        self.assertEqual(offenders, [])
+
+    def test_pages_loading_the_journey_bundle_link_journey_css(self):
+        """journey.js adds journey-only classes at runtime (toasts, counters,
+        slideshow dots), so every page that loads it needs journey.css."""
+        texts, links = self._template_graph()
+        bundle = re.compile(r"alpine_bundle\.html[\"']\s+with\s+bundle=[\"']journey")
+        loaders = [name for name, text in texts.items() if bundle.search(text)]
+        self.assertTrue(loaders)
+        self.assertEqual([name for name in loaders if not links(name)], [])
+
+    def test_forms_with_journey_only_widget_classes_render_on_journey_pages(self):
+        """Form widgets set classes such as gift-input in Python, so the
+        templates that render those forms must link journey.css."""
+        journey_only = self._journey_only_classes()
+        texts, links = self._template_graph()
+        root = Path(settings.BASE_DIR) / "crush_lu"
+        forms = set()
+        for path in root.glob("forms*.py"):
+            text = path.read_text(encoding="utf-8")
+            for block in re.split(r"\n(?=class \w+\()", text):
+                m = re.match(r"class (\w+)\(", block)
+                widget_classes = {
+                    c
+                    for value in re.findall(r"[\"']class[\"']:\s*[\"']([^\"']*)", block)
+                    for c in value.split()
+                }
+                if m and widget_classes & journey_only:
+                    forms.add(m.group(1))
+        self.assertIn("JourneyGiftForm", forms)
+
+        offenders = []
+        for path in root.glob("views*.py"):
+            text = path.read_text(encoding="utf-8")
+            if not any(re.search(rf"\b{f}\b", text) for f in forms):
+                continue
+            for name in re.findall(r"[\"'](crush_lu/[\w/]+\.html)[\"']", text):
+                if name in texts and not links(name):
+                    offenders.append(f"{path.name}: {name}")
         self.assertEqual(offenders, [])
 
     def test_journey_children_keep_the_inherited_stylesheet(self):
@@ -311,12 +379,6 @@ class RuntimeLibraryClassTests(TestCase):
         ),
     )
 
-    @staticmethod
-    def _has_rule(css, selector):
-        # Not followed by a name character, so ".iti" is not satisfied by
-        # ".iti__country" alone.
-        return re.search(re.escape(selector) + r"(?![\w-])", css) is not None
-
     def _linked_css(self, name):
         """Concatenated local stylesheets linked by a template or its parents."""
         css = []
@@ -345,7 +407,7 @@ class RuntimeLibraryClassTests(TestCase):
                 checked.add(library)
                 css = self._linked_css(name)
                 for selector in selectors:
-                    if not self._has_rule(css, selector):
+                    if not _has_rule(css, selector):
                         missing.append(f"{name} ({library}): {selector}")
         # Every library is found on at least one page, so the scan is live.
         self.assertEqual(checked, {lib for lib, _m, _s in self.LIBRARIES})
