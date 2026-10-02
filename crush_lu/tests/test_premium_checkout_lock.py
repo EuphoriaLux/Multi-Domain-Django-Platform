@@ -28,7 +28,7 @@ from crush_lu.models.profiles import (
     PremiumMembership,
     UserDataConsent,
 )
-from crush_lu.services.sumup import SumUpClient
+from crush_lu.services.sumup import SumUpClient, SumUpConfigurationError
 
 User = get_user_model()
 
@@ -223,6 +223,8 @@ class PremiumCheckoutLockTests(TestCase):
             response = self.client.post(self.url)
 
         self.assertEqual(response.status_code, 409)
+        # Not "please try again": SumUp already holds this member's money.
+        self.assertIn("already received a payment", response.json()["error"])
         self.assertEqual(self.created, [])
         statuses = self._statuses()
         self.assertEqual(statuses["CHK_OLD_PAID"], "pending")
@@ -253,12 +255,58 @@ class PremiumCheckoutLockTests(TestCase):
             return dict(self.remote[checkout_id])
 
         self.sumup["get_checkout"].side_effect = _sweep_cancels_meanwhile
+        self.sumup["deactivate_checkout"].side_effect = None
+        self.sumup["deactivate_checkout"].return_value = True
 
         response = self.client.post(self.url)
 
         self.assertEqual(response.status_code, 409)
         self.assertNotIn("checkout_id", response.json())
         self.assertEqual(self.created, [])
+        # A saved widget link must not stay payable for an ended membership.
+        self.sumup["deactivate_checkout"].assert_called_once_with("CHK_REUSABLE")
+        self.assertEqual(self._statuses(), {"CHK_REUSABLE": "cancelled"})
+        row = PaymentTransaction.objects.get(sumup_checkout_id="CHK_REUSABLE")
+        self.assertIn("stopped being pending", row.failure_reason)
+
+    def test_missing_api_key_while_retiring_returns_the_json_refusal(self):
+        """A SumUpConfigurationError is a 409 JSON refusal, not an HTML 500."""
+        self._pending_row("CHK_OLD")
+        self._pending_row("CHK_NEWEST", status="EXPIRED")
+        self.sumup["deactivate_checkout"].side_effect = SumUpConfigurationError(
+            "SUMUP_API_KEY is not configured"
+        )
+
+        with self.assertLogs("crush_lu.views_payments", level="WARNING"):
+            response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("could not be closed", response.json()["error"])
+        self.assertEqual(self.created, [])
+        self.assertEqual(
+            self._statuses(), {"CHK_OLD": "pending", "CHK_NEWEST": "pending"}
+        )
+
+    def test_retiring_is_capped_per_request(self):
+        """Legacy rows are closed ten per click, not all in one request."""
+        for n in range(12):
+            self._pending_row(f"CHK_LEGACY_{n:02d}", status="EXPIRED")
+        self.sumup["deactivate_checkout"].side_effect = None
+        self.sumup["deactivate_checkout"].return_value = True
+
+        with self.assertLogs("crush_lu.views_payments", level="WARNING"):
+            first = self.client.post(self.url)
+
+        self.assertEqual(first.status_code, 409)
+        self.assertEqual(self.sumup["deactivate_checkout"].call_count, 10)
+        self.assertEqual(list(self._statuses().values()).count("cancelled"), 10)
+        self.assertEqual(self.created, [])
+
+        second = self.client.post(self.url)
+
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(self.sumup["deactivate_checkout"].call_count, 12)
+        self.assertEqual(len(self.created), 1)
 
     def test_concurrent_click_publishing_first_keeps_one_payable_checkout(self):
         """A checkout another click published meanwhile wins; ours is closed."""
