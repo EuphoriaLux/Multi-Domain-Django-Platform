@@ -42,15 +42,17 @@
                 <button type="submit" class="btn-crush-primary px-6 py-2">▶ {% trans "Start Hunt" %}</button>
             </form>
             {% elif hunt.status == 'live' %}
+            {% trans "Finish the hunt for all teams?" as finish_question %}
             <form method="post" action="{% url 'crush_lu:cache_coach_finish' event.id %}"
-                  onsubmit="return confirm('{% filter escapejs %}{% trans "Finish the hunt for all teams?" %}{% endfilter %}')">
+                  data-confirm="{{ finish_question }}" data-confirm-label="{% trans 'Finish Hunt' %}">
                 {% csrf_token %}
                 <button type="submit" class="btn-danger px-6 py-2">■ {% trans "Finish Hunt" %}</button>
             </form>
             {% endif %}
             {% if hunt.status != 'finished' %}
+            {% trans "Place all unassigned attendees into new teams?" as auto_teams_question %}
             <form method="post" action="{% url 'crush_lu:cache_coach_auto_teams' event.id %}"
-                  onsubmit="return confirm('{% filter escapejs %}{% trans "Place all unassigned attendees into new teams?" %}{% endfilter %}')">
+                  data-confirm="{{ auto_teams_question }}" data-confirm-style="neutral" data-confirm-label="{% trans 'Auto-form teams' %}">
                 {% csrf_token %}
                 <button type="submit" class="btn-crush-outline px-6 py-2">
                     👥 {% trans "Auto-form teams" %}

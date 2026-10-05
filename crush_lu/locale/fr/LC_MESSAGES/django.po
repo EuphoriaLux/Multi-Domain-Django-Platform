@@ -992,7 +992,6 @@ msgstr "A un profil de rencontre"
 #: templates/crush_lu/journey/rewards/photo_slideshow.html:99
 #: templates/crush_lu/journey/rewards/photo_slideshow.html:108
 #: templates/crush_lu/journey/rewards/photo_slideshow.html:117
-#: templates/crush_lu/spark_create_journey.html:79
 msgid "Photo"
 msgstr "Photo"
 
@@ -2635,7 +2634,6 @@ msgid "Slideshow Photo 5"
 msgstr "Photo diaporama 5"
 
 #: forms.py:1230 models/journey.py:308
-#: templates/crush_lu/spark_create_journey.html:94
 msgid "Video Message"
 msgstr "Message vidéo"
 
@@ -2954,9 +2952,8 @@ msgstr ""
 msgid "Who caught your eye?"
 msgstr "Qui a attiré votre attention ?"
 
-#: forms_crush_spark.py:52 templates/crush_lu/spark_create_journey.html:27
-msgid "Write a personal message that will be revealed in Chapter 6..."
-msgstr "Écrivez un message personnel qui sera révélé au Chapitre 6..."
+#~ msgid "Write a personal message that will be revealed in Chapter 6..."
+#~ msgstr "Écrivez un message personnel qui sera révélé au Chapitre 6..."
 
 #: forms_crush_spark.py:58
 msgid "Your personal message (revealed with your identity)"
@@ -5822,7 +5819,7 @@ msgstr "Poème/Lettre"
 msgid "Voice Recording"
 msgstr "Enregistrement vocal"
 
-#: models/journey.py:309 templates/crush_lu/spark_create_journey.html:65
+#: models/journey.py:309
 msgid "Photo Slideshow"
 msgstr "Diaporama photo"
 
@@ -15744,21 +15741,19 @@ msgstr "Démarrer le Quiz"
 
 #: templates/crush_lu/cache/coach_dashboard.html:46
 msgid "Finish the hunt for all teams?"
-msgstr ""
+msgstr "Terminer la chasse pour toutes les équipes ?"
 
 #: templates/crush_lu/cache/coach_dashboard.html:48
-#, fuzzy
-#| msgid "Finish"
 msgid "Finish Hunt"
-msgstr "Terminer"
+msgstr "Terminer la chasse"
 
 #: templates/crush_lu/cache/coach_dashboard.html:53
 msgid "Place all unassigned attendees into new teams?"
-msgstr ""
+msgstr "Répartir tous les participants non assignés dans de nouvelles équipes ?"
 
 #: templates/crush_lu/cache/coach_dashboard.html:56
 msgid "Auto-form teams"
-msgstr ""
+msgstr "Former les équipes automatiquement"
 
 #: templates/crush_lu/cache/coach_dashboard.html:62
 msgid "QR sheet (PDF)"
@@ -16722,11 +16717,8 @@ msgstr "Unilatéral"
 msgid "Needs Review"
 msgstr "Examen requis"
 
-#: templates/crush_lu/coach_connection_review.html:79
-#: templates/crush_lu/coach_connections.html:37
-#: templates/crush_lu/connection_detail.html:58
-msgid "Contacts Shared"
-msgstr "Contacts partagés !"
+#~ msgid "Contacts Shared"
+#~ msgstr "Contacts partagés !"
 
 #: templates/crush_lu/coach_connection_review.html:114
 #: templates/crush_lu/coach_connection_review.html:531
@@ -16950,11 +16942,9 @@ msgstr "Rédiger l'introduction"
 msgid "Needs both consents and an approved lead."
 msgstr "Nécessite les deux consentements et un contact approuvé."
 
-#: templates/crush_lu/coach_connection_review.html:385
 #, fuzzy
-#| msgid "Coach's guidance for the introduction"
-msgid "Contacts shared — the introduction is done."
-msgstr "Conseils du coach pour la mise en relation"
+#~ msgid "Contacts shared — the introduction is done."
+#~ msgstr "Conseils du coach pour la mise en relation"
 
 #: templates/crush_lu/coach_connection_review.html:394
 #: templates/crush_lu/connection_detail.html:251
@@ -17049,9 +17039,8 @@ msgstr "Réponse reçue"
 msgid "Coach approved"
 msgstr "Coach a approuvé"
 
-#: templates/crush_lu/coach_connection_review.html:551
-msgid "Contacts shared"
-msgstr "Contacts partagés !"
+#~ msgid "Contacts shared"
+#~ msgstr "Contacts partagés !"
 
 #: templates/crush_lu/coach_connections.html:17
 msgid "Connection Management"
@@ -19772,9 +19761,8 @@ msgstr ""
 msgid "What will be shared:"
 msgstr "Ce qui sera partagé :"
 
-#: templates/crush_lu/connection_detail.html:343
-msgid "Full name:"
-msgstr "Nom complet :"
+#~ msgid "Full name:"
+#~ msgstr "Nom complet :"
 
 #: templates/crush_lu/connection_detail.html:348
 msgid "Profile details and photos"
@@ -33686,91 +33674,71 @@ msgstr "Ou inscrivez-vous avec votre e-mail"
 msgid "Your password must contain at least 8 characters."
 msgstr "Votre mot de passe doit contenir au moins 8 caractères."
 
-#: templates/crush_lu/spark_create_journey.html:4
-#: templates/crush_lu/spark_detail.html:68
-msgid "Create Journey"
-msgstr "Créer le parcours"
+#~ msgid "Create Journey"
+#~ msgstr "Créer le parcours"
 
-#: templates/crush_lu/spark_create_journey.html:10
-msgid "Create Your Anonymous Journey"
-msgstr "Créez votre parcours anonyme"
+#~ msgid "Create Your Anonymous Journey"
+#~ msgstr "Créez votre parcours anonyme"
 
-#: templates/crush_lu/spark_create_journey.html:12
-msgid ""
-"Add photos, a video, and a personal message for your Secret Admirer journey."
-msgstr ""
-"Ajoutez des photos, une vidéo et un message personnel pour votre parcours "
-"d'Admirateur Secret."
+#~ msgid ""
+#~ "Add photos, a video, and a personal message for your Secret Admirer journey."
+#~ msgstr ""
+#~ "Ajoutez des photos, une vidéo et un message personnel pour votre parcours "
+#~ "d'Admirateur Secret."
 
-#: templates/crush_lu/spark_create_journey.html:22
-msgid "Personal Message"
-msgstr "Message personnel"
+#~ msgid "Personal Message"
+#~ msgstr "Message personnel"
 
-#: templates/crush_lu/spark_create_journey.html:24
-msgid ""
-"This message will be revealed along with your identity when they complete "
-"Chapter 6."
-msgstr ""
-"Ce message sera révélé avec votre identité lorsqu'ils terminent le Chapitre "
-"6."
+#~ msgid ""
+#~ "This message will be revealed along with your identity when they complete "
+#~ "Chapter 6."
+#~ msgstr ""
+#~ "Ce message sera révélé avec votre identité lorsqu'ils terminent le Chapitre "
+#~ "6."
 
-#: templates/crush_lu/spark_create_journey.html:40
 msgid "Photo Puzzle"
 msgstr "Puzzle photo"
 
-#: templates/crush_lu/spark_create_journey.html:43
-msgid "Upload a photo that will be revealed as puzzle pieces."
-msgstr ""
-"Téléchargez une photo qui sera révélée sous forme de pièces de puzzle."
+#~ msgid "Upload a photo that will be revealed as puzzle pieces."
+#~ msgstr ""
+#~ "Téléchargez une photo qui sera révélée sous forme de pièces de puzzle."
 
-#: templates/crush_lu/spark_create_journey.html:50
-msgid "Click to upload photo"
-msgstr "Clique pour télécharger une photo"
+#~ msgid "Click to upload photo"
+#~ msgstr "Clique pour télécharger une photo"
 
-#: templates/crush_lu/spark_create_journey.html:66
-#: templates/crush_lu/spark_create_journey.html:95
-#: templates/crush_lu/spark_create_journey.html:121
 msgid "(optional)"
 msgstr "(facultatif)"
 
-#: templates/crush_lu/spark_create_journey.html:69
-msgid "Upload up to 5 photos for the slideshow."
-msgstr "Télécharge jusqu'à 5 photos pour le diaporama."
+#~ msgid "Upload up to 5 photos for the slideshow."
+#~ msgstr "Télécharge jusqu'à 5 photos pour le diaporama."
 
-#: templates/crush_lu/spark_create_journey.html:98
-msgid "Record or upload a video message (MP4, MOV - max 50MB)."
-msgstr "Enregistre ou télécharge un message vidéo (MP4, MOV – max 50 Mo)."
+#~ msgid "Record or upload a video message (MP4, MOV - max 50MB)."
+#~ msgstr "Enregistre ou télécharge un message vidéo (MP4, MOV – max 50 Mo)."
 
-#: templates/crush_lu/spark_create_journey.html:105
-msgid "Click to upload video"
-msgstr "Clique pour télécharger une vidéo"
+#~ msgid "Click to upload video"
+#~ msgstr "Clique pour télécharger une vidéo"
 
-#: templates/crush_lu/spark_create_journey.html:120
-msgid "Background Music"
-msgstr "Musique de fond"
+#~ msgid "Background Music"
+#~ msgstr "Musique de fond"
 
-#: templates/crush_lu/spark_create_journey.html:124
-msgid ""
-"Upload background music for the Future Letter (MP3, WAV, M4A - max 10MB)."
-msgstr ""
-"Télécharge une musique de fond pour la Lettre du futur (MP3, WAV, M4A – max "
-"10 Mo)."
+#~ msgid ""
+#~ "Upload background music for the Future Letter (MP3, WAV, M4A - max 10MB)."
+#~ msgstr ""
+#~ "Télécharge une musique de fond pour la Lettre du futur (MP3, WAV, M4A – max "
+#~ "10 Mo)."
 
-#: templates/crush_lu/spark_create_journey.html:131
-msgid "Click to upload audio"
-msgstr "Clique pour télécharger un audio"
+#~ msgid "Click to upload audio"
+#~ msgstr "Clique pour télécharger un audio"
 
-#: templates/crush_lu/spark_create_journey.html:144
-msgid ""
-"Once you submit, the journey will be created and delivered anonymously. Your"
-" identity will only be revealed when the recipient completes Chapter 6."
-msgstr ""
-"Une fois soumis, le parcours sera créé et livré anonymement. Votre identité "
-"ne sera révélée que lorsque le destinataire terminera le Chapitre 6."
+#~ msgid ""
+#~ "Once you submit, the journey will be created and delivered anonymously. Your"
+#~ " identity will only be revealed when the recipient completes Chapter 6."
+#~ msgstr ""
+#~ "Une fois soumis, le parcours sera créé et livré anonymement. Votre identité "
+#~ "ne sera révélée que lorsque le destinataire terminera le Chapitre 6."
 
-#: templates/crush_lu/spark_create_journey.html:149
-msgid "Create & Deliver Journey"
-msgstr "Créer & envoyer le parcours"
+#~ msgid "Create & Deliver Journey"
+#~ msgstr "Créer & envoyer le parcours"
 
 #: templates/crush_lu/spark_detail.html:11
 msgid "Back to Sparks"
@@ -37197,11 +37165,9 @@ msgstr "Réponse enregistrée"
 msgid "Recipient decline recorded."
 msgstr "Réponse enregistrée"
 
-#: views_coach.py:4565
 #, fuzzy
-#| msgid "Introduction Message"
-msgid "Introduction made — contacts shared."
-msgstr "Message d'introduction"
+#~ msgid "Introduction made — contacts shared."
+#~ msgstr "Message d'introduction"
 
 #: views_coach.py:4571
 #, fuzzy
@@ -42875,13 +42841,12 @@ msgid_plural "%(spots)s spots left"
 msgstr[0] "%(spots)s place restante"
 msgstr[1] "%(spots)s places restantes"
 
-#: crush_lu/templates/crush_lu/event_detail.html
-msgid ""
-"Could not copy the link. Long-press or select it from the address bar "
-"instead."
-msgstr ""
-"Impossible de copier le lien. Appuyez longuement dessus ou sélectionnez-le "
-"dans la barre d'adresse."
+#~ msgid ""
+#~ "Could not copy the link. Long-press or select it from the address bar "
+#~ "instead."
+#~ msgstr ""
+#~ "Impossible de copier le lien. Appuyez longuement dessus ou sélectionnez-le "
+#~ "dans la barre d'adresse."
 
 # UX Wave 3 · WP5 photos-booking
 # UX Wave 3 · WP5 photos-booking
@@ -43228,9 +43193,8 @@ msgstr "Voir Crush Connect ci-dessus"
 # UX Wave 3 · WP10 match-moment
 # UX Wave 3 · WP10 match-moment
 # UX Wave 3 . WP10 match-moment (findings 5-09, 5-10, 5-13, 5-14, 5-15)
-#: templates/crush_lu/connection_detail.html:343
-msgid "First name only:"
-msgstr "Prénom uniquement :"
+#~ msgid "First name only:"
+#~ msgstr "Prénom uniquement :"
 
 #: templates/crush_lu/connection_detail.html:351
 msgid "Nothing is shared until you both consent."
@@ -44204,3 +44168,43 @@ msgstr "Profils partagés"
 #: templates/crush_lu/_connection_response.html:36
 msgid "Profiles shared"
 msgstr "Profils partagés"
+
+# UX Wave 6 · WP5 flows-rest
+#: templates/crush_lu/event_detail.html
+msgid "Could not copy the link. Long-press or select it here instead:"
+msgstr "Impossible de copier le lien. Appuyez longuement dessus ou sélectionnez-le ici :"
+
+# UX Wave 6 · WP5 flows-rest
+#: templates/crush_lu/coach_connection_review.html
+msgid "Introduction made"
+msgstr "Mise en relation effectuée"
+
+# UX Wave 6 · WP5 flows-rest
+#: templates/crush_lu/connection_detail.html
+msgid "Shared before contact choices were available"
+msgstr "Partagé avant que le choix des coordonnées soit disponible"
+
+# UX Wave 6 · WP5 flows-rest
+#: templates/crush_lu/journey/challenges/open_text.html
+#, python-format
+msgid "%(points)s point available"
+msgid_plural "%(points)s points available"
+msgstr[0] "%(points)s point disponible"
+msgstr[1] "%(points)s points disponibles"
+
+# UX Wave 6 · WP5 flows-rest
+#: templates/crush_lu/connection_detail.html
+#, python-format
+msgid "%(name)s hasn't shared their email yet."
+msgstr "%(name)s n'a pas encore partagé son e-mail."
+
+# UX Wave 6 · WP5 flows-rest
+#: templates/crush_lu/connection_detail.html
+#, python-format
+msgid "%(name)s hasn't shared their phone number yet."
+msgstr "%(name)s n'a pas encore partagé son numéro de téléphone."
+
+# UX Wave 6 · WP5 flows-rest
+#: templates/crush_lu/connection_detail.html
+msgid "Your contact details"
+msgstr "Vos coordonnées"
