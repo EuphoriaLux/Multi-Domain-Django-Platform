@@ -213,6 +213,22 @@ def _store_cursor(counters):
         )
 
 
+def _retry_premium_recovery(budget_seconds):
+    """#925: resend what failed after a recovery case opened and close the
+    checkouts still left open. Failures are logged inside and never fail the
+    tick; each send, close or read inside starts only while its own worst
+    case still fits ``budget_seconds``."""
+    from crush_lu.services import premium_recovery
+
+    try:
+        return premium_recovery.retry_unsent_notifications(
+            budget_seconds=budget_seconds
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("[sumup_reconciliation] recovery notice retry failed")
+        return 0
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def sumup_reconciliation_endpoint(request):
@@ -228,8 +244,16 @@ def sumup_reconciliation_endpoint(request):
 
     if not getattr(settings, _FLAG, False):
         logger.warning("[sumup_reconciliation] skipped: %s is off", _FLAG)
+        # #925: recovery retries are not part of the refund sweep the flag
+        # gates; they run on this tick either way.
         return JsonResponse(
-            {"skipped": True, "reason": f"{_FLAG} is off"},
+            {
+                "skipped": True,
+                "reason": f"{_FLAG} is off",
+                "recovery_notices_retried": _retry_premium_recovery(
+                    RECONCILIATION_BUDGET_SECONDS
+                ),
+            },
             status=200,
         )
 
@@ -262,20 +286,9 @@ def sumup_reconciliation_endpoint(request):
 
     _store_cursor(counters)
 
-    # #925: resend any recovery notice/alert whose first send failed. Mail
-    # failures are logged inside and never fail the reconciliation.
-    from crush_lu.services import premium_recovery
-
-    try:
-        recovery_retried = premium_recovery.retry_unsent_notifications(
-            # What the sweep left of the budget; each send, close or read
-            # inside starts only while its own worst case still fits.
-            budget_seconds=RECONCILIATION_BUDGET_SECONDS
-            - (timezone.now() - started).total_seconds(),
-        )
-    except Exception:  # noqa: BLE001
-        logger.exception("[sumup_reconciliation] recovery notice retry failed")
-        recovery_retried = 0
+    recovery_retried = _retry_premium_recovery(
+        RECONCILIATION_BUDGET_SECONDS - (timezone.now() - started).total_seconds()
+    )
 
     body = {"status": "ok", "timestamp": started.isoformat()}
     body.update({key: counters[key] for key in COUNTER_KEYS})

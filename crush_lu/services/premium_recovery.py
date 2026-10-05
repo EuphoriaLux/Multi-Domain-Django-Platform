@@ -128,8 +128,12 @@ def open_case(payment, reason, detail=""):
 
     membership = payment.premium_membership
     # Unlinked: only legacy rows (the FK is PROTECT now), so payment.user is
-    # the only member evidence left, as in email_helpers._receipt_recipient.
+    # the only member evidence left, as in email_helpers._receipt_recipient --
+    # unless staff opened the checkout for a member (user=request.user): then
+    # the member is unknown and only staff are told (_member_unknown).
     owner = membership.user if membership else payment.user
+    if _member_unknown_for(membership, owner):
+        detail = f"{MEMBER_UNKNOWN_DETAIL} {detail}".strip()
     return PremiumPaymentRecoveryCase.objects.get_or_create(
         payment=payment,
         defaults={
@@ -139,6 +143,20 @@ def open_case(payment, reason, detail=""):
             "detail": detail,
         },
     )
+
+
+MEMBER_UNKNOWN_DETAIL = (
+    "Member unknown: legacy unlinked checkout opened by staff; the case is "
+    "filed under the staff account."
+)
+
+
+def _member_unknown_for(membership, owner):
+    return membership is None and owner is not None and owner.is_staff
+
+
+def _member_unknown(case):
+    return _member_unknown_for(case.premium_membership, case.user)
 
 
 def notify_safely(case_pk):
@@ -358,7 +376,7 @@ def _close_checkouts_beside_a_capture(limit, settle_minutes):
     repeat an idempotent deactivate."""
     from datetime import timedelta
 
-    from django.db.models import Exists, OuterRef
+    from django.db.models import Exists, OuterRef, Q
 
     from crush_lu.models import PaymentTransaction, PremiumMembership
 
@@ -370,16 +388,25 @@ def _close_checkouts_beside_a_capture(limit, settle_minutes):
     cutoff = timezone.now() - timedelta(minutes=settle_minutes)
     memberships = list(
         PremiumMembership.objects.filter(
-            Exists(payments(PaymentTransaction.Status.PAID)),
+            # A recorded capture, or an owner a merge deactivated: a checkout
+            # a refused publication could not close stays payable otherwise.
+            Q(Exists(payments(PaymentTransaction.Status.PAID)))
+            | Q(user__is_active=False),
             Exists(payments(PaymentTransaction.Status.PENDING, created_at__lte=cutoff)),
         ).order_by("?")[:limit]
     )
-    close_open_checkouts_safely(memberships, "memberships with a recorded capture")
+    close_open_checkouts_safely(
+        memberships, "memberships with a capture or an inactive owner"
+    )
 
 
 def _notify_member_safely(case):
     from crush_lu.email_helpers import send_premium_payment_recovery_notice
 
+    if _member_unknown(case):
+        # Would mail the member's notice to the staff opener; the staff alert
+        # carries MEMBER_UNKNOWN_DETAIL instead.
+        return
     if not _fits(SEND_SECONDS):
         return
     try:
@@ -415,7 +442,8 @@ def _alert_staff_safely(case):
             f"Member: {case.user.email} (user {case.user_id})\n"
             f"Amount: {payment.amount} {payment.currency}\n"
             f"Reference: {payment.transaction_reference}\n"
-            f"Case: {settings.PREMIUM_RECOVERY_ADMIN_BASE_URL}{admin_path}\n"
+            + (f"Detail: {case.detail}\n" if case.detail else "")
+            + f"Case: {settings.PREMIUM_RECOVERY_ADMIN_BASE_URL}{admin_path}\n"
         )
         if send_domain_email(
             subject=f"[Crush.lu] Premium payment not applied: "

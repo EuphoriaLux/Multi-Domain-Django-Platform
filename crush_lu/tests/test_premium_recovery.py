@@ -630,6 +630,30 @@ class CaseLifecycleTests(_Base):
         self.assertEqual(len(self._alerts()), 1)
         self.assertEqual(len(self._member_mails()), 1)
 
+    def test_unlinked_staff_assisted_capture_mails_only_staff(self):
+        from crush_lu.services.premium_recovery import MEMBER_UNKNOWN_DETAIL
+
+        staff = User.objects.create_user(
+            username="rec-staff@example.invalid",
+            email="rec-staff@example.invalid",
+            password="pass12345",
+            is_staff=True,
+        )
+        tx = self._tx("REC-ASSISTED")
+        PaymentTransaction.objects.filter(pk=tx.pk).update(user=staff)
+        self._unlink_and_delete_membership()
+        tx.refresh_from_db()
+        with self.assertLogs("crush_lu.views_payments", level="CRITICAL"):
+            self._apply(tx)
+        case = PremiumPaymentRecoveryCase.objects.get(payment=tx)
+        self.assertIn(MEMBER_UNKNOWN_DETAIL, case.detail)
+        # No member notice to the staff opener; the alert says why.
+        self.assertEqual([m for m in mail.outbox if m.to == [staff.email]], [])
+        self.assertIsNone(case.member_notified_at)
+        alerts = self._alerts()
+        self.assertEqual(len(alerts), 1)
+        self.assertIn("Member unknown", alerts[0].body)
+
     def test_captured_request_cannot_be_cancelled(self):
         self._case("REC-NOCANCEL", self.membership)
         client = self._member_client()
@@ -1119,6 +1143,28 @@ class LateCaptureTests(_Base):
         self.assertEqual(paid, SIBLING_SYNC_LIMIT)
         client.refund.assert_not_called()
 
+    def test_tick_closes_a_checkout_left_open_for_a_deactivated_member(self):
+        from datetime import timedelta
+        from unittest.mock import MagicMock
+
+        from django.utils import timezone
+
+        from crush_lu.services.premium_recovery import retry_unsent_notifications
+
+        left = self._tx("REC-MERGED-LEFT")
+        PaymentTransaction.objects.filter(pk=left.pk).update(
+            created_at=timezone.now() - timedelta(hours=2)
+        )
+        User.objects.filter(pk=self.member.pk).update(is_active=False)
+        client = MagicMock()
+        client.deactivate_checkout.return_value = True
+        with patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            retry_unsent_notifications(100)
+        client.deactivate_checkout.assert_called_once_with("CHK_REC-MERGED-LEFT")
+        left.refresh_from_db()
+        self.assertEqual(left.status, PaymentTransaction.Status.CANCELLED)
+        client.refund.assert_not_called()
+
     def test_tick_closes_a_checkout_left_open_beside_an_activation(self):
         from datetime import timedelta
         from unittest.mock import MagicMock
@@ -1425,6 +1471,23 @@ class NotificationRetryTests(_Base):
         self.assertEqual(response.json()["recovery_notices_retried"], 1)
         case.refresh_from_db()
         self.assertIsNotNone(case.member_notified_at)
+        self.assertIsNotNone(case.staff_alerted_at)
+
+    @override_settings(
+        ROOT_URLCONF="azureproject.urls_crush",
+        ADMIN_API_KEY="k",
+        SUMUP_RECONCILIATION_ENABLED=False,
+    )
+    def test_retry_runs_even_with_reconciliation_off(self):
+        case = self._failed_case("REC-FLAG-OFF", minutes_old=30)
+        mail.outbox.clear()
+        response = Client(HTTP_HOST="crush.lu").post(
+            "/api/admin/sumup-reconciliation/", HTTP_AUTHORIZATION="Bearer k"
+        )
+        body = response.json()
+        self.assertIs(body["skipped"], True)
+        self.assertEqual(body["recovery_notices_retried"], 1)
+        case.refresh_from_db()
         self.assertIsNotNone(case.staff_alerted_at)
 
     def test_every_unit_fits_the_reconciliation_budget(self):
