@@ -232,7 +232,8 @@ class PremiumCheckoutLockTests(TestCase):
         self.assertIn("already received a payment", response.json()["error"])
         self.assertEqual(self.created, [])
         statuses = self._statuses()
-        self.assertEqual(statuses["CHK_OLD_PAID"], "pending")
+        # #925: a capture SumUp already has is applied now, not left PENDING.
+        self.assertEqual(statuses["CHK_OLD_PAID"], "paid")
         self.assertEqual(statuses["CHK_NEWEST"], "cancelled")
         paid = PaymentTransaction.objects.get(sumup_checkout_id="CHK_OLD_PAID")
         self.assertEqual(paid.failure_reason, "")
@@ -246,7 +247,9 @@ class PremiumCheckoutLockTests(TestCase):
         self.assertEqual(response.status_code, 409)
         self.assertIn("already received a payment", response.json()["error"])
         self.assertEqual(self.created, [])
-        self.assertEqual(self._statuses(), {"CHK_PAID": "pending"})
+        # #925: the capture SumUp already has is applied now (a missed webhook
+        # would otherwise leave it PENDING: the hourly sweep reads PAID only).
+        self.assertEqual(self._statuses(), {"CHK_PAID": "paid"})
         self.sumup["deactivate_checkout"].assert_not_called()
 
     def test_membership_cancelled_by_sweep_refuses_the_reused_checkout(self):
@@ -398,7 +401,8 @@ class PremiumCheckoutLockTests(TestCase):
 
         self.assertEqual(response.status_code, 409)
         self.assertIn("already received a payment", response.json()["error"])
-        self.assertEqual(self._statuses()["CHK_OLD_DONE"], "pending")
+        # #925: a capture SumUp already has is applied now, not left PENDING.
+        self.assertEqual(self._statuses()["CHK_OLD_DONE"], "paid")
 
     def test_unreadable_newest_checkout_is_left_open(self):
         """A transient read error must not DELETE a possibly live checkout."""
@@ -428,7 +432,9 @@ class PremiumCheckoutLockTests(TestCase):
         self.assertEqual(response.status_code, 409)
         self.assertIn("already received a payment", response.json()["error"])
         self.assertEqual(
-            self._statuses(), {"CHK_OLD_PAID": "pending", "CHK_NEWEST": "cancelled"}
+            # #925: the capture SumUp already has is applied now.
+            self._statuses(),
+            {"CHK_OLD_PAID": "paid", "CHK_NEWEST": "cancelled"},
         )
         row = PaymentTransaction.objects.get(sumup_checkout_id="CHK_NEWEST")
         self.assertNotIn("newer", row.failure_reason)
@@ -444,7 +450,9 @@ class PremiumCheckoutLockTests(TestCase):
             self.client.post(self.url)
 
         reads = [c.args[0] for c in self.sumup["get_checkout"].call_args_list]
-        self.assertEqual(reads.count("CHK_OLD_PAID"), 1)
+        # One read by the refused close; the second is #925's deliberate sync
+        # that applies the capture it found.
+        self.assertEqual(reads.count("CHK_OLD_PAID"), 2)
 
     def test_checkout_naming_a_previous_coach_is_not_reused(self):
         self._pending_row("CHK_OLD_COACH")
