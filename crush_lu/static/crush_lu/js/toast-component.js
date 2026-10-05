@@ -99,9 +99,10 @@
 
         // Message
         var msgWrap = document.createElement("div");
-        msgWrap.className = "flex-1 pt-0.5";
+        msgWrap.className = "flex-1 min-w-0 pt-0.5";
         var msgP = document.createElement("p");
-        msgP.className = "text-sm font-medium";
+        // break-words: a message may carry a long URL (#1116 copy fallback).
+        msgP.className = "text-sm font-medium break-words";
         msgP.textContent = toast.message || "";
         msgWrap.appendChild(msgP);
         row.appendChild(msgWrap);

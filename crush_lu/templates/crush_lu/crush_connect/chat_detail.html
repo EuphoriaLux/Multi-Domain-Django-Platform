@@ -93,7 +93,7 @@ rules) so the thread can claim most of the viewport.
                     {% if not is_proposer %}
                     <form method="post" action="{% url 'crush_lu:connect_week_chat_venue_respond' chat.pk %}" class="flex gap-2 mb-2">
                         {% csrf_token %}
-                        <button type="submit" name="action" value="accept" class="btn-crush-primary btn-sm flex-1">{% trans "Accept plan" %}</button>
+                        <button type="submit" name="action" value="accept" class="btn-crush-solid btn-sm flex-1">{% trans "Accept plan" %}</button>
                         <button type="submit" name="action" value="cancel" class="btn-crush-outline btn-sm flex-1">{% trans "Not this one" %}</button>
                     </form>
                     {% else %}

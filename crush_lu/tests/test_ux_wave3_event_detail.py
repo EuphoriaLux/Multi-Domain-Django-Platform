@@ -585,9 +585,10 @@ class FactStripReviewRoundThreeTests(EventDetailWave3TestBase):
         response = self.client.get(f"/fr/events/{event.id}/")
         self.assertEqual(response.status_code, 200)
         html = response.content.decode()
-        # escapejs renders the apostrophe as ', never a raw quote.
-        self.assertIn("d\\u0027adresse", html)
-        self.assertNotIn("d'adresse.'", html)
+        # escapejs is still applied (#1116 changed the copy, which no longer
+        # carries "d'adresse"): its hyphen renders as \u002D in the literal.
+        self.assertIn("s\u00e9lectionnez\\u002Dle ici :", html)
+        self.assertNotIn("sélectionnez-le ici :'", html)
 
     def test_rejected_profile_without_coach_offers_support_not_entry_events(self):
         """Codex review on #1062: event_register checks verification_status

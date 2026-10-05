@@ -72,11 +72,11 @@
                 {% elif premium_recovery_case %}
                 {# #925: payment captured, not applied -- D1 notice, never a pay CTA #}
                 {% include "crush_lu/partials/_premium_recovery_notice.html" %}
-                {% elif suppress_native_commerce %}
-                <p class="text-sm text-muted-fg text-center" data-testid="premium-outside-app">{% trans "Available outside the mobile app" %}</p>
                 {% elif pending_premium_state == "paid" %}
                 <p class="text-sm text-muted-fg mb-3">{% trans "We have already received a payment for your Premium request." %}</p>
                 <a href="{% url 'crush_lu:support' %}" class="btn-crush-outline btn-block text-center">{% trans "Contact support about your Premium payment" %}</a>
+                {% elif suppress_native_commerce %}
+                <p class="text-sm text-muted-fg text-center" data-testid="premium-outside-app">{% trans "Available outside the mobile app" %}</p>
                 {% elif pending_premium_state == "complete" %}
                 <a href="{% url 'crush_lu:premium_choose_coach' %}" class="btn-crush-solid btn-block text-center">{% trans "Complete your Premium signup" %}</a>
                 {% elif pending_premium_state == "manage" %}

@@ -1729,8 +1729,8 @@ SECURE_CSP_REPORT_ONLY = {
         "https://gateway.sumup.com",
         "https://api.sumup.com",
         # Local "Server for RawBT" print bridge (crush_lu/services/ticket_printer.py,
-        # triggerRawBtPrint in alpine-components.js) — the coach's own device only,
-        # deliberately scoped to loopback print ports.
+        # triggerRawBtPrint in crush_lu/static/crush_lu/js/alpine/coach.js) — the
+        # coach's own device only, deliberately scoped to loopback print ports.
         "ws://127.0.0.1:40213",
         "ws://127.0.0.1:*",
         "ws://localhost:*",

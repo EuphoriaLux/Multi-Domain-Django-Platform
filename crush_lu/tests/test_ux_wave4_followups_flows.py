@@ -588,9 +588,10 @@ class SumUpReturnFollowupTests(TestCase):
             ["This checkout belongs to another member. Payment status: Pending."],
         )
 
-    def test_staff_without_admin_view_access_goes_to_my_events(self, _sync):
-        """No 403: plain staff without the PaymentTransaction view
-        permission land on My Events, still with the neutral status."""
+    def test_staff_without_admin_view_access_goes_to_admin_index(self, _sync):
+        """No 403: staff who may open crush_admin but lack the
+        PaymentTransaction view permission land on the admin index
+        (Decision E, #1116), still with the neutral status."""
         tx = self._tx()
         staff, _ = _member("staff2@crush.lu")
         User.objects.filter(pk=staff.pk).update(is_staff=True)
@@ -598,7 +599,8 @@ class SumUpReturnFollowupTests(TestCase):
         response = self.client.get(
             "/payments/sumup/return/", {"ref": tx.transaction_reference}
         )
-        self.assertIn("/my-events/", response.url)
+        self.assertEqual(response.url, "/crush-admin/")
+        self.assertEqual(self.client.get(response.url).status_code, 200)
         texts = [str(m) for m in get_messages(response.wsgi_request)]
         self.assertEqual(
             texts,

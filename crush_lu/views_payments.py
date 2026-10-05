@@ -2719,15 +2719,14 @@ def _sumup_return_staff_response(request, tx_obj):
     )
     from crush_lu.admin import crush_admin_site
 
+    # Only (logged-in, hence active) staff reach this, and
+    # crush_admin_site.has_permission admits every active staff member.
     model_admin = crush_admin_site._registry.get(PaymentTransaction)
-    if (
-        model_admin is not None
-        and crush_admin_site.has_permission(request)
-        and model_admin.has_view_permission(request, tx_obj)
-    ):
+    if model_admin is not None and model_admin.has_view_permission(request, tx_obj):
         return redirect("crush_admin:crush_lu_paymenttransaction_change", tx_obj.pk)
-    # Staff without view access there would hit a 403.
-    return redirect("crush_lu:my_events")
+    # Decision E: staff without PaymentTransaction view access (the change
+    # page would 403) land on the admin index instead.
+    return redirect("crush_admin:index")
 
 
 def _sumup_return_response(request, tx_obj):

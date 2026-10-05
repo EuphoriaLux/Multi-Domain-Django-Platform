@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load i18n social_tags %}
 
 <div class="max-w-3xl mx-auto">
 
@@ -120,7 +120,9 @@
             {% include "shared/icons/envelope.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
             {% trans "Contact & Social" %}
         </h5>
-        <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">{% trans "Your privacy matters. Members are verified instantly with LuxID or in person at an event." %}</p>
+        {# Only promise LuxID when its button is offered (same gate and copy as the footer). #}
+        {% luxid_available as luxid_offered %}
+        <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">{% if luxid_offered %}{% trans "Your privacy matters. Members are verified instantly with LuxID or in person at an event." %}{% else %}{% trans "Your privacy matters. Members are verified in person at an event." %}{% endif %}</p>
 
         {% if whatsapp_enabled and whatsapp_number %}
         <div class="flex items-center gap-3 mb-3">
