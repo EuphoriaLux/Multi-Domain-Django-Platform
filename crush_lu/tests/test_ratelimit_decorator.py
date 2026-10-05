@@ -537,3 +537,44 @@ class RateLimitDecoratorTests(SimpleTestCase):
             count = cache.get(key)
 
         self.assertEqual(count, 1)
+
+    def test_stall_before_token_write_never_takes_from_the_new_window(self):
+        # #1150 follow-up: a fixed one-second head start fails if the worker
+        # stalls longer than that between creating the counter and writing its
+        # token: the token is again measured from a later start and outlives
+        # the counter. The release is then tied to the deadline taken before
+        # the counter was created, so no stall can carry it into a new window.
+        from django.core.cache import caches
+        from django.core.cache.backends.locmem import LocMemCache
+
+        from crush_lu.decorators import _count_request, _release_request
+
+        if not isinstance(caches["default"], LocMemCache):
+            self.skipTest("drives LocMemCache expiry internals")
+
+        key = "ratelimit:rollover:stall"
+        internal_key = cache.make_key(key)
+        clock = [1_000_000.0]
+        real_set, real_decr = cache.set, cache.decr
+
+        def stalled_set(*args, **kwargs):
+            clock[0] += 5  # descheduled for 5s after add(), before the write
+            return real_set(*args, **kwargs)
+
+        def expire_then_decr(name, *args, **kwargs):
+            clock[0] = cache._expire_info[internal_key]  # window A expires...
+            cache.add(key, 0, 900)  # ...request B opens window B...
+            cache.incr(key)  # ...and is counted in it
+            return real_decr(name, *args, **kwargs)
+
+        with patch("time.time", side_effect=lambda: clock[0]):
+            with patch.object(cache, "set", side_effect=stalled_set):
+                count, generation = _count_request(key, 900)
+            self.assertEqual(count, 1)
+            # Release starts 1.5s before window A's counter expires.
+            clock[0] = cache._expire_info[internal_key] - 1.5
+            with patch.object(cache, "decr", side_effect=expire_then_decr):
+                _release_request(key, generation)
+            count = cache.get(key)
+
+        self.assertEqual(count, 1)
