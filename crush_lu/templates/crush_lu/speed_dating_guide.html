@@ -1,0 +1,54 @@
+{% extends 'crush_lu/base.html' %}
+{% load static i18n %}
+{% block title %}{% trans "Speed Dating in Luxembourg - How the evening works | Crush.lu" %}{% endblock %}
+{% block meta_description %}{% trans "From coach check-in straight to one-to-one conversations: discover the current Crush.lu Speed Dating format, curated applications and arrival guidance." %}{% endblock %}
+{% block og_title %}{% trans "Speed Dating at Crush.lu" %}{% endblock %}
+{% block og_description %}{% trans "Check in, take a seat and start meeting people. Short conversations, coach guidance and no public introduction round." %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'crush_lu/css/marketing.css' %}">{% endblock %}
+{% block content %}
+<div class="event-guide event-guide--speed">
+    <header class="guide-hero">
+        <div class="guide-hero__copy">
+            <p class="guide-eyebrow"><span></span>{% trans "Speed Dating at Crush.lu" %}</p>
+            <h1 class="guide-hero__title font-display">{% trans "A few minutes." %}<br><em>{% trans "A real conversation." %}</em></h1>
+            <p class="guide-hero__intro">{% trans "After coach check-in, start short one-to-one conversations. No public introduction round." %}</p>
+            <div class="guide-hero__actions">
+                <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-primary">{% trans "Find your next event" %} <span aria-hidden="true">↗</span></a>
+                <a href="#evening-heading" class="guide-text-link">{% trans "Your evening, step by step" %} <span aria-hidden="true">↓</span></a>
+            </div>
+        </div>
+        {% include 'crush_lu/components/event_guide_scene.html' with kind='speed' %}
+    </header>
+    <ul class="guide-highlights" aria-label="{% trans 'Speed Dating' %}">
+        <li><span aria-hidden="true">✓</span>{% trans 'Coach welcome' %}</li>
+        <li><span aria-hidden="true">✓</span>{% trans 'One-to-one conversations' %}</li>
+        <li><span aria-hidden="true">✓</span>{% trans 'No public introductions' %}</li>
+    </ul>
+    <section class="guide-flow" aria-labelledby="evening-heading">
+        <div class="guide-section-heading"><p class="guide-eyebrow">{% trans "One-to-one encounters" %}</p><h2 id="evening-heading" class="font-display">{% trans "Your evening, step by step" %}</h2></div>
+        <ol class="guide-timeline">
+            <li>
+                <span class="guide-timeline__number" aria-hidden="true">01</span>
+                <div><h3>{% trans "Welcome and check-in" %}</h3><p>{% trans "The coach checks your booking, records your arrival and guides you to your seat." %}</p></div>
+                <div class="guide-timeline__art" aria-hidden="true">{% include 'crush_lu/components/event_guide_ghost.html' with illustration='crush_lu/includes/ghost-story-approved.html' %}</div>
+            </li>
+            <li>
+                <span class="guide-timeline__number" aria-hidden="true">02</span>
+                <div><h3>{% trans "Straight to conversations" %}</h3><p>{% trans "Chat for a few minutes, then change partners at the coach's signal." %}</p></div>
+                <div class="guide-timeline__art" aria-hidden="true">{% include 'crush_lu/components/event_guide_ghost.html' with illustration='crush_lu/includes/ghost-story-chatting-pair.html' %}</div>
+            </li>
+            <li>
+                <span class="guide-timeline__number" aria-hidden="true">03</span>
+                <div><h3>{% trans "Keep the connection going" %}</h3><p>{% trans "Express your interest through My Crush after the event. Contact details are shared only with mutual consent." %}</p></div>
+                <div class="guide-timeline__art" aria-hidden="true">{% include 'crush_lu/components/event_guide_ghost.html' with illustration='crush_lu/includes/ghost-story-inlove.html' %}</div>
+            </li>
+        </ol>
+    </section>
+    <section class="guide-note" aria-labelledby="booking-heading">
+        <div class="guide-note__icon" aria-hidden="true">{% include 'shared/icons/users.html' with class='w-8 h-8' %}</div>
+        <div><h2 id="booking-heading">{% trans "Some evenings use curated groups" %}</h2><p>{% trans "For curated events, apply for free first. A place is not guaranteed: selected applicants receive an invitation to book and pay. Dates, prices and conditions are on the event page." %}</p></div>
+    </section>
+    {% include 'crush_lu/components/event_arrival_guidance.html' %}
+    <aside class="guide-other-format"><span>{% trans 'A game to bring you together' %}</span><a href="{% url 'crush_lu:quiz_night_guide' %}" class="guide-text-link">{% trans "Prefer a team game? Discover Quiz Night" %} <span aria-hidden="true">↗</span></a></aside>
+</div>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% load i18n %}
+<div class="format-cards grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+    <article class="format-card format-card--speed">
+        <div class="format-card__art" aria-hidden="true">{% include 'crush_lu/components/event_guide_ghost.html' with illustration='crush_lu/includes/ghost-story-chatting-pair.html' %}<span class="format-card__symbol">♡</span></div>
+        <div class="format-card__body"><p class="format-card__eyebrow">{% trans 'One-to-one encounters' %}</p>
+        <h3>{% trans "Speed Dating" %}</h3>
+        <p>{% trans "Short one-to-one conversations, straight after coach check-in." %}</p>
+        <a href="{% url 'crush_lu:speed_dating_guide' %}" class="guide-text-link">{% trans "Discover Speed Dating" %} <span aria-hidden="true">↗</span></a></div>
+    </article>
+    <article class="format-card format-card--quiz">
+        <div class="format-card__art" aria-hidden="true">{% include 'crush_lu/components/event_guide_ghost.html' with illustration='crush_lu/includes/ghost-story-laughing.html' %}<span class="format-card__symbol">?</span></div>
+        <div class="format-card__body"><p class="format-card__eyebrow">{% trans 'A game to bring you together' %}</p>
+        <h3>{% trans "Quiz Night" %}</h3>
+        <p>{% trans "A team quiz to break the ice and meet new people." %}</p>
+        <a href="{% url 'crush_lu:quiz_night_guide' %}" class="guide-text-link">{% trans "Discover Quiz Night" %} <span aria-hidden="true">↗</span></a></div>
+    </article>
+    <article class="format-card format-card--social">
+        <div class="format-card__art" aria-hidden="true">{% include 'crush_lu/components/event_guide_ghost.html' with illustration='crush_lu/includes/ghost-story-party.html' %}<span class="format-card__symbol">✦</span></div>
+        <div class="format-card__body"><p class="format-card__eyebrow">{% trans 'Meet new people' %}</p>
+        <h3>{% trans "Social mixers and activities" %}</h3>
+        <p>{% trans "Themed evenings and shared activities in a relaxed atmosphere." %}</p>
+        <a href="{% url 'crush_lu:event_list' %}" class="guide-text-link">{% trans "Browse Events" %} <span aria-hidden="true">↗</span></a></div>
+    </article>
+</div>

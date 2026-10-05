@@ -30,6 +30,8 @@ class CrushStaticViewSitemap(Sitemap):
             'crush_lu:home',
             'crush_lu:about',
             'crush_lu:how_it_works',
+            'crush_lu:speed_dating_guide',
+            'crush_lu:quiz_night_guide',
             'crush_lu:event_list',
             'crush_lu:theme_board',
             'crush_lu:crush_coach',

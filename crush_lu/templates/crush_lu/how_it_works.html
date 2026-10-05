@@ -66,7 +66,7 @@
             "@type": "HowToStep",
             "position": 3,
             "name": "{% trans "Browse Events" %}",
-            "text": "{% trans "Explore speed dating nights, social mixers, themed events, and outdoor adventures." %}",
+            "text": "{% trans "Choose Speed Dating, Quiz Night or a social event. Each format has its own programme." %}",
             "url": "https://crush.lu{% url 'crush_lu:event_list' %}"
         },
         {
@@ -148,11 +148,11 @@
                 </div>
                 <h2>{% trans "Browse Events" %}</h2>
                 <p>
-                    {% trans "Explore speed dating nights, social mixers, themed events, and outdoor adventures. Find what excites you!" %}
+                    {% trans "Choose Speed Dating, Quiz Night or a social event. Each format has its own programme." %}
                 </p>
                 <div class="mt-4">
                     <a href="{% url 'crush_lu:voting_demo' %}" class="btn-crush-outline btn-sm">
-                        🗳️ {% trans "See How Voting Works" %}
+                        {% trans "Explore the event formats" %}
                     </a>
                 </div>
             </div>
@@ -173,6 +173,12 @@
         </div>
     </div>
 </div>
+
+<section class="mb-8" aria-labelledby="format-heading">
+    <h2 id="format-heading">{% trans "Choose your event format" %}</h2>
+    {% include 'crush_lu/components/event_format_cards.html' %}
+</section>
+{% include 'crush_lu/components/event_arrival_guidance.html' %}
 
 <!-- Privacy & Safety Section -->
 <div class="privacy-section fade-in">

@@ -333,7 +333,7 @@ class GridMigrationTests(TestCase):
         'coach_presentation_control.html',
         'event_voting_lobby.html',
         'event_voting_results.html',
-        'voting_demo.html',
+        'components/event_format_cards.html',  # Shared grid used by voting_demo.
         'my_presentation_scores.html',
     ]
 

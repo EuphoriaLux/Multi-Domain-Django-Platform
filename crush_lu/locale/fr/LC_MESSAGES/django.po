@@ -44224,3 +44224,394 @@ msgstr "%(name)s n'a pas encore partagé son numéro de téléphone."
 #: templates/crush_lu/connection_detail.html
 msgid "Your contact details"
 msgstr "Vos coordonnées"
+
+#: crush_lu/templates/crush_lu/components/event_format_cards.html:6
+msgid "Short one-to-one conversations, straight after coach check-in."
+msgstr ""
+"Des conversations courtes en tête-à-tête, juste après l’accueil du coach."
+
+#: crush_lu/templates/crush_lu/quiz_night_guide.html:39
+#: crush_lu/templates/crush_lu/components/event_format_cards.html:7
+#: crush_lu/templates/crush_lu/event_list.html:94
+msgid "Discover Speed Dating"
+msgstr "Découvrez le Speed Dating"
+
+#: crush_lu/templates/crush_lu/components/event_format_cards.html:12
+msgid "A team quiz to break the ice and meet new people."
+msgstr "Un quiz en équipe pour briser la glace et faire des rencontres."
+
+#: crush_lu/templates/crush_lu/speed_dating_guide.html:38
+#: crush_lu/templates/crush_lu/components/event_format_cards.html:13
+#: crush_lu/templates/crush_lu/event_list.html:95
+msgid "Discover Quiz Night"
+msgstr "Découvrez la Quiz Night"
+
+#: crush_lu/templates/crush_lu/components/event_format_cards.html:17
+msgid "Social mixers and activities"
+msgstr "Rencontres conviviales et activités"
+
+#: crush_lu/templates/crush_lu/components/event_format_cards.html:18
+msgid "Themed evenings and shared activities in a relaxed atmosphere."
+msgstr "Soirées à thème et activités partagées, dans une ambiance détendue."
+
+#: crush_lu/templates/crush_lu/components/event_arrival_guidance.html:3
+msgid "A smooth arrival starts before the event"
+msgstr "Préparez votre arrivée avant la soirée"
+
+#: crush_lu/templates/crush_lu/components/event_arrival_guidance.html:5
+msgid ""
+"Check that your seat is confirmed and any required payment is complete. An "
+"application or waiting-list place is not a booking."
+msgstr ""
+"Vérifiez votre place confirmée et le paiement requis. Une candidature ou une"
+" place en liste d’attente n’est pas une réservation."
+
+#: crush_lu/templates/crush_lu/components/event_arrival_guidance.html:6
+msgid "Arrive at the advertised time with your booking or ticket ready."
+msgstr "Arrivez à l’heure indiquée, avec votre réservation ou billet."
+
+#: crush_lu/templates/crush_lu/components/event_arrival_guidance.html:7
+msgid ""
+"Check in with the coach: your booking alone does not confirm your "
+"attendance."
+msgstr ""
+"Signalez votre arrivée au coach : votre réservation ne confirme pas votre "
+"présence."
+
+#: crush_lu/templates/crush_lu/components/event_arrival_guidance.html:8
+msgid ""
+"Cannot come? Cancel promptly in My Events. Running late? Contact the "
+"organiser listed on your event page."
+msgstr ""
+"Empêchement ? Annulez rapidement dans Mes événements. Retard ? Contactez "
+"l’organisateur indiqué sur la page de votre soirée."
+
+#: crush_lu/templates/crush_lu/speed_dating_guide.html:3
+msgid "Speed Dating in Luxembourg - How the evening works | Crush.lu"
+msgstr "Speed Dating au Luxembourg - Le déroulement de la soirée | Crush.lu"
+
+#: crush_lu/templates/crush_lu/speed_dating_guide.html:4
+msgid ""
+"From coach check-in straight to one-to-one conversations: discover the "
+"current Crush.lu Speed Dating format, curated applications and arrival "
+"guidance."
+msgstr ""
+"De l’accueil par le coach aux conversations en tête-à-tête : découvrez le "
+"Speed Dating Crush.lu, les candidatures pour les groupes sur sélection et "
+"les conseils d’arrivée."
+
+#: crush_lu/templates/crush_lu/speed_dating_guide.html:5
+#: crush_lu/templates/crush_lu/speed_dating_guide.html:11
+msgid "Speed Dating at Crush.lu"
+msgstr "Le Speed Dating chez Crush.lu"
+
+#: crush_lu/templates/crush_lu/speed_dating_guide.html:6
+msgid ""
+"Check in, take a seat and start meeting people. Short conversations, coach "
+"guidance and no public introduction round."
+msgstr ""
+"Signalez votre arrivée, installez-vous et commencez les rencontres. Des "
+"conversations courtes, un coach pour vous guider et aucun tour de "
+"présentation devant le groupe."
+
+#: crush_lu/templates/crush_lu/speed_dating_guide.html:10
+msgid "One-to-one encounters"
+msgstr "Des rencontres en tête-à-tête"
+
+#: crush_lu/templates/crush_lu/speed_dating_guide.html:12
+msgid ""
+"After coach check-in, start short one-to-one conversations. No public "
+"introduction round."
+msgstr ""
+"Après l’accueil du coach, place aux rencontres en tête-à-tête. Pas de "
+"présentation devant le groupe."
+
+#: crush_lu/templates/crush_lu/speed_dating_guide.html:15
+msgid "Your evening, step by step"
+msgstr "Votre soirée, étape par étape"
+
+#: crush_lu/templates/crush_lu/speed_dating_guide.html:18
+msgid "1. Welcome and check-in"
+msgstr "1. Accueil et enregistrement"
+
+#: crush_lu/templates/crush_lu/speed_dating_guide.html:19
+msgid ""
+"The coach checks your booking, records your arrival and guides you to your "
+"seat."
+msgstr ""
+"Le coach vérifie votre réservation, confirme votre présence et vous indique "
+"où vous asseoir."
+
+#: crush_lu/templates/crush_lu/speed_dating_guide.html:22
+msgid "2. Straight to conversations"
+msgstr "2. Place aux conversations"
+
+#: crush_lu/templates/crush_lu/speed_dating_guide.html:23
+msgid "Chat for a few minutes, then change partners at the coach's signal."
+msgstr ""
+"Discutez quelques minutes, puis changez de partenaire au signal du coach."
+
+#: crush_lu/templates/crush_lu/speed_dating_guide.html:26
+msgid "3. Keep the connection going"
+msgstr "3. Prolongez la rencontre"
+
+#: crush_lu/templates/crush_lu/speed_dating_guide.html:27
+msgid ""
+"Express your interest through My Crush after the event. Contact details are "
+"shared only with mutual consent."
+msgstr ""
+"Après la soirée, exprimez votre intérêt via My Crush. Vos coordonnées sont "
+"partagées uniquement avec votre accord mutuel."
+
+#: crush_lu/templates/crush_lu/speed_dating_guide.html:32
+msgid "Some evenings use curated groups"
+msgstr "Certaines soirées proposent des groupes sur sélection"
+
+#: crush_lu/templates/crush_lu/speed_dating_guide.html:33
+msgid ""
+"For curated events, apply for free first. A place is not guaranteed: "
+"selected applicants receive an invitation to book and pay. Dates, prices and"
+" conditions are on the event page."
+msgstr ""
+"Pour les soirées sur sélection, candidatez gratuitement. La place n’est pas "
+"garantie : les personnes retenues sont invitées à réserver et payer. Dates, "
+"tarifs et conditions figurent sur la page de l’événement."
+
+#: crush_lu/templates/crush_lu/voting_demo.html:26
+#: crush_lu/templates/crush_lu/speed_dating_guide.html:37
+#: crush_lu/templates/crush_lu/quiz_night_guide.html:38
+msgid "Find your next event"
+msgstr "Trouvez votre prochaine soirée"
+
+#: crush_lu/templates/crush_lu/speed_dating_guide.html:38
+msgid "Prefer a team game? Discover Quiz Night"
+msgstr "Envie de jouer en équipe ? Découvrez la Quiz Night"
+
+#: crush_lu/templates/crush_lu/quiz_night_guide.html:3
+msgid "Quiz Night in Luxembourg - Play, rotate and meet people | Crush.lu"
+msgstr "Quiz Night au Luxembourg - Jouez et faites des rencontres | Crush.lu"
+
+#: crush_lu/templates/crush_lu/quiz_night_guide.html:4
+msgid ""
+"Discover Crush.lu Quiz Night: coach check-in, team questions, table "
+"rotations and live scores. A playful way to meet people in Luxembourg."
+msgstr ""
+"Découvrez la Quiz Night Crush.lu : accueil par le coach, questions en "
+"équipe, changements de table et scores en direct. Des rencontres autour du "
+"jeu au Luxembourg."
+
+#: crush_lu/templates/crush_lu/quiz_night_guide.html:5
+#: crush_lu/templates/crush_lu/quiz_night_guide.html:11
+msgid "Quiz Night at Crush.lu"
+msgstr "La Quiz Night chez Crush.lu"
+
+#: crush_lu/templates/crush_lu/quiz_night_guide.html:6
+msgid ""
+"A shared challenge makes the first conversation easier. Play as a team and "
+"meet new people around the quiz tables."
+msgstr ""
+"Un défi partagé facilite la première conversation. Jouez en équipe et "
+"rencontrez de nouvelles personnes autour des tables du quiz."
+
+#: crush_lu/templates/crush_lu/quiz_night_guide.html:10
+msgid "A game to bring you together"
+msgstr "Un jeu pour faire connaissance"
+
+#: crush_lu/templates/crush_lu/quiz_night_guide.html:12
+msgid "Come on your own, join a table and break the ice with a shared game."
+msgstr ""
+"Venez en solo, rejoignez une table et brisez la glace autour d’un jeu."
+
+#: crush_lu/templates/crush_lu/quiz_night_guide.html:15
+msgid "How the quiz evening works"
+msgstr "Le déroulement de la soirée quiz"
+
+#: crush_lu/templates/crush_lu/quiz_night_guide.html:18
+msgid "1. Check in and find your table"
+msgstr "1. Signalez votre arrivée et trouvez votre table"
+
+#: crush_lu/templates/crush_lu/quiz_night_guide.html:19
+msgid ""
+"Check in with the coach, find your table and open your event's live quiz "
+"page."
+msgstr ""
+"Signalez votre arrivée au coach, rejoignez votre table et ouvrez la page du "
+"quiz en direct."
+
+#: crush_lu/templates/crush_lu/quiz_night_guide.html:22
+msgid "2. Think, laugh and answer together"
+msgstr "2. Réfléchissez, riez et répondez ensemble"
+
+#: crush_lu/templates/crush_lu/quiz_night_guide.html:23
+msgid ""
+"Discuss the host's questions as a team and collect points through the "
+"rounds."
+msgstr ""
+"Discutez en équipe des questions de l’animateur et accumulez des points au "
+"fil des manches."
+
+#: crush_lu/templates/crush_lu/quiz_night_guide.html:26
+msgid "3. New rounds, new encounters"
+msgstr "3. De nouvelles manches, de nouvelles rencontres"
+
+#: crush_lu/templates/crush_lu/quiz_night_guide.html:27
+msgid ""
+"When rotations are planned, follow your table assignment and the coach's "
+"instructions to meet new people between rounds."
+msgstr ""
+"Si des rotations sont prévues, suivez votre affectation et les consignes du "
+"coach pour changer de table entre les manches."
+
+#: crush_lu/templates/crush_lu/quiz_night_guide.html:32
+msgid "What should I bring?"
+msgstr "Que faut-il prévoir ?"
+
+#: crush_lu/templates/crush_lu/quiz_night_guide.html:33
+msgid ""
+"A charged phone for your table assignment and the live quiz. No team needed."
+" Check the event page for the language, theme and instructions."
+msgstr ""
+"Un téléphone chargé pour consulter votre table et suivre le quiz. Pas besoin"
+" d’équipe. Langue, thème et consignes sont indiqués sur la page de la "
+"soirée."
+
+#: crush_lu/templates/crush_lu/quiz_night_guide.html:34
+msgid "After the quiz, use My Crush to express interest in someone you met."
+msgstr ""
+"Après le quiz, My Crush vous permet d’exprimer votre intérêt pour une "
+"personne rencontrée."
+
+#: crush_lu/templates/crush_lu/voting_demo.html:3
+msgid "Event formats and optional voting | Crush.lu"
+msgstr "Formats des soirées et votes facultatifs | Crush.lu"
+
+#: crush_lu/templates/crush_lu/voting_demo.html:4
+msgid ""
+"Choose your Crush.lu experience: Speed Dating, Quiz Night or a social event."
+" Learn about check-in and when activity voting is offered."
+msgstr ""
+"Choisissez votre expérience Crush.lu : Speed Dating, Quiz Night ou rencontre"
+" conviviale. Découvrez l’accueil et les votes proposés selon les soirées."
+
+#: crush_lu/templates/crush_lu/voting_demo.html:5
+#: crush_lu/templates/crush_lu/voting_demo.html:10
+msgid "Different evenings, real encounters"
+msgstr "Des soirées variées, de vraies rencontres"
+
+#: crush_lu/templates/crush_lu/voting_demo.html:6
+#: crush_lu/templates/crush_lu/voting_demo.html:11
+msgid ""
+"Speed Dating, Quiz Night and social events each have their own rhythm. Find "
+"the format that suits you."
+msgstr ""
+"Speed Dating, Quiz Night et rencontres conviviales ont chacun leur rythme. "
+"Trouvez la formule qui vous correspond."
+
+#: crush_lu/templates/crush_lu/voting_demo.html:14
+#: crush_lu/templates/crush_lu/how_it_works.html:178
+msgid "Choose your event format"
+msgstr "Choisissez votre type de soirée"
+
+#: crush_lu/templates/crush_lu/voting_demo.html:19
+msgid "And what about voting?"
+msgstr "Et les votes ?"
+
+#: crush_lu/templates/crush_lu/voting_demo.html:20
+msgid ""
+"Some events offer activity voting. The event page and your coach explain "
+"whether it is part of your evening."
+msgstr ""
+"Certaines soirées proposent un vote sur les activités. La page de "
+"l’événement et votre coach vous indiquent si un vote est prévu."
+
+#: crush_lu/templates/crush_lu/voting_demo.html:22
+msgid "If my event offers voting, how does it work?"
+msgstr "Si ma soirée propose un vote, comment participer ?"
+
+#: crush_lu/templates/crush_lu/voting_demo.html:23
+msgid ""
+"When the coach opens voting, enter your event's voting lobby, choose an "
+"option and submit before the countdown ends."
+msgstr ""
+"Quand le coach ouvre le vote, accédez à l’espace de vote de votre événement,"
+" choisissez une option et validez avant la fin du compte à rebours."
+
+#: crush_lu/templates/crush_lu/how_it_works.html:69
+#: crush_lu/templates/crush_lu/how_it_works.html:151
+msgid ""
+"Choose Speed Dating, Quiz Night or a social event. Each format has its own "
+"programme."
+msgstr ""
+"Choisissez le Speed Dating, la Quiz Night ou une rencontre conviviale. "
+"Chaque formule a son propre programme."
+
+#: crush_lu/templates/crush_lu/how_it_works.html:155
+msgid "Explore the event formats"
+msgstr "Découvrez les types de soirées"
+
+#: crush_lu/templates/crush_lu/event_list.html:93
+msgid "Event format guides"
+msgstr "Guides des types de soirées"
+
+msgid "Play together."
+msgstr "Jouez ensemble."
+
+msgid "Meet someone new."
+msgstr "Faites connaissance."
+
+msgid "A few minutes."
+msgstr "Quelques minutes."
+
+msgid "A real conversation."
+msgstr "Une vraie conversation."
+
+msgid "Come on your own"
+msgstr "Venez en solo"
+
+msgid "Play as a team"
+msgstr "Jouez en équipe"
+
+msgid "Meet new people"
+msgstr "Faites des rencontres"
+
+msgid "Coach welcome"
+msgstr "Accueil par un coach"
+
+msgid "One-to-one conversations"
+msgstr "Conversations en tête-à-tête"
+
+msgid "No public introductions"
+msgstr "Sans présentation en groupe"
+
+msgid "Check in and find your table"
+msgstr "Signalez votre arrivée et trouvez votre table"
+
+msgid "Think, laugh and answer together"
+msgstr "Réfléchissez, riez et répondez ensemble"
+
+msgid "New rounds, new encounters"
+msgstr "De nouvelles manches, de nouvelles rencontres"
+
+msgid "Welcome and check-in"
+msgstr "Accueil et enregistrement"
+
+msgid "Straight to conversations"
+msgstr "Place aux conversations"
+
+msgid "Keep the connection going"
+msgstr "Prolongez la rencontre"
+
+msgid "Before you arrive"
+msgstr "Avant votre arrivée"
+
+msgid "Your booking"
+msgstr "Votre réservation"
+
+msgid "Your arrival time"
+msgstr "Votre heure d’arrivée"
+
+msgid "Your check-in"
+msgstr "Votre enregistrement"
+
+msgid "A change of plans?"
+msgstr "Un changement de programme ?"

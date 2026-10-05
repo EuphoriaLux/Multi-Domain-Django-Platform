@@ -177,6 +177,16 @@ def how_it_works(request):
     return render(request, "crush_lu/how_it_works.html")
 
 
+def speed_dating_guide(request):
+    """Public guide to the current check-in-first Speed Dating format."""
+    return render(request, "crush_lu/speed_dating_guide.html")
+
+
+def quiz_night_guide(request):
+    """Public guide; live quiz access remains attendance-gated."""
+    return render(request, "crush_lu/quiz_night_guide.html")
+
+
 def privacy_policy(request):
     """Privacy policy page"""
     return render(request, "crush_lu/privacy_policy.html")
