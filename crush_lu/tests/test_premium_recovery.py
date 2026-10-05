@@ -844,6 +844,59 @@ class LateCaptureTests(_Base):
         self.assertNotIn("Complete your Premium signup", pricing)
         self.assertIn("We have already received a payment", pricing)
 
+    def test_checkout_applies_a_capture_sumup_already_has(self):
+        from unittest.mock import MagicMock
+
+        tx = self._tx("REC-MISSED-HOOK")
+        client = MagicMock()
+        client.get_checkout.return_value = {
+            "id": tx.sumup_checkout_id,
+            "status": "PAID",
+            "amount": 10.0,
+            "currency": "EUR",
+        }
+        with patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self._client().post(
+                    f"/payments/sumup/create-premium-checkout/{self.membership.pk}/"
+                )
+        self.assertEqual(response.status_code, 409)
+        tx.refresh_from_db()
+        self.membership.refresh_from_db()
+        self.assertEqual(
+            (tx.status, self.membership.status),
+            (PaymentTransaction.Status.PAID, "active"),
+        )
+        client.refund.assert_not_called()
+
+    def test_checkout_refused_while_a_resolved_case_has_an_open_checkout(self):
+        self.membership.status = "cancelled"
+        self.membership.save(update_fields=["status"])
+        PremiumPaymentRecoveryCase.objects.create(
+            payment=self._tx("REC-RES-OLD", status=PaymentTransaction.Status.PAID),
+            user=self.member,
+            premium_membership=self.membership,
+            reason=Reason.REQUEST_CANCELLED,
+            status=PremiumPaymentRecoveryCase.Status.RESOLVED,
+        )
+        self._tx("REC-RES-STILL-OPEN")
+        replacement = PremiumMembership.objects.create(
+            user=self.member, coach=self.coach, status="pending"
+        )
+        response = self._client().post(
+            f"/payments/sumup/create-premium-checkout/{replacement.pk}/"
+        )
+        self.assertEqual(response.status_code, 409)
+
+    def test_publication_refuses_a_deactivated_account(self):
+        from crush_lu import views_payments
+
+        src = inspect.getsource(views_payments.create_sumup_premium_checkout)
+        self.assertLess(
+            src.index("not locked_membership.user.is_active"),
+            src.index("PaymentTransaction.objects.create("),
+        )
+
     def test_checkout_refused_while_an_older_case_is_open(self):
         self.membership.status = "cancelled"
         self.membership.save(update_fields=["status"])

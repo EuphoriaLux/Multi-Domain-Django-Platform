@@ -960,9 +960,7 @@ def create_sumup_premium_checkout(request, membership_id):
 
     # #925: any unresolved captured payment (even on an older request) is
     # settled by staff before the member can be charged again.
-    if PremiumPaymentRecoveryCase.objects.filter(
-        user=membership.user, status=PremiumPaymentRecoveryCase.Status.OPEN
-    ).exists():
+    if premium_recovery.blocks_new_charge(membership.user):
         return _premium_payment_received_response()
 
     # Ask the beta allowlist again, here, at the moment money is about to move.
@@ -1013,6 +1011,14 @@ def create_sumup_premium_checkout(request, membership_id):
             membership.id,
             membership.user_id,
         )
+        # #925: apply it now -- the hourly sweep only reads PAID rows, so a
+        # missed webhook would otherwise leave the charge unapplied for good.
+        for row in PaymentTransaction.objects.filter(
+            premium_membership=membership,
+            status=PaymentTransaction.Status.PENDING,
+            sumup_checkout_id__isnull=False,
+        ):
+            _sync_checkout_with_sumup(row)
         return _premium_payment_received_response()
     if state == "open":
         return _premium_checkout_retry_response(membership)
@@ -1076,6 +1082,8 @@ def create_sumup_premium_checkout(request, membership_id):
         if (
             locked_membership is None
             or locked_membership.status != "pending"
+            # A merge that won the membership lock deactivated this account.
+            or not locked_membership.user.is_active
             or _premium_payment_captured(membership)
         ):
             error, not_pending = _("This membership is not pending payment."), True

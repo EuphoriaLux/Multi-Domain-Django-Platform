@@ -73,16 +73,11 @@ def pending_premium_state(user):
         return None
     from .views_payments import _premium_payment_captured, _premium_purchase_refused
 
-    from .models import PremiumPaymentRecoveryCase
+    from .services.premium_recovery import blocks_new_charge
 
-    # #925: also any open case (even on an older request), which the checkout
-    # endpoint refuses on -- never offer a pay button that would 409.
-    if (
-        _premium_payment_captured(pending)
-        or PremiumPaymentRecoveryCase.objects.filter(
-            user=user, status=PremiumPaymentRecoveryCase.Status.OPEN
-        ).exists()
-    ):
+    # #925: the same rule the checkout endpoint refuses on -- never offer a
+    # pay button that would 409.
+    if _premium_payment_captured(pending) or blocks_new_charge(user):
         return "paid"
     return "manage" if _premium_purchase_refused(pending) else "complete"
 

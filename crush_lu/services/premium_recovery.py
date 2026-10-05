@@ -33,6 +33,28 @@ def member_notice(payment):
     }
 
 
+def blocks_new_charge(user):
+    """True while ``user`` must not be charged again (#925): any OPEN case, or
+    any case (even resolved) whose membership still has a checkout that SumUp
+    has not confirmed closed."""
+    from django.db.models import Q
+
+    from crush_lu.models import PaymentTransaction, PremiumPaymentRecoveryCase
+
+    return (
+        PremiumPaymentRecoveryCase.objects.filter(user=user)
+        .filter(
+            Q(status=PremiumPaymentRecoveryCase.Status.OPEN)
+            | Q(
+                premium_membership__payment_transactions__status=(
+                    PaymentTransaction.Status.PENDING
+                )
+            )
+        )
+        .exists()
+    )
+
+
 def reason_for_membership_status(status):
     """Map the membership state a capture found to the case reason."""
     from crush_lu.models import PremiumPaymentRecoveryCase
