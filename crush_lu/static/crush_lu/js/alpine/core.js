@@ -7104,8 +7104,11 @@ document.addEventListener("alpine:init", function () {
                 self.deferredPrompt.userChoice.then(function (result) {
                     if (result.outcome === "accepted") {
                         self.isInstalled = true;
-                        self.canInstall = false;
                     }
+                    // A used prompt can't be shown again, so a dismissed
+                    // one must not leave a dead Install button behind. The
+                    // installOffered watcher then frees the prompts queue.
+                    self.canInstall = false;
                     self.deferredPrompt = null;
                 });
             },
