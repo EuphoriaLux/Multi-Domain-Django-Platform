@@ -21,6 +21,8 @@ def build_event_prefill(offer: PartnerOffer) -> dict:
     """``MeetupEvent`` field values taken from ``offer`` and its partner."""
     partner = offer.location
     fields = {
+        "partner": partner.pk,
+        "offer": offer.pk,
         "event_type": offer.event_type,
         # The venue name as it is shown on the event page.
         "location": partner.name,
