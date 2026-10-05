@@ -277,6 +277,34 @@ class PremiumCheckoutLockTests(TestCase):
         row = PaymentTransaction.objects.get(sumup_checkout_id="CHK_REUSABLE")
         self.assertIn("stopped being pending", row.failure_reason)
 
+    def test_refusal_records_a_reused_checkout_captured_meanwhile(self):
+        """#925: a refused publication (here: a merge's lock won) whose kept
+        checkout SumUp captured since the first read records that capture."""
+        self._pending_row("CHK_REUSE_CAP")
+        reads = []
+
+        def _captured_after_first_read(checkout_id):
+            reads.append(checkout_id)
+            remote = dict(self.remote[checkout_id])
+            if len(reads) > 1:
+                remote["status"] = "PAID"
+            return remote
+
+        self.sumup["get_checkout"].side_effect = _captured_after_first_read
+        self.sumup["deactivate_checkout"].side_effect = None
+        self.sumup["deactivate_checkout"].return_value = False
+
+        with patch(
+            "crush_lu.views_payments._lock_member_and_check_blocked",
+            return_value=True,
+        ):
+            response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(self.created, [])
+        self.assertEqual(self._statuses(), {"CHK_REUSE_CAP": "paid"})
+        self.assertEqual(reads, ["CHK_REUSE_CAP", "CHK_REUSE_CAP"])
+
     def test_missing_api_key_while_retiring_returns_the_json_refusal(self):
         """A SumUpConfigurationError is a 409 JSON refusal, not an HTML 500."""
         self._pending_row("CHK_OLD")

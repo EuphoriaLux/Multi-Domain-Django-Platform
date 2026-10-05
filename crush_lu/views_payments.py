@@ -1151,13 +1151,23 @@ def create_sumup_premium_checkout(request, membership_id):
     if error is not None:
         if reuse_row is None:
             client.deactivate_checkout(checkout_id)
-        elif not_pending and _close_premium_checkout(client, checkout_id) == "closed":
-            # A saved widget link must not charge a membership that ended.
-            with transaction.atomic():
-                _lock_premium_checkout_state(
-                    membership.pk,
-                    {reuse_row.pk},
-                    reason=_PREMIUM_CHECKOUT_ABANDONED_REASON,
+        elif not_pending:
+            payload = {}
+            outcome = _close_premium_checkout(client, checkout_id, payload)
+            if outcome == "closed":
+                # A saved widget link must not charge a membership that ended.
+                with transaction.atomic():
+                    _lock_premium_checkout_state(
+                        membership.pk,
+                        {reuse_row.pk},
+                        reason=_PREMIUM_CHECKOUT_ABANDONED_REASON,
+                    )
+            elif outcome == "paid":
+                # #925: captured since the read above. Record it from this read
+                # (applied, or its own case): an account a merge deactivated
+                # never clicks again, and the sweep reads PAID rows only.
+                _apply_paid_checkout(
+                    PaymentTransaction.objects.get(pk=reuse_row.pk), payload
                 )
         return JsonResponse({"error": error}, status=409)
 
