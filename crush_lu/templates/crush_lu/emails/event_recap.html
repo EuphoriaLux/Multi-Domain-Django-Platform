@@ -35,7 +35,7 @@
         <li><strong>{% blocktrans count counter=incoming_count %}{{ counter }} person is waiting to hear back{% plural %}{{ counter }} people are waiting to hear back{% endblocktrans %}.</strong></li>
         {% endif %}
         {% if not mutual_match_count and not outgoing_count and not incoming_count %}
-        <li>{% trans "It was lovely to have you. The next event is around the corner — keep an eye on your inbox." %}</li>
+        <li>{% trans "It was lovely to have you." %}</li>
         {% endif %}
     </ul>
 </div>
@@ -44,6 +44,13 @@
 <p><strong>{% trans "Don't lose the moment." %}</strong> {% blocktrans %}Connection requests close 48 hours after the event ends, so it's worth taking a minute to respond now.{% endblocktrans %}</p>
 
 <a href="{{ attendees_url }}" class="button">{% trans "See attendees & finish your picks" %}</a>
+{% elif not mutual_match_count and not outgoing_count and not incoming_count and event.connection_window_active %}
+{# No activity yet and the window is still open (the recap goes out 12-24 h before it closes): say where to go and until when, nothing more. #}
+<p><strong>{% trans "Who caught your eye?" %}</strong> {% blocktrans with deadline=event.connection_window_deadline|date:"DATETIME_FORMAT" %}Until {{ deadline }} you can still make your picks from the attendee list.{% endblocktrans %}</p>
+
+<a href="{{ attendees_url }}" class="button">{% trans "View Attendees & Connections" %}</a>
+
+<p style="margin-top: 16px;"><a href="{{ events_url }}">{% trans "Browse upcoming events" %}</a></p>
 {% else %}
 <a href="{{ events_url }}" class="button">{% trans "Browse upcoming events" %}</a>
 {% endif %}

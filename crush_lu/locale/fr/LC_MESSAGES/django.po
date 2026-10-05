@@ -23922,12 +23922,8 @@ msgstr[0] "%(counter)s personne attend une réponse"
 msgstr[1] "%(counter)s personnes attendent une réponse"
 
 #: templates/crush_lu/emails/event_recap.html:38
-msgid ""
-"It was lovely to have you. The next event is around the corner — keep an eye"
-" on your inbox."
-msgstr ""
-"C'était un plaisir de vous avoir parmi nous. Le prochain événement approche "
-"— gardez un œil sur votre boîte de réception."
+msgid "It was lovely to have you."
+msgstr "C'était un plaisir de vous avoir parmi nous."
 
 #: templates/crush_lu/emails/event_recap.html:44
 msgid "Don't lose the moment."
@@ -23944,6 +23940,13 @@ msgstr ""
 #: templates/crush_lu/emails/event_recap.html:46
 msgid "See attendees & finish your picks"
 msgstr "Voir les participants et finaliser vos choix"
+
+#: templates/crush_lu/emails/event_recap.html:49
+#, python-format
+msgid "Until %(deadline)s you can still make your picks from the attendee list."
+msgstr ""
+"Jusqu'au %(deadline)s, vous pouvez encore faire vos choix dans la liste des "
+"participants."
 
 #: templates/crush_lu/emails/event_recap.html:54
 msgid ""
@@ -24012,6 +24015,17 @@ msgstr "Un esprit ouvert et une attitude positive"
 #: templates/crush_lu/emails/event_registration_confirmation.html:54
 msgid "Your best self!"
 msgstr "Votre plus beau sourire !"
+
+#: templates/crush_lu/emails/event_registration_confirmation.html:64
+#: templates/crush_lu/emails/event_reminder.html:61
+msgid ""
+"For Quiz Night: bring a charged phone. After the coach checks you in you'll "
+"get your table number — then tap Join Quiz on the event page. No team needed."
+msgstr ""
+"Pour la soirée quiz : apportez un téléphone chargé. Après votre "
+"enregistrement auprès du coach, vous recevrez votre numéro de table ; "
+"touchez ensuite « Rejoindre le quiz » sur la page de l'événement. Pas besoin "
+"d'équipe."
 
 #: templates/crush_lu/emails/event_registration_confirmation.html:59
 #: templates/crush_lu/emails/event_reminder.html:58
@@ -24140,6 +24154,15 @@ msgstr "Que se passe-t-il ensuite ?"
 #: templates/crush_lu/emails/event_waitlist.html:45
 msgid "If someone cancels, you'll be automatically moved to confirmed"
 msgstr "Si quelqu'un annule, vous serez automatiquement confirmé(e)"
+
+#: templates/crush_lu/emails/event_waitlist.html:46
+#, python-format
+msgid ""
+"If someone cancels, we hold the spot for you and email you straight away. "
+"You then complete the payment (%(fee)s EUR) to confirm it."
+msgstr ""
+"Si quelqu'un annule, nous vous réservons la place et vous écrivons "
+"immédiatement. Vous réglez alors %(fee)s EUR pour la confirmer."
 
 #: templates/crush_lu/emails/event_waitlist.html:46
 msgid "You'll receive an email if your status changes"

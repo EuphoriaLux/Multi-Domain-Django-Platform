@@ -42,7 +42,11 @@
 
 <p><strong>{% trans "What happens next:" %}</strong></p>
 <ul>
+    {% if event.registration_fee > 0 %}
+    <li>{% blocktrans with fee=event.registration_fee|floatformat:2 %}If someone cancels, we hold the spot for you and email you straight away. You then complete the payment ({{ fee }} EUR) to confirm it.{% endblocktrans %}</li>
+    {% else %}
     <li>{% trans "If someone cancels, you'll be automatically moved to confirmed" %}</li>
+    {% endif %}
     <li>{% trans "You'll receive an email if your status changes" %}</li>
     <li>{% trans "Check back closer to the event date for updates" %}</li>
 </ul>
