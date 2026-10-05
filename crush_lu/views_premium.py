@@ -80,25 +80,20 @@ def pending_premium_state(user):
 def open_recovery_case(user):
     """The member's OPEN recovery case (#925): pages show it, not a pay CTA.
 
-    Only for a current (pending/active) membership, or a deleted one while the
-    member has no current request: a case on an old request must not take
-    over a new one."""
+    Any open case counts while the member has no current (pending/active)
+    request; once one exists, only a case on that request does, so an old
+    case never takes over a new request."""
     from .models import PremiumPaymentRecoveryCase
 
     if not user.is_authenticated:
         return None
-    current = Q(premium_membership__status__in=("pending", "active"))
-    if not PremiumMembership.objects.filter(
-        user=user, status__in=("pending", "active")
-    ).exists():
-        current |= Q(premium_membership__isnull=True)
-    return (
-        PremiumPaymentRecoveryCase.objects.filter(
-            current, user=user, status=PremiumPaymentRecoveryCase.Status.OPEN
-        )
-        .select_related("payment")
-        .first()
+    cases = PremiumPaymentRecoveryCase.objects.filter(
+        user=user, status=PremiumPaymentRecoveryCase.Status.OPEN
     )
+    current = ("pending", "active")
+    if PremiumMembership.objects.filter(user=user, status__in=current).exists():
+        cases = cases.filter(premium_membership__status__in=current)
+    return cases.select_related("payment").first()
 
 
 def _available_coaches():
@@ -217,6 +212,15 @@ def premium_select_coach(request, coach_id):
     if profile.has_active_premium:
         messages.info(request, _("You already have a personal coach."))
         return redirect("crush_lu:dashboard")
+
+    if not has_pending and open_recovery_case(request.user):
+        # #925: an unresolved captured payment must be settled by staff before
+        # a fresh request (and a second charge) can start.
+        messages.info(
+            request,
+            _("We have already received a payment for your Premium request."),
+        )
+        return redirect("crush_lu:premium_choose_coach")
 
     coach = get_object_or_404(CrushCoach, id=coach_id)
     if not coach.can_accept_premium():

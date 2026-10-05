@@ -9,6 +9,7 @@ Spec: ai-memory-hub/specs/2026-09-13-crush-premium-payment-recovery.md
 
 import inspect
 import re
+from collections import defaultdict
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -92,6 +93,13 @@ class _Base(TestCase):
             user=self.member,
             premium_membership=self.membership,
         )
+
+    def _unlink_and_delete_membership(self):
+        """Legacy state: rows unlinked before the FK became PROTECT."""
+        PaymentTransaction.objects.filter(premium_membership=self.membership).update(
+            premium_membership=None
+        )
+        self.membership.delete()
 
     def _apply(self, tx):
         with self.captureOnCommitCallbacks(execute=True):
@@ -200,35 +208,41 @@ class FailurePathCaseTests(_Base):
 
 
 class OnCommitAndIdempotencyTests(_Base):
-    def test_case_is_created_only_after_commit(self):
+    def test_case_commits_with_paid_and_mail_waits_for_commit(self):
         tx = self._tx("REC-COMMIT")
         self._fill_the_coach()
         with self.assertLogs("crush_lu.views_payments", level="ERROR"):
             with self.captureOnCommitCallbacks(execute=False) as callbacks:
                 _apply_paid_checkout(tx, {"status": "PAID"})
-        self.assertFalse(PremiumPaymentRecoveryCase.objects.exists())
+        # The case is part of the PAID write, not a later callback.
+        self.assertEqual(PremiumPaymentRecoveryCase.objects.count(), 1)
         self.assertEqual(mail.outbox, [])
         tx.refresh_from_db()
         self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
 
         for callback in callbacks:
             callback()
-        self.assertEqual(PremiumPaymentRecoveryCase.objects.count(), 1)
+        self.assertEqual(len(self._alerts()), 1)
 
-    def test_case_failure_never_rolls_back_paid(self):
+    def test_case_failure_leaves_the_capture_retryable(self):
         tx = self._tx("REC-BOOM")
         self._fill_the_coach()
         with patch(
             "crush_lu.models.PremiumPaymentRecoveryCase.objects.get_or_create",
             side_effect=RuntimeError("db down"),
         ):
-            with self.assertLogs(level="ERROR") as logs:
-                self._apply(tx)
+            with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+                with self.assertRaises(RuntimeError):
+                    self._apply(tx)
+        tx.refresh_from_db()
+        # Not PAID without a case: the next return/webhook retries it.
+        self.assertEqual(tx.status, PaymentTransaction.Status.PENDING)
+        self._apply(tx)
         self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
-        self.assertTrue(any("recovery case" in line for line in logs.output))
+        self.assertEqual(PremiumPaymentRecoveryCase.objects.count(), 1)
 
     def test_replay_keeps_one_case_one_member_mail_one_alert(self):
-        from crush_lu.services.premium_recovery import open_case_safely
+        from crush_lu.services.premium_recovery import open_case
 
         tx = self._tx("REC-REPLAY")
         self._fill_the_coach()
@@ -238,8 +252,8 @@ class OnCommitAndIdempotencyTests(_Base):
         self._apply(tx)
         self._apply(tx)
         # A racing second callback that got past the PAID guard.
-        with self.captureOnCommitCallbacks(execute=True):
-            open_case_safely(tx.pk, Reason.COACH_UNAVAILABLE)
+        tx.refresh_from_db()
+        self.assertFalse(open_case(tx, Reason.COACH_UNAVAILABLE)[1])
 
         self.assertEqual(PremiumPaymentRecoveryCase.objects.count(), 1)
         self.assertEqual(len(self._member_mails()), 1)
@@ -559,13 +573,13 @@ class CaseLifecycleTests(_Base):
 
     def test_case_with_deleted_membership_still_shows(self):
         self._case("REC-NULL", None, Reason.OTHER)
-        self.membership.delete()
+        self._unlink_and_delete_membership()
         html = self._member_client().get("/en/dashboard/").content.decode()
         self.assertIn('data-testid="premium-recovery-notice"', html)
 
     def test_case_with_deleted_membership_does_not_hide_a_new_request(self):
         self._case("REC-NULL-OLD", None, Reason.OTHER)
-        self.membership.delete()
+        self._unlink_and_delete_membership()
         PremiumMembership.objects.create(
             user=self.member, coach=self.coach, status="pending"
         )
@@ -589,7 +603,7 @@ class CaseLifecycleTests(_Base):
 
     def test_unlinked_capture_opens_a_case_for_the_payer(self):
         tx = self._tx("REC-UNLINKED")
-        self.membership.delete()
+        self._unlink_and_delete_membership()
         tx.refresh_from_db()
         self.assertIsNone(tx.premium_membership_id)
         with self.assertLogs("crush_lu.views_payments", level="CRITICAL"):
@@ -610,6 +624,7 @@ class CaseLifecycleTests(_Base):
         self.assertNotIn("/premium/cancel/", html)
         self.assertNotIn("data-membership-id=", html)
         self.assertIn("We have already received a payment", html)
+        self.assertNotIn("payment pending", html)
         response = client.post("/en/premium/cancel/")
         self.assertEqual(response.status_code, 302)
         self.membership.refresh_from_db()
@@ -652,13 +667,127 @@ class CaseLifecycleTests(_Base):
         case = PremiumPaymentRecoveryCase.objects.get(payment=tx)
         self.assertIsNone(case.staff_alerted_at)
 
+    def test_membership_with_a_payment_cannot_be_deleted(self):
+        from django.db.models import ProtectedError
+
+        self._tx("REC-PROTECT")
+        with self.assertRaises(ProtectedError):
+            self.membership.delete()
+
+    def test_return_page_warns_for_an_unlinked_capture(self):
+        tx = self._tx("REC-RET-NULL")
+        self._unlink_and_delete_membership()
+        with self.assertLogs("crush_lu.views_payments", level="CRITICAL"):
+            self._apply(tx)
+        response = self._member_client().get(
+            "/payments/sumup/return/", {"ref": "REC-RET-NULL"}, follow=True
+        )
+        texts = [str(m) for m in response.context["messages"]]
+        self.assertTrue(any(t.startswith(D1_START) for t in texts), texts)
+        self.assertFalse(any("completed successfully" in t for t in texts), texts)
+
+    def test_cancelled_request_case_shows_until_a_new_request(self):
+        self.membership.status = "cancelled"
+        self.membership.save(update_fields=["status"])
+        self._case("REC-CANCELLED", self.membership, Reason.REQUEST_CANCELLED)
+        client = self._member_client()
+        for path in ("/en/dashboard/", "/en/membership/"):
+            html = client.get(path).content.decode()
+            self.assertIn('data-testid="premium-recovery-notice"', html, path)
+
+    def test_open_case_blocks_a_fresh_request(self):
+        self.membership.status = "cancelled"
+        self.membership.save(update_fields=["status"])
+        self._case("REC-NOFRESH", self.membership, Reason.REQUEST_CANCELLED)
+        response = self._member_client().post(
+            f"/en/premium/coaches/{self.coach.pk}/select/"
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(
+            PremiumMembership.objects.filter(
+                user=self.member, status="pending"
+            ).exists()
+        )
+
+    def test_merge_locks_assisted_premium_payments_before_reading_cases(self):
+        from crush_lu.services import account_merge
+
+        src = inspect.getsource(account_merge.merge_accounts)
+        lock = src.index("PaymentTransaction.objects.select_for_update")
+        self.assertIn("premium_membership__user_id__in", src[lock : lock + 400])
+        self.assertLess(lock, src.index("PremiumPaymentRecoveryCase.objects.filter"))
+
+
+class NotificationRetryTests(_Base):
+    """Codex round 4: a notice/alert that failed at creation is retried."""
+
+    def _failed_case(self, ref, minutes_old):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        tx = self._tx(ref)
+        self._fill_the_coach()
+        with patch(
+            "azureproject.email_utils.send_domain_email",
+            side_effect=RuntimeError("graph down"),
+        ), patch(
+            "crush_lu.email_helpers.send_domain_email",
+            side_effect=RuntimeError("graph down"),
+        ):
+            with self.assertLogs(level="ERROR"):
+                self._apply(tx)
+        case = PremiumPaymentRecoveryCase.objects.get(payment=tx)
+        PremiumPaymentRecoveryCase.objects.filter(pk=case.pk).update(
+            created_at=timezone.now() - timedelta(minutes=minutes_old)
+        )
+        return case
+
+    def test_retry_resends_both_and_stamps_them(self):
+        from crush_lu.services.premium_recovery import retry_unsent_notifications
+
+        case = self._failed_case("REC-RETRY", minutes_old=30)
+        mail.outbox.clear()
+        self.assertEqual(retry_unsent_notifications(), 1)
+        case.refresh_from_db()
+        self.assertIsNotNone(case.member_notified_at)
+        self.assertIsNotNone(case.staff_alerted_at)
+        self.assertEqual((len(self._member_mails()), len(self._alerts())), (1, 1))
+        # Delivered once: the next tick sends nothing.
+        self.assertEqual(retry_unsent_notifications(), 0)
+
+    def test_retry_skips_a_case_still_settling(self):
+        from crush_lu.services.premium_recovery import retry_unsent_notifications
+
+        self._failed_case("REC-FRESH", minutes_old=1)
+        self.assertEqual(retry_unsent_notifications(), 0)
+
+    @override_settings(
+        ROOT_URLCONF="azureproject.urls_crush",
+        ADMIN_API_KEY="k",
+        SUMUP_RECONCILIATION_ENABLED=True,
+    )
+    def test_reconciliation_tick_runs_the_retry(self):
+        with patch(
+            "crush_lu.management.commands.reconcile_sumup_payments.Command.run_sweep",
+            return_value=defaultdict(int),
+        ), patch(
+            "crush_lu.services.premium_recovery.retry_unsent_notifications",
+            return_value=2,
+        ) as retry:
+            response = Client(HTTP_HOST="crush.lu").post(
+                "/api/admin/sumup-reconciliation/", HTTP_AUTHORIZATION="Bearer k"
+            )
+        retry.assert_called_once_with()
+        self.assertEqual(response.json()["recovery_notices_retried"], 2)
+
 
 class RecoveryLockOrderTests(TestCase):
     """SQLite ignores select_for_update, so lock order is asserted on source.
 
     Opening a case must add no lock and must not move before the payment lock:
-    PaymentTransaction is locked before CrushProfile (via confirm()), and the
-    case is opened on commit, after every lock is released.
+    PaymentTransaction is locked before CrushProfile (via confirm()); the case
+    is written in that transaction and only the mail waits for commit.
     """
 
     def test_payment_lock_precedes_profile_lock_and_case_queueing(self):
@@ -670,12 +799,15 @@ class RecoveryLockOrderTests(TestCase):
         self.assertLess(payment, src.index("pm.confirm()"))
         self.assertLess(payment, src.index("_queue_premium_recovery_case("))
 
-    def test_case_is_opened_on_commit_and_takes_no_lock(self):
+    def test_case_is_written_in_the_transaction_and_takes_no_lock(self):
         from crush_lu import views_payments
         from crush_lu.services import premium_recovery
 
         queue_src = inspect.getsource(views_payments._queue_premium_recovery_case)
-        self.assertIn("transaction.on_commit(", queue_src)
+        self.assertLess(
+            queue_src.index("premium_recovery.open_case("),
+            queue_src.index("transaction.on_commit("),
+        )
         self.assertIsNone(
             re.search(r"select_for_update", inspect.getsource(premium_recovery))
         )

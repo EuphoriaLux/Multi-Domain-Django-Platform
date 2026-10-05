@@ -482,7 +482,9 @@ class SumUpReconciliationEndpointTests(TestCase):
         body = resp.json()
         self.assertEqual(
             set(body),
-            {"status", "timestamp", "cursor_resumed", "wrapped"} | COUNTER_KEYS,
+            {"status", "timestamp", "cursor_resumed", "wrapped"} | COUNTER_KEYS
+            # #925: a count of recovery notices re-sent this tick.
+            | {"recovery_notices_retried"},
         )
         raw = resp.content.decode()
         for secret in (

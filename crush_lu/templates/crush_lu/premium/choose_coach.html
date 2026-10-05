@@ -21,7 +21,7 @@
       <div class="flex items-center gap-3">
         <div class="flex-1 min-w-0">
           <p class="mb-0 text-sm font-semibold text-emerald-900 dark:text-emerald-200">
-            {% blocktrans with coach_name=pending_membership.coach.user.first_name %}You've chosen {{ coach_name }} — payment pending.{% endblocktrans %}
+            {% if pending_premium_state == "paid" %}{% trans "Payment received" %}{% else %}{% blocktrans with coach_name=pending_membership.coach.user.first_name %}You've chosen {{ coach_name }} — payment pending.{% endblocktrans %}{% endif %}
           </p>
           <p class="mb-0 text-xs text-emerald-700 dark:text-emerald-400">
             {% if pending_premium_state == "manage" %}{% trans "Premium is invite-only during the beta." %}{% elif pending_premium_state == "paid" %}{% trans "We have already received a payment for your Premium request." %}{% else %}{% trans "Complete your payment below to activate your premium membership and unlock your personal coach." %}{% endif %}

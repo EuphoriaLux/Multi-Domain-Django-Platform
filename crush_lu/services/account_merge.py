@@ -82,6 +82,7 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
         PaymentTransaction.objects.select_for_update(of=("self",))
         .filter(
             Q(user_id__in=(keeper_user.pk, duplicate_user.pk))
+            | Q(premium_membership__user_id__in=(keeper_user.pk, duplicate_user.pk))
             | Q(event_registration_id__in=account_registration_ids)
         )
         .order_by("pk")
@@ -117,6 +118,8 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
 
     # #925: the case stays with its payment and membership, which do not move.
     # Merging would hide an unresolved captured payment from the kept account.
+    # Read after the payment locks above: a capture writes its case in the
+    # same transaction as PAID, so a merge that waited on it sees the case.
     if PremiumPaymentRecoveryCase.objects.filter(
         user=duplicate_user, status=PremiumPaymentRecoveryCase.Status.OPEN
     ).exists():

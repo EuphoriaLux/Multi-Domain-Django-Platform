@@ -262,11 +262,22 @@ def sumup_reconciliation_endpoint(request):
 
     _store_cursor(counters)
 
+    # #925: resend any recovery notice/alert whose first send failed. Mail
+    # failures are logged inside and never fail the reconciliation.
+    from crush_lu.services import premium_recovery
+
+    try:
+        recovery_retried = premium_recovery.retry_unsent_notifications()
+    except Exception:  # noqa: BLE001
+        logger.exception("[sumup_reconciliation] recovery notice retry failed")
+        recovery_retried = 0
+
     body = {"status": "ok", "timestamp": started.isoformat()}
     body.update({key: counters[key] for key in COUNTER_KEYS})
     body["cursor_resumed"] = bool(counters.get("cursor_resumed"))
     # This run finished the pass; the next one starts from the oldest row.
     body["wrapped"] = bool(counters.get("reached_end"))
+    body["recovery_notices_retried"] = recovery_retried
     # One structured line, queryable in App Insights without a database.
     # Counts only — no references, emails or payloads (contract §7.3).
     needs_attention = (

@@ -1348,10 +1348,14 @@ def _send_premium_membership_receipt_safely(payment):
 
 
 def _queue_premium_recovery_case(payment, reason, detail=""):
-    """Open the #925 recovery case once the PAID record has committed."""
-    transaction.on_commit(
-        lambda: premium_recovery.open_case_safely(payment.pk, reason, detail)
-    )
+    """Open the #925 recovery case in the PAID transaction; mail on commit.
+
+    Same transaction, so PAID never commits without its case: a failed insert
+    leaves the row PENDING for the next return/webhook/reconcile to retry, and
+    a merge waiting on the payment lock sees the case."""
+    case, created = premium_recovery.open_case(payment, reason, detail)
+    if created:
+        transaction.on_commit(lambda: premium_recovery.notify_safely(case.pk))
 
 
 def _send_donation_receipt_safely(payment):
@@ -2753,12 +2757,9 @@ def _sumup_return_response(request, tx_obj):
     activated language. Split out only so the ``override`` block above stays
     readable — every path here returns a redirect."""
     if tx_obj.status == PaymentTransaction.Status.PAID:
-        recovery_case = (
-            tx_obj.premium_membership_id
-            and PremiumPaymentRecoveryCase.objects.filter(
-                payment=tx_obj, status=PremiumPaymentRecoveryCase.Status.OPEN
-            ).exists()
-        )
+        recovery_case = PremiumPaymentRecoveryCase.objects.filter(
+            payment=tx_obj, status=PremiumPaymentRecoveryCase.Status.OPEN
+        ).exists()
         if not recovery_case:
             # #925: no "completed successfully" next to the D1 warning.
             messages.success(request, _("Payment completed successfully! Thank you."))
@@ -2772,7 +2773,7 @@ def _sumup_return_response(request, tx_obj):
             return redirect(
                 "crush_lu:event_detail", event_id=tx_obj.event_registration.event.pk
             )
-        elif tx_obj.premium_membership:
+        elif tx_obj.purpose == PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP:
             # The hub's Premium badge is not reachable on the one page-load
             # that matters most. premium_choose_coach requires a profile but
             # NOT a CrushConnectMembership, so buying before finishing Connect
@@ -2781,8 +2782,9 @@ def _sumup_return_response(request, tx_obj):
             # or to the teaser without LuxID) before the badge is rendered.
             # A message survives the redirect chain and lands wherever they
             # end up, so the confirmation is not conditional on onboarding.
-            pm = tx_obj.premium_membership
-            pm.refresh_from_db()
+            pm = tx_obj.premium_membership  # None once deleted (#925 case)
+            if pm:
+                pm.refresh_from_db()
             if recovery_case:
                 # #925 D1, first: a duplicate capture finds pm active.
                 payment = tx_obj
@@ -2802,7 +2804,7 @@ def _sumup_return_response(request, tx_obj):
                         "reference": payment.transaction_reference,
                     },
                 )
-            elif pm.status == "active":
+            elif pm and pm.status == "active":
                 # Only claim Premium once confirm() actually granted it. When
                 # the coach filled up mid-flight the charge is real but the
                 # entitlement is not (see _apply_paid_checkout) — telling that
