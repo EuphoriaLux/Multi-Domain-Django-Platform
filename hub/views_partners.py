@@ -3,7 +3,7 @@
 Spec: ai-memory-hub/specs/2026-10-01-hub-partner-and-offers.md
 """
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -90,9 +90,12 @@ class PartnerDetailView(generics.RetrieveUpdateDestroyAPIView):
                 status=status.HTTP_409_CONFLICT,
             )
         try:
-            partner.delete()
-        except ProtectedError:
-            # A reference may have been created after the checks above.
+            # Catch outside the atomic block so both statement-time and
+            # deferred commit-time FK failures roll back the whole deletion.
+            with transaction.atomic():
+                partner.delete()
+        except (ProtectedError, IntegrityError):
+            # A reference may have been created after the collector's checks.
             return Response(
                 {"detail": "This partner is referenced. Archive it instead."},
                 status=status.HTTP_409_CONFLICT,
@@ -142,8 +145,9 @@ class PartnerOfferDetailView(generics.RetrieveUpdateDestroyAPIView):
                 status=status.HTTP_409_CONFLICT,
             )
         try:
-            offer.delete()
-        except ProtectedError:
+            with transaction.atomic():
+                offer.delete()
+        except (ProtectedError, IntegrityError):
             return Response(
                 {"detail": "This offer is referenced. Deactivate it instead."},
                 status=status.HTTP_409_CONFLICT,

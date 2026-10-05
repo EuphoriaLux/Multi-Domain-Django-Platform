@@ -3,6 +3,7 @@ from io import StringIO
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.contrib import admin
 from django.contrib.admin.models import LogEntry
 from django.contrib.auth.models import Permission
 from django.core.exceptions import ValidationError
@@ -10,7 +11,8 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import IntegrityError, transaction
 from django.db.models.deletion import ProtectedError
-from django.test import RequestFactory
+from django.core.cache import cache
+from django.test import RequestFactory, TransactionTestCase, skipUnlessDBFeature
 from django.http import Http404
 from django.utils import timezone
 from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
@@ -19,6 +21,8 @@ from crush_lu.admin.events import MeetupEventAdmin
 from crush_lu.admin.site import crush_admin_site
 from crush_lu.models import EventRegistration, MeetupEvent
 from hub.partner_services import build_event_prefill
+from hub.admin import PartnerOfferAdmin
+from hub.models import Location, PartnerOffer
 from hub.views_event_links import PartnerEventsView
 from hub.tests.test_partners import ThrottleIsolatedTestCase, make_offer, make_partner
 
@@ -223,6 +227,44 @@ class EventLinkTests(ThrottleIsolatedTestCase):
             MeetupEvent.objects.filter(pk=self.event.pk).values().get(), before
         )
 
+    def test_admin_form_rejects_moving_a_linked_offer(self):
+        MeetupEvent.objects.filter(pk=self.event.pk).update(
+            partner=self.partner, offer=self.offer
+        )
+        before = MeetupEvent.objects.filter(pk=self.event.pk).values().get()
+        request = RequestFactory().get("/")
+        request.user = self.staff
+        form_class = PartnerOfferAdmin(PartnerOffer, admin.site).get_form(
+            request, self.offer, fields=["location", "name"]
+        )
+        form = form_class(
+            data={"location": self.other.pk, "name": self.offer.name},
+            instance=self.offer,
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("cannot move", str(form.errors["location"]))
+        self.offer.refresh_from_db()
+        self.assertEqual(self.offer.location_id, self.partner.pk)
+        self.assertEqual(
+            MeetupEvent.objects.filter(pk=self.event.pk).values().get(), before
+        )
+
+    def test_model_allows_moving_unused_offer_and_editing_used_offer(self):
+        self.offer.location = self.other
+        self.offer.full_clean()
+        self.offer.save()
+        self.offer.refresh_from_db()
+        self.assertEqual(self.offer.location_id, self.other.pk)
+        MeetupEvent.objects.filter(pk=self.event.pk).update(
+            partner=self.other, offer=self.offer
+        )
+        self.offer.name = "Updated preset"
+        self.offer.full_clean()
+        self.offer.save()
+        self.assertEqual(
+            PartnerOffer.objects.get(pk=self.offer.pk).name, "Updated preset"
+        )
+
     def test_backfill_preview_never_applies_candidates(self):
         output = StringIO()
         call_command("backfill_event_partners", stdout=output)
@@ -326,3 +368,60 @@ class EventLinkTests(ThrottleIsolatedTestCase):
         )
         response = self.client.get(self.list_url, HTTP_ACCEPT_LANGUAGE="fr")
         self.assertEqual(response.data["items"][0]["title"], "Historical title")
+
+
+class EventLinkDeletionRaceTests(TransactionTestCase):
+    """Exercise deferred FK errors at commit, outside TestCase's outer atomic."""
+
+    def setUp(self):
+        super().setUp()
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.client = APIClient()
+        self.client.force_authenticate(
+            get_user_model().objects.create_user("delete_race_staff", is_staff=True)
+        )
+
+    @skipUnlessDBFeature("can_defer_constraint_checks")
+    def test_late_reference_returns_conflict_and_rolls_back_delete(self):
+        for model in (Location, PartnerOffer):
+            with self.subTest(model=model.__name__):
+                partner = make_partner()
+                offer = make_offer(partner)
+                partner_id, offer_id = partner.pk, offer.pk
+                resource = partner if model is Location else offer
+                resource_id = resource.pk
+                url = f"/hub/locations/{partner_id}"
+                if model is PartnerOffer:
+                    url += f"/offers/{offer_id}"
+                original_delete = model.delete
+
+                def delete_with_late_reference(instance, *args, **kwargs):
+                    original_delete(instance, *args, **kwargs)
+                    # Simulate a reference arriving after the collector read.
+                    # Django's deferred FK fails at atomic exit, not delete().
+                    MeetupEvent.objects.bulk_create(
+                        [
+                            MeetupEvent(
+                                title_en="Late reference",
+                                event_type="mixer",
+                                location="Historical venue",
+                                date_time=timezone.now() + timedelta(days=20),
+                                registration_deadline=timezone.now()
+                                + timedelta(days=19),
+                                partner_id=partner_id,
+                                offer_id=offer_id if model is PartnerOffer else None,
+                            )
+                        ]
+                    )
+
+                with patch.object(model, "delete", delete_with_late_reference):
+                    response = self.client.delete(url)
+                self.assertEqual(response.status_code, 409, response.data)
+                self.assertTrue(model.objects.filter(pk=resource_id).exists())
+                # Partner cascades must roll back too, and the connection
+                # remains usable after the failed transaction.
+                self.assertTrue(PartnerOffer.objects.filter(pk=offer_id).exists())
+                self.assertFalse(
+                    MeetupEvent.objects.filter(title_en="Late reference").exists()
+                )

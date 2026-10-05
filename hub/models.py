@@ -431,6 +431,21 @@ class PartnerOffer(models.Model):
         from crush_lu.models.events import MAX_EVENT_DURATION_MINUTES
 
         errors = {}
+        # ModelForms (including PartnerOfferAdmin) call clean before saving.
+        # Moving a used preset would leave its events attributed to the old
+        # partner while their offer now belongs to a different one.
+        if (
+            not self._state.adding
+            and type(self)
+            .objects.filter(pk=self.pk)
+            .exclude(location_id=self.location_id)
+            .exists()
+            and self.meetup_events.exists()
+        ):
+            errors["location"] = (
+                "This offer is used by events and cannot move to another partner. "
+                "Create a new offer at that partner instead."
+            )
         if self.duration_minutes is not None and not (
             1 <= self.duration_minutes <= MAX_EVENT_DURATION_MINUTES
         ):
