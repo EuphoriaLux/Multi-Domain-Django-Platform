@@ -11,6 +11,10 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 
+# Checkout statuses that can no longer take a card payment.
+CLOSED_CHECKOUT_STATUSES = frozenset({"FAILED", "CANCELLED", "EXPIRED"})
+
+
 class SumUpError(Exception):
     """Base exception for SumUp API errors."""
 
@@ -260,11 +264,7 @@ class SumUpClient:
             checkout = self.get_checkout(checkout_id)
         except SumUpError:
             return False
-        return (checkout.get("status") or "").upper() in {
-            "FAILED",
-            "CANCELLED",
-            "EXPIRED",
-        }
+        return (checkout.get("status") or "").upper() in CLOSED_CHECKOUT_STATUSES
 
     def create_customer(
         self, customer_id: str, email: str, name: Optional[str] = None

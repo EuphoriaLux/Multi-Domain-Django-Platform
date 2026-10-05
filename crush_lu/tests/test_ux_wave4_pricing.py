@@ -407,6 +407,28 @@ class PricingPageMemberTests(TestCase):
         self.assertNotIn("/premium/coaches/", card)
         self.assertNotIn("Complete your Premium signup", card)
 
+    @override_settings(
+        PREMIUM_REDIRECTS_TO_BETA=True,
+        IOS_NATIVE_COMMERCE_ENABLED=False,
+        ANDROID_NATIVE_COMMERCE_ENABLED=False,
+    )
+    def test_native_app_paid_member_still_sees_support_link(self):
+        # #1099: a captured payment is not commerce. A native-shell member
+        # whose Premium was paid but never granted must still reach support,
+        # not the "Available outside the mobile app" dead end.
+        self._waitlist(selected=True)
+        self._paid_transaction(self._pending_membership())
+        for header in ("ios-app", "android-app"):
+            html = self.client.get(
+                "/en/membership/", HTTP_X_CRUSH_CLIENT=header
+            ).content.decode()
+            card = _premium_card(html)
+            links = _links(card)
+            self.assertEqual(len(links), 1, header)
+            self.assertEqual(links[0]["href"], "/en/support/")
+            self.assertNotIn('data-testid="premium-outside-app"', card)
+            self.assertNotIn("/premium/coaches/", card)
+
 
 class PricingEntryPointTests(TestCase):
     def setUp(self):

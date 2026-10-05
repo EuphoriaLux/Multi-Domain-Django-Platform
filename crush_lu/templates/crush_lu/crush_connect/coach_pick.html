@@ -39,7 +39,7 @@
         {% else %}
         <form method="post" action="{% url 'crush_lu:crush_connect_pick_respond' coach_pick.pk %}" class="mt-4 flex flex-col gap-3">
             {% csrf_token %}
-            <button type="submit" name="action" value="accept" class="btn-crush-primary btn-block">
+            <button type="submit" name="action" value="accept" class="btn-crush-solid btn-block">
                 {% trans "I'm interested" %}
             </button>
             <button type="submit" name="action" value="decline" class="btn-crush-outline btn-block">
