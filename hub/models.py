@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
-from django.db import models
+from django.db import models, router, transaction
 from django.db.models import F, Q
 
 
@@ -431,6 +431,16 @@ class PartnerOffer(models.Model):
         from crush_lu.models.events import MAX_EVENT_DURATION_MINUTES
 
         errors = {}
+        if not self._state.adding:
+            using = self._state.db or router.db_for_read(type(self), instance=self)
+            previous = (
+                type(self)
+                .objects.using(using)
+                .filter(pk=self.pk)
+                .values_list("location_id", flat=True)
+                .first()
+            )
+            self._validate_location_change(previous, using)
         if self.duration_minutes is not None and not (
             1 <= self.duration_minutes <= MAX_EVENT_DURATION_MINUTES
         ):
@@ -483,6 +493,43 @@ class PartnerOffer(models.Model):
             )
         if errors:
             raise ValidationError(errors)
+
+    def _validate_location_change(self, previous_location_id, using):
+        if (
+            previous_location_id is not None
+            and previous_location_id != self.location_id
+            and self.meetup_events.using(using).exists()
+        ):
+            raise ValidationError(
+                {
+                    "location": "This offer is used by events and cannot move to another "
+                    "partner. Create a new offer at that partner instead."
+                }
+            )
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get("update_fields")
+        if self._state.adding or (
+            update_fields is not None
+            and not {"location", "location_id"}.intersection(update_fields)
+        ):
+            return super().save(*args, **kwargs)
+        using = kwargs.get("using") or router.db_for_write(type(self), instance=self)
+        # A form's clean() is only a preview: an event can be linked after it.
+        # The link endpoint takes this same offer lock, so ownership is checked
+        # again under the lock held through the write/commit.
+        with transaction.atomic(using=using):
+            previous = (
+                type(self)
+                .objects.using(using)
+                .order_by()
+                .select_for_update(of=("self",))
+                .filter(pk=self.pk)
+                .values_list("location_id", flat=True)
+                .first()
+            )
+            self._validate_location_change(previous, using)
+            return super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.name} @ {self.location.name}"
