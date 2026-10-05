@@ -412,3 +412,151 @@ class RuntimeLibraryClassTests(TestCase):
         # Every library is found on at least one page, so the scan is live.
         self.assertEqual(checked, {lib for lib, _m, _s in self.LIBRARIES})
         self.assertEqual(missing, [])
+
+
+def _layers_by_selector(css):
+    """Map each selector (outside @media/@supports) to the @layer(s) holding it.
+
+    A small brace-depth walk over the minified build: ``""`` means unlayered.
+    Escapes and quoted strings are skipped so ``content:"{"`` or Tailwind's
+    escaped class names cannot unbalance the depth count.
+    """
+    found = {}
+    stack = []
+    head = ""
+    i = 0
+    while i < len(css):
+        ch = css[i]
+        if ch == "\\":
+            head += css[i : i + 2]
+            i += 2
+            continue
+        if ch in "\"'":
+            end = i + 1
+            while css[end] != ch:
+                end += 2 if css[end] == "\\" else 1
+            head += css[i : end + 1]
+            i = end + 1
+            continue
+        if ch == "{":
+            prelude = head.strip()
+            if not prelude.startswith("@") and not any(
+                not p.startswith("@layer") for p in stack
+            ):
+                layer = "/".join(p.split(None, 1)[1] for p in stack if " " in p)
+                depth = 0
+                part = ""
+                for c in prelude + ",":
+                    depth += c in "([" and 1 or (c in ")]" and -1 or 0)
+                    if c == "," and depth == 0:
+                        found.setdefault(part.strip(), set()).add(layer)
+                        part = ""
+                    else:
+                        part += c
+            stack.append(prelude)
+            head = ""
+        elif ch == "}":
+            if stack:
+                stack.pop()
+            head = ""
+        elif ch == ";":
+            head = ""
+        else:
+            head += ch
+        i += 1
+    return found
+
+
+class MovedRulesKeepTheirCascadeLayerTests(TestCase):
+    """WP6 css-slice-2 (#1149): moving a rule must not change its @layer.
+
+    Cascade layers decide precedence before specificity, so a rule that moves
+    between files must sit in the same layer it had in ``tailwind.css``. The
+    journey component rules came from ``@layer components``; the gift wizard,
+    gift landing, upload and certificate rules were unlayered on main and must
+    stay unlayered. ``.gift-landing .hero-title`` is the sharpest case:
+    base.html inlines an unlayered critical ``.hero-title`` rule (Fraunces,
+    clamp(2.75rem, 6.5vw, 5rem), weight 600, line-height 1.05). Only an
+    unlayered ``.gift-landing .hero-title`` beats it; put it in any layer and
+    the gift heading silently takes the marketing hero's typography.
+    """
+
+    COMPONENTS = (
+        ".journey-btn-primary",
+        ".journey-title-xl",
+        ".journey-input",
+        ".journey-selector-card",
+        ".journey-mc-option-card",
+        ".journey-wyr-option-card",
+        ".journey-chapter-icon",
+        ".timeline-move",
+        ".reveal-puzzle-piece",
+        ".reveal-complete-message",
+        "body.journey-theme-starlit_sky",
+    )
+    UNLAYERED = (
+        ".gift-landing .hero-title",
+        ".gift-landing .hero-recipient",
+        ".gift-card",
+        ".btn-gift",
+        ".gift-input",
+        ".step-indicator",
+        ".file-upload-wrapper",
+        ".file-upload-preview",
+        ".certificate",
+        ".certificate-confetti",
+        ".nav-btn",
+    )
+    # Defined twice on main: once in @layer components, once unlayered.
+    BOTH = (".char-counter", ".timeline-item")
+
+    def setUp(self):
+        self.journey = _layers_by_selector(
+            (CSS_DIR / "journey.css").read_text(encoding="utf-8")
+        )
+
+    def test_journey_component_rules_stay_in_the_components_layer(self):
+        wrong = {
+            sel: self.journey.get(sel)
+            for sel in self.COMPONENTS
+            if self.journey.get(sel) != {"components"}
+        }
+        self.assertEqual(wrong, {})
+
+    def test_rules_defined_in_both_places_keep_both_layers(self):
+        wrong = {
+            sel: self.journey.get(sel)
+            for sel in self.BOTH
+            if self.journey.get(sel) != {"", "components"}
+        }
+        self.assertEqual(wrong, {})
+
+    def test_gift_upload_and_certificate_rules_stay_unlayered(self):
+        wrong = {
+            sel: self.journey.get(sel)
+            for sel in self.UNLAYERED
+            if self.journey.get(sel) != {""}
+        }
+        self.assertEqual(wrong, {})
+
+    def test_feature_bundle_uses_no_layer_the_moved_rules_never_had(self):
+        # Nothing moved out of @layer base or @layer utilities, so a rule in
+        # either layer of journey.css would be a layer change.
+        layers = set().union(*self.journey.values())
+        self.assertLessEqual(layers, {"", "components"})
+
+    def test_gift_hero_title_still_beats_the_critical_inline_rule(self):
+        base_html = (
+            Path(settings.BASE_DIR)
+            / "crush_lu"
+            / "templates"
+            / "crush_lu"
+            / "base.html"
+        ).read_text(encoding="utf-8")
+        # The critical rule sits unlayered in an inline <style>...
+        style = re.search(r"<style>(.*?)</style>", base_html, re.S).group(1)
+        style = re.sub(r"/\*.*?\*/", "", style, flags=re.S)
+        self.assertIn("\n        .hero-title{", style)
+        self.assertIsNone(re.search(r"@layer[^;{]*\{", style))
+        # ...so the gift override must be unlayered too.
+        self.assertEqual(self.journey.get(".gift-landing .hero-title"), {""})
