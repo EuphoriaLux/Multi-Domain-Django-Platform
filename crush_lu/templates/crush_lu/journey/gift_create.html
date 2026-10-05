@@ -122,6 +122,7 @@
                     {% trans "This photo will be revealed piece by piece as a puzzle. Best with a square image (800x800px)." %}
                 </p>
                 <div class="file-upload-wrapper" x-bind:class="chapter1HasFile">
+                    <label for="{{ form.chapter1_image.id_for_label }}" class="sr-only">{{ form.chapter1_image.label }}</label>
                     {{ form.chapter1_image }}
                     <div class="file-upload-icon">📷</div>
                     <div class="file-upload-text">{% trans "Click or drag to upload photo" %}</div>
@@ -149,6 +150,7 @@
                     {% for field in slideshow_fields %}
                     <div class="slideshow-item">
                         <div class="file-upload-wrapper">
+                            <label for="{{ field.id_for_label }}" class="sr-only">{{ field.label }}</label>
                             {{ field }}
                             <div class="file-upload-icon">🖼️</div>
                             <div class="file-upload-text">{% trans "Photo" %} {{ forloop.counter }}</div>
@@ -172,6 +174,7 @@
 
                 <div>
                     <div class="file-upload-wrapper" x-bind:class="videoHasFile">
+                        <label for="{{ form.chapter4_video.id_for_label }}" class="sr-only">{{ form.chapter4_video.label }}</label>
                         {{ form.chapter4_video }}
                         <div class="file-upload-icon" x-show="videoDefaultVisible">🎬</div>
                         <div class="file-upload-text" x-show="videoDefaultVisible">{% trans "MP4, MOV (max 50MB)" %}</div>
@@ -203,6 +206,7 @@
 
                 <div>
                     <div class="file-upload-wrapper" x-bind:class="audioHasFile">
+                        <label for="{{ form.chapter5_letter_music.id_for_label }}" class="sr-only">{{ form.chapter5_letter_music.label }}</label>
                         {{ form.chapter5_letter_music }}
                         <div class="file-upload-icon" x-show="audioDefaultVisible">🎵</div>
                         <div class="file-upload-text" x-show="audioDefaultVisible">{% trans "MP3, WAV, M4A (max 10MB)" %}</div>
