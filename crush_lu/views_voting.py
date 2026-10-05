@@ -7,8 +7,6 @@ from django.http import HttpResponseForbidden, JsonResponse
 from django.views.decorators.http import require_http_methods
 import logging
 
-logger = logging.getLogger(__name__)
-
 from django.db.models import Count
 
 from .models import (
@@ -21,6 +19,8 @@ from .models import (
     PresentationRating,
 )
 from .decorators import crush_login_required, coach_required
+
+logger = logging.getLogger(__name__)
 
 
 # Event Activity Voting Views
@@ -777,23 +777,8 @@ def get_current_presenter_api(request, event_id):
 
 # Demo/Guided Tour View
 def voting_demo(request):
-    """Interactive demo of the voting system for new users"""
-    from .models import GlobalActivityOption
-
-    # Get actual activity options from database
-    presentation_options = GlobalActivityOption.objects.filter(
-        activity_type="presentation_style", is_active=True
-    ).order_by("sort_order")
-
-    twist_options = GlobalActivityOption.objects.filter(
-        activity_type="speed_dating_twist", is_active=True
-    ).order_by("sort_order")
-
-    context = {
-        "presentation_options": presentation_options,
-        "twist_options": twist_options,
-    }
-    return render(request, "crush_lu/voting_demo.html", context)
+    """Keep existing links useful with a guide to formats and optional voting."""
+    return render(request, "crush_lu/voting_demo.html")
 
 
 # ── Speed Dating TV Display ──────────────────────────────────────────────────

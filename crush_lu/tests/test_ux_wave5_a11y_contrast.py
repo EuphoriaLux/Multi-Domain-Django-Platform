@@ -421,13 +421,11 @@ class ComponentTemplatePinTests(SimpleTestCase):
             "text-purple-600 hover:text-purple-700 dark:text-purple-300", text
         )
 
-    def test_voting_demo_badges_use_700_grounds(self):
+    def test_event_format_guide_disclosure_has_accessible_contrast(self):
         text = self._read("crush_lu", "voting_demo.html")
-        self.assertIn("bg-blue-700 text-white", text)
-        self.assertIn("bg-pink-700 text-white", text)
-        self.assertIn("text-pink-700 dark:text-pink-400", text)
-        self.assertNotIn("bg-blue-500 text-white", text)
-        self.assertNotIn("bg-crush-pink text-white text-xs", text)
+        self.assertIn("text-crush-purple-dark dark:text-purple-300", text)
+        self.assertIn("<summary", text)
+        self.assertNotIn("text-crush-purple ", text)
 
 
 class AlwaysDarkSurfaceTests(SimpleTestCase):

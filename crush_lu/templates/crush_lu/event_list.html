@@ -90,6 +90,10 @@ and could needlessly deter registration.
 
 <div x-data="eventTabs">
     <h1 class="text-2xl font-bold dark:text-white mb-4">{% trans "Events" %}</h1>
+    <nav aria-label="{% trans 'Event format guides' %}" class="flex flex-wrap gap-3 mb-5">
+        <a href="{% url 'crush_lu:speed_dating_guide' %}" class="btn-crush-outline btn-sm">{% trans "Discover Speed Dating" %}</a>
+        <a href="{% url 'crush_lu:quiz_night_guide' %}" class="btn-crush-outline btn-sm">{% trans "Discover Quiz Night" %}</a>
+    </nav>
     {% if entry_filter %}
     <div class="flex flex-wrap items-center justify-between gap-2 mb-4 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3">
         <p class="text-sm font-medium text-emerald-800 dark:text-emerald-200 mb-0">{% trans "Showing entry events only" %}</p>

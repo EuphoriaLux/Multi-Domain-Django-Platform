@@ -1,0 +1,24 @@
+{% load i18n %}
+{# Decorative illustration, assembled from the canonical ghost artwork. #}
+<div class="event-scene event-scene--{{ kind }}" aria-hidden="true">
+    <div class="event-scene__orbit"></div>
+    <div class="event-scene__spark event-scene__spark--one">✦</div>
+    <div class="event-scene__spark event-scene__spark--two">✧</div>
+    {% if kind == 'quiz' %}
+        <div class="event-scene__table">
+            <div class="event-scene__question"><span>?</span><i></i><i></i><i></i></div>
+        </div>
+        <div class="event-scene__guest event-scene__guest--one">{% include 'crush_lu/includes/ghost-logo-icon.html' with class='w-full h-full' %}</div>
+        <div class="event-scene__guest event-scene__guest--two">{% include 'crush_lu/includes/ghost-logo-icon.html' with class='w-full h-full' %}</div>
+        <div class="event-scene__guest event-scene__guest--three">{% include 'crush_lu/includes/ghost-logo-icon.html' with class='w-full h-full' %}</div>
+        <div class="event-scene__guest event-scene__guest--four">{% include 'crush_lu/includes/ghost-logo-icon.html' with class='w-full h-full' %}</div>
+        <span class="event-scene__tag">{% trans 'Play as a team' %} <span>↗</span></span>
+    {% else %}
+        <div class="event-scene__date-table"><span>♡</span></div>
+        <div class="event-scene__guest event-scene__guest--left">{% include 'crush_lu/includes/ghost-logo-icon.html' with class='w-full h-full' %}</div>
+        <div class="event-scene__guest event-scene__guest--right">{% include 'crush_lu/includes/ghost-logo-icon.html' with class='w-full h-full' %}</div>
+        <div class="event-scene__bubble event-scene__bubble--left">···</div>
+        <div class="event-scene__bubble event-scene__bubble--right">♡</div>
+        <span class="event-scene__tag">{% trans 'One-to-one conversations' %} <span>↗</span></span>
+    {% endif %}
+</div>
