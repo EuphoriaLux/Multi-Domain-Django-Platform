@@ -1062,13 +1062,22 @@ class PremiumBetaAllowlistTests(SiteTestMixin, TestCase):
         mock_create_checkout.assert_not_called()
         self.assertEqual(PaymentTransaction.objects.count(), 1)
 
+    @patch("crush_lu.views_payments.SumUpClient.deactivate_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
     @patch("crush_lu.views_payments.SumUpClient.create_checkout")
     @patch("crush_lu.views_payments.SumUpClient.create_customer")
     def test_an_unpaid_prior_attempt_does_not_block_a_retry(
-        self, mock_create_customer, mock_create_checkout
+        self,
+        mock_create_customer,
+        mock_create_checkout,
+        mock_get_checkout,
+        mock_deactivate,
     ):
         """Only a CAPTURED payment blocks. A declined or abandoned attempt must
         still be retryable, or one bad card would strand the member."""
+        # The declined attempt is retired at SumUp before the retry (#925 D6).
+        mock_get_checkout.return_value = {"id": "CHK_REVOKED", "status": "FAILED"}
+        mock_deactivate.return_value = True
         mock_create_customer.return_value = {
             "customer_id": f"crush-user-{self.user.id}"
         }
