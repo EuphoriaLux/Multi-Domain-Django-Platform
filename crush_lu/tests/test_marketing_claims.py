@@ -18,8 +18,9 @@ Spec: ai-memory-hub/specs/2026-08-24-crush-connect-repo-product-doc.md
 from unittest import mock
 
 from django.core.cache import cache
-from django.template.loader import render_to_string
 from django.test import TestCase
+
+from crush_lu.tests.test_ux_wave3_verify_email import _render_crush_page
 
 HOST = "crush.lu"
 
@@ -121,7 +122,12 @@ class MarketingClaimsTests(TestCase):
         self.assertIn(FOOTER_CLAIM, html)
 
     def test_profile_edit_partial_shares_footer_claim(self):
-        html = render_to_string("crush_lu/partials/edit_about_crushlu.html", {})
+        # LuxID is only promised when offered (UX Wave 6 WP4), like the footer.
+        with mock.patch(
+            "allauth.socialaccount.adapter.DefaultSocialAccountAdapter.list_apps",
+            return_value=[mock.Mock(settings={})],
+        ):
+            html = _render_crush_page("crush_lu/partials/edit_about_crushlu.html", {})
         self.assertIn(FOOTER_CLAIM, html)
         self.assertNotIn("reviewed by our Crush Coaches", html)
 
