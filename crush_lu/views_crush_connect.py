@@ -173,7 +173,7 @@ def _connect_trust_status(profile):
             "kind": "luxid",
             "label": _("Identity confirmed by LuxID"),
             "explanation": _(
-                "LuxID confirms your identity. Taking part in a Crush event unlocks the active Connect journey and your three daily suggestions, once the other steps are complete."
+                "LuxID confirms your identity. Taking part in a Crush event unlocks the active Connect journey and your two daily profiles, once the other steps are complete."
             ),
         }
     return None
@@ -234,7 +234,7 @@ def _connect_readiness(user):
             "complete": event_verified,
             "title": _("Crush event verification"),
             "description": _(
-                "A confirmed participation at a Crush event unlocks the active journey with three suggestions per day."
+                "A confirmed participation at a Crush event unlocks the active journey with two new profiles per day."
             ),
             "cta_label": _("Browse upcoming events"),
             "cta_url": reverse("crush_lu:event_list"),

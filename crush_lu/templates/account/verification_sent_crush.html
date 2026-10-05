@@ -34,7 +34,7 @@
                 {% endif %}
             {% else %}
                 <p class="text-gray-500 dark:text-gray-400 mb-4">
-                    {% trans "We've sent a verification link to your email address. Click the link in the email to confirm your account." %}
+                    {% trans "Check your inbox for the link we sent. Didn't get it, or has it expired? Enter your email below and we'll send a new one." %}
                 </p>
             {% endif %}
             <p class="text-sm text-muted-fg mb-6">
@@ -80,6 +80,11 @@
                     </span>
                 </button>
             </form>
+
+            <p class="text-sm text-muted-fg mb-4">
+                {% trans "Still nothing after a few minutes? Write to" %}
+                <a href="mailto:support@crush.lu" class="text-purple-600 dark:text-purple-400 hover:underline">support@crush.lu</a>.
+            </p>
 
             <a href="/" class="text-sm text-gray-500 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400">
                 ← {% trans "Back to Crush.lu" %}
