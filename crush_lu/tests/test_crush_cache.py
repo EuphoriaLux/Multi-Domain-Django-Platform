@@ -1002,6 +1002,20 @@ class TestCoach:
         assert response.status_code == 200
         assert b"Old Town Hunt" in response.content
 
+    def test_live_dashboard_actions_use_the_confirm_sheet(
+        self, client, hunt, stations, team, coach_user
+    ):
+        # #1058: no inline onsubmit confirm(); the forms carry data-confirm.
+        _start_hunt(hunt)
+        client.force_login(coach_user)
+        url = reverse("crush_lu:cache_coach_dashboard", args=[hunt.event_id])
+        html = client.get(url).content.decode()
+        assert "return confirm(" not in html
+        assert 'data-confirm="Finish the hunt for all teams?"' in html
+        assert 'data-confirm-label="Finish Hunt"' in html
+        assert 'data-confirm="Place all unassigned attendees into new teams?"' in html
+        assert 'data-confirm-label="Auto-form teams"' in html
+
     def test_start_initializes_progress(self, client, hunt, stations, team, coach_user):
         client.force_login(coach_user)
         url = reverse("crush_lu:cache_coach_start", args=[hunt.event_id])

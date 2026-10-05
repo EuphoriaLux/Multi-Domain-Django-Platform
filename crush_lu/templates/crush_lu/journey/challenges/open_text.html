@@ -28,7 +28,7 @@
         </div>
 
         <!-- Points Display -->
-        <div class="journey-points-display" aria-label="{% blocktrans with points=challenge.points_awarded %}{{ points }} points available{% endblocktrans %}">
+        <div class="journey-points-display" aria-label="{% blocktrans count points=challenge.points_awarded %}{{ points }} point available{% plural %}{{ points }} points available{% endblocktrans %}">
             <span aria-hidden="true">&#128142;</span>
             {{ challenge.points_awarded }}
             {% trans "Points" %}

@@ -108,12 +108,12 @@ class MatchPhoneConsentTests(TestCase):
             f"/de/connections/{self.conn.id}/", HTTP_HOST=HOST
         )
         self.assertContains(de, "Profile geteilt")
-        self.assertContains(de, "hat die Telefonnummer nicht geteilt")
+        self.assertContains(de, "hat noch keine Telefonnummer geteilt")
         fr = self._client(self.me).get(
             f"/fr/connections/{self.conn.id}/", HTTP_HOST=HOST
         )
         self.assertContains(fr, "Profils partagés")
-        self.assertContains(fr, "a pas partagé son numéro de téléphone")
+        self.assertContains(fr, "a pas encore partagé son numéro de téléphone")
 
     def test_shared_status_badge_is_translated_and_promises_no_contacts(self):
         # The My Connections card renders the badge from the canonical tag
@@ -171,7 +171,8 @@ class MatchPhoneConsentTests(TestCase):
         self.assertNotContains(response, PHONE_OTHER)
         self.assertNotContains(response, "tel:")
         self.assertNotContains(response, "wa.me")
-        self.assertContains(response, "did not share their phone number")
+        # No choice saved yet (#1146): "not shared yet", not "did not".
+        self.assertContains(response, "hasn't shared their phone number yet")
 
     def test_counterpart_sees_phone_after_opt_in(self):
         self._share(recipient_shares_phone=True)
