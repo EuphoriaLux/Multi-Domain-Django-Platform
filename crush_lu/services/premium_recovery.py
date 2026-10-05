@@ -5,7 +5,9 @@ when that call created the case (replays never mail twice).
 Spec: ai-memory-hub/specs/2026-09-13-crush-premium-payment-recovery.md
 """
 
+import contextvars
 import logging
+import time
 
 from django.conf import settings
 from django.urls import reverse
@@ -13,9 +15,42 @@ from django.utils import timezone, translation
 
 logger = logging.getLogger(__name__)
 
-# Siblings re-read per case and run (the rest wait for the next hourly tick);
-# the reconciliation endpoint reserves time for exactly this many.
+# Siblings re-read per membership and run; the rest wait for the next hourly
+# tick.
 SIBLING_SYNC_LIMIT = 2
+# Worst case of one Graph send (GRAPH_SEND_TIMEOUT_SECONDS in api_admin_sumup).
+SEND_SECONDS = 30
+
+# Set by retry_unsent_notifications for the hourly tick: every network step
+# below, nested on-commit work included, starts only while it still fits.
+# Unset (None) on the member's own request paths.
+_deadline = contextvars.ContextVar("premium_recovery_deadline", default=None)
+
+
+def _fits(seconds):
+    deadline = _deadline.get()
+    return deadline is None or time.monotonic() + seconds <= deadline
+
+
+def _close_seconds():
+    """One settle pass: its own retire budget plus the close in flight when
+    that budget runs out (a DELETE and one read)."""
+    from crush_lu.management.commands.reconcile_sumup_payments import (
+        SUMUP_REQUEST_WORST_CASE_SECONDS,
+    )
+    from crush_lu.views_payments import _PREMIUM_CHECKOUT_RETIRE_BUDGET_SECONDS
+
+    return (
+        _PREMIUM_CHECKOUT_RETIRE_BUDGET_SECONDS + 2 * SUMUP_REQUEST_WORST_CASE_SECONDS
+    )
+
+
+def _sync_seconds():
+    from crush_lu.management.commands.reconcile_sumup_payments import (
+        SUMUP_REQUEST_WORST_CASE_SECONDS,
+    )
+
+    return SUMUP_REQUEST_WORST_CASE_SECONDS
 
 
 def member_notice(payment):
@@ -115,70 +150,91 @@ def notify_safely(case_pk):
 
 
 def _close_sibling_checkouts_safely(case):
-    """Close the membership's other PENDING SumUp checkouts (deactivate only,
+    """While the case is OPEN, close every PENDING checkout the member has,
+    whichever membership it belongs to: a checkout published just before the
+    case was inserted must not stay payable. A resolved case only keeps
+    closing its own membership's."""
+    from crush_lu.models import PaymentTransaction, PremiumMembership
+
+    if case.status == case.Status.OPEN and case.user_id:
+        memberships = list(
+            PremiumMembership.objects.filter(
+                user_id=case.user_id,
+                payment_transactions__status=PaymentTransaction.Status.PENDING,
+            )
+            .distinct()
+            .order_by("pk")
+        )
+    else:
+        memberships = [case.premium_membership] if case.premium_membership else []
+    close_open_checkouts_safely(memberships, f"recovery case {case.pk}")
+
+
+def close_open_checkouts_safely(memberships, label):
+    """Close the PENDING SumUp checkouts of ``memberships`` (deactivate only,
     never a refund): with a capture recorded, none of them may take another
-    payment. Post-commit, no lock held during the network calls."""
+    payment. Post-commit, no lock held during the network calls. A checkout
+    SumUp already captured is recorded (applied, or its own recovery case),
+    from the payload the close read when there is one -- the sweep reads PAID
+    rows only."""
     from django.db import transaction
 
     from crush_lu.models import PaymentTransaction
 
-    membership = case.premium_membership
-    if (
-        membership is None
-        or not PaymentTransaction.objects.filter(
+    for membership in memberships:
+        if not PaymentTransaction.objects.filter(
             premium_membership=membership, status=PaymentTransaction.Status.PENDING
-        ).exists()
-    ):
-        return
-    from crush_lu.views_payments import (
-        SumUpClient,
-        _lock_premium_checkout_state,
-        _settle_pending_premium_checkouts,
-        _sync_checkout_with_sumup,
-    )
-
-    try:
-        state, _reuse, retired, _known = _settle_pending_premium_checkouts(
-            SumUpClient(), membership, captured=True
+        ).exists():
+            continue
+        if not _fits(_close_seconds()):
+            logger.warning("No time left to close checkouts for %s; will retry", label)
+            return
+        from crush_lu.views_payments import (
+            SumUpClient,
+            _apply_paid_checkout,
+            _lock_premium_checkout_state,
+            _settle_pending_premium_checkouts,
+            _sync_checkout_with_sumup,
         )
-        if retired:
-            with transaction.atomic():
-                _lock_premium_checkout_state(membership.pk, retired)
-        # A sibling SumUp already captured is never "closed": record it now
-        # (applied, or its own recovery case) -- the sweep reads PAID rows only.
-        for row in PaymentTransaction.objects.filter(
-            premium_membership=membership,
-            status=PaymentTransaction.Status.PENDING,
-            sumup_checkout_id__isnull=False,
-        ).order_by("pk")[:SIBLING_SYNC_LIMIT]:
-            _sync_checkout_with_sumup(row)
-        if state == "open":
-            # Still PENDING, so the hourly retry picks the case up again.
-            logger.warning(
-                "Sibling checkout still open for recovery case %s; will retry",
-                case.pk,
+
+        try:
+            paid_payloads = {}
+            state, _reuse, retired, _known = _settle_pending_premium_checkouts(
+                SumUpClient(), membership, captured=True, paid_payloads=paid_payloads
             )
-    except Exception as exc:
-        logger.error(
-            "Failed to close sibling checkouts for recovery case %s: %s",
-            case.pk,
-            type(exc).__name__,
-        )
+            if retired:
+                with transaction.atomic():
+                    _lock_premium_checkout_state(membership.pk, retired)
+            synced = 0
+            for row in PaymentTransaction.objects.filter(
+                premium_membership=membership,
+                status=PaymentTransaction.Status.PENDING,
+                sumup_checkout_id__isnull=False,
+            ).order_by("pk"):
+                if row.pk in paid_payloads:
+                    _apply_paid_checkout(row, paid_payloads[row.pk])
+                elif synced < SIBLING_SYNC_LIMIT and _fits(_sync_seconds()):
+                    synced += 1
+                    _sync_checkout_with_sumup(row)
+            if state == "open":
+                # Still PENDING, so the hourly retry picks it up again.
+                logger.warning("Checkout still open for %s; will retry", label)
+        except Exception as exc:
+            logger.error(
+                "Failed to close checkouts for %s: %s", label, type(exc).__name__
+            )
 
 
-def retry_unsent_notifications(
-    budget_seconds, per_case_seconds, limit=5, settle_minutes=10
-):
+def retry_unsent_notifications(budget_seconds, limit=5, settle_minutes=10):
     """Hourly retry of what failed after a case opened: a member notice, a
-    staff alert, or closing a sibling checkout.
+    staff alert, or closing a checkout that can still take money.
 
-    Run by the SumUp reconciliation tick with what is left of its budget: a
-    case is started only while ``per_case_seconds`` (two worst-case sends)
-    still fit. Skips cases newer than ``settle_minutes`` (their on-commit
+    Run by the SumUp reconciliation tick with what is left of its budget:
+    each send, close or read starts only while its own worst case still fits
+    (``_fits``); what does not fit stays undone for the next tick. Skips cases newer than ``settle_minutes`` (their on-commit
     send may still be running). No age cut-off: an open case keeps being
     retried until it is delivered or resolved; random order so one that can
     never be delivered cannot starve the others."""
-    import time
     from datetime import timedelta
 
     from django.db import transaction
@@ -196,12 +252,23 @@ def retry_unsent_notifications(
                     premium_membership_id=OuterRef("premium_membership_id"),
                     status=PaymentTransaction.Status.PENDING,
                 )
-            )
+            ),
+            # An open case closes the member's other memberships' too.
+            member_has_open_checkout=Exists(
+                PaymentTransaction.objects.filter(
+                    premium_membership__user_id=OuterRef("user_id"),
+                    status=PaymentTransaction.Status.PENDING,
+                )
+            ),
         )
         .filter(
             # Notices only for open cases; closing a checkout that could
             # still take money continues even after staff resolve the case.
-            (Q(member_notified_at__isnull=True) | Q(staff_alerted_at__isnull=True))
+            (
+                Q(member_notified_at__isnull=True)
+                | Q(staff_alerted_at__isnull=True)
+                | Q(member_has_open_checkout=True)
+            )
             & Q(status=Case.Status.OPEN)
             | Q(has_open_checkout=True),
             created_at__lte=now - timedelta(minutes=settle_minutes),
@@ -209,38 +276,45 @@ def retry_unsent_notifications(
         .order_by("?")
         .values_list("pk", flat=True)[:limit]
     )
-    deadline = time.monotonic() + budget_seconds
+    token = _deadline.set(time.monotonic() + budget_seconds)
     sent = 0
-    for pk in case_ids:
-        if time.monotonic() + per_case_seconds > deadline:
-            break
-        with transaction.atomic():
-            # Claim: an overlapping tick skips a case another run holds, and
-            # the timestamps are re-read under the lock, so no double send.
-            case = (
-                # of=("self",): PostgreSQL refuses FOR UPDATE on the nullable
-                # side of the premium_membership outer join.
-                Case.objects.select_for_update(skip_locked=True, of=("self",))
-                .select_related("payment", "user", "premium_membership")
-                .filter(pk=pk)
-                .first()
-            )
-            if case is None:
-                continue
-            sent += 1
-            _close_sibling_checkouts_safely(case)
-            if case.status != Case.Status.OPEN:
-                continue
-            if case.member_notified_at is None:
-                _notify_member_safely(case)
-            if case.staff_alerted_at is None:
-                _alert_staff_safely(case)
+    try:
+        for pk in case_ids:
+            # Nothing per case is cheaper than a send.
+            if not _fits(SEND_SECONDS):
+                break
+            with transaction.atomic():
+                # Claim: an overlapping tick skips a case another run holds,
+                # and the timestamps are re-read under the lock, so no double
+                # send.
+                case = (
+                    # of=("self",): PostgreSQL refuses FOR UPDATE on the
+                    # nullable side of the premium_membership outer join.
+                    Case.objects.select_for_update(skip_locked=True, of=("self",))
+                    .select_related("payment", "user", "premium_membership")
+                    .filter(pk=pk)
+                    .first()
+                )
+                if case is None:
+                    continue
+                sent += 1
+                _close_sibling_checkouts_safely(case)
+                if case.status != Case.Status.OPEN:
+                    continue
+                if case.member_notified_at is None:
+                    _notify_member_safely(case)
+                if case.staff_alerted_at is None:
+                    _alert_staff_safely(case)
+    finally:
+        _deadline.reset(token)
     return sent
 
 
 def _notify_member_safely(case):
     from crush_lu.email_helpers import send_premium_payment_recovery_notice
 
+    if not _fits(SEND_SECONDS):
+        return
     try:
         if send_premium_payment_recovery_notice(case.payment):
             case.member_notified_at = timezone.now()
@@ -256,6 +330,8 @@ def _notify_member_safely(case):
 def _alert_staff_safely(case):
     from azureproject.email_utils import send_domain_email
 
+    if not _fits(SEND_SECONDS):
+        return
     try:
         payment = case.payment
         admin_path = reverse(

@@ -781,21 +781,26 @@ def _sumup_checkout_gone(error):
     return getattr(response, "status_code", None) in {404, 410}
 
 
-def _close_premium_checkout(client, checkout_id):
+def _close_premium_checkout(client, checkout_id, paid_payload=None):
     """``"closed"``, ``"paid"`` or ``"open"`` for one checkout at SumUp.
 
     Same proof as ``ensure_checkout_not_payable`` (a DELETE, else one read),
-    but that single read also tells a captured checkout apart. Any SumUpError
-    (including a missing API key) counts as ``"open"`` so the caller answers
-    with its JSON refusal instead of a 500.
+    but that single read also tells a captured checkout apart; on ``"paid"``
+    that read is copied into ``paid_payload`` so the caller can record the
+    capture without a second read. Any SumUpError (including a missing API
+    key) counts as ``"open"`` so the caller answers with its JSON refusal
+    instead of a 500.
     """
     try:
         if client.deactivate_checkout(checkout_id):
             return "closed"
-        status = _sumup_status(client.get_checkout(checkout_id))
+        remote = client.get_checkout(checkout_id)
     except SumUpError:
         return "open"
+    status = _sumup_status(remote)
     if status in _SUMUP_PAID_STATUSES:
+        if paid_payload is not None:
+            paid_payload.update(remote)
         return "paid"
     return "closed" if status in CLOSED_CHECKOUT_STATUSES else "open"
 
@@ -864,9 +869,12 @@ def _settle_pending_premium_checkouts(
             or _monotonic() > deadline
         ):
             return "open", None, retired_ids, known_ids
-        outcome = _close_premium_checkout(client, row.sumup_checkout_id)
+        payload = {}
+        outcome = _close_premium_checkout(client, row.sumup_checkout_id, payload)
         if outcome == "paid":
             paid = True
+            if paid_payloads is not None:
+                paid_payloads[row.pk] = payload
         elif outcome != "closed":
             return "open", None, retired_ids, known_ids
         else:
@@ -874,7 +882,12 @@ def _settle_pending_premium_checkouts(
     if paid:
         # A capture exists: the kept newest checkout must not take a second one.
         if reuse_row is not None:
-            outcome = _close_premium_checkout(client, reuse_row.sumup_checkout_id)
+            payload = {}
+            outcome = _close_premium_checkout(
+                client, reuse_row.sumup_checkout_id, payload
+            )
+            if outcome == "paid" and paid_payloads is not None:
+                paid_payloads[reuse_row.pk] = payload
             if outcome == "open":
                 return "open", None, retired_ids, known_ids
             if outcome == "closed":
@@ -2080,6 +2093,13 @@ def _apply_paid_checkout(tx_obj, data):
                     transaction.on_commit(
                         lambda payment=locked: _send_premium_membership_receipt_safely(
                             payment
+                        )
+                    )
+                    # #925: this capture is the membership's payment, so no
+                    # other checkout of it may take a second one.
+                    transaction.on_commit(
+                        lambda membership=pm: premium_recovery.close_open_checkouts_safely(
+                            [membership], f"premium membership {membership.pk}"
                         )
                     )
                 except (ValueError, CrushProfile.DoesNotExist) as exc:

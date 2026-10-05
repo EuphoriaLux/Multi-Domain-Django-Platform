@@ -154,14 +154,27 @@ class FailurePathCaseTests(_Base):
         self.assertEqual(self.membership.status, "cancelled")
 
     def test_second_capture_opens_duplicate_capture_case(self):
+        from unittest.mock import MagicMock
+
         first = self._tx("REC-DUP-1")
         second = self._tx("REC-DUP-2")
-        self._apply(first)
+        # Activation closes the other checkout; SumUp says it was captured too.
+        client = MagicMock()
+        client.deactivate_checkout.return_value = False
+        client.get_checkout.return_value = {
+            "id": second.sumup_checkout_id,
+            "status": "PAID",
+            "amount": 10.0,
+            "currency": "EUR",
+        }
+        with patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            self._apply(first)
         self.membership.refresh_from_db()
         self.assertEqual(self.membership.status, "active")
-        self.assertFalse(PremiumPaymentRecoveryCase.objects.exists())
-        mail.outbox.clear()
+        client.get_checkout.assert_called_once_with("CHK_REC-DUP-2")
+        client.refund.assert_not_called()
 
+        # Its own webhook arriving later is a replay: still one case.
         self._apply(second)
         self._assert_one_case(second, Reason.DUPLICATE_CAPTURE)
         # D2: membership untouched.
@@ -927,8 +940,78 @@ class LateCaptureTests(_Base):
     def test_sibling_syncs_are_capped(self):
         from crush_lu.services import premium_recovery
 
-        src = inspect.getsource(premium_recovery._close_sibling_checkouts_safely)
-        self.assertIn("[:SIBLING_SYNC_LIMIT]", src)
+        src = inspect.getsource(premium_recovery.close_open_checkouts_safely)
+        self.assertIn("synced < SIBLING_SYNC_LIMIT", src)
+
+    def _second_membership(self):
+        return PremiumMembership.objects.create(
+            user=self.member, coach=self.coach, status="pending"
+        )
+
+    def test_settle_keeps_the_payload_of_an_older_sibling_it_found_paid(self):
+        from unittest.mock import MagicMock
+
+        from crush_lu.views_payments import _settle_pending_premium_checkouts
+
+        older = self._tx("REC-OLD-SIB-PAID")
+        paid = {"id": older.sumup_checkout_id, "status": "PAID", "amount": 10.0}
+        client = MagicMock()
+        client.deactivate_checkout.return_value = False
+        client.get_checkout.return_value = paid
+        payloads = {}
+        state, *_ = _settle_pending_premium_checkouts(
+            client, self.membership, captured=True, paid_payloads=payloads
+        )
+        self.assertEqual(state, "paid")
+        self.assertEqual(payloads, {older.pk: paid})
+
+    def test_open_case_closes_a_checkout_of_another_membership(self):
+        from unittest.mock import MagicMock
+
+        from crush_lu.services.premium_recovery import notify_safely
+
+        case = PremiumPaymentRecoveryCase.objects.create(
+            payment=self._tx("REC-X-PAID", status=PaymentTransaction.Status.PAID),
+            user=self.member,
+            premium_membership=self.membership,
+            reason=Reason.COACH_UNAVAILABLE,
+        )
+        # Published just before the case was inserted, on a newer membership.
+        other = PaymentTransaction.objects.create(
+            transaction_reference="REC-X-OTHER",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_REC-X-OTHER",
+            amount=Decimal("10.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+            user=self.member,
+            premium_membership=self._second_membership(),
+        )
+        client = MagicMock()
+        client.deactivate_checkout.return_value = True
+        with patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            notify_safely(case.pk)
+        client.deactivate_checkout.assert_called_once_with("CHK_REC-X-OTHER")
+        other.refresh_from_db()
+        self.assertEqual(other.status, PaymentTransaction.Status.CANCELLED)
+        client.refund.assert_not_called()
+
+    def test_activation_closes_the_membership_s_other_checkouts(self):
+        from unittest.mock import MagicMock
+
+        paid = self._tx("REC-ACT-PAID")
+        sibling = self._tx("REC-ACT-SIB")
+        client = MagicMock()
+        client.deactivate_checkout.return_value = True
+        with patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            self._apply(paid)
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "active")
+        client.deactivate_checkout.assert_called_once_with("CHK_REC-ACT-SIB")
+        sibling.refresh_from_db()
+        self.assertEqual(sibling.status, PaymentTransaction.Status.CANCELLED)
+        client.refund.assert_not_called()
 
     def test_publication_refuses_a_deactivated_account(self):
         from crush_lu import views_payments
@@ -990,19 +1073,19 @@ class NotificationRetryTests(_Base):
 
         case = self._failed_case("REC-RETRY", minutes_old=30)
         mail.outbox.clear()
-        self.assertEqual(retry_unsent_notifications(100, 60), 1)
+        self.assertEqual(retry_unsent_notifications(100), 1)
         case.refresh_from_db()
         self.assertIsNotNone(case.member_notified_at)
         self.assertIsNotNone(case.staff_alerted_at)
         self.assertEqual((len(self._member_mails()), len(self._alerts())), (1, 1))
         # Delivered once: the next tick sends nothing.
-        self.assertEqual(retry_unsent_notifications(100, 60), 0)
+        self.assertEqual(retry_unsent_notifications(100), 0)
 
     def test_retry_keeps_going_after_days(self):
         from crush_lu.services.premium_recovery import retry_unsent_notifications
 
         case = self._failed_case("REC-OLD-RETRY", minutes_old=60 * 24 * 10)
-        self.assertEqual(retry_unsent_notifications(100, 60), 1)
+        self.assertEqual(retry_unsent_notifications(100), 1)
         case.refresh_from_db()
         self.assertIsNotNone(case.staff_alerted_at)
 
@@ -1030,7 +1113,7 @@ class NotificationRetryTests(_Base):
         client = MagicMock()
         client.deactivate_checkout.return_value = True
         with patch("crush_lu.views_payments.SumUpClient", return_value=client):
-            self.assertEqual(retry_unsent_notifications(100, 60), 1)
+            self.assertEqual(retry_unsent_notifications(100), 1)
         client.deactivate_checkout.assert_called_once_with("CHK_REC-RT-SIB")
         sibling.refresh_from_db()
         self.assertEqual(sibling.status, PaymentTransaction.Status.CANCELLED)
@@ -1058,7 +1141,7 @@ class NotificationRetryTests(_Base):
         client = MagicMock()
         client.deactivate_checkout.return_value = True
         with patch("crush_lu.views_payments.SumUpClient", return_value=client):
-            retry_unsent_notifications(100, 60)
+            retry_unsent_notifications(100)
         sibling.refresh_from_db()
         self.assertEqual(sibling.status, PaymentTransaction.Status.CANCELLED)
         # Resolved: no notice or alert is (re)sent.
@@ -1098,7 +1181,7 @@ class NotificationRetryTests(_Base):
         with patch("crush_lu.views_payments.SumUpClient", return_value=client):
             with self.captureOnCommitCallbacks(execute=True):
                 with self.assertLogs("crush_lu.views_payments", level="ERROR"):
-                    retry_unsent_notifications(100, 60)
+                    retry_unsent_notifications(100)
         sibling.refresh_from_db()
         self.assertEqual(sibling.status, PaymentTransaction.Status.PAID)
         self.assertTrue(
@@ -1122,14 +1205,14 @@ class NotificationRetryTests(_Base):
         from crush_lu.services.premium_recovery import retry_unsent_notifications
 
         self._failed_case("REC-FRESH", minutes_old=1)
-        self.assertEqual(retry_unsent_notifications(100, 60), 0)
+        self.assertEqual(retry_unsent_notifications(100), 0)
 
     def test_retry_never_starts_a_case_past_the_budget(self):
         from crush_lu.services.premium_recovery import retry_unsent_notifications
 
         case = self._failed_case("REC-LATE", minutes_old=30)
         mail.outbox.clear()
-        self.assertEqual(retry_unsent_notifications(30, 60), 0)
+        self.assertEqual(retry_unsent_notifications(25), 0)
         self.assertEqual(mail.outbox, [])
         case.refresh_from_db()
         self.assertIsNone(case.staff_alerted_at)
@@ -1151,17 +1234,37 @@ class NotificationRetryTests(_Base):
                 "/api/admin/sumup-reconciliation/", HTTP_AUTHORIZATION="Bearer k"
             )
         retry.assert_called_once()
-        kwargs = retry.call_args.kwargs
-        from crush_lu import api_admin_sumup as api
-        from crush_lu.services.premium_recovery import SIBLING_SYNC_LIMIT
-
-        # Two sends + the close budget + per synced sibling a read and two sends.
-        self.assertEqual(
-            kwargs["per_case_seconds"],
-            60 + 30 + SIBLING_SYNC_LIMIT * (api.SUMUP_REQUEST_WORST_CASE_SECONDS + 60),
-        )
-        self.assertLessEqual(kwargs["budget_seconds"], 100)
+        self.assertEqual(set(retry.call_args.kwargs), {"budget_seconds"})
+        self.assertLessEqual(retry.call_args.kwargs["budget_seconds"], 100)
         self.assertEqual(response.json()["recovery_notices_retried"], 2)
+
+    @override_settings(
+        ROOT_URLCONF="azureproject.urls_crush",
+        ADMIN_API_KEY="k",
+        SUMUP_RECONCILIATION_ENABLED=True,
+    )
+    def test_reconciliation_tick_actually_resends_a_failed_notice(self):
+        case = self._failed_case("REC-TICK", minutes_old=30)
+        mail.outbox.clear()
+        with patch(
+            "crush_lu.management.commands.reconcile_sumup_payments.Command.run_sweep",
+            return_value=defaultdict(int),
+        ):
+            response = Client(HTTP_HOST="crush.lu").post(
+                "/api/admin/sumup-reconciliation/", HTTP_AUTHORIZATION="Bearer k"
+            )
+        self.assertEqual(response.json()["recovery_notices_retried"], 1)
+        case.refresh_from_db()
+        self.assertIsNotNone(case.member_notified_at)
+        self.assertIsNotNone(case.staff_alerted_at)
+
+    def test_every_unit_fits_the_reconciliation_budget(self):
+        from crush_lu import api_admin_sumup as api
+        from crush_lu.services import premium_recovery as rec
+
+        self.assertEqual(rec.SEND_SECONDS, api.GRAPH_SEND_TIMEOUT_SECONDS)
+        for cost in (rec.SEND_SECONDS, rec._close_seconds(), rec._sync_seconds()):
+            self.assertLess(cost, api.RECONCILIATION_BUDGET_SECONDS)
 
 
 class RecoveryLockOrderTests(TestCase):

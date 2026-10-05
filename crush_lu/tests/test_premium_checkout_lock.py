@@ -451,9 +451,10 @@ class PremiumCheckoutLockTests(TestCase):
             self.client.post(self.url)
 
         reads = [c.args[0] for c in self.sumup["get_checkout"].call_args_list]
-        # One read by the refused close; the second is #925's deliberate sync
-        # that applies the capture it found.
-        self.assertEqual(reads.count("CHK_OLD_PAID"), 2)
+        # One read by the refused close; #925 applies the capture from that
+        # same payload instead of reading again.
+        self.assertEqual(reads.count("CHK_OLD_PAID"), 1)
+        self.assertEqual(self._statuses()["CHK_OLD_PAID"], "paid")
 
     def test_checkout_naming_a_previous_coach_is_not_reused(self):
         self._pending_row("CHK_OLD_COACH")
