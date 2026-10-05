@@ -164,10 +164,11 @@ def retry_unsent_notifications(
             )
         )
         .filter(
-            Q(member_notified_at__isnull=True)
-            | Q(staff_alerted_at__isnull=True)
+            # Notices only for open cases; closing a checkout that could
+            # still take money continues even after staff resolve the case.
+            (Q(member_notified_at__isnull=True) | Q(staff_alerted_at__isnull=True))
+            & Q(status=Case.Status.OPEN)
             | Q(has_open_checkout=True),
-            status=Case.Status.OPEN,
             created_at__lte=now - timedelta(minutes=settle_minutes),
         )
         .order_by("?")
@@ -184,13 +185,15 @@ def retry_unsent_notifications(
             case = (
                 Case.objects.select_for_update(skip_locked=True)
                 .select_related("payment", "user", "premium_membership")
-                .filter(pk=pk, status=Case.Status.OPEN)
+                .filter(pk=pk)
                 .first()
             )
             if case is None:
                 continue
             sent += 1
             _close_sibling_checkouts_safely(case)
+            if case.status != Case.Status.OPEN:
+                continue
             if case.member_notified_at is None:
                 _notify_member_safely(case)
             if case.staff_alerted_at is None:

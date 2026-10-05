@@ -941,6 +941,34 @@ class NotificationRetryTests(_Base):
         self.assertEqual(sibling.status, PaymentTransaction.Status.CANCELLED)
         self.assertEqual(mail.outbox, [])
 
+    def test_retry_closes_a_sibling_checkout_after_the_case_is_resolved(self):
+        from datetime import timedelta
+        from unittest.mock import MagicMock
+
+        from django.utils import timezone
+
+        from crush_lu.services.premium_recovery import retry_unsent_notifications
+
+        case = PremiumPaymentRecoveryCase.objects.create(
+            payment=self._tx("REC-RES-PAID", status=PaymentTransaction.Status.PAID),
+            user=self.member,
+            premium_membership=self.membership,
+            reason=Reason.COACH_UNAVAILABLE,
+            status=PremiumPaymentRecoveryCase.Status.RESOLVED,
+        )
+        PremiumPaymentRecoveryCase.objects.filter(pk=case.pk).update(
+            created_at=timezone.now() - timedelta(hours=2)
+        )
+        sibling = self._tx("REC-RES-SIB")
+        client = MagicMock()
+        client.deactivate_checkout.return_value = True
+        with patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            retry_unsent_notifications(100, 60)
+        sibling.refresh_from_db()
+        self.assertEqual(sibling.status, PaymentTransaction.Status.CANCELLED)
+        # Resolved: no notice or alert is (re)sent.
+        self.assertEqual(mail.outbox, [])
+
     def test_retry_claims_each_case_under_a_row_lock(self):
         from crush_lu.services import premium_recovery
 
