@@ -195,20 +195,32 @@ def _generation_key(cache_key):
     return f"{cache_key}:generation"
 
 
-def _record_window_deadline(cache_key, period_seconds):
-    """Track expiry for cache backends without a native TTL method.
+# A release must finish this long before its window's deadline. Covers clock
+# skew between workers or hosts that read the same deadline.
+_RELEASE_MARGIN_SECONDS = 1
 
-    Also stamps the new window with a fresh generation token, so a release
-    can tell whether it still belongs to the window it reserved in. Returns
-    the token so the request that created the window knows it for certain."""
-    token = uuid.uuid4().hex
+
+def _record_window_deadline(cache_key, period_seconds, deadline=None):
+    """Stamp a new window with its deadline and generation token.
+
+    ``deadline`` is the time.time() taken *before* the add() that created the
+    counter, plus the period, so the counter can never expire before it. The
+    token is ``(deadline, nonce)``; it is returned to the creating request and
+    read by the others, so every release knows its window's deadline.
+
+    The deadline key also tracks expiry for backends without a native TTL.
+    """
+    if deadline is None:
+        deadline = time.time() + period_seconds
+    token = (deadline, uuid.uuid4().hex)
     cache.set(_generation_key(cache_key), token, period_seconds)
-    cache.set(
-        _window_deadline_key(cache_key),
-        time.time() + period_seconds,
-        period_seconds,
-    )
+    cache.set(_window_deadline_key(cache_key), deadline, period_seconds)
     return token
+
+
+def _window_open(generation):
+    """True while a counter stamped with ``generation`` cannot have expired."""
+    return time.time() < generation[0] - _RELEASE_MARGIN_SECONDS
 
 
 def _remaining_window_seconds(cache_key, period_seconds):
@@ -250,15 +262,17 @@ def _count_request(cache_key, period_seconds):
     """
     before = cache.get(_generation_key(cache_key))
     created = None
+    deadline = time.time() + period_seconds  # before add(): never late (#1150)
     if cache.add(cache_key, 0, period_seconds):
-        created = _record_window_deadline(cache_key, period_seconds)
+        created = _record_window_deadline(cache_key, period_seconds, deadline)
     try:
         count = cache.incr(cache_key)
     except ValueError:
         # Evicted between add() and incr(): start a fresh window with this
         # request, unless a concurrent request already did.
+        deadline = time.time() + period_seconds
         if cache.add(cache_key, 1, period_seconds):
-            return 1, _record_window_deadline(cache_key, period_seconds)
+            return 1, _record_window_deadline(cache_key, period_seconds, deadline)
         created = None
         count = cache.incr(cache_key)
     if created is not None:
@@ -280,19 +294,32 @@ def _release_request(cache_key, generation=None):
     has since expired and a new one started, the slot is already gone with the
     old counter: releasing would take a count from the new window (#1111).
 
+    The proof is the token's deadline, not the token's presence (#1150). The
+    counter expires no earlier than that deadline (it was taken before the
+    add()), and the token was readable only after the add(). So a decrement
+    that returns with the clock still before the deadline (less a margin for
+    skew) ran after the counter was created and before it could expire: it
+    hit that counter, however long any earlier cache call stalled. Otherwise
+    it may have hit a newer window and is undone, which can only cost a slot.
+    A changed token (an evicted counter re-created early) is undone the same
+    way.
+
     decr() is atomic and keeps the expiry add() set; on a missing key it
     raises rather than creating one, so a release never extends the window
     or leaves a counter without a timeout. A release that lands in a newer
     window than its reservation could drive the counter below zero; undo it.
     """
     try:
-        if generation is None or cache.get(_generation_key(cache_key)) != generation:
+        if generation is None or not _window_open(generation):
+            return
+        if cache.get(_generation_key(cache_key)) != generation:
             return
         if cache.decr(cache_key) < 0:
             cache.incr(cache_key)
-        elif cache.get(_generation_key(cache_key)) != generation:
-            # The window rolled over between the check and the decrement, so
-            # the decrement landed in the new window: give it back.
+        elif not _window_open(generation) or (
+            cache.get(_generation_key(cache_key)) != generation
+        ):
+            # The decrement may have landed in a newer window: give it back.
             cache.incr(cache_key)
     except Exception:
         # Evicted or expired (nothing left to release) or cache unavailable.
