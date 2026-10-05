@@ -706,6 +706,13 @@ def dashboard(request):
             **_verification_path_context(profile, request.user),
         }
     except CrushProfile.DoesNotExist:
+        # #925: a capture can fail exactly because the profile is missing;
+        # carry its D1 notice onto the profile page.
+        case = open_recovery_case(request.user)
+        if case:
+            from .services.premium_recovery import member_notice
+
+            messages.warning(request, member_notice(case.payment))
         messages.warning(request, _("Please complete your profile first."))
         return redirect("crush_lu:create_profile")
 

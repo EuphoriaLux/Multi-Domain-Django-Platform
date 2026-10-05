@@ -16,7 +16,6 @@ from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.formats import localize
 from django.utils.translation import gettext as _
 from django.utils.translation import override
 from django.views.decorators.csrf import csrf_exempt
@@ -2794,23 +2793,7 @@ def _sumup_return_response(request, tx_obj):
                 pm.refresh_from_db()
             if recovery_case:
                 # #925 D1, first: a duplicate capture finds pm active.
-                payment = tx_obj
-                messages.warning(
-                    request,
-                    _(
-                        "We received your payment of %(amount)s %(currency)s, "
-                        "but it has not been applied to your Premium "
-                        "membership. Please do not pay again. Reference: "
-                        "%(reference)s. Contact support@crush.lu if you need "
-                        "help."
-                    )
-                    % {
-                        # localize() matches {{ amount }} (10,00 in DE/FR).
-                        "amount": localize(payment.amount),
-                        "currency": payment.currency,
-                        "reference": payment.transaction_reference,
-                    },
-                )
+                messages.warning(request, premium_recovery.member_notice(tx_obj))
             elif pm and pm.status == "active":
                 # Only claim Premium once confirm() actually granted it. When
                 # the coach filled up mid-flight the charge is real but the

@@ -809,6 +809,20 @@ class LateCaptureTests(_Base):
         sibling.refresh_from_db()
         self.assertEqual(sibling.status, PaymentTransaction.Status.CANCELLED)
 
+    def test_member_without_profile_still_gets_the_notice(self):
+        PremiumPaymentRecoveryCase.objects.create(
+            payment=self._tx("REC-NOPROF", status=PaymentTransaction.Status.PAID),
+            user=self.member,
+            premium_membership=self.membership,
+            reason=Reason.OTHER,
+        )
+        self.profile.delete()
+        response = self._client().get("/en/dashboard/", follow=True)
+        texts = [str(m) for m in response.context["messages"]]
+        self.assertTrue(
+            any(t.startswith(D1_START) and "REC-NOPROF" in t for t in texts), texts
+        )
+
     def test_no_pay_button_while_an_older_case_blocks_checkout(self):
         self.membership.status = "cancelled"
         self.membership.save(update_fields=["status"])
@@ -897,6 +911,44 @@ class NotificationRetryTests(_Base):
         case.refresh_from_db()
         self.assertIsNotNone(case.staff_alerted_at)
 
+    def test_retry_closes_a_sibling_checkout_left_open(self):
+        from datetime import timedelta
+        from unittest.mock import MagicMock
+
+        from django.utils import timezone
+
+        from crush_lu.services.premium_recovery import retry_unsent_notifications
+
+        stamp = timezone.now()
+        case = PremiumPaymentRecoveryCase.objects.create(
+            payment=self._tx("REC-RT-PAID", status=PaymentTransaction.Status.PAID),
+            user=self.member,
+            premium_membership=self.membership,
+            reason=Reason.COACH_UNAVAILABLE,
+            member_notified_at=stamp,
+            staff_alerted_at=stamp,
+        )
+        PremiumPaymentRecoveryCase.objects.filter(pk=case.pk).update(
+            created_at=stamp - timedelta(hours=2)
+        )
+        sibling = self._tx("REC-RT-SIB")
+        client = MagicMock()
+        client.deactivate_checkout.return_value = True
+        with patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            self.assertEqual(retry_unsent_notifications(100, 60), 1)
+        client.deactivate_checkout.assert_called_once_with("CHK_REC-RT-SIB")
+        sibling.refresh_from_db()
+        self.assertEqual(sibling.status, PaymentTransaction.Status.CANCELLED)
+        self.assertEqual(mail.outbox, [])
+
+    def test_retry_claims_each_case_under_a_row_lock(self):
+        from crush_lu.services import premium_recovery
+
+        src = inspect.getsource(premium_recovery.retry_unsent_notifications)
+        claim = src.index("select_for_update(skip_locked=True)")
+        self.assertLess(claim, src.index("case.member_notified_at is None"))
+        self.assertLess(claim, src.index("case.staff_alerted_at is None"))
+
     def test_retry_skips_a_case_still_settling(self):
         from crush_lu.services.premium_recovery import retry_unsent_notifications
 
@@ -931,7 +983,8 @@ class NotificationRetryTests(_Base):
             )
         retry.assert_called_once()
         kwargs = retry.call_args.kwargs
-        self.assertEqual(kwargs["per_case_seconds"], 60)
+        # Two Graph sends (2 x 30 s) plus the sibling-checkout close budget.
+        self.assertEqual(kwargs["per_case_seconds"], 90)
         self.assertLessEqual(kwargs["budget_seconds"], 100)
         self.assertEqual(response.json()["recovery_notices_retried"], 2)
 
@@ -986,6 +1039,9 @@ class RecoveryLockOrderTests(TestCase):
             queue_src.index("premium_recovery.open_case("),
             queue_src.index("transaction.on_commit("),
         )
+        # The claim lock in the hourly retry is separate; opening takes none.
         self.assertIsNone(
-            re.search(r"select_for_update", inspect.getsource(premium_recovery))
+            re.search(
+                r"select_for_update", inspect.getsource(premium_recovery.open_case)
+            )
         )

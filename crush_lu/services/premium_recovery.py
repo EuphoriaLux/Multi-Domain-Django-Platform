@@ -14,6 +14,25 @@ from django.utils import timezone, translation
 logger = logging.getLogger(__name__)
 
 
+def member_notice(payment):
+    """The D1 notice text for ``payment``, in the active language."""
+    from django.utils.formats import localize
+    from django.utils.translation import gettext as _
+
+    return _(
+        "We received your payment of %(amount)s %(currency)s, "
+        "but it has not been applied to your Premium "
+        "membership. Please do not pay again. Reference: "
+        "%(reference)s. Contact support@crush.lu if you need "
+        "help."
+    ) % {
+        # localize() matches {{ amount }} (10,00 in DE/FR).
+        "amount": localize(payment.amount),
+        "currency": payment.currency,
+        "reference": payment.transaction_reference,
+    }
+
+
 def reason_for_membership_status(status):
     """Map the membership state a capture found to the case reason."""
     from crush_lu.models import PremiumPaymentRecoveryCase
@@ -92,12 +111,18 @@ def _close_sibling_checkouts_safely(case):
     )
 
     try:
-        _state, _reuse, retired, _known = _settle_pending_premium_checkouts(
+        state, _reuse, retired, _known = _settle_pending_premium_checkouts(
             SumUpClient(), membership, captured=True
         )
         if retired:
             with transaction.atomic():
                 _lock_premium_checkout_state(membership.pk, retired)
+        if state == "open":
+            # Still PENDING, so the hourly retry picks the case up again.
+            logger.warning(
+                "Sibling checkout still open for recovery case %s; will retry",
+                case.pk,
+            )
     except Exception as exc:
         logger.error(
             "Failed to close sibling checkouts for recovery case %s: %s",
@@ -109,7 +134,8 @@ def _close_sibling_checkouts_safely(case):
 def retry_unsent_notifications(
     budget_seconds, per_case_seconds, limit=5, settle_minutes=10
 ):
-    """Hourly retry of a member notice or staff alert that failed at creation.
+    """Hourly retry of what failed after a case opened: a member notice, a
+    staff alert, or closing a sibling checkout.
 
     Run by the SumUp reconciliation tick with what is left of its budget: a
     case is started only while ``per_case_seconds`` (two worst-case sends)
@@ -120,30 +146,55 @@ def retry_unsent_notifications(
     import time
     from datetime import timedelta
 
-    from django.db.models import Q
+    from django.db import transaction
+    from django.db.models import Exists, OuterRef, Q
 
-    from crush_lu.models import PremiumPaymentRecoveryCase
+    from crush_lu.models import PaymentTransaction, PremiumPaymentRecoveryCase
 
+    Case = PremiumPaymentRecoveryCase
     now = timezone.now()
-    cases = list(
-        PremiumPaymentRecoveryCase.objects.filter(
-            Q(member_notified_at__isnull=True) | Q(staff_alerted_at__isnull=True),
-            status=PremiumPaymentRecoveryCase.Status.OPEN,
+    case_ids = list(
+        Case.objects.annotate(
+            # A sibling checkout that could not be closed is retried too.
+            has_open_checkout=Exists(
+                PaymentTransaction.objects.filter(
+                    premium_membership_id=OuterRef("premium_membership_id"),
+                    status=PaymentTransaction.Status.PENDING,
+                )
+            )
+        )
+        .filter(
+            Q(member_notified_at__isnull=True)
+            | Q(staff_alerted_at__isnull=True)
+            | Q(has_open_checkout=True),
+            status=Case.Status.OPEN,
             created_at__lte=now - timedelta(minutes=settle_minutes),
         )
-        .select_related("payment", "user")
-        .order_by("?")[:limit]
+        .order_by("?")
+        .values_list("pk", flat=True)[:limit]
     )
     deadline = time.monotonic() + budget_seconds
     sent = 0
-    for case in cases:
+    for pk in case_ids:
         if time.monotonic() + per_case_seconds > deadline:
             break
-        sent += 1
-        if case.member_notified_at is None:
-            _notify_member_safely(case)
-        if case.staff_alerted_at is None:
-            _alert_staff_safely(case)
+        with transaction.atomic():
+            # Claim: an overlapping tick skips a case another run holds, and
+            # the timestamps are re-read under the lock, so no double send.
+            case = (
+                Case.objects.select_for_update(skip_locked=True)
+                .select_related("payment", "user", "premium_membership")
+                .filter(pk=pk, status=Case.Status.OPEN)
+                .first()
+            )
+            if case is None:
+                continue
+            sent += 1
+            _close_sibling_checkouts_safely(case)
+            if case.member_notified_at is None:
+                _notify_member_safely(case)
+            if case.staff_alerted_at is None:
+                _alert_staff_safely(case)
     return sent
 
 
