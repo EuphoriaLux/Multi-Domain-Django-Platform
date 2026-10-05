@@ -245,15 +245,15 @@ def sumup_reconciliation_endpoint(request):
     if not getattr(settings, _FLAG, False):
         logger.warning("[sumup_reconciliation] skipped: %s is off", _FLAG)
         # #925: recovery retries are not part of the refund sweep the flag
-        # gates; they run on this tick either way.
+        # gates; they run on this tick either way. The skip body stays exactly
+        # {skipped, reason}: the hybrid-maintenance timer
+        # (_check_sumup_reconciliation_counters) fails on any other shape.
+        logger.info(
+            "[sumup_reconciliation] recovery_notices_retried=%s",
+            _retry_premium_recovery(RECONCILIATION_BUDGET_SECONDS),
+        )
         return JsonResponse(
-            {
-                "skipped": True,
-                "reason": f"{_FLAG} is off",
-                "recovery_notices_retried": _retry_premium_recovery(
-                    RECONCILIATION_BUDGET_SECONDS
-                ),
-            },
+            {"skipped": True, "reason": f"{_FLAG} is off"},
             status=200,
         )
 

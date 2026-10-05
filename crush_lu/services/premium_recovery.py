@@ -322,7 +322,9 @@ def retry_unsent_notifications(budget_seconds, limit=5, settle_minutes=10):
             # Notices only for open cases; closing a checkout that could
             # still take money continues even after staff resolve the case.
             (
+                # A member-unknown case (_member_unknown) sends no notice.
                 Q(member_notified_at__isnull=True)
+                & ~Q(premium_membership__isnull=True, user__is_staff=True)
                 | Q(staff_alerted_at__isnull=True)
                 | Q(member_has_open_checkout=True)
             )

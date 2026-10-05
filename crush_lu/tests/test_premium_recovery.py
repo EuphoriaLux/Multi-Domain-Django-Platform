@@ -654,6 +654,33 @@ class CaseLifecycleTests(_Base):
         self.assertEqual(len(alerts), 1)
         self.assertIn("Member unknown", alerts[0].body)
 
+    def test_member_unknown_case_takes_no_retry_slot(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from crush_lu.services.premium_recovery import retry_unsent_notifications
+
+        staff = User.objects.create_user(
+            username="rec-staff2@example.invalid",
+            email="rec-staff2@example.invalid",
+            password="pass12345",
+            is_staff=True,
+        )
+        tx = self._tx("REC-UNKNOWN-RETRY", status=PaymentTransaction.Status.PAID)
+        PaymentTransaction.objects.filter(pk=tx.pk).update(user=staff)
+        self._unlink_and_delete_membership()
+        case = PremiumPaymentRecoveryCase.objects.create(
+            payment=tx,
+            user=staff,
+            reason=Reason.OTHER,
+            staff_alerted_at=timezone.now(),
+        )
+        PremiumPaymentRecoveryCase.objects.filter(pk=case.pk).update(
+            created_at=timezone.now() - timedelta(hours=2)
+        )
+        self.assertEqual(retry_unsent_notifications(100), 0)
+
     def test_captured_request_cannot_be_cancelled(self):
         self._case("REC-NOCANCEL", self.membership)
         client = self._member_client()
@@ -1484,9 +1511,8 @@ class NotificationRetryTests(_Base):
         response = Client(HTTP_HOST="crush.lu").post(
             "/api/admin/sumup-reconciliation/", HTTP_AUTHORIZATION="Bearer k"
         )
-        body = response.json()
-        self.assertIs(body["skipped"], True)
-        self.assertEqual(body["recovery_notices_retried"], 1)
+        # The hybrid-maintenance timer accepts exactly this skip shape.
+        self.assertEqual(set(response.json()), {"skipped", "reason"})
         case.refresh_from_db()
         self.assertIsNotNone(case.staff_alerted_at)
 

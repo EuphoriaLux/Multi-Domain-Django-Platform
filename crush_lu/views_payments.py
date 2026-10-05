@@ -1042,11 +1042,18 @@ def create_sumup_premium_checkout(request, membership_id):
         # missed webhook would otherwise leave the charge unapplied for good.
         # The payload SumUp already returned is applied as is, so a failing
         # second read cannot leave it unrecorded.
-        for row in PaymentTransaction.objects.filter(
-            premium_membership=membership,
-            status=PaymentTransaction.Status.PENDING,
-            sumup_checkout_id__isnull=False,
-        ):
+        # Capped like the recovery close (premium_recovery.SIBLING_SYNC_LIMIT):
+        # once one is PAID, the hourly tick closes or records the rest.
+        rows = sorted(
+            PaymentTransaction.objects.filter(
+                premium_membership=membership,
+                status=PaymentTransaction.Status.PENDING,
+                sumup_checkout_id__isnull=False,
+            ),
+            # Captures already read first: they need no further request.
+            key=lambda row: (row.pk not in paid_payloads, row.pk),
+        )
+        for row in rows[: premium_recovery.SIBLING_SYNC_LIMIT]:
             if row.pk in paid_payloads:
                 _apply_paid_checkout(row, paid_payloads[row.pk])
             elif not _sync_checkout_with_sumup(row):

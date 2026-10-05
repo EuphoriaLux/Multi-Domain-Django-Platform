@@ -305,6 +305,24 @@ class PremiumCheckoutLockTests(TestCase):
         self.assertEqual(self._statuses(), {"CHK_REUSE_CAP": "paid"})
         self.assertEqual(reads, ["CHK_REUSE_CAP", "CHK_REUSE_CAP"])
 
+    def test_recording_found_captures_is_capped_per_click(self):
+        """#925: at most SIBLING_SYNC_LIMIT captures are recorded per click;
+        the hourly tick records the rest beside the first PAID row."""
+        from crush_lu.services.premium_recovery import SIBLING_SYNC_LIMIT
+
+        for n in range(SIBLING_SYNC_LIMIT + 1):
+            self._pending_row(f"CHK_CAP_{n}", status="PAID")
+        self.sumup["deactivate_checkout"].side_effect = None
+        self.sumup["deactivate_checkout"].return_value = False
+
+        with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+            response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(
+            sorted(self._statuses().values()).count("paid"), SIBLING_SYNC_LIMIT
+        )
+
     def test_missing_api_key_while_retiring_returns_the_json_refusal(self):
         """A SumUpConfigurationError is a 409 JSON refusal, not an HTML 500."""
         self._pending_row("CHK_OLD")
