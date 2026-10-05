@@ -1,0 +1,548 @@
+from datetime import timedelta
+from io import StringIO
+from types import SimpleNamespace
+from unittest.mock import patch
+
+from django.contrib.auth import get_user_model
+from django.contrib import admin
+from django.contrib.admin.models import LogEntry
+from django.contrib.auth.models import Permission
+from django.core.exceptions import ValidationError
+from django.core.management import call_command
+from django.core.management.base import CommandError
+from django.db import IntegrityError, connection, transaction
+from django.db.models.deletion import ProtectedError
+from django.db.models.query import QuerySet
+from django.core.cache import cache
+from django.test import RequestFactory, skipUnlessDBFeature
+from django.http import Http404
+from django.utils import timezone
+from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
+
+from crush_lu.admin.events import MeetupEventAdmin
+from crush_lu.admin.site import crush_admin_site
+from crush_lu.models import EventRegistration, MeetupEvent
+from hub.partner_services import build_event_prefill
+from hub.admin import PartnerOfferAdmin
+from hub.models import Location, PartnerOffer
+from hub.serializers_event_links import EventPartnerLinkSerializer
+from hub.views_event_links import EventPartnerLinkView, PartnerEventsView
+from hub.tests.test_partners import ThrottleIsolatedTestCase, make_offer, make_partner
+
+
+class EventLinkTests(ThrottleIsolatedTestCase):
+    def setUp(self):
+        super().setUp()
+        self.partner = make_partner()
+        self.other = make_partner(name="Other venue")
+        self.offer = make_offer(self.partner)
+        self.staff = get_user_model().objects.create_user(
+            "event_link_staff", is_staff=True
+        )
+        self.staff.user_permissions.add(
+            Permission.objects.get(codename="change_meetupevent")
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.staff)
+        self.event = self.make_event()
+        self.link_url = f"/hub/events/{self.event.pk}/partner-link"
+        self.list_url = f"/hub/locations/{self.partner.pk}/events"
+
+    def make_event(self, **overrides):
+        values = dict(
+            title_en="Historical title",
+            description_en="Historical description",
+            event_type="mixer",
+            location="Café Konrad",
+            address="Original address",
+            date_time=timezone.now() + timedelta(days=20),
+            registration_deadline=timezone.now() + timedelta(days=19),
+            registration_fee="27.50",
+            max_participants=24,
+        )
+        values.update(overrides)
+        return MeetupEvent.objects.create(**values)
+
+    def test_link_changes_only_attribution(self):
+        before = MeetupEvent.objects.filter(pk=self.event.pk).values().get()
+        with patch("crush_lu.models.events.MeetupEvent.save") as save:
+            response = self.client.patch(
+                self.link_url,
+                {
+                    "partnerId": self.partner.pk,
+                    "offerId": self.offer.pk,
+                },
+                format="json",
+            )
+        self.assertEqual(response.status_code, 200, response.data)
+        save.assert_not_called()
+        after = MeetupEvent.objects.filter(pk=self.event.pk).values().get()
+        changed = {key for key in before if before[key] != after[key]}
+        self.assertEqual(changed, {"partner_id", "offer_id"})
+        self.assertEqual(response.data["offerId"], str(self.offer.pk))
+        audit = LogEntry.objects.get(object_id=str(self.event.pk))
+        self.assertEqual(audit.user_id, self.staff.pk)
+        self.assertIn("Event content preserved", audit.change_message)
+
+    def test_wrong_offer_and_unknown_content_are_rejected(self):
+        for payload in (
+            {"partnerId": self.other.pk, "offerId": self.offer.pk},
+            {"partnerId": self.partner.pk, "registration_fee": "0.00"},
+            {"offerId": self.offer.pk},
+        ):
+            self.assertEqual(
+                self.client.patch(self.link_url, payload, format="json").status_code,
+                400,
+            )
+        self.event.refresh_from_db()
+        self.assertIsNone(self.event.partner_id)
+
+    def test_existing_other_partner_is_not_overwritten(self):
+        MeetupEvent.objects.filter(pk=self.event.pk).update(partner=self.other)
+        response = self.client.patch(
+            self.link_url, {"partnerId": self.partner.pk}, format="json"
+        )
+        self.assertEqual(response.status_code, 409)
+        self.event.refresh_from_db()
+        self.assertEqual(self.event.partner_id, self.other.pk)
+
+    def test_staff_requires_event_change_permission(self):
+        self.staff.user_permissions.clear()
+        self.assertEqual(
+            self.client.patch(
+                self.link_url, {"partnerId": self.partner.pk}, format="json"
+            ).status_code,
+            403,
+        )
+
+    def test_non_staff_and_anonymous_cannot_read_or_write(self):
+        member = get_user_model().objects.create_user("event_link_member")
+        for user in (member, None):
+            self.client.force_authenticate(user)
+            for url in (self.list_url, self.link_url):
+                self.assertIn(self.client.get(url).status_code, (401, 403))
+            self.assertIn(
+                self.client.patch(
+                    self.link_url, {"partnerId": self.partner.pk}, format="json"
+                ).status_code,
+                (401, 403),
+            )
+
+    def test_preview_unlinked_and_empty_partner(self):
+        response = self.client.get(self.link_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.data["partnerId"])
+        self.assertEqual(self.client.get(self.list_url).data, {"items": []})
+        self.assertEqual(
+            self.client.get("/hub/locations/999999/events").status_code, 404
+        )
+
+    def test_list_is_scoped_and_includes_drafts_cancelled_and_past(self):
+        MeetupEvent.objects.filter(pk=self.event.pk).update(partner=self.partner)
+        past = self.make_event(
+            partner=self.partner,
+            offer=self.offer,
+            date_time=timezone.now() - timedelta(days=2),
+        )
+        cancelled = self.make_event(
+            partner=self.partner, is_published=True, is_cancelled=True
+        )
+        self.make_event(partner=self.other)
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            {row["id"] for row in response.data["items"]},
+            {str(self.event.pk), str(past.pk), str(cancelled.pk)},
+        )
+        self.assertEqual(response.data["items"][-1]["offerName"], self.offer.name)
+        self.assertFalse(
+            next(
+                row for row in response.data["items"] if row["id"] == str(self.event.pk)
+            )["isPublished"]
+        )
+
+    def test_counts_match_registration_statuses_without_n_plus_one(self):
+        MeetupEvent.objects.filter(pk=self.event.pk).update(
+            partner=self.partner, offer=self.offer
+        )
+        for index, status in enumerate(
+            ("confirmed", "pending", "attended", "applied", "waitlist", "cancelled")
+        ):
+            user = get_user_model().objects.create_user(f"registered_{index}")
+            EventRegistration.objects.create(event=self.event, user=user, status=status)
+        for _ in range(3):
+            self.make_event(partner=self.partner, offer=self.offer)
+        request = APIRequestFactory().get(self.list_url)
+        force_authenticate(request, self.staff)
+        with self.assertNumQueries(2):
+            response = PartnerEventsView.as_view()(request, pk=self.partner.pk)
+        row = next(
+            row for row in response.data["items"] if row["id"] == str(self.event.pk)
+        )
+        self.assertEqual(
+            (
+                row["seatHolders"],
+                row["applications"],
+                row["waitlisted"],
+                row["attended"],
+            ),
+            (3, 1, 1, 1),
+        )
+
+    def test_model_validates_partner_offer_and_database_requires_partner(self):
+        self.event.offer = self.offer
+        with self.assertRaises(ValidationError):
+            self.event.validate_partner_offer()
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            MeetupEvent.objects.filter(pk=self.event.pk).update(offer=self.offer)
+        self.event.partner = self.other
+        with self.assertRaises(ValidationError):
+            self.event.validate_partner_offer()
+
+    def test_linked_partner_and_offer_are_protected_everywhere(self):
+        MeetupEvent.objects.filter(pk=self.event.pk).update(
+            partner=self.partner, offer=self.offer
+        )
+        for obj in (self.partner, self.offer):
+            with self.assertRaises(ProtectedError):
+                obj.delete()
+        self.assertEqual(
+            self.client.delete(f"/hub/locations/{self.partner.pk}").status_code, 409
+        )
+        self.assertEqual(
+            self.client.delete(
+                f"/hub/locations/{self.partner.pk}/offers/{self.offer.pk}"
+            ).status_code,
+            409,
+        )
+
+    def test_offer_updates_preserve_event_snapshot(self):
+        MeetupEvent.objects.filter(pk=self.event.pk).update(
+            partner=self.partner, offer=self.offer
+        )
+        before = MeetupEvent.objects.filter(pk=self.event.pk).values().get()
+        self.offer.title_en = "New offer title"
+        self.offer.registration_fee = "10.00"
+        self.offer.save()
+        self.partner.address = "New partner address"
+        self.partner.save()
+        self.assertEqual(
+            MeetupEvent.objects.filter(pk=self.event.pk).values().get(), before
+        )
+
+    def test_admin_form_rejects_moving_a_linked_offer(self):
+        MeetupEvent.objects.filter(pk=self.event.pk).update(
+            partner=self.partner, offer=self.offer
+        )
+        before = MeetupEvent.objects.filter(pk=self.event.pk).values().get()
+        request = RequestFactory().get("/")
+        request.user = self.staff
+        form_class = PartnerOfferAdmin(PartnerOffer, admin.site).get_form(
+            request, self.offer, fields=["location", "name"]
+        )
+        form = form_class(
+            data={"location": self.other.pk, "name": self.offer.name},
+            instance=self.offer,
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("cannot move", str(form.errors["location"]))
+        self.offer.refresh_from_db()
+        self.assertEqual(self.offer.location_id, self.partner.pk)
+        self.assertEqual(
+            MeetupEvent.objects.filter(pk=self.event.pk).values().get(), before
+        )
+
+    def test_model_allows_moving_unused_offer_and_editing_used_offer(self):
+        self.offer.location = self.other
+        self.offer.full_clean()
+        self.offer.save()
+        self.offer.refresh_from_db()
+        self.assertEqual(self.offer.location_id, self.other.pk)
+        MeetupEvent.objects.filter(pk=self.event.pk).update(
+            partner=self.other, offer=self.offer
+        )
+        self.offer.name = "Updated preset"
+        self.offer.full_clean()
+        self.offer.save()
+        self.assertEqual(
+            PartnerOffer.objects.get(pk=self.offer.pk).name, "Updated preset"
+        )
+
+    def test_offer_move_rechecks_links_after_form_validation(self):
+        self.offer.location = self.other
+        self.offer.full_clean()
+        MeetupEvent.objects.filter(pk=self.event.pk).update(
+            partner=self.partner, offer=self.offer
+        )
+        with self.assertRaises(ValidationError):
+            self.offer.save()
+        self.offer.refresh_from_db()
+        self.assertEqual(self.offer.location_id, self.partner.pk)
+
+    def test_admin_locks_only_change_form_posts(self):
+        offer_admin = PartnerOfferAdmin(PartnerOffer, admin.site)
+        for method, view, locked in (
+            ("post", "hub_partneroffer_change", True),
+            ("get", "hub_partneroffer_change", False),
+            ("post", "hub_partneroffer_changelist", False),
+        ):
+            request = getattr(RequestFactory(), method)("/")
+            request.resolver_match = SimpleNamespace(url_name=view)
+            queryset = offer_admin.get_queryset(request)
+            self.assertEqual(queryset.query.select_for_update, locked)
+            if locked:
+                self.assertEqual(queryset.query.select_for_update_of, ("self",))
+
+    def test_link_and_offer_save_share_the_offer_row_lock(self):
+        # SQLite ignores row locks. Assert their presence structurally so a
+        # refactor cannot silently remove the production Postgres mutex.
+        original_lock = QuerySet.select_for_update
+        locked_models = []
+
+        def record_lock(queryset, *args, **kwargs):
+            locked_models.append((queryset.model, kwargs.get("of")))
+            return original_lock(queryset, *args, **kwargs)
+
+        with patch.object(QuerySet, "select_for_update", record_lock):
+            response = self.client.patch(
+                self.link_url,
+                {"partnerId": self.partner.pk, "offerId": self.offer.pk},
+                format="json",
+            )
+            self.offer.name = "Same partner, edited content"
+            self.offer.save()
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(locked_models.count((PartnerOffer, ("self",))), 2)
+
+    def test_link_rechecks_offer_after_serializer_validation(self):
+        original_validate = EventPartnerLinkSerializer.is_valid
+
+        def validate_then_move(serializer, *args, **kwargs):
+            result = original_validate(serializer, *args, **kwargs)
+            self.offer.location = self.other
+            self.offer.save()
+            return result
+
+        with patch.object(EventPartnerLinkSerializer, "is_valid", validate_then_move):
+            response = self.client.patch(
+                self.link_url,
+                {"partnerId": self.partner.pk, "offerId": self.offer.pk},
+                format="json",
+            )
+        self.assertEqual(response.status_code, 409, response.data)
+        self.event.refresh_from_db()
+        self.assertIsNone(self.event.partner_id)
+        self.assertIsNone(self.event.offer_id)
+        self.assertFalse(LogEntry.objects.filter(object_id=str(self.event.pk)).exists())
+
+    def test_link_handles_deleted_partner_and_rolls_back_audit(self):
+        original_validate = EventPartnerLinkSerializer.is_valid
+        original_link = EventPartnerLinkView._link
+
+        def validate_then_delete(serializer, *args, **kwargs):
+            result = original_validate(serializer, *args, **kwargs)
+            Location.objects.get(pk=self.partner.pk).delete()
+            return result
+
+        def link_and_check_constraints(view, request, pk):
+            result = original_link(view, request, pk)
+            # Force the deferred check after the write AND its audit entry,
+            # before leaving the view's atomic block (TestCase never commits).
+            connection.check_constraints()
+            return result
+
+        with (
+            patch.object(EventPartnerLinkSerializer, "is_valid", validate_then_delete),
+            patch.object(EventPartnerLinkView, "_link", link_and_check_constraints),
+        ):
+            response = self.client.patch(
+                self.link_url, {"partnerId": self.partner.pk}, format="json"
+            )
+        self.assertEqual(response.status_code, 409, response.data)
+        self.assertTrue(Location.objects.filter(pk=self.partner.pk).exists())
+        self.event.refresh_from_db()
+        self.assertIsNone(self.event.partner_id)
+        self.assertFalse(LogEntry.objects.filter(object_id=str(self.event.pk)).exists())
+
+    def test_link_handles_offer_deleted_after_validation(self):
+        original_validate = EventPartnerLinkSerializer.is_valid
+
+        def validate_then_delete(serializer, *args, **kwargs):
+            result = original_validate(serializer, *args, **kwargs)
+            PartnerOffer.objects.get(pk=self.offer.pk).delete()
+            return result
+
+        with patch.object(EventPartnerLinkSerializer, "is_valid", validate_then_delete):
+            response = self.client.patch(
+                self.link_url,
+                {"partnerId": self.partner.pk, "offerId": self.offer.pk},
+                format="json",
+            )
+        self.assertEqual(response.status_code, 409, response.data)
+        self.event.refresh_from_db()
+        self.assertIsNone(self.event.partner_id)
+        self.assertIsNone(self.event.offer_id)
+
+    def test_backfill_preview_never_applies_candidates(self):
+        output = StringIO()
+        call_command("backfill_event_partners", stdout=output)
+        self.assertIn(str(self.partner.pk), output.getvalue())
+        self.event.refresh_from_db()
+        self.assertIsNone(self.event.partner_id)
+        with self.assertRaises(CommandError):
+            call_command("backfill_event_partners", apply=True)
+
+    def test_backfill_explicit_mapping_preview_apply_and_idempotence(self):
+        mapping = f"{self.event.pk}:{self.partner.pk}"
+        call_command("backfill_event_partners", link=[mapping], stdout=StringIO())
+        self.event.refresh_from_db()
+        self.assertIsNone(self.event.partner_id)
+        before = MeetupEvent.objects.filter(pk=self.event.pk).values().get()
+        for _ in range(2):
+            call_command(
+                "backfill_event_partners", link=[mapping], apply=True, stdout=StringIO()
+            )
+        after = MeetupEvent.objects.filter(pk=self.event.pk).values().get()
+        self.assertEqual(
+            {key for key in before if before[key] != after[key]}, {"partner_id"}
+        )
+
+    def test_backfill_invalid_batch_writes_nothing(self):
+        for mappings in (
+            [f"{self.event.pk}:{self.partner.pk}", "999999:999999"],
+            [f"{self.event.pk}:{self.partner.pk}", f"{self.event.pk}:{self.other.pk}"],
+            ["wrong"],
+        ):
+            with self.assertRaises(CommandError):
+                call_command(
+                    "backfill_event_partners",
+                    link=mappings,
+                    apply=True,
+                    stdout=StringIO(),
+                )
+        self.event.refresh_from_db()
+        self.assertIsNone(self.event.partner_id)
+
+    def test_admin_prefill_uses_server_offer_and_keeps_attribution(self):
+        request = RequestFactory().get(
+            "/crush-admin/crush_lu/meetupevent/add/",
+            {
+                "offer_id": self.offer.pk,
+                "registration_fee": "999",
+                "location": "Wrong",
+            },
+        )
+        initial = MeetupEventAdmin(
+            MeetupEvent, crush_admin_site
+        ).get_changeform_initial_data(request)
+        self.assertEqual(
+            initial, {**initial, **build_event_prefill(self.offer)["fields"]}
+        )
+        self.assertEqual(initial["partner"], self.partner.pk)
+        self.assertEqual(initial["offer"], self.offer.pk)
+        self.assertEqual(initial["location"], self.partner.name)
+        self.assertEqual(initial["registration_fee"], self.offer.registration_fee)
+
+    def test_admin_rejects_missing_inactive_and_paused_presets(self):
+        admin = MeetupEventAdmin(MeetupEvent, crush_admin_site)
+        for value in ("invalid", "999999"):
+            with self.assertRaises(Http404):
+                admin.get_changeform_initial_data(
+                    RequestFactory().get("/", {"offer_id": value})
+                )
+        request = RequestFactory().get("/", {"offer_id": self.offer.pk})
+        self.offer.is_active = False
+        self.offer.save()
+        with self.assertRaises(Http404):
+            admin.get_changeform_initial_data(request)
+        self.offer.is_active = True
+        self.offer.save()
+        for stage in ("Paused", "Archived"):
+            self.partner.partnership_stage = stage
+            self.partner.save()
+            with self.assertRaises(Http404):
+                admin.get_changeform_initial_data(request)
+
+    def test_invalid_payload_shape_is_a_validation_error(self):
+        response = self.client.patch(
+            self.link_url, [{"partnerId": self.partner.pk}], format="json"
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_backfill_never_reassigns_an_existing_partner(self):
+        MeetupEvent.objects.filter(pk=self.event.pk).update(partner=self.other)
+        with self.assertRaises(CommandError):
+            call_command(
+                "backfill_event_partners",
+                link=[f"{self.event.pk}:{self.partner.pk}"],
+                apply=True,
+            )
+        self.event.refresh_from_db()
+        self.assertEqual(self.event.partner_id, self.other.pk)
+
+    def test_api_pins_event_title_to_english(self):
+        MeetupEvent.objects.filter(pk=self.event.pk).update(
+            partner=self.partner, title_fr="Titre français"
+        )
+        response = self.client.get(self.list_url, HTTP_ACCEPT_LANGUAGE="fr")
+        self.assertEqual(response.data["items"][0]["title"], "Historical title")
+
+
+class EventLinkDeletionRaceTests(ThrottleIsolatedTestCase):
+    """Exercise real FK failures without flushing migration-seeded test data."""
+
+    def setUp(self):
+        super().setUp()
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.client = APIClient()
+        self.client.force_authenticate(
+            get_user_model().objects.create_user("delete_race_staff", is_staff=True)
+        )
+
+    @skipUnlessDBFeature("can_defer_constraint_checks")
+    def test_late_reference_returns_conflict_and_rolls_back_delete(self):
+        for model in (Location, PartnerOffer):
+            with self.subTest(model=model.__name__):
+                partner = make_partner()
+                offer = make_offer(partner)
+                partner_id, offer_id = partner.pk, offer.pk
+                resource = partner if model is Location else offer
+                resource_id = resource.pk
+                url = f"/hub/locations/{partner_id}"
+                if model is PartnerOffer:
+                    url += f"/offers/{offer_id}"
+                original_delete = model.delete
+
+                def delete_with_late_reference(instance, *args, **kwargs):
+                    original_delete(instance, *args, **kwargs)
+                    # Simulate a reference arriving after the collector read.
+                    # Django's deferred FK fails at atomic exit, not delete().
+                    MeetupEvent.objects.bulk_create(
+                        [
+                            MeetupEvent(
+                                title_en="Late reference",
+                                event_type="mixer",
+                                location="Historical venue",
+                                date_time=timezone.now() + timedelta(days=20),
+                                registration_deadline=timezone.now()
+                                + timedelta(days=19),
+                                partner_id=partner_id,
+                                offer_id=offer_id if model is PartnerOffer else None,
+                            )
+                        ]
+                    )
+                    # Force deferred FK checking inside the view's atomic
+                    # block; TestCase's outer transaction never commits.
+                    connection.check_constraints()
+
+                with patch.object(model, "delete", delete_with_late_reference):
+                    response = self.client.delete(url)
+                self.assertEqual(response.status_code, 409, response.data)
+                self.assertTrue(model.objects.filter(pk=resource_id).exists())
+                # Partner cascades must roll back too, and the connection
+                # remains usable after the failed transaction.
+                self.assertTrue(PartnerOffer.objects.filter(pk=offer_id).exists())
+                self.assertFalse(
+                    MeetupEvent.objects.filter(title_en="Late reference").exists()
+                )

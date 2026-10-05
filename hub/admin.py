@@ -147,6 +147,20 @@ class PartnerOfferAdmin(TabbedTranslationAdmin):
     list_select_related = ("location",)
     autocomplete_fields = ("location",)
 
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        # Django wraps a change-form POST in atomic(). Lock before form
+        # validation as well as save, so a concurrent link produces a normal
+        # field error instead of discovering the conflict after validation.
+        match = request.resolver_match
+        if (
+            request.method == "POST"
+            and match
+            and match.url_name == "hub_partneroffer_change"
+        ):
+            queryset = queryset.select_for_update(of=("self",))
+        return queryset
+
 
 @admin.register(LocationContact)
 class LocationContactAdmin(admin.ModelAdmin):

@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import views
+from .views_event_links import EventPartnerLinkView, PartnerEventsView
 from .views_events import (
     EventCancellationDetailView,
     EventCancellationsView,
@@ -44,6 +45,16 @@ from .views_analytics import AnalyticsOverviewView
 app_name = "hub"
 
 urlpatterns = [
+    path(
+        "locations/<int:pk>/events", PartnerEventsView.as_view(), name="partner_events"
+    ),
+    path("locations/<int:pk>/events/", PartnerEventsView.as_view()),
+    path(
+        "events/<int:pk>/partner-link",
+        EventPartnerLinkView.as_view(),
+        name="event_partner_link",
+    ),
+    path("events/<int:pk>/partner-link/", EventPartnerLinkView.as_view()),
     path("me", views.MeView.as_view(), name="me"),
     path("me/", views.MeView.as_view()),
     path("requests", views.RequestsView.as_view(), name="requests"),

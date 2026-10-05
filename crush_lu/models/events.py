@@ -202,6 +202,21 @@ class MeetupEvent(models.Model):
 
     # Event Details
     location = models.CharField(max_length=200)
+    # Attribution only: the event retains its own venue/content snapshot.
+    partner = models.ForeignKey(
+        "hub.Location",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="meetup_events",
+    )
+    offer = models.ForeignKey(
+        "hub.PartnerOffer",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="meetup_events",
+    )
     # The venue address, one component per field. echo.lu publishes these
     # separately on a national listing and renders whatever it is given
     # verbatim, so they are captured as typed rather than parsed back out of
@@ -557,6 +572,10 @@ class MeetupEvent(models.Model):
         ordering = ["date_time"]
         constraints = [
             models.CheckConstraint(
+                condition=models.Q(offer__isnull=True) | models.Q(partner__isnull=False),
+                name="crush_event_offer_requires_partner",
+            ),
+            models.CheckConstraint(
                 condition=models.Q(duration_minutes__lte=MAX_EVENT_DURATION_MINUTES),
                 name="crush_lu_meetupevent_duration_within_ceiling",
             ),
@@ -759,11 +778,23 @@ class MeetupEvent(models.Model):
         remaining = max(0, cap - self.confirmed_count_annotated)
         return remaining == 0, remaining, self._pool_rows(counts, remaining)
 
+    def validate_partner_offer(self):
+        """Validate attribution without revalidating a legacy event's content."""
+        from django.core.exceptions import ValidationError
+
+        if self.offer_id and (
+            not self.partner_id or self.offer.location_id != self.partner_id
+        ):
+            raise ValidationError(
+                {"offer": "Select an offer belonging to the event's partner."}
+            )
+
     def clean(self):
         """Validate event data before saving"""
         from django.core.exceptions import ValidationError
 
         super().clean()
+        self.validate_partner_offer()
 
         # Eligibility lives inside unmet_publish_requirements(), which returns
         # nothing for an event echo.lu would not publish -- so cancelling,
