@@ -890,6 +890,30 @@ class RecoveryLockOrderTests(TestCase):
         self.assertLess(payment, src.index("pm.confirm()"))
         self.assertLess(payment, src.index("_queue_premium_recovery_case("))
 
+    def test_cancel_happens_under_the_checkout_publication_locks(self):
+        from crush_lu import views_premium
+
+        src = inspect.getsource(views_premium._cancel_premium_request)
+        atomic = src.index("with transaction.atomic():")
+        lock = src.index("_lock_premium_checkout_state(")
+        cancel = src.index(".cancel(by_user=")
+        self.assertLess(atomic, lock)
+        self.assertLess(lock, cancel)
+        # Still inside that atomic block: indented deeper than the "with".
+        self.assertTrue(
+            src[src.rindex("\n", 0, cancel) + 1 :].startswith(" " * 8),
+        )
+
+    def test_merge_locks_memberships_after_payments_before_reading_cases(self):
+        from crush_lu.services import account_merge
+
+        src = inspect.getsource(account_merge.merge_accounts)
+        payments = src.index("PaymentTransaction.objects.select_for_update")
+        memberships = src.index("PremiumMembership.objects.select_for_update")
+        cases = src.index("PremiumPaymentRecoveryCase.objects.filter")
+        self.assertLess(payments, memberships)
+        self.assertLess(memberships, cases)
+
     def test_case_is_written_in_the_transaction_and_takes_no_lock(self):
         from crush_lu import views_payments
         from crush_lu.services import premium_recovery

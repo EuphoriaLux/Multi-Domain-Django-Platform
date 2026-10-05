@@ -114,7 +114,16 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
         .order_by("pk")
     )
 
-    from crush_lu.models import PremiumPaymentRecoveryCase
+    from crush_lu.models import PremiumMembership, PremiumPaymentRecoveryCase
+
+    # #925: payment -> membership, as checkout publication and capture take
+    # them, so no Premium checkout can be published for either account until
+    # this merge commits.
+    list(
+        PremiumMembership.objects.select_for_update()
+        .filter(user__in=(keeper_user, duplicate_user))
+        .order_by("pk")
+    )
 
     # #925: the case stays with its payment and membership, which do not move.
     # Merging would hide an unresolved captured payment from the kept account.

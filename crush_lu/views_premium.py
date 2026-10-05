@@ -78,10 +78,13 @@ def pending_premium_state(user):
     return "manage" if _premium_purchase_refused(pending) else "complete"
 
 
-def _premium_cancel_blocker(membership):
-    """#925: ``"captured"``, ``"open"`` (a checkout could still capture) or
-    None. Closes its PENDING SumUp checkouts first (never refunds), so a
-    cancelled request cannot be charged after a replacement exists."""
+def _cancel_premium_request(membership, by_user):
+    """#925: cancel unless money moved. Returns ``"cancelled"``, ``"captured"``,
+    ``"open"`` (a checkout could still capture) or None (not pending).
+
+    Closes its PENDING SumUp checkouts first (never refunds), then cancels
+    under the same payment -> membership locks checkout publication takes, so
+    no checkout can be published for a request once it is cancelled."""
     from .models import PaymentTransaction
     from .views_payments import (
         SumUpClient,
@@ -92,21 +95,25 @@ def _premium_cancel_blocker(membership):
 
     if _premium_payment_captured(membership):
         return "captured"
-    if not PaymentTransaction.objects.filter(
+    state, retired_ids = "ok", set()
+    if PaymentTransaction.objects.filter(
         premium_membership=membership, status=PaymentTransaction.Status.PENDING
     ).exists():
-        return None
-    # captured=True closes every PENDING checkout, newest included. A checkout
-    # SumUp already captured is not closed, so it stays PENDING: "open" until
-    # its webhook records PAID (then "captured" above).
-    state, _reuse, retired_ids, _known = _settle_pending_premium_checkouts(
-        SumUpClient(), membership, captured=True
-    )
-    with transaction.atomic():
-        _locked, still_pending = _lock_premium_checkout_state(
-            membership.pk, retired_ids
+        # captured=True closes every PENDING checkout, newest included. One
+        # SumUp already captured is not closed: it stays PENDING ("open")
+        # until its webhook records PAID ("captured" above).
+        state, _reuse, retired_ids, _known = _settle_pending_premium_checkouts(
+            SumUpClient(), membership, captured=True
         )
-    return "open" if state == "open" or still_pending else None
+    with transaction.atomic():
+        locked, still_pending = _lock_premium_checkout_state(membership.pk, retired_ids)
+        if state == "open" or still_pending:
+            return "open"
+        if locked is not None and _premium_payment_captured(locked):
+            return "captured"
+        if locked is None or not locked.cancel(by_user=by_user):
+            return None
+    return "cancelled"
 
 
 def open_recovery_case(user):
@@ -298,15 +305,15 @@ def premium_cancel_membership(request):
         .select_related("coach__user")
         .first()
     )
-    blocked = membership and _premium_cancel_blocker(membership)
-    if blocked:
+    outcome = membership and _cancel_premium_request(membership, request.user)
+    if outcome in ("captured", "open"):
         # #925: cancelling would hide the recovery case (or a capture still in
         # flight) and reopen checkout for a new request, i.e. a second charge.
         messages.info(
             request,
             (
                 _("We have already received a payment for your Premium request.")
-                if blocked == "captured"
+                if outcome == "captured"
                 else _(
                     "Your earlier card checkout could not be closed. "
                     "Please wait and try again."
@@ -314,7 +321,7 @@ def premium_cancel_membership(request):
             ),
         )
         return redirect("crush_lu:premium_choose_coach")
-    if membership and membership.cancel(by_user=request.user):
+    if outcome == "cancelled":
         logger.info(
             "Premium membership %s cancelled by user %s",
             membership.id,
