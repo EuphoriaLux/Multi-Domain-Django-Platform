@@ -112,7 +112,13 @@ def _cancel_premium_request(membership, by_user):
         state, _reuse, retired_ids, _known = _settle_pending_premium_checkouts(
             SumUpClient(), membership, captured=True, paid_payloads=paid_payloads
         )
-        for row in PaymentTransaction.objects.filter(pk__in=paid_payloads):
+        # Capped like the recovery close; once one is PAID the hourly tick
+        # closes or records the rest (_close_checkouts_beside_a_capture).
+        from .services.premium_recovery import SIBLING_SYNC_LIMIT
+
+        for row in PaymentTransaction.objects.filter(pk__in=paid_payloads).order_by(
+            "pk"
+        )[:SIBLING_SYNC_LIMIT]:
             _apply_paid_checkout(row, paid_payloads[row.pk])
     with transaction.atomic():
         locked, still_pending = _lock_premium_checkout_state(membership.pk, retired_ids)

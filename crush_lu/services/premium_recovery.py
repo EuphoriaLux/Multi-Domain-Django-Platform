@@ -74,26 +74,36 @@ def member_notice(payment):
     }
 
 
+def _stale_checkouts(user_id):
+    """PENDING checkouts on the member's memberships that are no longer up for
+    payment (active or cancelled): an open case may have failed to close
+    them, and resolving it must not leave them payable or unblocked."""
+    from crush_lu.models import PaymentTransaction
+
+    return PaymentTransaction.objects.filter(
+        premium_membership__user_id=user_id,
+        status=PaymentTransaction.Status.PENDING,
+    ).exclude(premium_membership__status="pending")
+
+
 def blocks_new_charge(user):
     """True while ``user`` must not be charged again (#925): any OPEN case, or
-    any case (even resolved) whose membership still has a checkout that SumUp
-    has not confirmed closed."""
+    any case (even resolved) while its membership, or any membership of the
+    member no longer up for payment, still has a checkout that SumUp has not
+    confirmed closed."""
     from django.db.models import Q
 
     from crush_lu.models import PaymentTransaction, PremiumPaymentRecoveryCase
 
-    return (
-        PremiumPaymentRecoveryCase.objects.filter(user=user)
-        .filter(
-            Q(status=PremiumPaymentRecoveryCase.Status.OPEN)
-            | Q(
-                premium_membership__payment_transactions__status=(
-                    PaymentTransaction.Status.PENDING
-                )
+    cases = PremiumPaymentRecoveryCase.objects.filter(user=user)
+    return cases.filter(
+        Q(status=PremiumPaymentRecoveryCase.Status.OPEN)
+        | Q(
+            premium_membership__payment_transactions__status=(
+                PaymentTransaction.Status.PENDING
             )
         )
-        .exists()
-    )
+    ).exists() or (cases.exists() and _stale_checkouts(user.pk).exists())
 
 
 def reason_for_membership_status(status):
@@ -154,8 +164,8 @@ def notify_safely(case_pk):
 def _close_sibling_checkouts_safely(case):
     """While the case is OPEN, close every PENDING checkout the member has,
     whichever membership it belongs to: a checkout published just before the
-    case was inserted must not stay payable. A resolved case only keeps
-    closing its own membership's."""
+    case was inserted must not stay payable. A resolved case keeps closing its
+    own membership's and any left on a membership no longer up for payment."""
     from crush_lu.models import PaymentTransaction, PremiumMembership
 
     memberships = [
@@ -166,16 +176,16 @@ def _close_sibling_checkouts_safely(case):
             premium_membership=m, status=PaymentTransaction.Status.PENDING
         ).exists()
     ]
-    if case.status == case.Status.OPEN and case.user_id:
-        memberships += list(
-            PremiumMembership.objects.filter(
-                user_id=case.user_id,
-                payment_transactions__status=PaymentTransaction.Status.PENDING,
-            )
-            .exclude(pk=case.premium_membership_id)
-            .distinct()
-            .order_by("pk")
-        )
+    if case.user_id:
+        others = PremiumMembership.objects.filter(
+            user_id=case.user_id,
+            payment_transactions__status=PaymentTransaction.Status.PENDING,
+        ).exclude(pk=case.premium_membership_id)
+        if case.status != case.Status.OPEN:
+            # Resolved: only memberships no longer up for payment (see
+            # _stale_checkouts); a new request's own checkout is its own.
+            others = others.exclude(status="pending")
+        memberships += list(others.distinct().order_by("pk"))
     if _deadline.get() is None:
         # A member's request (return page, webhook): the case's own
         # membership first and at most REQUEST_CLOSE_LIMIT in all; the hourly
@@ -219,16 +229,24 @@ def close_open_checkouts_safely(memberships, label):
             if retired:
                 with transaction.atomic():
                     _lock_premium_checkout_state(membership.pk, retired)
-            synced = 0
+            # Applying a capture queues its own mails, so it counts against
+            # the same cap as a read; the rest stay PENDING beside a PAID row,
+            # where the hourly tick finds them.
+            handled = 0
             for row in PaymentTransaction.objects.filter(
                 premium_membership=membership,
                 status=PaymentTransaction.Status.PENDING,
                 sumup_checkout_id__isnull=False,
             ).order_by("pk"):
+                if handled >= SIBLING_SYNC_LIMIT:
+                    break
                 if row.pk in paid_payloads:
+                    if not _fits(2 * SEND_SECONDS):
+                        break
+                    handled += 1
                     _apply_paid_checkout(row, paid_payloads[row.pk])
-                elif synced < SIBLING_SYNC_LIMIT and _fits(_sync_seconds()):
-                    synced += 1
+                elif _fits(_sync_seconds()):
+                    handled += 1
                     _sync_checkout_with_sumup(row)
             if state == "open":
                 # Still PENDING, so the hourly retry picks it up again.
@@ -274,6 +292,13 @@ def retry_unsent_notifications(budget_seconds, limit=5, settle_minutes=10):
                     status=PaymentTransaction.Status.PENDING,
                 )
             ),
+            # Any case keeps closing those left where no payment is due.
+            member_has_stale_checkout=Exists(
+                PaymentTransaction.objects.filter(
+                    premium_membership__user_id=OuterRef("user_id"),
+                    status=PaymentTransaction.Status.PENDING,
+                ).exclude(premium_membership__status="pending")
+            ),
         )
         .filter(
             # Notices only for open cases; closing a checkout that could
@@ -284,7 +309,8 @@ def retry_unsent_notifications(budget_seconds, limit=5, settle_minutes=10):
                 | Q(member_has_open_checkout=True)
             )
             & Q(status=Case.Status.OPEN)
-            | Q(has_open_checkout=True),
+            | Q(has_open_checkout=True)
+            | Q(member_has_stale_checkout=True),
             created_at__lte=now - timedelta(minutes=settle_minutes),
         )
         .order_by("?")

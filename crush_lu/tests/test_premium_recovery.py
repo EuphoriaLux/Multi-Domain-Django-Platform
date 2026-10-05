@@ -944,7 +944,7 @@ class LateCaptureTests(_Base):
         from crush_lu.services import premium_recovery
 
         src = inspect.getsource(premium_recovery.close_open_checkouts_safely)
-        self.assertIn("synced < SIBLING_SYNC_LIMIT", src)
+        self.assertIn("handled >= SIBLING_SYNC_LIMIT", src)
 
     def _second_membership(self):
         return PremiumMembership.objects.create(
@@ -1047,6 +1047,77 @@ class LateCaptureTests(_Base):
         for row in (first, second):
             row.refresh_from_db()
             self.assertEqual(row.status, PaymentTransaction.Status.CANCELLED)
+
+    def _resolved_case_with_a_stale_checkout(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        case = PremiumPaymentRecoveryCase.objects.create(
+            payment=self._tx("REC-STALE-PAID", status=PaymentTransaction.Status.PAID),
+            user=self.member,
+            premium_membership=self.membership,
+            reason=Reason.COACH_UNAVAILABLE,
+            status=PremiumPaymentRecoveryCase.Status.RESOLVED,
+        )
+        PremiumPaymentRecoveryCase.objects.filter(pk=case.pk).update(
+            created_at=timezone.now() - timedelta(hours=2)
+        )
+        old = self._second_membership()
+        old.status = "cancelled"
+        old.save(update_fields=["status"])
+        return self._pending_on(old, "REC-STALE-OTHER")
+
+    def test_resolved_case_still_blocks_on_another_membership_s_checkout(self):
+        from crush_lu.services.premium_recovery import blocks_new_charge
+
+        self._resolved_case_with_a_stale_checkout()
+        self.assertTrue(blocks_new_charge(self.member))
+
+    def test_tick_closes_another_membership_s_checkout_after_resolution(self):
+        from unittest.mock import MagicMock
+
+        from crush_lu.services.premium_recovery import (
+            blocks_new_charge,
+            retry_unsent_notifications,
+        )
+
+        stale = self._resolved_case_with_a_stale_checkout()
+        client = MagicMock()
+        client.deactivate_checkout.return_value = True
+        with patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            retry_unsent_notifications(100)
+        client.deactivate_checkout.assert_called_once_with("CHK_REC-STALE-OTHER")
+        stale.refresh_from_db()
+        self.assertEqual(stale.status, PaymentTransaction.Status.CANCELLED)
+        self.assertFalse(blocks_new_charge(self.member))
+        client.refund.assert_not_called()
+
+    def test_applying_found_captures_is_capped_on_a_request(self):
+        from unittest.mock import MagicMock
+
+        from crush_lu.services.premium_recovery import (
+            SIBLING_SYNC_LIMIT,
+            close_open_checkouts_safely,
+        )
+
+        rows = [self._tx(f"REC-CAP-{i}") for i in range(SIBLING_SYNC_LIMIT + 1)]
+        client = MagicMock()
+        client.deactivate_checkout.return_value = False
+        client.get_checkout.side_effect = lambda checkout_id: {
+            "id": checkout_id,
+            "status": "PAID",
+            "amount": 10.0,
+            "currency": "EUR",
+        }
+        with patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            with self.assertLogs(level="ERROR"):
+                close_open_checkouts_safely([self.membership], "test")
+        paid = PaymentTransaction.objects.filter(
+            pk__in=[r.pk for r in rows], status=PaymentTransaction.Status.PAID
+        ).count()
+        self.assertEqual(paid, SIBLING_SYNC_LIMIT)
+        client.refund.assert_not_called()
 
     def test_tick_closes_a_checkout_left_open_beside_an_activation(self):
         from datetime import timedelta
