@@ -5,6 +5,7 @@ from django.utils.translation import gettext as _
 from allauth.account.views import LoginView, LogoutView
 from allauth.account.forms import LoginForm
 from . import views
+from . import views_static
 from . import views_pre_screening
 from . import views_crush_connect
 from . import views_connect_cycle
@@ -237,6 +238,8 @@ urlpatterns = [
     path('changelog/', views_changelog.changelog_list, name='changelog_list'),
     path('changelog/<slug:slug>/', views_changelog.changelog_detail, name='changelog_detail'),
     path('how-it-works/', views.how_it_works, name='how_it_works'),
+    path('speed-dating/', views_static.speed_dating_guide, name='speed_dating_guide'),
+    path('quiz-night/', views_static.quiz_night_guide, name='quiz_night_guide'),
     path('crush-coach/', views.crush_coach, name='crush_coach'),
     path('crush-connect/', views.crush_connect_teaser, name='crush_connect_teaser'),
     # Experience explainers — one member-facing landing page per Connect

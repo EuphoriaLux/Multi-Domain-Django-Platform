@@ -1,0 +1,56 @@
+{% extends 'crush_lu/base.html' %}
+{% load static i18n %}
+{% block title %}{% trans "Quiz Night in Luxembourg - Play, rotate and meet people | Crush.lu" %}{% endblock %}
+{% block meta_description %}{% trans "Discover Crush.lu Quiz Night: coach check-in, team questions, table rotations and live scores. A playful way to meet people in Luxembourg." %}{% endblock %}
+{% block og_title %}{% trans "Quiz Night at Crush.lu" %}{% endblock %}
+{% block og_description %}{% trans "A shared challenge makes the first conversation easier. Play as a team and meet new people around the quiz tables." %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'crush_lu/css/marketing.css' %}">{% endblock %}
+{% block content %}
+<div class="event-guide event-guide--quiz">
+    <header class="guide-hero">
+        <div class="guide-hero__copy">
+            <p class="guide-eyebrow"><span></span>{% trans "Quiz Night at Crush.lu" %}</p>
+            <h1 class="guide-hero__title font-display">{% trans "Play together." %}<br><em>{% trans "Meet someone new." %}</em></h1>
+            <p class="guide-hero__intro">{% trans "Come on your own, join a table and break the ice with a shared game." %}</p>
+            <div class="guide-hero__actions">
+                <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-primary">{% trans "Find your next event" %} <span aria-hidden="true">↗</span></a>
+                <a href="#quiz-evening-heading" class="guide-text-link">{% trans "How the quiz evening works" %} <span aria-hidden="true">↓</span></a>
+            </div>
+        </div>
+        {% include 'crush_lu/components/event_guide_scene.html' with kind='quiz' %}
+    </header>
+    <ul class="guide-highlights" aria-label="{% trans 'Quiz Night' %}">
+        <li><span aria-hidden="true">✓</span>{% trans 'Come on your own' %}</li>
+        <li><span aria-hidden="true">✓</span>{% trans 'Play as a team' %}</li>
+        <li><span aria-hidden="true">✓</span>{% trans 'Meet new people' %}</li>
+    </ul>
+    <section class="guide-flow" aria-labelledby="quiz-evening-heading">
+        <div class="guide-section-heading"><p class="guide-eyebrow">{% trans "A game to bring you together" %}</p><h2 id="quiz-evening-heading" class="font-display">{% trans "How the quiz evening works" %}</h2></div>
+        <ol class="guide-timeline">
+            <li>
+                <span class="guide-timeline__number" aria-hidden="true">01</span>
+                <div><h3>{% trans "Check in and find your table" %}</h3><p>{% trans "Check in with the coach, find your table and open your event's live quiz page." %}</p></div>
+                <div class="guide-timeline__art" aria-hidden="true">{% include 'crush_lu/components/event_guide_ghost.html' with illustration='crush_lu/includes/ghost-story-approved.html' %}</div>
+            </li>
+            <li>
+                <span class="guide-timeline__number" aria-hidden="true">02</span>
+                <div><h3>{% trans "Think, laugh and answer together" %}</h3><p>{% trans "Discuss the host's questions as a team and collect points through the rounds." %}</p></div>
+                <div class="guide-timeline__art" aria-hidden="true">{% include 'crush_lu/components/event_guide_ghost.html' with illustration='crush_lu/includes/ghost-story-laughing.html' %}</div>
+            </li>
+            <li>
+                <span class="guide-timeline__number" aria-hidden="true">03</span>
+                <div><h3>{% trans "New rounds, new encounters" %}</h3><p>{% trans "When rotations are planned, follow your table assignment and the coach's instructions to meet new people between rounds." %}</p></div>
+                <div class="guide-timeline__art" aria-hidden="true">{% include 'crush_lu/components/event_guide_ghost.html' with illustration='crush_lu/includes/ghost-story-chatting-pair.html' %}</div>
+            </li>
+        </ol>
+    </section>
+    <section class="guide-note" aria-labelledby="quiz-preparation-heading">
+        <div class="guide-note__icon" aria-hidden="true">{% include 'shared/icons/phone.html' with class='w-8 h-8' %}</div>
+        <div><h2 id="quiz-preparation-heading">{% trans "What should I bring?" %}</h2>
+        <p>{% trans "A charged phone for your table assignment and the live quiz. No team needed. Check the event page for the language, theme and instructions." %}</p>
+        <p>{% trans "After the quiz, use My Crush to express interest in someone you met." %}</p></div>
+    </section>
+    {% include 'crush_lu/components/event_arrival_guidance.html' %}
+    <aside class="guide-other-format"><span>{% trans 'One-to-one encounters' %}</span><a href="{% url 'crush_lu:speed_dating_guide' %}" class="guide-text-link">{% trans "Discover Speed Dating" %} <span aria-hidden="true">↗</span></a></aside>
+</div>
+{% endblock %}

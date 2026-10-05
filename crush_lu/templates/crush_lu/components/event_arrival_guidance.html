@@ -1,0 +1,15 @@
+{% load i18n %}
+<section class="guide-arrival" aria-labelledby="arrival-heading">
+    <div class="guide-arrival__intro">
+        <div class="guide-arrival__ghost" aria-hidden="true">{% include 'crush_lu/components/event_guide_ghost.html' with illustration='crush_lu/includes/ghost-story-approved.html' %}</div>
+        <p class="guide-eyebrow">{% trans 'Before you arrive' %}</p>
+        <h2 id="arrival-heading" class="font-display">{% trans "A smooth arrival starts before the event" %}</h2>
+        <a href="{% url 'crush_lu:my_events' %}" class="btn-crush-outline btn-sm">{% trans "My Events" %} <span aria-hidden="true">↗</span></a>
+    </div>
+    <ul class="guide-arrival__list">
+        <li><span aria-hidden="true">✓</span><div><h3>{% trans 'Your booking' %}</h3><p>{% trans "Check that your seat is confirmed and any required payment is complete. An application or waiting-list place is not a booking." %}</p></div></li>
+        <li><span aria-hidden="true">✓</span><div><h3>{% trans 'Your arrival time' %}</h3><p>{% trans "Arrive at the advertised time with your booking or ticket ready." %}</p></div></li>
+        <li><span aria-hidden="true">✓</span><div><h3>{% trans 'Your check-in' %}</h3><p>{% trans "Check in with the coach: your booking alone does not confirm your attendance." %}</p></div></li>
+        <li><span aria-hidden="true">✓</span><div><h3>{% trans 'A change of plans?' %}</h3><p>{% trans "Cannot come? Cancel promptly in My Events. Running late? Contact the organiser listed on your event page." %}</p></div></li>
+    </ul>
+</section>
