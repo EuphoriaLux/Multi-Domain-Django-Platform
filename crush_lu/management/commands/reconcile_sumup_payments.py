@@ -1220,8 +1220,8 @@ class Command(BaseCommand):
         """Filter for the sibling payments that block reconciling ``tx``.
 
         PAID and PENDING both block, at any age. That includes an abandoned
-        premium checkout, which never leaves PENDING (every open of the
-        payment page inserts a fresh row): its SumUp checkout stays payable
+        premium checkout, which stays PENDING until the next open of the
+        payment page reuses or retires it: its SumUp checkout stays payable
         through a saved widget link, and a capture after the membership is
         cancelled here is charged without granting Premium. This read-only
         sweep cannot close it at SumUp, so the refund is flagged for a human,
@@ -1498,8 +1498,8 @@ class Command(BaseCommand):
             #   blocks too. Narrowing this to PAID would reopen the window.
             #   That holds for premium too (_blocking_siblings_q), whose
             #   abandoned checkouts stay payable. create_sumup_premium_checkout
-            #   re-checks the
-            #   membership under its lock before inserting, so it cannot add
+            #   locks payment rows -> membership in this same order and
+            #   re-checks the membership before inserting, so it cannot add
             #   a row after this read against a membership cancelled here.
             if locked_tx.event_registration_id:
                 sibling_rows = PaymentTransaction.objects.filter(
