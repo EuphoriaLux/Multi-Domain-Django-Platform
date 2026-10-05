@@ -150,10 +150,36 @@ class CuratedSignupTests(CuratedRegistrationTestBase):
         self.assertContains(response, "Applying is free and does not reserve a place")
         self.assertContains(response, "Submit Application")
         self.assertNotContains(response, "Confirm Registration")
+        self.assertContains(
+            response, "No payment now; selected applicants are invited to pay."
+        )
 
         direct = self.client.get(self._register_url(self.direct))
         self.assertContains(direct, "Register for Event")
         self.assertContains(direct, "Confirm Registration")
+        self.assertNotContains(direct, "No payment now")
+        self.assertNotContains(direct, "Submit Application")
+
+    def test_application_page_promises_no_seat_or_charge_in_every_language(self):
+        self.curated.registration_fee = Decimal("15.50")
+        self.curated.save(update_fields=["registration_fee"])
+        self._login(self.user)
+        expected = {
+            "fr": "Aucun paiement maintenant",
+            "de": "Jetzt keine Zahlung",
+        }
+        for lang, line in expected.items():
+            with self.subTest(lang=lang):
+                response = self.client.get(
+                    self._register_url(self.curated).replace("/en/", f"/{lang}/")
+                )
+                self.assertContains(response, line)
+                for promise in (
+                    "Confirm Registration",
+                    "Confirmer l'inscription",
+                    "Anmeldung bestätigen",
+                ):
+                    self.assertNotContains(response, promise)
 
     def test_invalid_htmx_application_keeps_application_copy_on_retry(self):
         self._login(self.user)
