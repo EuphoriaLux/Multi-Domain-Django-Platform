@@ -793,6 +793,22 @@ class LateCaptureTests(_Base):
             (PaymentTransaction.Status.CANCELLED, "pending"),
         )
 
+    def test_opening_a_case_closes_sibling_checkouts(self):
+        from unittest.mock import MagicMock
+
+        sibling = self._tx("REC-SIB-AUTO")
+        tx = self._tx("REC-SIB-CAPTURE")
+        self._fill_the_coach()
+        client = MagicMock()
+        client.deactivate_checkout.return_value = True
+        with patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+                self._apply(tx)
+        client.deactivate_checkout.assert_called_once_with("CHK_REC-SIB-AUTO")
+        client.refund.assert_not_called()
+        sibling.refresh_from_db()
+        self.assertEqual(sibling.status, PaymentTransaction.Status.CANCELLED)
+
     def test_no_pay_button_while_an_older_case_blocks_checkout(self):
         self.membership.status = "cancelled"
         self.membership.save(update_fields=["status"])

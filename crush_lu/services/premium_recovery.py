@@ -64,8 +64,46 @@ def notify_safely(case_pk):
             type(exc).__name__,
         )
         return
+    _close_sibling_checkouts_safely(case)
     _notify_member_safely(case)
     _alert_staff_safely(case)
+
+
+def _close_sibling_checkouts_safely(case):
+    """Close the membership's other PENDING SumUp checkouts (deactivate only,
+    never a refund): with a capture recorded, none of them may take another
+    payment. Post-commit, no lock held during the network calls."""
+    from django.db import transaction
+
+    from crush_lu.models import PaymentTransaction
+
+    membership = case.premium_membership
+    if (
+        membership is None
+        or not PaymentTransaction.objects.filter(
+            premium_membership=membership, status=PaymentTransaction.Status.PENDING
+        ).exists()
+    ):
+        return
+    from crush_lu.views_payments import (
+        SumUpClient,
+        _lock_premium_checkout_state,
+        _settle_pending_premium_checkouts,
+    )
+
+    try:
+        _state, _reuse, retired, _known = _settle_pending_premium_checkouts(
+            SumUpClient(), membership, captured=True
+        )
+        if retired:
+            with transaction.atomic():
+                _lock_premium_checkout_state(membership.pk, retired)
+    except Exception as exc:
+        logger.error(
+            "Failed to close sibling checkouts for recovery case %s: %s",
+            case.pk,
+            type(exc).__name__,
+        )
 
 
 def retry_unsent_notifications(
