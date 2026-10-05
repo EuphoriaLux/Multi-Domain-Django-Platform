@@ -130,6 +130,7 @@ def _close_sibling_checkouts_safely(case):
         SumUpClient,
         _lock_premium_checkout_state,
         _settle_pending_premium_checkouts,
+        _sync_checkout_with_sumup,
     )
 
     try:
@@ -139,6 +140,14 @@ def _close_sibling_checkouts_safely(case):
         if retired:
             with transaction.atomic():
                 _lock_premium_checkout_state(membership.pk, retired)
+        # A sibling SumUp already captured is never "closed": record it now
+        # (applied, or its own recovery case) -- the sweep reads PAID rows only.
+        for row in PaymentTransaction.objects.filter(
+            premium_membership=membership,
+            status=PaymentTransaction.Status.PENDING,
+            sumup_checkout_id__isnull=False,
+        ):
+            _sync_checkout_with_sumup(row)
         if state == "open":
             # Still PENDING, so the hourly retry picks the case up again.
             logger.warning(

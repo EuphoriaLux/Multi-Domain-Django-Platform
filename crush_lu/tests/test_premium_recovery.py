@@ -1022,6 +1022,50 @@ class NotificationRetryTests(_Base):
         # Resolved: no notice or alert is (re)sent.
         self.assertEqual(mail.outbox, [])
 
+    def test_retry_records_a_sibling_sumup_already_captured(self):
+        from datetime import timedelta
+        from unittest.mock import MagicMock
+
+        from django.utils import timezone
+
+        from crush_lu.services.premium_recovery import retry_unsent_notifications
+
+        self.membership.status = "active"
+        self.membership.save(update_fields=["status"])
+        stamp = timezone.now()
+        case = PremiumPaymentRecoveryCase.objects.create(
+            payment=self._tx("REC-CAP-FIRST", status=PaymentTransaction.Status.PAID),
+            user=self.member,
+            premium_membership=self.membership,
+            reason=Reason.DUPLICATE_CAPTURE,
+            member_notified_at=stamp,
+            staff_alerted_at=stamp,
+        )
+        PremiumPaymentRecoveryCase.objects.filter(pk=case.pk).update(
+            created_at=stamp - timedelta(hours=2)
+        )
+        sibling = self._tx("REC-CAP-SIB")
+        client = MagicMock()
+        client.deactivate_checkout.return_value = False
+        client.get_checkout.return_value = {
+            "id": sibling.sumup_checkout_id,
+            "status": "PAID",
+            "amount": 10.0,
+            "currency": "EUR",
+        }
+        with patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            with self.captureOnCommitCallbacks(execute=True):
+                with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+                    retry_unsent_notifications(100, 60)
+        sibling.refresh_from_db()
+        self.assertEqual(sibling.status, PaymentTransaction.Status.PAID)
+        self.assertTrue(
+            PremiumPaymentRecoveryCase.objects.filter(
+                payment=sibling, reason=Reason.DUPLICATE_CAPTURE
+            ).exists()
+        )
+        client.refund.assert_not_called()
+
     def test_retry_claims_each_case_under_a_row_lock(self):
         from crush_lu.services import premium_recovery
 
