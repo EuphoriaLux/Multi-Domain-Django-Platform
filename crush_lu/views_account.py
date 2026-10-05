@@ -956,7 +956,9 @@ def email_unsubscribe(request, token):
         {
             "email_prefs": email_prefs,
             "token": token,
-            "user": email_prefs.user,
+            # NOT "user": that key would override the auth context processor
+            # and render the token owner's logged-in chrome for the visitor.
+            "prefs_user": email_prefs.user,
         },
     )
 
