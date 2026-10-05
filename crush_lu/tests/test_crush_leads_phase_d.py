@@ -1099,6 +1099,35 @@ class TestCrushLeadWorkspace:
         lead.refresh_from_db()
         assert lead.requester_consents_to_share is True
 
+    def test_coach_share_says_introduction_made_and_keeps_contacts_opt_in(self):
+        """#1146 (Decision D): the coach screens say "Introduction made",
+        and the coach share exposes no email or phone by itself: each
+        member opts in on the shared connection page."""
+        from django.contrib.messages import get_messages
+
+        coach, lead = self._lead(status="coach_approved")
+        lead.requester_consents_to_share = True
+        lead.recipient_consents_to_share = True
+        lead.save()
+        client = Client()
+        _login(client, coach.user)
+
+        response = client.post(self._url(lead), {"action": "crush_share"})
+
+        assert [str(m) for m in get_messages(response.wsgi_request)] == [
+            "Introduction made"
+        ]
+        lead.refresh_from_db()
+        assert lead.status == "shared"
+        assert not lead.requester_shares_email and not lead.requester_shares_phone
+        assert not lead.recipient_shares_email and not lead.recipient_shares_phone
+        body = client.get(self._url(lead)).content.decode()
+        assert body.count("Introduction made") == 3
+        assert "Contacts shared" not in body and "Contacts Shared" not in body
+        listing = client.get(reverse("crush_lu:coach_connections")).content.decode()
+        assert "Introduction made" in listing
+        assert "Contacts Shared" not in listing
+
     def test_share_is_refused_until_both_sides_consented(self):
         coach, lead = self._lead(status="coach_approved")
         lead.requester_consents_to_share = True

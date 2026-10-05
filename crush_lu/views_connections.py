@@ -11,6 +11,7 @@ from django.contrib import messages
 from django.http import Http404, HttpResponse
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
+from django.db import transaction
 from django.db.models import Q
 from django.views.decorators.http import require_http_methods
 import logging
@@ -843,7 +844,8 @@ def respond_connection(request, connection_id, action):
 
     if action == "accept":
         if connection.is_same_gender:
-            # Same-gender: skip coach review, auto-share
+            # Same-gender: skip coach review, auto-share. Email and phone
+            # stay opt-in, chosen on the shared connection page (#1146).
             connection.status = "shared"
             connection.requester_consents_to_share = True
             connection.recipient_consents_to_share = True
@@ -1019,6 +1021,85 @@ def my_connections(request):
     return render(request, "crush_lu/my_connections.html", context)
 
 
+EMAIL_OPT_IN_MIGRATION = "0255_eventconnection_recipient_shares_email_and_more"
+PHONE_OPT_IN_MIGRATION = "0258_eventconnection_shares_phone_opt_in"
+
+
+_OPT_IN_SINCE_CACHE = {}
+
+
+def _opt_in_available_since(migration_name):
+    """When this database gained the opt-in column: the migration's applied
+    time, i.e. the deploy that started asking. None if it cannot be read
+    (not cached, so a later recorder row is picked up without a restart)."""
+    if migration_name in _OPT_IN_SINCE_CACHE:
+        return _OPT_IN_SINCE_CACHE[migration_name]
+    from django.db.migrations.recorder import MigrationRecorder
+
+    applied = (
+        MigrationRecorder.Migration.objects.filter(app="crush_lu", name=migration_name)
+        .values_list("applied", flat=True)
+        .first()
+    )
+    if applied is None:
+        logger.warning("No applied time recorded for migration %s", migration_name)
+    else:
+        _OPT_IN_SINCE_CACHE[migration_name] = applied
+    return applied
+
+
+def _made_contact_choice(connection, side):
+    """True once ``side`` has saved email/phone opt-ins, on the consent form
+    or on the shared page (both log ``contact_choices``)."""
+    return any(
+        action.get("type") == "contact_choices"
+        and (action.get("details") or {}).get("side") == side
+        for action in connection.system_actions or []
+    )
+
+
+def _predates_choice(connection, migration_name):
+    """True only when the row is known to have been shared before that
+    contact choice existed (#1146). ``shared_at`` is the only record of the
+    share time: the earlier consent path set just ``status``, and
+    requested/responded/coach-approved times only bound the share from below,
+    so a row without ``shared_at`` is never claimed to predate the choice."""
+    since = _opt_in_available_since(migration_name)
+    shared_at = connection.shared_at
+    return since is not None and shared_at is not None and shared_at < since
+
+
+def _save_contact_choices(request, connection, is_requester):
+    """Write the member's own email/phone opt-ins on a shared connection."""
+    side = "requester" if is_requester else "recipient"
+    profile = getattr(request.user, "crushprofile", None)
+    with transaction.atomic():
+        locked = EventConnection.objects.select_for_update().get(pk=connection.pk)
+        if locked.status != "shared":
+            messages.info(
+                request,
+                _(
+                    "This connection has already moved on — refresh the page to see its current status."
+                ),
+            )
+            return
+        setattr(locked, f"{side}_shares_email", "share_email" in request.POST)
+        setattr(
+            locked,
+            f"{side}_shares_phone",
+            "share_phone" in request.POST and bool(profile and profile.phone_number),
+        )
+        locked.log_system_action("contact_choices", actor="member", side=side)
+        locked.save(
+            update_fields=[
+                f"{side}_shares_email",
+                f"{side}_shares_phone",
+                "system_actions",
+            ]
+        )
+    messages.success(request, _("Saved"))
+
+
 @crush_login_required
 @ratelimit(key="user", rate="20/h", method="POST")
 def connection_detail(request, connection_id):
@@ -1063,6 +1144,14 @@ def connection_detail(request, connection_id):
             return redirect(
                 "crush_lu:connection_detail", connection_id=connection_id
             )
+
+        # Contact choices on a shared connection (#1146, Decision D): the
+        # coach share and the same-gender auto-share never pass the consent
+        # form, so each member opts in to email and phone here, with the
+        # same fields the consent form writes.
+        if "contact_choices" in request.POST:
+            _save_contact_choices(request, connection, is_requester)
+            return redirect("crush_lu:connection_detail", connection_id=connection_id)
 
         # Handle consent
         if "consent" in request.POST:
@@ -1134,21 +1223,42 @@ def connection_detail(request, connection_id):
             share_email = "share_email" in request.POST
             share_phone = "share_phone" in request.POST
 
-            # Conditional updates, like "not_now" above: a stale save must
-            # never restore coach_approved over a concurrent decline, and the
-            # switch to `shared` re-checks both consents and the status at
-            # write time.
+            # Locked re-read, like "not_now" above: a stale save must never
+            # restore coach_approved over a concurrent decline, and the switch
+            # to `shared` re-checks both consents at write time. The choice
+            # is logged so the shared page can say "chose not to" (#1146).
             side = "requester" if is_requester else "recipient"
-            updated_rows = EventConnection.objects.filter(
-                pk=connection.pk, status="coach_approved"
-            ).update(
-                **{
-                    f"{side}_consents_to_share": consent_value,
-                    f"{side}_shares_email": share_email,
-                    f"{side}_shares_phone": share_phone,
-                }
-            )
-            if not updated_rows:
+            with transaction.atomic():
+                locked = (
+                    EventConnection.objects.filter(
+                        pk=connection.pk, status="coach_approved"
+                    )
+                    .select_for_update()
+                    .first()
+                )
+                if locked is not None:
+                    setattr(locked, f"{side}_consents_to_share", consent_value)
+                    setattr(locked, f"{side}_shares_email", share_email)
+                    setattr(locked, f"{side}_shares_phone", share_phone)
+                    locked.log_system_action(
+                        "contact_choices", actor="member", side=side
+                    )
+                    fields = [
+                        f"{side}_consents_to_share",
+                        f"{side}_shares_email",
+                        f"{side}_shares_phone",
+                        "system_actions",
+                    ]
+                    shared = (
+                        locked.requester_consents_to_share
+                        and locked.recipient_consents_to_share
+                    )
+                    if shared:
+                        locked.status = "shared"
+                        locked.shared_at = timezone.now()
+                        fields += ["status", "shared_at"]
+                    locked.save(update_fields=fields)
+            if locked is None:
                 messages.info(
                     request,
                     _(
@@ -1158,14 +1268,7 @@ def connection_detail(request, connection_id):
                 return redirect(
                     "crush_lu:connection_detail", connection_id=connection_id
                 )
-
-            shared_rows = EventConnection.objects.filter(
-                pk=connection.pk,
-                status="coach_approved",
-                requester_consents_to_share=True,
-                recipient_consents_to_share=True,
-            ).update(status="shared")
-            if shared_rows:
+            if shared:
                 messages.success(
                     request, _("The details you each chose to share are now visible!")
                 )
@@ -1316,6 +1419,12 @@ def connection_detail(request, connection_id):
         if is_requester
         else connection.requester_shares_email
     )
+    own_side = "requester" if is_requester else "recipient"
+    other_side = "recipient" if is_requester else "requester"
+    # "Chose not to share" only once the other side made a choice; until
+    # then the page says the detail is not shared yet (#1146, decision D).
+    is_shared = connection.status == "shared"
+    other_has_chosen = is_shared and _made_contact_choice(connection, other_side)
 
     context = {
         "connection": connection,
@@ -1330,6 +1439,21 @@ def connection_detail(request, connection_id):
         "whatsapp_number": whatsapp_number,
         "other_shares_email": other_shares_email,
         "other_shares_phone": other_shares_phone,
+        "own_shares_email": getattr(connection, f"{own_side}_shares_email"),
+        "own_shares_phone": getattr(connection, f"{own_side}_shares_phone"),
+        "other_has_chosen": other_has_chosen,
+        "other_email_predates_choice": (
+            is_shared
+            and not other_has_chosen
+            and not other_shares_email
+            and _predates_choice(connection, EMAIL_OPT_IN_MIGRATION)
+        ),
+        "other_phone_predates_choice": (
+            is_shared
+            and not other_has_chosen
+            and not other_shares_phone
+            and _predates_choice(connection, PHONE_OPT_IN_MIGRATION)
+        ),
         # Pre-`shared` crush lead: the requester sees only this neutral
         # "with your coach" state — identical whether the lead is pending,
         # mid-coach-workflow, or silently declined.

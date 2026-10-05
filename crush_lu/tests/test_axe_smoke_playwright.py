@@ -1,4 +1,4 @@
-"""Playwright: axe-core accessibility smoke gate for ~10 key crush.lu pages.
+"""Playwright: axe-core accessibility smoke gate for ~14 key crush.lu pages.
 
 Issue #1117 guardrail. The page-level axe tests elsewhere in this package
 skip silently when axe-core is missing. This one skips only on a developer
@@ -8,7 +8,9 @@ Playwright is a hard failure, so the gate can never go green with no coverage
 
     home, events, event detail, login, signup, dashboard, connections (the
     ``/matches/`` URL only redirects to the dashboard), Connect hub, account
-    drill-down (GDPR), advent calendar -- each in light and dark mode at 390px.
+    drill-down (GDPR), profile edit (account section, and the photos section
+    the Connect onboarding photo step lands on), the gift wizard (both steps),
+    advent calendar -- each in light and dark mode at 390px.
 
 It fails only on NEW critical or serious violations. What is tolerated today
 lives in ``axe_baseline.json`` (``page/theme`` -> ``rule id`` -> the CSS
@@ -79,8 +81,34 @@ PAGES = {
     "connections": ("member", "/en/connections/"),
     "connect-hub": ("member", "/en/crush-connect/week/"),
     "account-drilldown": ("member", "/en/account/gdpr/"),
+    "profile-account": ("member", "/en/profile/edit/?section=account"),
+    # The exact URL /en/crush-connect/onboarding/ redirects a not-yet-onboarded
+    # member without a main photo to (section=photos, ``next`` back to it).
+    "connect-onboarding-photos": (
+        "no_photo",
+        "/en/profile/edit/?section=photos&next=%2Fen%2Fcrush-connect%2Fonboarding%2F",
+    ),
+    "gift-create": ("staff", "/en/journey/gift/create/"),
+    # Same wizard after "Next": step 2 holds the media file inputs.
+    "gift-create-media": ("staff", "/en/journey/gift/create/"),
     "advent": ("advent", "/en/advent/"),
 }
+
+
+def _gift_to_media_step(page):
+    page.fill("#id_recipient_name", "Marie")
+    page.fill("#id_date_first_met", "2020-02-14")
+    page.fill("#id_location_first_met", "Luxembourg City")
+    page.get_by_role("button", name=re.compile("Next: Add Media")).click()
+    page.wait_for_selector("#id_chapter1_image", state="attached")
+    page.wait_for_function(
+        "document.querySelector('#id_recipient_name').offsetParent === null"
+    )
+
+
+# slug -> interaction run before the audit, for states a plain GET can't reach
+PREPARE = {"gift-create-media": _gift_to_media_step}
+
 CASES = [(slug, theme) for slug in PAGES for theme in ("light", "dark")]
 
 AXE_JS = """
@@ -148,7 +176,7 @@ def _save_baseline(data):
 
 @pytest.fixture
 def world(transactional_db, settings):
-    """A member, an upcoming event and an advent user, plus their sessions."""
+    """Members (one without a photo), a staff gift sender, an event, advent."""
     from datetime import timedelta
 
     from django.utils import timezone
@@ -163,6 +191,16 @@ def world(transactional_db, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
     member = _make_user(username="axe_smoke")
     _grant_consent(member)
+    # Connect onboarding sends a member without a main photo to Photos.
+    no_photo = _make_user(username="axe_no_photo", onboarded=False)
+    _grant_consent(no_photo)
+    no_photo.crushprofile.photo_1 = ""
+    no_photo.crushprofile.save(update_fields=["photo_1"])
+    # Gift creation is staff/coach only (members get a 404).
+    staff = _make_user(username="axe_staff")
+    staff.is_staff = True
+    staff.save(update_fields=["is_staff"])
+    _grant_consent(staff)
     event = MeetupEvent.objects.create(
         title="Axe Smoke Mixer",
         description="An evening of wine and conversation.",
@@ -182,7 +220,13 @@ def world(transactional_db, settings):
 
     advent = _Holder()
     make_advent_user(advent)
-    return {"member": member, "event": event, "advent": advent.user}
+    return {
+        "member": member,
+        "no_photo": no_photo,
+        "staff": staff,
+        "event": event,
+        "advent": advent.user,
+    }
 
 
 def _session_cookie(user):
@@ -241,10 +285,13 @@ def test_no_new_serious_axe_violations(browser, live_server, world, slug, theme)
             assert response is not None and response.ok, (path, response)
             # A redirect (login, consent, feature gate) would audit the wrong
             # page and leave the named surface uncovered while staying green.
+            landed = urlparse(page.url)
             assert (
-                urlparse(page.url).path == expected
+                landed._replace(scheme="", netloc="").geturl() == expected
             ), f"{path} redirected to {page.url}"
             page.wait_for_load_state("load")
+            if slug in PREPARE:
+                PREPARE[slug](page)
             page.evaluate(SETTLE_JS)
             page.evaluate(AXE_PATH.read_text(encoding="utf-8"))
             violations = page.evaluate(AXE_JS)

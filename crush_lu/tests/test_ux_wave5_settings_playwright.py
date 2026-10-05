@@ -121,6 +121,79 @@ def test_whatsapp_rapid_flips_reach_the_server_in_click_order(browser, live_serv
     assert EmailPreference.objects.get(user=user).whatsapp_opt_in is False
 
 
+TOASTS = "() => document.querySelectorAll('#toast-container > *').length >= 3"
+
+
+def test_whatsapp_superseded_failure_does_not_roll_back_the_switch(
+    browser, live_server
+):
+    """#1147 ABA race: on -> off -> on while the first save is pending, and
+    that first save fails. The two newer writes succeed, so the database ends
+    on and the switch must too (the old rollback compared checkbox.checked,
+    which is "on" again, and flipped it to off)."""
+    from crush_lu.models import EmailPreference
+
+    user = _member()
+    page = _page(browser, live_server, user)
+    seen = []
+    pending = []
+
+    def handle(route):
+        seen.append(json.loads(route.request.post_data)["value"])
+        if len(seen) == 1:
+            pending.append(route)  # hold the first write open, then fail it
+        else:
+            route.continue_()
+
+    page.route("**/api/email/preferences/", handle)
+    switch = page.locator("input[name='whatsapp_opt_in']")
+    for _ in range(3):
+        switch.evaluate("el => el.click()")
+    assert switch.evaluate("el => el.checked") is True
+    page.wait_for_timeout(300)
+    pending[0].fulfill(
+        status=200, content_type="application/json", body='{"success": false}'
+    )
+    page.wait_for_function(TOASTS)
+    page.wait_for_timeout(300)
+    assert seen == [True, False, True]
+    assert EmailPreference.objects.get(user=user).whatsapp_opt_in is True
+    assert switch.evaluate("el => el.checked") is True
+
+
+def test_whatsapp_latest_failure_reconciles_to_the_confirmed_value(
+    browser, live_server
+):
+    """#1147: when the latest write fails, the switch shows what the server
+    last confirmed."""
+    from crush_lu.models import EmailPreference
+
+    user = _member()
+    page = _page(browser, live_server, user)
+    calls = []
+
+    def handle(route):
+        calls.append(json.loads(route.request.post_data)["value"])
+        if len(calls) == 3:
+            route.fulfill(
+                status=200,
+                content_type="application/json",
+                body='{"success": false}',
+            )
+        else:
+            route.continue_()
+
+    page.route("**/api/email/preferences/", handle)
+    switch = page.locator("input[name='whatsapp_opt_in']")
+    for _ in range(3):
+        switch.evaluate("el => el.click()")
+    page.wait_for_function(TOASTS)
+    page.wait_for_timeout(300)
+    assert calls == [True, False, True]
+    assert EmailPreference.objects.get(user=user).whatsapp_opt_in is False
+    assert switch.evaluate("el => el.checked") is False
+
+
 BLOCKED_UAS = {
     "desktop": (
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "

@@ -1,6 +1,7 @@
 {% extends 'crush_lu/base.html' %}
 {% load i18n %}
 {% load crispy_forms_tags %}
+{% load social_tags %}
 
 {% block title %}{% trans "Complete Your Crush.lu Signup" %}{% endblock %}
 
@@ -79,7 +80,9 @@
                     <strong>{% trans "Next Steps:" %}</strong>
                     <ol class="mb-0 mt-2 list-decimal list-inside space-y-1">
                         <li>{% trans "Complete your profile with photos and bio" %}</li>
-                        <li>{% trans "Get verified instantly with LuxID — or in person at an event" %}</li>
+                        {# Only promise LuxID when its button is offered (same gate as the footer). #}
+                        {% luxid_available as luxid_offered %}
+                        <li>{% if luxid_offered %}{% trans "Get verified instantly with LuxID — or in person at an event" %}{% else %}{% trans "Get verified in person at an event" %}{% endif %}</li>
                         <li>{% trans "Start attending events and meeting people!" %}</li>
                     </ol>
                 </div>

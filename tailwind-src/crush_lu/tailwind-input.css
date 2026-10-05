@@ -197,7 +197,12 @@ html.dark {
    :root before any redefinition. A descendant that carries its own text
    utility is floored again by its own, more specific rule. The only remaining
    leak is an element that carries a text utility AND a bg/border/ring utility
-   of the same step on itself; a test over the templates and JS forbids that. */
+   of the same step on itself; a test over the templates and JS forbids that.
+
+   BASE LINKS. The base-layer `a` default also uses the purple-200 floor in
+   dark mode (see the `a` rule below). Unlike the utility floor it has no
+   exclusion for always-light surfaces: a bare link on a literal `bg-white`
+   card with no `dark:bg-*` step needs its own explicit text colour. */
 :root {
     --stock-gray-400: var(--color-gray-400);
     --stock-gray-500: var(--color-gray-500);
@@ -373,9 +378,11 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
         @apply text-base font-medium dark:text-gray-100;
     }
 
-    /* Link defaults with dark mode support */
+    /* Link defaults with dark mode support. Dark uses the purple-200 floor
+       (see CONTRAST FLOORS): purple-400 was ~3.3:1 on dark cards and tinted
+       callouts (the account drill-down's WhatsApp notice). */
     a {
-        @apply text-crush-purple hover:text-crush-purple-dark transition-colors duration-200 dark:text-purple-400 dark:hover:text-purple-300;
+        @apply text-crush-purple hover:text-crush-purple-dark transition-colors duration-200 dark:text-purple-200 dark:hover:text-purple-100;
     }
 
     /* Focus ring for accessibility */
@@ -1057,7 +1064,6 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
         transition: opacity 200ms ease-in;
     }
 
-
     /* =========================================================================
      ANIMATIONS
      ========================================================================= */
@@ -1229,534 +1235,6 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
     .ms-auto {
         @apply ml-auto;
     }
-    
-
-    
-
-    
-
-    /* Journey Primary Button - Gradient */
-    .journey-btn-primary {
-        @apply inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 font-semibold text-white transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50;
-        background: linear-gradient(
-            135deg,
-            var(--color-crush-purple),
-            var(--color-crush-pink)
-        );
-        box-shadow: 0 5px 15px rgba(255, 107, 157, 0.3);
-    }
-
-    .journey-btn-primary:hover:not(:disabled) {
-        @apply -translate-y-0.5;
-        box-shadow: 0 8px 25px rgba(255, 107, 157, 0.5);
-    }
-
-    .journey-btn-primary:focus-visible {
-        @apply ring-crush-purple ring-2 ring-offset-2 outline-none;
-        --tw-ring-offset-color: var(--color-journey-dark);
-    }
-
-    .journey-title-xl {
-        @apply text-4xl font-bold md:text-5xl lg:text-6xl;
-        background: linear-gradient(135deg, #ff6b9d, #c850c0, #9b59b6, #ff6b9d);
-        background-size: 300% 300%;
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        animation: journey-shimmer 4s ease infinite;
-    }
-
-    .journey-message-success {
-        @apply rounded-xl border p-4 text-sm font-medium backdrop-blur-sm;
-        background: rgba(46, 204, 113, 0.2);
-        border-color: rgba(46, 204, 113, 0.5);
-        color: #a7f3d0;
-    }
-
-    .journey-message-error {
-        @apply rounded-xl border p-4 text-sm font-medium backdrop-blur-sm;
-        background: rgba(231, 76, 60, 0.2);
-        border-color: rgba(231, 76, 60, 0.5);
-        color: #fecaca;
-    }
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    /* Journey Input */
-    .journey-input {
-        @apply w-full rounded-xl px-5 py-4 text-lg text-white transition-all duration-300 placeholder:text-white/50;
-        background: rgb(var(--jy-w) / 0.1);
-        border: 2px solid rgb(var(--jy-w) / 0.3);
-    }
-
-    .journey-input:focus {
-        @apply outline-none;
-        border-color: var(--color-crush-purple);
-        box-shadow: 0 0 20px rgba(155, 89, 182, 0.3);
-    }
-
-    /* Journey Hint Box */
-    .journey-hint-box {
-        @apply mt-4 hidden rounded-xl p-5;
-        background: rgba(255, 215, 0, 0.1);
-        border: 2px solid rgba(255, 215, 0, 0.3);
-    }
-
-    .journey-hint-box.active {
-        @apply block;
-        animation: journey-fade-in-up 0.5s ease;
-    }
-
-    .journey-chapter-unlocked .journey-chapter-icon {
-        border-color: var(--color-crush-purple);
-        color: var(--color-crush-purple);
-        box-shadow: var(--shadow-journey-glow-purple);
-    }
-
-    .journey-chapter-current .journey-chapter-icon {
-        border-color: var(--color-crush-pink);
-        color: var(--color-crush-pink);
-        box-shadow: var(--shadow-journey-glow-pink);
-        animation: journey-pulse 2s ease-in-out infinite;
-    }
-
-    .journey-chapter-completed .journey-chapter-icon {
-        border-color: var(--color-journey-success);
-        color: var(--color-journey-success);
-        box-shadow: var(--shadow-journey-glow-success);
-    }
-
-    /* Journey Chapter Icon */
-    .journey-chapter-icon {
-        @apply flex h-full w-full cursor-pointer items-center justify-center rounded-full text-4xl font-bold transition-all duration-400 md:text-5xl;
-        background: rgba(26, 26, 46, 0.95);
-        backdrop-filter: blur(15px);
-        -webkit-backdrop-filter: blur(15px);
-        border: 5px solid rgb(var(--jy-w) / 0.15);
-    }
-
-    /* Journey Completion Badge */
-    .journey-completion-badge {
-        @apply absolute -top-3 -right-3 flex h-12 w-12 items-center justify-center rounded-full text-2xl;
-        background: linear-gradient(135deg, #2ecc71, #27ae60);
-        box-shadow: 0 5px 20px rgba(46, 204, 113, 0.6);
-        border: 3px solid var(--color-journey-dark);
-        animation: journey-bounce-in 0.6s ease;
-    }
-
-    /* Phones get 6 of the 15 hearts: each one is an always-running animation. */
-    
-
-    .journey-chapter-info {
-        @apply relative mx-10 flex-1 overflow-hidden p-8;
-        background: rgb(var(--jy-w) / 0.08);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border-radius: 20px;
-        border: 2px solid rgba(255, 107, 157, 0.2);
-        transition: all 0.4s ease;
-    }
-
-    .journey-chapter-info::before {
-        content: "";
-        @apply absolute inset-[-2px];
-        background: linear-gradient(135deg, #ff6b9d, #c850c0, #9b59b6);
-        border-radius: 20px;
-        opacity: 0;
-        transition: opacity 0.4s ease;
-        z-index: -1;
-    }
-
-    .chapter-unlocked .journey-chapter-info:hover::before,
-    .chapter-current .journey-chapter-info:hover::before {
-        opacity: 0.3;
-    }
-
-    .chapter-unlocked .journey-chapter-info:hover,
-    .chapter-current .journey-chapter-info:hover {
-        background: rgb(var(--jy-w) / 0.12);
-        transform: translateY(-8px) scale(1.02);
-        box-shadow: 0 15px 40px rgba(255, 107, 157, 0.4);
-    }
-
-    .journey-difficulty-easy {
-        background: rgba(46, 204, 113, 0.25);
-        border: 2px solid rgba(46, 204, 113, 0.6);
-        color: #2ecc71;
-    }
-
-    .journey-difficulty-medium {
-        background: rgba(243, 156, 18, 0.25);
-        border: 2px solid rgba(243, 156, 18, 0.6);
-        color: #f39c12;
-    }
-
-    .journey-difficulty-hard {
-        background: rgba(231, 76, 60, 0.25);
-        border: 2px solid rgba(231, 76, 60, 0.6);
-        color: #e74c3c;
-    }
-
-    
-
-    .chapter-unlocked .journey-chapter-icon:hover,
-    .chapter-current .journey-chapter-icon:hover {
-        transform: scale(1.15) rotate(5deg);
-    }
-
-    .chapter-unlocked .journey-chapter-icon::after,
-    .chapter-current .journey-chapter-icon::after {
-        content: "✨";
-        @apply absolute -top-1 -right-1 text-xl opacity-0;
-        animation: journey-spin 1s linear infinite;
-    }
-
-    .chapter-unlocked .journey-chapter-icon:hover::after,
-    .chapter-current .journey-chapter-icon:hover::after {
-        opacity: 1;
-    }
-
-    
-
-    .journey-selector-card {
-        @apply relative block overflow-hidden rounded-2xl border-2 p-8 text-white no-underline transition-all duration-300;
-        background: rgb(var(--jy-w) / 0.05);
-        border-color: rgb(var(--jy-w) / 0.1);
-    }
-
-    .journey-selector-card::before {
-        content: "";
-        @apply absolute top-0 right-0 left-0;
-        height: 5px;
-        background: linear-gradient(
-            90deg,
-            var(--color-crush-purple),
-            var(--color-crush-pink)
-        );
-        opacity: 0;
-        transition: opacity 0.3s ease;
-    }
-
-    .journey-selector-card:hover {
-        transform: translateY(-10px);
-        border-color: var(--color-crush-purple);
-        box-shadow: 0 20px 40px rgba(155, 89, 182, 0.3);
-        color: #f8f9fa;
-    }
-
-    .journey-selector-card:hover::before {
-        opacity: 1;
-    }
-
-    .journey-selector-card.completed {
-        border-color: var(--color-journey-success);
-    }
-
-    .journey-selector-card.completed::before {
-        background: var(--color-journey-success);
-        opacity: 1;
-    }
-
-    .journey-selector-progress-meter {
-        @apply h-full w-full rounded-[10px] transition-all duration-500;
-        appearance: none;
-        background: transparent;
-    }
-
-    .journey-selector-progress-meter::-webkit-progress-bar {
-        background: transparent;
-    }
-
-    .journey-selector-progress-meter::-webkit-progress-value {
-        border-radius: 10px;
-        background: linear-gradient(
-            90deg,
-            var(--color-crush-purple),
-            var(--color-crush-pink)
-        );
-    }
-
-    .journey-selector-progress-meter.completed::-webkit-progress-value {
-        background: var(--color-journey-success);
-    }
-
-    .journey-selector-progress-meter::-moz-progress-bar {
-        border-radius: 10px;
-        background: linear-gradient(
-            90deg,
-            var(--color-crush-purple),
-            var(--color-crush-pink)
-        );
-    }
-
-    .journey-selector-progress-meter.completed::-moz-progress-bar {
-        background: var(--color-journey-success);
-    }
-
-    
-
-    /* Journey Chapter View */
-    body.journey-theme-wonderland_night {
-        background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
-    }
-
-    body.journey-theme-enchanted_garden {
-        background: linear-gradient(135deg, #2c3e50 0%, #4ca1af 50%, #c471f5 100%);
-    }
-
-    body.journey-theme-art_gallery {
-        background: linear-gradient(135deg, #1e1e1e 0%, #3a2f2f 50%, #2d2424 100%);
-    }
-
-    body.journey-theme-carnival {
-        background: linear-gradient(135deg, #4a148c 0%, #d32f2f 50%, #f57c00 100%);
-    }
-
-    body.journey-theme-starlit_sky {
-        background: linear-gradient(135deg, #000428 0%, #004e92 50%, #000428 100%);
-    }
-
-    body.journey-theme-magical_door {
-        background: linear-gradient(135deg, #ff6b6b 0%, #feca57 50%, #48dbfb 100%);
-    }
-
-    .journey-challenge-card {
-        @apply relative mb-5 rounded-2xl border-2 p-6 pt-12 transition-all duration-300;
-        border-color: rgb(var(--jy-w) / 0.2);
-        background: rgb(var(--jy-w) / 0.1);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-    }
-
-    .journey-challenge-card:hover {
-        @apply -translate-y-1;
-        box-shadow: var(--shadow-journey-glow-purple);
-    }
-
-    .journey-challenge-card.completed {
-        border-color: var(--color-journey-success);
-        background: rgba(46, 204, 113, 0.1);
-    }
-
-    
-
-    .journey-status-info {
-        color: var(--color-crush-pink);
-    }
-
-    .journey-status-success {
-        color: var(--color-crush-success);
-    }
-
-    .journey-status-error {
-        color: var(--color-crush-danger);
-    }
-
-    .journey-mc-option-card {
-        @apply flex cursor-pointer items-center gap-4 rounded-2xl border-2 p-5 transition-all duration-300;
-        border-color: rgb(var(--jy-w) / 0.2);
-        background: rgb(var(--jy-w) / 0.05);
-    }
-
-    .journey-mc-option-card:hover {
-        background: rgb(var(--jy-w) / 0.1);
-        border-color: var(--color-crush-purple);
-        transform: translateX(0.5rem);
-    }
-
-    .journey-mc-option-card.selected {
-        background: rgba(155, 89, 182, 0.3);
-        border-color: var(--color-crush-purple);
-        box-shadow: 0 5px 20px rgba(155, 89, 182, 0.3);
-    }
-
-    .journey-mc-option-card.incorrect {
-        background: rgba(231, 76, 60, 0.3);
-        border-color: #e74c3c;
-    }
-
-    .journey-mc-option-card .option-label {
-        @apply flex shrink-0 items-center justify-center rounded-full font-bold;
-        width: 2.5rem;
-        height: 2.5rem;
-        font-size: 1.25rem;
-        background: rgba(155, 89, 182, 0.3);
-    }
-
-    .journey-mc-option-card.selected .option-label {
-        background: var(--color-crush-purple);
-        color: white;
-    }
-
-    .char-counter {
-        @apply mt-2 text-right text-sm opacity-60;
-    }
-
-    .char-counter.warning {
-        color: #facc15;
-        opacity: 1;
-    }
-
-    .char-counter.error {
-        color: #f87171;
-        opacity: 1;
-    }
-
-    .timeline-item {
-        @apply relative flex cursor-move items-center gap-3 rounded-2xl border-2 transition-all duration-300 select-none;
-        padding: 1.25rem 1rem 1.25rem 70px;
-        margin: 1rem 0;
-        border-color: rgb(var(--jy-w) / 0.2);
-        background: rgb(var(--jy-w) / 0.05);
-        touch-action: pan-y;
-    }
-
-    .timeline-item:hover {
-        background: rgb(var(--jy-w) / 0.1);
-        transform: translateX(0.25rem);
-    }
-
-    .timeline-item.sortable-drag {
-        opacity: 0.5;
-        transform: scale(0.95);
-    }
-
-    .timeline-item.sortable-ghost {
-        border-color: var(--color-crush-purple);
-        opacity: 0.4;
-        background: rgba(155, 89, 182, 0.2);
-    }
-
-    .timeline-item.sortable-chosen {
-        background: rgb(var(--jy-w) / 0.15);
-    }
-
-    .timeline-number {
-        @apply absolute top-1/2 left-2.5 flex items-center justify-center rounded-full font-bold;
-        transform: translateY(-50%);
-        width: 2.5rem;
-        height: 2.5rem;
-        font-size: 1.125rem;
-        background: linear-gradient(
-            135deg,
-            var(--color-crush-purple),
-            var(--color-crush-pink)
-        );
-        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
-    }
-
-    .timeline-text {
-        @apply min-w-0 flex-1 text-lg leading-relaxed;
-    }
-
-    .timeline-move {
-        @apply flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border-2 text-xl font-bold;
-        border-color: rgb(var(--jy-w) / 0.3);
-        background: rgb(var(--jy-w) / 0.08);
-    }
-
-    .timeline-move:hover:not(:disabled) {
-        background: rgb(var(--jy-w) / 0.2);
-    }
-
-    .timeline-move:focus-visible {
-        outline: 3px solid var(--color-crush-pink);
-        outline-offset: 2px;
-    }
-
-    .timeline-move:disabled {
-        @apply cursor-not-allowed opacity-30;
-    }
-
-    .journey-wyr-option-card {
-        @apply relative flex cursor-pointer flex-col items-center overflow-hidden rounded-2xl border-[3px] text-center transition-all duration-400;
-        padding: 2.5rem;
-        border-color: rgb(var(--jy-w) / 0.2);
-        background: rgb(var(--jy-w) / 0.05);
-        min-height: 250px;
-    }
-
-    .journey-wyr-option-card::before {
-        content: "";
-        @apply absolute inset-0;
-        opacity: 0;
-        transition: opacity 0.4s ease;
-        background: linear-gradient(
-            135deg,
-            var(--color-crush-purple),
-            var(--color-crush-pink)
-        );
-    }
-
-    .journey-wyr-option-card:hover {
-        transform: translateY(-0.625rem) scale(1.05);
-        border-color: var(--color-crush-purple);
-        box-shadow: 0 20px 40px rgba(155, 89, 182, 0.4);
-    }
-
-    .journey-wyr-option-card:hover::before {
-        opacity: 0.1;
-    }
-
-    .journey-wyr-option-card.selected {
-        border-color: var(--color-crush-purple);
-        transform: scale(1.05);
-        background: rgba(155, 89, 182, 0.3);
-        box-shadow: 0 20px 50px rgba(155, 89, 182, 0.5);
-    }
-
-    .journey-wyr-option-card.selected::before {
-        opacity: 0.2;
-    }
-
-    @media (max-width: 768px) {
-
-        .timeline-item {
-            padding: 0.75rem 0.5rem 0.75rem 60px;
-        }
-
-        .timeline-text {
-            font-size: 1rem;
-        }
-    }
-
-    
-
-    
-
-    
-
-    
-
-    .letter-audio-playing {
-        @apply ring-2 ring-offset-2;
-        --tw-ring-color: rgba(155, 89, 182, 0.5);
-    }
-
-    
-
-    
-
-    .slideshow-dot-active {
-        @apply h-4 w-4;
-        background: #ffd700;
-        border-color: #ffd700;
-        box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
-    }
-
-    
-
-    
 
     /* Journey Rewards - Photo Reveal */
     .reveal-card {
@@ -1783,203 +1261,8 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
         animation: reveal-shimmer 3s infinite linear;
     }
 
-    .reveal-icon {
-        @apply mb-5 text-center;
-        font-size: 4rem;
-        animation: reveal-float 3s ease-in-out infinite;
-    }
-
-    .reveal-puzzle-piece {
-        @apply relative cursor-pointer overflow-hidden;
-        transition: all 0.3s ease;
-        box-shadow: inset 0 0 0 1px rgb(var(--jy-w) / 0.08);
-    }
-
-    .reveal-puzzle-piece.locked {
-        filter: brightness(0.3) blur(3px);
-    }
-
-    .reveal-puzzle-piece.unlocked {
-        filter: brightness(1) blur(0);
-        animation: reveal-piece-reveal 0.5s ease;
-    }
-
-    .reveal-puzzle-piece.loading {
-        cursor: wait;
-        filter: brightness(0.5) blur(2px);
-        animation: reveal-piece-pulse 1s ease-in-out infinite;
-    }
-
-    .reveal-puzzle-piece.loading .reveal-piece-number {
-        opacity: 1;
-    }
-
-    .reveal-puzzle-piece.loading .reveal-piece-number::after {
-        content: "...";
-        animation: reveal-loading-dots 1.5s steps(4, end) infinite;
-    }
-
-    @keyframes reveal-piece-pulse {
-        0%,
-        100% {
-            filter: brightness(0.4) blur(2px);
-            box-shadow: inset 0 0 0 2px rgba(155, 89, 182, 0.5);
-        }
-        50% {
-            filter: brightness(0.6) blur(1px);
-            box-shadow:
-                inset 0 0 0 2px rgba(155, 89, 182, 0.9),
-                0 0 15px rgba(155, 89, 182, 0.5);
-        }
-    }
-
-    @keyframes reveal-loading-dots {
-        0% {
-            content: "";
-        }
-        25% {
-            content: ".";
-        }
-        50% {
-            content: "..";
-        }
-        75% {
-            content: "...";
-        }
-    }
-
-    .reveal-puzzle-piece:hover:not(.unlocked):not(.loading) {
-        transform: scale(1.05);
-        box-shadow:
-            inset 0 0 0 1px var(--color-crush-purple),
-            0 0 20px rgba(155, 89, 182, 0.5);
-    }
-
-    .reveal-puzzle-piece:focus-visible:not(.unlocked):not(.loading) {
-        @apply ring-crush-purple ring-2 ring-offset-2;
-        --tw-ring-offset-color: var(--color-journey-dark);
-        transform: scale(1.05);
-        box-shadow:
-            inset 0 0 0 1px var(--color-crush-purple),
-            0 0 20px rgba(155, 89, 182, 0.5);
-    }
-
-    .reveal-piece-number {
-        @apply absolute font-bold text-white;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        font-size: 2rem;
-        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
-        opacity: 0;
-        transition: opacity 0.3s;
-    }
-
-    .reveal-puzzle-piece.locked:hover .reveal-piece-number,
-    .reveal-puzzle-piece.locked:focus-visible .reveal-piece-number {
-        opacity: 1;
-    }
-
-    .reveal-puzzle-piece.unlocked .reveal-piece-number {
-        @apply hidden;
-    }
-
-    .reveal-piece-image-0 {
-        transform: translate(0%, 0%);
-    }
-    .reveal-piece-image-1 {
-        transform: translate(-25%, 0%);
-    }
-    .reveal-piece-image-2 {
-        transform: translate(-50%, 0%);
-    }
-    .reveal-piece-image-3 {
-        transform: translate(-75%, 0%);
-    }
-    .reveal-piece-image-4 {
-        transform: translate(0%, -25%);
-    }
-    .reveal-piece-image-5 {
-        transform: translate(-25%, -25%);
-    }
-    .reveal-piece-image-6 {
-        transform: translate(-50%, -25%);
-    }
-    .reveal-piece-image-7 {
-        transform: translate(-75%, -25%);
-    }
-    .reveal-piece-image-8 {
-        transform: translate(0%, -50%);
-    }
-    .reveal-piece-image-9 {
-        transform: translate(-25%, -50%);
-    }
-    .reveal-piece-image-10 {
-        transform: translate(-50%, -50%);
-    }
-    .reveal-piece-image-11 {
-        transform: translate(-75%, -50%);
-    }
-    .reveal-piece-image-12 {
-        transform: translate(0%, -75%);
-    }
-    .reveal-piece-image-13 {
-        transform: translate(-25%, -75%);
-    }
-    .reveal-piece-image-14 {
-        transform: translate(-50%, -75%);
-    }
-    .reveal-piece-image-15 {
-        transform: translate(-75%, -75%);
-    }
-
-    .reveal-puzzle-overlay {
-        @apply pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl;
-        background: rgb(var(--jy-b) / 0.5);
-        opacity: 0;
-        transition: opacity 0.5s;
-    }
-
-    .reveal-puzzle-overlay.show {
-        opacity: 1;
-    }
-
-    .reveal-complete-message {
-        @apply rounded-2xl px-10 py-6 text-center text-2xl font-bold text-white md:text-3xl;
-        background: linear-gradient(
-            135deg,
-            var(--color-crush-purple),
-            var(--color-crush-pink)
-        );
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-        animation: reveal-bounce-in 0.8s ease;
-    }
-
-    .reveal-completion-buttons {
-        @apply hidden text-center;
-    }
-
-    .reveal-completion-buttons.show {
-        @apply block;
-    }
-
-    .journey-toast-success {
-        background: #28a745;
-    }
-
-    .journey-toast-error {
-        background: #dc3545;
-    }
-
-    .journey-toast-info {
-        background: #17a2b8;
-    }
-
     @media (prefers-reduced-motion: reduce) {
-        .reveal-card::before,
-        .reveal-icon,
-        .reveal-puzzle-piece.unlocked,
-        .reveal-complete-message {
+        .reveal-card::before {
             animation: none;
         }
     }
@@ -2108,16 +1391,6 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
    JOURNEY ANIMATIONS
    Keyframes for Journey system
    ============================================================================= */
-@keyframes journey-fade-in-up {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
 
 @keyframes journey-shimmer {
     0%,
@@ -2126,87 +1399,6 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
     }
     50% {
         background-position: 100% 50%;
-    }
-}
-
-@keyframes journey-pulse {
-    0%,
-    100% {
-        transform: scale(1);
-        box-shadow:
-            0 0 40px rgba(255, 107, 157, 0.9),
-            0 0 60px rgba(255, 107, 157, 0.5);
-    }
-    50% {
-        transform: scale(1.08);
-        box-shadow:
-            0 0 50px rgba(255, 107, 157, 1),
-            0 0 80px rgba(255, 107, 157, 0.7);
-    }
-}
-
-@keyframes journey-bounce-in {
-    0% {
-        transform: scale(0);
-    }
-    50% {
-        transform: scale(1.2);
-    }
-    100% {
-        transform: scale(1);
-    }
-}
-
-@keyframes journey-shake {
-    0%,
-    100% {
-        transform: translateX(0);
-    }
-    10%,
-    30%,
-    50%,
-    70%,
-    90% {
-        transform: translateX(-5px);
-    }
-    20%,
-    40%,
-    60%,
-    80% {
-        transform: translateX(5px);
-    }
-}
-
-@keyframes journey-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-@keyframes poem-sparkle {
-    0%,
-    100% {
-        opacity: 0;
-        transform: scale(0);
-    }
-    50% {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-@keyframes slideshow-sparkle {
-    0%,
-    100% {
-        opacity: 0;
-        transform: scale(0);
-    }
-    50% {
-        opacity: 1;
-        transform: scale(1);
     }
 }
 
@@ -2219,56 +1411,9 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
     }
 }
 
-@keyframes reveal-float {
-    0%,
-    100% {
-        transform: translateY(0);
-    }
-    50% {
-        transform: translateY(-10px);
-    }
-}
-
-@keyframes reveal-piece-reveal {
-    0% {
-        filter: brightness(0.3) blur(3px);
-        transform: scale(0.8);
-    }
-    100% {
-        filter: brightness(1) blur(0);
-        transform: scale(1);
-    }
-}
-
-@keyframes reveal-bounce-in {
-    0% {
-        transform: scale(0);
-    }
-    50% {
-        transform: scale(1.1);
-    }
-    100% {
-        transform: scale(1);
-    }
-}
-
-/* Journey Animation Utilities */
-.journey-animate-fade-in {
-    animation: journey-fade-in-up 0.6s ease-out;
-}
-
-.journey-animate-shake {
-    animation: journey-shake 0.5s ease;
-}
-
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
-    .journey-title-xl,
     .journey-progress-fill,
-    .journey-chapter-current .journey-chapter-icon,
-    .journey-completion-badge,
-    .journey-animate-fade-in,
-    .journey-animate-shake,
     [class*="journey-"] {
         animation: none !important;
         transition: none !important;
@@ -2460,7 +1605,6 @@ footer {
 }
 
 /* Remove footer margin when page ends with a full-bleed CTA section */
-.gift-landing .cta-section + footer,
 main:has(.cta-section:last-child) + footer,
 main:has(.hiw-cta-section:last-child) + footer,
 main:has([class*="cta-section"]:last-child) + footer,
@@ -3495,13 +2639,6 @@ html.dark .btn-crush-outline:hover {
     font-size: var(--text-sm);
 }
 
-.char-counter {
-    text-align: right;
-    font-size: var(--text-sm);
-    color: var(--crush-gray);
-    margin-top: var(--space-1);
-}
-
 .photo-upload-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -3528,27 +2665,6 @@ html.dark .btn-crush-outline:hover {
     border-radius: var(--radius-md);
 }
 
-.timeline-item {
-    display: flex;
-    gap: var(--space-4);
-    margin-bottom: var(--space-6);
-    position: relative;
-}
-
-.timeline-item:last-child {
-    margin-bottom: 0;
-}
-
-.timeline-item:not(:last-child)::after {
-    content: "";
-    position: absolute;
-    left: 16px;
-    top: 40px;
-    width: 2px;
-    height: calc(100% + var(--space-4));
-    background: #e9ecef;
-}
-
 .section-card {
     background: var(--crush-light);
     border-radius: var(--radius-md);
@@ -3557,14 +2673,6 @@ html.dark .btn-crush-outline:hover {
 
 html.dark .section-card {
     background: #1e293b;
-}
-
-.gift-landing .section-title {
-    color: var(--crush-dark);
-    font-weight: var(--font-semibold);
-    margin-bottom: var(--space-4);
-    padding-bottom: var(--space-2);
-    border-bottom: 2px solid #e9ecef;
 }
 
 .photo-count {
@@ -3993,13 +3101,6 @@ html.dark .section-card {
     overflow: visible;
 }
 
-.gift-landing .hero-title {
-    font-size: clamp(2.5rem, 6vw, 4.5rem);
-    font-weight: 800;
-    margin-bottom: 1.5rem;
-    line-height: 1.2;
-}
-
 .hero-subtitle {
     font-size: clamp(1.1rem, 2.5vw, 1.5rem);
     opacity: 0.95;
@@ -4216,42 +3317,6 @@ html.dark .home-page .feature-text {
     color: #94a3b8;
 }
 
-/* Gift landing page overrides */
-.gift-landing .feature-card {
-    background: var(--color-white);
-    border-radius: 25px;
-    padding: 2.5rem 2rem;
-    text-align: center;
-    transition: all 0.3s ease;
-    height: 100%;
-    border: none;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-    position: relative;
-    overflow: hidden;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-}
-
-.gift-landing .feature-card::before {
-    height: 5px;
-    opacity: 0;
-    transform: scaleX(0);
-}
-
-.gift-landing .feature-card::after {
-    display: none;
-}
-
-.gift-landing .feature-card:hover {
-    transform: translateY(-10px);
-    box-shadow: 0 20px 40px rgba(155, 89, 182, 0.2);
-}
-
-.gift-landing .feature-card:hover::before {
-    opacity: 1;
-    transform: scaleX(1);
-}
-
 .gift-landing .feature-icon {
     font-size: 4rem;
     margin-bottom: 1.5rem;
@@ -4268,17 +3333,6 @@ html.dark .home-page .feature-text {
     50% {
         transform: translateY(-10px);
     }
-}
-
-.gift-landing .feature-title {
-    font-size: clamp(1.3rem, 2.5vw, 1.5rem);
-    font-weight: 700;
-    margin-bottom: 1rem;
-    color: var(--crush-dark);
-    background: none;
-    -webkit-background-clip: unset;
-    background-clip: unset;
-    -webkit-text-fill-color: unset;
 }
 
 /* Home page - How It Works section */
@@ -5320,141 +4374,16 @@ html.dark .progress-bar-container {
     background: #1f2937;
 }
 
-.gift-animate-fade-in {
-    animation: giftFadeInUp 0.6s ease-out;
-}
-
-.gift-card {
-    @apply rounded-2xl border border-white/20 p-6 text-white md:p-8;
-    background: rgba(30, 30, 50, 0.95);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-}
-
-.gift-message-success {
-    @apply border-emerald-400/40 bg-emerald-500/20 text-emerald-50;
-}
-
-.gift-message-warning {
-    @apply border-amber-400/40 bg-amber-500/20 text-amber-50;
-}
-
-.gift-message-info {
-    @apply border-blue-400/40 bg-blue-500/20 text-blue-50;
-}
-
-.gift-input {
-    @apply focus:border-crush-purple w-full rounded-xl border border-white/30 bg-white/10 px-4 py-3 text-base text-white transition-all duration-300 placeholder:text-white/50 focus:outline-none;
-    box-shadow: 0 0 0 0 rgba(155, 89, 182, 0.3);
-}
-
-.gift-input:focus {
-    box-shadow: 0 0 0 3px rgba(155, 89, 182, 0.3);
-}
-
-.gift-input.is-invalid {
-    @apply border-red-400;
-    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25);
-}
-
-.gift-input-lg {
-    @apply px-5 py-3.5 text-lg;
-}
-
-.gift-file-input {
-    @apply absolute inset-0 h-full w-full cursor-pointer opacity-0;
-}
-
-.btn-gift {
-    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-full px-7 py-3.5 text-base font-semibold transition-all duration-300;
-}
-
-.btn-gift:focus-visible {
-    @apply ring-crush-pink ring-2 ring-offset-2;
-    ring-offset-color: #1a1a2e;
-}
-
-.btn-gift-secondary {
-    @apply border border-white/30 text-white;
-    background: rgb(var(--jy-w) / 0.1);
-}
-
-.btn-gift-secondary:hover {
-    @apply -translate-y-px;
-    background: rgb(var(--jy-w) / 0.2);
-}
-
 .form-submit {
     @apply mt-8 text-center;
-}
-
-.form-submit .btn-gift {
-    @apply min-w-[200px];
 }
 
 .step-nav {
     @apply mb-8 flex list-none flex-row flex-wrap justify-center gap-2.5 p-0 max-[360px]:flex-col max-[360px]:items-stretch;
 }
 
-.step-indicator {
-    @apply flex items-center justify-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm text-white/50 transition-all duration-300 max-[360px]:px-3 max-[360px]:text-[0.8125rem];
-}
-
-.step-indicator.active {
-    @apply text-white;
-    background: linear-gradient(
-        135deg,
-        var(--color-crush-purple),
-        var(--color-crush-pink)
-    );
-}
-
-.step-indicator.completed {
-    @apply text-emerald-300;
-    background: rgba(46, 204, 113, 0.2);
-}
-
 .step-number {
     @apply flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-xs font-bold;
-}
-
-.step-indicator.active .step-number {
-    @apply bg-white/30;
-}
-
-.step-content {
-    display: none;
-}
-
-.step-content.active {
-    display: block;
-    animation: giftFadeIn 0.3s ease;
-}
-
-.file-upload-wrapper {
-    @apply relative cursor-pointer rounded-xl border-2 border-dashed border-white/30 bg-white/5 p-5 text-center transition-all duration-300;
-}
-
-.file-upload-wrapper:hover {
-    @apply border-crush-purple/70 bg-white/10;
-}
-
-.file-upload-wrapper.has-file {
-    @apply border-emerald-400/70 bg-emerald-500/10;
-}
-
-.file-upload-preview {
-    display: none;
-    margin-top: 10px;
-}
-
-.file-upload-preview.show {
-    display: block;
-}
-
-.btn-group {
-    @apply flex flex-wrap justify-center gap-4;
 }
 
 .status-badge {
@@ -5465,39 +4394,12 @@ html.dark .progress-bar-container {
     @apply bg-amber-400/20 text-amber-300;
 }
 
-.gift-item-actions {
-    @apply mt-4;
-}
-
-.gift-item-actions .btn-gift {
-    @apply px-4 py-2 text-sm;
-}
-
 .empty-state {
     @apply py-10 text-center text-white/80;
 }
 
 .empty-state p {
     @apply mb-5 text-lg;
-}
-
-.share-btn {
-    @apply flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-medium text-white no-underline transition-all duration-300;
-}
-
-.share-btn:hover {
-    @apply -translate-y-0.5;
-    background: rgb(var(--jy-w) / 0.15);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-}
-
-.share-btn-copy:hover {
-    @apply border-crush-purple/60;
-    box-shadow: 0 0 15px rgba(155, 89, 182, 0.3);
-}
-
-.share-btn-copy[data-copied="true"] {
-    @apply border-emerald-400/70 bg-emerald-500/20;
 }
 
 .success-icon {
@@ -5513,324 +4415,8 @@ html.dark .progress-bar-container {
     @apply mt-6 flex flex-col justify-center gap-3 border-t border-white/10 pt-5 sm:flex-row;
 }
 
-.claim-form {
-    @apply mt-8 text-center;
-}
-
-.claim-form .btn-gift {
-    @apply px-8 py-4 text-lg;
-}
-
-.gift-landing .floating-hearts {
-    @apply pointer-events-none fixed inset-0 z-0 overflow-hidden;
-}
-
-.gift-landing .floating-hearts .heart {
-    @apply absolute text-2xl;
-    bottom: -50px;
-    animation: floatUp linear infinite;
-    opacity: 0.3;
-}
-
-.gift-landing .floating-hearts .heart:nth-child(1) {
-    left: 5%;
-    animation-duration: 8s;
-    animation-delay: 0s;
-}
-.gift-landing .floating-hearts .heart:nth-child(2) {
-    left: 15%;
-    animation-duration: 10s;
-    animation-delay: 1s;
-}
-.gift-landing .floating-hearts .heart:nth-child(3) {
-    left: 25%;
-    animation-duration: 7s;
-    animation-delay: 2s;
-}
-.gift-landing .floating-hearts .heart:nth-child(4) {
-    left: 35%;
-    animation-duration: 9s;
-    animation-delay: 0.5s;
-}
-.gift-landing .floating-hearts .heart:nth-child(5) {
-    left: 45%;
-    animation-duration: 11s;
-    animation-delay: 3s;
-}
-.gift-landing .floating-hearts .heart:nth-child(6) {
-    left: 55%;
-    animation-duration: 8s;
-    animation-delay: 1.5s;
-}
-.gift-landing .floating-hearts .heart:nth-child(7) {
-    left: 65%;
-    animation-duration: 10s;
-    animation-delay: 2.5s;
-}
-.gift-landing .floating-hearts .heart:nth-child(8) {
-    left: 75%;
-    animation-duration: 7s;
-    animation-delay: 0s;
-}
-.gift-landing .floating-hearts .heart:nth-child(9) {
-    left: 85%;
-    animation-duration: 9s;
-    animation-delay: 4s;
-}
-.gift-landing .floating-hearts .heart:nth-child(10) {
-    left: 95%;
-    animation-duration: 12s;
-    animation-delay: 1s;
-}
-
-.gift-landing .landing-hero {
-    @apply relative z-[1] py-5 pb-10 text-center;
-}
-
-.gift-landing .hero-icon {
-    @apply mb-5 inline-block text-6xl sm:text-7xl;
-    animation: pulseRomantic 2s ease-in-out infinite;
-}
-
-.gift-landing .hero-title {
-    @apply mb-4 text-2xl font-bold md:text-3xl;
-    background: linear-gradient(
-        135deg,
-        var(--color-crush-purple),
-        var(--color-crush-pink),
-        var(--color-crush-purple)
-    );
-    background-size: 200% 200%;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    animation: text-shimmer 4s ease infinite;
-}
-
-.gift-landing .hero-from {
-    @apply mb-2.5 text-base text-white/90 md:text-lg;
-}
-
-.gift-landing .hero-recipient {
-    @apply text-xl font-bold md:text-3xl;
-    background: linear-gradient(
-        135deg,
-        var(--color-crush-purple),
-        var(--color-crush-pink)
-    );
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-}
-
-.gift-landing .hero-cta {
-    @apply mt-6;
-}
-
-.gift-landing .hero-login {
-    @apply mt-4 text-sm text-white/80;
-}
-
-.gift-landing .hero-login a {
-    @apply text-crush-pink underline;
-}
-
-.gift-landing .message-card {
-    @apply border-l-crush-pink relative my-8 rounded-2xl border-l-4 bg-white/10 p-6;
-    backdrop-filter: blur(10px);
-}
-
-.gift-landing .message-card::before {
-    content: '"';
-    @apply absolute text-5xl opacity-20;
-    top: 10px;
-    left: 15px;
-    font-family: Georgia, serif;
-    line-height: 1;
-}
-
-.gift-landing .message-label {
-    @apply mb-2.5 text-sm text-white/70;
-}
-
-.gift-landing .message-text {
-    @apply pl-5 text-lg leading-relaxed italic;
-}
-
-.gift-landing .section-title {
-    @apply mb-6 text-center text-xl font-bold text-white/90 md:text-2xl;
-}
-
-.gift-landing .features-grid {
-    @apply grid grid-cols-1 gap-4 md:grid-cols-3;
-}
-
-.gift-landing .feature-card {
-    @apply flex items-center gap-4 rounded-2xl border border-white/10 p-4 transition-all duration-300 md:flex-col md:gap-0 md:p-5 md:text-center;
-    background: rgb(var(--jy-w) / 0.06);
-}
-
-.gift-landing .feature-card:hover {
-    @apply border-crush-purple/30 -translate-y-1;
-    background: rgb(var(--jy-w) / 0.1);
-}
-
 .gift-landing .feature-icon {
     @apply text-4xl md:mb-2.5 md:text-5xl;
-}
-
-.gift-landing .feature-title {
-    @apply mb-1 text-sm font-semibold;
-}
-
-.gift-landing .feature-desc {
-    @apply text-sm leading-snug text-white/70;
-}
-
-.gift-landing .chapter-preview-container {
-    @apply flex gap-4 overflow-x-auto px-1 py-5;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-}
-
-.gift-landing .chapter-preview-container::-webkit-scrollbar {
-    display: none;
-}
-
-.gift-landing .chapter-node {
-    @apply w-[140px] flex-shrink-0 rounded-2xl border-2 border-white/15 p-5 text-center md:w-[120px] md:p-4;
-    scroll-snap-align: center;
-    background: rgb(var(--jy-w) / 0.05);
-    opacity: 0;
-    transform: translateY(30px);
-    animation: chapterReveal 0.5s ease-out forwards;
-}
-
-.gift-landing .chapter-node:nth-child(1) {
-    animation-delay: 0.8s;
-}
-.gift-landing .chapter-node:nth-child(2) {
-    animation-delay: 1s;
-}
-.gift-landing .chapter-node:nth-child(3) {
-    animation-delay: 1.2s;
-}
-.gift-landing .chapter-node:nth-child(4) {
-    animation-delay: 1.4s;
-}
-.gift-landing .chapter-node:nth-child(5) {
-    animation-delay: 1.6s;
-}
-.gift-landing .chapter-node:nth-child(6) {
-    animation-delay: 1.8s;
-}
-
-.gift-landing .chapter-node:first-child {
-    @apply border-crush-pink;
-    box-shadow: 0 0 20px rgba(255, 107, 157, 0.3);
-}
-
-.gift-landing .chapter-node:first-child .lock-container {
-    animation: pulseRomantic 2s ease-in-out infinite;
-}
-
-.gift-landing .lock-container {
-    @apply mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full text-2xl;
-    background: rgba(155, 89, 182, 0.2);
-}
-
-.gift-landing .chapter-number {
-    @apply mb-1 text-xs tracking-wider text-white/60 uppercase;
-}
-
-.gift-landing .chapter-title {
-    @apply min-h-[2.6em] text-xs leading-tight font-semibold;
-}
-
-.gift-landing .chapter-theme {
-    @apply mt-2 text-[10px] text-white/50 italic;
-}
-
-.gift-landing .outcome-section {
-    @apply my-10 rounded-2xl border border-white/10 p-6;
-    background: rgb(var(--jy-w) / 0.06);
-}
-
-.gift-landing .outcome-grid {
-    @apply mt-5 grid grid-cols-1 gap-3 md:grid-cols-2;
-}
-
-.gift-landing .outcome-item {
-    @apply rounded-xl p-4 text-center transition-all duration-300;
-    background: rgba(155, 89, 182, 0.15);
-}
-
-.gift-landing .outcome-item:hover {
-    @apply scale-[1.02];
-    background: rgba(155, 89, 182, 0.25);
-}
-
-.gift-landing .outcome-icon {
-    @apply mb-2 text-3xl;
-}
-
-.gift-landing .outcome-text {
-    @apply text-sm leading-snug;
-}
-
-.gift-landing .cta-section {
-    @apply mt-10 border-t border-white/10 pt-8 text-center;
-}
-
-.gift-landing .cta-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full px-8 py-4 text-lg font-semibold text-white transition-all duration-300 md:px-10 md:py-5 md:text-xl;
-    background: linear-gradient(
-        135deg,
-        var(--color-crush-purple),
-        var(--color-crush-pink)
-    );
-    box-shadow: 0 5px 25px rgba(155, 89, 182, 0.4);
-}
-
-.gift-landing .cta-primary:hover {
-    @apply -translate-y-1;
-    box-shadow: 0 8px 30px rgba(155, 89, 182, 0.5);
-}
-
-.gift-landing .cta-secondary {
-    @apply mt-5 text-sm text-white/80;
-}
-
-.gift-landing .cta-secondary a {
-    @apply text-crush-pink no-underline hover:underline;
-}
-
-.gift-landing .cta-hint {
-    @apply mt-4 text-xs text-white/60;
-}
-
-@keyframes giftFadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes giftFadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
 }
 
 @keyframes bounceIn {
@@ -5847,137 +4433,11 @@ html.dark .progress-bar-container {
     }
 }
 
-@keyframes floatUp {
-    0% {
-        transform: translateY(0) rotate(0deg);
-        opacity: 0;
-    }
-    10% {
-        opacity: 0.3;
-    }
-    90% {
-        opacity: 0.3;
-    }
-    100% {
-        transform: translateY(-100vh) rotate(360deg);
-        opacity: 0;
-    }
-}
-
-@keyframes pulseRomantic {
-    0%,
-    100% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.1);
-    }
-}
-
-@keyframes text-shimmer {
-    0%,
-    100% {
-        background-position: 0% 50%;
-    }
-    50% {
-        background-position: 100% 50%;
-    }
-}
-
-@keyframes chapterReveal {
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@media (max-width: 600px) {
-    .form-submit .btn-gift {
-        @apply w-full min-w-0;
-    }
-
-    .btn-group {
-        @apply flex-col;
-    }
-
-    .btn-group .btn-gift,
-    .btn-group .btn-gift-secondary {
-        @apply w-full;
-    }
-}
-
 @media (prefers-reduced-motion: reduce) {
-    .gift-animate-fade-in,
-    .gift-card,
-    .btn-gift,
-    .success-icon span,
-    .gift-landing .floating-hearts,
-    .gift-landing .hero-icon,
-    .gift-landing .chapter-node,
-    .gift-landing .hero-title {
+    .success-icon span {
         animation: none !important;
         transition: none !important;
     }
-}
-
-.certificate-confetti {
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-}
-
-.nav-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 12px 30px;
-    border-radius: 25px;
-    background: rgba(255, 255, 255, 0.2);
-    color: #ffffff;
-    text-decoration: none;
-    font-weight: 700;
-    transition: all 0.3s ease;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-.nav-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
-    color: #ffffff;
-    text-decoration: none;
-}
-
-.certificate {
-    background: linear-gradient(
-        135deg,
-        rgba(255, 255, 255, 0.95),
-        rgba(255, 255, 255, 0.98)
-    );
-    color: #2c3e50;
-    border-radius: 20px;
-    padding: 60px;
-    position: relative;
-    z-index: 1;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-    border: 15px solid transparent;
-    border-image: linear-gradient(135deg, #ffd700, #ffa500, #ff6b9d, #9b59b6) 1;
-}
-
-.certificate .certificate-title {
-    font-size: 3rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, #ffd700, #ffa500);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 10px;
-    letter-spacing: 2px;
-}
-
-.certificate-subtitle {
-    font-size: 1.2rem;
-    color: #7f8c8d;
-    font-style: italic;
 }
 
 .stats-section {
@@ -5999,32 +4459,8 @@ html.dark .progress-bar-container {
     margin-top: 5px;
 }
 
-.signature-label {
-    font-size: 0.9rem;
-    color: #7f8c8d;
-    margin-top: 5px;
-}
-
-/* Certificate dark mode overrides */
-html.dark .certificate {
-    background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
-    color: #f1f5f9;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
-}
-
-html.dark .certificate-subtitle,
-html.dark .stat-label,
-html.dark .signature-label {
+html.dark .stat-label {
     color: #94a3b8;
-}
-
-html.dark .nav-btn {
-    background: rgba(30, 41, 59, 0.6);
-    border-color: rgba(139, 92, 246, 0.3);
-}
-
-html.dark .nav-btn:hover {
-    background: rgba(30, 41, 59, 0.8);
 }
 
 .action-buttons {
@@ -6067,24 +4503,8 @@ html.dark .nav-btn:hover {
         background: #ffffff;
     }
 
-    .nav-btn,
-    .action-buttons,
-    .certificate-confetti {
+    .action-buttons {
         display: none;
-    }
-
-    .certificate {
-        box-shadow: none;
-        border-image: none;
-        border-color: #ffd700;
-        background: #ffffff;
-    }
-}
-
-@media (max-width: 768px) {
-    .certificate {
-        padding: 30px 20px;
-        border-width: 8px;
     }
 }
 
