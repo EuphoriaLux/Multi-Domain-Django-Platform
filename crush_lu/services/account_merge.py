@@ -137,6 +137,21 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
             "payment recovery case. Resolve the case first."
         )
 
+    # #925: memberships and payments stay on the duplicate, so a capture that
+    # lands after this merge would be filed under the deactivated account and
+    # never reach the keeper. Merge only once no Premium checkout of the
+    # duplicate can still take money (cancelling the request closes them; the
+    # hourly tick closes those left on memberships no longer up for payment).
+    if PaymentTransaction.objects.filter(
+        premium_membership__user=duplicate_user,
+        status=PaymentTransaction.Status.PENDING,
+    ).exists():
+        raise ValueError(
+            "Cannot merge these accounts while the duplicate has a Premium "
+            "checkout that could still be paid. Cancel its Premium request or "
+            "wait for the checkout to be closed first."
+        )
+
     if EventCheckoutCreationClaim.objects.filter(
         registration_id__in=locked_registration_ids
     ).exists():

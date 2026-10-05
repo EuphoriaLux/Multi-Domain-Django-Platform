@@ -708,6 +708,70 @@ class CaseLifecycleTests(_Base):
         self.member.refresh_from_db()
         self.assertTrue(self.member.is_active)
 
+    def test_merge_refuses_a_duplicate_with_a_payable_checkout(self):
+        from crush_lu.services.account_merge import merge_accounts
+
+        self._tx("REC-MERGE-OPEN")
+        keeper = User.objects.create_user(
+            username="rec-keeper2@example.invalid",
+            email="rec-keeper2@example.invalid",
+            password="pass12345",
+        )
+        with self.assertRaisesMessage(ValueError, "could still be paid"):
+            merge_accounts(keeper, self.member)
+        self.member.refresh_from_db()
+        self.assertTrue(self.member.is_active)
+
+    def test_backfill_opens_cases_for_old_unapplied_captures(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        # Never applied: the membership confirmed no payment.
+        unapplied = self._tx("REC-OLD-UNAPPLIED", status=PaymentTransaction.Status.PAID)
+        # Applied first capture plus a duplicate on another membership.
+        other = PremiumMembership.objects.create(
+            user=self.member,
+            coach=self.coach,
+            status="active",
+            payment_confirmed=True,
+        )
+        applied, duplicate = (
+            PaymentTransaction.objects.create(
+                transaction_reference=ref,
+                provider=PaymentTransaction.Provider.SUMUP,
+                sumup_checkout_id=f"CHK_{ref}",
+                amount=Decimal("10.00"),
+                currency="EUR",
+                status=PaymentTransaction.Status.PAID,
+                purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+                user=self.member,
+                premium_membership=other,
+            )
+            for ref in ("REC-OLD-APPLIED", "REC-OLD-DUP")
+        )
+
+        out = StringIO()
+        call_command("backfill_premium_recovery_cases", stdout=out)
+        self.assertIn("Would open 2", out.getvalue())
+        self.assertFalse(PremiumPaymentRecoveryCase.objects.exists())
+
+        for _ in range(2):  # idempotent
+            call_command("backfill_premium_recovery_cases", "--apply", stdout=out)
+        cases = dict(
+            PremiumPaymentRecoveryCase.objects.values_list("payment_id", "reason")
+        )
+        self.assertEqual(
+            cases,
+            {
+                unapplied.pk: Reason.COACH_UNAVAILABLE,
+                duplicate.pk: Reason.DUPLICATE_CAPTURE,
+            },
+        )
+        self.assertNotIn(applied.pk, cases)
+        # No mail from the command: the hourly retry sends the notices.
+        self.assertEqual(mail.outbox, [])
+
     @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
     def test_duplicate_capture_after_beta_revocation_is_duplicate(self):
         self.membership.status = "active"
@@ -1191,6 +1255,37 @@ class LateCaptureTests(_Base):
         left.refresh_from_db()
         self.assertEqual(left.status, PaymentTransaction.Status.CANCELLED)
         client.refund.assert_not_called()
+
+    def test_tick_closes_a_stale_checkout_on_a_cancelled_membership(self):
+        from datetime import timedelta
+        from unittest.mock import MagicMock
+
+        from django.utils import timezone
+
+        from crush_lu.services.premium_recovery import retry_unsent_notifications
+
+        self.membership.status = "cancelled"
+        self.membership.save(update_fields=["status"])
+        stale = self._tx("REC-STALE-CANCELLED")
+        PaymentTransaction.objects.filter(pk=stale.pk).update(
+            created_at=timezone.now() - timedelta(hours=2)
+        )
+        client = MagicMock()
+        client.deactivate_checkout.return_value = True
+        with patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            retry_unsent_notifications(100)
+        stale.refresh_from_db()
+        self.assertEqual(stale.status, PaymentTransaction.Status.CANCELLED)
+        client.refund.assert_not_called()
+
+    def test_tick_closes_checkouts_before_retrying_notices(self):
+        from crush_lu.services import premium_recovery
+
+        src = inspect.getsource(premium_recovery.retry_unsent_notifications)
+        self.assertLess(
+            src.index("_close_checkouts_beside_a_capture("),
+            src.index("for pk in case_ids"),
+        )
 
     def test_tick_closes_a_checkout_left_open_beside_an_activation(self):
         from datetime import timedelta

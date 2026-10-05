@@ -339,6 +339,9 @@ def retry_unsent_notifications(budget_seconds, limit=5, settle_minutes=10):
     token = _deadline.set(time.monotonic() + budget_seconds)
     sent = 0
     try:
+        # Money first: a notice that keeps timing out must not starve the
+        # close of a checkout that could still take a payment.
+        _close_checkouts_beside_a_capture(limit, settle_minutes)
         for pk in case_ids:
             # Nothing per case is cheaper than a send.
             if not _fits(SEND_SECONDS):
@@ -365,7 +368,6 @@ def retry_unsent_notifications(budget_seconds, limit=5, settle_minutes=10):
                     _notify_member_safely(case)
                 if case.staff_alerted_at is None:
                     _alert_staff_safely(case)
-        _close_checkouts_beside_a_capture(limit, settle_minutes)
     finally:
         _deadline.reset(token)
     return sent
@@ -390,15 +392,17 @@ def _close_checkouts_beside_a_capture(limit, settle_minutes):
     cutoff = timezone.now() - timedelta(minutes=settle_minutes)
     memberships = list(
         PremiumMembership.objects.filter(
-            # A recorded capture, or an owner a merge deactivated: a checkout
-            # a refused publication could not close stays payable otherwise.
+            # A recorded capture, an owner a merge deactivated, or a
+            # membership no longer up for payment: a checkout nobody will
+            # close by hand stays payable otherwise.
             Q(Exists(payments(PaymentTransaction.Status.PAID)))
-            | Q(user__is_active=False),
+            | Q(user__is_active=False)
+            | ~Q(status="pending"),
             Exists(payments(PaymentTransaction.Status.PENDING, created_at__lte=cutoff)),
         ).order_by("?")[:limit]
     )
     close_open_checkouts_safely(
-        memberships, "memberships with a capture or an inactive owner"
+        memberships, "memberships whose checkouts must not stay payable"
     )
 
 
