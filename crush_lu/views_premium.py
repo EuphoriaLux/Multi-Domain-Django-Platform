@@ -80,15 +80,18 @@ def pending_premium_state(user):
 def open_recovery_case(user):
     """The member's OPEN recovery case (#925): pages show it, not a pay CTA.
 
-    Only for a current (pending/active) or deleted membership: a case on an
-    old cancelled request must not take over a new one."""
+    Only for a current (pending/active) membership, or a deleted one while the
+    member has no current request: a case on an old request must not take
+    over a new one."""
     from .models import PremiumPaymentRecoveryCase
 
     if not user.is_authenticated:
         return None
-    current = Q(premium_membership__isnull=True) | Q(
-        premium_membership__status__in=("pending", "active")
-    )
+    current = Q(premium_membership__status__in=("pending", "active"))
+    if not PremiumMembership.objects.filter(
+        user=user, status__in=("pending", "active")
+    ).exists():
+        current |= Q(premium_membership__isnull=True)
     return (
         PremiumPaymentRecoveryCase.objects.filter(
             current, user=user, status=PremiumPaymentRecoveryCase.Status.OPEN
@@ -259,6 +262,16 @@ def premium_cancel_membership(request):
         .select_related("coach__user")
         .first()
     )
+    from .views_payments import _premium_payment_captured
+
+    if membership and _premium_payment_captured(membership):
+        # #925: cancelling would hide the recovery case and reopen checkout
+        # for a new request, i.e. a second charge. Staff resolve it instead.
+        messages.info(
+            request,
+            _("We have already received a payment for your Premium request."),
+        )
+        return redirect("crush_lu:premium_choose_coach")
     if membership and membership.cancel(by_user=request.user):
         logger.info(
             "Premium membership %s cancelled by user %s",

@@ -113,6 +113,18 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
         .order_by("pk")
     )
 
+    from crush_lu.models import PremiumPaymentRecoveryCase
+
+    # #925: the case stays with its payment and membership, which do not move.
+    # Merging would hide an unresolved captured payment from the kept account.
+    if PremiumPaymentRecoveryCase.objects.filter(
+        user=duplicate_user, status=PremiumPaymentRecoveryCase.Status.OPEN
+    ).exists():
+        raise ValueError(
+            "Cannot merge these accounts while the duplicate has an open Premium "
+            "payment recovery case. Resolve the case first."
+        )
+
     if EventCheckoutCreationClaim.objects.filter(
         registration_id__in=locked_registration_ids
     ).exists():

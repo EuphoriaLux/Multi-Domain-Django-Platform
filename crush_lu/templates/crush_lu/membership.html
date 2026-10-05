@@ -69,6 +69,7 @@
                 </ul>
                 {% if is_premium %}
                 <span class="inline-flex items-center justify-center w-full py-2.5 rounded-xl bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-sm font-semibold">✓ {% trans "Your plan" %}</span>
+                {% if premium_recovery_case %}<div class="mt-3">{% include "crush_lu/partials/_premium_recovery_notice.html" %}</div>{% endif %}
                 {% elif premium_recovery_case %}
                 {# #925: payment captured, not applied -- D1 notice, never a pay CTA #}
                 {% include "crush_lu/partials/_premium_recovery_notice.html" %}

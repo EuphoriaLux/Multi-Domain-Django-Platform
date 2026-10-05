@@ -559,8 +559,23 @@ class CaseLifecycleTests(_Base):
 
     def test_case_with_deleted_membership_still_shows(self):
         self._case("REC-NULL", None, Reason.OTHER)
+        self.membership.delete()
         html = self._member_client().get("/en/dashboard/").content.decode()
         self.assertIn('data-testid="premium-recovery-notice"', html)
+
+    def test_case_with_deleted_membership_does_not_hide_a_new_request(self):
+        self._case("REC-NULL-OLD", None, Reason.OTHER)
+        self.membership.delete()
+        PremiumMembership.objects.create(
+            user=self.member, coach=self.coach, status="pending"
+        )
+        client = self._member_client()
+        shown = {
+            path: 'data-testid="premium-recovery-notice"'
+            in client.get(path).content.decode()
+            for path in ("/en/dashboard/", "/en/membership/")
+        }
+        self.assertEqual(shown, {"/en/dashboard/": False, "/en/membership/": False})
 
     def test_active_member_with_duplicate_case_keeps_your_plan(self):
         self.membership.status = "active"
@@ -569,6 +584,50 @@ class CaseLifecycleTests(_Base):
         html = self._member_client().get("/en/membership/").content.decode()
         card = re.search(r'id="premium-plan".*?</section>', html, re.S).group(0)
         self.assertIn("Your plan", card)
+        self.assertIn('data-testid="premium-recovery-notice"', card)
+        self.assertIn("REC-PLAN", card)
+
+    def test_unlinked_capture_opens_a_case_for_the_payer(self):
+        tx = self._tx("REC-UNLINKED")
+        self.membership.delete()
+        tx.refresh_from_db()
+        self.assertIsNone(tx.premium_membership_id)
+        with self.assertLogs("crush_lu.views_payments", level="CRITICAL"):
+            self._apply(tx)
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+        case = PremiumPaymentRecoveryCase.objects.get(payment=tx)
+        self.assertEqual(
+            (case.reason, case.user_id, case.premium_membership_id),
+            (Reason.OTHER, self.member.pk, None),
+        )
+        self.assertEqual(len(self._alerts()), 1)
+        self.assertEqual(len(self._member_mails()), 1)
+
+    def test_captured_request_cannot_be_cancelled(self):
+        self._case("REC-NOCANCEL", self.membership)
+        client = self._member_client()
+        html = client.get("/en/premium/coaches/").content.decode()
+        self.assertNotIn("/premium/cancel/", html)
+        self.assertNotIn("data-membership-id=", html)
+        self.assertIn("We have already received a payment", html)
+        response = client.post("/en/premium/cancel/")
+        self.assertEqual(response.status_code, 302)
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "pending")
+
+    def test_merge_refuses_a_duplicate_with_an_open_case(self):
+        from crush_lu.services.account_merge import merge_accounts
+
+        self._case("REC-MERGE", self.membership)
+        keeper = User.objects.create_user(
+            username="rec-keeper@example.invalid",
+            email="rec-keeper@example.invalid",
+            password="pass12345",
+        )
+        with self.assertRaisesMessage(ValueError, "open Premium payment recovery"):
+            merge_accounts(keeper, self.member)
+        self.member.refresh_from_db()
+        self.assertTrue(self.member.is_active)
 
     @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
     def test_duplicate_capture_after_beta_revocation_is_duplicate(self):

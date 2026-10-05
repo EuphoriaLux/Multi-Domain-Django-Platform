@@ -1640,6 +1640,25 @@ def _apply_paid_checkout(tx_obj, data):
             return
 
         if (
+            locked.purpose == PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP
+            and not locked.premium_membership_id
+        ):
+            # #925: the membership was deleted while its widget stayed payable
+            # (SET_NULL). Keep PAID and hand the money to a human, like the
+            # unlinked event capture above.
+            logger.critical(
+                "SumUp Premium payment %s completed without a membership — "
+                "payment recorded, NOT applied, recovery case opened.",
+                locked.transaction_reference,
+            )
+            _queue_premium_recovery_case(
+                locked,
+                PremiumPaymentRecoveryCase.Reason.OTHER,
+                "Captured after its Premium membership was deleted.",
+            )
+            return
+
+        if (
             locked.purpose == PaymentTransaction.Purpose.EVENT_REGISTRATION
             and locked.event_registration_id
         ):

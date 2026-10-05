@@ -35,11 +35,15 @@ def open_case_safely(payment_id, reason, detail=""):
         payment = PaymentTransaction.objects.select_related(
             "premium_membership__user"
         ).get(pk=payment_id)
+        membership = payment.premium_membership
+        # Unlinked capture (membership deleted while payable): payment.user is
+        # the only member evidence left, as in email_helpers._receipt_recipient.
+        owner = membership.user if membership else payment.user
         case, created = PremiumPaymentRecoveryCase.objects.get_or_create(
             payment=payment,
             defaults={
-                "user": payment.premium_membership.user,
-                "premium_membership": payment.premium_membership,
+                "user": owner,
+                "premium_membership": membership,
                 "reason": reason,
                 "detail": detail,
             },
