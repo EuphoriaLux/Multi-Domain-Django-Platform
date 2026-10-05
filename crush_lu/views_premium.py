@@ -92,6 +92,7 @@ def _cancel_premium_request(membership, by_user):
     from .models import PaymentTransaction
     from .views_payments import (
         SumUpClient,
+        _apply_paid_checkout,
         _lock_premium_checkout_state,
         _premium_payment_captured,
         _settle_pending_premium_checkouts,
@@ -105,11 +106,14 @@ def _cancel_premium_request(membership, by_user):
         premium_membership=membership, status=PaymentTransaction.Status.PENDING
     ).exists():
         # captured=True closes every PENDING checkout, newest included. One
-        # SumUp already captured is not closed: it stays PENDING ("open")
-        # until its webhook records PAID ("captured" above).
+        # SumUp already captured is recorded now from the read that found it
+        # (the sweep reads PAID rows only), before the locks below.
+        paid_payloads = {}
         state, _reuse, retired_ids, _known = _settle_pending_premium_checkouts(
-            SumUpClient(), membership, captured=True
+            SumUpClient(), membership, captured=True, paid_payloads=paid_payloads
         )
+        for row in PaymentTransaction.objects.filter(pk__in=paid_payloads):
+            _apply_paid_checkout(row, paid_payloads[row.pk])
     with transaction.atomic():
         locked, still_pending = _lock_premium_checkout_state(membership.pk, retired_ids)
         if captured or (locked is not None and _premium_payment_captured(locked)):

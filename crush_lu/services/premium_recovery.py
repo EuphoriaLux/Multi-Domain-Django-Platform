@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 # Siblings re-read per membership and run; the rest wait for the next hourly
 # tick.
 SIBLING_SYNC_LIMIT = 2
+# Memberships closed inside a member's request; the rest wait for the tick.
+REQUEST_CLOSE_LIMIT = 1
 # Worst case of one Graph send (GRAPH_SEND_TIMEOUT_SECONDS in api_admin_sumup).
 SEND_SECONDS = 30
 
@@ -156,17 +158,29 @@ def _close_sibling_checkouts_safely(case):
     closing its own membership's."""
     from crush_lu.models import PaymentTransaction, PremiumMembership
 
+    memberships = [
+        m
+        for m in [case.premium_membership]
+        if m is not None
+        and PaymentTransaction.objects.filter(
+            premium_membership=m, status=PaymentTransaction.Status.PENDING
+        ).exists()
+    ]
     if case.status == case.Status.OPEN and case.user_id:
-        memberships = list(
+        memberships += list(
             PremiumMembership.objects.filter(
                 user_id=case.user_id,
                 payment_transactions__status=PaymentTransaction.Status.PENDING,
             )
+            .exclude(pk=case.premium_membership_id)
             .distinct()
             .order_by("pk")
         )
-    else:
-        memberships = [case.premium_membership] if case.premium_membership else []
+    if _deadline.get() is None:
+        # A member's request (return page, webhook): the case's own
+        # membership first and at most REQUEST_CLOSE_LIMIT in all; the hourly
+        # retry closes the rest, as the open case still has open checkouts.
+        memberships = memberships[:REQUEST_CLOSE_LIMIT]
     close_open_checkouts_safely(memberships, f"recovery case {case.pk}")
 
 
@@ -305,9 +319,36 @@ def retry_unsent_notifications(budget_seconds, limit=5, settle_minutes=10):
                     _notify_member_safely(case)
                 if case.staff_alerted_at is None:
                     _alert_staff_safely(case)
+        _close_checkouts_beside_a_capture(limit, settle_minutes)
     finally:
         _deadline.reset(token)
     return sent
+
+
+def _close_checkouts_beside_a_capture(limit, settle_minutes):
+    """Retry the close a successful activation queued on commit: a membership
+    with a PAID payment must have no PENDING checkout left, case or not.
+    The PENDING row itself is the durable to-do; overlapping ticks only
+    repeat an idempotent deactivate."""
+    from datetime import timedelta
+
+    from django.db.models import Exists, OuterRef
+
+    from crush_lu.models import PaymentTransaction, PremiumMembership
+
+    def payments(status, **extra):
+        return PaymentTransaction.objects.filter(
+            premium_membership_id=OuterRef("pk"), status=status, **extra
+        )
+
+    cutoff = timezone.now() - timedelta(minutes=settle_minutes)
+    memberships = list(
+        PremiumMembership.objects.filter(
+            Exists(payments(PaymentTransaction.Status.PAID)),
+            Exists(payments(PaymentTransaction.Status.PENDING, created_at__lte=cutoff)),
+        ).order_by("?")[:limit]
+    )
+    close_open_checkouts_safely(memberships, "memberships with a recorded capture")
 
 
 def _notify_member_safely(case):

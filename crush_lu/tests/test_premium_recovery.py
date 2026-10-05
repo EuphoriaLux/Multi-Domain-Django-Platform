@@ -779,14 +779,17 @@ class LateCaptureTests(_Base):
         client.deactivate_checkout.return_value = False
         client.get_checkout.return_value = {"status": "PAID"}
         with patch("crush_lu.views_payments.SumUpClient", return_value=client):
-            self._client().post("/en/premium/cancel/")
+            with self.captureOnCommitCallbacks(execute=True):
+                self._client().post("/en/premium/cancel/")
         tx.refresh_from_db()
         self.membership.refresh_from_db()
-        # Webhook not in yet: the request stays pending, its row unclosed.
+        # Webhook not in yet: the capture is recorded from the read that found
+        # it (the coach had room, so it is applied), never cancelled.
         self.assertEqual(
             (tx.status, self.membership.status),
-            (PaymentTransaction.Status.PENDING, "pending"),
+            (PaymentTransaction.Status.PAID, "active"),
         )
+        client.refund.assert_not_called()
 
     def test_captured_request_still_closes_a_sibling_checkout(self):
         from unittest.mock import MagicMock
@@ -995,6 +998,101 @@ class LateCaptureTests(_Base):
         client.deactivate_checkout.assert_called_once_with("CHK_REC-X-OTHER")
         other.refresh_from_db()
         self.assertEqual(other.status, PaymentTransaction.Status.CANCELLED)
+        client.refund.assert_not_called()
+
+    def _pending_on(self, membership, ref):
+        return PaymentTransaction.objects.create(
+            transaction_reference=ref,
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id=f"CHK_{ref}",
+            amount=Decimal("10.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+            user=self.member,
+            premium_membership=membership,
+        )
+
+    def test_member_request_closes_one_membership_and_the_tick_the_rest(self):
+        from datetime import timedelta
+        from unittest.mock import MagicMock
+
+        from django.utils import timezone
+
+        from crush_lu.services.premium_recovery import (
+            notify_safely,
+            retry_unsent_notifications,
+        )
+
+        stamp = timezone.now()
+        case = PremiumPaymentRecoveryCase.objects.create(
+            payment=self._tx("REC-LIM-PAID", status=PaymentTransaction.Status.PAID),
+            user=self.member,
+            premium_membership=self.membership,
+            reason=Reason.COACH_UNAVAILABLE,
+            member_notified_at=stamp,
+            staff_alerted_at=stamp,
+        )
+        first = self._pending_on(self._second_membership(), "REC-LIM-A")
+        second = self._pending_on(self._second_membership(), "REC-LIM-B")
+        client = MagicMock()
+        client.deactivate_checkout.return_value = True
+        with patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            notify_safely(case.pk)
+            self.assertEqual(client.deactivate_checkout.call_count, 1)
+            PremiumPaymentRecoveryCase.objects.filter(pk=case.pk).update(
+                created_at=stamp - timedelta(hours=2)
+            )
+            retry_unsent_notifications(100)
+        for row in (first, second):
+            row.refresh_from_db()
+            self.assertEqual(row.status, PaymentTransaction.Status.CANCELLED)
+
+    def test_tick_closes_a_checkout_left_open_beside_an_activation(self):
+        from datetime import timedelta
+        from unittest.mock import MagicMock
+
+        from django.utils import timezone
+
+        from crush_lu.services.premium_recovery import retry_unsent_notifications
+
+        self.membership.status = "active"
+        self.membership.save(update_fields=["status"])
+        self._tx("REC-ACT-OK", status=PaymentTransaction.Status.PAID)
+        sibling = self._tx("REC-ACT-LEFT")
+        PaymentTransaction.objects.filter(pk=sibling.pk).update(
+            created_at=timezone.now() - timedelta(hours=2)
+        )
+        client = MagicMock()
+        client.deactivate_checkout.return_value = True
+        with patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            retry_unsent_notifications(100)
+        client.deactivate_checkout.assert_called_once_with("CHK_REC-ACT-LEFT")
+        sibling.refresh_from_db()
+        self.assertEqual(sibling.status, PaymentTransaction.Status.CANCELLED)
+        client.refund.assert_not_called()
+
+    def test_cancel_records_a_capture_it_discovers(self):
+        from unittest.mock import MagicMock
+
+        from crush_lu.views_premium import _cancel_premium_request
+
+        tx = self._tx("REC-CANCEL-CAP")
+        client = MagicMock()
+        client.deactivate_checkout.return_value = False
+        client.get_checkout.return_value = {
+            "id": tx.sumup_checkout_id,
+            "status": "PAID",
+            "amount": 10.0,
+            "currency": "EUR",
+        }
+        with patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            with self.captureOnCommitCallbacks(execute=True):
+                outcome = _cancel_premium_request(self.membership, self.member)
+        self.assertNotEqual(outcome, "cancelled")
+        tx.refresh_from_db()
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(client.get_checkout.call_count, 1)
         client.refund.assert_not_called()
 
     def test_activation_closes_the_membership_s_other_checkouts(self):
