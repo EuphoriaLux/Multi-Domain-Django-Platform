@@ -1059,9 +1059,13 @@ def _made_contact_choice(connection, side):
 
 
 def _predates_choice(connection, migration_name):
-    """True when the row was shared before that contact choice existed (#1146)."""
+    """True only when the row is known to have been shared before that
+    contact choice existed (#1146). ``shared_at`` is the only record of the
+    share time: the earlier consent path set just ``status``, and
+    requested/responded/coach-approved times only bound the share from below,
+    so a row without ``shared_at`` is never claimed to predate the choice."""
     since = _opt_in_available_since(migration_name)
-    shared_at = connection.shared_at or connection.requested_at
+    shared_at = connection.shared_at
     return since is not None and shared_at is not None and shared_at < since
 
 

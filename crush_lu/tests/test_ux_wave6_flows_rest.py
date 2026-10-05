@@ -185,6 +185,19 @@ class ContactChoicesTests(TestCase):
         fr = self._client(self.me).get(self._url("fr"), HTTP_HOST=HOST)
         self.assertContains(fr, "pas encore partagé son e-mail.")
 
+    def test_unknown_share_time_is_not_called_pre_opt_in(self):
+        # Requested before both opt-in migrations, shared afterwards by the
+        # earlier consent path: status only, no shared_at, no choice logged.
+        # The share time is unknown, so the row must not claim to predate.
+        self._share()
+        EventConnection.objects.filter(pk=self.conn.pk).update(
+            requested_at=PRE_OPT_IN, shared_at=None
+        )
+        en = self._client(self.me).get(self._url(), HTTP_HOST=HOST)
+        self.assertNotContains(en, PRE_OPT_IN_COPY)
+        self.assertContains(en, "hasn't shared their email yet.")
+        self.assertContains(en, "hasn't shared their phone number yet.")
+
     def test_choice_copy_once_the_other_member_has_saved(self):
         self._share()
         self._choose(self.other)  # saved with nothing ticked
