@@ -9068,7 +9068,7 @@ msgstr ""
 
 #: templates/account/password_reset.html:40
 msgid "Email address"
-msgstr "E-Mail-Adresse *"
+msgstr "E-Mail-Adresse"
 
 #: templates/account/password_reset.html:55
 msgid "Send reset link"
@@ -9089,7 +9089,7 @@ msgstr "Prüfe deine E-Mails – Crush.lu"
 
 #: templates/account/password_reset_done.html:13
 msgid "Check your email"
-msgstr "Auf Updates prüfen"
+msgstr "Prüfe deine E-Mails"
 
 #: templates/account/password_reset_done.html:23
 msgid "Password reset email sent"
@@ -25955,7 +25955,7 @@ msgstr ""
 
 #: templates/crush_lu/event_detail.html:318
 msgid "Choose from Speed Dating, 90-Second Presentations, or Mystery Event"
-msgstr "Choose from Speed Dating, 90-Second Presentations, or Mystery Event"
+msgstr "Wähle zwischen Speed Dating, 90-Sekunden-Präsentationen oder einem Mystery Event"
 
 #: templates/crush_lu/event_detail.html:319
 msgid "Voting lasts 30 minutes - everyone participates!"
@@ -28101,7 +28101,7 @@ msgstr "Was als nächstes zu tun ist:"
 
 #: templates/crush_lu/invitation_pending_approval.html:182
 msgid "Check Your Email:"
-msgstr "Auf Updates prüfen"
+msgstr "Prüfe deine E-Mails:"
 
 #: templates/crush_lu/invitation_pending_approval.html:183
 #, python-format
@@ -37744,11 +37744,16 @@ msgid ""
 "This event has already taken place. If something is wrong, contact your "
 "coach."
 msgstr ""
+"Das Event hat bereits stattgefunden. Wenn etwas nicht stimmt, wende dich an "
+"deinen Coach."
 
 #: views_events.py:1196
 msgid ""
-"This event has already started. If you can't make it, contact your coach."
+"This event has already started, so it can't be cancelled online. If you "
+"can't make it, email support@crush.lu."
 msgstr ""
+"Das Event hat schon begonnen und kann online nicht mehr storniert werden. "
+"Wenn du nicht kommen kannst, schreib an support@crush.lu."
 
 #: views_events.py:1205
 msgid "Your registration has been cancelled."
@@ -38666,6 +38671,18 @@ msgid "Your Spot Is Reserved!"
 msgstr "Dein Platz ist reserviert!"
 
 #: crush_lu/templates/crush_lu/_event_registration_success.html
+msgid "Application Received!"
+msgstr "Bewerbung eingegangen!"
+
+#: crush_lu/templates/crush_lu/_event_registration_success.html
+msgid ""
+"The organiser team composes the group before the event. We'll let you know "
+"whether you have a place — you don't need to pay anything yet."
+msgstr ""
+"Das Organisationsteam stellt die Gruppe vor dem Event zusammen. Wir sagen "
+"dir Bescheid, ob du einen Platz hast – du musst noch nichts bezahlen."
+
+#: crush_lu/templates/crush_lu/_event_registration_success.html
 msgid ""
 "Complete your payment to confirm your registration. We've emailed you the "
 "details."
@@ -39166,6 +39183,15 @@ msgstr "Es tut uns leid, aber <strong>%(title)s</strong> findet nicht statt."
 
 msgid "We've added %(amount)s EUR in Crush Credit to your account."
 msgstr "Wir haben deinem Konto %(amount)s EUR Crush Credit gutgeschrieben."
+
+#: views_events.py
+#, python-format
+msgid ""
+"We've added €%(amount).2f in Crush Credit to your account — it's ready to "
+"use on any Crush.lu event."
+msgstr ""
+"Wir haben deinem Konto %(amount).2f EUR als Crush Credit gutgeschrieben – du "
+"kannst es sofort für jedes Crush.lu-Event einsetzen."
 
 msgid "%(amount)s EUR, valid until %(expiry)s"
 msgstr "%(amount)s EUR, gültig bis %(expiry)s"
@@ -40343,6 +40369,18 @@ msgstr "Für diese Veranstaltung bewerben"
 #: templates/crush_lu/event_detail.html
 msgid "Flexible groups"
 msgstr "Flexible Gruppen"
+
+#: templates/crush_lu/event_detail.html
+msgid "Your application is in!"
+msgstr "Deine Bewerbung ist eingegangen!"
+
+#: views_events.py
+msgid ""
+"Your application has been received. The organiser team composes the group "
+"before the event and will let you know whether you have a place."
+msgstr ""
+"Deine Bewerbung ist eingegangen. Das Organisationsteam stellt die Gruppe vor "
+"dem Event zusammen und sagt dir Bescheid, ob du einen Platz hast."
 
 #: templates/crush_lu/event_detail.html
 msgid "The organiser reviews mutual preferences and will invite you to pay only if you are selected for a viable provisional group. Selection is not guaranteed."
@@ -42968,6 +43006,12 @@ msgid "An error occurred launching payment. Please try again."
 msgstr ""
 "Beim Starten der Zahlung ist ein Fehler aufgetreten. Bitte versuche es "
 "erneut."
+
+#: views_payments.py
+msgid "Unable to initiate payment at the moment. Please try again later."
+msgstr ""
+"Die Zahlung konnte gerade nicht gestartet werden. Bitte versuche es später "
+"noch einmal."
 
 #: crush_lu/templates/crush_lu/event_detail.html
 #: crush_lu/templates/crush_lu/_event_registration_success.html
