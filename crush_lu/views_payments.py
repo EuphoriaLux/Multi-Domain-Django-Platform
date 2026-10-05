@@ -959,6 +959,13 @@ def create_sumup_premium_checkout(request, membership_id):
             return _premium_checkout_retry_response(membership)
         return _premium_payment_received_response()
 
+    # #925: any unresolved captured payment (even on an older request) is
+    # settled by staff before the member can be charged again.
+    if PremiumPaymentRecoveryCase.objects.filter(
+        user=membership.user, status=PremiumPaymentRecoveryCase.Status.OPEN
+    ).exists():
+        return _premium_payment_received_response()
+
     # Ask the beta allowlist again, here, at the moment money is about to move.
     # views_premium checks it when the pending membership is MINTED, and nothing
     # between there and confirm() ever re-asked -- so the pending row was a

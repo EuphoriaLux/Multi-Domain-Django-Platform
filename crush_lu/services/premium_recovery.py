@@ -68,12 +68,16 @@ def notify_safely(case_pk):
     _alert_staff_safely(case)
 
 
-def retry_unsent_notifications(limit=5, settle_minutes=10, window_days=3):
+def retry_unsent_notifications(
+    budget_seconds, per_case_seconds, limit=5, settle_minutes=10, window_days=3
+):
     """Hourly retry of a member notice or staff alert that failed at creation.
 
-    Run by the SumUp reconciliation tick. Skips cases newer than
-    ``settle_minutes`` (their on-commit send may still be running) and older
-    than ``window_days`` (stop retrying a permanently undeliverable one)."""
+    Run by the SumUp reconciliation tick with what is left of its budget: a
+    case is started only while ``per_case_seconds`` (two worst-case sends)
+    still fit. Skips cases newer than ``settle_minutes`` (their on-commit
+    send may still be running) and older than ``window_days``."""
+    import time
     from datetime import timedelta
 
     from django.db.models import Q
@@ -91,12 +95,17 @@ def retry_unsent_notifications(limit=5, settle_minutes=10, window_days=3):
         .select_related("payment", "user")
         .order_by("created_at")[:limit]
     )
+    deadline = time.monotonic() + budget_seconds
+    sent = 0
     for case in cases:
+        if time.monotonic() + per_case_seconds > deadline:
+            break
+        sent += 1
         if case.member_notified_at is None:
             _notify_member_safely(case)
         if case.staff_alerted_at is None:
             _alert_staff_safely(case)
-    return len(cases)
+    return sent
 
 
 def _notify_member_safely(case):

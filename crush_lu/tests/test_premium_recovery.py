@@ -718,6 +718,84 @@ class CaseLifecycleTests(_Base):
         self.assertLess(lock, src.index("PremiumPaymentRecoveryCase.objects.filter"))
 
 
+class LateCaptureTests(_Base):
+    """Codex round 5: a cancelled request must not stay payable."""
+
+    def _client(self):
+        client = Client(HTTP_HOST="crush.lu")
+        client.force_login(self.member)
+        return client
+
+    def test_cancel_closes_the_open_checkout_first(self):
+        from unittest.mock import MagicMock
+
+        tx = self._tx("REC-OPEN-CHK")
+        client = MagicMock()
+        client.deactivate_checkout.return_value = True
+        with patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            self._client().post("/en/premium/cancel/")
+        client.deactivate_checkout.assert_called_once_with("CHK_REC-OPEN-CHK")
+        client.refund.assert_not_called()
+        tx.refresh_from_db()
+        self.membership.refresh_from_db()
+        self.assertEqual(
+            (tx.status, self.membership.status),
+            (PaymentTransaction.Status.CANCELLED, "cancelled"),
+        )
+
+    def test_cancel_refused_while_a_checkout_may_still_capture(self):
+        from unittest.mock import MagicMock
+
+        from crush_lu.services.sumup import SumUpError
+
+        self._tx("REC-STUCK-CHK")
+        client = MagicMock()
+        client.deactivate_checkout.side_effect = SumUpError("timeout")
+        with patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            response = self._client().post("/en/premium/cancel/", follow=True)
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "pending")
+        texts = [str(m) for m in response.context["messages"]]
+        self.assertTrue(any("could not be closed" in t for t in texts), texts)
+
+    def test_cancel_refused_when_sumup_already_captured(self):
+        from unittest.mock import MagicMock
+
+        tx = self._tx("REC-LATE-CAP")
+        client = MagicMock()
+        client.deactivate_checkout.return_value = False
+        client.get_checkout.return_value = {"status": "PAID"}
+        with patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            self._client().post("/en/premium/cancel/")
+        tx.refresh_from_db()
+        self.membership.refresh_from_db()
+        # Webhook not in yet: the request stays pending, its row unclosed.
+        self.assertEqual(
+            (tx.status, self.membership.status),
+            (PaymentTransaction.Status.PENDING, "pending"),
+        )
+
+    def test_checkout_refused_while_an_older_case_is_open(self):
+        self.membership.status = "cancelled"
+        self.membership.save(update_fields=["status"])
+        PremiumPaymentRecoveryCase.objects.create(
+            payment=self._tx("REC-OLD-PAID", status=PaymentTransaction.Status.PAID),
+            user=self.member,
+            premium_membership=self.membership,
+            reason=Reason.REQUEST_CANCELLED,
+        )
+        replacement = PremiumMembership.objects.create(
+            user=self.member, coach=self.coach, status="pending"
+        )
+        response = self._client().post(
+            f"/payments/sumup/create-premium-checkout/{replacement.pk}/"
+        )
+        self.assertEqual(response.status_code, 409)
+        self.assertFalse(
+            PaymentTransaction.objects.filter(premium_membership=replacement).exists()
+        )
+
+
 class NotificationRetryTests(_Base):
     """Codex round 4: a notice/alert that failed at creation is retried."""
 
@@ -748,19 +826,29 @@ class NotificationRetryTests(_Base):
 
         case = self._failed_case("REC-RETRY", minutes_old=30)
         mail.outbox.clear()
-        self.assertEqual(retry_unsent_notifications(), 1)
+        self.assertEqual(retry_unsent_notifications(100, 60), 1)
         case.refresh_from_db()
         self.assertIsNotNone(case.member_notified_at)
         self.assertIsNotNone(case.staff_alerted_at)
         self.assertEqual((len(self._member_mails()), len(self._alerts())), (1, 1))
         # Delivered once: the next tick sends nothing.
-        self.assertEqual(retry_unsent_notifications(), 0)
+        self.assertEqual(retry_unsent_notifications(100, 60), 0)
 
     def test_retry_skips_a_case_still_settling(self):
         from crush_lu.services.premium_recovery import retry_unsent_notifications
 
         self._failed_case("REC-FRESH", minutes_old=1)
-        self.assertEqual(retry_unsent_notifications(), 0)
+        self.assertEqual(retry_unsent_notifications(100, 60), 0)
+
+    def test_retry_never_starts_a_case_past_the_budget(self):
+        from crush_lu.services.premium_recovery import retry_unsent_notifications
+
+        case = self._failed_case("REC-LATE", minutes_old=30)
+        mail.outbox.clear()
+        self.assertEqual(retry_unsent_notifications(30, 60), 0)
+        self.assertEqual(mail.outbox, [])
+        case.refresh_from_db()
+        self.assertIsNone(case.staff_alerted_at)
 
     @override_settings(
         ROOT_URLCONF="azureproject.urls_crush",
@@ -778,7 +866,10 @@ class NotificationRetryTests(_Base):
             response = Client(HTTP_HOST="crush.lu").post(
                 "/api/admin/sumup-reconciliation/", HTTP_AUTHORIZATION="Bearer k"
             )
-        retry.assert_called_once_with()
+        retry.assert_called_once()
+        kwargs = retry.call_args.kwargs
+        self.assertEqual(kwargs["per_case_seconds"], 60)
+        self.assertLessEqual(kwargs["budget_seconds"], 100)
         self.assertEqual(response.json()["recovery_notices_retried"], 2)
 
 

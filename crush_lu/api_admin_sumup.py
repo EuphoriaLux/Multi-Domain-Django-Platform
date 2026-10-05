@@ -267,7 +267,12 @@ def sumup_reconciliation_endpoint(request):
     from crush_lu.services import premium_recovery
 
     try:
-        recovery_retried = premium_recovery.retry_unsent_notifications()
+        recovery_retried = premium_recovery.retry_unsent_notifications(
+            # What the sweep left of the budget; a case needs two sends.
+            budget_seconds=RECONCILIATION_BUDGET_SECONDS
+            - (timezone.now() - started).total_seconds(),
+            per_case_seconds=GRAPH_SEND_TIMEOUT_SECONDS * 2,
+        )
     except Exception:  # noqa: BLE001
         logger.exception("[sumup_reconciliation] recovery notice retry failed")
         recovery_retried = 0
