@@ -76,7 +76,7 @@
                     {% elif connection.status == 'coach_approved' %}
                         <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full">{% trans "Approved" %}</span>
                     {% elif connection.status == 'shared' %}
-                        <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 rounded-full">{% trans "Contacts Shared" %}</span>
+                        <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 rounded-full">{% trans "Introduction made" %}</span>
                     {% endif %}
                 </div>
             </div>
@@ -379,7 +379,7 @@
                     </p>
                 {% endif %}
             {% else %}
-                <p class="text-sm text-green-600 dark:text-green-400 mb-0">{% trans "Contacts shared — the introduction is done." %}</p>
+                <p class="text-sm text-green-600 dark:text-green-400 mb-0">{% trans "Introduction made" %}</p>
             {% endif %}
         </div>
         {% endif %}
@@ -544,7 +544,7 @@
             {% if connection.shared_at %}
             <div class="flex items-center gap-3 text-sm">
                 <div class="w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0"></div>
-                <span class="text-gray-600 dark:text-gray-400">{% trans "Contacts shared" %}</span>
+                <span class="text-gray-600 dark:text-gray-400">{% trans "Introduction made" %}</span>
                 <span class="text-gray-400 dark:text-gray-500 ml-auto">{{ connection.shared_at|date:"M j, g:i A" }}</span>
             </div>
             {% endif %}

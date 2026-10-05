@@ -57,11 +57,7 @@
         <a href="{% url 'crush_lu:signup' %}" class="btn-cta">
             <span>{{ button_text|default:_("Create Your Profile Now") }}</span>
         </a>
-        <p class="cta-subtext">
-            <span>{% trans "No credit card required" %}</span>
-            <span>{% trans "Free to join" %}</span>
-            <span>{% trans "Cancel anytime" %}</span>
-        </p>
+        <p class="cta-subtext">{% trans "Join free, upgrade when you want your own coach. Cancel anytime." %}</p>
         {% endif %}
     </div>
 </section>
