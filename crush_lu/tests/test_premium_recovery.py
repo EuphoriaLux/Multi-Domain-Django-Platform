@@ -775,6 +775,45 @@ class LateCaptureTests(_Base):
             (PaymentTransaction.Status.PENDING, "pending"),
         )
 
+    def test_captured_request_still_closes_a_sibling_checkout(self):
+        from unittest.mock import MagicMock
+
+        self._tx("REC-SIB-PAID", status=PaymentTransaction.Status.PAID)
+        sibling = self._tx("REC-SIB-OPEN")
+        client = MagicMock()
+        client.deactivate_checkout.return_value = True
+        with patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            self._client().post("/en/premium/cancel/")
+        client.deactivate_checkout.assert_called_once_with("CHK_REC-SIB-OPEN")
+        client.refund.assert_not_called()
+        sibling.refresh_from_db()
+        self.membership.refresh_from_db()
+        self.assertEqual(
+            (sibling.status, self.membership.status),
+            (PaymentTransaction.Status.CANCELLED, "pending"),
+        )
+
+    def test_no_pay_button_while_an_older_case_blocks_checkout(self):
+        self.membership.status = "cancelled"
+        self.membership.save(update_fields=["status"])
+        PremiumPaymentRecoveryCase.objects.create(
+            payment=self._tx("REC-OLD-CTA", status=PaymentTransaction.Status.PAID),
+            user=self.member,
+            premium_membership=self.membership,
+            reason=Reason.REQUEST_CANCELLED,
+        )
+        PremiumMembership.objects.create(
+            user=self.member, coach=self.coach, status="pending"
+        )
+        self.profile.verification_status = "verified"
+        self.profile.save(update_fields=["verification_status"])
+        client = self._client()
+        coaches = client.get("/en/premium/coaches/").content.decode()
+        pricing = client.get("/en/membership/").content.decode()
+        self.assertNotIn("data-membership-id=", coaches)
+        self.assertNotIn("Complete your Premium signup", pricing)
+        self.assertIn("We have already received a payment", pricing)
+
     def test_checkout_refused_while_an_older_case_is_open(self):
         self.membership.status = "cancelled"
         self.membership.save(update_fields=["status"])
@@ -833,6 +872,14 @@ class NotificationRetryTests(_Base):
         self.assertEqual((len(self._member_mails()), len(self._alerts())), (1, 1))
         # Delivered once: the next tick sends nothing.
         self.assertEqual(retry_unsent_notifications(100, 60), 0)
+
+    def test_retry_keeps_going_after_days(self):
+        from crush_lu.services.premium_recovery import retry_unsent_notifications
+
+        case = self._failed_case("REC-OLD-RETRY", minutes_old=60 * 24 * 10)
+        self.assertEqual(retry_unsent_notifications(100, 60), 1)
+        case.refresh_from_db()
+        self.assertIsNotNone(case.staff_alerted_at)
 
     def test_retry_skips_a_case_still_settling(self):
         from crush_lu.services.premium_recovery import retry_unsent_notifications

@@ -69,14 +69,16 @@ def notify_safely(case_pk):
 
 
 def retry_unsent_notifications(
-    budget_seconds, per_case_seconds, limit=5, settle_minutes=10, window_days=3
+    budget_seconds, per_case_seconds, limit=5, settle_minutes=10
 ):
     """Hourly retry of a member notice or staff alert that failed at creation.
 
     Run by the SumUp reconciliation tick with what is left of its budget: a
     case is started only while ``per_case_seconds`` (two worst-case sends)
     still fit. Skips cases newer than ``settle_minutes`` (their on-commit
-    send may still be running) and older than ``window_days``."""
+    send may still be running). No age cut-off: an open case keeps being
+    retried until it is delivered or resolved; random order so one that can
+    never be delivered cannot starve the others."""
     import time
     from datetime import timedelta
 
@@ -90,10 +92,9 @@ def retry_unsent_notifications(
             Q(member_notified_at__isnull=True) | Q(staff_alerted_at__isnull=True),
             status=PremiumPaymentRecoveryCase.Status.OPEN,
             created_at__lte=now - timedelta(minutes=settle_minutes),
-            created_at__gte=now - timedelta(days=window_days),
         )
         .select_related("payment", "user")
-        .order_by("created_at")[:limit]
+        .order_by("?")[:limit]
     )
     deadline = time.monotonic() + budget_seconds
     sent = 0

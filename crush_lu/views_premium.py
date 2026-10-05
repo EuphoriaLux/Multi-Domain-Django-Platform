@@ -73,7 +73,16 @@ def pending_premium_state(user):
         return None
     from .views_payments import _premium_payment_captured, _premium_purchase_refused
 
-    if _premium_payment_captured(pending):
+    from .models import PremiumPaymentRecoveryCase
+
+    # #925: also any open case (even on an older request), which the checkout
+    # endpoint refuses on -- never offer a pay button that would 409.
+    if (
+        _premium_payment_captured(pending)
+        or PremiumPaymentRecoveryCase.objects.filter(
+            user=user, status=PremiumPaymentRecoveryCase.Status.OPEN
+        ).exists()
+    ):
         return "paid"
     return "manage" if _premium_purchase_refused(pending) else "complete"
 
@@ -93,8 +102,9 @@ def _cancel_premium_request(membership, by_user):
         _settle_pending_premium_checkouts,
     )
 
-    if _premium_payment_captured(membership):
-        return "captured"
+    # A capture does not end the job: sibling checkouts left PENDING (from
+    # before one-checkout-per-membership) are still closed below.
+    captured = _premium_payment_captured(membership)
     state, retired_ids = "ok", set()
     if PaymentTransaction.objects.filter(
         premium_membership=membership, status=PaymentTransaction.Status.PENDING
@@ -107,10 +117,10 @@ def _cancel_premium_request(membership, by_user):
         )
     with transaction.atomic():
         locked, still_pending = _lock_premium_checkout_state(membership.pk, retired_ids)
+        if captured or (locked is not None and _premium_payment_captured(locked)):
+            return "captured"
         if state == "open" or still_pending:
             return "open"
-        if locked is not None and _premium_payment_captured(locked):
-            return "captured"
         if locked is None or not locked.cancel(by_user=by_user):
             return None
     return "cancelled"
