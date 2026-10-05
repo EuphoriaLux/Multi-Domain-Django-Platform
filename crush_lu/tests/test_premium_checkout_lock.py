@@ -16,6 +16,8 @@ import socket
 from decimal import Decimal
 from unittest.mock import patch
 
+import requests
+
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.core.cache import cache
@@ -471,6 +473,95 @@ class PremiumCheckoutLockTests(TestCase):
         self.assertEqual(response.status_code, 409)
         self.assertEqual(self.sumup["deactivate_checkout"].call_count, 2)
         self.assertEqual(list(self._statuses().values()).count("cancelled"), 2)
+        self.assertEqual(self.created, [])
+
+    def _gone_error(self, status_code):
+        response = requests.Response()
+        response.status_code = status_code
+        try:
+            raise requests.HTTPError(response=response)
+        except requests.HTTPError as cause:
+            try:
+                raise SumUpError("gone") from cause
+            except SumUpError as error:
+                return error
+
+    def test_newest_checkout_sumup_reports_gone_is_retired(self):
+        """A 404/410 newest checkout is unpayable: retire it, open a new one."""
+        for status_code in (404, 410):
+            with self.subTest(status_code=status_code):
+                PaymentTransaction.objects.all().delete()
+                self.created.clear()
+                self._pending_row(f"CHK_GONE_{status_code}")
+                self.sumup["get_checkout"].side_effect = self._gone_error(status_code)
+
+                response = self.client.post(self.url)
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(len(self.created), 1)
+                new_id = response.json()["checkout_id"]
+                self.assertEqual(
+                    self._statuses(),
+                    {f"CHK_GONE_{status_code}": "cancelled", new_id: "pending"},
+                )
+                self.sumup["deactivate_checkout"].assert_not_called()
+
+    def test_newest_checkout_unreadable_for_server_error_stays_open(self):
+        self._pending_row("CHK_LIVE")
+        self.sumup["get_checkout"].side_effect = self._gone_error(503)
+
+        with self.assertLogs("crush_lu.views_payments", level="WARNING"):
+            response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(self._statuses(), {"CHK_LIVE": "pending"})
+
+    def test_failed_close_after_a_capture_is_retried_next_click(self):
+        """A capture must not hide a reusable checkout that failed to close."""
+        self._pending_row("CHK_OLD_PAID", status="PAID")
+        self._pending_row("CHK_NEWEST")
+        # SumUp briefly refuses to close the newest one too.
+        self.sumup["deactivate_checkout"].side_effect = lambda checkout_id: False
+
+        with self.assertLogs("crush_lu.views_payments", level="WARNING"):
+            first = self.client.post(self.url)
+
+        self.assertEqual(first.status_code, 409)
+        self.assertIn("could not be closed", first.json()["error"])
+        self.assertEqual(self._statuses()["CHK_NEWEST"], "pending")
+
+        # Completion records the capture; the next click still closes the rest.
+        PaymentTransaction.objects.filter(sumup_checkout_id="CHK_OLD_PAID").update(
+            status=PaymentTransaction.Status.PAID
+        )
+        self._deactivate_ok()
+
+        with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+            second = self.client.post(self.url)
+
+        self.assertEqual(second.status_code, 409)
+        self.assertIn("already received a payment", second.json()["error"])
+        self.assertEqual(
+            self._statuses(), {"CHK_OLD_PAID": "paid", "CHK_NEWEST": "cancelled"}
+        )
+        self.sumup["deactivate_checkout"].assert_called_with("CHK_NEWEST")
+        self.assertEqual(self.created, [])
+
+    def test_recorded_capture_with_an_unclosable_checkout_asks_to_retry(self):
+        self._pending_row("CHK_PAID_ROW", status="PAID")
+        PaymentTransaction.objects.filter(sumup_checkout_id="CHK_PAID_ROW").update(
+            status=PaymentTransaction.Status.PAID
+        )
+        self._pending_row("CHK_LEFTOVER")
+        self.sumup["deactivate_checkout"].side_effect = lambda checkout_id: False
+
+        with self.assertLogs("crush_lu.views_payments", level="WARNING"):
+            response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("could not be closed", response.json()["error"])
+        self.sumup["deactivate_checkout"].assert_called_once_with("CHK_LEFTOVER")
+        self.assertEqual(self._statuses()["CHK_LEFTOVER"], "pending")
         self.assertEqual(self.created, [])
 
 

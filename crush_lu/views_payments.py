@@ -724,6 +724,22 @@ def _premium_payment_received_response():
     )
 
 
+def _premium_checkout_retry_response(membership):
+    logger.warning(
+        "Could not close every earlier checkout for premium membership %s",
+        membership.id,
+    )
+    return JsonResponse(
+        {
+            "error": _(
+                "Your earlier card checkout could not be closed. "
+                "Please wait and try again."
+            )
+        },
+        status=409,
+    )
+
+
 def _reusable_premium_checkout(row, remote, *, amount, customer_id, description):
     """True when ``row`` can be handed out again instead of opening another.
 
@@ -747,6 +763,13 @@ def _reusable_premium_checkout(row, remote, *, amount, customer_id, description)
     )
 
 
+def _sumup_checkout_gone(error):
+    """True when SumUp answered 404/410: the checkout no longer exists, so it
+    is as unpayable as a closed one (same rule as ``deactivate_checkout``)."""
+    response = getattr(error.__cause__, "response", None)
+    return getattr(response, "status_code", None) in {404, 410}
+
+
 def _close_premium_checkout(client, checkout_id):
     """``"closed"``, ``"paid"`` or ``"open"`` for one checkout at SumUp.
 
@@ -767,7 +790,13 @@ def _close_premium_checkout(client, checkout_id):
 
 
 def _settle_pending_premium_checkouts(
-    client, membership, *, amount, customer_id, description
+    client,
+    membership,
+    *,
+    amount=None,
+    customer_id=None,
+    description=None,
+    captured=False,
 ):
     """Reuse or retire this membership's PENDING checkouts (#925 D6).
 
@@ -780,7 +809,10 @@ def _settle_pending_premium_checkouts(
     ``state`` is ``"ok"``, ``"paid"`` (SumUp captured one -- leave it to
     _apply_paid_checkout / reconciliation, but still close the others) or
     ``"open"`` (one could not be proven closed, the newest one's state is
-    unknown, or the per-click count or time budget ran out).
+    unknown, or the per-click count or time budget ran out). A capture never
+    excuses an unproven close: that stays ``"open"`` so the next click retries.
+    ``captured=True`` (a PAID row is already recorded) closes every PENDING
+    checkout, the newest included, and reuses none.
     """
     pending = list(
         PaymentTransaction.objects.filter(
@@ -789,13 +821,16 @@ def _settle_pending_premium_checkouts(
         ).order_by("-created_at", "-pk")
     )
     known_ids = {row.pk for row in pending}
-    reuse_row, retired_ids, paid = None, set(), False
+    reuse_row, retired_ids, paid = None, set(), captured
     deadline = _monotonic() + _PREMIUM_CHECKOUT_RETIRE_BUDGET_SECONDS
     for index, row in enumerate(r for r in pending if r.sumup_checkout_id):
-        if index == 0:
+        if index == 0 and not captured:
             try:
                 remote = client.get_checkout(row.sumup_checkout_id)
-            except SumUpError:
+            except SumUpError as exc:
+                if _sumup_checkout_gone(exc):
+                    retired_ids.add(row.pk)
+                    continue
                 # Possibly live (mid-3DS in another tab): never close it blind.
                 return "open", None, retired_ids, known_ids
             if _sumup_status(remote) in _SUMUP_PAID_STATUSES:
@@ -814,20 +849,22 @@ def _settle_pending_premium_checkouts(
             len(retired_ids) >= _PREMIUM_CHECKOUT_RETIRE_LIMIT
             or _monotonic() > deadline
         ):
-            return "paid" if paid else "open", None, retired_ids, known_ids
+            return "open", None, retired_ids, known_ids
         outcome = _close_premium_checkout(client, row.sumup_checkout_id)
         if outcome == "paid":
             paid = True
         elif outcome != "closed":
-            return "paid" if paid else "open", None, retired_ids, known_ids
+            return "open", None, retired_ids, known_ids
         else:
             retired_ids.add(row.pk)
     if paid:
         # A capture exists: the kept newest checkout must not take a second one.
-        if reuse_row is not None and (
-            _close_premium_checkout(client, reuse_row.sumup_checkout_id) == "closed"
-        ):
-            retired_ids.add(reuse_row.pk)
+        if reuse_row is not None:
+            outcome = _close_premium_checkout(client, reuse_row.sumup_checkout_id)
+            if outcome == "open":
+                return "open", None, retired_ids, known_ids
+            if outcome == "closed":
+                retired_ids.add(reuse_row.pk)
         return "paid", None, retired_ids, known_ids
     return "ok", reuse_row, retired_ids, known_ids
 
@@ -907,6 +944,16 @@ def create_sumup_premium_checkout(request, membership_id):
             membership.id,
             membership.user_id,
         )
+        # Still close any checkout left PENDING: a close that failed after the
+        # capture must be retried here, or its widget link stays payable.
+        state, _reuse, retired_ids, _known = _settle_pending_premium_checkouts(
+            SumUpClient(), membership, captured=True
+        )
+        if retired_ids:
+            with transaction.atomic():
+                _lock_premium_checkout_state(membership.pk, retired_ids)
+        if state == "open":
+            return _premium_checkout_retry_response(membership)
         return _premium_payment_received_response()
 
     # Ask the beta allowlist again, here, at the moment money is about to move.
@@ -959,19 +1006,7 @@ def create_sumup_premium_checkout(request, membership_id):
         )
         return _premium_payment_received_response()
     if state == "open":
-        logger.warning(
-            "Could not close every earlier checkout for premium membership %s",
-            membership.id,
-        )
-        return JsonResponse(
-            {
-                "error": _(
-                    "Your earlier card checkout could not be closed. "
-                    "Please wait and try again."
-                )
-            },
-            status=409,
-        )
+        return _premium_checkout_retry_response(membership)
 
     if reuse_row is not None:
         checkout_ref = reuse_row.transaction_reference
