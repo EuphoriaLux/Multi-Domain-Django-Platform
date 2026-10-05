@@ -230,6 +230,20 @@ class TakeABreakViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Take a Break")
 
+    def test_confirm_page_uses_the_confirm_sheet_not_window_confirm(self):
+        # #1058: inline onclick="return confirm(...)" is blocked by the CSP
+        # and skips the branded sheet; the form carries data-confirm instead.
+        html = self.client.get(
+            "/en/account/take-a-break/", HTTP_HOST="crush.lu"
+        ).content.decode()
+        self.assertNotIn("return confirm(", html)
+        self.assertIn(
+            'data-confirm="Take a break now? You can resume any time from your '
+            'dashboard."',
+            html,
+        )
+        self.assertIn('data-confirm-label="Take a Break"', html)
+
     def test_post_sets_break_and_redirects_to_dashboard(self):
         response = self.client.post("/en/account/take-a-break/", HTTP_HOST="crush.lu")
         self.assertEqual(response.status_code, 302)

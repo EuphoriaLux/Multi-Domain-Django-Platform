@@ -213,8 +213,9 @@ jobs:
         run: npm run format:check
         continue-on-error: true
 
-  # Accessibility guardrail (issue #1117): axe-core over ~10 key pages, failing
-  # only on NEW critical/serious violations vs crush_lu/tests/axe_baseline.json.
+  # Accessibility guardrail (issue #1117): axe-core over ~14 key pages, failing
+  # only on NEW critical/serious violations vs crush_lu/tests/axe_baseline.json,
+  # plus the journey light-contrast sweep (#1147); both carry the axe_smoke mark.
   axe-smoke:
     name: Accessibility smoke (axe)
     runs-on: ubuntu-latest

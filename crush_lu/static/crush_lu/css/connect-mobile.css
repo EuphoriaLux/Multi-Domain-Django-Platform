@@ -77,12 +77,12 @@ body.connect-chat .connect-thread { height: clamp(220px, 60dvh, 640px); }
 
 /* Connect Week 5-step timeline (UX Wave 3 · WP12 / 6-03). */
 .connect-week-timeline-steps { display: flex; align-items: flex-start; gap: .25rem; }
-.connect-week-timeline-step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: .3rem; text-align: center; font-size: .625rem; line-height: 1.15; color: var(--color-text-muted, #9ca3af); }
+.connect-week-timeline-step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: .3rem; text-align: center; font-size: .625rem; line-height: 1.15; color: var(--text-muted); }
 .connect-week-timeline-dot { width: .5rem; height: .5rem; border-radius: 9999px; background: var(--color-border, #e5e7eb); }
 .dark .connect-week-timeline-dot { background: var(--color-slate-600); }
 .connect-week-timeline-step.is-done .connect-week-timeline-dot { background: var(--crush-purple); }
 .connect-week-timeline-step.is-current .connect-week-timeline-dot { background: var(--crush-purple); box-shadow: 0 0 0 3px color-mix(in srgb, var(--crush-purple) 25%, transparent); }
-.connect-week-timeline-step.is-current { color: var(--crush-purple); font-weight: 700; }
+.connect-week-timeline-step.is-current { color: var(--color-crush-purple-dark); font-weight: 700; }
 .dark .connect-week-timeline-step.is-current { color: var(--crush-pink); }
 .dark .connect-week-timeline-step.is-current .connect-week-timeline-dot { background: var(--crush-pink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--crush-pink) 25%, transparent); }
 
