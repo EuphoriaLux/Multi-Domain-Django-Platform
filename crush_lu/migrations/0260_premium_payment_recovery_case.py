@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0258_eventconnection_shares_phone_opt_in"),
+        ("crush_lu", "0259_event_partner_offer_links"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

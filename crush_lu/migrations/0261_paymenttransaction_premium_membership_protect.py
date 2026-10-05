@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0259_premium_payment_recovery_case"),
+        ("crush_lu", "0260_premium_payment_recovery_case"),
     ]
 
     operations = [
