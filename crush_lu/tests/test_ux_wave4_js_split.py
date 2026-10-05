@@ -53,6 +53,9 @@ DYNAMIC_INCLUDES = {
     ("crush_lu/edit_profile.html", "section_template"): (
         "crush_lu/partials/edit_*.html"
     ),
+    ("crush_lu/components/event_guide_ghost.html", "illustration"): (
+        "crush_lu/includes/ghost-story-*.html"
+    ),
 }
 
 
