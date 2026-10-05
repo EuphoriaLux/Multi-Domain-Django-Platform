@@ -87,6 +87,10 @@ class ContactChoicesTests(TestCase):
         self.assertIn('name="share_phone"', form.group(0))
         self.assertNotIn("checked", form.group(0))
         self.assertIn("Also share my phone number with", form.group(0))
+        # Save is the form's primary action: STYLE.md maps "Save" to solid.
+        self.assertRegex(
+            form.group(0), r'name="contact_choices"[^>]*class="btn-crush-solid'
+        )
 
     def test_member_opts_in_on_the_shared_page(self):
         self._share()
