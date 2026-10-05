@@ -1898,6 +1898,13 @@ class TestRotationRegistrationFiltering:
 @pytest.mark.django_db
 class TestQuizAPI:
     def test_quiz_state_endpoint(self, quiz_event, quiz_user):
+        from crush_lu.models.events import EventRegistration
+
+        # Reading quiz state is scoped to participants (SEC-API-03), so the
+        # player needs a confirmed registration (or a seat) for the event.
+        EventRegistration.objects.create(
+            event=quiz_event.event, user=quiz_user, status="confirmed"
+        )
         client = APIClient()
         client.force_authenticate(user=quiz_user)
         response = client.get(f"/api/quiz/{quiz_event.id}/state/")
@@ -1942,6 +1949,169 @@ class TestQuizAPI:
         client = APIClient()
         response = client.get(f"/api/quiz/{quiz_event.id}/state/")
         assert response.status_code in (401, 403)
+
+    # --- Roster/state scoping (SEC-API-03): mirrors QuizConsumer.connect ---
+
+    @staticmethod
+    def _stranger():
+        return User.objects.create_user(
+            username="stranger@test.com",
+            email="stranger@test.com",
+            password="testpass123",
+        )
+
+    @staticmethod
+    def _get_both(user, quiz_event):
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return (
+            client.get(f"/api/quiz/{quiz_event.id}/state/"),
+            client.get(f"/api/quiz/{quiz_event.id}/tables/?round=1"),
+        )
+
+    def test_stranger_cannot_read_state_or_roster(
+        self, quiz_event, quiz_table, quiz_user
+    ):
+        QuizRotationSchedule.objects.create(
+            quiz=quiz_event,
+            round_number=1,
+            table=quiz_table,
+            user=quiz_user,
+            role="anchor",
+        )
+        state, tables = self._get_both(self._stranger(), quiz_event)
+        assert state.status_code == 403
+        assert tables.status_code == 403
+        assert state.json() == {"error": "Forbidden"}
+        assert tables.json() == {"error": "Forbidden"}
+
+    def test_stranger_unknown_quiz_is_still_404(self, quiz_user):
+        client = APIClient()
+        client.force_authenticate(user=self._stranger())
+        assert client.get("/api/quiz/9999/state/").status_code == 404
+        assert client.get("/api/quiz/9999/tables/").status_code == 404
+
+    @pytest.mark.parametrize("reg_status", ["confirmed", "attended"])
+    def test_registered_member_can_read(self, quiz_event, quiz_table, reg_status):
+        from crush_lu.models.events import EventRegistration
+
+        user = self._stranger()
+        EventRegistration.objects.create(
+            event=quiz_event.event, user=user, status=reg_status
+        )
+        state, tables = self._get_both(user, quiz_event)
+        assert state.status_code == 200
+        assert tables.status_code == 200
+
+    @pytest.mark.parametrize("reg_status", ["pending", "waitlist", "cancelled"])
+    def test_non_participating_registration_cannot_read(
+        self, quiz_event, quiz_table, reg_status
+    ):
+        from crush_lu.models.events import EventRegistration
+
+        user = self._stranger()
+        EventRegistration.objects.create(
+            event=quiz_event.event, user=user, status=reg_status
+        )
+        state, tables = self._get_both(user, quiz_event)
+        assert state.status_code == 403
+        assert tables.status_code == 403
+
+    def test_registration_for_other_event_cannot_read(self, quiz_event, quiz_table):
+        from crush_lu.models import MeetupEvent
+        from crush_lu.models.events import EventRegistration
+
+        other = MeetupEvent.objects.create(
+            title="Other",
+            description="x",
+            event_type="mixer",
+            date_time=timezone.now() + timedelta(days=2),
+            location="Luxembourg City",
+            address="2 Place d'Armes",
+            max_participants=10,
+            registration_deadline=timezone.now() + timedelta(days=1),
+            is_published=True,
+        )
+        user = self._stranger()
+        EventRegistration.objects.create(event=other, user=user, status="confirmed")
+        state, tables = self._get_both(user, quiz_event)
+        assert state.status_code == 403
+        assert tables.status_code == 403
+
+    def test_staff_can_read(self, quiz_event, quiz_table):
+        staff = User.objects.create_user(
+            username="otherstaff@test.com",
+            email="otherstaff@test.com",
+            password="testpass123",
+            is_staff=True,
+        )
+        state, tables = self._get_both(staff, quiz_event)
+        assert state.status_code == 200
+        assert tables.status_code == 200
+
+    def test_host_creator_can_read(self, quiz_event, quiz_table):
+        # Non-staff creator: allowed through the host clause alone.
+        host = self._stranger()
+        quiz_event.created_by = host
+        quiz_event.save(update_fields=["created_by"])
+        state, tables = self._get_both(host, quiz_event)
+        assert state.status_code == 200
+        assert tables.status_code == 200
+
+    def test_assigned_coach_can_read(self, quiz_event, quiz_table):
+        from crush_lu.models import CrushCoach
+
+        user = self._stranger()
+        coach = CrushCoach.objects.create(user=user, is_active=True)
+        quiz_event.event.coaches.add(coach)
+        state, tables = self._get_both(user, quiz_event)
+        assert state.status_code == 200
+        assert tables.status_code == 200
+
+    def test_seated_user_can_read(self, quiz_event, quiz_table, quiz_user):
+        # quiz_user is seated (membership) but holds no registration.
+        state, tables = self._get_both(quiz_user, quiz_event)
+        assert state.status_code == 200
+        assert tables.status_code == 200
+
+    def test_rotation_seated_user_can_read(self, quiz_event, quiz_table):
+        user = self._stranger()
+        QuizRotationSchedule.objects.create(
+            quiz=quiz_event,
+            round_number=1,
+            table=quiz_table,
+            user=user,
+            role="rotator",
+        )
+        state, tables = self._get_both(user, quiz_event)
+        assert state.status_code == 200
+        assert tables.status_code == 200
+
+    def test_seat_in_another_quiz_does_not_grant_access(
+        self, quiz_event, quiz_table, coach_user
+    ):
+        from crush_lu.models import MeetupEvent
+
+        other_event = MeetupEvent.objects.create(
+            title="Quiz Night 2",
+            description="x",
+            event_type="quiz_night",
+            date_time=timezone.now() + timedelta(days=3),
+            location="Luxembourg City",
+            address="3 Place d'Armes",
+            max_participants=10,
+            registration_deadline=timezone.now() + timedelta(days=2),
+            is_published=True,
+        )
+        other_quiz = QuizEvent.objects.create(
+            event=other_event, status="draft", created_by=coach_user
+        )
+        other_table = QuizTable.objects.create(quiz=other_quiz, table_number=1)
+        user = self._stranger()
+        QuizTableMembership.objects.create(table=other_table, user=user)
+        state, tables = self._get_both(user, quiz_event)
+        assert state.status_code == 403
+        assert tables.status_code == 403
 
     def test_my_assignment_endpoint(self, quiz_event, quiz_table, quiz_user):
         # Create rotation entry
@@ -4589,6 +4759,12 @@ class TestQuizTablesCurrentRoundDefault:
         quiz_event.current_round = rounds[1]
         quiz_event.save(update_fields=["current_round"])
 
+        # The viewer must be a participant of the quiz (SEC-API-03).
+        from crush_lu.models.events import EventRegistration
+
+        EventRegistration.objects.create(
+            event=quiz_event.event, user=quiz_user, status="confirmed"
+        )
         client = APIClient()
         client.force_authenticate(user=quiz_user)
         resp = client.get(f"/api/quiz/{quiz_event.id}/tables/")
