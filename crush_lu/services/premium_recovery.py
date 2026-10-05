@@ -13,6 +13,10 @@ from django.utils import timezone, translation
 
 logger = logging.getLogger(__name__)
 
+# Siblings re-read per case and run (the rest wait for the next hourly tick);
+# the reconciliation endpoint reserves time for exactly this many.
+SIBLING_SYNC_LIMIT = 2
+
 
 def member_notice(payment):
     """The D1 notice text for ``payment``, in the active language."""
@@ -146,7 +150,7 @@ def _close_sibling_checkouts_safely(case):
             premium_membership=membership,
             status=PaymentTransaction.Status.PENDING,
             sumup_checkout_id__isnull=False,
-        ):
+        ).order_by("pk")[:SIBLING_SYNC_LIMIT]:
             _sync_checkout_with_sumup(row)
         if state == "open":
             # Still PENDING, so the hourly retry picks the case up again.
@@ -214,7 +218,9 @@ def retry_unsent_notifications(
             # Claim: an overlapping tick skips a case another run holds, and
             # the timestamps are re-read under the lock, so no double send.
             case = (
-                Case.objects.select_for_update(skip_locked=True)
+                # of=("self",): PostgreSQL refuses FOR UPDATE on the nullable
+                # side of the premium_membership outer join.
+                Case.objects.select_for_update(skip_locked=True, of=("self",))
                 .select_related("payment", "user", "premium_membership")
                 .filter(pk=pk)
                 .first()

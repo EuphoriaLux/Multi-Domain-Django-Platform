@@ -888,6 +888,48 @@ class LateCaptureTests(_Base):
         )
         self.assertEqual(response.status_code, 409)
 
+    def test_checkout_applies_the_paid_payload_even_if_a_reread_fails(self):
+        from unittest.mock import MagicMock
+
+        from crush_lu.services.sumup import SumUpError
+
+        tx = self._tx("REC-PAYLOAD")
+        payload = {
+            "id": tx.sumup_checkout_id,
+            "status": "PAID",
+            "amount": 10.0,
+            "currency": "EUR",
+        }
+        client = MagicMock()
+        client.get_checkout.side_effect = [payload, SumUpError("timeout")]
+        with patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            with self.captureOnCommitCallbacks(execute=True):
+                self._client().post(
+                    f"/payments/sumup/create-premium-checkout/{self.membership.pk}/"
+                )
+        tx.refresh_from_db()
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(client.get_checkout.call_count, 1)
+
+    def test_publication_rechecks_the_block_under_the_member_lock(self):
+        from crush_lu import views_payments
+
+        src = inspect.getsource(views_payments.create_sumup_premium_checkout)
+        self.assertLess(
+            src.index("_lock_member_and_check_blocked("),
+            src.index("PaymentTransaction.objects.create("),
+        )
+        helper = inspect.getsource(views_payments._lock_member_and_check_blocked)
+        self.assertLess(
+            helper.index("select_for_update()"), helper.index("blocks_new_charge(")
+        )
+
+    def test_sibling_syncs_are_capped(self):
+        from crush_lu.services import premium_recovery
+
+        src = inspect.getsource(premium_recovery._close_sibling_checkouts_safely)
+        self.assertIn("[:SIBLING_SYNC_LIMIT]", src)
+
     def test_publication_refuses_a_deactivated_account(self):
         from crush_lu import views_payments
 
@@ -1070,7 +1112,9 @@ class NotificationRetryTests(_Base):
         from crush_lu.services import premium_recovery
 
         src = inspect.getsource(premium_recovery.retry_unsent_notifications)
-        claim = src.index("select_for_update(skip_locked=True)")
+        # Only the case row: PostgreSQL rejects FOR UPDATE on the nullable
+        # outer-joined membership that select_related pulls in.
+        claim = src.index('select_for_update(skip_locked=True, of=("self",))')
         self.assertLess(claim, src.index("case.member_notified_at is None"))
         self.assertLess(claim, src.index("case.staff_alerted_at is None"))
 
@@ -1108,8 +1152,14 @@ class NotificationRetryTests(_Base):
             )
         retry.assert_called_once()
         kwargs = retry.call_args.kwargs
-        # Two Graph sends (2 x 30 s) plus the sibling-checkout close budget.
-        self.assertEqual(kwargs["per_case_seconds"], 90)
+        from crush_lu import api_admin_sumup as api
+        from crush_lu.services.premium_recovery import SIBLING_SYNC_LIMIT
+
+        # Two sends + the close budget + per synced sibling a read and two sends.
+        self.assertEqual(
+            kwargs["per_case_seconds"],
+            60 + 30 + SIBLING_SYNC_LIMIT * (api.SUMUP_REQUEST_WORST_CASE_SECONDS + 60),
+        )
         self.assertLessEqual(kwargs["budget_seconds"], 100)
         self.assertEqual(response.json()["recovery_notices_retried"], 2)
 

@@ -272,9 +272,12 @@ def sumup_reconciliation_endpoint(request):
             # What the sweep left of the budget; a case needs two sends.
             budget_seconds=RECONCILIATION_BUDGET_SECONDS
             - (timezone.now() - started).total_seconds(),
-            # Two sends plus closing sibling checkouts at SumUp.
+            # Two sends, closing sibling checkouts, and per synced sibling one
+            # SumUp read plus the two sends a newly opened case may trigger.
             per_case_seconds=GRAPH_SEND_TIMEOUT_SECONDS * 2
-            + _PREMIUM_CHECKOUT_RETIRE_BUDGET_SECONDS,
+            + _PREMIUM_CHECKOUT_RETIRE_BUDGET_SECONDS
+            + premium_recovery.SIBLING_SYNC_LIMIT
+            * (SUMUP_REQUEST_WORST_CASE_SECONDS + GRAPH_SEND_TIMEOUT_SECONDS * 2),
         )
     except Exception:  # noqa: BLE001
         logger.exception("[sumup_reconciliation] recovery notice retry failed")

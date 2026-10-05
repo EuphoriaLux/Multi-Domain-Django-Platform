@@ -713,6 +713,15 @@ def _sumup_status(remote):
     return (remote.get("status") or "").upper()
 
 
+def _lock_member_and_check_blocked(user_id):
+    """Lock the member's User row, then re-ask premium_recovery's rule. A case
+    insert takes FOR KEY SHARE on that row, which FOR UPDATE excludes."""
+    from django.contrib.auth import get_user_model
+
+    member = get_user_model().objects.select_for_update().get(pk=user_id)
+    return premium_recovery.blocks_new_charge(member)
+
+
 def _premium_payment_received_response():
     return JsonResponse(
         {
@@ -799,6 +808,7 @@ def _settle_pending_premium_checkouts(
     customer_id=None,
     description=None,
     captured=False,
+    paid_payloads=None,
 ):
     """Reuse or retire this membership's PENDING checkouts (#925 D6).
 
@@ -837,6 +847,8 @@ def _settle_pending_premium_checkouts(
                 return "open", None, retired_ids, known_ids
             if _sumup_status(remote) in _SUMUP_PAID_STATUSES:
                 paid = True
+                if paid_payloads is not None:
+                    paid_payloads[row.pk] = remote
                 continue
             if _reusable_premium_checkout(
                 row,
@@ -991,12 +1003,14 @@ def create_sumup_premium_checkout(request, membership_id):
 
     # At most one payable checkout per membership (#925 D6): reuse the newest
     # one or close the older ones before a new one can exist.
+    paid_payloads = {}
     state, reuse_row, retired_ids, known_ids = _settle_pending_premium_checkouts(
         client,
         membership,
         amount=amount,
         customer_id=sumup_customer_id,
         description=description,
+        paid_payloads=paid_payloads,
     )
     # Record every checkout SumUp closed now, whatever happens next: an early
     # return below must not leave closed checkouts PENDING for the sweep.
@@ -1013,12 +1027,21 @@ def create_sumup_premium_checkout(request, membership_id):
         )
         # #925: apply it now -- the hourly sweep only reads PAID rows, so a
         # missed webhook would otherwise leave the charge unapplied for good.
+        # The payload SumUp already returned is applied as is, so a failing
+        # second read cannot leave it unrecorded.
         for row in PaymentTransaction.objects.filter(
             premium_membership=membership,
             status=PaymentTransaction.Status.PENDING,
             sumup_checkout_id__isnull=False,
         ):
-            _sync_checkout_with_sumup(row)
+            if row.pk in paid_payloads:
+                _apply_paid_checkout(row, paid_payloads[row.pk])
+            elif not _sync_checkout_with_sumup(row):
+                logger.critical(
+                    "Premium checkout %s may be captured at SumUp but could not "
+                    "be read to record it; retried on the member's next click.",
+                    row.transaction_reference,
+                )
         return _premium_payment_received_response()
     if state == "open":
         return _premium_checkout_retry_response(membership)
@@ -1085,6 +1108,10 @@ def create_sumup_premium_checkout(request, membership_id):
             # A merge that won the membership lock deactivated this account.
             or not locked_membership.user.is_active
             or _premium_payment_captured(membership)
+            # Under the member's row lock (after payment -> membership, like
+            # capture): a capture on another request that opens a case
+            # meanwhile either committed first or waits for this insert.
+            or _lock_member_and_check_blocked(locked_membership.user_id)
         ):
             error, not_pending = _("This membership is not pending payment."), True
         elif not pending_ids <= known_ids or (

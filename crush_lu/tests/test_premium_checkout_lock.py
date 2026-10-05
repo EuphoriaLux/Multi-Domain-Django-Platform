@@ -348,7 +348,8 @@ class PremiumCheckoutLockTests(TestCase):
             response = self.client.post(self.url)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(locked, ["PaymentTransaction", "PremiumMembership"])
+        # #925: then the member's User row, to re-check the recovery block.
+        self.assertEqual(locked, ["PaymentTransaction", "PremiumMembership", "User"])
 
     def _deactivate_ok(self):
         self.sumup["deactivate_checkout"].side_effect = None
