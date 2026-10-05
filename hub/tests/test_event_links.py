@@ -1,5 +1,6 @@
 from datetime import timedelta
 from io import StringIO
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -9,10 +10,11 @@ from django.contrib.auth.models import Permission
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.db.models.deletion import ProtectedError
+from django.db.models.query import QuerySet
 from django.core.cache import cache
-from django.test import RequestFactory, TransactionTestCase, skipUnlessDBFeature
+from django.test import RequestFactory, skipUnlessDBFeature
 from django.http import Http404
 from django.utils import timezone
 from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
@@ -23,7 +25,8 @@ from crush_lu.models import EventRegistration, MeetupEvent
 from hub.partner_services import build_event_prefill
 from hub.admin import PartnerOfferAdmin
 from hub.models import Location, PartnerOffer
-from hub.views_event_links import PartnerEventsView
+from hub.serializers_event_links import EventPartnerLinkSerializer
+from hub.views_event_links import EventPartnerLinkView, PartnerEventsView
 from hub.tests.test_partners import ThrottleIsolatedTestCase, make_offer, make_partner
 
 
@@ -265,6 +268,121 @@ class EventLinkTests(ThrottleIsolatedTestCase):
             PartnerOffer.objects.get(pk=self.offer.pk).name, "Updated preset"
         )
 
+    def test_offer_move_rechecks_links_after_form_validation(self):
+        self.offer.location = self.other
+        self.offer.full_clean()
+        MeetupEvent.objects.filter(pk=self.event.pk).update(
+            partner=self.partner, offer=self.offer
+        )
+        with self.assertRaises(ValidationError):
+            self.offer.save()
+        self.offer.refresh_from_db()
+        self.assertEqual(self.offer.location_id, self.partner.pk)
+
+    def test_admin_locks_only_change_form_posts(self):
+        offer_admin = PartnerOfferAdmin(PartnerOffer, admin.site)
+        for method, view, locked in (
+            ("post", "hub_partneroffer_change", True),
+            ("get", "hub_partneroffer_change", False),
+            ("post", "hub_partneroffer_changelist", False),
+        ):
+            request = getattr(RequestFactory(), method)("/")
+            request.resolver_match = SimpleNamespace(url_name=view)
+            queryset = offer_admin.get_queryset(request)
+            self.assertEqual(queryset.query.select_for_update, locked)
+            if locked:
+                self.assertEqual(queryset.query.select_for_update_of, ("self",))
+
+    def test_link_and_offer_save_share_the_offer_row_lock(self):
+        # SQLite ignores row locks. Assert their presence structurally so a
+        # refactor cannot silently remove the production Postgres mutex.
+        original_lock = QuerySet.select_for_update
+        locked_models = []
+
+        def record_lock(queryset, *args, **kwargs):
+            locked_models.append((queryset.model, kwargs.get("of")))
+            return original_lock(queryset, *args, **kwargs)
+
+        with patch.object(QuerySet, "select_for_update", record_lock):
+            response = self.client.patch(
+                self.link_url,
+                {"partnerId": self.partner.pk, "offerId": self.offer.pk},
+                format="json",
+            )
+            self.offer.name = "Same partner, edited content"
+            self.offer.save()
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(locked_models.count((PartnerOffer, ("self",))), 2)
+
+    def test_link_rechecks_offer_after_serializer_validation(self):
+        original_validate = EventPartnerLinkSerializer.is_valid
+
+        def validate_then_move(serializer, *args, **kwargs):
+            result = original_validate(serializer, *args, **kwargs)
+            self.offer.location = self.other
+            self.offer.save()
+            return result
+
+        with patch.object(EventPartnerLinkSerializer, "is_valid", validate_then_move):
+            response = self.client.patch(
+                self.link_url,
+                {"partnerId": self.partner.pk, "offerId": self.offer.pk},
+                format="json",
+            )
+        self.assertEqual(response.status_code, 409, response.data)
+        self.event.refresh_from_db()
+        self.assertIsNone(self.event.partner_id)
+        self.assertIsNone(self.event.offer_id)
+        self.assertFalse(LogEntry.objects.filter(object_id=str(self.event.pk)).exists())
+
+    def test_link_handles_deleted_partner_and_rolls_back_audit(self):
+        original_validate = EventPartnerLinkSerializer.is_valid
+        original_link = EventPartnerLinkView._link
+
+        def validate_then_delete(serializer, *args, **kwargs):
+            result = original_validate(serializer, *args, **kwargs)
+            Location.objects.get(pk=self.partner.pk).delete()
+            return result
+
+        def link_and_check_constraints(view, request, pk):
+            result = original_link(view, request, pk)
+            # Force the deferred check after the write AND its audit entry,
+            # before leaving the view's atomic block (TestCase never commits).
+            connection.check_constraints()
+            return result
+
+        with (
+            patch.object(EventPartnerLinkSerializer, "is_valid", validate_then_delete),
+            patch.object(EventPartnerLinkView, "_link", link_and_check_constraints),
+        ):
+            response = self.client.patch(
+                self.link_url, {"partnerId": self.partner.pk}, format="json"
+            )
+        self.assertEqual(response.status_code, 409, response.data)
+        self.assertTrue(Location.objects.filter(pk=self.partner.pk).exists())
+        self.event.refresh_from_db()
+        self.assertIsNone(self.event.partner_id)
+        self.assertFalse(LogEntry.objects.filter(object_id=str(self.event.pk)).exists())
+
+    def test_link_handles_offer_deleted_after_validation(self):
+        original_validate = EventPartnerLinkSerializer.is_valid
+
+        def validate_then_delete(serializer, *args, **kwargs):
+            result = original_validate(serializer, *args, **kwargs)
+            PartnerOffer.objects.get(pk=self.offer.pk).delete()
+            return result
+
+        with patch.object(EventPartnerLinkSerializer, "is_valid", validate_then_delete):
+            response = self.client.patch(
+                self.link_url,
+                {"partnerId": self.partner.pk, "offerId": self.offer.pk},
+                format="json",
+            )
+        self.assertEqual(response.status_code, 409, response.data)
+        self.event.refresh_from_db()
+        self.assertIsNone(self.event.partner_id)
+        self.assertIsNone(self.event.offer_id)
+
     def test_backfill_preview_never_applies_candidates(self):
         output = StringIO()
         call_command("backfill_event_partners", stdout=output)
@@ -370,8 +488,8 @@ class EventLinkTests(ThrottleIsolatedTestCase):
         self.assertEqual(response.data["items"][0]["title"], "Historical title")
 
 
-class EventLinkDeletionRaceTests(TransactionTestCase):
-    """Exercise deferred FK errors at commit, outside TestCase's outer atomic."""
+class EventLinkDeletionRaceTests(ThrottleIsolatedTestCase):
+    """Exercise real FK failures without flushing migration-seeded test data."""
 
     def setUp(self):
         super().setUp()
@@ -414,6 +532,9 @@ class EventLinkDeletionRaceTests(TransactionTestCase):
                             )
                         ]
                     )
+                    # Force deferred FK checking inside the view's atomic
+                    # block; TestCase's outer transaction never commits.
+                    connection.check_constraints()
 
                 with patch.object(model, "delete", delete_with_late_reference):
                     response = self.client.delete(url)
