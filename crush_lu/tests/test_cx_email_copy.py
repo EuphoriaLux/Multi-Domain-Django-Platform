@@ -181,6 +181,9 @@ class RecapNudgeTests(_EmailCase):
         other_verification="verified",
         block_other=False,
         crush_declared=False,
+        sent_status=None,
+        received_status=None,
+        received_flow=None,
     ):
         from crush_lu.models import EventConnection, UserBlock
 
@@ -205,6 +208,19 @@ class RecapNudgeTests(_EmailCase):
         if outgoing:
             EventConnection.objects.create(
                 requester=member, recipient=other, event=event, status="pending"
+            )
+        if sent_status:
+            # An "outgoing" row in a status the activity counts skip (declined).
+            EventConnection.objects.create(
+                requester=member, recipient=other, event=event, status=sent_status
+            )
+        if received_status:
+            EventConnection.objects.create(
+                requester=other,
+                recipient=member,
+                event=event,
+                status=received_status,
+                flow=received_flow or EventConnection.FLOW_LEGACY,
             )
         if crush_declared:
             # A private "My Crush!" lead: hidden from the activity counts
@@ -426,14 +442,55 @@ class RecapNudgeTests(_EmailCase):
 
         self._assert_plain_ending("en", event, html)
 
+    def test_attendee_already_targeted_by_the_member_is_not_a_pick(self):
+        """``request_connection`` refuses any same-direction row whatever its
+        status, and the page renders a declined one as non-actionable. A
+        declined row is not in the activity counts, so it must be excluded
+        here."""
+        for lang in LANGS:
+            with self.subTest(lang=lang):
+                event, html = self._recap(lang, sent_status="declined")
+                self._assert_plain_ending(lang, event, html)
+
+    def test_attendee_with_a_closed_request_towards_the_member_is_not_a_pick(self):
+        """The page marks such an attendee non-actionable too."""
+        for lang in LANGS:
+            with self.subTest(lang=lang):
+                event, html = self._recap(lang, received_status="declined")
+                self._assert_plain_ending(lang, event, html)
+
+    def test_private_crush_lead_towards_the_member_does_not_hide_the_pick(self):
+        """Control: the page hides a pre-``shared`` crush lead from its
+        recipient, so that attendee is still an ordinary pick, and the email
+        must not change (it must not reveal the lead either way)."""
+        from crush_lu.models import EventConnection
+
+        for lang in LANGS:
+            with self.subTest(lang=lang):
+                event, html = self._recap(
+                    lang,
+                    received_status="pending",
+                    received_flow=EventConnection.FLOW_CRUSH,
+                )
+                self.assertIn(self._t(lang, "Who caught your eye?"), html)
+                self.assertIn(self._attendees_path(lang, event), html)
+
     def test_one_pickable_attendee_among_unpickable_ones_is_enough(self):
-        """Control: the unverified guest does not hide the verified one."""
+        """Control: unverified and already-targeted guests do not hide a fresh,
+        verified one."""
+        from crush_lu.models import EventConnection
+
         member = self._member("en", status="verified")
         event = self._event(
             start_offset=-timedelta(hours=33), connection_window_hours=48
         )
         reg = self._register(member, event, "attended")
         self._register(self._member("en", status="rejected"), event, "attended")
+        targeted = self._member("en", status="verified")
+        self._register(targeted, event, "attended")
+        EventConnection.objects.create(
+            requester=member, recipient=targeted, event=event, status="declined"
+        )
         self._register(self._member("en", status="verified"), event, "attended")
 
         html = self._send("send_event_recap", reg, request=None)

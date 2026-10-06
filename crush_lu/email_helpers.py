@@ -1383,15 +1383,21 @@ def _recap_can_pick_attendees(registration):
       from the activity counts above);
     * at least one other attendee exists whom ``request_connection`` would
       accept: attended with a verified profile (the recipient needs the same
-      ``can_make_connections``), and not blocked or hidden by an encounter
-      removal.
+      ``can_make_connections``), not blocked or hidden by an encounter
+      removal, and not already a counterpart on this event. The page offers
+      the pick button only to an attendee with no connection row at all
+      (``connection_status is None``): a row the viewer sent counts in every
+      status (``request_connection`` refuses any same-direction row, and a
+      declined one renders as non-actionable), and so does a row they received
+      except a private, pre-``shared`` crush lead, which the page hides from
+      its recipient.
 
     While the Event Lobby recap is open, pairs on its roster get a recap button
     instead of the pick button, and working out who is on it admits members to
     the lobby (a write). A read-only email stays out of that: it says nothing
     about picks in that phase.
     """
-    from .models import EventRegistration
+    from .models import EventConnection, EventRegistration
     from .services.blocking import blocked_user_ids
     from .services.crush_leads import crushes_remaining
     from .services.event_lobby import (
@@ -1410,6 +1416,14 @@ def _recap_can_pick_attendees(registration):
         return False
     if lobby_feature_enabled() and event_lobby_phase(event) == PHASE_RECAP:
         return False
+    already_sent_to = EventConnection.objects.filter(
+        requester=user, event=event
+    ).values("recipient_id")
+    already_received_from = (
+        EventConnection.objects.filter(recipient=user, event=event)
+        .excluding_unshared_crushes()
+        .values("requester_id")
+    )
     return (
         EventRegistration.objects.filter(
             event=event,
@@ -1419,6 +1433,8 @@ def _recap_can_pick_attendees(registration):
         .exclude(user=user)
         .exclude(user_id__in=blocked_user_ids(user))
         .exclude(user_id__in=hidden_encounter_user_ids(user))
+        .exclude(user_id__in=already_sent_to)
+        .exclude(user_id__in=already_received_from)
         .exists()
     )
 
