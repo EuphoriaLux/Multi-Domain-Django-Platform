@@ -28,6 +28,7 @@ from azureproject.admin_translation_mixin import AutoTranslateMixin
 from crush_lu.models import (
     CrushCoach,
     CrushProfile,
+    PremiumPaymentRecoveryCase,
     ProfileSubmission,
     EventRegistration,
     EventConnection,
@@ -2647,9 +2648,7 @@ class RevisionNeededProfileAdmin(CrushProfileAdmin):
 
 class RecontactCoachProfileAdmin(CrushProfileAdmin):
     def get_queryset(self, request):
-        return in_legacy_review_state(
-            super().get_queryset(request), "recontact_coach"
-        )
+        return in_legacy_review_state(super().get_queryset(request), "recontact_coach")
 
     def has_add_permission(self, request):
         return False
@@ -2695,6 +2694,17 @@ class PremiumMembershipAdmin(admin.ModelAdmin):
         errors = []
         for membership in queryset.select_related("coach", "user"):
             if membership.status == "active":
+                continue
+            # #925: a captured payment awaiting recovery is applied through
+            # its case, which records the resolution the refund sweep reads.
+            if PremiumPaymentRecoveryCase.objects.filter(
+                premium_membership=membership,
+                status=PremiumPaymentRecoveryCase.Status.OPEN,
+            ).exists():
+                errors.append(
+                    f"{membership.user}: open payment recovery case; "
+                    "apply or resolve it there"
+                )
                 continue
             try:
                 membership.confirm(by_user=request.user)

@@ -14,6 +14,7 @@ import time
 
 from django.conf import settings
 from django.contrib import admin, messages
+from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
@@ -439,28 +440,93 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
 
 
 class PremiumPaymentRecoveryCaseAdmin(admin.ModelAdmin):
-    """Opened by ``_apply_paid_checkout`` (#925); staff may only set status."""
+    """Opened by ``_apply_paid_checkout`` (#925); staff may only set status.
+
+    The staff queue (WP1 part 2): each open case shows its next step. Refunds
+    are made by hand in the SumUp dashboard (D2/D4) and recorded by the hourly
+    sweep; a coach-unavailable case is applied once the member agrees to a
+    coach (D3)."""
 
     list_display = (
         "payment",
         "user",
         "reason",
         "status",
+        "next_step",
+        "resolution",
         "created_at",
         "member_notified_at",
         "staff_alerted_at",
     )
-    list_filter = ("status", "reason", "created_at")
+    list_filter = ("status", "reason", "resolution", "created_at")
     search_fields = ("payment__transaction_reference", "user__email")
     ordering = ("-created_at",)
     list_select_related = ("payment", "user")
-    readonly_fields = tuple(f for f in list_display if f != "status") + (
+    readonly_fields = tuple(
+        f for f in list_display if f not in ("status", "next_step")
+    ) + (
         "premium_membership",
         "detail",
         # Set once at creation; the notice and charge gates read it.
         "staff_only",
         "member_unknown",
+        "resolved_at",
+        "resolved_by",
     )
+    actions = ("apply_payment_member_agreed",)
+
+    @admin.display(description="Next step")
+    def next_step(self, obj):
+        Case = type(obj)
+        if obj.status != Case.Status.OPEN:
+            return "-"
+        if obj.staff_only:
+            return "Verify which capture was applied before refunding"
+        if obj.reason == Case.Reason.COACH_UNAVAILABLE:
+            return (
+                "Ask the member: a coach with capacity (then 'Apply payment') "
+                "or a refund in SumUp"
+            )
+        return "Refund in the SumUp dashboard; the hourly sweep records it"
+
+    @admin.action(description="Apply payment (member agreed to the coach)")
+    def apply_payment_member_agreed(self, request, queryset):
+        from crush_lu.services.premium_recovery import bounded_request
+
+        if queryset.count() != 1:
+            # Each one mails a receipt and closes checkouts at SumUp; one per
+            # request keeps that inside the request's one deadline.
+            self.message_user(
+                request, "Apply one case at a time.", level=messages.ERROR
+            )
+            return
+        bounded_request(self._apply_one)(request, queryset.get())
+
+    def _apply_one(self, request, case):
+        from crush_lu.services.premium_recovery import apply_case_payment
+
+        error = apply_case_payment(case.pk, request.user)
+        if error:
+            self.message_user(
+                request,
+                f"{case.payment.transaction_reference}: {error}",
+                level=messages.ERROR,
+            )
+        else:
+            self.message_user(request, "Payment applied; the receipt follows by email.")
+
+    def save_model(self, request, obj, form, change):
+        # Resolved by hand (any other remedy): record how, when and by whom.
+        if (
+            change
+            and "status" in form.changed_data
+            and obj.status == type(obj).Status.RESOLVED
+            and not obj.resolution
+        ):
+            obj.resolution = type(obj).Resolution.OTHER
+            obj.resolved_at = timezone.now()
+            obj.resolved_by = request.user
+        super().save_model(request, obj, form, change)
 
     def has_add_permission(self, request):
         return False

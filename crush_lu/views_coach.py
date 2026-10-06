@@ -2688,6 +2688,14 @@ def coach_event_list(request):
     _attach_registration_stats(past_events, statuses=("attended",))
     _attach_curated_event_overview(upcoming_events, now)
 
+    from .services.event_conflicts import event_conflict_pairs
+
+    conflict_pairs = event_conflict_pairs(
+        upcoming_events + past_events, request.coach, viewer=request.user
+    )
+    for event in upcoming_events + past_events:
+        event.coach_conflict_count = len(conflict_pairs.get(event.pk, ()))
+
     context = {
         "coach": request.coach,
         "now": now,
@@ -2708,6 +2716,31 @@ def coach_event_detail(request, event_id):
         .select_related("user__crushprofile", "preference")
         .order_by("registered_at")
     )
+
+    from .services.event_conflicts import event_conflict_pairs
+
+    pairs = event_conflict_pairs(
+        [event], request.coach, viewer=request.user
+    ).get(event.pk, ())
+    registrations_by_user = {reg.user_id: reg for reg in all_regs}
+
+    # Use the already-loaded roster and its display convention, never contacts.
+    def conflict_name(user_id):
+        user = registrations_by_user[user_id].user
+        profile = getattr(user, "crushprofile", None)
+        if profile and (
+            user.first_name or (profile.show_full_name and user.get_full_name())
+        ):
+            return profile.display_name
+        return user.first_name or _("Participant %(id)s") % {
+            "id": registrations_by_user[user_id].pk
+        }
+
+    event_conflicts = [
+        (conflict_name(first), conflict_name(second))
+        for first, second in pairs
+        if first in registrations_by_user and second in registrations_by_user
+    ]
 
     # A pending payment holds capacity, but is neither confirmed nor paid.
     # Keep the displayed roster buckets disjoint from the capacity count.
@@ -2979,6 +3012,7 @@ def coach_event_detail(request, event_id):
         "coach": request.coach,
         "event": event,
         "confirmed_registrations": all_confirmed,
+        "event_conflicts": event_conflicts,
         "waitlist_registrations": all_waitlisted,
         "other_registrations": all_other,
         "applied_registrations": all_applied,
