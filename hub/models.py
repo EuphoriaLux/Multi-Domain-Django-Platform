@@ -893,6 +893,9 @@ class SocialPost(models.Model):
     content = models.TextField(blank=True, default="")
     media_url = models.URLField(blank=True, null=True, default=None)
     media_urls = models.JSONField(default=list, blank=True)
+    media_type = models.CharField(
+        max_length=5, choices=[("image", "Image"), ("video", "Video")], default="image"
+    )
     generation_key = models.CharField(
         max_length=200, unique=True, null=True, blank=True
     )

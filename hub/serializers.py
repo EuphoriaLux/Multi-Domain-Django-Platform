@@ -251,6 +251,7 @@ class SocialPostSerializer(serializers.ModelSerializer):
             "content",
             "media_url",
             "media_urls",
+            "media_type",
             "generation_key",
             "source_metadata",
             "review_fingerprint",
@@ -408,6 +409,15 @@ class SocialPostSerializer(serializers.ModelSerializer):
         return urls
 
     def validate(self, attrs):
+        if (
+            attrs.get("media_type", getattr(self.instance, "media_type", "image"))
+            == "video"
+        ):
+            urls = attrs.get("media_urls", getattr(self.instance, "media_urls", []))
+            if urls:
+                raise serializers.ValidationError(
+                    {"media_urls": "A video cannot include a carousel."}
+                )
         if "media_urls" in attrs and attrs["media_urls"]:
             cover = attrs["media_urls"][0]
             if attrs.get("media_url") and attrs["media_url"] != cover:

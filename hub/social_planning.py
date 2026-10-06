@@ -14,6 +14,7 @@ REVIEW_FIELDS = (
     "content",
     "media_urls",
     "media_url",
+    "media_type",
     "platforms",
     "language",
     "scheduled_for",
