@@ -1,0 +1,24 @@
+{% autoescape off %}CRUSH.LU TURNS 1
+
+We saved you a seat.
+
+Luxembourg's singles are meeting in real life, and we need more of you there.
+
+1. No fakes. Ever.
+Everyone gets verified in person at a Crush event. Real people, met face to face.
+
+2. Your ticket comes with a mission.
+Find your Mystery Candidate and break the ice. No awkward small talk. Just play.
+
+3. Verified = VIP.
+Be first in line for Crush Connect: hand-picked matches, every Wednesday.
+
+Get verified: {{ cta_url }}
+
+Join us for our 1-year celebration. Your seat is waiting.
+
+--
+Crush.lu · Luxembourg
+You're receiving this because you have a Crush.lu account.
+Unsubscribe: {{ unsubscribe_url }}
+{% endautoescape %}

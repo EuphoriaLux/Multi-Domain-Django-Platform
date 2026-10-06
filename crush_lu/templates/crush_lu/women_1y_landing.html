@@ -1,0 +1,61 @@
+{% extends 'crush_lu/base.html' %}
+{% load static i18n %}
+
+{% comment %}
+  Women's 1-year campaign landing (crush_lu/campaign_women_1y.py).
+  Styles: .w1y-* in tailwind-src/crush_lu/features/marketing.css.
+  Context: go_url (CTA router), is_verified, logged_in, events, poster_url,
+  video_url (None until women-1y.mp4 is deployed).
+{% endcomment %}
+
+{% block title %}{% trans "We saved you a seat. | Crush.lu turns 1" %}{% endblock %}
+{% block meta_description %}{% trans "Get verified in person at a Crush event and be first in line for Crush Connect: hand-picked matches, every Wednesday." %}{% endblock %}
+{% block og_title %}{% trans "We saved you a seat." %}{% endblock %}
+{% block og_description %}{% trans "Get verified in person at a Crush event and be first in line for Crush Connect." %}{% endblock %}
+{% block og_image %}{% if request.is_secure %}https{% else %}http{% endif %}://{{ request.get_host }}{{ poster_url }}{% endblock %}
+
+{% block extra_css %}<link rel="stylesheet" href="{% static 'crush_lu/css/marketing.css' %}">{% endblock %}
+
+{% block content %}
+<div class="w1y">
+  <div class="w1y-wrap">
+    <div style="text-align:center"><span class="w1y-badge">{% trans "Crush.lu turns 1" %}</span></div>
+
+    {% if video_url %}
+    <video class="w1y-video" playsinline muted autoplay loop controls preload="metadata" poster="{{ poster_url }}">
+      <source src="{{ video_url }}" type="video/mp4">
+    </video>
+    {% else %}
+    <img class="w1y-video" src="{{ poster_url }}" alt="{% trans 'We saved you a seat.' %}" width="420" height="747">
+    {% endif %}
+
+    <h1>{% trans "We saved you a seat." %}</h1>
+    <p class="w1y-lede">{% trans "Luxembourg's singles are meeting in real life, and we need more of you there." %}</p>
+
+    <ol class="w1y-points">
+      <li><span class="w1y-num" aria-hidden="true">1</span><div><strong>{% trans "No fakes. Ever." %}</strong><span>{% trans "Everyone gets verified in person at a Crush event." %}</span></div></li>
+      <li><span class="w1y-num" aria-hidden="true">2</span><div><strong>{% trans "Your ticket comes with a mission." %}</strong><span>{% trans "Find your Mystery Candidate and break the ice." %}</span></div></li>
+      <li><span class="w1y-num" aria-hidden="true">3</span><div><strong>{% trans "Verified = VIP." %}</strong><span>{% trans "First in line for Crush Connect: hand-picked matches, every Wednesday." %}</span></div></li>
+    </ol>
+
+    <div class="w1y-cta">
+      <a href="{{ go_url }}" class="btn-crush-primary btn-lg">{% if is_verified %}{% trans "Open Crush Connect" %}{% else %}{% trans "Get verified" %}{% endif %}</a>
+      {% if not logged_in %}
+      <a class="w1y-login" href="{% url 'crush_lu:signup' %}">{% trans "New to Crush? Create an account" %}</a>
+      {% endif %}
+    </div>
+
+    {% if events and not is_verified %}
+    <section class="w1y-events" aria-labelledby="w1y-events-title">
+      <h2 id="w1y-events-title">{% trans "Next events" %}</h2>
+      {% for event in events %}
+      <a class="w1y-event" href="{% url 'crush_lu:event_detail' event.id %}">
+        <b>{{ event.title }}</b>
+        <small>{{ event.date_time|date:"D j M, H:i" }} · {{ event.location }}</small>
+      </a>
+      {% endfor %}
+    </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
