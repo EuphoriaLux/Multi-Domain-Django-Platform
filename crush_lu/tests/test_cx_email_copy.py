@@ -604,6 +604,66 @@ class RecapNudgeTests(_EmailCase):
             html = self._send("send_event_recap", reg, request=None)
         self._assert_nudged("en", event, html)
 
+    def test_a_recap_sweep_checks_each_attendee_once_not_once_per_email(self):
+        """The sweep mails every attendee of the event. Walking the candidates
+        per mail would be one admissibility check (``participant_gate``, one or
+        two LuxID queries) per candidate per mail: quadratic in the attendees,
+        inside a synchronous request. The admissible set is computed once per
+        event. (``send_event_recap`` itself already resolves each recipient's
+        own lobby participation: linear, and not what this pins.)"""
+        from crush_lu import email_helpers
+        from crush_lu.email_helpers import _recap_lobby_admissible_ids
+
+        attendees = 6
+        event = self._event(
+            start_offset=-timedelta(hours=33), connection_window_hours=48
+        )
+        regs = []
+        for _ in range(attendees):
+            member = self._member("en", status="verified")
+            regs.append(self._register(member, event, "attended"))
+        with mock.patch(
+            "crush_lu.services.event_lobby.lobby_feature_enabled", return_value=True
+        ), mock.patch(
+            "crush_lu.services.event_lobby.participant_gate", return_value=self.OK
+        ), mock.patch.object(
+            email_helpers,
+            "_recap_lobby_admissible",
+            wraps=email_helpers._recap_lobby_admissible,
+        ) as admissible_check:
+            htmls = [self._send("send_event_recap", reg, request=None) for reg in regs]
+            admissible = _recap_lobby_admissible_ids(event)
+
+        self.assertEqual(admissible_check.call_count, attendees)  # not attendees**2
+        self.assertEqual(admissible, {reg.user_id for reg in regs})
+        # Everyone is on the lobby roster, so no pair is a pick for anyone.
+        for html in htmls:
+            self._assert_plain_ending("en", event, html)
+
+    def test_admissible_ids_cover_exactly_the_admissible_attendees(self):
+        from crush_lu.email_helpers import _recap_lobby_admissible_ids
+
+        event = self._event(
+            start_offset=-timedelta(hours=33), connection_window_hours=48
+        )
+        inside = self._member("en", status="verified")
+        outside = self._member("en", status="verified")
+        no_show = self._member("en", status="verified")
+        self._register(inside, event, "attended")
+        self._register(outside, event, "attended")
+        self._register(no_show, event, "no_show")
+        gates = {inside.pk: self.OK, no_show.pk: self.OK}
+        with mock.patch(
+            "crush_lu.services.event_lobby.participant_gate",
+            side_effect=lambda user: gates.get(user.pk, self.OUTSIDE),
+        ), mock.patch(
+            "crush_lu.services.event_lobby.may_learn_lobby_exists",
+            return_value=False,
+        ):
+            ids = _recap_lobby_admissible_ids(event)
+        # Only attended members count, and only those the gate admits.
+        self.assertEqual(ids, {inside.pk})
+
     def test_read_only_admissibility_matches_is_recap_admissible(self):
         """``_recap_lobby_admissible`` must give the answer ``is_recap_admissible``
         gives (that one admits the member, a write the email must not make)."""

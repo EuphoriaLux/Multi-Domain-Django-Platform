@@ -1393,6 +1393,37 @@ def _recap_lobby_admissible(user):
     )
 
 
+# The recap sweep mails every attendee of an event in one run, and each mail
+# needs the same answer ("who at this event is recap-admissible?"), so it is
+# worked out once per event and shared for a few minutes. Per mail it would be
+# one participant_gate() per candidate (each one or two LuxID EXISTS queries),
+# i.e. quadratic in the attendee count inside a synchronous request.
+_RECAP_LOBBY_ADMISSIBLE_TTL = 300
+
+
+def _recap_lobby_admissible_ids(event):
+    """User ids of the event's attended members who are recap-admissible.
+
+    One pass over the attendees (``_recap_lobby_admissible`` each), cached per
+    event, so a sweep costs O(attendees) gate checks rather than O(attendees²).
+    A member who onboards inside the TTL shows up on the next refresh; the
+    email is advisory, so that lag is harmless.
+    """
+    from .models import EventRegistration
+
+    key = f"recap_lobby_admissible:{event.pk}"
+    ids = cache.get(key)
+    if ids is None:
+        registrations = EventRegistration.objects.filter(
+            event=event, status="attended"
+        ).select_related("user__crushprofile", "user__crush_connect_membership")
+        ids = {
+            reg.user_id for reg in registrations if _recap_lobby_admissible(reg.user)
+        }
+        cache.set(key, ids, _RECAP_LOBBY_ADMISSIBLE_TTL)
+    return ids
+
+
 def _recap_can_pick_attendees(registration):
     """Would the attendee page offer this member a pick right now?
 
@@ -1422,8 +1453,9 @@ def _recap_can_pick_attendees(registration):
     recap-admissible (``crush_flow_decision``). Such a candidate is not a pick,
     but a member outside the lobby (no Connect membership or LuxID) is not
     affected at all. Whether someone is admissible is answered read-only by
-    ``_recap_lobby_admissible``; ``is_recap_admissible`` itself admits members
-    to the lobby (a write), which an email must not do.
+    ``_recap_lobby_admissible_ids`` (once per event, cached);
+    ``is_recap_admissible`` itself admits members to the lobby (a write), which
+    an email must not do.
     """
     from .models import EventConnection, EventRegistration
     from .services.blocking import blocked_user_ids
@@ -1462,19 +1494,12 @@ def _recap_can_pick_attendees(registration):
         .exclude(user_id__in=already_sent_to)
         .exclude(user_id__in=already_received_from)
     )
-    if (
-        lobby_feature_enabled()
-        and event_lobby_phase(event) == PHASE_RECAP
-        and _recap_lobby_admissible(user)
-    ):
-        # Pairs where both sides are admissible go to the lobby recap, so only
-        # a candidate who is not admissible is still a pick.
-        return any(
-            not _recap_lobby_admissible(reg.user)
-            for reg in candidates.select_related(
-                "user__crushprofile", "user__crush_connect_membership"
-            ).iterator()
-        )
+    if lobby_feature_enabled() and event_lobby_phase(event) == PHASE_RECAP:
+        admissible_ids = _recap_lobby_admissible_ids(event)
+        if user.pk in admissible_ids:
+            # Pairs where both sides are admissible go to the lobby recap, so
+            # only a candidate who is not admissible is still a pick.
+            return candidates.exclude(user_id__in=admissible_ids).exists()
     return candidates.exists()
 
 
