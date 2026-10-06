@@ -16,7 +16,7 @@ from django.contrib import messages as django_messages
 from django.db import transaction
 from django.db.models import Prefetch, Count, Q, F
 from django.urls import reverse
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -29,6 +29,7 @@ from crush_lu.models import (
     CrushCoach,
     CrushProfile,
     PremiumPaymentRecoveryCase,
+    ProfilePhotoReviewState,
     ProfileSubmission,
     EventRegistration,
     EventConnection,
@@ -554,6 +555,7 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
     filter_horizontal = ("interests_new", "qualities", "defects", "sought_qualities")
     readonly_fields = (
         "get_quick_status_summary",
+        "get_photo_review_summary",
         "get_user_account_info",
         "user",
         "created_at",
@@ -698,7 +700,15 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
         (
             "Photos",
             {
-                "fields": ("photo_1", "photo_2", "photo_3"),
+                "fields": (
+                    "get_photo_review_summary",
+                    "photo_1",
+                    "photo_2",
+                    "photo_3",
+                ),
+                "description": _(
+                    "Each status applies to the exact image file shown in that slot."
+                ),
             },
         ),
         (
@@ -940,6 +950,55 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
         return mark_safe('<span style="color: #999;">No photo</span>')
 
     get_photo_preview.short_description = _("Photo")
+
+    def get_photo_review_summary(self, obj):
+        states = {
+            state.photo_field: state
+            for state in obj.photo_review_states.select_related("reviewed_by__user")
+        }
+        profile_status_labels = dict(CrushProfile.PHOTO_REVIEW_STATUS_CHOICES)
+        state_status_labels = dict(ProfilePhotoReviewState.STATUS_CHOICES)
+        rows = []
+        for photo_field, label in (
+            ("photo_1", _("Primary photo")),
+            ("photo_2", _("Photo 2")),
+            ("photo_3", _("Photo 3")),
+        ):
+            key = getattr(getattr(obj, photo_field), "name", "") or ""
+            state = states.get(photo_field)
+            if state is not None and state.photo_key == key:
+                status = state.status
+                reviewer = state.reviewed_by
+                reviewed_at = state.reviewed_at
+                status_label = state_status_labels.get(status, status)
+            elif photo_field == "photo_1":
+                status = obj.get_photo_field_review_status(photo_field)
+                reviewer = obj.photo_reviewed_by
+                reviewed_at = obj.photo_reviewed_at
+                status_label = profile_status_labels.get(status, status)
+            else:
+                status_label = _("Pending Review") if key else _("No image")
+                reviewer = None
+                reviewed_at = None
+
+            reviewer_name = (
+                reviewer.user.get_full_name() or reviewer.user.username
+                if reviewer
+                else _("Not reviewed")
+            )
+            timestamp = (
+                timezone.localtime(reviewed_at).strftime("%Y-%m-%d %H:%M")
+                if reviewed_at
+                else ""
+            )
+            rows.append((label, status_label, reviewer_name, timestamp))
+        return format_html_join(
+            "",
+            "<div><strong>{}:</strong> {} — {} {}</div>",
+            rows,
+        )
+
+    get_photo_review_summary.short_description = _("Coach photo review")
 
     def phone_verified_icon(self, obj):
         """Display phone verification status with icon"""
@@ -1679,6 +1738,19 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
                     photo_review_notes="",
                 ):
                     continue
+                if old_status == "flagged_fake":
+                    ProfilePhotoReviewState.objects.filter(
+                        profile_id=pk, status="flagged_fake"
+                    ).delete()
+                else:
+                    photo_key = profile.photo_1.name or ""
+                    if photo_key:
+                        ProfilePhotoReviewState.objects.filter(
+                            profile_id=pk,
+                            photo_field="photo_1",
+                            photo_key=photo_key,
+                            status="needs_revision",
+                        ).delete()
                 self.log_change(
                     request,
                     profile,

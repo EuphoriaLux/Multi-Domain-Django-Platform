@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, List, Tuple
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Exists, OuterRef, Q, QuerySet
+from django.db.models import Exists, F, OuterRef, Q, QuerySet
 from django.utils import timezone
 
 if TYPE_CHECKING:
@@ -206,6 +206,33 @@ def exclude_assigned_coach_pairs(qs, user, field="pk"):
     return qs.exclude(**{f"{field}__in": pair_ids})
 
 
+def filter_primary_photo_review_approved(qs, profile_prefix="crushprofile"):
+    """Require the exact current primary photo to have a coach review approval."""
+    from crush_lu.models import ProfilePhotoReviewState
+
+    reviewed = ProfilePhotoReviewState.objects.filter(
+        profile_id=OuterRef(f"{profile_prefix}__pk"),
+        photo_field="photo_1",
+        photo_key=OuterRef(f"{profile_prefix}__photo_1"),
+        status="approved",
+    )
+    return (
+        qs.prefetch_related(f"{profile_prefix}__photo_review_states")
+        .annotate(_coach_reviewed_primary=Exists(reviewed))
+        .filter(
+            Q(_coach_reviewed_primary=True)
+            | Q(
+                **{
+                    f"{profile_prefix}__photo_review_status": "approved",
+                    f"{profile_prefix}__photo_review_key": F(
+                        f"{profile_prefix}__photo_1"
+                    ),
+                }
+            )
+        )
+    )
+
+
 def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
     """
     The member must have an approved profile, active Premium membership, and
@@ -227,6 +254,7 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
         or not user_profile.is_approved
         or not user_profile.is_active
         or user_profile.photo_review_status in ("needs_revision", "flagged_fake")
+        or not user_profile.is_photo_review_approved
         or not user.is_active
     ):
         return User.objects.none()
@@ -295,6 +323,7 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
         .exclude(pk__in=hidden_encounter_user_ids(user))
         .select_related("crushprofile", "crush_connect_membership")
     )
+    qs = filter_primary_photo_review_approved(qs)
     # LuxID OR attended in-person event satisfies identity verification for
     # the candidate catalogue (Option B / Issue #539).
     qs = filter_connect_identity_verified(qs)
@@ -461,20 +490,24 @@ def active_week_questions(today: date | None = None):
 
 def filter_catalogue_eligible(qs):
     """Queryset equivalent of is_catalogue_eligible for stored-card read paths."""
-    return filter_connect_identity_verified(
-        qs.filter(
-            is_active=True,
-            crushprofile__is_active=True,
-            crush_connect_membership__onboarded_at__isnull=False,
-            crush_connect_membership__excluded_by_coach=False,
-            crush_connect_membership__paused_at__isnull=True,
-            crush_connect_membership__photo_share_consent=True,
-            last_login__gte=timezone.now()
-            - timedelta(days=CONNECT_INACTIVITY_WINDOW_DAYS),
-        )
-        .exclude(Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True))
-        .exclude(
-            crushprofile__photo_review_status__in=["flagged_fake", "needs_revision"]
+    return filter_primary_photo_review_approved(
+        filter_connect_identity_verified(
+            qs.filter(
+                is_active=True,
+                crushprofile__is_active=True,
+                crush_connect_membership__onboarded_at__isnull=False,
+                crush_connect_membership__excluded_by_coach=False,
+                crush_connect_membership__paused_at__isnull=True,
+                crush_connect_membership__photo_share_consent=True,
+                last_login__gte=timezone.now()
+                - timedelta(days=CONNECT_INACTIVITY_WINDOW_DAYS),
+            )
+            .exclude(
+                Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True)
+            )
+            .exclude(
+                crushprofile__photo_review_status__in=["flagged_fake", "needs_revision"]
+            )
         )
     )
 
@@ -493,6 +526,7 @@ def is_catalogue_eligible(user) -> bool:
         profile is not None
         and profile.verification_status == "verified"
         and profile.photo_1
+        and profile.is_photo_review_approved
         and profile.photo_review_status not in ("flagged_fake", "needs_revision")
         and profile.is_connect_identity_verified
         and membership is not None
@@ -513,6 +547,7 @@ def is_premium_connect_eligible(user) -> bool:
         profile is not None
         and profile.is_approved
         and profile.photo_1
+        and profile.is_photo_review_approved
         and profile.photo_review_status not in ("flagged_fake", "needs_revision")
         and profile.has_active_premium
         and membership is not None

@@ -1207,13 +1207,90 @@ class CrushProfile(models.Model):
 
     @property
     def is_photo_review_approved(self) -> bool:
-        """Whether the currently displayed primary photo was coach-approved online."""
-        current_key = getattr(self.photo_1, "name", "") or ""
+        """Whether the current primary image has a coach's online approval."""
+        return self.is_photo_field_review_approved("photo_1")
+
+    def get_photo_field_review_state(self, photo_field: str):
+        """Return the current exact-file decision, treating stale keys as pending."""
+        if photo_field not in ("photo_1", "photo_2", "photo_3"):
+            raise ValueError(f"Unsupported profile photo field: {photo_field}")
+        current_key = getattr(getattr(self, photo_field), "name", "") or ""
+        if not current_key:
+            return None
+        if not self.pk:
+            return None
+
+        state = None
+        prefetched = getattr(self, "_prefetched_objects_cache", {}).get(
+            "photo_review_states"
+        )
+        if prefetched is not None:
+            state = next(
+                (
+                    item
+                    for item in prefetched
+                    if item.photo_field == photo_field and item.photo_key == current_key
+                ),
+                None,
+            )
+        else:
+            state = self.photo_review_states.filter(
+                photo_field=photo_field, photo_key=current_key
+            ).first()
+        if state is not None:
+            return state
+
+        # The legacy primary fields remain a compatibility fallback for rows
+        # written before the per-slot review migration or by older code.
+        if (
+            photo_field == "photo_1"
+            and self.photo_review_key == current_key
+            and self.photo_review_status in ("approved", "needs_revision")
+        ):
+            return None
+        return None
+
+    def get_photo_field_review_status(self, photo_field: str) -> str:
+        """Return the current status for a slot; absent/stale decisions are pending."""
+        current_key = getattr(getattr(self, photo_field), "name", "") or ""
+        if photo_field == "photo_1":
+            if self.photo_review_status == "flagged_fake":
+                return "flagged_fake"
+            if self.photo_review_status == "needs_revision":
+                return "needs_revision"
+        state = self.get_photo_field_review_state(photo_field)
+        if state is not None:
+            return state.status
+        if photo_field == "photo_1":
+            if current_key and self.photo_review_key == current_key:
+                return self.photo_review_status
+        return "pending"
+
+    def is_photo_field_review_approved(self, photo_field: str) -> bool:
+        current_key = getattr(getattr(self, photo_field, None), "name", "") or ""
+        if photo_field == "photo_1" and (
+            self.photo_review_status == "flagged_fake"
+            or self.photo_review_status == "needs_revision"
+        ):
+            return False
+        state = self.get_photo_field_review_state(photo_field)
+        if state is not None:
+            return state.status == "approved"
         return bool(
-            current_key
+            photo_field == "photo_1"
+            and current_key
             and self.photo_review_status == "approved"
             and self.photo_review_key == current_key
         )
+
+    def get_coach_reviewed_secondary_photo_fields(self):
+        """Secondary slots safe to include in a Connect member-facing gallery."""
+        return [
+            photo_field
+            for photo_field in ("photo_2", "photo_3")
+            if getattr(self, photo_field)
+            and self.is_photo_field_review_approved(photo_field)
+        ]
 
     def mark_current_photo_verified(
         self, *, verified_at=None, allowed_statuses=("pending", "verified")

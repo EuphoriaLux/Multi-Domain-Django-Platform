@@ -17,6 +17,7 @@ from crush_lu.models import (
     CrushConnectMembership,
     CrushProfile,
     ProfilePhotoReviewLog,
+    ProfilePhotoReviewState,
     UserDataConsent,
 )
 from crush_lu.services.photo_review import (
@@ -36,9 +37,7 @@ def isolate_review_side_effects(monkeypatch):
     monkeypatch.setattr(
         CrushProfile._meta.get_field("photo_1").storage, "delete", lambda name: None
     )
-    with patch(
-        "crush_lu.services.photo_review.notify_photo_revision"
-    ) as notification:
+    with patch("crush_lu.services.photo_review.notify_photo_revision") as notification:
         yield notification
 
 
@@ -49,9 +48,35 @@ def _review(coach, profile, decision="approved", **kwargs):
             decision, ""
         ),
     )
+    photo_field = kwargs.pop("photo_field", "photo_1")
     return submit_photo_review(
-        coach, profile.pk, decision, photo_key=profile.photo_1.name, **kwargs
+        coach,
+        profile.pk,
+        decision,
+        photo_key=getattr(profile, photo_field).name,
+        photo_field=photo_field,
+        **kwargs,
     )
+
+
+def _approve_primary_photo(profile):
+    now = timezone.now()
+    photo_key = profile.photo_1.name
+    ProfilePhotoReviewState.objects.update_or_create(
+        profile=profile,
+        photo_field="photo_1",
+        defaults={
+            "photo_key": photo_key,
+            "status": "approved",
+            "reviewed_at": now,
+        },
+    )
+    CrushProfile.objects.filter(pk=profile.pk).update(
+        photo_review_status="approved",
+        photo_review_key=photo_key,
+        photo_reviewed_at=now,
+    )
+    profile.refresh_from_db()
 
 
 def _post(client, profile, **overrides):
@@ -153,7 +178,9 @@ def test_queue_has_bounded_verification_queries_and_excludes_coach_total(
     CrushProfile.objects.create(user=coach.user, photo_1="coach.jpg")
     for number in range(30):
         _make_candidate(f"queued_{number}", has_luxid=number % 2 == 0)
-    with django_assert_max_num_queries(3):
+    # Each image slot is counted and keyset-selected independently, then
+    # interests and review states are prefetched in batches (never per card).
+    with django_assert_max_num_queries(8):
         cards, total = get_photo_review_queue(coach, limit=30)
     assert len(cards) == total == 30
     assert sum(card["is_luxid_verified"] for card in cards) == 15
@@ -323,8 +350,12 @@ def _make_pick(coach, profile, status="proposed"):
 def test_undo_restores_only_its_withdrawn_pick(status):
     coach, profile = _make_coach(), _make_candidate()
     pick = _make_pick(coach, profile, status)
+    _approve_primary_photo(profile)
+    _approve_primary_photo(pick.member.crushprofile)
+    profile.photo_2 = "users/2/photos/secondary.jpg"
+    profile.save(update_fields=["photo_2"])
     previous_response = pick.responded_at
-    result = _review(coach, profile, "flagged_fake")
+    result = _review(coach, profile, "flagged_fake", photo_field="photo_2")
     pick.refresh_from_db()
     assert pick.status == "withdrawn"
     undo_last_photo_review(coach, log_id=result["log_id"])
@@ -360,6 +391,10 @@ def test_undo_does_not_revive_picks_superseded_by_safety_or_new_proposal(later_a
 def test_undo_restores_proposal_held_alongside_earlier_accepted_pick():
     coach, profile = _make_coach(), _make_candidate()
     pick = _make_pick(coach, profile)
+    _approve_primary_photo(profile)
+    _approve_primary_photo(pick.member.crushprofile)
+    profile.photo_2 = "users/2/photos/secondary.jpg"
+    profile.save(update_fields=["photo_2"])
     earlier = ConnectCoachPick.objects.create(
         coach=coach,
         member=pick.member,
@@ -367,7 +402,7 @@ def test_undo_restores_proposal_held_alongside_earlier_accepted_pick():
         status="accepted",
         responded_at=timezone.now(),
     )
-    result = _review(coach, profile, "flagged_fake")
+    result = _review(coach, profile, "flagged_fake", photo_field="photo_2")
     undone = undo_last_photo_review(coach, log_id=result["log_id"])
     pick.refresh_from_db()
     earlier.refresh_from_db()
@@ -397,13 +432,22 @@ def test_new_photo_does_not_launder_fake_flag(save_kind):
     from crush_lu.views_media import can_view_profile_photo
 
     coach, profile = _make_coach(), _make_candidate()
+    _approve_primary_photo(profile)
+    profile.photo_2 = "users/1/photos/second.jpg"
+    profile.save(update_fields=["photo_2"])
     attendee = _make_candidate("co_attendee")
     event = _event(ended_hours_ago=1)
     _attend(profile.user, event)
     _attend(attendee.user, event)
     assert can_view_profile_photo(attendee.user, profile)
     stale = CrushProfile.objects.get(pk=profile.pk)
-    _review(coach, profile, "flagged_fake", notes="Stock image")
+    _review(
+        coach,
+        profile,
+        "flagged_fake",
+        notes="Stock image",
+        photo_field="photo_2",
+    )
     profile.refresh_from_db()
     flagged = (profile.photo_reviewed_at, profile.photo_reviewed_by_id)
     target = stale if save_kind == "stale_instance" else profile
@@ -597,7 +641,7 @@ def test_submit_photo_review_validates_decision_reason_combination():
         )
     assert exc_info.value.status == 400
 
-    # Secondary photo cannot be reviewed
+    # A primary-photo key cannot authorize a decision on another slot.
     with pytest.raises(PhotoReviewError) as exc_info:
         submit_photo_review(
             coach,
@@ -607,7 +651,7 @@ def test_submit_photo_review_validates_decision_reason_combination():
             photo_key=profile.photo_1.name,
             photo_field="photo_2",
         )
-    assert exc_info.value.status == 400
+    assert exc_info.value.status == 409
 
 
 @pytest.mark.parametrize(

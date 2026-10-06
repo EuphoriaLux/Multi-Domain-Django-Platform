@@ -33,6 +33,7 @@ from crush_lu.models import (
     EventMeetSignal,
     EventRegistration,
     MeetupEvent,
+    ProfilePhotoReviewState,
     UserBlock,
     UserDataConsent,
 )
@@ -94,6 +95,12 @@ def _make_member(
     if photo:
         profile.photo_1 = f"users/{user.pk}/photos/test.jpg"
         profile.save(update_fields=["photo_1"])
+        ProfilePhotoReviewState.objects.create(
+            profile=profile,
+            photo_field="photo_1",
+            photo_key=profile.photo_1.name,
+            status="approved",
+        )
     if luxid:
         SocialAccount.objects.create(
             user=user, provider="luxid", uid=f"luxid-test-{user.pk}"
@@ -1147,6 +1154,11 @@ class TestLobbyPhoto:
         settings.MEDIA_ROOT = str(tmp_path)
         profile = user.crushprofile
         profile.photo_1.save("lobby.jpg", ContentFile(b"jpegbytes"), save=True)
+        ProfilePhotoReviewState.objects.update_or_create(
+            profile=profile,
+            photo_field="photo_1",
+            defaults={"photo_key": profile.photo_1.name, "status": "approved"},
+        )
         return profile
 
     def test_participant_fetches_photo_by_handle(self, client, settings, tmp_path):

@@ -15,6 +15,7 @@ from crush_lu.models import (
     EventRegistration,
     MeetupEvent,
     PremiumMembership,
+    ProfilePhotoReviewState,
     SparkPrompt,
 )
 from crush_lu.services.crush_connect import (
@@ -103,6 +104,12 @@ def _make_user(
         preferred_genders=preferred_genders or [],
         preferred_age_min=preferred_age_min,
         preferred_age_max=preferred_age_max,
+    )
+    ProfilePhotoReviewState.objects.create(
+        profile=profile,
+        photo_field="photo_1",
+        photo_key=profile.photo_1.name,
+        status="approved",
     )
     if premium:
         profile.assigned_coach = _get_coach()
