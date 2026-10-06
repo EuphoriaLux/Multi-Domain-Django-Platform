@@ -27,9 +27,11 @@ Review follow-up (automated review, three P2 findings, each checked in code):
   the plain browse-events ending instead of a link that bounces them;
 * the nudge also needs a pick to be left and someone who can receive it: the
   member's one "My Crush!" per event is unused, at least one other attendee has
-  a verified profile (``request_connection`` refuses any other recipient), and
-  the Event Lobby recap is not open (its roster pairs get a recap button
-  instead, and resolving it writes lobby rows, which an email must not do);
+  a verified profile (``request_connection`` refuses any other recipient) and
+  no connection row with the member, and the pair is not one the Event Lobby
+  recap takes over (both sides recap-admissible; judged read-only, because
+  ``is_recap_admissible`` admits members to the lobby, which an email must not
+  do; a member outside the lobby keeps the nudge);
 * the paid-waitlist "you then complete the payment" bullet is not shown when
   the registration already carries a payment (a late canceller who re-registers
   keeps ``payment_confirmed``; promotion confirms that seat straight away).
@@ -184,6 +186,7 @@ class RecapNudgeTests(_EmailCase):
         sent_status=None,
         received_status=None,
         received_flow=None,
+        lobby=None,
     ):
         from crush_lu.models import EventConnection, UserBlock
 
@@ -232,7 +235,25 @@ class RecapNudgeTests(_EmailCase):
                 status="pending",
                 flow=EventConnection.FLOW_CRUSH,
             )
-        html = self._send("send_event_recap", reg, request=None)
+        if lobby is None:
+            html = self._send("send_event_recap", reg, request=None)
+        else:
+            # Event Lobby on, and the recap phase is open (the event ended 30 h
+            # ago, the lobby recap lasts 48 h). ``lobby`` maps "viewer"/"other"
+            # to the (ok, reason) their participant_gate would return, and
+            # "may_learn" to may_learn_lobby_exists.
+            gates = {member.pk: lobby["viewer"], other.pk: lobby["other"]}
+            with mock.patch(
+                "crush_lu.services.event_lobby.lobby_feature_enabled",
+                return_value=True,
+            ), mock.patch(
+                "crush_lu.services.event_lobby.participant_gate",
+                side_effect=lambda user: gates.get(user.pk, (False, "no_membership")),
+            ), mock.patch(
+                "crush_lu.services.event_lobby.may_learn_lobby_exists",
+                return_value=lobby.get("may_learn", False),
+            ):
+                html = self._send("send_event_recap", reg, request=None)
         return event, html
 
     def _attendees_path(self, lang, event):
@@ -498,21 +519,129 @@ class RecapNudgeTests(_EmailCase):
         self.assertIn("Who caught your eye?", html)
         self.assertIn(self._attendees_path("en", event), html)
 
-    def test_open_event_lobby_recap_means_no_promise_about_picks(self):
-        """While the lobby recap is open its roster pairs get a recap button
-        instead of the pick button, and resolving that roster admits members
-        (a write), so the read-only email stays silent about picks."""
-        with mock.patch(
-            "crush_lu.services.event_lobby.lobby_feature_enabled",
-            return_value=True,
-        ):
+    # -- Event Lobby recap: only a pair the lobby takes over is not a pick ----
+
+    OK = (True, "ok")
+    OUTSIDE = (False, "no_membership")  # no Connect membership
+    NO_PHOTO = (False, "no_photo")  # onboarded but not lobby-capable
+    NOT_ONBOARDED = (False, "not_onboarded")
+
+    def _assert_nudged(self, lang, event, html):
+        self.assertIn(self._t(lang, "Who caught your eye?"), html)
+        self.assertIn(self._attendees_path(lang, event), html)
+
+    def test_member_outside_the_lobby_keeps_the_nudge_while_the_lobby_recap_is_open(
+        self,
+    ):
+        """The attendee page shows the pick button to a viewer who is not a lobby
+        participant (their recap list is empty), so the email must not go quiet
+        just because the lobby feature is on: the recap email always goes out
+        inside the 48 h lobby recap."""
+        for lang in LANGS:
+            with self.subTest(lang=lang):
+                event, html = self._recap(
+                    lang,
+                    lobby={
+                        "viewer": self.OUTSIDE,
+                        "other": self.OK,
+                        "may_learn": False,
+                    },
+                )
+                self._assert_nudged(lang, event, html)
+
+    def test_lobby_member_still_has_a_pick_when_the_other_attendee_is_outside_it(self):
+        for lang in LANGS:
+            with self.subTest(lang=lang):
+                event, html = self._recap(
+                    lang, lobby={"viewer": self.OK, "other": self.NO_PHOTO}
+                )
+                self._assert_nudged(lang, event, html)
+
+    def test_pair_the_lobby_recap_takes_over_is_not_a_pick(self):
+        """``request_connection`` sends a pair to the lobby recap when both
+        sides are admissible, so the email says nothing about picks."""
+        cases = {
+            "both lobby participants": {"viewer": self.OK, "other": self.OK},
+            "viewer participant, other a Connect guest who could onboard": {
+                "viewer": self.OK,
+                "other": self.NOT_ONBOARDED,
+                "may_learn": True,
+            },
+            "viewer a guest who could onboard, other a participant": {
+                "viewer": self.NOT_ONBOARDED,
+                "other": self.OK,
+                "may_learn": True,
+            },
+        }
+        for label, lobby in cases.items():
             for lang in LANGS:
-                with self.subTest(lang=lang):
-                    event, html = self._recap(lang)
+                with self.subTest(case=label, lang=lang):
+                    event, html = self._recap(lang, lobby=lobby)
                     self._assert_plain_ending(lang, event, html)
 
+    def test_one_free_attendee_next_to_a_lobby_one_is_enough(self):
+        """Control, no lobby simulation needed beyond the gate: a second
+        attendee outside the lobby keeps the pick."""
+        member = self._member("en", status="verified")
+        event = self._event(
+            start_offset=-timedelta(hours=33), connection_window_hours=48
+        )
+        reg = self._register(member, event, "attended")
+        in_lobby = self._member("en", status="verified")
+        outside = self._member("en", status="verified")
+        self._register(in_lobby, event, "attended")
+        self._register(outside, event, "attended")
+        gates = {member.pk: self.OK, in_lobby.pk: self.OK}
+        with mock.patch(
+            "crush_lu.services.event_lobby.lobby_feature_enabled", return_value=True
+        ), mock.patch(
+            "crush_lu.services.event_lobby.participant_gate",
+            side_effect=lambda user: gates.get(user.pk, self.OUTSIDE),
+        ), mock.patch(
+            "crush_lu.services.event_lobby.may_learn_lobby_exists",
+            return_value=False,
+        ):
+            html = self._send("send_event_recap", reg, request=None)
+        self._assert_nudged("en", event, html)
+
+    def test_read_only_admissibility_matches_is_recap_admissible(self):
+        """``_recap_lobby_admissible`` must give the answer ``is_recap_admissible``
+        gives (that one admits the member, a write the email must not make)."""
+        from crush_lu.email_helpers import _recap_lobby_admissible
+        from crush_lu.services.event_lobby import is_recap_admissible
+
+        states = [
+            ("participant", self.OK, False),
+            ("no membership, may learn", self.OUTSIDE, True),
+            ("no membership, may not learn", self.OUTSIDE, False),
+            ("not onboarded, may learn", self.NOT_ONBOARDED, True),
+            ("not onboarded, may not learn", self.NOT_ONBOARDED, False),
+            ("onboarded but no photo, may learn", self.NO_PHOTO, True),
+            ("excluded, may learn", (False, "excluded"), True),
+            ("paused, may learn", (False, "paused"), True),
+        ]
+        for label, gate, may_learn in states:
+            with self.subTest(label):
+                member = self._member("en", status="verified")
+                event = self._event(
+                    start_offset=-timedelta(hours=33), connection_window_hours=48
+                )
+                self._register(member, event, "attended")
+                with mock.patch(
+                    "crush_lu.services.event_lobby.lobby_feature_enabled",
+                    return_value=True,
+                ), mock.patch(
+                    "crush_lu.services.event_lobby.participant_gate",
+                    return_value=gate,
+                ), mock.patch(
+                    "crush_lu.services.event_lobby.may_learn_lobby_exists",
+                    return_value=may_learn,
+                ):
+                    expected = is_recap_admissible(member, event)
+                    self.assertEqual(_recap_lobby_admissible(member), expected)
+
     def test_lobby_feature_off_keeps_the_nudge(self):
-        """Control for the lobby case: the flag is off by default."""
+        """Control: the flag is off by default."""
         with mock.patch(
             "crush_lu.services.event_lobby.lobby_feature_enabled",
             return_value=False,

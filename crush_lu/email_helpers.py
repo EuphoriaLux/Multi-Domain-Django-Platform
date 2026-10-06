@@ -1368,6 +1368,31 @@ def google_review_url_for(registration):
     return get_review_url()
 
 
+def _recap_lobby_admissible(user):
+    """Read-only twin of ``event_lobby.is_recap_admissible`` (attended guest).
+
+    ``is_recap_admissible`` resolves the member's lobby participation, which
+    admits them (a write). The decision it makes is the same read: the member
+    passes ``participant_gate`` (a lobby participant, or admissible on the
+    spot), or is a Connect guest who could still onboard
+    (``GATE_NOT_ONBOARDED`` / ``GATE_NO_MEMBERSHIP``) and may learn the lobby
+    exists. A test pins this against ``is_recap_admissible``.
+    """
+    from .services.event_lobby import (
+        GATE_NO_MEMBERSHIP,
+        GATE_NOT_ONBOARDED,
+        may_learn_lobby_exists,
+        participant_gate,
+    )
+
+    ok, reason = participant_gate(user)
+    if ok:
+        return True
+    return reason in (GATE_NOT_ONBOARDED, GATE_NO_MEMBERSHIP) and (
+        may_learn_lobby_exists(user)
+    )
+
+
 def _recap_can_pick_attendees(registration):
     """Would the attendee page offer this member a pick right now?
 
@@ -1392,10 +1417,13 @@ def _recap_can_pick_attendees(registration):
       except a private, pre-``shared`` crush lead, which the page hides from
       its recipient.
 
-    While the Event Lobby recap is open, pairs on its roster get a recap button
-    instead of the pick button, and working out who is on it admits members to
-    the lobby (a write). A read-only email stays out of that: it says nothing
-    about picks in that phase.
+    While the Event Lobby recap is open, ``request_connection`` sends a pair to
+    the lobby recap instead of creating a crush lead when BOTH sides are
+    recap-admissible (``crush_flow_decision``). Such a candidate is not a pick,
+    but a member outside the lobby (no Connect membership or LuxID) is not
+    affected at all. Whether someone is admissible is answered read-only by
+    ``_recap_lobby_admissible``; ``is_recap_admissible`` itself admits members
+    to the lobby (a write), which an email must not do.
     """
     from .models import EventConnection, EventRegistration
     from .services.blocking import blocked_user_ids
@@ -1414,8 +1442,6 @@ def _recap_can_pick_attendees(registration):
         return False
     if crushes_remaining(user, event) <= 0:
         return False
-    if lobby_feature_enabled() and event_lobby_phase(event) == PHASE_RECAP:
-        return False
     already_sent_to = EventConnection.objects.filter(
         requester=user, event=event
     ).values("recipient_id")
@@ -1424,7 +1450,7 @@ def _recap_can_pick_attendees(registration):
         .excluding_unshared_crushes()
         .values("requester_id")
     )
-    return (
+    candidates = (
         EventRegistration.objects.filter(
             event=event,
             status="attended",
@@ -1435,8 +1461,21 @@ def _recap_can_pick_attendees(registration):
         .exclude(user_id__in=hidden_encounter_user_ids(user))
         .exclude(user_id__in=already_sent_to)
         .exclude(user_id__in=already_received_from)
-        .exists()
     )
+    if (
+        lobby_feature_enabled()
+        and event_lobby_phase(event) == PHASE_RECAP
+        and _recap_lobby_admissible(user)
+    ):
+        # Pairs where both sides are admissible go to the lobby recap, so only
+        # a candidate who is not admissible is still a pick.
+        return any(
+            not _recap_lobby_admissible(reg.user)
+            for reg in candidates.select_related(
+                "user__crushprofile", "user__crush_connect_membership"
+            ).iterator()
+        )
+    return candidates.exists()
 
 
 def send_event_recap(registration, request=None):
