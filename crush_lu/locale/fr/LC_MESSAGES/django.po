@@ -2920,7 +2920,7 @@ msgid ""
 msgstr ""
 "J'accepte que ma photo nette soit montrée aux quelques personnes avec "
 "lesquelles je suis mis(e) en relation chaque jour, afin qu'elles puissent "
-"deviner mes réponses."
+"deviner mes questions."
 
 #: forms_crush_connect.py:394
 msgid ""
@@ -26525,9 +26525,10 @@ msgid ""
 " who they'd like to meet tonight. Complete your Crush Connect profile before"
 " the event ends and you'll join instantly."
 msgstr ""
-"Dans l'Event Lobby, les membres Crush Connect enregistrés peuvent indiquer "
-"discrètement qui ils aimeraient rencontrer ce soir. Terminez votre profil "
-"Crush Connect avant la fin de l'événement et vous y entrerez aussitôt."
+"Dans l'Event Lobby, les membres Crush Connect ayant fait leur check-in "
+"peuvent indiquer discrètement qui ils aimeraient rencontrer ce soir. "
+"Terminez votre profil Crush Connect avant la fin de l'événement et vous y "
+"entrerez aussitôt."
 
 #: templates/crush_lu/event_lobby/people_ive_met.html:43
 msgid "No one here yet"

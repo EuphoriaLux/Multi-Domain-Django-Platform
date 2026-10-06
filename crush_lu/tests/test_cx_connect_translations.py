@@ -116,7 +116,7 @@ CONSENT = {
     "de": (
         "Ich bin einverstanden, dass mein klares Foto den wenigen Personen, mit "
         "denen ich jeden Tag gematcht werde, gezeigt wird, damit sie meine "
-        "Antworten erraten können.",
+        "Fragen erraten können.",
         "Ich verstehe, dass mein Foto, mein Vorname, meine Altersspanne und die "
         "3 von mir gewählten Fragen auf meiner Karte den Mitgliedern angezeigt "
         "werden, mit denen ich gematcht werde, und dass ich jederzeit aus "
@@ -125,7 +125,7 @@ CONSENT = {
     "fr": (
         "J'accepte que ma photo nette soit montrée aux quelques personnes avec "
         "lesquelles je suis mis(e) en relation chaque jour, afin qu'elles "
-        "puissent deviner mes réponses.",
+        "puissent deviner mes questions.",
         "Je comprends que ma photo, mon prénom, ma tranche d'âge et les 3 "
         "questions que j'ai choisies apparaissent sur ma carte pour les "
         "membres avec lesquels je suis mis(e) en relation, et que je peux être "
@@ -357,7 +357,7 @@ LOBBY = {
         "empty_title": "Noch niemand hier",
         "empty_body": (
             "Wenn du und jemand, den du bei einem Event getroffen hast, es beide "
-            "bestätigt, erscheint die Person hier."
+            "bestätigen, erscheint die Person hier."
         ),
     },
     "fr": {
@@ -540,8 +540,8 @@ LOBBY_PAGES = {
     },
     "fr": {
         "locked": (
-            "Dans l'Event Lobby, les membres Crush Connect enregistrés peuvent "
-            "indiquer discrètement qui ils aimeraient rencontrer ce soir. "
+            "Dans l'Event Lobby, les membres Crush Connect ayant fait leur check-in "
+            "peuvent indiquer discrètement qui ils aimeraient rencontrer ce soir. "
             "Terminez votre profil Crush Connect avant la fin de l'événement et "
             "vous y entrerez aussitôt."
         ),
@@ -628,16 +628,16 @@ CRUSH = {
             "Gespräch nach Crush Connect"
         ),
         "declared_flash": (
-            "Crush erklärt 💕 Das bleibt völlig privat – die Person erfährt nie "
+            "Crush angegeben 💕 Das bleibt völlig privat – die Person erfährt nie "
             "davon, es sei denn, dein Coach stellt euch vor. Dein Crush Coach "
             "ruft dich innerhalb von 48 Stunden an, um darüber zu sprechen."
         ),
-        "used_title": "Crush für dieses Event erklärt",
+        "used_title": "Crush für dieses Event angegeben",
         "used_body": (
             "Du hast deinen Crush für dieses Event genutzt. Dein Crush Coach "
             "ruft dich innerhalb von 48 Stunden an, um darüber zu sprechen."
         ),
-        "card_state": "Crush erklärt – dein Coach ruft dich an",
+        "card_state": "Crush angegeben – dein Coach ruft dich an",
         "duplicate_flash": "Du hast diese Person bereits als deinen Crush angegeben.",
         "limit_flash": (
             "Du hast deinen Crush für dieses Event bereits angegeben. Dein Crush "
@@ -649,7 +649,7 @@ CRUSH = {
             "Verbindungen findest du hier jederzeit."
         ),
         "detail_title": "Mein Crush! – mit deinem Coach",
-        "detail_declared": "Crush erklärt",
+        "detail_declared": "Crush angegeben",
         "detail_private": (
             "Das bleibt völlig privat – Ben wurde nicht benachrichtigt und wird "
             "es auch nie, es sei denn, dein Coach stellt euch vor."
@@ -671,7 +671,7 @@ CRUSH = {
             "sprechen."
         ),
         "inline_placeholder": "Erzähle deinem Coach, was passiert ist (optional)...",
-        "success_badge": "Crush erklärt",
+        "success_badge": "Crush angegeben",
         "success_private": (
             "Völlig privat – die Person erfährt nie davon, es sei denn, dein "
             "Coach stellt euch vor."
