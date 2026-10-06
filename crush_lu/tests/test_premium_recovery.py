@@ -757,6 +757,76 @@ class CaseLifecycleTests(_Base):
         case = PremiumPaymentRecoveryCase.objects.get(payment=late)
         self.assertEqual(case.reason, Reason.DUPLICATE_CAPTURE)
 
+    def _paid_on_confirmed_membership(self, refs):
+        other = PremiumMembership.objects.create(
+            user=self.member,
+            coach=self.coach,
+            status="active",
+            payment_confirmed=True,
+        )
+        return [
+            PaymentTransaction.objects.create(
+                transaction_reference=ref,
+                provider=PaymentTransaction.Provider.SUMUP,
+                sumup_checkout_id=f"CHK_{ref}",
+                amount=Decimal("10.00"),
+                currency="EUR",
+                status=PaymentTransaction.Status.PAID,
+                purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+                user=self.member,
+                premium_membership=other,
+            )
+            for ref in refs
+        ]
+
+    def test_backfill_spares_the_first_capture_paid_not_created(self):
+        from datetime import timedelta
+        from io import StringIO
+
+        from django.core.management import call_command
+        from django.utils import timezone
+
+        older_widget, newer_widget = self._paid_on_confirmed_membership(
+            ["REC-WIDGET-A", "REC-WIDGET-B"]
+        )
+        # B was captured (and applied) first; A only later.
+        now = timezone.now()
+        PaymentTransaction.objects.filter(pk=newer_widget.pk).update(
+            paid_at=now - timedelta(hours=1)
+        )
+        PaymentTransaction.objects.filter(pk=older_widget.pk).update(paid_at=now)
+        call_command("backfill_premium_recovery_cases", "--apply", stdout=StringIO())
+        self.assertEqual(
+            list(
+                PremiumPaymentRecoveryCase.objects.values_list("payment_id", flat=True)
+            ),
+            [older_widget.pk],
+        )
+
+    def test_backfill_flags_all_captures_when_the_applied_one_is_unknown(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        rows = self._paid_on_confirmed_membership(["REC-NODATE-A", "REC-NODATE-B"])
+        PaymentTransaction.objects.filter(pk=rows[0].pk).update(paid_at=None)
+        call_command("backfill_premium_recovery_cases", "--apply", stdout=StringIO())
+        self.assertEqual(
+            PremiumPaymentRecoveryCase.objects.filter(
+                reason=Reason.DUPLICATE_CAPTURE
+            ).count(),
+            2,
+        )
+
+    def test_stale_checkout_blocks_a_new_charge_without_any_case(self):
+        from crush_lu.services.premium_recovery import blocks_new_charge
+
+        self.membership.status = "cancelled"
+        self.membership.save(update_fields=["status"])
+        self._tx("REC-STALE-NO-CASE")
+        self.assertFalse(PremiumPaymentRecoveryCase.objects.exists())
+        self.assertTrue(blocks_new_charge(self.member))
+
     def test_merge_refuses_a_duplicate_with_a_payable_checkout(self):
         from crush_lu.services.account_merge import merge_accounts
 
@@ -1675,6 +1745,25 @@ class NotificationRetryTests(_Base):
         self.assertEqual(set(response.json()), {"skipped", "reason"})
         case.refresh_from_db()
         self.assertIsNotNone(case.staff_alerted_at)
+
+    @override_settings(
+        ROOT_URLCONF="azureproject.urls_crush",
+        ADMIN_API_KEY="k",
+        SUMUP_RECONCILIATION_ENABLED=True,
+    )
+    def test_tick_closes_premium_checkouts_before_the_refund_sweep(self):
+        calls = []
+        with patch(
+            "crush_lu.management.commands.reconcile_sumup_payments.Command.run_sweep",
+            side_effect=lambda **kw: calls.append("sweep") or defaultdict(int),
+        ), patch(
+            "crush_lu.services.premium_recovery.close_payable_checkouts",
+            side_effect=lambda budget: calls.append("close"),
+        ):
+            Client(HTTP_HOST="crush.lu").post(
+                "/api/admin/sumup-reconciliation/", HTTP_AUTHORIZATION="Bearer k"
+            )
+        self.assertEqual(calls[:2], ["close", "sweep"])
 
     def test_every_unit_fits_the_reconciliation_budget(self):
         from crush_lu import api_admin_sumup as api

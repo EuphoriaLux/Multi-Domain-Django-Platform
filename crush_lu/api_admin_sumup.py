@@ -229,6 +229,17 @@ def _retry_premium_recovery(budget_seconds):
         return 0
 
 
+def _close_premium_checkouts(budget_seconds):
+    """#925: close Premium checkouts that must not stay payable. Failures are
+    logged inside and never fail the tick."""
+    from crush_lu.services import premium_recovery
+
+    try:
+        premium_recovery.close_payable_checkouts(budget_seconds)
+    except Exception:  # noqa: BLE001
+        logger.exception("[sumup_reconciliation] premium checkout close failed")
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def sumup_reconciliation_endpoint(request):
@@ -260,6 +271,9 @@ def sumup_reconciliation_endpoint(request):
     from crush_lu.management.commands.reconcile_sumup_payments import Command
 
     started = timezone.now()
+    # #925: closing a payable Premium checkout comes before the refund sweep,
+    # which is resumable (cursor) and simply gets what this leaves.
+    _close_premium_checkouts(RECONCILIATION_BUDGET_SECONDS)
     buffer = StringIO()
     command = Command(stdout=buffer, stderr=buffer, no_color=True)
     try:
@@ -270,7 +284,8 @@ def sumup_reconciliation_endpoint(request):
             dry_run=False,
             include_partial=False,
             quiet=True,
-            budget_seconds=RECONCILIATION_BUDGET_SECONDS,
+            budget_seconds=RECONCILIATION_BUDGET_SECONDS
+            - (timezone.now() - started).total_seconds(),
             read_reserve_seconds=READ_RESERVE_SECONDS,
             write_reserve_seconds=WRITE_RESERVE_SECONDS,
             max_writes=MAX_WRITES_PER_RUN,

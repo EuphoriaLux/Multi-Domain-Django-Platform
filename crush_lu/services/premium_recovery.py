@@ -87,23 +87,27 @@ def _stale_checkouts(user_id):
 
 
 def blocks_new_charge(user):
-    """True while ``user`` must not be charged again (#925): any OPEN case, or
-    any case (even resolved) while its membership, or any membership of the
-    member no longer up for payment, still has a checkout that SumUp has not
-    confirmed closed."""
+    """True while ``user`` must not be charged again (#925): any OPEN case,
+    any case (even resolved) whose membership still has a checkout SumUp has
+    not confirmed closed, or -- case or not -- any such checkout left on a
+    membership of the member no longer up for payment (the hourly tick closes
+    those)."""
     from django.db.models import Q
 
     from crush_lu.models import PaymentTransaction, PremiumPaymentRecoveryCase
 
     cases = PremiumPaymentRecoveryCase.objects.filter(user=user)
-    return cases.filter(
-        Q(status=PremiumPaymentRecoveryCase.Status.OPEN)
-        | Q(
-            premium_membership__payment_transactions__status=(
-                PaymentTransaction.Status.PENDING
+    return (
+        cases.filter(
+            Q(status=PremiumPaymentRecoveryCase.Status.OPEN)
+            | Q(
+                premium_membership__payment_transactions__status=(
+                    PaymentTransaction.Status.PENDING
+                )
             )
-        )
-    ).exists() or (cases.exists() and _stale_checkouts(user.pk).exists())
+        ).exists()
+        or _stale_checkouts(user.pk).exists()
+    )
 
 
 def reason_for_membership_status(status):
@@ -279,6 +283,73 @@ def close_open_checkouts_safely(memberships, label):
             )
 
 
+def _annotated_cases():
+    """Recovery cases annotated with the open checkouts they must close."""
+    from django.db.models import Exists, OuterRef
+
+    from crush_lu.models import PaymentTransaction, PremiumPaymentRecoveryCase
+
+    pending = PaymentTransaction.objects.filter(
+        status=PaymentTransaction.Status.PENDING
+    )
+    return PremiumPaymentRecoveryCase.objects.annotate(
+        # A sibling checkout that could not be closed is retried too.
+        has_open_checkout=Exists(
+            pending.filter(premium_membership_id=OuterRef("premium_membership_id"))
+        ),
+        # An open case closes the member's other memberships' too.
+        member_has_open_checkout=Exists(
+            pending.filter(premium_membership__user_id=OuterRef("user_id"))
+        ),
+        # Any case keeps closing those left where no payment is due.
+        member_has_stale_checkout=Exists(
+            pending.filter(premium_membership__user_id=OuterRef("user_id")).exclude(
+                premium_membership__status="pending"
+            )
+        ),
+    )
+
+
+def _needs_close():
+    from django.db.models import Q
+
+    from crush_lu.models import PremiumPaymentRecoveryCase
+
+    return (
+        Q(has_open_checkout=True)
+        | Q(member_has_stale_checkout=True)
+        | Q(
+            member_has_open_checkout=True,
+            status=PremiumPaymentRecoveryCase.Status.OPEN,
+        )
+    )
+
+
+def close_payable_checkouts(budget_seconds, limit=5, settle_minutes=10):
+    """The money half of the hourly tick, run BEFORE the refund sweep so a busy
+    sweep cannot starve it: close checkouts left beside a capture, on a
+    deactivated owner's or a finished membership, or that a case must close.
+    Idempotent (deactivate only); each close starts only while it fits."""
+    from datetime import timedelta
+
+    token = _deadline.set(time.monotonic() + budget_seconds)
+    try:
+        _close_checkouts_beside_a_capture(limit, settle_minutes)
+        cutoff = timezone.now() - timedelta(minutes=settle_minutes)
+        cases = (
+            _annotated_cases()
+            .filter(_needs_close(), created_at__lte=cutoff)
+            .select_related("payment", "user", "premium_membership")
+            .order_by("?")[:limit]
+        )
+        for case in cases:
+            if not _fits(_close_seconds()):
+                break
+            _close_sibling_checkouts_safely(case)
+    finally:
+        _deadline.reset(token)
+
+
 def retry_unsent_notifications(budget_seconds, limit=5, settle_minutes=10):
     """Hourly retry of what failed after a case opened: a member notice, a
     staff alert, or closing a checkout that can still take money.
@@ -292,36 +363,14 @@ def retry_unsent_notifications(budget_seconds, limit=5, settle_minutes=10):
     from datetime import timedelta
 
     from django.db import transaction
-    from django.db.models import Exists, OuterRef, Q
+    from django.db.models import Q
 
-    from crush_lu.models import PaymentTransaction, PremiumPaymentRecoveryCase
+    from crush_lu.models import PremiumPaymentRecoveryCase
 
     Case = PremiumPaymentRecoveryCase
     now = timezone.now()
     case_ids = list(
-        Case.objects.annotate(
-            # A sibling checkout that could not be closed is retried too.
-            has_open_checkout=Exists(
-                PaymentTransaction.objects.filter(
-                    premium_membership_id=OuterRef("premium_membership_id"),
-                    status=PaymentTransaction.Status.PENDING,
-                )
-            ),
-            # An open case closes the member's other memberships' too.
-            member_has_open_checkout=Exists(
-                PaymentTransaction.objects.filter(
-                    premium_membership__user_id=OuterRef("user_id"),
-                    status=PaymentTransaction.Status.PENDING,
-                )
-            ),
-            # Any case keeps closing those left where no payment is due.
-            member_has_stale_checkout=Exists(
-                PaymentTransaction.objects.filter(
-                    premium_membership__user_id=OuterRef("user_id"),
-                    status=PaymentTransaction.Status.PENDING,
-                ).exclude(premium_membership__status="pending")
-            ),
-        )
+        _annotated_cases()
         .filter(
             # Notices only for open cases; closing a checkout that could
             # still take money continues even after staff resolve the case.
@@ -333,8 +382,7 @@ def retry_unsent_notifications(budget_seconds, limit=5, settle_minutes=10):
                 | Q(member_has_open_checkout=True)
             )
             & Q(status=Case.Status.OPEN)
-            | Q(has_open_checkout=True)
-            | Q(member_has_stale_checkout=True),
+            | _needs_close(),
             created_at__lte=now - timedelta(minutes=settle_minutes),
         )
         .order_by("?")
