@@ -101,6 +101,13 @@ def pytest_configure(config):
     # settings — blocks a production env var from leaking in.
     os.environ['DJANGO_TASKS_BACKEND'] = 'django.tasks.backends.immediate.ImmediateBackend'
 
+    # Keep a local .env's USE_AZURITE=true from pointing tests at a dead
+    # emulator (127.0.0.1:10000) and its Azure SDK retry loops. pytest-django
+    # imports settings before this hook runs, so in THIS process it is
+    # settings.py's IS_TESTING that keeps Azurite off; this env var only
+    # protects what inherits the environment (xdist workers, subprocess tests).
+    os.environ['USE_AZURITE'] = 'false'
+
     # Patch staticfiles storage BEFORE Django fully initializes
     # This is needed because ManifestStaticFilesStorage fails without collectstatic
     from django.conf import settings
@@ -108,7 +115,9 @@ def pytest_configure(config):
         settings.STORAGES['staticfiles'] = {
             'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'
         }
-        # Use local filesystem for media during tests (not Azure Blob)
+        # Use local filesystem for media during tests (not Azure Blob).
+        # Only 'default': rewriting every alias would strip arborist_private's
+        # fail-closed LocalPrivateStorage and its private location.
         settings.STORAGES['default'] = {
             'BACKEND': 'django.core.files.storage.FileSystemStorage'
         }
