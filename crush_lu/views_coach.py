@@ -2795,7 +2795,9 @@ def coach_event_detail(request, event_id):
     if curated_groups_panel is not None:
         status_filters += ("groups",)
     if event.uses_curated_registration:
-        status_filters += ("payment_due", "payment_complete", "checked_in")
+        status_filters += ("checked_in",)
+        if event.registration_fee > 0:
+            status_filters += ("payment_due", "payment_complete")
     if status_filter not in status_filters:
         status_filter = "all"
 
@@ -2816,10 +2818,17 @@ def coach_event_detail(request, event_id):
 
     confirmed_count = len(all_confirmed)
     seat_holding_count = len(seat_holders)
-    payment_due_count = sum(
-        r.status == "pending" and not r.payment_confirmed for r in all_regs
+    # A free event has no payment state: a pending row there is a held place,
+    # not a payment due, so both payment counts stay at zero.
+    paid_event = event.registration_fee > 0
+    payment_due_count = (
+        sum(r.status == "pending" and not r.payment_confirmed for r in all_regs)
+        if paid_event
+        else 0
     )
-    payment_complete_count = sum(r.payment_confirmed for r in all_regs)
+    payment_complete_count = (
+        sum(r.payment_confirmed for r in all_regs) if paid_event else 0
+    )
     checked_in_count = sum(r.status == "attended" for r in all_regs)
     expected_count = sum(r.status == "confirmed" for r in all_regs)
     roster_registrations = all_regs

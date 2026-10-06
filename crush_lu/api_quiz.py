@@ -48,6 +48,36 @@ def _is_quiz_host(quiz, user):
     ).exists()
 
 
+def _can_view_quiz(quiz, user):
+    """Check if user may read this quiz's roster and live state over REST.
+
+    Mirrors the WebSocket gate in ``QuizConsumer.connect`` (finding H3):
+    the host (creator or event-assigned coach), a staff viewer, or a member
+    with a confirmed/attended registration for the quiz's event. Additionally
+    anyone already seated in this quiz (table membership or rotation row) is
+    a participant, which keeps walk-ins the host seated without a
+    registration working. ``quiz_id`` is a sequential int, so without this
+    gate any logged-in account could enumerate every quiz's roster.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_staff or _is_quiz_host(quiz, user):
+        return True
+
+    from crush_lu.models.events import EventRegistration
+
+    if EventRegistration.objects.filter(
+        event_id=quiz.event_id,
+        user=user,
+        status__in=["confirmed", "attended"],
+    ).exists():
+        return True
+    return (
+        QuizTableMembership.objects.filter(table__quiz=quiz, user=user).exists()
+        or QuizRotationSchedule.objects.filter(quiz=quiz, user=user).exists()
+    )
+
+
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -59,6 +89,9 @@ def quiz_state(request, quiz_id):
         )
     except QuizEvent.DoesNotExist:
         return Response({"error": "Quiz not found"}, status=404)
+
+    if not _can_view_quiz(quiz, request.user):
+        return Response({"error": "Forbidden"}, status=403)
 
     question = quiz.get_current_question()
     data = {
@@ -115,6 +148,9 @@ def quiz_tables(request, quiz_id):
     ).first()
     if quiz is None:
         return Response({"error": "Quiz not found"}, status=404)
+
+    if not _can_view_quiz(quiz, request.user):
+        return Response({"error": "Forbidden"}, status=403)
 
     if round_num is None:
         round_num_int = quiz.get_round_number()
