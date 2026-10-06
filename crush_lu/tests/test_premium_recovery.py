@@ -693,7 +693,11 @@ class CaseLifecycleTests(_Base):
             premium_membership=staff_membership,
         )
         case = PremiumPaymentRecoveryCase.objects.create(
-            payment=tx, user=staff, reason=Reason.OTHER, staff_only=True
+            payment=tx,
+            user=staff,
+            reason=Reason.OTHER,
+            staff_only=True,
+            member_unknown=True,
         )
         client = MagicMock()
         with patch("crush_lu.views_payments.SumUpClient", return_value=client):
@@ -716,7 +720,11 @@ class CaseLifecycleTests(_Base):
         PaymentTransaction.objects.filter(pk=tx.pk).update(user=staff)
         self._unlink_and_delete_membership()
         PremiumPaymentRecoveryCase.objects.create(
-            payment=tx, user=staff, reason=Reason.OTHER, staff_only=True
+            payment=tx,
+            user=staff,
+            reason=Reason.OTHER,
+            staff_only=True,
+            member_unknown=True,
         )
         PremiumMembership.objects.create(user=staff, coach=self.coach, status="pending")
         self.assertFalse(blocks_new_charge(staff))
@@ -815,7 +823,7 @@ class CaseLifecycleTests(_Base):
         with self.assertLogs("crush_lu.views_payments", level="CRITICAL"):
             self._apply(tx)
         case = PremiumPaymentRecoveryCase.objects.get(payment=tx)
-        self.assertTrue(case.staff_only)
+        self.assertTrue(case.staff_only and case.member_unknown)
         User.objects.filter(pk=staff.pk).update(is_staff=False)
         mail.outbox.clear()
         PremiumPaymentRecoveryCase.objects.filter(pk=case.pk).update(
@@ -871,6 +879,7 @@ class CaseLifecycleTests(_Base):
             reason=Reason.OTHER,
             staff_alerted_at=timezone.now(),
             staff_only=True,
+            member_unknown=True,
         )
         PremiumPaymentRecoveryCase.objects.filter(pk=case.pk).update(
             created_at=timezone.now() - timedelta(hours=2)
@@ -1003,15 +1012,16 @@ class CaseLifecycleTests(_Base):
             user=staff, premium_membership=None
         )
         migration.backfill(apps, None)
-        self.assertTrue(
-            PremiumPaymentRecoveryCase.objects.get(payment=assisted).staff_only
-        )
+        assisted_case = PremiumPaymentRecoveryCase.objects.get(payment=assisted)
+        self.assertTrue(assisted_case.staff_only)
+        self.assertTrue(assisted_case.member_unknown)
 
     def test_admin_keeps_member_unknown_read_only(self):
         from crush_lu.admin import crush_admin_site
 
         model_admin = crush_admin_site._registry[PremiumPaymentRecoveryCase]
         self.assertIn("staff_only", model_admin.readonly_fields)
+        self.assertIn("member_unknown", model_admin.readonly_fields)
 
     def test_backfill_spares_a_capture_staff_confirmed_afterwards(self):
         import importlib
@@ -1051,6 +1061,7 @@ class CaseLifecycleTests(_Base):
             user=staff,
             reason=Reason.OTHER,
             staff_only=True,
+            member_unknown=True,
             staff_alerted_at=timezone.now(),
         )
         PremiumPaymentRecoveryCase.objects.filter(pk=case.pk).update(
@@ -1078,6 +1089,24 @@ class CaseLifecycleTests(_Base):
         src = inspect.getsource(premium_recovery.open_case)
         self.assertLess(src.index("select_for_update()"), src.index("get_or_create("))
 
+    def test_ambiguous_backfilled_captures_still_block_a_new_charge(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        from crush_lu.services.premium_recovery import blocks_new_charge
+
+        rows = self._paid_on_confirmed_membership(["REC-AMB-G1", "REC-AMB-G2"])
+        call_command("backfill_premium_recovery_cases", "--apply", stdout=StringIO())
+        cases = PremiumPaymentRecoveryCase.objects.filter(payment__in=rows)
+        self.assertTrue(cases.exists() and all(case.staff_only for case in cases))
+        # The membership ends and no checkout is left: only the open cases
+        # still stand between the member and another payment.
+        PremiumMembership.objects.filter(pk=rows[0].premium_membership_id).update(
+            status="cancelled"
+        )
+        self.assertTrue(blocks_new_charge(rows[0].premium_membership.user))
+
     def test_backfill_keeps_ambiguous_captures_staff_only(self):
         import importlib
         from datetime import timedelta
@@ -1101,6 +1130,7 @@ class CaseLifecycleTests(_Base):
         ).backfill(apps, None)
         cases = PremiumPaymentRecoveryCase.objects.filter(payment__in=rows)
         self.assertTrue(cases.exists() and all(case.staff_only for case in cases))
+        self.assertFalse(any(case.member_unknown for case in cases))
         # No member notice goes out for them; the staff alert does.
         cases.update(created_at=timezone.now() - timedelta(hours=2))
         mail.outbox.clear()

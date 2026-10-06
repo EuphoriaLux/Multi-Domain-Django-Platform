@@ -459,6 +459,7 @@ class PremiumPaymentRecoveryCaseAdmin(admin.ModelAdmin):
         "detail",
         # Set once at creation; the notice and charge gates read it.
         "staff_only",
+        "member_unknown",
     )
 
     def has_add_permission(self, request):

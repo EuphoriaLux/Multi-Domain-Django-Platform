@@ -122,9 +122,13 @@ def blocks_new_charge(user):
 
     from crush_lu.models import PaymentTransaction, PremiumPaymentRecoveryCase
 
-    # A member-unknown case is filed under the staff opener (_staff_only):
-    # it is not that person's own payment, so it gates nothing of theirs.
-    cases = PremiumPaymentRecoveryCase.objects.filter(user=user).exclude(STAFF_ONLY_Q)
+    # A member-unknown case is filed under the staff opener: it is not that
+    # person's own payment, so it gates nothing of theirs. A staff-only case
+    # of a known member (ambiguous backfill) still gates: only its notice is
+    # withheld.
+    cases = PremiumPaymentRecoveryCase.objects.filter(user=user).exclude(
+        MEMBER_UNKNOWN_Q
+    )
     return (
         cases.filter(
             Q(status=PremiumPaymentRecoveryCase.Status.OPEN)
@@ -171,7 +175,8 @@ def open_case(payment, reason, detail="", staff_only=False):
     # unless staff opened the checkout for a member (user=request.user): then
     # the member is unknown and only staff are told (_staff_only).
     owner = membership.user if membership else payment.user
-    if _member_unknown_for(membership, owner):
+    member_unknown = _member_unknown_for(membership, owner)
+    if member_unknown:
         staff_only = True
         detail = f"{MEMBER_UNKNOWN_DETAIL} {detail}".strip()
     if owner is not None:
@@ -184,6 +189,7 @@ def open_case(payment, reason, detail="", staff_only=False):
             "reason": reason,
             "detail": detail,
             "staff_only": staff_only,
+            "member_unknown": member_unknown,
         },
     )
 
@@ -194,8 +200,10 @@ MEMBER_UNKNOWN_DETAIL = (
 )
 
 
-# Query form of _staff_only.
+# Query form of _staff_only: no member notice.
 STAFF_ONLY_Q = Q(staff_only=True)
+# The case's user is the staff opener: it gates and closes nothing of theirs.
+MEMBER_UNKNOWN_Q = Q(member_unknown=True)
 
 
 def _member_unknown_for(membership, owner):
@@ -293,7 +301,7 @@ def _close_sibling_checkouts_safely(case):
         ]
         # A member-unknown case is filed under the staff opener, whose own
         # memberships have nothing to do with this payment.
-        if case.user_id and not _staff_only(case):
+        if case.user_id and not case.member_unknown:
             others = PremiumMembership.objects.filter(
                 user_id=case.user_id,
                 payment_transactions__status=PaymentTransaction.Status.PENDING,
@@ -433,10 +441,10 @@ def _needs_close():
     # the staff opener, whose own checkouts it never closes.
     return (
         Q(has_open_checkout=True)
-        | Q(member_has_stale_checkout=True, staff_only=False)
+        | Q(member_has_stale_checkout=True, member_unknown=False)
         | Q(
             member_has_open_checkout=True,
-            staff_only=False,
+            member_unknown=False,
             status=PremiumPaymentRecoveryCase.Status.OPEN,
         )
     )
@@ -495,7 +503,7 @@ def retry_unsent_notifications(budget_seconds, limit=5, settle_minutes=10):
                 # A member-unknown case (_staff_only) sends no notice.
                 Q(member_notified_at__isnull=True) & ~STAFF_ONLY_Q
                 | Q(staff_alerted_at__isnull=True)
-                | Q(member_has_open_checkout=True, staff_only=False)
+                | Q(member_has_open_checkout=True, member_unknown=False)
             )
             & Q(status=Case.Status.OPEN)
             | _needs_close(),

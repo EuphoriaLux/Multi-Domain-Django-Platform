@@ -52,6 +52,7 @@ class Migration(migrations.Migration):
                 ("member_notified_at", models.DateTimeField(blank=True, null=True)),
                 ("staff_alerted_at", models.DateTimeField(blank=True, null=True)),
                 ("staff_only", models.BooleanField(default=False)),
+                ("member_unknown", models.BooleanField(default=False)),
                 (
                     "payment",
                     models.OneToOneField(

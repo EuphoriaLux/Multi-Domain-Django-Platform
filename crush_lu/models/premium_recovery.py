@@ -48,11 +48,14 @@ class PremiumPaymentRecoveryCase(models.Model):
     member_notified_at = models.DateTimeField(null=True, blank=True)
     staff_alerted_at = models.DateTimeField(null=True, blank=True)
     # Set once at creation (premium_recovery.open_case): only staff are told,
-    # and the case gates nothing of ``user``. Either a legacy unlinked capture
-    # opened by staff (``user`` is the opener, not the member; stored, not
-    # derived from is_staff, which can change later), or a backfilled capture
-    # whose application cannot be proven (several captures on one membership).
+    # no member notice. Either the member is unknown (below), or a backfilled
+    # capture's application cannot be proven (several captures on one
+    # membership) -- that member is still gated from paying again.
     staff_only = models.BooleanField(default=False)
+    # A legacy unlinked capture opened by staff: ``user`` is the opener, not
+    # the member, so the case gates and closes nothing of ``user``. Stored,
+    # not derived from is_staff, which can change later.
+    member_unknown = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-created_at"]

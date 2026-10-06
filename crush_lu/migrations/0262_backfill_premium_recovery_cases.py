@@ -87,6 +87,7 @@ def backfill(apps, schema_editor):
                 "reason": reason,
                 "detail": detail,
                 "staff_only": staff_only,
+                "member_unknown": member_unknown,
             },
         )
 
