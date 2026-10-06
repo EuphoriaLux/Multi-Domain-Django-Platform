@@ -779,28 +779,18 @@ class CaseLifecycleTests(_Base):
             for ref in refs
         ]
 
-    def test_backfill_spares_the_first_capture_paid_not_created(self):
-        from datetime import timedelta
+    def test_backfill_flags_every_capture_of_a_multi_capture_membership(self):
         from io import StringIO
 
         from django.core.management import call_command
-        from django.utils import timezone
 
-        older_widget, newer_widget = self._paid_on_confirmed_membership(
-            ["REC-WIDGET-A", "REC-WIDGET-B"]
-        )
-        # B was captured (and applied) first; A only later.
-        now = timezone.now()
-        PaymentTransaction.objects.filter(pk=newer_widget.pk).update(
-            paid_at=now - timedelta(hours=1)
-        )
-        PaymentTransaction.objects.filter(pk=older_widget.pk).update(paid_at=now)
+        rows = self._paid_on_confirmed_membership(["REC-MULTI-A", "REC-MULTI-B"])
         call_command("backfill_premium_recovery_cases", "--apply", stdout=StringIO())
         self.assertEqual(
-            list(
+            set(
                 PremiumPaymentRecoveryCase.objects.values_list("payment_id", flat=True)
             ),
-            [older_widget.pk],
+            {row.pk for row in rows},
         )
 
     def test_backfill_flags_all_captures_when_the_applied_one_is_unknown(self):
@@ -872,7 +862,7 @@ class CaseLifecycleTests(_Base):
 
         out = StringIO()
         call_command("backfill_premium_recovery_cases", stdout=out)
-        self.assertIn("Would open 2", out.getvalue())
+        self.assertIn("Would open 3", out.getvalue())
         self.assertFalse(PremiumPaymentRecoveryCase.objects.exists())
 
         for _ in range(2):  # idempotent
@@ -880,14 +870,15 @@ class CaseLifecycleTests(_Base):
         cases = dict(
             PremiumPaymentRecoveryCase.objects.values_list("payment_id", "reason")
         )
+        # Two captures on one membership: which was applied is unprovable.
         self.assertEqual(
             cases,
             {
                 unapplied.pk: Reason.COACH_UNAVAILABLE,
+                applied.pk: Reason.DUPLICATE_CAPTURE,
                 duplicate.pk: Reason.DUPLICATE_CAPTURE,
             },
         )
-        self.assertNotIn(applied.pk, cases)
         # No mail from the command: the hourly retry sends the notices.
         self.assertEqual(mail.outbox, [])
 
@@ -1246,6 +1237,55 @@ class LateCaptureTests(_Base):
             user=self.member,
             premium_membership=membership,
         )
+
+    def test_close_applies_fetched_captures_before_older_open_rows(self):
+        from unittest.mock import MagicMock
+
+        from crush_lu.services.premium_recovery import (
+            SIBLING_SYNC_LIMIT,
+            close_open_checkouts_safely,
+        )
+
+        older = [self._tx(f"REC-OLDER-{i}") for i in range(SIBLING_SYNC_LIMIT)]
+        captured = self._tx("REC-NEWER-CAPTURED")
+        statuses = {row.sumup_checkout_id: "PENDING" for row in older}
+        statuses[captured.sumup_checkout_id] = "PAID"
+        client = MagicMock()
+        client.deactivate_checkout.return_value = False
+        client.get_checkout.side_effect = lambda checkout_id: {
+            "id": checkout_id,
+            "status": statuses[checkout_id],
+            "amount": 10.0,
+            "currency": "EUR",
+        }
+        with patch(
+            "crush_lu.views_payments._settle_pending_premium_checkouts",
+            side_effect=lambda *a, paid_payloads, **k: (
+                paid_payloads.update(
+                    {captured.pk: client.get_checkout(captured.sumup_checkout_id)}
+                )
+                or ("open", None, set(), set())
+            ),
+        ), patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            with self.assertLogs(level="WARNING"):
+                close_open_checkouts_safely([self.membership], "test")
+        captured.refresh_from_db()
+        self.assertEqual(captured.status, PaymentTransaction.Status.PAID)
+
+    def test_close_rereads_the_case_status(self):
+        from crush_lu.services import premium_recovery
+
+        src = inspect.getsource(premium_recovery._close_sibling_checkouts_safely)
+        self.assertLess(
+            src.index('values_list("status", flat=True)'),
+            src.index("case.status != case.Status.OPEN"),
+        )
+
+    def test_a_sync_reserves_time_for_the_mails_a_capture_sends(self):
+        from crush_lu.services import premium_recovery
+
+        src = inspect.getsource(premium_recovery.close_open_checkouts_safely)
+        self.assertIn("_fits(_sync_seconds() + 2 * SEND_SECONDS)", src)
 
     def test_member_request_closes_one_membership_and_the_tick_the_rest(self):
         from datetime import timedelta

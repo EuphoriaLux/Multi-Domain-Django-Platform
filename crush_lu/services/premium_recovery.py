@@ -198,6 +198,12 @@ def _close_sibling_checkouts_safely(case):
             premium_membership=m, status=PaymentTransaction.Status.PENDING
         ).exists()
     ]
+    # Fresh status: a case staff resolved since the caller loaded it must not
+    # close a replacement request's checkout.
+    case.status = (
+        type(case).objects.filter(pk=case.pk).values_list("status", flat=True).first()
+        or case.status
+    )
     # A member-unknown case is filed under the staff opener, whose own
     # memberships have nothing to do with this payment.
     if case.user_id and not _member_unknown(case):
@@ -259,11 +265,16 @@ def close_open_checkouts_safely(memberships, label):
             # the same cap as a read; the rest stay PENDING beside a PAID row,
             # where the hourly tick finds them.
             handled = 0
-            for row in PaymentTransaction.objects.filter(
-                premium_membership=membership,
-                status=PaymentTransaction.Status.PENDING,
-                sumup_checkout_id__isnull=False,
-            ).order_by("pk"):
+            rows = sorted(
+                PaymentTransaction.objects.filter(
+                    premium_membership=membership,
+                    status=PaymentTransaction.Status.PENDING,
+                    sumup_checkout_id__isnull=False,
+                ),
+                # Captures already read first: they need no further request.
+                key=lambda row: (row.pk not in paid_payloads, row.pk),
+            )
+            for row in rows:
                 if handled >= SIBLING_SYNC_LIMIT:
                     break
                 if row.pk in paid_payloads:
@@ -271,7 +282,8 @@ def close_open_checkouts_safely(memberships, label):
                         break
                     handled += 1
                     _apply_paid_checkout(row, paid_payloads[row.pk])
-                elif _fits(_sync_seconds()):
+                # A read that finds PAID applies it, which may mail on commit.
+                elif _fits(_sync_seconds() + 2 * SEND_SECONDS):
                     handled += 1
                     _sync_checkout_with_sumup(row)
             if state == "open":

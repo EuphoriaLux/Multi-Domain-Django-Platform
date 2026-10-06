@@ -9,10 +9,9 @@ staff alert (retry_unsent_notifications). Idempotent: one case per payment.
 A capture counts as unapplied when its membership never confirmed a payment
 (``payment_confirmed`` is False); when staff confirmed the membership by hand
 (``confirmed_by`` set: the SumUp path never sets it, so no capture was the
-applied one); or when the membership has several captures and this is not the
-first one recorded (``paid_at``; checkout creation order proves nothing). If
-any of them lacks ``paid_at``, all are flagged. Rows with no membership are
-listed too.
+applied one); or when the membership has several captures -- nothing recorded
+proves which one it applied, so all of them are flagged for staff. Rows with
+no membership are listed too.
 Spec: ai-memory-hub/specs/2026-09-13-crush-premium-payment-recovery.md
 """
 
@@ -57,19 +56,14 @@ def unapplied_captures():
             PaymentTransaction.objects.filter(
                 premium_membership=membership,
                 status=PaymentTransaction.Status.PAID,
-            ).values_list("pk", "paid_at")
+            ).values_list("pk", flat=True)
         )
         if len(captures) == 1:
             continue  # the membership's only capture is the one it applied
-        if all(paid_at for _pk, paid_at in captures):
-            # The first capture recorded is the one that activated it; the
-            # later ones found the membership active (see _apply_paid_checkout).
-            applied = min(captures, key=lambda row: (row[1], row[0]))[0]
-            if payment.pk != applied:
-                yield payment, Reason.DUPLICATE_CAPTURE
-        else:
-            # Not provable which one was applied: flag every capture.
-            yield payment, Reason.DUPLICATE_CAPTURE
+        # Several captures: nothing recorded ties the applied one to a row (a
+        # capture could be PAID, refused by confirm(), and a later one applied),
+        # so every capture is flagged for staff to check.
+        yield payment, Reason.DUPLICATE_CAPTURE
 
 
 class Command(BaseCommand):
