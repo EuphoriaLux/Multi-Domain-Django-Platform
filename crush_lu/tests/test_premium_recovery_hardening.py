@@ -165,6 +165,13 @@ class HandResolutionSerializationTests(_Base):
             (Case.Status.OPEN, Case.Resolution.APPLIED),
         )
 
+    def test_a_reopen_someone_else_made_meanwhile_is_refused(self):
+        stale = Case.objects.get(pk=self.case.pk)
+        stale.status = Case.Status.RESOLVED  # what both forms loaded
+        # The case is open now: another staff member reopened it first.
+        messages = self._save_status(stale, Case.Status.OPEN)
+        self.assertTrue(any("changed meanwhile" in m for m in messages))
+
     def test_resolving_a_reopened_case_keeps_its_resolution(self):
         Case.objects.filter(pk=self.case.pk).update(
             status=Case.Status.OPEN, resolution=Case.Resolution.APPLIED

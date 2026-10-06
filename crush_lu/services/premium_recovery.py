@@ -763,7 +763,11 @@ def set_case_status_by_hand(case_pk, status, by_user):
             else:
                 # Resolved by hand (any other remedy): how, when and by whom.
                 resolve_case(case, Case.Resolution.OTHER, by_user)
-        elif case.status != status:
+        else:
+            # The form saw a resolved case: already open means someone else
+            # reopened it meanwhile -- not this staff member's change.
+            if case.status == status:
+                return "The case changed meanwhile; reload it."
             # Reopened: the resolution stays, so a later refund of this
             # capture is not taken for one of an unapplied capture.
             case.status = status
