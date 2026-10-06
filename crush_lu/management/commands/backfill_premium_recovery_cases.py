@@ -26,6 +26,11 @@ AMBIGUOUS_DETAIL = (
     "Member notice withheld: the membership has several captures and the "
     "applied one is unknown."
 )
+MANUAL_CONFIRMATION_DETAIL = (
+    "Member notice withheld: staff confirmed this membership by hand, and "
+    "paid_at is when the callback was processed, not when SumUp captured, so "
+    "this capture may be the one that confirmation applied."
+)
 BACKFILL_DETAIL = (
     "Backfilled for a capture recorded before recovery cases existed; "
     "verify which capture, if any, was applied."
@@ -33,7 +38,9 @@ BACKFILL_DETAIL = (
 
 
 def unapplied_captures():
-    """``(payment, reason)`` for each PAID Premium capture without a case."""
+    """``(payment, reason, withheld)`` for each PAID Premium capture without a
+    case; ``withheld`` is the staff-only reason the member gets no notice, or
+    None."""
     Reason = PremiumPaymentRecoveryCase.Reason
     rows = (
         PaymentTransaction.objects.filter(
@@ -47,23 +54,28 @@ def unapplied_captures():
     for payment in rows:
         membership = payment.premium_membership
         if membership is None:
-            yield payment, Reason.OTHER, False
+            yield payment, Reason.OTHER, None
             continue
         if not membership.payment_confirmed:
-            yield payment, premium_recovery.reason_for_membership_status(
-                membership.status
-            ), False
+            # Still pending proves nothing about why confirm() refused (coach
+            # full or beta revoked): no durable record says, so "other".
+            reason = (
+                Reason.OTHER
+                if membership.status == "pending"
+                else premium_recovery.reason_for_membership_status(membership.status)
+            )
+            yield payment, reason, None
             continue
         if membership.confirmed_by_id:
-            # Staff confirmed by hand: only a capture recorded after that
-            # confirmation is provably not the one applied; an earlier one may
-            # be what staff confirmed, so it gets no definitive notice.
+            # Staff confirmed by hand: an earlier capture may be what staff
+            # confirmed. A later one may be too -- paid_at is the processing
+            # time, and a late webhook lands after -- so staff only.
             if (
                 payment.paid_at
                 and membership.payment_date
                 and payment.paid_at > membership.payment_date
             ):
-                yield payment, Reason.DUPLICATE_CAPTURE, False
+                yield payment, Reason.DUPLICATE_CAPTURE, MANUAL_CONFIRMATION_DETAIL
             continue
         captures = list(
             PaymentTransaction.objects.filter(
@@ -77,7 +89,7 @@ def unapplied_captures():
         # capture could be PAID, refused by confirm(), and a later one applied),
         # so every capture is flagged -- for staff only: telling the member a
         # payment was not applied could be wrong for the one that was.
-        yield payment, Reason.DUPLICATE_CAPTURE, True
+        yield payment, Reason.DUPLICATE_CAPTURE, AMBIGUOUS_DETAIL
 
 
 class Command(BaseCommand):
@@ -91,7 +103,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         found = 0
-        for payment, reason, staff_only in unapplied_captures():
+        for payment, reason, withheld in unapplied_captures():
             found += 1
             self.stdout.write(
                 f"Payment {payment.pk} ({payment.transaction_reference}): {reason}"
@@ -101,9 +113,8 @@ class Command(BaseCommand):
                     premium_recovery.open_case(
                         payment,
                         reason,
-                        (AMBIGUOUS_DETAIL + " " if staff_only else "")
-                        + BACKFILL_DETAIL,
-                        staff_only=staff_only,
+                        (withheld + " " if withheld else "") + BACKFILL_DETAIL,
+                        staff_only=bool(withheld),
                     )
         verb = "Opened" if options["apply"] else "Would open"
         self.stdout.write(f"{verb} {found} recovery case(s).")

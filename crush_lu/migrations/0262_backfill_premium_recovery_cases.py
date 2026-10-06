@@ -22,11 +22,17 @@ AMBIGUOUS_DETAIL = (
     "Member notice withheld: the membership has several captures and the "
     "applied one is unknown."
 )
-# premium_recovery.reason_for_membership_status, frozen here.
+MANUAL_CONFIRMATION_DETAIL = (
+    "Member notice withheld: staff confirmed this membership by hand, and "
+    "paid_at is when the callback was processed, not when SumUp captured, so "
+    "this capture may be the one that confirmation applied."
+)
+# Like premium_recovery.reason_for_membership_status, frozen here, except that
+# a pending membership proves nothing about why confirm() refused (coach full
+# or beta revoked): no durable record says, so it is "other".
 REASON_FOR_STATUS = {
     "active": "duplicate_capture",
     "cancelled": "request_cancelled",
-    "pending": "coach_unavailable",
 }
 
 
@@ -43,22 +49,24 @@ def backfill(apps, schema_editor):
         .order_by("pk")
     )
     for payment in rows:
-        ambiguous = False
+        ambiguous = manual = False
         membership = payment.premium_membership
         if membership is None:
             reason = "other"
         elif not membership.payment_confirmed:
             reason = REASON_FOR_STATUS.get(membership.status, "other")
         elif membership.confirmed_by_id:
-            # Staff confirmed by hand: only a capture recorded after that is
-            # provably not the applied one; an earlier one may be.
+            # Staff confirmed by hand: a capture recorded before that may be
+            # the one confirmed. One recorded after may be too -- paid_at is
+            # the processing time, and a late webhook lands after -- so it is
+            # flagged for staff only, never a definitive member notice.
             if not (
                 payment.paid_at
                 and membership.payment_date
                 and payment.paid_at > membership.payment_date
             ):
                 continue
-            reason = "duplicate_capture"
+            reason, manual = "duplicate_capture", True
         elif (
             PaymentTransaction.objects.filter(
                 premium_membership=membership, status="paid"
@@ -73,8 +81,10 @@ def backfill(apps, schema_editor):
         if owner is None:
             continue
         member_unknown = membership is None and owner.is_staff
-        staff_only = member_unknown or ambiguous
+        staff_only = member_unknown or ambiguous or manual
         detail = BACKFILL_DETAIL
+        if manual:
+            detail = f"{MANUAL_CONFIRMATION_DETAIL} {detail}"
         if ambiguous:
             detail = f"{AMBIGUOUS_DETAIL} {detail}"
         if member_unknown:

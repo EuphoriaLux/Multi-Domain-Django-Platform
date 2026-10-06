@@ -1036,7 +1036,8 @@ class CaseLifecycleTests(_Base):
         for _ in range(2):  # idempotent
             migration.backfill(apps, None)
         case = PremiumPaymentRecoveryCase.objects.get(payment=unapplied)
-        self.assertEqual(case.reason, Reason.COACH_UNAVAILABLE)
+        # Still pending proves nothing about why confirm() refused.
+        self.assertEqual(case.reason, Reason.OTHER)
         self.assertFalse(case.staff_only)
         self.assertEqual(PremiumPaymentRecoveryCase.objects.count(), 1)
         self.assertEqual(mail.outbox, [])
@@ -1073,6 +1074,36 @@ class CaseLifecycleTests(_Base):
         self.assertFalse(
             PremiumPaymentRecoveryCase.objects.filter(payment=before).exists()
         )
+
+    def test_backfill_keeps_a_capture_recorded_after_staff_confirmed_staff_only(self):
+        import importlib
+        from datetime import timedelta
+        from io import StringIO
+
+        from django.apps import apps
+        from django.core.management import call_command
+        from django.utils import timezone
+
+        self.membership.confirm(by_user=self.coach.user)
+        late = self._tx("REC-AFTER-STAFF", status=PaymentTransaction.Status.PAID)
+        # paid_at is when the callback was processed: a late webhook for the
+        # very capture staff confirmed lands after the confirmation.
+        PaymentTransaction.objects.filter(pk=late.pk).update(
+            paid_at=timezone.now() + timedelta(minutes=5)
+        )
+        call_command("backfill_premium_recovery_cases", "--apply", stdout=StringIO())
+        case = PremiumPaymentRecoveryCase.objects.get(payment=late)
+        self.assertEqual(case.reason, Reason.DUPLICATE_CAPTURE)
+        self.assertTrue(case.staff_only)
+        self.assertFalse(case.member_unknown)
+        # The migration classifies the same way.
+        case.delete()
+        importlib.import_module(
+            "crush_lu.migrations.0262_backfill_premium_recovery_cases"
+        ).backfill(apps, None)
+        case = PremiumPaymentRecoveryCase.objects.get(payment=late)
+        self.assertTrue(case.staff_only)
+        self.assertIn("confirmed this membership by hand", case.detail)
 
     def test_member_unknown_case_is_not_selected_for_its_opener_s_checkouts(self):
         from datetime import timedelta
@@ -1251,7 +1282,7 @@ class CaseLifecycleTests(_Base):
         self.assertEqual(
             cases,
             {
-                unapplied.pk: Reason.COACH_UNAVAILABLE,
+                unapplied.pk: Reason.OTHER,
                 applied.pk: Reason.DUPLICATE_CAPTURE,
                 duplicate.pk: Reason.DUPLICATE_CAPTURE,
             },
