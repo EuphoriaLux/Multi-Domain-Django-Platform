@@ -172,12 +172,21 @@ class Command(BaseCommand):
                 "photo_review_notes",
             )
             if is_profile:
+                photo_slots = ("photo_1", "photo_2", "photo_3")
                 with transaction.atomic():
                     current = (
                         CrushProfile.objects.select_for_update(of=("self",))
-                        .values("pk", field_name, *review_fields)
+                        .values("pk", *photo_slots, *review_fields)
                         .get(pk=obj.pk)
                     )
+                    # CrushProfile.save deletes the blob of every slot whose
+                    # in-memory key differs from the row, whatever update_fields
+                    # says. The iterator's copy may predate a member's upload
+                    # (or an earlier slot's skip below), so match the locked
+                    # row in every slot this call does not write.
+                    for slot in photo_slots:
+                        if slot != field_name:
+                            setattr(obj, slot, current[slot])
                     if current[field_name] != old_blob_name or (
                         field_name == "photo_1"
                         and current["photo_review_status"]
@@ -189,6 +198,12 @@ class Command(BaseCommand):
                                     storage, key
                                 )
                             )
+                        # field.save() already pointed this instance at the
+                        # discarded upload; leave it on the row's state so the
+                        # next slot does not write or clean up against it.
+                        setattr(obj, field_name, current[field_name])
+                        if carries_attestation:
+                            obj.photo_verification_key = old_blob_name
                         self.stdout.write(
                             f"  Skipped {obj_label}: photo changed or moderated"
                         )

@@ -37,7 +37,7 @@ def isolate_review_side_effects(monkeypatch):
         CrushProfile._meta.get_field("photo_1").storage, "delete", lambda name: None
     )
     with patch(
-        "crush_lu.services.photo_review.notify_profile_revision"
+        "crush_lu.services.photo_review.notify_photo_revision"
     ) as notification:
         yield notification
 

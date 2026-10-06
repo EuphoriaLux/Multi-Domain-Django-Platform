@@ -44906,3 +44906,22 @@ msgstr "Teilnehmende Person %(id)s"
 #: crush_lu/templates/crush_lu/coach_photo_review.html
 msgid "Undone. Some Coach's Picks could not be restored because the members' situation changed."
 msgstr "Rückgängig gemacht. Einige Coach's Picks konnten nicht wiederhergestellt werden, weil sich die Situation der Mitglieder geändert hat."
+
+#: crush_lu/notification_service.py
+#: crush_lu/templates/crush_lu/emails/photo_revision_request.html
+msgid "Your coach asked you to replace your main profile photo. The rest of your profile can stay as it is."
+msgstr "Dein Coach hat dich gebeten, dein Hauptprofilfoto zu ersetzen. Der Rest deines Profils kann so bleiben, wie er ist."
+
+#: crush_lu/notification_service.py
+#: crush_lu/email_helpers.py
+#: crush_lu/templates/crush_lu/emails/photo_revision_request.html
+msgid "Please replace your profile photo"
+msgstr "Bitte ersetze dein Profilfoto"
+
+#: crush_lu/templates/crush_lu/emails/photo_revision_request.html
+msgid "Upload a new main photo from your profile. You do not need to change anything else."
+msgstr "Lade in deinem Profil ein neues Hauptfoto hoch. Sonst musst du nichts ändern."
+
+#: crush_lu/templates/crush_lu/emails/photo_revision_request.html
+msgid "Upload a new photo"
+msgstr "Neues Foto hochladen"

@@ -140,3 +140,60 @@ def test_reprocessing_carries_coach_approval_to_processed_key(tmp_path, monkeypa
     assert (profile.photo_reviewed_at, profile.photo_reviewed_by_id) == approved
     assert profile.is_photo_review_approved
     assert not storage.exists(old_key)
+
+
+@pytest.mark.parametrize("race", ["replaced", "moderated"])
+def test_skipped_slot_does_not_delete_current_photo_on_next_slot(
+    tmp_path, monkeypatch, race
+):
+    """A slot skipped under the lock must not leave the instance pointing at
+    the discarded upload: the next slot's save would delete the live photo."""
+    from crush_lu.management.commands.reprocess_photos import Command
+
+    storage = FileSystemStorage(location=tmp_path)
+    for slot in ("photo_1", "photo_2"):
+        monkeypatch.setattr(CrushProfile._meta.get_field(slot), "storage", storage)
+    monkeypatch.setattr(
+        "crush_lu.services.photo_review._notify_revision_safely", lambda *args: None
+    )
+    coach, profile = _make_coach(), _make_candidate(has_photo=False)
+    profile.photo_1.save("one.jpg", ContentFile(b"one" * 3000), save=True)
+    profile.photo_2.save("two.jpg", ContentFile(b"two" * 3000), save=True)
+    # The command iterates instances loaded before the member acted.
+    stale = CrushProfile.objects.get(pk=profile.pk)
+    calls = []
+
+    def process(*args):
+        if not calls:
+            member = CrushProfile.objects.get(pk=profile.pk)
+            if race == "replaced":
+                member.photo_1.save(
+                    "replacement.jpg", ContentFile(b"new" * 3000), save=True
+                )
+            else:
+                submit_photo_review(
+                    coach,
+                    profile.pk,
+                    "needs_revision",
+                    "unclear_face",
+                    photo_key=member.photo_1.name,
+                )
+        calls.append(True)
+        return ContentFile(b"small", name="processed.jpg")
+
+    monkeypatch.setattr(
+        "crush_lu.management.commands.reprocess_photos.process_uploaded_image", process
+    )
+    stats = {"processed": 0, "skipped": 0, "errors": 0}
+    with TestCase.captureOnCommitCallbacks(execute=True):
+        for slot in ("photo_1", "photo_2"):
+            Command()._process_photo(stale, slot, getattr(stale, slot), False, stats)
+    profile.refresh_from_db()
+    assert stats == {"processed": 1, "skipped": 1, "errors": 0}
+    assert storage.exists(profile.photo_1.name)
+    assert storage.exists(profile.photo_2.name)
+    assert stale.photo_1.name == profile.photo_1.name
+    if race == "moderated":
+        assert profile.photo_review_status == "needs_revision"
+    # Only the live photo_1 and the processed photo_2 remain on disk.
+    assert len(list(tmp_path.rglob("*.jpg"))) == 2

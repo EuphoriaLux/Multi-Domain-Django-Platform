@@ -17,6 +17,7 @@ from crush_lu.models import (
     ProfilePhotoReviewLog,
     UserReport,
 )
+from crush_lu.notification_service import NotificationService, NotificationType
 from crush_lu.services.photo_review import (
     PhotoReviewError,
     get_photo_review_queue,
@@ -37,7 +38,7 @@ def isolate_side_effects(monkeypatch):
     monkeypatch.setattr(
         CrushProfile._meta.get_field("photo_1").storage, "delete", lambda name: None
     )
-    with patch("crush_lu.services.photo_review.notify_profile_revision"):
+    with patch("crush_lu.services.photo_review.notify_photo_revision"):
         yield
 
 
@@ -466,3 +467,61 @@ def test_deck_carries_translated_picks_not_restored_notice(client, language, tex
     attribute = html.split('data-picks-not-restored="', 1)[1].split('"', 1)[0]
     assert text in attribute
     assert 'x-text="noticeMessage"' in html
+
+
+def test_photo_revision_email_asks_only_for_a_new_photo():
+    from crush_lu.email_helpers import send_photo_revision_request
+
+    profile = _make_candidate()
+    with patch("crush_lu.email_helpers.send_domain_email", return_value=1) as sender:
+        # Routed through the service with no request, as the post-commit hook may.
+        assert NotificationService._send_email(
+            profile.user,
+            NotificationType.PHOTO_REVISION,
+            {"feedback": "Smile, please", "photo_review_log_id": 7},
+            None,
+        )
+    html = sender.call_args.kwargs["html_message"]
+    assert sender.call_args.kwargs["subject"] == "Please replace your profile photo"
+    assert "Smile, please" in html
+    assert "Upload a new main photo from your profile" in html
+    assert "before approval" not in html
+    assert "Resubmit" not in html
+    assert send_photo_revision_request(profile.user) == 1
+
+
+@pytest.mark.parametrize(
+    "language,subject,line",
+    [
+        ("en", "Please replace your profile photo", "The rest of your profile"),
+        ("de", "Bitte ersetze dein Profilfoto", "Der Rest deines Profils"),
+        ("fr", "Veuillez remplacer votre photo de profil", "Le reste de votre profil"),
+    ],
+)
+def test_photo_revision_email_uses_member_language(language, subject, line):
+    from crush_lu.email_helpers import send_photo_revision_request
+
+    profile = _make_candidate()
+    profile.preferred_language = language
+    profile.save(update_fields=["preferred_language"])
+    with patch("crush_lu.email_helpers.send_domain_email", return_value=1) as sender:
+        assert send_photo_revision_request(profile.user, None, "x") == 1
+    assert sender.call_args.kwargs["subject"] == subject
+    assert line in sender.call_args.kwargs["html_message"]
+    assert sender.call_args.kwargs["domain"] == "crush.lu"
+
+
+def test_photo_revision_web_push_is_photo_specific():
+    profile = _make_candidate()
+    with patch(
+        "crush_lu.push_notifications.send_push_notification", return_value={}
+    ) as push:
+        NotificationService._send_push(
+            profile.user,
+            NotificationType.PHOTO_REVISION,
+            {"feedback": "Smile, please", "photo_review_log_id": 7},
+        )
+    kwargs = push.call_args.kwargs
+    assert kwargs["title"] == "Please replace your profile photo"
+    assert kwargs["body"].endswith("Smile, please")
+    assert kwargs["tag"] == "photo-review-7"

@@ -30,6 +30,7 @@ class NotificationType(Enum):
 
     PROFILE_APPROVED = "profile_approved"
     PROFILE_REVISION = "profile_revision"
+    PHOTO_REVISION = "photo_revision"
     PHOTO_REVIEW_RETRACTED = "photo_review_retracted"
     PROFILE_REJECTED = "profile_rejected"
     PROFILE_RECONTACT = "profile_recontact"
@@ -57,6 +58,7 @@ class NotificationType(Enum):
         preference_mapping = {
             "profile_approved": "profile_updates",
             "profile_revision": "profile_updates",
+            "photo_revision": "profile_updates",
             "photo_review_retracted": "profile_updates",
             "profile_rejected": "profile_updates",
             "profile_recontact": "profile_updates",
@@ -384,11 +386,25 @@ class NotificationService:
                     "link_url": get_user_language_url(
                         user, "crush_lu:edit_profile", request
                     ),
-                    "metadata": (
-                        {"photo_review_log_id": context["photo_review_log_id"]}
-                        if context.get("photo_review_log_id")
-                        else {}
+                }
+
+            if notification_type == NotificationType.PHOTO_REVISION:
+                # Photo moderation never touches profile approval: ask only
+                # for the replacement photo, never a profile resubmission.
+                body_str = str(
+                    _(
+                        "Your coach asked you to replace your main profile photo. The rest of your profile can stay as it is."
+                    )
+                )
+                if context.get("feedback"):
+                    body_str = f"{body_str} {context['feedback']}"
+                return {
+                    "title": _("Please replace your profile photo"),
+                    "body": body_str,
+                    "link_url": get_user_language_url(
+                        user, "crush_lu:edit_profile", request
                     ),
+                    "metadata": {"photo_review_log_id": context["photo_review_log_id"]},
                 }
 
             if notification_type == NotificationType.PHOTO_REVIEW_RETRACTED:
@@ -545,7 +561,10 @@ class NotificationService:
                     or {}
                 )
 
-            elif notification_type == NotificationType.PHOTO_REVIEW_RETRACTED:
+            elif notification_type in (
+                NotificationType.PHOTO_REVISION,
+                NotificationType.PHOTO_REVIEW_RETRACTED,
+            ):
                 payload = NotificationService._render_inapp_payload(
                     user, notification_type, context, None
                 )
@@ -700,6 +719,14 @@ class NotificationService:
                         profile, request, feedback=feedback
                     )
                     return result == 1
+
+            elif notification_type == NotificationType.PHOTO_REVISION:
+                return (
+                    email_helpers.send_photo_revision_request(
+                        user, request, feedback=context.get("feedback", "")
+                    )
+                    == 1
+                )
 
             elif notification_type == NotificationType.PHOTO_REVIEW_RETRACTED:
                 return (
@@ -904,23 +931,30 @@ def notify_profile_approved(user, profile, coach_notes: str = None, request=None
 
 
 def notify_profile_revision(
-    user, profile, feedback: str, request=None, *, photo_review_log_id=None
+    user, profile, feedback: str, request=None
 ) -> NotificationResult:
     """Send profile revision request notification."""
     return NotificationService.notify(
         user=user,
         notification_type=NotificationType.PROFILE_REVISION,
-        context={
-            "profile": profile,
-            "feedback": feedback,
-            "photo_review_log_id": photo_review_log_id,
-        },
+        context={"profile": profile, "feedback": feedback},
         request=request,
-        dedupe_key=(
-            f"photo-review:{photo_review_log_id}:revision"
-            if photo_review_log_id
-            else None
-        ),
+    )
+
+
+def notify_photo_revision(
+    user, feedback: str, request=None, *, photo_review_log_id
+) -> NotificationResult:
+    """Ask for a replacement primary photo after a coach photo review.
+
+    Deduped per review, so Undo can find and retract exactly this bell row.
+    """
+    return NotificationService.notify(
+        user=user,
+        notification_type=NotificationType.PHOTO_REVISION,
+        context={"feedback": feedback, "photo_review_log_id": photo_review_log_id},
+        request=request,
+        dedupe_key=f"photo-review:{photo_review_log_id}:revision",
     )
 
 

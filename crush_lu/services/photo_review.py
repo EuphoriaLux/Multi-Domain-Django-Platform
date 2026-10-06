@@ -29,7 +29,7 @@ from crush_lu.models import (
 )
 from crush_lu.models.crush_connect_cycle import ConnectPairExclusion
 from crush_lu.notification_service import (
-    notify_profile_revision,
+    notify_photo_revision,
     NotificationService,
     NotificationType,
 )
@@ -454,9 +454,8 @@ def _send_revision_and_reconcile(profile, reason, notes, request, log_id):
                     "Please replace your profile photo with a clear, suitable photo of yourself."
                 ),
             }
-            notify_profile_revision(
+            notify_photo_revision(
                 user=profile.user,
-                profile=profile,
                 feedback=notes or feedback.get(reason, feedback["other"]),
                 request=request,
                 photo_review_log_id=log_id,

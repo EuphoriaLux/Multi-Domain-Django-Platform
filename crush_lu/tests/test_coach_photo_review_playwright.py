@@ -29,7 +29,7 @@ def test_mobile_deck_controls_and_undo(
     for name in ("photo_1", "photo_2"):
         monkeypatch.setattr(CrushProfile._meta.get_field(name), "storage", storage)
     monkeypatch.setattr(
-        "crush_lu.services.photo_review.notify_profile_revision", lambda **kwargs: None
+        "crush_lu.services.photo_review.notify_photo_revision", lambda **kwargs: None
     )
     monkeypatch.setattr(
         "crush_lu.notification_service.NotificationService._send_email",

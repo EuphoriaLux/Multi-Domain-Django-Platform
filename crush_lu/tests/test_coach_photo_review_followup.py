@@ -154,7 +154,8 @@ def test_undo_retracts_exact_notice_and_sends_correction(safe_side_effects):
     with TestCase.captureOnCommitCallbacks(execute=True):
         result = review(coach, profile)
     assert Notification.objects.filter(
-        dedupe_key=f"photo-review:{result['log_id']}:revision"
+        dedupe_key=f"photo-review:{result['log_id']}:revision",
+        notification_type="photo_revision",
     ).exists()
     unrelated = Notification.objects.create(
         user=profile.user, notification_type="profile_revision", title="Other feedback"
@@ -168,7 +169,7 @@ def test_undo_retracts_exact_notice_and_sends_correction(safe_side_effects):
     assert [notice.title for notice in notices] == ["Photo revision request withdrawn"]
     assert notices.get().dedupe_key == f"photo-review:{result['log_id']}:retracted"
     assert [call.args[1] for call in safe_side_effects.call_args_list] == [
-        NotificationType.PROFILE_REVISION,
+        NotificationType.PHOTO_REVISION,
         NotificationType.PHOTO_REVIEW_RETRACTED,
     ]
     assert (
@@ -231,11 +232,29 @@ def test_correction_email_uses_member_language(language, title):
     assert sender.call_args.kwargs["domain"] == "crush.lu"
 
 
+def test_revision_notice_asks_only_for_a_new_photo(safe_side_effects):
+    coach, profile = _make_coach(), _make_candidate()
+    with TestCase.captureOnCommitCallbacks(execute=True):
+        result = review(coach, profile, reason="group_photo")
+    notice = Notification.objects.get(
+        dedupe_key=f"photo-review:{result['log_id']}:revision"
+    )
+    assert notice.notification_type == "photo_revision"
+    assert notice.title == "Please replace your profile photo"
+    assert notice.body.startswith(
+        "Your coach asked you to replace your main profile photo."
+    )
+    assert "showing only you" in notice.body
+    assert [call.args[1] for call in safe_side_effects.call_args_list] == [
+        NotificationType.PHOTO_REVISION
+    ]
+
+
 def test_undo_during_send_is_corrected_after_sender_finishes(safe_side_effects):
     coach, profile = _make_coach(), _make_candidate()
 
     def delivery(user, kind, context, request):
-        if kind == NotificationType.PROFILE_REVISION:
+        if kind == NotificationType.PHOTO_REVISION:
             undo_last_photo_review(coach, log_id=context["photo_review_log_id"])
         return True
 
@@ -243,7 +262,7 @@ def test_undo_during_send_is_corrected_after_sender_finishes(safe_side_effects):
     with TestCase.captureOnCommitCallbacks(execute=True):
         result = review(coach, profile)
     assert [call.args[1] for call in safe_side_effects.call_args_list] == [
-        NotificationType.PROFILE_REVISION,
+        NotificationType.PHOTO_REVISION,
         NotificationType.PHOTO_REVIEW_RETRACTED,
     ]
     # The sender's notice became the withdrawal; the correction replaced it.
@@ -268,7 +287,7 @@ def test_undelivered_revision_is_never_retracted(safe_side_effects, undo_during_
 
     with (
         patch(
-            "crush_lu.services.photo_review.notify_profile_revision",
+            "crush_lu.services.photo_review.notify_photo_revision",
             side_effect=failing_delivery,
         ),
         TestCase.captureOnCommitCallbacks(execute=True),
