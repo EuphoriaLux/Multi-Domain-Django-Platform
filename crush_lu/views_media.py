@@ -271,6 +271,19 @@ def _increment_rate_limit_counter(key, period_seconds):
         return None
 
 
+def _deny_banned_viewer(user):
+    """Refuse photo fetches from a banned viewer (#1217).
+
+    ``/media/`` skips ``CrushConsentMiddleware`` so anonymous and static
+    traffic never touches the database; the check therefore lives here, where
+    a viewer is already authenticated. Covers the account-deletion tombstone.
+    """
+    consent = getattr(user, "data_consent", None)
+    if consent is not None and consent.crushlu_banned:
+        logger.info("Banned user %s denied media request", user.id)
+        raise PermissionDenied("Your account is banned")
+
+
 @login_required
 def serve_profile_photo(request, user_id, photo_field):
     """
@@ -288,6 +301,8 @@ def serve_profile_photo(request, user_id, photo_field):
     Returns:
         Image file or 403/404 error
     """
+    _deny_banned_viewer(request.user)
+
     # Apply rate limit: higher for coaches who review many profiles
     # Regular users need ~50 requests just to load the attendees page (15+ photos)
     is_coach = CrushCoach.objects.filter(user=request.user, is_active=True).exists()
@@ -310,16 +325,21 @@ def serve_profile_photo(request, user_id, photo_field):
         logger.warning(
             "serve_profile_photo user rate-limited: user=%s ip=%s "
             "user_count=%s max=%s",
-            request.user.id, ip_addr, user_current, max_requests,
+            request.user.id,
+            ip_addr,
+            user_current,
+            max_requests,
         )
         return HttpResponse("Rate limit exceeded. Please try again later.", status=429)
 
     ip_current = _increment_rate_limit_counter(ip_key, period_seconds)
     if ip_current is not None and ip_current > ip_max_requests:
         logger.warning(
-            "serve_profile_photo IP rate-limited: user=%s ip=%s "
-            "ip_count=%s max=%s",
-            request.user.id, ip_addr, ip_current, ip_max_requests,
+            "serve_profile_photo IP rate-limited: user=%s ip=%s " "ip_count=%s max=%s",
+            request.user.id,
+            ip_addr,
+            ip_current,
+            ip_max_requests,
         )
         return HttpResponse("Rate limit exceeded. Please try again later.", status=429)
 
@@ -389,6 +409,7 @@ def serve_coach_photo(request, coach_id):
 
     URL: /crush/media/coach/{coach_id}/
     """
+    _deny_banned_viewer(request.user)
     coach = get_object_or_404(CrushCoach, id=coach_id, is_active=True)
     photo = coach.photo
     if not photo:

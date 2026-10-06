@@ -38,6 +38,12 @@ class CrushConsentMiddleware:
         "/signup/",
         "/logout/",
         "/oauth-complete/",
+        # /oauth/ stays exempt (audited for #1217): popup-callback, popup-error
+        # and landing are GET-only hops that run straight after provider login,
+        # BEFORE consent is recorded (consent_confirm is where a fresh social
+        # signup lands next), so gating them would loop the sign-in. They only
+        # echo the caller's own first name and redirect target, and the only
+        # write is allauth recovery state keyed by single-use callback proof.
         "/oauth/",
         "/accounts/",  # Allauth endpoints
         # Consent & ban flow (must be exempt to avoid redirect loops)
@@ -46,7 +52,10 @@ class CrushConsentMiddleware:
         # Public/landing pages
         "/about/",
         "/how-it-works/",
-        "/membership/",
+        # /membership/ is deliberately NOT exempt (audited for #1217): for a
+        # signed-in member it creates their ReferralCode and renders their own
+        # premium/recovery state. Anonymous visitors still get the page since
+        # the gates only apply to authenticated users.
         "/privacy-policy/",
         "/terms-of-service/",
         "/data-deletion/",
@@ -54,7 +63,14 @@ class CrushConsentMiddleware:
         "/test-upstair/",
         # Public landing pages
         "/r/",  # Referral redirect
-        "/invite/",  # Invitation landing
+        # /invite/ stays exempt (audited for #1217): both views are token-gated
+        # by an unguessable invitation UUID, not by member state. invitation_accept
+        # is how a guest account is *created* (anonymous, no consent record yet)
+        # and logs that new user in, so a consent gate would break the flow it
+        # exists for; it reads and writes nothing belonging to an existing
+        # member. A banned/consent-less member who opens one just gets the
+        # invitee's own event details. Consent capture for guests is a separate gap.
+        "/invite/",
         "/unsubscribe/",
         "/facebook/",  # Data deletion callback
         "/voting-demo/",
@@ -78,6 +94,8 @@ class CrushConsentMiddleware:
         "/csp-report/",
     ]
 
+    # /api/ paths a banned member may still call. Everything else under /api/
+    # answers 403 {"error": "banned"} (#1216).
     API_BAN_EXEMPT_PATHS = (
         "/api/admin/",
         "/api/analytics/",
@@ -85,6 +103,41 @@ class CrushConsentMiddleware:
         "/api/csrf-token/",
         "/api/push/vapid-public-key/",
         "/api/webhooks/",
+    )
+
+    # /api/ paths a member WITHOUT Crush.lu consent may still call (#1217).
+    # Everything else under /api/ answers 403 {"code": "consent_required"}.
+    # Starts from the ban-exempt set (key-authenticated machine endpoints and
+    # the CSRF/VAPID bootstrap) and adds only what the routes show must work
+    # before consent is recorded, or lets a member withdraw data:
+    API_CONSENT_EXEMPT_PATHS = API_BAN_EXEMPT_PATHS + (
+        # Session/JWT bridges used while signing in: /api/auth/status/ is polled
+        # by the OAuth landing page before consent_confirm, /api/auth/spa-callback/
+        # mints the hub SPA code, /api/token/ exchanges credentials or a refresh
+        # token (JWT callers are anonymous to this middleware anyway).
+        "/api/auth/",
+        "/api/token/",
+        # Push subscription lifecycle (api_push): the browser re-registers its
+        # subscription on every load and a member who withdrew consent must still
+        # be able to unsubscribe. /api/push/test/ and /health-check/ are NOT here.
+        "/api/push/subscribe/",
+        "/api/push/refresh-subscription/",
+        "/api/push/validate-subscription/",
+        "/api/push/unsubscribe/",
+        "/api/push/delete-subscription/",
+        "/api/push/subscriptions/",
+        "/api/push/preferences/",
+        # PWA install detection (pwa-detector.js) runs on first load, stores only
+        # a device flag / installation row, no profile data.
+        "/api/push/mark-pwa-user/",
+        "/api/push/pwa-status/",
+        "/api/pwa/register-installation/",
+        # Not listed on purpose: /api/phone/* (phone verification). Its pages
+        # (/onboarding/phone/) are already consent-gated and consent is recorded
+        # at signup, so it never runs pre-consent; it stores a phone number (PII).
+        # There is no /api/ consent-recording or account-deletion route: consent
+        # is captured by the signup forms and /consent/confirm/, deletion lives
+        # under /account/, all outside /api/ and unaffected by this check.
     )
 
     def __init__(self, get_response):
@@ -105,6 +158,19 @@ class CrushConsentMiddleware:
                         request.path,
                     )
                     return JsonResponse({"error": "banned"}, status=403)
+                # Consent comes after the ban check so a deletion tombstone
+                # (banned, consent False) keeps its "banned" answer.
+                if (
+                    not self._is_api_consent_exempt_path(path)
+                    and request.user.is_authenticated
+                    and not self.has_crushlu_consent(request.user)
+                ):
+                    logger.info(
+                        "User %s denied API request to %s without Crush.lu consent",
+                        request.user.id,
+                        request.path,
+                    )
+                    return JsonResponse({"code": "consent_required"}, status=403)
                 return self.get_response(request)
 
             # Exempt non-API paths without triggering request.user.is_authenticated
@@ -192,9 +258,16 @@ class CrushConsentMiddleware:
         return path
 
     def _is_api_ban_exempt_path(self, path):
+        return self._matches_api_paths(path, self.API_BAN_EXEMPT_PATHS)
+
+    def _is_api_consent_exempt_path(self, path):
+        return self._matches_api_paths(path, self.API_CONSENT_EXEMPT_PATHS)
+
+    @staticmethod
+    def _matches_api_paths(path, exempt_paths):
         return any(
             path == exempt_path.rstrip("/") or path.startswith(exempt_path)
-            for exempt_path in self.API_BAN_EXEMPT_PATHS
+            for exempt_path in exempt_paths
         )
 
     def _is_deletion_retry_path(self, path, query=None):
