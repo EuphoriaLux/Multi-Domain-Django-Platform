@@ -10,7 +10,7 @@ from django.utils import timezone
 
 @pytest.mark.django_db(transaction=True)
 def test_assignment_timestamp_migration_preserves_populated_history():
-    previous = ("crush_lu", "0263_premium_recovery_resolution")
+    previous = ("crush_lu", "0264_oauthstate_auth_recovery_hash")
     current = ("crush_lu", "0264_connectcyclecard_generated_at")
     executor = MigrationExecutor(connection)
     restore_targets = executor.loader.graph.leaf_nodes()

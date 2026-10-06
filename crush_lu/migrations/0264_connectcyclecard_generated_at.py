@@ -3,7 +3,7 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    dependencies = [("crush_lu", "0263_premium_recovery_resolution")]
+    dependencies = [("crush_lu", "0264_oauthstate_auth_recovery_hash")]
 
     operations = [
         # Do not backdate legacy cards to an invented time, or reset their
