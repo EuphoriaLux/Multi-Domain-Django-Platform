@@ -717,16 +717,18 @@ def refund_is_of_unapplied_capture(payment):
     """True when ``payment``'s case proves its capture was never applied, so a
     refund of it settles the case and nothing else (D2/D4).
 
-    Only an OPEN case proves it: one resolved any other way (applied, by
-    hand, or before resolutions were recorded) may have had its capture
-    applied. Nor a staff-only case of a known member -- which capture was
-    applied is unknown there. Both take the sweep's usual path."""
+    Only an OPEN case that was never resolved proves it: one resolved any
+    other way (applied, by hand, or before resolutions were recorded) may
+    have had its capture applied, and reopening it in the admin keeps that
+    resolution. Nor a staff-only case of a known member -- which capture was
+    applied is unknown there. All take the sweep's usual path."""
     from crush_lu.models import PremiumPaymentRecoveryCase
 
     case = PremiumPaymentRecoveryCase.objects.filter(payment=payment).first()
     return (
         case is not None
         and case.status == PremiumPaymentRecoveryCase.Status.OPEN
+        and not case.resolution
         and (case.member_unknown or not case.staff_only)
     )
 
@@ -762,6 +764,7 @@ def apply_case_payment(case_pk, by_user):
     from crush_lu.models import (
         CrushProfile,
         PaymentTransaction,
+        PremiumMembership,
         PremiumPaymentRecoveryCase,
     )
     from crush_lu.views_payments import (
@@ -783,7 +786,13 @@ def apply_case_payment(case_pk, by_user):
                 return "The case is already resolved."
             if case.reason != Case.Reason.COACH_UNAVAILABLE or case.staff_only:
                 return "Only an open coach-unavailable case can be applied."
-            membership = case.premium_membership
+            # Locked and read fresh: the owner and coach confirm() applies
+            # are the ones validated here, not a stale admin edit's.
+            membership = (
+                PremiumMembership.objects.select_for_update()
+                .filter(pk=case.premium_membership_id)
+                .first()
+            )
             if (
                 payment.status != PaymentTransaction.Status.PAID
                 or membership is None

@@ -125,6 +125,21 @@ class UnappliedCaptureRefundTests(_Base):
         self.assertEqual(self.membership.status, "cancelled")
         self.assertEqual(case.resolution, Case.Resolution.REFUNDED)
 
+    def test_a_reopened_applied_case_takes_the_usual_path(self):
+        # Reopened in the admin after it was applied: the retained resolution
+        # still says its capture was applied, so the refund ends the
+        # membership rather than leaving a refunded member on Premium.
+        tx, case = self._case("RES-REOPEN", Reason.COACH_UNAVAILABLE)
+        Case.objects.filter(pk=case.pk).update(
+            status=Case.Status.OPEN, resolution=Case.Resolution.APPLIED
+        )
+        self.membership.confirm()
+        self.assertEqual(_sweep()._reconcile_refunded(tx, REFUNDED), RECONCILED)
+        self.membership.refresh_from_db()
+        case.refresh_from_db()
+        self.assertEqual(self.membership.status, "cancelled")
+        self.assertEqual(case.resolution, Case.Resolution.REFUNDED)
+
     def test_usual_path_refund_resolves_an_open_staff_only_case(self):
         # A backfilled single capture beside a manual confirmation: staff-only,
         # so the usual path runs -- and must still settle the case.
@@ -250,6 +265,18 @@ class ApplyCasePaymentTests(_Base):
         payment = src.index("PaymentTransaction.objects.select_for_update()")
         self.assertLess(payment, src.index("Case.objects.select_for_update()"))
         self.assertLess(payment, src.index("membership.confirm("))
+
+    def test_membership_is_locked_before_its_owner_is_checked(self):
+        import inspect
+
+        from crush_lu.services import premium_recovery
+
+        src = inspect.getsource(premium_recovery.apply_case_payment)
+        case = src.index("Case.objects.select_for_update()")
+        membership = src.index("PremiumMembership.objects.select_for_update()")
+        self.assertLess(case, membership)
+        self.assertLess(membership, src.index("membership.user_id != case.user_id"))
+        self.assertNotIn("case.premium_membership\n", src)
 
     def test_hand_resolution_is_recorded_as_other(self):
         from crush_lu.admin import crush_admin_site
