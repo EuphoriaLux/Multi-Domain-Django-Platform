@@ -45,7 +45,8 @@ from crush_lu.campaign_women_1y import (
     get_newsletter,
     send_women_1y_email,
 )
-from crush_lu.models import Newsletter, NewsletterRecipient
+from crush_lu.models import Campaign, Newsletter, NewsletterRecipient
+from crush_lu.newsletter_service import BATCH_PAUSE_SECONDS, BATCH_SIZE
 from crush_lu.utils.i18n import build_absolute_url
 
 LOCK_KEY = "women_1y_campaign_send_lock"
@@ -63,12 +64,15 @@ class Command(BaseCommand):
         parser.add_argument("--test-to", metavar="EMAIL", help="Send one test email.")
         parser.add_argument("--report", action="store_true", help="Show results.")
         parser.add_argument("--retry-failed", action="store_true")
-        parser.add_argument("--batch-size", type=int, default=25)
+        parser.add_argument("--batch-size", type=int, default=BATCH_SIZE)
         parser.add_argument(
-            "--batch-pause", type=float, default=5.0, help="Seconds between batches."
+            "--batch-pause",
+            type=float,
+            default=BATCH_PAUSE_SECONDS,
+            help="Seconds between batches (Graph allows ~30 mails/minute).",
         )
         parser.add_argument(
-            "--delay", type=float, default=0.5, help="Seconds between emails."
+            "--delay", type=float, default=0, help="Seconds between emails."
         )
 
     def handle(self, *args, **opts):
@@ -160,6 +164,8 @@ class Command(BaseCommand):
 
     def _send_locked(self, opts):
         campaign = get_campaign(create=True)
+        if campaign.status == "cancelled":
+            raise CommandError("The campaign is cancelled; not sending.")
         newsletter = get_newsletter(campaign)
         if campaign.started_at is None:
             campaign.started_at = timezone.now()
@@ -169,9 +175,14 @@ class Command(BaseCommand):
         for user in self._recipients(opts).iterator():
             if limit is not None and sent + failed >= limit:
                 break
-            # Re-check eligibility at send time: a member can unsubscribe or be
-            # banned while a long run works through its list.
-            if not eligible_recipients(include_sent=True).filter(pk=user.pk).exists():
+            if Campaign.objects.filter(pk=campaign.pk, status="cancelled").exists():
+                self.stderr.write("Campaign cancelled: stopping.")
+                break
+            # Re-read the member at send time (not the iterator snapshot): they
+            # may have unsubscribed, been banned or changed their email while a
+            # long run worked through the list.
+            user = eligible_recipients(include_sent=True).filter(pk=user.pk).first()
+            if user is None:
                 skipped += 1
                 continue
             row, created = NewsletterRecipient.objects.get_or_create(

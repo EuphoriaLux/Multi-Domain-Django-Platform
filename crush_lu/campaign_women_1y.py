@@ -196,8 +196,7 @@ def poster_image_url():
 def build_email(user, campaign, test_mode=False, unsubscribe_url=None):
     """Render ``(subject, text, html)`` for ``user``.
 
-    ``test_mode`` renders the same tracked links without attributing clicks to
-    a member. With ``user=None`` (a test send to an address with no account)
+    ``test_mode`` links straight to the landing page (no click tracking). With ``user=None`` (a test send to an address with no account)
     ``unsubscribe_url`` must be given, so a test mail never carries a real
     member's live unsubscribe link.
     """
@@ -208,15 +207,20 @@ def build_email(user, campaign, test_mode=False, unsubscribe_url=None):
     if not unsubscribe_url:
         raise ValueError("no unsubscribe URL; refusing to send")
     landing = build_absolute_url("crush_lu:women_1y_landing", lang=lang)
-    attributed = None if test_mode else user
+    if test_mode:
+        # Tracked links would record the tester's clicks as campaign
+        # engagement, so QA sends link straight to the landing page.
+        poster_url = with_utm(landing, "poster")
+        cta_url = with_utm(landing, "cta")
+    else:
+        poster_url = build_tracked_url(
+            with_utm(landing, "poster"), campaign, CHANNEL, user
+        )
+        cta_url = build_tracked_url(with_utm(landing, "cta"), campaign, CHANNEL, user)
     context = {
         "subject": SUBJECT,
-        "poster_url": build_tracked_url(
-            with_utm(landing, "poster"), campaign, CHANNEL, attributed
-        ),
-        "cta_url": build_tracked_url(
-            with_utm(landing, "cta"), campaign, CHANNEL, attributed
-        ),
+        "poster_url": poster_url,
+        "cta_url": cta_url,
         "poster_image_url": poster_image_url(),
         "unsubscribe_url": unsubscribe_url,
     }
@@ -248,21 +252,27 @@ def finalize_status(campaign):
     """Set the campaign's terminal status from the send log.
 
     Mirrors the shared dispatcher: ``sent`` when nothing failed, ``partial``
-    for a mix, ``failed`` when nothing was delivered. Only once no eligible
-    recipient is left; until then the campaign stays ``draft``.
+    for a mix, ``failed`` when nothing was delivered (including every
+    recipient skipped). Only once no eligible recipient is left; until then
+    the campaign stays ``draft``. A cancelled campaign is never overwritten.
     """
-    if eligible_recipients().exists():
+    campaign.refresh_from_db(fields=["status"])
+    if campaign.status == "cancelled" or eligible_recipients().exists():
         return campaign.status
     rows = NewsletterRecipient.objects.filter(newsletter__campaign=campaign)
+    if not rows.exists():
+        return campaign.status
     sent = rows.filter(status="sent").count()
     failed = rows.filter(status="failed").count()
-    if sent == 0 and failed == 0:
-        return campaign.status
-    status = "sent" if not failed else "partial" if sent else "failed"
-    campaign.status = status
-    campaign.completed_at = timezone.now()
-    campaign.save(update_fields=["status", "completed_at"])
-    return status
+    status = "sent" if sent and not failed else "partial" if sent else "failed"
+    # Conditional update: a Cancel pressed meanwhile must win.
+    updated = (
+        Campaign.objects.filter(pk=campaign.pk)
+        .exclude(status="cancelled")
+        .update(status=status, completed_at=timezone.now())
+    )
+    campaign.refresh_from_db(fields=["status"])
+    return campaign.status if updated else "cancelled"
 
 
 def campaign_report(campaign):

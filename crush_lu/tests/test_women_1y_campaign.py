@@ -25,6 +25,8 @@ from crush_lu.campaign_women_1y import (
 from crush_lu.models import (
     CrushProfile,
     EmailPreference,
+    Campaign,
+    CampaignLink,
     MeetupEvent,
     NewsletterRecipient,
     UserDataConsent,
@@ -407,3 +409,130 @@ class ReviewFollowUpTests(TestCase):
         self.assertEqual(finalize_status(campaign), "partial")
         NewsletterRecipient.objects.filter(status="sent").update(status="failed")
         self.assertEqual(finalize_status(campaign), "failed")
+
+
+class ReviewRound2Tests(TestCase):
+    def setUp(self):
+        cache.clear()
+        mail.outbox.clear()
+
+    def send(self, *extra):
+        out = StringIO()
+        call_command(
+            "send_women_1y_campaign",
+            "--send",
+            "--delay",
+            "0",
+            "--batch-pause",
+            "0",
+            *extra,
+            stdout=out,
+            stderr=out,
+        )
+        return out.getvalue()
+
+    def test_email_uses_shared_brand_tokens(self):
+        make_member("brand")
+        self.send()
+        html = mail.outbox[0].alternatives[0][0]
+        from crush_lu.templatetags.crush_brand import BRAND
+
+        self.assertIn(BRAND["pink"], html)
+        template = open(
+            "crush_lu/templates/crush_lu/emails/women_1y.html", encoding="utf-8"
+        ).read()
+        for hex_ in (BRAND["pink"], BRAND["pink_dark"], BRAND["purple_dark"]):
+            self.assertNotIn(hex_, template)
+
+    def test_test_send_links_directly_and_creates_no_tracking_rows(self):
+        call_command(
+            "send_women_1y_campaign",
+            "--test-to",
+            "qa@example.com",
+            stdout=StringIO(),
+        )
+        self.assertEqual(CampaignLink.objects.count(), 0)
+        html = mail.outbox[0].alternatives[0][0]
+        self.assertNotIn("/c/", html)
+        self.assertIn("utm_content=cta", html)
+
+    def test_skipped_only_run_still_finalizes(self):
+        make_member("skip")
+        from unittest.mock import patch
+
+        with patch(
+            "crush_lu.management.commands.send_women_1y_campaign.send_women_1y_email",
+            return_value=0,
+        ):
+            self.send()
+        self.assertEqual(get_campaign().status, "failed")
+
+    def test_cancelled_campaign_is_not_sent_or_overwritten(self):
+        make_member("cx")
+        Campaign.objects.create(
+            slug="women_1y", name="x", channels=["email"], status="cancelled"
+        )
+        with self.assertRaises(CommandError):
+            self.send()
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual(finalize_status(get_campaign()), "cancelled")
+
+    def test_cancel_mid_run_stops_sending(self):
+        make_member("m1")
+        make_member("m2")
+        from unittest.mock import patch
+
+        real = __import__(
+            "crush_lu.campaign_women_1y", fromlist=["send_women_1y_email"]
+        ).send_women_1y_email
+
+        def send_then_cancel(*args, **kwargs):
+            result = real(*args, **kwargs)
+            Campaign.objects.filter(slug="women_1y").update(status="cancelled")
+            return result
+
+        with patch(
+            "crush_lu.management.commands.send_women_1y_campaign.send_women_1y_email",
+            side_effect=send_then_cancel,
+        ):
+            self.send()
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(get_campaign().status, "cancelled")
+
+    def test_default_pacing_matches_newsletter_graph_limit(self):
+        from crush_lu.management.commands.send_women_1y_campaign import Command
+        from crush_lu.newsletter_service import BATCH_PAUSE_SECONDS, BATCH_SIZE
+
+        parser = Command().create_parser("manage.py", "send_women_1y_campaign")
+        defaults = parser.parse_args([])
+        self.assertEqual(defaults.batch_size, BATCH_SIZE)
+        self.assertEqual(defaults.batch_pause, BATCH_PAUSE_SECONDS)
+
+    def test_private_events_do_not_crowd_out_public_ones(self):
+        for i in range(10):
+            MeetupEvent.objects.create(
+                title=f"Private {i}",
+                description="x",
+                event_type="mixer",
+                date_time=timezone.now() + timedelta(days=1, hours=i),
+                location="L",
+                address="a",
+                max_participants=10,
+                registration_deadline=timezone.now() + timedelta(hours=12),
+                is_published=True,
+                is_private_invitation=True,
+            )
+        MeetupEvent.objects.create(
+            title="Public Later",
+            description="x",
+            event_type="mixer",
+            date_time=timezone.now() + timedelta(days=9),
+            location="L",
+            address="a",
+            max_participants=10,
+            registration_deadline=timezone.now() + timedelta(days=8),
+            is_published=True,
+        )
+        html = Client(HTTP_HOST=HOST).get("/en/women-1-year/").content.decode()
+        self.assertIn("Public Later", html)
+        self.assertNotIn("Private 0", html)

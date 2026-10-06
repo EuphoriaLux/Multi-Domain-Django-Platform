@@ -1,4 +1,4 @@
-<!doctype html>
+{% load crush_brand %}{% brand_colors as brand %}<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="light dark">
 <meta name="supported-color-schemes" content="light dark">
 <title>{{ subject }}</title>
-<style>a{color:#d94d7b}a:hover{color:#8e44ad}@media (max-width:620px){.w100{width:100%!important}.px{padding-left:24px!important;padding-right:24px!important}.h1{font-size:38px!important;line-height:42px!important}}</style>
+<style>a{color:{{ brand.pink_dark }} }a:hover{color:{{ brand.purple_dark }} }@media (max-width:620px){.w100{width:100%!important}.px{padding-left:24px!important;padding-right:24px!important}.h1{font-size:38px!important;line-height:42px!important}}</style>
 </head>
 <body style="margin:0;padding:0;background-color:#F0ECF5;">
 <span style="display:none;max-height:0;overflow:hidden;opacity:0;color:#F0ECF5;font-size:1px;line-height:1px;">We saved you a seat. Get verified at a Crush event and be first in line for Crush Connect.</span>
@@ -15,7 +15,7 @@
 <!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
 <table role="presentation" class="w100" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background-color:#ffffff;border-radius:24px;overflow:hidden;">
 <tr><td class="px" align="center" bgcolor="#2a1538" style="background-color:#2a1538;padding:40px 48px 12px 48px;">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#ff6b9d" style="background-color:#ff6b9d;border-radius:999px;padding:8px 18px;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:bold;letter-spacing:2px;color:#ffffff;mso-line-height-rule:exactly;line-height:16px;">CRUSH.LU TURNS 1</td></tr></table>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="{{ brand.pink }}" style="background-color:{{ brand.pink }};border-radius:999px;padding:8px 18px;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:bold;letter-spacing:2px;color:#ffffff;mso-line-height-rule:exactly;line-height:16px;">CRUSH.LU TURNS 1</td></tr></table>
 </td></tr>
 <tr><td class="px h1" align="center" bgcolor="#2a1538" style="background-color:#2a1538;padding:16px 48px 8px 48px;font-family:Georgia,'Times New Roman',serif;font-size:46px;font-weight:bold;color:#ffffff;mso-line-height-rule:exactly;line-height:50px;">We saved you a seat.</td></tr>
 <tr><td class="px" align="center" bgcolor="#2a1538" style="background-color:#2a1538;padding:0 48px 28px 48px;font-family:Arial,Helvetica,sans-serif;font-size:17px;color:#e6dcef;mso-line-height-rule:exactly;line-height:26px;">Luxembourg’s singles are meeting in real life, and we need more of you there.</td></tr>
@@ -24,21 +24,21 @@
 </td></tr>
 <tr><td class="px" style="padding:40px 48px 8px 48px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-<tr><td width="44" valign="top" style="padding:0 16px 24px 0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="36" height="36" align="center" bgcolor="#ff6b9d" style="width:36px;height:36px;background-color:#ff6b9d;border-radius:18px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;color:#ffffff;line-height:36px;">1</td></tr></table></td>
+<tr><td width="44" valign="top" style="padding:0 16px 24px 0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="36" height="36" align="center" bgcolor="{{ brand.pink }}" style="width:36px;height:36px;background-color:{{ brand.pink }};border-radius:18px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;color:#ffffff;line-height:36px;">1</td></tr></table></td>
 <td valign="top" style="padding:0 0 24px 0;font-family:Arial,Helvetica,sans-serif;"><p style="margin:0;font-size:18px;font-weight:bold;color:#2a1538;line-height:24px;">No fakes. Ever.</p><p style="margin:4px 0 0 0;font-size:15px;color:#4b5563;line-height:22px;">Everyone gets verified in person at a Crush event. Real people, met face to face.</p></td></tr>
-<tr><td width="44" valign="top" style="padding:0 16px 24px 0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="36" height="36" align="center" bgcolor="#ff6b9d" style="width:36px;height:36px;background-color:#ff6b9d;border-radius:18px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;color:#ffffff;line-height:36px;">2</td></tr></table></td>
+<tr><td width="44" valign="top" style="padding:0 16px 24px 0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="36" height="36" align="center" bgcolor="{{ brand.pink }}" style="width:36px;height:36px;background-color:{{ brand.pink }};border-radius:18px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;color:#ffffff;line-height:36px;">2</td></tr></table></td>
 <td valign="top" style="padding:0 0 24px 0;font-family:Arial,Helvetica,sans-serif;"><p style="margin:0;font-size:18px;font-weight:bold;color:#2a1538;line-height:24px;">Your ticket comes with a mission.</p><p style="margin:4px 0 0 0;font-size:15px;color:#4b5563;line-height:22px;">Find your Mystery Candidate and break the ice. No awkward small talk. Just play.</p></td></tr>
-<tr><td width="44" valign="top" style="padding:0 16px 8px 0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="36" height="36" align="center" bgcolor="#ff6b9d" style="width:36px;height:36px;background-color:#ff6b9d;border-radius:18px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;color:#ffffff;line-height:36px;">3</td></tr></table></td>
+<tr><td width="44" valign="top" style="padding:0 16px 8px 0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="36" height="36" align="center" bgcolor="{{ brand.pink }}" style="width:36px;height:36px;background-color:{{ brand.pink }};border-radius:18px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;color:#ffffff;line-height:36px;">3</td></tr></table></td>
 <td valign="top" style="padding:0 0 8px 0;font-family:Arial,Helvetica,sans-serif;"><p style="margin:0;font-size:18px;font-weight:bold;color:#2a1538;line-height:24px;">Verified = VIP.</p><p style="margin:4px 0 0 0;font-size:15px;color:#4b5563;line-height:22px;">Be first in line for Crush Connect: hand-picked matches, every Wednesday.</p></td></tr>
 </table>
 </td></tr>
 <tr><td align="center" style="padding:28px 48px 12px 48px;">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="#d94d7b" style="background-color:#d94d7b;border-radius:999px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="{{ brand.pink_dark }}" style="background-color:{{ brand.pink_dark }};border-radius:999px;">
 <a href="{{ cta_url }}" style="display:block;padding:18px 44px;font-family:Arial,Helvetica,sans-serif;font-size:18px;font-weight:bold;color:#ffffff;text-decoration:none;mso-line-height-rule:exactly;line-height:22px;">Get verified &rarr;</a>
 </td></tr></table>
 </td></tr>
 <tr><td class="px" align="center" style="padding:0 48px 40px 48px;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#6c757d;line-height:20px;">Join us for our 1-year celebration. Your seat is waiting.</td></tr>
-<tr><td class="px" align="center" bgcolor="#F0ECF5" style="background-color:#F0ECF5;padding:24px 48px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#6c757d;line-height:18px;">Crush.lu · Luxembourg<br>You’re receiving this because you have a Crush.lu account. <a href="{{ unsubscribe_url }}" style="color:#8e44ad;">Unsubscribe</a></td></tr>
+<tr><td class="px" align="center" bgcolor="#F0ECF5" style="background-color:#F0ECF5;padding:24px 48px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#6c757d;line-height:18px;">Crush.lu · Luxembourg<br>You’re receiving this because you have a Crush.lu account. <a href="{{ unsubscribe_url }}" style="color:{{ brand.purple_dark }};">Unsubscribe</a></td></tr>
 </table>
 <!--[if mso]></td></tr></table><![endif]-->
 </td></tr>

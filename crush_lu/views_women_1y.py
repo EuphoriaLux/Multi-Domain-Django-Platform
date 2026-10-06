@@ -59,7 +59,8 @@ def _upcoming_events(user):
         registration_deadline__gt=now,
         date_time__gte=MeetupEvent.live_lookback_cutoff(now),
         profile_requirement__in=JOINABLE_REQUIREMENTS,
-    ).order_by("date_time")[: MAX_EVENTS * 3]
+    ).order_by("date_time")
+    # Not sliced in SQL: privacy filtering must run before the limit.
     events = [e for e in events if e.end_time >= now]
     return _filter_private_events(events, user)[:MAX_EVENTS]
 
