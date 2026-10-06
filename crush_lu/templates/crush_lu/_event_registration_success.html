@@ -53,7 +53,7 @@
         {% endif %}
         <p class="text-gray-600 dark:text-gray-300 mb-6">
             {% trans "The event is currently full, but we'll notify you if a spot opens up." %}
-            {% if event.registration_fee > 0 %}{% trans "You pay nothing unless a place opens up for you." %}{% endif %}
+            {% if event.registration_fee > 0 and not registration.payment_confirmed %}{% trans "You pay nothing unless a place opens up for you." %}{% endif %}
         </p>
     {% elif registration.status == 'pending' %}
         {% comment %}

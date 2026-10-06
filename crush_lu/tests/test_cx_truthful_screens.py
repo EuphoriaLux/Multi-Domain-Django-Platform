@@ -13,7 +13,8 @@ did not move (a state that must still show a button or a section still does).
 * XC-09  the verification page claimed a mail "was sent" on a path where
          nothing was sent.
 * SD-11  late-cancel credit caveat (credit is all-or-nothing against a seat).
-* CC-20  Connect readiness said 3 suggestions a day; the product gives 2.
+* CC-20  Connect readiness said 3 suggestions a day; the product gives up to 2
+         (``get_or_create_todays_cards`` returns fewer when the pool is small).
 * CC-06  Connect promised a coach for members who get a private chat.
 * CC-15  weekly review showed the viewer's own guess unlabelled.
 
@@ -25,6 +26,7 @@ Run with: pytest crush_lu/tests/test_cx_truthful_screens.py -v
 
 import re
 from datetime import date
+from html import unescape as _unescape
 
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
@@ -55,8 +57,9 @@ LANGS = ("en", "de", "fr")
 
 
 def _flat(response):
-    """Response body with all whitespace runs collapsed to single spaces."""
-    return re.sub(r"\s+", " ", response.content.decode("utf-8"))
+    """Response body, HTML entities decoded (a view-side string with an
+    apostrophe renders as ``&#x27;``), whitespace runs collapsed to one space."""
+    return re.sub(r"\s+", " ", _unescape(response.content.decode("utf-8")))
 
 
 def _translated(lang, msgid):
@@ -174,6 +177,39 @@ class WaitlistSuccessScreenTests(CreditFixture):
         self.assertIn("You're on the Waitlist!", body)
         self.assertNotIn("You pay nothing unless a place opens up for you.", body)
         self.assertNotIn("data-sumup-reg-id", body)
+
+    def test_waitlisted_member_whose_payment_is_already_held_is_not_told_they_pay_nothing(
+        self,
+    ):
+        # A late cancel keeps ``payment_confirmed`` on the row; re-registering on
+        # a full event reuses that row, so the member is waitlisted with their
+        # money still held (``_admitted_status``). "You pay nothing unless a place
+        # opens up" would be false for them.
+        paid = self._registration_in_state(
+            "waitlist", "waitlist-already-paid@crush.lu", paid=True
+        )
+        unpaid = self._registration_in_state("waitlist", "waitlist-unpaid@crush.lu")
+
+        def render(registration):
+            return render_to_string(
+                "crush_lu/_event_registration_success.html",
+                {
+                    "event": self.event,
+                    "registration": registration,
+                    "waitlist_position": 1,
+                    "has_sufficient_crush_credit": False,
+                },
+            )
+
+        with self.subTest(payment_confirmed=True):
+            html = render(paid)
+            self.assertIn("You're on the Waitlist!", html)
+            self.assertNotIn("You pay nothing unless a place opens up for you.", html)
+            self.assertNotIn("data-sumup-reg-id", html)
+        with self.subTest(payment_confirmed=False):  # negative control
+            html = render(unpaid)
+            self.assertIn("You pay nothing unless a place opens up for you.", html)
+            self.assertNotIn("data-sumup-reg-id", html)
 
     def test_negative_control_seat_holder_on_paid_event_still_gets_pay_button(self):
         # Same paid event type, but a seat is free: signup lands "pending" and
@@ -404,27 +440,34 @@ class VerificationSentPageTests(_CrushHostTestCase):
         "Click the link in the email to confirm your account."
     )
 
+    IMPLIES_SENT = {
+        "en": ("the link we sent",),
+        "de": ("den wir dir geschickt haben",),
+        "fr": ("que nous vous avons envoyé",),
+    }
+
     def _get(self, lang):
         return self.client.get(self.URL, HTTP_ACCEPT_LANGUAGE=lang)
 
     def test_page_no_longer_claims_a_mail_was_just_sent(self):
         expected = {
             "en": (
-                "Check your inbox for the link we sent. Didn't get it, or has it "
-                "expired? Enter your email below and we'll send a new one.",
+                "If you asked for a verification link, check your inbox. Didn't "
+                "get it, or has it expired? Enter your email below and we'll "
+                "send a new one.",
                 "Still nothing after a few minutes? Write to",
             ),
             "de": (
-                "Schau in dein Postfach nach dem Link, den wir dir geschickt "
-                "haben. Nichts bekommen oder abgelaufen? Gib unten deine "
+                "Wenn du einen Bestätigungslink angefordert hast, schau in dein "
+                "Postfach. Nichts bekommen oder abgelaufen? Gib unten deine "
                 "E-Mail-Adresse ein, dann senden wir dir einen neuen Link.",
                 "Nach ein paar Minuten noch nichts? Schreib an",
             ),
             "fr": (
-                "Consultez votre boîte de réception pour retrouver le lien que "
-                "nous vous avons envoyé. Rien reçu, ou le lien a expiré ? "
-                "Saisissez votre adresse e-mail ci-dessous et nous vous en "
-                "enverrons un nouveau.",
+                "Si vous avez demandé un lien de vérification, consultez votre "
+                "boîte de réception. Rien reçu, ou le lien a expiré ? Saisissez "
+                "votre adresse e-mail ci-dessous et nous vous en enverrons un "
+                "nouveau.",
                 "Toujours rien après quelques minutes ? Écrivez à",
             ),
         }
@@ -445,6 +488,10 @@ class VerificationSentPageTests(_CrushHostTestCase):
                 # Old claim gone in every language.
                 self.assertNotIn(self.OLD, body)
                 self.assertNotIn(_translated(lang, self.OLD), body)
+                # No evidence of a send on this branch: nothing may call the link
+                # "the link we sent" (first draft of this fix did).
+                for sent in self.IMPLIES_SENT[lang]:
+                    self.assertNotIn(sent, body)
 
     def test_negative_control_pending_email_branch_keeps_its_sentence(self):
         session = self.client.session
@@ -456,7 +503,7 @@ class VerificationSentPageTests(_CrushHostTestCase):
         body = _flat(response)
         self.assertIn("We've sent a verification link to", body)
         self.assertIn("<strong>", body)
-        self.assertNotIn("Check your inbox for the link we sent.", body)
+        self.assertNotIn("If you asked for a verification link", body)
         # The support line helps on this branch too.
         self.assertIn("Still nothing after a few minutes? Write to", body)
         self.assertIn('href="mailto:support@crush.lu"', body)
@@ -565,23 +612,24 @@ class LateCancelCreditCaveatTests(CreditFixture):
 
 @override_settings(CRUSH_CONNECT_LAUNCHED=False, CRUSH_CONNECT_CANDIDATE_OPEN=True)
 class ConnectReadinessNumbersTests(_CrushHostTestCase):
-    """CARDS_PER_DAY is 2 (services/connect_cycle.py); the copy said 3."""
+    """CARDS_PER_DAY is 2 (services/connect_cycle.py) and a day can hold fewer
+    when the pool is small, so the copy says "up to" two; it used to say 3."""
 
     EXPECTED = {
         "en": (
-            "To receive your 2 new profiles each day, complete these steps",
-            "your two daily profiles",
-            "unlocks the active journey with two new profiles per day.",
+            "To receive up to 2 new profiles each day, complete these steps",
+            "up to two new profiles a day",
+            "unlocks the active journey with up to two new profiles per day.",
         ),
         "de": (
-            "Um täglich 2 neue Profile zu erhalten, schließe diese Schritte ab",
-            "deine zwei täglichen Profile",
-            "schaltet den aktiven Weg mit zwei neuen Profilen pro Tag frei.",
+            "Um täglich bis zu 2 neue Profile zu erhalten, schließe diese Schritte ab",
+            "bis zu zwei neue Profile pro Tag",
+            "schaltet den aktiven Weg mit bis zu zwei neuen Profilen pro Tag frei.",
         ),
         "fr": (
-            "Pour recevoir 2 nouveaux profils par jour, complétez ces étapes",
-            "vos deux profils quotidiens",
-            "débloque le parcours actif avec deux nouveaux profils par jour.",
+            "Pour recevoir jusqu'à 2 nouveaux profils par jour, complétez ces étapes",
+            "jusqu'à deux nouveaux profils par jour",
+            "débloque le parcours actif avec jusqu'à deux nouveaux profils par jour.",
         ),
     }
     STALE = {
@@ -589,16 +637,27 @@ class ConnectReadinessNumbersTests(_CrushHostTestCase):
             "3 suggestions",
             "three daily suggestions",
             "three suggestions per day",
+            # Promises exactly two (also false when the pool is small):
+            "To receive your 2 new profiles each day",
+            "your two daily profiles",
         ),
-        "de": ("3 Vorschläge", "drei täglichen Vorschläge", "drei Vorschlägen"),
+        "de": (
+            "3 Vorschläge",
+            "drei täglichen Vorschläge",
+            "drei Vorschlägen",
+            "Um täglich 2 neue Profile zu erhalten",
+            "deine zwei täglichen Profile",
+        ),
         "fr": (
             "3 propositions",
             "trois suggestions quotidiennes",
             "trois propositions",
+            "Pour recevoir 2 nouveaux profils par jour",
+            "vos deux profils quotidiens",
         ),
     }
 
-    def test_hub_readiness_card_says_two_profiles_a_day(self):
+    def test_hub_readiness_card_says_up_to_two_profiles_a_day(self):
         from crush_lu.services.connect_cycle import CARDS_PER_DAY
 
         self.assertEqual(CARDS_PER_DAY, 2)  # the number the copy must match
@@ -635,7 +694,7 @@ class ConnectReadinessNumbersTests(_CrushHostTestCase):
             "A Crush coach confirmed your participation at an in-person event.",
         )
         self.assertNotContains(response, "three daily suggestions")
-        self.assertNotContains(response, "your two daily profiles")
+        self.assertNotContains(response, "up to two new profiles a day")
 
 
 class ConnectMarketingAndWizardPromiseTests(_CrushHostTestCase):

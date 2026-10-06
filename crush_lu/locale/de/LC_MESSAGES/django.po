@@ -39440,12 +39440,12 @@ msgstr "Identität durch LuxID bestätigt"
 #: crush_lu/views_crush_connect.py
 msgid ""
 "LuxID confirms your identity. Taking part in a Crush event unlocks the "
-"active Connect journey and your two daily profiles, once the other steps "
-"are complete."
+"active Connect journey and up to two new profiles a day, once the other "
+"steps are complete."
 msgstr ""
 "LuxID bestätigt deine Identität. Die Teilnahme an einem Crush-Event schaltet"
-" den aktiven Connect-Weg und deine zwei täglichen Profile frei, sobald die "
-"übrigen Schritte abgeschlossen sind."
+" den aktiven Connect-Weg und bis zu zwei neue Profile pro Tag frei, sobald "
+"die übrigen Schritte abgeschlossen sind."
 
 #: crush_lu/views_crush_connect.py
 msgid "Verified profile and identity"
@@ -39470,10 +39470,10 @@ msgstr "Verifizierung beim Crush-Event"
 #: crush_lu/views_crush_connect.py
 msgid ""
 "A confirmed participation at a Crush event unlocks the active journey with "
-"two new profiles per day."
+"up to two new profiles per day."
 msgstr ""
 "Eine bestätigte Teilnahme an einem Crush-Event schaltet den aktiven Weg mit "
-"zwei neuen Profilen pro Tag frei."
+"bis zu zwei neuen Profilen pro Tag frei."
 
 #: crush_lu/views_crush_connect.py
 msgid "A profile photo is required for your daily Connect suggestions."
@@ -39537,8 +39537,8 @@ msgid "Your Connect readiness"
 msgstr "Deine Connect-Bereitschaft"
 
 #: crush_lu/templates/crush_lu/crush_connect/_readiness_checklist.html
-msgid "To receive your 2 new profiles each day, complete these steps"
-msgstr "Um täglich 2 neue Profile zu erhalten, schließe diese Schritte ab"
+msgid "To receive up to 2 new profiles each day, complete these steps"
+msgstr "Um täglich bis zu 2 neue Profile zu erhalten, schließe diese Schritte ab"
 
 #: crush_lu/templates/crush_lu/crush_connect/_readiness_checklist.html
 msgid ""
@@ -42555,12 +42555,12 @@ msgstr "Falsche Adresse? Erneut registrieren"
 
 #: templates/account/verification_sent_crush.html:34
 msgid ""
-"Check your inbox for the link we sent. Didn't get it, or has it expired? "
-"Enter your email below and we'll send a new one."
+"If you asked for a verification link, check your inbox. Didn't get it, or "
+"has it expired? Enter your email below and we'll send a new one."
 msgstr ""
-"Schau in dein Postfach nach dem Link, den wir dir geschickt haben. Nichts "
-"bekommen oder abgelaufen? Gib unten deine E-Mail-Adresse ein, dann senden "
-"wir dir einen neuen Link."
+"Wenn du einen Bestätigungslink angefordert hast, schau in dein Postfach. "
+"Nichts bekommen oder abgelaufen? Gib unten deine E-Mail-Adresse ein, dann "
+"senden wir dir einen neuen Link."
 
 #: templates/account/verification_sent_crush.html:85
 msgid "Still nothing after a few minutes? Write to"
