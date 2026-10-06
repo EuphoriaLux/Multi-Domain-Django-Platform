@@ -470,6 +470,74 @@ def send_profile_revision_request(profile, request, feedback):
     )
 
 
+def send_photo_revision_request(user, request=None, feedback=""):
+    """Ask for a replacement primary photo; the profile itself stays as it is.
+
+    A coach photo review leaves profile approval untouched, so unlike
+    ``send_profile_revision_request`` this never asks for a resubmission.
+    """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    lang = get_user_preferred_language(user=user, request=request, default="en")
+    with translation.override(lang):
+        subject = _("Please replace your profile photo")
+        html_message = render_to_string(
+            "crush_lu/emails/photo_revision_request.html",
+            {
+                "user": user,
+                "first_name": user.first_name,
+                "feedback": feedback,
+                "LANGUAGE_CODE": lang,
+                "edit_profile_url": get_user_language_url(
+                    user, "crush_lu:edit_profile", request
+                ),
+                "social_links": get_social_links(),
+                **get_email_base_urls(user, request),
+            },
+        )
+    return send_domain_email(
+        subject=subject,
+        message=html_to_plain_text(html_message),
+        html_message=html_message,
+        recipient_list=[user.email],
+        request=request,
+        domain="crush.lu",
+        fail_silently=False,
+    )
+
+
+def send_photo_review_retracted_notification(user, request=None):
+    """Correct a withdrawn photo-revision request in the member's language."""
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    lang = get_user_preferred_language(user=user, request=request, default="en")
+    with translation.override(lang):
+        subject = _("Photo revision request withdrawn")
+        html_message = render_to_string(
+            "crush_lu/emails/photo_review_retracted.html",
+            {
+                "user": user,
+                "LANGUAGE_CODE": lang,
+                "edit_profile_url": get_user_language_url(
+                    user, "crush_lu:edit_profile", request
+                ),
+                "social_links": get_social_links(),
+                **get_email_base_urls(user, request),
+            },
+        )
+    return send_domain_email(
+        subject=subject,
+        message=html_to_plain_text(html_message),
+        html_message=html_message,
+        recipient_list=[user.email],
+        request=request,
+        domain="crush.lu",
+        fail_silently=False,
+    )
+
+
 def send_profile_rejected_notification(profile, request, reason):
     """
     Notify user that their profile has been rejected.
