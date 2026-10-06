@@ -56,6 +56,12 @@
     {% endif %}
 </ul>
 
+{% if event.event_type == "quiz_night" and event.quiz.num_tables %}
+<div class="info-box">
+    <p style="margin: 0;">{% trans "For Quiz Night: bring a charged phone. After the coach checks you in you'll get your table number — then tap Join Quiz on the event page. No team needed." %}</p>
+</div>
+{% endif %}
+
 <a href="{{ event_url }}" class="button">{% trans "View Event Details" %}</a>
 
 <p><strong>{% trans "Tips for a great experience:" %}</strong></p>
