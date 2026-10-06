@@ -578,7 +578,11 @@ class SumUpReconciliationEndpointTests(TestCase):
         )
         send = graph_src[graph_src.index("def _send_message") :]
         send = send[: send.index("\ndef ")]
-        self.assertIn(f"timeout={m.GRAPH_SEND_TIMEOUT_SECONDS}", send)
+        self.assertIn(
+            "timeout=(GRAPH_CONNECT_TIMEOUT_SECONDS, GRAPH_READ_TIMEOUT_SECONDS)",
+            send,
+        )
+        self.assertEqual(m.GRAPH_SEND_TIMEOUT_SECONDS, 30)
         fa_src = (
             root / "azure-functions" / "hybrid-maintenance" / "function_app.py"
         ).read_text(encoding="utf-8")

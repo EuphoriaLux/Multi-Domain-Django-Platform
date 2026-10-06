@@ -13,6 +13,10 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
+# One sendMail request: connect plus read, at most 30 s in all.
+GRAPH_CONNECT_TIMEOUT_SECONDS = 10
+GRAPH_READ_TIMEOUT_SECONDS = 20
+
 
 class GraphEmailBackend(BaseEmailBackend):
     """
@@ -126,8 +130,14 @@ class GraphEmailBackend(BaseEmailBackend):
             "Authorization": f"Bearer {token}",
             "Content-Type": "text/plain",
         }
+        # (connect, read): a scalar applies to each phase, so one send could
+        # take twice its value. Budgets that count a send as
+        # GRAPH_SEND_TIMEOUT_SECONDS (crush_lu.api_admin_sumup) rely on the sum.
         response = requests.post(
-            endpoint, headers=headers, data=mime_content, timeout=30
+            endpoint,
+            headers=headers,
+            data=mime_content,
+            timeout=(GRAPH_CONNECT_TIMEOUT_SECONDS, GRAPH_READ_TIMEOUT_SECONDS),
         )
 
         if response.status_code not in [200, 202]:

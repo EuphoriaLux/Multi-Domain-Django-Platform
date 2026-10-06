@@ -35,6 +35,11 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
+from azureproject.graph_email_backend import (
+    GRAPH_CONNECT_TIMEOUT_SECONDS,
+    GRAPH_READ_TIMEOUT_SECONDS,
+)
+
 from crush_lu.api_admin_auth import (
     authenticate_admin_request as _authenticate_admin_request,
 )
@@ -111,7 +116,8 @@ RECONCILIATION_DAYS = 30
 FUNCTION_TIMEOUT_SECONDS = 110
 DEADLINE_MARGIN_SECONDS = 10
 SUMUP_READS_PER_ROW = 2  # checkout plus one history lookup
-GRAPH_SEND_TIMEOUT_SECONDS = 30
+# Both phases of one sendMail request (graph_email_backend's tuple timeout).
+GRAPH_SEND_TIMEOUT_SECONDS = GRAPH_CONNECT_TIMEOUT_SECONDS + GRAPH_READ_TIMEOUT_SECONDS
 EMAILS_PER_RECONCILED_ROW = 2
 WRITE_MARGIN_SECONDS = 5  # locks, row writes, credit void, MSAL token
 MAX_WRITES_PER_RUN = 1

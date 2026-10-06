@@ -76,17 +76,6 @@ def bounded_request(func):
     return wrapper
 
 
-def apply_fits():
-    """A capture may be applied now: its mails (receipt, or notice + alert)
-    still fit. Otherwise it stays PENDING for the webhook or the next click."""
-    return _fits(2 * SEND_SECONDS)
-
-
-def sync_fits():
-    """A read that may find and apply a capture still fits."""
-    return _fits(_sync_seconds() + 2 * SEND_SECONDS)
-
-
 @contextlib.contextmanager
 def _request_deadline(deadline=None):
     """Bound a member-request callback unless a tick deadline is already set."""
@@ -254,7 +243,10 @@ MEMBER_UNKNOWN_Q = Q(member_unknown=True)
 
 
 def _member_unknown_for(membership, owner):
-    return membership is None and owner is not None and owner.is_staff
+    # Any unlinked row is legacy (the FK is PROTECT now), and whether staff
+    # opened it for someone else is not recorded: the opener's is_staff bit
+    # may have changed since. Conservatively, only staff are told.
+    return membership is None and owner is not None
 
 
 def _staff_only(case):
@@ -422,9 +414,11 @@ def close_open_checkouts_safely(memberships, label, only_ids=None):
             if retired:
                 with transaction.atomic():
                     _lock_premium_checkout_state(membership.pk, retired)
-            # Applying a capture queues its own mails, so it counts against
-            # the same cap as a read; the rest stay PENDING beside a PAID row,
-            # where the hourly tick finds them.
+            # A capture SumUp already reported is always recorded: left
+            # PENDING, nothing would read it again. Only its mails and cleanup
+            # (on-commit, deadline-bounded) wait. It counts against the same
+            # cap as a read; the rest stay PENDING beside a PAID row, where
+            # the hourly tick finds them.
             handled = 0
             rows = sorted(
                 pending_of(membership).filter(sumup_checkout_id__isnull=False),
@@ -435,8 +429,6 @@ def close_open_checkouts_safely(memberships, label, only_ids=None):
                 if handled >= SIBLING_SYNC_LIMIT:
                     break
                 if row.pk in paid_payloads:
-                    if not _fits(2 * SEND_SECONDS):
-                        break
                     handled += 1
                     _apply_paid_checkout(row, paid_payloads[row.pk])
                 # A read that finds PAID applies it, which may mail on commit.

@@ -55,11 +55,20 @@ def backfill(apps, schema_editor):
             reason = "other"
         elif not membership.payment_confirmed:
             reason = REASON_FOR_STATUS.get(membership.status, "other")
+        elif (
+            PaymentTransaction.objects.filter(
+                premium_membership=membership, status="paid"
+            ).count()
+            > 1
+        ):
+            # Several captures, staff-confirmed or not: at most one was
+            # applied and nothing proves which -- staff only, no notice.
+            reason, ambiguous = "duplicate_capture", True
         elif membership.confirmed_by_id:
-            # Staff confirmed by hand: a capture recorded before that may be
-            # the one confirmed. One recorded after may be too -- paid_at is
-            # the processing time, and a late webhook lands after -- so it is
-            # flagged for staff only, never a definitive member notice.
+            # The only capture, staff confirmed by hand: one recorded before
+            # that is the one confirmed. One recorded after may be too --
+            # paid_at is the processing time, and a late webhook lands after --
+            # so it is flagged for staff only, never a member notice.
             if not (
                 payment.paid_at
                 and membership.payment_date
@@ -67,20 +76,14 @@ def backfill(apps, schema_editor):
             ):
                 continue
             reason, manual = "duplicate_capture", True
-        elif (
-            PaymentTransaction.objects.filter(
-                premium_membership=membership, status="paid"
-            ).count()
-            > 1
-        ):
-            # The applied one is not provable: staff only, no member notice.
-            reason, ambiguous = "duplicate_capture", True
         else:
             continue  # the membership's only capture is the one it applied
         owner = membership.user if membership else payment.user
         if owner is None:
             continue
-        member_unknown = membership is None and owner.is_staff
+        # Unlinked rows are legacy and who opened them for whom is not
+        # recorded (is_staff may have changed since): only staff are told.
+        member_unknown = membership is None
         staff_only = member_unknown or ambiguous or manual
         detail = BACKFILL_DETAIL
         if manual:

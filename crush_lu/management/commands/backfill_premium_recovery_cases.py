@@ -66,26 +66,24 @@ def unapplied_captures():
             )
             yield payment, reason, None
             continue
-        if membership.confirmed_by_id:
-            # Staff confirmed by hand: an earlier capture may be what staff
-            # confirmed. A later one may be too -- paid_at is the processing
-            # time, and a late webhook lands after -- so staff only.
+        captures = PaymentTransaction.objects.filter(
+            premium_membership=membership,
+            status=PaymentTransaction.Status.PAID,
+        ).count()
+        if captures == 1:
             if (
-                payment.paid_at
+                membership.confirmed_by_id
+                and payment.paid_at
                 and membership.payment_date
                 and payment.paid_at > membership.payment_date
             ):
+                # Staff confirmed by hand before this only capture was
+                # recorded -- paid_at is the processing time, so a late webhook
+                # for the very capture confirmed lands after: staff only.
                 yield payment, Reason.DUPLICATE_CAPTURE, MANUAL_CONFIRMATION_DETAIL
-            continue
-        captures = list(
-            PaymentTransaction.objects.filter(
-                premium_membership=membership,
-                status=PaymentTransaction.Status.PAID,
-            ).values_list("pk", flat=True)
-        )
-        if len(captures) == 1:
-            continue  # the membership's only capture is the one it applied
-        # Several captures: nothing recorded ties the applied one to a row (a
+            continue  # otherwise the only capture is the one applied
+        # Several captures (staff-confirmed or not): at most one was applied
+        # and nothing recorded ties it to a row (a
         # capture could be PAID, refused by confirm(), and a later one applied),
         # so every capture is flagged -- for staff only: telling the member a
         # payment was not applied could be wrong for the one that was.

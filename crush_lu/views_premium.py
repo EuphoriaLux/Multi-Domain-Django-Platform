@@ -121,10 +121,8 @@ def _cancel_premium_request(membership, by_user):
         for row in PaymentTransaction.objects.filter(pk__in=paid_payloads).order_by(
             "pk"
         )[:SIBLING_SYNC_LIMIT]:
-            # One request budget (bounded_request): a capture whose mails no
-            # longer fit stays PENDING, so the request stays pending ("open").
-            if not premium_recovery.apply_fits():
-                break
+            # Always recorded (nothing else would read it again); its mails and
+            # cleanup run on the request's one deadline (bounded_request).
             _apply_paid_checkout(row, paid_payloads[row.pk])
     with transaction.atomic():
         locked, still_pending = _lock_premium_checkout_state(membership.pk, retired_ids)

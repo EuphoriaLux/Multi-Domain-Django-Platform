@@ -658,7 +658,7 @@ class CaseLifecycleTests(_Base):
         self.assertIn('data-testid="premium-recovery-notice"', card)
         self.assertIn("REC-PLAN", card)
 
-    def test_unlinked_capture_opens_a_case_for_the_payer(self):
+    def test_unlinked_capture_is_for_staff_only(self):
         tx = self._tx("REC-UNLINKED")
         self._unlink_and_delete_membership()
         tx.refresh_from_db()
@@ -671,8 +671,11 @@ class CaseLifecycleTests(_Base):
             (case.reason, case.user_id, case.premium_membership_id),
             (Reason.OTHER, self.member.pk, None),
         )
+        # Who opened a legacy unlinked checkout for whom is not recorded (the
+        # payer's is_staff bit may have changed since): only staff are told.
+        self.assertTrue(case.staff_only and case.member_unknown)
         self.assertEqual(len(self._alerts()), 1)
-        self.assertEqual(len(self._member_mails()), 1)
+        self.assertEqual(self._member_mails(), [])
 
     def test_unlinked_staff_assisted_capture_mails_only_staff(self):
         from crush_lu.services.premium_recovery import MEMBER_UNKNOWN_DETAIL
@@ -1105,6 +1108,53 @@ class CaseLifecycleTests(_Base):
         self.assertTrue(case.staff_only)
         self.assertIn("confirmed this membership by hand", case.detail)
 
+    def test_backfill_flags_several_captures_before_a_manual_confirmation(self):
+        import importlib
+        from io import StringIO
+
+        from django.apps import apps
+        from django.core.management import call_command
+
+        first = self._tx("REC-PRE-STAFF-1", status=PaymentTransaction.Status.PAID)
+        second = self._tx("REC-PRE-STAFF-2", status=PaymentTransaction.Status.PAID)
+        self.membership.confirm(by_user=self.coach.user)
+        call_command("backfill_premium_recovery_cases", "--apply", stdout=StringIO())
+        cases = PremiumPaymentRecoveryCase.objects.filter(payment__in=[first, second])
+        # At most one was applied by the confirmation; which is unknown.
+        self.assertEqual(cases.count(), 2)
+        self.assertTrue(all(case.staff_only for case in cases))
+        cases.delete()
+        importlib.import_module(
+            "crush_lu.migrations.0262_backfill_premium_recovery_cases"
+        ).backfill(apps, None)
+        cases = PremiumPaymentRecoveryCase.objects.filter(payment__in=[first, second])
+        self.assertEqual(cases.count(), 2)
+        self.assertTrue(all(case.staff_only for case in cases))
+
+    def test_backfill_keeps_every_unlinked_capture_staff_only(self):
+        import importlib
+
+        from django.apps import apps
+
+        tx = self._tx("REC-MIG-UNLINKED", status=PaymentTransaction.Status.PAID)
+        self._unlink_and_delete_membership()
+        importlib.import_module(
+            "crush_lu.migrations.0262_backfill_premium_recovery_cases"
+        ).backfill(apps, None)
+        case = PremiumPaymentRecoveryCase.objects.get(payment=tx)
+        # The payer is no staff member now, but that proves nothing about who
+        # opened the legacy checkout for whom.
+        self.assertTrue(case.member_unknown and case.staff_only)
+
+    def test_graph_send_is_bounded_in_total(self):
+        from azureproject import graph_email_backend as g
+        from crush_lu import api_admin_sumup
+        from crush_lu.services import premium_recovery
+
+        total = g.GRAPH_CONNECT_TIMEOUT_SECONDS + g.GRAPH_READ_TIMEOUT_SECONDS
+        self.assertEqual(api_admin_sumup.GRAPH_SEND_TIMEOUT_SECONDS, total)
+        self.assertGreaterEqual(premium_recovery.SEND_SECONDS, total)
+
     def test_member_unknown_case_is_not_selected_for_its_opener_s_checkouts(self):
         from datetime import timedelta
 
@@ -1320,7 +1370,7 @@ class CaseLifecycleTests(_Base):
         with self.assertRaises(ProtectedError):
             self.membership.delete()
 
-    def test_return_page_warns_for_an_unlinked_capture(self):
+    def test_return_page_says_nothing_definitive_for_an_unlinked_capture(self):
         tx = self._tx("REC-RET-NULL")
         self._unlink_and_delete_membership()
         with self.assertLogs("crush_lu.views_payments", level="CRITICAL"):
@@ -1329,7 +1379,7 @@ class CaseLifecycleTests(_Base):
             "/payments/sumup/return/", {"ref": "REC-RET-NULL"}, follow=True
         )
         texts = [str(m) for m in response.context["messages"]]
-        self.assertTrue(any(t.startswith(D1_START) for t in texts), texts)
+        self.assertFalse(any(t.startswith(D1_START) for t in texts), texts)
         self.assertFalse(any("completed successfully" in t for t in texts), texts)
 
     def test_cancelled_request_case_shows_until_a_new_request(self):
@@ -1901,7 +1951,7 @@ class LateCaptureTests(_Base):
         self.assertEqual(client.get_checkout.call_count, 1)
         client.refund.assert_not_called()
 
-    def test_cancel_leaves_a_capture_found_too_late_for_a_later_request(self):
+    def test_cancel_records_a_capture_found_late_in_the_request(self):
         from unittest.mock import MagicMock
 
         from crush_lu.services import premium_recovery
@@ -1923,7 +1973,6 @@ class LateCaptureTests(_Base):
             "amount": 10.0,
             "currency": "EUR",
         }
-        mail.outbox.clear()
         with (
             patch.object(
                 premium_recovery.time, "monotonic", side_effect=lambda: clock["now"]
@@ -1932,14 +1981,13 @@ class LateCaptureTests(_Base):
             self.captureOnCommitCallbacks(execute=True),
         ):
             outcome = _cancel_premium_request(self.membership, self.member)
-        # 100 s from the request's start minus a 70 s settle leaves no room
-        # for the capture's mails: it stays PENDING, the request pending.
-        self.assertEqual(outcome, "open")
+        # Out of time or not, a capture SumUp reported is recorded: left
+        # PENDING, nothing would ever read it again.
+        self.assertEqual(outcome, "captured")
         tx.refresh_from_db()
-        self.assertEqual(tx.status, PaymentTransaction.Status.PENDING)
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
         self.membership.refresh_from_db()
-        self.assertEqual(self.membership.status, "pending")
-        self.assertEqual(mail.outbox, [])
+        self.assertEqual(self.membership.status, "active")
         client.refund.assert_not_called()
 
     def test_callbacks_inside_a_bounded_request_share_its_deadline(self):
