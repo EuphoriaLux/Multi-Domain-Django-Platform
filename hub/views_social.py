@@ -44,6 +44,7 @@ from .image_generator import (
 )
 from .models import HubResource, SocialPost
 from .serializers import SocialPostSerializer
+from .social_video import validate_video
 from .social_planning import (
     PLANNING_HORIZON,
     REVIEW_FIELDS,
@@ -83,6 +84,7 @@ SCHEDULED_EDIT_ERROR = (
     "Delivery fields cannot be changed after a post has been scheduled in Buffer."
 )
 SCHEDULING_FIELDS = {
+    "media_type",
     "content",
     "scheduled_for",
     "media_url",
@@ -508,6 +510,15 @@ def _uploaded_social_images(request):
     """Validate all uploaded files before writing any to public storage."""
     deck = request.FILES.getlist("images")
     legacy = request.FILES.get("image") or request.FILES.get("media")
+    video = request.FILES.get("video")
+    if video:
+        if deck or legacy or request.data.get("media_type") != "video":
+            raise ValidationError(
+                {"video": "Upload one video with media_type=video and no images."}
+            )
+        return [validate_video(video)]
+    if request.data.get("media_type") == "video" and (deck or legacy):
+        raise ValidationError({"video": "Upload MP4 through the video field."})
     images = deck or ([legacy] if legacy else [])
     if len(images) > 5:
         raise ValidationError({"images": "At most five images are supported."})
@@ -637,6 +648,10 @@ class SocialPostsView(APIView):
         )
 
         uploaded_images = _uploaded_social_images(request)
+        if serializer.validated_data.get(
+            "media_type"
+        ) == "video" and not request.FILES.get("video"):
+            return Response({"video": "Upload the MP4 video."}, status=400)
         defaults = {
             **serializer.validated_data,
             "user": request.user,
@@ -668,7 +683,9 @@ class SocialPostsView(APIView):
             post = SocialPost.objects.create(**defaults)
         if uploaded_images:
             urls = _save_social_images(uploaded_images)
-            post.media_url, post.media_urls = urls[0], urls
+            post.media_url, post.media_urls = urls[0], (
+                [] if post.media_type == "video" else urls
+            )
         # Automation intake (carries a generation key) may submit a time read
         # earlier from the planning endpoint, so recheck it under the lock too.
         if not post.scheduled_for or key:
@@ -787,6 +804,25 @@ class SocialPostDetailView(APIView):
         serializer = SocialPostSerializer(post, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         uploaded_images = _uploaded_social_images(request)
+        if (
+            serializer.validated_data.get("media_type", post.media_type)
+            != post.media_type
+            and not uploaded_images
+        ):
+            return Response(
+                {"media_type": "Upload replacement media before changing its type."},
+                status=400,
+            )
+        if (
+            post.media_type == "video"
+            and serializer.validated_data.get("media_url", post.media_url)
+            != post.media_url
+            and not request.FILES.get("video")
+        ):
+            return Response(
+                {"video": "Upload a replacement MP4 instead of changing its URL."},
+                status=400,
+            )
         if expected is not None:
             # The fingerprint authorizes exactly what was reviewed, so a
             # request that also alters reviewed fields is not covered by it.
@@ -813,6 +849,15 @@ class SocialPostDetailView(APIView):
                     status=400,
                 )
         if requested_status == SocialPost.Status.SCHEDULED:
+            if (
+                post.media_type == "video"
+                and post.status != SocialPost.Status.SCHEDULED
+                and (request.data.get("video_reviewed") is not True or not expected)
+            ):
+                return Response(
+                    {"error": "Watch and confirm the video before scheduling."},
+                    status=400,
+                )
             if (
                 post.buffer_id or post.buffer_delivery_uncertain
             ) and post.status != SocialPost.Status.SCHEDULED:
@@ -980,7 +1025,10 @@ class SocialPostDetailView(APIView):
             transaction.on_commit(
                 partial(_delete_superseded_social_blobs, old_urls, urls)
             )
-            serializer.validated_data.update(media_url=urls[0], media_urls=urls)
+            media_type = serializer.validated_data.get("media_type", post.media_type)
+            serializer.validated_data.update(
+                media_url=urls[0], media_urls=[] if media_type == "video" else urls
+            )
         updated_post = serializer.save()
         new_status = updated_post.status
 
@@ -1063,6 +1111,11 @@ class SocialPostDetailView(APIView):
                     scheduled_at=updated_post.scheduled_for.isoformat(),
                     media_url=updated_post.media_url,
                     media_urls=updated_post.media_urls,
+                    **(
+                        {"media_type": "video"}
+                        if updated_post.media_type == "video"
+                        else {}
+                    ),
                     require_resolved_platforms=True,
                 )
             except BufferPartialFailure as exc:
@@ -1207,6 +1260,7 @@ class SocialPlanningSlotView(APIView):
         return Response(
             {
                 "intake_version": 1,
+                "video_intake_version": 1,
                 "review_in_hub": True,
                 "posting_date": proposal["scheduled_for"][:10],
                 **proposal,

@@ -192,6 +192,7 @@ def _create_channel_post(
     media_url: str | None,
     media_urls: list[str] | None = None,
     platform: str | None = None,
+    media_type: str = "image",
 ) -> str:
     post_input: dict = {
         "text": text,
@@ -210,13 +211,16 @@ def _create_channel_post(
             raise BufferServiceError(
                 "Buffer media must use a publicly reachable HTTP(S) URL"
             )
-        post_input["assets"] = [{"image": {"url": url}} for url in images]
+        post_input["assets"] = [{media_type: {"url": url}} for url in images]
 
     metadata: dict = {}
     if platform == "facebook":
-        metadata["facebook"] = {"type": "post"}
+        metadata["facebook"] = {"type": "reel" if media_type == "video" else "post"}
     elif platform == "instagram":
-        metadata["instagram"] = {"type": "post", "shouldShareToFeed": True}
+        metadata["instagram"] = {
+            "type": "reel" if media_type == "video" else "post",
+            "shouldShareToFeed": True,
+        }
     if metadata:
         post_input["metadata"] = metadata
 
@@ -250,6 +254,7 @@ def create_buffer_update(
     media_urls: list[str] | None = None,
     profile_platforms: dict[str, str] | None = None,
     require_resolved_platforms: bool = False,
+    media_type: str = "image",
 ) -> dict:
     """Create one Buffer post per selected channel."""
 
@@ -258,6 +263,19 @@ def create_buffer_update(
 
     profile_platforms = profile_platforms or {}
     images = media_urls or ([media_url] if media_url else [])
+    if media_type not in {"image", "video"}:
+        raise BufferServiceError("Unsupported media type")
+    if media_type == "video" and (
+        len(images) != 1
+        or media_urls
+        or any(
+            profile_platforms.get(pid) not in {"instagram", "facebook"}
+            for pid in profile_ids
+        )
+    ):
+        raise BufferServiceError(
+            "Videos require one MP4 and resolved Instagram/Facebook channels"
+        )
     # Validate the entire deck before creating any external channel post.
     if len(images) > 5:
         raise BufferServiceError("Provide up to five images")
@@ -291,6 +309,7 @@ def create_buffer_update(
                     media_url=media_url,
                     media_urls=media_urls,
                     platform=profile_platforms.get(channel_id),
+                    **({"media_type": "video"} if media_type == "video" else {}),
                 )
             )
             created_profile_ids.append(channel_id)
