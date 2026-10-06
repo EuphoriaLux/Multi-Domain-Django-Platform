@@ -117,10 +117,21 @@ def pytest_configure(config):
         }
         # Use local filesystem for media during tests (not Azure Blob).
         # Only 'default': rewriting every alias would strip arborist_private's
-        # fail-closed LocalPrivateStorage and its private location.
+        # fail-closed LocalPrivateStorage and its private location. The platform
+        # media factories that fields take as storage= callables build Azure
+        # backends directly, and ran when models were imported, before this
+        # hook; they go local on their own under pytest
+        # (azureproject.storage_shared.local_storage_for_tests).
         settings.STORAGES['default'] = {
             'BACKEND': 'django.core.files.storage.FileSystemStorage'
         }
+
+    # xdist workers inherit the AZURE_ACCOUNT_NAME set above, so they load the
+    # settings branch that defines no MEDIA_ROOT, and Django's '' default would
+    # write local uploads (e.g. journey_gifts/qr/) into the repository root.
+    # Use the gitignored media/ that a single-process run already gets.
+    if not settings.MEDIA_ROOT:
+        settings.MEDIA_ROOT = str(settings.BASE_DIR / 'media')
 
     # Force console email backend for tests (no real emails sent)
     settings.EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
