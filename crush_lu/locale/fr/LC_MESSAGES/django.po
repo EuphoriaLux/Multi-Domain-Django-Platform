@@ -14476,13 +14476,6 @@ msgstr "Notifications Coach"
 msgid "Your browser doesn't support push notifications."
 msgstr "Aucun appareil enregistré pour les notifications push."
 
-#: templates/crush_lu/account_settings.html:822
-#: templates/crush_lu/partials/edit_account_notifications.html:397
-msgid "Allow notifications in your browser settings to receive coach alerts."
-msgstr ""
-"Activez les notifications dans les paramètres de votre navigateur pour "
-"recevoir les alertes de votre coach."
-
 #: templates/crush_lu/account_settings.html:833
 #: templates/crush_lu/partials/edit_account_notifications.html:407
 msgid ""
