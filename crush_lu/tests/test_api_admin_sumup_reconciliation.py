@@ -1168,13 +1168,14 @@ class SumUpReconciliationEndpointTests(TestCase):
         )
         import itertools
 
-        # Clock: start, the row's read check, its start mark and its write
-        # check are in budget; the next row's read check is past it.
+        # Clock: start, the pre-sweep read check, the row's read check, its
+        # start mark and its write check are in budget; the next row's read
+        # check is past it.
         clock = patch(
             f"{CMD}.time",
             **{
                 "monotonic.side_effect": itertools.chain(
-                    [0, 0, 0, 0], itertools.repeat(10**6)
+                    [0, 0, 0, 0, 0], itertools.repeat(10**6)
                 )
             },
         )
@@ -1324,14 +1325,15 @@ class SumUpReconciliationEndpointTests(TestCase):
 
     def _one_row_run(self, payloads):
         """A run whose budget allows exactly one row: the clock reads 0 at
-        the start and for the first row, then is past any deadline."""
+        the start, the pre-sweep read check and the first row, then is past
+        any deadline."""
         import itertools
 
         clock = patch(
             f"{CMD}.time",
             **{
                 "monotonic.side_effect": itertools.chain(
-                    [0, 0], itertools.repeat(10**6)
+                    [0, 0, 0], itertools.repeat(10**6)
                 )
             },
         )

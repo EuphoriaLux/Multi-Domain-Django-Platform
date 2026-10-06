@@ -2133,8 +2133,8 @@ def _apply_paid_checkout(tx_obj, data):
                     # robust: the entitlement is committed; a failing cleanup
                     # must not 500 the return/webhook (the tick retries it).
                     transaction.on_commit(
-                        lambda membership=pm: premium_recovery.close_open_checkouts_safely(
-                            [membership], f"premium membership {membership.pk}"
+                        lambda membership=pm: premium_recovery.close_after_activation_safely(
+                            membership
                         ),
                         robust=True,
                     )
@@ -2854,10 +2854,13 @@ def _sumup_return_response(request, tx_obj):
     activated language. Split out only so the ``override`` block above stays
     readable — every path here returns a redirect."""
     if tx_obj.status == PaymentTransaction.Status.PAID:
-        recovery_case = PremiumPaymentRecoveryCase.objects.filter(
+        open_cases = PremiumPaymentRecoveryCase.objects.filter(
             payment=tx_obj, status=PremiumPaymentRecoveryCase.Status.OPEN
-        ).exists()
-        if not recovery_case:
+        )
+        # A staff-only case (premium_recovery.STAFF_ONLY_Q) tells the member
+        # nothing definitive: neither "not applied" nor "completed".
+        recovery_case = open_cases.exclude(premium_recovery.STAFF_ONLY_Q).exists()
+        if not open_cases.exists():
             # #925: no "completed successfully" next to the D1 warning.
             messages.success(request, _("Payment completed successfully! Thank you."))
         if tx_obj.event_registration:

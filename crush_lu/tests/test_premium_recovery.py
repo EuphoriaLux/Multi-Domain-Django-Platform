@@ -426,6 +426,16 @@ class MemberNoticeTests(_Base):
         )
         self.assertFalse(any("could not activate" in t for t in texts), texts)
 
+    def test_return_page_says_nothing_definitive_for_a_staff_only_case(self):
+        self.case.staff_only = True
+        self.case.save(update_fields=["staff_only"])
+        response = self.client.get(
+            "/payments/sumup/return/", {"ref": "REC-PAGE"}, follow=True
+        )
+        texts = [str(m) for m in response.context["messages"]]
+        self.assertFalse(any(t.startswith(D1_START) for t in texts), texts)
+        self.assertFalse(any("completed successfully" in t for t in texts), texts)
+
     def test_return_page_on_duplicate_capture_does_not_claim_premium(self):
         self.membership.status = "active"
         self.membership.save(update_fields=["status"])
@@ -730,6 +740,47 @@ class CaseLifecycleTests(_Base):
         case.refresh_from_db()
         self.assertIsNotNone(case.member_notified_at)
         self.assertIsNotNone(case.staff_alerted_at)
+
+    def test_no_notice_once_staff_resolve_the_case_during_the_close(self):
+        from crush_lu.services import premium_recovery
+
+        case = PremiumPaymentRecoveryCase.objects.create(
+            payment=self._tx("REC-RESOLVED-MID", status=PaymentTransaction.Status.PAID),
+            user=self.member,
+            premium_membership=self.membership,
+            reason=Reason.COACH_UNAVAILABLE,
+        )
+
+        def _staff_resolve_meanwhile(_case):
+            PremiumPaymentRecoveryCase.objects.filter(pk=case.pk).update(
+                status=PremiumPaymentRecoveryCase.Status.RESOLVED
+            )
+
+        with patch.object(
+            premium_recovery,
+            "_close_sibling_checkouts_safely",
+            side_effect=_staff_resolve_meanwhile,
+        ):
+            premium_recovery.notify_safely(case.pk)
+        self.assertEqual(mail.outbox, [])
+
+    def test_request_callbacks_run_under_a_deadline(self):
+        from crush_lu.services import premium_recovery
+
+        for fn in (
+            premium_recovery.notify_safely,
+            premium_recovery.close_after_activation_safely,
+        ):
+            self.assertIn("_request_deadline()", inspect.getsource(fn))
+        # One close pass fits; the whole budget stays under Gunicorn's 120 s
+        # with room for the request's own SumUp read before it.
+        self.assertGreaterEqual(
+            premium_recovery.REQUEST_BUDGET_SECONDS, premium_recovery._close_seconds()
+        )
+        self.assertLess(
+            premium_recovery.REQUEST_BUDGET_SECONDS + premium_recovery._sync_seconds(),
+            120,
+        )
 
     def test_recovery_callback_is_robust(self):
         from crush_lu import views_payments
@@ -1076,7 +1127,7 @@ class CaseLifecycleTests(_Base):
         from crush_lu import views_payments
 
         src = inspect.getsource(views_payments._apply_paid_checkout)
-        close = src.index("close_open_checkouts_safely(")
+        close = src.index("close_after_activation_safely(")
         self.assertIn("robust=True", src[close : close + 300])
 
     def test_merge_refuses_a_duplicate_with_a_payable_checkout(self):
@@ -2066,6 +2117,21 @@ class NotificationRetryTests(_Base):
                 "/api/admin/sumup-reconciliation/", HTTP_AUTHORIZATION="Bearer k"
             )
         self.assertEqual(calls[:2], ["close", "sweep"])
+
+    def test_refund_sweep_starts_no_read_when_its_first_cannot_fit(self):
+        from crush_lu.management.commands.reconcile_sumup_payments import Command
+
+        self._tx("REC-SWEEP-PAID", status=PaymentTransaction.Status.PAID)
+        with patch(
+            "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient"
+        ) as client, self.assertLogs(
+            "crush_lu.management.commands.reconcile_sumup_payments", level="WARNING"
+        ):
+            counters = Command().run_sweep(
+                quiet=True, budget_seconds=5, read_reserve_seconds=41
+            )
+        client.assert_not_called()
+        self.assertEqual((counters["checked"], counters["unchecked"]), (0, 1))
 
     def test_every_unit_fits_the_reconciliation_budget(self):
         from crush_lu import api_admin_sumup as api

@@ -284,6 +284,8 @@ def sumup_reconciliation_endpoint(request):
             dry_run=False,
             include_partial=False,
             quiet=True,
+            # What the closures left; run_sweep starts no SumUp read (not
+            # even its history prefetch) unless that read still fits.
             budget_seconds=RECONCILIATION_BUDGET_SECONDS
             - (timezone.now() - started).total_seconds(),
             read_reserve_seconds=READ_RESERVE_SECONDS,

@@ -5,6 +5,7 @@ when that call created the case (replays never mail twice).
 Spec: ai-memory-hub/specs/2026-09-13-crush-premium-payment-recovery.md
 """
 
+import contextlib
 import contextvars
 import logging
 import time
@@ -28,6 +29,30 @@ SEND_SECONDS = 30
 # below, nested on-commit work included, starts only while it still fits.
 # Unset (None) on the member's own request paths.
 _deadline = contextvars.ContextVar("premium_recovery_deadline", default=None)
+# True inside a member's request callback (set by _request_deadline).
+_on_request = contextvars.ContextVar("premium_recovery_on_request", default=False)
+
+
+# Wall time an on-commit recovery callback may spend inside a member's request
+# (return page, webhook) on top of the request's own SumUp work, under
+# Gunicorn's 120 s timeout: room for one close pass (_close_seconds, 70 s);
+# the notices then go out only if they still fit, else the hourly tick sends.
+REQUEST_BUDGET_SECONDS = 75
+
+
+@contextlib.contextmanager
+def _request_deadline():
+    """Bound a member-request callback unless a tick deadline is already set."""
+    if _deadline.get() is not None:
+        yield
+        return
+    token = _deadline.set(time.monotonic() + REQUEST_BUDGET_SECONDS)
+    flag = _on_request.set(True)
+    try:
+        yield
+    finally:
+        _on_request.reset(flag)
+        _deadline.reset(token)
 
 
 def _fits(seconds):
@@ -196,17 +221,42 @@ def notify_safely(case_pk):
             type(exc).__name__,
         )
         return
+    with _request_deadline():
+        try:
+            _close_sibling_checkouts_safely(case)
+        except Exception as exc:
+            # The notices below must still go out; the tick retries the close.
+            logger.error(
+                "Failed to close checkouts for recovery case %s: %s",
+                case_pk,
+                type(exc).__name__,
+            )
+        # Staff may have resolved it during the close's SumUp calls.
+        if (
+            PremiumPaymentRecoveryCase.objects.filter(pk=case_pk)
+            .values_list("status", flat=True)
+            .first()
+            != PremiumPaymentRecoveryCase.Status.OPEN
+        ):
+            return
+        _notify_member_safely(case)
+        _alert_staff_safely(case)
+
+
+def close_after_activation_safely(membership):
+    """on_commit after a successful activation: close the membership's other
+    checkouts within the request budget; the hourly tick does the rest."""
     try:
-        _close_sibling_checkouts_safely(case)
+        with _request_deadline():
+            close_open_checkouts_safely(
+                [membership], f"premium membership {membership.pk}"
+            )
     except Exception as exc:
-        # The notices below must still go out; the tick retries the close.
         logger.error(
-            "Failed to close checkouts for recovery case %s: %s",
-            case_pk,
+            "Failed to close checkouts for premium membership %s: %s",
+            membership.pk,
             type(exc).__name__,
         )
-    _notify_member_safely(case)
-    _alert_staff_safely(case)
 
 
 def _close_sibling_checkouts_safely(case):
@@ -261,7 +311,7 @@ def _close_sibling_checkouts_safely(case):
                 status=PaymentTransaction.Status.PENDING,
             ).values_list("pk", flat=True)
         )
-    if _deadline.get() is None:
+    if _on_request.get() or _deadline.get() is None:
         # A member's request (return page, webhook): the case's own
         # membership first and at most REQUEST_CLOSE_LIMIT in all; the hourly
         # retry closes the rest, as the open case still has open checkouts.
