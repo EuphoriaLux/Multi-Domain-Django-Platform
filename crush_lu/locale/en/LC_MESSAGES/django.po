@@ -9870,11 +9870,6 @@ msgstr ""
 msgid "Your browser doesn't support push notifications."
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\account_settings.html:737
-#: .\crush_lu\templates\crush_lu\partials\edit_account_notifications.html:397
-msgid "Allow notifications in your browser settings to receive coach alerts."
-msgstr ""
-
 #: .\crush_lu\templates\crush_lu\account_settings.html:748
 #: .\crush_lu\templates\crush_lu\partials\edit_account_notifications.html:407
 msgid ""
