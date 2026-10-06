@@ -21,6 +21,13 @@ class PremiumPaymentRecoveryCase(models.Model):
         OPEN = "open", _("Open")
         RESOLVED = "resolved", _("Resolved")
 
+    class Resolution(models.TextChoices):
+        # D2/D4: refunded in SumUp; the hourly sweep records it.
+        REFUNDED = "refunded", _("Refunded")
+        # D3: the member agreed to a coach and the capture was applied.
+        APPLIED = "applied", _("Applied (member agreed)")
+        OTHER = "other", _("Other")
+
     payment = models.OneToOneField(
         "crush_lu.PaymentTransaction",
         on_delete=models.PROTECT,
@@ -56,6 +63,17 @@ class PremiumPaymentRecoveryCase(models.Model):
     # the member, so the case gates and closes nothing of ``user``. Stored,
     # not derived from is_staff, which can change later.
     member_unknown = models.BooleanField(default=False)
+    # Set when the case is resolved (premium_recovery.resolve_case): how, when
+    # and by whom. resolved_by stays empty for the sweep's refund records.
+    resolution = models.CharField(max_length=16, choices=Resolution.choices, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
 
     class Meta:
         ordering = ["-created_at"]
