@@ -3,7 +3,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.db import IntegrityError, connection, transaction
 from django.db.models import Q
 from datetime import timedelta
@@ -1140,6 +1140,22 @@ def _curated_member_group(registration):
     return result
 
 
+def _user_has_private_event_invitation(user, event):
+    """Return True if an authenticated user is invited to a private event.
+
+    Covers both invitation paths: the ``invited_users`` M2M (existing members)
+    and an approved ``EventInvitation`` accepted by the user (external guests).
+    Callers handle the "already registered" and anonymous cases themselves.
+    """
+    if not user.is_authenticated:
+        return False
+    is_invited = event.invited_users.filter(id=user.id).exists()
+    has_approved_invitation = EventInvitation.objects.filter(
+        event=event, created_user=user, approval_status="approved"
+    ).exists()
+    return is_invited or has_approved_invitation
+
+
 def event_detail(request, event_id):
     """Event detail page"""
     event = get_object_or_404(MeetupEvent, id=event_id, is_published=True)
@@ -1155,12 +1171,14 @@ def event_detail(request, event_id):
 
     # For private events, verify access
     if event.is_private_invitation and not registration:
-        is_invited = event.invited_users.filter(id=request.user.id).exists()
-        has_approved_invitation = EventInvitation.objects.filter(
-            event=event, created_user=request.user, approval_status="approved"
-        ).exists()
+        if not request.user.is_authenticated:
+            # Logged-out visitor (e.g. an invitee following an email link):
+            # ask them to sign in rather than evaluating per-user lookups.
+            from django.contrib.auth.views import redirect_to_login
 
-        if not is_invited and not has_approved_invitation:
+            return redirect_to_login(request.get_full_path(), reverse("crush_lu:login"))
+
+        if not _user_has_private_event_invitation(request.user, event):
             messages.error(request, _("This event is by invitation only."))
             return redirect("crush_lu:event_list")
 
@@ -1517,6 +1535,19 @@ def event_calendar_download(request, event_id):
     """Generate .ics calendar file for event (RFC 5545 compliant)."""
     event = get_object_or_404(MeetupEvent, id=event_id, is_published=True)
 
+    # Private-invitation events must not leak title/description/venue to
+    # people who cannot open the event page itself. 404 (not a redirect) so
+    # the endpoint does not confirm the event exists.
+    if event.is_private_invitation:
+        has_access = request.user.is_authenticated and (
+            EventRegistration.objects.filter(event=event, user=request.user)
+            .exclude(status="cancelled")
+            .exists()
+            or _user_has_private_event_invitation(request.user, event)
+        )
+        if not has_access:
+            raise Http404
+
     from datetime import timezone as dt_timezone
 
     end_time = event.date_time + timedelta(minutes=event.duration_minutes)
@@ -1555,7 +1586,7 @@ def event_calendar_download(request, event_id):
         _ical_fold(f"DESCRIPTION:{description}"),
         _ical_fold(f"LOCATION:{_ical_escape(location)}"),
         _ical_fold(f"URL:{event_url}"),
-        "STATUS:CONFIRMED",
+        "STATUS:CANCELLED" if event.is_cancelled else "STATUS:CONFIRMED",
         "SEQUENCE:0",
         "END:VEVENT",
         "END:VCALENDAR",
