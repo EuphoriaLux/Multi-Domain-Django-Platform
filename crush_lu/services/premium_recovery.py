@@ -755,8 +755,14 @@ def set_case_status_by_hand(case_pk, status, by_user):
             # applied): that resolution stands.
             if case.status != Case.Status.OPEN:
                 return "The case changed meanwhile; reload it."
-            # Resolved by hand (any other remedy): how, when and by whom.
-            resolve_case(case, Case.Resolution.OTHER, by_user)
+            if case.resolution:
+                # Reopened earlier: its recorded resolution (refunded,
+                # applied...) and who recorded it stand.
+                case.status = Case.Status.RESOLVED
+                case.save(update_fields=["status"])
+            else:
+                # Resolved by hand (any other remedy): how, when and by whom.
+                resolve_case(case, Case.Resolution.OTHER, by_user)
         elif case.status != status:
             # Reopened: the resolution stays, so a later refund of this
             # capture is not taken for one of an unapplied capture.

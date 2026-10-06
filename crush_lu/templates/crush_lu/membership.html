@@ -83,12 +83,12 @@
                 {% elif pending_premium_state == "manage" %}
                 <p class="text-sm text-muted-fg mb-3">{% trans "Premium is invite-only during the beta." %}</p>
                 <a href="{% url 'crush_lu:premium_choose_coach' %}" class="btn-crush-outline btn-block text-center">{% trans "Manage your Premium request" %}</a>
+                {% elif premium_purchase_blocked %}
+                {# #925: a staff-only case blocks a fresh purchase without a notice (before the waitlist, which leads to the same refused chooser) #}
+                <a href="{% url 'crush_lu:support' %}" class="btn-crush-outline btn-block text-center">{% trans "Contact support about your Premium payment" %}</a>
                 {% elif premium_invite_only %}
                 <p class="text-sm text-muted-fg mb-3">{% trans "Premium is invite-only during the beta." %}</p>
                 <a href="{% url 'crush_lu:crush_connect_teaser' %}" class="btn-crush-solid btn-block text-center">{% trans "Join the Waitlist" %}</a>
-                {% elif premium_purchase_blocked %}
-                {# #925: a staff-only case blocks a fresh purchase without a notice #}
-                <a href="{% url 'crush_lu:support' %}" class="btn-crush-outline btn-block text-center">{% trans "Contact support about your Premium payment" %}</a>
                 {% else %}
                 <a href="{% url 'crush_lu:premium_choose_coach' %}" class="btn-crush-solid btn-block text-center">{% trans "Go Premium" %}</a>
                 {% endif %}

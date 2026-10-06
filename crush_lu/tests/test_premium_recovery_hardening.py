@@ -100,6 +100,13 @@ class BlockedPurchaseCtaTests(_Base):
         self.assertNotIn("Go Premium", card)
         self.assertIn("Contact support about your Premium payment", card)
 
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
+    def test_membership_page_offers_support_not_the_waitlist_in_the_beta(self):
+        html = self.client.get("/en/membership/").content.decode()
+        card = re.search(r'id="premium-plan".*?</section>', html, re.S).group(0)
+        self.assertNotIn("Join the Waitlist", card)
+        self.assertIn("Contact support about your Premium payment", card)
+
     def test_the_cta_returns_once_nothing_blocks(self):
         Case.objects.update(status=Case.Status.RESOLVED)
         html = self.client.get("/en/dashboard/").content.decode()
@@ -157,6 +164,36 @@ class HandResolutionSerializationTests(_Base):
             (self.case.status, self.case.resolution),
             (Case.Status.OPEN, Case.Resolution.APPLIED),
         )
+
+    def test_resolving_a_reopened_case_keeps_its_resolution(self):
+        Case.objects.filter(pk=self.case.pk).update(
+            status=Case.Status.OPEN, resolution=Case.Resolution.APPLIED
+        )
+        self._save_status(Case.objects.get(pk=self.case.pk), Case.Status.RESOLVED)
+        self.case.refresh_from_db()
+        self.assertEqual(
+            (self.case.status, self.case.resolution, self.case.resolved_by),
+            (Case.Status.RESOLVED, Case.Resolution.APPLIED, None),
+        )
+
+    def test_a_refused_change_is_not_logged(self):
+        from django.contrib.admin.models import LogEntry
+
+        from crush_lu.admin import crush_admin_site
+
+        stale = Case.objects.get(pk=self.case.pk)
+        Case.objects.filter(pk=self.case.pk).update(
+            status=Case.Status.RESOLVED, resolution=Case.Resolution.REFUNDED
+        )
+        request = RequestFactory().post("/")
+        request.user = self.staff
+        request.session = {}
+        request._messages = FallbackStorage(request)
+        model_admin = crush_admin_site._registry[Case]
+        stale.status = Case.Status.RESOLVED
+        model_admin.save_model(request, stale, MagicMock(changed_data=["status"]), True)
+        model_admin.log_change(request, stale, [{"changed": {"fields": ["Status"]}}])
+        self.assertFalse(LogEntry.objects.filter(object_id=str(stale.pk)).exists())
 
     def test_payment_is_locked_before_the_case(self):
         from crush_lu.services import premium_recovery

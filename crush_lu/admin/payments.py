@@ -531,6 +531,12 @@ class PremiumPaymentRecoveryCaseAdmin(admin.ModelAdmin):
                 level=messages.ERROR,
             )
 
+    def log_change(self, request, obj, message):
+        # Nor may a refused change enter the admin history.
+        if getattr(request, "_recovery_case_not_saved", False):
+            return None
+        return super().log_change(request, obj, message)
+
     def message_user(self, request, message, level=messages.INFO, *args, **kwargs):
         # A refused status change must not also read "changed successfully".
         if level == messages.SUCCESS and getattr(
