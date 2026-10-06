@@ -18,14 +18,10 @@ Important design notes:
   ``ConnectCycleCard.answers_json``; completing a card never creates a match,
   message, or request. The pool is narrowed to targets who already picked
   their 3 gate questions (mirrors ``GATE_QUESTION_COUNT``).
-- Cross-cycle freshness ("never show the same person twice") is enforced by a
-  dynamic query over past ``ConnectCycleCard`` rows, NOT a permanent
-  ``ConnectPairExclusion``. The blueprint's "a pair is permanently excluded
-  once the cycle has concluded" is read narrowly here — only a *declined* or
-  *expired weekly request* creates a permanent exclusion. Reading it broadly
-  (excluding all ~21 cards' targets on every completed cycle) would exhaust a
-  beta-sized pool (~154 verified members) in 2-3 cycles and write permanent
-  rows that are hard to undo; see the PR description.
+- Cross-cycle cards cool down for 30 elapsed days after assignment; current
+  sessions never repeat a target. History remains intact. Unanswered requests
+  cool down for 30 days after their deadline; refusals and safety exclusions
+  remain permanent. Pending/accepted requests stay excluded in both directions.
 - Accepting a weekly request opens a ``ConnectTemporaryChat`` row so a
   follow-up PR has something to build the coffee-planning chat UI on top of.
   This PR ships no chat UI — accepting just confirms the match.
@@ -88,6 +84,21 @@ def _seeded_sample(candidates: List["User"], k: int, seed_key: str) -> List["Use
 # ---------------------------------------------------------------------------
 
 
+def _excluding_pair_requests(user, other_user):
+    """Shared discovery/action protection, including historical refusals and closed chats."""
+    from crush_lu.models.crush_connect_cycle import ConnectWeeklyRequest
+
+    return ConnectWeeklyRequest.objects.filter(
+        Q(requester=user, recipient=other_user)
+        | Q(recipient=user, requester=other_user),
+        status__in=[
+            ConnectWeeklyRequest.Status.PENDING,
+            ConnectWeeklyRequest.Status.ACCEPTED,
+            ConnectWeeklyRequest.Status.DECLINED,
+        ],
+    )
+
+
 def get_cycle_eligible_pool(user):
     """
     Users eligible to appear as one of ``user``'s Connect Week cards.
@@ -101,25 +112,19 @@ def get_cycle_eligible_pool(user):
     within the inactivity window, identity-verified, not an assigned-coach
     pair) plus two Cycle-specific rules: the candidate must have their 3 gate
     questions picked (the cards need something to ask), and must not already
-    have appeared in one of ``user``'s past cycle cards (cross-cycle
-    freshness) or be under a ``ConnectPairExclusion`` with them.
-
-    Cross-cycle freshness is bidirectional: ``already_carded_ids`` stops
-    ``user`` from re-carding someone they already carded, and
-    ``received_active_requester_ids`` (below) separately stops ``user`` from
-    being handed, as a "fresh stranger", someone who already sent *them* a
-    still-pending or accepted weekly request — that person carded ``user``,
-    not the other way around, so ``already_carded_ids`` alone misses it.
-    Declined/expired requests need no extra handling: those already write a
-    permanent ``ConnectPairExclusion`` (see ``respond_to_weekly_request`` /
-    ``sync_request_state``), which ``excluded_ids`` below already covers.
+    have appeared in the current session or in the last 30 elapsed days.
+    A legacy card has only a local date: conservatively exclude the whole
+    cutoff date, rather than invent an impression time. Completed, ignored,
+    and expired cards all use assignment time, not answer/expiry time.
+    Active pair exclusions and pending/accepted requests apply symmetrically.
     """
     from crush_lu.connect_phase import cycle_access_open
     from crush_lu.models import EventConnection
     from crush_lu.models.crush_connect_cycle import (
+        CONNECT_COOLDOWN_DAYS,
         ConnectCycleCard,
         ConnectPairExclusion,
-        ConnectWeeklyRequest,
+        ConnectWeekSession,
     )
     from crush_lu.services.blocking import block_exists_subquery
     from crush_lu.services.crush_connect import (
@@ -145,22 +150,33 @@ def get_cycle_eligible_pool(user):
     if user_membership is None or not user_membership.is_participating:
         return User.objects.none()
 
-    inactivity_cutoff = timezone.now() - timedelta(days=CONNECT_INACTIVITY_WINDOW_DAYS)
-
-    already_carded_ids = ConnectCycleCard.objects.filter(session__user=user).values(
-        "target_user_id"
+    now = timezone.now()
+    inactivity_cutoff = now - timedelta(days=CONNECT_INACTIVITY_WINDOW_DAYS)
+    card_cutoff = now - timedelta(days=CONNECT_COOLDOWN_DAYS)
+    already_carded_ids = (
+        ConnectCycleCard.objects.filter(session__user=user)
+        .filter(
+            Q(generated_at__gt=card_cutoff)
+            | Q(
+                generated_at__isnull=True,
+                generated_date__gte=timezone.localdate(
+                    card_cutoff, timezone.get_default_timezone()
+                ),
+            )
+            | Q(
+                session__status__in=[
+                    ConnectWeekSession.Status.ACTIVE,
+                    ConnectWeekSession.Status.REVIEW_OPEN,
+                ]
+            )
+        )
+        .values("target_user_id")
     )
 
-    received_active_requester_ids = ConnectWeeklyRequest.objects.filter(
-        recipient=user,
-        status__in=[
-            ConnectWeeklyRequest.Status.PENDING,
-            ConnectWeeklyRequest.Status.ACCEPTED,
-        ],
-    ).values("requester_id")
+    active_request_subq = _excluding_pair_requests(user, OuterRef("pk"))
 
     excluded_ids: set[int] = set()
-    for a, b in ConnectPairExclusion.objects.filter(
+    for a, b in ConnectPairExclusion.active(now=now).filter(
         Q(user_a=user) | Q(user_b=user)
     ).values_list("user_a_id", "user_b_id"):
         excluded_ids.add(a)
@@ -189,7 +205,6 @@ def get_cycle_eligible_pool(user):
         )
         .exclude(Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True))
         .exclude(pk__in=already_carded_ids)
-        .exclude(pk__in=received_active_requester_ids)
         .exclude(pk__in=excluded_ids)
         .exclude(pk=user.pk)
         .annotate(
@@ -197,10 +212,12 @@ def get_cycle_eligible_pool(user):
                 "crush_connect_membership__gate_questions", distinct=True
             ),
             _has_connection=Exists(existing_connection_subq),
+            _has_active_request=Exists(active_request_subq),
             _has_block=block_exists_subquery(user),
         )
         .filter(_gate_q_count__gte=GATE_QUESTION_COUNT)
         .filter(_has_connection=False)
+        .filter(_has_active_request=False)
         .filter(_has_block=False)
         .select_related("crushprofile", "crush_connect_membership")
     )
@@ -649,15 +666,15 @@ def get_review_cards(session):
 @transaction.atomic
 def sync_request_state(weekly_request):
     """Flip a PENDING request past its 24h ``expires_at`` to EXPIRED and
-    permanently exclude the pair — re-checked at every read/action point
+    start a pair cooldown from that deadline — re-checked at every read/action point
     since the row itself is immutable once sent.
 
     Both writes are one ``transaction.atomic()`` block: this function's only
     entry guard is ``status == PENDING``, so a partial failure that left
     ``status`` at EXPIRED without the exclusion row would never be retried —
     every future call would see the row as already EXPIRED and skip both
-    writes, silently and permanently breaking the "expired requests exclude
-    the pair" guarantee. Atomicity makes a mid-write failure roll back to
+    writes, silently breaking the request cooldown guarantee.
+    Atomicity makes a mid-write failure roll back to
     PENDING instead, so the next sync retries both writes together.
     """
     from crush_lu.models.crush_connect_cycle import (
@@ -724,6 +741,8 @@ def can_send_weekly_request(session, requester, recipient) -> Tuple[bool, str]:
         return False, "recipient_unavailable"
     if is_blocked_pair(requester, recipient):
         return False, "blocked"
+    if _excluding_pair_requests(requester, recipient).exists():
+        return False, "excluded"
     if ConnectPairExclusion.are_excluded(requester, recipient):
         return False, "excluded"
     return True, "ok"
