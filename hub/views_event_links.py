@@ -7,6 +7,7 @@ from django.utils.translation import override
 from rest_framework.permissions import IsAdminUser
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
+from django.db.models import Q
 from rest_framework.views import APIView
 
 from crush_lu.models import MeetupEvent
@@ -22,10 +23,21 @@ class PartnerEventsView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request, pk):
-        get_object_or_404(Location, pk=pk)
-        events = _events().filter(partner_id=pk).order_by("-date_time", "-pk")
+        location = get_object_or_404(Location, pk=pk)
+        include_unlinked = (
+            request.query_params.get("include_unlinked", "").lower() in ("true", "1")
+        )
+        if include_unlinked:
+            events = _events().filter(
+                Q(partner_id=pk)
+                | Q(partner__isnull=True, location__iexact=location.name)
+            ).order_by("-date_time", "-pk")
+        else:
+            events = _events().filter(partner_id=pk).order_by("-date_time", "-pk")
         with override("en"):
             return Response({"items": PartnerEventSerializer(events, many=True).data})
+
+
 
 
 class EventPartnerLinkView(APIView):
