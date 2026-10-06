@@ -11,6 +11,7 @@ Set ApplicationInsightsAgent_EXTENSION_VERSION=disabled in Azure.
 """
 import logging
 import os
+import re
 import threading
 
 logger = logging.getLogger(__name__)
@@ -82,6 +83,80 @@ def _span_has_only_suppressed_exceptions(span) -> bool:
     # All exceptions in this span should be suppressed
     logger.debug(f"Suppressing span with {len(exception_events)} cache exceptions")
     return True
+
+
+class SensitiveQueryRedactionProcessor:
+    """
+    Span processor that redacts credentials carried in URL query strings.
+
+    The ``requests`` auto-instrumentation records the full URL of every
+    outbound call as a dependency span. The Facebook Graph photo calls pass the
+    member's live access token in that query string, so without this the token
+    would be exported to Application Insights with the span. URL attributes are
+    rewritten in ``on_start``, while the span is still writable; the failure
+    details (``exception`` events and the error status description, which embed
+    the same URL) are rewritten in ``_on_ending``. Both run before any exporter
+    sees the span, so the order relative to the exporting processor does not
+    matter. Limitation: an instrumentation that sets a URL attribute only
+    *after* the span has started is not covered.
+    """
+
+    URL_ATTRIBUTES = ('http.url', 'url.full', 'http.target', 'url.query')
+    SECRET_QUERY_PARAM = re.compile(
+        r'((?:access_token|client_secret|fb_exchange_token|refresh_token)=)[^&\s#]+',
+        re.IGNORECASE,
+    )
+
+    def on_start(self, span, parent_context=None):
+        """Rewrite secret query parameters in URL-bearing attributes."""
+        attributes = getattr(span, 'attributes', None) or {}
+        for key in self.URL_ATTRIBUTES:
+            value = attributes.get(key)
+            if isinstance(value, str) and self.SECRET_QUERY_PARAM.search(value):
+                span.set_attribute(
+                    key, self.SECRET_QUERY_PARAM.sub(r'\1REDACTED', value)
+                )
+
+    def _redact(self, value):
+        if isinstance(value, str):
+            return self.SECRET_QUERY_PARAM.sub(r'\1REDACTED', value)
+        return value
+
+    def _on_ending(self, span):
+        """Redact failure details just before the span is handed to exporters.
+
+        A failed call records an ``exception`` event (message and stacktrace
+        embed the request URL, query string included) and an error status
+        description after ``on_start``, so those are scrubbed here. Telemetry
+        must never break a request, hence the blanket guard.
+        """
+        try:
+            from opentelemetry.trace import Status
+
+            # The span's event list is a BoundedList (no item assignment), but
+            # each Event owns its attribute mapping, so swap that in place.
+            for event in list(getattr(span, '_events', None) or []):
+                attributes = event.attributes or {}
+                redacted = {k: self._redact(v) for k, v in attributes.items()}
+                if redacted != dict(attributes):
+                    event._attributes = redacted
+
+            status = getattr(span, '_status', None)
+            description = getattr(status, 'description', None)
+            if isinstance(description, str) and self._redact(description) != description:
+                span._status = Status(status.status_code, self._redact(description))
+        except Exception:
+            logger.debug("Span credential redaction failed", exc_info=True)
+
+    def on_end(self, span):
+        """Nothing to do once the span has ended."""
+
+    def shutdown(self):
+        """Nothing to release."""
+
+    def force_flush(self, timeout_millis=30000):
+        """Nothing is buffered."""
+        return True
 
 
 class DependencyFilteringProcessor:
@@ -249,6 +324,8 @@ def configure_azure_monitor_telemetry(environment="production"):
         # Create filtering processors
         exception_filter = ExceptionFilteringProcessor()
         dependency_filter = DependencyFilteringProcessor()
+        # Redacts access tokens in outbound URLs (Facebook Graph) before export
+        query_redaction = SensitiveQueryRedactionProcessor()
 
         # Set cloud_RoleName via service.name resource attribute.
         # This overrides the Azure App Service resource detector default
@@ -262,7 +339,7 @@ def configure_azure_monitor_telemetry(environment="production"):
             connection_string=connection_string,
             resource=resource,
             # Add our custom span processors for filtering
-            span_processors=[dependency_filter, exception_filter],
+            span_processors=[query_redaction, dependency_filter, exception_filter],
             # Use Azure Monitor's ApplicationInsightsSampler (NOT TraceIdRatioBased).
             # TraceIdRatioBased passed as `sampler=` is silently ignored.
             # sampling_ratio properly sets ItemCount on sampled records for

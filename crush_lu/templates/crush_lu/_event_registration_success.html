@@ -53,6 +53,7 @@
         {% endif %}
         <p class="text-gray-600 dark:text-gray-300 mb-6">
             {% trans "The event is currently full, but we'll notify you if a spot opens up." %}
+            {% if event.registration_fee > 0 and not registration.payment_confirmed %}{% trans "You pay nothing unless a place opens up for you." %}{% endif %}
         </p>
     {% elif registration.status == 'pending' %}
         {% comment %}
@@ -83,9 +84,11 @@
           The status test is load-bearing on a paid curated event: an applicant
           has not been given a place, so offering checkout would take money for
           a seat the organiser may never award. Payment is requested after
-          selection, when the registration moves out of "applied".
+          selection, when the registration moves out of "applied". The same
+          holds for "waitlist": create_sumup_event_checkout rejects it, and
+          event_detail.html already hides the buttons for it.
         {% endcomment %}
-        {% if event.registration_fee > 0 and not registration.payment_confirmed and registration.status != 'applied' %}
+        {% if event.registration_fee > 0 and not registration.payment_confirmed and registration.status != 'applied' and registration.status != 'waitlist' %}
         {% if has_sufficient_crush_credit %}
         <button type="button" x-data="sumupCheckoutButton" @click="start" :disabled="isLoading"
                 data-sumup-reg-id="{{ registration.id }}" data-payment-method="credit"

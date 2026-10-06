@@ -579,3 +579,98 @@ class TestCheckinAttendeeSearch:
         ).content.decode()
 
         assert 'id="attendee-search"' not in html
+
+
+class TestCoachRosterCountsEachRegistrationOnce:
+    """Curated UX C1: one registration is one row, one count, per state."""
+
+    MIXED = [
+        # (name, status, payment_confirmed)
+        ("Ada", "applied", False),
+        ("Ben", "pending", False),
+        ("Cleo", "confirmed", True),
+        ("Dan", "attended", True),
+        ("Eve", "no_show", True),
+        ("Fay", "cancelled", True),  # cancelled and refunded
+    ]
+
+    def _build(self, fee, event_type="speed_dating", mode="curated"):
+        event = _make_event(event_type)
+        event.registration_mode = mode
+        event.registration_fee = fee
+        if mode == "curated":
+            event.group_size = 6
+            event.planned_groups = 1
+        event.save()
+        for name, status, paid in self.MIXED:
+            user = User.objects.create_user(
+                username=f"{name}@example.com",
+                email=f"{name}@example.com",
+                first_name=name,
+            )
+            reg = EventRegistration.objects.create(
+                event=event, user=user, status="applied"
+            )
+            # update(): the model guard forbids granting seats outside the
+            # bulk Confirm action, and this test only needs the stored states.
+            EventRegistration.objects.filter(pk=reg.pk).update(
+                status=status, payment_confirmed=paid
+            )
+        return event
+
+    def _get(self, client, event, status="all"):
+        coach = _make_coach()
+        client.force_login(coach)
+        return client.get(
+            f"/en/coach/events/{event.id}/",
+            {"status": status},
+            HTTP_HOST="crush.lu",
+        )
+
+    def test_curated_paid_event_counts_each_registration_once(self, client):
+        from decimal import Decimal
+
+        event = self._build(Decimal("15.00"))
+        response = self._get(client, event)
+        ctx = response.context
+        # Cancelled is out of the roster entirely.
+        assert ctx["total_registrations"] == 5
+        assert len(ctx["roster_rows"]) == 5
+        users = [r["registration"].user_id for r in ctx["roster_rows"]]
+        assert len(users) == len(set(users))
+        assert ctx["payment_due_count"] == 1  # Ben
+        assert ctx["payment_complete_count"] == 3  # Cleo, Dan, Eve
+        assert ctx["expected_count"] == 1  # Cleo
+        assert ctx["checked_in_count"] == 1  # Dan
+        rows = {r["registration"].user.first_name: r for r in ctx["roster_rows"]}
+        assert rows["Ben"]["payment"] == "Payment due"
+        assert rows["Cleo"]["arrival"] == "Expected"
+        assert rows["Dan"]["arrival"] == "Checked in"
+        assert rows["Eve"]["arrival"] == "No-show"
+        # The cancelled / refunded member never looks ready to attend.
+        assert "Fay" not in rows
+        html = response.content.decode()
+        assert "Fay" not in html
+
+    def test_curated_free_event_says_no_payment_required(self, client):
+        from decimal import Decimal
+
+        event = self._build(Decimal("0.00"))
+        ctx = self._get(client, event).context
+        assert {r["payment"] for r in ctx["roster_rows"]} == {"No payment required"}
+        assert ctx["payment_due_count"] == 0
+
+    def test_direct_event_lists_pending_once(self, client):
+        from decimal import Decimal
+
+        event = self._build(Decimal("15.00"), event_type="mixer", mode="direct")
+        response = self._get(client, event)
+        ctx = response.context
+        listed = (
+            ctx["confirmed_registrations"]
+            + ctx["waitlist_registrations"]
+            + ctx["other_registrations"]
+            + ctx["applied_registrations"]
+        )
+        assert len(listed) == len({r.pk for r in listed}) == ctx["total_registrations"]
+        assert ctx["total_registrations"] == 5

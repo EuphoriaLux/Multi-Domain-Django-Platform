@@ -75,7 +75,7 @@
         </div>
         <div class="p-6">
             <p class="text-gray-500 dark:text-gray-400 mb-4">
-                {% if user.first_name %}{% blocktrans with name=user.first_name %}Hi {{ name }}!{% endblocktrans %}{% else %}{% trans "Hi!" %}{% endif %} {% trans "Choose how you'd like to manage your email preferences:" %}
+                {% if prefs_user.first_name %}{% blocktrans with name=prefs_user.first_name %}Hi {{ name }}!{% endblocktrans %}{% else %}{% trans "Hi!" %}{% endif %} {% trans "Choose how you'd like to manage your email preferences:" %}
             </p>
 
             {% if email_prefs.unsubscribed_all %}

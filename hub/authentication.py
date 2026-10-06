@@ -27,7 +27,9 @@ class AdminApiKeyAuthentication(BaseAuthentication):
 
         token = auth_header.replace("Bearer ", "", 1).strip()
         expected = getattr(settings, "ADMIN_API_KEY", None)
-        if not expected or not secrets.compare_digest(token, expected):
+        if not expected or not secrets.compare_digest(
+            token.encode("utf-8"), expected.encode("utf-8")
+        ):
             return None
 
         User = get_user_model()
