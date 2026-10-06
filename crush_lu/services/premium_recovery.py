@@ -141,7 +141,8 @@ def open_case(payment, reason, detail=""):
     # unless staff opened the checkout for a member (user=request.user): then
     # the member is unknown and only staff are told (_member_unknown).
     owner = membership.user if membership else payment.user
-    if _member_unknown_for(membership, owner):
+    member_unknown = _member_unknown_for(membership, owner)
+    if member_unknown:
         detail = f"{MEMBER_UNKNOWN_DETAIL} {detail}".strip()
     return PremiumPaymentRecoveryCase.objects.get_or_create(
         payment=payment,
@@ -150,6 +151,7 @@ def open_case(payment, reason, detail=""):
             "premium_membership": membership,
             "reason": reason,
             "detail": detail,
+            "member_unknown": member_unknown,
         },
     )
 
@@ -161,7 +163,7 @@ MEMBER_UNKNOWN_DETAIL = (
 
 
 # Query form of _member_unknown.
-MEMBER_UNKNOWN_Q = Q(premium_membership__isnull=True, user__is_staff=True)
+MEMBER_UNKNOWN_Q = Q(member_unknown=True)
 
 
 def _member_unknown_for(membership, owner):
@@ -169,7 +171,7 @@ def _member_unknown_for(membership, owner):
 
 
 def _member_unknown(case):
-    return _member_unknown_for(case.premium_membership, case.user)
+    return case.member_unknown
 
 
 def notify_safely(case_pk):
@@ -244,6 +246,14 @@ def _close_sibling_checkouts_safely(case):
                 # _stale_checkouts); a new request's own checkout is its own.
                 others = others.exclude(status="pending")
             memberships += list(others.distinct().order_by("pk"))
+        # The exact rows this case may close, fixed under the lock: a
+        # replacement checkout published once the case is resolved is not one.
+        snapshot = set(
+            PaymentTransaction.objects.filter(
+                premium_membership__in=memberships,
+                status=PaymentTransaction.Status.PENDING,
+            ).values_list("pk", flat=True)
+        )
     if _deadline.get() is None:
         # A member's request (return page, webhook): the case's own
         # membership first and at most REQUEST_CLOSE_LIMIT in all; the hourly
@@ -251,24 +261,31 @@ def _close_sibling_checkouts_safely(case):
         memberships = memberships[:REQUEST_CLOSE_LIMIT]
     # PK order: every caller locks payments -> membership in the same order.
     memberships.sort(key=lambda m: m.pk)
-    close_open_checkouts_safely(memberships, f"recovery case {case.pk}")
+    close_open_checkouts_safely(
+        memberships, f"recovery case {case.pk}", only_ids=snapshot
+    )
 
 
-def close_open_checkouts_safely(memberships, label):
+def close_open_checkouts_safely(memberships, label, only_ids=None):
     """Close the PENDING SumUp checkouts of ``memberships`` (deactivate only,
     never a refund): with a capture recorded, none of them may take another
     payment. Post-commit, no lock held during the network calls. A checkout
     SumUp already captured is recorded (applied, or its own recovery case),
     from the payload the close read when there is one -- the sweep reads PAID
-    rows only."""
+    rows only. ``only_ids`` limits it to a snapshot of payment rows taken by
+    the caller; rows published after it are left alone."""
     from django.db import transaction
 
     from crush_lu.models import PaymentTransaction
 
-    for membership in memberships:
-        if not PaymentTransaction.objects.filter(
+    def pending_of(membership):
+        rows = PaymentTransaction.objects.filter(
             premium_membership=membership, status=PaymentTransaction.Status.PENDING
-        ).exists():
+        )
+        return rows if only_ids is None else rows.filter(pk__in=only_ids)
+
+    for membership in memberships:
+        if not pending_of(membership).exists():
             continue
         if not _fits(_close_seconds()):
             logger.warning("No time left to close checkouts for %s; will retry", label)
@@ -284,7 +301,11 @@ def close_open_checkouts_safely(memberships, label):
         try:
             paid_payloads = {}
             state, _reuse, retired, _known = _settle_pending_premium_checkouts(
-                SumUpClient(), membership, captured=True, paid_payloads=paid_payloads
+                SumUpClient(),
+                membership,
+                captured=True,
+                paid_payloads=paid_payloads,
+                only_ids=only_ids,
             )
             if retired:
                 with transaction.atomic():
@@ -294,11 +315,7 @@ def close_open_checkouts_safely(memberships, label):
             # where the hourly tick finds them.
             handled = 0
             rows = sorted(
-                PaymentTransaction.objects.filter(
-                    premium_membership=membership,
-                    status=PaymentTransaction.Status.PENDING,
-                    sumup_checkout_id__isnull=False,
-                ),
+                pending_of(membership).filter(sumup_checkout_id__isnull=False),
                 # Captures already read first: they need no further request.
                 key=lambda row: (row.pk not in paid_payloads, row.pk),
             )

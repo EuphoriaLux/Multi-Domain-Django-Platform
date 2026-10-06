@@ -814,6 +814,7 @@ def _settle_pending_premium_checkouts(
     description=None,
     captured=False,
     paid_payloads=None,
+    only_ids=None,
 ):
     """Reuse or retire this membership's PENDING checkouts (#925 D6).
 
@@ -837,6 +838,9 @@ def _settle_pending_premium_checkouts(
             status=PaymentTransaction.Status.PENDING,
         ).order_by("-created_at", "-pk")
     )
+    if only_ids is not None:
+        # A caller's snapshot: rows published after it are not this call's.
+        pending = [row for row in pending if row.pk in only_ids]
     known_ids = {row.pk for row in pending}
     reuse_row, retired_ids, paid = None, set(), captured
     deadline = _monotonic() + _PREMIUM_CHECKOUT_RETIRE_BUDGET_SECONDS

@@ -47,6 +47,10 @@ class PremiumPaymentRecoveryCase(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     member_notified_at = models.DateTimeField(null=True, blank=True)
     staff_alerted_at = models.DateTimeField(null=True, blank=True)
+    # Set once at creation (premium_recovery.open_case): a legacy unlinked
+    # capture opened by staff, so ``user`` is the opener, not the member.
+    # Stored, not derived from is_staff, which can change later.
+    member_unknown = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-created_at"]

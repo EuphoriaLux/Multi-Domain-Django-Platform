@@ -683,7 +683,7 @@ class CaseLifecycleTests(_Base):
             premium_membership=staff_membership,
         )
         case = PremiumPaymentRecoveryCase.objects.create(
-            payment=tx, user=staff, reason=Reason.OTHER
+            payment=tx, user=staff, reason=Reason.OTHER, member_unknown=True
         )
         client = MagicMock()
         with patch("crush_lu.views_payments.SumUpClient", return_value=client):
@@ -706,7 +706,7 @@ class CaseLifecycleTests(_Base):
         PaymentTransaction.objects.filter(pk=tx.pk).update(user=staff)
         self._unlink_and_delete_membership()
         PremiumPaymentRecoveryCase.objects.create(
-            payment=tx, user=staff, reason=Reason.OTHER
+            payment=tx, user=staff, reason=Reason.OTHER, member_unknown=True
         )
         PremiumMembership.objects.create(user=staff, coach=self.coach, status="pending")
         self.assertFalse(blocks_new_charge(staff))
@@ -748,6 +748,56 @@ class CaseLifecycleTests(_Base):
             src.index("close_open_checkouts_safely("),
         )
 
+    def test_member_unknown_survives_the_opener_losing_staff(self):
+        from crush_lu.services.premium_recovery import blocks_new_charge, notify_safely
+
+        staff = User.objects.create_user(
+            username="rec-staff5@example.invalid",
+            email="rec-staff5@example.invalid",
+            password="pass12345",
+            is_staff=True,
+        )
+        tx = self._tx("REC-UNKNOWN-DEMOTED")
+        PaymentTransaction.objects.filter(pk=tx.pk).update(user=staff)
+        self._unlink_and_delete_membership()
+        tx.refresh_from_db()
+        with self.assertLogs("crush_lu.views_payments", level="CRITICAL"):
+            self._apply(tx)
+        case = PremiumPaymentRecoveryCase.objects.get(payment=tx)
+        self.assertTrue(case.member_unknown)
+        User.objects.filter(pk=staff.pk).update(is_staff=False)
+        mail.outbox.clear()
+        PremiumPaymentRecoveryCase.objects.filter(pk=case.pk).update(
+            member_notified_at=None, staff_alerted_at=None
+        )
+        notify_safely(case.pk)
+        self.assertEqual([m for m in mail.outbox if m.to == [staff.email]], [])
+        self.assertFalse(blocks_new_charge(staff))
+
+    def test_cleanup_closes_only_the_rows_snapshotted_under_the_lock(self):
+        from crush_lu.services import premium_recovery
+
+        src = inspect.getsource(premium_recovery._close_sibling_checkouts_safely)
+        self.assertLess(
+            src.index("snapshot = set("), src.index("close_open_checkouts_safely(")
+        )
+        self.assertIn("only_ids=snapshot", src)
+
+    def test_close_leaves_a_row_outside_the_snapshot(self):
+        from unittest.mock import MagicMock
+
+        from crush_lu.services.premium_recovery import close_open_checkouts_safely
+
+        old = self._tx("REC-SNAP-OLD")
+        replacement = self._tx("REC-SNAP-NEW")
+        client = MagicMock()
+        client.deactivate_checkout.return_value = True
+        with patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            close_open_checkouts_safely([self.membership], "test", only_ids={old.pk})
+        client.deactivate_checkout.assert_called_once_with("CHK_REC-SNAP-OLD")
+        replacement.refresh_from_db()
+        self.assertEqual(replacement.status, PaymentTransaction.Status.PENDING)
+
     def test_member_unknown_case_takes_no_retry_slot(self):
         from datetime import timedelta
 
@@ -769,6 +819,7 @@ class CaseLifecycleTests(_Base):
             user=staff,
             reason=Reason.OTHER,
             staff_alerted_at=timezone.now(),
+            member_unknown=True,
         )
         PremiumPaymentRecoveryCase.objects.filter(pk=case.pk).update(
             created_at=timezone.now() - timedelta(hours=2)
