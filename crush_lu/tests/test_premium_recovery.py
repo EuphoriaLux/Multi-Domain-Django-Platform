@@ -2461,7 +2461,12 @@ class NotificationRetryTests(_Base):
         from crush_lu import api_admin_sumup as api
         from crush_lu.services import premium_recovery as rec
 
-        self.assertEqual(rec.SEND_SECONDS, api.GRAPH_SEND_TIMEOUT_SECONDS)
+        from azureproject import graph_email_backend as g
+
+        self.assertEqual(
+            rec.SEND_SECONDS,
+            api.GRAPH_SEND_TIMEOUT_SECONDS + g.GRAPH_TOKEN_TIMEOUT_SECONDS,
+        )
         for cost in (rec.SEND_SECONDS, rec._close_seconds(), rec._sync_seconds()):
             self.assertLess(cost, api.RECONCILIATION_BUDGET_SECONDS)
 
