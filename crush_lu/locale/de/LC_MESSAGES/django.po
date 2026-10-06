@@ -44578,3 +44578,25 @@ msgstr "Pläne geändert?"
 #: crush_lu/templates/crush_lu/event_register.html
 msgid "No payment now; selected applicants are invited to pay."
 msgstr "Jetzt keine Zahlung; ausgewählte Bewerber werden zur Zahlung eingeladen."
+
+#: crush_lu/templates/crush_lu/coach_event_list.html
+msgid "%(count)s potential conflict — review details"
+msgid_plural "%(count)s potential conflicts — review details"
+msgstr[0] "%(count)s möglicher Konflikt — Details prüfen"
+msgstr[1] "%(count)s mögliche Konflikte — Details prüfen"
+
+#: crush_lu/templates/crush_lu/coach_event_detail.html
+msgid "Potential participant conflicts"
+msgstr "Mögliche Konflikte zwischen Teilnehmenden"
+
+#: crush_lu/templates/crush_lu/coach_event_detail.html
+msgid "A personal block exists between each pair below. This is a prompt for coach review, not a moderation decision. Registration, groups and seating remain unchanged."
+msgstr "Zwischen den Personen jedes unten genannten Paares besteht eine persönliche Blockierung. Dies ist ein Hinweis zur Prüfung durch den Coach, keine Moderationsentscheidung. Anmeldung, Gruppen und Sitzplätze bleiben unverändert."
+
+#: crush_lu/templates/crush_lu/coach_event_detail.html
+msgid "Includes applicants, pending payments, confirmed participants, the waitlist and checked-in participants. Cancelled registrations and no-shows are excluded. Keep this information private; members are not notified."
+msgstr "Berücksichtigt werden Bewerbungen, ausstehende Zahlungen, bestätigte Teilnehmende, die Warteliste und eingecheckte Teilnehmende. Stornierte Anmeldungen und nicht erschienene Personen sind ausgeschlossen. Behandle diese Informationen vertraulich; Mitglieder werden nicht benachrichtigt."
+
+#: crush_lu/views_coach.py
+msgid "Participant %(id)s"
+msgstr "Teilnehmende Person %(id)s"
