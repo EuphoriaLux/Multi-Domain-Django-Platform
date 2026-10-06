@@ -2330,8 +2330,8 @@ def _event_cancel_refusal(request, event, registration):
         messages.error(
             request,
             _(
-                "This event has already started. If you can't make it, "
-                "contact your coach."
+                "This event has already started, so it can't be cancelled "
+                "online. If you can't make it, email support@crush.lu."
             ),
         )
         return redirect("crush_lu:event_detail", event_id=event.id)
