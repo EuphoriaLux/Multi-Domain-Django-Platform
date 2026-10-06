@@ -141,9 +141,12 @@ def open_recovery_case(user):
 
     if not user.is_authenticated:
         return None
+    from .services.premium_recovery import MEMBER_UNKNOWN_Q
+
+    # A member-unknown case is the staff opener's to handle, not their own.
     cases = PremiumPaymentRecoveryCase.objects.filter(
         user=user, status=PremiumPaymentRecoveryCase.Status.OPEN
-    )
+    ).exclude(MEMBER_UNKNOWN_Q)
     current = ("pending", "active")
     if PremiumMembership.objects.filter(user=user, status__in=current).exists():
         cases = cases.filter(premium_membership__status__in=current)

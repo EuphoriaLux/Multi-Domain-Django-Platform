@@ -10,6 +10,7 @@ import logging
 import time
 
 from django.conf import settings
+from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone, translation
 
@@ -96,7 +97,11 @@ def blocks_new_charge(user):
 
     from crush_lu.models import PaymentTransaction, PremiumPaymentRecoveryCase
 
-    cases = PremiumPaymentRecoveryCase.objects.filter(user=user)
+    # A member-unknown case is filed under the staff opener (_member_unknown):
+    # it is not that person's own payment, so it gates nothing of theirs.
+    cases = PremiumPaymentRecoveryCase.objects.filter(user=user).exclude(
+        MEMBER_UNKNOWN_Q
+    )
     return (
         cases.filter(
             Q(status=PremiumPaymentRecoveryCase.Status.OPEN)
@@ -155,6 +160,10 @@ MEMBER_UNKNOWN_DETAIL = (
 )
 
 
+# Query form of _member_unknown.
+MEMBER_UNKNOWN_Q = Q(premium_membership__isnull=True, user__is_staff=True)
+
+
 def _member_unknown_for(membership, owner):
     return membership is None and owner is not None and owner.is_staff
 
@@ -178,7 +187,15 @@ def notify_safely(case_pk):
             type(exc).__name__,
         )
         return
-    _close_sibling_checkouts_safely(case)
+    try:
+        _close_sibling_checkouts_safely(case)
+    except Exception as exc:
+        # The notices below must still go out; the tick retries the close.
+        logger.error(
+            "Failed to close checkouts for recovery case %s: %s",
+            case_pk,
+            type(exc).__name__,
+        )
     _notify_member_safely(case)
     _alert_staff_safely(case)
 
@@ -188,34 +205,45 @@ def _close_sibling_checkouts_safely(case):
     whichever membership it belongs to: a checkout published just before the
     case was inserted must not stay payable. A resolved case keeps closing its
     own membership's and any left on a membership no longer up for payment."""
+    from django.db import transaction
+
     from crush_lu.models import PaymentTransaction, PremiumMembership
 
-    memberships = [
-        m
-        for m in [case.premium_membership]
-        if m is not None
-        and PaymentTransaction.objects.filter(
-            premium_membership=m, status=PaymentTransaction.Status.PENDING
-        ).exists()
-    ]
-    # Fresh status: a case staff resolved since the caller loaded it must not
-    # close a replacement request's checkout.
-    case.status = (
-        type(case).objects.filter(pk=case.pk).values_list("status", flat=True).first()
-        or case.status
-    )
-    # A member-unknown case is filed under the staff opener, whose own
-    # memberships have nothing to do with this payment.
-    if case.user_id and not _member_unknown(case):
-        others = PremiumMembership.objects.filter(
-            user_id=case.user_id,
-            payment_transactions__status=PaymentTransaction.Status.PENDING,
-        ).exclude(pk=case.premium_membership_id)
-        if case.status != case.Status.OPEN:
-            # Resolved: only memberships no longer up for payment (see
-            # _stale_checkouts); a new request's own checkout is its own.
-            others = others.exclude(status="pending")
-        memberships += list(others.distinct().order_by("pk"))
+    # The status and the memberships it selects are read under the case row
+    # lock, so staff cannot resolve the case in between (and a replacement
+    # checkout cannot be published while it is OPEN). Released before any
+    # SumUp call; skipped if a tick holds the case (it closes them itself).
+    with transaction.atomic():
+        locked = (
+            type(case)
+            .objects.select_for_update(skip_locked=True, of=("self",))
+            .filter(pk=case.pk)
+            .values_list("status", flat=True)
+            .first()
+        )
+        if locked is None:
+            return
+        case.status = locked
+        memberships = [
+            m
+            for m in [case.premium_membership]
+            if m is not None
+            and PaymentTransaction.objects.filter(
+                premium_membership=m, status=PaymentTransaction.Status.PENDING
+            ).exists()
+        ]
+        # A member-unknown case is filed under the staff opener, whose own
+        # memberships have nothing to do with this payment.
+        if case.user_id and not _member_unknown(case):
+            others = PremiumMembership.objects.filter(
+                user_id=case.user_id,
+                payment_transactions__status=PaymentTransaction.Status.PENDING,
+            ).exclude(pk=case.premium_membership_id)
+            if case.status != case.Status.OPEN:
+                # Resolved: only memberships no longer up for payment (see
+                # _stale_checkouts); a new request's own checkout is its own.
+                others = others.exclude(status="pending")
+            memberships += list(others.distinct().order_by("pk"))
     if _deadline.get() is None:
         # A member's request (return page, webhook): the case's own
         # membership first and at most REQUEST_CLOSE_LIMIT in all; the hourly
@@ -388,8 +416,7 @@ def retry_unsent_notifications(budget_seconds, limit=5, settle_minutes=10):
             # still take money continues even after staff resolve the case.
             (
                 # A member-unknown case (_member_unknown) sends no notice.
-                Q(member_notified_at__isnull=True)
-                & ~Q(premium_membership__isnull=True, user__is_staff=True)
+                Q(member_notified_at__isnull=True) & ~MEMBER_UNKNOWN_Q
                 | Q(staff_alerted_at__isnull=True)
                 | Q(member_has_open_checkout=True)
             )

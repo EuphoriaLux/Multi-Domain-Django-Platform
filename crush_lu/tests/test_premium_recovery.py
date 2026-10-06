@@ -692,6 +692,62 @@ class CaseLifecycleTests(_Base):
         staff_checkout.refresh_from_db()
         self.assertEqual(staff_checkout.status, PaymentTransaction.Status.PENDING)
 
+    def test_member_unknown_case_gates_nothing_of_the_staff_opener(self):
+        from crush_lu.services.premium_recovery import blocks_new_charge
+        from crush_lu.views_premium import open_recovery_case
+
+        staff = User.objects.create_user(
+            username="rec-staff4@example.invalid",
+            email="rec-staff4@example.invalid",
+            password="pass12345",
+            is_staff=True,
+        )
+        tx = self._tx("REC-UNKNOWN-GATE", status=PaymentTransaction.Status.PAID)
+        PaymentTransaction.objects.filter(pk=tx.pk).update(user=staff)
+        self._unlink_and_delete_membership()
+        PremiumPaymentRecoveryCase.objects.create(
+            payment=tx, user=staff, reason=Reason.OTHER
+        )
+        PremiumMembership.objects.create(user=staff, coach=self.coach, status="pending")
+        self.assertFalse(blocks_new_charge(staff))
+        self.assertIsNone(open_recovery_case(staff))
+
+    def test_notices_go_out_even_if_the_close_fails(self):
+        from crush_lu.services import premium_recovery
+
+        case = PremiumPaymentRecoveryCase.objects.create(
+            payment=self._tx("REC-CLOSE-BOOM", status=PaymentTransaction.Status.PAID),
+            user=self.member,
+            premium_membership=self.membership,
+            reason=Reason.COACH_UNAVAILABLE,
+        )
+        with patch.object(
+            premium_recovery,
+            "_close_sibling_checkouts_safely",
+            side_effect=RuntimeError("db"),
+        ), self.assertLogs("crush_lu.services.premium_recovery", level="ERROR"):
+            premium_recovery.notify_safely(case.pk)
+        case.refresh_from_db()
+        self.assertIsNotNone(case.member_notified_at)
+        self.assertIsNotNone(case.staff_alerted_at)
+
+    def test_recovery_callback_is_robust(self):
+        from crush_lu import views_payments
+
+        src = inspect.getsource(views_payments._queue_premium_recovery_case)
+        self.assertIn("robust=True", src)
+
+    def test_case_scope_is_read_under_the_case_lock(self):
+        from crush_lu.services import premium_recovery
+
+        src = inspect.getsource(premium_recovery._close_sibling_checkouts_safely)
+        lock = src.index("select_for_update(skip_locked=True")
+        self.assertLess(lock, src.index("others = PremiumMembership"))
+        self.assertLess(
+            src.index("others = PremiumMembership"),
+            src.index("close_open_checkouts_safely("),
+        )
+
     def test_member_unknown_case_takes_no_retry_slot(self):
         from datetime import timedelta
 

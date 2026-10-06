@@ -1426,7 +1426,11 @@ def _queue_premium_recovery_case(payment, reason, detail=""):
     a merge waiting on the payment lock sees the case."""
     case, created = premium_recovery.open_case(payment, reason, detail)
     if created:
-        transaction.on_commit(lambda: premium_recovery.notify_safely(case.pk))
+        # robust: the money is captured; a failing callback must never turn
+        # the return page or webhook into a 500.
+        transaction.on_commit(
+            lambda: premium_recovery.notify_safely(case.pk), robust=True
+        )
 
 
 def _send_donation_receipt_safely(payment):
