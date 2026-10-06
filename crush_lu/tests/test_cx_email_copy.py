@@ -19,6 +19,16 @@ Findings covered (CX review, Phase 4 bundle P4-3):
   rejected account cannot resubmit; the web page says so).
 * XC-20 fragment: the DE waitlist sentence read "halte Ausschaunach ...".
 
+Review follow-up (automated review, three P2 findings, each checked in code):
+
+* the recap nudge is shown only when the attendee page will open for that
+  member AND have someone on it (verified attendee, another attendee who is
+  not blocked or hidden); a door-rejected, profile-less or alone member gets
+  the plain browse-events ending instead of a link that bounces them;
+* the paid-waitlist "you then complete the payment" bullet is not shown when
+  the registration already carries a payment (a late canceller who re-registers
+  keeps ``payment_confirmed``; promotion confirms that seat straight away).
+
 Run with: pytest crush_lu/tests/test_cx_email_copy.py -v
 """
 
@@ -58,7 +68,7 @@ class _EmailCase(TestCase):
 
     # -- fixtures ---------------------------------------------------------
 
-    def _member(self, lang):
+    def _member(self, lang, status="incomplete"):
         from crush_lu.models import CrushProfile
 
         n = next(_uid)
@@ -68,13 +78,18 @@ class _EmailCase(TestCase):
             password="testpass123",
             first_name="Gaby",
         )
-        CrushProfile.objects.create(
+        profile = CrushProfile.objects.create(
             user=user,
             date_of_birth=date(1995, 1, 1),
             gender="F",
             location="Luxembourg",
             preferred_language=lang,
         )
+        # update(): save() syncs the legacy flags; the state is all this needs.
+        CrushProfile.objects.filter(pk=profile.pk).update(verification_status=status)
+        # ``user.crushprofile`` is this very instance (reverse one-to-one cache);
+        # production loads registrations fresh, so keep the in-memory copy true.
+        profile.refresh_from_db(fields=["verification_status"])
         return user
 
     def _event(self, *, start_offset, event_type="speed_dating", **extra):
@@ -145,18 +160,33 @@ COACH_CALL_PROMISES = (
 class RecapNudgeTests(_EmailCase):
     """The recap tells a member with no activity that the window is open."""
 
-    def _recap(self, lang, *, window_hours=48, incoming=False, outgoing=False):
-        from crush_lu.models import EventConnection
+    def _recap(
+        self,
+        lang,
+        *,
+        window_hours=48,
+        incoming=False,
+        outgoing=False,
+        viewer_status="verified",
+        other_status="attended",
+        block_other=False,
+    ):
+        from crush_lu.models import EventConnection, UserBlock
 
-        member = self._member(lang)
+        # Real attendees are verified (the door scan does it); the nudge is only
+        # for members the attendee page will let in.
+        member = self._member(lang, status=viewer_status)
         # Ended 30 h ago: the recap sweep sends 24-36 h after the end.
         event = self._event(
             start_offset=-timedelta(hours=33),
             connection_window_hours=window_hours,
         )
         reg = self._register(member, event, "attended")
-        other = self._member(lang)
-        self._register(other, event, "attended")
+        other = self._member(lang, status="verified")
+        if other_status:
+            self._register(other, event, other_status)
+        if block_other:
+            UserBlock.objects.create(blocker=member, blocked=other)
         if incoming:
             EventConnection.objects.create(
                 requester=other, recipient=member, event=event, status="pending"
@@ -277,6 +307,67 @@ class RecapNudgeTests(_EmailCase):
                 self.assertNotIn(self._attendees_path(lang, event), html)
                 self.assertIn(self._t(lang, "Browse upcoming events"), html)
 
+    # -- review follow-up: no nudge toward a page that will not open ---------
+
+    def _assert_plain_ending(self, lang, event, html):
+        self.assertNotIn(self._t(lang, "Who caught your eye?"), html)
+        self.assertNotIn(self._attendees_path(lang, event), html)
+        self.assertNotIn(self._t(lang, "View Attendees & Connections"), html)
+        self.assertIn(self._t(lang, "Browse upcoming events"), html)
+        self.assertIn(self._t(lang, "It was lovely to have you."), html)
+        self.assertNotIn(OLD_RECAP[lang], html)
+
+    def test_door_rejected_attendee_gets_no_link_to_a_page_that_bounces_them(self):
+        """A rejected member stays ``attended`` (so the sweep mails them) but
+        ``can_make_connections`` is False and event_attendees redirects them."""
+        for lang in LANGS:
+            with self.subTest(lang=lang):
+                event, html = self._recap(lang, viewer_status="rejected")
+                self.assertTrue(event.connection_window_active)
+                self._assert_plain_ending(lang, event, html)
+
+    def test_member_without_a_profile_gets_no_nudge(self):
+        from crush_lu.models import EventRegistration
+
+        event = self._event(
+            start_offset=-timedelta(hours=33), connection_window_hours=48
+        )
+        n = next(_uid)
+        ghost = User.objects.create_user(
+            username=f"cx{n}@example.com",
+            email=f"cx{n}@example.com",
+            password="testpass123",
+        )
+        reg = self._register(ghost, event, "attended")
+        self.assertFalse(EventRegistration.objects.get(pk=reg.pk).can_make_connections)
+        other = self._member("en", status="verified")
+        self._register(other, event, "attended")
+
+        html = self._send("send_event_recap", reg, request=None)
+
+        self._assert_plain_ending("en", event, html)
+
+    def test_no_other_attendee_means_no_nudge_to_an_empty_roster(self):
+        for lang in LANGS:
+            with self.subTest(lang=lang):
+                event, html = self._recap(lang, other_status="no_show")
+                self.assertTrue(event.connection_window_active)
+                self._assert_plain_ending(lang, event, html)
+        with self.subTest("nobody else registered at all"):
+            event, html = self._recap("en", other_status=None)
+            self._assert_plain_ending("en", event, html)
+
+    def test_only_blocked_attendees_means_no_nudge(self):
+        for lang in LANGS:
+            with self.subTest(lang=lang):
+                event, html = self._recap(lang, block_other=True)
+                self._assert_plain_ending(lang, event, html)
+
+    def test_negative_control_verified_member_with_a_visible_attendee_is_nudged(self):
+        event, html = self._recap("en")
+        self.assertIn("Who caught your eye?", html)
+        self.assertIn(self._attendees_path("en", event), html)
+
 
 # ---------------------------------------------------------------------------
 # XC-10 (+ XC-20 fragment): waitlist email
@@ -295,7 +386,9 @@ PAID_WAITLIST_MARKER = {
 
 
 class WaitlistEmailTests(_EmailCase):
-    def _waitlist(self, lang, fee):
+    def _waitlist(self, lang, fee, *, already_paid=False):
+        from crush_lu.models import EventRegistration
+
         member = self._member(lang)
         event = self._event(
             start_offset=timedelta(days=5),
@@ -303,7 +396,30 @@ class WaitlistEmailTests(_EmailCase):
             registration_fee=fee,
         )
         reg = self._register(member, event, "waitlist")
+        if already_paid:
+            # What a late cancel leaves on the row; re-registering on a full
+            # event reuses it and lands on the waitlist (views_events).
+            EventRegistration.objects.filter(pk=reg.pk).update(payment_confirmed=True)
+            reg.refresh_from_db()
         return self._send("send_event_waitlist_notification", reg, None)
+
+    def test_waitlister_whose_payment_is_already_held_is_not_asked_to_pay(self):
+        """Promotion confirms such a seat at once (``_admitted_status``), so the
+        original bullet is true for them and the payment bullet is not."""
+        for lang in LANGS:
+            with self.subTest(lang=lang):
+                html = self._waitlist(lang, Decimal("15.50"), already_paid=True)
+                self.assertIn(OLD_WAITLIST_PROMISE[lang], html)
+                self.assertNotIn(PAID_WAITLIST_MARKER[lang], html)
+                self.assertNotIn("15.50", html)
+                self.assertNotIn("15,50", html)
+
+    def test_negative_control_unpaid_waitlister_still_gets_the_payment_bullet(self):
+        for lang in LANGS:
+            with self.subTest(lang=lang):
+                html = self._waitlist(lang, Decimal("15.50"), already_paid=False)
+                self.assertIn(PAID_WAITLIST_MARKER[lang], html)
+                self.assertNotIn(OLD_WAITLIST_PROMISE[lang], html)
 
     def test_paid_event_says_payment_is_needed_to_confirm(self):
         expected = {

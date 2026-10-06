@@ -44,8 +44,8 @@
 <p><strong>{% trans "Don't lose the moment." %}</strong> {% blocktrans %}Connection requests close 48 hours after the event ends, so it's worth taking a minute to respond now.{% endblocktrans %}</p>
 
 <a href="{{ attendees_url }}" class="button">{% trans "See attendees & finish your picks" %}</a>
-{% elif not mutual_match_count and not outgoing_count and not incoming_count and event.connection_window_active %}
-{# No activity yet and the window is still open (the recap goes out 12-24 h before it closes): say where to go and until when, nothing more. #}
+{% elif not mutual_match_count and not outgoing_count and not incoming_count and event.connection_window_active and can_pick_attendees %}
+{# No activity yet, the window is still open (the recap goes out 12-24 h before it closes) and the attendee page will open with someone on it (can_pick_attendees): say where to go and until when, nothing more. #}
 <p><strong>{% trans "Who caught your eye?" %}</strong> {% blocktrans with deadline=event.connection_window_deadline|date:"DATETIME_FORMAT" %}Until {{ deadline }} you can still make your picks from the attendee list.{% endblocktrans %}</p>
 
 <a href="{{ attendees_url }}" class="button">{% trans "View Attendees & Connections" %}</a>

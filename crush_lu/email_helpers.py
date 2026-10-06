@@ -1418,6 +1418,23 @@ def send_event_recap(registration, request=None):
 
     has_action = mutual_match_count > 0 or incoming_count > 0
 
+    # The "make your picks" nudge for a member with no activity yet must lead
+    # somewhere. Mirror what views_connections.event_attendees needs before it
+    # renders a roster: a verified attendee (``can_make_connections`` is False
+    # for a door-rejected or profile-less member, who is bounced off that page)
+    # and at least one other attendee who is neither blocked nor hidden.
+    from .models import EventRegistration
+    from .services.blocking import blocked_user_ids
+    from .services.event_lobby import hidden_encounter_user_ids
+
+    can_pick_attendees = registration.can_make_connections and (
+        EventRegistration.objects.filter(event=event, status="attended")
+        .exclude(user=user)
+        .exclude(user_id__in=blocked_user_ids(user))
+        .exclude(user_id__in=hidden_encounter_user_ids(user))
+        .exists()
+    )
+
     lang = get_user_preferred_language(user=user, request=request, default="en")
 
     attendees_url = get_user_language_url(
@@ -1488,6 +1505,7 @@ def send_event_recap(registration, request=None):
         outgoing_count=outgoing_count,
         incoming_count=incoming_count,
         has_action=has_action,
+        can_pick_attendees=can_pick_attendees,
         attendees_url=attendees_url,
         events_url=events_url,
         lobby_recap_url=lobby_recap_url,
