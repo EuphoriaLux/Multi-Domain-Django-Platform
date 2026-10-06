@@ -28,7 +28,7 @@ from crush_lu.services.credits import (
 from crush_lu.tests.test_crush_credit import FEE, FEE_CENTS, CreditFixture
 
 
-class RestoreExpiryOnCrushSideFailureTests(CreditFixture):
+class _CreditPaidSeatFixture(CreditFixture):
     def setUp(self):
         super().setUp()
         cache.clear()
@@ -74,6 +74,8 @@ class RestoreExpiryOnCrushSideFailureTests(CreditFixture):
     def _fresh_window_start(self):
         return add_months(timezone.now(), 6) - timedelta(minutes=5)
 
+
+class RestoreExpiryOnCrushSideFailureTests(_CreditPaidSeatFixture):
     def test_organiser_cancel_restores_an_already_lapsed_tranche_spendable(self):
         user, seat, payment, _ = self._credit_paid_seat(timedelta(days=-3))
 
@@ -122,3 +124,48 @@ class RestoreExpiryOnCrushSideFailureTests(CreditFixture):
         self.assertEqual(len(issued), 1)
         self.assertEqual(issued[0].reason, CrushCredit.Reason.MEMBER_CANCELLATION)
         self.assertEqual(issued[0].expires_at, original)
+
+
+class CrushSideRemedyEmailCopyTests(_CreditPaidSeatFixture):
+    """The restored credit now gets a fresh window when the original had
+    lapsed, so the emails must not claim it kept its *original* expiry. The
+    per-credit "valid until" lines are the authoritative dates."""
+
+    def _body(self, message):
+        parts = [message.body]
+        parts.extend(content for content, _ in getattr(message, "alternatives", []))
+        return "\n".join(parts)
+
+    def test_organiser_cancel_email_does_not_claim_the_original_expiry(self):
+        from django.core import mail
+
+        from crush_lu.email_helpers import send_event_cancelled_by_organiser
+
+        _, seat, payment, _ = self._credit_paid_seat(timedelta(days=-3))
+        issued = credit_registration_for_cancelled_event(seat, payment=payment)
+        mail.outbox.clear()
+
+        send_event_cancelled_by_organiser(seat, issued)
+
+        self.assertEqual(len(mail.outbox), 1)
+        body = self._body(mail.outbox[0])
+        self.assertNotIn("original expiry dates", body)
+        self.assertIn("valid until", body)
+
+    def test_curated_group_remedy_email_does_not_claim_the_original_expiry(self):
+        from django.core import mail
+
+        from crush_lu.email_helpers import send_curated_group_payment_remedy
+
+        _, seat, payment, _ = self._credit_paid_seat(timedelta(days=-3))
+        issued = credit_registration_for_unavailable_curated_group(
+            seat, payment=payment
+        )
+        mail.outbox.clear()
+
+        send_curated_group_payment_remedy(seat, issued)
+
+        self.assertEqual(len(mail.outbox), 1)
+        body = self._body(mail.outbox[0])
+        self.assertNotIn("original expiry dates", body)
+        self.assertIn("valid until", body)
