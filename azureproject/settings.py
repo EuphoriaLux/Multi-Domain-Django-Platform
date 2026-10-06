@@ -46,9 +46,12 @@ def _env_bool(name, default=False):
     return str(val).lower() in ("1", "true", "yes", "on")
 
 
+# Detect if running under pytest test harness
+IS_TESTING = "pytest" in sys.modules or any("pytest" in arg for arg in sys.argv)
+
 # SECURITY: require SECRET_KEY in production. Allow an explicit dev fallback
 # only when debug is enabled to avoid accidental leakage in production.
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = os.getenv("SECRET_KEY") or ("test-secret-key-for-pytest" if IS_TESTING else None)
 
 # Admin API Key for Azure Function App to trigger management commands
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
@@ -1376,8 +1379,12 @@ POWERUP_DEFAULT_PROFILE_URL = os.getenv(
 # =============================================================================
 # Priority: 1) Azurite (local emulator), 2) Azure Blob Storage, 3) Local filesystem
 
-# Azurite (Azure Storage Emulator) for local development
-AZURITE_MODE = os.environ.get("USE_AZURITE", "false").lower() == "true"
+# Azurite (Azure Storage Emulator) for local development (disabled under test harness)
+AZURITE_MODE = (
+    False
+    if IS_TESTING
+    else os.environ.get("USE_AZURITE", "false").lower() == "true"
+)
 
 if AZURITE_MODE:
     # Azurite well-known development credentials
@@ -1387,7 +1394,7 @@ if AZURITE_MODE:
         "/K1SZFPTOtr/KBHBeksoGMGw=="
     )
     # AZURE_CONTAINER_NAME removed - platform-specific containers in use
-    AZURITE_BLOB_HOST = "127.0.0.1:10000"
+    AZURITE_BLOB_HOST = os.getenv("AZURITE_BLOB_HOST", "127.0.0.1:10000")
 
     # Azurite connection string for azure-storage-blob SDK
     AZURE_CONNECTION_STRING = (
@@ -1776,6 +1783,13 @@ SECURE_CSP_REPORT_ONLY = {
     "frame-ancestors": [CSP.SELF],
     "report-uri": "/csp-report/",
 }
+
+# Allow Azurite media origin in CSP if configured with custom host
+if AZURITE_MODE:
+    azurite_origin = f"http://{AZURITE_BLOB_HOST}"
+    for directive in ("img-src", "media-src"):
+        if azurite_origin not in SECURE_CSP[directive]:
+            SECURE_CSP[directive].append(azurite_origin)
 
 # Django 6.0: Opt into HTTPS as the default protocol for urlize/urlizetrunc
 # This will become the default in Django 7.0

@@ -27,6 +27,12 @@ sys.modules['pywebpush'] = mock_pywebpush
 # This fixes the "SynchronousOnlyOperation" error with live_server
 os.environ.setdefault('DJANGO_ALLOW_ASYNC_UNSAFE', 'true')
 
+# Ensure test environment defaults are set before pytest-django initializes Django
+os.environ.setdefault('SECRET_KEY', 'test-secret-key-for-pytest')
+# Force Azurite emulation OFF for test runs so local .env (USE_AZURITE=true)
+# never causes tests to hit dead emulator ports (127.0.0.1:10000) or Azure SDK retry loops.
+os.environ['USE_AZURITE'] = 'false'
+
 
 def pytest_sessionstart(session):
     """Stop early, with one clear message, when generated assets are missing.
@@ -101,17 +107,25 @@ def pytest_configure(config):
     # settings — blocks a production env var from leaking in.
     os.environ['DJANGO_TASKS_BACKEND'] = 'django.tasks.backends.immediate.ImmediateBackend'
 
+    # Force Azurite storage emulation OFF for test runs so local .env (USE_AZURITE=true)
+    # never causes tests to hit dead emulator ports (127.0.0.1:10000) or Azure SDK retry loops.
+    os.environ['USE_AZURITE'] = 'false'
+
     # Patch staticfiles storage BEFORE Django fully initializes
     # This is needed because ManifestStaticFilesStorage fails without collectstatic
     from django.conf import settings
+    if hasattr(settings, 'AZURITE_MODE'):
+        settings.AZURITE_MODE = False
     if hasattr(settings, 'STORAGES'):
         settings.STORAGES['staticfiles'] = {
             'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'
         }
         # Use local filesystem for media during tests (not Azure Blob)
-        settings.STORAGES['default'] = {
-            'BACKEND': 'django.core.files.storage.FileSystemStorage'
-        }
+        for storage_alias in list(settings.STORAGES.keys()):
+            if storage_alias != 'staticfiles':
+                settings.STORAGES[storage_alias] = {
+                    'BACKEND': 'django.core.files.storage.FileSystemStorage'
+                }
 
     # Force console email backend for tests (no real emails sent)
     settings.EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
