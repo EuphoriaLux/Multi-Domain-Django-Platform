@@ -186,6 +186,7 @@ class ProfilePhotoReviewLogAdmin(admin.ModelAdmin):
         "undone_at",
         "revision_notification_state",
         "exclusion_created",
+        "membership_created",
         "withdrawn_picks",
         "report",
     )

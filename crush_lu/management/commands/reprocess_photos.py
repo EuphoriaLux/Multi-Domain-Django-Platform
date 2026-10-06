@@ -164,11 +164,18 @@ class Command(BaseCommand):
             if carries_attestation:
                 obj.photo_verification_key = field.name
                 update_fields.extend(["photo_verification_key", "photo_verified_at"])
+            review_fields = (
+                "photo_review_status",
+                "photo_review_key",
+                "photo_reviewed_at",
+                "photo_reviewed_by_id",
+                "photo_review_notes",
+            )
             if is_profile:
                 with transaction.atomic():
                     current = (
                         CrushProfile.objects.select_for_update(of=("self",))
-                        .values("pk", field_name, "photo_review_status")
+                        .values("pk", field_name, *review_fields)
                         .get(pk=obj.pk)
                     )
                     if current[field_name] != old_blob_name or (
@@ -187,6 +194,26 @@ class Command(BaseCommand):
                         )
                         stats["skipped"] += 1
                         return
+                    if (
+                        field_name == "photo_1"
+                        and current["photo_review_key"] == old_blob_name
+                        and current["photo_reviewed_at"] is not None
+                    ):
+                        # Same image, new key: carry the coach's decision read
+                        # under this lock, never the iterator's stale copy, so
+                        # CrushProfile.save keeps it instead of re-queueing.
+                        for review_field in review_fields:
+                            setattr(obj, review_field, current[review_field])
+                        obj.photo_review_key = field.name
+                        update_fields.extend(
+                            [
+                                "photo_review_status",
+                                "photo_review_key",
+                                "photo_reviewed_at",
+                                "photo_reviewed_by",
+                                "photo_review_notes",
+                            ]
+                        )
                     obj.save(update_fields=update_fields)
                     if carries_attestation:
                         self._carry_forward_registration_attestation(

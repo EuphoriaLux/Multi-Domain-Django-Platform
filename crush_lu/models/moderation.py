@@ -228,6 +228,9 @@ class ProfilePhotoReviewLog(models.Model):
         max_length=20, blank=True, default="", editable=False
     )
     exclusion_created = models.BooleanField(default=False)
+    # Whether this decision created the Connect membership that carries the
+    # exclusion, so Undo can remove a row the member never started.
+    membership_created = models.BooleanField(default=False)
     withdrawn_picks = models.JSONField(default=list, blank=True)
     report = models.ForeignKey(
         UserReport, null=True, blank=True, on_delete=models.SET_NULL

@@ -142,7 +142,10 @@ def test_negative_moderation_survives_rejection_and_reverification(
     ) == before
     profile.photo_1 = "new.jpg"
     profile.save(update_fields=["photo_1"])
-    assert profile.photo_review_status == "pending"
+    # A new upload answers a revision request, but never lifts a fake flag.
+    assert profile.photo_review_status == (
+        "flagged_fake" if decision == "flagged_fake" else "pending"
+    )
 
 
 def test_undo_retracts_exact_notice_and_sends_correction(safe_side_effects):
@@ -234,6 +237,38 @@ def test_undo_during_send_is_corrected_after_sender_finishes(safe_side_effects):
     assert Notification.objects.get(
         dedupe_key=f"photo-review:{result['log_id']}:revision"
     ).metadata["withdrawn"]
+
+
+@pytest.mark.parametrize("undo_during_send", [False, True])
+def test_undelivered_revision_is_never_retracted(safe_side_effects, undo_during_send):
+    coach, profile = _make_coach(), _make_candidate()
+
+    def failing_delivery(**kwargs):
+        if undo_during_send:
+            undo_last_photo_review(coach, log_id=kwargs["photo_review_log_id"])
+        # notify() raises only before its dedupe claim: nothing was delivered.
+        raise RuntimeError("Rendering failed before the dedupe claim")
+
+    with (
+        patch(
+            "crush_lu.services.photo_review.notify_profile_revision",
+            side_effect=failing_delivery,
+        ),
+        TestCase.captureOnCommitCallbacks(execute=True),
+    ):
+        result = review(coach, profile)
+    log = ProfilePhotoReviewLog.objects.get(pk=result["log_id"])
+    if not undo_during_send:
+        assert log.revision_notification_state == "failed"
+        with TestCase.captureOnCommitCallbacks(execute=True):
+            undo_last_photo_review(coach, log_id=log.pk)
+        log.refresh_from_db()
+    assert log.undone_at is not None
+    assert log.revision_notification_state == "cancelled"
+    assert not Notification.objects.filter(
+        dedupe_key=f"photo-review:{log.pk}:retracted"
+    ).exists()
+    safe_side_effects.assert_not_called()
 
 
 @pytest.mark.parametrize("decision", ["needs_revision", "flagged_fake"])

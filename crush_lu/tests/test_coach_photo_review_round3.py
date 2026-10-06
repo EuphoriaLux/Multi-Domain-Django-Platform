@@ -36,6 +36,22 @@ def test_cursor_reaches_profiles_beyond_unreviewed_initial_batch():
     assert not get_photo_review_queue(coach, cursor=second[-1]["queue_cursor"])[0]
 
 
+def test_profile_edit_between_pages_does_not_hide_a_card():
+    coach = _make_coach()
+    profiles = [_make_candidate(username=f"queued_{i}") for i in range(35)]
+    first, total = get_photo_review_queue(coach, limit=30)
+    assert total == 35
+    seen = {card["id"] for card in first}
+    unseen = next(profile for profile in profiles if profile.pk not in seen)
+    # Any member save bumps the auto_now updated_at mid-session.
+    unseen.bio = "Edited while the coach was reviewing page one"
+    unseen.save()
+    second, _ = get_photo_review_queue(
+        coach, limit=30, cursor=first[-1]["queue_cursor"]
+    )
+    assert {card["id"] for card in first + second} == {p.pk for p in profiles}
+
+
 def test_queue_refuses_tampered_cursor():
     coach = _make_coach()
     client = Client()
@@ -94,3 +110,33 @@ def test_reprocessing_does_not_clear_negative_moderation(
     assert bool(calls) == during_processing
     assert storage.exists(old_key)
     assert len(list(tmp_path.rglob("*.jpg"))) == 1
+
+
+def test_reprocessing_carries_coach_approval_to_processed_key(tmp_path, monkeypatch):
+    from crush_lu.management.commands.reprocess_photos import Command
+
+    storage = FileSystemStorage(location=tmp_path)
+    monkeypatch.setattr(CrushProfile._meta.get_field("photo_1"), "storage", storage)
+    coach, profile = _make_coach(), _make_candidate(has_photo=False)
+    profile.photo_1.save("original.jpg", ContentFile(b"original" * 1000), save=True)
+    old_key = profile.photo_1.name
+    # The backfill iterates instances that may predate the approval.
+    stale = CrushProfile.objects.get(pk=profile.pk)
+    submit_photo_review(coach, profile.pk, "approved", photo_key=old_key)
+    profile.refresh_from_db()
+    approved = (profile.photo_reviewed_at, profile.photo_reviewed_by_id)
+    monkeypatch.setattr(
+        "crush_lu.management.commands.reprocess_photos.process_uploaded_image",
+        lambda *args: ContentFile(b"small", name="processed.jpg"),
+    )
+    stats = {"processed": 0, "skipped": 0, "errors": 0}
+    with TestCase.captureOnCommitCallbacks(execute=True):
+        Command()._process_photo(stale, "photo_1", stale.photo_1, False, stats)
+    profile.refresh_from_db()
+    assert stats == {"processed": 1, "skipped": 0, "errors": 0}
+    assert profile.photo_1.name != old_key
+    assert profile.photo_review_status == "approved"
+    assert profile.photo_review_key == profile.photo_1.name
+    assert (profile.photo_reviewed_at, profile.photo_reviewed_by_id) == approved
+    assert profile.is_photo_review_approved
+    assert not storage.exists(old_key)

@@ -110,6 +110,17 @@ def _user_passes_pre_onboarding_gate(user) -> bool:
     return profile.is_connect_identity_verified
 
 
+def _photo_flagged_fake(user) -> bool:
+    """A coach flagged this member's photo as fake.
+
+    Treated as a coach exclusion even if an admin later lifts
+    ``excluded_by_coach``: the catalogue keeps hiding the member, so a gate
+    that let them onboard (or asked for a new photo) would only mislead them.
+    """
+    profile = getattr(user, "crushprofile", None)
+    return profile is not None and profile.photo_review_status == "flagged_fake"
+
+
 def _hub_access_blocker(user):
     """Gate for the Crush Connect hub.
 
@@ -126,6 +137,8 @@ def _hub_access_blocker(user):
 
     membership = getattr(user, "crush_connect_membership", None)
     if membership is not None and membership.excluded_by_coach:
+        return redirect("crush_lu:crush_connect_teaser")
+    if _photo_flagged_fake(user):
         return redirect("crush_lu:crush_connect_teaser")
 
     if membership is None or membership.onboarded_at is None:
@@ -202,7 +215,11 @@ def _connect_readiness(user):
     identity_verified = bool(profile and profile.is_connect_identity_verified)
     event_verified = bool(profile and profile.has_attended_event)
     photo_needs_revision = bool(profile and profile.photo_review_status == "needs_revision")
-    has_photo = bool(profile and profile.photo_1 and not photo_needs_revision)
+    # A fake flag also leaves the step open, but never prompts a photo swap.
+    photo_moderated = photo_needs_revision or bool(
+        profile and profile.photo_review_status == "flagged_fake"
+    )
+    has_photo = bool(profile and profile.photo_1 and not photo_moderated)
     has_photo_consent = bool(membership and membership.photo_share_consent)
     is_onboarded = bool(membership and membership.is_onboarded)
     has_questions = bool(membership and membership.has_gate_questions)
@@ -325,6 +342,10 @@ def _onboarding_gate(request):
     # LuxID gate, so the gate only ever guards NEW opt-ins / data collection.
     # Read the membership without creating one for an ineligible user.
     existing = getattr(user, "crush_connect_membership", None)
+    if _photo_flagged_fake(user):
+        # Same bounce as a coach exclusion, never the photo prompt below:
+        # inviting a new upload would only invite laundering the flag.
+        return redirect("crush_lu:crush_connect_teaser"), existing, done_url
     if existing is not None:
         if existing.excluded_by_coach:
             return redirect("crush_lu:crush_connect_teaser"), existing, done_url
@@ -805,7 +826,8 @@ def crush_connect_catalogue_status(request):
         return redirect("crush_lu:crush_connect_teaser")
 
     membership = getattr(user, "crush_connect_membership", None)
-    if membership is not None and membership.excluded_by_coach:
+    excluded = membership is not None and membership.excluded_by_coach
+    if excluded or _photo_flagged_fake(user):
         return redirect("crush_lu:crush_connect_teaser")
     if membership is not None and membership.is_paused:
         return redirect("crush_lu:crush_connect_hub")

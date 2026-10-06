@@ -42,7 +42,8 @@ def coach_photo_review_deck(request):
 @require_POST
 def coach_photo_review_decide(request):
     """
-    Submit a swipe decision (approve, flag fake, request revision, skip).
+    Submit a swipe decision (approve, flag fake, request revision).
+    Skipping is client-side only and never reaches this endpoint.
     Accepts JSON body or multipart/form-data.
     """
     try:

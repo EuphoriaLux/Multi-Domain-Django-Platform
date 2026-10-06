@@ -145,21 +145,19 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40, *, cursor=""):
             default=Value(1),
             output_field=models.IntegerField(),
         ),
-    ).order_by("-priority", "-updated_at", "-id")
+    )
+    # Keyset on immutable keys only: an auto_now updated_at would move a card
+    # behind the cursor whenever its member edits their profile mid-session.
+    annotated_qs = annotated_qs.order_by("-priority", "-id")
 
     if cursor:
         try:
             position = signing.loads(cursor, salt="coach-photo-queue", max_age=86400)
-            stamp = parse_datetime(position["updated_at"])
-            priority, profile_id = position["priority"], position["id"]
-            if stamp is None:
-                raise ValueError
+            priority, profile_id = int(position["priority"]), int(position["id"])
         except (signing.BadSignature, KeyError, TypeError, ValueError):
             raise PhotoReviewError(_("Invalid request payload"), 400) from None
         annotated_qs = annotated_qs.filter(
-            Q(priority__lt=priority)
-            | Q(priority=priority, updated_at__lt=stamp)
-            | Q(priority=priority, updated_at=stamp, pk__lt=profile_id)
+            Q(priority__lt=priority) | Q(priority=priority, pk__lt=profile_id)
         )
     profiles = list(annotated_qs[:limit])
     cards = []
@@ -285,11 +283,7 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40, *, cursor=""):
             {
                 "id": p.id,
                 "queue_cursor": signing.dumps(
-                    {
-                        "priority": p.priority,
-                        "updated_at": p.updated_at.isoformat(),
-                        "id": p.pk,
-                    },
+                    {"priority": p.priority, "id": p.pk},
                     salt="coach-photo-queue",
                 ),
                 "user_id": p.user.id,
@@ -424,6 +418,7 @@ def _send_revision_and_reconcile(profile, reason, notes, request, log_id):
         profile__photo_review_status="needs_revision",
     ).update(revision_notification_state="sending"):
         return
+    delivered = False
     try:
         with override(profile.preferred_language or "en"):
             feedback = {
@@ -447,16 +442,25 @@ def _send_revision_and_reconcile(profile, reason, notes, request, log_id):
                 request=request,
                 photo_review_log_id=log_id,
             )
+        delivered = True
     except Exception:
         logger.exception(
             "Failed to send photo revision notification to user %s", profile.user_id
         )
     finally:
-        sent = ProfilePhotoReviewLog.objects.filter(
+        # notify() raises only before its dedupe claim, so a raise means the
+        # member received nothing: never "withdraw" a request never delivered.
+        settled = ProfilePhotoReviewLog.objects.filter(
             pk=log_id, revision_notification_state="sending"
-        ).update(revision_notification_state="sent")
-        if not sent:
-            _retract_revision_safely(log_id, request)
+        ).update(revision_notification_state="sent" if delivered else "failed")
+        if not settled:
+            # Undo moved the state to retract_pending while this was in flight.
+            if delivered:
+                _retract_revision_safely(log_id, request)
+            else:
+                ProfilePhotoReviewLog.objects.filter(
+                    pk=log_id, revision_notification_state="retract_pending"
+                ).update(revision_notification_state="cancelled")
 
 
 def submit_photo_review(
@@ -471,7 +475,12 @@ def submit_photo_review(
     photo_field: str = "photo_1",
 ):
     """Claim one pending, exact-photo decision; notify only after commit."""
-    if decision not in dict(ProfilePhotoReviewLog.DECISION_CHOICES):
+    # "skipped" stays a valid stored choice for old rows, but the deck skips
+    # client-side: a skip changes no state, so it must not pad the audit log.
+    if (
+        decision not in dict(ProfilePhotoReviewLog.DECISION_CHOICES)
+        or decision == "skipped"
+    ):
         raise PhotoReviewError(_("Invalid photo review decision."), 400)
     if reason and reason not in dict(ProfilePhotoReviewLog.REASON_CHOICES):
         raise PhotoReviewError(_("Invalid photo review reason."), 400)
@@ -481,7 +490,6 @@ def submit_photo_review(
         "approved": {"", "clear_authentic"},
         "flagged_fake": {"fake_profile"},
         "needs_revision": {"inappropriate", "unclear_face", "group_photo", "other"},
-        "skipped": {""},
     }
     if reason not in allowed_reasons[decision]:
         raise PhotoReviewError(_("Invalid photo review reason."), 400)
@@ -521,24 +529,23 @@ def submit_photo_review(
                 _("This photo has already been reviewed. Reload the queue.")
             )
         now = timezone.now()
-        if decision != "skipped":
-            # The conditional UPDATE also protects the file key at the write boundary.
-            claimed = CrushProfile.objects.filter(
-                pk=profile.pk,
-                photo_1=photo_key,
-                photo_review_status="pending",
-            ).update(
-                photo_review_status=decision,
-                photo_review_key=photo_key,
-                photo_reviewed_at=now,
-                photo_reviewed_by=coach,
-                photo_review_notes=notes,
+        # The conditional UPDATE also protects the file key at the write boundary.
+        claimed = CrushProfile.objects.filter(
+            pk=profile.pk,
+            photo_1=photo_key,
+            photo_review_status="pending",
+        ).update(
+            photo_review_status=decision,
+            photo_review_key=photo_key,
+            photo_reviewed_at=now,
+            photo_reviewed_by=coach,
+            photo_review_notes=notes,
+        )
+        if not claimed:
+            raise PhotoReviewError(
+                _("This member's photo changed. Reload and check the new one.")
             )
-            if not claimed:
-                raise PhotoReviewError(
-                    _("This member's photo changed. Reload and check the new one.")
-                )
-            profile.refresh_from_db()
+        profile.refresh_from_db()
         log = ProfilePhotoReviewLog.objects.create(
             profile=profile,
             coach=coach,
@@ -550,8 +557,8 @@ def submit_photo_review(
             decision_at=now,
         )
         if decision == "flagged_fake":
-            membership, _created = CrushConnectMembership.objects.get_or_create(
-                user=profile.user
+            membership, log.membership_created = (
+                CrushConnectMembership.objects.get_or_create(user=profile.user)
             )
             membership = CrushConnectMembership.objects.select_for_update().get(
                 pk=membership.pk
@@ -608,7 +615,14 @@ def submit_photo_review(
                 handled_at=now,
                 resolution_notes=f"Photo review #{log.pk}: excluded from Connect.",
             )
-            log.save(update_fields=["exclusion_created", "report", "withdrawn_picks"])
+            log.save(
+                update_fields=[
+                    "exclusion_created",
+                    "membership_created",
+                    "report",
+                    "withdrawn_picks",
+                ]
+            )
         elif decision == "needs_revision":
             transaction.on_commit(
                 lambda: _notify_revision_safely(profile, reason, notes, request, log.pk)
@@ -681,18 +695,27 @@ def undo_last_photo_review(coach: CrushCoach, *, log_id=None, request=None):
                 raise PhotoReviewError(
                     _("This review is no longer current and cannot be undone.")
                 )
-            membership.excluded_by_coach = False
-            membership.excluded_at = None
-            membership.excluded_by = None
-            membership.exclusion_reason = ""
-            membership.save(
-                update_fields=[
-                    "excluded_by_coach",
-                    "excluded_at",
-                    "excluded_by",
-                    "exclusion_reason",
-                ]
-            )
+            if (
+                log.membership_created
+                and membership.onboarding_started_at is None
+                and membership.onboarded_at is None
+            ):
+                # The flag created this row only to carry the exclusion;
+                # never leave a Connect membership the member did not start.
+                membership.delete()
+            else:
+                membership.excluded_by_coach = False
+                membership.excluded_at = None
+                membership.excluded_by = None
+                membership.exclusion_reason = ""
+                membership.save(
+                    update_fields=[
+                        "excluded_by_coach",
+                        "excluded_at",
+                        "excluded_by",
+                        "exclusion_reason",
+                    ]
+                )
         CrushProfile.objects.filter(pk=profile.pk, photo_1=log.photo_key).update(
             photo_review_status="pending",
             photo_review_key="",
@@ -700,7 +723,7 @@ def undo_last_photo_review(coach: CrushCoach, *, log_id=None, request=None):
             photo_reviewed_by=None,
             photo_review_notes="",
         )
-        withdrawn_pick_ids = [item["id"] for item in log.withdrawn_picks]
+        restored_picks = skipped_picks = 0
         for snapshot in log.withdrawn_picks:
             pick = (
                 ConnectCoachPick.objects.select_for_update(of=("self",))
@@ -717,6 +740,7 @@ def undo_last_photo_review(coach: CrushCoach, *, log_id=None, request=None):
                 .first()
             )
             if not pick:
+                skipped_picks += 1
                 continue
             consenting = (
                 UserDataConsent.objects.filter(
@@ -734,13 +758,24 @@ def undo_last_photo_review(coach: CrushCoach, *, log_id=None, request=None):
                 or not is_catalogue_eligible(pick.candidate)
                 or is_blocked_pair(pick.member, pick.candidate)
                 or ConnectPairExclusion.are_excluded(pick.member, pick.candidate)
+                # Only a pick made after this decision supersedes the restore;
+                # one the member already held alongside it is pre-flag state.
                 or ConnectCoachPick.objects.filter(
-                    member_id=pick.member_id, status__in=["proposed", "accepted"]
+                    member_id=pick.member_id,
+                    status__in=["proposed", "accepted"],
+                    created_at__gte=log.decision_at,
+                ).exists()
+                # A member never holds two open proposals at once.
+                or (
+                    snapshot["status"] == "proposed"
+                    and ConnectCoachPick.objects.filter(
+                        member_id=pick.member_id, status="proposed"
+                    ).exists()
                 )
-                .exclude(pk__in=withdrawn_pick_ids)
-                .exists()
             ):
+                skipped_picks += 1
                 continue
+            restored_picks += 1
             ConnectCoachPick.objects.filter(
                 pk=pick.pk, status="withdrawn", responded_at=log.decision_at
             ).update(
@@ -753,6 +788,7 @@ def undo_last_photo_review(coach: CrushCoach, *, log_id=None, request=None):
             )
         log.undone_at = timezone.now()
         if log.decision == "needs_revision":
+            # "", "failed": nothing reached the member, so nothing to retract.
             state = log.revision_notification_state
             log.revision_notification_state = (
                 "retract_pending" if state in ("sending", "sent") else "cancelled"
@@ -772,4 +808,6 @@ def undo_last_photo_review(coach: CrushCoach, *, log_id=None, request=None):
             "undone_decision": log.decision,
             "profile_id": profile.pk,
             "restored_status": "pending",
+            "restored_picks": restored_picks,
+            "skipped_picks": skipped_picks,
         }

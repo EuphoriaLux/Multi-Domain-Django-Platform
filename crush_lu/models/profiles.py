@@ -1414,7 +1414,17 @@ class CrushProfile(models.Model):
                         self.photo_verified_at = None
 
                     # Reset online coach photo review on photo change unless carrying forward
-                    if (
+                    if old_instance.photo_review_status == "flagged_fake":
+                        # A fake-profile flag judges the member, not one file:
+                        # a new upload must not launder it back into the
+                        # queue. Only the stale key goes; lifting the flag
+                        # stays an explicit coach or admin decision.
+                        self.photo_review_status = "flagged_fake"
+                        self.photo_review_key = ""
+                        self.photo_reviewed_at = old_instance.photo_reviewed_at
+                        self.photo_reviewed_by_id = old_instance.photo_reviewed_by_id
+                        self.photo_review_notes = old_instance.photo_review_notes
+                    elif (
                         old_photo_key
                         and old_instance.photo_review_key == old_photo_key
                         and self.photo_review_key == new_photo_key

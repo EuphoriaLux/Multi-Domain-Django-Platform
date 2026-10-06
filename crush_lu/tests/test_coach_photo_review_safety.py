@@ -351,9 +351,106 @@ def test_undo_does_not_revive_picks_superseded_by_safety_or_new_proposal(later_a
         ConnectCoachPick.objects.create(
             coach=coach, member=pick.member, candidate=candidate.user
         )
-    undo_last_photo_review(coach)
+    result = undo_last_photo_review(coach)
     pick.refresh_from_db()
     assert pick.status == "withdrawn"
+    assert (result["restored_picks"], result["skipped_picks"]) == (0, 1)
+
+
+def test_undo_restores_proposal_held_alongside_earlier_accepted_pick():
+    coach, profile = _make_coach(), _make_candidate()
+    pick = _make_pick(coach, profile)
+    earlier = ConnectCoachPick.objects.create(
+        coach=coach,
+        member=pick.member,
+        candidate=_make_candidate("earlier_match").user,
+        status="accepted",
+        responded_at=timezone.now(),
+    )
+    result = _review(coach, profile, "flagged_fake")
+    undone = undo_last_photo_review(coach, log_id=result["log_id"])
+    pick.refresh_from_db()
+    earlier.refresh_from_db()
+    assert pick.status == "proposed"
+    assert earlier.status == "accepted"
+    assert (undone["restored_picks"], undone["skipped_picks"]) == (1, 0)
+
+
+def test_undo_removes_only_the_membership_its_flag_created():
+    coach = _make_coach()
+    outsider = _make_candidate("never_joined", onboarded=False)
+    member = _make_candidate("connect_member")
+    for profile in (outsider, member):
+        _review(coach, profile, "flagged_fake")
+        assert CrushConnectMembership.objects.get(user=profile.user).excluded_by_coach
+        undo_last_photo_review(coach)
+    assert not CrushConnectMembership.objects.filter(user=outsider.user).exists()
+    membership = CrushConnectMembership.objects.get(user=member.user)
+    assert membership.onboarded_at is not None
+    assert not membership.excluded_by_coach
+    assert not membership.exclusion_reason
+
+
+@pytest.mark.parametrize("save_kind", ["update_fields", "full_row", "stale_instance"])
+def test_new_photo_does_not_launder_fake_flag(save_kind):
+    from crush_lu.tests.test_photo_access import _attend, _event
+    from crush_lu.views_media import can_view_profile_photo
+
+    coach, profile = _make_coach(), _make_candidate()
+    attendee = _make_candidate("co_attendee")
+    event = _event(ended_hours_ago=1)
+    _attend(profile.user, event)
+    _attend(attendee.user, event)
+    assert can_view_profile_photo(attendee.user, profile)
+    stale = CrushProfile.objects.get(pk=profile.pk)
+    _review(coach, profile, "flagged_fake", notes="Stock image")
+    profile.refresh_from_db()
+    flagged = (profile.photo_reviewed_at, profile.photo_reviewed_by_id)
+    target = stale if save_kind == "stale_instance" else profile
+    target.photo_1 = "users/1/photos/innocent.jpg"
+    if save_kind == "update_fields":
+        target.save(update_fields=["photo_1"])
+    else:
+        target.save()
+    profile.refresh_from_db()
+    assert profile.photo_1.name == "users/1/photos/innocent.jpg"
+    assert profile.photo_review_status == "flagged_fake"
+    assert profile.photo_review_key == ""
+    assert (profile.photo_reviewed_at, profile.photo_reviewed_by_id) == flagged
+    assert profile.photo_review_notes == "Stock image"
+    assert not profile.is_photo_review_approved
+    cards, _ = get_photo_review_queue(_make_coach("second_coach"))
+    assert profile.pk not in {card["id"] for card in cards}
+    assert not can_view_profile_photo(attendee.user, profile)
+
+
+@pytest.mark.parametrize("onboarded", [False, True])
+def test_lifted_exclusion_keeps_fake_flag_out_of_connect(client, settings, onboarded):
+    from crush_lu.tests.test_crush_connect import _login_eligible, _make_user
+    from crush_lu.views_crush_connect import _connect_readiness
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    teaser = "/en/crush-connect/"
+    gated = (
+        "/en/crush-connect/onboarding/",
+        "/en/crush-connect/home/",
+        "/en/crush-connect/catalogue/",
+    )
+    me = _make_user(username="flagged_member", onboarded=onboarded)
+    _login_eligible(client, me)
+    assert all(client.get(url).get("Location") != teaser for url in gated)
+    # A coach flagged the photo; an admin later lifted only the exclusion.
+    CrushProfile.objects.filter(user=me).update(photo_review_status="flagged_fake")
+    assert not CrushConnectMembership.objects.get(user=me).excluded_by_coach
+    for url in gated:
+        response = client.get(url)
+        assert response.status_code == 302
+        assert response["Location"] == teaser
+    # The teaser must not send the member back into a gate (no redirect loop).
+    assert client.get(teaser).status_code == 200
+    fresh = type(me).objects.get(pk=me.pk)
+    steps = {step["key"]: step for step in _connect_readiness(fresh)["steps"]}
+    assert not steps["photo"]["complete"]
 
 
 def test_undo_refuses_exclusion_superseded_by_other_coach():
@@ -402,6 +499,8 @@ def test_revision_rollback_sends_no_notification(isolate_review_side_effects):
         {"decision": None},
         {"reason": "unknown"},
         {"photo_key": ""},
+        # The deck skips client-side; a posted skip would only pad the audit.
+        {"decision": "skipped"},
     ],
 )
 def test_invalid_payload_is_safe_400(payload):
