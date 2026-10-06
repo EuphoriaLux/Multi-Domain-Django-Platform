@@ -7,8 +7,10 @@ cases, and the hourly reconciliation tick then sends the member notice and
 staff alert (retry_unsent_notifications). Idempotent: one case per payment.
 
 A capture counts as unapplied when its membership never confirmed a payment
-(``payment_confirmed`` is False), or when the membership did but this is not
-its earliest capture (a duplicate). Rows with no membership are listed too.
+(``payment_confirmed`` is False); when staff confirmed the membership by hand
+(``confirmed_by`` set: the SumUp path never sets it, so no capture was the
+applied one); or when the membership confirmed a payment but this is not its
+earliest capture (a duplicate). Rows with no membership are listed too.
 Spec: ai-memory-hub/specs/2026-09-13-crush-premium-payment-recovery.md
 """
 
@@ -45,6 +47,9 @@ def unapplied_captures():
             yield payment, premium_recovery.reason_for_membership_status(
                 membership.status
             )
+            continue
+        if membership.confirmed_by_id:
+            yield payment, Reason.DUPLICATE_CAPTURE
             continue
         earliest = (
             PaymentTransaction.objects.filter(

@@ -654,6 +654,44 @@ class CaseLifecycleTests(_Base):
         self.assertEqual(len(alerts), 1)
         self.assertIn("Member unknown", alerts[0].body)
 
+    def test_member_unknown_case_leaves_the_staff_opener_s_checkouts(self):
+        from unittest.mock import MagicMock
+
+        from crush_lu.services.premium_recovery import notify_safely
+
+        staff = User.objects.create_user(
+            username="rec-staff3@example.invalid",
+            email="rec-staff3@example.invalid",
+            password="pass12345",
+            is_staff=True,
+        )
+        tx = self._tx("REC-UNKNOWN-SCOPE", status=PaymentTransaction.Status.PAID)
+        PaymentTransaction.objects.filter(pk=tx.pk).update(user=staff)
+        self._unlink_and_delete_membership()
+        staff_membership = PremiumMembership.objects.create(
+            user=staff, coach=self.coach, status="cancelled"
+        )
+        staff_checkout = PaymentTransaction.objects.create(
+            transaction_reference="REC-STAFF-OWN",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_REC-STAFF-OWN",
+            amount=Decimal("10.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+            user=staff,
+            premium_membership=staff_membership,
+        )
+        case = PremiumPaymentRecoveryCase.objects.create(
+            payment=tx, user=staff, reason=Reason.OTHER
+        )
+        client = MagicMock()
+        with patch("crush_lu.views_payments.SumUpClient", return_value=client):
+            notify_safely(case.pk)
+        client.deactivate_checkout.assert_not_called()
+        staff_checkout.refresh_from_db()
+        self.assertEqual(staff_checkout.status, PaymentTransaction.Status.PENDING)
+
     def test_member_unknown_case_takes_no_retry_slot(self):
         from datetime import timedelta
 
@@ -707,6 +745,17 @@ class CaseLifecycleTests(_Base):
             merge_accounts(keeper, self.member)
         self.member.refresh_from_db()
         self.assertTrue(self.member.is_active)
+
+    def test_backfill_flags_a_capture_after_staff_confirmation(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        self.membership.confirm(by_user=self.coach.user)
+        late = self._tx("REC-AFTER-STAFF", status=PaymentTransaction.Status.PAID)
+        call_command("backfill_premium_recovery_cases", "--apply", stdout=StringIO())
+        case = PremiumPaymentRecoveryCase.objects.get(payment=late)
+        self.assertEqual(case.reason, Reason.DUPLICATE_CAPTURE)
 
     def test_merge_refuses_a_duplicate_with_a_payable_checkout(self):
         from crush_lu.services.account_merge import merge_accounts
@@ -1537,6 +1586,22 @@ class NotificationRetryTests(_Base):
         claim = src.index('select_for_update(skip_locked=True, of=("self",))')
         self.assertLess(claim, src.index("case.member_notified_at is None"))
         self.assertLess(claim, src.index("case.staff_alerted_at is None"))
+
+    def test_retry_closes_checkouts_outside_the_claim_in_pk_order(self):
+        from crush_lu.services import premium_recovery
+
+        src = inspect.getsource(premium_recovery.retry_unsent_notifications)
+        # No payment lock may be held under the case claim (deadlock with an
+        # overlapping tick or a merge, which locks payments by PK).
+        self.assertLess(
+            src.index("_close_sibling_checkouts_safely(case)"),
+            src.index("with transaction.atomic():"),
+        )
+        scope = inspect.getsource(premium_recovery._close_sibling_checkouts_safely)
+        self.assertLess(
+            scope.index("memberships.sort(key=lambda m: m.pk)"),
+            scope.index("close_open_checkouts_safely("),
+        )
 
     def test_retry_skips_a_case_still_settling(self):
         from crush_lu.services.premium_recovery import retry_unsent_notifications

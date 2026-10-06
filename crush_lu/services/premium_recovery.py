@@ -194,7 +194,9 @@ def _close_sibling_checkouts_safely(case):
             premium_membership=m, status=PaymentTransaction.Status.PENDING
         ).exists()
     ]
-    if case.user_id:
+    # A member-unknown case is filed under the staff opener, whose own
+    # memberships have nothing to do with this payment.
+    if case.user_id and not _member_unknown(case):
         others = PremiumMembership.objects.filter(
             user_id=case.user_id,
             payment_transactions__status=PaymentTransaction.Status.PENDING,
@@ -209,6 +211,8 @@ def _close_sibling_checkouts_safely(case):
         # membership first and at most REQUEST_CLOSE_LIMIT in all; the hourly
         # retry closes the rest, as the open case still has open checkouts.
         memberships = memberships[:REQUEST_CLOSE_LIMIT]
+    # PK order: every caller locks payments -> membership in the same order.
+    memberships.sort(key=lambda m: m.pk)
     close_open_checkouts_safely(memberships, f"recovery case {case.pk}")
 
 
@@ -346,6 +350,17 @@ def retry_unsent_notifications(budget_seconds, limit=5, settle_minutes=10):
             # Nothing per case is cheaper than a send.
             if not _fits(SEND_SECONDS):
                 break
+            case = (
+                Case.objects.select_related("payment", "user", "premium_membership")
+                .filter(pk=pk)
+                .first()
+            )
+            if case is None:
+                continue
+            # Outside the claim below: closing is idempotent, and holding the
+            # case lock across several memberships' payment locks could
+            # deadlock an overlapping tick or an account merge.
+            _close_sibling_checkouts_safely(case)
             with transaction.atomic():
                 # Claim: an overlapping tick skips a case another run holds,
                 # and the timestamps are re-read under the lock, so no double
@@ -361,7 +376,6 @@ def retry_unsent_notifications(budget_seconds, limit=5, settle_minutes=10):
                 if case is None:
                     continue
                 sent += 1
-                _close_sibling_checkouts_safely(case)
                 if case.status != Case.Status.OPEN:
                     continue
                 if case.member_notified_at is None:
@@ -401,6 +415,7 @@ def _close_checkouts_beside_a_capture(limit, settle_minutes):
             Exists(payments(PaymentTransaction.Status.PENDING, created_at__lte=cutoff)),
         ).order_by("?")[:limit]
     )
+    memberships.sort(key=lambda m: m.pk)
     close_open_checkouts_safely(
         memberships, "memberships whose checkouts must not stay payable"
     )
