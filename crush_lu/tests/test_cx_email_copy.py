@@ -29,6 +29,10 @@ Review follow-up (automated review, three P2 findings, each checked in code):
   the registration already carries a payment (a late canceller who re-registers
   keeps ``payment_confirmed``; promotion confirms that seat straight away).
 
+* the quiz-night basics are shown only when the event has a QuizEvent with a
+  table count: without one the Join Quiz page 404s and check-in assigns no
+  table, so the copy would promise something the member cannot get.
+
 Run with: pytest crush_lu/tests/test_cx_email_copy.py -v
 """
 
@@ -520,9 +524,24 @@ QUIZ_SENDERS = ("send_event_registration_confirmation", "send_event_reminder")
 
 
 class QuizNightEmailTests(_EmailCase):
-    def _mail(self, sender_name, lang, event_type):
+    def _mail(self, sender_name, lang, event_type, *, quiz_tables=4):
+        """Render ``sender_name`` for a confirmed guest.
+
+        ``quiz_tables``: ``None`` means the quiz_night event has no QuizEvent
+        row at all (an explicitly supported state); ``0`` is a QuizEvent whose
+        table count was never set; a positive number is a configured quiz.
+        Only quiz_night events get a QuizEvent.
+        """
+        from crush_lu.models.quiz import QuizEvent
+
         member = self._member(lang)
         event = self._event(start_offset=timedelta(days=2), event_type=event_type)
+        if event_type == "quiz_night" and quiz_tables is not None:
+            QuizEvent.objects.create(
+                event=event,
+                created_by=member,
+                num_tables=quiz_tables or None,
+            )
         reg = self._register(member, event, "confirmed")
         return self._send(sender_name, reg, request=None)
 
@@ -549,6 +568,26 @@ class QuizNightEmailTests(_EmailCase):
                     self.assertNotIn(self._t(lang, "Join Quiz"), html)
                     # ...and the rest of the email is still there.
                     self.assertIn(self._t(lang, "Arrive 10-15 minutes early"), html)
+
+    def test_no_quiz_block_until_a_quiz_with_tables_is_configured(self):
+        """The block promises a table number and a Join Quiz button.
+
+        Both need a QuizEvent: ``quiz_live_view`` 404s without one, and
+        check-in only assigns a table when ``num_tables`` is set. A quiz_night
+        event with no QuizEvent, or one with a blank table count, must not
+        make that promise.
+        """
+        for sender in QUIZ_SENDERS:
+            for lang in LANGS:
+                for label, tables in (("no QuizEvent", None), ("blank tables", 0)):
+                    with self.subTest(sender=sender, lang=lang, setup=label):
+                        html = self._mail(
+                            sender, lang, "quiz_night", quiz_tables=tables
+                        )
+                        self.assertNotIn(QUIZ_BASICS[lang], html)
+                        self.assertNotIn(self._t(lang, "Join Quiz"), html)
+                        # ...and the rest of the email is still there.
+                        self.assertIn(self._t(lang, "Arrive 10-15 minutes early"), html)
 
     def test_existing_what_to_bring_list_is_untouched_for_quiz_night(self):
         html = self._mail("send_event_registration_confirmation", "en", "quiz_night")
