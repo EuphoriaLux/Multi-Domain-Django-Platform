@@ -9,6 +9,7 @@ Only active on the Crush.lu domain (checks request.urlconf).
 """
 
 import logging
+from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 
@@ -77,15 +78,39 @@ class CrushConsentMiddleware:
         "/csp-report/",
     ]
 
+    API_BAN_EXEMPT_PATHS = (
+        "/api/admin/",
+        "/api/analytics/",
+        "/api/mobile/",
+        "/api/csrf-token/",
+        "/api/push/vapid-public-key/",
+        "/api/webhooks/",
+    )
+
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        # Early exit for exempt paths - avoids triggering request.user.is_authenticated
-        # which opens a DB connection. Critical for media/static/CSP paths that don't
-        # need auth checks and would otherwise exhaust the connection pool.
-        if self.is_on_crush_domain(request) and self._is_exempt_path(request.path):
-            return self.get_response(request)
+        if self.is_on_crush_domain(request):
+            path = self._strip_language_prefix(request.path)
+            if path.startswith("/api/"):
+                if (
+                    not self._is_api_ban_exempt_path(path)
+                    and request.user.is_authenticated
+                    and self.is_banned(request.user)
+                ):
+                    logger.info(
+                        "Banned user %s denied API request to %s",
+                        request.user.id,
+                        request.path,
+                    )
+                    return JsonResponse({"error": "banned"}, status=403)
+                return self.get_response(request)
+
+            # Exempt non-API paths without triggering request.user.is_authenticated
+            # and a database connection. This is critical for static, media and CSP.
+            if self._is_exempt_path(path):
+                return self.get_response(request)
 
         # A checkout retirement can temporarily pause profile deletion after
         # committing a payment-blocking tombstone.  Let that member resume
@@ -150,11 +175,7 @@ class CrushConsentMiddleware:
         Check if path is exempt from DB-requiring middleware checks.
         Strips language prefix before matching against EXEMPT_PATHS.
         """
-        # Strip language prefix for consistent matching
-        for lang_prefix in ["/en/", "/fr/", "/de/"]:
-            if path.startswith(lang_prefix):
-                path = "/" + path[len(lang_prefix) :]
-                break
+        path = self._strip_language_prefix(path)
 
         # Check against exempt paths
         for exempt_path in self.EXEMPT_PATHS:
@@ -164,6 +185,18 @@ class CrushConsentMiddleware:
         # Root path is always exempt
         return path == "/"
 
+    def _strip_language_prefix(self, path):
+        for lang_prefix in ["/en/", "/fr/", "/de/"]:
+            if path.startswith(lang_prefix):
+                return "/" + path[len(lang_prefix) :]
+        return path
+
+    def _is_api_ban_exempt_path(self, path):
+        return any(
+            path == exempt_path.rstrip("/") or path.startswith(exempt_path)
+            for exempt_path in self.API_BAN_EXEMPT_PATHS
+        )
+
     def _is_deletion_retry_path(self, path, query=None):
         """Match only self-service routes that can finish a paused erasure.
 
@@ -172,10 +205,7 @@ class CrushConsentMiddleware:
         drawer's Settings link leads somewhere that can finish the deletion.
         """
 
-        for lang_prefix in ["/en/", "/fr/", "/de/"]:
-            if path.startswith(lang_prefix):
-                path = "/" + path[len(lang_prefix) :]
-                break
+        path = self._strip_language_prefix(path)
         if path == "/profile/edit/" and query is not None:
             return query.get("section") == "account" and query.get("sub", "") in (
                 "",
@@ -218,13 +248,7 @@ class CrushConsentMiddleware:
         if not request.user.is_authenticated:
             return False
 
-        path = request.path
-
-        # Strip language prefix for consistent matching
-        for lang_prefix in ["/en/", "/fr/", "/de/"]:
-            if path.startswith(lang_prefix):
-                path = "/" + path[len(lang_prefix) :]
-                break
+        path = self._strip_language_prefix(request.path)
 
         # Check if path is exempt (exact match or prefix match)
         for exempt_path in self.EXEMPT_PATHS:
