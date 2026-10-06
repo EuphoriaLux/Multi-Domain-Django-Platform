@@ -181,6 +181,38 @@ class FailurePathCaseTests(_Base):
         self.membership.refresh_from_db()
         self.assertEqual(self.membership.status, "active")
 
+    def test_capture_racing_a_manual_confirmation_is_staff_only(self):
+        staff = User.objects.create_user(
+            username="rec-confirmer@example.invalid",
+            email="rec-confirmer@example.invalid",
+            password="pass12345",
+            is_staff=True,
+        )
+        tx = self._tx("REC-RACE")
+        membership_pk = self.membership.pk
+
+        def staff_confirms_first(*args, **kwargs):
+            # Staff confirm by hand between the callback's read and confirm().
+            PremiumMembership.objects.filter(pk=membership_pk).update(
+                status="active", payment_confirmed=True, confirmed_by=staff
+            )
+            raise ValueError("Only a pending membership can be confirmed.")
+
+        mail.outbox.clear()
+        with (
+            patch.object(
+                PremiumMembership, "confirm", side_effect=staff_confirms_first
+            ),
+            self.assertLogs("crush_lu.views_payments", level="ERROR"),
+        ):
+            self._apply(tx)
+        case = PremiumPaymentRecoveryCase.objects.get(payment=tx)
+        self.assertEqual(case.reason, Reason.DUPLICATE_CAPTURE)
+        # Staff may have confirmed this very capture: no definitive notice.
+        self.assertTrue(case.staff_only)
+        self.assertFalse(case.member_unknown)
+        self.assertEqual(self._member_mails(), [])
+
     def test_duplicate_and_cancelled_paths_write_an_error_log(self):
         # The log is the only trace if both mails fail.
         self._apply(self._tx("REC-LOG-1"))
@@ -435,6 +467,8 @@ class MemberNoticeTests(_Base):
         texts = [str(m) for m in response.context["messages"]]
         self.assertFalse(any(t.startswith(D1_START) for t in texts), texts)
         self.assertFalse(any("completed successfully" in t for t in texts), texts)
+        # Nor the fallback "could not activate" claim.
+        self.assertFalse(any("could not activate" in t for t in texts), texts)
 
     def test_return_page_on_duplicate_capture_does_not_claim_premium(self):
         self.membership.status = "active"

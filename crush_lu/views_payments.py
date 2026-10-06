@@ -1430,13 +1430,34 @@ def _send_premium_membership_receipt_safely(payment):
         )
 
 
+MANUAL_CONFIRMATION_DETAIL = (
+    "Member notice withheld: staff confirmed this membership by hand, so this "
+    "capture may be the one that confirmation applied."
+)
+
+
 def _queue_premium_recovery_case(payment, reason, detail=""):
     """Open the #925 recovery case in the PAID transaction; mail on commit.
 
     Same transaction, so PAID never commits without its case: a failed insert
     leaves the row PENDING for the next return/webhook/reconcile to retry, and
-    a merge waiting on the payment lock sees the case."""
-    case, created = premium_recovery.open_case(payment, reason, detail)
+    a merge waiting on the payment lock sees the case.
+
+    A membership staff confirmed by hand may have been confirmed for this very
+    capture (a confirmation racing the callback): which payment it applied is
+    unknown, so the case is staff-only, never a definitive member notice."""
+    membership_id = payment.premium_membership_id
+    staff_only = bool(
+        membership_id
+        and PremiumMembership.objects.filter(
+            pk=membership_id, confirmed_by__isnull=False
+        ).exists()
+    )
+    if staff_only:
+        detail = f"{MANUAL_CONFIRMATION_DETAIL} {detail}".strip()
+    case, created = premium_recovery.open_case(
+        payment, reason, detail, staff_only=staff_only
+    )
     if created:
         # robust: the money is captured; a failing callback must never turn
         # the return page or webhook into a 500.
@@ -2929,7 +2950,8 @@ def _sumup_return_response(request, tx_obj):
                     )
                 else:
                     messages.success(request, _("You're now a Premium member."))
-            else:
+            elif not open_cases.exists():
+                # A staff-only case (above) says nothing definitive here either.
                 # PAID but not granted. Three ways to get here and they are all
                 # the same to the customer: the coach filled up mid-flight, the
                 # request stopped being pending, or the buyer is no longer a
