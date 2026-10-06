@@ -398,6 +398,7 @@ def dashboard(request):
     """User dashboard - always shows the dating profile dashboard.
     Coaches access their coach dashboard via the dedicated Coach tab.
     """
+    from .services.premium_recovery import blocks_new_charge
     from .views_premium import open_recovery_case
 
     # Regular user dashboard
@@ -703,6 +704,9 @@ def dashboard(request):
             "greeting": greeting,
             "apple_wallet_enabled": _is_apple_wallet_configured(),
             "premium_recovery_case": open_recovery_case(request.user),
+            # #925: a case can block a fresh purchase without a notice (a
+            # staff-only one): no "Go Premium" the chooser would refuse.
+            "premium_purchase_blocked": blocks_new_charge(request.user),
             **_verification_path_context(profile, request.user),
         }
     except CrushProfile.DoesNotExist:
@@ -2627,6 +2631,7 @@ def membership(request):
 
     from django.conf import settings as _settings
 
+    from .services.premium_recovery import blocks_new_charge
     from .views_premium import open_recovery_case
     from .views_premium import pending_premium_state, premium_monthly_fee
 
@@ -2642,6 +2647,9 @@ def membership(request):
         # buyer, so the page never promises a payment that would 403.
         "pending_premium_state": pending_premium_state(request.user),
         "premium_recovery_case": open_recovery_case(request.user),
+        # #925: blocked without a notice (staff-only case): no "Go Premium".
+        "premium_purchase_blocked": request.user.is_authenticated
+        and blocks_new_charge(request.user),
         "is_premium": bool(profile and profile.has_active_premium),
         "referral_url": referral_url,
         "tiers": tiers,
