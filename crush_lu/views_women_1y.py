@@ -56,6 +56,7 @@ def _upcoming_events(user):
     events = MeetupEvent.objects.filter(
         is_published=True,
         is_cancelled=False,
+        registration_deadline__gt=now,
         date_time__gte=MeetupEvent.live_lookback_cutoff(now),
         profile_requirement__in=JOINABLE_REQUIREMENTS,
     ).order_by("date_time")[: MAX_EVENTS * 3]

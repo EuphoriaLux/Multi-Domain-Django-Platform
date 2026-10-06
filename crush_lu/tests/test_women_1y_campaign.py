@@ -18,13 +18,15 @@ from django.utils import timezone
 from crush_lu.campaign_women_1y import (
     campaign_report,
     eligible_recipients,
+    finalize_status,
     get_campaign,
+    get_newsletter,
 )
 from crush_lu.models import (
-    CampaignRecipient,
     CrushProfile,
     EmailPreference,
     MeetupEvent,
+    NewsletterRecipient,
     UserDataConsent,
 )
 
@@ -50,6 +52,7 @@ def make_member(name, gender="F", status="incomplete", marketing=True, **profile
     )
     consent, _ = UserDataConsent.objects.get_or_create(user=user)
     consent.marketing_consent = marketing
+    consent.marketing_consent_date = timezone.now() if marketing else None
     consent.crushlu_consent_given = True
     consent.save()
     EmailPreference.get_or_create_for_user(user)
@@ -109,8 +112,11 @@ class RecipientSelectionTests(TestCase):
         user = make_member("sent")
         make_member("fresh")
         campaign = get_campaign(create=True)
-        CampaignRecipient.objects.create(
-            campaign=campaign, channel="email", user=user, status="sent"
+        NewsletterRecipient.objects.create(
+            newsletter=get_newsletter(campaign),
+            user=user,
+            email=user.email,
+            status="sent",
         )
         self.assertEqual(self.emails(), {"fresh@example.com"})
         self.assertIn(
@@ -161,7 +167,7 @@ class CommandTests(TestCase):
         output = self.run_cmd()
         self.assertIn("eligible recipients: 3", output)
         self.assertEqual(len(mail.outbox), 0)
-        self.assertEqual(CampaignRecipient.objects.count(), 0)
+        self.assertEqual(NewsletterRecipient.objects.count(), 0)
 
     def test_send_respects_limit_and_never_sends_twice(self):
         self.run_cmd("--send", "--limit", "2", "--delay", "0", "--batch-pause", "0")
@@ -172,7 +178,7 @@ class CommandTests(TestCase):
         self.assertEqual(len(mail.outbox), 3)
         recipients = [m.to[0] for m in mail.outbox]
         self.assertEqual(len(set(recipients)), 3)
-        self.assertEqual(CampaignRecipient.objects.filter(status="sent").count(), 3)
+        self.assertEqual(NewsletterRecipient.objects.filter(status="sent").count(), 3)
 
     @override_settings(CRUSH_MEDIA_BASE_URL=None)
     def test_sent_email_content(self):
@@ -201,7 +207,7 @@ class CommandTests(TestCase):
         self.run_cmd("--test-to", "qa@example.com")
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ["qa@example.com"])
-        self.assertEqual(CampaignRecipient.objects.count(), 0)
+        self.assertEqual(NewsletterRecipient.objects.count(), 0)
 
     def test_send_cannot_combine_with_dry_run(self):
         with self.assertRaises(CommandError):
@@ -297,3 +303,107 @@ class LandingRoutingTests(TestCase):
         landing = self.client.get("/en/women-1-year/").content.decode()
         self.assertIn("Open Crush Connect", landing)
         self.assertNotIn("Next events", landing)
+
+
+class ReviewFollowUpTests(TestCase):
+    """Behaviours added in response to PR review."""
+
+    def setUp(self):
+        cache.clear()
+
+    def test_member_on_a_break_is_excluded(self):
+        user = make_member("break")
+        CrushProfile.objects.filter(user=user).update(on_break_at=timezone.now())
+        self.assertEqual(eligible_recipients().count(), 0)
+
+    def test_signup_tick_older_than_a_later_preference_change_is_not_consent(self):
+        # Legacy toggle-off: the settings toggle never touched the signup tick.
+        user = make_member("legacy")
+        EmailPreference.objects.filter(user=user).update(
+            email_marketing=False, updated_at=timezone.now() + timedelta(days=1)
+        )
+        self.assertEqual(eligible_recipients().count(), 0)
+
+    def test_settings_toggle_off_clears_signup_consent(self):
+        user = make_member("toggleoff")
+        client = Client(HTTP_HOST=HOST)
+        client.force_login(user)
+        response = client.post(
+            "/api/email/preferences/",
+            data='{"key": "email_marketing", "value": false}',
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(eligible_recipients().count(), 0)
+        self.assertFalse(UserDataConsent.objects.get(user=user).marketing_consent)
+
+    def test_incomplete_profile_cta_resumes_onboarding(self):
+        user = make_member("inc", status="incomplete")
+        client = Client(HTTP_HOST=HOST)
+        client.force_login(user)
+        response = client.get("/en/women-1-year/go/?" + UTM)
+        self.assertIn("/onboarding/", response["Location"])
+        self.assertIn("utm_campaign=women_1y", response["Location"])
+
+    def test_event_with_closed_registration_is_not_listed(self):
+        MeetupEvent.objects.create(
+            title="Closed Soirée",
+            description="x",
+            event_type="mixer",
+            date_time=timezone.now() + timedelta(days=5),
+            location="Luxembourg",
+            address="1 Test Street",
+            max_participants=20,
+            registration_deadline=timezone.now() - timedelta(hours=1),
+            is_published=True,
+        )
+        html = Client(HTTP_HOST=HOST).get("/en/women-1-year/").content.decode()
+        self.assertNotIn("Closed Soirée", html)
+
+    def test_test_to_without_account_never_uses_a_members_unsubscribe_link(self):
+        member = make_member("realmember")
+        token = str(EmailPreference.objects.get(user=member).unsubscribe_token)
+        mail.outbox.clear()
+        call_command(
+            "send_women_1y_campaign",
+            "--test-to",
+            "qa@example.com",
+            stdout=StringIO(),
+        )
+        self.assertEqual(len(mail.outbox), 1)
+        message = mail.outbox[0]
+        self.assertNotIn(token, message.body)
+        self.assertNotIn(token, message.alternatives[0][0])
+        self.assertIn("section=account", message.body)
+
+    def test_send_populates_dashboard_email_stats_and_status(self):
+        make_member("s1")
+        make_member("s2")
+        call_command(
+            "send_women_1y_campaign",
+            "--send",
+            "--delay",
+            "0",
+            "--batch-pause",
+            "0",
+            stdout=StringIO(),
+        )
+        campaign = get_campaign()
+        self.assertEqual(campaign.status, "sent")
+        self.assertEqual(campaign.stats["email"]["sent"], 2)
+
+    def test_finalize_status_partial_and_failed(self):
+        make_member("p1")
+        make_member("p2")
+        campaign = get_campaign(create=True)
+        newsletter = get_newsletter(campaign)
+        users = list(User.objects.order_by("pk"))
+        NewsletterRecipient.objects.create(
+            newsletter=newsletter, user=users[0], email="a", status="sent"
+        )
+        NewsletterRecipient.objects.create(
+            newsletter=newsletter, user=users[1], email="b", status="failed"
+        )
+        self.assertEqual(finalize_status(campaign), "partial")
+        NewsletterRecipient.objects.filter(status="sent").update(status="failed")
+        self.assertEqual(finalize_status(campaign), "failed")

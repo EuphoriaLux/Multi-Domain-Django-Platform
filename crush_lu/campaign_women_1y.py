@@ -8,9 +8,10 @@ event, which makes them first in line for Crush Connect. Three moving parts:
 * ``landing_destination()`` - where the CTA sends a visitor, by state.
 * ``send_women_1y_email()`` - renders and sends one email.
 
-No new tables. The send log is a ``CampaignRecipient`` (channel ``email``)
-under a ``Campaign`` with slug ``women_1y``; its unique (campaign, channel,
-user) constraint is what makes "never send twice" structural. Click
+No new tables. The send log is a ``NewsletterRecipient`` under the email leg
+(``Campaign.email_newsletter``) of a ``Campaign`` with slug ``women_1y``, so the
+campaign dashboard's email counts and click rates include it; its unique
+(newsletter, user) constraint is what makes "never send twice" structural. Click
 attribution reuses ``/c/<token>/?r=`` tracked links, which also give the
 campaign dashboard its click counts.
 
@@ -23,14 +24,20 @@ from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.db.models import Exists, OuterRef, Q
+from django.db.models import Exists, F, OuterRef, Q
 from django.template.loader import render_to_string
 from django.templatetags.static import static
-from django.utils import translation
+from django.utils import timezone, translation
 
 from azureproject.email_utils import send_domain_email
 from crush_lu.email_helpers import get_unsubscribe_url
-from crush_lu.models import Campaign, CampaignClick, CampaignRecipient, CrushProfile
+from crush_lu.models import (
+    Campaign,
+    CampaignClick,
+    CrushProfile,
+    Newsletter,
+    NewsletterRecipient,
+)
 from crush_lu.services.campaigns import build_tracked_url
 from crush_lu.utils.i18n import build_absolute_url, get_user_preferred_language
 
@@ -67,29 +74,57 @@ def get_campaign(create=False):
     return Campaign.objects.filter(slug=CAMPAIGN_SLUG).first()
 
 
+def get_newsletter(campaign):
+    """The campaign's email leg, used as the send log and for dashboard stats.
+
+    Created already ``sent`` so no newsletter engine ever picks it up: this
+    command does its own sending and only keeps the counters honest.
+    """
+    newsletter, _ = Newsletter.objects.get_or_create(
+        campaign=campaign,
+        defaults={
+            "subject": SUBJECT,
+            "body_html": "Rendered per recipient by send_women_1y_campaign.",
+            "audience": "segment",
+            "status": "sent",
+        },
+    )
+    return newsletter
+
+
 def eligible_recipients(include_sent=False):
     """Users who may receive the campaign.
 
-    Active female members, not verified, who consented to marketing email and
-    have not unsubscribed. Consent has two records that signup does not
-    mirror: ``UserDataConsent.marketing_consent`` (the signup/consent tick) and
-    ``EmailPreference.email_marketing`` (the settings toggle); either counts,
-    and ``unsubscribed_all`` vetoes both.
+    Active female members, not verified, not on a break, who consented to
+    marketing email and have not unsubscribed.
+
+    Consent has two records: ``EmailPreference.email_marketing`` (the settings
+    toggle) and ``UserDataConsent.marketing_consent`` (the signup tick). Older
+    toggles did not update the signup tick, so the tick only counts while it is
+    newer than the last change to the member's email preferences; any later
+    change to their preferences is read as them having reviewed it, which can
+    only shrink the audience. ``unsubscribed_all`` vetoes both.
     """
-    already_logged = CampaignRecipient.objects.filter(
-        campaign__slug=CAMPAIGN_SLUG, channel=CHANNEL, user=OuterRef("pk")
+    already_logged = NewsletterRecipient.objects.filter(
+        newsletter__campaign__slug=CAMPAIGN_SLUG, user=OuterRef("pk")
     )
     qs = (
         User.objects.filter(
             is_active=True,
             crushprofile__gender="F",
             crushprofile__is_active=True,
+            crushprofile__on_break_at__isnull=True,
             crushprofile__verification_status__in=UNVERIFIED_STATUSES,
         )
         .exclude(email="")
         .filter(
-            Q(data_consent__marketing_consent=True)
-            | Q(email_preference__email_marketing=True)
+            Q(email_preference__email_marketing=True)
+            | Q(
+                data_consent__marketing_consent=True,
+                data_consent__marketing_consent_date__gte=F(
+                    "email_preference__updated_at"
+                ),
+            )
         )
         .exclude(email_preference__unsubscribed_all=True)
         # delete_crushlu_profile_only keeps the user active but bans them.
@@ -112,15 +147,16 @@ def with_utm(url, content=None):
 def landing_destination(user, utm=None):
     """Where the CTA sends ``user``, as ``(url_name, query)``.
 
-    Logged out -> signup. Logged in with no profile -> onboarding. Verified ->
-    Crush Connect (the teaser fast-paths onboarded members onward). Otherwise
-    the entry events, where verification happens in person.
+    Logged out -> signup. No profile, or a profile that is not complete yet ->
+    onboarding (entry events require a participation-ready profile). Verified
+    -> Crush Connect (the teaser fast-paths onboarded members onward).
+    Otherwise the entry events, where verification happens in person.
     """
     utm = dict(utm or {})
     if not getattr(user, "is_authenticated", False):
         return "crush_lu:signup", utm
     profile = getattr(user, "crushprofile", None)
-    if profile is None:
+    if profile is None or profile.verification_status == "incomplete":
         return "crush_lu:onboarding_entry", utm
     if profile.verification_status == "verified":
         return "crush_lu:crush_connect_teaser", utm
@@ -157,13 +193,20 @@ def poster_image_url():
     return f"{PUBLIC_BASE}{path}"
 
 
-def build_email(user, campaign, test_mode=False):
+def build_email(user, campaign, test_mode=False, unsubscribe_url=None):
     """Render ``(subject, text, html)`` for ``user``.
 
-    ``test_mode`` renders the same tracked links without attributing clicks
-    to a member.
+    ``test_mode`` renders the same tracked links without attributing clicks to
+    a member. With ``user=None`` (a test send to an address with no account)
+    ``unsubscribe_url`` must be given, so a test mail never carries a real
+    member's live unsubscribe link.
     """
-    lang = get_user_preferred_language(user=user, request=None, default="en")
+    lang = "en"
+    if user is not None:
+        lang = get_user_preferred_language(user=user, request=None, default="en")
+        unsubscribe_url = unsubscribe_url or get_unsubscribe_url(user, None)
+    if not unsubscribe_url:
+        raise ValueError("no unsubscribe URL; refusing to send")
     landing = build_absolute_url("crush_lu:women_1y_landing", lang=lang)
     attributed = None if test_mode else user
     context = {
@@ -175,10 +218,8 @@ def build_email(user, campaign, test_mode=False):
             with_utm(landing, "cta"), campaign, CHANNEL, attributed
         ),
         "poster_image_url": poster_image_url(),
-        "unsubscribe_url": get_unsubscribe_url(user, None),
+        "unsubscribe_url": unsubscribe_url,
     }
-    if not context["unsubscribe_url"]:
-        raise ValueError("no unsubscribe URL; refusing to send")
     # The campaign copy is English-only.
     with translation.override("en"):
         html = render_to_string("crush_lu/emails/women_1y.html", context)
@@ -186,9 +227,11 @@ def build_email(user, campaign, test_mode=False):
     return SUBJECT, text, html
 
 
-def send_women_1y_email(user, campaign, to=None, test_mode=False):
+def send_women_1y_email(user, campaign, to=None, test_mode=False, unsubscribe_url=None):
     """Send one email; returns the number sent (0 or 1)."""
-    subject, text, html = build_email(user, campaign, test_mode=test_mode)
+    subject, text, html = build_email(
+        user, campaign, test_mode=test_mode, unsubscribe_url=unsubscribe_url
+    )
     return send_domain_email(
         subject=subject,
         message=text,
@@ -201,11 +244,32 @@ def send_women_1y_email(user, campaign, to=None, test_mode=False):
     )
 
 
+def finalize_status(campaign):
+    """Set the campaign's terminal status from the send log.
+
+    Mirrors the shared dispatcher: ``sent`` when nothing failed, ``partial``
+    for a mix, ``failed`` when nothing was delivered. Only once no eligible
+    recipient is left; until then the campaign stays ``draft``.
+    """
+    if eligible_recipients().exists():
+        return campaign.status
+    rows = NewsletterRecipient.objects.filter(newsletter__campaign=campaign)
+    sent = rows.filter(status="sent").count()
+    failed = rows.filter(status="failed").count()
+    if sent == 0 and failed == 0:
+        return campaign.status
+    status = "sent" if not failed else "partial" if sent else "failed"
+    campaign.status = status
+    campaign.completed_at = timezone.now()
+    campaign.save(update_fields=["status", "completed_at"])
+    return status
+
+
 def campaign_report(campaign):
     """Send, click and verification numbers for the recipients so far."""
     if campaign is None:
         return None
-    rows = CampaignRecipient.objects.filter(campaign=campaign, channel=CHANNEL)
+    rows = NewsletterRecipient.objects.filter(newsletter__campaign=campaign)
     sent_at = dict(rows.filter(status="sent").values_list("user_id", "sent_at"))
     verified = CrushProfile.objects.filter(
         user_id__in=sent_at, verification_status="verified"

@@ -878,6 +878,15 @@ def api_update_email_preference(request):
     email_prefs = EmailPreference.get_or_create_for_user(request.user)
     setattr(email_prefs, key, value)
     email_prefs.save(update_fields=[key])
+    if key == "email_marketing":
+        # Keep the signup consent tick in step with the settings toggle, so
+        # turning marketing off here is an opt-out everywhere.
+        from .models import UserDataConsent
+
+        UserDataConsent.objects.filter(user=request.user).update(
+            marketing_consent=value,
+            marketing_consent_date=timezone.now() if value else None,
+        )
 
     return JsonResponse({"success": True})
 

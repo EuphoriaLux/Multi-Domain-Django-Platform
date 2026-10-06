@@ -19,30 +19,34 @@ Usage::
     python manage.py send_women_1y_campaign --report
 
 Recipients and the send log are defined in ``crush_lu/campaign_women_1y.py``.
-Idempotency: a ``CampaignRecipient`` row is created BEFORE each send (its
-unique (campaign, channel, user) key blocks a second claim) and stamped after.
-A crash between the two leaves a ``pending`` row that is never re-sent; check
-it with ``--report``. ``--retry-failed`` re-attempts rows that failed with a
-delivery error. There is deliberately no batch-wide ``transaction.atomic``: a
-rollback at the end would un-record emails that were already delivered.
+The log is the campaign's email leg (``NewsletterRecipient``), so the campaign
+dashboard shows the sends. Idempotency: a row is created BEFORE each send (its
+unique (newsletter, user) key blocks a second claim) and stamped after. A crash
+between the two leaves a ``pending`` row that is never re-sent; check it with
+``--report``. ``--retry-failed`` re-attempts rows that failed with a delivery
+error. There is deliberately no batch-wide ``transaction.atomic``: a rollback
+at the end would un-record emails that were already delivered.
 """
 
 import time
 
+from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.management.base import BaseCommand, CommandError
-from django.db import IntegrityError
+from django.db.models import F
 from django.utils import timezone
 
 from crush_lu.campaign_women_1y import (
     CAMPAIGN_SLUG,
-    CHANNEL,
     campaign_report,
     eligible_recipients,
+    finalize_status,
     get_campaign,
+    get_newsletter,
     send_women_1y_email,
 )
-from crush_lu.models import CampaignRecipient
+from crush_lu.models import Newsletter, NewsletterRecipient
+from crush_lu.utils.i18n import build_absolute_url
 
 LOCK_KEY = "women_1y_campaign_send_lock"
 LOCK_TTL = 3600
@@ -88,9 +92,7 @@ class Command(BaseCommand):
         # Also re-attempt rows that failed: everyone eligible whose only log
         # row (if any) is a failure.
         logged_ok = (
-            CampaignRecipient.objects.filter(
-                campaign__slug=CAMPAIGN_SLUG, channel=CHANNEL
-            )
+            NewsletterRecipient.objects.filter(newsletter__campaign__slug=CAMPAIGN_SLUG)
             .exclude(status="failed")
             .values("user_id")
         )
@@ -113,25 +115,31 @@ class Command(BaseCommand):
 
     def _test(self, to):
         campaign = get_campaign(create=True)
-        from django.contrib.auth import get_user_model
-
         user = get_user_model().objects.filter(email__iexact=to).first()
+        unsubscribe_url = None
         if user is None:
-            user = eligible_recipients(include_sent=True).first()
-        if user is None:
-            raise CommandError(
-                "No user to render the email for: the test needs one real user "
-                "for the unsubscribe link."
+            # No account for this address: never borrow a real member's live
+            # unsubscribe link. Point the footer at the (login-gated) settings.
+            unsubscribe_url = (
+                build_absolute_url("crush_lu:edit_profile")
+                + "?section=account&sub=notifications"
             )
-        sent = send_women_1y_email(user, campaign, to=to, test_mode=True)
+        sent = send_women_1y_email(
+            user,
+            campaign,
+            to=to,
+            test_mode=True,
+            unsubscribe_url=unsubscribe_url,
+        )
         self.stdout.write(self.style.SUCCESS(f"Test email to {to}: sent={sent}"))
 
     def _report(self):
-        report = campaign_report(get_campaign())
+        campaign = get_campaign()
+        report = campaign_report(campaign)
         if report is None:
             return self.stdout.write("No campaign yet: nothing has been sent.")
-        pending = CampaignRecipient.objects.filter(
-            campaign__slug=CAMPAIGN_SLUG, channel=CHANNEL, status="pending"
+        pending = NewsletterRecipient.objects.filter(
+            newsletter__campaign=campaign, status="pending"
         ).count()
         for key, value in {**report, "stuck_pending": pending}.items():
             self.stdout.write(f"{key}: {value}")
@@ -144,8 +152,18 @@ class Command(BaseCommand):
         finally:
             cache.delete(LOCK_KEY)
 
+    @staticmethod
+    def _count(newsletter, **deltas):
+        Newsletter.objects.filter(pk=newsletter.pk).update(
+            **{field: F(field) + n for field, n in deltas.items()}
+        )
+
     def _send_locked(self, opts):
         campaign = get_campaign(create=True)
+        newsletter = get_newsletter(campaign)
+        if campaign.started_at is None:
+            campaign.started_at = timezone.now()
+            campaign.save(update_fields=["started_at"])
         sent = failed = skipped = 0
         limit = opts["limit"]
         for user in self._recipients(opts).iterator():
@@ -156,22 +174,20 @@ class Command(BaseCommand):
             if not eligible_recipients(include_sent=True).filter(pk=user.pk).exists():
                 skipped += 1
                 continue
-            try:
-                row, created = CampaignRecipient.objects.get_or_create(
-                    campaign=campaign,
-                    channel=CHANNEL,
-                    user=user,
-                    defaults={"status": "pending"},
-                )
-            except IntegrityError:
+            row, created = NewsletterRecipient.objects.get_or_create(
+                newsletter=newsletter,
+                user=user,
+                defaults={"email": user.email, "status": "pending"},
+            )
+            if created:
+                self._count(newsletter, total_recipients=1)
+            elif row.status != "failed" or not opts["retry_failed"]:
                 skipped += 1
                 continue
-            if not created:
-                if row.status != "failed" or not opts["retry_failed"]:
-                    skipped += 1
-                    continue
+            else:
                 row.status = "pending"
                 row.save(update_fields=["status"])
+                self._count(newsletter, total_failed=-1)
             try:
                 ok = send_women_1y_email(user, campaign)
             except (
@@ -180,29 +196,30 @@ class Command(BaseCommand):
                 row.status = "failed"
                 row.error_message = str(exc)[:500]
                 row.save(update_fields=["status", "error_message"])
+                self._count(newsletter, total_failed=1)
                 failed += 1
                 self.stderr.write(f"failed {user.pk}: {exc}")
                 continue
             if ok:
                 row.status = "sent"
                 row.sent_at = timezone.now()
+                self._count(newsletter, total_sent=1)
                 sent += 1
             else:
                 # Suppressed address or no backend delivery: terminal, not retried.
                 row.status = "skipped"
+                self._count(newsletter, total_skipped=1)
                 skipped += 1
             row.save(update_fields=["status", "sent_at"])
             if opts["delay"]:
                 time.sleep(opts["delay"])
             if sent and sent % opts["batch_size"] == 0 and opts["batch_pause"]:
                 time.sleep(opts["batch_pause"])
+        status = finalize_status(campaign)
         remaining = eligible_recipients().count()
-        if remaining == 0 and sent:
-            campaign.status = "sent"
-            campaign.completed_at = timezone.now()
-            campaign.save(update_fields=["status", "completed_at"])
         self.stdout.write(
             self.style.SUCCESS(
-                f"sent={sent} failed={failed} skipped={skipped} remaining={remaining}"
+                f"sent={sent} failed={failed} skipped={skipped} "
+                f"remaining={remaining} campaign={status}"
             )
         )

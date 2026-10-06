@@ -2126,3 +2126,84 @@ html.dark .coach-cta-section {
         transform: translateY(-10px);
     }
 }
+
+/* Women's 1-year campaign landing (/women-1-year/, crush_lu/views_women_1y.py) */
+.w1y {
+    background: linear-gradient(180deg, var(--color-purple-900) 0%, var(--color-purple-800) 100%);
+    color: #fff;
+    padding: 1.5rem 1rem 3.5rem;
+}
+.w1y-wrap { max-width: 420px; margin: 0 auto; }
+.w1y-badge {
+    display: inline-block;
+    background: var(--color-crush-pink);
+    color: #fff;
+    border-radius: 999px;
+    padding: 0.375rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+.w1y-video {
+    display: block;
+    width: 100%;
+    max-width: 420px;
+    aspect-ratio: 9 / 16;
+    object-fit: cover;
+    border-radius: 1.25rem;
+    margin: 1rem auto 0;
+    background: var(--color-purple-900);
+    box-shadow: 0 12px 40px rgb(0 0 0 / 0.35);
+}
+.w1y h1 {
+    font-family: var(--font-display);
+    font-size: 2.4rem;
+    line-height: 1.1;
+    font-weight: 700;
+    margin: 1.5rem 0 0.5rem;
+    color: #fff;
+    text-align: center;
+}
+.w1y-lede { text-align: center; color: var(--color-purple-100); font-size: 1.05rem; margin: 0 0 1.75rem; }
+.w1y-points { list-style: none; margin: 0 0 1.75rem; padding: 0; }
+.w1y-points li { display: flex; gap: 0.875rem; align-items: flex-start; margin-bottom: 1.25rem; }
+.w1y-num {
+    flex: 0 0 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    background: var(--color-crush-pink);
+    color: #fff;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.w1y-points strong { display: block; font-size: 1.1rem; color: #fff; }
+.w1y-points span { color: var(--color-purple-100); font-size: 0.95rem; line-height: 1.45; }
+.w1y-cta { text-align: center; }
+.w1y-cta .btn-crush-primary { width: 100%; }
+.w1y-login { display: block; text-align: center; margin-top: 0.875rem; color: var(--color-purple-100); font-size: 0.9rem; text-decoration: underline; }
+.w1y-events { margin-top: 2.25rem; }
+.w1y-events h2 {
+    font-size: 1rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-crush-pink-light);
+    margin: 0 0 0.75rem;
+    font-weight: 700;
+}
+.w1y-event {
+    display: block;
+    background: rgb(255 255 255 / 0.08);
+    border: 1px solid rgb(255 255 255 / 0.14);
+    border-radius: 0.875rem;
+    padding: 0.875rem 1rem;
+    margin-bottom: 0.625rem;
+    color: #fff;
+    text-decoration: none;
+}
+.w1y-event:hover,
+.w1y-event:focus-visible { background: rgb(255 255 255 / 0.14); color: #fff; }
+.w1y-event b { display: block; font-size: 1rem; }
+.w1y-event small { color: var(--color-purple-200); font-size: 0.85rem; }
