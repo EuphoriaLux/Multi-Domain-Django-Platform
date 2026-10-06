@@ -98,6 +98,12 @@
 
     {% if premium_recovery_case %}
     {% include "crush_lu/partials/_premium_recovery_notice.html" %}
+    {% elif fresh_request_blocked %}
+    {# #925: a staff-only case blocks a fresh request without a member notice #}
+    <div class="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 dark:border-emerald-800 dark:bg-emerald-900/20" data-testid="premium-fresh-request-blocked">
+      <p class="mb-0 text-sm font-semibold text-emerald-900 dark:text-emerald-200">{% trans "Payment received" %}</p>
+      <p class="mb-0 text-xs text-emerald-700 dark:text-emerald-400">{% trans "We have already received a payment for your Premium request." %}</p>
+    </div>
     {% else %}
     <section class="grid grid-cols-1 gap-4 sm:grid-cols-2">
       {% for coach in coaches %}

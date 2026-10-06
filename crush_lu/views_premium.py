@@ -225,6 +225,10 @@ def premium_choose_coach(request):
     context = {
         "coaches": _available_coaches(),
         "premium_recovery_case": recovery_case,
+        # A staff-only case shows no notice but still blocks a fresh request
+        # (premium_select_coach): offer no "Choose" buttons either.
+        "fresh_request_blocked": not pending
+        and premium_recovery.blocks_new_charge(request.user),
         "pending_membership": pending,
         # "manage" = the beta allowlist refuses this buyer at checkout (403), so
         # the template must not offer the pay button (same predicate as /membership/).
@@ -279,9 +283,10 @@ def premium_select_coach(request, coach_id):
         messages.info(request, _("You already have a personal coach."))
         return redirect("crush_lu:dashboard")
 
-    if not has_pending and open_recovery_case(request.user):
+    if not has_pending and premium_recovery.blocks_new_charge(request.user):
         # #925: an unresolved captured payment must be settled by staff before
-        # a fresh request (and a second charge) can start.
+        # a fresh request (and a second charge) can start -- the same rule the
+        # checkout refuses on, staff-only cases of a known member included.
         messages.info(
             request,
             _("We have already received a payment for your Premium request."),

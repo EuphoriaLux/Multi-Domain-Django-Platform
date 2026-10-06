@@ -1222,6 +1222,31 @@ class CaseLifecycleTests(_Base):
         )
         self.assertTrue(blocks_new_charge(rows[0].premium_membership.user))
 
+    def test_staff_only_case_blocks_a_fresh_request_without_a_notice(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        rows = self._paid_on_confirmed_membership(["REC-AMB-F1", "REC-AMB-F2"])
+        call_command("backfill_premium_recovery_cases", "--apply", stdout=StringIO())
+        PremiumMembership.objects.filter(pk=rows[0].premium_membership_id).update(
+            status="cancelled"
+        )
+        self.membership.status = "cancelled"
+        self.membership.save(update_fields=["status"])
+        client = self._member_client()
+        html = client.get("/en/premium/coaches/").content.decode()
+        # No definitive notice (staff-only), but no "Choose" form either.
+        self.assertNotIn('data-testid="premium-recovery-notice"', html)
+        self.assertIn('data-testid="premium-fresh-request-blocked"', html)
+        self.assertNotIn(f"/premium/coaches/{self.coach.pk}/select/", html)
+        client.post(f"/en/premium/coaches/{self.coach.pk}/select/")
+        self.assertFalse(
+            PremiumMembership.objects.filter(
+                user=self.member, status="pending"
+            ).exists()
+        )
+
     def test_backfill_keeps_ambiguous_captures_staff_only(self):
         import importlib
         from datetime import timedelta
