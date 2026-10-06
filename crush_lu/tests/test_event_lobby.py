@@ -1160,7 +1160,7 @@ class TestLobbyPhoto:
         response = client.get(self._photo_url(event, _handle_of(ben, event)))
         assert response.status_code == 200
         assert response["Content-Type"] == "image/jpeg"
-        assert response["Cache-Control"] == "private, max-age=300"
+        assert response["Cache-Control"] == "private, no-store"
 
     def test_photo_is_proxied_never_a_sas_redirect(self, client, settings, tmp_path):
         """§13 revocation: even with Azure storage configured the endpoint

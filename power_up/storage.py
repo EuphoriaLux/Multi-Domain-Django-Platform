@@ -18,6 +18,8 @@ import logging
 from functools import partial
 from django.conf import settings
 
+from azureproject.storage_shared import local_storage_for_tests
+
 logger = logging.getLogger(__name__)
 
 # Conditional imports for Azure storage
@@ -176,6 +178,9 @@ def powerup_upload_path(subfolder: str = ''):
 
 def get_powerup_media_storage():
     """Get PowerUP media storage instance (lazy initialization)."""
+    local = local_storage_for_tests()
+    if local is not None:
+        return local
     try:
         from django.core.files.storage.base import Storage
         storage = PowerUpMediaStorage()
@@ -189,6 +194,9 @@ def get_powerup_media_storage():
 
 def get_finops_storage():
     """Get FinOps storage instance (lazy initialization)."""
+    local = local_storage_for_tests()
+    if local is not None:
+        return local
     try:
         from django.core.files.storage.base import Storage
         storage = FinOpsStorage()

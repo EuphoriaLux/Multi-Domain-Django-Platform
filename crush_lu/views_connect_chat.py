@@ -83,7 +83,11 @@ def _may_view_partner_photo(user, partner):
     if membership is None or not membership.photo_share_consent:
         return False
     profile = getattr(partner, "crushprofile", None)
-    return profile is not None and can_view_profile_photo(user, profile)
+    return (
+        profile is not None
+        and profile.photo_review_status not in ("needs_revision", "flagged_fake")
+        and can_view_profile_photo(user, profile)
+    )
 
 
 @crush_login_required
