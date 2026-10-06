@@ -642,7 +642,9 @@ def _notify_member_safely(case):
     if not _fits(SEND_SECONDS):
         return
     try:
-        if send_premium_payment_recovery_notice(case.payment):
+        # The case's recorded member, whom it gates -- not whoever the
+        # membership names now (its user is editable in the admin).
+        if send_premium_payment_recovery_notice(case.payment, recipient=case.user):
             case.member_notified_at = timezone.now()
             case.save(update_fields=["member_notified_at"])
     except Exception as exc:

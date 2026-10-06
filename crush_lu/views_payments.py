@@ -3213,6 +3213,24 @@ def sumup_widget_view(request, checkout_id):
         )
         raise Http404("No payment found.")
 
+    # #925: the rule checkout creation refuses on (409) reaches the card form
+    # too. A saved widget link to a checkout left PENDING -- its close failed
+    # or did not fit, and the hourly tick has not retired it yet -- must not
+    # take a second capture while a recovery case or a recorded capture
+    # stands. Answers like an unknown checkout, as above.
+    membership = tx_obj.premium_membership
+    if membership is not None and (
+        _premium_payment_captured(membership)
+        or premium_recovery.blocks_new_charge(membership.user)
+    ):
+        logger.warning(
+            "Blocked SumUp widget for checkout %s: membership %s must not be "
+            "charged again (#925)",
+            checkout_id,
+            membership.pk,
+        )
+        raise Http404("No payment found.")
+
     # Store compliance, for the same reason and by the same logic as the line
     # above: closing the creation endpoint is not enough, because a checkout
     # created on the web stays payable from its URL, and opening that URL in the

@@ -1222,6 +1222,60 @@ class CaseLifecycleTests(_Base):
         )
         self.assertTrue(blocks_new_charge(rows[0].premium_membership.user))
 
+    def test_saved_widget_link_takes_no_charge_while_recovery_blocks_one(self):
+        pending = self._tx("REC-WIDGET")
+        client = self._member_client()
+        url = f"/payments/sumup/widget/{pending.sumup_checkout_id}/"
+        self.assertEqual(client.get(url, follow=True).status_code, 200)
+        # A capture on the same membership (its close not yet confirmed).
+        self._tx("REC-WIDGET-PAID", status=PaymentTransaction.Status.PAID)
+        self.assertEqual(client.get(url, follow=True).status_code, 404)
+
+    def test_saved_widget_link_is_refused_while_a_case_blocks_charges(self):
+        pending = self._tx("REC-WIDGET-CASE")
+        other = PremiumMembership.objects.create(
+            user=self.member, coach=self.coach, status="cancelled"
+        )
+        PremiumPaymentRecoveryCase.objects.create(
+            payment=PaymentTransaction.objects.create(
+                transaction_reference="REC-WIDGET-OLD",
+                provider=PaymentTransaction.Provider.SUMUP,
+                sumup_checkout_id="CHK_REC-WIDGET-OLD",
+                amount=Decimal("10.00"),
+                currency="EUR",
+                status=PaymentTransaction.Status.PAID,
+                purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+                user=self.member,
+                premium_membership=other,
+            ),
+            user=self.member,
+            premium_membership=other,
+            reason=Reason.REQUEST_CANCELLED,
+            staff_only=True,
+        )
+        response = self._member_client().get(
+            f"/payments/sumup/widget/{pending.sumup_checkout_id}/", follow=True
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_retried_notice_goes_to_the_case_s_recorded_member(self):
+        from crush_lu.services.premium_recovery import _notify_member_safely
+
+        case = self._case("REC-RECIPIENT", self.membership)
+        newcomer = User.objects.create_user(
+            username="rec-newcomer@example.invalid",
+            email="rec-newcomer@example.invalid",
+            password="pass12345",
+        )
+        # Staff later reassign the membership in the admin.
+        PremiumMembership.objects.filter(pk=self.membership.pk).update(user=newcomer)
+        case = PremiumPaymentRecoveryCase.objects.select_related("payment", "user").get(
+            pk=case.pk
+        )
+        mail.outbox.clear()
+        _notify_member_safely(case)
+        self.assertEqual([m.to for m in mail.outbox], [[self.member.email]])
+
     def test_staff_only_case_blocks_a_fresh_request_without_a_notice(self):
         from io import StringIO
 
