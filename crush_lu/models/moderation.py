@@ -21,6 +21,7 @@ Blocking is silent: the blocked user is never notified (standard practice).
 
 from django.contrib.auth.models import User
 from django.db import models
+from django.utils import timezone
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
@@ -221,6 +222,13 @@ class ProfilePhotoReviewLog(models.Model):
     reason = models.CharField(max_length=50, blank=True, choices=REASON_CHOICES)
     notes = models.CharField(max_length=255, blank=True)
     previous_status = models.CharField(max_length=20, blank=True)
+    decision_at = models.DateTimeField(default=timezone.now)
+    undone_at = models.DateTimeField(null=True, blank=True)
+    exclusion_created = models.BooleanField(default=False)
+    withdrawn_picks = models.JSONField(default=list, blank=True)
+    report = models.ForeignKey(
+        UserReport, null=True, blank=True, on_delete=models.SET_NULL
+    )
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:

@@ -66,6 +66,11 @@ def can_view_profile_photo(viewer, profile_owner, photo_field="photo_1"):
     if photo_field != "photo_1":
         return False
 
+    # Moderated images remain visible to their owner and reviewers only,
+    # including when an older chat or event relationship still exists.
+    if profile_owner.photo_review_status in ("needs_revision", "flagged_fake"):
+        return False
+
     # Profile must be approved for others to see
     if not profile_owner.is_approved:
         return False

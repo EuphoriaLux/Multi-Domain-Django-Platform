@@ -1,626 +1,82 @@
 {% extends 'crush_lu/base.html' %}
 {% load i18n static %}
-
 {% block title %}{% trans "Photo Review Deck" %} - Crush.lu{% endblock %}
-
-{% block extra_head %}
-<style nonce="{{ csp_nonce }}">
-    [x-cloak] { display: none !important; }
-    .swipe-card {
-        touch-action: none;
-        user-select: none;
-        -webkit-user-select: none;
-        transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.2s ease;
-    }
-    .swipe-card.dragging {
-        transition: none;
-    }
-</style>
+{% block pre_alpine_js %}
+{% include "crush_lu/partials/alpine_bundle.html" with bundle="coach" %}
 {% endblock %}
-
 {% block content %}
-<div class="max-w-2xl mx-auto px-4 py-4 sm:py-6"
-     x-data="photoSwipeDeck()"
-     x-init="init()"
-     @keydown.window="handleKeydown($event)">
-
-    {# Header #}
-    <div class="flex items-center justify-between mb-4">
+{{ initial_cards|json_script:"photo-review-cards" }}
+<div class="max-w-xl mx-auto px-4 py-6 pb-56 sm:pb-24" x-data="photoSwipeDeck" tabindex="-1"
+     data-total="{{ total_waiting }}"
+     data-decide-url="{% url 'crush_lu:coach_photo_review_decide' %}"
+     data-undo-url="{% url 'crush_lu:coach_photo_review_undo' %}"
+     data-more-url="{% url 'crush_lu:coach_photo_review_more' %}"
+     data-error="{% trans 'Could not complete this action. Please try again.' %}"
+     @keydown.window="handleKeydown">
+    {% csrf_token %}
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
-            <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">
-                <a href="{% url 'crush_lu:coach_dashboard' %}" class="hover:text-crush-purple transition-colors">{% trans "Coach Dashboard" %}</a>
-                <span>/</span>
-                <span class="text-gray-900 dark:text-gray-200 font-medium">{% trans "Photo Review" %}</span>
-            </div>
-            <h1 class="text-2xl font-black text-gray-900 dark:text-white flex items-center gap-2 mb-0">
-                {% trans "Photo Review Deck" %}
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">
-                    <span x-text="totalWaiting"></span> {% trans "waiting" %}
-                </span>
-            </h1>
+            <a href="{% url 'crush_lu:coach_dashboard' %}" class="text-sm text-crush-purple-dark dark:text-crush-purple-light">{% trans "Coach Dashboard" %}</a>
+            <h1>{% trans "Photo Review Deck" %}</h1>
+            <p class="text-sm text-muted-fg"><span x-text="totalWaiting"></span> {% trans "waiting" %}</p>
         </div>
-
-        <div class="flex items-center gap-2">
-            <button type="button"
-                    @click="undoLastDecision()"
-                    :disabled="!canUndo || isSubmitting"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a5 5 0 015 5v2m-15-7l4-4m-4 4l4 4"/>
-                </svg>
-                {% trans "Undo" %}
-            </button>
-            <a href="{% url 'crush_lu:coach_unverified_profiles' %}"
-               class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white transition-colors">
-                {% trans "List View" %} &rarr;
-            </a>
-        </div>
+        <button type="button" class="btn-crush-outline btn-sm" @click="undoLastDecision" :disabled="undoDisabled">{% trans "Undo" %}</button>
     </div>
-
-    {# Instructions tip #}
-    <div class="hidden sm:flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-3 bg-gray-50 dark:bg-gray-800/60 rounded-lg px-3 py-1.5">
-        <span>💡 <strong>Swipe Right</strong> or <kbd class="px-1.5 py-0.5 rounded bg-white dark:bg-gray-700 border text-[10px]">L</kbd> / <kbd class="px-1.5 py-0.5 rounded bg-white dark:bg-gray-700 border text-[10px]">&rarr;</kbd> to approve</span>
-        <span><strong>Swipe Left</strong> or <kbd class="px-1.5 py-0.5 rounded bg-white dark:bg-gray-700 border text-[10px]">H</kbd> / <kbd class="px-1.5 py-0.5 rounded bg-white dark:bg-gray-700 border text-[10px]">&larr;</kbd> to flag fake / revise</span>
-        <span><kbd class="px-1.5 py-0.5 rounded bg-white dark:bg-gray-700 border text-[10px]">&uarr;</kbd> skip</span>
-    </div>
-
-    {# Deck Container #}
-    <div class="relative w-full max-w-md mx-auto aspect-[3/4.6] min-h-[500px]">
-
-        {# Active Card #}
-        <template x-if="currentCard">
-            <div class="absolute inset-0 bg-white dark:bg-gray-800 rounded-3xl shadow-xl dark:shadow-gray-900/40 border border-gray-200/80 dark:border-gray-700/80 overflow-hidden flex flex-col swipe-card z-20 cursor-grab active:cursor-grabbing"
-                 :class="{ 'dragging': isDragging }"
-                 :style="cardTransformStyle"
-                 @pointerdown="startDrag($event)"
-                 @pointermove="onDrag($event)"
-                 @pointerup="endDrag($event)"
-                 @pointercancel="endDrag($event)">
-
-                {# Photo Area #}
-                <div class="relative flex-1 bg-black overflow-hidden select-none">
-                    {# Photo Carousel #}
-                    <img :src="currentPhotoUrl"
-                         :alt="currentCard.display_name"
-                         class="w-full h-full object-cover select-none pointer-events-none"
-                         loading="eager" />
-
-                    {# Multi-photo Indicators #}
-                    <div x-show="currentCard.photos.length > 1"
-                         class="absolute top-3 inset-x-3 flex items-center gap-1.5 z-10">
-                        <template x-for="(photo, index) in currentCard.photos" :key="index">
-                            <button type="button"
-                                    @click.stop="activePhotoIndex = index"
-                                    class="flex-1 h-1.5 rounded-full transition-all"
-                                    :class="activePhotoIndex === index ? 'bg-white shadow' : 'bg-white/40'"></button>
-                        </template>
-                    </div>
-
-                    {# Photo tap navigation (left half / right half) #}
-                    <div class="absolute inset-0 flex">
-                        <div class="w-1/2 h-full cursor-pointer"
-                             @click.stop="prevPhoto()"
-                             title="{% trans 'Previous photo' %}"></div>
-                        <div class="w-1/2 h-full cursor-pointer"
-                             @click.stop="nextPhoto()"
-                             title="{% trans 'Next photo' %}"></div>
-                    </div>
-
-                    {# Swipe Feedback Badges (Approve Stamp & Flag Stamp) #}
-                    <div class="absolute top-8 left-6 pointer-events-none z-30 transition-opacity"
-                         :style="{ opacity: approveOpacity }">
-                        <div class="px-4 py-1.5 rounded-xl border-4 border-emerald-500 bg-emerald-500/80 text-white font-black text-xl uppercase tracking-wider transform -rotate-12 shadow-lg">
-                            ✓ {% trans "APPROVED" %}
-                        </div>
-                    </div>
-
-                    <div class="absolute top-8 right-6 pointer-events-none z-30 transition-opacity"
-                         :style="{ opacity: flagOpacity }">
-                        <div class="px-4 py-1.5 rounded-xl border-4 border-rose-500 bg-rose-500/80 text-white font-black text-xl uppercase tracking-wider transform rotate-12 shadow-lg">
-                            ✕ {% trans "FLAG / REVISE" %}
-                        </div>
-                    </div>
-
-                    {# Gradient overlay for text readability #}
-                    <div class="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none"></div>
-
-                    {# Over-photo Member Identity #}
-                    <div class="absolute inset-x-4 bottom-4 text-white z-10 pointer-events-none">
-                        <div class="flex items-baseline gap-2 mb-1">
-                            <h2 class="text-2xl font-black text-white truncate drop-shadow mb-0"
-                                x-text="currentCard.display_name"></h2>
-                            <span class="text-xl font-semibold opacity-90 drop-shadow"
-                                  x-text="currentCard.age"></span>
-                            <span class="text-xs uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-md"
-                                  x-show="currentCard.gender"
-                                  x-text="currentCard.gender"></span>
-                        </div>
-
-                        <div class="flex items-center gap-2 text-xs text-white/80 mb-2 drop-shadow">
-                            <span x-show="currentCard.location" x-text="currentCard.location"></span>
-                            <span x-show="currentCard.location">&middot;</span>
-                            <span x-text="'Member since ' + currentCard.member_since"></span>
-                        </div>
-
-                        {# Trust Badges #}
-                        <div class="flex flex-wrap items-center gap-1.5">
-                            <span x-show="currentCard.is_luxid_verified"
-                                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/80 text-white">
-                                ✓ LuxID
-                            </span>
-                            <span x-show="currentCard.has_attended_event"
-                                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-500/80 text-white">
-                                🎟 Event Verified
-                            </span>
-                            <span x-show="currentCard.is_onboarded"
-                                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/80 text-white">
-                                💜 Connect
-                            </span>
-                        </div>
-                    </div>
+    <p class="text-sm text-muted-fg mb-4">{% trans "Swipe right to approve, left to flag, or up to skip. L / Right: approve. H / Left: flag. K: request revision. Space: next photo. U: undo." %}</p>
+    <p role="alert" class="text-red-700 dark:text-red-300 mb-3" x-show="hasError" x-text="errorMessage" x-cloak></p>
+    <template x-if="currentCard">
+        <article class="bg-white dark:bg-gray-800 rounded-2xl shadow-crush-sm overflow-hidden border border-gray-200 dark:border-gray-700">
+            <div class="relative">
+                <div class="h-64 sm:h-80 bg-gray-100 dark:bg-gray-900 select-none" style="touch-action: none;"
+                     :style="cardTransformStyle" @pointerdown="startDrag" @pointermove="onDrag" @pointerup="endDrag" @pointercancel="cancelDrag">
+                    <img :src="currentPhotoUrl" :alt="cardName" class="w-full h-full object-contain pointer-events-none" draggable="false">
                 </div>
-
-                {# Card Details (Bottom Sheet / Story area) #}
-                <div class="p-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 flex-shrink-0 border-t border-gray-100 dark:border-gray-700">
-                    <template x-if="currentCard.story_prompt && currentCard.story_text">
-                        <div class="mb-2">
-                            <p class="text-[11px] uppercase tracking-wider font-semibold text-purple-600 dark:text-purple-400 mb-0.5"
-                               x-text="currentCard.story_prompt"></p>
-                            <p class="text-sm italic text-gray-800 dark:text-gray-200 line-clamp-2 mb-0"
-                               x-text="'“' + currentCard.story_text + '”'"></p>
-                        </div>
-                    </template>
-
-                    <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                        <span x-show="currentCard.relationship_goal"
-                              class="font-medium text-gray-700 dark:text-gray-300"
-                              x-text="currentCard.relationship_goal"></span>
-                        <span class="text-[11px]"
-                              x-text="'Photo ' + (activePhotoIndex + 1) + ' of ' + currentCard.photos.length"></span>
-                    </div>
+                <div class="absolute bottom-3 inset-x-3 flex items-center justify-between gap-3" x-show="hasMultiplePhotos">
+                    <button type="button" class="btn-crush-outline btn-sm bg-white" @click="prevPhoto">{% trans "Previous photo" %}</button>
+                    <button type="button" class="btn-crush-outline btn-sm bg-white" @click="nextPhoto">{% trans "Next photo" %}</button>
                 </div>
             </div>
-        </template>
-
-        {# Underneath Stacked Card (Visual depth effect) #}
-        <template x-if="nextCard">
-            <div class="absolute inset-0 bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col z-10 pointer-events-none transform scale-95 translate-y-3 opacity-60 transition-all">
-                <div class="relative flex-1 bg-gray-200 dark:bg-gray-900">
-                    <img :src="nextCard.photos[0] ? nextCard.photos[0].url : ''"
-                         class="w-full h-full object-cover filter blur-[1px]" />
-                </div>
-                <div class="p-4 bg-white dark:bg-gray-800 h-20"></div>
+            <div class="p-4 space-y-2">
+                <h2 class="card-title" x-text="cardName"></h2>
+                <p class="text-sm text-muted-fg" x-text="cardDetails"></p>
+                <p class="text-sm" x-text="cardStory"></p>
+                <p class="text-xs text-muted-fg" x-text="cardGoal"></p>
+                <p class="text-xs text-muted-fg" x-show="hasLuxid">{% trans "LuxID linked" %}</p>
+                <p class="text-xs text-muted-fg" x-show="hasAttendedEvent">{% trans "Attended an event" %}</p>
+                <p class="text-xs text-muted-fg">{% trans "Online photo review does not verify identity or in-person photo authenticity." %}</p>
             </div>
-        </template>
-
-        {# Empty Queue State #}
-        <div x-show="!currentCard && !isLoading"
-             x-cloak
-             class="absolute inset-0 bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center p-8 text-center z-10">
-            <div class="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-4">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
-            </div>
-            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">{% trans "All caught up!" %}</h3>
-            <p class="text-sm text-gray-500 dark:text-gray-400 max-w-xs mb-6">
-                {% trans "No new profile photos are waiting for review right now. Great job keeping the community authentic!" %}
-            </p>
-            <div class="flex flex-col sm:flex-row gap-2">
-                <button type="button"
-                        @click="fetchMoreCards()"
-                        class="px-4 py-2 text-sm font-semibold rounded-lg bg-crush-purple text-white hover:bg-purple-700 transition-colors">
-                    {% trans "Check for New Photos" %}
-                </button>
-                <a href="{% url 'crush_lu:coach_dashboard' %}"
-                   class="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                    {% trans "Back to Dashboard" %}
-                </a>
-            </div>
-        </div>
-
-        {# Loading spinner #}
-        <div x-show="isLoading"
-             x-cloak
-             class="absolute inset-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-3xl flex items-center justify-center z-30">
-            <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-crush-purple"></div>
-        </div>
+        </article>
+    </template>
+    <div class="fixed bottom-20 inset-x-0 z-30 max-w-xl mx-auto bg-white dark:bg-gray-800 p-3 flex flex-wrap justify-center gap-3 sm:static sm:mt-4 sm:bg-transparent sm:dark:bg-transparent rounded-xl shadow-crush-sm" x-show="hasCard">
+        <button type="button" class="btn-danger" @click="openFlagModal" :disabled="actionsDisabled">{% trans "Flag / Reject" %}</button>
+        <button type="button" class="btn-crush-outline" @click="skipCard" :disabled="actionsDisabled">{% trans "Skip" %}</button>
+        <button type="button" class="btn-crush-solid" @click="approveCurrentCard" :disabled="actionsDisabled">{% trans "Approve" %}</button>
     </div>
-
-    {# Controls Bar #}
-    <div x-show="currentCard" class="max-w-md mx-auto mt-6 flex items-center justify-between gap-4">
-        {# Reject / Flag Button (Swipe Left) #}
-        <button type="button"
-                @click="openFlagModal()"
-                :disabled="isSubmitting"
-                class="flex-1 flex flex-col items-center justify-center py-3 px-2 rounded-2xl bg-white dark:bg-gray-800 border-2 border-rose-200 dark:border-rose-900/50 hover:border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 shadow-sm active:scale-95 transition-all group">
-            <svg class="w-6 h-6 mb-1 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-            <span class="text-xs font-bold uppercase tracking-wider">{% trans "Flag / Reject" %}</span>
-        </button>
-
-        {# Skip Button (Swipe Up) #}
-        <button type="button"
-                @click="skipCard()"
-                :disabled="isSubmitting"
-                class="flex-initial px-4 py-3 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 shadow-sm active:scale-95 transition-all"
-                title="{% trans 'Skip (leave in queue)' %}">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
-            </svg>
-            <span class="sr-only">{% trans "Skip" %}</span>
-        </button>
-
-        {# Approve Button (Swipe Right) #}
-        <button type="button"
-                @click="approveCurrentCard()"
-                :disabled="isSubmitting"
-                class="flex-1 flex flex-col items-center justify-center py-3 px-2 rounded-2xl bg-white dark:bg-gray-800 border-2 border-emerald-200 dark:border-emerald-900/50 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 shadow-sm active:scale-95 transition-all group">
-            <svg class="w-6 h-6 mb-1 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
-            </svg>
-            <span class="text-xs font-bold uppercase tracking-wider">{% trans "Approve" %}</span>
-        </button>
+    <div x-show="isEmpty" x-cloak class="text-center py-8 space-y-4">
+        <p>{% trans "No photos waiting for review." %}</p>
+        <button type="button" class="btn-crush-solid" @click="fetchMoreCards" :disabled="isLoading">{% trans "Check for New Photos" %}</button>
     </div>
-
-    {# Flagging / Reject Modal #}
-    <div x-show="isFlagModalOpen"
-         x-cloak
-         class="fixed inset-0 z-50 overflow-y-auto"
-         role="dialog"
-         aria-modal="true">
-        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-             @click="isFlagModalOpen = false"></div>
-
-        <div class="flex min-h-full items-end sm:items-center justify-center p-4">
-            <div class="relative w-full max-w-lg rounded-3xl bg-white dark:bg-gray-800 shadow-2xl border border-gray-200 dark:border-gray-700 p-6 overflow-hidden transform transition-all"
-                 @click.stop>
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-0">
-                        <span class="text-rose-500">⚠</span>
-                        {% trans "Flag or Request Revision" %}
-                    </h3>
-                    <button type="button"
-                            @click="isFlagModalOpen = false"
-                            class="text-gray-400 hover:text-gray-500">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
-                </div>
-
-                <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                    {% trans "Choose what is wrong with this profile photo so the right action and notification is triggered:" %}
-                </p>
-
-                <div class="space-y-2.5 mb-4">
-                    <label class="flex items-start gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-rose-400 dark:hover:border-rose-600 cursor-pointer transition-colors"
-                           :class="{ 'border-rose-500 bg-rose-50/50 dark:bg-rose-950/20': selectedReason === 'fake_profile' }">
-                        <input type="radio" name="flag_reason" value="fake_profile" x-model="selectedReason" class="mt-1 text-rose-600 focus:ring-rose-500">
-                        <div>
-                            <div class="text-sm font-semibold text-gray-900 dark:text-white">🚨 {% trans "Fake or Suspicious Profile" %}</div>
-                            <div class="text-xs text-gray-500 dark:text-gray-400">{% trans "Celebrity, stock photo, AI generated, or impersonation. Will trip coach exclusion & report." %}</div>
-                        </div>
-                    </label>
-
-                    <label class="flex items-start gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-amber-400 dark:hover:border-amber-600 cursor-pointer transition-colors"
-                           :class="{ 'border-amber-500 bg-amber-50/50 dark:bg-amber-950/20': selectedReason === 'inappropriate' }">
-                        <input type="radio" name="flag_reason" value="inappropriate" x-model="selectedReason" class="mt-1 text-amber-600 focus:ring-amber-500">
-                        <div>
-                            <div class="text-sm font-semibold text-gray-900 dark:text-white">🔞 {% trans "Inappropriate or Offensive Image" %}</div>
-                            <div class="text-xs text-gray-500 dark:text-gray-400">{% trans "Explicit, suggestive, offensive gesture or meme. Member prompted to replace." %}</div>
-                        </div>
-                    </label>
-
-                    <label class="flex items-start gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-purple-400 dark:hover:border-purple-600 cursor-pointer transition-colors"
-                           :class="{ 'border-purple-500 bg-purple-50/50 dark:bg-purple-950/20': selectedReason === 'unclear_face' }">
-                        <input type="radio" name="flag_reason" value="unclear_face" x-model="selectedReason" class="mt-1 text-purple-600 focus:ring-purple-500">
-                        <div>
-                            <div class="text-sm font-semibold text-gray-900 dark:text-white">📷 {% trans "Unclear Face / Group Photo" %}</div>
-                            <div class="text-xs text-gray-500 dark:text-gray-400">{% trans "Sunglasses, distant, heavy filter, or group where person isn't identifiable." %}</div>
-                        </div>
-                    </label>
-                </div>
-
-                <div class="mb-5">
-                    <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
-                        {% trans "Feedback note to user / coach note (optional):" %}
-                    </label>
-                    <textarea x-model="flagNotes"
-                              rows="2"
-                              class="w-full text-xs rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-rose-500 focus:border-rose-500"
-                              placeholder="{% trans 'e.g. Please upload a clear photo without sunglasses where your face is visible.' %}"></textarea>
-                </div>
-
-                <div class="flex items-center justify-end gap-3">
-                    <button type="button"
-                            @click="isFlagModalOpen = false"
-                            class="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">
-                        {% trans "Cancel" %}
-                    </button>
-                    <button type="button"
-                            @click="submitFlagDecision()"
-                            :disabled="isSubmitting"
-                            class="px-5 py-2 text-sm font-bold text-white rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 transition-colors shadow-sm">
-                        {% trans "Submit Decision" %}
-                    </button>
-                </div>
+    <p role="status" x-show="isLoading" x-cloak class="text-center text-muted-fg mt-4">{% trans "Loading…" %}</p>
+    <div x-show="isModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="photo-review-modal-title" @keydown.escape.window="closeFlagModal">
+        <div class="fixed inset-0 bg-black/60" @click="closeFlagModal"></div>
+        <div class="relative max-w-lg mx-auto mt-12 mb-24 p-5 bg-white dark:bg-gray-800 rounded-2xl shadow-crush-lg" @keydown.tab="trapModalFocus">
+            <h2 id="photo-review-modal-title">{% trans "Flag or Request Revision" %}</h2>
+            <fieldset class="space-y-3 my-4">
+                <legend class="sr-only">{% trans "Photo review reason" %}</legend>
+                <label class="flex items-start gap-3"><input type="radio" :checked="isFakeReason" @change="selectFlagReason" value="fake_profile" name="photo-review-reason"><span>{% trans "Fake or Suspicious Profile" %}</span></label>
+                <label class="flex items-start gap-3"><input type="radio" :checked="isInappropriateReason" @change="selectFlagReason" value="inappropriate" name="photo-review-reason"><span>{% trans "Inappropriate or Offensive Image" %}</span></label>
+                <label class="flex items-start gap-3"><input type="radio" :checked="isUnclearReason" @change="selectFlagReason" value="unclear_face" name="photo-review-reason"><span>{% trans "Unclear Face" %}</span></label>
+                <label class="flex items-start gap-3"><input type="radio" :checked="isGroupReason" @change="selectFlagReason" value="group_photo" name="photo-review-reason"><span>{% trans "Group Photo" %}</span></label>
+                <label class="flex items-start gap-3"><input type="radio" :checked="isOtherReason" @change="selectFlagReason" value="other" name="photo-review-reason"><span>{% trans "Other" %}</span></label>
+            </fieldset>
+            <p class="text-sm text-muted-fg mb-3">{% trans "Fake profiles are excluded from Connect. Other reasons ask the member to replace their photo." %}</p>
+            <label for="photo-review-notes" class="block text-sm mb-1">{% trans "Feedback note (optional, 255 characters maximum)" %}</label>
+            <textarea id="photo-review-notes" :value="flagNotes" @input="updateFlagNotes" maxlength="255" rows="3" class="input-crush w-full"></textarea>
+            <div class="flex justify-end gap-3 mt-4">
+                <button type="button" class="btn-crush-outline" @click="closeFlagModal" :disabled="isSubmitting">{% trans "Cancel" %}</button>
+                <button type="button" class="btn-danger" @click="submitFlagDecision" :disabled="isSubmitting">{% trans "Submit Decision" %}</button>
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script nonce="{{ csp_nonce }}">
-function photoSwipeDeck() {
-    return {
-        cards: {{ initial_cards_json|safe }},
-        totalWaiting: {{ total_waiting }},
-        currentIndex: 0,
-        activePhotoIndex: 0,
-        canUndo: false,
-        isSubmitting: false,
-        isLoading: false,
-
-        // Drag State
-        isDragging: false,
-        startX: 0,
-        startY: 0,
-        currentX: 0,
-        currentY: 0,
-        deltaX: 0,
-        deltaY: 0,
-
-        // Modal State
-        isFlagModalOpen: false,
-        selectedReason: 'unclear_face',
-        flagNotes: '',
-
-        init() {
-            // Preload next image for instant swipe performance
-            this.$watch('currentIndex', () => {
-                this.activePhotoIndex = 0;
-                if (this.cards.length - this.currentIndex < 5 && !this.isLoading) {
-                    this.fetchMoreCards();
-                }
-            });
-        },
-
-        get currentCard() {
-            return this.cards[this.currentIndex] || null;
-        },
-
-        get nextCard() {
-            return this.cards[this.currentIndex + 1] || null;
-        },
-
-        get currentPhotoUrl() {
-            if (!this.currentCard || !this.currentCard.photos.length) return '';
-            const photo = this.currentCard.photos[this.activePhotoIndex];
-            return photo ? photo.url : this.currentCard.photos[0].url;
-        },
-
-        get approveOpacity() {
-            if (!this.isDragging || this.deltaX <= 0) return 0;
-            return Math.min(this.deltaX / 90, 1);
-        },
-
-        get flagOpacity() {
-            if (!this.isDragging || this.deltaX >= 0) return 0;
-            return Math.min(Math.abs(this.deltaX) / 90, 1);
-        },
-
-        get cardTransformStyle() {
-            if (!this.isDragging) return '';
-            const rotate = this.deltaX * 0.08;
-            return `transform: translate3d(${this.deltaX}px, ${this.deltaY}px, 0) rotate(${rotate}deg);`;
-        },
-
-        startDrag(e) {
-            if (!this.currentCard || this.isSubmitting) return;
-            this.isDragging = true;
-            this.startX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
-            this.startY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
-            this.currentX = this.startX;
-            this.currentY = this.startY;
-            this.deltaX = 0;
-            this.deltaY = 0;
-        },
-
-        onDrag(e) {
-            if (!this.isDragging) return;
-            this.currentX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
-            this.currentY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
-            this.deltaX = this.currentX - this.startX;
-            this.deltaY = this.currentY - this.startY;
-        },
-
-        endDrag(e) {
-            if (!this.isDragging) return;
-            this.isDragging = false;
-            const threshold = 90;
-
-            if (this.deltaX > threshold) {
-                // Swiped right -> Approve
-                this.approveCurrentCard();
-            } else if (this.deltaX < -threshold) {
-                // Swiped left -> Open flag modal
-                this.openFlagModal();
-            } else if (this.deltaY < -110 && Math.abs(this.deltaX) < 60) {
-                // Swiped up -> Skip
-                this.skipCard();
-            }
-
-            this.deltaX = 0;
-            this.deltaY = 0;
-        },
-
-        nextPhoto() {
-            if (!this.currentCard) return;
-            if (this.activePhotoIndex < this.currentCard.photos.length - 1) {
-                this.activePhotoIndex++;
-            } else {
-                this.activePhotoIndex = 0;
-            }
-        },
-
-        prevPhoto() {
-            if (!this.currentCard) return;
-            if (this.activePhotoIndex > 0) {
-                this.activePhotoIndex--;
-            } else {
-                this.activePhotoIndex = this.currentCard.photos.length - 1;
-            }
-        },
-
-        handleKeydown(e) {
-            if (this.isFlagModalOpen || !this.currentCard || this.isSubmitting) return;
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-
-            if (e.key === 'ArrowRight' || e.key === 'l' || e.key === 'L') {
-                this.approveCurrentCard();
-            } else if (e.key === 'ArrowLeft' || e.key === 'h' || e.key === 'H') {
-                this.openFlagModal();
-            } else if (e.key === 'ArrowUp' || e.key === 'k' || e.key === 'K') {
-                this.skipCard();
-            } else if (e.key === 'u' || e.key === 'U' || e.key === 'z') {
-                if (this.canUndo) this.undoLastDecision();
-            }
-        },
-
-        skipCard() {
-            if (!this.currentCard) return;
-            const card = this.currentCard;
-            this.cards.splice(this.currentIndex, 1);
-            this.cards.push(card); // Move to end of current session
-        },
-
-        async approveCurrentCard() {
-            if (!this.currentCard || this.isSubmitting) return;
-            const card = this.currentCard;
-            this.isSubmitting = true;
-
-            try {
-                const response = await fetch("{% url 'crush_lu:coach_photo_review_decide' %}", {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': '{{ csrf_token }}'
-                    },
-                    body: JSON.stringify({
-                        profile_id: card.id,
-                        decision: 'approved'
-                    })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    this.currentIndex++;
-                    this.totalWaiting = Math.max(0, this.totalWaiting - 1);
-                    this.canUndo = true;
-                } else {
-                    alert(data.error || 'Failed to submit approval.');
-                }
-            } catch (err) {
-                console.error('Error approving photo:', err);
-            } finally {
-                this.isSubmitting = false;
-            }
-        },
-
-        openFlagModal() {
-            if (!this.currentCard) return;
-            this.selectedReason = 'unclear_face';
-            this.flagNotes = '';
-            this.isFlagModalOpen = true;
-        },
-
-        async submitFlagDecision() {
-            if (!this.currentCard || this.isSubmitting) return;
-            const card = this.currentCard;
-            const isFake = this.selectedReason === 'fake_profile';
-            const decision = isFake ? 'flagged_fake' : 'needs_revision';
-            this.isSubmitting = true;
-
-            try {
-                const response = await fetch("{% url 'crush_lu:coach_photo_review_decide' %}", {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': '{{ csrf_token }}'
-                    },
-                    body: JSON.stringify({
-                        profile_id: card.id,
-                        decision: decision,
-                        reason: this.selectedReason,
-                        notes: this.flagNotes
-                    })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    this.isFlagModalOpen = false;
-                    this.currentIndex++;
-                    this.totalWaiting = Math.max(0, this.totalWaiting - 1);
-                    this.canUndo = true;
-                } else {
-                    alert(data.error || 'Failed to submit flag decision.');
-                }
-            } catch (err) {
-                console.error('Error flagging photo:', err);
-            } finally {
-                this.isSubmitting = false;
-            }
-        },
-
-        async undoLastDecision() {
-            if (!this.canUndo || this.isSubmitting) return;
-            this.isSubmitting = true;
-
-            try {
-                const response = await fetch("{% url 'crush_lu:coach_photo_review_undo' %}", {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': '{{ csrf_token }}'
-                    }
-                });
-                const data = await response.json();
-                if (data.success) {
-                    if (this.currentIndex > 0) {
-                        this.currentIndex--;
-                    }
-                    this.totalWaiting++;
-                    this.canUndo = false;
-                } else {
-                    alert(data.message || 'Unable to undo.');
-                }
-            } catch (err) {
-                console.error('Error undoing decision:', err);
-            } finally {
-                this.isSubmitting = false;
-            }
-        },
-
-        async fetchMoreCards() {
-            this.isLoading = true;
-            try {
-                const response = await fetch("{% url 'crush_lu:coach_photo_review_more' %}");
-                const data = await response.json();
-                if (data.cards && data.cards.length) {
-                    // Append cards not already in local array
-                    const existingIds = new Set(this.cards.map(c => c.id));
-                    const newCards = data.cards.filter(c => !existingIds.has(c.id));
-                    this.cards.push(...newCards);
-                    this.totalWaiting = data.total_waiting;
-                }
-            } catch (err) {
-                console.error('Error loading more cards:', err);
-            } finally {
-                this.isLoading = false;
-            }
-        }
-    };
-}
-</script>
 {% endblock %}

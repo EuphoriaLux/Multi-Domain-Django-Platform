@@ -44562,3 +44562,192 @@ msgstr "Pläne geändert?"
 #: crush_lu/templates/crush_lu/event_register.html
 msgid "No payment now; selected applicants are invited to pay."
 msgstr "Jetzt keine Zahlung; ausgewählte Bewerber werden zur Zahlung eingeladen."
+
+msgid "Photo Review Deck"
+msgstr "Foto-Prüfung"
+
+msgid "Photo Review"
+msgstr "Foto-Prüfung"
+
+msgid "Approved / Authentic"
+msgstr "Freigegeben / authentisch"
+
+msgid "Flagged Fake or Suspicious"
+msgstr "Als gefälscht oder verdächtig markiert"
+
+msgid "Clear and authentic photo"
+msgstr "Klares und authentisches Foto"
+
+msgid "Fake or Suspicious Profile"
+msgstr "Gefälschtes oder verdächtiges Profil"
+
+msgid "Inappropriate or Offensive Image"
+msgstr "Unangemessenes oder anstößiges Bild"
+
+msgid "Inappropriate or explicit content"
+msgstr "Unangemessene oder explizite Inhalte"
+
+msgid "Face unclear or covered"
+msgstr "Gesicht undeutlich oder verdeckt"
+
+msgid "Group photo / cannot identify member"
+msgstr "Gruppenfoto / Mitglied nicht erkennbar"
+
+msgid "Group Photo"
+msgstr "Gruppenfoto"
+
+msgid "Unclear Face"
+msgstr "Gesicht nicht erkennbar"
+
+msgid "Attended an event"
+msgstr "An einer Veranstaltung teilgenommen"
+
+msgid "Check for New Photos"
+msgstr "Nach neuen Fotos suchen"
+
+msgid "No photos waiting for review."
+msgstr "Keine Fotos warten auf Prüfung."
+
+msgid "Flag / Reject"
+msgstr "Markieren / ablehnen"
+
+msgid "Flag or Request Revision"
+msgstr "Markieren oder Änderung anfordern"
+
+msgid "Submit Decision"
+msgstr "Entscheidung speichern"
+
+msgid "Photo review reason"
+msgstr "Grund für die Foto-Prüfung"
+
+msgid "Feedback note (optional, 255 characters maximum)"
+msgstr "Feedback (optional, maximal 255 Zeichen)"
+
+msgid ""
+"Fake profiles are excluded from Connect. Other reasons ask the member to "
+"replace their photo."
+msgstr ""
+"Gefälschte Profile werden von Connect ausgeschlossen. Bei anderen Gründen "
+"wird das Mitglied gebeten, sein Foto zu ersetzen."
+
+msgid ""
+"Online photo review does not verify identity or in-person photo "
+"authenticity."
+msgstr ""
+"Die Online-Foto-Prüfung bestätigt weder die Identität noch die Echtheit des "
+"Fotos bei einer persönlichen Begegnung."
+
+msgid ""
+"Swipe right to approve, left to flag, or up to skip. L / Right: approve. H /"
+" Left: flag. K: request revision. Space: next photo. U: undo."
+msgstr ""
+"Nach rechts wischen zum Freigeben, nach links zum Markieren oder nach oben "
+"zum Überspringen. L / Rechts: freigeben. H / Links: markieren. K: Änderung "
+"anfordern. Leertaste: nächstes Foto. U: rückgängig."
+
+msgid "Could not complete this action. Please try again."
+msgstr ""
+"Diese Aktion konnte nicht abgeschlossen werden. Bitte versuche es erneut."
+
+msgid "Could not save the review. Please try again."
+msgstr ""
+"Die Prüfung konnte nicht gespeichert werden. Bitte versuche es erneut."
+
+msgid "Could not undo the review. Please try again."
+msgstr ""
+"Die Prüfung konnte nicht rückgängig gemacht werden. Bitte versuche es "
+"erneut."
+
+msgid "Invalid photo review decision."
+msgstr "Ungültige Entscheidung zur Foto-Prüfung."
+
+msgid "Invalid photo review payload."
+msgstr "Ungültige Daten zur Foto-Prüfung."
+
+msgid "Invalid photo review reason."
+msgstr "Ungültiger Grund für die Foto-Prüfung."
+
+msgid "Invalid request payload"
+msgstr "Ungültige Anfragedaten"
+
+msgid "Profile not available for review."
+msgstr "Dieses Profil kann nicht geprüft werden."
+
+msgid "This photo has already been reviewed. Reload the queue."
+msgstr "Dieses Foto wurde bereits geprüft. Lade die Warteschlange erneut."
+
+msgid "No recent review to undo."
+msgstr "Keine kürzlich erfolgte Prüfung zum Rückgängigmachen."
+
+msgid "This review is no longer current and cannot be undone."
+msgstr ""
+"Diese Prüfung ist nicht mehr aktuell und kann nicht rückgängig gemacht "
+"werden."
+
+msgid ""
+"Please replace the inappropriate image with a suitable photo of yourself."
+msgstr ""
+"Bitte ersetze das unangemessene Bild durch ein geeignetes Foto von dir."
+
+msgid ""
+"Please replace your profile photo with a clear, suitable photo of yourself."
+msgstr ""
+"Bitte ersetze dein Profilfoto durch ein klares, geeignetes Foto von dir."
+
+msgid "Please upload a clearer profile photo where your face is visible."
+msgstr ""
+"Bitte lade ein deutlicheres Profilfoto hoch, auf dem dein Gesicht sichtbar "
+"ist."
+
+msgid "Please upload a photo showing only you, so members can identify you."
+msgstr ""
+"Bitte lade ein Foto hoch, das nur dich zeigt, damit Mitglieder dich erkennen"
+" können."
+
+msgid "Profile Photo Review Log"
+msgstr "Protokoll der Profilfoto-Prüfung"
+
+msgid "Profile Photo Review Logs"
+msgstr "Protokolle der Profilfoto-Prüfung"
+
+msgid "Needs Revision (Unclear / Inappropriate)"
+msgstr "Änderung erforderlich (undeutlich / unangemessen)"
+
+msgid "Flagged Fake / Suspicious"
+msgstr "Als gefälscht / verdächtig markiert"
+
+msgid "Coach online photo review status for Crush Connect"
+msgstr "Status der Online-Foto-Prüfung durch einen Coach für Crush Connect"
+
+msgid "Storage key of photo_1 when reviewed; change invalidates review"
+msgstr ""
+"Speicherschlüssel von photo_1 bei der Prüfung; eine Änderung hebt die "
+"Prüfung auf"
+
+msgid "When the current photo was reviewed by a coach"
+msgstr "Zeitpunkt der Prüfung des aktuellen Fotos durch einen Coach"
+
+msgid "Coach who reviewed the current photo"
+msgstr "Coach, der das aktuelle Foto geprüft hat"
+
+msgid "Internal note from coach on photo decision"
+msgstr "Interne Notiz des Coaches zur Fotoentscheidung"
+
+msgid "Profile photo review"
+msgstr "Prüfung des Profilfotos"
+
+msgid "Update photo"
+msgstr "Foto aktualisieren"
+
+msgid ""
+"A coach requested an updated photo. Please upload a clear photo of yourself."
+msgstr ""
+"Ein Coach hat ein neues Foto angefordert. Bitte lade ein klares Foto von dir"
+" hoch."
+
+msgid ""
+"A coach requested an updated profile photo. Please upload a clear photo "
+"showing your face to continue."
+msgstr ""
+"Ein Coach hat ein neues Profilfoto angefordert. Bitte lade ein klares Foto "
+"hoch, auf dem dein Gesicht sichtbar ist, um fortzufahren."

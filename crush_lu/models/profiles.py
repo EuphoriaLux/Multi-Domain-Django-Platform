@@ -1316,6 +1316,17 @@ class CrushProfile(models.Model):
                 instance.photo_verification_key,
                 instance.photo_verified_at,
             )
+        review_fields = (
+            "photo_review_status",
+            "photo_review_key",
+            "photo_reviewed_at",
+            "photo_reviewed_by_id",
+            "photo_review_notes",
+        )
+        if all(field in field_names for field in review_fields):
+            instance._loaded_photo_review = tuple(
+                getattr(instance, field) for field in review_fields
+            )
         return instance
 
     def save(self, *args, **kwargs):
@@ -1327,6 +1338,7 @@ class CrushProfile(models.Model):
         4. Protect an untouched language choice from stale full-row saves.
         5. Protect an untouched verification decision from stale full-row saves.
         6. Invalidate photo attestation when the primary photo changes.
+        7. Omit untouched online photo-review columns from unrelated updates.
         """
         loaded_verification = getattr(self, "_loaded_verification", None)
         verification_fields = (
@@ -1355,6 +1367,7 @@ class CrushProfile(models.Model):
         if self.verification_status == "verified" and not self.verification_method:
             self.verification_method = "admin"
 
+        omit_review_fields = ()
         if self.pk:  # Only on update, not create
             try:
                 old_instance = CrushProfile.objects.get(pk=self.pk)
@@ -1426,6 +1439,25 @@ class CrushProfile(models.Model):
                             "photo_review_notes",
                         }
                 else:
+                    # Preserve moderation written while an unrelated request
+                    # held this instance, without reviving its stale pending state.
+                    review_fields = (
+                        "photo_review_status",
+                        "photo_review_key",
+                        "photo_reviewed_at",
+                        "photo_reviewed_by_id",
+                        "photo_review_notes",
+                    )
+                    loaded_review = getattr(self, "_loaded_photo_review", None)
+                    if (
+                        update_fields is None
+                        and loaded_review is not None
+                        and tuple(getattr(self, field) for field in review_fields)
+                        == loaded_review
+                    ):
+                        for field in review_fields:
+                            setattr(self, field, getattr(old_instance, field))
+                        omit_review_fields = review_fields
                     # A coach may attest the photo while another request holds
                     # an older profile instance. Preserve that newer decision
                     # across an unrelated full-row save, just like the profile
@@ -1513,6 +1545,19 @@ class CrushProfile(models.Model):
                             pass  # Don't block save if cleanup fails
             except CrushProfile.DoesNotExist:
                 pass
+        if omit_review_fields:
+            # Copying the latest tuple above keeps this instance useful, but
+            # only omitting its columns protects a decision that commits
+            # between that read and this UPDATE. Keep all other loaded fields,
+            # including auto_now fields and wallet signal inputs.
+            kwargs["update_fields"] = {
+                field.name
+                for field in self._meta.concrete_fields
+                if not field.primary_key
+                and not field.generated
+                and field.attname in self.__dict__
+                and field.attname not in omit_review_fields
+            }
         super().save(*args, **kwargs)
         # This instance is now in step with the row, so a later save on it
         # judges "touched since" against what was actually written.
@@ -1527,6 +1572,13 @@ class CrushProfile(models.Model):
             getattr(self.photo_1, "name", "") or "",
             self.photo_verification_key,
             self.photo_verified_at,
+        )
+        self._loaded_photo_review = (
+            self.photo_review_status,
+            self.photo_review_key,
+            self.photo_reviewed_at,
+            self.photo_reviewed_by_id,
+            self.photo_review_notes,
         )
 
     def reset_phone_verification(self):

@@ -7,20 +7,27 @@ Manages the fast photo-moderation queue and swipe decisions (Approve, Flag Fake,
 import logging
 from datetime import timedelta
 from django.db import models, transaction
-from django.db.models import Case, Q, Value, When
+from django.db.models import Case, Exists, OuterRef, Q, Value, When
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.utils.translation import gettext as _
+from django.utils.translation import override
 
 from crush_lu.models import (
     CrushCoach,
+    ConnectCoachPick,
     CrushConnectMembership,
     CrushProfile,
     ProfilePhotoReviewLog,
     UserReport,
+    UserDataConsent,
+    EventRegistration,
 )
+from crush_lu.models.crush_connect_cycle import ConnectPairExclusion
 from crush_lu.notification_service import notify_profile_revision
-from crush_lu.services.blocking import purge_user_from_connect_queues
+from crush_lu.services.blocking import is_blocked_pair
+from crush_lu.services.crush_connect import is_catalogue_eligible
 
 logger = logging.getLogger(__name__)
 
@@ -37,26 +44,47 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40):
         CrushProfile.objects.filter(
             is_active=True,
             user__is_active=True,
-            photo_review_status__in=["pending", "needs_revision"],
+            photo_review_status="pending",
+            user_id__in=UserDataConsent.objects.filter(
+                crushlu_consent_given=True, crushlu_banned=False
+            ).values("user_id"),
         )
         .exclude(Q(photo_1="") | Q(photo_1__isnull=True))
         .exclude(verification_status="rejected")
         .exclude(user=coach.user)
-        .select_related("user", "user__crush_connect_membership", "user__crush_connect_membership__story_prompt")
-        .prefetch_related("user__socialaccount_set")
+        .select_related(
+            "user",
+            "user__crush_connect_membership",
+            "user__crush_connect_membership__story_prompt",
+        )
     )
 
     # Priority score:
     # 3: Connect onboarded
     # 2: Connect membership exists
     # 1: General profile
+    native_luxid, oidc_luxid = CrushProfile.luxid_account_querysets(OuterRef("user_id"))
+    attended = EventRegistration.objects.filter(
+        user_id=OuterRef("user_id"),
+        status="attended",
+    ).filter(
+        Q(checkin_granted_coach__isnull=False)
+        | ~Q(checkin_attested_photo_key="")
+        | Q(event__coaches=OuterRef("assigned_coach_id"))
+    )
     annotated_qs = base_qs.annotate(
+        review_has_native_luxid=Exists(native_luxid),
+        review_has_oidc_luxid=Exists(oidc_luxid),
+        review_has_attendance=Exists(attended),
         priority=Case(
-            When(user__crush_connect_membership__onboarded_at__isnull=False, then=Value(3)),
+            When(
+                user__crush_connect_membership__onboarded_at__isnull=False,
+                then=Value(3),
+            ),
             When(user__crush_connect_membership__isnull=False, then=Value(2)),
             default=Value(1),
             output_field=models.IntegerField(),
-        )
+        ),
     ).order_by("-priority", "-updated_at", "-id")
 
     profiles = list(annotated_qs[:limit])
@@ -118,7 +146,7 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40):
                 "display_name": p.display_name or p.user.first_name or p.user.username,
                 "age": p.age_display or "",
                 "gender": p.get_gender_display() or "",
-                "location": p.city or p.region or "",
+                "location": p.city or "",
                 "photos": photos,
                 "photo_count": len(photos),
                 "photo_key": getattr(p.photo_1, "name", "") or "",
@@ -127,25 +155,61 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40):
                 "story_text": story_text,
                 "relationship_goal": relationship_goal,
                 "lifestyle_tags": lifestyle_tags,
-                "is_luxid_verified": p.has_luxid_connected,
-                "has_attended_event": p.has_attended_event,
+                "is_luxid_verified": p.review_has_native_luxid
+                or p.review_has_oidc_luxid,
+                "has_attended_event": (
+                    p.verification_status == "verified"
+                    and (
+                        p.verification_method in ("coach_event", "premium_coach")
+                        or p.review_has_attendance
+                    )
+                ),
                 "is_onboarded": bool(mem and mem.is_onboarded),
                 "member_since": p.created_at.strftime("%b %Y") if p.created_at else "",
             }
         )
 
-    total_waiting = (
-        CrushProfile.objects.filter(
-            is_active=True,
-            user__is_active=True,
-            photo_review_status__in=["pending", "needs_revision"],
-        )
-        .exclude(Q(photo_1="") | Q(photo_1__isnull=True))
-        .exclude(verification_status="rejected")
-        .count()
-    )
+    total_waiting = base_qs.count()
 
     return cards, total_waiting
+
+
+class PhotoReviewError(ValueError):
+    """A safe, user-facing refusal of a review or undo."""
+
+    def __init__(self, message, status=409):
+        super().__init__(message)
+        self.message = message
+        self.status = status
+
+
+def _notify_revision_safely(profile, reason, notes, request):
+    try:
+        with override(profile.preferred_language or "en"):
+            feedback = {
+                "inappropriate": _(
+                    "Please replace the inappropriate image with a suitable photo of yourself."
+                ),
+                "group_photo": _(
+                    "Please upload a photo showing only you, so members can identify you."
+                ),
+                "unclear_face": _(
+                    "Please upload a clearer profile photo where your face is visible."
+                ),
+                "other": _(
+                    "Please replace your profile photo with a clear, suitable photo of yourself."
+                ),
+            }
+            notify_profile_revision(
+                user=profile.user,
+                profile=profile,
+                feedback=notes or feedback.get(reason, feedback["other"]),
+                request=request,
+            )
+    except Exception:
+        logger.exception(
+            "Failed to send photo revision notification to user %s", profile.user_id
+        )
 
 
 def submit_photo_review(
@@ -155,72 +219,91 @@ def submit_photo_review(
     reason: str = "",
     notes: str = "",
     request=None,
+    *,
+    photo_key: str,
 ):
-    """
-    Process a coach swipe decision:
-    - 'approved': Marks photo reviewed & approved.
-    - 'flagged_fake': Flags fake profile, trips coach panic button exclusion, files UserReport.
-    - 'needs_revision': Flags photo as needing revision and notifies user via push/email.
-    - 'skipped': Leaves profile unchanged.
-    """
-    if decision not in ("approved", "flagged_fake", "needs_revision", "skipped"):
-        raise ValueError(f"Invalid decision '{decision}'")
+    """Claim one pending, exact-photo decision; notify only after commit."""
+    if decision not in dict(ProfilePhotoReviewLog.DECISION_CHOICES):
+        raise PhotoReviewError(_("Invalid photo review decision."), 400)
+    if reason and reason not in dict(ProfilePhotoReviewLog.REASON_CHOICES):
+        raise PhotoReviewError(_("Invalid photo review reason."), 400)
+    if len(notes) > 255 or len(photo_key) > 255 or not photo_key:
+        raise PhotoReviewError(_("Invalid photo review payload."), 400)
 
     with transaction.atomic():
+        # Lock only the profile, never joined nullable membership rows or the user.
         profile = (
-            CrushProfile.objects.select_for_update()
+            CrushProfile.objects.select_for_update(of=("self",))
             .select_related("user")
-            .get(id=profile_id)
+            .filter(pk=profile_id)
+            .first()
         )
-        current_key = getattr(profile.photo_1, "name", "") or ""
-        prev_status = profile.photo_review_status
+        if profile is None:
+            raise PhotoReviewError(_("Profile not available for review."), 404)
+        consent = UserDataConsent.objects.filter(user_id=profile.user_id).first()
+        if (
+            profile.user_id == coach.user_id
+            or not coach.is_active
+            or not coach.user.is_active
+            or not profile.is_active
+            or not profile.user.is_active
+            or profile.verification_status == "rejected"
+            or not consent
+            or not consent.crushlu_consent_given
+            or consent.crushlu_banned
+        ):
+            raise PhotoReviewError(_("Profile not available for review."), 403)
+        current_key = profile.photo_1.name or ""
+        if current_key != photo_key:
+            raise PhotoReviewError(
+                _("This member's photo changed. Reload and check the new one.")
+            )
+        if profile.photo_review_status != "pending":
+            raise PhotoReviewError(
+                _("This photo has already been reviewed. Reload the queue.")
+            )
         now = timezone.now()
-
-        if decision == "approved":
-            profile.photo_review_status = "approved"
-            profile.photo_review_key = current_key
-            profile.photo_reviewed_at = now
-            profile.photo_reviewed_by = coach
-            profile.photo_review_notes = notes
-            profile.save(
-                update_fields=[
-                    "photo_review_status",
-                    "photo_review_key",
-                    "photo_reviewed_at",
-                    "photo_reviewed_by",
-                    "photo_review_notes",
-                ]
+        if decision != "skipped":
+            # The conditional UPDATE also protects the file key at the write boundary.
+            claimed = CrushProfile.objects.filter(
+                pk=profile.pk,
+                photo_1=photo_key,
+                photo_review_status="pending",
+            ).update(
+                photo_review_status=decision,
+                photo_review_key=photo_key,
+                photo_reviewed_at=now,
+                photo_reviewed_by=coach,
+                photo_review_notes=notes,
             )
-
-        elif decision == "flagged_fake":
-            profile.photo_review_status = "flagged_fake"
-            profile.photo_review_key = current_key
-            profile.photo_reviewed_at = now
-            profile.photo_reviewed_by = coach
-            profile.photo_review_notes = notes
-            profile.save(
-                update_fields=[
-                    "photo_review_status",
-                    "photo_review_key",
-                    "photo_reviewed_at",
-                    "photo_reviewed_by",
-                    "photo_review_notes",
-                ]
-            )
-
-            coach_label = coach.user.get_full_name() or coach.user.username
-
-            # Trip coach panic button on CrushConnectMembership
+            if not claimed:
+                raise PhotoReviewError(
+                    _("This member's photo changed. Reload and check the new one.")
+                )
+            profile.refresh_from_db()
+        log = ProfilePhotoReviewLog.objects.create(
+            profile=profile,
+            coach=coach,
+            photo_key=photo_key,
+            decision=decision,
+            reason=reason,
+            notes=notes,
+            previous_status="pending",
+            decision_at=now,
+        )
+        if decision == "flagged_fake":
             membership, _created = CrushConnectMembership.objects.get_or_create(
                 user=profile.user
+            )
+            membership = CrushConnectMembership.objects.select_for_update().get(
+                pk=membership.pk
             )
             if not membership.excluded_by_coach:
                 membership.excluded_by_coach = True
                 membership.excluded_at = now
                 membership.excluded_by = coach
                 membership.exclusion_reason = (
-                    f"Photo review: Flagged fake/suspicious by coach {coach_label}. "
-                    f"Reason: {reason}. {notes}".strip()
+                    f"Photo review #{log.pk}: {reason}. {notes}"
                 )
                 membership.save(
                     update_fields=[
@@ -230,140 +313,198 @@ def submit_photo_review(
                         "exclusion_reason",
                     ]
                 )
-                purge_user_from_connect_queues(profile.user)
-
-            # File moderation queue report for audit trail
-            UserReport.objects.create(
+                log.exclusion_created = True
+            # Preserve the exact rows and withdrawal timestamp owned by this
+            # decision so Undo can restore them without reviving later actions.
+            picks = list(
+                ConnectCoachPick.objects.select_for_update()
+                .filter(
+                    Q(member=profile.user) | Q(candidate=profile.user),
+                    status__in=["proposed", "accepted"],
+                )
+                .order_by("pk")
+            )
+            log.withdrawn_picks = [
+                {
+                    "id": pick.pk,
+                    "status": pick.status,
+                    "responded_at": (
+                        pick.responded_at.isoformat() if pick.responded_at else None
+                    ),
+                }
+                for pick in picks
+            ]
+            ConnectCoachPick.objects.filter(pk__in=[pick.pk for pick in picks]).update(
+                status="withdrawn",
+                responded_at=now,
+            )
+            log.report = UserReport.objects.create(
                 reporter=coach.user,
                 reported_user=profile.user,
                 reason="fake_profile",
-                details=f"Coach Photo Review Deck: {reason}. {notes}".strip(),
+                details=f"Coach photo review #{log.pk}: {reason}. {notes}",
                 source="profile",
-                source_id=profile.id,
+                source_id=profile.pk,
                 status="actioned",
                 handled_by=coach.user,
                 handled_at=now,
-                resolution_notes=f"Auto-excluded from Connect by coach {coach_label}",
+                resolution_notes=f"Photo review #{log.pk}: excluded from Connect.",
             )
-
+            log.save(update_fields=["exclusion_created", "report", "withdrawn_picks"])
         elif decision == "needs_revision":
-            profile.photo_review_status = "needs_revision"
-            profile.photo_review_key = current_key
-            profile.photo_reviewed_at = now
-            profile.photo_reviewed_by = coach
-            profile.photo_review_notes = notes
-            profile.save(
-                update_fields=[
-                    "photo_review_status",
-                    "photo_review_key",
-                    "photo_reviewed_at",
-                    "photo_reviewed_by",
-                    "photo_review_notes",
-                ]
+            transaction.on_commit(
+                lambda: _notify_revision_safely(profile, reason, notes, request)
             )
-
-            # Send member notification
-            feedback_text = (
-                notes
-                or _("Please upload a clearer profile photo where your face is visible.")
-            )
-            try:
-                notify_profile_revision(
-                    user=profile.user,
-                    profile=profile,
-                    feedback=feedback_text,
-                    request=request,
-                )
-            except Exception:
-                logger.exception(
-                    "Failed to send photo revision notification to user %s",
-                    profile.user_id,
-                )
-
-        # Log decision
-        log = ProfilePhotoReviewLog.objects.create(
-            profile=profile,
-            coach=coach,
-            photo_key=current_key,
-            decision=decision,
-            reason=reason,
-            notes=notes,
-            previous_status=prev_status,
-        )
-
         return {
             "success": True,
             "decision": decision,
-            "profile_id": profile.id,
-            "log_id": log.id,
+            "profile_id": profile.pk,
+            "log_id": log.pk,
             "new_status": profile.photo_review_status,
         }
 
 
-def undo_last_photo_review(coach: CrushCoach):
-    """
-    Undo the coach's most recent photo review decision (within the last 15 minutes).
-    Restores the previous status on CrushProfile and removes the exclusion if applicable.
-    """
+def undo_last_photo_review(coach: CrushCoach, *, log_id=None):
+    """Undo only the still-current decision, preserving the immutable audit record."""
     cutoff = timezone.now() - timedelta(minutes=15)
-    log = (
-        ProfilePhotoReviewLog.objects.filter(coach=coach, created_at__gte=cutoff)
-        .order_by("-created_at")
-        .first()
-    )
-    if not log:
-        return {"success": False, "message": _("No recent review to undo.")}
+    logs = ProfilePhotoReviewLog.objects.filter(
+        coach=coach,
+        created_at__gte=cutoff,
+        undone_at__isnull=True,
+    ).exclude(decision="skipped")
+    if log_id is not None:
+        logs = logs.filter(pk=log_id)
+    log = logs.order_by("-pk").first()
+    if log is None:
+        raise PhotoReviewError(_("No recent review to undo."))
 
     with transaction.atomic():
         profile = (
-            CrushProfile.objects.select_for_update()
+            CrushProfile.objects.select_for_update(of=("self",))
             .select_related("user")
-            .get(id=log.profile_id)
+            .get(pk=log.profile_id)
         )
-        restored_status = log.previous_status or "pending"
-        profile.photo_review_status = restored_status
-        if restored_status == "pending":
-            profile.photo_review_key = ""
-            profile.photo_reviewed_at = None
-            profile.photo_reviewed_by = None
-            profile.photo_review_notes = ""
-        profile.save(
-            update_fields=[
-                "photo_review_status",
-                "photo_review_key",
-                "photo_reviewed_at",
-                "photo_reviewed_by",
-                "photo_review_notes",
-            ]
+        log = ProfilePhotoReviewLog.objects.select_for_update().get(pk=log.pk)
+        latest = (
+            profile.photo_review_logs.filter(undone_at__isnull=True)
+            .exclude(decision="skipped")
+            .order_by("-pk")
+            .first()
         )
-
-        # If it was flagged_fake, restore membership exclusion if coach was the one who set it
-        if log.decision == "flagged_fake":
-            membership = CrushConnectMembership.objects.filter(
-                user=profile.user, excluded_by=coach
-            ).first()
-            if membership and "Photo review: Flagged fake" in membership.exclusion_reason:
-                membership.excluded_by_coach = False
-                membership.excluded_at = None
-                membership.excluded_by = None
-                membership.exclusion_reason = ""
-                membership.save(
-                    update_fields=[
-                        "excluded_by_coach",
-                        "excluded_at",
-                        "excluded_by",
-                        "exclusion_reason",
-                    ]
+        if (
+            log.undone_at is not None
+            or latest is None
+            or latest.pk != log.pk
+            or profile.photo_1.name != log.photo_key
+            or profile.photo_review_key != log.photo_key
+            or profile.photo_review_status != log.decision
+            or profile.photo_reviewed_by_id != coach.pk
+            or profile.photo_reviewed_at != log.decision_at
+            or log.previous_status != "pending"
+        ):
+            raise PhotoReviewError(
+                _("This review is no longer current and cannot be undone.")
+            )
+        if log.exclusion_created:
+            membership = (
+                CrushConnectMembership.objects.select_for_update()
+                .filter(user=profile.user)
+                .first()
+            )
+            if (
+                not membership
+                or not membership.excluded_by_coach
+                or membership.excluded_by_id != coach.pk
+                or membership.excluded_at != log.decision_at
+                or not membership.exclusion_reason.startswith(
+                    f"Photo review #{log.pk}:"
                 )
-
-        undone_decision = log.decision
-        profile_name = profile.display_name or profile.user.first_name or profile.user.username
-        log.delete()
-
+            ):
+                raise PhotoReviewError(
+                    _("This review is no longer current and cannot be undone.")
+                )
+            membership.excluded_by_coach = False
+            membership.excluded_at = None
+            membership.excluded_by = None
+            membership.exclusion_reason = ""
+            membership.save(
+                update_fields=[
+                    "excluded_by_coach",
+                    "excluded_at",
+                    "excluded_by",
+                    "exclusion_reason",
+                ]
+            )
+        CrushProfile.objects.filter(pk=profile.pk, photo_1=log.photo_key).update(
+            photo_review_status="pending",
+            photo_review_key="",
+            photo_reviewed_at=None,
+            photo_reviewed_by=None,
+            photo_review_notes="",
+        )
+        withdrawn_pick_ids = [item["id"] for item in log.withdrawn_picks]
+        for snapshot in log.withdrawn_picks:
+            pick = (
+                ConnectCoachPick.objects.select_for_update(of=("self",))
+                .select_related(
+                    "member__crushprofile",
+                    "member__crush_connect_membership",
+                    "candidate__crushprofile",
+                    "candidate__crush_connect_membership",
+                    "coach",
+                )
+                .filter(
+                    pk=snapshot["id"], status="withdrawn", responded_at=log.decision_at
+                )
+                .first()
+            )
+            if not pick:
+                continue
+            consenting = (
+                UserDataConsent.objects.filter(
+                    user_id__in=[pick.member_id, pick.candidate_id],
+                    crushlu_consent_given=True,
+                    crushlu_banned=False,
+                ).count()
+                == 2
+            )
+            if (
+                not consenting
+                or not pick.coach.is_active
+                or not is_catalogue_eligible(pick.member)
+                or pick.member.crushprofile.assigned_coach_id != pick.coach_id
+                or not is_catalogue_eligible(pick.candidate)
+                or is_blocked_pair(pick.member, pick.candidate)
+                or ConnectPairExclusion.are_excluded(pick.member, pick.candidate)
+                or ConnectCoachPick.objects.filter(
+                    member_id=pick.member_id, status__in=["proposed", "accepted"]
+                )
+                .exclude(pk__in=withdrawn_pick_ids)
+                .exists()
+            ):
+                continue
+            ConnectCoachPick.objects.filter(
+                pk=pick.pk, status="withdrawn", responded_at=log.decision_at
+            ).update(
+                status=snapshot["status"],
+                responded_at=(
+                    parse_datetime(snapshot["responded_at"])
+                    if snapshot["responded_at"]
+                    else None
+                ),
+            )
+        log.undone_at = timezone.now()
+        log.save(update_fields=["undone_at"])
+        if log.report_id:
+            UserReport.objects.filter(pk=log.report_id).update(
+                status="dismissed",
+                handled_by=coach.user,
+                handled_at=log.undone_at,
+                resolution_notes=f"Photo review #{log.pk} undone by the reviewing coach.",
+            )
         return {
             "success": True,
-            "undone_decision": undone_decision,
-            "profile_id": profile.id,
-            "profile_name": profile_name,
-            "restored_status": restored_status,
+            "undone_decision": log.decision,
+            "profile_id": profile.pk,
+            "restored_status": "pending",
         }

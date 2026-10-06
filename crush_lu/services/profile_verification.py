@@ -149,6 +149,17 @@ def transition_unverified_profile(
     # `update()` skips `auto_now`. Stamp it, so a member the check-in undo
     # sends back to pending tops the "Recently updated" lists.
     now = timezone.now()
+    review_reset = (
+        dict(
+            photo_review_status="pending",
+            photo_review_key="",
+            photo_reviewed_at=None,
+            photo_reviewed_by=None,
+            photo_review_notes="",
+        )
+        if target_status == "rejected"
+        else {}
+    )
     transitioned = CrushProfile.objects.filter(
         pk=profile.pk,
         verification_status__in=tuple(transition_from),
@@ -160,6 +171,7 @@ def transition_unverified_profile(
         photo_verification_key="",
         photo_verified_at=None,
         updated_at=now,
+        **review_reset,
     )
     if not transitioned:
         return False
@@ -176,6 +188,8 @@ def transition_unverified_profile(
     profile.photo_verification_key = ""
     profile.photo_verified_at = None
     profile.updated_at = now
+    for field, value in review_reset.items():
+        setattr(profile, field, value)
     return True
 
 
@@ -190,6 +204,17 @@ def reject_door_verification(
     Atomically transitions the profile back to an unverified state (`is_approved=False`,
     `approved_at=None`, `verification_method=""`, `verification_status=target_status`).
     """
+    review_reset = (
+        dict(
+            photo_review_status="pending",
+            photo_review_key="",
+            photo_reviewed_at=None,
+            photo_reviewed_by=None,
+            photo_review_notes="",
+        )
+        if target_status == "rejected"
+        else {}
+    )
     updated = CrushProfile.objects.filter(
         pk=profile.pk,
         verification_status__in=tuple(revert_from),
@@ -200,6 +225,7 @@ def reject_door_verification(
         verification_status=target_status,
         photo_verification_key="",
         photo_verified_at=None,
+        **review_reset,
     )
     if not updated:
         return False
@@ -213,4 +239,6 @@ def reject_door_verification(
     profile.verification_status = target_status
     profile.photo_verification_key = ""
     profile.photo_verified_at = None
+    for field, value in review_reset.items():
+        setattr(profile, field, value)
     return True

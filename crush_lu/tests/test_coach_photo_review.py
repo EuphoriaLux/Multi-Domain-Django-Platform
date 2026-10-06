@@ -86,7 +86,9 @@ def _make_candidate(
             photo_share_consent=True,
         )
     if has_luxid:
-        SocialAccount.objects.create(user=user, provider="luxid", uid=f"luxid_{username}")
+        SocialAccount.objects.create(
+            user=user, provider="luxid", uid=f"luxid_{username}"
+        )
     consent, _ = UserDataConsent.objects.get_or_create(user=user)
     consent.crushlu_consent_given = True
     consent.save(update_fields=["crushlu_consent_given"])
@@ -157,6 +159,7 @@ def test_submit_photo_review_approved():
     result = submit_photo_review(
         coach=coach,
         profile_id=cand.id,
+        photo_key=cand.photo_1.name,
         decision="approved",
         notes="Clear and authentic photo",
     )
@@ -187,6 +190,7 @@ def test_submit_photo_review_flagged_fake():
     result = submit_photo_review(
         coach=coach,
         profile_id=cand.id,
+        photo_key=cand.photo_1.name,
         decision="flagged_fake",
         reason="fake_profile",
         notes="Stock model image detected",
@@ -202,7 +206,9 @@ def test_submit_photo_review_flagged_fake():
     assert mem.excluded_by == coach
 
     # UserReport is created in moderation queue
-    report = UserReport.objects.filter(reported_user=cand.user, reporter=coach.user).first()
+    report = UserReport.objects.filter(
+        reported_user=cand.user, reporter=coach.user
+    ).first()
     assert report is not None
     assert report.reason == "fake_profile"
     assert report.status == "actioned"
@@ -219,6 +225,7 @@ def test_submit_photo_review_needs_revision():
     result = submit_photo_review(
         coach=coach,
         profile_id=cand.id,
+        photo_key=cand.photo_1.name,
         decision="needs_revision",
         reason="unclear_face",
         notes="Please upload a photo without sunglasses",
@@ -261,6 +268,7 @@ def test_undo_last_photo_review():
     submit_photo_review(
         coach=coach,
         profile_id=cand.id,
+        photo_key=cand.photo_1.name,
         decision="flagged_fake",
         reason="fake_profile",
     )
@@ -291,10 +299,13 @@ def test_photo_review_endpoints_json():
     decide_url = reverse("crush_lu:coach_photo_review_decide")
     payload = {
         "profile_id": cand.id,
+        "photo_key": cand.photo_1.name,
         "decision": "approved",
         "notes": "Verified via API",
     }
-    resp = client.post(decide_url, data=json.dumps(payload), content_type="application/json")
+    resp = client.post(
+        decide_url, data=json.dumps(payload), content_type="application/json"
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert data["success"] is True

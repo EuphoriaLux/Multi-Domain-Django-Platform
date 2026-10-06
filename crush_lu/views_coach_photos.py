@@ -14,6 +14,7 @@ from django.views.decorators.http import require_GET, require_POST
 from crush_lu.decorators import coach_required
 from crush_lu.services.photo_review import (
     get_photo_review_queue,
+    PhotoReviewError,
     submit_photo_review,
     undo_last_photo_review,
 )
@@ -32,7 +33,6 @@ def coach_photo_review_deck(request):
     context = {
         "coach": request.coach,
         "initial_cards": cards,
-        "initial_cards_json": json.dumps(cards),
         "total_waiting": total_waiting,
     }
     return render(request, "crush_lu/coach_photo_review.html", context)
@@ -51,12 +51,21 @@ def coach_photo_review_decide(request):
         else:
             data = request.POST
 
+        if not isinstance(data, dict):
+            raise ValueError
+        for field in ("decision", "reason", "notes", "photo_key"):
+            if not isinstance(data.get(field, ""), str):
+                raise ValueError
+
         profile_id = int(data.get("profile_id"))
         decision = data.get("decision", "").strip().lower()
         reason = data.get("reason", "").strip()
         notes = data.get("notes", "").strip()
+        photo_key = data.get("photo_key", "")
     except (ValueError, TypeError, json.JSONDecodeError):
-        return JsonResponse({"success": False, "error": _("Invalid request payload")}, status=400)
+        return JsonResponse(
+            {"success": False, "error": _("Invalid request payload")}, status=400
+        )
 
     try:
         result = submit_photo_review(
@@ -66,11 +75,22 @@ def coach_photo_review_decide(request):
             reason=reason,
             notes=notes,
             request=request,
+            photo_key=photo_key,
         )
         return JsonResponse(result)
-    except Exception as exc:
-        logger.exception("Error processing photo review decision for profile %s", profile_id)
-        return JsonResponse({"success": False, "error": str(exc)}, status=500)
+    except PhotoReviewError as exc:
+        return JsonResponse({"success": False, "error": exc.message}, status=exc.status)
+    except Exception:
+        logger.exception(
+            "Error processing photo review decision for profile %s", profile_id
+        )
+        return JsonResponse(
+            {
+                "success": False,
+                "error": _("Could not save the review. Please try again."),
+            },
+            status=500,
+        )
 
 
 @coach_required
@@ -78,12 +98,33 @@ def coach_photo_review_decide(request):
 def coach_photo_review_undo(request):
     """Undo the last photo review decision made by this coach."""
     try:
-        result = undo_last_photo_review(request.coach)
+        data = (
+            (json.loads(request.body) if request.body else {})
+            if request.content_type == "application/json"
+            else request.POST
+        )
+        if not isinstance(data, dict):
+            raise ValueError
+        log_id = int(data["log_id"]) if "log_id" in data else None
+    except (ValueError, TypeError):
+        return JsonResponse(
+            {"success": False, "error": _("Invalid request payload")}, status=400
+        )
+    try:
+        result = undo_last_photo_review(request.coach, log_id=log_id)
         status_code = 200 if result.get("success") else 400
         return JsonResponse(result, status=status_code)
-    except Exception as exc:
+    except PhotoReviewError as exc:
+        return JsonResponse({"success": False, "error": exc.message}, status=exc.status)
+    except Exception:
         logger.exception("Error undoing photo review for coach %s", request.coach.id)
-        return JsonResponse({"success": False, "error": str(exc)}, status=500)
+        return JsonResponse(
+            {
+                "success": False,
+                "error": _("Could not undo the review. Please try again."),
+            },
+            status=500,
+        )
 
 
 @coach_required

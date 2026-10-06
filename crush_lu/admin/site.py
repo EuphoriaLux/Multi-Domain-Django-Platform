@@ -318,6 +318,7 @@ class CrushLuAdminSite(admin.AdminSite):
             # ═══════════════════════════════════════════════════════════════════
             'userreport': {'order': 1, 'icon': '🚩', 'group': 'Trust & Safety'},
             'userblock': {'order': 2, 'icon': '🛑', 'group': 'Trust & Safety'},
+            'profilephotoreviewlog': {'order': 3, 'icon': '📷', 'group': 'Trust & Safety'},
 
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 11: Site Settings (Global configuration)

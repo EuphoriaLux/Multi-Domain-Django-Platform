@@ -62,7 +62,9 @@ class UserReportAdmin(admin.ModelAdmin):
         updated = self._stamp_handled(request, queryset, "reviewing")
         self.message_user(
             request,
-            ngettext("%d report marked reviewing.", "%d reports marked reviewing.", updated)
+            ngettext(
+                "%d report marked reviewing.", "%d reports marked reviewing.", updated
+            )
             % updated,
         )
 
@@ -71,10 +73,13 @@ class UserReportAdmin(admin.ModelAdmin):
         updated = self._stamp_handled(request, queryset, "dismissed")
         self.message_user(
             request,
-            ngettext("%d report dismissed.", "%d reports dismissed.", updated) % updated,
+            ngettext("%d report dismissed.", "%d reports dismissed.", updated)
+            % updated,
         )
 
-    @admin.action(description=_("Exclude reported user from Crush Connect (panic button)"))
+    @admin.action(
+        description=_("Exclude reported user from Crush Connect (panic button)")
+    )
     def exclude_reported_users(self, request, queryset):
         """Flip the reported user's coach panic button, then mark the report actioned.
 
@@ -141,6 +146,7 @@ class UserBlockAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
     def has_delete_permission(self, request, obj=None):
         # Block enforcement depends on these rows — deleting one silently
         # re-enables contact. Unblocking is a deliberate user action, not an
@@ -167,5 +173,28 @@ class ProfilePhotoReviewLogAdmin(admin.ModelAdmin):
         "profile__user__email",
         "notes",
     )
-    readonly_fields = ("created_at",)
+    readonly_fields = (
+        "coach",
+        "profile",
+        "photo_key",
+        "decision",
+        "reason",
+        "notes",
+        "previous_status",
+        "decision_at",
+        "created_at",
+        "undone_at",
+        "exclusion_created",
+        "withdrawn_picks",
+        "report",
+    )
     date_hierarchy = "created_at"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
