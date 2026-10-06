@@ -14,6 +14,12 @@ from .views_partners import (
     PartnerOnboardingView,
     PartnersView,
 )
+from .views_staffing import (
+    EventAvailabilitiesView,
+    EventAvailabilityDeclareView,
+    EventAvailabilityStatusView,
+    HubEventsView,
+)
 from .views_finance import (
     PaymentsInView,
     PaymentsOutView,
@@ -55,6 +61,29 @@ urlpatterns = [
         name="event_partner_link",
     ),
     path("events/<int:pk>/partner-link/", EventPartnerLinkView.as_view()),
+    path("events", HubEventsView.as_view(), name="hub_events"),
+    path("events/", HubEventsView.as_view()),
+    path(
+        "events/availabilities",
+        EventAvailabilitiesView.as_view(),
+        name="hub_event_availabilities",
+    ),
+    path("events/availabilities/", EventAvailabilitiesView.as_view()),
+    path(
+        "events/<int:event_id>/availability",
+        EventAvailabilityDeclareView.as_view(),
+        name="hub_event_availability_declare",
+    ),
+    path("events/<int:event_id>/availability/", EventAvailabilityDeclareView.as_view()),
+    path(
+        "events/<int:event_id>/availability/<str:availability_id>",
+        EventAvailabilityStatusView.as_view(),
+        name="hub_event_availability_status",
+    ),
+    path(
+        "events/<int:event_id>/availability/<str:availability_id>/",
+        EventAvailabilityStatusView.as_view(),
+    ),
     path("me", views.MeView.as_view(), name="me"),
     path("me/", views.MeView.as_view()),
     path("requests", views.RequestsView.as_view(), name="requests"),
