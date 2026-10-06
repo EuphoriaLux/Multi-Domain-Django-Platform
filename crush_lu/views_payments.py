@@ -1440,8 +1440,12 @@ def _queue_premium_recovery_case(payment, reason, detail=""):
     if created:
         # robust: the money is captured; a failing callback must never turn
         # the return page or webhook into a 500.
+        # One request budget, taken now, for every callback after commit.
         transaction.on_commit(
-            lambda: premium_recovery.notify_safely(case.pk), robust=True
+            lambda deadline=premium_recovery.request_deadline(): (
+                premium_recovery.notify_safely(case.pk, deadline)
+            ),
+            robust=True,
         )
 
 
@@ -2132,9 +2136,13 @@ def _apply_paid_checkout(tx_obj, data):
                     # other checkout of it may take a second one.
                     # robust: the entitlement is committed; a failing cleanup
                     # must not 500 the return/webhook (the tick retries it).
+                    # Its deadline is taken now, so the receipt above spends
+                    # from the same request budget.
                     transaction.on_commit(
-                        lambda membership=pm: premium_recovery.close_after_activation_safely(
-                            membership
+                        lambda membership=pm, deadline=premium_recovery.request_deadline(): (
+                            premium_recovery.close_after_activation_safely(
+                                membership, deadline
+                            )
                         ),
                         robust=True,
                     )

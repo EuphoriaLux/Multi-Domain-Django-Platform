@@ -779,7 +779,7 @@ class CaseLifecycleTests(_Base):
             premium_recovery.notify_safely,
             premium_recovery.close_after_activation_safely,
         ):
-            self.assertIn("_request_deadline()", inspect.getsource(fn))
+            self.assertIn("_request_deadline(deadline)", inspect.getsource(fn))
         # One close pass fits; the whole budget stays under Gunicorn's 120 s
         # with room for the request's own SumUp read before it.
         self.assertGreaterEqual(
@@ -1851,6 +1851,38 @@ class LateCaptureTests(_Base):
         sibling.refresh_from_db()
         self.assertEqual(sibling.status, PaymentTransaction.Status.CANCELLED)
         client.refund.assert_not_called()
+
+    def test_a_slow_receipt_leaves_the_activation_close_to_the_tick(self):
+        from unittest.mock import MagicMock
+
+        from crush_lu.services import premium_recovery
+
+        paid = self._tx("REC-ACT-SLOW")
+        sibling = self._tx("REC-ACT-SLOW-SIB")
+        clock = {"now": 1000.0}
+
+        def slow_receipt(payment):
+            # The receipt spends Graph's whole worst case.
+            clock["now"] += premium_recovery.SEND_SECONDS
+
+        client = MagicMock()
+        with (
+            patch.object(
+                premium_recovery.time, "monotonic", side_effect=lambda: clock["now"]
+            ),
+            patch(
+                "crush_lu.views_payments._send_premium_membership_receipt_safely",
+                side_effect=slow_receipt,
+            ),
+            patch("crush_lu.views_payments.SumUpClient", return_value=client),
+        ):
+            self._apply(paid)
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "active")
+        # 75 s from queueing minus the 30 s receipt leaves no 70 s close pass.
+        client.deactivate_checkout.assert_not_called()
+        sibling.refresh_from_db()
+        self.assertEqual(sibling.status, PaymentTransaction.Status.PENDING)
 
     def test_publication_refuses_a_deactivated_account(self):
         from crush_lu import views_payments

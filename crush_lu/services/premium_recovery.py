@@ -33,20 +33,27 @@ _deadline = contextvars.ContextVar("premium_recovery_deadline", default=None)
 _on_request = contextvars.ContextVar("premium_recovery_on_request", default=False)
 
 
-# Wall time an on-commit recovery callback may spend inside a member's request
-# (return page, webhook) on top of the request's own SumUp work, under
-# Gunicorn's 120 s timeout: room for one close pass (_close_seconds, 70 s);
-# the notices then go out only if they still fit, else the hourly tick sends.
+# Wall time a member's request (return page, webhook) may spend on its commit
+# callbacks -- receipt mail included -- counted from when they are queued,
+# after the request's own SumUp read, under Gunicorn's 120 s timeout: room for
+# one close pass (_close_seconds, 70 s); whatever no longer fits (a close after
+# a slow receipt, the notices) is left to the hourly tick.
 REQUEST_BUDGET_SECONDS = 75
 
 
+def request_deadline():
+    """The deadline to hand an on-commit callback, taken when it is queued so
+    every callback of the request shares one budget."""
+    return time.monotonic() + REQUEST_BUDGET_SECONDS
+
+
 @contextlib.contextmanager
-def _request_deadline():
+def _request_deadline(deadline=None):
     """Bound a member-request callback unless a tick deadline is already set."""
     if _deadline.get() is not None:
         yield
         return
-    token = _deadline.set(time.monotonic() + REQUEST_BUDGET_SECONDS)
+    token = _deadline.set(deadline if deadline is not None else request_deadline())
     flag = _on_request.set(True)
     try:
         yield
@@ -214,7 +221,7 @@ def _staff_only(case):
     return case.staff_only
 
 
-def notify_safely(case_pk):
+def notify_safely(case_pk, deadline=None):
     """on_commit callback: member notice + staff alert for a NEW case."""
     from crush_lu.models import PremiumPaymentRecoveryCase
 
@@ -229,7 +236,7 @@ def notify_safely(case_pk):
             type(exc).__name__,
         )
         return
-    with _request_deadline():
+    with _request_deadline(deadline):
         try:
             _close_sibling_checkouts_safely(case)
         except Exception as exc:
@@ -251,11 +258,11 @@ def notify_safely(case_pk):
         _alert_staff_safely(case)
 
 
-def close_after_activation_safely(membership):
+def close_after_activation_safely(membership, deadline=None):
     """on_commit after a successful activation: close the membership's other
     checkouts within the request budget; the hourly tick does the rest."""
     try:
-        with _request_deadline():
+        with _request_deadline(deadline):
             close_open_checkouts_safely(
                 [membership], f"premium membership {membership.pk}"
             )
