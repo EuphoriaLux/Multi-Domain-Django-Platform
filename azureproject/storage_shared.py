@@ -38,6 +38,27 @@ def is_azurite_mode():
     return getattr(settings, 'AZURITE_MODE', False)
 
 
+def local_storage_for_tests():
+    """Return local filesystem storage under the pytest harness, else None.
+
+    The platform media factories (here and in crush_lu, entreprinder and
+    power_up) are model fields' ``storage=`` callables. Django calls them while
+    importing models, which pytest-django does before any conftest hook runs,
+    and again on every field clone, so conftest.py's STORAGES rewrite never
+    reaches them. Without this, saving such a field in a test builds an Azure
+    client for whatever AZURE_ACCOUNT_NAME the environment holds (a real
+    account from a developer's .env, or none) and waits out SDK retries.
+    settings.IS_TESTING is never true on App Service, so production keeps its
+    Azure backends, and the fields keep the same callables, so migrations do
+    not change.
+    """
+    if not getattr(settings, "IS_TESTING", False):
+        return None
+    from django.core.files.storage import FileSystemStorage
+
+    return FileSystemStorage()
+
+
 class SharedMediaStorage(AzureStorage):
     """
     Storage backend for cross-platform shared assets
@@ -138,6 +159,9 @@ def shared_upload_path(subfolder: str = ''):
 
 def get_shared_media_storage():
     """Get shared media storage instance (lazy initialization)."""
+    local = local_storage_for_tests()
+    if local is not None:
+        return local
     try:
         from django.core.files.storage.base import Storage
         storage = SharedMediaStorage()
