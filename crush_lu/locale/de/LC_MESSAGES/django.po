@@ -44649,3 +44649,7 @@ msgstr "Schon ein Konto? Anmelden"
 #: crush_lu/templates/crush_lu/women_1y_landing.html
 msgid "Next events"
 msgstr "Nächste Events"
+
+#: crush_lu/templates/crush_lu/women_1y_landing.html
+msgid "New to Crush? Create an account"
+msgstr "Neu bei Crush? Konto erstellen"

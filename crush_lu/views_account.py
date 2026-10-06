@@ -879,16 +879,6 @@ def api_update_email_preference(request):
     email_prefs = EmailPreference.get_or_create_for_user(request.user)
     setattr(email_prefs, key, value)
     email_prefs.save(update_fields=[key])
-    if key == "email_marketing":
-        # Keep the signup consent tick in step with the settings toggle, so
-        # turning marketing off here is an opt-out everywhere.
-        from .models import UserDataConsent
-
-        UserDataConsent.objects.filter(user=request.user).update(
-            marketing_consent=value,
-            marketing_consent_date=timezone.now() if value else None,
-        )
-
     return JsonResponse({"success": True})
 
 
@@ -933,13 +923,6 @@ def email_unsubscribe(request, token):
             # Only unsubscribe from marketing emails
             email_prefs.email_marketing = False
             email_prefs.save()
-            # The signup/consent tick is a second marketing opt-in record;
-            # leaving it set would keep campaign audiences mailing them.
-            from crush_lu.models.profiles import UserDataConsent
-
-            UserDataConsent.objects.filter(user=email_prefs.user).update(
-                marketing_consent=False, marketing_consent_date=None
-            )
             messages.success(
                 request, _("You have been unsubscribed from marketing emails.")
             )

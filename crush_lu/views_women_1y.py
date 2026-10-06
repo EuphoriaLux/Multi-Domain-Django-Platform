@@ -99,8 +99,7 @@ def women_1y_go(request):
     url_name, query = landing_destination(request.user, utm)
     logger.info("women_1y cta: destination=%s utm=%s", url_name, utm or "-")
     target = reverse(url_name)
-    if url_name == "crush_lu:signup":
-        # Signup does not honour ``next`` (a new member goes through
-        # onboarding), but login does; keep it so the login tab returns here.
+    if url_name == "crush_lu:login":
+        # Return to this router after signing in.
         query = {**query, "next": request.get_full_path()}
     return redirect(f"{target}?{urlencode(query)}" if query else target)

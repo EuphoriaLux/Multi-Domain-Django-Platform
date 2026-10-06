@@ -41,7 +41,7 @@
     <div class="w1y-cta">
       <a href="{{ go_url }}" class="btn-crush-primary btn-lg">{% if is_verified %}{% trans "Open Crush Connect" %}{% else %}{% trans "Get verified" %}{% endif %}</a>
       {% if not logged_in %}
-      <a class="w1y-login" href="{% url 'crush_lu:login' %}?next={{ go_url|urlencode:'' }}">{% trans "Already have an account? Log in" %}</a>
+      <a class="w1y-login" href="{% url 'crush_lu:signup' %}">{% trans "New to Crush? Create an account" %}</a>
       {% endif %}
     </div>
 

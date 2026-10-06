@@ -159,12 +159,14 @@ class Command(BaseCommand):
         try:
             return self._send_locked(opts, token)
         finally:
+            # Only the lock owner may touch shared state; a run that lost its
+            # lock must not reset a newer run's campaign status.
             if cache.get(LOCK_KEY) == token:
                 cache.delete(LOCK_KEY)
-            # Back to the idle, non-launchable state (never leave it "sending").
-            Campaign.objects.filter(slug=CAMPAIGN_SLUG, status="sending").update(
-                status="partial"
-            )
+                # Back to the idle, non-launchable state (never leave "sending").
+                Campaign.objects.filter(slug=CAMPAIGN_SLUG, status="sending").update(
+                    status="partial"
+                )
 
     @staticmethod
     def _pace(opts, attempted):
@@ -252,6 +254,12 @@ class Command(BaseCommand):
                 skipped += 1
             row.save(update_fields=["status", "sent_at"])
             self._pace(opts, attempted)
+        if cache.get(LOCK_KEY) != token:
+            # Lost the lock: another run owns the campaign now; leave its state.
+            self.stdout.write(
+                f"sent={sent} failed={failed} skipped={skipped} (lock lost)"
+            )
+            return
         status = finalize_status(campaign)
         remaining = eligible_recipients().count()
         self.stdout.write(

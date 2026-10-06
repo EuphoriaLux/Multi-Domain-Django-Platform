@@ -274,10 +274,10 @@ class LandingRoutingTests(TestCase):
         html = self.client.get("/en/women-1-year/").content.decode()
         self.assertIn("Anniversary Mixer", html)
 
-    def test_logged_out_cta_goes_to_signup_keeping_utm(self):
+    def test_logged_out_cta_goes_to_login_keeping_utm(self):
         response = self.go()
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/signup/", response["Location"])
+        self.assertIn("/login/", response["Location"])
         self.assertIn("utm_campaign=women_1y", response["Location"])
         self.assertIn("next=", response["Location"])
 
@@ -320,7 +320,9 @@ class ReviewFollowUpTests(TestCase):
         CrushProfile.objects.filter(user=user).update(on_break_at=timezone.now())
         self.assertEqual(eligible_recipients().count(), 0)
 
-    def test_settings_toggle_off_clears_signup_consent(self):
+    def test_settings_toggle_off_removes_from_audience_without_touching_other_consent(
+        self,
+    ):
         user = make_member("toggleoff")
         client = Client(HTTP_HOST=HOST)
         client.force_login(user)
@@ -331,7 +333,8 @@ class ReviewFollowUpTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(eligible_recipients().count(), 0)
-        self.assertFalse(UserDataConsent.objects.get(user=user).marketing_consent)
+        # Email preference controls must never rewrite the broader consent record.
+        self.assertTrue(UserDataConsent.objects.get(user=user).marketing_consent)
 
     def test_incomplete_profile_cta_resumes_onboarding(self):
         user = make_member("inc", status="incomplete")
@@ -652,3 +655,59 @@ class ReviewRound4Tests(TestCase):
         with patch.object(mod, "send_women_1y_email", side_effect=steal_lock):
             self.run_send("--batch-pause", "0")
         self.assertEqual(cache.get(mod.LOCK_KEY), "someone-else")
+
+
+class ReviewRound5Tests(TestCase):
+    def setUp(self):
+        cache.clear()
+
+    def test_enabling_the_email_toggle_never_grants_publication_consent(self):
+        user = make_member("noconsent", marketing=False)
+        client = Client(HTTP_HOST=HOST)
+        client.force_login(user)
+        client.post(
+            "/api/email/preferences/",
+            data='{"key": "email_marketing", "value": true}',
+            content_type="application/json",
+        )
+        self.assertTrue(EmailPreference.objects.get(user=user).email_marketing)
+        self.assertFalse(UserDataConsent.objects.get(user=user).marketing_consent)
+
+    def test_marketing_unsubscribe_leaves_the_broader_consent_alone(self):
+        user = make_member("keepsocial")
+        token = EmailPreference.objects.get(user=user).unsubscribe_token
+        Client(HTTP_HOST=HOST).post(
+            f"/en/unsubscribe/{token}/", {"action": "unsubscribe_marketing"}
+        )
+        self.assertTrue(UserDataConsent.objects.get(user=user).marketing_consent)
+        self.assertEqual(eligible_recipients().count(), 0)
+
+    def test_landing_offers_signup_as_secondary_link_when_logged_out(self):
+        html = Client(HTTP_HOST=HOST).get("/en/women-1-year/").content.decode()
+        self.assertIn("/signup/", html)
+
+    def test_lock_loser_does_not_reset_campaign_status(self):
+        from unittest.mock import patch
+
+        from crush_lu.management.commands import send_women_1y_campaign as mod
+        from crush_lu.campaign_women_1y import send_women_1y_email as real
+
+        make_member("lk")
+        make_member("lk2")
+
+        def lose_lock(*args, **kwargs):
+            cache.set(mod.LOCK_KEY, "newer-run", 3600)
+            return real(*args, **kwargs)
+
+        with patch.object(mod, "send_women_1y_email", side_effect=lose_lock):
+            call_command(
+                "send_women_1y_campaign",
+                "--send",
+                "--delay",
+                "0",
+                "--batch-pause",
+                "0",
+                stdout=StringIO(),
+                stderr=StringIO(),
+            )
+        self.assertEqual(get_campaign().status, "sending")

@@ -143,14 +143,14 @@ def with_utm(url, content=None):
 def landing_destination(user, utm=None):
     """Where the CTA sends ``user``, as ``(url_name, query)``.
 
-    Logged out -> signup. No profile, or a profile that is not complete yet ->
+    Logged out -> login (the audience already has accounts). No profile, or a profile that is not complete yet ->
     onboarding (entry events require a participation-ready profile). Verified
     -> Crush Connect (the teaser fast-paths onboarded members onward).
     Otherwise the entry events, where verification happens in person.
     """
     utm = dict(utm or {})
     if not getattr(user, "is_authenticated", False):
-        return "crush_lu:signup", utm
+        return "crush_lu:login", utm
     profile = getattr(user, "crushprofile", None)
     if profile is None or profile.verification_status == "incomplete":
         return "crush_lu:onboarding_entry", utm

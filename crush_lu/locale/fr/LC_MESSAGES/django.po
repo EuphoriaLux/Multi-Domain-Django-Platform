@@ -44774,3 +44774,7 @@ msgstr "Vous avez déjà un compte ? Connectez-vous"
 #: crush_lu/templates/crush_lu/women_1y_landing.html
 msgid "Next events"
 msgstr "Prochains événements"
+
+#: crush_lu/templates/crush_lu/women_1y_landing.html
+msgid "New to Crush? Create an account"
+msgstr "Nouveau sur Crush ? Créer un compte"
