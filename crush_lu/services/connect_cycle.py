@@ -470,9 +470,23 @@ def get_or_create_todays_cards(session):
     if not pool:
         return []
 
-    chosen = _seeded_sample(
-        pool, min(CARDS_PER_DAY, len(pool)), seed_key=f"{session.pk}:{day}"
+    # The cooldown lets a past target re-enter the pool, so a repeat must not
+    # compete on equal terms with someone this member has never been shown:
+    # fresh targets fill the day first, repeats only fill what is left.
+    seen_ids = set(
+        ConnectCycleCard.objects.filter(
+            session__user=session.user, target_user_id__in=[u.pk for u in pool]
+        ).values_list("target_user_id", flat=True)
     )
+    fresh = [u for u in pool if u.pk not in seen_ids]
+    repeats = [u for u in pool if u.pk in seen_ids]
+    wanted = min(CARDS_PER_DAY, len(pool))
+    seed_key = f"{session.pk}:{day}"
+    chosen = _seeded_sample(fresh, wanted, seed_key=seed_key)
+    if len(chosen) < wanted:
+        chosen += _seeded_sample(
+            repeats, wanted - len(chosen), seed_key=f"{seed_key}:repeat"
+        )
 
     cards = []
     with transaction.atomic():

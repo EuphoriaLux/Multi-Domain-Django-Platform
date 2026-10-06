@@ -579,3 +579,45 @@ def test_send_locks_both_users_no_key_in_pk_order_before_pair_checks(pair, monke
     assert pk_filter.lookup_name == "in"
     assert set(pk_filter.rhs) == {viewer.pk, target.pk}
     assert session.weekly_requests.count() == 1
+
+
+def _active_session_day_one(viewer):
+    return ConnectWeekSession.objects.create(
+        user=viewer, status=ConnectWeekSession.Status.ACTIVE, current_day_number=1
+    )
+
+
+def _fresh_target(name):
+    target = _make_cycle_user(name, gender="F")
+    _set_gate_questions(target)
+    return target
+
+
+def test_todays_cards_prefer_never_shown_targets(pair):
+    viewer, repeat = pair
+    fresh = [_fresh_target(f"cooldown_fresh_{i}") for i in range(2)]
+    _old_card(viewer, repeat, generated_at=timezone.now() - timedelta(days=60))
+    pool = get_cycle_eligible_pool(viewer)
+    assert repeat in pool and all(f in pool for f in fresh)
+
+    for _ in range(5):  # any seed: the repeat must never displace a fresh target
+        session = _active_session_day_one(viewer)
+        cards = get_or_create_todays_cards(session)
+        assert {c.target_user_id for c in cards} == {f.pk for f in fresh}
+        session.delete()  # new session id = new seed; fresh cards leave the pool
+
+
+def test_repeat_fills_the_day_only_when_fresh_runs_out(pair):
+    viewer, repeat = pair
+    fresh = _fresh_target("cooldown_fresh_only")
+    _old_card(viewer, repeat, generated_at=timezone.now() - timedelta(days=60))
+    cards = get_or_create_todays_cards(_active_session_day_one(viewer))
+    assert [c.target_user_id for c in cards][0] == fresh.pk
+    assert {c.target_user_id for c in cards} == {fresh.pk, repeat.pk}
+
+
+def test_all_repeat_pool_still_gets_cards(pair):
+    viewer, repeat = pair
+    _old_card(viewer, repeat, generated_at=timezone.now() - timedelta(days=60))
+    cards = get_or_create_todays_cards(_active_session_day_one(viewer))
+    assert [c.target_user_id for c in cards] == [repeat.pk]
