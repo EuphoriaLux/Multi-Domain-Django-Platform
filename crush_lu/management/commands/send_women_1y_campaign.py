@@ -204,7 +204,7 @@ class Command(BaseCommand):
         sent = failed = skipped = attempted = 0
         limit = opts["limit"]
         for user in self._recipients(opts).iterator():
-            if limit is not None and sent + failed >= limit:
+            if limit is not None and attempted >= limit:
                 break
             if Campaign.objects.filter(pk=campaign.pk, status="cancelled").exists():
                 self.stderr.write("Campaign cancelled: stopping.")

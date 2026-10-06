@@ -31,9 +31,9 @@ from .views_events import _filter_private_events
 
 logger = logging.getLogger("crush_lu.women_1y")
 
-# Events a not-yet-verified member can actually join; the others require an
-# already-verified or coach-assigned member.
-JOINABLE_REQUIREMENTS = ("none", "completed", "profile_exists", "unverified")
+# Entry events: the same predicate as event_list?entry=1, which is where the
+# CTA sends unverified members (they only need a participation-ready profile).
+JOINABLE_REQUIREMENTS = ("completed",)
 MAX_EVENTS = 3
 
 
@@ -70,6 +70,9 @@ def _upcoming_events(user):
     age = profile.age if profile else None
     if age is not None:
         events = [e for e in events if e.min_age <= age <= e.max_age]
+    # Same language gate as event_register.
+    if user.is_authenticated:
+        events = [e for e in events if e.user_meets_language_requirement(user)[0]]
     return events[:MAX_EVENTS]
 
 

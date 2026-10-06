@@ -841,3 +841,69 @@ class ReviewRound7Tests(TestCase):
         html = client.get("/en/women-1-year/").content.decode()
         self.assertIn("Right Age", html)
         self.assertNotIn("Too Young", html)
+
+
+class ReviewRound8Tests(TestCase):
+    def setUp(self):
+        cache.clear()
+        mail.outbox.clear()
+
+    def _event(self, title, hours, **kw):
+        return MeetupEvent.objects.create(
+            title=title,
+            description="x",
+            event_type="mixer",
+            date_time=timezone.now() + timedelta(days=2, hours=hours),
+            location="L",
+            address="a",
+            max_participants=10,
+            registration_deadline=timezone.now() + timedelta(days=1),
+            is_published=True,
+            **kw,
+        )
+
+    def test_only_entry_events_are_listed(self):
+        for i in range(3):
+            self._event(f"Verified Only {i}", i, profile_requirement="approved")
+            self._event(f"Other {i}", i, profile_requirement="none")
+        self._event("Real Entry", 10, profile_requirement="completed")
+        html = Client(HTTP_HOST=HOST).get("/en/women-1-year/").content.decode()
+        self.assertIn("Real Entry", html)
+        self.assertNotIn("Verified Only", html)
+        self.assertNotIn("Other 0", html)
+
+    def test_language_ineligible_events_are_hidden_for_the_member(self):
+        user = make_member("lang")
+        CrushProfile.objects.filter(user=user).update(event_languages=["en"])
+        for i in range(4):
+            self._event(f"Fr Only {i}", i, languages=["fr"])
+        self._event("English Ok", 10, languages=["en"])
+        client = Client(HTTP_HOST=HOST)
+        client.force_login(user)
+        html = client.get("/en/women-1-year/").content.decode()
+        self.assertIn("English Ok", html)
+        self.assertNotIn("Fr Only", html)
+
+    def test_limit_counts_skipped_attempts(self):
+        make_member("s1")
+        make_member("s2")
+        make_member("s3")
+        from unittest.mock import patch
+
+        with patch(
+            "crush_lu.management.commands.send_women_1y_campaign.send_women_1y_email",
+            return_value=0,
+        ) as send:
+            call_command(
+                "send_women_1y_campaign",
+                "--send",
+                "--limit",
+                "1",
+                "--delay",
+                "0",
+                "--batch-pause",
+                "0",
+                stdout=StringIO(),
+                stderr=StringIO(),
+            )
+        self.assertEqual(send.call_count, 1)
