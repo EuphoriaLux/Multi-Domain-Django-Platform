@@ -148,4 +148,29 @@ def test_mobile_deck_controls_and_undo(
     page.screenshot(path=str(tmp_path / "modal.png"), full_page=True)
     page.keyboard.press("Escape")
     expect(dialog).to_be_hidden()
+    if language == "en":
+        # Skip the entire first batch without deciding; the next profiles must
+        # be reachable, and exhausted skips can be revisited explicitly.
+        for i in range(31):
+            _make_candidate(username=f"pagination_{i}", photo_key=profile.photo_1.name)
+        page.goto(f"{url}/{language}/coach/photo-review/")
+        initial_cards = page.evaluate(
+            "JSON.parse(document.getElementById('photo-review-cards').textContent)"
+        )
+        assert len(initial_cards) == 30
+        logs_before = ProfilePhotoReviewLog.objects.count()
+        skip = deck.locator(r'[\@click="skipCard"]')
+        for _ in range(30):
+            expect(skip).to_be_enabled()
+            skip.click()
+        expect(deck.locator("article")).to_be_visible()
+        visible_name = deck.locator(r'[\x-text="cardName"]').inner_text()
+        assert visible_name not in {card["display_name"] for card in initial_cards}
+        assert ProfilePhotoReviewLog.objects.count() == logs_before
+        for _ in range(2):
+            expect(skip).to_be_enabled()
+            skip.click()
+        expect(deck.locator("article")).to_have_count(0)
+        deck.locator(r'[\@click="restartQueue"]').click()
+        expect(deck.locator("article")).to_be_visible()
     assert not errors

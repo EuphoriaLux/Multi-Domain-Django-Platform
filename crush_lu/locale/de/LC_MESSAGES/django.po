@@ -44874,3 +44874,9 @@ msgid ""
 msgstr ""
 "Dein Coach hat die vorherige Bitte um eine Fotoänderung zurückgenommen. "
 "Aufgrund dieser Bitte musst du dein Foto nicht ersetzen."
+
+msgid "No more photos in this review pass."
+msgstr "Keine weiteren Fotos in diesem Prüfdurchlauf."
+
+msgid "Start a New Review Pass"
+msgstr "Neuen Prüfdurchlauf starten"

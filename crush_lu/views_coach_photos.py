@@ -133,5 +133,13 @@ def coach_photo_review_undo(request):
 @require_GET
 def coach_photo_review_more(request):
     """Load the next batch of cards for endless swipe review."""
-    cards, total_waiting = get_photo_review_queue(request.coach, limit=30)
+    cursor = request.GET.get("cursor", "")
+    if len(cursor) > 1024:
+        return JsonResponse({"error": _("Invalid request payload")}, status=400)
+    try:
+        cards, total_waiting = get_photo_review_queue(
+            request.coach, limit=30, cursor=cursor
+        )
+    except PhotoReviewError as exc:
+        return JsonResponse({"error": exc.message}, status=exc.status)
     return JsonResponse({"cards": cards, "total_waiting": total_waiting})

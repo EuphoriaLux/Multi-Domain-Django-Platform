@@ -131,8 +131,8 @@
         <button type="button" class="btn-crush-solid" @click="approveCurrentCard" :disabled="actionsDisabled">{% trans "Approve" %}</button>
     </div>
     <div x-show="isEmpty" x-cloak class="text-center py-8 space-y-4">
-        <p>{% trans "No photos waiting for review." %}</p>
-        <button type="button" class="btn-crush-solid" @click="fetchMoreCards" :disabled="isLoading">{% trans "Check for New Photos" %}</button>
+        <p>{% trans "No more photos in this review pass." %}</p>
+        <button type="button" class="btn-crush-solid" @click="restartQueue" :disabled="isLoading">{% trans "Start a New Review Pass" %}</button>
     </div>
     <p role="status" x-show="isLoading" x-cloak class="text-center text-muted-fg mt-4">{% trans "Loading…" %}</p>
     <div x-show="isModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="photo-review-modal-title" @keydown.escape.window="closeFlagModal">

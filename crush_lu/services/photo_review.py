@@ -6,6 +6,7 @@ Manages the fast photo-moderation queue and swipe decisions (Approve, Flag Fake,
 
 import logging
 from datetime import timedelta
+from django.core import signing
 from django.db import models, transaction
 from django.db.models import Case, Exists, OuterRef, Q, Value, When
 from django.urls import reverse
@@ -88,7 +89,7 @@ def _format_phone_info(phone_number: str):
         }
 
 
-def get_photo_review_queue(coach: CrushCoach, limit: int = 40):
+def get_photo_review_queue(coach: CrushCoach, limit: int = 40, *, cursor=""):
     """
     Fetch profiles waiting for photo review, ordered by urgency:
     1. Crush Connect onboarded members whose photo is pending review
@@ -146,6 +147,20 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40):
         ),
     ).order_by("-priority", "-updated_at", "-id")
 
+    if cursor:
+        try:
+            position = signing.loads(cursor, salt="coach-photo-queue", max_age=86400)
+            stamp = parse_datetime(position["updated_at"])
+            priority, profile_id = position["priority"], position["id"]
+            if stamp is None:
+                raise ValueError
+        except (signing.BadSignature, KeyError, TypeError, ValueError):
+            raise PhotoReviewError(_("Invalid request payload"), 400) from None
+        annotated_qs = annotated_qs.filter(
+            Q(priority__lt=priority)
+            | Q(priority=priority, updated_at__lt=stamp)
+            | Q(priority=priority, updated_at=stamp, pk__lt=profile_id)
+        )
     profiles = list(annotated_qs[:limit])
     cards = []
     now = timezone.now()
@@ -269,6 +284,14 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40):
         cards.append(
             {
                 "id": p.id,
+                "queue_cursor": signing.dumps(
+                    {
+                        "priority": p.priority,
+                        "updated_at": p.updated_at.isoformat(),
+                        "id": p.pk,
+                    },
+                    salt="coach-photo-queue",
+                ),
                 "user_id": p.user.id,
                 "display_name": p.display_name or p.user.first_name or p.user.username,
                 "age": p.age_display or "",

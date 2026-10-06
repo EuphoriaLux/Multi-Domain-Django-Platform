@@ -44996,3 +44996,9 @@ msgid ""
 msgstr ""
 "Votre coach a retiré la précédente demande de modification de photo. Vous "
 "n’avez pas besoin de remplacer votre photo à cause de cette demande."
+
+msgid "No more photos in this review pass."
+msgstr "Il n’y a plus de photos dans cette session de vérification."
+
+msgid "Start a New Review Pass"
+msgstr "Commencer une nouvelle session de vérification"

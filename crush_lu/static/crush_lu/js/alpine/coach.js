@@ -14,6 +14,7 @@ document.addEventListener("alpine:init", function () {
         return mixin(makeModal(false), {
             rootElement: null,
             cards: [],
+            queueCursor: "",
             totalWaiting: 0,
             activePhotoIndex: 0,
             isSubmitting: false,
@@ -33,6 +34,7 @@ document.addEventListener("alpine:init", function () {
                     document.getElementById("photo-review-cards").textContent,
                 );
                 this.totalWaiting = Number(this.rootElement.dataset.total);
+                if (this.cards.length) this.queueCursor = this.cards[this.cards.length - 1].queue_cursor;
             },
             get currentCard() {
                 return this.cards[0] || null;
@@ -330,10 +332,11 @@ document.addEventListener("alpine:init", function () {
                 else return;
                 event.preventDefault();
             },
-            skipCard() {
+            async skipCard() {
                 if (this.actionsDisabled) return;
-                this.cards.push(this.cards.shift());
+                this.cards.shift();
                 this.activePhotoIndex = 0;
+                if (this.cards.length < 5) await this.fetchMoreCards();
             },
             openFlagModal() {
                 if (this.actionsDisabled) return;
@@ -449,13 +452,19 @@ document.addEventListener("alpine:init", function () {
                     this.isSubmitting = false;
                 }
             },
+            restartQueue() {
+                if (this.isLoading || this.isSubmitting) return;
+                this.queueCursor = "";
+                this.fetchMoreCards();
+            },
             async fetchMoreCards() {
                 if (this.isLoading || this.isSubmitting) return;
                 this.isLoading = true;
                 try {
-                    const response = await fetch(this.rootElement.dataset.moreUrl);
+                    const response = await fetch(this.rootElement.dataset.moreUrl + "?cursor=" + encodeURIComponent(this.queueCursor));
                     if (!response.ok) throw new Error(this.rootElement.dataset.error);
                     const data = await response.json();
+                    if (data.cards.length) this.queueCursor = data.cards[data.cards.length - 1].queue_cursor;
                     const ids = new Set(this.cards.map((card) => card.id));
                     data.cards.forEach((card) => {
                         if (!ids.has(card.id)) this.cards.push(card);

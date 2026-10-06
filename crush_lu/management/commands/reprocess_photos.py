@@ -101,6 +101,18 @@ class Command(BaseCommand):
         obj_label = self._get_label(obj, field_name)
 
         try:
+            is_profile = isinstance(obj, CrushProfile)
+            if (
+                is_profile
+                and field_name == "photo_1"
+                and CrushProfile.objects.filter(
+                    pk=obj.pk,
+                    photo_review_status__in=("needs_revision", "flagged_fake"),
+                ).exists()
+            ):
+                self.stdout.write(f"  Skipped {obj_label}: negative photo moderation")
+                stats["skipped"] += 1
+                return
             # Read the current file
             field.open("rb")
             original_data = field.read()
@@ -131,19 +143,11 @@ class Command(BaseCommand):
                 stats["skipped"] += 1
                 return
 
-            # Delete the old blob first, then save the new one.
-            # The storage backend generates unique names (UUID) on save,
-            # so without deleting first we'd leave orphan blobs.
+            # Upload outside the row lock; keep the current file until its
+            # database reference has safely moved to the processed copy.
             old_blob_name = field.name
             storage = field.storage
             field.save(old_blob_name, processed, save=False)
-
-            # Delete old blob if the path changed (storage generated a new name)
-            if field.name != old_blob_name:
-                try:
-                    storage.delete(old_blob_name)
-                except Exception:
-                    logger.warning("Could not delete old blob: %s", old_blob_name)
 
             # Save the model to persist the field reference. If this is a verified
             # primary photo, carry forward the attestation to the new key.
@@ -160,16 +164,40 @@ class Command(BaseCommand):
             if carries_attestation:
                 obj.photo_verification_key = field.name
                 update_fields.extend(["photo_verification_key", "photo_verified_at"])
-                # Only the carry-forward needs the save and the provenance
-                # repoint to land together; a plain reprocess (the overwhelming
-                # majority of a backfill) must not pay a BEGIN/COMMIT per photo.
+            if is_profile:
                 with transaction.atomic():
-                    obj.save(update_fields=update_fields)
-                    self._carry_forward_registration_attestation(
-                        obj, old_blob_name, field.name
+                    current = (
+                        CrushProfile.objects.select_for_update(of=("self",))
+                        .values("pk", field_name, "photo_review_status")
+                        .get(pk=obj.pk)
                     )
+                    if current[field_name] != old_blob_name or (
+                        field_name == "photo_1"
+                        and current["photo_review_status"]
+                        in ("needs_revision", "flagged_fake")
+                    ):
+                        if field.name != old_blob_name:
+                            transaction.on_commit(
+                                lambda key=field.name: self._delete_blob_safely(
+                                    storage, key
+                                )
+                            )
+                        self.stdout.write(
+                            f"  Skipped {obj_label}: photo changed or moderated"
+                        )
+                        stats["skipped"] += 1
+                        return
+                    obj.save(update_fields=update_fields)
+                    if carries_attestation:
+                        self._carry_forward_registration_attestation(
+                            obj, old_blob_name, field.name
+                        )
             else:
                 obj.save(update_fields=update_fields)
+            if field.name != old_blob_name:
+                transaction.on_commit(
+                    lambda: self._delete_blob_safely(storage, old_blob_name)
+                )
 
             self.stdout.write(
                 f"  Processed {obj_label}: "
@@ -197,6 +225,12 @@ class Command(BaseCommand):
                 )
                 logger.exception("Error reprocessing %s", obj_label)
                 stats["errors"] += 1
+
+    def _delete_blob_safely(self, storage, key):
+        try:
+            storage.delete(key)
+        except Exception:
+            logger.warning("Could not delete reprocessed blob: %s", key)
 
     def _carry_forward_registration_attestation(self, profile, old_key, new_key):
         """Repoint door check-in provenance at the reprocessed photo.
