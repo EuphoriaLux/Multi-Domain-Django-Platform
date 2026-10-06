@@ -43,6 +43,7 @@ from crush_lu.models.credits import CreditRedemption, CrushCredit
 from crush_lu.models.events import EventRegistration, MeetupEvent
 from crush_lu.models.payments import EventCheckoutCreationClaim, PaymentTransaction
 from crush_lu.models.profiles import PremiumMembership
+from crush_lu.services import premium_recovery
 from crush_lu.services.credits import void_credit
 from crush_lu.services.sumup import SumUpClient, SumUpError
 
@@ -1367,6 +1368,28 @@ class Command(BaseCommand):
             "nothing else was changed."
         )
 
+    @staticmethod
+    def _write_refunded(locked_tx, remote_data, history_evidence):
+        """PAID -> REFUNDED on the locked row, keeping the refund's evidence."""
+        locked_tx.status = PaymentTransaction.Status.REFUNDED
+        if history_evidence and isinstance(remote_data, dict):
+            # A dashboard/terminal refund leaves the checkout saying PAID;
+            # the history rows are the proof. Keep both. Readers of
+            # raw_response only look at "transactions"/"redemptions", so an
+            # extra top-level key changes nothing for them.
+            locked_tx.raw_response = {
+                **remote_data,
+                "reconciliation_history_evidence": list(history_evidence),
+            }
+        else:
+            locked_tx.raw_response = remote_data
+        locked_tx.failure_reason = (
+            "External refund detected and reconciled by background sweep."
+        )
+        locked_tx.save(
+            update_fields=["status", "raw_response", "failure_reason", "updated_at"]
+        )
+
     def _reconcile_refunded(
         self, tx_obj, remote_data, dry_run=False, history_evidence=None
     ):
@@ -1394,6 +1417,8 @@ class Command(BaseCommand):
                     f"[DRY RUN] External refund detected on {ref} (checkout {cid}). Would reconcile to REFUNDED."
                 )
             )
+            if premium_recovery.refund_is_of_unapplied_capture(tx_obj):
+                return RECONCILED
             other_payments = list(
                 PaymentTransaction.objects.filter(
                     pk__in=[row.pk for row in self._related_payment_rows(tx_obj)]
@@ -1501,6 +1526,21 @@ class Command(BaseCommand):
                 PremiumMembership.objects.select_for_update().filter(
                     pk=locked_tx.premium_membership_id
                 ).first()
+            if premium_recovery.refund_is_of_unapplied_capture(locked_tx):
+                # #925 D2/D4: staff refunded a capture its recovery case proves
+                # was never applied. Only the payment and the case change: the
+                # membership (and the capture it did apply, if any) stay as
+                # they are -- the sibling check and cancel below are for a
+                # refund of the applied payment.
+                self._write_refunded(locked_tx, remote_data, history_evidence)
+                premium_recovery.record_refund_of_unapplied_capture(locked_tx)
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"Reconciled refund of unapplied capture {ref} "
+                        f"(checkout {cid}) -> status=REFUNDED, case resolved"
+                    )
+                )
+                return RECONCILED
             # Re-read the sibling payments now that the event/registration
             # (or membership) lock is held. The event lock is NOT what keeps
             # their statuses stable: a capture writes PAID onto its own
@@ -1554,24 +1594,7 @@ class Command(BaseCommand):
                 )
                 return NEEDS_REVIEW
 
-            locked_tx.status = PaymentTransaction.Status.REFUNDED
-            if history_evidence and isinstance(remote_data, dict):
-                # A dashboard/terminal refund leaves the checkout saying PAID;
-                # the history rows are the proof. Keep both. Readers of
-                # raw_response only look at "transactions"/"redemptions", so an
-                # extra top-level key changes nothing for them.
-                locked_tx.raw_response = {
-                    **remote_data,
-                    "reconciliation_history_evidence": list(history_evidence),
-                }
-            else:
-                locked_tx.raw_response = remote_data
-            locked_tx.failure_reason = (
-                "External refund detected and reconciled by background sweep."
-            )
-            locked_tx.save(
-                update_fields=["status", "raw_response", "failure_reason", "updated_at"]
-            )
+            self._write_refunded(locked_tx, remote_data, history_evidence)
             # A replacement promoted after an earlier late cancellation carries
             # a resale claim backed by THIS payment. Its money is back with
             # the member, so the claim can never settle

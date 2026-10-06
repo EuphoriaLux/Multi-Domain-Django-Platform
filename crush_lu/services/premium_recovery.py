@@ -697,3 +697,104 @@ def _alert_staff_safely(case):
             case.pk,
             type(exc).__name__,
         )
+
+
+# --- Resolution (#925 WP1 part 2) -------------------------------------------
+
+
+def resolve_case(case, resolution, by_user=None):
+    """Mark ``case`` resolved: how (``Resolution``), when and by whom."""
+    from crush_lu.models import PremiumPaymentRecoveryCase
+
+    case.status = PremiumPaymentRecoveryCase.Status.RESOLVED
+    case.resolution = resolution
+    case.resolved_at = timezone.now()
+    case.resolved_by = by_user
+    case.save(update_fields=["status", "resolution", "resolved_at", "resolved_by"])
+
+
+def refund_is_of_unapplied_capture(payment):
+    """True when ``payment``'s case proves its capture was never applied, so a
+    refund of it settles the case and nothing else (D2/D4).
+
+    Not for a case staff applied (D3: that capture is the membership's), nor
+    for a staff-only case of a known member -- which capture was applied is
+    unknown there, so the sweep's usual path (review) decides."""
+    from crush_lu.models import PremiumPaymentRecoveryCase
+
+    case = PremiumPaymentRecoveryCase.objects.filter(payment=payment).first()
+    return (
+        case is not None
+        and case.resolution != PremiumPaymentRecoveryCase.Resolution.APPLIED
+        and (case.member_unknown or not case.staff_only)
+    )
+
+
+def record_refund_of_unapplied_capture(payment):
+    """After the sweep wrote the refund (payment row locked): resolve the case.
+
+    Lock order stays payment -> case: the hourly retry holds a case lock only
+    while it mails, never a payment lock."""
+    from crush_lu.models import PremiumPaymentRecoveryCase
+
+    case = (
+        PremiumPaymentRecoveryCase.objects.select_for_update()
+        .filter(payment=payment)
+        .first()
+    )
+    if case is not None and case.resolution != (
+        PremiumPaymentRecoveryCase.Resolution.REFUNDED
+    ):
+        resolve_case(case, PremiumPaymentRecoveryCase.Resolution.REFUNDED)
+
+
+def apply_case_payment(case_pk, by_user):
+    """D3: the member agreed to the membership's coach (staff may have
+    reassigned it first); apply this capture and resolve the case.
+
+    Returns an error message, or None on success. Locks payment ->
+    membership -> CrushProfile (confirm()), the payment path's order; the
+    case row is locked after the payment."""
+    from django.db import transaction
+
+    from crush_lu.models import (
+        CrushProfile,
+        PaymentTransaction,
+        PremiumPaymentRecoveryCase,
+    )
+    from crush_lu.views_payments import _send_premium_membership_receipt_safely
+
+    Case = PremiumPaymentRecoveryCase
+    payment_id = (
+        Case.objects.filter(pk=case_pk).values_list("payment_id", flat=True).first()
+    )
+    if payment_id is None:
+        return "Case not found."
+    try:
+        with transaction.atomic():
+            payment = PaymentTransaction.objects.select_for_update().get(pk=payment_id)
+            case = Case.objects.select_for_update().get(pk=case_pk)
+            if case.status != Case.Status.OPEN:
+                return "The case is already resolved."
+            if case.reason != Case.Reason.COACH_UNAVAILABLE or case.staff_only:
+                return "Only an open coach-unavailable case can be applied."
+            membership = case.premium_membership
+            if (
+                payment.status != PaymentTransaction.Status.PAID
+                or membership is None
+                or payment.premium_membership_id != membership.pk
+            ):
+                return "The payment is no longer a capture of this membership."
+            membership.confirm(by_user=by_user)
+            resolve_case(case, Case.Resolution.APPLIED, by_user)
+            transaction.on_commit(
+                lambda: _send_premium_membership_receipt_safely(payment)
+            )
+            transaction.on_commit(
+                lambda: close_after_activation_safely(membership), robust=True
+            )
+    except CrushProfile.DoesNotExist:
+        return "The member has no profile."
+    except ValueError as exc:
+        return str(exc)
+    return None
