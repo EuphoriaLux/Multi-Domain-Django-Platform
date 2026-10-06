@@ -1784,12 +1784,13 @@ SECURE_CSP_REPORT_ONLY = {
     "report-uri": "/csp-report/",
 }
 
-# Allow Azurite media origin in CSP if configured with custom host
+# Allow Azurite media origin in CSP if configured with custom host.
+# SECURE_CSP_REPORT_ONLY is the only policy defined here (there is no SECURE_CSP).
 if AZURITE_MODE:
     azurite_origin = f"http://{AZURITE_BLOB_HOST}"
     for directive in ("img-src", "media-src"):
-        if azurite_origin not in SECURE_CSP[directive]:
-            SECURE_CSP[directive].append(azurite_origin)
+        if azurite_origin not in SECURE_CSP_REPORT_ONLY[directive]:
+            SECURE_CSP_REPORT_ONLY[directive].append(azurite_origin)
 
 # Django 6.0: Opt into HTTPS as the default protocol for urlize/urlizetrunc
 # This will become the default in Django 7.0

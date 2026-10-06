@@ -20,6 +20,8 @@ Or via management command:
     python manage.py setup_local_dev
 """
 
+import os
+
 from azure.storage.blob import BlobServiceClient, PublicAccess
 
 
@@ -29,7 +31,10 @@ AZURITE_ACCOUNT_KEY = (
     "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq"
     "/K1SZFPTOtr/KBHBeksoGMGw=="
 )
-AZURITE_BLOB_URL = f"http://127.0.0.1:10000/{AZURITE_ACCOUNT_NAME}"
+# Same env var and default as AZURITE_BLOB_HOST in azureproject/settings.py, so
+# the containers are created on the emulator the app actually talks to.
+AZURITE_BLOB_HOST = os.getenv("AZURITE_BLOB_HOST", "127.0.0.1:10000")
+AZURITE_BLOB_URL = f"http://{AZURITE_BLOB_HOST}/{AZURITE_ACCOUNT_NAME}"
 
 # Containers to create. Names MUST match the defaults hardcoded in each
 # STORAGES backend class (prod overrides these via AZURE_*_CONTAINER env vars;
