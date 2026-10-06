@@ -29,6 +29,7 @@ at the end would un-record emails that were already delivered.
 """
 
 import time
+import uuid
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -149,12 +150,29 @@ class Command(BaseCommand):
             self.stdout.write(f"{key}: {value}")
 
     def _send(self, opts):
-        if not cache.add(LOCK_KEY, "1", LOCK_TTL):
+        # The value is an ownership token: only the process that set the lock
+        # may renew or release it (a run longer than the TTL must not delete a
+        # second run's lock).
+        token = uuid.uuid4().hex
+        if not cache.add(LOCK_KEY, token, LOCK_TTL):
             raise CommandError("Another send is running (lock held).")
         try:
-            return self._send_locked(opts)
+            return self._send_locked(opts, token)
         finally:
-            cache.delete(LOCK_KEY)
+            if cache.get(LOCK_KEY) == token:
+                cache.delete(LOCK_KEY)
+            # Back to the idle, non-launchable state (never leave it "sending").
+            Campaign.objects.filter(slug=CAMPAIGN_SLUG, status="sending").update(
+                status="partial"
+            )
+
+    @staticmethod
+    def _pace(opts, attempted):
+        """Throttle on ATTEMPTED sends: failed calls use Graph quota too."""
+        if opts["delay"]:
+            time.sleep(opts["delay"])
+        if attempted % opts["batch_size"] == 0 and opts["batch_pause"]:
+            time.sleep(opts["batch_pause"])
 
     @staticmethod
     def _count(newsletter, **deltas):
@@ -162,7 +180,7 @@ class Command(BaseCommand):
             **{field: F(field) + n for field, n in deltas.items()}
         )
 
-    def _send_locked(self, opts):
+    def _send_locked(self, opts, token):
         campaign = get_campaign(create=True)
         if campaign.status == "cancelled":
             raise CommandError("The campaign is cancelled; not sending.")
@@ -170,7 +188,12 @@ class Command(BaseCommand):
         if campaign.started_at is None:
             campaign.started_at = timezone.now()
             campaign.save(update_fields=["started_at"])
-        sent = failed = skipped = 0
+        # "sending" is what makes Cancel available in the Coach Panel; the
+        # generic dispatcher never claims this campaign (MANUAL_ONLY_SLUGS).
+        Campaign.objects.filter(pk=campaign.pk).exclude(status="cancelled").update(
+            status="sending"
+        )
+        sent = failed = skipped = attempted = 0
         limit = opts["limit"]
         for user in self._recipients(opts).iterator():
             if limit is not None and sent + failed >= limit:
@@ -178,6 +201,10 @@ class Command(BaseCommand):
             if Campaign.objects.filter(pk=campaign.pk, status="cancelled").exists():
                 self.stderr.write("Campaign cancelled: stopping.")
                 break
+            if cache.get(LOCK_KEY) != token:
+                self.stderr.write("Send lock lost: stopping.")
+                break
+            cache.touch(LOCK_KEY, LOCK_TTL)
             # Re-read the member at send time (not the iterator snapshot): they
             # may have unsubscribed, been banned or changed their email while a
             # long run worked through the list.
@@ -199,6 +226,7 @@ class Command(BaseCommand):
                 row.status = "pending"
                 row.save(update_fields=["status"])
                 self._count(newsletter, total_failed=-1)
+            attempted += 1
             try:
                 ok = send_women_1y_email(user, campaign)
             except (
@@ -210,6 +238,7 @@ class Command(BaseCommand):
                 self._count(newsletter, total_failed=1)
                 failed += 1
                 self.stderr.write(f"failed {user.pk}: {exc}")
+                self._pace(opts, attempted)
                 continue
             if ok:
                 row.status = "sent"
@@ -222,10 +251,7 @@ class Command(BaseCommand):
                 self._count(newsletter, total_skipped=1)
                 skipped += 1
             row.save(update_fields=["status", "sent_at"])
-            if opts["delay"]:
-                time.sleep(opts["delay"])
-            if sent and sent % opts["batch_size"] == 0 and opts["batch_pause"]:
-                time.sleep(opts["batch_pause"])
+            self._pace(opts, attempted)
         status = finalize_status(campaign)
         remaining = eligible_recipients().count()
         self.stdout.write(

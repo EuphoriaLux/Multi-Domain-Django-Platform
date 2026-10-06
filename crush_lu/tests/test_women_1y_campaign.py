@@ -569,3 +569,86 @@ class ReviewRound3Tests(TestCase):
             {"crushlu_consent": "on", "marketing_consent": "on"},
         )
         self.assertTrue(EmailPreference.objects.get(user=user).email_marketing)
+
+
+class ReviewRound4Tests(TestCase):
+    def setUp(self):
+        cache.clear()
+        mail.outbox.clear()
+
+    def run_send(self, *extra):
+        out = StringIO()
+        call_command(
+            "send_women_1y_campaign",
+            "--send",
+            "--delay",
+            "0",
+            *extra,
+            stdout=out,
+            stderr=out,
+        )
+        return out.getvalue()
+
+    def test_failed_attempts_count_toward_the_batch_pause(self):
+        for i in range(3):
+            make_member(f"f{i}")
+        from unittest.mock import patch
+
+        with (
+            patch(
+                "crush_lu.management.commands.send_women_1y_campaign.send_women_1y_email",
+                side_effect=RuntimeError("graph throttled"),
+            ),
+            patch(
+                "crush_lu.management.commands.send_women_1y_campaign.time.sleep"
+            ) as sleep,
+        ):
+            self.run_send("--batch-size", "2", "--batch-pause", "7")
+        self.assertEqual([c.args[0] for c in sleep.call_args_list], [7])
+
+    def test_campaign_is_cancellable_while_sending_and_idle_afterwards(self):
+        make_member("c1")
+        seen = {}
+
+        from crush_lu.campaign_women_1y import send_women_1y_email as real
+
+        def spy(*args, **kwargs):
+            campaign = get_campaign()
+            seen["status"] = campaign.status
+            seen["can_cancel"] = campaign.can_cancel()
+            return real(*args, **kwargs)
+
+        from unittest.mock import patch
+
+        with patch(
+            "crush_lu.management.commands.send_women_1y_campaign.send_women_1y_email",
+            side_effect=spy,
+        ):
+            self.run_send("--batch-pause", "0")
+        self.assertEqual(seen, {"status": "sending", "can_cancel": True})
+        self.assertNotEqual(get_campaign().status, "sending")
+
+    def test_dispatcher_never_claims_the_campaign(self):
+        from crush_lu.services.campaigns import dispatch_campaigns
+
+        Campaign.objects.create(
+            slug="women_1y", name="x", channels=["email"], status="sending"
+        )
+        summary = dispatch_campaigns()
+        self.assertEqual(summary["campaigns"], [])
+
+    def test_lock_is_released_only_by_its_owner(self):
+        from crush_lu.management.commands import send_women_1y_campaign as mod
+
+        make_member("l1")
+        from unittest.mock import patch
+
+        from crush_lu.campaign_women_1y import send_women_1y_email as real
+
+        def steal_lock(*args, **kwargs):
+            cache.set(mod.LOCK_KEY, "someone-else", 3600)
+            return real(*args, **kwargs)
+
+        with patch.object(mod, "send_women_1y_email", side_effect=steal_lock):
+            self.run_send("--batch-pause", "0")
+        self.assertEqual(cache.get(mod.LOCK_KEY), "someone-else")

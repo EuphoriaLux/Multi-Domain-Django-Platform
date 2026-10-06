@@ -154,6 +154,12 @@ CLICK_REDIRECT_BASE = 'https://crush.lu'
 _HREF_RE = re.compile(r'''href=(["'])(https?://[^"']+)\1''', re.IGNORECASE)
 
 
+# Campaigns sent by their own management command (their audience and email
+# state are not dispatcher-shaped). The timer must never claim them, even while
+# the command holds them in 'sending' so Cancel works.
+MANUAL_ONLY_SLUGS = frozenset({'women_1y'})
+
+
 def click_signer():
     return Signer(salt=CLICK_SIGNER_SALT)
 
@@ -744,6 +750,7 @@ def dispatch_campaigns(now=None, limits=None, time_budget=None, stdout=None,
     )
     candidate_qs = (
         Campaign.objects.filter(status='sending')
+        .exclude(slug__in=MANUAL_ONLY_SLUGS)
         .filter(not_claimed)
         .order_by('started_at', 'created_at')
     )
