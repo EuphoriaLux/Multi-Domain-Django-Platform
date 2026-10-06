@@ -14,7 +14,6 @@ import time
 
 from django.conf import settings
 from django.contrib import admin, messages
-from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
@@ -516,17 +515,29 @@ class PremiumPaymentRecoveryCaseAdmin(admin.ModelAdmin):
             self.message_user(request, "Payment applied; the receipt follows by email.")
 
     def save_model(self, request, obj, form, change):
-        # Resolved by hand (any other remedy): record how, when and by whom.
-        if (
-            change
-            and "status" in form.changed_data
-            and obj.status == type(obj).Status.RESOLVED
-            and not obj.resolution
+        # Status is the only editable field. Never a full-row save of the
+        # form's (possibly stale) row: the change is applied under the
+        # payment -> case locks the refund sweep takes (#925).
+        from crush_lu.services.premium_recovery import set_case_status_by_hand
+
+        if not change or "status" not in form.changed_data:
+            return
+        error = set_case_status_by_hand(obj.pk, obj.status, request.user)
+        if error:
+            request._recovery_case_not_saved = True
+            self.message_user(
+                request,
+                f"{obj.payment.transaction_reference}: {error}",
+                level=messages.ERROR,
+            )
+
+    def message_user(self, request, message, level=messages.INFO, *args, **kwargs):
+        # A refused status change must not also read "changed successfully".
+        if level == messages.SUCCESS and getattr(
+            request, "_recovery_case_not_saved", False
         ):
-            obj.resolution = type(obj).Resolution.OTHER
-            obj.resolved_at = timezone.now()
-            obj.resolved_by = request.user
-        super().save_model(request, obj, form, change)
+            return
+        super().message_user(request, message, level, *args, **kwargs)
 
     def has_add_permission(self, request):
         return False

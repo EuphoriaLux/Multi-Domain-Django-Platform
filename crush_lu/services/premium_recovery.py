@@ -16,6 +16,12 @@ from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone, translation
 
+from azureproject.graph_email_backend import (
+    GRAPH_CONNECT_TIMEOUT_SECONDS,
+    GRAPH_READ_TIMEOUT_SECONDS,
+    GRAPH_TOKEN_TIMEOUT_SECONDS,
+)
+
 logger = logging.getLogger(__name__)
 
 # Siblings re-read per membership and run; the rest wait for the next hourly
@@ -23,8 +29,13 @@ logger = logging.getLogger(__name__)
 SIBLING_SYNC_LIMIT = 2
 # Memberships closed inside a member's request; the rest wait for the tick.
 REQUEST_CLOSE_LIMIT = 1
-# Worst case of one Graph send (GRAPH_SEND_TIMEOUT_SECONDS in api_admin_sumup).
-SEND_SECONDS = 30
+# Worst case of one Graph send (GRAPH_SEND_TIMEOUT_SECONDS in api_admin_sumup)
+# plus a cold MSAL token acquisition before it (graph_email_backend).
+SEND_SECONDS = (
+    GRAPH_CONNECT_TIMEOUT_SECONDS
+    + GRAPH_READ_TIMEOUT_SECONDS
+    + GRAPH_TOKEN_TIMEOUT_SECONDS
+)
 
 # Set by retry_unsent_notifications for the hourly tick: every network step
 # below, nested on-commit work included, starts only while it still fits.
@@ -94,6 +105,11 @@ def _request_deadline(deadline=None):
 def _fits(seconds):
     deadline = _deadline.get()
     return deadline is None or time.monotonic() + seconds <= deadline
+
+
+def fits(seconds):
+    """True while ``seconds`` more fit the current deadline (always, unbounded)."""
+    return _fits(seconds)
 
 
 def _close_seconds():
@@ -711,6 +727,42 @@ def resolve_case(case, resolution, by_user=None):
     case.resolved_at = timezone.now()
     case.resolved_by = by_user
     case.save(update_fields=["status", "resolution", "resolved_at", "resolved_by"])
+
+
+def set_case_status_by_hand(case_pk, status, by_user):
+    """A staff edit of a case's status (the admin's only editable field).
+
+    Serialized with the refund sweep: the payment, then the case, are locked
+    (the sweep's order) and the fresh row decides, so a resolution the sweep
+    committed meanwhile is never overwritten and a hand resolution lands
+    before or after the sweep's classification, never between. Returns an
+    error message, or None."""
+    from django.db import transaction
+
+    from crush_lu.models import PaymentTransaction, PremiumPaymentRecoveryCase
+
+    Case = PremiumPaymentRecoveryCase
+    payment_id = (
+        Case.objects.filter(pk=case_pk).values_list("payment_id", flat=True).first()
+    )
+    if payment_id is None:
+        return "Case not found."
+    with transaction.atomic():
+        PaymentTransaction.objects.select_for_update().filter(pk=payment_id).first()
+        case = Case.objects.select_for_update().get(pk=case_pk)
+        if status == Case.Status.RESOLVED:
+            # Resolved meanwhile (the sweep recorded a refund, or a case was
+            # applied): that resolution stands.
+            if case.status != Case.Status.OPEN:
+                return "The case changed meanwhile; reload it."
+            # Resolved by hand (any other remedy): how, when and by whom.
+            resolve_case(case, Case.Resolution.OTHER, by_user)
+        elif case.status != status:
+            # Reopened: the resolution stays, so a later refund of this
+            # capture is not taken for one of an unapplied capture.
+            case.status = status
+            case.save(update_fields=["status"])
+    return None
 
 
 def refund_is_of_unapplied_capture(payment, lock=False):
