@@ -500,3 +500,41 @@ def test_database_still_rejects_repeated_target_within_session(pair):
             generated_date=timezone.localdate(),
         )
     assert card.session.cards.count() == 1
+
+
+def _overdue_pending_request(viewer, target, expires_at):
+    session = ConnectWeekSession.objects.create(
+        user=viewer, status=ConnectWeekSession.Status.COMPLETED
+    )
+    request = ConnectWeeklyRequest.objects.create(
+        session=session,
+        requester=viewer,
+        recipient=target,
+        status=ConnectWeeklyRequest.Status.PENDING,
+        expires_at=expires_at,
+    )
+    ConnectWeeklyRequest.objects.filter(pk=request.pk).update(
+        sent_at=expires_at - timedelta(hours=24)
+    )
+    return request
+
+
+def test_overdue_pending_request_is_expired_and_cooldown_runs_from_deadline(pair):
+    """A request nobody revisited must not keep the pair excluded forever."""
+    viewer, target = pair
+    request = _overdue_pending_request(
+        viewer, target, timezone.now() - timedelta(days=31)
+    )
+    assert target in get_cycle_eligible_pool(viewer)
+    request.refresh_from_db()
+    assert request.status == ConnectWeeklyRequest.Status.EXPIRED
+
+
+def test_recently_overdue_pending_request_still_excludes_during_cooldown(pair):
+    viewer, target = pair
+    request = _overdue_pending_request(
+        viewer, target, timezone.now() - timedelta(days=1)
+    )
+    assert target not in get_cycle_eligible_pool(viewer)
+    request.refresh_from_db()
+    assert request.status == ConnectWeeklyRequest.Status.EXPIRED

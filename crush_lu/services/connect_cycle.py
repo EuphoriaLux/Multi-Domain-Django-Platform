@@ -173,6 +173,7 @@ def get_cycle_eligible_pool(user):
         .values("target_user_id")
     )
 
+    sync_overdue_requests(user)
     active_request_subq = _excluding_pair_requests(user, OuterRef("pk"))
 
     excluded_ids: set[int] = set()
@@ -705,6 +706,27 @@ def sync_request_state(weekly_request):
     return weekly_request
 
 
+def sync_overdue_requests(user, other_user=None):
+    """Expire ``user``'s overdue PENDING requests (optionally only those with
+    ``other_user``) so the rolling cooldown starts from the original deadline.
+
+    Expiry is otherwise lazy: a request nobody revisits would stay PENDING and,
+    because the pair filters treat PENDING as excluding, block the pair forever.
+    Bounded by the member's own requests, which are one-shot per session.
+    """
+    from crush_lu.models.crush_connect_cycle import ConnectWeeklyRequest
+
+    overdue = ConnectWeeklyRequest.objects.filter(
+        Q(requester=user) | Q(recipient=user),
+        status=ConnectWeeklyRequest.Status.PENDING,
+        expires_at__lt=timezone.now(),
+    )
+    if other_user is not None:
+        overdue = overdue.filter(Q(requester=other_user) | Q(recipient=other_user))
+    for weekly_request in overdue.select_related("requester", "recipient"):
+        sync_request_state(weekly_request)
+
+
 def can_send_weekly_request(session, requester, recipient) -> Tuple[bool, str]:
     """Whether ``requester`` may send their one weekly request to
     ``recipient`` from ``session``'s review. Returns ``(allowed, reason)`` —
@@ -741,6 +763,7 @@ def can_send_weekly_request(session, requester, recipient) -> Tuple[bool, str]:
         return False, "recipient_unavailable"
     if is_blocked_pair(requester, recipient):
         return False, "blocked"
+    sync_overdue_requests(requester, recipient)
     if _excluding_pair_requests(requester, recipient).exists():
         return False, "excluded"
     if ConnectPairExclusion.are_excluded(requester, recipient):
@@ -760,6 +783,16 @@ def send_weekly_request(session, requester, recipient, request=None):
 
     with transaction.atomic():
         session = ConnectWeekSession.objects.select_for_update().get(pk=session.pk)
+        # Each member's request locks only their own session, so reciprocal
+        # sends would both pass the pair check. Serialize on the pair by
+        # locking both user rows in pk order (same order in every caller, so
+        # no deadlock). SQLite ignores row locks; this is structural.
+        list(
+            User.objects.select_for_update()
+            .filter(pk__in=[requester.pk, recipient.pk])
+            .order_by("pk")
+            .values_list("pk", flat=True)
+        )
         requester = User.objects.select_related(
             "crushprofile", "crush_connect_membership"
         ).get(pk=requester.pk)
