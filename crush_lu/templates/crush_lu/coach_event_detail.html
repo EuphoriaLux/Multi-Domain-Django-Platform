@@ -75,6 +75,20 @@
 </div>
 
 <!-- Stats Cards -->
+{% if event_conflicts %}
+<section id="event-conflicts" aria-labelledby="event-conflicts-heading" class="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-4 mb-6" data-event-conflicts>
+    <h3 id="event-conflicts-heading" class="font-semibold text-amber-900 dark:text-amber-200">
+        <span aria-hidden="true">⚠</span> {% trans "Potential participant conflicts" %}
+    </h3>
+    <p class="text-sm text-amber-900 dark:text-amber-200 mt-2">{% trans "A personal block exists between each pair below. This is a prompt for coach review, not a moderation decision. Registration, groups and seating remain unchanged." %}</p>
+    <p class="text-sm text-amber-900 dark:text-amber-200 mt-2">{% trans "Includes applicants, pending payments, confirmed participants, the waitlist and checked-in participants. Cancelled registrations and no-shows are excluded. Keep this information private; members are not notified." %}</p>
+    <ul class="mt-3 space-y-2 text-sm text-amber-950 dark:text-amber-100">
+        {% for first, second in event_conflicts %}
+        <li class="break-words font-medium">{{ first }} <span aria-hidden="true">↔</span><span class="sr-only">{% trans "and" %}</span> {{ second }}</li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
 {% if event.uses_curated_registration %}
 <div class="grid grid-cols-2 {% if event.registration_fee > 0 %}md:grid-cols-5{% else %}md:grid-cols-4{% endif %} gap-4 mb-6" data-curated-roster-summary>
     <div class="card p-4 text-center"><p class="text-2xl font-bold dark:text-white">{{ applied_count }}</p><p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Applications" %}</p></div>
