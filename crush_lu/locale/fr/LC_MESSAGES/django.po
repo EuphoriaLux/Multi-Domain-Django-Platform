@@ -44615,3 +44615,7 @@ msgstr "Votre enregistrement"
 
 msgid "A change of plans?"
 msgstr "Un changement de programme ?"
+
+#: crush_lu/templates/crush_lu/event_register.html
+msgid "No payment now; selected applicants are invited to pay."
+msgstr "Aucun paiement maintenant ; les candidats sélectionnés sont invités à payer."
