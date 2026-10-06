@@ -372,11 +372,14 @@ def _needs_close():
 
     from crush_lu.models import PremiumPaymentRecoveryCase
 
+    # Member-wide lookups do not apply to a member-unknown case: its user is
+    # the staff opener, whose own checkouts it never closes.
     return (
         Q(has_open_checkout=True)
-        | Q(member_has_stale_checkout=True)
+        | Q(member_has_stale_checkout=True, member_unknown=False)
         | Q(
             member_has_open_checkout=True,
+            member_unknown=False,
             status=PremiumPaymentRecoveryCase.Status.OPEN,
         )
     )
@@ -435,7 +438,7 @@ def retry_unsent_notifications(budget_seconds, limit=5, settle_minutes=10):
                 # A member-unknown case (_member_unknown) sends no notice.
                 Q(member_notified_at__isnull=True) & ~MEMBER_UNKNOWN_Q
                 | Q(staff_alerted_at__isnull=True)
-                | Q(member_has_open_checkout=True)
+                | Q(member_has_open_checkout=True, member_unknown=False)
             )
             & Q(status=Case.Status.OPEN)
             | _needs_close(),

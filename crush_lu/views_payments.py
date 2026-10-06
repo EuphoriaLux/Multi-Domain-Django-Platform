@@ -1068,6 +1068,13 @@ def create_sumup_premium_checkout(request, membership_id):
                 )
         return _premium_payment_received_response()
     if state == "open":
+        # #925: a capture read before a later close failed is recorded now --
+        # left PENDING, neither the sweep nor the recovery tick would find it.
+        for row in PaymentTransaction.objects.filter(
+            pk__in=list(paid_payloads)[: premium_recovery.SIBLING_SYNC_LIMIT],
+            status=PaymentTransaction.Status.PENDING,
+        ).order_by("pk"):
+            _apply_paid_checkout(row, paid_payloads[row.pk])
         return _premium_checkout_retry_response(membership)
 
     if reuse_row is not None:

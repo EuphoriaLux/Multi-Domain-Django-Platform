@@ -962,6 +962,65 @@ class CaseLifecycleTests(_Base):
         model_admin = crush_admin_site._registry[PremiumPaymentRecoveryCase]
         self.assertIn("member_unknown", model_admin.readonly_fields)
 
+    def test_backfill_spares_a_capture_staff_confirmed_afterwards(self):
+        import importlib
+        from io import StringIO
+
+        from django.apps import apps
+        from django.core.management import call_command
+
+        before = self._tx("REC-BEFORE-STAFF", status=PaymentTransaction.Status.PAID)
+        self.membership.confirm(by_user=self.coach.user)
+        call_command("backfill_premium_recovery_cases", "--apply", stdout=StringIO())
+        importlib.import_module(
+            "crush_lu.migrations.0262_backfill_premium_recovery_cases"
+        ).backfill(apps, None)
+        self.assertFalse(
+            PremiumPaymentRecoveryCase.objects.filter(payment=before).exists()
+        )
+
+    def test_member_unknown_case_is_not_selected_for_its_opener_s_checkouts(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from crush_lu.services.premium_recovery import retry_unsent_notifications
+
+        staff = User.objects.create_user(
+            username="rec-staff7@example.invalid",
+            email="rec-staff7@example.invalid",
+            password="pass12345",
+            is_staff=True,
+        )
+        tx = self._tx("REC-UNKNOWN-QUOTA", status=PaymentTransaction.Status.PAID)
+        PaymentTransaction.objects.filter(pk=tx.pk).update(user=staff)
+        self._unlink_and_delete_membership()
+        case = PremiumPaymentRecoveryCase.objects.create(
+            payment=tx,
+            user=staff,
+            reason=Reason.OTHER,
+            member_unknown=True,
+            staff_alerted_at=timezone.now(),
+        )
+        PremiumPaymentRecoveryCase.objects.filter(pk=case.pk).update(
+            created_at=timezone.now() - timedelta(hours=2)
+        )
+        own = PremiumMembership.objects.create(
+            user=staff, coach=self.coach, status="pending"
+        )
+        PaymentTransaction.objects.create(
+            transaction_reference="REC-STAFF-OWN-2",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_REC-STAFF-OWN-2",
+            amount=Decimal("10.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+            user=staff,
+            premium_membership=own,
+        )
+        self.assertEqual(retry_unsent_notifications(100), 0)
+
     def test_merge_refuses_a_duplicate_with_a_payable_checkout(self):
         from crush_lu.services.account_merge import merge_accounts
 

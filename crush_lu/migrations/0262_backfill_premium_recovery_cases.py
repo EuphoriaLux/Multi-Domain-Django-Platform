@@ -45,6 +45,14 @@ def backfill(apps, schema_editor):
         elif not membership.payment_confirmed:
             reason = REASON_FOR_STATUS.get(membership.status, "other")
         elif membership.confirmed_by_id:
+            # Staff confirmed by hand: only a capture recorded after that is
+            # provably not the applied one; an earlier one may be.
+            if not (
+                payment.paid_at
+                and membership.payment_date
+                and payment.paid_at > membership.payment_date
+            ):
+                continue
             reason = "duplicate_capture"
         elif (
             PaymentTransaction.objects.filter(

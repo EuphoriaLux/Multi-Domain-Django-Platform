@@ -323,6 +323,23 @@ class PremiumCheckoutLockTests(TestCase):
             sorted(self._statuses().values()).count("paid"), SIBLING_SYNC_LIMIT
         )
 
+    def test_open_settle_still_records_a_capture_it_read(self):
+        """#925: a capture read before a later close failed is recorded even
+        though the click answers with the retry refusal."""
+        self._pending_row("CHK_OLDER_STUCK")
+        self._pending_row("CHK_NEWEST_PAID", status="PAID")
+
+        def _deactivate(checkout_id):
+            raise SumUpConfigurationError("transient")
+
+        self.sumup["deactivate_checkout"].side_effect = _deactivate
+
+        with self.assertLogs("crush_lu.views_payments", level="WARNING"):
+            response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(self._statuses()["CHK_NEWEST_PAID"], "paid")
+
     def test_missing_api_key_while_retiring_returns_the_json_refusal(self):
         """A SumUpConfigurationError is a 409 JSON refusal, not an HTML 500."""
         self._pending_row("CHK_OLD")
@@ -572,8 +589,9 @@ class PremiumCheckoutLockTests(TestCase):
         self.assertEqual(response.status_code, 409)
         self.assertEqual(self._statuses(), {"CHK_LIVE": "pending"})
 
-    def test_failed_close_after_a_capture_is_retried_next_click(self):
-        """A capture must not hide a reusable checkout that failed to close."""
+    def test_failed_close_after_a_capture_still_records_the_capture(self):
+        """A capture must not hide a reusable checkout that failed to close,
+        and the capture itself is recorded on this very click (#925)."""
         self._pending_row("CHK_OLD_PAID", status="PAID")
         self._pending_row("CHK_NEWEST")
         # SumUp briefly refuses to close the newest one too.
@@ -584,23 +602,11 @@ class PremiumCheckoutLockTests(TestCase):
 
         self.assertEqual(first.status_code, 409)
         self.assertIn("could not be closed", first.json()["error"])
-        self.assertEqual(self._statuses()["CHK_NEWEST"], "pending")
-
-        # Completion records the capture; the next click still closes the rest.
-        PaymentTransaction.objects.filter(sumup_checkout_id="CHK_OLD_PAID").update(
-            status=PaymentTransaction.Status.PAID
-        )
-        self._deactivate_ok()
-
-        with self.assertLogs("crush_lu.views_payments", level="ERROR"):
-            second = self.client.post(self.url)
-
-        self.assertEqual(second.status_code, 409)
-        self.assertIn("already received a payment", second.json()["error"])
+        # The newest stays PENDING beside the new PAID row: the hourly tick
+        # (_close_checkouts_beside_a_capture) closes it.
         self.assertEqual(
-            self._statuses(), {"CHK_OLD_PAID": "paid", "CHK_NEWEST": "cancelled"}
+            self._statuses(), {"CHK_OLD_PAID": "paid", "CHK_NEWEST": "pending"}
         )
-        self.sumup["deactivate_checkout"].assert_called_with("CHK_NEWEST")
         self.assertEqual(self.created, [])
 
     def test_recorded_capture_with_an_unclosable_checkout_asks_to_retry(self):

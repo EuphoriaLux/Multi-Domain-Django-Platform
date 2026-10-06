@@ -9,10 +9,10 @@ the hourly reconciliation tick then sends the member notice and staff alert
 
 A capture counts as unapplied when its membership never confirmed a payment
 (``payment_confirmed`` is False); when staff confirmed the membership by hand
-(``confirmed_by`` set: the SumUp path never sets it, so no capture was the
-applied one); or when the membership has several captures -- nothing recorded
-proves which one it applied, so all of them are flagged for staff. Rows with
-no membership are listed too.
+(``confirmed_by`` set) and the capture was recorded after that confirmation;
+or when the membership has several captures -- nothing recorded proves which
+one it applied, so all of them are flagged for staff. Rows with no membership
+are listed too.
 Spec: ai-memory-hub/specs/2026-09-13-crush-premium-payment-recovery.md
 """
 
@@ -51,7 +51,15 @@ def unapplied_captures():
             )
             continue
         if membership.confirmed_by_id:
-            yield payment, Reason.DUPLICATE_CAPTURE
+            # Staff confirmed by hand: only a capture recorded after that
+            # confirmation is provably not the one applied; an earlier one may
+            # be what staff confirmed, so it gets no definitive notice.
+            if (
+                payment.paid_at
+                and membership.payment_date
+                and payment.paid_at > membership.payment_date
+            ):
+                yield payment, Reason.DUPLICATE_CAPTURE
             continue
         captures = list(
             PaymentTransaction.objects.filter(
