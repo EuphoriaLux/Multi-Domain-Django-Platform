@@ -43,6 +43,12 @@ def isolate_review_side_effects(monkeypatch):
 
 
 def _review(coach, profile, decision="approved", **kwargs):
+    kwargs.setdefault(
+        "reason",
+        {"flagged_fake": "fake_profile", "needs_revision": "unclear_face"}.get(
+            decision, ""
+        ),
+    )
     return submit_photo_review(
         coach, profile.pk, decision, photo_key=profile.photo_1.name, **kwargs
     )
@@ -231,6 +237,24 @@ def test_identity_rejection_invalidates_old_photo_review(door):
     profile.refresh_from_db()
     assert profile.photo_review_status == "pending"
     assert not profile.photo_review_key
+    assert ProfilePhotoReviewLog.objects.count() == 1
+
+
+@pytest.mark.parametrize("decision", ["needs_revision", "flagged_fake"])
+@pytest.mark.parametrize("door", [True, False])
+def test_identity_rejection_preserves_negative_photo_review(door, decision):
+    from crush_lu.services.profile_verification import (
+        reject_door_verification,
+        transition_unverified_profile,
+    )
+
+    coach, profile = _make_coach(), _make_candidate(is_approved=door)
+    _review(coach, profile, decision=decision)
+    transition = reject_door_verification if door else transition_unverified_profile
+    assert transition(profile, target_status="rejected")
+    profile.refresh_from_db()
+    assert profile.photo_review_status == decision
+    assert profile.photo_review_key == profile.photo_1.name
     assert not profile.is_photo_review_approved
     assert ProfilePhotoReviewLog.objects.count() == 1
 
@@ -447,3 +471,56 @@ def test_chat_keeps_conversation_but_hides_moderated_photo():
     assert _participants_available(chat)
     assert not _may_view_partner_photo(me, partner)
     assert not can_view_profile_photo(me, partner.crushprofile)
+
+
+def test_submit_photo_review_validates_decision_reason_combination():
+    coach, profile = _make_coach(), _make_candidate()
+
+    # Mismatched combination: flagged_fake with inappropriate
+    with pytest.raises(PhotoReviewError) as exc_info:
+        submit_photo_review(
+            coach,
+            profile.pk,
+            decision="flagged_fake",
+            reason="inappropriate",
+            photo_key=profile.photo_1.name,
+        )
+    assert exc_info.value.status == 400
+
+    # Mismatched combination: needs_revision with fake_profile
+    with pytest.raises(PhotoReviewError) as exc_info:
+        submit_photo_review(
+            coach,
+            profile.pk,
+            decision="needs_revision",
+            reason="fake_profile",
+            photo_key=profile.photo_1.name,
+        )
+    assert exc_info.value.status == 400
+
+    # Secondary photo cannot be reviewed
+    with pytest.raises(PhotoReviewError) as exc_info:
+        submit_photo_review(
+            coach,
+            profile.pk,
+            decision="approved",
+            reason="clear_authentic",
+            photo_key=profile.photo_1.name,
+            photo_field="photo_2",
+        )
+    assert exc_info.value.status == 400
+
+
+def test_event_lobby_blocks_moderated_photos():
+    from crush_lu.services.event_lobby import participant_gate, GATE_NOT_VERIFIED
+    from crush_lu.tests.test_event_lobby import _make_member
+
+    member = _make_member("moderated-lobby-member")
+    assert participant_gate(member)[0]
+    profile = member.crushprofile
+    profile.photo_review_status = "needs_revision"
+    profile.save(update_fields=["photo_review_status"])
+
+    allowed, reason = participant_gate(member)
+    assert not allowed
+    assert reason == GATE_NOT_VERIFIED

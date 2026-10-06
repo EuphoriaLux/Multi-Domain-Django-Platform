@@ -31,7 +31,21 @@ def test_mobile_deck_controls_and_undo(
     monkeypatch.setattr(
         "crush_lu.services.photo_review.notify_profile_revision", lambda **kwargs: None
     )
+    monkeypatch.setattr(
+        "crush_lu.notification_service.NotificationService._send_email",
+        lambda *args: False,
+    )
     coach, profile = _make_coach(), _make_candidate()
+    from crush_lu.models.crush_connect import Interest
+
+    interest = Interest.objects.create(
+        slug="mobile-review-interest",
+        label="Hiking",
+        label_de="Wandern",
+        label_fr="Randonnée",
+        category="outdoors",
+    )
+    profile.interests_new.add(interest)
     for field, color in (("photo_1", "purple"), ("photo_2", "pink")):
         image = BytesIO()
         Image.new("RGB", (160, 200), color).save(image, format="PNG")
@@ -65,6 +79,12 @@ def test_mobile_deck_controls_and_undo(
     )
     expect(photo).to_have_js_property("naturalWidth", 160)
     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    expect(deck.locator(r'[\x-text="cardInterests"]')).to_have_text(
+        {"en": "Hiking", "de": "Wandern", "fr": "Randonnée"}[language]
+    )
+    expect(deck.locator(r'[\x-text="cardDobLabel"]')).to_contain_text(
+        {"en": "Born", "de": "Geboren", "fr": "Né"}[language]
+    )
     page.screenshot(path=str(tmp_path / "deck.png"), full_page=True)
 
     # The keyboard shortcut advances the displayed photo, without submitting.
@@ -73,6 +93,12 @@ def test_mobile_deck_controls_and_undo(
         "src", f"/{language}/media/profile/{profile.user_id}/photo_2/"
     )
     assert not ProfilePhotoReviewLog.objects.exists()
+    # Secondary images are context only; decisions require the bound primary.
+    expect(deck.locator(r'[\@click="approveCurrentCard"]')).to_be_disabled()
+    page.keyboard.press("k")
+    expect(deck.locator('[role="dialog"]')).to_be_hidden()
+    deck.locator(r'[\@click="showPrimaryPhoto"]').click()
+    expect(deck).to_be_focused()
     page.keyboard.press("k")
     dialog = page.get_by_role(
         "dialog",
@@ -100,6 +126,8 @@ def test_mobile_deck_controls_and_undo(
     assert ProfilePhotoReviewLog.objects.get().undone_at is not None
 
     # A pointer swipe approves through the actual CSRF-protected endpoint.
+    expect(deck.locator(r'[\@click="approveCurrentCard"]')).to_be_enabled()
+    photo.scroll_into_view_if_needed()
     box = photo.bounding_box()
     page.mouse.move(box["x"] + 30, box["y"] + 80)
     page.mouse.down()

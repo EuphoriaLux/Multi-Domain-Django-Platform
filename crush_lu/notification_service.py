@@ -27,21 +27,23 @@ class NotificationType(Enum):
     IMPORTANT: Each enum member MUST have a unique value to avoid Python's enum aliasing
     behavior where members with the same value become aliases of the first member.
     """
-    PROFILE_APPROVED = 'profile_approved'
-    PROFILE_REVISION = 'profile_revision'
-    PROFILE_REJECTED = 'profile_rejected'
-    PROFILE_RECONTACT = 'profile_recontact'
-    NEW_MESSAGE = 'new_message'
-    NEW_CONNECTION = 'new_connection'
-    CONNECTION_ACCEPTED = 'connection_accepted'
-    MUTUAL_MATCH = 'mutual_match'
-    EVENT_REMINDER = 'event_reminder'
-    EVENT_REGISTRATION = 'event_registration'
-    EVENT_WAITLIST = 'event_waitlist'
-    SPARK_COACH_ASSIGNMENT = 'spark_coach_assignment'
-    SPARK_RECIPIENT_ASSIGNED = 'spark_recipient_assigned'
-    SPARK_JOURNEY_READY = 'spark_journey_ready'
-    SPARK_COMPLETED = 'spark_completed'
+
+    PROFILE_APPROVED = "profile_approved"
+    PROFILE_REVISION = "profile_revision"
+    PHOTO_REVIEW_RETRACTED = "photo_review_retracted"
+    PROFILE_REJECTED = "profile_rejected"
+    PROFILE_RECONTACT = "profile_recontact"
+    NEW_MESSAGE = "new_message"
+    NEW_CONNECTION = "new_connection"
+    CONNECTION_ACCEPTED = "connection_accepted"
+    MUTUAL_MATCH = "mutual_match"
+    EVENT_REMINDER = "event_reminder"
+    EVENT_REGISTRATION = "event_registration"
+    EVENT_WAITLIST = "event_waitlist"
+    SPARK_COACH_ASSIGNMENT = "spark_coach_assignment"
+    SPARK_RECIPIENT_ASSIGNED = "spark_recipient_assigned"
+    SPARK_JOURNEY_READY = "spark_journey_ready"
+    SPARK_COMPLETED = "spark_completed"
     # Value kept equal to the bell row type the pre-#994 code wrote, so
     # existing Notification rows and any filter on it keep matching.
     CONNECT_WEEK_REQUEST = 'connect_week_request_received'
@@ -53,22 +55,23 @@ class NotificationType(Enum):
         Multiple notification types can share a preference key.
         """
         preference_mapping = {
-            'profile_approved': 'profile_updates',
-            'profile_revision': 'profile_updates',
-            'profile_rejected': 'profile_updates',
-            'profile_recontact': 'profile_updates',
-            'new_message': 'new_messages',
-            'new_connection': 'new_connections',
-            'connection_accepted': 'new_connections',
-            'mutual_match': 'new_connections',
-            'event_reminder': 'event_reminders',
-            'event_registration': 'event_reminders',
-            'event_waitlist': 'event_reminders',
-            'spark_coach_assignment': 'event_reminders',
-            'spark_recipient_assigned': 'new_connections',
-            'spark_journey_ready': 'new_connections',
-            'spark_completed': 'new_connections',
-            'connect_week_request_received': 'new_connections',
+            "profile_approved": "profile_updates",
+            "profile_revision": "profile_updates",
+            "photo_review_retracted": "profile_updates",
+            "profile_rejected": "profile_updates",
+            "profile_recontact": "profile_updates",
+            "new_message": "new_messages",
+            "new_connection": "new_connections",
+            "connection_accepted": "new_connections",
+            "mutual_match": "new_connections",
+            "event_reminder": "event_reminders",
+            "event_registration": "event_reminders",
+            "event_waitlist": "event_reminders",
+            "spark_coach_assignment": "event_reminders",
+            "spark_recipient_assigned": "new_connections",
+            "spark_journey_ready": "new_connections",
+            "spark_completed": "new_connections",
+            "connect_week_request_received": "new_connections",
         }
         return preference_mapping.get(self.value, self.value)
 
@@ -351,15 +354,17 @@ class NotificationService:
             }
             if url_name in url_paths:
                 return url_paths[url_name]
-            if url_name == 'crush_lu:event_detail' and kwargs and kwargs.get('event_id'):
+            if (
+                url_name == "crush_lu:event_detail"
+                and kwargs
+                and kwargs.get("event_id")
+            ):
                 return f"/events/{kwargs['event_id']}/"
             # Sane fallback so we always have *somewhere* to send the user
             return '/dashboard/'
 
         with translation.override(lang):
             event = context.get('event')
-            connection = context.get('connection')
-            profile = context.get('profile')
 
             if notification_type == NotificationType.PROFILE_APPROVED:
                 return {
@@ -376,7 +381,26 @@ class NotificationService:
                 return {
                     "title": _("Profile revision requested"),
                     "body": body_str,
-                    "link_url": get_user_language_url(user, 'crush_lu:edit_profile', request),
+                    "link_url": get_user_language_url(
+                        user, "crush_lu:edit_profile", request
+                    ),
+                    "metadata": (
+                        {"photo_review_log_id": context["photo_review_log_id"]}
+                        if context.get("photo_review_log_id")
+                        else {}
+                    ),
+                }
+
+            if notification_type == NotificationType.PHOTO_REVIEW_RETRACTED:
+                return {
+                    "title": _("Photo revision request withdrawn"),
+                    "body": _(
+                        "Your coach withdrew the earlier photo revision request. You do not need to replace your photo because of that request."
+                    ),
+                    "link_url": get_user_language_url(
+                        user, "crush_lu:edit_profile", request
+                    ),
+                    "metadata": {"photo_review_log_id": context["photo_review_log_id"]},
                 }
 
             if notification_type == NotificationType.PROFILE_REJECTED:
@@ -453,7 +477,9 @@ class NotificationService:
                         user, 'crush_lu:connect_week_inbox', request
                     ),
                     "metadata": {
-                        "weekly_request_id": weekly_request.pk if weekly_request else None
+                        "weekly_request_id": (
+                            weekly_request.pk if weekly_request else None
+                        )
                     },
                 }
 
@@ -511,22 +537,49 @@ class NotificationService:
                 return push_notifications.send_profile_approved_notification(user) or {}
 
             elif notification_type == NotificationType.PROFILE_REVISION:
-                feedback = context.get('feedback', context.get('coach_notes', ''))
-                return push_notifications.send_profile_revision_notification(user, feedback) or {}
+                feedback = context.get("feedback", context.get("coach_notes", ""))
+                return (
+                    push_notifications.send_profile_revision_notification(
+                        user, feedback
+                    )
+                    or {}
+                )
+
+            elif notification_type == NotificationType.PHOTO_REVIEW_RETRACTED:
+                payload = NotificationService._render_inapp_payload(
+                    user, notification_type, context, None
+                )
+                return (
+                    push_notifications.send_push_notification(
+                        user=user,
+                        title=payload["title"],
+                        body=payload["body"],
+                        url=payload["link_url"],
+                        tag=f"photo-review-{context['photo_review_log_id']}",
+                        preference_key="profile_updates",
+                    )
+                    or {}
+                )
 
             elif notification_type == NotificationType.PROFILE_REJECTED:
-                reason = context.get('feedback', context.get('coach_notes', ''))
-                return push_notifications.send_profile_rejected_notification(
-                    user, reason
-                ) or {}
+                reason = context.get("feedback", context.get("coach_notes", ""))
+                return (
+                    push_notifications.send_profile_rejected_notification(user, reason)
+                    or {}
+                )
 
             elif notification_type == NotificationType.PROFILE_RECONTACT:
-                return push_notifications.send_profile_recontact_notification(user) or {}
+                return (
+                    push_notifications.send_profile_recontact_notification(user) or {}
+                )
 
             elif notification_type == NotificationType.NEW_MESSAGE:
                 message = context.get('message')
                 if message:
-                    return push_notifications.send_new_message_notification(user, message) or {}
+                    return (
+                        push_notifications.send_new_message_notification(user, message)
+                        or {}
+                    )
 
             elif notification_type in (
                 NotificationType.NEW_CONNECTION,
@@ -535,7 +588,12 @@ class NotificationService:
             ):
                 connection = context.get('connection')
                 if connection:
-                    return push_notifications.send_new_connection_notification(user, connection) or {}
+                    return (
+                        push_notifications.send_new_connection_notification(
+                            user, connection
+                        )
+                        or {}
+                    )
 
             elif notification_type == NotificationType.EVENT_REMINDER:
                 event = context.get('event')
@@ -545,9 +603,12 @@ class NotificationService:
             elif notification_type == NotificationType.CONNECT_WEEK_REQUEST:
                 weekly_request = context.get('weekly_request')
                 if weekly_request:
-                    return push_notifications.send_connect_week_request_notification(
-                        user, weekly_request
-                    ) or {}
+                    return (
+                        push_notifications.send_connect_week_request_notification(
+                            user, weekly_request
+                        )
+                        or {}
+                    )
 
             # For types without specific push functions, use generic
             return {'success': 0, 'failed': 0, 'total': 0}
@@ -611,7 +672,7 @@ class NotificationService:
         user,
         notification_type: NotificationType,
         context: dict,
-        request: Optional[HttpRequest]
+        request: Optional[HttpRequest],
     ) -> bool:
         """
         Route to appropriate email function.
@@ -639,6 +700,14 @@ class NotificationService:
                         profile, request, feedback=feedback
                     )
                     return result == 1
+
+            elif notification_type == NotificationType.PHOTO_REVIEW_RETRACTED:
+                return (
+                    email_helpers.send_photo_review_retracted_notification(
+                        user, request
+                    )
+                    == 1
+                )
 
             elif notification_type == NotificationType.PROFILE_REJECTED:
                 profile = context.get('profile')
@@ -834,13 +903,24 @@ def notify_profile_approved(user, profile, coach_notes: str = None, request=None
     )
 
 
-def notify_profile_revision(user, profile, feedback: str, request=None) -> NotificationResult:
+def notify_profile_revision(
+    user, profile, feedback: str, request=None, *, photo_review_log_id=None
+) -> NotificationResult:
     """Send profile revision request notification."""
     return NotificationService.notify(
         user=user,
         notification_type=NotificationType.PROFILE_REVISION,
-        context={'profile': profile, 'feedback': feedback},
-        request=request
+        context={
+            "profile": profile,
+            "feedback": feedback,
+            "photo_review_log_id": photo_review_log_id,
+        },
+        request=request,
+        dedupe_key=(
+            f"photo-review:{photo_review_log_id}:revision"
+            if photo_review_log_id
+            else None
+        ),
     )
 
 

@@ -47,7 +47,14 @@ document.addEventListener("alpine:init", function () {
                 return !this.hasCard && !this.isLoading;
             },
             get actionsDisabled() {
-                return this.isSubmitting || this.isLoading || !this.hasCard;
+                return this.isSubmitting || this.isLoading || !this.hasCard || this.isSecondaryPhoto;
+            },
+            get isSecondaryPhoto() {
+                return this.activePhotoIndex !== 0;
+            },
+            showPrimaryPhoto() {
+                this.activePhotoIndex = 0;
+                this.$nextTick(() => this.rootElement.focus());
             },
             get undoDisabled() {
                 return this.isSubmitting || this.isLoading || !this.lastDecision;
@@ -80,7 +87,7 @@ document.addEventListener("alpine:init", function () {
                 return !!(this.currentCard && this.currentCard.date_of_birth);
             },
             get cardDobLabel() {
-                return this.hasDob ? `Born ${this.cardDob}` : "";
+                return this.currentCard ? this.currentCard.dob_label : "";
             },
             get cardPhone() {
                 return this.currentCard ? this.currentCard.phone_number : "";
@@ -106,13 +113,7 @@ document.addEventListener("alpine:init", function () {
                 );
             },
             get cardPhoneBadge() {
-                if (!this.currentCard || !this.currentCard.phone_number)
-                    return "No phone";
-                const verifiedLabel = this.currentCard.phone_verified
-                    ? "SMS Verified"
-                    : "Unverified";
-                const country = this.currentCard.phone_country || "Phone";
-                return `${country} · ${verifiedLabel}`;
+                return this.currentCard ? this.currentCard.phone_badge : "";
             },
             get cardBio() {
                 return this.currentCard ? this.currentCard.bio : "";
@@ -175,7 +176,7 @@ document.addEventListener("alpine:init", function () {
             get cardStoryPrompt() {
                 return this.currentCard && this.currentCard.story_prompt
                     ? this.currentCard.story_prompt
-                    : "Prompt";
+                    : "";
             },
             get hasStory() {
                 return !!(
@@ -204,7 +205,7 @@ document.addEventListener("alpine:init", function () {
             },
             get cardMemberSince() {
                 return this.currentCard && this.currentCard.member_since
-                    ? `Member since ${this.currentCard.member_since}`
+                    ? this.currentCard.member_since_label
                     : "";
             },
             get riskFlags() {
@@ -345,6 +346,7 @@ document.addEventListener("alpine:init", function () {
                 );
             },
             openRevisionModal() {
+                if (this.actionsDisabled) return;
                 this.openFlagModal();
                 this.selectedReason = "unclear_face";
                 this.$nextTick(() =>
@@ -405,6 +407,7 @@ document.addEventListener("alpine:init", function () {
                     const data = await this._post(this.rootElement.dataset.decideUrl, {
                         profile_id: card.id,
                         photo_key: card.photo_key,
+                        photo_field: card.photos[this.activePhotoIndex].field,
                         decision,
                         reason:
                             decision === "approved"

@@ -37,6 +37,10 @@
                     <button type="button" class="btn-crush-outline btn-sm bg-white/90 backdrop-blur-sm shadow-sm" @click="nextPhoto">{% trans "Next photo" %}</button>
                 </div>
             </div>
+            <div x-show="isSecondaryPhoto" class="p-3 text-sm text-muted-fg">
+                {% trans "Decisions apply to the primary photo. Return to it before reviewing." %}
+                <button type="button" class="btn-crush-outline btn-sm" @click="showPrimaryPhoto">{% trans "Review primary photo" %}</button>
+            </div>
             <div class="p-4 sm:p-5 space-y-3.5 max-h-[30rem] overflow-y-auto">
                 <div class="flex items-start justify-between gap-2 border-b border-gray-100 dark:border-gray-700 pb-3">
                     <div>

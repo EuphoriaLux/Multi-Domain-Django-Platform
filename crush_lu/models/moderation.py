@@ -224,6 +224,9 @@ class ProfilePhotoReviewLog(models.Model):
     previous_status = models.CharField(max_length=20, blank=True)
     decision_at = models.DateTimeField(default=timezone.now)
     undone_at = models.DateTimeField(null=True, blank=True)
+    revision_notification_state = models.CharField(
+        max_length=20, blank=True, default="", editable=False
+    )
     exclusion_created = models.BooleanField(default=False)
     withdrawn_picks = models.JSONField(default=list, blank=True)
     report = models.ForeignKey(

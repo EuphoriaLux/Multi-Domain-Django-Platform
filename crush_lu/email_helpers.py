@@ -470,6 +470,37 @@ def send_profile_revision_request(profile, request, feedback):
     )
 
 
+def send_photo_review_retracted_notification(user, request=None):
+    """Correct a withdrawn photo-revision request in the member's language."""
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    lang = get_user_preferred_language(user=user, request=request, default="en")
+    with translation.override(lang):
+        subject = _("Photo revision request withdrawn")
+        html_message = render_to_string(
+            "crush_lu/emails/photo_review_retracted.html",
+            {
+                "user": user,
+                "LANGUAGE_CODE": lang,
+                "edit_profile_url": get_user_language_url(
+                    user, "crush_lu:edit_profile", request
+                ),
+                "social_links": get_social_links(),
+                **get_email_base_urls(user, request),
+            },
+        )
+    return send_domain_email(
+        subject=subject,
+        message=html_to_plain_text(html_message),
+        html_message=html_message,
+        recipient_list=[user.email],
+        request=request,
+        domain="crush.lu",
+        fail_silently=False,
+    )
+
+
 def send_profile_rejected_notification(profile, request, reason):
     """
     Notify user that their profile has been rejected.

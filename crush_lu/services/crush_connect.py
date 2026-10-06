@@ -226,6 +226,7 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
         user_profile is None
         or not user_profile.is_approved
         or not user_profile.is_active
+        or user_profile.photo_review_status in ("needs_revision", "flagged_fake")
         or not user.is_active
     ):
         return User.objects.none()
@@ -280,6 +281,9 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
         # verification, so a member can be verified yet photoless — or clear
         # their photo after onboarding. They must not be offered to a coach.
         .exclude(Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True))
+        .exclude(
+            crushprofile__photo_review_status__in=["needs_revision", "flagged_fake"]
+        )
         .annotate(
             _has_connection=Exists(existing_connection_subq),
             _has_block=block_exists_subquery(user),
@@ -469,7 +473,9 @@ def filter_catalogue_eligible(qs):
             - timedelta(days=CONNECT_INACTIVITY_WINDOW_DAYS),
         )
         .exclude(Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True))
-        .exclude(crushprofile__photo_review_status__in=["flagged_fake", "needs_revision"])
+        .exclude(
+            crushprofile__photo_review_status__in=["flagged_fake", "needs_revision"]
+        )
     )
 
 

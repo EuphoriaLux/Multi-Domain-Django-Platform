@@ -150,6 +150,8 @@ def participant_gate(user) -> tuple[bool, str]:
         or profile.verification_status != "verified"
     ):
         return False, GATE_NOT_VERIFIED
+    if profile.photo_review_status in ("needs_revision", "flagged_fake"):
+        return False, GATE_NOT_VERIFIED
     if not profile.has_luxid_connected:
         return False, GATE_NO_LUXID
 
@@ -277,6 +279,9 @@ def eligible_participations(event):
         )
         .exclude(user__crushprofile__photo_1="")
         .exclude(user__crushprofile__photo_1__isnull=True)
+        .exclude(
+            user__crushprofile__photo_review_status__in=("needs_revision", "flagged_fake")
+        )
         .annotate(
             _has_luxid_native=Exists(luxid_native_subq),
             _has_luxid_oidc=Exists(luxid_oidc_subq),

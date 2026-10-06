@@ -53,7 +53,7 @@ def coach_photo_review_decide(request):
 
         if not isinstance(data, dict):
             raise ValueError
-        for field in ("decision", "reason", "notes", "photo_key"):
+        for field in ("decision", "reason", "notes", "photo_key", "photo_field"):
             if not isinstance(data.get(field, ""), str):
                 raise ValueError
 
@@ -62,6 +62,7 @@ def coach_photo_review_decide(request):
         reason = data.get("reason", "").strip()
         notes = data.get("notes", "").strip()
         photo_key = data.get("photo_key", "")
+        photo_field = data.get("photo_field", "photo_1")
     except (ValueError, TypeError, json.JSONDecodeError):
         return JsonResponse(
             {"success": False, "error": _("Invalid request payload")}, status=400
@@ -76,6 +77,7 @@ def coach_photo_review_decide(request):
             notes=notes,
             request=request,
             photo_key=photo_key,
+            photo_field=photo_field,
         )
         return JsonResponse(result)
     except PhotoReviewError as exc:
@@ -111,7 +113,7 @@ def coach_photo_review_undo(request):
             {"success": False, "error": _("Invalid request payload")}, status=400
         )
     try:
-        result = undo_last_photo_review(request.coach, log_id=log_id)
+        result = undo_last_photo_review(request.coach, log_id=log_id, request=request)
         status_code = 200 if result.get("success") else 400
         return JsonResponse(result, status=status_code)
     except PhotoReviewError as exc:

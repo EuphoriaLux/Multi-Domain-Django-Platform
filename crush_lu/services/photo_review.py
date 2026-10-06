@@ -11,6 +11,7 @@ from django.db.models import Case, Exists, OuterRef, Q, Value, When
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django.utils.formats import date_format
 from django.utils.translation import gettext as _
 from django.utils.translation import override
 
@@ -23,9 +24,14 @@ from crush_lu.models import (
     UserReport,
     UserDataConsent,
     EventRegistration,
+    Notification,
 )
 from crush_lu.models.crush_connect_cycle import ConnectPairExclusion
-from crush_lu.notification_service import notify_profile_revision
+from crush_lu.notification_service import (
+    notify_profile_revision,
+    NotificationService,
+    NotificationType,
+)
 from crush_lu.services.blocking import is_blocked_pair
 from crush_lu.services.crush_connect import is_catalogue_eligible
 
@@ -48,22 +54,38 @@ def _format_phone_info(phone_number: str):
         return {"number": "", "country": "", "is_local": True}
     cleaned = phone_number.strip().replace(" ", "").replace("-", "")
     if cleaned.startswith("+352") or cleaned.startswith("00352"):
-        return {"number": phone_number, "country": "Luxembourg (+352)", "is_local": True}
+        return {
+            "number": phone_number,
+            "country": _("Luxembourg (+352)"),
+            "is_local": True,
+        }
     elif cleaned.startswith("+33") or cleaned.startswith("0033"):
-        return {"number": phone_number, "country": "France (+33)", "is_local": True}
+        return {"number": phone_number, "country": _("France (+33)"), "is_local": True}
     elif cleaned.startswith("+49") or cleaned.startswith("0049"):
-        return {"number": phone_number, "country": "Germany (+49)", "is_local": True}
+        return {"number": phone_number, "country": _("Germany (+49)"), "is_local": True}
     elif cleaned.startswith("+32") or cleaned.startswith("0032"):
-        return {"number": phone_number, "country": "Belgium (+32)", "is_local": True}
+        return {"number": phone_number, "country": _("Belgium (+32)"), "is_local": True}
     elif cleaned.startswith("+351") or cleaned.startswith("00351"):
-        return {"number": phone_number, "country": "Portugal (+351)", "is_local": True}
+        return {
+            "number": phone_number,
+            "country": _("Portugal (+351)"),
+            "is_local": True,
+        }
     elif cleaned.startswith("+1") or cleaned.startswith("001"):
-        return {"number": phone_number, "country": "USA/Canada (+1)", "is_local": False}
+        return {
+            "number": phone_number,
+            "country": _("USA/Canada (+1)"),
+            "is_local": False,
+        }
     elif cleaned.startswith("+44") or cleaned.startswith("0044"):
-        return {"number": phone_number, "country": "UK (+44)", "is_local": False}
+        return {"number": phone_number, "country": _("UK (+44)"), "is_local": False}
     else:
         prefix = cleaned[:4] if len(cleaned) >= 4 else cleaned
-        return {"number": phone_number, "country": f"Intl ({prefix})", "is_local": False}
+        return {
+            "number": phone_number,
+            "country": _("International (%(prefix)s)") % {"prefix": prefix},
+            "is_local": False,
+        }
 
 
 def get_photo_review_queue(coach: CrushCoach, limit: int = 40):
@@ -180,7 +202,9 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40):
             if mem.lifestyle_pace:
                 lifestyle_tags.append(mem.get_lifestyle_pace_display())
             work_field = mem.get_work_field_display() or mem.work_field or ""
-            education_level = mem.get_education_level_display() or mem.education_level or ""
+            education_level = (
+                mem.get_education_level_display() or mem.education_level or ""
+            )
             if mem.height_cm:
                 height = f"{mem.height_cm} cm"
 
@@ -197,11 +221,11 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40):
         seen_langs = set()
         formatted_languages = []
         for code in raw_langs:
-            if code and code not in seen_langs:
+            if isinstance(code, str) and code and code not in seen_langs:
                 seen_langs.add(code)
                 formatted_languages.append(LANGUAGE_NAMES.get(code, code.upper()))
 
-        interests = [i.name for i in p.interests_new.all()]
+        interests = [i.label for i in p.interests_new.all()]
 
         is_luxid_verified = bool(p.review_has_native_luxid or p.review_has_oidc_luxid)
         has_attended_event = bool(
@@ -215,27 +239,32 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40):
         risk_flags = []
         if p.phone_number:
             if not phone_info["is_local"]:
-                risk_flags.append(f"Non-local phone ({phone_info['country']})")
+                risk_flags.append(
+                    _("Non-local phone (%(country)s)")
+                    % {"country": phone_info["country"]}
+                )
             if not p.phone_verified:
-                risk_flags.append("Phone unverified")
+                risk_flags.append(_("Phone unverified"))
         else:
-            risk_flags.append("No phone number")
+            risk_flags.append(_("No phone number"))
 
         if not (p.bio or "").strip() and not (story_text or "").strip():
-            risk_flags.append("Empty bio & prompt")
+            risk_flags.append(_("Empty bio & prompt"))
 
         if p.created_at and (now - p.created_at).total_seconds() < 86400 * 2:
-            risk_flags.append("New account (< 48h)")
+            risk_flags.append(_("New account (< 48h)"))
 
         trust_signals = []
         if is_luxid_verified:
-            trust_signals.append("LuxID Verified")
+            trust_signals.append(_("LuxID Verified"))
         if has_attended_event:
-            trust_signals.append("Attended In-Person Event")
+            trust_signals.append(_("Attended In-Person Event"))
         if p.phone_verified and phone_info["number"]:
-            trust_signals.append(f"Phone Verified ({phone_info['country']})")
+            trust_signals.append(
+                _("Phone verified (%(country)s)") % {"country": phone_info["country"]}
+            )
         if mem and mem.is_onboarded:
-            trust_signals.append("Connect Onboarded")
+            trust_signals.append(_("Connect Onboarded"))
 
         cards.append(
             {
@@ -243,11 +272,34 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40):
                 "user_id": p.user.id,
                 "display_name": p.display_name or p.user.first_name or p.user.username,
                 "age": p.age_display or "",
-                "date_of_birth": p.date_of_birth.strftime("%Y-%m-%d") if p.date_of_birth else "",
+                "date_of_birth": (
+                    p.date_of_birth.strftime("%Y-%m-%d") if p.date_of_birth else ""
+                ),
                 "gender": p.get_gender_display() or "",
                 "location": p.city or p.location or "",
                 "phone_number": phone_info["number"],
                 "phone_country": phone_info["country"],
+                "phone_badge": (
+                    (
+                        phone_info["country"]
+                        + " · "
+                        + (_("SMS verified") if p.phone_verified else _("Unverified"))
+                    )
+                    if phone_info["number"]
+                    else _("No phone")
+                ),
+                "dob_label": (
+                    _("Born %(date)s")
+                    % {"date": date_format(p.date_of_birth, "DATE_FORMAT")}
+                    if p.date_of_birth
+                    else ""
+                ),
+                "member_since_label": (
+                    _("Member since %(date)s")
+                    % {"date": date_format(p.created_at, "M Y")}
+                    if p.created_at
+                    else ""
+                ),
                 "is_phone_local": phone_info["is_local"],
                 "phone_verified": bool(p.phone_verified),
                 "bio": p.bio or "",
@@ -260,7 +312,7 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40):
                 "photo_count": len(photos),
                 "photo_key": getattr(p.photo_1, "name", "") or "",
                 "photo_review_status": p.photo_review_status,
-                "story_prompt": story_prompt,
+                "story_prompt": story_prompt or _("Prompt"),
                 "story_text": story_text,
                 "relationship_goal": relationship_goal,
                 "lifestyle_tags": lifestyle_tags,
@@ -287,7 +339,68 @@ class PhotoReviewError(ValueError):
         self.status = status
 
 
-def _notify_revision_safely(profile, reason, notes, request):
+def _retract_revision_safely(log_id, request):
+    """Replace only this review's notice and correct external messages once."""
+    try:
+        log = ProfilePhotoReviewLog.objects.select_related("profile__user").get(
+            pk=log_id
+        )
+        if (
+            log.revision_notification_state != "retract_pending"
+            or log.undone_at is None
+        ):
+            return
+        user = log.profile.user
+        payload = NotificationService._render_inapp_payload(
+            user,
+            NotificationType.PHOTO_REVIEW_RETRACTED,
+            {"photo_review_log_id": log.pk},
+            request,
+        )
+        Notification.objects.filter(
+            user=user, dedupe_key=f"photo-review:{log.pk}:revision"
+        ).update(
+            title=payload["title"],
+            body=payload["body"],
+            metadata={"photo_review_log_id": log.pk, "withdrawn": True},
+        )
+        NotificationService.notify(
+            user=user,
+            notification_type=NotificationType.PHOTO_REVIEW_RETRACTED,
+            context={"photo_review_log_id": log.pk},
+            request=request,
+            dedupe_key=f"photo-review:{log.pk}:retracted",
+        )
+        ProfilePhotoReviewLog.objects.filter(
+            pk=log.pk, revision_notification_state="retract_pending"
+        ).update(revision_notification_state="retracted")
+    except Exception:
+        logger.exception(
+            "Failed to correct photo revision notification for review %s", log_id
+        )
+
+
+def _notify_revision_safely(profile, reason, notes, request, log_id):
+    try:
+        _send_revision_and_reconcile(profile, reason, notes, request, log_id)
+    except Exception:
+        # A post-commit delivery/claim failure must not turn a saved decision
+        # into a failed API response or encourage a duplicate moderation action.
+        logger.exception("Photo revision delivery failed for review %s", log_id)
+
+
+def _send_revision_and_reconcile(profile, reason, notes, request, log_id):
+    # The CAS coordinates cross-worker Undo with a sender already in flight.
+    # No network work happens inside the moderation transaction or row lock.
+    if not ProfilePhotoReviewLog.objects.filter(
+        pk=log_id,
+        undone_at__isnull=True,
+        revision_notification_state="",
+        profile__photo_1=models.F("photo_key"),
+        profile__photo_review_key=models.F("photo_key"),
+        profile__photo_review_status="needs_revision",
+    ).update(revision_notification_state="sending"):
+        return
     try:
         with override(profile.preferred_language or "en"):
             feedback = {
@@ -309,11 +422,18 @@ def _notify_revision_safely(profile, reason, notes, request):
                 profile=profile,
                 feedback=notes or feedback.get(reason, feedback["other"]),
                 request=request,
+                photo_review_log_id=log_id,
             )
     except Exception:
         logger.exception(
             "Failed to send photo revision notification to user %s", profile.user_id
         )
+    finally:
+        sent = ProfilePhotoReviewLog.objects.filter(
+            pk=log_id, revision_notification_state="sending"
+        ).update(revision_notification_state="sent")
+        if not sent:
+            _retract_revision_safely(log_id, request)
 
 
 def submit_photo_review(
@@ -325,11 +445,22 @@ def submit_photo_review(
     request=None,
     *,
     photo_key: str,
+    photo_field: str = "photo_1",
 ):
     """Claim one pending, exact-photo decision; notify only after commit."""
     if decision not in dict(ProfilePhotoReviewLog.DECISION_CHOICES):
         raise PhotoReviewError(_("Invalid photo review decision."), 400)
     if reason and reason not in dict(ProfilePhotoReviewLog.REASON_CHOICES):
+        raise PhotoReviewError(_("Invalid photo review reason."), 400)
+    if photo_field != "photo_1":
+        raise PhotoReviewError(_("Only the primary photo can be reviewed."), 400)
+    allowed_reasons = {
+        "approved": {"", "clear_authentic"},
+        "flagged_fake": {"fake_profile"},
+        "needs_revision": {"inappropriate", "unclear_face", "group_photo", "other"},
+        "skipped": {""},
+    }
+    if reason not in allowed_reasons[decision]:
         raise PhotoReviewError(_("Invalid photo review reason."), 400)
     if len(notes) > 255 or len(photo_key) > 255 or not photo_key:
         raise PhotoReviewError(_("Invalid photo review payload."), 400)
@@ -457,7 +588,7 @@ def submit_photo_review(
             log.save(update_fields=["exclusion_created", "report", "withdrawn_picks"])
         elif decision == "needs_revision":
             transaction.on_commit(
-                lambda: _notify_revision_safely(profile, reason, notes, request)
+                lambda: _notify_revision_safely(profile, reason, notes, request, log.pk)
             )
         return {
             "success": True,
@@ -468,7 +599,7 @@ def submit_photo_review(
         }
 
 
-def undo_last_photo_review(coach: CrushCoach, *, log_id=None):
+def undo_last_photo_review(coach: CrushCoach, *, log_id=None, request=None):
     """Undo only the still-current decision, preserving the immutable audit record."""
     cutoff = timezone.now() - timedelta(minutes=15)
     logs = ProfilePhotoReviewLog.objects.filter(
@@ -598,7 +729,14 @@ def undo_last_photo_review(coach: CrushCoach, *, log_id=None):
                 ),
             )
         log.undone_at = timezone.now()
-        log.save(update_fields=["undone_at"])
+        if log.decision == "needs_revision":
+            state = log.revision_notification_state
+            log.revision_notification_state = (
+                "retract_pending" if state in ("sending", "sent") else "cancelled"
+            )
+            if state == "sent":
+                transaction.on_commit(lambda: _retract_revision_safely(log.pk, request))
+        log.save(update_fields=["undone_at", "revision_notification_state"])
         if log.report_id:
             UserReport.objects.filter(pk=log.report_id).update(
                 status="dismissed",

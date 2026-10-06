@@ -44888,3 +44888,111 @@ msgid ""
 msgstr ""
 "Un coach a demandé une nouvelle photo de profil. Pour continuer, veuillez "
 "ajouter une photo nette montrant votre visage."
+
+msgid "Luxembourg (+352)"
+msgstr "Luxembourg (+352)"
+
+msgid "France (+33)"
+msgstr "France (+33)"
+
+msgid "Germany (+49)"
+msgstr "Allemagne (+49)"
+
+msgid "Belgium (+32)"
+msgstr "Belgique (+32)"
+
+msgid "Portugal (+351)"
+msgstr "Portugal (+351)"
+
+msgid "USA/Canada (+1)"
+msgstr "États-Unis/Canada (+1)"
+
+msgid "UK (+44)"
+msgstr "Royaume-Uni (+44)"
+
+msgid "International (%(prefix)s)"
+msgstr "International (%(prefix)s)"
+
+msgid "Non-local phone (%(country)s)"
+msgstr "Numéro de téléphone étranger (%(country)s)"
+
+msgid "Phone unverified"
+msgstr "Numéro de téléphone non vérifié"
+
+msgid "No phone number"
+msgstr "Aucun numéro de téléphone"
+
+msgid "Empty bio & prompt"
+msgstr "Biographie et réponse vides"
+
+msgid "New account (< 48h)"
+msgstr "Nouveau compte (< 48 h)"
+
+msgid "LuxID Verified"
+msgstr "LuxID vérifié"
+
+msgid "Attended In-Person Event"
+msgstr "Participation à un événement en personne"
+
+msgid "Phone verified (%(country)s)"
+msgstr "Numéro de téléphone vérifié (%(country)s)"
+
+msgid "Connect Onboarded"
+msgstr "Inscription à Connect terminée"
+
+msgid "SMS verified"
+msgstr "Vérifié par SMS"
+
+msgid "No phone"
+msgstr "Aucun téléphone"
+
+msgid "Born %(date)s"
+msgstr "Né(e) le %(date)s"
+
+msgid "Member since %(date)s"
+msgstr "Membre depuis %(date)s"
+
+msgid "Prompt"
+msgstr "Question"
+
+msgid "Inconsistency / Risk Flags"
+msgstr "Incohérences / Indicateurs de risque"
+
+msgid "Event Attended"
+msgstr "Participation à un événement"
+
+msgid "Work"
+msgstr "Profession"
+
+msgid "Height"
+msgstr "Taille"
+
+msgid "No bio written yet."
+msgstr "Aucune biographie pour le moment."
+
+msgid "Interests & Hobbies"
+msgstr "Centres d’intérêt et loisirs"
+
+msgid "Lifestyle Pace & Energy"
+msgstr "Style de vie, rythme et énergie"
+
+msgid "Decisions apply to the primary photo. Return to it before reviewing."
+msgstr ""
+"Les décisions concernent la photo principale. Revenez à celle-ci avant de la"
+" vérifier."
+
+msgid "Review primary photo"
+msgstr "Vérifier la photo principale"
+
+msgid "Only the primary photo can be reviewed."
+msgstr "Seule la photo principale peut être vérifiée."
+
+msgid "Photo revision request withdrawn"
+msgstr "Demande de modification de photo retirée"
+
+msgid ""
+"Your coach withdrew the earlier photo revision request. You do not need to "
+"replace your photo because of that request."
+msgstr ""
+"Votre coach a retiré la précédente demande de modification de photo. Vous "
+"n’avez pas besoin de remplacer votre photo à cause de cette demande."

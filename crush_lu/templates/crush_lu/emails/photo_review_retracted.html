@@ -1,0 +1,8 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+{% block title %}{% trans "Photo revision request withdrawn" %} - Crush.lu{% endblock %}
+{% block header_title %}{% trans "Photo revision request withdrawn" %}{% endblock %}
+{% block content %}
+<p>{% trans "Your coach withdrew the earlier photo revision request. You do not need to replace your photo because of that request." %}</p>
+<a href="{{ edit_profile_url }}" class="button">{% trans "View Profile" %}</a>
+{% endblock %}
