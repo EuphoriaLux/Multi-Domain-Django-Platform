@@ -84,7 +84,6 @@ def patch_allauth_statekit():
 
     try:
         from allauth.socialaccount.internal import statekit
-        from allauth.socialaccount.adapter import get_adapter
     except ImportError:
         logger.warning("Could not import allauth statekit - OAuth patches not applied")
         return
@@ -143,6 +142,8 @@ def patch_allauth_statekit():
         try:
             from crush_lu.models import OAuthState
 
+            from crush_lu.oauth_recovery import bind_browser_state
+
             # Get request metadata for security tracking
             user_agent = request.META.get('HTTP_USER_AGENT', '')
             ip_address = get_client_ip(request)
@@ -160,9 +161,10 @@ def patch_allauth_statekit():
             # Create database record (delete existing first to avoid duplicates)
             deleted_count, _ = OAuthState.objects.filter(state_id=state_id).delete()
 
-            oauth_state = OAuthState.objects.create(
+            OAuthState.objects.create(
                 state_id=state_id,
                 state_data=json.dumps(state),
+                auth_origin_hash=bind_browser_state(request),
                 expires_at=timezone.now() + timezone.timedelta(minutes=15),
                 provider=provider,
                 user_agent=user_agent[:500] if user_agent else '',
@@ -208,13 +210,16 @@ def patch_allauth_statekit():
         state = _original_unstash_state(request, state_id)
         if state is not None:
             logger.debug(f"[OAUTH] State {state_id[:8]}... found in session")
+            # Session and cross-browser callbacks share a single consume gate.
+            # A state already consumed in another browser must not be revived
+            # by the still-present originating session's copy.
+            from crush_lu.models import OAuthState
+
+            if OAuthState.objects.filter(state_id=state_id).exists():
+                if OAuthState.get_and_consume_state(state_id) is None:
+                    return None
             _restore_handoff(request, state)
-            # Also clean up database record
-            try:
-                from crush_lu.models import OAuthState
-                OAuthState.objects.filter(state_id=state_id).update(used=True)
-            except Exception:
-                pass
+            request._oauth_callback_state_id = state_id
             return state
 
         # Session lookup failed - try database (cross-browser case, e.g., Android PWA)
@@ -222,10 +227,17 @@ def patch_allauth_statekit():
         try:
             from crush_lu.models import OAuthState
 
-            state = OAuthState.get_and_consume_state(state_id)
+            from crush_lu.oauth_recovery import callback_browser_hash
+
+            browser_hash = callback_browser_hash(request)
+            if not browser_hash:
+                logger.warning("[OAUTH] Missing callback browser proof; restart sign-in")
+                return None
+            state = OAuthState.get_and_consume_state(state_id, browser_hash=browser_hash)
             if state:
                 logger.info(f"[OAUTH] State {state_id[:8]}... retrieved from database (cross-browser)")
                 _restore_handoff(request, state)
+                request._oauth_callback_state_id = state_id
                 return state
             else:
                 # State not found - this is an error condition
@@ -241,7 +253,7 @@ def patch_allauth_statekit():
 
     def db_unstash_last_state(request) -> Optional[Dict[str, Any]]:
         """
-        Enhanced unstash_last_state that tries session first, then database.
+        Retrieve a session-bound state for providers without a state parameter.
 
         Used for providers that don't support state parameter.
         """
@@ -250,24 +262,9 @@ def patch_allauth_statekit():
         if state is not None:
             return state
 
-        # Try to find the most recent unused state in database for this client
-        try:
-            from crush_lu.models import OAuthState
-
-            ip_address = get_client_ip(request)
-            recent_state = OAuthState.objects.filter(
-                used=False,
-                expires_at__gt=timezone.now(),
-                ip_address=ip_address,
-            ).order_by('-created_at').first()
-
-            if recent_state:
-                state = OAuthState.get_and_consume_state(recent_state.state_id)
-                if state:
-                    logger.info("OAuth last state retrieved from database")
-                    return state
-        except Exception as e:
-            logger.error(f"Failed to retrieve last OAuth state from database: {e}")
+        # An IP address is not proof of client possession (shared NAT, proxies).
+        # Providers without state must retain their session rather than select
+        # another browser's most recent flow from the database.
 
         return None
 
