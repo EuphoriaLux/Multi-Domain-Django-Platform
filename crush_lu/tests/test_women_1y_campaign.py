@@ -798,3 +798,46 @@ class ReviewRound6Tests(TestCase):
                     stdout=StringIO(),
                 )
         self.assertEqual(len(mail.outbox), 0)
+
+
+class ReviewRound7Tests(TestCase):
+    def setUp(self):
+        cache.clear()
+        mail.outbox.clear()
+
+    def test_modes_are_mutually_exclusive(self):
+        for args in (
+            ["--dry-run", "--test-to", "qa@example.com"],
+            ["--dry-run", "--report"],
+            ["--test-to", "qa@example.com", "--report"],
+            ["--send", "--report"],
+        ):
+            with self.assertRaises(CommandError):
+                call_command("send_women_1y_campaign", *args, stdout=StringIO())
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_age_ineligible_events_are_hidden_and_do_not_crowd_out_others(self):
+        user = make_member("age")  # born 1995-01-01, so 30+
+        client = Client(HTTP_HOST=HOST)
+        client.force_login(user)
+
+        def event(title, hours, **kw):
+            return MeetupEvent.objects.create(
+                title=title,
+                description="x",
+                event_type="mixer",
+                date_time=timezone.now() + timedelta(days=2, hours=hours),
+                location="L",
+                address="a",
+                max_participants=10,
+                registration_deadline=timezone.now() + timedelta(days=1),
+                is_published=True,
+                **kw,
+            )
+
+        for i in range(4):
+            event(f"Too Young {i}", i, min_age=18, max_age=24)
+        event("Right Age", 10, min_age=25, max_age=45)
+        html = client.get("/en/women-1-year/").content.decode()
+        self.assertIn("Right Age", html)
+        self.assertNotIn("Too Young", html)

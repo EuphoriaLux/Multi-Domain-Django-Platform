@@ -77,8 +77,18 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **opts):
-        if opts["send"] and (opts["dry_run"] or opts["test_to"] or opts["report"]):
-            raise CommandError("--send cannot be combined with other modes.")
+        modes = [
+            name
+            for name, on in (
+                ("--dry-run", opts["dry_run"]),
+                ("--send", opts["send"]),
+                ("--test-to", opts["test_to"]),
+                ("--report", opts["report"]),
+            )
+            if on
+        ]
+        if len(modes) > 1:
+            raise CommandError(f"Choose one mode, not {' + '.join(modes)}.")
         if opts["limit"] is not None and opts["limit"] < 1:
             raise CommandError("--limit must be at least 1.")
         if opts["batch_size"] < 1:

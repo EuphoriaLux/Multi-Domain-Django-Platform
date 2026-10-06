@@ -62,7 +62,15 @@ def _upcoming_events(user):
     ).order_by("date_time")
     # Not sliced in SQL: privacy filtering must run before the limit.
     events = [e for e in events if e.end_time >= now]
-    return _filter_private_events(events, user)[:MAX_EVENTS]
+    events = _filter_private_events(events, user)
+    # Same age gate as event_register; applied before the limit so events the
+    # member cannot join neither show up nor crowd out ones they can. An
+    # unknown age is not filtered: registration asks for the date of birth.
+    profile = getattr(user, "crushprofile", None) if user.is_authenticated else None
+    age = profile.age if profile else None
+    if age is not None:
+        events = [e for e in events if e.min_age <= age <= e.max_age]
+    return events[:MAX_EVENTS]
 
 
 @require_GET
