@@ -21,8 +21,14 @@ Or via management command:
 """
 
 import os
+from pathlib import Path
 
 from azure.storage.blob import BlobServiceClient, PublicAccess
+from dotenv import load_dotenv
+
+# Load .env like manage.py and azureproject/settings.py do, so a standalone run
+# sees the same AZURITE_BLOB_HOST as the app. Existing env vars still win.
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
 # Azurite well-known development credentials
