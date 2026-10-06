@@ -74,3 +74,71 @@ class SensitiveQueryRedactionProcessorTests(SimpleTestCase):
         exported = self._export({"http.status_code": 200})
 
         self.assertEqual(exported["http.status_code"], 200)
+
+
+class SensitiveQueryRedactionOnFailedCallTests(SimpleTestCase):
+    """A failed call records an ``exception`` event after the span started; its
+    message and stacktrace embed the request URL, query string included."""
+
+    def _failed_span(self):
+        import requests
+        from opentelemetry.trace import Status, StatusCode
+
+        exporter = InMemorySpanExporter()
+        provider = TracerProvider()
+        provider.add_span_processor(SensitiveQueryRedactionProcessor())
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
+        span = provider.get_tracer("test").start_span("GET")
+        error = requests.ConnectionError(
+            "HTTPSConnectionPool(host='graph.facebook.com', port=443): Max "
+            "retries exceeded with url: /v24.0/1234/picture?width=720"
+            f"&access_token={TOKEN} (Caused by NewConnectionError('refused'))"
+        )
+        try:
+            raise error
+        except requests.ConnectionError as exc:
+            span.record_exception(exc)
+            span.set_status(Status(StatusCode.ERROR, f"{type(exc).__name__}: {exc}"))
+        span.end()
+        (finished,) = exporter.get_finished_spans()
+        return finished
+
+    def test_exception_event_does_not_export_the_token(self):
+        finished = self._failed_span()
+
+        (event,) = [e for e in finished.events if e.name == "exception"]
+        for key, value in event.attributes.items():
+            self.assertNotIn(TOKEN, str(value), key)
+        self.assertIn("access_token=REDACTED", event.attributes["exception.message"])
+        self.assertIn("width=720", event.attributes["exception.message"])
+        self.assertEqual(
+            event.attributes["exception.type"], "requests.exceptions.ConnectionError"
+        )
+
+    def test_error_status_description_does_not_export_the_token(self):
+        finished = self._failed_span()
+
+        self.assertNotIn(TOKEN, finished.status.description)
+        self.assertIn("access_token=REDACTED", finished.status.description)
+        self.assertEqual(finished.status.status_code.name, "ERROR")
+
+    def test_clean_failures_keep_their_event_and_status_untouched(self):
+        exporter = InMemorySpanExporter()
+        provider = TracerProvider()
+        provider.add_span_processor(SensitiveQueryRedactionProcessor())
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
+        span = provider.get_tracer("test").start_span("GET")
+        try:
+            raise ValueError("plain failure")
+        except ValueError as exc:
+            span.record_exception(exc)
+        span.add_event("note", {"detail": "nothing secret"})
+        span.end()
+
+        (finished,) = exporter.get_finished_spans()
+        names = [e.name for e in finished.events]
+        self.assertEqual(names, ["exception", "note"])
+        self.assertEqual(
+            finished.events[0].attributes["exception.message"], "plain failure"
+        )
+        self.assertEqual(finished.events[1].attributes["detail"], "nothing secret")

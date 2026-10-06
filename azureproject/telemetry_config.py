@@ -92,11 +92,13 @@ class SensitiveQueryRedactionProcessor:
     The ``requests`` auto-instrumentation records the full URL of every
     outbound call as a dependency span. The Facebook Graph photo calls pass the
     member's live access token in that query string, so without this the token
-    would be exported to Application Insights with the span. Runs in
-    ``on_start``, while the span is still writable and before any exporter sees
-    it, so the order relative to the exporting processor does not matter.
-    Limitation: an instrumentation that sets the URL attribute only *after*
-    the span has started is not covered.
+    would be exported to Application Insights with the span. URL attributes are
+    rewritten in ``on_start``, while the span is still writable; the failure
+    details (``exception`` events and the error status description, which embed
+    the same URL) are rewritten in ``_on_ending``. Both run before any exporter
+    sees the span, so the order relative to the exporting processor does not
+    matter. Limitation: an instrumentation that sets a URL attribute only
+    *after* the span has started is not covered.
     """
 
     URL_ATTRIBUTES = ('http.url', 'url.full', 'http.target', 'url.query')
@@ -115,8 +117,36 @@ class SensitiveQueryRedactionProcessor:
                     key, self.SECRET_QUERY_PARAM.sub(r'\1REDACTED', value)
                 )
 
+    def _redact(self, value):
+        if isinstance(value, str):
+            return self.SECRET_QUERY_PARAM.sub(r'\1REDACTED', value)
+        return value
+
     def _on_ending(self, span):
-        """Required by newer opentelemetry-sdk; nothing to do."""
+        """Redact failure details just before the span is handed to exporters.
+
+        A failed call records an ``exception`` event (message and stacktrace
+        embed the request URL, query string included) and an error status
+        description after ``on_start``, so those are scrubbed here. Telemetry
+        must never break a request, hence the blanket guard.
+        """
+        try:
+            from opentelemetry.trace import Status
+
+            # The span's event list is a BoundedList (no item assignment), but
+            # each Event owns its attribute mapping, so swap that in place.
+            for event in list(getattr(span, '_events', None) or []):
+                attributes = event.attributes or {}
+                redacted = {k: self._redact(v) for k, v in attributes.items()}
+                if redacted != dict(attributes):
+                    event._attributes = redacted
+
+            status = getattr(span, '_status', None)
+            description = getattr(status, 'description', None)
+            if isinstance(description, str) and self._redact(description) != description:
+                span._status = Status(status.status_code, self._redact(description))
+        except Exception:
+            logger.debug("Span credential redaction failed", exc_info=True)
 
     def on_end(self, span):
         """Nothing to do once the span has ended."""
