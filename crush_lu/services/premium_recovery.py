@@ -762,9 +762,9 @@ def apply_case_payment(case_pk, by_user):
     """D3: the member agreed to the membership's coach (staff may have
     reassigned it first); apply this capture and resolve the case.
 
-    Returns an error message, or None on success. Locks payment ->
-    membership -> CrushProfile (confirm()), the payment path's order; the
-    case row is locked after the payment."""
+    Returns an error message, or None on success. Locks payment -> case ->
+    beta waitlist -> membership -> CrushProfile (confirm()): the payment
+    path's order, with the case row taken after the payment."""
     from django.db import transaction
 
     from crush_lu.models import (
@@ -792,6 +792,18 @@ def apply_case_payment(case_pk, by_user):
                 return "The case is already resolved."
             if case.reason != Case.Reason.COACH_UNAVAILABLE or case.staff_only:
                 return "Only an open coach-unavailable case can be applied."
+            # The member who paid and agreed is case.user: refuse a
+            # membership that changed hands in the admin since.
+            changed_hands = "The membership no longer belongs to the case's member."
+            unlocked = case.premium_membership
+            if unlocked is not None and unlocked.user_id != case.user_id:
+                return changed_hands
+            # As at payment completion: revocation wins the race. The
+            # waitlist row (case.user's) is locked BEFORE the membership --
+            # _apply_paid_checkout's order, so a sibling capture completing
+            # meanwhile cannot deadlock with this.
+            if _premium_purchase_refused(unlocked, lock=True):
+                return "The member is no longer a selected beta tester."
             # Locked and read fresh: the owner and coach confirm() applies
             # are the ones validated here, not a stale admin edit's.
             membership = (
@@ -806,12 +818,7 @@ def apply_case_payment(case_pk, by_user):
             ):
                 return "The payment is no longer a capture of this membership."
             if membership.user_id != case.user_id:
-                # The membership changed hands in the admin since: the
-                # member who paid and agreed is case.user.
-                return "The membership no longer belongs to the case's member."
-            # As at payment completion: revocation wins the race (locked).
-            if _premium_purchase_refused(membership, lock=True):
-                return "The member is no longer a selected beta tester."
+                return changed_hands
             membership.confirm(by_user=by_user)
             resolve_case(case, Case.Resolution.APPLIED, by_user)
             transaction.on_commit(

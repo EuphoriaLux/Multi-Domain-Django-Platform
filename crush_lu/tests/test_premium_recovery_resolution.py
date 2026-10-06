@@ -288,7 +288,21 @@ class ApplyCasePaymentTests(_Base):
         membership = src.index("PremiumMembership.objects.select_for_update()")
         self.assertLess(case, membership)
         self.assertLess(membership, src.index("membership.user_id != case.user_id"))
-        self.assertNotIn("case.premium_membership\n", src)
+        # The owner is re-checked on, and confirm() runs on, the locked row.
+        self.assertLess(membership, src.index("membership.confirm("))
+
+    def test_waitlist_is_locked_before_the_membership(self):
+        import inspect
+
+        from crush_lu.services import premium_recovery
+
+        # _apply_paid_checkout's order (waitlist, then confirm()'s membership
+        # lock): reversing it deadlocks with a sibling capture on Postgres.
+        src = inspect.getsource(premium_recovery.apply_case_payment)
+        self.assertLess(
+            src.index("_premium_purchase_refused(unlocked, lock=True)"),
+            src.index("PremiumMembership.objects.select_for_update()"),
+        )
 
     def test_membership_confirm_action_leaves_an_open_case_to_its_own_action(self):
         from django.contrib.admin.sites import AdminSite
