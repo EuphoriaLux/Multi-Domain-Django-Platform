@@ -7,6 +7,7 @@ Spec: ai-memory-hub/specs/2026-09-13-crush-premium-payment-recovery.md
 
 import contextlib
 import contextvars
+import functools
 import logging
 import time
 
@@ -41,10 +42,49 @@ _on_request = contextvars.ContextVar("premium_recovery_on_request", default=Fals
 REQUEST_BUDGET_SECONDS = 75
 
 
+# Whole-request bound for a member endpoint that settles checkouts and may
+# apply several captures (checkout creation, cancel): one deadline from the
+# request's start for all of it, under Gunicorn's 120 s, with room left for
+# the SumUp call already in flight when it runs out.
+REQUEST_TOTAL_SECONDS = 100
+
+
 def request_deadline():
     """The deadline to hand an on-commit callback, taken when it is queued so
-    every callback of the request shares one budget."""
+    every callback of the request shares one budget -- the endpoint's own
+    deadline when it runs under bounded_request."""
+    if _on_request.get() and _deadline.get() is not None:
+        return _deadline.get()
     return time.monotonic() + REQUEST_BUDGET_SECONDS
+
+
+def bounded_request(func):
+    """Run ``func`` under one request-wide deadline (REQUEST_TOTAL_SECONDS)."""
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        if _deadline.get() is not None:
+            return func(*args, **kwargs)
+        token = _deadline.set(time.monotonic() + REQUEST_TOTAL_SECONDS)
+        flag = _on_request.set(True)
+        try:
+            return func(*args, **kwargs)
+        finally:
+            _on_request.reset(flag)
+            _deadline.reset(token)
+
+    return wrapper
+
+
+def apply_fits():
+    """A capture may be applied now: its mails (receipt, or notice + alert)
+    still fit. Otherwise it stays PENDING for the webhook or the next click."""
+    return _fits(2 * SEND_SECONDS)
+
+
+def sync_fits():
+    """A read that may find and apply a capture still fits."""
+    return _fits(_sync_seconds() + 2 * SEND_SECONDS)
 
 
 @contextlib.contextmanager

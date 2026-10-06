@@ -1870,6 +1870,76 @@ class LateCaptureTests(_Base):
         self.assertEqual(client.get_checkout.call_count, 1)
         client.refund.assert_not_called()
 
+    def test_cancel_leaves_a_capture_found_too_late_for_a_later_request(self):
+        from unittest.mock import MagicMock
+
+        from crush_lu.services import premium_recovery
+        from crush_lu.views_premium import _cancel_premium_request
+
+        tx = self._tx("REC-CANCEL-LATE")
+        clock = {"now": 1000.0}
+
+        def slow_close(checkout_id):
+            # The settle spends most of the request before SumUp says PAID.
+            clock["now"] += 70
+            return False
+
+        client = MagicMock()
+        client.deactivate_checkout.side_effect = slow_close
+        client.get_checkout.return_value = {
+            "id": tx.sumup_checkout_id,
+            "status": "PAID",
+            "amount": 10.0,
+            "currency": "EUR",
+        }
+        mail.outbox.clear()
+        with (
+            patch.object(
+                premium_recovery.time, "monotonic", side_effect=lambda: clock["now"]
+            ),
+            patch("crush_lu.views_payments.SumUpClient", return_value=client),
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            outcome = _cancel_premium_request(self.membership, self.member)
+        # 100 s from the request's start minus a 70 s settle leaves no room
+        # for the capture's mails: it stays PENDING, the request pending.
+        self.assertEqual(outcome, "open")
+        tx.refresh_from_db()
+        self.assertEqual(tx.status, PaymentTransaction.Status.PENDING)
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "pending")
+        self.assertEqual(mail.outbox, [])
+        client.refund.assert_not_called()
+
+    def test_callbacks_inside_a_bounded_request_share_its_deadline(self):
+        from crush_lu.services import premium_recovery
+
+        seen = []
+
+        @premium_recovery.bounded_request
+        def endpoint():
+            seen.append(
+                (premium_recovery._deadline.get(), premium_recovery.request_deadline())
+            )
+
+        endpoint()
+        deadline, handed_out = seen[0]
+        self.assertIsNotNone(deadline)
+        self.assertEqual(handed_out, deadline)
+        self.assertIsNone(premium_recovery._deadline.get())
+
+    def test_checkout_and_cancel_run_under_one_request_deadline(self):
+        from crush_lu import views_payments, views_premium
+
+        for module, name in (
+            (views_payments, "create_sumup_premium_checkout"),
+            (views_premium, "_cancel_premium_request"),
+        ):
+            self.assertIn(
+                f"@premium_recovery.bounded_request\ndef {name}(",
+                inspect.getsource(module),
+            )
+
     def test_activation_closes_the_membership_s_other_checkouts(self):
         from unittest.mock import MagicMock
 

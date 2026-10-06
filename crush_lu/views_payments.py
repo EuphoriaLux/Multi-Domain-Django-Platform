@@ -939,6 +939,7 @@ def _lock_premium_checkout_state(
 
 @login_required
 @require_POST
+@premium_recovery.bounded_request
 def create_sumup_premium_checkout(request, membership_id):
     """
     Creates a SumUp checkout session for a Crush Connect Premium Membership.
@@ -1059,8 +1060,14 @@ def create_sumup_premium_checkout(request, membership_id):
             key=lambda row: (row.pk not in paid_payloads, row.pk),
         )
         for row in rows[: premium_recovery.SIBLING_SYNC_LIMIT]:
+            # One request budget (bounded_request): what no longer fits is
+            # retried on the member's next click or by the webhook.
             if row.pk in paid_payloads:
+                if not premium_recovery.apply_fits():
+                    break
                 _apply_paid_checkout(row, paid_payloads[row.pk])
+            elif not premium_recovery.sync_fits():
+                break
             elif not _sync_checkout_with_sumup(row):
                 logger.critical(
                     "Premium checkout %s may be captured at SumUp but could not "
@@ -1075,6 +1082,8 @@ def create_sumup_premium_checkout(request, membership_id):
             pk__in=list(paid_payloads)[: premium_recovery.SIBLING_SYNC_LIMIT],
             status=PaymentTransaction.Status.PENDING,
         ).order_by("pk"):
+            if not premium_recovery.apply_fits():
+                break
             _apply_paid_checkout(row, paid_payloads[row.pk])
         return _premium_checkout_retry_response(membership)
 
@@ -1181,7 +1190,7 @@ def create_sumup_premium_checkout(request, membership_id):
                         {reuse_row.pk},
                         reason=_PREMIUM_CHECKOUT_ABANDONED_REASON,
                     )
-            elif outcome == "paid":
+            elif outcome == "paid" and premium_recovery.apply_fits():
                 # #925: captured since the read above. Record it from this read
                 # (applied, or its own case): an account a merge deactivated
                 # never clicks again, and the sweep reads PAID rows only.

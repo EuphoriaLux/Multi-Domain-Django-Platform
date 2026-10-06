@@ -21,6 +21,7 @@ from django.views.decorators.http import require_POST
 from .connect_phase import is_selected_beta_tester
 from .models import CrushCoach, CrushProfile, PremiumMembership
 from .ios_app_utils import ios_commerce_suppressed
+from .services import premium_recovery
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +83,7 @@ def pending_premium_state(user):
     return "manage" if _premium_purchase_refused(pending) else "complete"
 
 
+@premium_recovery.bounded_request
 def _cancel_premium_request(membership, by_user):
     """#925: cancel unless money moved. Returns ``"cancelled"``, ``"captured"``,
     ``"open"`` (a checkout could still capture) or None (not pending).
@@ -119,6 +121,10 @@ def _cancel_premium_request(membership, by_user):
         for row in PaymentTransaction.objects.filter(pk__in=paid_payloads).order_by(
             "pk"
         )[:SIBLING_SYNC_LIMIT]:
+            # One request budget (bounded_request): a capture whose mails no
+            # longer fit stays PENDING, so the request stays pending ("open").
+            if not premium_recovery.apply_fits():
+                break
             _apply_paid_checkout(row, paid_payloads[row.pk])
     with transaction.atomic():
         locked, still_pending = _lock_premium_checkout_state(membership.pk, retired_ids)
