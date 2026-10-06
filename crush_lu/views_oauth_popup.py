@@ -47,7 +47,7 @@ def oauth_popup_callback(request):
 
     if is_authenticated:
         try:
-            profile = request.user.crushprofile
+            request.user.crushprofile
             has_profile = True
         except CrushProfile.DoesNotExist:
             has_profile = False
@@ -138,9 +138,20 @@ def check_auth_status(request):
     - user_name: string (if authenticated)
     - redirect_url: string - where to redirect the user
     """
+    # Recovery can arrive a polling tick after the landing navigation when
+    # the session cookie is delayed. Apply the same proof gate on every retry.
+    state_id = request.GET.get("state", "")
+    if state_id:
+        from .oauth_recovery import recover_callback_login
+
+        try:
+            recover_callback_login(request, state_id)
+        except Exception:
+            logger.exception("[OAUTH-STATUS] Callback recovery failed")
+
     if request.user.is_authenticated:
         try:
-            profile = request.user.crushprofile
+            request.user.crushprofile
             has_profile = True
         except CrushProfile.DoesNotExist:
             has_profile = False
@@ -150,6 +161,9 @@ def check_auth_status(request):
             )
         else:
             redirect_url = get_i18n_redirect_url(request, "crush_lu:create_profile")
+        from .mobile_auth import peek_mobile_handoff_url
+
+        redirect_url = peek_mobile_handoff_url(request) or redirect_url
         response = JsonResponse(
             {
                 "authenticated": True,
@@ -170,6 +184,7 @@ def check_auth_status(request):
     response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response["Pragma"] = "no-cache"
     response["Expires"] = "0"
+    response["Referrer-Policy"] = "no-referrer"
 
     return response
 
@@ -186,14 +201,12 @@ def oauth_landing(request):
 
     ALSO: Workbox service worker navigation replay can cause duplicate callbacks.
 
-    ENHANCED FIX: Database-backed authentication recovery
-    When duplicate OAuth callbacks arrive before cookies commit, we can now:
-    1. Look up the OAuth result from the database using the state parameter
-    2. Log in the user directly without needing session cookies
-    3. This ensures OAuth succeeds even when cookies are delayed
+    Recovery requires a short-lived HttpOnly credential issued only to the
+    browser that completed provider authentication. The public OAuth state ID
+    alone never authenticates a visitor, including after a cross-browser flow.
 
     Solution:
-    1. Check for state param → look up auth result in database → login if found
+    1. Atomically consume callback proof before recovering a lost session
     2. Return 200 OK with aggressive no-cache headers
     3. Use JavaScript polling with 400ms initial delay
     4. Poll /api/auth/status/ until authenticated (max 3 seconds)
@@ -210,65 +223,20 @@ def oauth_landing(request):
     # Get state parameter (passed by middleware for duplicate request handling)
     state_id = request.GET.get("state", "")
 
-    # DATABASE-BACKED AUTH RECOVERY
-    # If we have a state parameter and user is not authenticated,
-    # try to recover authentication from the database
-    if state_id and not request.user.is_authenticated:
+    # State is correlation data. Only callback-issued proof (or the matching
+    # authenticated user) can consume fresh, single-use recovery metadata.
+    recovered_state = None
+    if state_id:
+        from .oauth_recovery import recover_callback_login
+
         try:
-            from crush_lu.models import OAuthState
-            from django.contrib.auth import login, get_user_model
+            recovered_state = recover_callback_login(request, state_id)
+        except Exception:
+            logger.exception("[OAUTH-LANDING] Callback recovery failed")
 
-            oauth_state = OAuthState.objects.filter(state_id=state_id).first()
-
-            if oauth_state and oauth_state.auth_completed and oauth_state.auth_user_id:
-                # Found completed OAuth in database - log in the user
-                User = get_user_model()
-                try:
-                    user = User.objects.get(pk=oauth_state.auth_user_id)
-                    login(
-                        request,
-                        user,
-                        backend="django.contrib.auth.backends.ModelBackend",
-                    )
-                    logger.info(
-                        f"[OAUTH-LANDING] Recovered auth from database for user {user.username} "
-                        f"(state={state_id[:8]}...)"
-                    )
-                except User.DoesNotExist:
-                    logger.error(
-                        f"[OAUTH-LANDING] User ID {oauth_state.auth_user_id} not found "
-                        f"(state={state_id[:8]}...)"
-                    )
-            elif oauth_state:
-                # State found but auth not yet completed - this can happen in race conditions
-                logger.debug(f"[OAUTH] State {state_id[:8]}... auth not completed yet")
-            else:
-                # State not in DB - normal for first callback before duplicate handling
-                logger.debug(f"[OAUTH] State {state_id[:8]}... not found in database")
-
-        except Exception as e:
-            logger.error(f"[OAUTH-LANDING] Error recovering auth from database: {e}")
-
-    # Check if this is popup mode (do this before any early returns)
-    # First try session, then fall back to database lookup using state parameter
     is_popup = request.session.pop("oauth_popup_mode", False)
-
-    # If not in session but we have a state_id, check the database
-    # This handles the case where session cookies weren't preserved across OAuth redirect
-    if not is_popup and state_id:
-        try:
-            from crush_lu.models import OAuthState
-
-            oauth_state = OAuthState.objects.filter(state_id=state_id).first()
-            if oauth_state and oauth_state.is_popup:
-                is_popup = True
-                logger.info(
-                    f"[OAUTH-LANDING] Retrieved is_popup=True from database for state {state_id[:8]}..."
-                )
-        except Exception as e:
-            logger.error(
-                f"[OAUTH-LANDING] Error checking popup mode from database: {e}"
-            )
+    if recovered_state:
+        is_popup = is_popup or recovered_state.is_popup
 
     # Clear OAuth provider flag
     request.session.pop("oauth_provider", None)
@@ -283,29 +251,22 @@ def oauth_landing(request):
         from .mobile_auth import is_mobile_handoff_path, peek_mobile_handoff_url
 
         _handoff_url = None
-        if state_id:
+        if recovered_state:
             try:
-                from crush_lu.models import OAuthState
-
-                _row = OAuthState.objects.filter(state_id=state_id).first()
-                if _row:
-                    _next = (json.loads(_row.state_data) or {}).get("next")
-                    if is_mobile_handoff_path(_next):
-                        _handoff_url = _next
-                        logger.info(
-                            "[OAUTH-LANDING] Recovered native-app handoff from OAuth state"
-                        )
-            except Exception as e:
-                logger.error(
-                    f"[OAUTH-LANDING] Error reading handoff from OAuth state: {e}"
-                )
+                _next = (json.loads(recovered_state.state_data) or {}).get("next")
+                if is_mobile_handoff_path(_next):
+                    _handoff_url = _next
+            except (ValueError, TypeError, AttributeError):
+                logger.warning("[OAUTH-LANDING] Invalid handoff metadata")
 
         if not _handoff_url:
             _handoff_url = peek_mobile_handoff_url(request)
 
         if _handoff_url:
             logger.info("[OAUTH-LANDING] Resuming native-app auth handoff")
-            return redirect(_handoff_url)
+            response = redirect(_handoff_url)
+            response["Referrer-Policy"] = "no-referrer"
+            return response
 
     # Determine authentication state and destination (with language prefix)
     is_authenticated = request.user.is_authenticated
@@ -315,7 +276,7 @@ def oauth_landing(request):
 
     if is_authenticated:
         try:
-            profile = request.user.crushprofile
+            request.user.crushprofile
             has_profile = True
         except CrushProfile.DoesNotExist:
             has_profile = False
@@ -354,5 +315,6 @@ def oauth_landing(request):
     response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response["Pragma"] = "no-cache"
     response["Expires"] = "0"
+    response["Referrer-Policy"] = "no-referrer"
 
     return response
