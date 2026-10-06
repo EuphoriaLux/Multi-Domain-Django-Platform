@@ -1384,6 +1384,141 @@ def google_review_url_for(registration):
     return get_review_url()
 
 
+def _recap_lobby_admissible(user):
+    """Read-only twin of ``event_lobby.is_recap_admissible`` (attended guest).
+
+    ``is_recap_admissible`` resolves the member's lobby participation, which
+    admits them (a write). The decision it makes is the same read: the member
+    passes ``participant_gate`` (a lobby participant, or admissible on the
+    spot), or is a Connect guest who could still onboard
+    (``GATE_NOT_ONBOARDED`` / ``GATE_NO_MEMBERSHIP``) and may learn the lobby
+    exists. A test pins this against ``is_recap_admissible``.
+    """
+    from .services.event_lobby import (
+        GATE_NO_MEMBERSHIP,
+        GATE_NOT_ONBOARDED,
+        may_learn_lobby_exists,
+        participant_gate,
+    )
+
+    ok, reason = participant_gate(user)
+    if ok:
+        return True
+    return reason in (GATE_NOT_ONBOARDED, GATE_NO_MEMBERSHIP) and (
+        may_learn_lobby_exists(user)
+    )
+
+
+# The recap sweep mails every attendee of an event in one run, and each mail
+# needs the same answer ("who at this event is recap-admissible?"), so it is
+# worked out once per event and shared for a few minutes. Per mail it would be
+# one participant_gate() per candidate (each one or two LuxID EXISTS queries),
+# i.e. quadratic in the attendee count inside a synchronous request.
+_RECAP_LOBBY_ADMISSIBLE_TTL = 300
+
+
+def _recap_lobby_admissible_ids(event):
+    """User ids of the event's attended members who are recap-admissible.
+
+    One pass over the attendees (``_recap_lobby_admissible`` each), cached per
+    event, so a sweep costs O(attendees) gate checks rather than O(attendees²).
+    A member who onboards inside the TTL shows up on the next refresh; the
+    email is advisory, so that lag is harmless.
+    """
+    from .models import EventRegistration
+
+    key = f"recap_lobby_admissible:{event.pk}"
+    ids = cache.get(key)
+    if ids is None:
+        registrations = EventRegistration.objects.filter(
+            event=event, status="attended"
+        ).select_related("user__crushprofile", "user__crush_connect_membership")
+        ids = {
+            reg.user_id for reg in registrations if _recap_lobby_admissible(reg.user)
+        }
+        cache.set(key, ids, _RECAP_LOBBY_ADMISSIBLE_TTL)
+    return ids
+
+
+def _recap_can_pick_attendees(registration):
+    """Would the attendee page offer this member a pick right now?
+
+    The recap's "make your picks" nudge for a member with no activity must lead
+    somewhere, so this mirrors ``views_connections.event_attendees`` and
+    ``request_connection`` (read-only, no writes):
+
+    * the viewer passes ``can_make_connections`` (verified attendee; a
+      door-rejected or profile-less member is bounced off the page);
+    * a "My Crush!" declaration is left (``crushes_remaining``: one per event,
+      and every post-event pick is a crush lead, so a member who already
+      declared has nothing left to pick, even though the private lead is hidden
+      from the activity counts above);
+    * at least one other attendee exists whom ``request_connection`` would
+      accept: attended with a verified profile (the recipient needs the same
+      ``can_make_connections``), not blocked or hidden by an encounter
+      removal, and not already a counterpart on this event. The page offers
+      the pick button only to an attendee with no connection row at all
+      (``connection_status is None``): a row the viewer sent counts in every
+      status (``request_connection`` refuses any same-direction row, and a
+      declined one renders as non-actionable), and so does a row they received
+      except a private, pre-``shared`` crush lead, which the page hides from
+      its recipient.
+
+    While the Event Lobby recap is open, ``request_connection`` sends a pair to
+    the lobby recap instead of creating a crush lead when BOTH sides are
+    recap-admissible (``crush_flow_decision``). Such a candidate is not a pick,
+    but a member outside the lobby (no Connect membership or LuxID) is not
+    affected at all. Whether someone is admissible is answered read-only by
+    ``_recap_lobby_admissible_ids`` (once per event, cached);
+    ``is_recap_admissible`` itself admits members to the lobby (a write), which
+    an email must not do.
+    """
+    from .models import EventConnection, EventRegistration
+    from .services.blocking import blocked_user_ids
+    from .services.crush_leads import crushes_remaining
+    from .services.event_lobby import (
+        PHASE_RECAP,
+        event_lobby_phase,
+        hidden_encounter_user_ids,
+        lobby_feature_enabled,
+    )
+
+    user = registration.user
+    event = registration.event
+
+    if not registration.can_make_connections:
+        return False
+    if crushes_remaining(user, event) <= 0:
+        return False
+    already_sent_to = EventConnection.objects.filter(
+        requester=user, event=event
+    ).values("recipient_id")
+    already_received_from = (
+        EventConnection.objects.filter(recipient=user, event=event)
+        .excluding_unshared_crushes()
+        .values("requester_id")
+    )
+    candidates = (
+        EventRegistration.objects.filter(
+            event=event,
+            status="attended",
+            user__crushprofile__verification_status="verified",
+        )
+        .exclude(user=user)
+        .exclude(user_id__in=blocked_user_ids(user))
+        .exclude(user_id__in=hidden_encounter_user_ids(user))
+        .exclude(user_id__in=already_sent_to)
+        .exclude(user_id__in=already_received_from)
+    )
+    if lobby_feature_enabled() and event_lobby_phase(event) == PHASE_RECAP:
+        admissible_ids = _recap_lobby_admissible_ids(event)
+        if user.pk in admissible_ids:
+            # Pairs where both sides are admissible go to the lobby recap, so
+            # only a candidate who is not admissible is still a pick.
+            return candidates.exclude(user_id__in=admissible_ids).exists()
+    return candidates.exists()
+
+
 def send_event_recap(registration, request=None):
     """
     Send a 24h post-event recap email to an attendee.
@@ -1433,6 +1568,8 @@ def send_event_recap(registration, request=None):
     )
 
     has_action = mutual_match_count > 0 or incoming_count > 0
+
+    can_pick_attendees = _recap_can_pick_attendees(registration)
 
     lang = get_user_preferred_language(user=user, request=request, default="en")
 
@@ -1504,6 +1641,7 @@ def send_event_recap(registration, request=None):
         outgoing_count=outgoing_count,
         incoming_count=incoming_count,
         has_action=has_action,
+        can_pick_attendees=can_pick_attendees,
         attendees_url=attendees_url,
         events_url=events_url,
         lobby_recap_url=lobby_recap_url,
