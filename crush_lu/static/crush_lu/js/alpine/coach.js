@@ -55,6 +55,176 @@ document.addEventListener("alpine:init", function () {
             get cardName() {
                 return this.currentCard ? this.currentCard.display_name : "";
             },
+            get cardAge() {
+                return this.currentCard ? this.currentCard.age : "";
+            },
+            get cardGender() {
+                return this.currentCard ? this.currentCard.gender : "";
+            },
+            get cardAgeAndGender() {
+                if (!this.currentCard) return "";
+                return [this.currentCard.age, this.currentCard.gender]
+                    .filter(Boolean)
+                    .join(" · ");
+            },
+            get cardLocation() {
+                return this.currentCard ? this.currentCard.location : "";
+            },
+            get hasLocation() {
+                return !!(this.currentCard && this.currentCard.location);
+            },
+            get cardDob() {
+                return this.currentCard ? this.currentCard.date_of_birth : "";
+            },
+            get hasDob() {
+                return !!(this.currentCard && this.currentCard.date_of_birth);
+            },
+            get cardDobLabel() {
+                return this.hasDob ? `Born ${this.cardDob}` : "";
+            },
+            get cardPhone() {
+                return this.currentCard ? this.currentCard.phone_number : "";
+            },
+            get cardPhoneCountry() {
+                return this.currentCard ? this.currentCard.phone_country : "";
+            },
+            get hasPhone() {
+                return !!(this.currentCard && this.currentCard.phone_number);
+            },
+            get hasPhoneVerified() {
+                return !!(
+                    this.currentCard &&
+                    this.currentCard.phone_number &&
+                    this.currentCard.phone_verified
+                );
+            },
+            get hasPhoneUnverified() {
+                return !!(
+                    this.currentCard &&
+                    this.currentCard.phone_number &&
+                    !this.currentCard.phone_verified
+                );
+            },
+            get cardPhoneBadge() {
+                if (!this.currentCard || !this.currentCard.phone_number)
+                    return "No phone";
+                const verifiedLabel = this.currentCard.phone_verified
+                    ? "SMS Verified"
+                    : "Unverified";
+                const country = this.currentCard.phone_country || "Phone";
+                return `${country} · ${verifiedLabel}`;
+            },
+            get cardBio() {
+                return this.currentCard ? this.currentCard.bio : "";
+            },
+            get hasBio() {
+                return !!(
+                    this.currentCard &&
+                    this.currentCard.bio &&
+                    this.currentCard.bio.trim()
+                );
+            },
+            get hasNoBio() {
+                return !this.hasBio;
+            },
+            get cardWork() {
+                return this.currentCard ? this.currentCard.work : "";
+            },
+            get hasWork() {
+                return !!(this.currentCard && this.currentCard.work);
+            },
+            get cardEdu() {
+                return this.currentCard ? this.currentCard.education : "";
+            },
+            get hasEdu() {
+                return !!(this.currentCard && this.currentCard.education);
+            },
+            get cardHeight() {
+                return this.currentCard ? this.currentCard.height : "";
+            },
+            get hasHeight() {
+                return !!(this.currentCard && this.currentCard.height);
+            },
+            get cardLanguages() {
+                return this.currentCard && this.currentCard.languages
+                    ? this.currentCard.languages.join(", ")
+                    : "";
+            },
+            get hasLanguages() {
+                return !!(
+                    this.currentCard &&
+                    this.currentCard.languages &&
+                    this.currentCard.languages.length
+                );
+            },
+            get cardInterests() {
+                return this.currentCard && this.currentCard.interests
+                    ? this.currentCard.interests.join(" · ")
+                    : "";
+            },
+            get hasInterests() {
+                return !!(
+                    this.currentCard &&
+                    this.currentCard.interests &&
+                    this.currentCard.interests.length
+                );
+            },
+            get cardStory() {
+                return this.currentCard ? this.currentCard.story_text : "";
+            },
+            get cardStoryPrompt() {
+                return this.currentCard && this.currentCard.story_prompt
+                    ? this.currentCard.story_prompt
+                    : "Prompt";
+            },
+            get hasStory() {
+                return !!(
+                    this.currentCard &&
+                    this.currentCard.story_text &&
+                    this.currentCard.story_text.trim()
+                );
+            },
+            get cardGoal() {
+                return this.currentCard ? this.currentCard.relationship_goal : "";
+            },
+            get hasGoal() {
+                return !!(this.currentCard && this.currentCard.relationship_goal);
+            },
+            get cardLifestyleTags() {
+                return this.currentCard && this.currentCard.lifestyle_tags
+                    ? this.currentCard.lifestyle_tags.join(" · ")
+                    : "";
+            },
+            get hasLifestyle() {
+                return !!(
+                    this.currentCard &&
+                    this.currentCard.lifestyle_tags &&
+                    this.currentCard.lifestyle_tags.length
+                );
+            },
+            get cardMemberSince() {
+                return this.currentCard && this.currentCard.member_since
+                    ? `Member since ${this.currentCard.member_since}`
+                    : "";
+            },
+            get riskFlags() {
+                return (this.currentCard && this.currentCard.risk_flags) || [];
+            },
+            get hasRiskFlags() {
+                return this.riskFlags.length > 0;
+            },
+            get riskFlagsSummary() {
+                return this.riskFlags.join(" · ");
+            },
+            get photoIndicatorText() {
+                if (
+                    !this.currentCard ||
+                    !this.currentCard.photos ||
+                    !this.currentCard.photos.length
+                )
+                    return "";
+                return `${this.activePhotoIndex + 1} / ${this.currentCard.photos.length}`;
+            },
             get cardDetails() {
                 return this.currentCard
                     ? [
@@ -65,12 +235,6 @@ document.addEventListener("alpine:init", function () {
                           .filter(Boolean)
                           .join(" · ")
                     : "";
-            },
-            get cardStory() {
-                return this.currentCard ? this.currentCard.story_text : "";
-            },
-            get cardGoal() {
-                return this.currentCard ? this.currentCard.relationship_goal : "";
             },
             get hasLuxid() {
                 return !!(this.currentCard && this.currentCard.is_luxid_verified);

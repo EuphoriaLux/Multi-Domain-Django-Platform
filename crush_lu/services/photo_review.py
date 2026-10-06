@@ -32,6 +32,40 @@ from crush_lu.services.crush_connect import is_catalogue_eligible
 logger = logging.getLogger(__name__)
 
 
+LANGUAGE_NAMES = {
+    "en": "English",
+    "de": "Deutsch",
+    "fr": "Français",
+    "lu": "Lëtzebuergesch",
+    "pt": "Português",
+    "es": "Español",
+    "it": "Italiano",
+}
+
+
+def _format_phone_info(phone_number: str):
+    if not phone_number:
+        return {"number": "", "country": "", "is_local": True}
+    cleaned = phone_number.strip().replace(" ", "").replace("-", "")
+    if cleaned.startswith("+352") or cleaned.startswith("00352"):
+        return {"number": phone_number, "country": "Luxembourg (+352)", "is_local": True}
+    elif cleaned.startswith("+33") or cleaned.startswith("0033"):
+        return {"number": phone_number, "country": "France (+33)", "is_local": True}
+    elif cleaned.startswith("+49") or cleaned.startswith("0049"):
+        return {"number": phone_number, "country": "Germany (+49)", "is_local": True}
+    elif cleaned.startswith("+32") or cleaned.startswith("0032"):
+        return {"number": phone_number, "country": "Belgium (+32)", "is_local": True}
+    elif cleaned.startswith("+351") or cleaned.startswith("00351"):
+        return {"number": phone_number, "country": "Portugal (+351)", "is_local": True}
+    elif cleaned.startswith("+1") or cleaned.startswith("001"):
+        return {"number": phone_number, "country": "USA/Canada (+1)", "is_local": False}
+    elif cleaned.startswith("+44") or cleaned.startswith("0044"):
+        return {"number": phone_number, "country": "UK (+44)", "is_local": False}
+    else:
+        prefix = cleaned[:4] if len(cleaned) >= 4 else cleaned
+        return {"number": phone_number, "country": f"Intl ({prefix})", "is_local": False}
+
+
 def get_photo_review_queue(coach: CrushCoach, limit: int = 40):
     """
     Fetch profiles waiting for photo review, ordered by urgency:
@@ -56,6 +90,9 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40):
             "user",
             "user__crush_connect_membership",
             "user__crush_connect_membership__story_prompt",
+        )
+        .prefetch_related(
+            "interests_new",
         )
     )
 
@@ -89,6 +126,7 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40):
 
     profiles = list(annotated_qs[:limit])
     cards = []
+    now = timezone.now()
     for p in profiles:
         mem = getattr(p.user, "crush_connect_membership", None)
         photo_1_url = (
@@ -128,6 +166,9 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40):
         story_prompt = ""
         relationship_goal = ""
         lifestyle_tags = []
+        work_field = ""
+        education_level = ""
+        height = ""
         if mem:
             story_prompt = mem.story_prompt.text if mem.story_prompt else ""
             story_text = mem.story_answer or ""
@@ -138,6 +179,63 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40):
                 lifestyle_tags.append(mem.get_lifestyle_social_display())
             if mem.lifestyle_pace:
                 lifestyle_tags.append(mem.get_lifestyle_pace_display())
+            work_field = mem.get_work_field_display() or mem.work_field or ""
+            education_level = mem.get_education_level_display() or mem.education_level or ""
+            if mem.height_cm:
+                height = f"{mem.height_cm} cm"
+
+        phone_info = _format_phone_info(p.phone_number)
+
+        raw_langs = []
+        if p.preferred_language:
+            raw_langs.append(p.preferred_language)
+        if p.event_languages and isinstance(p.event_languages, list):
+            raw_langs.extend(p.event_languages)
+        if mem and mem.languages and isinstance(mem.languages, list):
+            raw_langs.extend(mem.languages)
+
+        seen_langs = set()
+        formatted_languages = []
+        for code in raw_langs:
+            if code and code not in seen_langs:
+                seen_langs.add(code)
+                formatted_languages.append(LANGUAGE_NAMES.get(code, code.upper()))
+
+        interests = [i.name for i in p.interests_new.all()]
+
+        is_luxid_verified = bool(p.review_has_native_luxid or p.review_has_oidc_luxid)
+        has_attended_event = bool(
+            p.verification_status == "verified"
+            and (
+                p.verification_method in ("coach_event", "premium_coach")
+                or p.review_has_attendance
+            )
+        )
+
+        risk_flags = []
+        if p.phone_number:
+            if not phone_info["is_local"]:
+                risk_flags.append(f"Non-local phone ({phone_info['country']})")
+            if not p.phone_verified:
+                risk_flags.append("Phone unverified")
+        else:
+            risk_flags.append("No phone number")
+
+        if not (p.bio or "").strip() and not (story_text or "").strip():
+            risk_flags.append("Empty bio & prompt")
+
+        if p.created_at and (now - p.created_at).total_seconds() < 86400 * 2:
+            risk_flags.append("New account (< 48h)")
+
+        trust_signals = []
+        if is_luxid_verified:
+            trust_signals.append("LuxID Verified")
+        if has_attended_event:
+            trust_signals.append("Attended In-Person Event")
+        if p.phone_verified and phone_info["number"]:
+            trust_signals.append(f"Phone Verified ({phone_info['country']})")
+        if mem and mem.is_onboarded:
+            trust_signals.append("Connect Onboarded")
 
         cards.append(
             {
@@ -145,8 +243,19 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40):
                 "user_id": p.user.id,
                 "display_name": p.display_name or p.user.first_name or p.user.username,
                 "age": p.age_display or "",
+                "date_of_birth": p.date_of_birth.strftime("%Y-%m-%d") if p.date_of_birth else "",
                 "gender": p.get_gender_display() or "",
-                "location": p.city or "",
+                "location": p.city or p.location or "",
+                "phone_number": phone_info["number"],
+                "phone_country": phone_info["country"],
+                "is_phone_local": phone_info["is_local"],
+                "phone_verified": bool(p.phone_verified),
+                "bio": p.bio or "",
+                "work": work_field,
+                "education": education_level,
+                "height": height,
+                "languages": formatted_languages,
+                "interests": interests,
                 "photos": photos,
                 "photo_count": len(photos),
                 "photo_key": getattr(p.photo_1, "name", "") or "",
@@ -155,15 +264,10 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40):
                 "story_text": story_text,
                 "relationship_goal": relationship_goal,
                 "lifestyle_tags": lifestyle_tags,
-                "is_luxid_verified": p.review_has_native_luxid
-                or p.review_has_oidc_luxid,
-                "has_attended_event": (
-                    p.verification_status == "verified"
-                    and (
-                        p.verification_method in ("coach_event", "premium_coach")
-                        or p.review_has_attendance
-                    )
-                ),
+                "risk_flags": risk_flags,
+                "trust_signals": trust_signals,
+                "is_luxid_verified": is_luxid_verified,
+                "has_attended_event": has_attended_event,
                 "is_onboarded": bool(mem and mem.is_onboarded),
                 "member_since": p.created_at.strftime("%b %Y") if p.created_at else "",
             }
