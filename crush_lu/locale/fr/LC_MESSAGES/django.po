@@ -44725,3 +44725,59 @@ msgstr "Sont pris en compte les candidatures, les paiements en attente, les part
 #: crush_lu/views_coach.py
 msgid "Participant %(id)s"
 msgstr "Participant %(id)s"
+
+#: crush_lu/templates/crush_lu/women_1y_landing.html
+msgid "We saved you a seat. | Crush.lu turns 1"
+msgstr "On vous a gardé une place. | Crush.lu fête ses 1 an"
+
+#: crush_lu/templates/crush_lu/women_1y_landing.html
+msgid "We saved you a seat."
+msgstr "On vous a gardé une place."
+
+#: crush_lu/templates/crush_lu/women_1y_landing.html
+msgid "Get verified in person at a Crush event and be first in line for Crush Connect: hand-picked matches, every Wednesday."
+msgstr "Faites-vous vérifier en personne lors d'un événement Crush et soyez parmi les premières sur Crush Connect : des matchs choisis à la main, chaque mercredi."
+
+#: crush_lu/templates/crush_lu/women_1y_landing.html
+msgid "Get verified in person at a Crush event and be first in line for Crush Connect."
+msgstr "Faites-vous vérifier en personne lors d'un événement Crush et soyez parmi les premières sur Crush Connect."
+
+#: crush_lu/templates/crush_lu/women_1y_landing.html
+msgid "Crush.lu turns 1"
+msgstr "Crush.lu fête ses 1 an"
+
+#: crush_lu/templates/crush_lu/women_1y_landing.html
+msgid "Luxembourg's singles are meeting in real life, and we need more of you there."
+msgstr "Les célibataires du Luxembourg se rencontrent dans la vraie vie, et nous avons besoin de plus de vous."
+
+#: crush_lu/templates/crush_lu/women_1y_landing.html
+msgid "No fakes. Ever."
+msgstr "Pas de faux profils. Jamais."
+
+#: crush_lu/templates/crush_lu/women_1y_landing.html
+msgid "Everyone gets verified in person at a Crush event."
+msgstr "Chacun est vérifié en personne lors d'un événement Crush."
+
+#: crush_lu/templates/crush_lu/women_1y_landing.html
+msgid "Your ticket comes with a mission."
+msgstr "Votre billet vient avec une mission."
+
+#: crush_lu/templates/crush_lu/women_1y_landing.html
+msgid "Find your Mystery Candidate and break the ice."
+msgstr "Trouvez votre candidat mystère et brisez la glace."
+
+#: crush_lu/templates/crush_lu/women_1y_landing.html
+msgid "Verified = VIP."
+msgstr "Vérifiée = VIP."
+
+#: crush_lu/templates/crush_lu/women_1y_landing.html
+msgid "First in line for Crush Connect: hand-picked matches, every Wednesday."
+msgstr "Parmi les premières sur Crush Connect : des matchs choisis à la main, chaque mercredi."
+
+#: crush_lu/templates/crush_lu/women_1y_landing.html
+msgid "Already have an account? Log in"
+msgstr "Vous avez déjà un compte ? Connectez-vous"
+
+#: crush_lu/templates/crush_lu/women_1y_landing.html
+msgid "Next events"
+msgstr "Prochains événements"

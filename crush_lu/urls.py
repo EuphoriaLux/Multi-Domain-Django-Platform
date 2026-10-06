@@ -6,6 +6,7 @@ from allauth.account.views import LoginView, LogoutView
 from allauth.account.forms import LoginForm
 from . import views
 from . import views_static
+from . import views_women_1y
 from . import views_pre_screening
 from . import views_crush_connect
 from . import views_connect_cycle
@@ -234,6 +235,9 @@ urlpatterns = [
     # Landing and public pages
     path('', views.home, name='home'),
     path('about/', views.about, name='about'),
+    # Women's 1-year campaign landing + CTA router (crush_lu/campaign_women_1y.py)
+    path('women-1-year/', views_women_1y.women_1y_landing, name='women_1y_landing'),
+    path('women-1-year/go/', views_women_1y.women_1y_go, name='women_1y_go'),
     path('test-upstair/', views.test_upstair, name='test_upstair'),
     path('changelog/', views_changelog.changelog_list, name='changelog_list'),
     path('changelog/<slug:slug>/', views_changelog.changelog_detail, name='changelog_detail'),

@@ -923,6 +923,13 @@ def email_unsubscribe(request, token):
             # Only unsubscribe from marketing emails
             email_prefs.email_marketing = False
             email_prefs.save()
+            # The signup/consent tick is a second marketing opt-in record;
+            # leaving it set would keep campaign audiences mailing them.
+            from crush_lu.models.profiles import UserDataConsent
+
+            UserDataConsent.objects.filter(user=email_prefs.user).update(
+                marketing_consent=False, marketing_consent_date=None
+            )
             messages.success(
                 request, _("You have been unsubscribed from marketing emails.")
             )

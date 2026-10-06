@@ -1,0 +1,84 @@
+{% extends 'crush_lu/base.html' %}
+{% load static i18n %}
+
+{% comment %}
+  Women's 1-year campaign landing (crush_lu/campaign_women_1y.py).
+  Page-scoped CSS only (.w1y-*) so it does not depend on a Tailwind rebuild.
+  Context: go_url (CTA router), is_verified, logged_in, events, poster_url,
+  video_url (None until women-1y.mp4 is deployed).
+{% endcomment %}
+
+{% block title %}{% trans "We saved you a seat. | Crush.lu turns 1" %}{% endblock %}
+{% block meta_description %}{% trans "Get verified in person at a Crush event and be first in line for Crush Connect: hand-picked matches, every Wednesday." %}{% endblock %}
+{% block og_title %}{% trans "We saved you a seat." %}{% endblock %}
+{% block og_description %}{% trans "Get verified in person at a Crush event and be first in line for Crush Connect." %}{% endblock %}
+{% block og_image %}{% if request.is_secure %}https{% else %}http{% endif %}://{{ request.get_host }}{{ poster_url }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.w1y{background:linear-gradient(180deg,#2a1538 0%,#44205a 100%);color:#fff;padding:24px 16px 56px}
+.w1y-wrap{max-width:420px;margin:0 auto}
+.w1y-badge{display:inline-block;background:#ff6b9d;color:#fff;border-radius:999px;padding:6px 16px;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+.w1y-video{display:block;width:100%;max-width:420px;aspect-ratio:9/16;object-fit:cover;border-radius:20px;margin:16px auto 0;background:#2a1538;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+.w1y h1{font-family:Georgia,'Times New Roman',serif;font-size:2.4rem;line-height:1.1;font-weight:700;margin:24px 0 8px;color:#fff;text-align:center}
+.w1y-lede{text-align:center;color:#e6dcef;font-size:1.05rem;margin:0 0 28px}
+.w1y-points{list-style:none;margin:0 0 28px;padding:0}
+.w1y-points li{display:flex;gap:14px;align-items:flex-start;margin-bottom:20px}
+.w1y-num{flex:0 0 36px;height:36px;border-radius:50%;background:#ff6b9d;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center}
+.w1y-points strong{display:block;font-size:1.1rem;color:#fff}
+.w1y-points span{color:#e6dcef;font-size:.95rem;line-height:1.45}
+.w1y-cta{text-align:center}
+.w1y-cta .btn-crush-primary,.w1y-cta .btn-crush-solid{width:100%}
+.w1y-login{display:block;text-align:center;margin-top:14px;color:#e6dcef;font-size:.9rem;text-decoration:underline}
+.w1y-events{margin-top:36px}
+.w1y-events h2{font-size:1rem;letter-spacing:.08em;text-transform:uppercase;color:#ff8fb3;margin:0 0 12px;font-weight:700}
+.w1y-event{display:block;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:14px 16px;margin-bottom:10px;color:#fff;text-decoration:none}
+.w1y-event:hover,.w1y-event:focus-visible{background:rgba(255,255,255,.14);color:#fff}
+.w1y-event b{display:block;font-size:1rem}
+.w1y-event small{color:#d9c8e6;font-size:.85rem}
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="w1y">
+  <div class="w1y-wrap">
+    <div style="text-align:center"><span class="w1y-badge">{% trans "Crush.lu turns 1" %}</span></div>
+
+    {% if video_url %}
+    <video class="w1y-video" playsinline muted autoplay loop controls preload="metadata" poster="{{ poster_url }}">
+      <source src="{{ video_url }}" type="video/mp4">
+    </video>
+    {% else %}
+    <img class="w1y-video" src="{{ poster_url }}" alt="{% trans 'We saved you a seat.' %}" width="420" height="747">
+    {% endif %}
+
+    <h1>{% trans "We saved you a seat." %}</h1>
+    <p class="w1y-lede">{% trans "Luxembourg's singles are meeting in real life, and we need more of you there." %}</p>
+
+    <ol class="w1y-points">
+      <li><span class="w1y-num" aria-hidden="true">1</span><div><strong>{% trans "No fakes. Ever." %}</strong><span>{% trans "Everyone gets verified in person at a Crush event." %}</span></div></li>
+      <li><span class="w1y-num" aria-hidden="true">2</span><div><strong>{% trans "Your ticket comes with a mission." %}</strong><span>{% trans "Find your Mystery Candidate and break the ice." %}</span></div></li>
+      <li><span class="w1y-num" aria-hidden="true">3</span><div><strong>{% trans "Verified = VIP." %}</strong><span>{% trans "First in line for Crush Connect: hand-picked matches, every Wednesday." %}</span></div></li>
+    </ol>
+
+    <div class="w1y-cta">
+      <a href="{{ go_url }}" class="btn-crush-primary btn-lg">{% if is_verified %}{% trans "Open Crush Connect" %}{% else %}{% trans "Get verified" %}{% endif %}</a>
+      {% if not logged_in %}
+      <a class="w1y-login" href="{% url 'crush_lu:login' %}?next={{ go_url|urlencode:'' }}">{% trans "Already have an account? Log in" %}</a>
+      {% endif %}
+    </div>
+
+    {% if events and not is_verified %}
+    <section class="w1y-events" aria-labelledby="w1y-events-title">
+      <h2 id="w1y-events-title">{% trans "Next events" %}</h2>
+      {% for event in events %}
+      <a class="w1y-event" href="{% url 'crush_lu:event_detail' event.id %}">
+        <b>{{ event.title }}</b>
+        <small>{{ event.date_time|date:"D j M, H:i" }} · {{ event.location }}</small>
+      </a>
+      {% endfor %}
+    </section>
+    {% endif %}
+  </div>
+</main>
+{% endblock %}
