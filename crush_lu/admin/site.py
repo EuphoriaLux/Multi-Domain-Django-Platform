@@ -211,6 +211,7 @@ class CrushLuAdminSite(admin.AdminSite):
             'eventinvitation': {'order': 3, 'icon': '💌', 'group': 'Events & Meetups'},
             'curatedeventgroup': {'order': 4, 'icon': '🧩', 'group': 'Events & Meetups'},
             'paymenttransaction': {'order': 5, 'icon': '💳', 'group': 'Events & Meetups'},  # SumUp checkouts
+            'premiumpaymentrecoverycase': {'order': 5.5, 'icon': '🛟', 'group': 'Events & Meetups'},  # #925 captured, not applied
             'crushcredit': {'order': 6, 'icon': '🎟️', 'group': 'Events & Meetups'},  # store credit ledger
             'creditredemption': {'order': 7, 'icon': '🧾', 'group': 'Events & Meetups'},
             'presentationqueue': {'order': 8, 'icon': '📋', 'group': 'Events & Meetups'},

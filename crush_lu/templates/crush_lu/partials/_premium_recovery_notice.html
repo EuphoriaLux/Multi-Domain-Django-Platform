@@ -1,0 +1,10 @@
+{% load i18n %}
+{% comment %}
+#925 D1: a member with an OPEN PremiumPaymentRecoveryCase sees this instead of
+any pay CTA. Expects ``premium_recovery_case`` (views_premium.open_recovery_case).
+Spec: ai-memory-hub/specs/2026-09-13-crush-premium-payment-recovery.md
+{% endcomment %}
+<div class="alert alert-warning mb-4 sm:mb-5 items-start gap-2 text-left" role="status" data-testid="premium-recovery-notice">
+    <span aria-hidden="true" class="flex-shrink-0">{% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 mt-0.5" %}</span>
+    <p class="text-sm mb-0">{% include "crush_lu/partials/_premium_recovery_copy.html" with payment=premium_recovery_case.payment %}</p>
+</div>

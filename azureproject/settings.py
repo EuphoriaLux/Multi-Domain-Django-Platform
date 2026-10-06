@@ -149,6 +149,18 @@ WEEKLY_KPI_RECIPIENTS = [
     if addr.strip()
 ]
 
+# Alert recipient for each new PremiumPaymentRecoveryCase (#925).
+PREMIUM_RECOVERY_ALERT_EMAIL = os.getenv("PREMIUM_RECOVERY_ALERT_EMAIL", "tom@crush.lu")
+# Where the alert's admin link points; a staging slot must not link to prod.
+PREMIUM_RECOVERY_ADMIN_BASE_URL = os.getenv(
+    "PREMIUM_RECOVERY_ADMIN_BASE_URL",
+    (
+        "https://test.crush.lu"
+        if os.getenv("DJANGO_ENV") == "staging"
+        else "https://crush.lu"
+    ),
+)
+
 # Google Search Indexing API real-time notifications for Crush.lu events (disabled by default outside production)
 GOOGLE_INDEXING_ENABLED = _env_bool("GOOGLE_INDEXING_ENABLED", False)
 GOOGLE_INDEXING_KEY_JSON = os.getenv("GOOGLE_INDEXING_KEY_JSON", "")

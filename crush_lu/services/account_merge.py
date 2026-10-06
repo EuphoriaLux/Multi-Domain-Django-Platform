@@ -82,6 +82,7 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
         PaymentTransaction.objects.select_for_update(of=("self",))
         .filter(
             Q(user_id__in=(keeper_user.pk, duplicate_user.pk))
+            | Q(premium_membership__user_id__in=(keeper_user.pk, duplicate_user.pk))
             | Q(event_registration_id__in=account_registration_ids)
         )
         .order_by("pk")
@@ -112,6 +113,44 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
         .filter(event_id__in=affected_event_ids)
         .order_by("pk")
     )
+
+    from crush_lu.models import PremiumMembership, PremiumPaymentRecoveryCase
+
+    # #925: payment -> membership, as checkout publication and capture take
+    # them, so no Premium checkout can be published for either account until
+    # this merge commits.
+    list(
+        PremiumMembership.objects.select_for_update()
+        .filter(user__in=(keeper_user, duplicate_user))
+        .order_by("pk")
+    )
+
+    # #925: the case stays with its payment and membership, which do not move.
+    # Merging would hide an unresolved captured payment from the kept account.
+    # Read after the payment locks above: a capture writes its case in the
+    # same transaction as PAID, so a merge that waited on it sees the case.
+    if PremiumPaymentRecoveryCase.objects.filter(
+        user=duplicate_user, status=PremiumPaymentRecoveryCase.Status.OPEN
+    ).exists():
+        raise ValueError(
+            "Cannot merge these accounts while the duplicate has an open Premium "
+            "payment recovery case. Resolve the case first."
+        )
+
+    # #925: memberships and payments stay on the duplicate, so a capture that
+    # lands after this merge would be filed under the deactivated account and
+    # never reach the keeper. Merge only once no Premium checkout of the
+    # duplicate can still take money (cancelling the request closes them; the
+    # hourly tick closes those left on memberships no longer up for payment).
+    if PaymentTransaction.objects.filter(
+        premium_membership__user=duplicate_user,
+        status=PaymentTransaction.Status.PENDING,
+    ).exists():
+        raise ValueError(
+            "Cannot merge these accounts while the duplicate has a Premium "
+            "checkout that could still be paid. Cancel its Premium request or "
+            "wait for the checkout to be closed first."
+        )
 
     if EventCheckoutCreationClaim.objects.filter(
         registration_id__in=locked_registration_ids

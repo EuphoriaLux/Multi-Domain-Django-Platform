@@ -28,8 +28,10 @@ from crush_lu.models.events import (
     MeetupEvent,
 )
 from crush_lu.models.payments import EventCheckoutCreationClaim, PaymentTransaction
+from crush_lu.models.premium_recovery import PremiumPaymentRecoveryCase
 from crush_lu.models.profiles import CrushProfile, PremiumMembership
 from crush_lu.services.event_payments import registration_is_payable
+from crush_lu.services import premium_recovery
 from crush_lu.services.credits import (
     cancellation_policy,
     credit_registration_for_cancelled_event,
@@ -711,6 +713,16 @@ def _sumup_status(remote):
     return (remote.get("status") or "").upper()
 
 
+def _lock_member_and_check_blocked(user_id):
+    """Lock the member's User row, then re-ask premium_recovery's rule. A case
+    insert locks the same row first (premium_recovery.open_case), so one of
+    the two waits for the other."""
+    from django.contrib.auth import get_user_model
+
+    member = get_user_model().objects.select_for_update().get(pk=user_id)
+    return premium_recovery.blocks_new_charge(member)
+
+
 def _premium_payment_received_response():
     return JsonResponse(
         {
@@ -770,21 +782,26 @@ def _sumup_checkout_gone(error):
     return getattr(response, "status_code", None) in {404, 410}
 
 
-def _close_premium_checkout(client, checkout_id):
+def _close_premium_checkout(client, checkout_id, paid_payload=None):
     """``"closed"``, ``"paid"`` or ``"open"`` for one checkout at SumUp.
 
     Same proof as ``ensure_checkout_not_payable`` (a DELETE, else one read),
-    but that single read also tells a captured checkout apart. Any SumUpError
-    (including a missing API key) counts as ``"open"`` so the caller answers
-    with its JSON refusal instead of a 500.
+    but that single read also tells a captured checkout apart; on ``"paid"``
+    that read is copied into ``paid_payload`` so the caller can record the
+    capture without a second read. Any SumUpError (including a missing API
+    key) counts as ``"open"`` so the caller answers with its JSON refusal
+    instead of a 500.
     """
     try:
         if client.deactivate_checkout(checkout_id):
             return "closed"
-        status = _sumup_status(client.get_checkout(checkout_id))
+        remote = client.get_checkout(checkout_id)
     except SumUpError:
         return "open"
+    status = _sumup_status(remote)
     if status in _SUMUP_PAID_STATUSES:
+        if paid_payload is not None:
+            paid_payload.update(remote)
         return "paid"
     return "closed" if status in CLOSED_CHECKOUT_STATUSES else "open"
 
@@ -797,6 +814,8 @@ def _settle_pending_premium_checkouts(
     customer_id=None,
     description=None,
     captured=False,
+    paid_payloads=None,
+    only_ids=None,
 ):
     """Reuse or retire this membership's PENDING checkouts (#925 D6).
 
@@ -820,6 +839,9 @@ def _settle_pending_premium_checkouts(
             status=PaymentTransaction.Status.PENDING,
         ).order_by("-created_at", "-pk")
     )
+    if only_ids is not None:
+        # A caller's snapshot: rows published after it are not this call's.
+        pending = [row for row in pending if row.pk in only_ids]
     known_ids = {row.pk for row in pending}
     reuse_row, retired_ids, paid = None, set(), captured
     deadline = _monotonic() + _PREMIUM_CHECKOUT_RETIRE_BUDGET_SECONDS
@@ -835,6 +857,8 @@ def _settle_pending_premium_checkouts(
                 return "open", None, retired_ids, known_ids
             if _sumup_status(remote) in _SUMUP_PAID_STATUSES:
                 paid = True
+                if paid_payloads is not None:
+                    paid_payloads[row.pk] = remote
                 continue
             if _reusable_premium_checkout(
                 row,
@@ -850,9 +874,12 @@ def _settle_pending_premium_checkouts(
             or _monotonic() > deadline
         ):
             return "open", None, retired_ids, known_ids
-        outcome = _close_premium_checkout(client, row.sumup_checkout_id)
+        payload = {}
+        outcome = _close_premium_checkout(client, row.sumup_checkout_id, payload)
         if outcome == "paid":
             paid = True
+            if paid_payloads is not None:
+                paid_payloads[row.pk] = payload
         elif outcome != "closed":
             return "open", None, retired_ids, known_ids
         else:
@@ -860,7 +887,12 @@ def _settle_pending_premium_checkouts(
     if paid:
         # A capture exists: the kept newest checkout must not take a second one.
         if reuse_row is not None:
-            outcome = _close_premium_checkout(client, reuse_row.sumup_checkout_id)
+            payload = {}
+            outcome = _close_premium_checkout(
+                client, reuse_row.sumup_checkout_id, payload
+            )
+            if outcome == "paid" and paid_payloads is not None:
+                paid_payloads[reuse_row.pk] = payload
             if outcome == "open":
                 return "open", None, retired_ids, known_ids
             if outcome == "closed":
@@ -907,6 +939,7 @@ def _lock_premium_checkout_state(
 
 @login_required
 @require_POST
+@premium_recovery.bounded_request
 def create_sumup_premium_checkout(request, membership_id):
     """
     Creates a SumUp checkout session for a Crush Connect Premium Membership.
@@ -956,6 +989,11 @@ def create_sumup_premium_checkout(request, membership_id):
             return _premium_checkout_retry_response(membership)
         return _premium_payment_received_response()
 
+    # #925: any unresolved captured payment (even on an older request) is
+    # settled by staff before the member can be charged again.
+    if premium_recovery.blocks_new_charge(membership.user):
+        return _premium_payment_received_response()
+
     # Ask the beta allowlist again, here, at the moment money is about to move.
     # views_premium checks it when the pending membership is MINTED, and nothing
     # between there and confirm() ever re-asked -- so the pending row was a
@@ -984,12 +1022,14 @@ def create_sumup_premium_checkout(request, membership_id):
 
     # At most one payable checkout per membership (#925 D6): reuse the newest
     # one or close the older ones before a new one can exist.
+    paid_payloads = {}
     state, reuse_row, retired_ids, known_ids = _settle_pending_premium_checkouts(
         client,
         membership,
         amount=amount,
         customer_id=sumup_customer_id,
         description=description,
+        paid_payloads=paid_payloads,
     )
     # Record every checkout SumUp closed now, whatever happens next: an early
     # return below must not leave closed checkouts PENDING for the sweep.
@@ -1004,8 +1044,41 @@ def create_sumup_premium_checkout(request, membership_id):
             membership.id,
             membership.user_id,
         )
+        # #925: apply it now -- the hourly sweep only reads PAID rows, so a
+        # missed webhook would otherwise leave the charge unapplied for good.
+        # The payload SumUp already returned is applied as is, so a failing
+        # second read cannot leave it unrecorded.
+        # Capped like the recovery close (premium_recovery.SIBLING_SYNC_LIMIT):
+        # once one is PAID, the hourly tick closes or records the rest.
+        rows = sorted(
+            PaymentTransaction.objects.filter(
+                premium_membership=membership,
+                status=PaymentTransaction.Status.PENDING,
+                sumup_checkout_id__isnull=False,
+            ),
+            # Captures already read first: they need no further request.
+            key=lambda row: (row.pk not in paid_payloads, row.pk),
+        )
+        for row in rows[: premium_recovery.SIBLING_SYNC_LIMIT]:
+            # Recorded now (nothing else would read it again); its mails and
+            # cleanup run on the request's one deadline (bounded_request).
+            if row.pk in paid_payloads:
+                _apply_paid_checkout(row, paid_payloads[row.pk])
+            elif not _sync_checkout_with_sumup(row):
+                logger.critical(
+                    "Premium checkout %s may be captured at SumUp but could not "
+                    "be read to record it; retried on the member's next click.",
+                    row.transaction_reference,
+                )
         return _premium_payment_received_response()
     if state == "open":
+        # #925: a capture read before a later close failed is recorded now --
+        # left PENDING, neither the sweep nor the recovery tick would find it.
+        for row in PaymentTransaction.objects.filter(
+            pk__in=list(paid_payloads)[: premium_recovery.SIBLING_SYNC_LIMIT],
+            status=PaymentTransaction.Status.PENDING,
+        ).order_by("pk"):
+            _apply_paid_checkout(row, paid_payloads[row.pk])
         return _premium_checkout_retry_response(membership)
 
     if reuse_row is not None:
@@ -1067,7 +1140,13 @@ def create_sumup_premium_checkout(request, membership_id):
         if (
             locked_membership is None
             or locked_membership.status != "pending"
+            # A merge that won the membership lock deactivated this account.
+            or not locked_membership.user.is_active
             or _premium_payment_captured(membership)
+            # Under the member's row lock (after payment -> membership, like
+            # capture): a capture on another request that opens a case
+            # meanwhile either committed first or waits for this insert.
+            or _lock_member_and_check_blocked(locked_membership.user_id)
         ):
             error, not_pending = _("This membership is not pending payment."), True
         elif not pending_ids <= known_ids or (
@@ -1094,13 +1173,23 @@ def create_sumup_premium_checkout(request, membership_id):
     if error is not None:
         if reuse_row is None:
             client.deactivate_checkout(checkout_id)
-        elif not_pending and _close_premium_checkout(client, checkout_id) == "closed":
-            # A saved widget link must not charge a membership that ended.
-            with transaction.atomic():
-                _lock_premium_checkout_state(
-                    membership.pk,
-                    {reuse_row.pk},
-                    reason=_PREMIUM_CHECKOUT_ABANDONED_REASON,
+        elif not_pending:
+            payload = {}
+            outcome = _close_premium_checkout(client, checkout_id, payload)
+            if outcome == "closed":
+                # A saved widget link must not charge a membership that ended.
+                with transaction.atomic():
+                    _lock_premium_checkout_state(
+                        membership.pk,
+                        {reuse_row.pk},
+                        reason=_PREMIUM_CHECKOUT_ABANDONED_REASON,
+                    )
+            elif outcome == "paid":
+                # #925: captured since the read above. Record it from this read
+                # (applied, or its own case): an account a merge deactivated
+                # never clicks again, and the sweep reads PAID rows only.
+                _apply_paid_checkout(
+                    PaymentTransaction.objects.get(pk=reuse_row.pk), payload
                 )
         return JsonResponse({"error": error}, status=409)
 
@@ -1341,6 +1430,46 @@ def _send_premium_membership_receipt_safely(payment):
             "Failed to send Premium payment receipt for transaction %s: %s",
             payment.id,
             type(exc).__name__,
+        )
+
+
+MANUAL_CONFIRMATION_DETAIL = (
+    "Member notice withheld: staff confirmed this membership by hand, so this "
+    "capture may be the one that confirmation applied."
+)
+
+
+def _queue_premium_recovery_case(payment, reason, detail=""):
+    """Open the #925 recovery case in the PAID transaction; mail on commit.
+
+    Same transaction, so PAID never commits without its case: a failed insert
+    leaves the row PENDING for the next return/webhook/reconcile to retry, and
+    a merge waiting on the payment lock sees the case.
+
+    A membership staff confirmed by hand may have been confirmed for this very
+    capture (a confirmation racing the callback): which payment it applied is
+    unknown, so the case is staff-only, never a definitive member notice."""
+    membership_id = payment.premium_membership_id
+    staff_only = bool(
+        membership_id
+        and PremiumMembership.objects.filter(
+            pk=membership_id, confirmed_by__isnull=False
+        ).exists()
+    )
+    if staff_only:
+        detail = f"{MANUAL_CONFIRMATION_DETAIL} {detail}".strip()
+    case, created = premium_recovery.open_case(
+        payment, reason, detail, staff_only=staff_only
+    )
+    if created:
+        # robust: the money is captured; a failing callback must never turn
+        # the return page or webhook into a 500.
+        # One request budget, taken now, for every callback after commit.
+        transaction.on_commit(
+            lambda deadline=premium_recovery.request_deadline(): (
+                premium_recovery.notify_safely(case.pk, deadline)
+            ),
+            robust=True,
         )
 
 
@@ -1626,6 +1755,25 @@ def _apply_paid_checkout(tx_obj, data):
                 "attribution — payment recorded; remedy_credit=%s.",
                 locked.transaction_reference,
                 getattr(credit, "pk", None),
+            )
+            return
+
+        if (
+            locked.purpose == PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP
+            and not locked.premium_membership_id
+        ):
+            # #925: the membership was deleted while its widget stayed payable
+            # (SET_NULL). Keep PAID and hand the money to a human, like the
+            # unlinked event capture above.
+            logger.critical(
+                "SumUp Premium payment %s completed without a membership — "
+                "payment recorded, NOT applied, recovery case opened.",
+                locked.transaction_reference,
+            )
+            _queue_premium_recovery_case(
+                locked,
+                PremiumPaymentRecoveryCase.Reason.OTHER,
+                "Captured after its Premium membership was deleted.",
             )
             return
 
@@ -1964,9 +2112,31 @@ def _apply_paid_checkout(tx_obj, data):
                     pm.user_id,
                     pm.coach_id,
                 )
+                _queue_premium_recovery_case(
+                    locked,
+                    (
+                        PremiumPaymentRecoveryCase.Reason.BETA_REVOKED
+                        if pm.status == "pending"
+                        else premium_recovery.reason_for_membership_status(pm.status)
+                    ),
+                )
                 return
 
-            if pm.status == "pending":
+            if pm.status != "pending":
+                # Already active (duplicate capture) or cancelled first.
+                logger.error(
+                    "SumUp payment %s completed for PremiumMembership %s "
+                    "(user=%s, status=%s) — payment recorded, NOT applied, "
+                    "manual refund review required.",
+                    locked.transaction_reference,
+                    pm.id,
+                    pm.user_id,
+                    pm.status,
+                )
+                _queue_premium_recovery_case(
+                    locked, premium_recovery.reason_for_membership_status(pm.status)
+                )
+            else:
                 # No pre-setting of payment_confirmed/payment_date here.
                 # ``confirm()`` sets both itself on success, and on failure it
                 # raises *before* its own save(), so assigning them first only
@@ -1986,7 +2156,21 @@ def _apply_paid_checkout(tx_obj, data):
                             payment
                         )
                     )
-                except ValueError as exc:
+                    # #925: this capture is the membership's payment, so no
+                    # other checkout of it may take a second one.
+                    # robust: the entitlement is committed; a failing cleanup
+                    # must not 500 the return/webhook (the tick retries it).
+                    # Its deadline is taken now, so the receipt above spends
+                    # from the same request budget.
+                    transaction.on_commit(
+                        lambda membership=pm, deadline=premium_recovery.request_deadline(): (
+                            premium_recovery.close_after_activation_safely(
+                                membership, deadline
+                            )
+                        ),
+                        robust=True,
+                    )
+                except (ValueError, CrushProfile.DoesNotExist) as exc:
                     # Same contract as the event-registration branch above:
                     # SumUp has already captured the money by the time this
                     # runs, so the transaction stays PAID — dropping it would
@@ -2011,6 +2195,22 @@ def _apply_paid_checkout(tx_obj, data):
                         pm.user_id,
                         pm.coach_id,
                         exc,
+                    )
+                    # confirm() re-reads status under its own lock: ask the DB
+                    # why it refused (still pending = coach full).
+                    status = (
+                        PremiumMembership.objects.filter(pk=pm.pk)
+                        .values_list("status", flat=True)
+                        .first()
+                    )
+                    _queue_premium_recovery_case(
+                        locked,
+                        (
+                            premium_recovery.reason_for_membership_status(status)
+                            if isinstance(exc, ValueError)
+                            else PremiumPaymentRecoveryCase.Reason.OTHER
+                        ),
+                        detail=str(exc),
                     )
 
         elif locked.purpose == PaymentTransaction.Purpose.DONATION:
@@ -2686,7 +2886,15 @@ def _sumup_return_response(request, tx_obj):
     activated language. Split out only so the ``override`` block above stays
     readable — every path here returns a redirect."""
     if tx_obj.status == PaymentTransaction.Status.PAID:
-        messages.success(request, _("Payment completed successfully! Thank you."))
+        open_cases = PremiumPaymentRecoveryCase.objects.filter(
+            payment=tx_obj, status=PremiumPaymentRecoveryCase.Status.OPEN
+        )
+        # A staff-only case (premium_recovery.STAFF_ONLY_Q) tells the member
+        # nothing definitive: neither "not applied" nor "completed".
+        recovery_case = open_cases.exclude(premium_recovery.STAFF_ONLY_Q).exists()
+        if not open_cases.exists():
+            # #925: no "completed successfully" next to the D1 warning.
+            messages.success(request, _("Payment completed successfully! Thank you."))
         if tx_obj.event_registration:
             # event_detail 404s an unpublished event (#1079).
             if not tx_obj.event_registration.event.is_published:
@@ -2697,7 +2905,7 @@ def _sumup_return_response(request, tx_obj):
             return redirect(
                 "crush_lu:event_detail", event_id=tx_obj.event_registration.event.pk
             )
-        elif tx_obj.premium_membership:
+        elif tx_obj.purpose == PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP:
             # The hub's Premium badge is not reachable on the one page-load
             # that matters most. premium_choose_coach requires a profile but
             # NOT a CrushConnectMembership, so buying before finishing Connect
@@ -2706,9 +2914,13 @@ def _sumup_return_response(request, tx_obj):
             # or to the teaser without LuxID) before the badge is rendered.
             # A message survives the redirect chain and lands wherever they
             # end up, so the confirmation is not conditional on onboarding.
-            pm = tx_obj.premium_membership
-            pm.refresh_from_db()
-            if pm.status == "active":
+            pm = tx_obj.premium_membership  # None once deleted (#925 case)
+            if pm:
+                pm.refresh_from_db()
+            if recovery_case:
+                # #925 D1, first: a duplicate capture finds pm active.
+                messages.warning(request, premium_recovery.member_notice(tx_obj))
+            elif pm and pm.status == "active":
                 # Only claim Premium once confirm() actually granted it. When
                 # the coach filled up mid-flight the charge is real but the
                 # entitlement is not (see _apply_paid_checkout) — telling that
@@ -2741,7 +2953,8 @@ def _sumup_return_response(request, tx_obj):
                     )
                 else:
                     messages.success(request, _("You're now a Premium member."))
-            else:
+            elif not open_cases.exists():
+                # A staff-only case (above) says nothing definitive here either.
                 # PAID but not granted. Three ways to get here and they are all
                 # the same to the customer: the coach filled up mid-flight, the
                 # request stopped being pending, or the buyer is no longer a
@@ -2997,6 +3210,24 @@ def sumup_widget_view(request, checkout_id):
             "is not a selected beta tester",
             checkout_id,
             tx_obj.premium_membership_id,
+        )
+        raise Http404("No payment found.")
+
+    # #925: the rule checkout creation refuses on (409) reaches the card form
+    # too. A saved widget link to a checkout left PENDING -- its close failed
+    # or did not fit, and the hourly tick has not retired it yet -- must not
+    # take a second capture while a recovery case or a recorded capture
+    # stands. Answers like an unknown checkout, as above.
+    membership = tx_obj.premium_membership
+    if membership is not None and (
+        _premium_payment_captured(membership)
+        or premium_recovery.blocks_new_charge(membership.user)
+    ):
+        logger.warning(
+            "Blocked SumUp widget for checkout %s: membership %s must not be "
+            "charged again (#925)",
+            checkout_id,
+            membership.pk,
         )
         raise Http404("No payment found.")
 

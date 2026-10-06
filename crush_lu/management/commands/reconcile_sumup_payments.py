@@ -631,6 +631,32 @@ class Command(BaseCommand):
                 "last_read": None,
             }
 
+        if (
+            budget_seconds is not None
+            and time.monotonic() - started + read_reserve_seconds >= budget_seconds
+        ):
+            # #925: the history prefetch below is a SumUp read of its own; a
+            # caller that spent its budget first (premium checkout closes)
+            # must not start it. Every row waits for the next run.
+            logger.warning(
+                "SumUp reconciliation skipped: no time for a first read within "
+                "its %ss budget; %s transaction(s) left unchecked this run.",
+                budget_seconds,
+                total_count,
+            )
+            return {
+                "in_window": window_count,
+                "checked": 0,
+                "reconciled": 0,
+                "needs_review": 0,
+                "partial": 0,
+                "errors": 0,
+                "unchecked": total_count,
+                "cursor_resumed": cursor_resumed,
+                "reached_end": False,
+                "last_read": None,
+            }
+
         client = SumUpClient()
         history_map = {}
         history_evidence_by_code = {}

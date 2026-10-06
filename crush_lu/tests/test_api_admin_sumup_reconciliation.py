@@ -482,7 +482,9 @@ class SumUpReconciliationEndpointTests(TestCase):
         body = resp.json()
         self.assertEqual(
             set(body),
-            {"status", "timestamp", "cursor_resumed", "wrapped"} | COUNTER_KEYS,
+            {"status", "timestamp", "cursor_resumed", "wrapped"} | COUNTER_KEYS
+            # #925: a count of recovery notices re-sent this tick.
+            | {"recovery_notices_retried"},
         )
         raw = resp.content.decode()
         for secret in (
@@ -576,7 +578,11 @@ class SumUpReconciliationEndpointTests(TestCase):
         )
         send = graph_src[graph_src.index("def _send_message") :]
         send = send[: send.index("\ndef ")]
-        self.assertIn(f"timeout={m.GRAPH_SEND_TIMEOUT_SECONDS}", send)
+        self.assertIn(
+            "timeout=(GRAPH_CONNECT_TIMEOUT_SECONDS, GRAPH_READ_TIMEOUT_SECONDS)",
+            send,
+        )
+        self.assertEqual(m.GRAPH_SEND_TIMEOUT_SECONDS, 30)
         fa_src = (
             root / "azure-functions" / "hybrid-maintenance" / "function_app.py"
         ).read_text(encoding="utf-8")
@@ -1166,13 +1172,14 @@ class SumUpReconciliationEndpointTests(TestCase):
         )
         import itertools
 
-        # Clock: start, the row's read check, its start mark and its write
-        # check are in budget; the next row's read check is past it.
+        # Clock: start, the pre-sweep read check, the row's read check, its
+        # start mark and its write check are in budget; the next row's read
+        # check is past it.
         clock = patch(
             f"{CMD}.time",
             **{
                 "monotonic.side_effect": itertools.chain(
-                    [0, 0, 0, 0], itertools.repeat(10**6)
+                    [0, 0, 0, 0, 0], itertools.repeat(10**6)
                 )
             },
         )
@@ -1322,14 +1329,15 @@ class SumUpReconciliationEndpointTests(TestCase):
 
     def _one_row_run(self, payloads):
         """A run whose budget allows exactly one row: the clock reads 0 at
-        the start and for the first row, then is past any deadline."""
+        the start, the pre-sweep read check and the first row, then is past
+        any deadline."""
         import itertools
 
         clock = patch(
             f"{CMD}.time",
             **{
                 "monotonic.side_effect": itertools.chain(
-                    [0, 0], itertools.repeat(10**6)
+                    [0, 0, 0], itertools.repeat(10**6)
                 )
             },
         )
