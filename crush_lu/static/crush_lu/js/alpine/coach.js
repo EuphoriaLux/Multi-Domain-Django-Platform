@@ -2024,7 +2024,12 @@ document.addEventListener("alpine:init", function () {
                         } else {
                             self.success = false;
                             self.errorState = true;
-                            self.message = data.error || gettext("Check-in failed.");
+                            self.message =
+                                data.code === "coach_required"
+                                    ? gettext(
+                                          "Your coach session has expired. Please sign in again.",
+                                      )
+                                    : data.error || gettext("Check-in failed.");
                         }
                         self._resumeScanSoon();
                     })
@@ -2075,7 +2080,13 @@ document.addEventListener("alpine:init", function () {
                             var i18n = window._checkinI18n || {};
                             btn.textContent = i18n.checkIn || "Check In";
                             alert(
-                                data.error || i18n.checkinFailed || "Check-in failed",
+                                data.code === "coach_required"
+                                    ? gettext(
+                                          "Your coach session has expired. Please sign in again.",
+                                      )
+                                    : data.error ||
+                                          i18n.checkinFailed ||
+                                          "Check-in failed",
                             );
                         }
                     })

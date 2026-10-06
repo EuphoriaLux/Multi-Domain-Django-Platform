@@ -414,6 +414,21 @@ def event_checkin_api(request, registration_id, token):
                 status=403,
             )
 
+    # The QR is the attendee's own credential, so the token alone must never
+    # check anyone in: a self-POST would flip the registration to attended
+    # (opening the lobby, quiz, attendee list and Connect identity gate) with
+    # nobody at the door having seen them. Only an active coach session may
+    # check in, verify or re-scan. (#1186, #1187)
+    if _scanning_coach(request) is None:
+        return JsonResponse(
+            {
+                "success": False,
+                "code": "coach_required",
+                "error": "Show this QR to a coach at the door.",
+            },
+            status=403,
+        )
+
     # Check-in window, computed here because the already-attended branch below
     # must respect it too: tickets do not expire, so without this a coach could
     # scan a months-old QR and newly approve a pending profile (with referral
