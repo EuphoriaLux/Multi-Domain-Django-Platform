@@ -9102,7 +9102,7 @@ msgstr ""
 
 #: templates/account/password_reset.html:40
 msgid "Email address"
-msgstr "Ajouter une adresse e-mail"
+msgstr "Adresse e-mail"
 
 #: templates/account/password_reset.html:55
 msgid "Send reset link"
@@ -9123,7 +9123,7 @@ msgstr "Consultez votre boîte mail - Crush.lu"
 
 #: templates/account/password_reset_done.html:13
 msgid "Check your email"
-msgstr "Vérifier les mises à jour"
+msgstr "Consultez votre boîte mail"
 
 #: templates/account/password_reset_done.html:23
 msgid "Password reset email sent"
@@ -9152,7 +9152,7 @@ msgstr "Essayer une autre adresse e-mail"
 
 #: templates/account/password_reset_from_key.html:4
 msgid "Choose a new password - Crush.lu"
-msgstr "Choisis un nouveau mot de passe - Crush.lu"
+msgstr "Choisissez un nouveau mot de passe - Crush.lu"
 
 #: templates/account/password_reset_from_key.html:14
 msgid "Invalid reset link"
@@ -9160,7 +9160,7 @@ msgstr "Lien de réinitialisation invalide"
 
 #: templates/account/password_reset_from_key.html:16
 msgid "Choose a new password"
-msgstr "Choisis un nouveau mot de passe"
+msgstr "Choisissez un nouveau mot de passe"
 
 #: templates/account/password_reset_from_key.html:28
 msgid "This password reset link is invalid or has expired"
@@ -18010,7 +18010,7 @@ msgstr "Âge %(min)s-%(max)s"
 #: templates/crush_lu/my_presentation_scores.html:43
 #: templates/crush_lu/quiz_live.html:174
 msgid "Back to Event"
-msgstr "Retour à la connexion"
+msgstr "Retour à l'événement"
 
 #: templates/crush_lu/coach_event_sms_invite.html:106
 msgid "Last-Minute Mode"
@@ -26039,7 +26039,7 @@ msgstr "Comment ça marche"
 
 #: templates/crush_lu/event_detail.html:315
 msgid "Interactive Activity Voting:"
-msgstr "Sélection interactive de parcelle"
+msgstr "Vote interactif sur l'activité :"
 
 #: templates/crush_lu/event_detail.html:317
 msgid ""
@@ -26052,7 +26052,7 @@ msgstr ""
 #: templates/crush_lu/event_detail.html:318
 msgid "Choose from Speed Dating, 90-Second Presentations, or Mystery Event"
 msgstr ""
-"Choisis entre Speed Dating, Présentations de 90 secondes, ou Événement "
+"Choisissez entre Speed Dating, Présentations de 90 secondes, ou Événement "
 "Mystère"
 
 #: templates/crush_lu/event_detail.html:319
@@ -28231,7 +28231,7 @@ msgstr "Que faire ensuite :"
 
 #: templates/crush_lu/invitation_pending_approval.html:182
 msgid "Check Your Email:"
-msgstr "Vérifier les mises à jour"
+msgstr "Consultez votre boîte mail :"
 
 #: templates/crush_lu/invitation_pending_approval.html:183
 #, python-format
@@ -28405,7 +28405,7 @@ msgstr "Sélectionne d'abord une réponse"
 #: templates/crush_lu/journey/challenges/word_scramble.html:85
 #: templates/crush_lu/quiz_live.html:112
 msgid "Submit Answer"
-msgstr "Soumis"
+msgstr "Envoyer la réponse"
 
 #: templates/crush_lu/journey/challenges/open_text.html:27
 msgid "Open Response"
@@ -33551,7 +33551,7 @@ msgstr "Tournant (vous bougez !)"
 
 #: templates/crush_lu/quiz_live.html:16
 msgid "Anchor – stay here"
-msgstr "Ancre – reste ici"
+msgstr "Ancre – restez ici"
 
 #: templates/crush_lu/quiz_live.html:16
 msgid "Rotator – you move!"
@@ -37888,11 +37888,15 @@ msgid ""
 "This event has already taken place. If something is wrong, contact your "
 "coach."
 msgstr ""
+"L'événement a déjà eu lieu. En cas de problème, contactez votre coach."
 
 #: views_events.py:1196
 msgid ""
-"This event has already started. If you can't make it, contact your coach."
+"This event has already started, so it can't be cancelled online. If you "
+"can't make it, email support@crush.lu."
 msgstr ""
+"L'événement a déjà commencé : il ne peut plus être annulé en ligne. Si vous "
+"ne pouvez pas venir, écrivez à support@crush.lu."
 
 #: views_events.py:1205
 msgid "Your registration has been cancelled."
@@ -38807,6 +38811,18 @@ msgid "Your Spot Is Reserved!"
 msgstr "Votre place est réservée !"
 
 #: crush_lu/templates/crush_lu/_event_registration_success.html
+msgid "Application Received!"
+msgstr "Candidature reçue !"
+
+#: crush_lu/templates/crush_lu/_event_registration_success.html
+msgid ""
+"The organiser team composes the group before the event. We'll let you know "
+"whether you have a place — you don't need to pay anything yet."
+msgstr ""
+"L'équipe organisatrice compose le groupe avant l'événement. Nous vous "
+"dirons si vous avez une place — vous n'avez encore rien à payer."
+
+#: crush_lu/templates/crush_lu/_event_registration_success.html
 msgid ""
 "Complete your payment to confirm your registration. We've emailed you the "
 "details."
@@ -39314,6 +39330,15 @@ msgstr "Nous sommes désolés, mais <strong>%(title)s</strong> n’aura pas lieu
 
 msgid "We've added %(amount)s EUR in Crush Credit to your account."
 msgstr "Nous avons ajouté %(amount)s EUR de Crush Credit à votre compte."
+
+#: views_events.py
+#, python-format
+msgid ""
+"We've added €%(amount).2f in Crush Credit to your account — it's ready to "
+"use on any Crush.lu event."
+msgstr ""
+"Nous avons ajouté %(amount).2f EUR de Crush Credit à votre compte — "
+"utilisable immédiatement pour tout événement Crush.lu."
 
 msgid "%(amount)s EUR, valid until %(expiry)s"
 msgstr "%(amount)s EUR, valable jusqu’au %(expiry)s"
@@ -40494,6 +40519,18 @@ msgstr "Postuler à cet événement"
 #: templates/crush_lu/event_detail.html
 msgid "Flexible groups"
 msgstr "Groupes flexibles"
+
+#: templates/crush_lu/event_detail.html
+msgid "Your application is in!"
+msgstr "Votre candidature est bien enregistrée !"
+
+#: views_events.py
+msgid ""
+"Your application has been received. The organiser team composes the group "
+"before the event and will let you know whether you have a place."
+msgstr ""
+"Votre candidature a bien été reçue. L'équipe organisatrice compose le groupe "
+"avant l'événement et vous dira si vous avez une place."
 
 #: templates/crush_lu/event_detail.html
 msgid "The organiser reviews mutual preferences and will invite you to pay only if you are selected for a viable provisional group. Selection is not guaranteed."
@@ -43122,6 +43159,12 @@ msgstr "Préparation du paiement…"
 msgid "An error occurred launching payment. Please try again."
 msgstr ""
 "Une erreur s'est produite lors du lancement du paiement. Veuillez réessayer."
+
+#: views_payments.py
+msgid "Unable to initiate payment at the moment. Please try again later."
+msgstr ""
+"Impossible de lancer le paiement pour le moment. Veuillez réessayer plus "
+"tard."
 
 #: crush_lu/templates/crush_lu/event_detail.html
 #: crush_lu/templates/crush_lu/_event_registration_success.html
