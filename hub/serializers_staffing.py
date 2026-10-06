@@ -47,9 +47,11 @@ class HubEventSerializer(serializers.ModelSerializer):
         domain = "crush.lu"
         request = self.context.get("request")
         if request:
-            host = request.get_host().split(":")[0]
-            if host and (
-                "crush.lu" in host or "azurewebsites.net" in host or "localhost" in host
+            host = request.get_host().split(":")[0].lower()
+            if (
+                host in ("crush.lu", "test.crush.lu", "localhost")
+                or host.endswith(".crush.lu")
+                or host.endswith(".azurewebsites.net")
             ):
                 domain = host
         try:
