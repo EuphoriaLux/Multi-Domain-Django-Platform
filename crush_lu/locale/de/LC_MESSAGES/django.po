@@ -44572,6 +44572,308 @@ msgstr "Pläne geändert?"
 msgid "No payment now; selected applicants are invited to pay."
 msgstr "Jetzt keine Zahlung; ausgewählte Bewerber werden zur Zahlung eingeladen."
 
+msgid "Photo Review Deck"
+msgstr "Foto-Prüfung"
+
+msgid "Photo Review"
+msgstr "Foto-Prüfung"
+
+msgid "Approved / Authentic"
+msgstr "Freigegeben / authentisch"
+
+msgid "Flagged Fake or Suspicious"
+msgstr "Als gefälscht oder verdächtig markiert"
+
+msgid "Clear and authentic photo"
+msgstr "Klares und authentisches Foto"
+
+msgid "Fake or Suspicious Profile"
+msgstr "Gefälschtes oder verdächtiges Profil"
+
+msgid "Inappropriate or Offensive Image"
+msgstr "Unangemessenes oder anstößiges Bild"
+
+msgid "Inappropriate or explicit content"
+msgstr "Unangemessene oder explizite Inhalte"
+
+msgid "Face unclear or covered"
+msgstr "Gesicht undeutlich oder verdeckt"
+
+msgid "Group photo / cannot identify member"
+msgstr "Gruppenfoto / Mitglied nicht erkennbar"
+
+msgid "Group Photo"
+msgstr "Gruppenfoto"
+
+msgid "Unclear Face"
+msgstr "Gesicht nicht erkennbar"
+
+msgid "Attended an event"
+msgstr "An einer Veranstaltung teilgenommen"
+
+msgid "Check for New Photos"
+msgstr "Nach neuen Fotos suchen"
+
+msgid "No photos waiting for review."
+msgstr "Keine Fotos warten auf Prüfung."
+
+msgid "Flag / Reject"
+msgstr "Markieren / ablehnen"
+
+msgid "Flag or Request Revision"
+msgstr "Markieren oder Änderung anfordern"
+
+msgid "Submit Decision"
+msgstr "Entscheidung speichern"
+
+msgid "Photo review reason"
+msgstr "Grund für die Foto-Prüfung"
+
+msgid "Feedback note (optional, 255 characters maximum)"
+msgstr "Feedback (optional, maximal 255 Zeichen)"
+
+msgid ""
+"Fake profiles are excluded from Connect. Other reasons ask the member to "
+"replace their photo."
+msgstr ""
+"Gefälschte Profile werden von Connect ausgeschlossen. Bei anderen Gründen "
+"wird das Mitglied gebeten, sein Foto zu ersetzen."
+
+msgid ""
+"Online photo review does not verify identity or in-person photo "
+"authenticity."
+msgstr ""
+"Die Online-Foto-Prüfung bestätigt weder die Identität noch die Echtheit des "
+"Fotos bei einer persönlichen Begegnung."
+
+msgid ""
+"Swipe right to approve, left to flag, or up to skip. L / Right: approve. H /"
+" Left: flag. K: request revision. Space: next photo. U: undo."
+msgstr ""
+"Nach rechts wischen zum Freigeben, nach links zum Markieren oder nach oben "
+"zum Überspringen. L / Rechts: freigeben. H / Links: markieren. K: Änderung "
+"anfordern. Leertaste: nächstes Foto. U: rückgängig."
+
+msgid "Could not complete this action. Please try again."
+msgstr ""
+"Diese Aktion konnte nicht abgeschlossen werden. Bitte versuche es erneut."
+
+msgid "Could not save the review. Please try again."
+msgstr ""
+"Die Prüfung konnte nicht gespeichert werden. Bitte versuche es erneut."
+
+msgid "Could not undo the review. Please try again."
+msgstr ""
+"Die Prüfung konnte nicht rückgängig gemacht werden. Bitte versuche es "
+"erneut."
+
+msgid "Invalid photo review decision."
+msgstr "Ungültige Entscheidung zur Foto-Prüfung."
+
+msgid "Invalid photo review payload."
+msgstr "Ungültige Daten zur Foto-Prüfung."
+
+msgid "Invalid photo review reason."
+msgstr "Ungültiger Grund für die Foto-Prüfung."
+
+msgid "Invalid request payload"
+msgstr "Ungültige Anfragedaten"
+
+msgid "Profile not available for review."
+msgstr "Dieses Profil kann nicht geprüft werden."
+
+msgid "This photo has already been reviewed. Reload the queue."
+msgstr "Dieses Foto wurde bereits geprüft. Lade die Warteschlange erneut."
+
+msgid "No recent review to undo."
+msgstr "Keine kürzlich erfolgte Prüfung zum Rückgängigmachen."
+
+msgid "This review is no longer current and cannot be undone."
+msgstr ""
+"Diese Prüfung ist nicht mehr aktuell und kann nicht rückgängig gemacht "
+"werden."
+
+msgid ""
+"Please replace the inappropriate image with a suitable photo of yourself."
+msgstr ""
+"Bitte ersetze das unangemessene Bild durch ein geeignetes Foto von dir."
+
+msgid ""
+"Please replace your profile photo with a clear, suitable photo of yourself."
+msgstr ""
+"Bitte ersetze dein Profilfoto durch ein klares, geeignetes Foto von dir."
+
+msgid "Please upload a clearer profile photo where your face is visible."
+msgstr ""
+"Bitte lade ein deutlicheres Profilfoto hoch, auf dem dein Gesicht sichtbar "
+"ist."
+
+msgid "Please upload a photo showing only you, so members can identify you."
+msgstr ""
+"Bitte lade ein Foto hoch, das nur dich zeigt, damit Mitglieder dich erkennen"
+" können."
+
+msgid "Profile Photo Review Log"
+msgstr "Protokoll der Profilfoto-Prüfung"
+
+msgid "Profile Photo Review Logs"
+msgstr "Protokolle der Profilfoto-Prüfung"
+
+msgid "Needs Revision (Unclear / Inappropriate)"
+msgstr "Änderung erforderlich (undeutlich / unangemessen)"
+
+msgid "Flagged Fake / Suspicious"
+msgstr "Als gefälscht / verdächtig markiert"
+
+msgid "Coach online photo review status for Crush Connect"
+msgstr "Status der Online-Foto-Prüfung durch einen Coach für Crush Connect"
+
+msgid "Storage key of photo_1 when reviewed; change invalidates review"
+msgstr ""
+"Speicherschlüssel von photo_1 bei der Prüfung; eine Änderung hebt die "
+"Prüfung auf"
+
+msgid "When the current photo was reviewed by a coach"
+msgstr "Zeitpunkt der Prüfung des aktuellen Fotos durch einen Coach"
+
+msgid "Coach who reviewed the current photo"
+msgstr "Coach, der das aktuelle Foto geprüft hat"
+
+msgid "Internal note from coach on photo decision"
+msgstr "Interne Notiz des Coaches zur Fotoentscheidung"
+
+msgid "Profile photo review"
+msgstr "Prüfung des Profilfotos"
+
+msgid "Update photo"
+msgstr "Foto aktualisieren"
+
+msgid ""
+"A coach requested an updated photo. Please upload a clear photo of yourself."
+msgstr ""
+"Ein Coach hat ein neues Foto angefordert. Bitte lade ein klares Foto von dir"
+" hoch."
+
+msgid ""
+"A coach requested an updated profile photo. Please upload a clear photo "
+"showing your face to continue."
+msgstr ""
+"Ein Coach hat ein neues Profilfoto angefordert. Bitte lade ein klares Foto "
+"hoch, auf dem dein Gesicht sichtbar ist, um fortzufahren."
+
+msgid "Luxembourg (+352)"
+msgstr "Luxemburg (+352)"
+
+msgid "France (+33)"
+msgstr "Frankreich (+33)"
+
+msgid "Germany (+49)"
+msgstr "Deutschland (+49)"
+
+msgid "Belgium (+32)"
+msgstr "Belgien (+32)"
+
+msgid "Portugal (+351)"
+msgstr "Portugal (+351)"
+
+msgid "USA/Canada (+1)"
+msgstr "USA/Kanada (+1)"
+
+msgid "UK (+44)"
+msgstr "Vereinigtes Königreich (+44)"
+
+msgid "International (%(prefix)s)"
+msgstr "International (%(prefix)s)"
+
+msgid "Non-local phone (%(country)s)"
+msgstr "Ausländische Telefonnummer (%(country)s)"
+
+msgid "Phone unverified"
+msgstr "Telefonnummer nicht bestätigt"
+
+msgid "No phone number"
+msgstr "Keine Telefonnummer"
+
+msgid "Empty bio & prompt"
+msgstr "Keine Biografie oder Antwort"
+
+msgid "New account (< 48h)"
+msgstr "Neues Konto (< 48 Std.)"
+
+msgid "LuxID Verified"
+msgstr "LuxID bestätigt"
+
+msgid "Attended In-Person Event"
+msgstr "An einer Veranstaltung vor Ort teilgenommen"
+
+msgid "Phone verified (%(country)s)"
+msgstr "Telefonnummer bestätigt (%(country)s)"
+
+msgid "Connect Onboarded"
+msgstr "Connect-Einrichtung abgeschlossen"
+
+msgid "SMS verified"
+msgstr "Per SMS bestätigt"
+
+msgid "No phone"
+msgstr "Keine Telefonnummer"
+
+msgid "Born %(date)s"
+msgstr "Geboren am %(date)s"
+
+msgid "Member since %(date)s"
+msgstr "Mitglied seit %(date)s"
+
+msgid "Prompt"
+msgstr "Frage"
+
+msgid "Inconsistency / Risk Flags"
+msgstr "Unstimmigkeiten / Risikohinweise"
+
+msgid "Event Attended"
+msgstr "Veranstaltung besucht"
+
+msgid "Work"
+msgstr "Beruf"
+
+msgid "Height"
+msgstr "Größe"
+
+msgid "No bio written yet."
+msgstr "Noch keine Biografie vorhanden."
+
+msgid "Interests & Hobbies"
+msgstr "Interessen und Hobbys"
+
+msgid "Lifestyle Pace & Energy"
+msgstr "Lebensstil, Tempo und Energie"
+
+msgid "Decisions apply to the primary photo. Return to it before reviewing."
+msgstr ""
+"Entscheidungen gelten für das Hauptfoto. Kehre zur Prüfung zu diesem zurück."
+
+msgid "Review primary photo"
+msgstr "Hauptfoto prüfen"
+
+msgid "Only the primary photo can be reviewed."
+msgstr "Nur das Hauptfoto kann geprüft werden."
+
+msgid "Photo revision request withdrawn"
+msgstr "Fotoänderung zurückgenommen"
+
+msgid ""
+"Your coach withdrew the earlier photo revision request. You do not need to "
+"replace your photo because of that request."
+msgstr ""
+"Dein Coach hat die vorherige Bitte um eine Fotoänderung zurückgenommen. "
+"Aufgrund dieser Bitte musst du dein Foto nicht ersetzen."
+
+msgid "No more photos in this review pass."
+msgstr "Keine weiteren Fotos in diesem Prüfdurchlauf."
+
+msgid "Start a New Review Pass"
+msgstr "Neuen Prüfdurchlauf starten"
+
 #: crush_lu/templates/crush_lu/coach_event_list.html
 msgid "%(count)s potential conflict — review details"
 msgid_plural "%(count)s potential conflicts — review details"
@@ -44593,3 +44895,26 @@ msgstr "Berücksichtigt werden Bewerbungen, ausstehende Zahlungen, bestätigte T
 #: crush_lu/views_coach.py
 msgid "Participant %(id)s"
 msgstr "Teilnehmende Person %(id)s"
+
+#: crush_lu/templates/crush_lu/coach_photo_review.html
+msgid "Undone. Some Coach's Picks could not be restored because the members' situation changed."
+msgstr "Rückgängig gemacht. Einige Coach's Picks konnten nicht wiederhergestellt werden, weil sich die Situation der Mitglieder geändert hat."
+
+#: crush_lu/notification_service.py
+#: crush_lu/templates/crush_lu/emails/photo_revision_request.html
+msgid "Your coach asked you to replace your main profile photo. The rest of your profile can stay as it is."
+msgstr "Dein Coach hat dich gebeten, dein Hauptprofilfoto zu ersetzen. Der Rest deines Profils kann so bleiben, wie er ist."
+
+#: crush_lu/notification_service.py
+#: crush_lu/email_helpers.py
+#: crush_lu/templates/crush_lu/emails/photo_revision_request.html
+msgid "Please replace your profile photo"
+msgstr "Bitte ersetze dein Profilfoto"
+
+#: crush_lu/templates/crush_lu/emails/photo_revision_request.html
+msgid "Upload a new main photo from your profile. You do not need to change anything else."
+msgstr "Lade in deinem Profil ein neues Hauptfoto hoch. Sonst musst du nichts ändern."
+
+#: crush_lu/templates/crush_lu/emails/photo_revision_request.html
+msgid "Upload a new photo"
+msgstr "Neues Foto hochladen"

@@ -226,6 +226,7 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
         user_profile is None
         or not user_profile.is_approved
         or not user_profile.is_active
+        or user_profile.photo_review_status in ("needs_revision", "flagged_fake")
         or not user.is_active
     ):
         return User.objects.none()
@@ -280,6 +281,9 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
         # verification, so a member can be verified yet photoless — or clear
         # their photo after onboarding. They must not be offered to a coach.
         .exclude(Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True))
+        .exclude(
+            crushprofile__photo_review_status__in=["needs_revision", "flagged_fake"]
+        )
         .annotate(
             _has_connection=Exists(existing_connection_subq),
             _has_block=block_exists_subquery(user),
@@ -467,7 +471,11 @@ def filter_catalogue_eligible(qs):
             crush_connect_membership__photo_share_consent=True,
             last_login__gte=timezone.now()
             - timedelta(days=CONNECT_INACTIVITY_WINDOW_DAYS),
-        ).exclude(Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True))
+        )
+        .exclude(Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True))
+        .exclude(
+            crushprofile__photo_review_status__in=["flagged_fake", "needs_revision"]
+        )
     )
 
 
@@ -475,13 +483,8 @@ def is_catalogue_eligible(user) -> bool:
     """
     Whether ``user`` currently qualifies for the candidate catalogue:
     verified profile WITH a photo + LuxID linked + onboarded (not
-    coach-excluded) + active within CONNECT_INACTIVITY_WINDOW_DAYS. The photo
-    arm matters since fast-track event
-    verification made photo_1 optional: photoless members must not be
-    readable, and a member who clears their photo after onboarding drops
-    out at the next action point.
-
-    Eligibility is re-checked whenever a coach pool or cycle card is built.
+    coach-excluded) + active within CONNECT_INACTIVITY_WINDOW_DAYS +
+    photo not flagged or awaiting revision.
     """
     profile = getattr(user, "crushprofile", None)
     membership = getattr(user, "crush_connect_membership", None)
@@ -490,6 +493,7 @@ def is_catalogue_eligible(user) -> bool:
         profile is not None
         and profile.verification_status == "verified"
         and profile.photo_1
+        and profile.photo_review_status not in ("flagged_fake", "needs_revision")
         and profile.is_connect_identity_verified
         and membership is not None
         and profile.is_active
@@ -509,6 +513,7 @@ def is_premium_connect_eligible(user) -> bool:
         profile is not None
         and profile.is_approved
         and profile.photo_1
+        and profile.photo_review_status not in ("flagged_fake", "needs_revision")
         and profile.has_active_premium
         and membership is not None
         and profile.is_active

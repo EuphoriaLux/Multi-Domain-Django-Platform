@@ -24,15 +24,25 @@ from crush_lu.throttling import QuizPinRateThrottle, ratelimit_view
 
 logger = logging.getLogger(__name__)
 
+# A coach judged these images unfit to show. The projector puts the photo in
+# front of the whole room, so no coach, creator or staff privilege reopens it.
+_MODERATED_PHOTO_STATUSES = ("needs_revision", "flagged_fake")
+
 
 def _photo_url(profile):
     """Return the quiz photo URL, or None when ``quiz_display_photo`` would 404.
 
-    Mirrors that view's gates (approved profile with a photo_1). Emitting a URL
-    for an unapproved profile made every projector poll re-request a photo the
-    endpoint refuses; the initials avatar is the intended fallback.
+    Mirrors that view's gates (approved profile with an unmoderated photo_1).
+    Emitting a URL for an unapproved profile made every projector poll
+    re-request a photo the endpoint refuses; the initials avatar is the
+    intended fallback.
     """
-    if profile and profile.is_approved and getattr(profile, "photo_1", None):
+    if (
+        profile
+        and profile.is_approved
+        and getattr(profile, "photo_1", None)
+        and profile.photo_review_status not in _MODERATED_PHOTO_STATUSES
+    ):
         return f"/api/quiz/photo/{profile.user_id}/"
     return None
 
@@ -576,6 +586,12 @@ def quiz_display_photo(request, user_id):
 
     if not profile.is_approved:
         raise Http404("Profile not approved")
+
+    if (
+        profile.photo_review_status in _MODERATED_PHOTO_STATUSES
+        and request.user.pk != profile.user_id
+    ):
+        raise Http404("Photo under moderation")
 
     if not _can_view_quiz_photo(request.user, profile.user_id):
         logger.warning(

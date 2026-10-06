@@ -309,6 +309,13 @@ def event_lobby_person_photo(request, user_id):
     if other is None:
         raise Http404("Photo not found")
 
+    if other.crushprofile.photo_review_status in (
+        "needs_revision",
+        "flagged_fake",
+    ) and not (
+        _user_is_active_coach(request.user) or request.user.is_superuser
+    ):
+        raise Http404("Photo not found")
     photo = other.crushprofile.photo_1
     if not photo:
         raise Http404("Photo not found")
@@ -574,6 +581,16 @@ def lobby_photo(request, event_id, handle):
         # Indistinguishable from an unknown handle — blocks aren't probeable.
         raise Http404("Photo not found")
 
+    # Lobby authorization stays authoritative; add only the moderation rule,
+    # since the generic route has different pair-authorization requirements.
+    if target.user.crushprofile.photo_review_status in (
+        "needs_revision",
+        "flagged_fake",
+    ):
+        if target.user_id != request.user.pk and not (
+            _user_is_active_coach(request.user) or request.user.is_superuser
+        ):
+            raise Http404("Photo not found")
     photo = target.user.crushprofile.photo_1
     if not photo:
         raise Http404("Photo not found")
@@ -597,5 +614,5 @@ def lobby_photo(request, event_id, handle):
     response["Content-Disposition"] = "inline"
     # §13: private browser micro-cache only — every new request re-authorizes,
     # and no shareable URL ever leaves the server.
-    response["Cache-Control"] = "private, max-age=300"
+    response["Cache-Control"] = "private, no-store"
     return response
