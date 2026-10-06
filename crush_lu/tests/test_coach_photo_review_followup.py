@@ -277,6 +277,9 @@ def test_lobby_and_encounter_proxies_deny_moderated_photos(
 
     settings.CRUSH_EVENT_LOBBY_ENABLED = True
     settings.CRUSH_CONNECT_LAUNCHED = True
+    # This fixture stores real bytes locally; don't take the Azure SAS branch
+    # simply because the CI environment supplies a test account name.
+    settings.AZURE_ACCOUNT_NAME = ""
     monkeypatch.setattr(
         CrushProfile._meta.get_field("photo_1"),
         "storage",
@@ -309,8 +312,12 @@ def test_lobby_and_encounter_proxies_deny_moderated_photos(
     own_photo_url = reverse("crush_lu:serve_profile_photo", args=[ben.pk, "photo_1"])
     _login(client, ben)
     assert client.get(lobby_url).status_code == 404
-    assert client.get(own_photo_url).status_code == 200
+    response = client.get(own_photo_url)
+    assert response.status_code == 200
+    assert response.content == b"photo"
     coach = _make_coach()
     client.force_login(coach.user)
     assert client.get(lobby_url).status_code == 404
-    assert client.get(own_photo_url).status_code == 200
+    response = client.get(own_photo_url)
+    assert response.status_code == 200
+    assert response.content == b"photo"
