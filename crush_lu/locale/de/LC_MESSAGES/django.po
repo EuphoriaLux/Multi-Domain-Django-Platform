@@ -2879,7 +2879,7 @@ msgstr "Überspringen"
 
 #: forms_crush_connect.py:380
 msgid "Yes — that's me"
-msgstr ""
+msgstr "Ja – das bin ich"
 
 #: forms_crush_connect.py:381
 #: templates/crush_lu/_pre_screening_display.html:78
@@ -2898,27 +2898,25 @@ msgid ""
 "I agree my clear photo is shown to the few people matched to me each day so "
 "they can guess my questions."
 msgstr ""
+"Ich bin einverstanden, dass mein klares Foto den wenigen Personen, mit denen"
+" ich jeden Tag gematcht werde, gezeigt wird, damit sie meine Fragen "
+"erraten können."
 
 #: forms_crush_connect.py:394
-#, fuzzy
-#| msgid ""
-#| "I understand my Story, first name, age range, languages, interests and the "
-#| "life details I chose to share appear on a blurred-photo card to other "
-#| "members and coaches, and I can be removed from Crush Connect at any time."
 msgid ""
 "I understand my photo, first name, age range and the 3 questions I chose "
 "appear on my card to the members matched with me, and I can be removed from "
 "Crush Connect at any time."
 msgstr ""
-"Ich verstehe, dass meine Story, mein Vorname, meine Altersspanne, meine "
-"Sprachen, meine Interessen und die von mir ausgewählten Lebensdetails auf "
-"einer Karte mit unscharfem Foto für andere Mitglieder und Coaches "
-"erscheinen, und dass ich jederzeit aus Crush Connect entfernt werden kann."
+"Ich verstehe, dass mein Foto, mein Vorname, meine Altersspanne und die 3 von"
+" mir gewählten Fragen auf meiner Karte den Mitgliedern angezeigt werden, mit"
+" denen ich gematcht werde, und dass ich jederzeit aus Crush Connect entfernt"
+" werden kann."
 
 #: forms_crush_connect.py:475
 #, python-format
 msgid "Pick exactly %(n)d questions and answer each about yourself."
-msgstr ""
+msgstr "Wähle genau %(n)d Fragen und beantworte jede über dich selbst."
 
 #: forms_crush_spark.py:19
 msgid ""
@@ -4985,27 +4983,23 @@ msgstr "Bestätigt: %(count)s Registrierung(en)."
 
 #: models/event_lobby.py:291
 msgid "I feel unsafe or uncomfortable"
-msgstr ""
+msgstr "Ich fühle mich unsicher oder unwohl"
 
 #: models/event_lobby.py:292
-#, fuzzy
-#| msgid "Privacy Note:"
 msgid "Privacy concern"
-msgstr "Datenschutzhinweis:"
+msgstr "Datenschutzbedenken"
 
 #: models/event_lobby.py:293
-#, fuzzy
-#| msgid "When did you first meet?"
 msgid "We did not actually meet"
-msgstr "Wann habt ihr euch zum ersten Mal getroffen?"
+msgstr "Wir haben uns nicht wirklich getroffen"
 
 #: models/event_lobby.py:294
 msgid "I no longer want this person visible"
-msgstr ""
+msgstr "Ich möchte diese Person nicht mehr sichtbar haben"
 
 #: models/event_lobby.py:295
 msgid "Another reason"
-msgstr ""
+msgstr "Anderer Grund"
 
 #: models/event_lobby.py:303
 #, fuzzy
@@ -8553,10 +8547,9 @@ msgid "People I've Met"
 msgstr "Meine Begegnungen"
 
 #: services/event_lobby.py:1057
-#, fuzzy, python-format
-#| msgid "%(name)s wants to connect"
+#, python-format
 msgid "%(name)s was added to People I've Met."
-msgstr "%(name)s möchte sich verbinden"
+msgstr "%(name)s wurde zu „Meine Begegnungen“ hinzugefügt."
 
 #: signals.py:1851
 #, python-format
@@ -12398,20 +12391,22 @@ msgstr "Noch keine Nachrichten. Starte das Gespräch!"
 
 #: templates/crush_lu/_connection_request_success.html:7
 #: templates/crush_lu/connection_detail.html:159
-#, fuzzy
-#| msgid "My Crush Sparks"
 msgid "My Crush! declared"
-msgstr "Meine Crush Sparks"
+msgstr "Crush angegeben"
 
 #: templates/crush_lu/_connection_request_success.html:10
 msgid ""
 "Completely private — they'll never know unless your coach makes the "
 "introduction."
 msgstr ""
+"Völlig privat – die Person erfährt nie davon, es sei denn, dein Coach stellt"
+" euch vor."
 
 #: templates/crush_lu/_connection_request_success.html:13
 msgid "Your Crush Coach will call you within 48 hours to talk about it."
 msgstr ""
+"Dein Crush Coach ruft dich innerhalb von 48 Stunden an, um darüber zu "
+"sprechen."
 
 #: templates/crush_lu/_connection_response.html:9
 msgid "Connection Accepted!"
@@ -12812,17 +12807,18 @@ msgid ""
 "and it cannot be undone. Your Crush Coach will call you within 48 hours to "
 "talk about it."
 msgstr ""
+"Deinen Crush erklären? Das bleibt völlig privat – die Person wird nie "
+"benachrichtigt – und lässt sich nicht rückgängig machen. Dein Crush Coach "
+"ruft dich innerhalb von 48 Stunden an, um darüber zu sprechen."
 
 #: templates/crush_lu/_request_connection_form.html:15
 msgid "Tell your coach what happened (optional)..."
-msgstr ""
+msgstr "Erzähle deinem Coach, was passiert ist (optional)..."
 
 #: templates/crush_lu/_request_connection_form.html:18
 #: templates/crush_lu/request_connection.html:45
-#, fuzzy
-#| msgid "Our Crush Coach will review your attendance request"
 msgid "Only your Crush Coach will read this — never your crush."
-msgstr "Unser Crush Coach prüft deine Teilnahmeanfrage"
+msgstr "Das liest nur dein Crush Coach – niemals dein Crush."
 
 #: templates/crush_lu/_request_connection_form.html:23
 msgid "I really enjoyed our chat about"
@@ -19598,10 +19594,8 @@ msgid "Back to Connections"
 msgstr "Zurück zu Verbindungen"
 
 #: templates/crush_lu/connection_detail.html:33
-#, fuzzy
-#| msgid "Go Premium — choose your coach"
 msgid "My Crush! — with your coach"
-msgstr "Premium werden — wähle deinen Coach"
+msgstr "Mein Crush! – mit deinem Coach"
 
 #: templates/crush_lu/connection_detail.html:88
 msgid "Photo visible after contact is shared"
@@ -19617,24 +19611,28 @@ msgid ""
 "It's completely private — %(name)s has not been notified and never will be "
 "unless your coach makes the introduction."
 msgstr ""
+"Das bleibt völlig privat – %(name)s wurde nicht benachrichtigt und wird es "
+"auch nie, es sei denn, dein Coach stellt euch vor."
 
 #: templates/crush_lu/connection_detail.html:168
 msgid ""
 "Your Crush Coach will call you within 48 hours to hear the story and plan "
 "the introduction."
 msgstr ""
+"Dein Crush Coach ruft dich innerhalb von 48 Stunden an, hört deine "
+"Geschichte und plant die Vorstellung."
 
 #: templates/crush_lu/connection_detail.html:172
 msgid ""
 "Want your coach working for you every week? Ask about Crush Connect during "
 "your call."
 msgstr ""
+"Möchtest du, dass dein Coach jede Woche für dich arbeitet? Frag während des "
+"Gesprächs nach Crush Connect."
 
 #: templates/crush_lu/connection_detail.html:179
-#, fuzzy
-#| msgid "Send a note to your coach"
 msgid "What you told your coach:"
-msgstr "Eine Nachricht an deinen Coach senden"
+msgstr "Was du deinem Coach erzählt hast:"
 
 #: templates/crush_lu/connection_detail.html:188
 msgid "Connection Progress"
@@ -25740,10 +25738,8 @@ msgstr ""
 "endet!"
 
 #: templates/crush_lu/event_attendees.html:14
-#, fuzzy
-#| msgid "No problem — your coach will pick someone else for you."
 msgid "Crush declared — your coach will call you"
-msgstr "Kein Problem – dein Coach wählt jemand anderen für dich aus."
+msgstr "Crush angegeben – dein Coach ruft dich an"
 
 #: templates/crush_lu/event_attendees.html:62
 msgid "Connection window closed for this event"
@@ -25754,23 +25750,17 @@ msgid "Try Crush Connect"
 msgstr "Crush Connect ausprobieren"
 
 #: templates/crush_lu/event_attendees.html:71
-#, fuzzy
-#| msgid "Scan to begin your adventure"
 msgid "Find them in your event recap"
-msgstr "Dein Abenteuer beginnen"
+msgstr "Finde die Person in deinem Event-Rückblick"
 
 #: templates/crush_lu/event_attendees.html:75
-#, fuzzy
-#| msgid "Window closed for this event"
 msgid "Crush used for this event"
-msgstr "Fenster für dieses Event geschlossen"
+msgstr "Crush für dieses Event genutzt"
 
 #: templates/crush_lu/event_attendees.html:88
 #: templates/crush_lu/request_connection.html:4
-#, fuzzy
-#| msgid "My Crush"
 msgid "My Crush!"
-msgstr "Mein Crush"
+msgstr "Mein Crush!"
 
 #: templates/crush_lu/event_attendees.html:153
 msgid "Who did you connect with?"
@@ -25796,10 +25786,8 @@ msgstr ""
 " du wirklich getroffen hast, und behalte sie in „Meine Begegnungen“."
 
 #: templates/crush_lu/event_attendees.html:191
-#, fuzzy
-#| msgid "How It Works"
 msgid "My Crush! — How It Works"
-msgstr "So funktioniert's"
+msgstr "Mein Crush! – So funktioniert's"
 
 #: templates/crush_lu/event_attendees.html:194
 msgid ""
@@ -25807,6 +25795,10 @@ msgid ""
 "they'll never be notified. Your Crush Coach will call you within 48 hours to"
 " hear the story and personally arrange the introduction."
 msgstr ""
+"Wer ist dir aufgefallen? Erkläre deinen Crush – das bleibt völlig privat, "
+"und die Person wird nie benachrichtigt. Dein Crush Coach ruft dich innerhalb"
+" von 48 Stunden an, hört deine Geschichte und arrangiert die Vorstellung "
+"persönlich."
 
 #: templates/crush_lu/event_attendees.html:208
 #, python-format
@@ -25816,17 +25808,13 @@ msgstr[0] "Jemand hier möchte sich mit dir verbinden"
 msgstr[1] "%(count)s Personen hier möchten sich mit dir verbinden"
 
 #: templates/crush_lu/event_attendees.html:211
-#, fuzzy
-#| msgid ""
-#| "Browse the room and tap “Request Connection” on anyone who caught your eye. "
-#| "If they're already on your side, it becomes a match instantly."
 msgid ""
 "Browse the room and tap “My Crush!” on anyone who caught your eye. It stays "
 "private — your Crush Coach calls you within 48 hours to talk it through."
 msgstr ""
 "Schau dich im Raum um und tippe bei jedem, der dir aufgefallen ist, auf "
-"„Verbindung anfragen“. Wenn ihr euch beide ausgewählt habt, wird daraus "
-"sofort ein Match."
+"„Mein Crush!“. Das bleibt privat – dein Crush Coach ruft dich innerhalb von "
+"48 Stunden an, um alles mit dir zu besprechen."
 
 #: templates/crush_lu/event_attendees.html:224
 #, python-format
@@ -25834,10 +25822,8 @@ msgid "<strong>%(countdown)s</strong> left to request connections."
 msgstr "<strong>%(countdown)s</strong> übrig, um Verbindungen anzufragen."
 
 #: templates/crush_lu/event_attendees.html:235
-#, fuzzy
-#| msgid "One match per week"
 msgid "One crush per event"
-msgstr "Ein Match pro Woche"
+msgstr "Ein Crush pro Event"
 
 #: templates/crush_lu/event_attendees.html:237
 #, python-format
@@ -25848,19 +25834,23 @@ msgid_plural ""
 "You can declare <strong>%(remaining)s</strong> crushes at this event. Choose"
 " wisely — your coach will call you about them."
 msgstr[0] ""
+"Du kannst bei diesem Event <strong>%(remaining)s</strong> Crush erklären. "
+"Überlege gut – dein Coach ruft dich deshalb an."
 msgstr[1] ""
+"Du kannst bei diesem Event <strong>%(remaining)s</strong> Crushes erklären. "
+"Überlege gut – dein Coach ruft dich deshalb an."
 
 #: templates/crush_lu/event_attendees.html:243
-#, fuzzy
-#| msgid "Quiz created for this event."
 msgid "Crush declared for this event"
-msgstr "Quiz für dieses Event erstellt."
+msgstr "Crush für dieses Event angegeben"
 
 #: templates/crush_lu/event_attendees.html:245
 msgid ""
 "You've used your crush for this event. Your Crush Coach will call you within"
 " 48 hours to talk about it."
 msgstr ""
+"Du hast deinen Crush für dieses Event genutzt. Dein Crush Coach ruft dich "
+"innerhalb von 48 Stunden an, um darüber zu sprechen."
 
 #: templates/crush_lu/event_attendees.html:257
 msgid "How Others See You"
@@ -26460,13 +26450,11 @@ msgstr "Sparen..."
 
 #: templates/crush_lu/event_lobby/lobby_closed.html:19
 msgid "The live lobby has ended"
-msgstr ""
+msgstr "Die Live-Lobby ist beendet"
 
 #: templates/crush_lu/event_lobby/lobby_closed.html:22
-#, fuzzy
-#| msgid "Event Lobby is live"
 msgid "This event's lobby is closed."
-msgstr "Die Event Lobby ist live"
+msgstr "Die Lobby dieses Events ist geschlossen."
 
 #: templates/crush_lu/emails/event_recap.html:56
 #: templates/crush_lu/event_lobby/lobby_locked.html:23
@@ -26483,24 +26471,25 @@ msgid ""
 " who they'd like to meet tonight. Complete your Crush Connect profile before"
 " the event ends and you'll join instantly."
 msgstr ""
+"In der Event-Lobby können eingecheckte Crush-Connect-Mitglieder diskret "
+"zeigen, wen sie heute Abend gern treffen würden. Schließe dein Crush-"
+"Connect-Profil vor Ende des Events ab, und du bist sofort dabei."
 
 #: templates/crush_lu/event_lobby/people_ive_met.html:43
-#, fuzzy
-#| msgid "Nothing here yet."
 msgid "No one here yet"
-msgstr "Hier ist noch nichts."
+msgstr "Noch niemand hier"
 
 #: templates/crush_lu/event_lobby/people_ive_met.html:45
 msgid ""
 "When you and someone you met at an event both confirm it, they'll appear "
 "here."
 msgstr ""
+"Wenn du und jemand, den du bei einem Event getroffen hast, es beide "
+"bestätigen, erscheint die Person hier."
 
 #: templates/crush_lu/event_lobby/person_profile.html:29
-#, fuzzy
-#| msgid "You must consent to use Crush.lu services"
 msgid "You met at a Crush.lu event."
-msgstr "Du musst der Nutzung der Crush.lu-Dienste zustimmen"
+msgstr "Ihr habt euch bei einem Crush.lu-Event getroffen."
 
 #: templates/crush_lu/event_lobby/person_profile.html:44
 #: templates/crush_lu/privacy_policy.html:97
@@ -26509,38 +26498,38 @@ msgstr "Sucht nach"
 
 #: templates/crush_lu/event_lobby/person_profile.html:65
 msgid "Hide or remove this person"
-msgstr ""
+msgstr "Person ausblenden oder entfernen"
 
 #: templates/crush_lu/event_lobby/person_profile.html:69
 msgid ""
 "They will disappear from People I've Met immediately. Your reason and "
 "details are private and reviewed only by Support."
 msgstr ""
+"Die Person verschwindet sofort aus „Meine Begegnungen“. Dein Grund und deine"
+" Angaben sind privat und werden nur vom Support geprüft."
 
 #: templates/crush_lu/event_lobby/person_profile.html:79
-#, fuzzy
-#| msgid "Select reason..."
 msgid "Select a reason"
-msgstr "Grund auswählen..."
+msgstr "Grund auswählen"
 
 #: templates/crush_lu/event_lobby/person_profile.html:87
-#, fuzzy
-#| msgid "Notes (optional)"
 msgid "Private details (optional)"
-msgstr "Notizen (optional)"
+msgstr "Private Angaben (optional)"
 
 #: templates/crush_lu/event_lobby/person_profile.html:91
 msgid "Tell Support anything they should know."
-msgstr ""
+msgstr "Sag dem Support alles, was er wissen sollte."
 
 #: templates/crush_lu/event_lobby/person_profile.html:94
 msgid "Hide person and request review"
-msgstr ""
+msgstr "Person ausblenden und Prüfung anfordern"
 
 #: templates/crush_lu/event_lobby/person_profile.html:101
 msgid ""
 "A permanent record of a real-world meeting. Say hi next time you see them."
 msgstr ""
+"Ein bleibender Eintrag über eine echte Begegnung. Sag Hallo, wenn du die "
+"Person das nächste Mal siehst."
 
 #: templates/crush_lu/event_lobby/recap.html:4
 #: templates/crush_lu/event_lobby/recap.html:28
@@ -29523,10 +29512,8 @@ msgid "Requests You've Sent"
 msgstr "Von dir gesendete Anfragen"
 
 #: templates/crush_lu/my_connections.html:115
-#, fuzzy
-#| msgid "No problem — your coach will pick someone else for you."
 msgid "My Crush! — your coach will call you"
-msgstr "Kein Problem – dein Coach wählt jemand anderen für dich aus."
+msgstr "Mein Crush! – dein Coach ruft dich an"
 
 #: templates/crush_lu/my_connections.html:148
 msgid "Waiting for response"
@@ -33481,10 +33468,8 @@ msgid "Reconnecting..."
 msgstr "Verbindung wird wiederhergestellt..."
 
 #: templates/crush_lu/request_connection.html:11
-#, fuzzy
-#| msgid "My Crush"
 msgid "My Crush! 💘"
-msgstr "Mein Crush"
+msgstr "Mein Crush! 💘"
 
 #: templates/crush_lu/request_connection.html:43
 msgid "Tell your coach what happened (optional)"
@@ -33521,6 +33506,8 @@ msgid ""
 "Curious how this works every week? Ask your coach about Crush Connect on the"
 " call"
 msgstr ""
+"Neugierig, wie das jede Woche funktioniert? Frag deinen Coach im Gespräch "
+"nach Crush Connect"
 
 #: templates/crush_lu/request_connection.html:74
 msgid ""
@@ -37138,17 +37125,12 @@ msgstr ""
 "treffen möchten."
 
 #: views_connections.py:94
-#, fuzzy
-#| msgid ""
-#| "The connection window for this event has closed. Join the Crush Connect "
-#| "waitlist to keep meeting people year-round."
 msgid ""
 "The connection window for this event has closed. Your connections are always"
 " available here."
 msgstr ""
-"Das Verbindungsfenster für dieses Event ist geschlossen. Trag dich auf der "
-"Crush Connect Warteliste ein, um das ganze Jahr über neue Leute "
-"kennenzulernen."
+"Das Verbindungsfenster für dieses Event ist geschlossen. Deine Verbindungen "
+"findest du hier jederzeit."
 
 #: views_connections.py:302
 msgid "You cannot connect with yourself."
@@ -37160,10 +37142,8 @@ msgstr "Diese Person hat nicht am Event teilgenommen."
 
 #: views_connections.py:327 views_connections.py:349 views_connections.py:491
 #: views_connections.py:530
-#, fuzzy
-#| msgid "You cannot connect with yourself."
 msgid "You cannot connect with this member."
-msgstr "Du kannst dich nicht mit dir selbst verbinden."
+msgstr "Du kannst dich nicht mit diesem Mitglied verbinden."
 
 #: views_connections.py:345 views_connections.py:523
 msgid "You'll find them in your event recap — confirm you met."
@@ -37173,12 +37153,8 @@ msgstr ""
 
 #: views_connections.py:361 views_connections.py:426 views_connections.py:544
 #: views_connections.py:606
-#, fuzzy
-#| msgid "You've already shared your choice and earned <strong>"
 msgid "You've already declared your crush on this person."
-msgstr ""
-"Du hast deine Wahl bereits geteilt und <strong>%(points)s Punkte</strong> "
-"gesammelt."
+msgstr "Du hast diese Person bereits als deinen Crush angegeben."
 
 #: views_connections.py:370 views_connections.py:553
 msgid "Connections open once the event ends."
@@ -37202,6 +37178,8 @@ msgid ""
 "You've already declared your crush for this event. Your Crush Coach will "
 "call you within 48 hours to talk about it."
 msgstr ""
+"Du hast deinen Crush für dieses Event bereits angegeben. Dein Crush Coach "
+"ruft dich innerhalb von 48 Stunden an, um darüber zu sprechen."
 
 #: views_connections.py:433
 msgid ""
@@ -37209,13 +37187,14 @@ msgid ""
 "your coach makes the introduction. Your Crush Coach will call you within 48 "
 "hours to talk about it."
 msgstr ""
+"Crush angegeben 💕 Das bleibt völlig privat – die Person erfährt nie davon, es "
+"sei denn, dein Coach stellt euch vor. Dein Crush Coach ruft dich innerhalb "
+"von 48 Stunden an, um darüber zu sprechen."
 
 #: views_connections.py:724 views_connections.py:726 views_connections.py:739
 #: views_connections.py:741 views_connections.py:984
-#, fuzzy
-#| msgid "This Spark is no longer available."
 msgid "This connection is no longer available."
-msgstr "Dieser Spark ist nicht mehr verfügbar."
+msgstr "Diese Verbindung ist nicht mehr verfügbar."
 
 #: views_connections.py:788
 msgid "You must have attended this event to respond to connections."
@@ -37641,14 +37620,13 @@ msgstr ""
 "erstellen."
 
 #: views_event_lobby.py:281
-#, fuzzy
-#| msgid "Please select a coach."
 msgid "Please select a valid reason."
-msgstr "Bitte wähle einen Coach aus."
+msgstr "Bitte wähle einen gültigen Grund aus."
 
 #: views_event_lobby.py:287
 msgid "This person is now hidden. Support will review your private request."
 msgstr ""
+"Die Person ist jetzt ausgeblendet. Der Support prüft deine private Anfrage."
 
 #: views_event_polls.py:32 views_event_polls.py:78
 msgid "You need a profile to view polls."
@@ -43406,6 +43384,20 @@ msgid ""
 msgstr ""
 "Deine Tipps bleiben privat — sie helfen dir bei deiner Wahl im 24-Stunden-"
 "Review."
+
+#: templates/crush_lu/crush_connect/_cycle_card.html:94
+msgid "Save my guesses"
+msgstr "Tipps speichern"
+
+#: templates/crush_lu/crush_connect/_cycle_card.html:66
+#, python-format
+msgid "You've read %(name)s today."
+msgstr "Du hast %(name)s heute gelesen."
+
+#: templates/crush_lu/crush_connect/_cycle_card.html:18
+#, python-format
+msgid "Connect Week card for %(name)s"
+msgstr "Connect-Week-Karte für %(name)s"
 
 msgid "Your guess:"
 msgstr "Dein Tipp:"
