@@ -790,7 +790,7 @@ def send_weekly_request(session, requester, recipient, request=None):
         # with itself, but not with the FOR KEY SHARE that PostgreSQL's
         # deferred FK checks take at COMMIT. Writers that lock a request first
         # and then insert a ConnectPairExclusion (sync_request_state,
-        # respond_to_weekly_request, block_chat_partner) take that KEY SHARE on
+        # respond_to_weekly_request) take that KEY SHARE on
         # these users at commit, while the pair sync in can_send_weekly_request
         # waits on their request lock, so a plain FOR UPDATE here would
         # deadlock with them. SQLite ignores row locks; this is structural.
