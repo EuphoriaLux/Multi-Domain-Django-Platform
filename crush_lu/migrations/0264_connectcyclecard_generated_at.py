@@ -3,7 +3,7 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    dependencies = [("crush_lu", "0262_backfill_premium_recovery_cases")]
+    dependencies = [("crush_lu", "0263_premium_recovery_resolution")]
 
     operations = [
         # Do not backdate legacy cards to an invented time, or reset their
