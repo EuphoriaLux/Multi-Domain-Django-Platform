@@ -9,15 +9,18 @@ Implements the approved product blueprint (2026-08-17 / Epic 13):
   ("Passt besonders gut zu dir") and single "Ich möchte dich kennenlernen" request.
 - Temporary Connect chat with structured coffee-date planning (partner venues from hub.Location),
   inactivity timeouts, meeting double-confirmation, and 3-day post-meeting countdown.
-- Permanent pair exclusion and 1-click block / report safety mechanisms.
+- Pair cooldowns, permanent refusals, and 1-click block / report safety mechanisms.
 """
 
 from datetime import timedelta
 from django.conf import settings
-from django.db import models, transaction
-from django.db.models import Q
+from django.db import models
+from django.db.models import Exists, F, OuterRef, Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+
+CONNECT_COOLDOWN_DAYS = 30
+# Spec: ai-memory-hub/specs/2026-10-06-crush-connect-week-rolling-cooldown.md
 
 
 class ConnectWeekSession(models.Model):
@@ -125,6 +128,9 @@ class ConnectCycleCard(models.Model):
         related_name="connect_cards_as_target",
     )
     generated_date = models.DateField(db_index=True)
+    # Assignment is the presentation event; we do not track photo impressions.
+    # Legacy cards keep NULL because their exact assignment time is unknown.
+    generated_at = models.DateTimeField(default=timezone.now, null=True, blank=True)
     answers_json = models.JSONField(
         default=dict,
         blank=True,
@@ -412,7 +418,7 @@ class ConnectCoffeeDate(models.Model):
 
 
 class ConnectPairExclusion(models.Model):
-    """Permanent exclusion preventing a pair from ever being suggested or connected again."""
+    """Pair history: refusals/safety are permanent; unanswered expiry can cool down."""
 
     class Reason(models.TextChoices):
         CYCLE_COMPLETED = "cycle_completed", _("Completed Connect cycle")
@@ -463,16 +469,63 @@ class ConnectPairExclusion(models.Model):
     @classmethod
     def exclude_pair(cls, user_1, user_2, reason):
         u_a, u_b = cls.get_canonical_pair(user_1, user_2)
-        return cls.objects.get_or_create(
+        exclusion, created = cls.objects.get_or_create(
             user_a=u_a,
             user_b=u_b,
             defaults={"reason": reason},
+        )
+        if not created and reason != cls.Reason.REQUEST_EXPIRED:
+            # Conditional UPDATE also protects concurrent writers: a temporary
+            # expiry may be promoted, but can never replace a permanent reason.
+            cls.objects.filter(pk=exclusion.pk, reason=cls.Reason.REQUEST_EXPIRED).update(
+                reason=reason
+            )
+            exclusion.refresh_from_db()
+        return exclusion, created
+
+    @classmethod
+    def active(cls, *, now=None):
+        """Active exclusions without deleting history or trusting sync timestamps.
+
+        An expiry cools down 30 elapsed days after the latest request deadline.
+        Historical get_or_create writers could hide a later decline behind an
+        expiry reason, so declined request history independently keeps it closed.
+        Missing original expiry provenance or inconsistent expiry history fails
+        closed: a later unrelated expiry cannot explain an older exclusion row.
+        """
+        cutoff = (now if now is not None else timezone.now()) - timedelta(
+            days=CONNECT_COOLDOWN_DAYS
+        )
+        pair_requests = ConnectWeeklyRequest.objects.filter(
+            Q(requester_id=OuterRef("user_a_id"), recipient_id=OuterRef("user_b_id"))
+            | Q(requester_id=OuterRef("user_b_id"), recipient_id=OuterRef("user_a_id"))
+        )
+        expired = pair_requests.filter(status=ConnectWeeklyRequest.Status.EXPIRED)
+        return cls.objects.annotate(
+            _has_expired_provenance=Exists(
+                expired.filter(expires_at__lte=OuterRef("created_at"))
+            ),
+            _has_ambiguous_expiry=Exists(
+                expired.filter(
+                    Q(responded_at__isnull=False) | Q(expires_at__lt=F("sent_at"))
+                )
+            ),
+            _has_recent_expiry=Exists(expired.filter(expires_at__gt=cutoff)),
+            _has_declined_request=Exists(
+                pair_requests.filter(status=ConnectWeeklyRequest.Status.DECLINED)
+            ),
+        ).filter(
+            ~Q(reason=cls.Reason.REQUEST_EXPIRED)
+            | Q(_has_expired_provenance=False)
+            | Q(_has_ambiguous_expiry=True)
+            | Q(_has_recent_expiry=True)
+            | Q(_has_declined_request=True)
         )
 
     @classmethod
     def are_excluded(cls, user_1, user_2) -> bool:
         u_a, u_b = cls.get_canonical_pair(user_1, user_2)
-        return cls.objects.filter(user_a=u_a, user_b=u_b).exists()
+        return cls.active().filter(user_a=u_a, user_b=u_b).exists()
 
 
 class ConnectReport(models.Model):

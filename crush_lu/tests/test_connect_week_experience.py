@@ -404,15 +404,15 @@ def test_pool_excludes_target_without_gate_questions(settings):
 
 
 @pytest.mark.django_db
-def test_pool_excludes_previously_carded_target(settings):
-    """Cross-cycle freshness: a target already surfaced in ANY of the user's
-    past sessions never reappears — enforced dynamically, not via a
-    permanent ConnectPairExclusion (see the service module docstring)."""
+def test_pool_excludes_recently_carded_target(settings):
+    """A recently assigned card stays excluded after its session ends."""
     settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
     me = _make_cycle_user("me")
     target = _make_cycle_user("target")
     _set_gate_questions(target)
-    old_session = ConnectWeekSession.objects.create(user=me)
+    old_session = ConnectWeekSession.objects.create(
+        user=me, status=ConnectWeekSession.Status.COMPLETED
+    )
     ConnectCycleCard.objects.create(
         session=old_session,
         day_number=1,
