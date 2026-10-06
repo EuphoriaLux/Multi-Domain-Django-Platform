@@ -44500,3 +44500,7 @@ msgstr "Dein Check-in"
 
 msgid "A change of plans?"
 msgstr "Pläne geändert?"
+
+#: crush_lu/templates/crush_lu/event_register.html
+msgid "No payment now; selected applicants are invited to pay."
+msgstr "Jetzt keine Zahlung; ausgewählte Bewerber werden zur Zahlung eingeladen."
