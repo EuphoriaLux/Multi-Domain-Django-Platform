@@ -18,6 +18,8 @@ import logging
 from functools import partial
 from django.conf import settings
 
+from azureproject.storage_shared import local_storage_for_tests
+
 logger = logging.getLogger(__name__)
 
 # Conditional imports for Azure storage
@@ -134,6 +136,9 @@ def entreprinder_upload_path(subfolder: str = ''):
 
 def get_entreprinder_media_storage():
     """Get Entreprinder media storage instance (lazy initialization)."""
+    local = local_storage_for_tests()
+    if local is not None:
+        return local
     try:
         from django.core.files.storage.base import Storage
         storage = EntreprinderMediaStorage()
