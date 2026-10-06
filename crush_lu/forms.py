@@ -122,6 +122,14 @@ class CrushSignupForm(SignupForm):
         consent.marketing_consent_date = timezone.now() if consent.marketing_consent else None
         consent.save()
 
+        # Record marketing consent where marketing audiences look for it.
+        if consent.marketing_consent:
+            from .models import EmailPreference
+
+            EmailPreference.objects.update_or_create(
+                user=user, defaults={"email_marketing": True}
+            )
+
         return user
 
 
