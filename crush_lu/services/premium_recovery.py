@@ -717,21 +717,23 @@ def refund_is_of_unapplied_capture(payment):
     """True when ``payment``'s case proves its capture was never applied, so a
     refund of it settles the case and nothing else (D2/D4).
 
-    Not for a case staff applied (D3: that capture is the membership's), nor
-    for a staff-only case of a known member -- which capture was applied is
-    unknown there, so the sweep's usual path (review) decides."""
+    Only an OPEN case proves it: one resolved any other way (applied, by
+    hand, or before resolutions were recorded) may have had its capture
+    applied. Nor a staff-only case of a known member -- which capture was
+    applied is unknown there. Both take the sweep's usual path."""
     from crush_lu.models import PremiumPaymentRecoveryCase
 
     case = PremiumPaymentRecoveryCase.objects.filter(payment=payment).first()
     return (
         case is not None
-        and case.resolution != PremiumPaymentRecoveryCase.Resolution.APPLIED
+        and case.status == PremiumPaymentRecoveryCase.Status.OPEN
         and (case.member_unknown or not case.staff_only)
     )
 
 
-def record_refund_of_unapplied_capture(payment):
-    """After the sweep wrote the refund (payment row locked): resolve the case.
+def record_refund_on_case(payment):
+    """After the sweep wrote a refund (payment row locked): resolve its case,
+    on either path -- an open case must not keep gating a refunded member.
 
     Lock order stays payment -> case: the hourly retry holds a case lock only
     while it mails, never a payment lock."""
@@ -762,7 +764,10 @@ def apply_case_payment(case_pk, by_user):
         PaymentTransaction,
         PremiumPaymentRecoveryCase,
     )
-    from crush_lu.views_payments import _send_premium_membership_receipt_safely
+    from crush_lu.views_payments import (
+        _premium_purchase_refused,
+        _send_premium_membership_receipt_safely,
+    )
 
     Case = PremiumPaymentRecoveryCase
     payment_id = (
@@ -785,6 +790,13 @@ def apply_case_payment(case_pk, by_user):
                 or payment.premium_membership_id != membership.pk
             ):
                 return "The payment is no longer a capture of this membership."
+            if membership.user_id != case.user_id:
+                # The membership changed hands in the admin since: the
+                # member who paid and agreed is case.user.
+                return "The membership no longer belongs to the case's member."
+            # As at payment completion: revocation wins the race (locked).
+            if _premium_purchase_refused(membership, lock=True):
+                return "The member is no longer a selected beta tester."
             membership.confirm(by_user=by_user)
             resolve_case(case, Case.Resolution.APPLIED, by_user)
             transaction.on_commit(

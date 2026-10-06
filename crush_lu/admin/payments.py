@@ -491,23 +491,29 @@ class PremiumPaymentRecoveryCaseAdmin(admin.ModelAdmin):
 
     @admin.action(description="Apply payment (member agreed to the coach)")
     def apply_payment_member_agreed(self, request, queryset):
+        from crush_lu.services.premium_recovery import bounded_request
+
+        if queryset.count() != 1:
+            # Each one mails a receipt and closes checkouts at SumUp; one per
+            # request keeps that inside the request's one deadline.
+            self.message_user(
+                request, "Apply one case at a time.", level=messages.ERROR
+            )
+            return
+        bounded_request(self._apply_one)(request, queryset.get())
+
+    def _apply_one(self, request, case):
         from crush_lu.services.premium_recovery import apply_case_payment
 
-        applied = 0
-        for case in queryset:
-            error = apply_case_payment(case.pk, request.user)
-            if error:
-                self.message_user(
-                    request,
-                    f"{case.payment.transaction_reference}: {error}",
-                    level=messages.ERROR,
-                )
-            else:
-                applied += 1
-        if applied:
+        error = apply_case_payment(case.pk, request.user)
+        if error:
             self.message_user(
-                request, f"Applied {applied} payment(s); receipts follow by email."
+                request,
+                f"{case.payment.transaction_reference}: {error}",
+                level=messages.ERROR,
             )
+        else:
+            self.message_user(request, "Payment applied; the receipt follows by email.")
 
     def save_model(self, request, obj, form, change):
         # Resolved by hand (any other remedy): record how, when and by whom.

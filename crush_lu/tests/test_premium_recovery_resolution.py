@@ -111,6 +111,32 @@ class UnappliedCaptureRefundTests(_Base):
         # That capture WAS the membership's payment: refunding it ends it.
         self.assertEqual(self.membership.status, "cancelled")
 
+    def test_a_hand_resolved_case_takes_the_usual_path_and_is_recorded(self):
+        # Resolved by hand (or before resolutions existed): its capture may
+        # have been applied, so a refund of it ends the membership as usual.
+        tx, case = self._case("RES-HAND", Reason.COACH_UNAVAILABLE)
+        Case.objects.filter(pk=case.pk).update(
+            status=Case.Status.RESOLVED, resolution=Case.Resolution.OTHER
+        )
+        self.membership.confirm()
+        self.assertEqual(_sweep()._reconcile_refunded(tx, REFUNDED), RECONCILED)
+        self.membership.refresh_from_db()
+        case.refresh_from_db()
+        self.assertEqual(self.membership.status, "cancelled")
+        self.assertEqual(case.resolution, Case.Resolution.REFUNDED)
+
+    def test_usual_path_refund_resolves_an_open_staff_only_case(self):
+        # A backfilled single capture beside a manual confirmation: staff-only,
+        # so the usual path runs -- and must still settle the case.
+        self.membership.confirm(by_user=self.coach.user)
+        tx, case = self._case("RES-STAFF", Reason.DUPLICATE_CAPTURE, staff_only=True)
+        self.assertEqual(_sweep()._reconcile_refunded(tx, REFUNDED), RECONCILED)
+        case.refresh_from_db()
+        self.assertEqual(
+            (case.status, case.resolution),
+            (Case.Status.RESOLVED, Case.Resolution.REFUNDED),
+        )
+
 
 class ApplyCasePaymentTests(_Base):
     def setUp(self):
@@ -162,6 +188,56 @@ class ApplyCasePaymentTests(_Base):
 
         Case.objects.filter(pk=self.case.pk).update(reason=Reason.REQUEST_CANCELLED)
         self.assertTrue(apply_case_payment(self.case.pk, self.staff))
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "pending")
+
+    def test_a_membership_that_changed_hands_is_not_applied(self):
+        from crush_lu.services.premium_recovery import apply_case_payment
+
+        from crush_lu.models import CrushProfile
+
+        newcomer = User.objects.create_user(
+            username="res-newcomer@example.invalid",
+            email="res-newcomer@example.invalid",
+            password="pass12345",
+        )
+        CrushProfile.objects.create(user=newcomer, gender="M")
+        type(self.membership).objects.filter(pk=self.membership.pk).update(
+            user=newcomer
+        )
+        self.assertTrue(apply_case_payment(self.case.pk, self.staff))
+        self.case.refresh_from_db()
+        self.assertEqual(self.case.status, Case.Status.OPEN)
+
+    def test_a_revoked_beta_tester_is_not_granted_premium(self):
+        from django.test import override_settings
+
+        from crush_lu.services.premium_recovery import apply_case_payment
+
+        with override_settings(PREMIUM_REDIRECTS_TO_BETA=True):
+            error = apply_case_payment(self.case.pk, self.staff)
+        self.assertIn("beta", error)
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "pending")
+
+    def test_the_admin_applies_one_case_per_request(self):
+        from unittest.mock import patch
+
+        from crush_lu.admin import crush_admin_site
+
+        model_admin = crush_admin_site._registry[Case]
+        second = Case.objects.create(
+            payment=self._tx("RES-COACH-2", status=PaymentTransaction.Status.PAID),
+            user=self.member,
+            premium_membership=self.membership,
+            reason=Reason.COACH_UNAVAILABLE,
+        )
+        request = SimpleNamespace(user=self.staff)
+        with patch.object(model_admin, "message_user") as message:
+            model_admin.apply_payment_member_agreed(
+                request, Case.objects.filter(pk__in=[self.case.pk, second.pk])
+            )
+        self.assertIn("one case at a time", message.call_args.args[1])
         self.membership.refresh_from_db()
         self.assertEqual(self.membership.status, "pending")
 

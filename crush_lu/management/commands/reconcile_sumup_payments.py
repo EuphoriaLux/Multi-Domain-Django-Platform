@@ -1533,7 +1533,7 @@ class Command(BaseCommand):
                 # they are -- the sibling check and cancel below are for a
                 # refund of the applied payment.
                 self._write_refunded(locked_tx, remote_data, history_evidence)
-                premium_recovery.record_refund_of_unapplied_capture(locked_tx)
+                premium_recovery.record_refund_on_case(locked_tx)
                 self.stdout.write(
                     self.style.SUCCESS(
                         f"Reconciled refund of unapplied capture {ref} "
@@ -1595,6 +1595,9 @@ class Command(BaseCommand):
                 return NEEDS_REVIEW
 
             self._write_refunded(locked_tx, remote_data, history_evidence)
+            # #925: a recovery case on this payment is settled by the refund
+            # too, so it stops gating the member.
+            premium_recovery.record_refund_on_case(locked_tx)
             # A replacement promoted after an earlier late cancellation carries
             # a resale claim backed by THIS payment. Its money is back with
             # the member, so the claim can never settle
