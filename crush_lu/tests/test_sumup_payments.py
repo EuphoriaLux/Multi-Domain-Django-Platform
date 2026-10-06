@@ -1846,7 +1846,12 @@ class PremiumCompletionRevalidationTests(SiteTestMixin, TestCase):
         )
         # ...and silence is not acceptable either: the charge is real, so saying
         # only "Payment completed successfully" reads as an ordinary purchase.
-        self.assertTrue(any("could not activate" in t for t in texts), texts)
+        # #925: the recovery case is written with PAID, so this request already
+        # shows its D1 notice (which replaces the generic "could not activate").
+        self.assertTrue(
+            any(t.startswith("We received your payment of") for t in texts), texts
+        )
+        self.assertFalse(any("completed successfully" in t for t in texts), texts)
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")

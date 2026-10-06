@@ -1,0 +1,15 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+{% comment %}
+#925: a captured Premium payment that was NOT applied. D1 copy + D5; never
+claims the membership is active (that is the receipt's job).
+{% endcomment %}
+
+{% block title %}{% trans "Payment received" %} - Crush.lu{% endblock %}
+{% block header_title %}{% trans "Payment received" %}{% endblock %}
+
+{% block content %}
+<p>{% include "crush_lu/partials/_premium_recovery_copy.html" with payment=payment %}</p>
+
+<p>{% trans "Our team will contact you about the next step." %}</p>
+{% endblock %}

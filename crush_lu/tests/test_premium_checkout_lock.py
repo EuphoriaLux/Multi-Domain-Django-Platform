@@ -232,7 +232,8 @@ class PremiumCheckoutLockTests(TestCase):
         self.assertIn("already received a payment", response.json()["error"])
         self.assertEqual(self.created, [])
         statuses = self._statuses()
-        self.assertEqual(statuses["CHK_OLD_PAID"], "pending")
+        # #925: a capture SumUp already has is applied now, not left PENDING.
+        self.assertEqual(statuses["CHK_OLD_PAID"], "paid")
         self.assertEqual(statuses["CHK_NEWEST"], "cancelled")
         paid = PaymentTransaction.objects.get(sumup_checkout_id="CHK_OLD_PAID")
         self.assertEqual(paid.failure_reason, "")
@@ -246,7 +247,9 @@ class PremiumCheckoutLockTests(TestCase):
         self.assertEqual(response.status_code, 409)
         self.assertIn("already received a payment", response.json()["error"])
         self.assertEqual(self.created, [])
-        self.assertEqual(self._statuses(), {"CHK_PAID": "pending"})
+        # #925: the capture SumUp already has is applied now (a missed webhook
+        # would otherwise leave it PENDING: the hourly sweep reads PAID only).
+        self.assertEqual(self._statuses(), {"CHK_PAID": "paid"})
         self.sumup["deactivate_checkout"].assert_not_called()
 
     def test_membership_cancelled_by_sweep_refuses_the_reused_checkout(self):
@@ -273,6 +276,69 @@ class PremiumCheckoutLockTests(TestCase):
         self.assertEqual(self._statuses(), {"CHK_REUSABLE": "cancelled"})
         row = PaymentTransaction.objects.get(sumup_checkout_id="CHK_REUSABLE")
         self.assertIn("stopped being pending", row.failure_reason)
+
+    def test_refusal_records_a_reused_checkout_captured_meanwhile(self):
+        """#925: a refused publication (here: a merge's lock won) whose kept
+        checkout SumUp captured since the first read records that capture."""
+        self._pending_row("CHK_REUSE_CAP")
+        reads = []
+
+        def _captured_after_first_read(checkout_id):
+            reads.append(checkout_id)
+            remote = dict(self.remote[checkout_id])
+            if len(reads) > 1:
+                remote["status"] = "PAID"
+            return remote
+
+        self.sumup["get_checkout"].side_effect = _captured_after_first_read
+        self.sumup["deactivate_checkout"].side_effect = None
+        self.sumup["deactivate_checkout"].return_value = False
+
+        with patch(
+            "crush_lu.views_payments._lock_member_and_check_blocked",
+            return_value=True,
+        ):
+            response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(self.created, [])
+        self.assertEqual(self._statuses(), {"CHK_REUSE_CAP": "paid"})
+        self.assertEqual(reads, ["CHK_REUSE_CAP", "CHK_REUSE_CAP"])
+
+    def test_recording_found_captures_is_capped_per_click(self):
+        """#925: at most SIBLING_SYNC_LIMIT captures are recorded per click;
+        the hourly tick records the rest beside the first PAID row."""
+        from crush_lu.services.premium_recovery import SIBLING_SYNC_LIMIT
+
+        for n in range(SIBLING_SYNC_LIMIT + 1):
+            self._pending_row(f"CHK_CAP_{n}", status="PAID")
+        self.sumup["deactivate_checkout"].side_effect = None
+        self.sumup["deactivate_checkout"].return_value = False
+
+        with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+            response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(
+            sorted(self._statuses().values()).count("paid"), SIBLING_SYNC_LIMIT
+        )
+
+    def test_open_settle_still_records_a_capture_it_read(self):
+        """#925: a capture read before a later close failed is recorded even
+        though the click answers with the retry refusal."""
+        self._pending_row("CHK_OLDER_STUCK")
+        self._pending_row("CHK_NEWEST_PAID", status="PAID")
+
+        def _deactivate(checkout_id):
+            raise SumUpConfigurationError("transient")
+
+        self.sumup["deactivate_checkout"].side_effect = _deactivate
+
+        with self.assertLogs("crush_lu.views_payments", level="WARNING"):
+            response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(self._statuses()["CHK_NEWEST_PAID"], "paid")
 
     def test_missing_api_key_while_retiring_returns_the_json_refusal(self):
         """A SumUpConfigurationError is a 409 JSON refusal, not an HTML 500."""
@@ -345,7 +411,8 @@ class PremiumCheckoutLockTests(TestCase):
             response = self.client.post(self.url)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(locked, ["PaymentTransaction", "PremiumMembership"])
+        # #925: then the member's User row, to re-check the recovery block.
+        self.assertEqual(locked, ["PaymentTransaction", "PremiumMembership", "User"])
 
     def _deactivate_ok(self):
         self.sumup["deactivate_checkout"].side_effect = None
@@ -398,7 +465,8 @@ class PremiumCheckoutLockTests(TestCase):
 
         self.assertEqual(response.status_code, 409)
         self.assertIn("already received a payment", response.json()["error"])
-        self.assertEqual(self._statuses()["CHK_OLD_DONE"], "pending")
+        # #925: a capture SumUp already has is applied now, not left PENDING.
+        self.assertEqual(self._statuses()["CHK_OLD_DONE"], "paid")
 
     def test_unreadable_newest_checkout_is_left_open(self):
         """A transient read error must not DELETE a possibly live checkout."""
@@ -428,7 +496,9 @@ class PremiumCheckoutLockTests(TestCase):
         self.assertEqual(response.status_code, 409)
         self.assertIn("already received a payment", response.json()["error"])
         self.assertEqual(
-            self._statuses(), {"CHK_OLD_PAID": "pending", "CHK_NEWEST": "cancelled"}
+            # #925: the capture SumUp already has is applied now.
+            self._statuses(),
+            {"CHK_OLD_PAID": "paid", "CHK_NEWEST": "cancelled"},
         )
         row = PaymentTransaction.objects.get(sumup_checkout_id="CHK_NEWEST")
         self.assertNotIn("newer", row.failure_reason)
@@ -444,7 +514,10 @@ class PremiumCheckoutLockTests(TestCase):
             self.client.post(self.url)
 
         reads = [c.args[0] for c in self.sumup["get_checkout"].call_args_list]
+        # One read by the refused close; #925 applies the capture from that
+        # same payload instead of reading again.
         self.assertEqual(reads.count("CHK_OLD_PAID"), 1)
+        self.assertEqual(self._statuses()["CHK_OLD_PAID"], "paid")
 
     def test_checkout_naming_a_previous_coach_is_not_reused(self):
         self._pending_row("CHK_OLD_COACH")
@@ -516,8 +589,9 @@ class PremiumCheckoutLockTests(TestCase):
         self.assertEqual(response.status_code, 409)
         self.assertEqual(self._statuses(), {"CHK_LIVE": "pending"})
 
-    def test_failed_close_after_a_capture_is_retried_next_click(self):
-        """A capture must not hide a reusable checkout that failed to close."""
+    def test_failed_close_after_a_capture_still_records_the_capture(self):
+        """A capture must not hide a reusable checkout that failed to close,
+        and the capture itself is recorded on this very click (#925)."""
         self._pending_row("CHK_OLD_PAID", status="PAID")
         self._pending_row("CHK_NEWEST")
         # SumUp briefly refuses to close the newest one too.
@@ -528,23 +602,11 @@ class PremiumCheckoutLockTests(TestCase):
 
         self.assertEqual(first.status_code, 409)
         self.assertIn("could not be closed", first.json()["error"])
-        self.assertEqual(self._statuses()["CHK_NEWEST"], "pending")
-
-        # Completion records the capture; the next click still closes the rest.
-        PaymentTransaction.objects.filter(sumup_checkout_id="CHK_OLD_PAID").update(
-            status=PaymentTransaction.Status.PAID
-        )
-        self._deactivate_ok()
-
-        with self.assertLogs("crush_lu.views_payments", level="ERROR"):
-            second = self.client.post(self.url)
-
-        self.assertEqual(second.status_code, 409)
-        self.assertIn("already received a payment", second.json()["error"])
+        # The newest stays PENDING beside the new PAID row: the hourly tick
+        # (_close_checkouts_beside_a_capture) closes it.
         self.assertEqual(
-            self._statuses(), {"CHK_OLD_PAID": "paid", "CHK_NEWEST": "cancelled"}
+            self._statuses(), {"CHK_OLD_PAID": "paid", "CHK_NEWEST": "pending"}
         )
-        self.sumup["deactivate_checkout"].assert_called_with("CHK_NEWEST")
         self.assertEqual(self.created, [])
 
     def test_recorded_capture_with_an_unclosable_checkout_asks_to_retry(self):

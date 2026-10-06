@@ -12,6 +12,7 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.db.models import Count, F, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.translation import gettext as _
@@ -20,6 +21,7 @@ from django.views.decorators.http import require_POST
 from .connect_phase import is_selected_beta_tester
 from .models import CrushCoach, CrushProfile, PremiumMembership
 from .ios_app_utils import ios_commerce_suppressed
+from .services import premium_recovery
 
 logger = logging.getLogger(__name__)
 
@@ -72,9 +74,87 @@ def pending_premium_state(user):
         return None
     from .views_payments import _premium_payment_captured, _premium_purchase_refused
 
-    if _premium_payment_captured(pending):
+    from .services.premium_recovery import blocks_new_charge
+
+    # #925: the same rule the checkout endpoint refuses on -- never offer a
+    # pay button that would 409.
+    if _premium_payment_captured(pending) or blocks_new_charge(user):
         return "paid"
     return "manage" if _premium_purchase_refused(pending) else "complete"
+
+
+@premium_recovery.bounded_request
+def _cancel_premium_request(membership, by_user):
+    """#925: cancel unless money moved. Returns ``"cancelled"``, ``"captured"``,
+    ``"open"`` (a checkout could still capture) or None (not pending).
+
+    Closes its PENDING SumUp checkouts first (never refunds), then cancels
+    under the same payment -> membership locks checkout publication takes, so
+    no checkout can be published for a request once it is cancelled."""
+    from .models import PaymentTransaction
+    from .views_payments import (
+        SumUpClient,
+        _apply_paid_checkout,
+        _lock_premium_checkout_state,
+        _premium_payment_captured,
+        _settle_pending_premium_checkouts,
+    )
+
+    # A capture does not end the job: sibling checkouts left PENDING (from
+    # before one-checkout-per-membership) are still closed below.
+    captured = _premium_payment_captured(membership)
+    state, retired_ids = "ok", set()
+    if PaymentTransaction.objects.filter(
+        premium_membership=membership, status=PaymentTransaction.Status.PENDING
+    ).exists():
+        # captured=True closes every PENDING checkout, newest included. One
+        # SumUp already captured is recorded now from the read that found it
+        # (the sweep reads PAID rows only), before the locks below.
+        paid_payloads = {}
+        state, _reuse, retired_ids, _known = _settle_pending_premium_checkouts(
+            SumUpClient(), membership, captured=True, paid_payloads=paid_payloads
+        )
+        # Capped like the recovery close; once one is PAID the hourly tick
+        # closes or records the rest (_close_checkouts_beside_a_capture).
+        from .services.premium_recovery import SIBLING_SYNC_LIMIT
+
+        for row in PaymentTransaction.objects.filter(pk__in=paid_payloads).order_by(
+            "pk"
+        )[:SIBLING_SYNC_LIMIT]:
+            # Always recorded (nothing else would read it again); its mails and
+            # cleanup run on the request's one deadline (bounded_request).
+            _apply_paid_checkout(row, paid_payloads[row.pk])
+    with transaction.atomic():
+        locked, still_pending = _lock_premium_checkout_state(membership.pk, retired_ids)
+        if captured or (locked is not None and _premium_payment_captured(locked)):
+            return "captured"
+        if state == "open" or still_pending:
+            return "open"
+        if locked is None or not locked.cancel(by_user=by_user):
+            return None
+    return "cancelled"
+
+
+def open_recovery_case(user):
+    """The member's OPEN recovery case (#925): pages show it, not a pay CTA.
+
+    Any open case counts while the member has no current (pending/active)
+    request; once one exists, only a case on that request does, so an old
+    case never takes over a new request."""
+    from .models import PremiumPaymentRecoveryCase
+
+    if not user.is_authenticated:
+        return None
+    from .services.premium_recovery import STAFF_ONLY_Q
+
+    # A member-unknown case is the staff opener's to handle, not their own.
+    cases = PremiumPaymentRecoveryCase.objects.filter(
+        user=user, status=PremiumPaymentRecoveryCase.Status.OPEN
+    ).exclude(STAFF_ONLY_Q)
+    current = ("pending", "active")
+    if PremiumMembership.objects.filter(user=user, status__in=current).exists():
+        cases = cases.filter(premium_membership__status__in=current)
+    return cases.select_related("payment").first()
 
 
 def _available_coaches():
@@ -138,8 +218,17 @@ def premium_choose_coach(request):
         messages.info(request, _("You already have a personal coach."))
         return redirect("crush_lu:dashboard")
 
+    # #925: with no current request, an open case blocks a fresh one
+    # (premium_select_coach) -- show the notice, not "Choose" buttons that
+    # can only bounce back here.
+    recovery_case = None if pending else open_recovery_case(request.user)
     context = {
         "coaches": _available_coaches(),
+        "premium_recovery_case": recovery_case,
+        # A staff-only case shows no notice but still blocks a fresh request
+        # (premium_select_coach): offer no "Choose" buttons either.
+        "fresh_request_blocked": not pending
+        and premium_recovery.blocks_new_charge(request.user),
         "pending_membership": pending,
         # "manage" = the beta allowlist refuses this buyer at checkout (403), so
         # the template must not offer the pay button (same predicate as /membership/).
@@ -194,6 +283,16 @@ def premium_select_coach(request, coach_id):
         messages.info(request, _("You already have a personal coach."))
         return redirect("crush_lu:dashboard")
 
+    if not has_pending and premium_recovery.blocks_new_charge(request.user):
+        # #925: an unresolved captured payment must be settled by staff before
+        # a fresh request (and a second charge) can start -- the same rule the
+        # checkout refuses on, staff-only cases of a known member included.
+        messages.info(
+            request,
+            _("We have already received a payment for your Premium request."),
+        )
+        return redirect("crush_lu:premium_choose_coach")
+
     coach = get_object_or_404(CrushCoach, id=coach_id)
     if not coach.can_accept_premium():
         messages.error(
@@ -238,7 +337,23 @@ def premium_cancel_membership(request):
         .select_related("coach__user")
         .first()
     )
-    if membership and membership.cancel(by_user=request.user):
+    outcome = membership and _cancel_premium_request(membership, request.user)
+    if outcome in ("captured", "open"):
+        # #925: cancelling would hide the recovery case (or a capture still in
+        # flight) and reopen checkout for a new request, i.e. a second charge.
+        messages.info(
+            request,
+            (
+                _("We have already received a payment for your Premium request.")
+                if outcome == "captured"
+                else _(
+                    "Your earlier card checkout could not be closed. "
+                    "Please wait and try again."
+                )
+            ),
+        )
+        return redirect("crush_lu:premium_choose_coach")
+    if outcome == "cancelled":
         logger.info(
             "Premium membership %s cancelled by user %s",
             membership.id,

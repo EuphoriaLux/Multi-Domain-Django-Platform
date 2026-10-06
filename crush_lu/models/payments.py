@@ -181,9 +181,11 @@ class PaymentTransaction(models.Model):
             "Immutable event attribution, retained if the registration is deleted."
         ),
     )
+    # PROTECT (#925): deleting a membership while its checkout can still
+    # capture would leave the payment without the member it was for.
     premium_membership = models.ForeignKey(
         "crush_lu.PremiumMembership",
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         null=True,
         blank=True,
         related_name="payment_transactions",

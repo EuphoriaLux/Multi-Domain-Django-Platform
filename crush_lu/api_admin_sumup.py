@@ -35,6 +35,11 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
+from azureproject.graph_email_backend import (
+    GRAPH_CONNECT_TIMEOUT_SECONDS,
+    GRAPH_READ_TIMEOUT_SECONDS,
+)
+
 from crush_lu.api_admin_auth import (
     authenticate_admin_request as _authenticate_admin_request,
 )
@@ -111,7 +116,8 @@ RECONCILIATION_DAYS = 30
 FUNCTION_TIMEOUT_SECONDS = 110
 DEADLINE_MARGIN_SECONDS = 10
 SUMUP_READS_PER_ROW = 2  # checkout plus one history lookup
-GRAPH_SEND_TIMEOUT_SECONDS = 30
+# Both phases of one sendMail request (graph_email_backend's tuple timeout).
+GRAPH_SEND_TIMEOUT_SECONDS = GRAPH_CONNECT_TIMEOUT_SECONDS + GRAPH_READ_TIMEOUT_SECONDS
 EMAILS_PER_RECONCILED_ROW = 2
 WRITE_MARGIN_SECONDS = 5  # locks, row writes, credit void, MSAL token
 MAX_WRITES_PER_RUN = 1
@@ -213,6 +219,33 @@ def _store_cursor(counters):
         )
 
 
+def _retry_premium_recovery(budget_seconds):
+    """#925: resend what failed after a recovery case opened and close the
+    checkouts still left open. Failures are logged inside and never fail the
+    tick; each send, close or read inside starts only while its own worst
+    case still fits ``budget_seconds``."""
+    from crush_lu.services import premium_recovery
+
+    try:
+        return premium_recovery.retry_unsent_notifications(
+            budget_seconds=budget_seconds
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("[sumup_reconciliation] recovery notice retry failed")
+        return 0
+
+
+def _close_premium_checkouts(budget_seconds):
+    """#925: close Premium checkouts that must not stay payable. Failures are
+    logged inside and never fail the tick."""
+    from crush_lu.services import premium_recovery
+
+    try:
+        premium_recovery.close_payable_checkouts(budget_seconds)
+    except Exception:  # noqa: BLE001
+        logger.exception("[sumup_reconciliation] premium checkout close failed")
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def sumup_reconciliation_endpoint(request):
@@ -228,6 +261,14 @@ def sumup_reconciliation_endpoint(request):
 
     if not getattr(settings, _FLAG, False):
         logger.warning("[sumup_reconciliation] skipped: %s is off", _FLAG)
+        # #925: recovery retries are not part of the refund sweep the flag
+        # gates; they run on this tick either way. The skip body stays exactly
+        # {skipped, reason}: the hybrid-maintenance timer
+        # (_check_sumup_reconciliation_counters) fails on any other shape.
+        logger.info(
+            "[sumup_reconciliation] recovery_notices_retried=%s",
+            _retry_premium_recovery(RECONCILIATION_BUDGET_SECONDS),
+        )
         return JsonResponse(
             {"skipped": True, "reason": f"{_FLAG} is off"},
             status=200,
@@ -236,6 +277,9 @@ def sumup_reconciliation_endpoint(request):
     from crush_lu.management.commands.reconcile_sumup_payments import Command
 
     started = timezone.now()
+    # #925: closing a payable Premium checkout comes before the refund sweep,
+    # which is resumable (cursor) and simply gets what this leaves.
+    _close_premium_checkouts(RECONCILIATION_BUDGET_SECONDS)
     buffer = StringIO()
     command = Command(stdout=buffer, stderr=buffer, no_color=True)
     try:
@@ -246,7 +290,10 @@ def sumup_reconciliation_endpoint(request):
             dry_run=False,
             include_partial=False,
             quiet=True,
-            budget_seconds=RECONCILIATION_BUDGET_SECONDS,
+            # What the closures left; run_sweep starts no SumUp read (not
+            # even its history prefetch) unless that read still fits.
+            budget_seconds=RECONCILIATION_BUDGET_SECONDS
+            - (timezone.now() - started).total_seconds(),
             read_reserve_seconds=READ_RESERVE_SECONDS,
             write_reserve_seconds=WRITE_RESERVE_SECONDS,
             max_writes=MAX_WRITES_PER_RUN,
@@ -262,11 +309,16 @@ def sumup_reconciliation_endpoint(request):
 
     _store_cursor(counters)
 
+    recovery_retried = _retry_premium_recovery(
+        RECONCILIATION_BUDGET_SECONDS - (timezone.now() - started).total_seconds()
+    )
+
     body = {"status": "ok", "timestamp": started.isoformat()}
     body.update({key: counters[key] for key in COUNTER_KEYS})
     body["cursor_resumed"] = bool(counters.get("cursor_resumed"))
     # This run finished the pass; the next one starts from the oldest row.
     body["wrapped"] = bool(counters.get("reached_end"))
+    body["recovery_notices_retried"] = recovery_retried
     # One structured line, queryable in App Insights without a database.
     # Counts only — no references, emails or payloads (contract §7.3).
     needs_attention = (

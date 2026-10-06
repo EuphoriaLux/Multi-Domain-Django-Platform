@@ -1,0 +1,1 @@
+{% load i18n %}{% blocktrans trimmed with amount=payment.amount currency=payment.currency reference=payment.transaction_reference %}We received your payment of {{ amount }} {{ currency }}, but it has not been applied to your Premium membership. Please do not pay again. Reference: {{ reference }}. Contact support@crush.lu if you need help.{% endblocktrans %}

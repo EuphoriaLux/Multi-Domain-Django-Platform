@@ -720,13 +720,15 @@ def _receipt_recipient(payment):
     return payment.user
 
 
-def _send_payment_receipt(payment, *, subject_message, template_name, request=None):
+def _send_payment_receipt(
+    payment, *, subject_message, template_name, request=None, recipient=None
+):
     """Render and send a non-marketing receipt for one captured payment."""
     from django.utils import translation
     from django.utils.translation import gettext as _
 
     # NOT payment.user — see _receipt_recipient.
-    user = _receipt_recipient(payment)
+    user = recipient or _receipt_recipient(payment)
     if user is None:
         logger.error(
             "Cannot send payment receipt for transaction %s without a user", payment.id
@@ -781,6 +783,20 @@ def send_premium_membership_payment_receipt(payment, request=None):
         subject_message=gettext_noop("Your Premium membership payment receipt"),
         template_name="crush_lu/emails/premium_membership_payment_receipt.html",
         request=request,
+    )
+
+
+def send_premium_payment_recovery_notice(payment, request=None, recipient=None):
+    """Tell the member a captured Premium payment was not applied (#925).
+
+    ``recipient`` is the case's recorded member: the membership's ``user`` is
+    editable in the admin, and the notice must reach whom the case gates."""
+    return _send_payment_receipt(
+        payment,
+        subject_message=gettext_noop("Payment received"),
+        template_name="crush_lu/emails/premium_payment_recovery_notice.html",
+        request=request,
+        recipient=recipient,
     )
 
 
@@ -1875,9 +1891,7 @@ def send_connect_week_request_notification(recipient, weekly_request, request=No
     else:
         requester_name = requester.first_name
 
-    inbox_url = get_user_language_url(
-        recipient, "crush_lu:connect_week_inbox", request
-    )
+    inbox_url = get_user_language_url(recipient, "crush_lu:connect_week_inbox", request)
 
     context = get_email_context_with_unsubscribe(
         recipient,
