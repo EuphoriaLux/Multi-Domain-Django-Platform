@@ -13,7 +13,7 @@
 The runtime behaviour is covered by ``test_prompt_queue_playwright.py``.
 """
 
-import re
+from html.parser import HTMLParser
 from pathlib import Path
 
 from django.core.cache import cache
@@ -25,8 +25,22 @@ from crush_lu.tests.test_ux_wave3_dashboard import _make_event
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 NATIVE = {"HTTP_X_CRUSH_CLIENT": "ios-app"}
-INSTALL_BUTTON_RE = re.compile(r'<button id="pwa-install-button"[^>]*>')
-DISMISS_BUTTON_RE = re.compile(r'<button id="pwa-dismiss-button"[^>]*>')
+
+
+def _start_tag(html, element_id):
+    """The tag name and attributes of the element with id ``element_id``,
+    read with an HTML parser (attribute order, quoting and entities do not
+    matter, unlike a regex over the markup)."""
+    found = {}
+
+    class _Finder(HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            attrs = dict(attrs)
+            if not found and attrs.get("id") == element_id:
+                found.update(attrs, tag=tag)
+
+    _Finder(convert_charrefs=True).feed(html)
+    return found
 
 
 def _make_eligible_member(username):
@@ -58,11 +72,13 @@ class InstallBannerMarkupTests(TestCase):
 
     def test_install_button_has_accessible_name_and_44px_dismiss(self):
         html = self._get()
-        button = INSTALL_BUTTON_RE.search(html).group(0)
-        self.assertIn('aria-label="Install Crush.lu App"', button)
-        dismiss = DISMISS_BUTTON_RE.search(html).group(0)
-        self.assertIn("w-11", dismiss)
-        self.assertIn("h-11", dismiss)
+        button = _start_tag(html, "pwa-install-button")
+        self.assertEqual(button["tag"], "button")
+        self.assertEqual(button["aria-label"], "Install Crush.lu App")
+        dismiss = _start_tag(html, "pwa-dismiss-button")
+        self.assertEqual(dismiss["tag"], "button")
+        self.assertIn("w-11", dismiss["class"].split())
+        self.assertIn("h-11", dismiss["class"].split())
 
     def test_banner_title_is_not_a_heading(self):
         html = self._get()
@@ -87,8 +103,8 @@ class InstallBannerMarkupTests(TestCase):
 
     def test_fr_install_label_has_no_emoji(self):
         html = self._get("/fr/events/")
-        button = INSTALL_BUTTON_RE.search(html).group(0)
-        self.assertIn('aria-label="Installer l\'app Crush.lu"', button)
+        button = _start_tag(html, "pwa-install-button")
+        self.assertEqual(button["aria-label"], "Installer l'app Crush.lu")
         self.assertNotIn("📲", _install_banner(html))
 
     def test_native_shell_gets_no_install_banner(self):
