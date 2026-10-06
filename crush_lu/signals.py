@@ -40,6 +40,7 @@ from django.utils.translation import gettext_lazy as _
 from azureproject.domains import DEV_DOMAIN_MAPPINGS as _DEV_DOMAIN_MAPPINGS
 from azureproject.domains import DOMAINS as _PLATFORM_DOMAINS
 
+from .social_photos import _safe_exception_text
 from .utils.image_processing import process_uploaded_image
 
 from .models import (
@@ -1361,7 +1362,9 @@ def get_high_res_facebook_photo_url(facebook_id, access_token=None):
         if data.get("data", {}).get("url"):
             return data["data"]["url"]
     except Exception as e:
-        logger.warning(f"Could not get high-res Facebook photo: {str(e)}")
+        logger.warning(
+            f"Could not get high-res Facebook photo: {_safe_exception_text(e)}"
+        )
 
     return None
 

@@ -46,6 +46,25 @@ PROVIDER_DISPLAY_NAMES = {
 }
 
 
+_ACCESS_TOKEN_RE = re.compile(r'access_token=[^&\s)"\']+')
+
+
+def _safe_exception_text(exc):
+    """Render an exception for logging without leaking credentials.
+
+    The Facebook Graph photo requests carry the user's live access token in
+    the query string, and requests' HTTPError / ConnectionError text embeds
+    the full URL. Log the exception class and HTTP status (when a response
+    exists) instead of ``str(exc)``, and redact any ``access_token=`` value
+    that might still appear as a belt-and-braces measure.
+    """
+    text = type(exc).__name__
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    if status is not None:
+        text += f" (HTTP {status})"
+    return _ACCESS_TOKEN_RE.sub("access_token=REDACTED", text)
+
+
 def _get_token_for_account(social_account):
     """Get the SocialToken for a social account, using prefetch if available."""
     try:
@@ -285,7 +304,9 @@ def refresh_social_photo_cache(social_account, token=None, force=False):
             if img_resp.headers.get('Content-Type', '').startswith('image/'):
                 return _persist_social_photo(social_account, img_resp.content)
         except Exception as e:
-            logger.warning(f"Failed to refresh Facebook photo cache: {e}")
+            logger.warning(
+                f"Failed to refresh Facebook photo cache: {_safe_exception_text(e)}"
+            )
         return False
 
     elif provider == 'microsoft':
@@ -355,7 +376,10 @@ def get_facebook_photo_url(social_account):
                 if data.get('data', {}).get('url'):
                     result_url = data['data']['url']
             except Exception as e:
-                logger.warning(f"Could not get high-res Facebook photo: {str(e)}")
+                logger.warning(
+                    "Could not get high-res Facebook photo: "
+                    f"{_safe_exception_text(e)}"
+                )
 
     # Fallback to standard picture from extra_data
     if not result_url and 'picture' in extra_data:
