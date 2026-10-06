@@ -924,6 +924,44 @@ class CaseLifecycleTests(_Base):
         self.assertFalse(PremiumPaymentRecoveryCase.objects.exists())
         self.assertTrue(blocks_new_charge(self.member))
 
+    def test_deploy_migration_backfills_old_unapplied_captures(self):
+        import importlib
+
+        from django.apps import apps
+
+        migration = importlib.import_module(
+            "crush_lu.migrations.0262_backfill_premium_recovery_cases"
+        )
+        unapplied = self._tx("REC-MIG-UNAPPLIED", status=PaymentTransaction.Status.PAID)
+        staff = User.objects.create_user(
+            username="rec-staff6@example.invalid",
+            email="rec-staff6@example.invalid",
+            password="pass12345",
+            is_staff=True,
+        )
+        for _ in range(2):  # idempotent
+            migration.backfill(apps, None)
+        case = PremiumPaymentRecoveryCase.objects.get(payment=unapplied)
+        self.assertEqual(case.reason, Reason.COACH_UNAVAILABLE)
+        self.assertFalse(case.member_unknown)
+        self.assertEqual(PremiumPaymentRecoveryCase.objects.count(), 1)
+        self.assertEqual(mail.outbox, [])
+
+        assisted = self._tx("REC-MIG-ASSISTED", status=PaymentTransaction.Status.PAID)
+        PaymentTransaction.objects.filter(pk=assisted.pk).update(
+            user=staff, premium_membership=None
+        )
+        migration.backfill(apps, None)
+        self.assertTrue(
+            PremiumPaymentRecoveryCase.objects.get(payment=assisted).member_unknown
+        )
+
+    def test_admin_keeps_member_unknown_read_only(self):
+        from crush_lu.admin import crush_admin_site
+
+        model_admin = crush_admin_site._registry[PremiumPaymentRecoveryCase]
+        self.assertIn("member_unknown", model_admin.readonly_fields)
+
     def test_merge_refuses_a_duplicate_with_a_payable_checkout(self):
         from crush_lu.services.account_merge import merge_accounts
 

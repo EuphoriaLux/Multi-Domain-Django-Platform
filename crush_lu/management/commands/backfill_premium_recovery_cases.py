@@ -1,10 +1,11 @@
 """Open #925 recovery cases for Premium captures recorded before cases existed.
 
-Deploy step after migration 0260. Before #925 an unapplied Premium capture
-left only a log line, and replaying its callback returns early on PAID, so
-nothing else ever finds these rows. Preview by default; ``--apply`` writes the
-cases, and the hourly reconciliation tick then sends the member notice and
-staff alert (retry_unsent_notifications). Idempotent: one case per payment.
+Migration 0262 runs the same rules once on deploy; this command is for a
+preview and manual reruns. Before #925 an unapplied Premium capture left only
+a log line, and replaying its callback returns early on PAID, so nothing else
+ever finds these rows. Preview by default; ``--apply`` writes the cases, and
+the hourly reconciliation tick then sends the member notice and staff alert
+(retry_unsent_notifications). Idempotent: one case per payment.
 
 A capture counts as unapplied when its membership never confirmed a payment
 (``payment_confirmed`` is False); when staff confirmed the membership by hand

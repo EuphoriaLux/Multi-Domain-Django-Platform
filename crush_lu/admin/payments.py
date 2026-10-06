@@ -457,6 +457,8 @@ class PremiumPaymentRecoveryCaseAdmin(admin.ModelAdmin):
     readonly_fields = tuple(f for f in list_display if f != "status") + (
         "premium_membership",
         "detail",
+        # Set once at creation; the notice and charge gates read it.
+        "member_unknown",
     )
 
     def has_add_permission(self, request):
