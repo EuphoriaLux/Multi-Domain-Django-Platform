@@ -15,8 +15,9 @@ campaign dashboard's email counts and click rates include it; its unique
 attribution reuses ``/c/<token>/?r=`` tracked links, which also give the
 campaign dashboard its click counts.
 
-The Campaign is left in ``draft``: ``dispatch_campaigns`` only claims
-``scheduled``/``sending`` campaigns, so the Azure timer never touches it.
+The Campaign is created as ``partial``: only drafts can be launched from the
+Coach Panel and ``dispatch_campaigns`` only claims ``scheduled``/``sending``
+campaigns, so neither the dashboard nor the Azure timer can start it.
 """
 
 import logging
@@ -24,7 +25,7 @@ from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.db.models import Exists, F, OuterRef, Q
+from django.db.models import Exists, F, OuterRef
 from django.template.loader import render_to_string
 from django.templatetags.static import static
 from django.utils import timezone, translation
@@ -67,7 +68,10 @@ def get_campaign(create=False):
                 "name": CAMPAIGN_NAME,
                 "channels": [CHANNEL],
                 "audience": "segment",
-                "status": "draft",
+                # Never ``draft``: the Coach Panel offers "Launch campaign" on
+                # drafts, and the generic dispatcher cannot send this bespoke
+                # audience. ``partial`` is not launchable and never claimed.
+                "status": "partial",
             },
         )
         return campaign
@@ -95,15 +99,15 @@ def get_newsletter(campaign):
 def eligible_recipients(include_sent=False):
     """Users who may receive the campaign.
 
-    Active female members, not verified, not on a break, who consented to
-    marketing email and have not unsubscribed.
+    Active female members, not verified, not on a break, whose marketing
+    email preference (``EmailPreference.email_marketing``) is on and who have
+    not unsubscribed.
 
-    Consent has two records: ``EmailPreference.email_marketing`` (the settings
-    toggle) and ``UserDataConsent.marketing_consent`` (the signup tick). Older
-    toggles did not update the signup tick, so the tick only counts while it is
-    newer than the last change to the member's email preferences; any later
-    change to their preferences is read as them having reviewed it, which can
-    only shrink the audience. ``unsubscribed_all`` vetoes both.
+    Deliberately NOT the signup tick (``UserDataConsent.marketing_consent``):
+    the settings toggle used to clear only ``email_marketing`` and left no
+    timestamp, so a stale tick cannot be told apart from a live opt-in. Signup
+    and the consent page now copy the tick into ``email_marketing``, so new
+    consent is recorded where this filter looks. ``unsubscribed_all`` vetoes.
     """
     already_logged = NewsletterRecipient.objects.filter(
         newsletter__campaign__slug=CAMPAIGN_SLUG, user=OuterRef("pk")
@@ -117,15 +121,7 @@ def eligible_recipients(include_sent=False):
             crushprofile__verification_status__in=UNVERIFIED_STATUSES,
         )
         .exclude(email="")
-        .filter(
-            Q(email_preference__email_marketing=True)
-            | Q(
-                data_consent__marketing_consent=True,
-                data_consent__marketing_consent_date__gte=F(
-                    "email_preference__updated_at"
-                ),
-            )
-        )
+        .filter(email_preference__email_marketing=True)
         .exclude(email_preference__unsubscribed_all=True)
         # delete_crushlu_profile_only keeps the user active but bans them.
         .exclude(data_consent__crushlu_banned=True)
@@ -254,7 +250,7 @@ def finalize_status(campaign):
     Mirrors the shared dispatcher: ``sent`` when nothing failed, ``partial``
     for a mix, ``failed`` when nothing was delivered (including every
     recipient skipped). Only once no eligible recipient is left; until then
-    the campaign stays ``draft``. A cancelled campaign is never overwritten.
+    the status is left as is. A cancelled campaign is never overwritten.
     """
     campaign.refresh_from_db(fields=["status"])
     if campaign.status == "cancelled" or eligible_recipients().exists():
@@ -262,6 +258,18 @@ def finalize_status(campaign):
     rows = NewsletterRecipient.objects.filter(newsletter__campaign=campaign)
     if not rows.exists():
         return campaign.status
+    # A claim that never recorded an outcome (interrupted run) is unknown
+    # delivery: count it as failed, like the shared dispatcher does.
+    stuck = rows.filter(status="pending")
+    stuck_count = stuck.update(
+        status="failed",
+        error_message="Interrupted before the outcome was recorded; "
+        "check the mailbox before using --retry-failed.",
+    )
+    if stuck_count:
+        Newsletter.objects.filter(campaign=campaign).update(
+            total_failed=F("total_failed") + stuck_count
+        )
     sent = rows.filter(status="sent").count()
     failed = rows.filter(status="failed").count()
     status = "sent" if sent and not failed else "partial" if sent else "failed"

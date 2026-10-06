@@ -55,6 +55,7 @@ def make_member(name, gender="F", status="incomplete", marketing=True, **profile
     consent, _ = UserDataConsent.objects.get_or_create(user=user)
     consent.marketing_consent = marketing
     consent.marketing_consent_date = timezone.now() if marketing else None
+    EmailPreference.objects.filter(user=user).update(email_marketing=marketing)
     consent.crushlu_consent_given = True
     consent.save()
     EmailPreference.get_or_create_for_user(user)
@@ -89,10 +90,11 @@ class RecipientSelectionTests(TestCase):
         make_member("noconsent", marketing=False)
         self.assertEqual(self.emails(), set())
 
-    def test_settings_toggle_also_counts_as_consent(self):
-        user = make_member("toggle", marketing=False)
-        EmailPreference.objects.filter(user=user).update(email_marketing=True)
-        self.assertEqual(self.emails(), {"toggle@example.com"})
+    def test_signup_tick_alone_is_not_consent(self):
+        # A tick with email_marketing off may be a stale, pre-toggle record.
+        user = make_member("tickonly")
+        EmailPreference.objects.filter(user=user).update(email_marketing=False)
+        self.assertEqual(self.emails(), set())
 
     def test_unsubscribed_all_vetoes_consent(self):
         user = make_member("unsub")
@@ -318,14 +320,6 @@ class ReviewFollowUpTests(TestCase):
         CrushProfile.objects.filter(user=user).update(on_break_at=timezone.now())
         self.assertEqual(eligible_recipients().count(), 0)
 
-    def test_signup_tick_older_than_a_later_preference_change_is_not_consent(self):
-        # Legacy toggle-off: the settings toggle never touched the signup tick.
-        user = make_member("legacy")
-        EmailPreference.objects.filter(user=user).update(
-            email_marketing=False, updated_at=timezone.now() + timedelta(days=1)
-        )
-        self.assertEqual(eligible_recipients().count(), 0)
-
     def test_settings_toggle_off_clears_signup_consent(self):
         user = make_member("toggleoff")
         client = Client(HTTP_HOST=HOST)
@@ -536,3 +530,42 @@ class ReviewRound2Tests(TestCase):
         html = Client(HTTP_HOST=HOST).get("/en/women-1-year/").content.decode()
         self.assertIn("Public Later", html)
         self.assertNotIn("Private 0", html)
+
+
+class ReviewRound3Tests(TestCase):
+    def setUp(self):
+        cache.clear()
+
+    def test_campaign_is_not_launchable_from_the_dashboard(self):
+        self.assertNotEqual(get_campaign(create=True).status, "draft")
+
+    def test_pending_claim_is_failure_in_final_status(self):
+        make_member("done")
+        stuck = make_member("stuck")
+        campaign = get_campaign(create=True)
+        newsletter = get_newsletter(campaign)
+        done = User.objects.get(email="done@example.com")
+        NewsletterRecipient.objects.create(
+            newsletter=newsletter, user=done, email="d", status="sent"
+        )
+        NewsletterRecipient.objects.create(
+            newsletter=newsletter, user=stuck, email="s", status="pending"
+        )
+        self.assertEqual(finalize_status(campaign), "partial")
+        self.assertEqual(NewsletterRecipient.objects.get(user=stuck).status, "failed")
+
+    def test_landing_has_no_nested_main_landmark(self):
+        html = Client(HTTP_HOST=HOST).get("/en/women-1-year/").content.decode()
+        self.assertEqual(html.count("<main"), 1)
+
+    def test_consent_page_records_marketing_in_email_preference(self):
+        user = User.objects.create_user(
+            username="c@example.com", email="c@example.com", password="x12345678"
+        )
+        client = Client(HTTP_HOST=HOST)
+        client.force_login(user)
+        client.post(
+            "/en/consent/confirm/",
+            {"crushlu_consent": "on", "marketing_consent": "on"},
+        )
+        self.assertTrue(EmailPreference.objects.get(user=user).email_marketing)

@@ -31,6 +31,7 @@ from .models import (
     EventConnection,
     ConnectionMessage,
     CoachSession,
+    EmailPreference,
 )
 from .forms import CrushSignupForm
 from .decorators import crush_login_required, ratelimit
@@ -1338,6 +1339,9 @@ def consent_confirm(request):
         consent.marketing_consent = marketing_consent
         consent.marketing_consent_date = timezone.now() if marketing_consent else None
         consent.save()
+        EmailPreference.objects.update_or_create(
+            user=request.user, defaults={"email_marketing": marketing_consent}
+        )
 
         logger.info(f"User {request.user.id} retroactively gave Crush.lu consent")
         messages.success(request, _("Thank you for confirming your consent!"))
