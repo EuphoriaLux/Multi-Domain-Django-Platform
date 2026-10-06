@@ -606,6 +606,14 @@ class ConnectPairExclusionAdmin(admin.ModelAdmin):
     readonly_fields = ["created_at"]
     date_hierarchy = "created_at"
 
+    def get_readonly_fields(self, request, obj=None):
+        # A saved row's reason is fixed: ConnectPairExclusion.exclude_pair()
+        # never lets a temporary REQUEST_EXPIRED replace a permanent reason,
+        # and an admin edit must not bypass that. Delete and re-add instead.
+        if obj is not None:
+            return [*self.readonly_fields, "reason"]
+        return self.readonly_fields
+
 
 class ConnectReportAdmin(admin.ModelAdmin):
     list_display = [
