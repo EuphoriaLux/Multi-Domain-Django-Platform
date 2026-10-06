@@ -41,6 +41,9 @@
                         {% trans "No payment was recorded for this registration, so no Crush Credit is due." %}
                     {% endif %}
                 </p>
+                {% if outcome.kind == "late" and outcome.resale_claimable %}
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{% trans "Crush Credit can only be used when your balance covers the full price of an event; smaller amounts are added to what you already have." %}</p>
+                {% endif %}
                 {% if outcome.kind == "credit" %}
                     {% include "crush_lu/partials/_cancellation_policy_note.html" with policy=cancellation_policy %}
                 {% endif %}

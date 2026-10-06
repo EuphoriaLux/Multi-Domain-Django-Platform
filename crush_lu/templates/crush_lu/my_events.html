@@ -99,9 +99,10 @@
 
                       An application is the opposite case — it holds no seat, and
                       event_ticket gates on SEAT_HOLDING_STATUSES, so this link
-                      would hand an applicant a QR button that only 403s.
+                      would hand an applicant a QR button that only 403s. A waitlisted
+                      registration holds no seat either, so it gets no link too.
                     {% endcomment %}
-                    {% if entry.registration.status != 'applied' %}
+                    {% if entry.registration.status != 'applied' and entry.registration.status != 'waitlist' %}
                     <a href="{% url 'crush_lu:event_ticket' entry.event.id %}" class="inline-flex items-center justify-center gap-1 px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors" aria-label="{% trans 'Ticket' %}">
                         {% include "shared/icons/qr-code.html" with class="w-4 h-4" %}
                     </a>

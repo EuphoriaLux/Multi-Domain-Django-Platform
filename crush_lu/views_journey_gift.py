@@ -273,8 +273,13 @@ def gift_claim(request, gift_code):
             # Reported, claimed or expired since the page loaded.
             messages.error(request, _("This gift is no longer active."))
             return redirect("crush_lu:gift_landing", gift_code=gift_code)
-        except ValueError as e:
-            messages.error(request, str(e))
+        except ValueError:
+            # claim() raises untranslated messages that embed the underlying
+            # DB/storage exception text. Those are persisted to
+            # gift.claim_error_message for staff; the recipient only gets a
+            # generic, translated message.
+            logger.warning("Gift %s claim failed", gift.gift_code, exc_info=True)
+            messages.error(request, _("An error occurred. Please try again."))
             return redirect("crush_lu:gift_landing", gift_code=gift_code)
 
     return render(

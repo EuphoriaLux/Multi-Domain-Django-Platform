@@ -512,3 +512,46 @@ class GiftSenderVerifiedBadgeTests(GiftAbuseTestBase):
         self.assertNotContains(response, "Created by")
         self.assertContains(response, "<strong>Alice</strong>", count=1)
         self.assertNotContains(response, "verified Crush.lu member")
+
+
+class GiftClaimErrorDisclosureTests(GiftAbuseTestBase):
+    """D2-UX-09: a failed claim must not show raw exception text to the recipient."""
+
+    RAW = 'duplicate key value violates unique constraint "crush_lu_sue_pkey"'
+
+    def _failing_claim(self, lang):
+        from unittest import mock
+
+        gift = self._gift(self._user("alice@example.com", approved=True))
+        self._login(self._user("bob@example.com"))
+        with mock.patch(
+            "crush_lu.models.profiles.SpecialUserExperience.objects.create",
+            side_effect=Exception(self.RAW),
+        ):
+            response = self.client.post(
+                f"/{lang}/journey/gift/{gift.gift_code}/claim/", follow=True
+            )
+        return gift, response
+
+    def _assert_generic(self, lang, expected):
+        gift, response = self._failing_claim(lang)
+        texts = [str(m) for m in response.context["messages"]]
+        self.assertEqual(texts, [expected])
+        html = response.content.decode()
+        self.assertNotIn("duplicate key", html)
+        self.assertNotIn("Failed to create", html)
+        self.assertNotIn("crush_lu_sue_pkey", html)
+        # Staff diagnostics keep the full detail.
+        gift.refresh_from_db()
+        self.assertIn(self.RAW, gift.claim_error_message)
+
+    def test_en_shows_generic_message(self):
+        self._assert_generic("en", "An error occurred. Please try again.")
+
+    def test_fr_shows_translated_generic_message(self):
+        self._assert_generic("fr", "Une erreur s'est produite. Veuillez réessayer.")
+
+    def test_de_shows_translated_generic_message(self):
+        self._assert_generic(
+            "de", "Ein Fehler ist aufgetreten. Bitte versuche es erneut."
+        )
