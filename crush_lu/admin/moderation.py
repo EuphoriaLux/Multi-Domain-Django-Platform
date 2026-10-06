@@ -146,3 +146,26 @@ class UserBlockAdmin(admin.ModelAdmin):
         # re-enables contact. Unblocking is a deliberate user action, not an
         # admin convenience.
         return False
+
+
+class ProfilePhotoReviewLogAdmin(admin.ModelAdmin):
+    """Audit log of coach decisions in the photo review swipe deck."""
+
+    list_display = (
+        "coach",
+        "profile",
+        "decision",
+        "reason",
+        "created_at",
+    )
+    list_select_related = ["coach__user", "profile__user"]
+    list_filter = ("decision", "reason", "created_at")
+    search_fields = (
+        "coach__user__first_name",
+        "profile__user__first_name",
+        "profile__user__last_name",
+        "profile__user__email",
+        "notes",
+    )
+    readonly_fields = ("created_at",)
+    date_hierarchy = "created_at"

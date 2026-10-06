@@ -214,7 +214,7 @@ from .crush_connect import (
 
 from .matching import TraitAdmin, MatchScoreAdmin
 
-from .moderation import UserReportAdmin, UserBlockAdmin
+from .moderation import UserReportAdmin, UserBlockAdmin, ProfilePhotoReviewLogAdmin
 
 from .event_lobby import (
     ConfirmedEncounterAdmin,
@@ -368,6 +368,7 @@ from crush_lu.models import (
     CreditRedemption,
     UserReport,
     UserBlock,
+    ProfilePhotoReviewLog,
     EventLobbyParticipation,
     EventMeetSignal,
     EventMeetingConfirmation,
@@ -521,9 +522,10 @@ crush_admin_site.register(ConnectPairExclusion, ConnectPairExclusionAdmin)
 crush_admin_site.register(ConnectReport, ConnectReportAdmin)
 crush_admin_site.register(ConnectCycleFeedback, ConnectCycleFeedbackAdmin)
 
-# Trust & Safety (peer reporting + blocking)
+# Trust & Safety (peer reporting + blocking + photo review)
 crush_admin_site.register(UserReport, UserReportAdmin)
 crush_admin_site.register(UserBlock, UserBlockAdmin)
+crush_admin_site.register(ProfilePhotoReviewLog, ProfilePhotoReviewLogAdmin)
 
 # Event Lobby (read-only oversight)
 crush_admin_site.register(EventLobbyParticipation, EventLobbyParticipationAdmin)

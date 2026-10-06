@@ -201,7 +201,8 @@ def _connect_readiness(user):
     profile_approved = bool(profile and profile.is_approved)
     identity_verified = bool(profile and profile.is_connect_identity_verified)
     event_verified = bool(profile and profile.has_attended_event)
-    has_photo = bool(profile and profile.photo_1)
+    photo_needs_revision = bool(profile and profile.photo_review_status == "needs_revision")
+    has_photo = bool(profile and profile.photo_1 and not photo_needs_revision)
     has_photo_consent = bool(membership and membership.photo_share_consent)
     is_onboarded = bool(membership and membership.is_onboarded)
     has_questions = bool(membership and membership.has_gate_questions)
@@ -242,11 +243,13 @@ def _connect_readiness(user):
         {
             "key": "photo",
             "complete": has_photo,
-            "title": _("Profile photo"),
-            "description": _(
-                "A profile photo is required for your daily Connect suggestions."
+            "title": _("Profile photo review") if photo_needs_revision else _("Profile photo"),
+            "description": (
+                _("A coach requested an updated photo. Please upload a clear photo of yourself.")
+                if photo_needs_revision
+                else _("A profile photo is required for your daily Connect suggestions.")
             ),
-            "cta_label": _("Add a photo"),
+            "cta_label": _("Update photo") if photo_needs_revision else _("Add a photo"),
             "cta_url": reverse("crush_lu:edit_profile") + "?section=photos",
         },
         {
@@ -334,12 +337,18 @@ def _onboarding_gate(request):
 
     # Check for photo_1 (which is optional for events but required for Connect)
     profile = getattr(user, "crushprofile", None)
-    if not user.is_staff and profile and not profile.photo_1:
+    if not user.is_staff and profile and (not profile.photo_1 or profile.photo_review_status == "needs_revision"):
         from django.contrib import messages
 
-        messages.warning(
-            request, _("Please upload a profile photo to join Crush Connect.")
-        )
+        if profile.photo_review_status == "needs_revision":
+            messages.warning(
+                request,
+                _("A coach requested an updated profile photo. Please upload a clear photo showing your face to continue."),
+            )
+        else:
+            messages.warning(
+                request, _("Please upload a profile photo to join Crush Connect.")
+            )
         # Land on the photo section directly, and carry a same-app ``next``
         # back to onboarding instead of stranding the member on the generic
         # profile overview (UX Wave 3, 6-01). The ``next`` URL must carry the

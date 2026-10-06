@@ -662,6 +662,48 @@ class CrushProfile(models.Model):
         upload_to=user_photo_path, blank=True, null=True, storage=crush_photo_storage
     )
 
+    # Online Coach Photo Review / Vetting (for Crush Connect and safe discovery)
+    PHOTO_REVIEW_STATUS_CHOICES = [
+        ("pending", _("Pending Review")),
+        ("approved", _("Approved / Authentic")),
+        ("needs_revision", _("Needs Revision (Unclear / Inappropriate)")),
+        ("flagged_fake", _("Flagged Fake / Suspicious")),
+    ]
+    photo_review_status = models.CharField(
+        max_length=20,
+        choices=PHOTO_REVIEW_STATUS_CHOICES,
+        default="pending",
+        db_index=True,
+        help_text=_("Coach online photo review status for Crush Connect"),
+    )
+    photo_review_key = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        editable=False,
+        help_text=_("Storage key of photo_1 when reviewed; change invalidates review"),
+    )
+    photo_reviewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        editable=False,
+        help_text=_("When the current photo was reviewed by a coach"),
+    )
+    photo_reviewed_by = models.ForeignKey(
+        "crush_lu.CrushCoach",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="photo_reviews_conducted",
+        help_text=_("Coach who reviewed the current photo"),
+    )
+    photo_review_notes = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text=_("Internal note from coach on photo decision"),
+    )
+
     # Privacy Settings
     show_full_name = models.BooleanField(
         default=False,
@@ -1163,6 +1205,16 @@ class CrushProfile(models.Model):
             and self.photo_verification_key == current_key
         )
 
+    @property
+    def is_photo_review_approved(self) -> bool:
+        """Whether the currently displayed primary photo was coach-approved online."""
+        current_key = getattr(self.photo_1, "name", "") or ""
+        return bool(
+            current_key
+            and self.photo_review_status == "approved"
+            and self.photo_review_key == current_key
+        )
+
     def mark_current_photo_verified(
         self, *, verified_at=None, allowed_statuses=("pending", "verified")
     ) -> bool:
@@ -1347,10 +1399,31 @@ class CrushProfile(models.Model):
                     else:
                         self.photo_verification_key = ""
                         self.photo_verified_at = None
+
+                    # Reset online coach photo review on photo change unless carrying forward
+                    if (
+                        old_photo_key
+                        and old_instance.photo_review_key == old_photo_key
+                        and self.photo_review_key == new_photo_key
+                        and self.photo_reviewed_at is not None
+                    ):
+                        pass
+                    else:
+                        self.photo_review_status = "pending"
+                        self.photo_review_key = ""
+                        self.photo_reviewed_at = None
+                        self.photo_reviewed_by = None
+                        self.photo_review_notes = ""
+
                     if update_fields is not None:
                         kwargs["update_fields"] = set(update_fields) | {
                             "photo_verification_key",
                             "photo_verified_at",
+                            "photo_review_status",
+                            "photo_review_key",
+                            "photo_reviewed_at",
+                            "photo_reviewed_by",
+                            "photo_review_notes",
                         }
                 else:
                     # A coach may attest the photo while another request holds

@@ -185,3 +185,52 @@ class UserReport(models.Model):
 
     def __str__(self):
         return f"{self.reporter_id} ⚑ {self.reported_user_id} ({self.status})"
+
+
+class ProfilePhotoReviewLog(models.Model):
+    """Audit log of coach photo review decisions in the swipe queue."""
+
+    DECISION_CHOICES = [
+        ("approved", _("Approved / Authentic")),
+        ("flagged_fake", _("Flagged Fake or Suspicious")),
+        ("needs_revision", _("Needs Revision")),
+        ("skipped", _("Skipped")),
+    ]
+
+    REASON_CHOICES = [
+        ("clear_authentic", _("Clear and authentic photo")),
+        ("fake_profile", _("Fake or impersonating profile")),
+        ("inappropriate", _("Inappropriate or explicit content")),
+        ("unclear_face", _("Face unclear or covered")),
+        ("group_photo", _("Group photo / cannot identify member")),
+        ("other", _("Other")),
+    ]
+
+    profile = models.ForeignKey(
+        "crush_lu.CrushProfile",
+        on_delete=models.CASCADE,
+        related_name="photo_review_logs",
+    )
+    coach = models.ForeignKey(
+        "crush_lu.CrushCoach",
+        on_delete=models.CASCADE,
+        related_name="photo_review_logs",
+    )
+    photo_key = models.CharField(max_length=255)
+    decision = models.CharField(max_length=20, choices=DECISION_CHOICES)
+    reason = models.CharField(max_length=50, blank=True, choices=REASON_CHOICES)
+    notes = models.CharField(max_length=255, blank=True)
+    previous_status = models.CharField(max_length=20, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = _("Profile Photo Review Log")
+        verbose_name_plural = _("Profile Photo Review Logs")
+        indexes = [
+            models.Index(fields=["coach", "-created_at"], name="photo_rev_coach_idx"),
+            models.Index(fields=["profile", "-created_at"], name="photo_rev_prof_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.coach} -> {self.profile} ({self.decision})"
