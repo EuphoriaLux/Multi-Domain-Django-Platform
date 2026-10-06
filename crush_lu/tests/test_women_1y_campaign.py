@@ -711,3 +711,90 @@ class ReviewRound5Tests(TestCase):
                 stderr=StringIO(),
             )
         self.assertEqual(get_campaign().status, "sending")
+
+
+class ReviewRound6Tests(TestCase):
+    def setUp(self):
+        cache.clear()
+        mail.outbox.clear()
+
+    def run_send(self, *extra, **kw):
+        out = StringIO()
+        call_command(
+            "send_women_1y_campaign",
+            "--send",
+            "--delay",
+            "0",
+            "--batch-pause",
+            "0",
+            *extra,
+            stdout=out,
+            stderr=out,
+        )
+        return out.getvalue()
+
+    def test_counters_are_derived_from_receipts(self):
+        from crush_lu.campaign_women_1y import sync_newsletter_counters
+
+        a = make_member("a1")
+        b = make_member("b1")
+        newsletter = get_newsletter(get_campaign(create=True))
+        NewsletterRecipient.objects.create(
+            newsletter=newsletter, user=a, email="a", status="sent"
+        )
+        NewsletterRecipient.objects.create(
+            newsletter=newsletter, user=b, email="b", status="pending"
+        )
+        # Stale, over-counted totals (as after a crash) are corrected.
+        type(newsletter).objects.filter(pk=newsletter.pk).update(
+            total_sent=2, total_failed=1
+        )
+        sync_newsletter_counters(newsletter)
+        newsletter.refresh_from_db()
+        self.assertEqual(
+            (
+                newsletter.total_recipients,
+                newsletter.total_sent,
+                newsletter.total_failed,
+            ),
+            (2, 1, 0),
+        )
+
+    def test_retry_refreshes_error_and_email_snapshot(self):
+        user = make_member("retry")
+        newsletter = get_newsletter(get_campaign(create=True))
+        NewsletterRecipient.objects.create(
+            newsletter=newsletter,
+            user=user,
+            email="old@example.com",
+            status="failed",
+            error_message="boom",
+        )
+        User.objects.filter(pk=user.pk).update(email="new@example.com")
+        self.run_send("--retry-failed")
+        row = NewsletterRecipient.objects.get(user=user)
+        self.assertEqual(
+            (row.status, row.error_message, row.email),
+            ("sent", "", "new@example.com"),
+        )
+        self.assertEqual(mail.outbox[0].to, ["new@example.com"])
+
+    def test_capped_run_reports_the_persisted_status(self):
+        make_member("cap1")
+        make_member("cap2")
+        output = self.run_send("--limit", "1")
+        self.assertIn("campaign=partial", output)
+        self.assertEqual(get_campaign().status, "partial")
+
+    def test_negative_pacing_is_rejected_before_sending(self):
+        make_member("neg")
+        for flag in ("--delay", "--batch-pause"):
+            with self.assertRaises(CommandError):
+                call_command(
+                    "send_women_1y_campaign",
+                    "--send",
+                    flag,
+                    "-1",
+                    stdout=StringIO(),
+                )
+        self.assertEqual(len(mail.outbox), 0)

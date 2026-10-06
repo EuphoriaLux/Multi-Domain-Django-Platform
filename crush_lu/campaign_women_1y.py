@@ -25,7 +25,7 @@ from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.db.models import Exists, F, OuterRef
+from django.db.models import Count, Exists, OuterRef
 from django.template.loader import render_to_string
 from django.templatetags.static import static
 from django.utils import timezone, translation
@@ -94,6 +94,25 @@ def get_newsletter(campaign):
         },
     )
     return newsletter
+
+
+def sync_newsletter_counters(newsletter):
+    """Recompute the dashboard counters from the receipt rows.
+
+    Counters are derived, never incremented: a crash between a receipt update
+    and a counter update can then never leave a recipient counted twice.
+    """
+    counts = dict(
+        NewsletterRecipient.objects.filter(newsletter=newsletter)
+        .values_list("status")
+        .annotate(n=Count("id"))
+    )
+    Newsletter.objects.filter(pk=newsletter.pk).update(
+        total_recipients=sum(counts.values()),
+        total_sent=counts.get("sent", 0),
+        total_failed=counts.get("failed", 0),
+        total_skipped=counts.get("skipped", 0),
+    )
 
 
 def eligible_recipients(include_sent=False):
@@ -261,15 +280,12 @@ def finalize_status(campaign):
     # A claim that never recorded an outcome (interrupted run) is unknown
     # delivery: count it as failed, like the shared dispatcher does.
     stuck = rows.filter(status="pending")
-    stuck_count = stuck.update(
+    if stuck.update(
         status="failed",
         error_message="Interrupted before the outcome was recorded; "
         "check the mailbox before using --retry-failed.",
-    )
-    if stuck_count:
-        Newsletter.objects.filter(campaign=campaign).update(
-            total_failed=F("total_failed") + stuck_count
-        )
+    ):
+        sync_newsletter_counters(get_newsletter(campaign))
     sent = rows.filter(status="sent").count()
     failed = rows.filter(status="failed").count()
     status = "sent" if sent and not failed else "partial" if sent else "failed"

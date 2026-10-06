@@ -34,7 +34,6 @@ import uuid
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.management.base import BaseCommand, CommandError
-from django.db.models import F
 from django.utils import timezone
 
 from crush_lu.campaign_women_1y import (
@@ -45,8 +44,9 @@ from crush_lu.campaign_women_1y import (
     get_campaign,
     get_newsletter,
     send_women_1y_email,
+    sync_newsletter_counters,
 )
-from crush_lu.models import Campaign, Newsletter, NewsletterRecipient
+from crush_lu.models import Campaign, NewsletterRecipient
 from crush_lu.newsletter_service import BATCH_PAUSE_SECONDS, BATCH_SIZE
 from crush_lu.utils.i18n import build_absolute_url
 
@@ -83,6 +83,8 @@ class Command(BaseCommand):
             raise CommandError("--limit must be at least 1.")
         if opts["batch_size"] < 1:
             raise CommandError("--batch-size must be at least 1.")
+        if opts["delay"] < 0 or opts["batch_pause"] < 0:
+            raise CommandError("--delay and --batch-pause must not be negative.")
         if opts["report"]:
             return self._report()
         if opts["test_to"]:
@@ -176,12 +178,6 @@ class Command(BaseCommand):
         if attempted % opts["batch_size"] == 0 and opts["batch_pause"]:
             time.sleep(opts["batch_pause"])
 
-    @staticmethod
-    def _count(newsletter, **deltas):
-        Newsletter.objects.filter(pk=newsletter.pk).update(
-            **{field: F(field) + n for field, n in deltas.items()}
-        )
-
     def _send_locked(self, opts, token):
         campaign = get_campaign(create=True)
         if campaign.status == "cancelled":
@@ -219,15 +215,16 @@ class Command(BaseCommand):
                 user=user,
                 defaults={"email": user.email, "status": "pending"},
             )
-            if created:
-                self._count(newsletter, total_recipients=1)
-            elif row.status != "failed" or not opts["retry_failed"]:
-                skipped += 1
-                continue
-            else:
+            if not created:
+                if row.status != "failed" or not opts["retry_failed"]:
+                    skipped += 1
+                    continue
+                # Reclaim a failed receipt for a fresh attempt.
                 row.status = "pending"
-                row.save(update_fields=["status"])
-                self._count(newsletter, total_failed=-1)
+                row.error_message = ""
+                row.email = user.email
+                row.save(update_fields=["status", "error_message", "email"])
+            sync_newsletter_counters(newsletter)
             attempted += 1
             try:
                 ok = send_women_1y_email(user, campaign)
@@ -237,7 +234,7 @@ class Command(BaseCommand):
                 row.status = "failed"
                 row.error_message = str(exc)[:500]
                 row.save(update_fields=["status", "error_message"])
-                self._count(newsletter, total_failed=1)
+                sync_newsletter_counters(newsletter)
                 failed += 1
                 self.stderr.write(f"failed {user.pk}: {exc}")
                 self._pace(opts, attempted)
@@ -245,14 +242,13 @@ class Command(BaseCommand):
             if ok:
                 row.status = "sent"
                 row.sent_at = timezone.now()
-                self._count(newsletter, total_sent=1)
                 sent += 1
             else:
                 # Suppressed address or no backend delivery: terminal, not retried.
                 row.status = "skipped"
-                self._count(newsletter, total_skipped=1)
                 skipped += 1
             row.save(update_fields=["status", "sent_at"])
+            sync_newsletter_counters(newsletter)
             self._pace(opts, attempted)
         if cache.get(LOCK_KEY) != token:
             # Lost the lock: another run owns the campaign now; leave its state.
@@ -261,6 +257,8 @@ class Command(BaseCommand):
             )
             return
         status = finalize_status(campaign)
+        if status == "sending":
+            status = "partial"  # what the idle-state cleanup persists
         remaining = eligible_recipients().count()
         self.stdout.write(
             self.style.SUCCESS(
