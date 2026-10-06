@@ -46,8 +46,11 @@ def _env_bool(name, default=False):
     return str(val).lower() in ("1", "true", "yes", "on")
 
 
-# Detect if running under pytest test harness
-IS_TESTING = "pytest" in sys.modules or any("pytest" in arg for arg in sys.argv)
+# Detect if running under pytest test harness. pytest is always imported before
+# pytest-django loads these settings, so no argv sniffing is needed (a stray
+# "pytest" in any argument must not count). pytest ships in requirements.txt,
+# so an App Service process (WEBSITE_HOSTNAME set) is never treated as a test.
+IS_TESTING = "pytest" in sys.modules and "WEBSITE_HOSTNAME" not in os.environ
 
 # SECURITY: require SECRET_KEY in production. Allow an explicit dev fallback
 # only when debug is enabled to avoid accidental leakage in production.
