@@ -1368,6 +1368,61 @@ def google_review_url_for(registration):
     return get_review_url()
 
 
+def _recap_can_pick_attendees(registration):
+    """Would the attendee page offer this member a pick right now?
+
+    The recap's "make your picks" nudge for a member with no activity must lead
+    somewhere, so this mirrors ``views_connections.event_attendees`` and
+    ``request_connection`` (read-only, no writes):
+
+    * the viewer passes ``can_make_connections`` (verified attendee; a
+      door-rejected or profile-less member is bounced off the page);
+    * a "My Crush!" declaration is left (``crushes_remaining``: one per event,
+      and every post-event pick is a crush lead, so a member who already
+      declared has nothing left to pick, even though the private lead is hidden
+      from the activity counts above);
+    * at least one other attendee exists whom ``request_connection`` would
+      accept: attended with a verified profile (the recipient needs the same
+      ``can_make_connections``), and not blocked or hidden by an encounter
+      removal.
+
+    While the Event Lobby recap is open, pairs on its roster get a recap button
+    instead of the pick button, and working out who is on it admits members to
+    the lobby (a write). A read-only email stays out of that: it says nothing
+    about picks in that phase.
+    """
+    from .models import EventRegistration
+    from .services.blocking import blocked_user_ids
+    from .services.crush_leads import crushes_remaining
+    from .services.event_lobby import (
+        PHASE_RECAP,
+        event_lobby_phase,
+        hidden_encounter_user_ids,
+        lobby_feature_enabled,
+    )
+
+    user = registration.user
+    event = registration.event
+
+    if not registration.can_make_connections:
+        return False
+    if crushes_remaining(user, event) <= 0:
+        return False
+    if lobby_feature_enabled() and event_lobby_phase(event) == PHASE_RECAP:
+        return False
+    return (
+        EventRegistration.objects.filter(
+            event=event,
+            status="attended",
+            user__crushprofile__verification_status="verified",
+        )
+        .exclude(user=user)
+        .exclude(user_id__in=blocked_user_ids(user))
+        .exclude(user_id__in=hidden_encounter_user_ids(user))
+        .exists()
+    )
+
+
 def send_event_recap(registration, request=None):
     """
     Send a 24h post-event recap email to an attendee.
@@ -1418,22 +1473,7 @@ def send_event_recap(registration, request=None):
 
     has_action = mutual_match_count > 0 or incoming_count > 0
 
-    # The "make your picks" nudge for a member with no activity yet must lead
-    # somewhere. Mirror what views_connections.event_attendees needs before it
-    # renders a roster: a verified attendee (``can_make_connections`` is False
-    # for a door-rejected or profile-less member, who is bounced off that page)
-    # and at least one other attendee who is neither blocked nor hidden.
-    from .models import EventRegistration
-    from .services.blocking import blocked_user_ids
-    from .services.event_lobby import hidden_encounter_user_ids
-
-    can_pick_attendees = registration.can_make_connections and (
-        EventRegistration.objects.filter(event=event, status="attended")
-        .exclude(user=user)
-        .exclude(user_id__in=blocked_user_ids(user))
-        .exclude(user_id__in=hidden_encounter_user_ids(user))
-        .exists()
-    )
+    can_pick_attendees = _recap_can_pick_attendees(registration)
 
     lang = get_user_preferred_language(user=user, request=request, default="en")
 

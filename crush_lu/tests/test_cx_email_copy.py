@@ -25,6 +25,11 @@ Review follow-up (automated review, three P2 findings, each checked in code):
   member AND have someone on it (verified attendee, another attendee who is
   not blocked or hidden); a door-rejected, profile-less or alone member gets
   the plain browse-events ending instead of a link that bounces them;
+* the nudge also needs a pick to be left and someone who can receive it: the
+  member's one "My Crush!" per event is unused, at least one other attendee has
+  a verified profile (``request_connection`` refuses any other recipient), and
+  the Event Lobby recap is not open (its roster pairs get a recap button
+  instead, and resolving it writes lobby rows, which an email must not do);
 * the paid-waitlist "you then complete the payment" bullet is not shown when
   the registration already carries a payment (a late canceller who re-registers
   keeps ``payment_confirmed``; promotion confirms that seat straight away).
@@ -173,7 +178,9 @@ class RecapNudgeTests(_EmailCase):
         outgoing=False,
         viewer_status="verified",
         other_status="attended",
+        other_verification="verified",
         block_other=False,
+        crush_declared=False,
     ):
         from crush_lu.models import EventConnection, UserBlock
 
@@ -186,7 +193,7 @@ class RecapNudgeTests(_EmailCase):
             connection_window_hours=window_hours,
         )
         reg = self._register(member, event, "attended")
-        other = self._member(lang, status="verified")
+        other = self._member(lang, status=other_verification)
         if other_status:
             self._register(other, event, other_status)
         if block_other:
@@ -198,6 +205,16 @@ class RecapNudgeTests(_EmailCase):
         if outgoing:
             EventConnection.objects.create(
                 requester=member, recipient=other, event=event, status="pending"
+            )
+        if crush_declared:
+            # A private "My Crush!" lead: hidden from the activity counts
+            # (excluding_unshared_crushes) but it uses the one-per-event quota.
+            EventConnection.objects.create(
+                requester=member,
+                recipient=other,
+                event=event,
+                status="pending",
+                flow=EventConnection.FLOW_CRUSH,
             )
         html = self._send("send_event_recap", reg, request=None)
         return event, html
@@ -366,6 +383,85 @@ class RecapNudgeTests(_EmailCase):
             with self.subTest(lang=lang):
                 event, html = self._recap(lang, block_other=True)
                 self._assert_plain_ending(lang, event, html)
+
+    def test_member_who_used_their_crush_gets_no_nudge_to_pick_again(self):
+        """Every post-event pick is a crush lead and the quota is one per event.
+        The private lead is hidden from the activity counts, so without the
+        quota check this member would be told to make picks they cannot make."""
+        for lang in LANGS:
+            with self.subTest(lang=lang):
+                event, html = self._recap(lang, crush_declared=True)
+                self.assertTrue(event.connection_window_active)
+                self._assert_plain_ending(lang, event, html)
+
+    def test_attendees_who_cannot_receive_a_pick_do_not_count(self):
+        """``request_connection`` refuses a recipient whose own registration
+        fails ``can_make_connections`` (door-rejected, unverified)."""
+        for lang in LANGS:
+            for status in ("rejected", "pending", "incomplete"):
+                with self.subTest(lang=lang, other_verification=status):
+                    event, html = self._recap(lang, other_verification=status)
+                    self._assert_plain_ending(lang, event, html)
+
+    def test_attendee_without_a_profile_does_not_count(self):
+        from crush_lu.models import EventRegistration
+
+        member = self._member("en", status="verified")
+        event = self._event(
+            start_offset=-timedelta(hours=33), connection_window_hours=48
+        )
+        reg = self._register(member, event, "attended")
+        n = next(_uid)
+        ghost = User.objects.create_user(
+            username=f"cx{n}@example.com",
+            email=f"cx{n}@example.com",
+            password="testpass123",
+        )
+        ghost_reg = self._register(ghost, event, "attended")
+        self.assertFalse(
+            EventRegistration.objects.get(pk=ghost_reg.pk).can_make_connections
+        )
+
+        html = self._send("send_event_recap", reg, request=None)
+
+        self._assert_plain_ending("en", event, html)
+
+    def test_one_pickable_attendee_among_unpickable_ones_is_enough(self):
+        """Control: the unverified guest does not hide the verified one."""
+        member = self._member("en", status="verified")
+        event = self._event(
+            start_offset=-timedelta(hours=33), connection_window_hours=48
+        )
+        reg = self._register(member, event, "attended")
+        self._register(self._member("en", status="rejected"), event, "attended")
+        self._register(self._member("en", status="verified"), event, "attended")
+
+        html = self._send("send_event_recap", reg, request=None)
+
+        self.assertIn("Who caught your eye?", html)
+        self.assertIn(self._attendees_path("en", event), html)
+
+    def test_open_event_lobby_recap_means_no_promise_about_picks(self):
+        """While the lobby recap is open its roster pairs get a recap button
+        instead of the pick button, and resolving that roster admits members
+        (a write), so the read-only email stays silent about picks."""
+        with mock.patch(
+            "crush_lu.services.event_lobby.lobby_feature_enabled",
+            return_value=True,
+        ):
+            for lang in LANGS:
+                with self.subTest(lang=lang):
+                    event, html = self._recap(lang)
+                    self._assert_plain_ending(lang, event, html)
+
+    def test_lobby_feature_off_keeps_the_nudge(self):
+        """Control for the lobby case: the flag is off by default."""
+        with mock.patch(
+            "crush_lu.services.event_lobby.lobby_feature_enabled",
+            return_value=False,
+        ):
+            event, html = self._recap("en")
+        self.assertIn("Who caught your eye?", html)
 
     def test_negative_control_verified_member_with_a_visible_attendee_is_nudged(self):
         event, html = self._recap("en")
