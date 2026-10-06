@@ -58,12 +58,17 @@ class GdprHeadingOutlineTests(TestCase):
         self.assertEqual(levels["Account Deletion"], 2)
         self.assertEqual(levels["Option 1: Delete Crush.lu Profile Only"], 3)
         self.assertEqual(levels["Option 2: Delete your entire account"], 3)
-        # The options follow their section heading.
+        # Both options sit inside the section: after its heading and before
+        # the next heading of level 2 or higher.
         texts = [text for _level, text in headings]
-        section = texts.index("Account Deletion")
-        self.assertGreater(
-            texts.index("Option 1: Delete Crush.lu Profile Only"), section
+        start = texts.index("Account Deletion")
+        end = next(
+            (i for i in range(start + 1, len(headings)) if headings[i][0] <= 2),
+            len(headings),
         )
+        section = texts[start + 1 : end]
+        self.assertIn("Option 1: Delete Crush.lu Profile Only", section)
+        self.assertIn("Option 2: Delete your entire account", section)
         # No heading skips a level below the one before it.
         for (prev, _), (level, text) in zip(headings, headings[1:]):
             self.assertLessEqual(level, prev + 1, f"skipped a level at {text!r}")
