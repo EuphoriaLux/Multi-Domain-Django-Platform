@@ -12,7 +12,7 @@ from django.core import mail
 from django.core.cache import cache
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
 from crush_lu.campaign_women_1y import (
@@ -174,6 +174,7 @@ class CommandTests(TestCase):
         self.assertEqual(len(set(recipients)), 3)
         self.assertEqual(CampaignRecipient.objects.filter(status="sent").count(), 3)
 
+    @override_settings(CRUSH_MEDIA_BASE_URL=None)
     def test_sent_email_content(self):
         self.run_cmd("--send", "--limit", "1", "--delay", "0", "--batch-pause", "0")
         message = mail.outbox[0]
@@ -243,6 +244,7 @@ class LandingRoutingTests(TestCase):
         self.assertIn("/en/women-1-year/go/?utm_source=email", html)
         self.assertIn("poster-frame", html)
 
+    @override_settings(CRUSH_MEDIA_BASE_URL=None)
     def test_landing_degrades_to_poster_without_video_file(self):
         html = self.client.get("/en/women-1-year/").content.decode()
         self.assertNotIn("<video", html)
