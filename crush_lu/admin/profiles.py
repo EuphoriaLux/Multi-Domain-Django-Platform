@@ -2690,24 +2690,33 @@ class PremiumMembershipAdmin(admin.ModelAdmin):
 
     @admin.action(description=_("Confirm payment & assign coach"))
     def confirm_payment(self, request, queryset):
+        from crush_lu.views_payments import _lock_premium_checkout_state
+
         confirmed = 0
         errors = []
         for membership in queryset.select_related("coach", "user"):
             if membership.status == "active":
                 continue
-            # #925: a captured payment awaiting recovery is applied through
-            # its case, which records the resolution the refund sweep reads.
-            if PremiumPaymentRecoveryCase.objects.filter(
-                premium_membership=membership,
-                status=PremiumPaymentRecoveryCase.Status.OPEN,
-            ).exists():
-                errors.append(
-                    f"{membership.user}: open payment recovery case; "
-                    "apply or resolve it there"
-                )
-                continue
             try:
-                membership.confirm(by_user=request.user)
+                with transaction.atomic():
+                    # #925: payments -> membership, the order capture and
+                    # checkout lock in. A capture opening a case on this
+                    # membership either committed first (seen below) or
+                    # waits for this confirmation.
+                    _lock_premium_checkout_state(membership.pk, set())
+                    # A captured payment awaiting recovery is applied through
+                    # its case, which records the resolution the refund sweep
+                    # reads.
+                    if PremiumPaymentRecoveryCase.objects.filter(
+                        premium_membership=membership,
+                        status=PremiumPaymentRecoveryCase.Status.OPEN,
+                    ).exists():
+                        errors.append(
+                            f"{membership.user}: open payment recovery case; "
+                            "apply or resolve it there"
+                        )
+                        continue
+                    membership.confirm(by_user=request.user)
                 confirmed += 1
             except CrushProfile.DoesNotExist:
                 errors.append(f"{membership.user}: no profile")

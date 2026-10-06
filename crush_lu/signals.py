@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import requests
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.contrib.auth.signals import user_logged_in
+from django.contrib.auth.signals import user_logged_in, user_logged_out
 from django.core.files.base import ContentFile
 from django.db.models import Exists, OuterRef, Q
 from django.core.signals import request_finished, request_started
@@ -1728,50 +1728,24 @@ def create_crush_profile_from_facebook(sender, instance, created, **kwargs):
 
 @receiver(user_logged_in)
 def store_oauth_result_for_duplicate_handling(sender, request, user, **kwargs):
-    """
-    Store OAuth result in database for handling duplicate callback requests.
-
-    On Android PWA, duplicate OAuth callbacks can arrive before cookies are committed.
-    The first callback processes successfully but the second sees no session.
-    By storing the result in the database, the second request can recover the auth.
-
-    This signal fires AFTER Allauth successfully logs in the user.
-    We store the user_id and redirect URL so duplicate requests can complete.
-    """
-    # Get state_id from request GET params (should be available on callback URL)
-    state_id = request.GET.get("state")
-    if not state_id:
-        # Not an OAuth login, skip
-        return
+    """Bind recovery to the browser that successfully completed allauth."""
+    from .oauth_recovery import store_callback_result
 
     try:
-        from crush_lu.models import OAuthState
+        store_callback_result(request, user)
+    except Exception:
+        # Recovery is optional; the successfully authenticated session survives.
+        logger.exception("[OAUTH-RESULT] Could not issue callback recovery proof")
 
-        # Determine redirect URL based on profile existence
-        has_profile = hasattr(user, "crushprofile")
-        redirect_url = "/dashboard/" if has_profile else "/create-profile/"
 
-        # Update the OAuth state with completion info
-        updated = OAuthState.objects.filter(state_id=state_id).update(
-            auth_completed=True,
-            auth_user_id=user.id,
-            auth_redirect_url=redirect_url,
-            last_callback_at=timezone.now(),
-        )
+@receiver(user_logged_out)
+def revoke_oauth_result_on_logout(sender, request, **kwargs):
+    from .oauth_recovery import revoke_callback_recovery
 
-        if updated:
-            logger.info(
-                f"[OAUTH-RESULT] Stored OAuth result for state {state_id[:8]}... "
-                f"(user_id={user.id}, redirect={redirect_url})"
-            )
-        else:
-            logger.warning(
-                f"[OAUTH-RESULT] Could not find OAuth state {state_id[:8]}... to store result"
-            )
-
-    except Exception as e:
-        # Non-critical - just log and continue
-        logger.error(f"[OAUTH-RESULT] Error storing OAuth result: {e}")
+    try:
+        revoke_callback_recovery(request)
+    except Exception:
+        logger.exception("[OAUTH-RESULT] Could not revoke callback recovery proof")
 
 
 @receiver(user_logged_in)

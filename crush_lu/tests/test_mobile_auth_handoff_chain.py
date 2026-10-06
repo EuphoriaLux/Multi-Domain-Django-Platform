@@ -238,19 +238,18 @@ def test_handoff_resumes_when_session_is_lost_entirely(crush_client, google_user
     """The replayed-callback path: OAuthCallbackProtectionMiddleware sends the
     user to /oauth/landing/?state=..., which logs them in from the database
     against a brand-new session carrying no handoff flag. The handoff must
-    still be recovered — from the OAuth state."""
-    from crush_lu.models import OAuthState
-
+    still be recovered with callback-issued proof and the OAuth metadata."""
     crush_client.get(HANDOFF_PATH, {"redirect_uri": "crushlu://auth"})
     state_id = _start_provider_login(crush_client, "/accounts/google/login/")
     _finish_provider_login(crush_client, state_id)
 
-    # Simulate the duplicate callback arriving with no usable session at all.
-    OAuthState.objects.filter(state_id=state_id).update(
-        auth_completed=True, auth_user_id=google_user.id
-    )
+    # The callback browser loses its session cookie, but retains the
+    # independent proof issued only after successful provider authentication.
+    from crush_lu.oauth_recovery import RECOVERY_COOKIE
+
     fresh = Client()
     fresh.defaults["HTTP_HOST"] = "crush.lu"
+    fresh.cookies[RECOVERY_COOKIE] = crush_client.cookies[RECOVERY_COOKIE].value
     assert SESSION_KEY not in fresh.session
 
     # /en/... directly: LocaleMiddleware would otherwise spend a redirect
@@ -263,7 +262,7 @@ def test_handoff_resumes_when_session_is_lost_entirely(crush_client, google_user
     ]
 
 
-def _callback_request_without_session(state_id):
+def _callback_request_without_session(state_id, browser_proof=None):
     from django.contrib.sessions.backends.db import SessionStore
     from django.test import RequestFactory
 
@@ -271,6 +270,10 @@ def _callback_request_without_session(state_id):
         "/accounts/google/login/callback/", {"state": state_id, "code": "x"}
     )
     request.session = SessionStore()
+    if browser_proof:
+        from crush_lu.oauth_recovery import BROWSER_COOKIE
+
+        request.COOKIES[BROWSER_COOKIE] = browser_proof
     return request
 
 
@@ -288,7 +291,11 @@ def test_lost_session_callback_restores_the_ios_marker(crush_client, google_user
     crush_client.get(HANDOFF_PATH, {"redirect_uri": "crushlu://auth"})
     state_id = _start_provider_login(crush_client, "/accounts/google/login/")
 
-    request = _callback_request_without_session(state_id)
+    from crush_lu.oauth_recovery import BROWSER_COOKIE
+
+    request = _callback_request_without_session(
+        state_id, crush_client.cookies[BROWSER_COOKIE].value
+    )
     assert not is_ios_tracking_suppressed(request)
 
     assert statekit.unstash_state(request, state_id) is not None
@@ -338,7 +345,11 @@ def test_lost_session_callback_without_a_handoff_stays_a_web_login(
     ensure_patched()
     state_id = _start_provider_login(crush_client, "/accounts/google/login/")
 
-    request = _callback_request_without_session(state_id)
+    from crush_lu.oauth_recovery import BROWSER_COOKIE
+
+    request = _callback_request_without_session(
+        state_id, crush_client.cookies[BROWSER_COOKIE].value
+    )
     assert statekit.unstash_state(request, state_id) is not None
 
     assert SESSION_KEY not in request.session

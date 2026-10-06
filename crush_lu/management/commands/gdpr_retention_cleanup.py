@@ -40,6 +40,7 @@ from django.utils import timezone
 
 from crush_lu.models.custom_sms import CustomSmsBatch
 from crush_lu.models.events import CuratedEventGroup, EventRegistrationPreference
+from crush_lu.models.oauth_state import OAuthState
 from crush_lu.models.phone_otp import PhoneOTP
 from crush_lu.models.profiles import CallAttempt, DailyUserActivity
 
@@ -129,17 +130,29 @@ class Command(BaseCommand):
         total_deleted = 0
         budget_hit = False
 
+        # Expired OAuth states include client metadata and no longer have
+        # operational value. Reuse the scheduled sweep's bounded deletion.
+        oauth_qs = OAuthState.objects.filter(expires_at__lte=now)
+        if apply_changes:
+            deleted, budget_hit = self._delete_in_chunks(
+                oauth_qs, deadline, order_by="expires_at"
+            )
+            total_deleted += deleted
+            self.stdout.write(f"  Expired OAuthState: deleted {deleted}")
+        else:
+            self.stdout.write(f"  Expired OAuthState: {oauth_qs.count()} row(s)")
+
         # 1. PhoneOTP — phone number + code hash, worthless after expiry.
         otp_qs = PhoneOTP.objects.filter(
             created_at__lt=now - timedelta(days=phone_days)
         )
-        if apply_changes:
+        if apply_changes and not budget_hit:
             deleted, budget_hit = self._delete_in_chunks(
                 otp_qs, deadline, order_by="created_at"
             )
             total_deleted += deleted
             self.stdout.write(f"  PhoneOTP older than {phone_days}d: deleted {deleted}")
-        else:
+        elif not apply_changes:
             self.stdout.write(
                 f"  PhoneOTP older than {phone_days}d: {otp_qs.count()} row(s)"
             )

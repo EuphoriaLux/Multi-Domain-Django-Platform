@@ -649,7 +649,11 @@ class TestCoachRosterCountsEachRegistrationOnce:
         assert rows["Eve"]["arrival"] == "No-show"
         # The cancelled / refunded member never looks ready to attend.
         assert "Fay" not in rows
-        html = response.content.decode()
+        # Drop the random CSRF token and CSP nonce first: a token that happens
+        # to contain "Fay" (about 1 run in 3,000) would otherwise fail this.
+        html = re.sub(
+            r'(?:value|nonce)="[A-Za-z0-9_-]{20,}"', "", response.content.decode()
+        )
         assert "Fay" not in html
 
     def test_curated_free_event_says_no_payment_required(self, client):
