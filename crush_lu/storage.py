@@ -33,6 +33,8 @@ from datetime import datetime, timedelta, timezone
 from django.conf import settings
 from django.core.cache import cache
 
+from azureproject.storage_shared import local_storage_for_tests
+
 logger = logging.getLogger(__name__)
 
 # Conditional imports for Azure storage (only available in production)
@@ -586,6 +588,9 @@ def shared_upload_path(subfolder: str = ''):
 
 def get_crush_media_storage():
     """Get Crush.lu media storage instance (lazy initialization)."""
+    local = local_storage_for_tests()
+    if local is not None:
+        return local
     return CrushMediaStorage()
 
 # Alias for backward compatibility and convenience
