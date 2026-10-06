@@ -1081,6 +1081,31 @@ def create_sumup_premium_checkout(request, membership_id):
             _apply_paid_checkout(row, paid_payloads[row.pk])
         return _premium_checkout_retry_response(membership)
 
+    # #925: the SumUp calls below start only while their worst case still fits
+    # the request's one deadline (bounded_request): creating a checkout
+    # (customer, checkout) plus a possible final deactivate, or a reused
+    # checkout's possible close (a DELETE and one read). Settlement above may
+    # already have spent most of it.
+    from crush_lu.management.commands.reconcile_sumup_payments import (
+        SUMUP_REQUEST_WORST_CASE_SECONDS,
+    )
+
+    sumup_calls = 2 if reuse_row is not None else 3
+    if not premium_recovery.fits(sumup_calls * SUMUP_REQUEST_WORST_CASE_SECONDS):
+        logger.warning(
+            "Premium checkout for membership %s deferred: the request deadline "
+            "no longer fits its SumUp calls.",
+            membership.id,
+        )
+        return JsonResponse(
+            {
+                "error": _(
+                    "Unable to initiate payment at the moment. Please try again later."
+                )
+            },
+            status=503,
+        )
+
     if reuse_row is not None:
         checkout_ref = reuse_row.transaction_reference
         checkout_id = reuse_row.sumup_checkout_id
