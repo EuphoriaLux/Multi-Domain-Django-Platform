@@ -142,6 +142,7 @@ def get_cycle_eligible_pool(user):
         user_profile is None
         or not user_profile.is_approved
         or not user_profile.is_active
+        or user_profile.photo_review_status in ("needs_revision", "flagged_fake")
         or not user.is_active
     ):
         return User.objects.none()
@@ -205,6 +206,9 @@ def get_cycle_eligible_pool(user):
             last_login__gte=inactivity_cutoff,
         )
         .exclude(Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True))
+        .exclude(
+            crushprofile__photo_review_status__in=["needs_revision", "flagged_fake"]
+        )
         .exclude(pk__in=already_carded_ids)
         .exclude(pk__in=excluded_ids)
         .exclude(pk=user.pk)

@@ -154,6 +154,7 @@ from . import views_crush_spark
 from . import views_ticket
 from . import views_quiz
 from . import views_coach as views_coach_module
+from . import views_coach_photos
 from . import views_quiz_config
 from . import views_crush_cache
 from . import views_changelog
@@ -679,6 +680,10 @@ urlpatterns = [
     path('notifications/', views.notifications_page, name='notifications'),
     path('coach/profiles/', views.coach_profiles, name='coach_profiles'),
     path('coach/unverified/', views.coach_unverified_profiles, name='coach_unverified_profiles'),
+    path('coach/photo-review/', views_coach_photos.coach_photo_review_deck, name='coach_photo_review_deck'),
+    path('coach/photo-review/decide/', views_coach_photos.coach_photo_review_decide, name='coach_photo_review_decide'),
+    path('coach/photo-review/undo/', views_coach_photos.coach_photo_review_undo, name='coach_photo_review_undo'),
+    path('coach/photo-review/more/', views_coach_photos.coach_photo_review_more, name='coach_photo_review_more'),
     path('coach/members/', views.coach_members, name='coach_members'),
     path('coach/profile/edit/', views.coach_edit_profile, name='coach_edit_profile'),
     path('coach/review/<int:submission_id>/', views.coach_review_profile, name='coach_review_profile'),

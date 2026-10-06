@@ -591,6 +591,7 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
         "export_profiles_csv",
         "send_bulk_email",
         "merge_accounts",
+        "lift_photo_review_moderation",
     ]
     inlines = [ProfileSubmissionProfileInline]
     change_list_template = "admin/crush_lu/crushprofile/change_list.html"
@@ -1639,6 +1640,77 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
             )
         else:
             django_messages.warning(request, _("No profiles selected."))
+
+    @admin.action(
+        description=_("Lift photo review flag (send photo back to coach review)")
+    )
+    def lift_photo_review_moderation(self, request, queryset):
+        """Return a coach-moderated photo to the coach review queue.
+
+        The only path that lifts a fake flag (a new upload never does) or a
+        revision request once the reviewing coach's 15-minute Undo is gone.
+        The current photo is reviewed again; a coach exclusion is a separate
+        lever with its own audit (Crush Connect membership admin) and stays.
+        Audited in the admin history of each profile.
+        """
+        from crush_lu.models import CrushConnectMembership
+
+        moderated = ("flagged_fake", "needs_revision")
+        lifted = still_excluded = 0
+        candidates = queryset.filter(photo_review_status__in=moderated)
+        for pk in candidates.values_list("pk", flat=True):
+            with transaction.atomic():
+                profile = (
+                    CrushProfile.objects.select_for_update(of=("self",))
+                    .select_related("user")
+                    .filter(pk=pk)
+                    .first()
+                )
+                if profile is None or profile.photo_review_status not in moderated:
+                    continue
+                old_status = profile.photo_review_status
+                if not CrushProfile.objects.filter(
+                    pk=pk, photo_review_status=old_status
+                ).update(
+                    photo_review_status="pending",
+                    photo_review_key="",
+                    photo_reviewed_at=None,
+                    photo_reviewed_by=None,
+                    photo_review_notes="",
+                ):
+                    continue
+                self.log_change(
+                    request,
+                    profile,
+                    f"Lifted photo review status '{old_status}' -> 'pending'",
+                )
+            lifted += 1
+            still_excluded += CrushConnectMembership.objects.filter(
+                user_id=profile.user_id, excluded_by_coach=True
+            ).exists()
+
+        if not lifted:
+            django_messages.warning(
+                request, _("No selected profile has a flagged or revision photo.")
+            )
+            return
+        django_messages.success(
+            request,
+            _(
+                "Lifted the photo review decision for %(count)s profile(s). "
+                "Their current photo is back in the coach review queue."
+            )
+            % {"count": lifted},
+        )
+        if still_excluded:
+            django_messages.warning(
+                request,
+                _(
+                    "%(count)s of them are still excluded from Crush Connect. "
+                    "Review that exclusion in the Crush Connect membership admin."
+                )
+                % {"count": still_excluded},
+            )
 
     @admin.action(description=_("Sync selected profiles to Outlook contacts"))
     def sync_to_outlook(self, request, queryset):

@@ -235,7 +235,11 @@ def crush_connect_teaser(request):
         profile = getattr(request.user, "crushprofile", None)
         if profile and profile.is_approved:
             membership = getattr(request.user, "crush_connect_membership", None)
-            excluded = membership and membership.excluded_by_coach
+            # A fake-photo flag bounces like an exclusion from every Connect
+            # gate; redirecting onward would loop teaser <-> gate.
+            excluded = (
+                membership and membership.excluded_by_coach
+            ) or profile.photo_review_status == "flagged_fake"
             if not excluded:
                 onboarded = bool(membership and membership.is_onboarded)
                 if onboarded and cycle_access_open(request.user):

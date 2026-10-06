@@ -708,6 +708,25 @@ class TestQuizPhoto:
         assert _quiz_photo(client, coach, alice).status_code == 200
         assert _quiz_photo(client, alice, alice).status_code == 200
 
+    @pytest.mark.parametrize("decision", ["needs_revision", "flagged_fake"])
+    def test_moderated_photo_never_reaches_the_projector(self, client, decision):
+        """A coach-moderated image is not projected to the room, whoever
+        signed the projector in; only its owner still sees it."""
+        from crush_lu.views_quiz import _photo_url
+
+        host = _member("host")
+        alice = _member("alice")
+        _quiz(created_by=host, owner=alice)
+        staff = User.objects.create_user("staff", "st@example.com", "x", is_staff=True)
+        coach = _member("coach")
+        CrushCoach.objects.create(user=coach, is_active=True)
+        assert _photo_url(alice.crushprofile) == f"/api/quiz/photo/{alice.pk}/"
+        CrushProfile.objects.filter(user=alice).update(photo_review_status=decision)
+        for viewer in (host, staff, coach):
+            assert _quiz_photo(client, viewer, alice).status_code == 404
+        assert _quiz_photo(client, alice, alice).status_code == 200
+        assert _photo_url(CrushProfile.objects.get(user=alice)) is None
+
     def test_unrelated_approved_member_refused(self, client):
         alice, mallory = _member("alice"), _member("mallory")
         _quiz(created_by=_member("host"), owner=alice)
