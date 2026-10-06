@@ -36,7 +36,7 @@ def authenticate_admin_request(request) -> bool:
     if not expected:
         logger.error("ADMIN_API_KEY not configured; rejecting admin request")
         return False
-    return secrets.compare_digest(token, expected)
+    return secrets.compare_digest(token.encode("utf-8"), expected.encode("utf-8"))
 
 
 def unauthorized(request) -> JsonResponse:

@@ -703,6 +703,10 @@
                                                 <span class="text-orange-500">{% trans "Coach Wants to Connect" %}</span>
                                             {% elif profile_is_approved %}
                                                 <span class="text-green-500">{% trans "Approved" %} ✓</span>
+                                            {% elif profile_completion_status == 'pending' %}
+                                                <span class="text-blue-500">{% trans "Awaiting verification" %}</span>
+                                            {% elif profile_completion_status == 'rejected' %}
+                                                <span class="text-red-500">{% trans "Rejected" %}</span>
                                             {% else %}
                                                 <span class="text-gray-500">{% trans "Not Submitted" %}</span>
                                             {% endif %}

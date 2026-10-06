@@ -12604,8 +12604,12 @@ msgstr "Du bist auf der Warteliste!"
 #: templates/crush_lu/_event_registration_success.html:32
 msgid "The event is currently full, but we'll notify you if a spot opens up."
 msgstr ""
-"Das Event ist derzeit ausgebucht, aber wir benachrichtigen dich, wennein "
+"Das Event ist derzeit ausgebucht, aber wir benachrichtigen dich, wenn ein "
 "Platz frei wird."
+
+#: templates/crush_lu/_event_registration_success.html:33
+msgid "You pay nothing unless a place opens up for you."
+msgstr "Du zahlst nichts, solange kein Platz für dich frei wird."
 
 #: templates/crush_lu/_event_registration_success.html:38
 #: templates/crush_lu/emails/event_registration_confirmation.html:6
@@ -20823,11 +20827,12 @@ msgstr "Sag Ja"
 
 #: templates/crush_lu/crush_connect.html:204
 msgid ""
-"When it's mutual, your Crush Coach contacts you both and arranges the date "
-"personally."
+"When it's mutual, a private chat opens so you can plan a coffee together. "
+"Premium members also get their coach's weekly pick."
 msgstr ""
-"Wenn es beidseitig ist, kontaktiert Dein Crush Coach euch beide und "
-"organisiert das Date persönlich."
+"Wenn es beidseitig ist, öffnet sich ein privater Chat, in dem ihr gemeinsam "
+"einen Kaffee plant. Premium-Mitglieder erhalten zusätzlich die wöchentliche "
+"Auswahl ihres Coachs."
 
 #: templates/crush_lu/crush_connect.html:214
 msgid "Simple, honest pricing"
@@ -21825,19 +21830,18 @@ msgid "What brings you here?"
 msgstr "Was führt dich zu uns?"
 
 #: templates/crush_lu/crush_connect/onboarding_steps/_step1_intention.html:7
-msgid "No wrong answers — your coach just needs a starting point."
+msgid "No wrong answers — we just need a starting point."
 msgstr ""
-"Es gibt keine falschen Antworten — dein Coach braucht nur einen "
-"Ausgangspunkt."
+"Es gibt keine falschen Antworten — wir brauchen nur einen Ausgangspunkt."
 
 #: templates/crush_lu/crush_connect/onboarding_steps/_step2_lifestyle.html:6
 msgid "How do you live?"
 msgstr "Wie lebst du?"
 
 #: templates/crush_lu/crush_connect/onboarding_steps/_step2_lifestyle.html:7
-msgid "These help your coach find someone whose rhythm matches yours."
+msgid "These help us find someone whose rhythm matches yours."
 msgstr ""
-"Das hilft deinem Coach, jemanden zu finden, dessen Rhythmus zu deinem passt."
+"Das hilft uns, jemanden zu finden, dessen Rhythmus zu deinem passt."
 
 #: templates/crush_lu/crush_connect/onboarding_steps/_step2_lifestyle.html:11
 msgid "Your energy"
@@ -39458,11 +39462,11 @@ msgstr "Identität durch LuxID bestätigt"
 #: crush_lu/views_crush_connect.py
 msgid ""
 "LuxID confirms your identity. Taking part in a Crush event unlocks the "
-"active Connect journey and your three daily suggestions, once the other "
+"active Connect journey and up to two new profiles a day, once the other "
 "steps are complete."
 msgstr ""
 "LuxID bestätigt deine Identität. Die Teilnahme an einem Crush-Event schaltet"
-" den aktiven Connect-Weg und deine drei täglichen Vorschläge frei, sobald "
+" den aktiven Connect-Weg und bis zu zwei neue Profile pro Tag frei, sobald "
 "die übrigen Schritte abgeschlossen sind."
 
 #: crush_lu/views_crush_connect.py
@@ -39488,10 +39492,10 @@ msgstr "Verifizierung beim Crush-Event"
 #: crush_lu/views_crush_connect.py
 msgid ""
 "A confirmed participation at a Crush event unlocks the active journey with "
-"three suggestions per day."
+"up to two new profiles per day."
 msgstr ""
 "Eine bestätigte Teilnahme an einem Crush-Event schaltet den aktiven Weg mit "
-"drei Vorschlägen pro Tag frei."
+"bis zu zwei neuen Profilen pro Tag frei."
 
 #: crush_lu/views_crush_connect.py
 msgid "A profile photo is required for your daily Connect suggestions."
@@ -39555,8 +39559,8 @@ msgid "Your Connect readiness"
 msgstr "Deine Connect-Bereitschaft"
 
 #: crush_lu/templates/crush_lu/crush_connect/_readiness_checklist.html
-msgid "To receive your 3 suggestions each day, complete these steps"
-msgstr "Um täglich deine 3 Vorschläge zu erhalten, schließe diese Schritte ab"
+msgid "To receive up to 2 new profiles each day, complete these steps"
+msgstr "Um täglich bis zu 2 neue Profile zu erhalten, schließe diese Schritte ab"
 
 #: crush_lu/templates/crush_lu/crush_connect/_readiness_checklist.html
 msgid ""
@@ -42329,6 +42333,10 @@ msgid "No refund: the event starts in less than %(hours)s hours. Your seat is re
 msgstr "Keine Rückerstattung: Das Event beginnt in weniger als %(hours)s Stunden. Dein Platz wird für jemand anderen freigegeben. Übernimmt ihn jemand und bezahlt vor Eventbeginn, bekommst du %(share)s EUR als Crush Credit zurück."
 
 #: crush_lu/templates/crush_lu/event_cancel.html
+msgid "Crush Credit can only be used when your balance covers the full price of an event; smaller amounts are added to what you already have."
+msgstr "Crush Credit lässt sich nur einsetzen, wenn dein Guthaben den vollen Preis eines Events abdeckt; kleinere Beträge werden deinem bestehenden Guthaben hinzugefügt."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
 #, python-format
 msgid "You'll get %(amount)s EUR back as Crush Credit. It returns to your balance with its original expiry dates, so any part that has already expired can't be used again."
 msgstr "Du bekommst %(amount)s EUR als Crush Credit zurück. Es geht mit seinen ursprünglichen Ablaufdaten auf dein Guthaben zurück, ein bereits abgelaufener Teil kann also nicht mehr verwendet werden."
@@ -42569,11 +42577,16 @@ msgstr "Falsche Adresse? Erneut registrieren"
 
 #: templates/account/verification_sent_crush.html:34
 msgid ""
-"We've sent a verification link to your email address. Click the link in the "
-"email to confirm your account."
+"If you asked for a verification link, check your inbox. Didn't get it, or "
+"has it expired? Enter your email below and we'll send a new one."
 msgstr ""
-"Wir haben einen Bestätigungslink an deine E-Mail-Adresse gesendet. Klicke "
-"auf den Link in der E-Mail, um dein Konto zu bestätigen."
+"Wenn du einen Bestätigungslink angefordert hast, schau in dein Postfach. "
+"Nichts bekommen oder abgelaufen? Gib unten deine E-Mail-Adresse ein, dann "
+"senden wir dir einen neuen Link."
+
+#: templates/account/verification_sent_crush.html:85
+msgid "Still nothing after a few minutes? Write to"
+msgstr "Nach ein paar Minuten noch nichts? Schreib an"
 
 #: templates/account/verification_sent_crush.html:50
 msgid "Email address to resend to"
@@ -43349,6 +43362,13 @@ msgid ""
 msgstr ""
 "Deine Tipps bleiben privat — sie helfen dir bei deiner Wahl im 24-Stunden-"
 "Review."
+
+msgid "Your guess:"
+msgstr "Dein Tipp:"
+
+msgid "These are your guesses, not their answers. Their answers stay private."
+msgstr ""
+"Das sind deine Tipps, nicht ihre Antworten. Ihre Antworten bleiben privat."
 
 msgid "Review card for %(name)s"
 msgstr "Review-Karte für %(name)s"
@@ -44502,3 +44522,7 @@ msgstr "Dein Check-in"
 
 msgid "A change of plans?"
 msgstr "Pläne geändert?"
+
+#: crush_lu/templates/crush_lu/event_register.html
+msgid "No payment now; selected applicants are invited to pay."
+msgstr "Jetzt keine Zahlung; ausgewählte Bewerber werden zur Zahlung eingeladen."
