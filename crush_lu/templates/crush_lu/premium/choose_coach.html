@@ -96,6 +96,9 @@
     </script>
     {% endif %}
 
+    {% if premium_recovery_case %}
+    {% include "crush_lu/partials/_premium_recovery_notice.html" %}
+    {% else %}
     <section class="grid grid-cols-1 gap-4 sm:grid-cols-2">
       {% for coach in coaches %}
       <div class="flex flex-col rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
@@ -142,6 +145,7 @@
       </div>
       {% endfor %}
     </section>
+    {% endif %}
 
     <a href="{% url 'crush_lu:dashboard' %}"
        class="mt-6 block w-full rounded-xl border border-gray-200 bg-white px-5 py-3 text-center text-sm font-semibold text-crush-dark transition-all duration-200 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-white">

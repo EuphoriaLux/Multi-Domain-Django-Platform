@@ -22,6 +22,10 @@ from django.db import transaction
 from crush_lu.models import PaymentTransaction, PremiumPaymentRecoveryCase
 from crush_lu.services import premium_recovery
 
+AMBIGUOUS_DETAIL = (
+    "Member notice withheld: the membership has several captures and the "
+    "applied one is unknown."
+)
 BACKFILL_DETAIL = (
     "Backfilled for a capture recorded before recovery cases existed; "
     "verify which capture, if any, was applied."
@@ -43,12 +47,12 @@ def unapplied_captures():
     for payment in rows:
         membership = payment.premium_membership
         if membership is None:
-            yield payment, Reason.OTHER
+            yield payment, Reason.OTHER, False
             continue
         if not membership.payment_confirmed:
             yield payment, premium_recovery.reason_for_membership_status(
                 membership.status
-            )
+            ), False
             continue
         if membership.confirmed_by_id:
             # Staff confirmed by hand: only a capture recorded after that
@@ -59,7 +63,7 @@ def unapplied_captures():
                 and membership.payment_date
                 and payment.paid_at > membership.payment_date
             ):
-                yield payment, Reason.DUPLICATE_CAPTURE
+                yield payment, Reason.DUPLICATE_CAPTURE, False
             continue
         captures = list(
             PaymentTransaction.objects.filter(
@@ -71,8 +75,9 @@ def unapplied_captures():
             continue  # the membership's only capture is the one it applied
         # Several captures: nothing recorded ties the applied one to a row (a
         # capture could be PAID, refused by confirm(), and a later one applied),
-        # so every capture is flagged for staff to check.
-        yield payment, Reason.DUPLICATE_CAPTURE
+        # so every capture is flagged -- for staff only: telling the member a
+        # payment was not applied could be wrong for the one that was.
+        yield payment, Reason.DUPLICATE_CAPTURE, True
 
 
 class Command(BaseCommand):
@@ -86,14 +91,20 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         found = 0
-        for payment, reason in unapplied_captures():
+        for payment, reason, staff_only in unapplied_captures():
             found += 1
             self.stdout.write(
                 f"Payment {payment.pk} ({payment.transaction_reference}): {reason}"
             )
             if options["apply"]:
                 with transaction.atomic():
-                    premium_recovery.open_case(payment, reason, BACKFILL_DETAIL)
+                    premium_recovery.open_case(
+                        payment,
+                        reason,
+                        (AMBIGUOUS_DETAIL + " " if staff_only else "")
+                        + BACKFILL_DETAIL,
+                        staff_only=staff_only,
+                    )
         verb = "Opened" if options["apply"] else "Would open"
         self.stdout.write(f"{verb} {found} recovery case(s).")
         if found and not options["apply"]:

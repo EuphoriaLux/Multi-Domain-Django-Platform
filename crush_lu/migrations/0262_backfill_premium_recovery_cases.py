@@ -18,6 +18,10 @@ MEMBER_UNKNOWN_DETAIL = (
     "Member unknown: legacy unlinked checkout opened by staff; the case is "
     "filed under the staff account."
 )
+AMBIGUOUS_DETAIL = (
+    "Member notice withheld: the membership has several captures and the "
+    "applied one is unknown."
+)
 # premium_recovery.reason_for_membership_status, frozen here.
 REASON_FOR_STATUS = {
     "active": "duplicate_capture",
@@ -39,6 +43,7 @@ def backfill(apps, schema_editor):
         .order_by("pk")
     )
     for payment in rows:
+        ambiguous = False
         membership = payment.premium_membership
         if membership is None:
             reason = "other"
@@ -60,14 +65,18 @@ def backfill(apps, schema_editor):
             ).count()
             > 1
         ):
-            reason = "duplicate_capture"
+            # The applied one is not provable: staff only, no member notice.
+            reason, ambiguous = "duplicate_capture", True
         else:
             continue  # the membership's only capture is the one it applied
         owner = membership.user if membership else payment.user
         if owner is None:
             continue
         member_unknown = membership is None and owner.is_staff
+        staff_only = member_unknown or ambiguous
         detail = BACKFILL_DETAIL
+        if ambiguous:
+            detail = f"{AMBIGUOUS_DETAIL} {detail}"
         if member_unknown:
             detail = f"{MEMBER_UNKNOWN_DETAIL} {detail}"
         Case.objects.get_or_create(
@@ -77,7 +86,7 @@ def backfill(apps, schema_editor):
                 "premium_membership": membership,
                 "reason": reason,
                 "detail": detail,
-                "member_unknown": member_unknown,
+                "staff_only": staff_only,
             },
         )
 

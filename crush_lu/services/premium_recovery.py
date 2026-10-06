@@ -97,11 +97,9 @@ def blocks_new_charge(user):
 
     from crush_lu.models import PaymentTransaction, PremiumPaymentRecoveryCase
 
-    # A member-unknown case is filed under the staff opener (_member_unknown):
+    # A member-unknown case is filed under the staff opener (_staff_only):
     # it is not that person's own payment, so it gates nothing of theirs.
-    cases = PremiumPaymentRecoveryCase.objects.filter(user=user).exclude(
-        MEMBER_UNKNOWN_Q
-    )
+    cases = PremiumPaymentRecoveryCase.objects.filter(user=user).exclude(STAFF_ONLY_Q)
     return (
         cases.filter(
             Q(status=PremiumPaymentRecoveryCase.Status.OPEN)
@@ -128,22 +126,31 @@ def reason_for_membership_status(status):
     }.get(status, Reason.OTHER)
 
 
-def open_case(payment, reason, detail=""):
+def open_case(payment, reason, detail="", staff_only=False):
     """Get-or-create the case inside the caller's PAID transaction.
 
-    Takes no lock and may raise: a failure must roll PAID back so the capture
-    is retried, never commit without its case."""
+    May raise: a failure must roll PAID back so the capture is retried, never
+    commit without its case. Locks the owner's User row first -- after the
+    caller's payment and membership locks, the order checkout publication
+    takes -- so publication's member-locked recheck
+    (views_payments._lock_member_and_check_blocked) serializes with this
+    insert instead of relying on a deferred FK check. ``staff_only`` withholds
+    the member-facing notice (the applied capture is not provable)."""
+    from django.contrib.auth import get_user_model
+
     from crush_lu.models import PremiumPaymentRecoveryCase
 
     membership = payment.premium_membership
     # Unlinked: only legacy rows (the FK is PROTECT now), so payment.user is
     # the only member evidence left, as in email_helpers._receipt_recipient --
     # unless staff opened the checkout for a member (user=request.user): then
-    # the member is unknown and only staff are told (_member_unknown).
+    # the member is unknown and only staff are told (_staff_only).
     owner = membership.user if membership else payment.user
-    member_unknown = _member_unknown_for(membership, owner)
-    if member_unknown:
+    if _member_unknown_for(membership, owner):
+        staff_only = True
         detail = f"{MEMBER_UNKNOWN_DETAIL} {detail}".strip()
+    if owner is not None:
+        list(get_user_model().objects.select_for_update().filter(pk=owner.pk))
     return PremiumPaymentRecoveryCase.objects.get_or_create(
         payment=payment,
         defaults={
@@ -151,7 +158,7 @@ def open_case(payment, reason, detail=""):
             "premium_membership": membership,
             "reason": reason,
             "detail": detail,
-            "member_unknown": member_unknown,
+            "staff_only": staff_only,
         },
     )
 
@@ -162,16 +169,16 @@ MEMBER_UNKNOWN_DETAIL = (
 )
 
 
-# Query form of _member_unknown.
-MEMBER_UNKNOWN_Q = Q(member_unknown=True)
+# Query form of _staff_only.
+STAFF_ONLY_Q = Q(staff_only=True)
 
 
 def _member_unknown_for(membership, owner):
     return membership is None and owner is not None and owner.is_staff
 
 
-def _member_unknown(case):
-    return case.member_unknown
+def _staff_only(case):
+    return case.staff_only
 
 
 def notify_safely(case_pk):
@@ -236,7 +243,7 @@ def _close_sibling_checkouts_safely(case):
         ]
         # A member-unknown case is filed under the staff opener, whose own
         # memberships have nothing to do with this payment.
-        if case.user_id and not _member_unknown(case):
+        if case.user_id and not _staff_only(case):
             others = PremiumMembership.objects.filter(
                 user_id=case.user_id,
                 payment_transactions__status=PaymentTransaction.Status.PENDING,
@@ -376,10 +383,10 @@ def _needs_close():
     # the staff opener, whose own checkouts it never closes.
     return (
         Q(has_open_checkout=True)
-        | Q(member_has_stale_checkout=True, member_unknown=False)
+        | Q(member_has_stale_checkout=True, staff_only=False)
         | Q(
             member_has_open_checkout=True,
-            member_unknown=False,
+            staff_only=False,
             status=PremiumPaymentRecoveryCase.Status.OPEN,
         )
     )
@@ -435,10 +442,10 @@ def retry_unsent_notifications(budget_seconds, limit=5, settle_minutes=10):
             # Notices only for open cases; closing a checkout that could
             # still take money continues even after staff resolve the case.
             (
-                # A member-unknown case (_member_unknown) sends no notice.
-                Q(member_notified_at__isnull=True) & ~MEMBER_UNKNOWN_Q
+                # A member-unknown case (_staff_only) sends no notice.
+                Q(member_notified_at__isnull=True) & ~STAFF_ONLY_Q
                 | Q(staff_alerted_at__isnull=True)
-                | Q(member_has_open_checkout=True, member_unknown=False)
+                | Q(member_has_open_checkout=True, staff_only=False)
             )
             & Q(status=Case.Status.OPEN)
             | _needs_close(),
@@ -531,7 +538,7 @@ def _close_checkouts_beside_a_capture(limit, settle_minutes):
 def _notify_member_safely(case):
     from crush_lu.email_helpers import send_premium_payment_recovery_notice
 
-    if _member_unknown(case):
+    if _staff_only(case):
         # Would mail the member's notice to the staff opener; the staff alert
         # carries MEMBER_UNKNOWN_DETAIL instead.
         return

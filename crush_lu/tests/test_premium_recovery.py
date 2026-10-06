@@ -683,7 +683,7 @@ class CaseLifecycleTests(_Base):
             premium_membership=staff_membership,
         )
         case = PremiumPaymentRecoveryCase.objects.create(
-            payment=tx, user=staff, reason=Reason.OTHER, member_unknown=True
+            payment=tx, user=staff, reason=Reason.OTHER, staff_only=True
         )
         client = MagicMock()
         with patch("crush_lu.views_payments.SumUpClient", return_value=client):
@@ -706,7 +706,7 @@ class CaseLifecycleTests(_Base):
         PaymentTransaction.objects.filter(pk=tx.pk).update(user=staff)
         self._unlink_and_delete_membership()
         PremiumPaymentRecoveryCase.objects.create(
-            payment=tx, user=staff, reason=Reason.OTHER, member_unknown=True
+            payment=tx, user=staff, reason=Reason.OTHER, staff_only=True
         )
         PremiumMembership.objects.create(user=staff, coach=self.coach, status="pending")
         self.assertFalse(blocks_new_charge(staff))
@@ -764,7 +764,7 @@ class CaseLifecycleTests(_Base):
         with self.assertLogs("crush_lu.views_payments", level="CRITICAL"):
             self._apply(tx)
         case = PremiumPaymentRecoveryCase.objects.get(payment=tx)
-        self.assertTrue(case.member_unknown)
+        self.assertTrue(case.staff_only)
         User.objects.filter(pk=staff.pk).update(is_staff=False)
         mail.outbox.clear()
         PremiumPaymentRecoveryCase.objects.filter(pk=case.pk).update(
@@ -819,7 +819,7 @@ class CaseLifecycleTests(_Base):
             user=staff,
             reason=Reason.OTHER,
             staff_alerted_at=timezone.now(),
-            member_unknown=True,
+            staff_only=True,
         )
         PremiumPaymentRecoveryCase.objects.filter(pk=case.pk).update(
             created_at=timezone.now() - timedelta(hours=2)
@@ -943,7 +943,7 @@ class CaseLifecycleTests(_Base):
             migration.backfill(apps, None)
         case = PremiumPaymentRecoveryCase.objects.get(payment=unapplied)
         self.assertEqual(case.reason, Reason.COACH_UNAVAILABLE)
-        self.assertFalse(case.member_unknown)
+        self.assertFalse(case.staff_only)
         self.assertEqual(PremiumPaymentRecoveryCase.objects.count(), 1)
         self.assertEqual(mail.outbox, [])
 
@@ -953,14 +953,14 @@ class CaseLifecycleTests(_Base):
         )
         migration.backfill(apps, None)
         self.assertTrue(
-            PremiumPaymentRecoveryCase.objects.get(payment=assisted).member_unknown
+            PremiumPaymentRecoveryCase.objects.get(payment=assisted).staff_only
         )
 
     def test_admin_keeps_member_unknown_read_only(self):
         from crush_lu.admin import crush_admin_site
 
         model_admin = crush_admin_site._registry[PremiumPaymentRecoveryCase]
-        self.assertIn("member_unknown", model_admin.readonly_fields)
+        self.assertIn("staff_only", model_admin.readonly_fields)
 
     def test_backfill_spares_a_capture_staff_confirmed_afterwards(self):
         import importlib
@@ -999,7 +999,7 @@ class CaseLifecycleTests(_Base):
             payment=tx,
             user=staff,
             reason=Reason.OTHER,
-            member_unknown=True,
+            staff_only=True,
             staff_alerted_at=timezone.now(),
         )
         PremiumPaymentRecoveryCase.objects.filter(pk=case.pk).update(
@@ -1020,6 +1020,64 @@ class CaseLifecycleTests(_Base):
             premium_membership=own,
         )
         self.assertEqual(retry_unsent_notifications(100), 0)
+
+    def test_open_case_locks_the_member_before_inserting(self):
+        from crush_lu.services import premium_recovery
+
+        src = inspect.getsource(premium_recovery.open_case)
+        self.assertLess(src.index("select_for_update()"), src.index("get_or_create("))
+
+    def test_backfill_keeps_ambiguous_captures_staff_only(self):
+        import importlib
+        from datetime import timedelta
+        from io import StringIO
+
+        from django.apps import apps
+        from django.core.management import call_command
+        from django.utils import timezone
+
+        from crush_lu.services.premium_recovery import retry_unsent_notifications
+
+        rows = self._paid_on_confirmed_membership(["REC-AMB-A", "REC-AMB-B"])
+        call_command("backfill_premium_recovery_cases", "--apply", stdout=StringIO())
+        cases = PremiumPaymentRecoveryCase.objects.filter(payment__in=rows)
+        self.assertEqual(cases.count(), 2)
+        self.assertTrue(all(case.staff_only for case in cases))
+        # The migration classifies the same way.
+        PremiumPaymentRecoveryCase.objects.all().delete()
+        importlib.import_module(
+            "crush_lu.migrations.0262_backfill_premium_recovery_cases"
+        ).backfill(apps, None)
+        cases = PremiumPaymentRecoveryCase.objects.filter(payment__in=rows)
+        self.assertTrue(cases.exists() and all(case.staff_only for case in cases))
+        # No member notice goes out for them; the staff alert does.
+        cases.update(created_at=timezone.now() - timedelta(hours=2))
+        mail.outbox.clear()
+        retry_unsent_notifications(100)
+        self.assertEqual(self._member_mails(), [])
+        self.assertTrue(self._alerts())
+
+    def test_coach_chooser_shows_the_notice_instead_of_choices(self):
+        self.membership.status = "cancelled"
+        self.membership.save(update_fields=["status"])
+        PremiumPaymentRecoveryCase.objects.create(
+            payment=self._tx("REC-CHOOSER", status=PaymentTransaction.Status.PAID),
+            user=self.member,
+            premium_membership=self.membership,
+            reason=Reason.REQUEST_CANCELLED,
+        )
+        client = Client(HTTP_HOST="crush.lu")
+        client.force_login(self.member)
+        html = client.get("/en/premium/coaches/").content.decode()
+        self.assertIn('data-testid="premium-recovery-notice"', html)
+        self.assertNotIn("/select/", html)
+
+    def test_activation_close_callback_is_robust(self):
+        from crush_lu import views_payments
+
+        src = inspect.getsource(views_payments._apply_paid_checkout)
+        close = src.index("close_open_checkouts_safely(")
+        self.assertIn("robust=True", src[close : close + 300])
 
     def test_merge_refuses_a_duplicate_with_a_payable_checkout(self):
         from crush_lu.services.account_merge import merge_accounts
@@ -2021,7 +2079,7 @@ class NotificationRetryTests(_Base):
 class RecoveryLockOrderTests(TestCase):
     """SQLite ignores select_for_update, so lock order is asserted on source.
 
-    Opening a case must add no lock and must not move before the payment lock:
+    Opening a case locks only the owner's User row, after the payment lock:
     PaymentTransaction is locked before CrushProfile (via confirm()); the case
     is written in that transaction and only the mail waits for commit.
     """
@@ -2059,7 +2117,7 @@ class RecoveryLockOrderTests(TestCase):
         self.assertLess(payments, memberships)
         self.assertLess(memberships, cases)
 
-    def test_case_is_written_in_the_transaction_and_takes_no_lock(self):
+    def test_case_is_written_in_the_transaction_and_locks_only_the_member(self):
         from crush_lu import views_payments
         from crush_lu.services import premium_recovery
 
@@ -2068,9 +2126,8 @@ class RecoveryLockOrderTests(TestCase):
             queue_src.index("premium_recovery.open_case("),
             queue_src.index("transaction.on_commit("),
         )
-        # The claim lock in the hourly retry is separate; opening takes none.
-        self.assertIsNone(
-            re.search(
-                r"select_for_update", inspect.getsource(premium_recovery.open_case)
-            )
-        )
+        # Opening takes one lock: the owner's User row (after the caller's
+        # payment -> membership locks), never a payment or membership lock.
+        open_src = inspect.getsource(premium_recovery.open_case)
+        self.assertEqual(len(re.findall(r"select_for_update", open_src)), 1)
+        self.assertIn("get_user_model().objects.select_for_update()", open_src)

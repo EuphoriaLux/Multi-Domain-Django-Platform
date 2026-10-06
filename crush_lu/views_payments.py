@@ -715,7 +715,8 @@ def _sumup_status(remote):
 
 def _lock_member_and_check_blocked(user_id):
     """Lock the member's User row, then re-ask premium_recovery's rule. A case
-    insert takes FOR KEY SHARE on that row, which FOR UPDATE excludes."""
+    insert locks the same row first (premium_recovery.open_case), so one of
+    the two waits for the other."""
     from django.contrib.auth import get_user_model
 
     member = get_user_model().objects.select_for_update().get(pk=user_id)
@@ -2129,10 +2130,13 @@ def _apply_paid_checkout(tx_obj, data):
                     )
                     # #925: this capture is the membership's payment, so no
                     # other checkout of it may take a second one.
+                    # robust: the entitlement is committed; a failing cleanup
+                    # must not 500 the return/webhook (the tick retries it).
                     transaction.on_commit(
                         lambda membership=pm: premium_recovery.close_open_checkouts_safely(
                             [membership], f"premium membership {membership.pk}"
-                        )
+                        ),
+                        robust=True,
                     )
                 except (ValueError, CrushProfile.DoesNotExist) as exc:
                     # Same contract as the event-registration branch above:

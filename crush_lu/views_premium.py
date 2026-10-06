@@ -141,12 +141,12 @@ def open_recovery_case(user):
 
     if not user.is_authenticated:
         return None
-    from .services.premium_recovery import MEMBER_UNKNOWN_Q
+    from .services.premium_recovery import STAFF_ONLY_Q
 
     # A member-unknown case is the staff opener's to handle, not their own.
     cases = PremiumPaymentRecoveryCase.objects.filter(
         user=user, status=PremiumPaymentRecoveryCase.Status.OPEN
-    ).exclude(MEMBER_UNKNOWN_Q)
+    ).exclude(STAFF_ONLY_Q)
     current = ("pending", "active")
     if PremiumMembership.objects.filter(user=user, status__in=current).exists():
         cases = cases.filter(premium_membership__status__in=current)
@@ -214,8 +214,13 @@ def premium_choose_coach(request):
         messages.info(request, _("You already have a personal coach."))
         return redirect("crush_lu:dashboard")
 
+    # #925: with no current request, an open case blocks a fresh one
+    # (premium_select_coach) -- show the notice, not "Choose" buttons that
+    # can only bounce back here.
+    recovery_case = None if pending else open_recovery_case(request.user)
     context = {
         "coaches": _available_coaches(),
+        "premium_recovery_case": recovery_case,
         "pending_membership": pending,
         # "manage" = the beta allowlist refuses this buyer at checkout (403), so
         # the template must not offer the pay button (same predicate as /membership/).
