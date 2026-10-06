@@ -214,7 +214,7 @@ class WhatsAppWebhookView(View):
             mode == "subscribe"
             and expected
             and token
-            and secrets.compare_digest(token, expected)
+            and secrets.compare_digest(token.encode("utf-8"), expected.encode("utf-8"))
         ):
             return HttpResponse(challenge, content_type="text/plain")
         return HttpResponse(status=403)
@@ -233,7 +233,9 @@ class WhatsAppWebhookView(View):
                 hashlib.sha256,
             ).hexdigest()
         )
-        if not secrets.compare_digest(signature, expected_sig):
+        if not secrets.compare_digest(
+            signature.encode("utf-8"), expected_sig.encode("utf-8")
+        ):
             return JsonResponse({"detail": "invalid signature"}, status=403)
 
         try:

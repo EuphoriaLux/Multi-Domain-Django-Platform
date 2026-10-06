@@ -7,6 +7,7 @@ import json
 import logging
 import re
 import os
+import secrets
 from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
@@ -711,10 +712,14 @@ def run_subscription_health_check(request):
     to identify and clean up stale/failing subscriptions.
     """
     # Verify request comes from trusted source
-    auth_header = request.headers.get('Authorization')
+    auth_header = request.headers.get("Authorization", "")
     expected_token = os.getenv('HEALTH_CHECK_SECRET_TOKEN')
 
-    if not expected_token or auth_header != f'Bearer {expected_token}':
+    # Constant-time compare on bytes: compare_digest raises TypeError on
+    # non-ASCII str, which would turn a hostile header into a 500.
+    if not expected_token or not secrets.compare_digest(
+        auth_header.encode("utf-8"), f"Bearer {expected_token}".encode("utf-8")
+    ):
         return JsonResponse({'error': 'Unauthorized'}, status=401)
 
     try:
