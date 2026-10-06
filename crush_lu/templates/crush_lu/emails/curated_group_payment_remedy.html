@@ -24,7 +24,7 @@
 {% elif cash_refund_option_closed %}
 <p>{% trans "The cash-refund option has closed because some or all of this credit has already been used." %}</p>
 {% elif credit_funded %}
-<p>{% trans "This booking was paid with Crush Credit, so its original value has been restored on its original expiry dates." %}</p>
+{# Credit-funded: the "valid until" lines above are the authoritative dates. The restored credit gets a fresh window when its original one had lapsed, so do not say it kept its original expiry. #}
 {% else %}
 <p>{% trans "The full value was returned as Crush Credit. Reply to this email if you need us to review the original payment method." %}</p>
 {% endif %}

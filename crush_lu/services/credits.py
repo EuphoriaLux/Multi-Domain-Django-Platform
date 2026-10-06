@@ -43,7 +43,12 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from crush_lu.models.credits import CreditRedemption, CrushCredit
+from crush_lu.models.credits import (
+    DEFAULT_EXPIRY_MONTHS,
+    CreditRedemption,
+    CrushCredit,
+    add_months,
+)
 from crush_lu.models.payments import PaymentTransaction
 
 logger = logging.getLogger(__name__)
@@ -551,6 +556,21 @@ def issue_credit(
     return credit
 
 
+def _restored_expiry(original_credit, crush_side_failure):
+    """Expiry for a tranche restored from ``original_credit``.
+
+    The original clock, except after a Crush-side failure, where it is floored
+    at the default lifetime (same settings key and month arithmetic as
+    ``CrushCredit.save``). ``None`` lets ``save()`` compute that default.
+    """
+    if not crush_side_failure:
+        return original_credit.expires_at
+    months = getattr(settings, "CRUSH_CREDIT_EXPIRY_MONTHS", DEFAULT_EXPIRY_MONTHS)
+    if original_credit.expires_at > add_months(timezone.now(), months):
+        return original_credit.expires_at
+    return None
+
+
 def _issue_payment_return_credits(
     registration,
     payment,
@@ -560,12 +580,18 @@ def _issue_payment_return_credits(
     cash_refund_eligible=False,
     note="",
     user=None,
+    crush_side_failure=False,
 ):
     """Return value from a payment while preserving each funding expiry.
 
     A card payment creates one fresh credit. A CREDIT payment restores the
     exact tranches it consumed, each on its original clock. This avoids the
     old earliest-expiry collapse, which unfairly shortened later tranches.
+
+    ``crush_side_failure`` is for the remedies where Crush.lu, not the member,
+    broke the promise (organiser cancellation, an unavailable curated group).
+    Keeping the original clock there can hand back a tranche that has already
+    lapsed, so each tranche gets ``max(original, a fresh default window)``.
     """
     user = user or (registration.user if registration is not None else None)
     if user is None:
@@ -594,7 +620,7 @@ def _issue_payment_return_credits(
             payment=payment,
             cash_refund_eligible=False,
             note=note,
-            expires_at=original_credit.expires_at,
+            expires_at=_restored_expiry(original_credit, crush_side_failure),
             restored_from_credit=original_credit,
         )
         if credit is not None:
@@ -1051,6 +1077,7 @@ def _issue_cancelled_event_remedy(
         CrushCredit.Reason.EVENT_CANCELLED,
         note=note or f"Crush.lu cancelled {event}.",
         user=beneficiary,
+        crush_side_failure=True,
     )
     bonus = award - paid_cents
     if bonus > 0:
@@ -1126,6 +1153,7 @@ def credit_registration_for_unavailable_curated_group(
             "Full payment value returned because the certified curated group "
             "was no longer viable at capture."
         ),
+        crush_side_failure=True,
     )
     if registration.status in {"pending", "confirmed"}:
         registration.__class__.objects.filter(pk=registration.pk).update(
