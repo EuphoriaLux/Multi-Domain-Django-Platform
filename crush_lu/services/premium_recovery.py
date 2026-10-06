@@ -713,7 +713,7 @@ def resolve_case(case, resolution, by_user=None):
     case.save(update_fields=["status", "resolution", "resolved_at", "resolved_by"])
 
 
-def refund_is_of_unapplied_capture(payment):
+def refund_is_of_unapplied_capture(payment, lock=False):
     """True when ``payment``'s case proves its capture was never applied, so a
     refund of it settles the case and nothing else (D2/D4).
 
@@ -721,10 +721,16 @@ def refund_is_of_unapplied_capture(payment):
     other way (applied, by hand, or before resolutions were recorded) may
     have had its capture applied, and reopening it in the admin keeps that
     resolution. Nor a staff-only case of a known member -- which capture was
-    applied is unknown there. All take the sweep's usual path."""
+    applied is unknown there. All take the sweep's usual path.
+
+    ``lock`` (payment row already locked): classify the locked case, so a
+    resolution staff save meanwhile is read, never overwritten."""
     from crush_lu.models import PremiumPaymentRecoveryCase
 
-    case = PremiumPaymentRecoveryCase.objects.filter(payment=payment).first()
+    cases = PremiumPaymentRecoveryCase.objects.filter(payment=payment)
+    if lock:
+        cases = cases.select_for_update()
+    case = cases.first()
     return (
         case is not None
         and case.status == PremiumPaymentRecoveryCase.Status.OPEN

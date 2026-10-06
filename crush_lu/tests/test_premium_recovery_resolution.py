@@ -140,6 +140,18 @@ class UnappliedCaptureRefundTests(_Base):
         self.assertEqual(self.membership.status, "cancelled")
         self.assertEqual(case.resolution, Case.Resolution.REFUNDED)
 
+    def test_the_sweep_classifies_the_locked_case(self):
+        import inspect
+
+        from crush_lu.services import premium_recovery
+
+        # A hand resolution saved during the sweep must be read, not
+        # overwritten as "refunded" (SQLite ignores the lock: structural).
+        src = inspect.getsource(Command._reconcile_refunded)
+        self.assertIn("refund_is_of_unapplied_capture(locked_tx, lock=True)", src)
+        classify = inspect.getsource(premium_recovery.refund_is_of_unapplied_capture)
+        self.assertIn("select_for_update()", classify)
+
     def test_usual_path_refund_resolves_an_open_staff_only_case(self):
         # A backfilled single capture beside a manual confirmation: staff-only,
         # so the usual path runs -- and must still settle the case.
@@ -277,6 +289,27 @@ class ApplyCasePaymentTests(_Base):
         self.assertLess(case, membership)
         self.assertLess(membership, src.index("membership.user_id != case.user_id"))
         self.assertNotIn("case.premium_membership\n", src)
+
+    def test_membership_confirm_action_leaves_an_open_case_to_its_own_action(self):
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from crush_lu.admin.profiles import PremiumMembershipAdmin
+
+        request = RequestFactory().post("/")
+        request.user = self.staff
+        request.session = {}
+        request._messages = FallbackStorage(request)
+        model_admin = PremiumMembershipAdmin(type(self.membership), AdminSite())
+        model_admin.confirm_payment(
+            request, type(self.membership).objects.filter(pk=self.membership.pk)
+        )
+        self.membership.refresh_from_db()
+        self.case.refresh_from_db()
+        self.assertEqual(self.membership.status, "pending")
+        self.assertEqual(self.case.status, Case.Status.OPEN)
+        self.assertIn("recovery case", " ".join(str(m) for m in request._messages))
 
     def test_hand_resolution_is_recorded_as_other(self):
         from crush_lu.admin import crush_admin_site

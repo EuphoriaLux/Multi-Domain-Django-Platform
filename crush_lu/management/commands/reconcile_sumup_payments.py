@@ -1526,7 +1526,7 @@ class Command(BaseCommand):
                 PremiumMembership.objects.select_for_update().filter(
                     pk=locked_tx.premium_membership_id
                 ).first()
-            if premium_recovery.refund_is_of_unapplied_capture(locked_tx):
+            if premium_recovery.refund_is_of_unapplied_capture(locked_tx, lock=True):
                 # #925 D2/D4: staff refunded a capture its recovery case proves
                 # was never applied. Only the payment and the case change: the
                 # membership (and the capture it did apply, if any) stay as
