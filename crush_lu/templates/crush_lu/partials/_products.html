@@ -132,8 +132,8 @@
           <span class="inline-flex items-center justify-center gap-1.5 w-full px-4 py-2.5 rounded-xl bg-white/20 text-white text-sm font-bold text-center leading-snug">
             {% trans "Available outside the mobile app" %}
           </span>
-        {% elif premium_recovery_case %}
-          {# #925: the dashboard's D1 notice replaces the pay CTA. #}
+        {% elif premium_recovery_case or premium_purchase_blocked %}
+          {# #925: the dashboard's D1 notice replaces the pay CTA; a staff-only case blocks it without one. #}
         {% else %}
           <a href="{% url 'crush_lu:premium_choose_coach' %}" class="inline-flex items-center justify-center gap-1.5 w-full px-4 py-2.5 rounded-xl bg-white text-crush-purple-dark text-sm font-bold text-center leading-snug hover:bg-purple-50 transition-colors">
             {% trans "Go Premium — first month free" %}
