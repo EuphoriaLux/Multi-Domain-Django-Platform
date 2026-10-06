@@ -538,3 +538,44 @@ def test_recently_overdue_pending_request_still_excludes_during_cooldown(pair):
     assert target not in get_cycle_eligible_pool(viewer)
     request.refresh_from_db()
     assert request.status == ConnectWeeklyRequest.Status.EXPIRED
+
+
+def test_send_locks_both_users_no_key_in_pk_order_before_pair_checks(pair, monkeypatch):
+    """Reciprocal sends serialize on both user rows, locked in pk order after
+    the session and before any pair check. The lock must be FOR NO KEY UPDATE:
+    FOR UPDATE would deadlock on PostgreSQL with a concurrent request sync,
+    whose deferred FK check takes FOR KEY SHARE on the same users at COMMIT.
+    SQLite drops row locks, so assert the lock query itself."""
+    from django.contrib.auth import get_user_model
+    from django.db.models.sql.compiler import SQLCompiler
+
+    from crush_lu.services import connect_cycle
+
+    viewer, target = pair
+    session, _ = _reviewable_session_with_card(viewer, target)
+    events = []
+    original_execute_sql = SQLCompiler.execute_sql
+    original_can_send = connect_cycle.can_send_weekly_request
+
+    def spy_execute_sql(compiler, *args, **kwargs):
+        if compiler.query.select_for_update:
+            events.append(compiler.query)
+        return original_execute_sql(compiler, *args, **kwargs)
+
+    def spy_can_send(*args, **kwargs):
+        events.append("can_send")
+        return original_can_send(*args, **kwargs)
+
+    monkeypatch.setattr(SQLCompiler, "execute_sql", spy_execute_sql)
+    monkeypatch.setattr(connect_cycle, "can_send_weekly_request", spy_can_send)
+    send_weekly_request(session, viewer, target)
+
+    session_lock, user_lock = events[: events.index("can_send")]
+    assert session_lock.model is ConnectWeekSession
+    assert user_lock.model is get_user_model()
+    assert user_lock.select_for_no_key_update
+    assert user_lock.order_by == ("pk",)
+    (pk_filter,) = user_lock.where.children
+    assert pk_filter.lookup_name == "in"
+    assert set(pk_filter.rhs) == {viewer.pk, target.pk}
+    assert session.weekly_requests.count() == 1
