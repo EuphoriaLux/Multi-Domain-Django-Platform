@@ -622,7 +622,7 @@ class TestCoachRosterCountsEachRegistrationOnce:
         coach = _make_coach()
         client.force_login(coach)
         return client.get(
-            reverse("crush_lu:coach_event_detail", args=[event.id]),
+            f"/en/coach/events/{event.id}/",
             {"status": status},
             HTTP_HOST="crush.lu",
         )
