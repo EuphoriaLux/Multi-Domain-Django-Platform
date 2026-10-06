@@ -14,6 +14,7 @@ from crush_lu.models.crush_connect import Interest
 from crush_lu.notification_service import NotificationService, NotificationType
 from crush_lu.services.photo_review import (
     PhotoReviewError,
+    _retract_revision_safely,
     get_photo_review_queue,
     submit_photo_review,
     undo_last_photo_review,
@@ -152,19 +153,20 @@ def test_undo_retracts_exact_notice_and_sends_correction(safe_side_effects):
     coach, profile = _make_coach(), _make_candidate()
     with TestCase.captureOnCommitCallbacks(execute=True):
         result = review(coach, profile)
-    notice = Notification.objects.get(
+    assert Notification.objects.filter(
         dedupe_key=f"photo-review:{result['log_id']}:revision"
-    )
+    ).exists()
     unrelated = Notification.objects.create(
         user=profile.user, notification_type="profile_revision", title="Other feedback"
     )
     with TestCase.captureOnCommitCallbacks(execute=True):
         undo_last_photo_review(coach, log_id=result["log_id"])
-    notice.refresh_from_db()
     unrelated.refresh_from_db()
-    assert notice.metadata["withdrawn"] is True
-    assert notice.title == "Photo revision request withdrawn"
     assert unrelated.title == "Other feedback"
+    # Exactly one bell entry for this review: the withdrawal, never the request.
+    notices = Notification.objects.filter(user=profile.user).exclude(pk=unrelated.pk)
+    assert [notice.title for notice in notices] == ["Photo revision request withdrawn"]
+    assert notices.get().dedupe_key == f"photo-review:{result['log_id']}:retracted"
     assert [call.args[1] for call in safe_side_effects.call_args_list] == [
         NotificationType.PROFILE_REVISION,
         NotificationType.PHOTO_REVIEW_RETRACTED,
@@ -175,6 +177,16 @@ def test_undo_retracts_exact_notice_and_sends_correction(safe_side_effects):
         ).revision_notification_state
         == "retracted"
     )
+    # A replayed correction adds no bell row and sends no second email.
+    _retract_revision_safely(result["log_id"], None)
+    ProfilePhotoReviewLog.objects.filter(pk=result["log_id"]).update(
+        revision_notification_state="retract_pending"
+    )
+    _retract_revision_safely(result["log_id"], None)
+    assert list(
+        Notification.objects.filter(user=profile.user).exclude(pk=unrelated.pk)
+    ) == list(notices)
+    assert safe_side_effects.call_count == 2
 
 
 def test_undo_before_send_cancels_notification(safe_side_effects):
@@ -234,9 +246,14 @@ def test_undo_during_send_is_corrected_after_sender_finishes(safe_side_effects):
         NotificationType.PROFILE_REVISION,
         NotificationType.PHOTO_REVIEW_RETRACTED,
     ]
-    assert Notification.objects.get(
-        dedupe_key=f"photo-review:{result['log_id']}:revision"
-    ).metadata["withdrawn"]
+    # The sender's notice became the withdrawal; the correction replaced it.
+    notices = Notification.objects.filter(user=profile.user)
+    assert [(n.title, n.dedupe_key) for n in notices] == [
+        (
+            "Photo revision request withdrawn",
+            f"photo-review:{result['log_id']}:retracted",
+        )
+    ]
 
 
 @pytest.mark.parametrize("undo_during_send", [False, True])

@@ -84,6 +84,11 @@ from .services.profile_verification import (
 # member verified at an event gets — the two paths cannot drift.
 from .views_checkin import _run_post_verification_side_effects
 
+# A coach's negative photo decision keeps a member out of match
+# recommendations. Applied at display time, so Undo or a new photo heals the
+# cached MatchScore rows without a rebuild.
+_MODERATED_PHOTO_STATUSES = ("needs_revision", "flagged_fake")
+
 
 # Coach views
 @coach_required
@@ -350,14 +355,23 @@ def coach_dashboard(request):
     # (matches the deduplicated view on the match-pairs page)
     if my_user_ids:
         matched_ids = set()
-        for ms in MatchScore.objects.filter(
-            Q(user_a_id__in=my_user_ids) | Q(user_b_id__in=my_user_ids),
-            score_final__gte=THRESHOLD_GOOD,
-            user_a__crushprofile__verification_status="verified",
-            user_a__crushprofile__is_active=True,
-            user_b__crushprofile__verification_status="verified",
-            user_b__crushprofile__is_active=True,
-        ).values_list("user_a_id", "user_b_id"):
+        for ms in (
+            MatchScore.objects.filter(
+                Q(user_a_id__in=my_user_ids) | Q(user_b_id__in=my_user_ids),
+                score_final__gte=THRESHOLD_GOOD,
+                user_a__crushprofile__verification_status="verified",
+                user_a__crushprofile__is_active=True,
+                user_b__crushprofile__verification_status="verified",
+                user_b__crushprofile__is_active=True,
+            )
+            .exclude(
+                user_a__crushprofile__photo_review_status__in=_MODERATED_PHOTO_STATUSES
+            )
+            .exclude(
+                user_b__crushprofile__photo_review_status__in=_MODERATED_PHOTO_STATUSES
+            )
+            .values_list("user_a_id", "user_b_id")
+        ):
             if ms[0] in my_user_ids:
                 matched_ids.add(ms[0])
             if ms[1] in my_user_ids:
@@ -4132,11 +4146,12 @@ def _panel_verification_note(coach, reason):
 
 
 def _verified_profiles_by_user(user_ids):
-    """Batch-fetch verified+active profiles keyed by user_id.
+    """Batch-fetch verified+active, photo-unmoderated profiles keyed by user_id.
 
     One query instead of one CrushProfile lookup per match score; the
-    verified + is_active filter is the coach-facing eligibility rule and
-    must stay identical everywhere match counterparts are displayed.
+    verified + is_active + not photo-moderated filter is the coach-facing
+    eligibility rule and must stay identical everywhere match counterparts
+    are displayed.
     """
     return {
         p.user_id: p
@@ -4144,7 +4159,7 @@ def _verified_profiles_by_user(user_ids):
             user_id__in=user_ids,
             verification_status="verified",
             is_active=True,
-        )
+        ).exclude(photo_review_status__in=_MODERATED_PHOTO_STATUSES)
     }
 
 
@@ -4173,7 +4188,8 @@ def coach_member_matches(request, user_id):
     has_traits = bool(membership and membership.sought_qualities.exists())
     matches = []
 
-    if has_traits:
+    # A moderated member is recommended to no one, so list no one for them.
+    if has_traits and profile.photo_review_status not in _MODERATED_PHOTO_STATUSES:
         match_scores = get_matches_for_user(member)
 
         profiles_by_user = _verified_profiles_by_user(

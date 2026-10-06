@@ -56,7 +56,8 @@ def _connect_week_access_blocker(user):
     Gated by ``cycle_access_open`` rather than only ``candidate_access_open``.
     The Connect Week beta rule admits event-verified
     members without requiring Premium (see ``connect_phase.cycle_access_open``
-    docstring), then applies staff bypass, coach-exclusion, and onboarding checks.
+    docstring), then applies staff bypass, coach-exclusion, photo-moderation
+    and onboarding checks.
     """
     if user.is_staff:
         return None
@@ -69,8 +70,20 @@ def _connect_week_access_blocker(user):
     if membership is not None and membership.is_paused:
         return redirect("crush_lu:crush_connect_hub")
 
+    # Photo moderation applies at render time too: cards persisted before the
+    # decision must not keep a moderated member in the week. A fake flag
+    # bounces like an exclusion (the teaser treats it as one, so no loop); a
+    # revision request sends the member to replace the photo.
+    profile = getattr(user, "crushprofile", None)
+    if profile is not None and profile.photo_review_status == "flagged_fake":
+        return redirect("crush_lu:crush_connect_teaser")
+    if profile is not None and profile.photo_review_status == "needs_revision":
+        query = urlencode(
+            {"section": "photos", "next": reverse("crush_lu:connect_week_home")}
+        )
+        return redirect(f"{reverse('crush_lu:edit_profile')}?{query}")
+
     if membership is None or membership.onboarded_at is None:
-        profile = getattr(user, "crushprofile", None)
         if (
             profile is None
             or not profile.is_approved
@@ -89,11 +102,18 @@ def connect_week_home(request):
     cycle-eligible member with no session in progress."""
     user = request.user
     profile = getattr(user, "crushprofile", None)
-    if not user.is_staff and profile and not profile.photo_1:
+    needs_revision = bool(profile and profile.photo_review_status == "needs_revision")
+    if not user.is_staff and profile and (not profile.photo_1 or needs_revision):
         messages.warning(
             request,
-            _(
-                "Your profile photo is missing. It blocks access to your daily Connect Week suggestions; add it now in Photos."
+            (
+                _(
+                    "A coach requested an updated profile photo. Please upload a clear photo showing your face to continue."
+                )
+                if needs_revision
+                else _(
+                    "Your profile photo is missing. It blocks access to your daily Connect Week suggestions; add it now in Photos."
+                )
             ),
         )
         # Carry a same-app ``next`` so the member returns to Today, instead

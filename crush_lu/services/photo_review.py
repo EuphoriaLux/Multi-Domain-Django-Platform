@@ -119,10 +119,24 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40, *, cursor=""):
         )
     )
 
-    # Priority score:
+    # Priority score, snapshotted at the instant the review pass started (the
+    # first page; every cursor carries it). A membership created or onboarded
+    # mid-pass would otherwise raise a card's priority and move it behind the
+    # cursor, skipping it for the rest of the pass.
     # 3: Connect onboarded
     # 2: Connect membership exists
     # 1: General profile
+    as_of = timezone.now()
+    position = None
+    if cursor:
+        try:
+            position = signing.loads(cursor, salt="coach-photo-queue", max_age=86400)
+            priority, profile_id = int(position["priority"]), int(position["id"])
+            as_of = parse_datetime(position["as_of"])
+            if as_of is None:
+                raise ValueError("Invalid queue snapshot")
+        except (signing.BadSignature, KeyError, TypeError, ValueError):
+            raise PhotoReviewError(_("Invalid request payload"), 400) from None
     native_luxid, oidc_luxid = CrushProfile.luxid_account_querysets(OuterRef("user_id"))
     attended = EventRegistration.objects.filter(
         user_id=OuterRef("user_id"),
@@ -138,24 +152,23 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40, *, cursor=""):
         review_has_attendance=Exists(attended),
         priority=Case(
             When(
-                user__crush_connect_membership__onboarded_at__isnull=False,
+                user__crush_connect_membership__onboarded_at__lte=as_of,
                 then=Value(3),
             ),
-            When(user__crush_connect_membership__isnull=False, then=Value(2)),
+            When(
+                user__crush_connect_membership__created_at__lte=as_of,
+                then=Value(2),
+            ),
             default=Value(1),
             output_field=models.IntegerField(),
         ),
     )
-    # Keyset on immutable keys only: an auto_now updated_at would move a card
-    # behind the cursor whenever its member edits their profile mid-session.
+    # Keyset on keys that hold still for the pass: the pass-start priority
+    # snapshot and the id. An auto_now updated_at would move a card behind the
+    # cursor whenever its member edits their profile mid-session.
     annotated_qs = annotated_qs.order_by("-priority", "-id")
 
-    if cursor:
-        try:
-            position = signing.loads(cursor, salt="coach-photo-queue", max_age=86400)
-            priority, profile_id = int(position["priority"]), int(position["id"])
-        except (signing.BadSignature, KeyError, TypeError, ValueError):
-            raise PhotoReviewError(_("Invalid request payload"), 400) from None
+    if position is not None:
         annotated_qs = annotated_qs.filter(
             Q(priority__lt=priority) | Q(priority=priority, pk__lt=profile_id)
         )
@@ -283,7 +296,7 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40, *, cursor=""):
             {
                 "id": p.id,
                 "queue_cursor": signing.dumps(
-                    {"priority": p.priority, "id": p.pk},
+                    {"priority": p.priority, "id": p.pk, "as_of": as_of.isoformat()},
                     salt="coach-photo-queue",
                 ),
                 "user_id": p.user.id,
@@ -374,20 +387,26 @@ def _retract_revision_safely(log_id, request):
             {"photo_review_log_id": log.pk},
             request,
         )
-        Notification.objects.filter(
+        revision_notice = Notification.objects.filter(
             user=user, dedupe_key=f"photo-review:{log.pk}:revision"
-        ).update(
+        )
+        # Converted first, so the bell never shows a live request even if the
+        # correction below fails before its claim.
+        revision_notice.update(
             title=payload["title"],
             body=payload["body"],
             metadata={"photo_review_log_id": log.pk, "withdrawn": True},
         )
-        NotificationService.notify(
+        result = NotificationService.notify(
             user=user,
             notification_type=NotificationType.PHOTO_REVIEW_RETRACTED,
             context={"photo_review_log_id": log.pk},
             request=request,
             dedupe_key=f"photo-review:{log.pk}:retracted",
         )
+        if result.inapp_created:
+            # The correction wrote its own bell row: keep exactly one entry.
+            revision_notice.delete()
         ProfilePhotoReviewLog.objects.filter(
             pk=log.pk, revision_notification_state="retract_pending"
         ).update(revision_notification_state="retracted")
@@ -677,6 +696,26 @@ def undo_last_photo_review(coach: CrushCoach, *, log_id=None, request=None):
             raise PhotoReviewError(
                 _("This review is no longer current and cannot be undone.")
             )
+        # The flag's report is a staff work item: once staff touched it (status,
+        # handler, notes), Undo would overwrite their decision and lift an
+        # exclusion they may just have confirmed.
+        report_state = {}
+        if log.report_id:
+            report_state = {
+                "status": "actioned",
+                "handled_by_id": coach.user_id,
+                "handled_at": log.decision_at,
+                "resolution_notes": f"Photo review #{log.pk}: excluded from Connect.",
+            }
+            report = (
+                UserReport.objects.select_for_update().filter(pk=log.report_id).first()
+            )
+            if report is not None and any(
+                getattr(report, field) != value for field, value in report_state.items()
+            ):
+                raise PhotoReviewError(
+                    _("This review is no longer current and cannot be undone.")
+                )
         if log.exclusion_created:
             membership = (
                 CrushConnectMembership.objects.select_for_update()
@@ -797,7 +836,7 @@ def undo_last_photo_review(coach: CrushCoach, *, log_id=None, request=None):
                 transaction.on_commit(lambda: _retract_revision_safely(log.pk, request))
         log.save(update_fields=["undone_at", "revision_notification_state"])
         if log.report_id:
-            UserReport.objects.filter(pk=log.report_id).update(
+            UserReport.objects.filter(pk=log.report_id, **report_state).update(
                 status="dismissed",
                 handled_by=coach.user,
                 handled_at=log.undone_at,

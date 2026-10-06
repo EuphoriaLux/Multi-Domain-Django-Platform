@@ -20,6 +20,7 @@ document.addEventListener("alpine:init", function () {
             isSubmitting: false,
             isLoading: false,
             errorMessage: "",
+            noticeMessage: "",
             selectedReason: "unclear_face",
             flagNotes: "",
             lastDecision: null,
@@ -44,6 +45,9 @@ document.addEventListener("alpine:init", function () {
             },
             get hasError() {
                 return !!this.errorMessage;
+            },
+            get hasNotice() {
+                return !!this.noticeMessage;
             },
             get isEmpty() {
                 return !this.hasCard && !this.isLoading;
@@ -406,6 +410,7 @@ document.addEventListener("alpine:init", function () {
                 const card = this.currentCard;
                 this.isSubmitting = true;
                 this.errorMessage = "";
+                this.noticeMessage = "";
                 try {
                     const data = await this._post(this.rootElement.dataset.decideUrl, {
                         profile_id: card.id,
@@ -435,10 +440,15 @@ document.addEventListener("alpine:init", function () {
                 if (this.undoDisabled) return;
                 this.isSubmitting = true;
                 this.errorMessage = "";
+                this.noticeMessage = "";
                 try {
-                    await this._post(this.rootElement.dataset.undoUrl, {
+                    const data = await this._post(this.rootElement.dataset.undoUrl, {
                         log_id: this.lastDecision.logId,
                     });
+                    // Picks whose members' situation changed stay withdrawn.
+                    this.noticeMessage = data.skipped_picks
+                        ? this.rootElement.dataset.picksNotRestored
+                        : "";
                     this.cards = this.cards.filter(
                         (card) => card.id !== this.lastDecision.card.id,
                     );

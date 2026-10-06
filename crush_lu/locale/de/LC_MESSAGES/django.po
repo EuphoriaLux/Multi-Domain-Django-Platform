@@ -44902,3 +44902,7 @@ msgstr "Berücksichtigt werden Bewerbungen, ausstehende Zahlungen, bestätigte T
 #: crush_lu/views_coach.py
 msgid "Participant %(id)s"
 msgstr "Teilnehmende Person %(id)s"
+
+#: crush_lu/templates/crush_lu/coach_photo_review.html
+msgid "Undone. Some Coach's Picks could not be restored because the members' situation changed."
+msgstr "Rückgängig gemacht. Einige Coach's Picks konnten nicht wiederhergestellt werden, weil sich die Situation der Mitglieder geändert hat."

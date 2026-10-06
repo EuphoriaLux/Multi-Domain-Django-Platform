@@ -211,8 +211,9 @@ def _has_visible_cycle_card(viewer, owner):
 
     Mirrors ``connect_week_home`` / ``connect_week_review``: only the viewer's
     latest session counts, and only while the viewer passes the Connect Week
-    access gate (paused or coach-excluded members are redirected away). While
-    that session is inside its cycle, today's live card; after it, every
+    access gate (paused, coach-excluded or photo-moderated members are
+    redirected away). While that session is inside its cycle, today's live
+    card; after it, every
     completed card — the review page keeps rendering them once closed, until
     a new session starts. Session bookkeeping is lazy (``sync_session_state``),
     so the cycle day is derived from the clock, not the stored fields.

@@ -49,6 +49,7 @@ GATE_NOT_VERIFIED = "profile_not_verified"
 GATE_NO_LUXID = "no_luxid"
 GATE_NO_PHOTO_CONSENT = "no_photo_consent"
 GATE_NO_PHOTO = "no_photo"
+GATE_PHOTO_REVISION = "photo_revision"
 
 
 class LobbyAccessError(Exception):
@@ -150,8 +151,13 @@ def participant_gate(user) -> tuple[bool, str]:
         or profile.verification_status != "verified"
     ):
         return False, GATE_NOT_VERIFIED
-    if profile.photo_review_status in ("needs_revision", "flagged_fake"):
-        return False, GATE_NOT_VERIFIED
+    if profile.photo_review_status == "flagged_fake":
+        # Same as a coach exclusion even once staff lift the exclusion: the
+        # flag is sticky, so never invite a photo swap that cannot clear it.
+        return False, GATE_EXCLUDED
+    if profile.photo_review_status == "needs_revision":
+        # Actionable: lobby_locked.html links straight to the photo editor.
+        return False, GATE_PHOTO_REVISION
     if not profile.has_luxid_connected:
         return False, GATE_NO_LUXID
 

@@ -45024,3 +45024,7 @@ msgstr "Sont pris en compte les candidatures, les paiements en attente, les part
 #: crush_lu/views_coach.py
 msgid "Participant %(id)s"
 msgstr "Participant %(id)s"
+
+#: crush_lu/templates/crush_lu/coach_photo_review.html
+msgid "Undone. Some Coach's Picks could not be restored because the members' situation changed."
+msgstr "Annulé. Certains Coach's Picks n’ont pas pu être rétablis, car la situation des membres a changé."

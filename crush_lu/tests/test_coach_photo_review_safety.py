@@ -610,16 +610,21 @@ def test_submit_photo_review_validates_decision_reason_combination():
     assert exc_info.value.status == 400
 
 
-def test_event_lobby_blocks_moderated_photos():
-    from crush_lu.services.event_lobby import participant_gate, GATE_NOT_VERIFIED
+@pytest.mark.parametrize(
+    "decision,expected",
+    [("needs_revision", "GATE_PHOTO_REVISION"), ("flagged_fake", "GATE_EXCLUDED")],
+)
+def test_event_lobby_blocks_moderated_photos(decision, expected):
+    from crush_lu.services import event_lobby
     from crush_lu.tests.test_event_lobby import _make_member
 
     member = _make_member("moderated-lobby-member")
-    assert participant_gate(member)[0]
+    assert event_lobby.participant_gate(member)[0]
     profile = member.crushprofile
-    profile.photo_review_status = "needs_revision"
+    profile.photo_review_status = decision
     profile.save(update_fields=["photo_review_status"])
 
-    allowed, reason = participant_gate(member)
+    allowed, reason = event_lobby.participant_gate(member)
     assert not allowed
-    assert reason == GATE_NOT_VERIFIED
+    # A revision request is actionable (new photo); a fake flag never is.
+    assert reason == getattr(event_lobby, expected)

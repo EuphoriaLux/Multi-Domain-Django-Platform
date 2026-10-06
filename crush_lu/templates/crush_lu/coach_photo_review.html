@@ -12,6 +12,7 @@
      data-undo-url="{% url 'crush_lu:coach_photo_review_undo' %}"
      data-more-url="{% url 'crush_lu:coach_photo_review_more' %}"
      data-error="{% trans 'Could not complete this action. Please try again.' %}"
+     data-picks-not-restored="{% trans "Undone. Some Coach's Picks could not be restored because the members' situation changed." %}"
      @keydown.window="handleKeydown">
     {% csrf_token %}
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -24,6 +25,7 @@
     </div>
     <p class="text-sm text-muted-fg mb-4">{% trans "Swipe right to approve, left to flag, or up to skip. L / Right: approve. H / Left: flag. K: request revision. Space: next photo. U: undo." %}</p>
     <p role="alert" class="text-red-700 dark:text-red-300 mb-3" x-show="hasError" x-text="errorMessage" x-cloak></p>
+    <p role="status" class="text-sm text-muted-fg mb-3" x-show="hasNotice" x-text="noticeMessage" x-cloak></p>
     <template x-if="currentCard">
         <article class="bg-white dark:bg-gray-800 rounded-2xl shadow-crush-sm overflow-hidden border border-gray-200 dark:border-gray-700">
             <div class="relative">
