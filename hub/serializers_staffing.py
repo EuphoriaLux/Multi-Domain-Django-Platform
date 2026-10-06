@@ -44,10 +44,19 @@ class HubEventSerializer(serializers.ModelSerializer):
             lang for lang in ["fr", "en", "de"] if getattr(obj, f"title_{lang}", None)
         ]
         lang = available_languages[0] if available_languages else "fr"
+        domain = "crush.lu"
+        request = self.context.get("request")
+        if request:
+            host = request.get_host().split(":")[0]
+            if host and (
+                "crush.lu" in host or "azurewebsites.net" in host or "localhost" in host
+            ):
+                domain = host
         try:
             return build_absolute_url(
                 "crush_lu:event_detail",
                 lang=lang,
+                domain=domain,
                 kwargs={"event_id": obj.pk},
             )
         except Exception:
@@ -66,7 +75,9 @@ class EventCoachAvailabilitySerializer(serializers.ModelSerializer):
     status = serializers.CharField()
     note = serializers.CharField(required=False, allow_blank=True, default="")
     declaredAt = serializers.DateTimeField(source="declared_at", read_only=True)
-    assignedAt = serializers.DateTimeField(source="assigned_at", read_only=True, allow_null=True)
+    assignedAt = serializers.DateTimeField(
+        source="assigned_at", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = EventCoachAvailability

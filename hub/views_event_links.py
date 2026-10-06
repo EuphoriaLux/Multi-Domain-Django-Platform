@@ -24,20 +24,30 @@ class PartnerEventsView(APIView):
 
     def get(self, request, pk):
         location = get_object_or_404(Location, pk=pk)
-        include_unlinked = (
-            request.query_params.get("include_unlinked", "").lower() in ("true", "1")
+        include_unlinked = request.query_params.get("include_unlinked", "").lower() in (
+            "true",
+            "1",
         )
         if include_unlinked:
-            events = _events().filter(
-                Q(partner_id=pk)
-                | Q(partner__isnull=True, location__iexact=location.name)
-            ).order_by("-date_time", "-pk")
+            # Suppress unlinked fallback if multiple partners share the same name to prevent ambiguous attribution
+            is_unique_partner = (
+                Location.objects.filter(name__iexact=location.name).count() == 1
+            )
+            if is_unique_partner:
+                events = (
+                    _events()
+                    .filter(
+                        Q(partner_id=pk)
+                        | Q(partner__isnull=True, location__iexact=location.name)
+                    )
+                    .order_by("-date_time", "-pk")
+                )
+            else:
+                events = _events().filter(partner_id=pk).order_by("-date_time", "-pk")
         else:
             events = _events().filter(partner_id=pk).order_by("-date_time", "-pk")
         with override("en"):
             return Response({"items": PartnerEventSerializer(events, many=True).data})
-
-
 
 
 class EventPartnerLinkView(APIView):
