@@ -284,3 +284,38 @@ class ClickSweepOnDeletionTests(TestCase):
         with patch('crush_lu.storage.delete_user_storage', return_value=(True, 0)):
             delete_crushlu_profile_only(user)
         self.assertIsNone(CampaignClick.objects.get().user)
+
+
+class LockedClickAttributionTests(TestCase):
+    def test_revocation_between_check_and_insert_degrades_to_anonymous(self):
+        from unittest.mock import patch
+
+        from crush_lu import views_campaign_click
+
+        user = make_user('race@example.com')
+        UserDataConsent.objects.filter(user=user).update(
+            crushlu_consent_given=True
+        )
+        campaign = Campaign.objects.create(
+            name='Race', channels=['email'], audience='all_users',
+        )
+        tracked = build_tracked_url('https://crush.lu/x/', campaign, 'email', user)
+        link = CampaignLink.objects.get()
+        real_locked = views_campaign_click.locked_consent_holds
+
+        def revoke_then_check(member):
+            # Deletion lands after the unlocked check, before the insert.
+            UserDataConsent.objects.filter(user=member).update(
+                crushlu_consent_given=False, crushlu_banned=True
+            )
+            return real_locked(member)
+
+        parts = urlsplit(tracked)
+        with patch.object(
+            views_campaign_click, 'locked_consent_holds', side_effect=revoke_then_check
+        ):
+            response = Client(HTTP_HOST='crush.lu').get(
+                f"{parts.path}?{parts.query}"
+            )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(CampaignClick.objects.get(link=link).user, None)

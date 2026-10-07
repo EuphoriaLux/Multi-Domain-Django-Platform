@@ -746,6 +746,50 @@ class SendTimeConsentRecheckTests(TestCase):
         row.refresh_from_db()
         self.assertEqual(row.email, '')
 
+    def test_revocation_between_check_and_locked_write_sends_nothing(self):
+        """The locked write is the authority: no consent => no send (#1184)."""
+        from crush_lu import newsletter_service
+
+        real = newsletter_service.write_receipt
+        calls = {'n': 0}
+
+        def revoke_before_claim(nl, user, defaults):
+            calls['n'] += 1
+            if calls['n'] == 1:  # the pre-send claim
+                UserDataConsent.objects.filter(user=user).update(
+                    crushlu_consent_given=False, crushlu_banned=True,
+                )
+            return real(nl, user, defaults)
+
+        with patch.object(
+            newsletter_service, 'write_receipt', side_effect=revoke_before_claim
+        ), patch.object(newsletter_service, '_send_newsletter_to_user') as send:
+            results = send_newsletter(self.newsletter)
+        send.assert_not_called()
+        self.assertEqual((results['sent'], results['skipped']), (0, 1))
+        row = NewsletterRecipient.objects.get(
+            newsletter=self.newsletter, user=self.user
+        )
+        self.assertEqual((row.status, row.email), ('skipped', ''))
+
+    def test_error_text_is_suppressed_when_consent_is_gone(self):
+        from crush_lu.newsletter_service import (
+            SUPPRESSED_CONSENT_REVOKED, write_receipt,
+        )
+
+        UserDataConsent.objects.filter(user=self.user).update(
+            crushlu_consent_given=False, crushlu_banned=True,
+        )
+        result = write_receipt(
+            self.newsletter, self.user,
+            {'status': 'failed', 'error_message': 'bounce rc@example.com'},
+        )
+        self.assertFalse(result.allowed)
+        row, _ = result
+        self.assertEqual(
+            (row.email, row.error_message), ('', SUPPRESSED_CONSENT_REVOKED)
+        )
+
     def test_has_current_consent(self):
         from crush_lu.newsletter_service import has_current_consent
 
