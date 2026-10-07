@@ -36,15 +36,20 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **opts):
-        import uuid
-        from datetime import timedelta
-
         from django.conf import settings
         from django.db import transaction
         from django.utils import timezone
 
+        from crush_lu.api_admin_hybrid import (
+            mark_fallback_offered,
+            revert_fallback_offer,
+        )
         from crush_lu.models import ProfileSubmission
-        from crush_lu.tasks import send_sla_fallback_email_task
+        from crush_lu.tasks import (
+            SLA_EMAIL_FAILED,
+            SLA_EMAIL_SENT,
+            deliver_sla_fallback_email,
+        )
 
         if not getattr(settings, "HYBRID_COACH_SYSTEM_ENABLED", False):
             self.stdout.write(
@@ -55,7 +60,6 @@ class Command(BaseCommand):
             return
 
         now = timezone.now()
-        fallback_ttl = timedelta(days=30)
         candidates = (
             ProfileSubmission.objects.filter(
                 status="pending",
@@ -69,7 +73,10 @@ class Command(BaseCommand):
             .select_related("coach__user", "profile__user")
         )
 
-        processed = 0
+        # Claim under the lock, then send after the commit: a slow or failing
+        # mail backend must not hold row locks, and an offer whose email did not
+        # go out is undone so the next tick retries it.
+        claimed = []
         failed = 0
         with transaction.atomic():
             locked_ids = list(
@@ -77,44 +84,41 @@ class Command(BaseCommand):
                 .select_for_update(skip_locked=True)
                 .values_list("pk", flat=True)
             )
-            submissions = (
-                ProfileSubmission.objects.filter(pk__in=locked_ids)
-                .select_related("coach__user", "profile__user")
-            )
+            submissions = ProfileSubmission.objects.filter(
+                pk__in=locked_ids
+            ).select_related("coach__user", "profile__user")
             for sub in submissions:
                 try:
-                    sub.fallback_offered_at = now
-                    sub.booking_token = uuid.uuid4()
-                    sub.booking_token_expires_at = now + fallback_ttl
-                    sub.log_system_action(
-                        "fallback_offered",
-                        actor="system:sla_tick",
-                        reason="sla_breach",
-                    )
-                    sub.save(
-                        update_fields=[
-                            "fallback_offered_at",
-                            "booking_token",
-                            "booking_token_expires_at",
-                            "system_actions",
-                        ]
-                    )
-                    send_sla_fallback_email_task.enqueue(
-                        submission_id=sub.pk,
-                        host=opts["host"],
-                        is_secure=not opts["insecure"],
-                    )
-                    processed += 1
-                    self.stdout.write(
-                        self.style.SUCCESS(
-                            f"  offered submission #{sub.pk} "
-                            f"(user={sub.profile.user.email}, coach={sub.coach.user.email}, "
-                            f"token={sub.booking_token})"
+                    with transaction.atomic():
+                        mark_fallback_offered(
+                            sub, now, actor="system:sla_tick", reason="sla_breach"
                         )
-                    )
+                    claimed.append((sub, sub.booking_token))
                 except Exception as e:  # noqa: BLE001
                     failed += 1
                     self.stderr.write(f"  FAILED submission #{sub.pk}: {e}")
+
+        processed = 0
+        for sub, token in claimed:
+            outcome = deliver_sla_fallback_email(
+                sub.pk, opts["host"], not opts["insecure"]
+            )
+            if outcome == SLA_EMAIL_FAILED:
+                revert_fallback_offer(sub.pk, token, reason="email_not_sent")
+                failed += 1
+                self.stderr.write(
+                    f"  email not sent for submission #{sub.pk}; offer undone"
+                )
+                continue
+            processed += 1
+            note = "" if outcome == SLA_EMAIL_SENT else " (no email: skipped)"
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"  offered submission #{sub.pk} "
+                    f"(user={sub.profile.user.email}, "
+                    f"coach={sub.coach.user.email}){note}"
+                )
+            )
 
         self.stdout.write(
             self.style.SUCCESS(

@@ -225,15 +225,24 @@ def send_pre_screening_user_push_task(submission_id):
         )
 
 
-@task(priority=5)
-def send_sla_fallback_email_task(submission_id, host, is_secure=True):
-    """Email the user their self-booking link after SLA breach (Phase 3).
+SLA_EMAIL_SENT = "sent"
+SLA_EMAIL_SKIPPED = "skipped"
+SLA_EMAIL_FAILED = "failed"
 
-    Enqueued by the hybrid-coach SLA sweep admin endpoint once
-    fallback_offered_at + booking_token have been persisted. Idempotent:
-    unsubscribe check + the caller's own "offered once" guard both prevent
-    duplicate sends. Failures log but don't raise — the system_actions
-    audit log already records the offer independent of delivery.
+
+def deliver_sla_fallback_email(submission_id, host, is_secure=True):
+    """Build and send the self-booking email; report what actually happened.
+
+    Returns one of:
+
+    * ``SLA_EMAIL_SENT`` -- the mail backend accepted at least one message;
+    * ``SLA_EMAIL_SKIPPED`` -- nothing to send by design (submission gone,
+      member unsubscribed, no booking token). Retrying cannot change this;
+    * ``SLA_EMAIL_FAILED`` -- the send raised or was suppressed (returned 0).
+      The caller should undo the offer so the next sweep retries.
+
+    Never raises: callers that sit under row locks or in a request must not be
+    broken by a mail outage.
     """
     from django.template.loader import render_to_string
     from django.urls import reverse
@@ -258,67 +267,90 @@ def send_sla_fallback_email_task(submission_id, host, is_secure=True):
         logger.warning(
             f"[TASK] Submission {submission_id} not found for SLA fallback email"
         )
-        return
+        return SLA_EMAIL_SKIPPED
 
     user = submission.profile.user
     if not can_send_email(user, "profile_updates"):
         logger.info(
-            f"[TASK] Skipping SLA fallback email to {user.email} (unsubscribed)"
+            f"[TASK] Skipping SLA fallback email for submission {submission_id} "
+            "(unsubscribed)"
         )
-        return
+        return SLA_EMAIL_SKIPPED
 
     if not submission.booking_token:
         logger.warning(
             f"[TASK] Submission {submission_id} has no booking_token; skipping email"
         )
-        return
-
-    fake_request = _build_fake_request(host, is_secure)
-    lang = get_user_preferred_language(user=user, request=fake_request, default="en")
-
-    with translation.override(lang):
-        booking_path = reverse(
-            "crush_lu:book_screening",
-            kwargs={"booking_token": submission.booking_token},
-        )
-    scheme = "https" if is_secure else "http"
-    booking_url = f"{scheme}://{host}{booking_path}"
-
-    context = get_email_context_with_unsubscribe(
-        user,
-        fake_request,
-        booking_url=booking_url,
-        coach=submission.coach,
-        submission=submission,
-    )
-
-    with translation.override(lang):
-        subject = _("Book your Crush.lu screening call")
-        html_message = render_to_string(
-            "crush_lu/emails/screening_fallback_offered.html", context
-        )
-        plain_message = html_to_plain_text(
-            render_to_string(
-                "crush_lu/emails/screening_fallback_offered.txt", context
-            )
-        )
+        return SLA_EMAIL_SKIPPED
 
     try:
-        send_domain_email(
+        fake_request = _build_fake_request(host, is_secure)
+        lang = get_user_preferred_language(
+            user=user, request=fake_request, default="en"
+        )
+
+        with translation.override(lang):
+            booking_path = reverse(
+                "crush_lu:book_screening",
+                kwargs={"booking_token": submission.booking_token},
+            )
+        scheme = "https" if is_secure else "http"
+        booking_url = f"{scheme}://{host}{booking_path}"
+
+        context = get_email_context_with_unsubscribe(
+            user,
+            fake_request,
+            booking_url=booking_url,
+            coach=submission.coach,
+            submission=submission,
+        )
+
+        with translation.override(lang):
+            subject = _("Book your Crush.lu screening call")
+            html_message = render_to_string(
+                "crush_lu/emails/screening_fallback_offered.html", context
+            )
+            plain_message = html_to_plain_text(
+                render_to_string(
+                    "crush_lu/emails/screening_fallback_offered.txt", context
+                )
+            )
+
+        sent = send_domain_email(
             subject=subject,
             message=plain_message,
             html_message=html_message,
             recipient_list=[user.email],
             request=fake_request,
-            fail_silently=True,
-        )
-        logger.info(
-            f"[TASK] SLA fallback email sent for submission {submission_id}"
+            fail_silently=False,
         )
     except Exception as e:  # noqa: BLE001
         logger.error(
-            f"[TASK] Failed SLA fallback email for submission {submission_id}: {e}"
+            f"[TASK] Failed SLA fallback email for submission {submission_id}: "
+            f"{type(e).__name__}"
         )
+        return SLA_EMAIL_FAILED
+
+    if not sent:
+        logger.warning(
+            f"[TASK] SLA fallback email for submission {submission_id} was "
+            "suppressed or not accepted by the mail backend"
+        )
+        return SLA_EMAIL_FAILED
+    logger.info(f"[TASK] SLA fallback email sent for submission {submission_id}")
+    return SLA_EMAIL_SENT
+
+
+@task(priority=5)
+def send_sla_fallback_email_task(submission_id, host, is_secure=True):
+    """Email the user their self-booking link after SLA breach (Phase 3).
+
+    Thin wrapper over :func:`deliver_sla_fallback_email` for callers that only
+    want fire-and-forget. The SLA sweep, ``sla_tick`` and the coach-initiated
+    offer call the helper directly, because they must know whether the mail
+    went out and undo the offer when it did not.
+    """
+    deliver_sla_fallback_email(submission_id, host, is_secure)
 
 
 @task(priority=0)

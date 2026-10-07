@@ -1990,8 +1990,8 @@ def coach_offer_self_booking(request, submission_id):
     """
     import uuid
     from django.conf import settings as _settings
-    from .api_admin_hybrid import FALLBACK_TOKEN_TTL
-    from .tasks import send_sla_fallback_email_task
+    from .api_admin_hybrid import mark_fallback_offered, revert_fallback_offer
+    from .tasks import SLA_EMAIL_FAILED, deliver_sla_fallback_email
 
     coach = request.coach
     submission = get_object_or_404(
@@ -2032,30 +2032,31 @@ def coach_offer_self_booking(request, submission_id):
     now = timezone.now()
     try:
         with transaction.atomic():
-            submission.fallback_offered_at = now
-            submission.booking_token = uuid.uuid4()
-            submission.booking_token_expires_at = now + FALLBACK_TOKEN_TTL
-            submission.log_system_action(
-                "fallback_offered",
+            mark_fallback_offered(
+                submission,
+                now,
                 actor=f"coach:{coach.user.username}",
                 reason="coach_initiated",
-            )
-            submission.save(
-                update_fields=[
-                    "fallback_offered_at",
-                    "booking_token",
-                    "booking_token_expires_at",
-                    "system_actions",
-                ]
-            )
-            send_sla_fallback_email_task.enqueue(
-                submission_id=submission.pk,
-                host=request.get_host(),
-                is_secure=request.is_secure(),
             )
     except Exception:
         logger.exception(
             "[coach_offer_self_booking] Failed for submission %s", submission.pk
+        )
+        return HttpResponse(
+            '<p class="text-xs text-red-600 dark:text-red-400">'
+            + str(_("Could not send the booking offer. Try again."))
+            + "</p>",
+            status=500,
+        )
+
+    # Send only after the offer is committed; if the mail did not go out, undo
+    # the offer so the coach can try again instead of seeing a dead "offered".
+    outcome = deliver_sla_fallback_email(
+        submission.pk, request.get_host(), request.is_secure()
+    )
+    if outcome == SLA_EMAIL_FAILED:
+        revert_fallback_offer(
+            submission.pk, submission.booking_token, reason="email_not_sent"
         )
         return HttpResponse(
             '<p class="text-xs text-red-600 dark:text-red-400">'
