@@ -10,7 +10,7 @@ from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from crush_lu.api_admin_hybrid import revert_fallback_offer
+from crush_lu.api_admin_hybrid import _lock_sweep_chunk, revert_fallback_offer
 from crush_lu.models import CrushCoach, CrushProfile, EmailPreference, ProfileSubmission
 from crush_lu.models.profiles import UserDataConsent
 
@@ -626,3 +626,21 @@ class SlaSweepTests(TestCase):
         self.assertEqual(sub.booking_token, token)
         self.assertIsNotNone(sub.fallback_offer_sent_at)
         self.assertIn("processed=1", out.getvalue())
+
+    def test_lock_step_drops_a_row_claimed_after_it_was_picked(self):
+        """A sweep that picked a row before another sweep claimed it must not
+        lock it again: it would read as a recovered claim and re-send the mail.
+        (SQLite cannot reproduce the timing; this pins the re-check itself.)"""
+        picked = self._submission("raced")
+        untouched = self._submission("free")
+        now = timezone.now()
+        ProfileSubmission.objects.filter(pk=picked.pk).update(
+            fallback_offered_at=now,
+            booking_token=uuid.uuid4(),
+            booking_token_expires_at=now + timedelta(days=30),
+            fallback_offer_claimed_at=now,
+        )
+
+        locked = _lock_sweep_chunk(now, set(), picked_pks=[picked.pk, untouched.pk])
+
+        self.assertEqual(locked, [untouched.pk])
