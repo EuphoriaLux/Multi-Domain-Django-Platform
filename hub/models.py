@@ -971,6 +971,9 @@ class ErasedPhoneNumber(models.Model):
     an erased member sanitised instead of resurrecting their number, name and
     text. Only an HMAC-SHA256 of the digits is kept, never the number.
 
+    Retention: rows are pruned after 90 days by ``gdpr_retention_cleanup``
+    (``erased_phone_days``): a late delivery arrives within minutes or days.
+
     Key: ``settings.ERASURE_DIGEST_KEY`` when set. It must be dedicated and
     NEVER rotated: the numbers are gone, so a digest can never be rebuilt, and
     a rotated key would orphan every tombstone. Without it the digest falls

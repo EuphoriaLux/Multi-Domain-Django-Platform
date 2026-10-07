@@ -85,6 +85,34 @@ class GdprRetentionCommandTests(TestCase):
             activity_date=today,
         )
 
+    def test_erased_phone_tombstones_expire_after_90_days(self):
+        from hub.models import ErasedPhoneNumber
+
+        ErasedPhoneNumber.record(["+352621000001", "+352621000002"])
+        old = ErasedPhoneNumber.objects.order_by("pk").first()
+        ErasedPhoneNumber.objects.filter(pk=old.pk).update(
+            created_at=timezone.now() - timedelta(days=91)
+        )
+
+        # Dry run keeps both and reports the expired one.
+        out = StringIO()
+        call_command("gdpr_retention_cleanup", stdout=out)
+        self.assertEqual(ErasedPhoneNumber.objects.count(), 2)
+        self.assertIn("ErasedPhoneNumber older than 90d: 1 row(s)", out.getvalue())
+
+        call_command("gdpr_retention_cleanup", **{"apply": True}, stdout=StringIO())
+
+        self.assertFalse(ErasedPhoneNumber.objects.filter(pk=old.pk).exists())
+        self.assertEqual(ErasedPhoneNumber.objects.count(), 1)
+        self.assertFalse(ErasedPhoneNumber.is_erased("+352621000001"))
+        self.assertTrue(ErasedPhoneNumber.is_erased("+352621000002"))
+
+    def test_negative_erased_phone_window_is_rejected(self):
+        from django.core.management.base import CommandError
+
+        with self.assertRaises(CommandError):
+            call_command("gdpr_retention_cleanup", erased_phone_days=-1)
+
     def test_dry_run_deletes_nothing(self):
         out = StringIO()
         call_command("gdpr_retention_cleanup", stdout=out)

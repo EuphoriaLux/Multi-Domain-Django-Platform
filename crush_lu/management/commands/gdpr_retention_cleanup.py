@@ -14,6 +14,7 @@ Categories and default windows (override via ``settings.GDPR_RETENTION``)::
         "call_attempt_days": 365,    # CallAttempt screening-call audit trail
         "custom_sms_batch_days": 365, # Custom SMS batches (message + member ids)
         "event_preference_days": 30, # preferences + named group schedule
+        "erased_phone_days": 90,     # ErasedPhoneNumber erasure tombstones
     }
 
 ``DailyUserActivity`` pruning delegates to the existing
@@ -43,6 +44,7 @@ from crush_lu.models.events import CuratedEventGroup, EventRegistrationPreferenc
 from crush_lu.models.oauth_state import OAuthState
 from crush_lu.models.phone_otp import PhoneOTP
 from crush_lu.models.profiles import CallAttempt, DailyUserActivity
+from hub.models import ErasedPhoneNumber
 
 # The GdprRetention endpoint runs this synchronously under _call_admin_endpoint's
 # 60s HTTP timeout. A single bulk DELETE of a large first-run backlog could
@@ -63,6 +65,11 @@ DEFAULT_RETENTION = {
     # organiser-only input for composing the group, worthless once the event
     # is a month behind us. Window measured from the event's start time.
     "event_preference_days": 30,
+    # ErasedPhoneNumber: keyed digest of an erased member's number, kept only so
+    # a late WhatsApp webhook or Hub send is stored sanitised. Late deliveries
+    # arrive within minutes or days, so the suppression record is not kept
+    # beyond this window (it also bounds retention if a number is reassigned).
+    "erased_phone_days": 90,
 }
 
 
@@ -83,6 +90,7 @@ class Command(BaseCommand):
         parser.add_argument("--call-attempt-days", type=int, default=None)
         parser.add_argument("--custom-sms-batch-days", type=int, default=None)
         parser.add_argument("--event-preference-days", type=int, default=None)
+        parser.add_argument("--erased-phone-days", type=int, default=None)
 
     def handle(self, *args, **options):
         apply_changes = options["apply"]
@@ -101,6 +109,7 @@ class Command(BaseCommand):
         call_days = _window(options["call_attempt_days"], "call_attempt_days")
         batch_days = _window(options["custom_sms_batch_days"], "custom_sms_batch_days")
         pref_days = _window(options["event_preference_days"], "event_preference_days")
+        erased_days = _window(options["erased_phone_days"], "erased_phone_days")
 
         # A negative window (CLI or GDPR_RETENTION) produces a cutoff in the
         # future, so `created_at < cutoff` would match — and delete — every
@@ -114,6 +123,7 @@ class Command(BaseCommand):
             ("call_attempt_days", call_days),
             ("custom_sms_batch_days", batch_days),
             ("event_preference_days", pref_days),
+            ("erased_phone_days", erased_days),
         ):
             if value < 0:
                 raise CommandError(
@@ -274,6 +284,26 @@ class Command(BaseCommand):
                 self.stdout.write(
                     f"  EventRegistrationPreference for events older than "
                     f"{pref_days}d: {pref_qs.count()} row(s)"
+                )
+
+        # 6. ErasedPhoneNumber — erasure tombstones past their window.
+        if not budget_hit:
+            erased_qs = ErasedPhoneNumber.objects.filter(
+                created_at__lt=now - timedelta(days=erased_days)
+            )
+            if apply_changes:
+                deleted, budget_hit = self._delete_in_chunks(
+                    erased_qs, deadline, order_by="created_at"
+                )
+                total_deleted += deleted
+                self.stdout.write(
+                    f"  ErasedPhoneNumber older than {erased_days}d: "
+                    f"deleted {deleted}"
+                )
+            else:
+                self.stdout.write(
+                    f"  ErasedPhoneNumber older than {erased_days}d: "
+                    f"{erased_qs.count()} row(s)"
                 )
 
         if apply_changes and budget_hit:
