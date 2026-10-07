@@ -687,3 +687,50 @@ class AccountErasureCompletenessTests(TestCase):
             views_account.delete_crushlu_profile_only(self.user)
         row = NewsletterRecipient.objects.get(newsletter=newsletter)
         self.assertEqual((row.status, row.email), ('sent', ''))
+
+
+class NewsletterReceiptErasureTests(TestCase):
+    """Receipts never keep the address after deletion (#1184 race)."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from crush_lu.models import CrushProfile, Newsletter
+
+        self.user = get_user_model().objects.create_user(
+            username='nr@example.com', email='nr@example.com', password='x',
+        )
+        CrushProfile.objects.create(
+            user=self.user, date_of_birth=date(1995, 5, 15), gender='M',
+            location='Luxembourg', is_approved=True, is_active=True,
+        )
+        self.newsletter = Newsletter.objects.create(
+            subject='S', body_html='x', audience='all_users',
+        )
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_receipt_written_before_deletion_is_blanked(self, _s):
+        from crush_lu.models import NewsletterRecipient
+        from crush_lu.models.profiles import UserDataConsent
+        from crush_lu.newsletter_service import write_receipt
+        from crush_lu.views import delete_crushlu_profile_only
+
+        UserDataConsent.objects.filter(user=self.user).update(
+            crushlu_consent_given=True
+        )
+        write_receipt(self.newsletter, self.user, {'status': 'sent'})
+        self.assertEqual(
+            NewsletterRecipient.objects.get().email, 'nr@example.com'
+        )
+        delete_crushlu_profile_only(self.user)
+        row = NewsletterRecipient.objects.get()
+        self.assertEqual((row.status, row.email), ('sent', ''))
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_receipt_written_after_revocation_is_stored_blank(self, _s):
+        from crush_lu.models import NewsletterRecipient
+        from crush_lu.newsletter_service import write_receipt
+        from crush_lu.views import delete_crushlu_profile_only
+
+        delete_crushlu_profile_only(self.user)
+        write_receipt(self.newsletter, self.user, {'status': 'sent'})
+        self.assertEqual(NewsletterRecipient.objects.get().email, '')

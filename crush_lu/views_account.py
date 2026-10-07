@@ -985,6 +985,12 @@ def delete_crushlu_profile_only(user):
         consent.save()
         logger.info(f"Set permanent Crush.lu ban for user {user.id}")
 
+    # After the revocation has committed: blank any newsletter receipt an
+    # in-flight sender wrote before it saw the revocation.
+    from crush_lu.newsletter_service import anonymize_newsletter_receipts
+
+    anonymize_newsletter_receipts(user)
+
     logger.info(f"Crush.lu profile deleted for user {user.id} (PowerUp account kept)")
 
 
