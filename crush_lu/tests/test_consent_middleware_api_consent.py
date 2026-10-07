@@ -254,6 +254,17 @@ class ApiBearerTokenGateTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
 
+    def test_whitespace_variant_bearer_header_is_still_gated(self):
+        from rest_framework_simplejwt.tokens import AccessToken
+
+        user = _make_user("jwt10@example.com", crushlu_consent_given=False)
+        token = AccessToken.for_user(user)
+        response = self.client.get(
+            "/api/referral/me/", HTTP_AUTHORIZATION=f"Bearer\t{token}", **HOST
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json(), {"code": "consent_required"})
+
     def test_invalid_bearer_token_is_left_to_the_view(self):
         response = self.client.get(
             "/api/referral/me/", HTTP_AUTHORIZATION="Bearer not-a-jwt", **HOST

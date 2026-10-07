@@ -295,7 +295,9 @@ class CrushConsentMiddleware:
         users = []
         if request.user.is_authenticated:
             users.append(request.user)
-        if request.META.get("HTTP_AUTHORIZATION", "").lower().startswith("bearer "):
+        # Not pre-filtered on "Bearer ": SimpleJWT splits the header on any
+        # whitespace (e.g. "Bearer\t<token>"), so let it decide what is a token.
+        if request.META.get("HTTP_AUTHORIZATION"):
             from rest_framework_simplejwt.authentication import JWTAuthentication
 
             try:
