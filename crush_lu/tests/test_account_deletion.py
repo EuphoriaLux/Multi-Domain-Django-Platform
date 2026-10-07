@@ -1675,3 +1675,89 @@ class FollowupErasureTests(TestCase):
         )
 
         self.assertFalse(ErasedPhoneNumber.is_erased('352621444444'))
+
+    # --- round 3 of Codex on #1234 -------------------------------------------
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_member_being_erased_is_not_a_live_owner_during_the_sweeps(self, _s):
+        from crush_lu import views_account
+        from crush_lu.models import CrushProfile
+        from crush_lu.views import delete_full_account
+        from hub.models import ErasedPhoneNumber
+
+        CrushProfile.objects.filter(user=self.user).update(
+            phone_number='+352 621 616 616', phone_verified=True
+        )
+        seen = {}
+        real = views_account._anonymize_whatsapp_inbound
+
+        def spy(numbers):
+            # The profile and active User still exist here; the tombstone must
+            # already be effective for a webhook or Hub send landing now.
+            seen['profile_exists'] = CrushProfile.objects.filter(
+                user=self.user
+            ).exists()
+            seen['erased'] = ErasedPhoneNumber.is_erased('+352621616616')
+            return real(numbers)
+
+        with patch.object(views_account, '_anonymize_whatsapp_inbound', side_effect=spy):
+            delete_full_account(self.user)
+
+        self.assertEqual(seen, {'profile_exists': True, 'erased': True})
+
+    def test_dedicated_erasure_key_survives_secret_key_rotation(self):
+        from django.test import override_settings
+
+        from hub.models import ErasedPhoneNumber
+
+        with override_settings(
+            ERASURE_DIGEST_KEY='dedicated-stable-key',
+            SECRET_KEY='first-secret-key-1234567890-first-secret',
+        ):
+            ErasedPhoneNumber.record(['+352621717171'])
+
+        # SECRET_KEY rotated and the fallback already dropped.
+        with override_settings(
+            ERASURE_DIGEST_KEY='dedicated-stable-key',
+            SECRET_KEY='second-secret-key-1234567890-second-sec',
+            SECRET_KEY_FALLBACKS=[],
+        ):
+            self.assertTrue(ErasedPhoneNumber.is_erased('+352621717171'))
+
+    def test_status_callback_keeps_a_sanitised_row_history_blank(self):
+        from hub.models import WhatsAppMessage
+        from hub.views_whatsapp import WhatsAppWebhookView
+
+        message = WhatsAppMessage.objects.create(
+            user=self.other, recipient='', template_name='t', language='en',
+            parameters={}, status='sent', status_history=[],
+            wa_message_id='wamid.sanitised',
+        )
+
+        WhatsAppWebhookView()._apply_status(
+            {
+                'id': 'wamid.sanitised', 'status': 'failed',
+                'timestamp': '1790000000',
+                'errors': [{'code': 131026, 'title': 'to +352621717171 failed'}],
+            }
+        )
+
+        message.refresh_from_db()
+        self.assertEqual(message.status_history, [])
+        self.assertEqual(message.status, 'failed')
+
+    def test_status_callback_still_records_history_for_a_normal_row(self):
+        from hub.models import WhatsAppMessage
+        from hub.views_whatsapp import WhatsAppWebhookView
+
+        message = WhatsAppMessage.objects.create(
+            user=self.other, recipient='+352621000222', template_name='t',
+            language='en', parameters={}, status='sent', status_history=[],
+            wa_message_id='wamid.normal',
+        )
+
+        WhatsAppWebhookView()._apply_status(
+            {'id': 'wamid.normal', 'status': 'delivered', 'timestamp': '1790000000'}
+        )
+
+        message.refresh_from_db()
+        self.assertEqual(len(message.status_history), 1)

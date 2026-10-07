@@ -971,10 +971,11 @@ class ErasedPhoneNumber(models.Model):
     an erased member sanitised instead of resurrecting their number, name and
     text. Only an HMAC-SHA256 of the digits is kept, never the number.
 
-    Key rotation: digests are checked under ``SECRET_KEY`` AND every
-    ``SECRET_KEY_FALLBACKS`` entry, and a match under an old key is re-recorded
-    under the current one, so rotating the key never orphans a tombstone (the
-    numbers themselves are gone, so a digest cannot be rebuilt later).
+    Key: ``settings.ERASURE_DIGEST_KEY`` when set. It must be dedicated and
+    NEVER rotated: the numbers are gone, so a digest can never be rebuilt, and
+    a rotated key would orphan every tombstone. Without it the digest falls
+    back to ``SECRET_KEY`` (checked together with ``SECRET_KEY_FALLBACKS``,
+    migrating a fallback match lazily), which is only as stable as that key.
     """
 
     digest = models.CharField(max_length=64, unique=True)
@@ -995,7 +996,12 @@ class ErasedPhoneNumber(models.Model):
         digits = cls.digits(number)
         if not digits:
             return "", []
-        keys = [settings.SECRET_KEY, *getattr(settings, "SECRET_KEY_FALLBACKS", [])]
+        dedicated = getattr(settings, "ERASURE_DIGEST_KEY", "") or ""
+        keys = [
+            *([dedicated] if dedicated else []),
+            settings.SECRET_KEY,
+            *getattr(settings, "SECRET_KEY_FALLBACKS", []),
+        ]
         all_digests = [
             hmac.new(str(k).encode(), digits.encode(), hashlib.sha256).hexdigest()
             for k in keys
@@ -1027,6 +1033,9 @@ class ErasedPhoneNumber(models.Model):
             digits_expr = Replace(digits_expr, Value(junk), Value(""))
         return (
             profile_model.objects.filter(phone_verified=True, user__is_active=True)
+            # A member whose deletion is under way (or done) is the one being
+            # erased, not a new owner: their consent row is banned.
+            .exclude(user__data_consent__crushlu_banned=True)
             .annotate(_digits=digits_expr)
             .filter(_digits=digits)
             .exists()

@@ -224,24 +224,14 @@ def parse_facebook_signed_request(signed_request):
         return None
 
 
-def _retire_event_checkouts_before_profile_deletion(user):
-    """Close every event checkout before its registration can be erased.
+def _mark_deletion_in_progress(user):
+    """Revoke consent and set the retryable ``deletion_in_progress`` tombstone.
 
-    The deletion-in-progress ban is committed first. New member- or
-    staff-opened event checkouts then fail their locked eligibility check,
-    while an already-running creator is serialized through its event row and
-    leaves either a durable claim or PaymentTransaction for this sweep to see.
-    Provider I/O runs between short database phases; ambiguous deactivation
-    aborts deletion rather than orphaning a possible late card capture.
+    Idempotent. Full-account deletion calls it FIRST, before the erased phone
+    number is recorded, so the ErasedPhoneNumber live-owner exemption never
+    mistakes the member being erased for a legitimate current owner.
     """
-
-    from crush_lu.models.payments import (
-        EventCheckoutCreationClaim,
-        PaymentTransaction,
-    )
-    from crush_lu.models import MeetupEvent
     from crush_lu.models.profiles import UserDataConsent
-    from crush_lu.services.sumup import SumUpClient
 
     with transaction.atomic():
         consent, _created = UserDataConsent.objects.select_for_update().get_or_create(
@@ -261,6 +251,27 @@ def _retire_event_checkouts_before_profile_deletion(user):
                 "crushlu_ban_reason",
             ]
         )
+
+
+def _retire_event_checkouts_before_profile_deletion(user):
+    """Close every event checkout before its registration can be erased.
+
+    The deletion-in-progress ban is committed first. New member- or
+    staff-opened event checkouts then fail their locked eligibility check,
+    while an already-running creator is serialized through its event row and
+    leaves either a durable claim or PaymentTransaction for this sweep to see.
+    Provider I/O runs between short database phases; ambiguous deactivation
+    aborts deletion rather than orphaning a possible late card capture.
+    """
+
+    from crush_lu.models.payments import (
+        EventCheckoutCreationClaim,
+        PaymentTransaction,
+    )
+    from crush_lu.models import MeetupEvent
+    from crush_lu.services.sumup import SumUpClient
+
+    _mark_deletion_in_progress(user)
 
     registration_rows = list(
         EventRegistration.objects.filter(user=user)
@@ -1447,6 +1458,7 @@ def delete_full_account(user):
     # inbound webhook or a Hub send that lands later is stored sanitised.
     from hub.models import ErasedPhoneNumber
 
+    _mark_deletion_in_progress(user)
     ErasedPhoneNumber.record(phone_numbers)
     _anonymize_whatsapp_inbound(phone_numbers)
     _anonymize_whatsapp_outbound(phone_numbers)

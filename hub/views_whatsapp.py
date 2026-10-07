@@ -349,7 +349,13 @@ class WhatsAppWebhookView(View):
                 logger.warning("Multiple rows share wa_message_id=%s", wa_id)
                 return
 
-            message.status_history = (message.status_history or []) + [history_entry]
+            # A row sanitised by erasure keeps its wa_message_id but has no
+            # recipient: its status may advance, its history must stay blank
+            # (Meta's error text can echo the erased number).
+            if message.recipient:
+                message.status_history = (message.status_history or []) + [
+                    history_entry
+                ]
             if _STATUS_RANK[new_status] >= _STATUS_RANK[message.status]:
                 message.status = new_status
             message.save(update_fields=["status", "status_history", "updated_at"])
