@@ -556,6 +556,27 @@ class BounceClassificationTests(TestCase):
         self.assertEqual(result.classification, "unknown")
         self.assertFalse(EmailSuppression.objects.exists())
 
+    def test_hard_bounce_preserves_operator_selected_campaign_scope(self):
+        hold = EmailSuppression.objects.create(
+            email="person@example.net", scope="campaign"
+        )
+
+        process_graph_bounce(delivery_report_message(), apply=True)
+
+        hold.refresh_from_db()
+        self.assertEqual(hold.scope, "campaign")
+        self.assertTrue(hold.is_active)
+        self.assertEqual(hold.reason, "hard_bounce")
+        self.assertEqual(
+            send_domain_email(
+                subject="Password reset",
+                message="Reset link",
+                recipient_list=[hold.email],
+                domain="crush.lu",
+            ),
+            1,
+        )
+
     def test_existing_hard_event_repairs_its_missing_suppression(self):
         message = delivery_report_message()
         EmailBounceEvent.objects.create(

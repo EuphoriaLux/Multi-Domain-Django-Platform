@@ -229,6 +229,10 @@ def process_graph_bounce(
             },
         )
         if result.classification == "hard":
+            # Preserve an existing operator-selected scope. A delivery report
+            # does not prove whether the failed message was transactional or
+            # a campaign, so it must not broaden a campaign-only hold.
+            # New holds retain the model's legacy all-email default.
             EmailSuppression.objects.update_or_create(
                 email=result.recipient,
                 defaults={

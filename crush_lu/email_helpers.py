@@ -2958,4 +2958,5 @@ def send_connect_beta_invite(user, wave, request=None):
         # explicit domain the config falls back to the PowerUp sender.
         domain="crush.lu",
         fail_silently=False,
+        email_purpose="campaign",
     )
