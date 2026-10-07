@@ -499,6 +499,26 @@ def _filter_private_events(events, user):
     return [e for e in events if not e.is_private_invitation or e.id in allowed_ids]
 
 
+def next_visible_event(user, now):
+    """First current/upcoming published event this user may see.
+
+    Backs the onboarding/dashboard "next event" teasers. Applies the same
+    private-invitation rules as the event list so a teaser never leaks the
+    title or date of an invitation-only event to an uninvited member.
+    """
+    candidates = MeetupEvent.objects.filter(
+        is_published=True,
+        is_cancelled=False,
+        date_time__gte=MeetupEvent.live_lookback_cutoff(now),
+    ).order_by("date_time")
+    for event in candidates:
+        if event.end_time < now:
+            continue
+        if _filter_private_events([event], user):
+            return event
+    return None
+
+
 def event_list(request):
     """List of upcoming and past events"""
     now = timezone.now()
