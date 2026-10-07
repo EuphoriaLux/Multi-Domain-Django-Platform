@@ -858,9 +858,15 @@ class Round8ErasureTests(TestCase):
 
     @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
     def test_email_delivery_records_are_sanitised_suppression_stays_effective(self, _s):
+        from allauth.account.models import EmailAddress
+
         from crush_lu.models import EmailBounceEvent, EmailSuppression
         from crush_lu.views import delete_full_account
 
+        # Only a VERIFIED address keys the erasure of delivery records.
+        EmailAddress.objects.create(
+            user=self.user, email=self.user.email, verified=True, primary=True,
+        )
         EmailSuppression.objects.create(email='r8@example.com', diagnostic='550 r8@example.com')
         EmailSuppression.objects.create(email='other@example.com', diagnostic='keep')
         EmailBounceEvent.objects.create(
@@ -1058,3 +1064,118 @@ class Round9ErasureTests(TestCase):
         message.refresh_from_db()
         self.assertEqual((message.recipient, message.parameters), ('', {}))
         self.assertEqual(CampaignRecipient.objects.get().whatsapp_message_id, message.pk)
+
+
+class Round10ErasureTests(TestCase):
+    """Codex round on #1225: spark payload, verified-only addresses, pending rows."""
+
+    def setUp(self):
+        from allauth.account.models import EmailAddress
+        from django.contrib.auth import get_user_model
+        from crush_lu.models import CrushProfile, MeetupEvent
+
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='del@example.com', email='del@example.com', password='x',
+        )
+        self.other = User.objects.create_user(
+            username='o@example.com', email='o@example.com', password='x',
+        )
+        for user in (self.user, self.other):
+            CrushProfile.objects.create(
+                user=user, date_of_birth=date(1995, 5, 15), gender='M',
+                location='Luxembourg',
+            )
+        EmailAddress.objects.create(
+            user=self.user, email='del@example.com', verified=True, primary=True,
+        )
+        self.event = MeetupEvent.objects.create(
+            title='E', description='d', event_type='mixer',
+            date_time=timezone.now() + timedelta(days=5), location='L',
+            address='A', max_participants=10,
+            registration_deadline=timezone.now() + timedelta(days=3),
+        )
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_received_spark_payload_and_media_are_erased(self, _s):
+        from django.core.files.base import ContentFile
+        from django.core.files.storage import InMemoryStorage
+
+        from crush_lu.models import CrushSpark
+        from crush_lu.views import delete_full_account
+
+        storage = InMemoryStorage()
+        name = storage.save('sparks/c1.png', ContentFile(b'img'))
+        spark = CrushSpark.objects.create(
+            event=self.event, sender=self.other, recipient=self.user,
+            sender_description='tall, red scarf', coach_notes='shy',
+            sender_message='sender-authored',
+        )
+        CrushSpark.objects.filter(pk=spark.pk).update(chapter1_image=name)
+
+        field = CrushSpark._meta.get_field('chapter1_image')
+        with patch.object(field, 'storage', storage):
+            delete_full_account(self.user)
+
+        spark.refresh_from_db()
+        self.assertIsNone(spark.recipient)
+        self.assertEqual((spark.sender_description, spark.coach_notes), ('', ''))
+        self.assertFalse(spark.chapter1_image)
+        self.assertFalse(storage.exists(name))
+        self.assertEqual(spark.sender_message, 'sender-authored')
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_pending_invitation_and_gift_for_verified_address_are_blanked(self, _s):
+        from crush_lu.models import EventInvitation, JourneyGift
+        from crush_lu.views import delete_full_account
+
+        invitation = EventInvitation.objects.create(
+            event=self.event, guest_email='Del@Example.com',
+            guest_first_name='Del', guest_last_name='Me', coach_notes='n',
+        )
+        gift = JourneyGift.objects.create(
+            sender=self.other, recipient_name='Del', recipient_email='del@example.com',
+            date_first_met=date(2024, 1, 1), location_first_met='Lux',
+        )
+
+        delete_full_account(self.user)
+
+        invitation.refresh_from_db()
+        gift.refresh_from_db()
+        self.assertEqual(
+            (invitation.guest_email, invitation.guest_first_name,
+             invitation.guest_last_name, invitation.coach_notes),
+            ('', '', '', ''),
+        )
+        self.assertEqual(
+            (gift.recipient_name, gift.recipient_email, gift.location_first_met),
+            ('', '', ''),
+        )
+        self.assertEqual(gift.date_first_met, gift.created_at.date())
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_unverified_secondary_address_does_not_key_erasure(self, _s):
+        from allauth.account.models import EmailAddress
+
+        from crush_lu.models import EmailBounceEvent, EventInvitation
+        from crush_lu.views import delete_full_account
+
+        # Someone else's mailbox, added but never verified.
+        EmailAddress.objects.create(
+            user=self.user, email='victim@example.com', verified=False,
+        )
+        invitation = EventInvitation.objects.create(
+            event=self.event, guest_email='victim@example.com',
+            guest_first_name='Vic', guest_last_name='Tim',
+        )
+        bounce = EmailBounceEvent.objects.create(
+            source_message_id='m1', recipient='victim@example.com',
+            subject='s', diagnostic='d',
+        )
+
+        delete_full_account(self.user)
+
+        invitation.refresh_from_db()
+        bounce.refresh_from_db()
+        self.assertEqual(invitation.guest_email, 'victim@example.com')
+        self.assertEqual(bounce.recipient, 'victim@example.com')

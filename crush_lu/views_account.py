@@ -556,6 +556,9 @@ ACCOUNT_ERASURE_ANONYMIZE_BLANK = {
         "location_first_met",
     ),
     "CacheChallengeAttempt": ("last_answer",),
+    # Sender's description of the recipient and the coach's notes about them.
+    # The sender's own message text stays (clearly sender-authored).
+    "CrushSpark": ("sender_description", "coach_notes"),
 }
 
 # Export completeness registries (GDPR Art. 15/20). Every concrete or
@@ -764,6 +767,51 @@ def _erase_oauth_state(user):
         ).delete()
 
 
+def _collect_user_email_addresses(user):
+    """Lower-cased addresses the member has VERIFIED as theirs.
+
+    allauth lets anyone add an arbitrary secondary address that is never
+    verified, so unverified rows (and a never-verified ``user.email``) must
+    not key erasure of records that belong to somebody else's mailbox.
+    """
+    from allauth.account.models import EmailAddress
+
+    return {
+        a.strip().lower()
+        for a in EmailAddress.objects.filter(user=user, verified=True).values_list(
+            "email", flat=True
+        )
+        if a
+    }
+
+
+def _anonymize_pending_recipient_records(addresses):
+    """Blank pending invitations/gifts addressed to the member's verified email.
+
+    An unaccepted ``EventInvitation`` and an unclaimed ``JourneyGift`` have no
+    user FK yet (``created_user`` / ``claimed_by`` are set on acceptance), so
+    the relation-based registry cannot find them; only the address can.
+    """
+    from crush_lu.models import EventInvitation, JourneyGift
+
+    for address in {a.strip().lower() for a in addresses if a}:
+        EventInvitation.objects.filter(
+            guest_email__iexact=address, created_user__isnull=True
+        ).update(
+            **{name: "" for name in ACCOUNT_ERASURE_ANONYMIZE_BLANK["EventInvitation"]}
+        )
+        gifts = JourneyGift.objects.filter(
+            recipient_email__iexact=address, claimed_by__isnull=True
+        )
+        # Read before blanking: the update removes the rows from the filter.
+        created = list(gifts.values_list("pk", "created_at"))
+        gifts.update(
+            **{name: "" for name in ACCOUNT_ERASURE_ANONYMIZE_BLANK["JourneyGift"]}
+        )
+        for pk, created_at in created:
+            JourneyGift.objects.filter(pk=pk).update(date_first_met=created_at.date())
+
+
 def _anonymize_email_delivery(addresses):
     """Strip personal text from delivery-health records for given addresses.
 
@@ -967,6 +1015,20 @@ def _purge_user_keyed_personal_data(user):
                     model.objects.filter(pk=row.pk).update(
                         date_first_met=row.created_at.date()
                     )
+            if model_name == "CrushSpark":
+                # Sparks SENT TO the erased member: the row stays with its
+                # sender, but the personalised chapter images/video/audio
+                # made for the recipient are removed from storage and cleared.
+                from django.db import models as dj_models
+
+                _delete_stored_files(rows)
+                rows.update(
+                    **{
+                        f.name: ""
+                        for f in model._meta.concrete_fields
+                        if isinstance(f, dj_models.FileField)
+                    }
+                )
             if model_name == "CacheChallengeAttempt":
                 # The answer photo is the member's own upload.
                 _delete_stored_files(rows)
@@ -1283,10 +1345,7 @@ def delete_full_account(user):
     # while the profile still holds it.
     phone_numbers = _collect_user_phone_numbers(user)
     # Addresses must be captured before the User row is anonymised.
-    addresses = {user.email}
-    addresses.update(
-        EmailAddress.objects.filter(user=user).values_list("email", flat=True)
-    )
+    addresses = _collect_user_email_addresses(user)
 
     # First delete Crush.lu profile
     delete_crushlu_profile_only(user)
@@ -1317,6 +1376,7 @@ def delete_full_account(user):
     SocialAccount.objects.filter(user=user).delete()
 
     _anonymize_email_delivery(addresses)
+    _anonymize_pending_recipient_records(addresses)
 
     logger.info(f"Full account deleted for user {user.id} (all platforms)")
 
