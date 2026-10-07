@@ -619,11 +619,16 @@ class AccountErasureCompletenessTests(TestCase):
         from hub.models import WhatsAppInboundMessage
 
         CrushProfile.objects.filter(user=self.user).update(
-            phone_number='+352 621 111 111'
+            phone_number='+352 621 111 111', phone_verified=True
         )
         PhoneOTP.objects.create(
             user=self.user, phone_number='+352621222222', code_hash='h',
-            expires_at=timezone.now() + timedelta(minutes=5),
+            expires_at=timezone.now() + timedelta(minutes=5), consumed=True,
+        )
+        # An OTP requested for someone else's number was never verified.
+        PhoneOTP.objects.create(
+            user=self.user, phone_number='+352699999999', code_hash='h',
+            expires_at=timezone.now() + timedelta(minutes=5), consumed=False,
         )
 
         def inbound(wa_id, number):
@@ -634,7 +639,7 @@ class AccountErasureCompletenessTests(TestCase):
 
         mine = inbound('wamid.1', '352621111111')
         also_mine = inbound('wamid.2', '+352621222222')
-        theirs = inbound('wamid.3', '352699999999')
+        theirs = inbound('wamid.3', '352699999999')  # only an unverified OTP
 
         delete_full_account(self.user)
 
@@ -822,3 +827,146 @@ class ConsentAndCoachErasureTests(TestCase):
         self.assertEqual(coach.working_mode, 'spontaneous')
         self.assertFalse(coach.is_away)
         self.assertIsNone(coach.away_until)
+
+
+class Round8ErasureTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from crush_lu.models import CrushProfile
+
+        self.user = get_user_model().objects.create_user(
+            username='r8@example.com', email='r8@example.com', password='x',
+        )
+        CrushProfile.objects.create(
+            user=self.user, date_of_birth=date(1995, 5, 15), gender='M',
+            location='Luxembourg', is_approved=True, is_active=True,
+        )
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_refund_reminder_survives_profile_only_deletion_not_full(self, _s):
+        from crush_lu.email_helpers import can_send_email
+        from crush_lu.views import delete_crushlu_profile_only, delete_full_account
+
+        delete_crushlu_profile_only(self.user)
+        # Banned for marketing, but the refund-right notice still goes out.
+        self.assertTrue(can_send_email(self.user, 'crush_credit_expiry'))
+        self.assertFalse(can_send_email(self.user, 'newsletter'))
+        self.assertFalse(can_send_email(self.user, 'event_reminders'))
+        delete_full_account(self.user)
+        self.assertFalse(can_send_email(self.user, 'crush_credit_expiry'))
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_email_delivery_records_are_sanitised_suppression_stays_effective(self, _s):
+        from crush_lu.models import EmailBounceEvent, EmailSuppression
+        from crush_lu.views import delete_full_account
+
+        EmailSuppression.objects.create(email='r8@example.com', diagnostic='550 r8@example.com')
+        EmailSuppression.objects.create(email='other@example.com', diagnostic='keep')
+        EmailBounceEvent.objects.create(
+            source_message_id='m1', recipient='R8@example.com',
+            subject='Undeliverable: hi r8', diagnostic='550 r8@example.com',
+        )
+        delete_full_account(self.user)
+        mine = EmailSuppression.objects.get(email='r8@example.com')
+        self.assertEqual(mine.diagnostic, '')
+        self.assertTrue(mine.is_active)  # still protects against re-sending
+        self.assertEqual(EmailSuppression.objects.get(email='other@example.com').diagnostic, 'keep')
+        event = EmailBounceEvent.objects.get()
+        self.assertEqual((event.recipient, event.subject, event.diagnostic), ('', '', ''))
+        self.assertEqual(event.classification, 'unknown')
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_whatsapp_message_linked_after_erasure_is_sanitised(self, _s):
+        """A send in flight during deletion must not attach phone/params."""
+        from crush_lu.models import Campaign
+        from crush_lu.services.campaigns import CHANNEL_ADAPTERS
+        from hub.models import WhatsAppMessage
+
+        campaign = Campaign.objects.create(
+            name='c', channels=['whatsapp'], audience='all_users',
+        )
+        message = WhatsAppMessage.objects.create(
+            user=self.user, recipient='+352621000001', template_name='t',
+            language='en', parameters={'1': 'r8@example.com'}, status='sent',
+            status_history=[{'error_message': '+352621000001'}],
+        )
+        # Consent is gone (deletion committed) when the send returns.
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.filter(user=self.user).update(
+            crushlu_consent_given=False, crushlu_banned=True
+        )
+        CHANNEL_ADAPTERS['whatsapp']._record(
+            campaign, self.user, 'sent', message=message, error='boom +352621000001'
+        )
+        message.refresh_from_db()
+        self.assertEqual((message.recipient, message.parameters, message.status_history), ('', {}, []))
+        from crush_lu.models import CampaignRecipient
+
+        self.assertEqual(CampaignRecipient.objects.get().error_message, '')
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_oauth_state_rows_are_deleted_and_scalar_ids_are_audited(self, _s):
+        from django.apps import apps
+        from django.db import models as dj_models
+
+        from crush_lu.models import OAuthState
+        from crush_lu.views import delete_full_account
+        from crush_lu.views_account import ACCOUNT_ERASURE_SCALAR_USER_IDS
+
+        OAuthState.objects.create(
+            state_id='s1', state_data='{}', auth_user_id=self.user.pk,
+            expires_at=timezone.now() + timedelta(minutes=5),
+            ip_address='1.2.3.4', user_agent='UA',
+        )
+        OAuthState.objects.create(
+            state_id='s2', state_data='{}', auth_user_id=self.user.pk + 99,
+            expires_at=timezone.now() + timedelta(minutes=5),
+        )
+        delete_full_account(self.user)
+        self.assertEqual(list(OAuthState.objects.values_list('state_id', flat=True)), ['s2'])
+
+        handled = {(a, m, f) for a, m, f in ACCOUNT_ERASURE_SCALAR_USER_IDS}
+        scalar = {
+            (m._meta.app_label, m.__name__, f.name)
+            for m in apps.get_models()
+            for f in m._meta.concrete_fields
+            if not f.is_relation
+            and isinstance(f, (dj_models.IntegerField, dj_models.CharField))
+            and (f.name.endswith('user_id') or f.name == 'auth_user_id')
+        }
+        self.assertEqual(scalar - handled, set())
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_special_experience_journey_graph_and_files_are_erased(self, _s):
+        from django.core.files.base import ContentFile
+        from django.core.files.storage import InMemoryStorage
+
+        from crush_lu.models import (
+            AdventCalendar, JourneyConfiguration, SpecialUserExperience,
+        )
+        from crush_lu.views import delete_full_account
+
+        storage = InMemoryStorage()
+        bg = storage.save('advent_backgrounds/bg.jpg', ContentFile(b'img'))
+        special = SpecialUserExperience.objects.create(
+            first_name='Ann', last_name='Z', linked_user=self.user,
+            custom_welcome_title='For Ann', custom_landing_url='https://x/ann',
+        )
+        journey = JourneyConfiguration.objects.create(
+            special_experience=special, journey_name='Ann journey',
+            final_message='Dear Ann',
+        )
+        AdventCalendar.objects.create(
+            journey=journey, year=2026, start_date=date(2026, 12, 1),
+            end_date=date(2026, 12, 24), calendar_title='Ann advent',
+            background_image=bg,
+        )
+        field = AdventCalendar._meta.get_field('background_image')
+        with patch.object(field, 'storage', storage):
+            delete_full_account(self.user)
+        special.refresh_from_db()
+        self.assertEqual((special.custom_welcome_title, special.custom_landing_url), ('', ''))
+        self.assertFalse(JourneyConfiguration.objects.exists())
+        self.assertFalse(AdventCalendar.objects.exists())
+        self.assertFalse(storage.exists(bg))

@@ -167,6 +167,11 @@ def get_email_context_with_unsubscribe(user, request, **extra_context):
     return context
 
 
+# Email types that are financial notices (money or refund rights owed to the
+# member), exempt from the post-deletion ban gate in can_send_email().
+FINANCIAL_EMAIL_TYPES = frozenset({"crush_credit_expiry"})
+
+
 def can_send_email(user, email_type):
     """
     Check if we can send a specific type of email to a user.
@@ -182,12 +187,21 @@ def can_send_email(user, email_type):
         from .models import EmailPreference
         from .models.profiles import UserDataConsent
 
-        # A banned user (deleted their Crush.lu profile/account) must never be
-        # mailed, and must not get default-enabled preferences re-created for
-        # them by the lookup below.
-        if UserDataConsent.objects.filter(
+        if email_type in FINANCIAL_EMAIL_TYPES:
+            # Financial / refund-right notices are not marketing: profile-only
+            # deletion bans the member from Crush.lu but preserves unexpired
+            # organiser-cancellation credit (a cash-refund right), so the
+            # reminder must still go out. Only an account erased by full
+            # deletion (deactivated, address removed) is skipped, without
+            # re-creating preferences for it.
+            if not type(user).objects.filter(pk=user.pk, is_active=True).exists():
+                return False
+        elif UserDataConsent.objects.filter(
             user_id=user.pk, crushlu_banned=True
         ).exists():
+            # A banned user (deleted their Crush.lu profile/account) must never
+            # be mailed, and must not get default-enabled preferences
+            # re-created for them by the lookup below.
             return False
 
         email_prefs = EmailPreference.get_or_create_for_user(user)

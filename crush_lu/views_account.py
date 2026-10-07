@@ -532,6 +532,11 @@ ACCOUNT_ERASURE_M2M_CRUSH = (("crush_lu", "MeetupEvent", "invited_users"),)
 ACCOUNT_ERASURE_M2M_OTHER_APPS = (("hub", "HubResource", "audience"),)
 ACCOUNT_ERASURE_M2M_VIA_PURGED_THROUGH = (("crush_lu", "QuizTable", "members"),)
 
+# Scalar (non-FK) integer/char columns holding a user pk. They never cascade;
+# the full-account path deletes the matching rows (session/OAuth bookkeeping
+# with IP, user agent and serialised state).
+ACCOUNT_ERASURE_SCALAR_USER_IDS = (("crush_lu", "OAuthState", "auth_user_id"),)
+
 # Identifying payload blanked on the rows whose user link is severed below.
 ACCOUNT_ERASURE_ANONYMIZE_BLANK = {
     "EventInvitation": (
@@ -539,7 +544,13 @@ ACCOUNT_ERASURE_ANONYMIZE_BLANK = {
         "approval_notes", "coach_notes",
     ),
     # first_name/last_name are tombstoned separately (unique constraint).
-    "SpecialUserExperience": ("custom_welcome_message",),
+    "SpecialUserExperience": (
+        "custom_welcome_title", "custom_welcome_title_en",
+        "custom_welcome_title_de", "custom_welcome_title_fr",
+        "custom_welcome_message", "custom_welcome_message_en",
+        "custom_welcome_message_de", "custom_welcome_message_fr",
+        "custom_landing_url",
+    ),
     "JourneyGift": ("recipient_name", "recipient_email", "claim_error_message"),
     "CacheChallengeAttempt": ("last_answer",),
 }
@@ -554,7 +565,6 @@ ACCOUNT_EXPORT_PROFILE_EXCLUDED = {
     "user": "the account block already exports the account",
     "welcome_seen_at": "UI onboarding flag, not member data",
     "coach_intro_seen_at": "UI onboarding flag, not member data",
-    "draft_data": "transient unsaved form draft; saved values are exported",
     "last_draft_saved": "draft bookkeeping",
     "draft_expires_at": "draft bookkeeping",
     "phone_verification_uid": "verification credential",
@@ -710,6 +720,66 @@ ACCOUNT_ERASURE_RETAINED = {
     "QuizEvent": "staff-created",
     "CacheHunt": "staff-created",
 }
+
+
+def _delete_files_of_cascade(queryset):
+    """Delete the stored files of every object a delete of ``queryset`` removes."""
+    from django.db.models.deletion import Collector
+
+    collector = Collector(using=queryset.db)
+    collector.collect(list(queryset))
+    for fast in collector.fast_deletes:
+        _delete_stored_files(fast)
+    for model, instances in collector.data.items():
+        _delete_stored_files(model.objects.filter(pk__in=[o.pk for o in instances]))
+
+
+def _erase_special_experience_journeys(experiences):
+    """Delete the personalised journey/advent graph of severed experiences.
+
+    These are bespoke gifts written for the erased person (journey names,
+    chapter text, final message, advent title/teasers, reward photos/audio/
+    video, advent background). Files go first, then the rows (cascade).
+    Not covered (deferred): journeys referenced only through JourneyGift.
+    """
+    from django.apps import apps
+
+    journeys = apps.get_model("crush_lu", "JourneyConfiguration").objects.filter(
+        special_experience__in=list(experiences)
+    )
+    if journeys.exists():
+        _delete_files_of_cascade(journeys)
+        journeys.delete()
+
+
+def _erase_oauth_state(user):
+    from django.apps import apps
+
+    for app_label, model_name, field in ACCOUNT_ERASURE_SCALAR_USER_IDS:
+        apps.get_model(app_label, model_name).objects.filter(
+            **{field: user.pk}
+        ).delete()
+
+
+def _anonymize_email_delivery(addresses):
+    """Strip personal text from delivery-health records for given addresses.
+
+    Deliverability choice: the EmailSuppression row KEEPS its address (the
+    lookup key) so a hard-bounced mailbox is not mailed again, e.g. if another
+    account later uses it; only the free-text diagnostic is cleared. Bounce
+    events keep classification and ids for dedupe but lose recipient, subject
+    and diagnostic.
+    """
+    from crush_lu.models import EmailBounceEvent, EmailSuppression
+
+    addresses = {a.strip().lower() for a in addresses if a}
+    if not addresses:
+        return
+    EmailSuppression.objects.filter(email__in=addresses).update(diagnostic="")
+    for address in addresses:
+        EmailBounceEvent.objects.filter(recipient__iexact=address).update(
+            recipient="", subject="", diagnostic=""
+        )
 
 
 def _remove_user_from_m2m(app_label, model_name, field_name, user):
@@ -879,6 +949,7 @@ def _purge_user_keyed_personal_data(user):
                 _delete_stored_files(rows)
                 rows.update(photo="")
             if model_name == "SpecialUserExperience":
+                _erase_special_experience_journeys(rows)
                 # (first_name, last_name) is unique while unlinked, so each
                 # erased row gets a distinct non-identifying tombstone.
                 for row in rows:
@@ -1125,12 +1196,14 @@ def _collect_user_phone_numbers(user):
     from crush_lu.models import PhoneOTP
 
     numbers = set()
-    profile = CrushProfile.objects.filter(user=user).first()
+    # Only numbers whose ownership was verified: an OTP can be requested for
+    # someone else's number, so unverified/unconsumed codes prove nothing.
+    profile = CrushProfile.objects.filter(user=user, phone_verified=True).first()
     if profile is not None:
         numbers.add(_phone_digits(profile.phone_number))
     numbers.update(
         _phone_digits(n)
-        for n in PhoneOTP.objects.filter(user=user).values_list(
+        for n in PhoneOTP.objects.filter(user=user, consumed=True).values_list(
             "phone_number", flat=True
         )
     )
@@ -1193,6 +1266,11 @@ def delete_full_account(user):
     # WhatsApp inbound messages have no User FK; correlate by phone number
     # while the profile still holds it.
     phone_numbers = _collect_user_phone_numbers(user)
+    # Addresses must be captured before the User row is anonymised.
+    addresses = {user.email}
+    addresses.update(
+        EmailAddress.objects.filter(user=user).values_list("email", flat=True)
+    )
 
     # First delete Crush.lu profile
     delete_crushlu_profile_only(user)
@@ -1202,6 +1280,7 @@ def delete_full_account(user):
     # entreprinder, delegations): the User row survives, so it never cascades.
     _purge_other_apps_personal_data(user)
     _sanitize_identity_consent(user)
+    _erase_oauth_state(user)
     # Coach record (full-account deletion only; profile-only keeps coaching).
     _anonymize_coach_record(user)
 
@@ -1220,6 +1299,8 @@ def delete_full_account(user):
     # Delete social accounts and tokens (allauth)
     SocialToken.objects.filter(account__user=user).delete()
     SocialAccount.objects.filter(user=user).delete()
+
+    _anonymize_email_delivery(addresses)
 
     logger.info(f"Full account deleted for user {user.id} (all platforms)")
 
@@ -2362,7 +2443,7 @@ def export_user_data(request):
     from crush_lu.models.profiles import UserDataConsent
     from delegations.models import DelegationProfile
     from entreprinder.models import EntrepreneurProfile
-    from hub.models import HubProfile
+    from hub.models import HubProfile, HubRequest, HubTimelineEvent
 
     user = request.user
     data = {
@@ -2416,6 +2497,9 @@ def export_user_data(request):
             "membership_tier": profile.membership_tier,
             "referral_points": profile.referral_points,
             "is_community_supporter": profile.is_community_supporter,
+            # Autosave stores newer bio/gender/trait values only here until the
+            # form is submitted, so it is member-authored data.
+            "draft_data": profile.draft_data or None,
             "verification_method": profile.verification_method,
             "intent_probe": profile.get_intent_probe_display() or None,
             "first_step_preference": profile.get_first_step_preference_display(),
@@ -2479,6 +2563,8 @@ def export_user_data(request):
             "is_mentor": entrepreneur.is_mentor,
             "is_looking_for_funding": entrepreneur.is_looking_for_funding,
             "is_investor": entrepreneur.is_investor,
+            "linkedin_photo_url": entrepreneur.linkedin_photo_url,
+            "skills": [skill.name for skill in entrepreneur.skills.all()],
         }
     delegation = DelegationProfile.objects.filter(user=user).first()
     if delegation is not None:
@@ -2499,6 +2585,33 @@ def export_user_data(request):
                 else None
             ),
         }
+    hub_requests = list(HubRequest.objects.filter(user=user).order_by("created_at"))
+    if hub_requests:
+        other_platforms.setdefault("hub", {})["requests"] = [
+            {
+                "subject": r.subject,
+                "summary": r.summary,
+                "category": r.category,
+                "status": r.status,
+                "priority": r.priority,
+                "created_at": _iso_or_none(r.created_at),
+                "updated_at": _iso_or_none(r.updated_at),
+            }
+            for r in hub_requests
+        ]
+    hub_events = list(
+        HubTimelineEvent.objects.filter(user=user).order_by("occurred_at")
+    )
+    if hub_events:
+        other_platforms.setdefault("hub", {})["timeline"] = [
+            {
+                "kind": e.kind,
+                "title": e.title,
+                "body": e.body,
+                "occurred_at": _iso_or_none(e.occurred_at),
+            }
+            for e in hub_events
+        ]
     if other_platforms:
         data["other_platforms"] = other_platforms
 

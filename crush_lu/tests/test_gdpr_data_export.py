@@ -71,7 +71,7 @@ class ExportProfileCompletenessTests(TestCase):
         self.assertNotIn("SECRET-APPLE", body)
         self.assertNotIn("SECRET-UID", body)
         profile = self._export()["profile"]
-        for key in ("apple_auth_token", "phone_verification_uid", "draft_data"):
+        for key in ("apple_auth_token", "phone_verification_uid"):
             self.assertNotIn(key, profile)
 
     def test_email_preferences_and_push_devices_are_exported(self):
@@ -224,6 +224,11 @@ class ExportRegistryCompletenessTests(TestCase):
         request.user = User.objects.get(pk=self.user.pk)
         self.data = json.loads(export_user_data(request).content)
 
+    def _export(self):
+        request = RequestFactory().get("/")
+        request.user = User.objects.get(pk=self.user.pk)
+        return json.loads(export_user_data(request).content)
+
     def _missing(self, model, block, excluded, aliases=None):
         aliases = aliases or {}
         exported = set(self.data[block])
@@ -295,3 +300,25 @@ class ExportRegistryCompletenessTests(TestCase):
                 self.assertTrue(reason)
         self.assertNotIn("unsubscribe_token", self.data["email_preferences"])
         self.assertNotIn("apple_auth_token", self.data["profile"])
+
+    def test_draft_data_hub_requests_timeline_and_skills_are_exported(self):
+        from django.utils import timezone
+
+        from entreprinder.models import EntrepreneurProfile, Skill
+        from hub.models import HubRequest, HubTimelineEvent
+
+        CrushProfile.objects.filter(user=self.user).update(
+            draft_data={"bio": "newer bio from autosave"}
+        )
+        HubRequest.objects.create(user=self.user, subject="Need help", summary="details")
+        HubTimelineEvent.objects.create(
+            user=self.user, title="Called", body="we spoke", occurred_at=timezone.now()
+        )
+        entrepreneur = EntrepreneurProfile.objects.create(user=self.user)
+        entrepreneur.skills.add(Skill.objects.create(name="Welding"))
+        data = self._export()
+        self.assertEqual(data["profile"]["draft_data"], {"bio": "newer bio from autosave"})
+        hub = data["other_platforms"]["hub"]
+        self.assertEqual(hub["requests"][0]["subject"], "Need help")
+        self.assertEqual(hub["timeline"][0]["title"], "Called")
+        self.assertEqual(data["other_platforms"]["entreprinder"]["skills"], ["Welding"])

@@ -489,6 +489,18 @@ class WhatsAppAdapter:
         return result
 
     def _record(self, campaign, user, status, message=None, error=''):
+        if not newsletter_service.has_current_consent(user):
+            # Deletion landed while the provider call was in flight: do not
+            # attach the phone number / parameters / error text (which can
+            # contain them) to a log row after the erasure sweeps ran.
+            error = ''
+            if message is not None:
+                message.recipient = ''
+                message.parameters = {}
+                message.status_history = []
+                message.save(
+                    update_fields=['recipient', 'parameters', 'status_history']
+                )
         CampaignRecipient.objects.update_or_create(
             campaign=campaign,
             channel=self.key,
