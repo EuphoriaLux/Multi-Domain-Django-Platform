@@ -127,6 +127,7 @@ from .views_events import (  # noqa: F401
     event_cancel,
     my_events,
     event_feedback,
+    next_visible_event,
 )
 
 # Connections
@@ -629,15 +630,7 @@ def dashboard(request):
             )
 
         # Next current or upcoming published event (drives "attend to unlock" CTA).
-        next_event_candidates = MeetupEvent.objects.filter(
-            is_published=True,
-            is_cancelled=False,
-            date_time__gte=MeetupEvent.live_lookback_cutoff(_now),
-        ).order_by("date_time")
-        next_event = next(
-            (event for event in next_event_candidates if event.end_time >= _now),
-            None,
-        )
+        next_event = next_visible_event(request.user, _now)
 
         # Time-based greeting (use localtime for correct Luxembourg timezone)
         hour = timezone.localtime().hour
@@ -2411,15 +2404,7 @@ def profile_submitted(request):
         )
 
     # Next current or upcoming event teaser.
-    next_event_candidates = MeetupEvent.objects.filter(
-        is_published=True,
-        is_cancelled=False,
-        date_time__gte=MeetupEvent.live_lookback_cutoff(now),
-    ).order_by("date_time")
-    next_event = next(
-        (event for event in next_event_candidates if event.end_time >= now),
-        None,
-    )
+    next_event = next_visible_event(request.user, now)
 
     context = {
         "profile": profile,
