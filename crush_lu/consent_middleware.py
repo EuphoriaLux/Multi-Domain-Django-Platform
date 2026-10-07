@@ -130,27 +130,22 @@ class CrushConsentMiddleware:
         # PushSubscription rows, so a consentless coach needs these to opt out.
         "/api/coach/push/unsubscribe/",
         "/api/coach/push/delete-subscription/",
-        # Session/JWT bridges used while signing in: /api/auth/status/ is polled
-        # by the OAuth landing page before consent_confirm, /api/auth/spa-callback/
-        # mints the hub SPA code, /api/token/ exchanges credentials or a refresh
-        # token (JWT callers are anonymous to this middleware anyway).
+        # Sign-in bridges: /api/auth/status/ is polled by the OAuth landing page
+        # before consent_confirm, /api/auth/spa-callback/ mints the hub SPA code,
+        # /api/token/ exchanges credentials or a refresh token.
         "/api/auth/",
         "/api/token/",
-        # Push subscription lifecycle (api_push): the browser re-registers its
-        # subscription on every load and a member who withdrew consent must still
-        # be able to unsubscribe. /api/push/test/ and /health-check/ are NOT here.
-        "/api/push/subscribe/",
-        "/api/push/refresh-subscription/",
+        # Push: revocation and read-only routes only (api_push), so a member who
+        # withdrew consent can still opt out and see state. Anything that
+        # creates, re-enables or edits a subscription (subscribe,
+        # refresh-subscription, preferences), plus PWA tracking
+        # (mark-pwa-user, pwa/register-installation, which stores a device
+        # fingerprint and user agent), stays gated until consent is recorded.
         "/api/push/validate-subscription/",
         "/api/push/unsubscribe/",
         "/api/push/delete-subscription/",
         "/api/push/subscriptions/",
-        "/api/push/preferences/",
-        # PWA install detection (pwa-detector.js) runs on first load, stores only
-        # a device flag / installation row, no profile data.
-        "/api/push/mark-pwa-user/",
         "/api/push/pwa-status/",
-        "/api/pwa/register-installation/",
         # Not listed on purpose: /api/phone/* (phone verification). Its pages
         # (/onboarding/phone/) are already consent-gated and consent is recorded
         # at signup, so it never runs pre-consent; it stores a phone number (PII).
