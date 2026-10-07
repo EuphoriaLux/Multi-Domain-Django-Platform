@@ -146,7 +146,7 @@
             <!-- Unsubscribe options -->
             <h6 class="text-gray-500 dark:text-gray-400 text-sm font-medium mb-3">{% trans "Quick unsubscribe options:" %}</h6>
 
-            {% if email_prefs.email_marketing %}
+            {% if email_prefs.email_marketing or email_prefs.email_newsletter %}
             <form method="post" class="mb-3">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="unsubscribe_marketing">

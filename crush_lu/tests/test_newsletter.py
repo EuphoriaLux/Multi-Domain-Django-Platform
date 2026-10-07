@@ -540,6 +540,87 @@ class NewsletterModelTests(TestCase):
             )
 
 
+class NewsletterOptOutControlsTests(TestCase):
+    """#1185: the marketing controls drive the flag newsletters really read."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from django.test import Client
+
+        cache.clear()
+        self.user = User.objects.create_user(
+            username='ctl@example.com', email='ctl@example.com', password='x',
+        )
+        make_profile(
+            user=self.user, date_of_birth='1995-01-01', gender='F',
+            location='Luxembourg', is_approved=True,
+        )
+        self.client = Client(HTTP_HOST='crush.lu')
+        self.newsletter = Newsletter.objects.create(
+            subject='S', body_html='<p>x</p>', audience='all_users',
+        )
+
+    def _post_pref(self, key, value):
+        import json
+
+        self.client.force_login(self.user)
+        return self.client.post(
+            '/api/email/preferences/',
+            data=json.dumps({'key': key, 'value': value}),
+            content_type='application/json',
+        )
+
+    def test_marketing_toggle_off_stops_newsletters(self):
+        self.assertIn(self.user, get_newsletter_recipients(self.newsletter))
+        self.assertEqual(self._post_pref('email_marketing', False).status_code, 200)
+        self.assertNotIn(self.user, get_newsletter_recipients(self.newsletter))
+
+    def test_marketing_toggle_on_reenables_newsletters(self):
+        self._post_pref('email_marketing', False)
+        self._post_pref('email_marketing', True)
+        self.assertIn(self.user, get_newsletter_recipients(self.newsletter))
+
+    def test_newsletter_key_is_accepted_by_the_preferences_api(self):
+        self.assertEqual(self._post_pref('email_newsletter', False).status_code, 200)
+        self.assertNotIn(self.user, get_newsletter_recipients(self.newsletter))
+
+    def test_unsubscribe_marketing_only_clears_newsletter_flag_too(self):
+        prefs = EmailPreference.get_or_create_for_user(self.user)
+        prefs.email_marketing = True
+        prefs.save()
+        response = self.client.post(
+            f'/en/unsubscribe/{prefs.unsubscribe_token}/',
+            {'action': 'unsubscribe_marketing'},
+        )
+        self.assertEqual(response.status_code, 200)
+        prefs.refresh_from_db()
+        self.assertFalse(prefs.email_marketing)
+        self.assertFalse(prefs.email_newsletter)
+        self.assertNotIn(self.user, get_newsletter_recipients(self.newsletter))
+        # Other (service) preferences are untouched.
+        self.assertTrue(prefs.email_event_reminders)
+
+    def test_marketing_unsubscribe_button_shown_when_only_newsletter_on(self):
+        prefs = EmailPreference.get_or_create_for_user(self.user)
+        self.assertFalse(prefs.email_marketing)
+        self.assertTrue(prefs.email_newsletter)
+        response = self.client.get(f'/en/unsubscribe/{prefs.unsubscribe_token}/')
+        self.assertContains(response, 'value="unsubscribe_marketing"')
+
+    def test_resubscribe_restores_newsletter_flag(self):
+        prefs = EmailPreference.get_or_create_for_user(self.user)
+        self.client.post(
+            f'/en/unsubscribe/{prefs.unsubscribe_token}/',
+            {'action': 'unsubscribe_marketing'},
+        )
+        self.client.post(
+            f'/en/unsubscribe/{prefs.unsubscribe_token}/',
+            {'action': 'resubscribe'},
+        )
+        prefs.refresh_from_db()
+        self.assertTrue(prefs.email_newsletter)
+
+
 class EmailPreferenceNewsletterFieldTests(TestCase):
     """Test the new email_newsletter field on EmailPreference."""
 
