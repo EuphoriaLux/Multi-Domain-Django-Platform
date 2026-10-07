@@ -166,30 +166,29 @@ class CrushConsentMiddleware:
         if self.is_on_crush_domain(request):
             path = self._strip_language_prefix(request.path)
             if path.startswith("/api/"):
-                if (
-                    not self._is_api_ban_exempt_path(path)
-                    and request.user.is_authenticated
-                    and self.is_banned(request.user)
-                ):
-                    logger.info(
-                        "Banned user %s denied API request to %s",
-                        request.user.id,
-                        request.path,
-                    )
-                    return JsonResponse({"error": "banned"}, status=403)
+                # Resolved lazily: only needed when a gate below applies.
+                api_user = None
+                if not self._is_api_ban_exempt_path(path):
+                    api_user = self._resolve_api_user(request)
+                    if api_user is not None and self.is_banned(api_user):
+                        logger.info(
+                            "Banned user %s denied API request to %s",
+                            api_user.id,
+                            request.path,
+                        )
+                        return JsonResponse({"error": "banned"}, status=403)
                 # Consent comes after the ban check so a deletion tombstone
                 # (banned, consent False) keeps its "banned" answer.
-                if (
-                    not self._is_api_consent_exempt_path(path)
-                    and request.user.is_authenticated
-                    and not self.has_crushlu_consent(request.user)
-                ):
-                    logger.info(
-                        "User %s denied API request to %s without Crush.lu consent",
-                        request.user.id,
-                        request.path,
-                    )
-                    return JsonResponse({"code": "consent_required"}, status=403)
+                if not self._is_api_consent_exempt_path(path):
+                    if api_user is None:
+                        api_user = self._resolve_api_user(request)
+                    if api_user is not None and not self.has_crushlu_consent(api_user):
+                        logger.info(
+                            "User %s denied API request to %s without Crush.lu consent",
+                            api_user.id,
+                            request.path,
+                        )
+                        return JsonResponse({"code": "consent_required"}, status=403)
                 return self.get_response(request)
 
             # Exempt non-API paths without triggering request.user.is_authenticated
@@ -275,6 +274,29 @@ class CrushConsentMiddleware:
             if path.startswith(lang_prefix):
                 return "/" + path[len(lang_prefix) :]
         return path
+
+    @staticmethod
+    def _resolve_api_user(request):
+        """The member behind an /api/ request, or None when unauthenticated.
+
+        ``request.user`` only reflects the session. DRF views also accept a
+        JWT bearer token that is authenticated after middleware runs, so a
+        banned or consentless member could skip both gates by sending one
+        (e.g. a token from api.crush.lu to /api/referral/*). Resolve it here
+        with the same authenticator; an invalid token yields None and the
+        view answers 401 as before.
+        """
+        if request.user.is_authenticated:
+            return request.user
+        if not request.META.get("HTTP_AUTHORIZATION", "").lower().startswith("bearer "):
+            return None
+        from rest_framework_simplejwt.authentication import JWTAuthentication
+
+        try:
+            result = JWTAuthentication().authenticate(request)
+        except Exception:  # noqa: BLE001 - invalid/expired token: view decides
+            return None
+        return result[0] if result else None
 
     def _is_api_ban_exempt_path(self, path):
         return self._matches_api_paths(path, self.API_BAN_EXEMPT_PATHS)

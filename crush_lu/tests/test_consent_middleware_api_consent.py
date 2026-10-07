@@ -175,6 +175,53 @@ class ApiConsentGateTests(TestCase):
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class ApiBearerTokenGateTests(TestCase):
+    """DRF views accept JWT bearer tokens; the gates must see that user too."""
+
+    def setUp(self):
+        cache.clear()
+        Site.objects.get_or_create(
+            id=1, defaults={"domain": "testserver", "name": "Test Server"}
+        )
+
+    def _get(self, user, path="/api/referral/me/"):
+        from rest_framework_simplejwt.tokens import AccessToken
+
+        token = AccessToken.for_user(user)
+        return self.client.get(path, HTTP_AUTHORIZATION=f"Bearer {token}", **HOST)
+
+    def test_consentless_bearer_user_is_gated(self):
+        user = _make_user("jwt1@example.com", crushlu_consent_given=False)
+        response = self._get(user)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json(), {"code": "consent_required"})
+
+    def test_banned_bearer_user_is_blocked(self):
+        user = _make_user(
+            "jwt2@example.com", crushlu_consent_given=True, crushlu_banned=True
+        )
+        response = self._get(user)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json(), {"error": "banned"})
+
+    def test_consenting_bearer_user_reaches_the_view(self):
+        user = _make_user("jwt3@example.com", crushlu_consent_given=True)
+        response = self._get(user)
+        self.assertNotEqual(response.status_code, 403)
+
+    def test_consentless_bearer_user_keeps_allowlisted_route(self):
+        user = _make_user("jwt4@example.com", crushlu_consent_given=False)
+        response = self._get(user, "/api/csrf-token/")
+        self.assertEqual(response.status_code, 200)
+
+    def test_invalid_bearer_token_is_left_to_the_view(self):
+        response = self.client.get(
+            "/api/referral/me/", HTTP_AUTHORIZATION="Bearer not-a-jwt", **HOST
+        )
+        self.assertEqual(response.status_code, 401)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class NonApiExemptionAuditTests(TestCase):
     """#1217 audit: /membership/ is gated, /oauth/ and /invite/ stay exempt."""
 
