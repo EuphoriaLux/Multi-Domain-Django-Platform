@@ -520,8 +520,9 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
             )
         # Rotation warnings go to the host's own socket only; players never see
         # who blocked whom (or that a block exists).
-        for warning in result.get("host_warnings") or ():
-            await self.send_error(warning)
+        # One message: the host UI keeps only the last error it is shown.
+        if result.get("host_warnings"):
+            await self.send_error(" ".join(result["host_warnings"]))
 
     async def handle_resume_quiz(self):
         """Resume a paused quiz without resetting progress."""
@@ -533,8 +534,9 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
             return
         # A block created while the quiz was paused still applies to the
         # current and upcoming rounds. Host socket only, never broadcast.
-        for warning in await self.get_block_warnings():
-            await self.send_error(warning)
+        block_warnings = await self.get_block_warnings()
+        if block_warnings:
+            await self.send_error(" ".join(block_warnings))
         # Re-send current question state so all clients sync up
         state = await self.get_quiz_state()
         if state:

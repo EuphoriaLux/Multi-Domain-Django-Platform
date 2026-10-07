@@ -1,5 +1,6 @@
 """SLA fallback sweep: claim under lock, send after, undo on failed send (#1196)."""
 
+import uuid
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -306,6 +307,30 @@ class SlaSweepTests(TestCase):
         self.assertEqual(sub.booking_token, token)
         self.assertIsNotNone(sub.fallback_offer_sent_at)
         self.assertEqual(sub.system_actions[-1]["type"], "fallback_claim_recovered")
+
+    def test_stale_lease_recovery_is_claimed_before_older_fresh_breaches(self):
+        from crush_lu.api_admin_hybrid import _sweep_candidates
+
+        # A coach-initiated claim has a future deadline; breached work is older.
+        breached = [self._submission(f"breach{i}") for i in range(3)]
+        recovery = self._submission("recover")
+        ProfileSubmission.objects.filter(pk=recovery.pk).update(
+            sla_deadline=timezone.now() + timedelta(days=1),
+            fallback_offered_at=timezone.now() - timedelta(hours=2),
+            booking_token=uuid.uuid4(),
+            booking_token_expires_at=timezone.now() + timedelta(days=2),
+            fallback_offer_claimed_at=timezone.now() - timedelta(hours=1),
+            fallback_offer_sent_at=None,
+        )
+
+        ordered = list(
+            _sweep_candidates(timezone.now())
+            .order_by("sweep_priority", "sla_deadline", "pk")
+            .values_list("pk", flat=True)
+        )
+
+        self.assertEqual(ordered[0], recovery.pk)
+        self.assertCountEqual(ordered[1:], [s.pk for s in breached])
 
     def test_fresh_unsent_claim_is_inside_its_lease(self):
         sub = self._submission("lease")

@@ -452,3 +452,116 @@ class TestDistinctPairCounting:
 
         # Three rounds at one table is still one blocked pair.
         assert blocked_table_conflict_count(quiz) == 1
+
+
+@pytest.mark.django_db
+class TestQuizBlockWarningsFromCheckinAndLowAttendance:
+    @pytest.fixture(autouse=True)
+    def _keep_test_connection_open(self, monkeypatch):
+        monkeypatch.setattr("channels.db.close_old_connections", lambda *a, **kw: None)
+
+    def test_low_attendance_message_still_carries_block_conflicts(
+        self, quiz_event_4t  # noqa: F811
+    ):
+        from crush_lu.models.events import EventRegistration
+
+        quiz = quiz_event_4t
+        men = [_make_user(f"low_m{i}", "M") for i in range(2)]
+        women = [_make_user(f"low_f{i}", "F") for i in range(4)]
+        for user in men + women:
+            _check_in_attended(quiz, user)
+        for man in men:
+            for woman in women:
+                UserBlock.objects.create(blocker=man, blocked=woman, reason="other")
+        generate_rotation_rounds(quiz)
+        # Undo check-ins down to three attendees; the schedule rows persist.
+        EventRegistration.objects.filter(
+            event=quiz.event, user__in=women[2:] + men[:1]
+        ).update(status="confirmed")
+
+        warnings = compute_rotation_warnings(quiz)
+
+        assert any("Only 3 attended" in w for w in warnings)
+        assert any("blocked pair" in w for w in warnings)
+
+    def test_late_checkin_returns_host_warnings_for_the_blocked_pair(
+        self, quiz_event_4t  # noqa: F811
+    ):
+        from crush_lu.services.quiz_rotation import assign_table_on_checkin
+
+        quiz = quiz_event_4t
+        men = [_make_user(f"late_m{i}", "M") for i in range(2)]
+        women = [_make_user(f"late_f{i}", "F") for i in range(3)]
+        for user in men + women:
+            _check_in_attended(quiz, user)
+        generate_rotation_rounds(quiz)
+        quiz.current_round = quiz.rounds.order_by("sort_order")[0]
+        quiz.status = "active"
+        quiz.save(update_fields=["current_round", "status"])
+        late = _make_user("late_f9", "F")
+        for man in men:
+            UserBlock.objects.create(blocker=man, blocked=late, reason="other")
+        from crush_lu.models.events import EventRegistration
+        from django.utils import timezone
+
+        EventRegistration.objects.update_or_create(
+            event=quiz.event,
+            user=late,
+            defaults={"status": "attended", "checked_in_at": timezone.now()},
+        )
+
+        assignment = assign_table_on_checkin(quiz, late)
+
+        assert any("blocked pair" in w for w in assignment["warnings"])
+
+    def test_checkin_broadcast_sends_one_host_only_warning(self):
+        from unittest.mock import MagicMock, patch
+
+        from crush_lu import views_checkin
+
+        layer = MagicMock()
+        layer.group_send = MagicMock()
+        event = MagicMock(id=7)
+        event.quiz.id = 11
+
+        with patch.object(views_checkin, "get_channel_layer", return_value=layer), patch.object(
+            views_checkin, "async_to_sync", side_effect=lambda f: f
+        ), patch("crush_lu.models.quiz.QuizTable") as table_model:
+            table_model.objects.filter.return_value.first.return_value = None
+            views_checkin._broadcast_quiz_table_update(
+                event,
+                {"table_number": None, "warnings": ["a blocked pair", "second"]},
+            )
+
+        errors = [
+            call.args
+            for call in layer.group_send.call_args_list
+            if call.args[1].get("type") == "quiz.error"
+        ]
+        assert errors == [
+            ("quiz_11_host", {"type": "quiz.error", "data": {"message": "a blocked pair second"}})
+        ]
+
+    def test_start_warnings_reach_the_host_as_one_message(self):
+        from unittest.mock import AsyncMock
+
+        from asgiref.sync import async_to_sync
+
+        from crush_lu.consumers import QuizConsumer
+
+        consumer = QuizConsumer()
+        consumer.quiz_group = "quiz_1"
+        consumer._total_tables = 2
+        consumer.send_error = AsyncMock()
+        consumer.channel_layer = AsyncMock()
+        consumer.start_quiz_from_first_round = AsyncMock(
+            return_value={
+                "round_info": {},
+                "question_data": None,
+                "host_warnings": ["no anchors", "a blocked pair"],
+            }
+        )
+
+        async_to_sync(consumer.handle_start_quiz)()
+
+        consumer.send_error.assert_awaited_once_with("no anchors a blocked pair")

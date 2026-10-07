@@ -80,6 +80,38 @@ SLA_CLAIM_LEASE = timedelta(minutes=15)
 SLA_FAILED_RETRY_BACKOFF = timedelta(minutes=30)
 
 
+def _stale_claim_q(now):
+    """A claim made and never marked sent for ``SLA_CLAIM_LEASE``."""
+    from django.db.models import Q
+
+    return Q(
+        fallback_offered_at__isnull=False,
+        booking_token__isnull=False,
+        fallback_offer_claimed_at__isnull=False,
+        fallback_offer_claimed_at__lt=now - SLA_CLAIM_LEASE,
+        fallback_offer_sent_at__isnull=True,
+    )
+
+
+def _with_sweep_priority(queryset, now):
+    """Annotate ``sweep_priority``: 0 for stale-lease recoveries, 1 otherwise.
+
+    A coach-initiated claim has a future or null ``sla_deadline``, so ordering
+    only by deadline would put every breached submission ahead of its recovery
+    and, when the send-start budget keeps running out, starve it. Sweep order
+    is therefore ``("sweep_priority", "sla_deadline", "pk")``.
+    """
+    from django.db.models import Case, IntegerField, Value, When
+
+    return queryset.annotate(
+        sweep_priority=Case(
+            When(_stale_claim_q(now), then=Value(0)),
+            default=Value(1),
+            output_field=IntegerField(),
+        )
+    )
+
+
 def _sweep_candidates(now, exclude_pks=()):
     """Submissions the sweep may claim now.
 
@@ -107,14 +139,8 @@ def _sweep_candidates(now, exclude_pks=()):
         Q(fallback_offer_claimed_at__isnull=True)
         | Q(fallback_offer_claimed_at__lt=now - SLA_FAILED_RETRY_BACKOFF)
     )
-    stale_claim = Q(
-        fallback_offered_at__isnull=False,
-        booking_token__isnull=False,
-        fallback_offer_claimed_at__isnull=False,
-        fallback_offer_claimed_at__lt=now - SLA_CLAIM_LEASE,
-        fallback_offer_sent_at__isnull=True,
-    )
-    return (
+    stale_claim = _stale_claim_q(now)
+    return _with_sweep_priority(
         ProfileSubmission.objects.filter(
             never_offered | stale_claim,
             status="pending",
@@ -122,7 +148,8 @@ def _sweep_candidates(now, exclude_pks=()):
             review_call_completed=False,
         )
         .exclude(booked_slots__status="booked")
-        .exclude(pk__in=list(exclude_pks))
+        .exclude(pk__in=list(exclude_pks)),
+        now,
     )
 
 
@@ -244,15 +271,15 @@ def run_sla_sweep(host, is_secure, *, actor="system"):
             locked_ids = list(
                 ProfileSubmission.objects.filter(
                     pk__in=_sweep_candidates(now, attempted)
-                    .order_by("sla_deadline", "pk")
+                    .order_by("sweep_priority", "sla_deadline", "pk")
                     .values("pk")[:SLA_SWEEP_CLAIM_CHUNK]
                 )
                 .select_for_update(skip_locked=True)
                 .values_list("pk", flat=True)
             )
-            for sub in ProfileSubmission.objects.filter(pk__in=locked_ids).order_by(
-                "sla_deadline", "pk"
-            ):
+            for sub in _with_sweep_priority(
+                ProfileSubmission.objects.filter(pk__in=locked_ids), now
+            ).order_by("sweep_priority", "sla_deadline", "pk"):
                 attempted.add(sub.pk)
                 # Savepoint per row: one bad row must not abort the chunk.
                 try:

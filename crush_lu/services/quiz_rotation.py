@@ -297,7 +297,9 @@ def assign_table_on_checkin(quiz_event, user):
     M → anchor, F → rotator, NB/O/P → whichever pool is smaller.
 
     Returns:
-        dict with {"table_number": int, "role": str} or None if no tables.
+        dict with {"table_number": int, "role": str} (plus "warnings": list[str]
+        when a late check-in regenerated the schedule and it has warnings for
+        the host), or None if no tables.
     """
     from django.db import transaction
     from django.db.models import Count
@@ -426,9 +428,13 @@ def assign_table_on_checkin(quiz_event, user):
     # played rounds via preserve_current_round=True: the boundary is
     # recomputed under that lock so a concurrent
     # advance_round_and_rotate cannot make the preserved range stale.
+    rotation_warnings = []
     if quiz_event.status in ("active", "paused"):
         try:
-            generate_rotation_rounds(quiz_event, preserve_current_round=True)
+            regenerated = generate_rotation_rounds(
+                quiz_event, preserve_current_round=True
+            )
+            rotation_warnings = list((regenerated or {}).get("warnings") or [])
         except Exception:
             import logging
 
@@ -439,10 +445,15 @@ def assign_table_on_checkin(quiz_event, user):
                 user.pk,
             )
 
-    return {
+    assignment = {
         "table_number": target_table.table_number,
         "role": role,
     }
+    if rotation_warnings:
+        # Host-only: the check-in broadcast carries these to the quiz host
+        # group; they never go into a participant-facing response.
+        assignment["warnings"] = rotation_warnings
+    return assignment
 
 
 def release_table_on_undo(quiz_event, user):
@@ -967,10 +978,15 @@ def compute_rotation_warnings(quiz):
         .order_by("registered_at")
     )
     if registrations.count() < 4:
-        return [
-            f"Only {registrations.count()} attended registration(s). "
-            f"Need at least 4 to start the quiz."
-        ]
+        # Persisted rows from an earlier, larger rotation can still seat a
+        # blocked pair after check-in undos, so block warnings still apply.
+        return _merge_warnings(
+            [
+                f"Only {registrations.count()} attended registration(s). "
+                f"Need at least 4 to start the quiz."
+            ],
+            current_block_warnings(quiz),
+        )
 
     men, women = split_participants_by_gender(registrations)
     warnings = []
