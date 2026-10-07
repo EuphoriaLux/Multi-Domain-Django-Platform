@@ -443,10 +443,23 @@ class WhatsAppAdapter:
             if not created and claim.status != 'pending':
                 continue  # processed by a concurrent tick
 
+            # Final reachability check and fresh number, immediately before the
+            # paid Meta call (no lock is held across it by design; an accepted
+            # message cannot be recalled).
+            if not self.still_reachable(user):
+                if created:
+                    claim.delete()
+                continue
+            phone = (
+                CrushProfile.objects.filter(user_id=user.pk)
+                .values_list('phone_number', flat=True)
+                .first()
+            )
+
             try:
                 message = send_whatsapp_template(
                     sender=sender,
-                    recipient=profile.phone_number,
+                    recipient=phone,
                     template_name=campaign.whatsapp_template_name,
                     language=lang,
                     parameters=parameters,
@@ -577,6 +590,12 @@ class PushAdapter:
                 with translation.override(lang):
                     title = campaign.push_title
                     body = campaign.push_body
+                # Final reachability check immediately before the provider
+                # call (no lock across it by design).
+                if not self.still_reachable(user):
+                    if created:
+                        claim.delete()
+                    continue
                 outcome = send_push_notification(
                     user,
                     title,

@@ -791,6 +791,41 @@ class WhatsAppMidRunOptOutTests(TestCase):
         self.assertFalse(CampaignRecipient.objects.filter(campaign=campaign).exists())
 
 
+class FinalPreSendCheckTests(TestCase):
+    def test_whatsapp_final_check_blocks_the_paid_call_and_drops_the_claim(self):
+        user = make_user(
+            'final-wa@example.com', phone_number='+352621000077',
+            phone_verified=True,
+        )
+        opt_in_whatsapp(user)
+        campaign = Campaign.objects.create(
+            name='F', channels=['whatsapp'], audience='all_users',
+            whatsapp_template_name='tpl',
+        )
+        adapter = CHANNEL_ADAPTERS['whatsapp']
+        # Early check passes, the final one (right before the call) fails.
+        with patch.object(
+            type(adapter), 'still_reachable', side_effect=[True, False]
+        ), patch('hub.whatsapp_service.send_whatsapp_template') as send:
+            adapter.send_batch(campaign, limit=5)
+        send.assert_not_called()
+        self.assertFalse(CampaignRecipient.objects.filter(campaign=campaign).exists())
+
+    def test_push_final_check_blocks_the_call(self):
+        user = make_user('final-push@example.com')
+        add_push_subscription(user)
+        campaign = Campaign.objects.create(
+            name='FP', channels=['push'], audience='all_users',
+        )
+        adapter = CHANNEL_ADAPTERS['push']
+        with patch.object(
+            type(adapter), 'still_reachable', side_effect=[True, False]
+        ), patch('crush_lu.push_notifications.send_push_notification') as send:
+            adapter.send_batch(campaign, limit=5)
+        send.assert_not_called()
+        self.assertFalse(CampaignRecipient.objects.filter(campaign=campaign).exists())
+
+
 class RecheckQueryBudgetTests(TestCase):
     """The per-recipient recheck must not re-resolve the audience (#1185)."""
 

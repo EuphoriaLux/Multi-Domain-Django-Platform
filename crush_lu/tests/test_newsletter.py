@@ -790,6 +790,30 @@ class SendTimeConsentRecheckTests(TestCase):
             (row.email, row.error_message), ('', SUPPRESSED_CONSENT_REVOKED)
         )
 
+    def test_final_pre_send_check_blocks_the_provider_call(self):
+        """The last check before the handoff: consent gone => nothing sent."""
+        from crush_lu import newsletter_service
+
+        # True for the loop's early check, False for the final check.
+        with patch.object(
+            newsletter_service, 'has_current_consent', side_effect=[True, False]
+        ), patch.object(newsletter_service, 'send_domain_email') as provider:
+            results = send_newsletter(self.newsletter)
+        provider.assert_not_called()
+        self.assertEqual((results['sent'], results['skipped']), (0, 1))
+
+    def test_final_check_uses_the_fresh_address(self):
+        from crush_lu import newsletter_service
+
+        User.objects.filter(pk=self.user.pk).update(email='fresh@example.com')
+        with patch.object(
+            newsletter_service, 'send_domain_email', return_value=1
+        ) as provider:
+            send_newsletter(self.newsletter)
+        self.assertEqual(
+            provider.call_args.kwargs['recipient_list'], ['fresh@example.com']
+        )
+
     def test_has_current_consent(self):
         from crush_lu.newsletter_service import has_current_consent
 
