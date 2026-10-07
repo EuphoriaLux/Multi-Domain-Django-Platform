@@ -297,6 +297,21 @@ def _env_vars_read(function_app_py: Path) -> set[str]:
     return found
 
 
+def _assigned_setting_names(path: Path) -> set[str]:
+    """Names assigned as quoted ``"NAME=value"`` strings in a provisioning script.
+
+    That is the shape of every entry in the SETTINGS array / ``$settings`` list
+    and of inline ``--settings "NAME=value"`` arguments, so a name that merely
+    appears in a comment, echo or query is not counted as set.
+    """
+    names: set[str] = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.lstrip().startswith("#"):
+            continue
+        names.update(re.findall(r"[\"']([A-Z][A-Z0-9_]*)=", line))
+    return names
+
+
 def _example_keys(app_dir: Path) -> set[str]:
     path = app_dir / "local.settings.json.example"
     return set(json.loads(path.read_text(encoding="utf-8"))["Values"])
@@ -329,15 +344,13 @@ def test_hybrid_provisioning_sets_the_non_url_settings_too():
     }
     assert {"ADMIN_API_KEY", "HYBRID_MAINTENANCE_ENABLED"} <= non_url
     for path in (PROVISION_PS1, PROVISION_SH):
-        text = path.read_text(encoding="utf-8")
-        missing = {v for v in non_url if v not in text}
-        assert not missing, f"{path.name} never mentions {sorted(missing)}"
+        missing = non_url - _assigned_setting_names(path)
+        assert not missing, f"{path.name} never assigns {sorted(missing)}"
 
 
 def test_finops_deploy_script_sets_every_setting_except_known_gaps():
     read = _env_vars_read(FUNCTIONS_ROOT / "finops-daily-sync" / "function_app.py")
-    text = DEPLOY_FINOPS_SH.read_text(encoding="utf-8")
-    missing = {v for v in read if v not in text}
+    missing = read - _assigned_setting_names(DEPLOY_FINOPS_SH)
     assert missing == FINOPS_DEPLOY_SCRIPT_KNOWN_GAPS, (
         f"deploy-finops-function.sh misses {sorted(missing)}; recorded known "
         f"gaps are {sorted(FINOPS_DEPLOY_SCRIPT_KNOWN_GAPS)}. Update the script "

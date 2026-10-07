@@ -11,6 +11,7 @@ from django.contrib.auth import get_user_model
 from django.core import serializers
 from django.db import connection, transaction
 from django.test import TestCase
+from django.utils import timezone
 
 from crush_lu.models import CrushCoach
 from crush_lu.tests.conftest import _replay_snapshot
@@ -49,3 +50,31 @@ class ReplaySnapshotOrphanTests(TestCase):
 
         self.assertEqual(skipped, [("crush_lu.CrushCoach", coach.pk)])
         self.assertFalse(CrushCoach.objects.filter(pk=coach.pk).exists())
+
+    def test_row_with_a_gone_many_to_many_target_is_skipped(self):
+        from crush_lu.models import MeetupEvent
+
+        user = User.objects.create_user(
+            username="invitee@example.com", email="invitee@example.com", password="x"
+        )
+        event = MeetupEvent.objects.create(
+            title="Private",
+            description="d",
+            event_type="meetup",
+            date_time=timezone.now(),
+            registration_deadline=timezone.now(),
+            location="x",
+            address="x",
+            canton="LU",
+            duration_minutes=60,
+        )
+        event.invited_users.add(user)
+        snapshot = serializers.serialize("json", [event])
+        event_pk = event.pk
+        event.delete()
+        User.objects.filter(pk=user.pk).delete()
+
+        skipped = self._replay(snapshot)  # junction FK error before the fix
+
+        self.assertEqual(skipped, [("crush_lu.MeetupEvent", event_pk)])
+        self.assertFalse(MeetupEvent.objects.filter(pk=event_pk).exists())

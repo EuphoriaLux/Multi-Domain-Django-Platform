@@ -96,7 +96,8 @@ def _replay_snapshot(snapshot):
     present = {(w.object._meta.label, w.object.pk) for w in pending}
     skipped = set()
 
-    def fk_targets(obj):
+    def fk_targets(wrapped):
+        obj = wrapped.object
         for field in obj._meta.concrete_fields:
             if not field.is_relation or field.many_to_many:
                 continue
@@ -104,6 +105,13 @@ def _replay_snapshot(snapshot):
             if value is None:
                 continue
             yield field.related_model, value
+        # Many-to-many rows are recreated by ``wrapped.save()`` as junction
+        # rows, so their targets must survive too (MeetupEvent.invited_users
+        # and .coaches point at users/coaches a flush removed).
+        for name, pks in (wrapped.m2m_data or {}).items():
+            related = obj._meta.get_field(name).related_model
+            for pk in pks:
+                yield related, pk
 
     changed = True
     while changed:
@@ -112,7 +120,7 @@ def _replay_snapshot(snapshot):
             key = (wrapped.object._meta.label, wrapped.object.pk)
             if key in skipped:
                 continue
-            for target_model, value in fk_targets(wrapped.object):
+            for target_model, value in fk_targets(wrapped):
                 target_key = (target_model._meta.label, value)
                 if target_key in present:
                     orphan = target_key in skipped
