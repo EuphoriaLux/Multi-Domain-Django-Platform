@@ -759,6 +759,7 @@ class NotificationService:
                         request,
                         feedback=context.get("feedback", ""),
                         photo_field=context.get("photo_field", "photo_1"),
+                        reason=context.get("photo_review_reason", ""),
                     )
                     == 1
                 )
@@ -978,7 +979,13 @@ def notify_profile_revision(
 
 
 def notify_photo_revision(
-    user, feedback: str, request=None, *, photo_review_log_id, photo_field="photo_1"
+    user,
+    feedback: str,
+    request=None,
+    *,
+    photo_review_log_id,
+    photo_field="photo_1",
+    photo_review_reason="",
 ) -> NotificationResult:
     """Ask for a replacement photo after a coach photo review.
 
@@ -991,6 +998,7 @@ def notify_photo_revision(
             "feedback": feedback,
             "photo_review_log_id": photo_review_log_id,
             "photo_field": photo_field,
+            "photo_review_reason": photo_review_reason,
         },
         request=request,
         dedupe_key=f"photo-review:{photo_review_log_id}:revision",

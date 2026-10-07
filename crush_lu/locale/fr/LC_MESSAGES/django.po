@@ -45192,3 +45192,57 @@ msgstr[1] "Pour information : %(counter)s paires bloquées partagent un groupe. 
 #: templates/crush_lu/quiz_coach.html
 msgid "You changed the layout, so the block information for the automatic plan no longer applies. Any warnings are shown after you apply."
 msgstr "Vous avez modifié la disposition : les informations de blocage du plan automatique ne s’appliquent plus. Les éventuels avertissements s’affichent après l’application."
+
+msgid "Blurry or low-quality photo"
+msgstr "Photo floue ou de mauvaise qualité"
+
+msgid "Please upload a sharp, clear photo. Avoid blurry or pixelated images."
+msgstr ""
+"Veuillez importer une photo nette et claire. Évitez les images floues ou "
+"pixellisées."
+
+msgid "Photo too dark or poorly lit"
+msgstr "Photo trop sombre ou mal éclairée"
+
+msgid "Please upload a well-lit photo so your face can be seen clearly."
+msgstr ""
+"Veuillez importer une photo bien éclairée pour que votre visage soit "
+"clairement visible."
+
+msgid "Heavy filters or altered appearance"
+msgstr "Filtres excessifs ou apparence modifiée"
+
+msgid ""
+"Please upload a natural photo without filters that change your appearance."
+msgstr ""
+"Veuillez importer une photo naturelle, sans filtres qui modifient votre "
+"apparence."
+
+msgid "Does not show the member"
+msgstr "Le membre ne figure pas sur la photo"
+
+msgid ""
+"Please upload a photo of yourself instead of a landscape, object, drawing or"
+" screenshot."
+msgstr ""
+"Veuillez importer une photo de vous plutôt qu'un paysage, un objet, un "
+"dessin ou une capture d'écran."
+
+msgid "Face cropped or too far away"
+msgstr "Visage coupé ou trop éloigné"
+
+msgid ""
+"Please upload a closer photo showing your whole face, without cropping it."
+msgstr ""
+"Veuillez importer une photo prise de plus près, montrant votre visage en "
+"entier sans le couper."
+
+msgid ""
+"For photo replacement requests, the selected reason is sent in the member's "
+"language. Coach notes stay internal."
+msgstr ""
+"Pour les demandes de remplacement de photo, le motif choisi est envoyé dans "
+"la langue du membre. Les notes du coach restent internes."
+
+msgid "Internal coach note (optional, 255 characters maximum)"
+msgstr "Note interne du coach (facultative, 255 caractères maximum)"
