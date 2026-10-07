@@ -50,27 +50,95 @@ FALLBACK_TOKEN_TTL = timedelta(days=30)
 # SLA sweep (Phase 3) — offer self-booking to users whose SLA breached.
 # -------------------------------------------------------------------------
 
-# One sweep tick sends mail synchronously (production has no task worker), so
-# bound it: at most this many offers per tick and a wall-clock budget well under
-# the 120 s gunicorn timeout. Anything not reached stays eligible for the next
-# 5-minute tick.
-SLA_SWEEP_BATCH_LIMIT = 25
+# Drain strategy. The only caller, the HybridSLASweep timer in
+# azure-functions/hybrid-maintenance/function_app.py, fires HOURLY (:15), and
+# production has no task worker, so each call sends mail synchronously. A fixed
+# per-call cap would take hours to clear a burst, so instead one call claims
+# small chunks (oldest breach first) and keeps going until the queue is empty or
+# the wall-clock budget (well under the 120 s gunicorn timeout) is spent. A
+# faster timer would shorten recovery time but is not needed for correctness.
+SLA_SWEEP_CLAIM_CHUNK = 10
 SLA_SWEEP_SEND_BUDGET_SECONDS = 80
+# Delivery lease: a claim that was never marked sent for this long belonged to a
+# worker that died between commit and send, so it is claimed again.
+SLA_CLAIM_LEASE = timedelta(minutes=15)
+# A failed send is retried by a later call, not hammered in a loop.
+SLA_FAILED_RETRY_BACKOFF = timedelta(minutes=30)
+
+
+def _sweep_candidates(now, exclude_pks=()):
+    """Submissions the sweep may claim now: fresh breaches, backed-off retries
+    of failed sends, and stale claims whose worker never finished sending."""
+    from django.db.models import Q
+
+    from .models import ProfileSubmission
+
+    never_offered = Q(
+        fallback_offered_at__isnull=True, booking_token__isnull=True
+    ) & (
+        Q(fallback_offer_claimed_at__isnull=True)
+        | Q(fallback_offer_claimed_at__lt=now - SLA_FAILED_RETRY_BACKOFF)
+    )
+    stale_claim = Q(
+        fallback_offered_at__isnull=False,
+        booking_token__isnull=False,
+        fallback_offer_claimed_at__isnull=False,
+        fallback_offer_claimed_at__lt=now - SLA_CLAIM_LEASE,
+        fallback_offer_sent_at__isnull=True,
+    )
+    return (
+        ProfileSubmission.objects.filter(
+            never_offered | stale_claim,
+            status="pending",
+            sla_deadline__lte=now,
+            sla_deadline__isnull=False,
+            coach__hybrid_features_enabled=True,
+            is_paused=False,
+        )
+        .exclude(booked_slots__status="booked")
+        .exclude(pk__in=list(exclude_pks))
+    )
 
 
 def mark_fallback_offered(sub, now, *, actor, reason, **details):
-    """Persist the offer fields on a locked submission (no email here)."""
-    sub.fallback_offered_at = now
-    sub.booking_token = uuid.uuid4()
-    sub.booking_token_expires_at = now + FALLBACK_TOKEN_TTL
-    sub.log_system_action("fallback_offered", actor=actor, reason=reason, **details)
+    """Claim a locked submission for a fallback email (no email here).
+
+    Returns True when this recovered an earlier claim that was never sent: the
+    existing booking token is kept, since the earlier mail may have gone out.
+    """
+    recovered = bool(sub.fallback_offered_at and sub.booking_token)
+    sub.fallback_offer_claimed_at = now
+    sub.fallback_offer_sent_at = None
+    if recovered:
+        sub.log_system_action(
+            "fallback_claim_recovered", actor=actor, reason="stale_claim"
+        )
+    else:
+        sub.fallback_offered_at = now
+        sub.booking_token = uuid.uuid4()
+        sub.booking_token_expires_at = now + FALLBACK_TOKEN_TTL
+        sub.log_system_action(
+            "fallback_offered", actor=actor, reason=reason, **details
+        )
     sub.save(
         update_fields=[
             "fallback_offered_at",
             "booking_token",
             "booking_token_expires_at",
+            "fallback_offer_claimed_at",
+            "fallback_offer_sent_at",
             "system_actions",
         ]
+    )
+    return recovered
+
+
+def mark_fallback_sent(submission_pk, now=None):
+    """Record that the email went out or was terminally skipped."""
+    from .models import ProfileSubmission
+
+    ProfileSubmission.objects.filter(pk=submission_pk).update(
+        fallback_offer_sent_at=now or timezone.now()
     )
 
 
@@ -78,10 +146,12 @@ def revert_fallback_offer(submission_pk, booking_token, *, reason):
     """Undo an offer whose email did not go out so a later sweep retries it.
 
     Keyed on the token this attempt minted: if anything changed the offer in the
-    meantime (the member already booked with it, a coach re-offered) we leave it
-    alone. Returns True when the offer was cleared.
+    meantime we leave it alone. Also leaves it alone when the member already
+    booked a screening slot with the token (claim_for_submission does not change
+    the token, so equality alone cannot see that). ``claimed_at`` is kept as the
+    last-attempt time so failures back off. Returns True when cleared.
     """
-    from .models import ProfileSubmission
+    from .models import ProfileSubmission, ScreeningSlot
 
     with transaction.atomic():
         sub = (
@@ -90,6 +160,8 @@ def revert_fallback_offer(submission_pk, booking_token, *, reason):
             .first()
         )
         if sub is None:
+            return False
+        if ScreeningSlot.objects.filter(submission=sub, status="booked").exists():
             return False
         sub.fallback_offered_at = None
         sub.booking_token = None
@@ -113,25 +185,23 @@ def sla_sweep(request):
 
     For each pending submission where:
       * sla_deadline has passed,
-      * fallback hasn't been offered yet,
-      * the submission isn't paused,
+      * fallback hasn't been offered yet (or an earlier claim went stale, or a
+        failed send has backed off),
+      * the submission isn't paused or already booked,
       * the assigned coach opted into hybrid features,
 
-    set ``fallback_offered_at``, mint a ``booking_token`` (30-day TTL), append
-    a ``fallback_offered`` entry to ``system_actions``, commit, and only then
-    send the email.
+    claim it under a row lock (``fallback_offered_at``, a 30-day
+    ``booking_token``, ``fallback_offer_claimed_at``, a ``fallback_offered``
+    ``system_actions`` entry), commit, and only then send the email.
 
-    The row locks are held just long enough to claim the offer. Mail goes out
-    after that transaction commits, so a slow or failing mail backend can
-    neither hold locks nor roll back the claim, and a committed claim is never
-    left behind for a mail that did not go out: if the send fails (or the
-    time budget runs out) the offer is cleared and the submission is picked up
-    again on the next tick. A member who has unsubscribed from these mails is
-    marked offered without a send (retrying cannot help).
+    Mail never goes out under a lock. If the send fails (or the time budget runs
+    out) the offer is cleared so the submission is retried; if the worker dies
+    mid-way the claim has no ``fallback_offer_sent_at`` and is reclaimed after
+    ``SLA_CLAIM_LEASE``. A member who unsubscribed or whose address is suppressed
+    is marked sent without a mail (retrying cannot help).
 
-    Idempotent on repeat calls (the ``fallback_offered_at IS NULL`` filter
-    prevents double offers). Each call handles at most
-    ``SLA_SWEEP_BATCH_LIMIT`` submissions, oldest breach first.
+    Idempotent on repeat calls. One call drains oldest-breach-first until the
+    queue is empty or ``SLA_SWEEP_SEND_BUDGET_SECONDS`` is spent.
     """
     if not _authenticate_admin_request(request):
         return _unauthorized(request)
@@ -154,67 +224,69 @@ def sla_sweep(request):
     now = timezone.now()
     started = time.monotonic()
 
-    candidates = ProfileSubmission.objects.filter(
-        status="pending",
-        sla_deadline__lte=now,
-        sla_deadline__isnull=False,
-        fallback_offered_at__isnull=True,
-        booking_token__isnull=True,
-        coach__hybrid_features_enabled=True,
-        is_paused=False,
-    )
+    def budget_spent():
+        return time.monotonic() - started > SLA_SWEEP_SEND_BUDGET_SECONDS
 
-    # Phase 1 -- claim under the lock, no I/O beyond the database.
-    claimed = []  # (pk, booking_token)
-    failed = 0
-    with transaction.atomic():
-        locked_ids = list(
-            ProfileSubmission.objects.filter(
-                pk__in=candidates.order_by("sla_deadline", "pk").values("pk")[
-                    :SLA_SWEEP_BATCH_LIMIT
-                ]
+    processed = failed = skipped = deferred = 0
+    attempted = set()
+    while not budget_spent():
+        # Phase 1 -- claim a chunk under the lock, no I/O beyond the database.
+        claimed = []  # (pk, booking_token, recovered)
+        with transaction.atomic():
+            locked_ids = list(
+                ProfileSubmission.objects.filter(
+                    pk__in=_sweep_candidates(now, attempted)
+                    .order_by("sla_deadline", "pk")
+                    .values("pk")[:SLA_SWEEP_CLAIM_CHUNK]
+                )
+                .select_for_update(skip_locked=True)
+                .values_list("pk", flat=True)
             )
-            .select_for_update(skip_locked=True)
-            .values_list("pk", flat=True)
-        )
-        for sub in ProfileSubmission.objects.filter(pk__in=locked_ids).order_by(
-            "sla_deadline", "pk"
-        ):
-            # Savepoint per row: one bad row must not abort the whole claim.
-            try:
-                with transaction.atomic():
-                    mark_fallback_offered(
-                        sub,
-                        now,
-                        actor="system",
-                        reason="sla_breach",
-                        sla_deadline=(
-                            sub.sla_deadline.isoformat() if sub.sla_deadline else None
-                        ),
-                    )
-                claimed.append((sub.pk, sub.booking_token))
-            except Exception:  # noqa: BLE001
-                logger.exception("[sla_sweep] Failed on submission %s", sub.pk)
-                failed += 1
+            for sub in ProfileSubmission.objects.filter(pk__in=locked_ids).order_by(
+                "sla_deadline", "pk"
+            ):
+                attempted.add(sub.pk)
+                # Savepoint per row: one bad row must not abort the chunk.
+                try:
+                    with transaction.atomic():
+                        recovered = mark_fallback_offered(
+                            sub,
+                            now,
+                            actor="system",
+                            reason="sla_breach",
+                            sla_deadline=(
+                                sub.sla_deadline.isoformat()
+                                if sub.sla_deadline
+                                else None
+                            ),
+                        )
+                    claimed.append((sub.pk, sub.booking_token, recovered))
+                except Exception:  # noqa: BLE001
+                    logger.exception("[sla_sweep] Failed on submission %s", sub.pk)
+                    failed += 1
+        if not locked_ids:
+            break
 
-    # Phase 2 -- the claim is committed and no lock is held: send. A failure or
-    # an exhausted budget clears the offer so the submission stays eligible.
-    processed = 0
-    skipped = 0
-    deferred = 0
-    for pk, token in claimed:
-        if time.monotonic() - started > SLA_SWEEP_SEND_BUDGET_SECONDS:
-            revert_fallback_offer(pk, token, reason="sweep_time_budget")
-            deferred += 1
-            continue
-        outcome = deliver_sla_fallback_email(pk, host, is_secure)
-        if outcome == SLA_EMAIL_SENT:
-            processed += 1
-        elif outcome == SLA_EMAIL_FAILED:
-            revert_fallback_offer(pk, token, reason="email_not_sent")
-            failed += 1
-        else:
-            skipped += 1
+        # Phase 2 -- the claim is committed and no lock is held: send.
+        for pk, token, recovered in claimed:
+            if budget_spent():
+                if not recovered:
+                    revert_fallback_offer(pk, token, reason="sweep_time_budget")
+                deferred += 1
+                continue
+            outcome = deliver_sla_fallback_email(pk, host, is_secure)
+            if outcome == SLA_EMAIL_FAILED:
+                # A recovered claim keeps its token (the earlier mail may have
+                # reached the member); the lease will retry it.
+                if not recovered:
+                    revert_fallback_offer(pk, token, reason="email_not_sent")
+                failed += 1
+                continue
+            mark_fallback_sent(pk)
+            if outcome == SLA_EMAIL_SENT:
+                processed += 1
+            else:
+                skipped += 1
 
     logger.info(
         "[sla_sweep] processed=%d failed=%d skipped=%d deferred=%d",

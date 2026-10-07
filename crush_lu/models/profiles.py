@@ -1853,6 +1853,22 @@ class ProfileSubmission(models.Model):
         blank=True,
         help_text=_("When the user was shown the self-booking fallback."),
     )
+    # Delivery lease for the fallback email (see api_admin_hybrid.sla_sweep).
+    # claimed_at is the last attempt; sent_at is set once the email went out or
+    # was terminally skipped (unsubscribed / suppressed). A claim with no
+    # sent_at older than the lease is a crashed worker and is retried; a failed
+    # attempt keeps claimed_at so it backs off instead of starving the queue.
+    # Rows offered before these fields existed have both NULL and are left alone.
+    fallback_offer_claimed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("When the sweep last claimed this submission for a fallback email."),
+    )
+    fallback_offer_sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("When the fallback email was sent or terminally skipped."),
+    )
     escalated_at = models.DateTimeField(
         null=True,
         blank=True,

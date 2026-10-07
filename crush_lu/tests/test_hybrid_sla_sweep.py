@@ -118,11 +118,20 @@ class SlaSweepTests(TestCase):
         self.assertEqual((body["processed"], body["failed"]), (0, 1))
         self.assertIsNone(sub.fallback_offered_at)
 
-    def test_failed_submission_is_retried_by_the_next_sweep(self):
+    def test_failed_submission_backs_off_then_is_retried(self):
         sub = self._submission("retry")
         with patch(SEND, return_value=0):
             self._sweep()
 
+        # Immediately after a failure it is not hammered again ...
+        with patch(SEND, return_value=1) as send:
+            self._sweep()
+        send.assert_not_called()
+
+        # ... but once the backoff has elapsed the next sweep retries it.
+        ProfileSubmission.objects.filter(pk=sub.pk).update(
+            fallback_offer_claimed_at=timezone.now() - timedelta(hours=2)
+        )
         with patch(SEND, return_value=1) as send:
             body = self._sweep().json()
 
@@ -130,6 +139,7 @@ class SlaSweepTests(TestCase):
         self.assertEqual(body["processed"], 1)
         self.assertEqual(send.call_count, 1)
         self.assertIsNotNone(sub.fallback_offered_at)
+        self.assertIsNotNone(sub.fallback_offer_sent_at)
 
     def test_unsubscribed_member_is_marked_offered_without_a_send(self):
         sub = self._submission("unsub")
@@ -162,44 +172,181 @@ class SlaSweepTests(TestCase):
             [False, True],
         )
 
-    def test_batch_is_bounded_and_the_rest_waits_for_the_next_tick(self):
-        subs = [self._submission(f"batch{i}") for i in range(3)]
+    def test_suppressed_address_is_terminal_not_retried_forever(self):
+        from crush_lu.models import EmailSuppression
+
+        sub = self._submission("suppressed")
+        EmailSuppression.objects.create(email=sub.profile.user.email)
+
+        with patch(SEND, return_value=0) as send:
+            body = self._sweep().json()
+            again = self._sweep().json()
+
+        sub.refresh_from_db()
+        send.assert_not_called()
+        self.assertEqual((body["failed"], body["skipped"]), (0, 1))
+        self.assertEqual(again["skipped"] + again["failed"], 0)
+        self.assertIsNotNone(sub.fallback_offered_at)
+        self.assertIsNotNone(sub.fallback_offer_sent_at)
+
+    def test_suppressed_addresses_cannot_starve_newer_submissions(self):
+        from crush_lu.models import EmailSuppression
+
+        for i in range(3):
+            old = self._submission(f"starve{i}")
+            EmailSuppression.objects.create(email=old.profile.user.email)
+        fresh = self._submission("fresh")
 
         with (
-            patch("crush_lu.api_admin_hybrid.SLA_SWEEP_BATCH_LIMIT", 2),
+            patch("crush_lu.api_admin_hybrid.SLA_SWEEP_CLAIM_CHUNK", 2),
             patch(SEND, return_value=1),
         ):
             body = self._sweep().json()
 
-        self.assertEqual(body["processed"], 2)
+        fresh.refresh_from_db()
+        self.assertEqual((body["processed"], body["skipped"]), (1, 3))
+        self.assertIsNotNone(fresh.fallback_offered_at)
+
+    def test_one_call_drains_more_than_a_single_chunk(self):
+        subs = [self._submission(f"drain{i}") for i in range(5)]
+
+        with (
+            patch("crush_lu.api_admin_hybrid.SLA_SWEEP_CLAIM_CHUNK", 2),
+            patch(SEND, return_value=1),
+        ):
+            body = self._sweep().json()
+
+        self.assertEqual(body["processed"], 5)
+        for sub in subs:
+            sub.refresh_from_db()
+            self.assertIsNotNone(sub.fallback_offer_sent_at)
+
+    def test_exhausted_time_budget_defers_and_undoes_unsent_offers(self):
+        import crush_lu.api_admin_hybrid as module
+
+        subs = [self._submission(f"budget{i}") for i in range(3)]
+
+        def spend_budget(*args, **kwargs):
+            module.SLA_SWEEP_SEND_BUDGET_SECONDS = -1
+            return 1
+
+        with (
+            patch.object(module, "SLA_SWEEP_SEND_BUDGET_SECONDS", 100),
+            patch.object(module, "SLA_SWEEP_CLAIM_CHUNK", 3),
+            patch(SEND, side_effect=spend_budget),
+        ):
+            body = self._sweep().json()
+
         offered = [
             ProfileSubmission.objects.get(pk=s.pk).fallback_offered_at is not None
             for s in subs
         ]
-        self.assertEqual(sorted(offered), [False, True, True])
+        self.assertEqual((body["processed"], body["deferred"]), (1, 2))
+        self.assertEqual(sorted(offered), [False, False, True])
 
-    def test_exhausted_time_budget_defers_and_undoes_unsent_offers(self):
-        sub = self._submission("budget")
+    def test_failed_send_keeps_the_offer_when_the_member_already_booked(self):
+        from crush_lu.models import ScreeningSlot
 
-        with (
-            patch("crush_lu.api_admin_hybrid.SLA_SWEEP_SEND_BUDGET_SECONDS", -1),
-            patch(SEND, return_value=1) as send,
-        ):
-            body = self._sweep().json()
+        sub = self._submission("booked")
+        with patch(SEND, return_value=1):
+            self._sweep()
+        sub.refresh_from_db()
+        token = sub.booking_token
+        start = timezone.now() + timedelta(days=1)
+        ScreeningSlot.objects.create(
+            coach=self.coach,
+            submission=sub,
+            start_at=start,
+            end_at=start + timedelta(minutes=30),
+            status="booked",
+        )
+
+        self.assertFalse(revert_fallback_offer(sub.pk, token, reason="x"))
 
         sub.refresh_from_db()
-        send.assert_not_called()
-        self.assertEqual((body["processed"], body["deferred"]), (0, 1))
-        self.assertIsNone(sub.fallback_offered_at)
+        self.assertEqual(sub.booking_token, token)
+        self.assertIsNotNone(sub.fallback_offered_at)
 
-    def test_revert_ignores_an_offer_that_changed_since_the_attempt(self):
+    def test_booked_submission_is_not_reclaimed_by_the_sweep(self):
+        from crush_lu.models import ScreeningSlot
+
+        sub = self._submission("booked2")
+        start = timezone.now() + timedelta(days=1)
+        ScreeningSlot.objects.create(
+            coach=self.coach,
+            submission=sub,
+            start_at=start,
+            end_at=start + timedelta(minutes=30),
+            status="booked",
+        )
+
+        with patch(SEND, return_value=1) as send:
+            self._sweep()
+
+        send.assert_not_called()
+
+    def test_stale_claim_from_a_dead_worker_is_recovered(self):
         sub = self._submission("stale")
         with patch(SEND, return_value=1):
             self._sweep()
         sub.refresh_from_db()
         token = sub.booking_token
+        # Simulate a crash between commit and send: claimed, never sent.
+        ProfileSubmission.objects.filter(pk=sub.pk).update(
+            fallback_offer_sent_at=None,
+            fallback_offer_claimed_at=timezone.now() - timedelta(hours=1),
+        )
 
+        with patch(SEND, return_value=1) as send:
+            body = self._sweep().json()
+
+        sub.refresh_from_db()
+        self.assertEqual(body["processed"], 1)
+        send.assert_called_once()
+        self.assertEqual(sub.booking_token, token)
+        self.assertIsNotNone(sub.fallback_offer_sent_at)
+        self.assertEqual(sub.system_actions[-1]["type"], "fallback_claim_recovered")
+
+    def test_fresh_unsent_claim_is_inside_its_lease(self):
+        sub = self._submission("lease")
+        with patch(SEND, return_value=1):
+            self._sweep()
+        ProfileSubmission.objects.filter(pk=sub.pk).update(
+            fallback_offer_sent_at=None,
+            fallback_offer_claimed_at=timezone.now() - timedelta(minutes=1),
+        )
+
+        with patch(SEND, return_value=1) as send:
+            self._sweep()
+
+        send.assert_not_called()
+
+    def test_failed_recovery_keeps_the_original_token(self):
+        sub = self._submission("recfail")
+        with patch(SEND, return_value=1):
+            self._sweep()
+        sub.refresh_from_db()
+        token = sub.booking_token
+        ProfileSubmission.objects.filter(pk=sub.pk).update(
+            fallback_offer_sent_at=None,
+            fallback_offer_claimed_at=timezone.now() - timedelta(hours=1),
+        )
+
+        with patch(SEND, return_value=0):
+            body = self._sweep().json()
+
+        sub.refresh_from_db()
+        self.assertEqual(body["failed"], 1)
+        self.assertEqual(sub.booking_token, token)
+
+    def test_revert_ignores_an_offer_that_changed_since_the_attempt(self):
         import uuid
+
+        sub = self._submission("changed")
+        with patch(SEND, return_value=1):
+            self._sweep()
+        sub.refresh_from_db()
+        token = sub.booking_token
 
         self.assertFalse(revert_fallback_offer(sub.pk, uuid.uuid4(), reason="x"))
         sub.refresh_from_db()

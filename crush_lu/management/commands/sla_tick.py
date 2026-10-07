@@ -42,6 +42,7 @@ class Command(BaseCommand):
 
         from crush_lu.api_admin_hybrid import (
             mark_fallback_offered,
+            mark_fallback_sent,
             revert_fallback_offer,
         )
         from crush_lu.models import ProfileSubmission
@@ -110,6 +111,7 @@ class Command(BaseCommand):
                     f"  email not sent for submission #{sub.pk}; offer undone"
                 )
                 continue
+            mark_fallback_sent(sub.pk)
             processed += 1
             note = "" if outcome == SLA_EMAIL_SENT else " (no email: skipped)"
             self.stdout.write(

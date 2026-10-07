@@ -230,6 +230,23 @@ SLA_EMAIL_SKIPPED = "skipped"
 SLA_EMAIL_FAILED = "failed"
 
 
+def _is_email_suppressed(email):
+    from django.db.utils import OperationalError, ProgrammingError
+
+    from .models import EmailSuppression
+
+    normalized = (email or "").strip().lower()
+    if not normalized:
+        return True
+    try:
+        return EmailSuppression.objects.filter(
+            email=normalized, is_active=True
+        ).exists()
+    except (OperationalError, ProgrammingError):
+        # Same fail-open stance as send_domain_email's own filter.
+        return False
+
+
 def deliver_sla_fallback_email(submission_id, host, is_secure=True):
     """Build and send the self-booking email; report what actually happened.
 
@@ -237,7 +254,8 @@ def deliver_sla_fallback_email(submission_id, host, is_secure=True):
 
     * ``SLA_EMAIL_SENT`` -- the mail backend accepted at least one message;
     * ``SLA_EMAIL_SKIPPED`` -- nothing to send by design (submission gone,
-      member unsubscribed, no booking token). Retrying cannot change this;
+      member unsubscribed, address on the hard-bounce suppression list, no
+      booking token). Retrying cannot change this;
     * ``SLA_EMAIL_FAILED`` -- the send raised or was suppressed (returned 0).
       The caller should undo the offer so the next sweep retries.
 
@@ -280,6 +298,17 @@ def deliver_sla_fallback_email(submission_id, host, is_secure=True):
     if not submission.booking_token:
         logger.warning(
             f"[TASK] Submission {submission_id} has no booking_token; skipping email"
+        )
+        return SLA_EMAIL_SKIPPED
+
+    # send_domain_email silently drops actively suppressed (hard-bounced)
+    # addresses and returns 0, which is indistinguishable from an outage. A
+    # suppressed address never becomes deliverable on its own, so treat it as
+    # terminal like an unsubscribe rather than retrying it every sweep.
+    if _is_email_suppressed(user.email):
+        logger.info(
+            f"[TASK] Skipping SLA fallback email for submission {submission_id} "
+            "(address suppressed)"
         )
         return SLA_EMAIL_SKIPPED
 

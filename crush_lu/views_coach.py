@@ -1990,7 +1990,11 @@ def coach_offer_self_booking(request, submission_id):
     """
     import uuid
     from django.conf import settings as _settings
-    from .api_admin_hybrid import mark_fallback_offered, revert_fallback_offer
+    from .api_admin_hybrid import (
+        mark_fallback_offered,
+        mark_fallback_sent,
+        revert_fallback_offer,
+    )
     from .tasks import SLA_EMAIL_FAILED, deliver_sla_fallback_email
 
     coach = request.coach
@@ -2064,6 +2068,7 @@ def coach_offer_self_booking(request, submission_id):
             + "</p>",
             status=500,
         )
+    mark_fallback_sent(submission.pk)
 
     return render(
         request,
