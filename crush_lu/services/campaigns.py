@@ -35,6 +35,8 @@ from crush_lu.models import (
     CampaignLink,
     CampaignRecipient,
     EmailPreference,
+    CrushProfile,
+    PushSubscription,
 )
 from crush_lu.utils.i18n import get_user_preferred_language
 
@@ -336,6 +338,25 @@ class WhatsAppAdapter:
             self.channel_audience(campaign), campaign, self.key
         )
 
+    @staticmethod
+    def still_reachable(user):
+        """Volatile WhatsApp predicates for ONE user (cheap single reads)."""
+        if not newsletter_service.has_current_consent(user):
+            return False
+        if newsletter_service.is_on_break(user):
+            return False
+        if not EmailPreference.objects.filter(
+            user_id=user.pk, whatsapp_opt_in=True, unsubscribed_all=False
+        ).exists():
+            return False
+        return (
+            CrushProfile.objects.filter(
+                user_id=user.pk, phone_verified=True, not_on_whatsapp=False
+            )
+            .exclude(phone_number='')
+            .exists()
+        )
+
     def channel_audience(self, campaign):
         """Everyone currently reachable on this channel (before dedupe).
 
@@ -391,10 +412,12 @@ class WhatsAppAdapter:
             user = User.objects.filter(id=user_id).first()
             if user is None:
                 continue
-            # Consent, ban or this channel's own predicates may have changed
-            # since the audience was resolved (opt-out, unsubscribe, deletion
-            # mid-run): re-read exactly what the audience filters on.
-            if not self.channel_audience(campaign).filter(pk=user.pk).exists():
+            # Consent, ban, break or this channel's own predicates may have
+            # changed since the audience was resolved (opt-out, unsubscribe,
+            # deletion mid-run). Single-user predicate reads only: never
+            # re-resolve the audience per recipient (segment audiences run
+            # dozens of COUNT queries each time).
+            if not self.still_reachable(user):
                 continue
             profile = getattr(user, 'crushprofile', None)
             lang = get_user_preferred_language(user=user, default='en')
@@ -476,8 +499,19 @@ class PushAdapter:
             self.channel_audience(campaign), campaign, self.key
         )
 
+    @staticmethod
+    def still_reachable(user):
+        """Volatile push predicates for ONE user (cheap single reads)."""
+        return (
+            newsletter_service.has_current_consent(user)
+            and not newsletter_service.is_on_break(user)
+            and PushSubscription.objects.filter(
+                user_id=user.pk, enabled=True
+            ).exists()
+        )
+
     def channel_audience(self, campaign):
-        """Currently reachable on push (re-checked right before each send)."""
+        """Currently reachable on push."""
         users = resolve_campaign_audience(campaign)
         return users.filter(push_subscriptions__enabled=True).distinct()
 
@@ -514,10 +548,12 @@ class PushAdapter:
             user = User.objects.filter(id=user_id).first()
             if user is None:
                 continue
-            # Consent, ban or this channel's own predicates may have changed
-            # since the audience was resolved (opt-out, unsubscribe, deletion
-            # mid-run): re-read exactly what the audience filters on.
-            if not self.channel_audience(campaign).filter(pk=user.pk).exists():
+            # Consent, ban, break or this channel's own predicates may have
+            # changed since the audience was resolved (opt-out, unsubscribe,
+            # deletion mid-run). Single-user predicate reads only: never
+            # re-resolve the audience per recipient (segment audiences run
+            # dozens of COUNT queries each time).
+            if not self.still_reachable(user):
                 continue
             lang = get_user_preferred_language(user=user, default='en')
 
