@@ -21,10 +21,76 @@ from django.core.management import call_command
 from django.test import TestCase
 
 from crush_lu.models import CrushProfile, EmailPreference
+from crush_lu.models.profiles import UserDataConsent
 from crush_lu.models.newsletter import Newsletter, NewsletterRecipient
 from crush_lu.newsletter_service import get_newsletter_recipients, send_newsletter
 
 User = get_user_model()
+
+
+def make_profile(consented=True, **kwargs):
+    """Create a CrushProfile; consented by default.
+
+    Newsletter/campaign audiences require ``crushlu_consent_given`` (#1184);
+    the post-save signal creates the consent row with it False, so fixtures
+    flip it unless a test passes ``consented=False``.
+    """
+    profile = CrushProfile.objects.create(**kwargs)
+    UserDataConsent.objects.update_or_create(
+        user=profile.user, defaults={"crushlu_consent_given": consented},
+    )
+    return profile
+
+
+class NewsletterConsentGateTests(TestCase):
+    """#1184: a lazily-created profile without Crush.lu consent is never mailed."""
+
+    def setUp(self):
+        self.unconsented = User.objects.create_user(
+            username='nc@example.com', email='nc@example.com', password='x',
+        )
+        make_profile(
+            consented=False, user=self.unconsented,
+            date_of_birth='1995-01-01', gender='M', location='Luxembourg',
+            is_approved=True, verification_status='verified',
+        )
+        self.consented = User.objects.create_user(
+            username='c@example.com', email='c@example.com', password='x',
+        )
+        make_profile(
+            user=self.consented,
+            date_of_birth='1995-01-01', gender='F', location='Luxembourg',
+            is_approved=True, verification_status='verified',
+        )
+
+    def test_unconsented_profile_excluded_from_every_audience(self):
+        for audience in ('all_users', 'all_profiles', 'approved_profiles'):
+            nl = Newsletter.objects.create(
+                subject='S', body_html='<p>x</p>', audience=audience,
+            )
+            recipients = get_newsletter_recipients(nl)
+            self.assertNotIn(self.unconsented, recipients, audience)
+            self.assertIn(self.consented, recipients, audience)
+
+    def test_user_without_consent_row_excluded(self):
+        UserDataConsent.objects.filter(user=self.consented).delete()
+        nl = Newsletter.objects.create(
+            subject='S', body_html='<p>x</p>', audience='all_users',
+        )
+        self.assertNotIn(self.consented, get_newsletter_recipients(nl))
+
+    def test_campaign_audience_applies_the_same_gate(self):
+        from crush_lu.services.campaigns import (
+            CHANNEL_ADAPTERS, create_campaign, resolve_campaign_audience,
+        )
+        campaign = create_campaign(
+            name='c', channels=['email'], audience='all_users',
+        )
+        self.assertNotIn(self.unconsented, resolve_campaign_audience(campaign))
+        self.assertIn(self.consented, resolve_campaign_audience(campaign))
+        eligible = CHANNEL_ADAPTERS['email'].eligible_users(campaign)
+        self.assertNotIn(self.unconsented, eligible)
+        self.assertIn(self.consented, eligible)
 
 
 class NewsletterAudienceTests(TestCase):
@@ -48,7 +114,7 @@ class NewsletterAudienceTests(TestCase):
             first_name='Un',
             last_name='Approved',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user_unapproved,
             date_of_birth='1995-01-01',
             gender='M',
@@ -64,7 +130,7 @@ class NewsletterAudienceTests(TestCase):
             first_name='App',
             last_name='Roved',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user_approved,
             date_of_birth='1995-01-01',
             gender='F',
@@ -145,7 +211,7 @@ class NewsletterSendTests(TestCase):
             password='testpass123',
             first_name='Alice',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user1, date_of_birth='1995-01-01',
             gender='F', location='Luxembourg',
         )
@@ -155,7 +221,7 @@ class NewsletterSendTests(TestCase):
             password='testpass123',
             first_name='Bob',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user2, date_of_birth='1995-01-01',
             gender='M', location='Luxembourg',
         )
@@ -289,7 +355,7 @@ class NewsletterEmailRenderTests(TestCase):
             password='testpass123',
             first_name='Render',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user, date_of_birth='1995-01-01',
             gender='F', location='Luxembourg',
         )
@@ -362,7 +428,7 @@ class NewsletterManagementCommandTests(TestCase):
             password='testpass123',
             first_name='Cmd',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user, date_of_birth='1995-01-01',
             gender='M', location='Luxembourg',
         )
@@ -399,14 +465,14 @@ class NewsletterManagementCommandTests(TestCase):
         user2 = User.objects.create_user(
             username='cmd2@example.com', email='cmd2@example.com', password='pass',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=user2, date_of_birth='1995-01-01',
             gender='F', location='Luxembourg',
         )
         user3 = User.objects.create_user(
             username='cmd3@example.com', email='cmd3@example.com', password='pass',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=user3, date_of_birth='1995-01-01',
             gender='M', location='Luxembourg',
         )
@@ -530,7 +596,7 @@ class NewsletterLanguageFilterTests(TestCase):
             email='en@example.com',
             password='testpass123',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user_en,
             date_of_birth='1995-01-01',
             gender='M',
@@ -544,7 +610,7 @@ class NewsletterLanguageFilterTests(TestCase):
             email='de@example.com',
             password='testpass123',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user_de,
             date_of_birth='1995-01-01',
             gender='F',
@@ -558,7 +624,7 @@ class NewsletterLanguageFilterTests(TestCase):
             email='fr@example.com',
             password='testpass123',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user_fr,
             date_of_birth='1995-01-01',
             gender='M',
@@ -698,7 +764,7 @@ class NewsletterTypeTests(TestCase):
             password='testpass123',
             first_name='Tester',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=user, date_of_birth='1995-01-01',
             gender='F', location='Luxembourg',
         )
@@ -727,7 +793,7 @@ class NewsletterTypeTests(TestCase):
             password='testpass123',
             first_name='Standard',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=user, date_of_birth='1995-01-01',
             gender='M', location='Luxembourg',
         )
@@ -755,7 +821,7 @@ class NewsletterMultilingualTests(TestCase):
             password='testpass123',
             first_name='English',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user_en,
             date_of_birth='1995-01-01',
             gender='M',
@@ -770,7 +836,7 @@ class NewsletterMultilingualTests(TestCase):
             password='testpass123',
             first_name='Deutsch',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user_de,
             date_of_birth='1995-01-01',
             gender='F',
@@ -785,7 +851,7 @@ class NewsletterMultilingualTests(TestCase):
             password='testpass123',
             first_name='Francais',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user_fr,
             date_of_birth='1995-01-01',
             gender='M',

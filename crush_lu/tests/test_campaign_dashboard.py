@@ -13,7 +13,7 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from crush_lu.models import Campaign, CrushCoach, CrushProfile
+from crush_lu.models import Campaign, CrushCoach, CrushProfile, UserDataConsent
 from crush_lu.services.campaigns import create_campaign
 
 User = get_user_model()
@@ -114,6 +114,9 @@ class CampaignCreateFlowTests(TestCase):
             gender='F',
             location='Luxembourg',
             is_approved=True,
+        )
+        UserDataConsent.objects.filter(user=member).update(
+            crushlu_consent_given=True,
         )
 
     def setUp(self):

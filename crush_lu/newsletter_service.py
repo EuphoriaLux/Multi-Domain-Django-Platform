@@ -32,7 +32,18 @@ def resolve_audience(audience, segment_key=''):
 
     Shared by newsletter sending and the multi-channel campaign service
     (crush_lu/services/campaigns.py) so both target audiences identically.
+
+    Only users with a recorded Crush.lu consent
+    (``UserDataConsent.crushlu_consent_given``) are returned. Profiles are
+    lazily created for cross-domain accounts on their first crush.lu login and
+    ConsentMiddleware only then asks them to consent, so a profile alone is not
+    consent. Users without a consent row are dropped too (no consent recorded).
     """
+    users = _resolve_audience_unfiltered(audience, segment_key)
+    return users.filter(data_consent__crushlu_consent_given=True)
+
+
+def _resolve_audience_unfiltered(audience, segment_key=''):
     if audience == 'all_users':
         return User.objects.filter(is_active=True, crushprofile__isnull=False)
     elif audience == 'all_profiles':
