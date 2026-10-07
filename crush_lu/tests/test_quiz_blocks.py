@@ -324,3 +324,124 @@ class TestQuizBlocksMidQuiz:
         sent = consumer.channel_layer.group_send.await_args.args[1]
         assert sent["type"] == "quiz.rotate"
         assert "blocked" not in str(sent["data"])
+
+
+@pytest.mark.django_db
+class TestQuizBlockWarningSurfaces:
+    """Every host surface (start, rotate, resume, manual assign, consolidate)
+    reads the same helper; these cover the ones that regenerate or resume."""
+
+    @pytest.fixture(autouse=True)
+    def _keep_test_connection_open(self, monkeypatch):
+        monkeypatch.setattr("channels.db.close_old_connections", lambda *a, **kw: None)
+
+    def _block_all(self, men, women):
+        for man in men:
+            for woman in women:
+                UserBlock.objects.create(blocker=man, blocked=woman, reason="other")
+
+    def test_manual_assign_returns_regeneration_conflicts(
+        self, quiz_event_4t  # noqa: F811
+    ):
+        from django.utils import timezone
+
+        from crush_lu.models.events import EventRegistration
+        from crush_lu.services.quiz_rotation import manual_assign_table
+
+        quiz = quiz_event_4t
+        men = [_make_user(f"reg_m{i}", "M") for i in range(2)]
+        women = [_make_user(f"reg_f{i}", "F") for i in range(4)]
+        for user in men + women:
+            _check_in_attended(quiz, user)
+        generate_rotation_rounds(quiz)
+        quiz.status = "active"
+        quiz.current_round = quiz.rounds.order_by("sort_order")[0]
+        quiz.save(update_fields=["status", "current_round"])
+        late = _make_user("reg_late", "F")
+        EventRegistration.objects.create(
+            event=quiz.event,
+            user=late,
+            status="attended",
+            checked_in_at=timezone.now(),
+        )
+        UserBlock.objects.create(blocker=late, blocked=men[0], reason="other")
+        UserBlock.objects.create(blocker=late, blocked=men[1], reason="other")
+        anchor_tables = set(
+            QuizRotationSchedule.objects.filter(
+                quiz=quiz, round_number=0, role="anchor"
+            ).values_list("table__table_number", flat=True)
+        )
+        safe_table = next(n for n in (1, 2, 3, 4) if n not in anchor_tables)
+
+        result = manual_assign_table(quiz, late, safe_table)
+
+        # Safe at round 0 (no move warning for this table), but the regenerated
+        # rotation walks her past the anchors in a later round.
+        assert any("blocked pair" in w for w in result.get("warnings", []))
+
+    def test_consolidation_preview_and_apply_both_report_conflicts(
+        self, client, quiz_event_4t  # noqa: F811
+    ):
+        import re
+
+        quiz = quiz_event_4t
+        men = [_make_user(f"cons_m{i}", "M") for i in range(3)]
+        women = [_make_user(f"cons_f{i}", "F") for i in range(4)]
+        for user in men + women:
+            _check_in_attended(quiz, user)
+        self._block_all(men, women)
+        assert client.login(username="consol_coach@test.com", password="testpass123")
+        url = f"/api/quiz/{quiz.id}/consolidate-tables/"
+
+        preview = client.post(
+            url, data="{}", content_type="application/json", HTTP_HOST="crush.lu"
+        ).json()
+        applied = client.post(
+            url,
+            data='{"apply": true}',
+            content_type="application/json",
+            HTTP_HOST="crush.lu",
+        ).json()
+
+        def count(body):
+            text = next(w for w in body["warnings"] if "blocked pair" in w)
+            return int(re.match(r"(\d+)", text).group(1))
+
+        assert count(preview) >= 1
+        assert count(applied) >= 1
+        # The preview simulates the same rotation that apply regenerates.
+        assert count(preview) == count(applied)
+
+    def test_resume_warns_the_host_only(self, quiz_event_4t):  # noqa: F811
+        from unittest.mock import AsyncMock
+
+        from asgiref.sync import async_to_sync
+
+        from crush_lu.consumers import QuizConsumer
+
+        quiz = quiz_event_4t
+        men = [_make_user(f"res2_m{i}", "M") for i in range(2)]
+        women = [_make_user(f"res2_f{i}", "F") for i in range(4)]
+        for user in men + women:
+            _check_in_attended(quiz, user)
+        generate_rotation_rounds(quiz)
+        quiz.status = "paused"
+        quiz.current_round = quiz.rounds.order_by("sort_order")[0]
+        quiz.save(update_fields=["status", "current_round"])
+        # The block appears while the quiz is paused.
+        self._block_all(men, women)
+
+        consumer = QuizConsumer()
+        consumer.quiz_id = quiz.id
+        consumer.quiz_group = f"quiz_{quiz.id}"
+        consumer.send_error = AsyncMock()
+        consumer.channel_layer = AsyncMock()
+
+        async_to_sync(consumer.handle_resume_quiz)()
+
+        messages = [call.args[0] for call in consumer.send_error.await_args_list]
+        assert any("blocked pair" in m for m in messages)
+        broadcast = " ".join(
+            str(call.args) for call in consumer.channel_layer.group_send.await_args_list
+        )
+        assert "blocked" not in broadcast

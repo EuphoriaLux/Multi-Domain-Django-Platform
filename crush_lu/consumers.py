@@ -531,6 +531,10 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
         if result.get("error"):
             await self.send_error(result["error"])
             return
+        # A block created while the quiz was paused still applies to the
+        # current and upcoming rounds. Host socket only, never broadcast.
+        for warning in await self.get_block_warnings():
+            await self.send_error(warning)
         # Re-send current question state so all clients sync up
         state = await self.get_quiz_state()
         if state:
@@ -1778,16 +1782,12 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
     def get_block_warnings(self):
         """Host-only warnings about blocked pairs sharing a table from the current round on."""
         from crush_lu.models.quiz import QuizEvent
-        from crush_lu.services.quiz_rotation import (
-            _blocked_table_warning,
-            blocked_table_conflict_count,
-        )
+        from crush_lu.services.quiz_rotation import current_block_warnings
 
         quiz = QuizEvent.objects.filter(id=self.quiz_id).first()
         if quiz is None:
             return []
-        count = blocked_table_conflict_count(quiz)
-        return [_blocked_table_warning(count)] if count else []
+        return current_block_warnings(quiz)
 
     @database_sync_to_async
     def advance_round_and_rotate(self):
