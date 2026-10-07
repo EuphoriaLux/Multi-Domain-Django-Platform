@@ -90,15 +90,28 @@ def is_on_break(user):
     ).exists()
 
 
+def anonymize_newsletter_receipts(user):
+    """Blank the address and error text on a user's NewsletterRecipient rows.
+
+    Called by account deletion after the consent revocation has committed.
+    Together with write_receipt() this closes the race with an in-flight send:
+    a receipt written before the revocation is blanked here, and one written
+    after it is stored blank. Rows and statuses are kept for send counts.
+    """
+    return NewsletterRecipient.objects.filter(user=user).update(
+        email='', error_message=''
+    )
+
+
 def write_receipt(newsletter, user, defaults):
     """Write a NewsletterRecipient receipt, storing the address only while the
     user still has consent.
 
     The consent row is locked and re-read in the same transaction as the
-    write (select_for_update; SQLite ignores it, Postgres honours it), so a
-    concurrent account deletion either commits first (blank address stored) or
-    waits for this write and then sweeps it (see _anonymize_send_logs). An
-    erased or unconsented user never gets an address written back.
+    write (select_for_update; SQLite ignores it, Postgres honours it), so the
+    write either sees the revocation (blank address stored) or commits first
+    and is blanked by anonymize_newsletter_receipts() when deletion runs it
+    after the revocation commits.
     """
     from .models.profiles import UserDataConsent
 
