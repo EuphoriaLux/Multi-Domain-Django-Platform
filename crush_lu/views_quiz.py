@@ -21,7 +21,6 @@ from crush_lu.models.quiz import (
 )
 from crush_lu.throttling import QuizPinRateThrottle, ratelimit_view
 
-
 logger = logging.getLogger(__name__)
 
 # A coach judged these images unfit to show. The projector puts the photo in
@@ -48,9 +47,21 @@ def _photo_url(profile):
 
 
 _AVATAR_COLORS = [
-    "#8B5CF6", "#EC4899", "#F59E0B", "#10B981", "#3B82F6",
-    "#EF4444", "#06B6D4", "#F97316", "#6366F1", "#14B8A6",
-    "#E879F9", "#84CC16", "#F43F5E", "#22D3EE", "#A78BFA",
+    "#8B5CF6",
+    "#EC4899",
+    "#F59E0B",
+    "#10B981",
+    "#3B82F6",
+    "#EF4444",
+    "#06B6D4",
+    "#F97316",
+    "#6366F1",
+    "#14B8A6",
+    "#E879F9",
+    "#84CC16",
+    "#F43F5E",
+    "#22D3EE",
+    "#A78BFA",
 ]
 
 
@@ -355,7 +366,9 @@ def quiz_table_display(request, event_id):
     display_token = quiz.display_token or ""
     req_token = request.GET.get("token", "")
     try:
-        _token_ok = pin_required and secrets.compare_digest(str(req_token), str(display_token))
+        _token_ok = pin_required and secrets.compare_digest(
+            str(req_token), str(display_token)
+        )
     except (TypeError, UnicodeEncodeError):
         _token_ok = False
     if _token_ok:

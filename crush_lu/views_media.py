@@ -63,12 +63,18 @@ def can_view_profile_photo(viewer, profile_owner, photo_field="photo_1"):
     if viewer.is_superuser:
         return True
 
-    if photo_field != "photo_1":
+    # A fake-profile flag remains profile-wide. The primary photo stays visible
+    # until a coach moderates it (pending is fine); secondary photos need an
+    # approval of the exact current file.
+    if profile_owner.photo_review_status == "flagged_fake":
         return False
-
-    # Moderated images remain visible to their owner and reviewers only,
-    # including when an older chat or event relationship still exists.
-    if profile_owner.photo_review_status in ("needs_revision", "flagged_fake"):
+    if photo_field == "photo_1":
+        if profile_owner.get_photo_field_review_status("photo_1") in (
+            "needs_revision",
+            "flagged_fake",
+        ):
+            return False
+    elif not profile_owner.is_photo_field_review_approved(photo_field):
         return False
 
     # Profile must be approved for others to see
@@ -86,6 +92,12 @@ def can_view_profile_photo(viewer, profile_owner, photo_field="photo_1"):
     # other exactly like a block (``event_attendees`` excludes both).
     if is_blocked_pair(viewer, owner) or owner.pk in hidden_encounter_user_ids(viewer):
         return False
+
+    # Secondary photos are disclosed only inside an active Connect pairing;
+    # event attendance and ordinary Crush connections continue to expose only
+    # the primary photo.
+    if photo_field != "photo_1":
+        return _are_connect_paired(viewer, owner)
 
     return (
         _share_open_attendee_list(viewer, owner)
@@ -310,16 +322,21 @@ def serve_profile_photo(request, user_id, photo_field):
         logger.warning(
             "serve_profile_photo user rate-limited: user=%s ip=%s "
             "user_count=%s max=%s",
-            request.user.id, ip_addr, user_current, max_requests,
+            request.user.id,
+            ip_addr,
+            user_current,
+            max_requests,
         )
         return HttpResponse("Rate limit exceeded. Please try again later.", status=429)
 
     ip_current = _increment_rate_limit_counter(ip_key, period_seconds)
     if ip_current is not None and ip_current > ip_max_requests:
         logger.warning(
-            "serve_profile_photo IP rate-limited: user=%s ip=%s "
-            "ip_count=%s max=%s",
-            request.user.id, ip_addr, ip_current, ip_max_requests,
+            "serve_profile_photo IP rate-limited: user=%s ip=%s " "ip_count=%s max=%s",
+            request.user.id,
+            ip_addr,
+            ip_current,
+            ip_max_requests,
         )
         return HttpResponse("Rate limit exceeded. Please try again later.", status=429)
 

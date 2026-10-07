@@ -206,6 +206,24 @@ def exclude_assigned_coach_pairs(qs, user, field="pk"):
     return qs.exclude(**{f"{field}__in": pair_ids})
 
 
+def filter_primary_photo_review_approved(qs, profile_prefix="crushprofile"):
+    """Drop members whose exact current primary photo a coach moderated.
+
+    Pending (not yet reviewed) photos stay eligible, as before per-photo review.
+    """
+    from crush_lu.models import ProfilePhotoReviewState
+
+    moderated = ProfilePhotoReviewState.objects.filter(
+        profile_id=OuterRef(f"{profile_prefix}__pk"),
+        photo_field="photo_1",
+        photo_key=OuterRef(f"{profile_prefix}__photo_1"),
+        status__in=("needs_revision", "flagged_fake"),
+    )
+    return qs.annotate(_coach_moderated_primary=Exists(moderated)).filter(
+        _coach_moderated_primary=False
+    )
+
+
 def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
     """
     The member must have an approved profile, active Premium membership, and
@@ -295,6 +313,7 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
         .exclude(pk__in=hidden_encounter_user_ids(user))
         .select_related("crushprofile", "crush_connect_membership")
     )
+    qs = filter_primary_photo_review_approved(qs)
     # LuxID OR attended in-person event satisfies identity verification for
     # the candidate catalogue (Option B / Issue #539).
     qs = filter_connect_identity_verified(qs)
@@ -461,20 +480,24 @@ def active_week_questions(today: date | None = None):
 
 def filter_catalogue_eligible(qs):
     """Queryset equivalent of is_catalogue_eligible for stored-card read paths."""
-    return filter_connect_identity_verified(
-        qs.filter(
-            is_active=True,
-            crushprofile__is_active=True,
-            crush_connect_membership__onboarded_at__isnull=False,
-            crush_connect_membership__excluded_by_coach=False,
-            crush_connect_membership__paused_at__isnull=True,
-            crush_connect_membership__photo_share_consent=True,
-            last_login__gte=timezone.now()
-            - timedelta(days=CONNECT_INACTIVITY_WINDOW_DAYS),
-        )
-        .exclude(Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True))
-        .exclude(
-            crushprofile__photo_review_status__in=["flagged_fake", "needs_revision"]
+    return filter_primary_photo_review_approved(
+        filter_connect_identity_verified(
+            qs.filter(
+                is_active=True,
+                crushprofile__is_active=True,
+                crush_connect_membership__onboarded_at__isnull=False,
+                crush_connect_membership__excluded_by_coach=False,
+                crush_connect_membership__paused_at__isnull=True,
+                crush_connect_membership__photo_share_consent=True,
+                last_login__gte=timezone.now()
+                - timedelta(days=CONNECT_INACTIVITY_WINDOW_DAYS),
+            )
+            .exclude(
+                Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True)
+            )
+            .exclude(
+                crushprofile__photo_review_status__in=["flagged_fake", "needs_revision"]
+            )
         )
     )
 

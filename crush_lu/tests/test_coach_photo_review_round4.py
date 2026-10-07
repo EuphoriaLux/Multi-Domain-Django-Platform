@@ -484,7 +484,8 @@ def test_photo_revision_email_asks_only_for_a_new_photo():
     html = sender.call_args.kwargs["html_message"]
     assert sender.call_args.kwargs["subject"] == "Please replace your profile photo"
     assert "Smile, please" in html
-    assert "Upload a new main photo from your profile" in html
+    assert "replace your main profile photo" in html
+    assert "Upload a replacement photo in that slot" in html
     assert "before approval" not in html
     assert "Resubmit" not in html
     assert send_photo_revision_request(profile.user) == 1

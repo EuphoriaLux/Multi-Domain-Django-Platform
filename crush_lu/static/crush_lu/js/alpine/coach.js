@@ -35,7 +35,10 @@ document.addEventListener("alpine:init", function () {
                     document.getElementById("photo-review-cards").textContent,
                 );
                 this.totalWaiting = Number(this.rootElement.dataset.total);
-                if (this.cards.length) this.queueCursor = this.cards[this.cards.length - 1].queue_cursor;
+                if (this.cards.length) {
+                    this.queueCursor = this.cards[this.cards.length - 1].queue_cursor;
+                    this.showReviewPhoto();
+                }
             },
             get currentCard() {
                 return this.cards[0] || null;
@@ -56,10 +59,21 @@ document.addEventListener("alpine:init", function () {
                 return this.isSubmitting || this.isLoading || !this.hasCard || this.isSecondaryPhoto;
             },
             get isSecondaryPhoto() {
-                return this.activePhotoIndex !== 0;
+                return !!(
+                    this.currentCard &&
+                    this.currentCard.photos[this.activePhotoIndex] &&
+                    this.currentCard.photos[this.activePhotoIndex].field !==
+                        this.currentCard.photo_field
+                );
             },
-            showPrimaryPhoto() {
-                this.activePhotoIndex = 0;
+            get reviewPhotoLabel() {
+                return this.currentCard ? this.currentCard.review_photo_label : "";
+            },
+            showReviewPhoto() {
+                if (!this.currentCard) return;
+                this.activePhotoIndex = this.currentCard.photos.findIndex(
+                    (photo) => photo.field === this.currentCard.photo_field,
+                );
                 this.$nextTick(() => this.rootElement.focus());
             },
             get undoDisabled() {
@@ -260,7 +274,7 @@ document.addEventListener("alpine:init", function () {
             selectFlagReason(event) { this.selectedReason = event.target.value; },
             updateFlagNotes(event) { this.flagNotes = event.target.value; },
             get currentPhotoUrl() {
-                return this.currentCard
+                return this.currentCard && this.currentCard.photos[this.activePhotoIndex]
                     ? this.currentCard.photos[this.activePhotoIndex].url
                     : "";
             },
@@ -339,7 +353,7 @@ document.addEventListener("alpine:init", function () {
             async skipCard() {
                 if (this.actionsDisabled) return;
                 this.cards.shift();
-                this.activePhotoIndex = 0;
+                this.showReviewPhoto();
                 if (this.cards.length < 5) await this.fetchMoreCards();
             },
             openFlagModal() {
@@ -415,7 +429,7 @@ document.addEventListener("alpine:init", function () {
                     const data = await this._post(this.rootElement.dataset.decideUrl, {
                         profile_id: card.id,
                         photo_key: card.photo_key,
-                        photo_field: card.photos[this.activePhotoIndex].field,
+                        photo_field: card.photo_field,
                         decision,
                         reason:
                             decision === "approved"
@@ -425,7 +439,7 @@ document.addEventListener("alpine:init", function () {
                     });
                     this.lastDecision = { logId: data.log_id, card };
                     this.cards.shift();
-                    this.activePhotoIndex = 0;
+                    this.showReviewPhoto();
                     this.totalWaiting = Math.max(0, this.totalWaiting - 1);
                     this.hideModal();
                     this.$nextTick(() => this.rootElement.focus());
@@ -450,11 +464,13 @@ document.addEventListener("alpine:init", function () {
                         ? this.rootElement.dataset.picksNotRestored
                         : "";
                     this.cards = this.cards.filter(
-                        (card) => card.id !== this.lastDecision.card.id,
+                        (card) =>
+                            card.id !== this.lastDecision.card.id ||
+                            card.photo_field !== this.lastDecision.card.photo_field,
                     );
                     this.cards.unshift(this.lastDecision.card);
                     this.lastDecision = null;
-                    this.activePhotoIndex = 0;
+                    this.showReviewPhoto();
                     this.totalWaiting++;
                 } catch (error) {
                     this.errorMessage = error.message || this.rootElement.dataset.error;
@@ -471,15 +487,26 @@ document.addEventListener("alpine:init", function () {
                 if (this.isLoading || this.isSubmitting) return;
                 this.isLoading = true;
                 try {
-                    const response = await fetch(this.rootElement.dataset.moreUrl + "?cursor=" + encodeURIComponent(this.queueCursor));
+                    const response = await fetch(
+                        this.rootElement.dataset.moreUrl +
+                            "?scope=" +
+                            encodeURIComponent(this.rootElement.dataset.scope) +
+                            "&cursor=" +
+                            encodeURIComponent(this.queueCursor),
+                    );
                     if (!response.ok) throw new Error(this.rootElement.dataset.error);
                     const data = await response.json();
                     if (data.cards.length) this.queueCursor = data.cards[data.cards.length - 1].queue_cursor;
-                    const ids = new Set(this.cards.map((card) => card.id));
+                    const hadCards = this.cards.length > 0;
+                    const ids = new Set(
+                        this.cards.map((card) => `${card.id}:${card.photo_field}`),
+                    );
                     data.cards.forEach((card) => {
-                        if (!ids.has(card.id)) this.cards.push(card);
+                        const key = `${card.id}:${card.photo_field}`;
+                        if (!ids.has(key)) this.cards.push(card);
                     });
                     this.totalWaiting = data.total_waiting;
+                    if (!hadCards) this.showReviewPhoto();
                 } catch (error) {
                     this.errorMessage = error.message || this.rootElement.dataset.error;
                 } finally {

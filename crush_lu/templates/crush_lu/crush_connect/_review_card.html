@@ -36,6 +36,14 @@ template-local until Wave 2's shared confirm-sheet component lands.
         </div>
         {% endif %}
 
+        {% if target_profile.is_photo_review_approved %}
+        <div class="absolute top-2 right-2 z-10">
+            <span class="inline-flex rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-semibold text-white ring-1 ring-white/20" title="{% trans 'A Crush Coach reviewed this specific photo' %}">
+                {% trans "Coach-reviewed photo" %}
+            </span>
+        </div>
+        {% endif %}
+
         <div class="absolute inset-x-2.5 bottom-2.5 flex items-end justify-between gap-2">
             <h3 class="font-display text-base font-semibold leading-none text-white truncate">
                 {{ target.first_name|default:_("A member") }}
@@ -47,6 +55,8 @@ template-local until Wave 2's shared confirm-sheet component lands.
             {% endif %}
         </div>
     </div>
+
+    {% include "crush_lu/crush_connect/_reviewed_secondary_photos.html" with profile=target_profile %}
 
     <div class="p-3 flex flex-col gap-2 flex-1">
         {% if answers %}

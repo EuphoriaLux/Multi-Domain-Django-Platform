@@ -11,7 +11,7 @@ from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from crush_lu.models import CrushProfile, CrushCoach
+from crush_lu.models import CrushProfile, CrushCoach, ProfilePhotoReviewState
 from crush_lu.utils.image_processing import process_uploaded_image
 
 logger = logging.getLogger(__name__)
@@ -179,6 +179,15 @@ class Command(BaseCommand):
                         .values("pk", *photo_slots, *review_fields)
                         .get(pk=obj.pk)
                     )
+                    current_review_state = (
+                        ProfilePhotoReviewState.objects.select_for_update()
+                        .filter(
+                            profile_id=obj.pk,
+                            photo_field=field_name,
+                            photo_key=old_blob_name,
+                        )
+                        .first()
+                    )
                     # CrushProfile.save deletes the blob of every slot whose
                     # in-memory key differs from the row, whatever update_fields
                     # says. The iterator's copy may predate a member's upload
@@ -230,6 +239,9 @@ class Command(BaseCommand):
                             ]
                         )
                     obj.save(update_fields=update_fields)
+                    if current_review_state:
+                        current_review_state.photo_key = field.name
+                        current_review_state.save(update_fields=["photo_key"])
                     if carries_attestation:
                         self._carry_forward_registration_attestation(
                             obj, old_blob_name, field.name
