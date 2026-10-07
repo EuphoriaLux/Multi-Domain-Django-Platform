@@ -165,6 +165,10 @@ class PhoneVerificationErrorTests(TestCase):
             email="phone-i18n@example.com",
             password="testpass123",
         )
+        # /api/phone/* is behind the consent gate (#1217).
+        UserDataConsent.objects.update_or_create(
+            user=self.user, defaults={"crushlu_consent_given": True}
+        )
         self.client.force_login(self.user)
 
     def post(self, url, body, lang):

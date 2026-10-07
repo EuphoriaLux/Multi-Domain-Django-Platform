@@ -138,6 +138,10 @@ class EventPollViewTests(TestCase):
             first_name='Test',
             last_name='User',
         )
+        from crush_lu.models.profiles import UserDataConsent
+        UserDataConsent.objects.update_or_create(
+            user=self.user, defaults={"crushlu_consent_given": True}
+        )
         now = timezone.now()
         self.poll = EventPoll.objects.create(
             title='Test poll',

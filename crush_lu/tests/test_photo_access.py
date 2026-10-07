@@ -511,6 +511,10 @@ class TestProfilePhotoRefused:
     def test_plain_staff_is_not_a_coach(self, client):
         alice = _member("alice")
         staff = User.objects.create_user("staff", "st@example.com", "x", is_staff=True)
+        from crush_lu.models.profiles import UserDataConsent
+        UserDataConsent.objects.update_or_create(
+            user=staff, defaults={"crushlu_consent_given": True}
+        )
         assert _photo(client, staff, alice).status_code == 403
 
 
@@ -736,6 +740,10 @@ class TestQuizPhoto:
         alice = _member("alice")
         _quiz(created_by=host, owner=alice, status="confirmed")
         staff = User.objects.create_user("staff", "st@example.com", "x", is_staff=True)
+        from crush_lu.models.profiles import UserDataConsent
+        UserDataConsent.objects.update_or_create(
+            user=staff, defaults={"crushlu_consent_given": True}
+        )
         assert _quiz_photo(client, staff, alice).status_code == 200
 
     def test_active_coach_and_owner(self, client):
@@ -755,6 +763,9 @@ class TestQuizPhoto:
         alice = _member("alice")
         _quiz(created_by=host, owner=alice)
         staff = User.objects.create_user("staff", "st@example.com", "x", is_staff=True)
+        UserDataConsent.objects.update_or_create(
+            user=staff, defaults={"crushlu_consent_given": True}
+        )
         coach = _member("coach")
         CrushCoach.objects.create(user=coach, is_active=True)
         assert _photo_url(alice.crushprofile) == f"/api/quiz/photo/{alice.pk}/"

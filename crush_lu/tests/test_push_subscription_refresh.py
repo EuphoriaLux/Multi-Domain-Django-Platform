@@ -5,6 +5,15 @@ Tests for push subscription refresh and validation endpoints.
 import pytest
 from django.utils import timezone
 from crush_lu.models import PushSubscription
+from crush_lu.models.profiles import UserDataConsent
+
+
+@pytest.fixture(autouse=True)
+def _consenting_user(test_user):
+    """Refresh is behind the consent gate (#1217); these tests are about its logic."""
+    UserDataConsent.objects.update_or_create(
+        user=test_user, defaults={"crushlu_consent_given": True}
+    )
 
 
 @pytest.mark.django_db
