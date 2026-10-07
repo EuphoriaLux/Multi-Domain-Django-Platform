@@ -557,6 +557,32 @@ def test_checkin_save_without_a_coach_never_credits_the_first_coach(event, coach
     assert reg.checkin_granted_coach_id is None
 
 
+def test_the_scanner_marker_is_consumed_by_the_save_that_uses_it(event, coach):
+    """A stale `_checkin_coach` must not follow the instance into a later save."""
+    event.coaches.add(coach)
+    _, reg = _attendee(event, "assignstale")
+
+    reg._checkin_coach = None
+    reg.save()  # a view-style save that is not (yet) an attendance
+
+    assert not hasattr(reg, "_checkin_coach")
+
+
+def test_admin_save_after_a_coachless_view_save_still_gets_the_fallback(event, coach):
+    """The reuse case: same instance, a later admin edit marks them attended."""
+    event.coaches.add(coach)
+    profile, reg = _attendee(event, "assignreuse")
+
+    reg._checkin_coach = None
+    reg.save()  # consumed here, nothing credited (not attended)
+
+    reg.status = "attended"
+    reg.save()  # genuine admin save: first-coach fallback applies
+
+    profile.refresh_from_db()
+    assert profile.assigned_coach_id == coach.id
+
+
 def test_existing_coach_is_never_reassigned_by_a_scan(event, coach):
     scanner = _second_coach()
     event.coaches.add(coach, scanner)
