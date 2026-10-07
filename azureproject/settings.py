@@ -56,6 +56,11 @@ IS_TESTING = "pytest" in sys.modules and "WEBSITE_HOSTNAME" not in os.environ
 # only when debug is enabled to avoid accidental leakage in production.
 SECRET_KEY = os.getenv("SECRET_KEY") or ("test-secret-key-for-pytest" if IS_TESTING else None)
 
+# Dedicated, NEVER-rotated key for the erased-phone-number tombstones
+# (hub.ErasedPhoneNumber). Unlike SECRET_KEY it must not change: the
+# numbers are gone, so a digest can never be rebuilt after a rotation.
+ERASURE_DIGEST_KEY = os.getenv("ERASURE_DIGEST_KEY", "")
+
 # Admin API Key for Azure Function App to trigger management commands
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 

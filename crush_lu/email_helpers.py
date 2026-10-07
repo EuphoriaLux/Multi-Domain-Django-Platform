@@ -64,7 +64,7 @@ def get_user_language_url(user, url_name, request, **kwargs):
     return f"{protocol}://{domain}{url_path}"
 
 
-def get_unsubscribe_url(user, request):
+def get_unsubscribe_url(user, request, create_preferences=True):
     """
     Generate the unsubscribe URL for a user.
 
@@ -78,7 +78,14 @@ def get_unsubscribe_url(user, request):
     try:
         from .models import EmailPreference
 
-        email_prefs = EmailPreference.get_or_create_for_user(user)
+        if create_preferences:
+            email_prefs = EmailPreference.get_or_create_for_user(user)
+        else:
+            # Never (re)create a preference row just to build a link: a
+            # profile-only deletion purged it on purpose.
+            email_prefs = EmailPreference.objects.filter(user=user).first()
+            if email_prefs is None:
+                return None
 
         # Use i18n-aware URL generation (unsubscribe is inside i18n_patterns)
         return get_user_language_url(
@@ -134,7 +141,9 @@ def get_social_links():
         return []
 
 
-def get_email_context_with_unsubscribe(user, request, **extra_context):
+def get_email_context_with_unsubscribe(
+    user, request, create_preferences=True, **extra_context
+):
     """
     Create email context with unsubscribe URL and footer links.
 
@@ -158,7 +167,9 @@ def get_email_context_with_unsubscribe(user, request, **extra_context):
 
     context = {
         "user": user,  # Include user object for templates that need it
-        "unsubscribe_url": get_unsubscribe_url(user, request),
+        "unsubscribe_url": get_unsubscribe_url(
+            user, request, create_preferences=create_preferences
+        ),
         "LANGUAGE_CODE": lang,  # For email templates that need language-aware rendering
         "social_links": get_social_links(),
         **base_urls,  # home_url, about_url, events_url, settings_url
@@ -203,6 +214,15 @@ def can_send_email(user, email_type):
             # be mailed, and must not get default-enabled preferences
             # re-created for them by the lookup below.
             return False
+
+        if email_type in FINANCIAL_EMAIL_TYPES:
+            # Never re-create default preferences here: that would silently
+            # drop a master opt-out. Honour an existing opt-out; with no row,
+            # the notice is allowed and no row is created.
+            existing = EmailPreference.objects.filter(user=user).first()
+            if existing is None:
+                return True
+            return existing.can_send(email_type)
 
         email_prefs = EmailPreference.get_or_create_for_user(user)
         return email_prefs.can_send(email_type)
@@ -2757,6 +2777,9 @@ def send_crush_credit_expiry_reminder(user, credits, request=None):
     context = get_email_context_with_unsubscribe(
         user,
         request,
+        # A financial notice may go to a member whose profile-only deletion
+        # purged their preferences; it must not recreate them (no link then).
+        create_preferences=False,
         first_name=user.first_name,
         credit_lines=[
             {

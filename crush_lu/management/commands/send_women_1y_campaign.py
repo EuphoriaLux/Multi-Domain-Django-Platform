@@ -240,7 +240,6 @@ class Command(BaseCommand):
             else:
                 skipped += 1
                 continue
-            row = claim[0]
             if not claim.allowed:
                 # Consent revoked between eligibility and the locked write:
                 # a privacy skip; never send.
@@ -266,14 +265,16 @@ class Command(BaseCommand):
                 self._pace(opts, attempted)
                 continue
             if ok:
-                row.status = "sent"
-                row.sent_at = timezone.now()
+                final = {"status": "sent", "sent_at": timezone.now()}
                 sent += 1
             else:
                 # Suppressed address or no backend delivery: terminal, not retried.
-                row.status = "skipped"
+                final = {"status": "skipped", "sent_at": None}
                 skipped += 1
-            row.save(update_fields=["status", "sent_at"])
+            # Through write_receipt, not row.save(): a profile-only deletion that
+            # overlapped the send may have deleted the row, and a direct
+            # update_fields save would then raise and abort the whole run.
+            write_receipt(newsletter, user, final)
             sync_newsletter_counters(newsletter)
             self._pace(opts, attempted)
         if cache.get(LOCK_KEY) != token:

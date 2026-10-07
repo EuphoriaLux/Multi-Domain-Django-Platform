@@ -224,24 +224,14 @@ def parse_facebook_signed_request(signed_request):
         return None
 
 
-def _retire_event_checkouts_before_profile_deletion(user):
-    """Close every event checkout before its registration can be erased.
+def _mark_deletion_in_progress(user):
+    """Revoke consent and set the retryable ``deletion_in_progress`` tombstone.
 
-    The deletion-in-progress ban is committed first. New member- or
-    staff-opened event checkouts then fail their locked eligibility check,
-    while an already-running creator is serialized through its event row and
-    leaves either a durable claim or PaymentTransaction for this sweep to see.
-    Provider I/O runs between short database phases; ambiguous deactivation
-    aborts deletion rather than orphaning a possible late card capture.
+    Idempotent. Full-account deletion calls it FIRST, before the erased phone
+    number is recorded, so the ErasedPhoneNumber live-owner exemption never
+    mistakes the member being erased for a legitimate current owner.
     """
-
-    from crush_lu.models.payments import (
-        EventCheckoutCreationClaim,
-        PaymentTransaction,
-    )
-    from crush_lu.models import MeetupEvent
     from crush_lu.models.profiles import UserDataConsent
-    from crush_lu.services.sumup import SumUpClient
 
     with transaction.atomic():
         consent, _created = UserDataConsent.objects.select_for_update().get_or_create(
@@ -261,6 +251,27 @@ def _retire_event_checkouts_before_profile_deletion(user):
                 "crushlu_ban_reason",
             ]
         )
+
+
+def _retire_event_checkouts_before_profile_deletion(user):
+    """Close every event checkout before its registration can be erased.
+
+    The deletion-in-progress ban is committed first. New member- or
+    staff-opened event checkouts then fail their locked eligibility check,
+    while an already-running creator is serialized through its event row and
+    leaves either a durable claim or PaymentTransaction for this sweep to see.
+    Provider I/O runs between short database phases; ambiguous deactivation
+    aborts deletion rather than orphaning a possible late card capture.
+    """
+
+    from crush_lu.models.payments import (
+        EventCheckoutCreationClaim,
+        PaymentTransaction,
+    )
+    from crush_lu.models import MeetupEvent
+    from crush_lu.services.sumup import SumUpClient
+
+    _mark_deletion_in_progress(user)
 
     registration_rows = list(
         EventRegistration.objects.filter(user=user)
@@ -911,12 +922,18 @@ def _remove_user_from_id_lists(user):
                 model.objects.filter(pk=row.pk).update(**{field: kept})
 
 
-def _anonymize_send_logs(user):
+def _anonymize_send_logs(user, sever=False):
     """Strip identifiers from mail/WhatsApp send logs, keeping the audit rows.
 
     NewsletterRecipient snapshots the address; a WhatsApp CampaignRecipient
     points at a WhatsAppMessage holding the phone number and merged
     name/email template parameters. Counts and statuses are preserved.
+
+    ``sever=True`` (profile-only deletion, where the shared User stays active
+    with its real email and names) also deletes the member's recipient rows:
+    their ``user`` FK would otherwise still identify them and expose their
+    per-campaign delivery history. Full-account deletion keeps the rows, since
+    the User they point at is anonymised.
     """
     from crush_lu.models import CampaignRecipient
     from crush_lu.newsletter_service import anonymize_newsletter_receipts
@@ -933,6 +950,11 @@ def _anonymize_send_logs(user):
             recipient="", parameters={}, status_history=[]
         )
     CampaignRecipient.objects.filter(user=user).update(error_message="")
+    if sever:
+        from crush_lu.models import NewsletterRecipient
+
+        NewsletterRecipient.objects.filter(user=user).delete()
+        CampaignRecipient.objects.filter(user=user).delete()
 
 
 class StorageErasureError(RuntimeError):
@@ -986,7 +1008,7 @@ def _delete_stored_files(queryset):
     return deleted
 
 
-def _purge_user_keyed_personal_data(user):
+def _purge_user_keyed_personal_data(user, full_account=False):
     """Delete the User-keyed personal rows listed in ACCOUNT_ERASURE_PURGE."""
     from django.apps import apps
 
@@ -1007,14 +1029,20 @@ def _purge_user_keyed_personal_data(user):
             crushlu_ban_reason="deletion_in_progress",
         )
     with transaction.atomic():
-        _anonymize_send_logs(user)
+        _anonymize_send_logs(user, sever=not full_account)
         for model_name, fields in ACCOUNT_ERASURE_PURGE:
             model = apps.get_model("crush_lu", model_name)
             condition = Q()
             for field in fields:
                 condition |= Q(**{field: user})
-            _delete_stored_files(model.objects.filter(condition))
-            deleted, _ = model.objects.filter(condition).delete()
+            rows = model.objects.filter(condition)
+            if model_name == "EmailPreference" and not full_account:
+                # Profile-only deletion leaves an active account that can still
+                # be mailed refund notices, so a master opt-out must outlive
+                # it. Full-account deletion removes it with the account.
+                rows = rows.exclude(unsubscribed_all=True)
+            _delete_stored_files(rows)
+            deleted, _ = rows.delete()
             if deleted:
                 summary[model_name] = deleted
         # IP / user agent / landing page of the member's referral visit.
@@ -1081,7 +1109,7 @@ def _purge_user_keyed_personal_data(user):
     # Final sweep AFTER the consent revocation and purge committed: an
     # in-flight sender that wrote a receipt before it saw the revocation is
     # cleaned up here (write_receipt covers writers that start afterwards).
-    _anonymize_send_logs(user)
+    _anonymize_send_logs(user, sever=not full_account)
     if summary:
         logger.info("Erased User-keyed personal data for user %s: %s", user.id, summary)
     return summary
@@ -1100,7 +1128,7 @@ def _finalize_deletion(user):
     )
 
 
-def delete_crushlu_profile_only(user, finalize=True):
+def delete_crushlu_profile_only(user, finalize=True, full_account=False):
     """
     Delete ONLY Crush.lu profile data, keeping PowerUp account intact.
 
@@ -1267,7 +1295,7 @@ def delete_crushlu_profile_only(user, finalize=True):
     # Purge everything else keyed on the User (chats, Connect data, devices,
     # push endpoints, phone OTPs, ...): the User row survives, so none of it
     # cascades on its own (#1183).
-    _purge_user_keyed_personal_data(user)
+    _purge_user_keyed_personal_data(user, full_account=full_account)
 
     # Clear Crush.lu consent and set permanent ban
     if hasattr(user, "data_consent"):
@@ -1352,6 +1380,38 @@ def _anonymize_whatsapp_inbound(phone_digits):
     )
 
 
+def _anonymize_whatsapp_outbound(phone_digits):
+    """Blank recipient payload on WhatsApp messages sent TO the member's number.
+
+    ``WhatsAppMessage.user`` is the sending admin and the recipient is only a
+    phone string, so rows sent directly from the Hub CRM (no CampaignRecipient)
+    are reachable by number alone. Sender, template and audit fields stay.
+    """
+    from hub.models import WhatsAppMessage
+
+    if not phone_digits:
+        return 0
+    # The Hub send endpoint stores the admin-typed recipient verbatim
+    # ("+352 621 777 777", "+352/621/777/777", non-breaking spaces...), so
+    # compare digits-only, the same rule as _phone_digits(). Done in Python:
+    # there is no database-portable "strip every non-digit" expression, and
+    # this runs once per full-account deletion over a small CRM table.
+    wanted = set(phone_digits)
+    matching = [
+        pk
+        for pk, recipient in WhatsAppMessage.objects.exclude(recipient="")
+        .values_list("pk", "recipient")
+        .iterator(chunk_size=2000)
+        if _phone_digits(recipient) in wanted
+    ]
+    total = 0
+    for start in range(0, len(matching), 500):
+        total += WhatsAppMessage.objects.filter(
+            pk__in=matching[start : start + 500]
+        ).update(recipient="", parameters={}, status_history=[])
+    return total
+
+
 def _sanitize_identity_consent(user):
     """Full-account deletion: revoke/clear every identity-layer consent field.
 
@@ -1398,9 +1458,22 @@ def delete_full_account(user):
     # Addresses must be captured before the User row is anonymised.
     addresses = _collect_user_email_addresses(user)
 
-    # First delete Crush.lu profile
-    delete_crushlu_profile_only(user, finalize=False)
+    # Persist the numbers' erasure BEFORE the fallible profile deletion: on a
+    # retry the profile (and so the number) is gone, so a failure after it would
+    # otherwise lose the number for good. Record first, then sweep, so an
+    # inbound webhook or a Hub send that lands later is stored sanitised.
+    from hub.models import ErasedPhoneNumber
+
+    _mark_deletion_in_progress(user)
+    ErasedPhoneNumber.record(phone_numbers)
     _anonymize_whatsapp_inbound(phone_numbers)
+    _anonymize_whatsapp_outbound(phone_numbers)
+
+    # First delete Crush.lu profile
+    delete_crushlu_profile_only(user, finalize=False, full_account=True)
+    # Pending gifts/invitations may need stored-file deletion, which can fail:
+    # do it while the member can still sign in to retry.
+    _anonymize_pending_recipient_records(addresses)
 
     # Then the other platforms' personal data on this account (hub,
     # entreprinder, delegations): the User row survives, so it never cascades.
@@ -1427,7 +1500,6 @@ def delete_full_account(user):
     SocialAccount.objects.filter(user=user).delete()
 
     _anonymize_email_delivery(addresses)
-    _anonymize_pending_recipient_records(addresses)
     _finalize_deletion(user)
 
     logger.info(f"Full account deleted for user {user.id} (all platforms)")

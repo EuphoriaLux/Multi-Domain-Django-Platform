@@ -22,3 +22,6 @@
 # in d603db8).
 239631595eed47eef6d983c26a4439461ea1d9f4:tools/n8n_content/deploy_hermes.py:generic-api-key:122
 aadfffbf2b3933096e1e82bd8f2ce74469745cc5:tools/n8n_content/deploy_ideas_hermes.py:generic-api-key:159
+# Test-only throwaway SECRET_KEY literal in the ErasedPhoneNumber rotation test (#1234);
+# the later commit replaces it with a low-entropy placeholder.
+ee7b74cbe56658927944c9d5e273a4b77aa1442b:crush_lu/tests/test_account_deletion.py:generic-api-key:1721

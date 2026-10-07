@@ -963,3 +963,114 @@ class EventCoachAvailability(models.Model):
     def __str__(self):
         return f"{self.coach_name or self.user} - Event {self.event_id} ({self.status})"
 
+
+class ErasedPhoneNumber(models.Model):
+    """Erasure suppression record: a keyed digest of an erased phone number.
+
+    Lets the inbound webhook (and the Hub send path) store a late message for
+    an erased member sanitised instead of resurrecting their number, name and
+    text. Only an HMAC-SHA256 of the digits is kept, never the number.
+
+    Retention: rows are pruned after 90 days by ``gdpr_retention_cleanup``
+    (``erased_phone_days``): a late delivery arrives within minutes or days.
+
+    Key: ``settings.ERASURE_DIGEST_KEY`` when set. It must be dedicated and
+    NEVER rotated: the numbers are gone, so a digest can never be rebuilt, and
+    a rotated key would orphan every tombstone. Without it the digest falls
+    back to ``SECRET_KEY`` (checked together with ``SECRET_KEY_FALLBACKS``,
+    migrating a fallback match lazily), which is only as stable as that key.
+    """
+
+    digest = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @staticmethod
+    def digits(number):
+        return "".join(ch for ch in str(number or "") if ch.isdigit())
+
+    @classmethod
+    def _digests(cls, number):
+        """(current_digest, [all digests incl. fallback keys]) for ``number``."""
+        import hashlib
+        import hmac
+
+        from django.conf import settings
+
+        digits = cls.digits(number)
+        if not digits:
+            return "", []
+        dedicated = getattr(settings, "ERASURE_DIGEST_KEY", "") or ""
+        keys = [
+            *([dedicated] if dedicated else []),
+            settings.SECRET_KEY,
+            *getattr(settings, "SECRET_KEY_FALLBACKS", []),
+        ]
+        all_digests = [
+            hmac.new(str(k).encode(), digits.encode(), hashlib.sha256).hexdigest()
+            for k in keys
+        ]
+        return all_digests[0], all_digests
+
+    @classmethod
+    def record(cls, numbers):
+        for number in numbers or ():
+            current, _all = cls._digests(number)
+            if current:
+                from django.utils import timezone
+
+                _row, created = cls.objects.get_or_create(digest=current)
+                if not created:
+                    # Erased again (e.g. a new owner of a reassigned number
+                    # who later deletes): restart the retention clock so the
+                    # sweep cannot expire the tombstone right after this erasure.
+                    refreshed = cls.objects.filter(pk=_row.pk).update(
+                        created_at=timezone.now()
+                    )
+                    if not refreshed:
+                        # The retention sweep deleted it between our read and
+                        # the update: record it afresh.
+                        cls.objects.get_or_create(digest=current)
+
+    @classmethod
+    def _has_live_verified_owner(cls, digits):
+        """True when an active member currently has this number verified.
+
+        A tombstone must not silence a legitimate member: the old profile
+        released the number, so the same person rejoining (or a carrier
+        reassigning it) can verify it on a new account.
+        """
+        from django.apps import apps
+        from django.db.models import F, Value
+        from django.db.models.functions import Replace
+
+        profile_model = apps.get_model("crush_lu", "CrushProfile")
+        digits_expr = F("phone_number")
+        for junk in (" ", "-", "(", ")", ".", "+"):
+            digits_expr = Replace(digits_expr, Value(junk), Value(""))
+        return (
+            profile_model.objects.filter(phone_verified=True, user__is_active=True)
+            # A member whose deletion is under way (or done) is the one being
+            # erased, not a new owner: their consent row is banned.
+            .exclude(user__data_consent__crushlu_banned=True)
+            .annotate(_digits=digits_expr)
+            .filter(_digits=digits)
+            .exists()
+        )
+
+    @classmethod
+    def is_erased(cls, number):
+        current, all_digests = cls._digests(number)
+        if not current:
+            return False
+        matched = list(
+            cls.objects.filter(digest__in=all_digests).values_list("digest", flat=True)
+        )
+        if not matched:
+            return False
+        if current not in matched:
+            # Matched under a fallback key only: migrate it to the current key.
+            cls.objects.get_or_create(digest=current)
+        return not cls._has_live_verified_owner(cls.digits(number))
+
+    def __str__(self):
+        return f"erased:{self.digest[:8]}"

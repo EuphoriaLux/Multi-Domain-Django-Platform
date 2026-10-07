@@ -831,6 +831,75 @@ class FinalPreSendCheckTests(TestCase):
         self.assertFalse(CampaignRecipient.objects.filter(campaign=campaign).exists())
 
 
+@vapid_test_settings
+class PreSendClaimConsentTests(TestCase):
+    def _revoke(self, user):
+        UserDataConsent.objects.filter(user=user).update(
+            crushlu_consent_given=False, crushlu_banned=True
+        )
+
+    def test_whatsapp_claim_is_not_created_once_consent_is_gone(self):
+        user = make_user(
+            'claim-wa@example.com', phone_number='+352621000088',
+            phone_verified=True,
+        )
+        opt_in_whatsapp(user)
+        sender = User.objects.create_user(
+            'claim-sender@example.com', 'claim-sender@example.com', 'x',
+            is_staff=True,
+        )
+        campaign = Campaign.objects.create(
+            name='C', channels=['whatsapp'], audience='all_users',
+            whatsapp_template_name='tpl', created_by=sender,
+        )
+        adapter = CHANNEL_ADAPTERS['whatsapp']
+
+        reached = []
+
+        def reachable_then_deleted(self_, user_):
+            # Deletion completes right after the reachability check.
+            reached.append(user_.pk)
+            UserDataConsent.objects.filter(user=user_).update(
+                crushlu_consent_given=False, crushlu_banned=True
+            )
+            return True
+
+        with patch.object(
+            type(adapter), 'still_reachable', reachable_then_deleted
+        ), patch('hub.whatsapp_service.send_whatsapp_template') as send:
+            adapter.send_batch(campaign, limit=5)
+
+        send.assert_not_called()
+        self.assertTrue(reached, 'the dispatch loop never reached the user')
+        self.assertFalse(CampaignRecipient.objects.filter(campaign=campaign).exists())
+
+    def test_push_claim_is_not_created_once_consent_is_gone(self):
+        user = make_user('claim-push@example.com')
+        add_push_subscription(user)
+        campaign = Campaign.objects.create(
+            name='CP', channels=['push'], audience='all_users',
+        )
+        adapter = CHANNEL_ADAPTERS['push']
+
+        reached = []
+
+        def reachable_then_deleted(self_, user_):
+            reached.append(user_.pk)
+            UserDataConsent.objects.filter(user=user_).update(
+                crushlu_consent_given=False, crushlu_banned=True
+            )
+            return True
+
+        with patch.object(
+            type(adapter), 'still_reachable', reachable_then_deleted
+        ), patch('crush_lu.push_notifications.send_push_notification') as send:
+            adapter.send_batch(campaign, limit=5)
+
+        send.assert_not_called()
+        self.assertTrue(reached, 'the dispatch loop never reached the user')
+        self.assertFalse(CampaignRecipient.objects.filter(campaign=campaign).exists())
+
+
 class RecheckQueryBudgetTests(TestCase):
     """The per-recipient recheck must not re-resolve the audience (#1185)."""
 

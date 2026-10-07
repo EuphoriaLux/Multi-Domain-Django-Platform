@@ -122,7 +122,7 @@ A **pre-commit design-token linter** (`crush_lu/scripts/lint_design_tokens.py`, 
 
 ## Deployment
 
-GitHub Actions (`.github/workflows/`): `test-and-validate.yml` runs on PRs (Django checks + pytest minus Playwright); `deploy-azure-app-service-optimized.yml` builds CSS and deploys to Azure on `main`. Several Azure Functions (`azure-functions/`) deploy via their own workflows. Infra is Bicep under `infra/`. Production env vars (SECRET_KEY, `AZURE_POSTGRESQL_CONNECTIONSTRING`, Graph email, LuxID, Wallet certs, …) are set in App Service configuration — see README "Production Environment Variables" and `.env.example`.
+GitHub Actions (`.github/workflows/`): `test-and-validate.yml` runs on PRs (Django checks + pytest minus Playwright); `deploy-azure-app-service-optimized.yml` builds CSS and deploys to Azure on `main`. Several Azure Functions (`azure-functions/`) deploy via their own workflows. Infra is Bicep under `infra/`. Production env vars (SECRET_KEY, `ERASURE_DIGEST_KEY` (dedicated, never rotated, production slot only; missing logs an ERROR at boot and fails `check --deploy` with a warning, `azureproject.W001`), `AZURE_POSTGRESQL_CONNECTIONSTRING`, Graph email, LuxID, Wallet certs, …) are set in App Service configuration — see README "Production Environment Variables" and `.env.example`.
 
 ## Traps that cost real time
 

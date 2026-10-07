@@ -747,10 +747,12 @@ class SendTimeConsentRecheckTests(TestCase):
             return_value=User.objects.filter(id=self.user.id),
         ):
             send_newsletter(self.newsletter)
-        row = NewsletterRecipient.objects.get(
-            newsletter=self.newsletter, user=self.user
+        # No receipt is created for a user whose consent is gone.
+        self.assertFalse(
+            NewsletterRecipient.objects.filter(
+                newsletter=self.newsletter, user=self.user
+            ).exists()
         )
-        self.assertEqual((row.status, row.email), ('skipped', ''))
 
     def test_send_newsletter_skips_user_who_went_on_break_after_resolution(self):
         from crush_lu import newsletter_service
@@ -829,16 +831,23 @@ class SendTimeConsentRecheckTests(TestCase):
             results = send_newsletter(self.newsletter)
         send.assert_not_called()
         self.assertEqual((results['sent'], results['skipped']), (0, 1))
-        row = NewsletterRecipient.objects.get(
-            newsletter=self.newsletter, user=self.user
+        self.assertFalse(
+            NewsletterRecipient.objects.filter(
+                newsletter=self.newsletter, user=self.user
+            ).exists()
         )
-        self.assertEqual((row.status, row.email), ('skipped', ''))
 
     def test_error_text_is_suppressed_when_consent_is_gone(self):
         from crush_lu.newsletter_service import (
             SUPPRESSED_CONSENT_REVOKED, write_receipt,
         )
 
+        from crush_lu.models import NewsletterRecipient
+
+        NewsletterRecipient.objects.create(
+            newsletter=self.newsletter, user=self.user, email='rc@example.com',
+            status='pending',
+        )
         UserDataConsent.objects.filter(user=self.user).update(
             crushlu_consent_given=False, crushlu_banned=True,
         )
@@ -848,8 +857,54 @@ class SendTimeConsentRecheckTests(TestCase):
         )
         self.assertFalse(result.allowed)
         row, _ = result
+        # An existing row is blanked; a missing one is never created.
         self.assertEqual(
             (row.email, row.error_message), ('', SUPPRESSED_CONSENT_REVOKED)
+        )
+
+    def test_row_deleted_by_a_sweep_mid_write_does_not_raise(self):
+        from unittest.mock import patch
+
+        from django.db.models.query import QuerySet
+
+        from crush_lu.models import NewsletterRecipient
+        from crush_lu.newsletter_service import write_receipt
+
+        NewsletterRecipient.objects.create(
+            newsletter=self.newsletter, user=self.user, email='rc@example.com',
+            status='pending',
+        )
+        UserDataConsent.objects.filter(user=self.user).update(
+            crushlu_consent_given=False, crushlu_banned=True,
+        )
+        real_update = QuerySet.update
+
+        def delete_then_update(qs, **kwargs):
+            # The deletion sweep removes the receipt just before our UPDATE.
+            if qs.model is NewsletterRecipient:
+                NewsletterRecipient.objects.filter(user=self.user).delete()
+            return real_update(qs, **kwargs)
+
+        with patch.object(QuerySet, 'update', delete_then_update):
+            result = write_receipt(self.newsletter, self.user, {'status': 'sent'})
+
+        self.assertFalse(result.allowed)
+        self.assertIsNone(result.row if hasattr(result, 'row') else result[0])
+        self.assertFalse(NewsletterRecipient.objects.filter(user=self.user).exists())
+
+    def test_no_receipt_is_created_when_consent_is_gone(self):
+        from crush_lu.models import NewsletterRecipient
+        from crush_lu.newsletter_service import write_receipt
+
+        UserDataConsent.objects.filter(user=self.user).update(
+            crushlu_consent_given=False, crushlu_banned=True,
+        )
+        result = write_receipt(self.newsletter, self.user, {'status': 'sent'})
+        self.assertFalse(result.allowed)
+        self.assertFalse(
+            NewsletterRecipient.objects.filter(
+                newsletter=self.newsletter, user=self.user
+            ).exists()
         )
 
     def test_final_pre_send_check_blocks_the_provider_call(self):

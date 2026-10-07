@@ -241,6 +241,29 @@ def rewrite_html_links(html, campaign, channel, user=None):
     return _HREF_RE.sub(_replace, html)
 
 
+def _claim_for_send(campaign, channel, user):
+    """Create the durable pre-send claim under the consent row lock.
+
+    Returns ``(claim, created)``, or ``None`` when consent is gone. Without the
+    lock a profile-only deletion can finish between the reachability check and
+    the claim insert, leaving a pending ``CampaignRecipient`` linked to the
+    still-identifiable active user after the severing sweep. The lock covers
+    only this DB write, never the provider call.
+    """
+    with transaction.atomic():
+        if not newsletter_service.locked_consent_holds(user):
+            return None
+        return CampaignRecipient.objects.get_or_create(
+            campaign=campaign,
+            channel=channel,
+            user=user,
+            defaults={
+                'status': 'pending',
+                'error_message': 'claimed for send',
+            },
+        )
+
+
 class EmailAdapter:
     """Email leg — thin wrapper over the proven newsletter engine."""
 
@@ -432,15 +455,10 @@ class WhatsAppAdapter:
             # Durable pre-send claim: if the worker dies after Meta accepts
             # but before the outcome lands, this row (excluded from later
             # eligibility) prevents a second paid send for the same user.
-            claim, created = CampaignRecipient.objects.get_or_create(
-                campaign=campaign,
-                channel=self.key,
-                user=user,
-                defaults={
-                    'status': 'pending',
-                    'error_message': 'claimed for send',
-                },
-            )
+            claimed = _claim_for_send(campaign, self.key, user)
+            if claimed is None:
+                continue  # consent gone: no row may link this user any more
+            claim, created = claimed
             if not created and claim.status != 'pending':
                 continue  # processed by a concurrent tick
 
@@ -496,7 +514,6 @@ class WhatsAppAdapter:
         # BEFORE it is linked; if it commits after, its final sweep cleans it.
         with transaction.atomic():
             if not newsletter_service.locked_consent_holds(user):
-                error = ''
                 if message is not None:
                     message.recipient = ''
                     message.parameters = {}
@@ -504,6 +521,13 @@ class WhatsAppAdapter:
                     message.save(
                         update_fields=['recipient', 'parameters', 'status_history']
                     )
+                # Consent is gone: never create a receipt (a profile-only
+                # deletion severs these links and a late writer must not
+                # restore one); blank an existing row's error text only.
+                CampaignRecipient.objects.filter(
+                    campaign=campaign, channel=self.key, user=user
+                ).update(error_message='')
+                return
             CampaignRecipient.objects.update_or_create(
                 campaign=campaign,
                 channel=self.key,
@@ -588,15 +612,10 @@ class PushAdapter:
             # Durable pre-send claim (same pattern as WhatsApp): a worker
             # dying after delivery but before the receipt lands must not
             # cause a duplicate push on the next tick.
-            claim, created = CampaignRecipient.objects.get_or_create(
-                campaign=campaign,
-                channel=self.key,
-                user=user,
-                defaults={
-                    'status': 'pending',
-                    'error_message': 'claimed for send',
-                },
-            )
+            claimed = _claim_for_send(campaign, self.key, user)
+            if claimed is None:
+                continue  # consent gone: no row may link this user any more
+            claim, created = claimed
             if not created and claim.status != 'pending':
                 continue  # processed by a concurrent tick
 
@@ -656,7 +675,10 @@ class PushAdapter:
         # write only); error text is dropped once consent is gone.
         with transaction.atomic():
             if not newsletter_service.locked_consent_holds(user):
-                error = ''
+                CampaignRecipient.objects.filter(
+                    campaign=campaign, channel=self.key, user=user
+                ).update(error_message='')
+                return
             CampaignRecipient.objects.update_or_create(
                 campaign=campaign,
                 channel=self.key,

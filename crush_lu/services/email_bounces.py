@@ -173,7 +173,7 @@ def classify_bounce(message: dict, *, owned_addresses=None) -> BounceClassificat
     return BounceClassification(classification, recipient, diagnostic)
 
 
-def _belongs_to_live_account(address: str) -> bool:
+def _belongs_to_live_account(address: str, *, lock: bool = False) -> bool:
     """True when ``address`` is a current, active member's own email.
 
     Fail-closed guard for post-erasure bounces: an erased account keeps no
@@ -182,19 +182,22 @@ def _belongs_to_live_account(address: str) -> bool:
     and is stored without personal detail instead of resurrecting the address
     and diagnostic that erasure just blanked.
     """
-    from allauth.account.models import EmailAddress
     from django.contrib.auth import get_user_model
+    from django.db.models import Q
 
     if not address:
         return False
-    return (
-        get_user_model()
-        .objects.filter(email__iexact=address, is_active=True)
-        .exists()
-        or EmailAddress.objects.filter(
-            email__iexact=address, user__is_active=True
-        ).exists()
+    users = get_user_model().objects.filter(
+        Q(email__iexact=address) | Q(emailaddress__email__iexact=address),
+        is_active=True,
     )
+    if lock:
+        # Row-lock the matching User(s) for the caller's transaction. Erasure
+        # deactivates the User with an UPDATE, so it either waits for this
+        # transaction (and its sweep then blanks what we wrote) or has already
+        # committed (and we see no live account). No check-to-write window.
+        users = users.select_for_update(of=("self",))
+    return bool(list(users.values_list("pk", flat=True)[:1]))
 
 
 def process_graph_bounce(
@@ -211,13 +214,13 @@ def process_graph_bounce(
     if not source_message_id:
         raise ValueError("Graph message has no stable id")
 
-    # Personal detail (address, diagnostic text) is kept only for a live
-    # member. The suppression row still keys on the address so a hard-bounced
-    # mailbox is never mailed again (see _anonymize_email_delivery).
-    keep_detail = _belongs_to_live_account(result.recipient)
-    diagnostic = result.diagnostic if keep_detail else ""
-
     with transaction.atomic():
+        # Personal detail (address, diagnostic text) is kept only for a live
+        # member, decided UNDER a lock held through the writes below. The
+        # suppression row still keys on the address so a hard-bounced mailbox
+        # is never mailed again (see _anonymize_email_delivery).
+        keep_detail = _belongs_to_live_account(result.recipient, lock=True)
+        diagnostic = result.diagnostic if keep_detail else ""
         EmailBounceEvent.objects.update_or_create(
             source_message_id=str(source_message_id)[:512],
             defaults={

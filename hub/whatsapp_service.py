@@ -20,7 +20,7 @@ from django.core.cache import cache
 
 from crush_lu.services.whatsapp import ERROR_NOT_ON_WHATSAPP, mark_not_on_whatsapp
 
-from .models import WhatsAppMessage
+from .models import ErasedPhoneNumber, WhatsAppMessage
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +86,7 @@ def build_components(parameters: dict) -> list[dict]:
     ]
 
 
-def send_whatsapp_template(
+def _send_whatsapp_template(
     *, sender, recipient, template_name, language, parameters
 ) -> WhatsAppMessage:
     """Send one approved Meta template message and record its lifecycle.
@@ -106,7 +106,6 @@ def send_whatsapp_template(
         status=WhatsAppMessage.Status.QUEUED,
         status_history=[{"status": "queued", "timestamp": now_iso()}],
     )
-
     payload = {
         "messaging_product": "whatsapp",
         "to": normalize_recipient(recipient),
@@ -179,6 +178,34 @@ def send_whatsapp_template(
     ]
     message.save(update_fields=["status", "status_history", "updated_at"])
     maybe_flag_not_on_whatsapp(message.recipient, err.get("code"))
+    return message
+
+
+def send_whatsapp_template(
+    *, sender, recipient, template_name, language, parameters
+) -> WhatsAppMessage:
+    """Send a template message; see ``_send_whatsapp_template``.
+
+    If the recipient's number was erased (GDPR), the send itself is the admin's
+    call but the stored row must not keep the number, merged parameters or any
+    status text that could echo it. Checked AFTER the whole send, on every
+    return path, and after the insert: erasure records the number before it
+    sweeps, so a row inserted after that sweep is still caught here.
+    """
+    message = _send_whatsapp_template(
+        sender=sender,
+        recipient=recipient,
+        template_name=template_name,
+        language=language,
+        parameters=parameters,
+    )
+    if ErasedPhoneNumber.is_erased(recipient):
+        WhatsAppMessage.objects.filter(pk=message.pk).update(
+            recipient="", parameters={}, status_history=[]
+        )
+        message.recipient = ""
+        message.parameters = {}
+        message.status_history = []
     return message
 
 
