@@ -672,6 +672,23 @@ class SendTimeConsentRecheckTests(TestCase):
         self.assertFalse(can_send_email(self.user, 'newsletter'))
         self.assertFalse(EmailPreference.objects.filter(user=self.user).exists())
 
+    def test_privacy_skipped_recipient_never_stores_the_address(self):
+        """Deletion can anonymise the log first; the skip must not undo it."""
+        from crush_lu import newsletter_service
+
+        UserDataConsent.objects.filter(user=self.user).update(
+            crushlu_consent_given=False, crushlu_banned=True,
+        )
+        with patch.object(
+            newsletter_service, 'get_newsletter_recipients',
+            return_value=User.objects.filter(id=self.user.id),
+        ):
+            send_newsletter(self.newsletter)
+        row = NewsletterRecipient.objects.get(
+            newsletter=self.newsletter, user=self.user
+        )
+        self.assertEqual((row.status, row.email), ('skipped', ''))
+
     def test_has_current_consent(self):
         from crush_lu.newsletter_service import has_current_consent
 

@@ -144,6 +144,9 @@ def eligible_recipients(include_sent=False):
         .exclude(email_preference__unsubscribed_all=True)
         # delete_crushlu_profile_only keeps the user active but bans them.
         .exclude(data_consent__crushlu_banned=True)
+        # Same recorded-consent predicate as newsletter_service.resolve_audience
+        # (#1184): a lazily created, never-consented profile is not mailed.
+        .filter(data_consent__crushlu_consent_given=True)
         .select_related("crushprofile")
         .order_by("pk")
     )
