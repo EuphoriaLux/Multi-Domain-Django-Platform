@@ -282,8 +282,8 @@ class ProfileReminderAdmin(admin.ModelAdmin):
 
 
 class EmailSuppressionAdmin(admin.ModelAdmin):
-    list_display = ("email", "is_active", "reason", "source", "suppressed_at")
-    list_filter = ("is_active", "reason", "source", "suppressed_at")
+    list_display = ("email", "is_active", "scope", "reason", "source", "suppressed_at")
+    list_filter = ("is_active", "scope", "reason", "source", "suppressed_at")
     search_fields = ("email", "diagnostic")
     readonly_fields = ("suppressed_at", "updated_at")
     date_hierarchy = "suppressed_at"
