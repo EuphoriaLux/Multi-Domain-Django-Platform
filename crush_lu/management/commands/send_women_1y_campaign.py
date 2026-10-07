@@ -231,13 +231,20 @@ class Command(BaseCommand):
                 newsletter=newsletter, user=user
             ).first()
             if row is None:
-                row, _ = write_receipt(newsletter, user, {"status": "pending"})
+                claim = write_receipt(newsletter, user, {"status": "pending"})
             elif row.status == "failed" and opts["retry_failed"]:
                 # Reclaim a failed receipt for a fresh attempt.
-                row, _ = write_receipt(
+                claim = write_receipt(
                     newsletter, user, {"status": "pending", "error_message": ""}
                 )
             else:
+                skipped += 1
+                continue
+            row = claim[0]
+            if not claim.allowed:
+                # Consent revoked between eligibility and the locked write:
+                # a privacy skip; never send.
+                write_receipt(newsletter, user, {"status": "skipped"})
                 skipped += 1
                 continue
             sync_newsletter_counters(newsletter)
@@ -247,9 +254,12 @@ class Command(BaseCommand):
             except (
                 Exception
             ) as exc:  # noqa: BLE001 - one bad address must not stop the run
-                row.status = "failed"
-                row.error_message = str(exc)[:500]
-                row.save(update_fields=["status", "error_message"])
+                # Via write_receipt: error text may contain the address, and
+                # is suppressed if consent has since been revoked.
+                write_receipt(
+                    newsletter, user,
+                    {"status": "failed", "error_message": str(exc)[:500]},
+                )
                 sync_newsletter_counters(newsletter)
                 failed += 1
                 self.stderr.write(f"failed {user.pk}: {exc}")

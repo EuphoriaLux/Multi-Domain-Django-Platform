@@ -959,3 +959,60 @@ class ReceiptConsentTests(TestCase):
             newsletter, user, {"status": "pending", "error_message": ""}
         )
         self.assertEqual((row.status, row.email), ("pending", ""))
+
+    def test_command_sends_nothing_when_consent_is_revoked_before_the_claim(self):
+        from unittest.mock import patch
+
+        from crush_lu.campaign_women_1y import get_campaign, get_newsletter
+        from crush_lu.management.commands import send_women_1y_campaign as cmd
+
+        user = make_member("nosend")
+        newsletter = get_newsletter(get_campaign(create=True))
+        real = cmd.write_receipt
+        calls = {"n": 0}
+
+        def revoke_first(nl, member, defaults):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                UserDataConsent.objects.filter(user=member).update(
+                    crushlu_consent_given=False, crushlu_banned=True
+                )
+            return real(nl, member, defaults)
+
+        with patch.object(cmd, "write_receipt", side_effect=revoke_first), patch.object(
+            cmd, "send_women_1y_email", return_value=True
+        ) as send:
+            call_command(
+                "send_women_1y_campaign", "--send", "--limit", "1",
+                stdout=StringIO(), stderr=StringIO(),
+            )
+        send.assert_not_called()
+        row = NewsletterRecipient.objects.get(newsletter=newsletter, user=user)
+        self.assertEqual((row.status, row.email), ("skipped", ""))
+
+    def test_failure_text_goes_through_write_receipt_and_is_suppressed(self):
+        from unittest.mock import patch
+
+        from crush_lu.campaign_women_1y import get_campaign, get_newsletter
+        from crush_lu.management.commands import send_women_1y_campaign as cmd
+        from crush_lu.newsletter_service import SUPPRESSED_CONSENT_REVOKED
+
+        user = make_member("failtext")
+        newsletter = get_newsletter(get_campaign(create=True))
+
+        def boom_after_revoke(member, campaign):
+            UserDataConsent.objects.filter(user=member).update(
+                crushlu_consent_given=False, crushlu_banned=True
+            )
+            raise RuntimeError("bounced failtext@example.com")
+
+        with patch.object(cmd, "send_women_1y_email", side_effect=boom_after_revoke):
+            call_command(
+                "send_women_1y_campaign", "--send", "--limit", "1",
+                stdout=StringIO(), stderr=StringIO(),
+            )
+        row = NewsletterRecipient.objects.get(newsletter=newsletter, user=user)
+        self.assertEqual(
+            (row.status, row.email, row.error_message),
+            ("failed", "", SUPPRESSED_CONSENT_REVOKED),
+        )

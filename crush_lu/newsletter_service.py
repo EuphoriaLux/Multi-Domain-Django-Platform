@@ -103,39 +103,67 @@ def anonymize_newsletter_receipts(user):
     )
 
 
-def write_receipt(newsletter, user, defaults):
-    """Write a NewsletterRecipient receipt, storing the address only while the
-    user still has consent.
+def locked_consent_holds(user):
+    """Re-read consent under a row lock. Call inside transaction.atomic().
 
-    The consent row is locked and re-read in the same transaction as the
-    write (select_for_update; SQLite ignores it, Postgres honours it), so the
-    write either sees the revocation (blank address stored) or commits first
-    and is blanked by anonymize_newsletter_receipts() when deletion runs it
-    after the revocation commits.
+    select_for_update serialises with account deletion on Postgres (SQLite
+    ignores it). True only while consent is given and the user is not banned.
     """
     from .models.profiles import UserDataConsent
 
+    return (
+        UserDataConsent.objects.select_for_update()
+        .filter(user_id=user.pk, crushlu_consent_given=True, crushlu_banned=False)
+        .exists()
+    )
+
+
+SUPPRESSED_CONSENT_REVOKED = 'suppressed: consent revoked'
+
+
+class ReceiptResult(tuple):
+    """(row, created) plus ``allowed``: whether consent held at the locked read.
+
+    Callers MUST NOT send when ``allowed`` is False (consent revoked or user
+    banned between their earlier check and this write).
+    """
+
+    def __new__(cls, row, created, allowed):
+        obj = super().__new__(cls, (row, created))
+        obj.allowed = allowed
+        return obj
+
+
+def write_receipt(newsletter, user, defaults):
+    """Write a NewsletterRecipient receipt, storing the address only while the
+    user still has consent, and report whether sending is still allowed.
+
+    The consent row is locked and re-read in the same transaction as the
+    write, so the write either sees the revocation or commits first and is
+    blanked by anonymize_newsletter_receipts() when deletion runs it after the
+    revocation commits. When consent is gone the stored email is blank and any
+    caller-supplied error text (which may contain the address) is replaced by
+    a generic marker; the returned ``allowed`` is False and the caller must not
+    send.
+    """
     with transaction.atomic():
-        consented = (
-            UserDataConsent.objects.select_for_update()
-            .filter(
-                user_id=user.pk, crushlu_consent_given=True, crushlu_banned=False
-            )
-            .exists()
-        )
-        email = ''
-        if consented:
-            email = (
+        allowed = locked_consent_holds(user)
+        values = dict(defaults)
+        if allowed:
+            values['email'] = (
                 User.objects.filter(pk=user.pk)
                 .values_list('email', flat=True)
                 .first()
                 or ''
             )
-        return NewsletterRecipient.objects.update_or_create(
-            newsletter=newsletter,
-            user=user,
-            defaults={**defaults, 'email': email},
+        else:
+            values['email'] = ''
+            if 'error_message' in values or values.get('status') == 'failed':
+                values['error_message'] = SUPPRESSED_CONSENT_REVOKED
+        row, created = NewsletterRecipient.objects.update_or_create(
+            newsletter=newsletter, user=user, defaults=values,
         )
+        return ReceiptResult(row, created, allowed)
 
 
 def exclude_banned_users(users):
@@ -412,9 +440,21 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
         # Durable pre-send claim: a crash after the Graph send but before the
         # receipt write must not cause a duplicate email on the next bounded
         # run (stale claims are swept to 'failed' below).
-        write_receipt(
+        claim = write_receipt(
             newsletter, user, defaults={'status': 'pending'},
         )
+        if not claim.allowed:
+            # Consent was revoked between the early check and the locked
+            # write: a privacy skip. Never send, never retry.
+            write_receipt(
+                newsletter, user,
+                defaults={
+                    'status': 'skipped',
+                    'error_message': SUPPRESSED_CONSENT_REVOKED,
+                },
+            )
+            skipped += 1
+            continue
 
         try:
             delivery_count = _send_newsletter_to_user(
