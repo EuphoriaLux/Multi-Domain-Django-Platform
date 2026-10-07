@@ -17,6 +17,7 @@ from crush_lu.models import (
     CampaignClick,
     CampaignLink,
     CrushProfile,
+    UserDataConsent,
 )
 from crush_lu.models.newsletter import Newsletter
 from crush_lu.newsletter_service import send_newsletter
@@ -42,6 +43,8 @@ def make_user(email):
         location='Luxembourg',
         is_approved=True,
     )
+    # Audiences require Crush.lu consent (#1184); the signal default is False.
+    UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
     return user
 
 

@@ -42,7 +42,12 @@ def _make_profile(user, **overrides):
         verification_status="verified",
     )
     defaults.update(overrides)
-    return CrushProfile.objects.create(**defaults)
+    profile = CrushProfile.objects.create(**defaults)
+    # Audiences require Crush.lu consent (#1184); the signal default is False.
+    UserDataConsent.objects.update_or_create(
+        user=user, defaults={"crushlu_consent_given": True},
+    )
+    return profile
 
 
 class TakeABreakModelTests(TestCase):
