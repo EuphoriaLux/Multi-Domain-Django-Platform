@@ -90,6 +90,31 @@ def is_on_break(user):
     ).exists()
 
 
+# THE newsletter/campaign-email opt-in predicate (Option A, #1185). Every path
+# that sends marketing or newsletter email uses it: the audience resolver
+# (get_newsletter_recipients), EmailPreference.can_send('newsletter'), the
+# final pre-send check (final_send_address) and the women_1y bespoke command.
+NEWSLETTER_OPT_IN = {
+    'email_marketing': True,
+    'email_newsletter': True,
+    'unsubscribed_all': False,
+}
+
+
+def newsletter_opted_in_user_ids():
+    """User ids that currently hold the newsletter opt-in (queryset)."""
+    from .models import EmailPreference
+
+    return EmailPreference.objects.filter(**NEWSLETTER_OPT_IN).values_list(
+        'user_id', flat=True
+    )
+
+
+def newsletter_opt_in_holds(user):
+    """Fresh single-user read of the shared opt-in predicate."""
+    return newsletter_opted_in_user_ids().filter(user_id=user.pk).exists()
+
+
 class ConsentRevokedBeforeSend(Exception):
     """Raised by the final pre-send check; a privacy skip, never a failure."""
 
@@ -103,7 +128,10 @@ def final_send_address(user):
     the provider cannot be recalled, so the residual window is the time between
     this read and the provider accepting the request.
     """
-    if not has_current_consent(user):
+    # Consent/ban AND the current newsletter opt-in, read in the same step: a
+    # member who switched Marketing & Promotions or Newsletters off while the
+    # message was being rendered must not receive it.
+    if not has_current_consent(user) or not newsletter_opt_in_holds(user):
         raise ConsentRevokedBeforeSend()
     address = (
         User.objects.filter(pk=user.pk).values_list('email', flat=True).first()
@@ -253,12 +281,7 @@ def get_newsletter_recipients(newsletter):
     # The newsletter flag must also be on (the settings toggle writes both) and
     # a member who paused all mail is excluded. A missing preference row means
     # no opt-in.
-    opted_in_user_ids = EmailPreference.objects.filter(
-        email_marketing=True,
-        email_newsletter=True,
-        unsubscribed_all=False,
-    ).values_list('user_id', flat=True)
-    users = users.filter(id__in=opted_in_user_ids)
+    users = users.filter(id__in=newsletter_opted_in_user_ids())
 
     users = exclude_banned_users(users)
     users = exclude_on_break_users(users)

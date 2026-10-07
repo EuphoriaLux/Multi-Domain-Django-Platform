@@ -1016,3 +1016,29 @@ class ReceiptConsentTests(TestCase):
             (row.status, row.email, row.error_message),
             ("failed", "", SUPPRESSED_CONSENT_REVOKED),
         )
+
+    def test_four_flag_combinations_use_the_shared_newsletter_predicate(self):
+        user = make_member("combos")
+        for marketing, newsletter in (
+            (False, False), (False, True), (True, False), (True, True),
+        ):
+            with self.subTest(marketing=marketing, newsletter=newsletter):
+                EmailPreference.objects.filter(user=user).update(
+                    email_marketing=marketing, email_newsletter=newsletter
+                )
+                self.assertEqual(
+                    eligible_recipients().filter(pk=user.pk).exists(),
+                    marketing and newsletter,
+                )
+
+    def test_final_check_requires_the_opt_in_for_the_bespoke_email(self):
+        from unittest.mock import patch
+
+        from crush_lu.campaign_women_1y import get_campaign, send_women_1y_email
+
+        user = make_member("lateoptout")
+        campaign = get_campaign(create=True)
+        EmailPreference.objects.filter(user=user).update(email_newsletter=False)
+        with patch("crush_lu.campaign_women_1y.send_domain_email") as provider:
+            self.assertEqual(send_women_1y_email(user, campaign), 0)
+        provider.assert_not_called()

@@ -858,6 +858,26 @@ class SendTimeConsentRecheckTests(TestCase):
             provider.call_args.kwargs['recipient_list'], ['fresh@example.com']
         )
 
+    def test_opt_out_between_early_check_and_final_check_sends_nothing(self):
+        """Final handoff re-reads the opt-in, not just consent (Option A)."""
+        from crush_lu import newsletter_service
+
+        # Early check passes (patched); the member then switches Marketing off.
+        def early_ok_then_opt_out(user, email_type):
+            EmailPreference.objects.filter(user=user).update(email_marketing=False)
+            return True
+
+        with patch.object(
+            newsletter_service, 'can_send_email', side_effect=early_ok_then_opt_out
+        ), patch.object(newsletter_service, 'send_domain_email') as provider:
+            results = send_newsletter(self.newsletter)
+        provider.assert_not_called()
+        self.assertEqual((results['sent'], results['skipped']), (0, 1))
+        row = NewsletterRecipient.objects.get(
+            newsletter=self.newsletter, user=self.user
+        )
+        self.assertEqual(row.status, 'skipped')
+
     def test_has_current_consent(self):
         from crush_lu.newsletter_service import has_current_consent
 
