@@ -254,11 +254,24 @@ def send_women_1y_email(user, campaign, to=None, test_mode=False, unsubscribe_ur
     subject, text, html = build_email(
         user, campaign, test_mode=test_mode, unsubscribe_url=unsubscribe_url
     )
+    recipient = to
+    if recipient is None:
+        # Final consent check and fresh address immediately before the
+        # handoff (no lock is held across the provider call by design).
+        from crush_lu.newsletter_service import (
+            ConsentRevokedBeforeSend,
+            final_send_address,
+        )
+
+        try:
+            recipient = final_send_address(user)
+        except ConsentRevokedBeforeSend:
+            return 0
     return send_domain_email(
         subject=subject,
         message=text,
         html_message=html,
-        recipient_list=[to or user.email],
+        recipient_list=[recipient],
         # Batch sender has no request; without a domain the config falls back
         # to the PowerUp sender.
         domain="crush.lu",

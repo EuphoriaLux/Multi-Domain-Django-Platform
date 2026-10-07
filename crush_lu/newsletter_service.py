@@ -90,6 +90,29 @@ def is_on_break(user):
     ).exists()
 
 
+class ConsentRevokedBeforeSend(Exception):
+    """Raised by the final pre-send check; a privacy skip, never a failure."""
+
+
+def final_send_address(user):
+    """Last check before handing a message to the provider (no work after it).
+
+    Returns the CURRENT address, or raises ConsentRevokedBeforeSend if consent
+    is gone or the user is banned. Locks are deliberately not held across the
+    provider call (it can take tens of seconds); a message already accepted by
+    the provider cannot be recalled, so the residual window is the time between
+    this read and the provider accepting the request.
+    """
+    if not has_current_consent(user):
+        raise ConsentRevokedBeforeSend()
+    address = (
+        User.objects.filter(pk=user.pk).values_list('email', flat=True).first()
+    )
+    if not address:
+        raise ConsentRevokedBeforeSend()
+    return address
+
+
 def anonymize_newsletter_receipts(user):
     """Blank the address and error text on a user's NewsletterRecipient rows.
 
@@ -481,6 +504,16 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
             if stdout and (sent % 10 == 0):
                 log(f"  Sent {sent}/{recipient_count}...")
 
+        except ConsentRevokedBeforeSend:
+            write_receipt(
+                newsletter, user,
+                defaults={
+                    'status': 'skipped',
+                    'error_message': SUPPRESSED_CONSENT_REVOKED,
+                },
+            )
+            skipped += 1
+            continue
         except Exception as e:
             error_msg = str(e)[:500]
             write_receipt(
@@ -722,11 +755,13 @@ def _send_newsletter_to_user(newsletter, user, link_rewriter=None):
         # After plain_message is derived, so the text part keeps direct URLs.
         html_message = link_rewriter(html_message, user)
 
+    # Final consent check and fresh address, immediately before the handoff.
+    address = final_send_address(user)
     return send_domain_email(
         subject=subject,
         message=plain_message,
         html_message=html_message,
-        recipient_list=[user.email],
+        recipient_list=[address],
         from_email=settings.CRUSH_NEWSLETTER_FROM_EMAIL,
         domain='crush.lu',
         fail_silently=False,
