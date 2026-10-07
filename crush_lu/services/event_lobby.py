@@ -158,8 +158,6 @@ def participant_gate(user) -> tuple[bool, str]:
     if profile.photo_review_status == "needs_revision":
         # Actionable: lobby_locked.html links straight to the photo editor.
         return False, GATE_PHOTO_REVISION
-    if not profile.is_photo_review_approved:
-        return False, GATE_PHOTO_REVISION
     if not profile.has_luxid_connected:
         return False, GATE_NO_LUXID
 

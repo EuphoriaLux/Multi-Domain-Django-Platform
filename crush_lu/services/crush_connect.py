@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, List, Tuple
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Exists, F, OuterRef, Q, QuerySet
+from django.db.models import Exists, OuterRef, Q, QuerySet
 from django.utils import timezone
 
 if TYPE_CHECKING:
@@ -207,29 +207,20 @@ def exclude_assigned_coach_pairs(qs, user, field="pk"):
 
 
 def filter_primary_photo_review_approved(qs, profile_prefix="crushprofile"):
-    """Require the exact current primary photo to have a coach review approval."""
+    """Drop members whose exact current primary photo a coach moderated.
+
+    Pending (not yet reviewed) photos stay eligible, as before per-photo review.
+    """
     from crush_lu.models import ProfilePhotoReviewState
 
-    reviewed = ProfilePhotoReviewState.objects.filter(
+    moderated = ProfilePhotoReviewState.objects.filter(
         profile_id=OuterRef(f"{profile_prefix}__pk"),
         photo_field="photo_1",
         photo_key=OuterRef(f"{profile_prefix}__photo_1"),
-        status="approved",
+        status__in=("needs_revision", "flagged_fake"),
     )
-    return (
-        qs.prefetch_related(f"{profile_prefix}__photo_review_states")
-        .annotate(_coach_reviewed_primary=Exists(reviewed))
-        .filter(
-            Q(_coach_reviewed_primary=True)
-            | Q(
-                **{
-                    f"{profile_prefix}__photo_review_status": "approved",
-                    f"{profile_prefix}__photo_review_key": F(
-                        f"{profile_prefix}__photo_1"
-                    ),
-                }
-            )
-        )
+    return qs.annotate(_coach_moderated_primary=Exists(moderated)).filter(
+        _coach_moderated_primary=False
     )
 
 
@@ -254,7 +245,6 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
         or not user_profile.is_approved
         or not user_profile.is_active
         or user_profile.photo_review_status in ("needs_revision", "flagged_fake")
-        or not user_profile.is_photo_review_approved
         or not user.is_active
     ):
         return User.objects.none()
@@ -526,7 +516,6 @@ def is_catalogue_eligible(user) -> bool:
         profile is not None
         and profile.verification_status == "verified"
         and profile.photo_1
-        and profile.is_photo_review_approved
         and profile.photo_review_status not in ("flagged_fake", "needs_revision")
         and profile.is_connect_identity_verified
         and membership is not None
@@ -547,7 +536,6 @@ def is_premium_connect_eligible(user) -> bool:
         profile is not None
         and profile.is_approved
         and profile.photo_1
-        and profile.is_photo_review_approved
         and profile.photo_review_status not in ("flagged_fake", "needs_revision")
         and profile.has_active_premium
         and membership is not None

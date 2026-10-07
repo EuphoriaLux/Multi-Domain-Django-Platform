@@ -1716,7 +1716,10 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
 
         moderated = ("flagged_fake", "needs_revision")
         lifted = still_excluded = 0
-        candidates = queryset.filter(photo_review_status__in=moderated)
+        candidates = queryset.filter(
+            Q(photo_review_status__in=moderated)
+            | Q(photo_review_states__status="needs_revision")
+        ).distinct()
         for pk in candidates.values_list("pk", flat=True):
             with transaction.atomic():
                 profile = (
@@ -1725,32 +1728,30 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
                     .filter(pk=pk)
                     .first()
                 )
-                if profile is None or profile.photo_review_status not in moderated:
+                if profile is None:
                     continue
                 old_status = profile.photo_review_status
-                if not CrushProfile.objects.filter(
-                    pk=pk, photo_review_status=old_status
-                ).update(
-                    photo_review_status="pending",
-                    photo_review_key="",
-                    photo_reviewed_at=None,
-                    photo_reviewed_by=None,
-                    photo_review_notes="",
-                ):
-                    continue
+                if old_status in moderated:
+                    if not CrushProfile.objects.filter(
+                        pk=pk, photo_review_status=old_status
+                    ).update(
+                        photo_review_status="pending",
+                        photo_review_key="",
+                        photo_reviewed_at=None,
+                        photo_reviewed_by=None,
+                        photo_review_notes="",
+                    ):
+                        continue
                 if old_status == "flagged_fake":
                     ProfilePhotoReviewState.objects.filter(
                         profile_id=pk, status="flagged_fake"
                     ).delete()
                 else:
-                    photo_key = profile.photo_1.name or ""
-                    if photo_key:
-                        ProfilePhotoReviewState.objects.filter(
-                            profile_id=pk,
-                            photo_field="photo_1",
-                            photo_key=photo_key,
-                            status="needs_revision",
-                        ).delete()
+                    # Every slot's revision request, current file or not.
+                    if not ProfilePhotoReviewState.objects.filter(
+                        profile_id=pk, status="needs_revision"
+                    ).delete()[0] and old_status not in moderated:
+                        continue
                 self.log_change(
                     request,
                     profile,

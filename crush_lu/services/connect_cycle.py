@@ -144,7 +144,6 @@ def get_cycle_eligible_pool(user):
         or not user_profile.is_approved
         or not user_profile.is_active
         or user_profile.photo_review_status in ("needs_revision", "flagged_fake")
-        or not user_profile.is_photo_review_approved
         or not user.is_active
     ):
         return User.objects.none()

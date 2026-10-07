@@ -44999,10 +44999,6 @@ msgstr "Kehre vor der Entscheidung zu diesem Bild zurück."
 msgid "Show image under review"
 msgstr "Geprüftes Bild anzeigen"
 
-#: crush_lu/templates/crush_lu/coach_photo_review.html
-msgid "Online photo review does not verify identity or in-person photo authenticity."
-msgstr "Eine Online-Fotoprüfung bestätigt weder die Identität noch die Echtheit des Fotos bei einem persönlichen Treffen."
-
 #: crush_lu/templates/crush_lu/crush_connect/_reviewed_secondary_photos.html
 msgid "Coach-reviewed profile photos"
 msgstr "Vom Coach geprüfte Profilfotos"

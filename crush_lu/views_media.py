@@ -63,13 +63,18 @@ def can_view_profile_photo(viewer, profile_owner, photo_field="photo_1"):
     if viewer.is_superuser:
         return True
 
-    # Every slot is hidden from peers until the exact current file is approved.
-    # A fake-profile flag remains profile-wide, even if another slot was
-    # approved previously or the member later replaces an image.
-    if (
-        profile_owner.photo_review_status == "flagged_fake"
-        or not profile_owner.is_photo_field_review_approved(photo_field)
-    ):
+    # A fake-profile flag remains profile-wide. The primary photo stays visible
+    # until a coach moderates it (pending is fine); secondary photos need an
+    # approval of the exact current file.
+    if profile_owner.photo_review_status == "flagged_fake":
+        return False
+    if photo_field == "photo_1":
+        if profile_owner.get_photo_field_review_status("photo_1") in (
+            "needs_revision",
+            "flagged_fake",
+        ):
+            return False
+    elif not profile_owner.is_photo_field_review_approved(photo_field):
         return False
 
     # Profile must be approved for others to see

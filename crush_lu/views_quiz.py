@@ -41,7 +41,6 @@ def _photo_url(profile):
         and profile.is_approved
         and getattr(profile, "photo_1", None)
         and profile.photo_review_status not in _MODERATED_PHOTO_STATUSES
-        and profile.is_photo_review_approved
     ):
         return f"/api/quiz/photo/{profile.user_id}/"
     return None
@@ -606,9 +605,6 @@ def quiz_display_photo(request, user_id):
         and request.user.pk != profile.user_id
     ):
         raise Http404("Photo under moderation")
-
-    if request.user.pk != profile.user_id and not profile.is_photo_review_approved:
-        raise Http404("Photo has not been coach-reviewed")
 
     if not _can_view_quiz_photo(request.user, profile.user_id):
         logger.warning(

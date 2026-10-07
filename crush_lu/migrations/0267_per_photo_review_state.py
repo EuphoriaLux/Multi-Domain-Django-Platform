@@ -13,10 +13,16 @@ def copy_primary_review_state(apps, schema_editor):
     for profile in Profile.objects.using(database).iterator():
         if profile.photo_review_status == "pending" or not profile.photo_1:
             continue
+        if (
+            not profile.photo_review_key
+            and profile.photo_review_status != "flagged_fake"
+        ):
+            # Never bound to a file, so it never approved the current one.
+            continue
         ReviewState.objects.using(database).create(
             profile_id=profile.pk,
             photo_field="photo_1",
-            photo_key=profile.photo_review_key or profile.photo_1,
+            photo_key=profile.photo_review_key or str(profile.photo_1),
             status=profile.photo_review_status,
             reviewed_at=profile.photo_reviewed_at or timezone.now(),
             reviewed_by_id=profile.photo_reviewed_by_id,
