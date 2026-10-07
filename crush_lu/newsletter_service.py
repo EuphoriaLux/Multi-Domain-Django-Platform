@@ -223,9 +223,20 @@ def write_receipt(newsletter, user, defaults):
                 or ''
             )
         else:
+            # Never CREATE a receipt once consent is gone: a profile-only
+            # deletion severs these rows' user link, and a late writer must not
+            # restore it. An existing row is just blanked.
             values['email'] = ''
             if 'error_message' in values or values.get('status') == 'failed':
                 values['error_message'] = SUPPRESSED_CONSENT_REVOKED
+            existing = NewsletterRecipient.objects.filter(
+                newsletter=newsletter, user=user
+            ).first()
+            if existing is None:
+                return ReceiptResult(None, False, False)
+            NewsletterRecipient.objects.filter(pk=existing.pk).update(**values)
+            existing.refresh_from_db()
+            return ReceiptResult(existing, False, False)
         row, created = NewsletterRecipient.objects.update_or_create(
             newsletter=newsletter, user=user, defaults=values,
         )

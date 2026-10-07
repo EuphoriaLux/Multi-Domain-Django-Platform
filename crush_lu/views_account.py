@@ -1380,9 +1380,18 @@ def _anonymize_whatsapp_outbound(phone_digits):
 
     if not phone_digits:
         return 0
-    candidates = set(phone_digits) | {f"+{d}" for d in phone_digits}
-    return WhatsAppMessage.objects.filter(recipient__in=candidates).update(
-        recipient="", parameters={}, status_history=[]
+    # The Hub send endpoint stores the admin-typed recipient verbatim
+    # ("+352 621 777 777", hyphens...), so compare normalised digits.
+    from django.db.models import F, Value
+    from django.db.models.functions import Replace
+
+    digits_expr = F("recipient")
+    for junk in (" ", "-", "(", ")", ".", "+"):
+        digits_expr = Replace(digits_expr, Value(junk), Value(""))
+    return (
+        WhatsAppMessage.objects.annotate(_digits=digits_expr)
+        .filter(_digits__in=set(phone_digits))
+        .update(recipient="", parameters={}, status_history=[])
     )
 
 
@@ -1432,15 +1441,18 @@ def delete_full_account(user):
     # Addresses must be captured before the User row is anonymised.
     addresses = _collect_user_email_addresses(user)
 
-    # First delete Crush.lu profile
-    delete_crushlu_profile_only(user, finalize=False, full_account=True)
-    # Record the erased numbers BEFORE the sweeps: an inbound webhook that
-    # lands later is then stored sanitised instead of resurrecting the number.
+    # Persist the numbers' erasure BEFORE the fallible profile deletion: on a
+    # retry the profile (and so the number) is gone, so a failure after it would
+    # otherwise lose the number for good. Record first, then sweep, so an
+    # inbound webhook or a Hub send that lands later is stored sanitised.
     from hub.models import ErasedPhoneNumber
 
     ErasedPhoneNumber.record(phone_numbers)
     _anonymize_whatsapp_inbound(phone_numbers)
     _anonymize_whatsapp_outbound(phone_numbers)
+
+    # First delete Crush.lu profile
+    delete_crushlu_profile_only(user, finalize=False, full_account=True)
     # Pending gifts/invitations may need stored-file deletion, which can fail:
     # do it while the member can still sign in to retry.
     _anonymize_pending_recipient_records(addresses)

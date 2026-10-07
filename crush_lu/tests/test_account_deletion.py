@@ -758,14 +758,16 @@ class NewsletterReceiptErasureTests(TestCase):
         self.assertEqual((row.status, row.email), ('sent', ''))
 
     @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
-    def test_receipt_written_after_revocation_is_stored_blank(self, _s):
+    def test_receipt_is_never_created_after_revocation(self, _s):
         from crush_lu.models import NewsletterRecipient
         from crush_lu.newsletter_service import write_receipt
         from crush_lu.views import delete_crushlu_profile_only
 
         delete_crushlu_profile_only(self.user)
-        write_receipt(self.newsletter, self.user, {'status': 'sent'})
-        self.assertEqual(NewsletterRecipient.objects.get().email, '')
+        result = write_receipt(self.newsletter, self.user, {'status': 'sent'})
+        # A late writer must not restore the (severed) user link.
+        self.assertFalse(result.allowed)
+        self.assertFalse(NewsletterRecipient.objects.exists())
 
 
 class ConsentAndCoachErasureTests(TestCase):
@@ -936,7 +938,8 @@ class Round8ErasureTests(TestCase):
         self.assertEqual((message.recipient, message.parameters, message.status_history), ('', {}, []))
         from crush_lu.models import CampaignRecipient
 
-        self.assertEqual(CampaignRecipient.objects.get().error_message, '')
+        # The message is sanitised and no receipt is created once consent is gone.
+        self.assertFalse(CampaignRecipient.objects.exists())
 
     @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
     def test_oauth_state_rows_are_deleted_and_scalar_ids_are_audited(self, _s):
@@ -1089,7 +1092,8 @@ class Round9ErasureTests(TestCase):
             )
         message.refresh_from_db()
         self.assertEqual((message.recipient, message.parameters), ('', {}))
-        self.assertEqual(CampaignRecipient.objects.get().whatsapp_message_id, message.pk)
+        # Sanitised, and never linked: no receipt is created once consent is gone.
+        self.assertFalse(CampaignRecipient.objects.exists())
 
 
 class Round10ErasureTests(TestCase):
@@ -1565,3 +1569,109 @@ class FollowupErasureTests(TestCase):
         # Sender and audit fields stay.
         self.assertEqual((mine.user_id, mine.template_name), (self.other.pk, 't'))
         self.assertEqual(theirs.recipient, '+352621000111')
+
+    # --- round 2 of Codex on #1234 -------------------------------------------
+    @patch('crush_lu.storage.delete_user_storage', return_value=(False, 0))
+    def test_erased_number_is_persisted_even_if_profile_deletion_fails(self, _s):
+        from crush_lu.models import CrushProfile
+        from crush_lu.views_account import StorageErasureError
+        from crush_lu.views import delete_full_account
+        from hub.models import ErasedPhoneNumber, WhatsAppInboundMessage
+
+        CrushProfile.objects.filter(user=self.user).update(
+            phone_number='+352 621 333 333', phone_verified=True
+        )
+        inbound = WhatsAppInboundMessage.objects.create(
+            wa_message_id='wamid.keep', from_number='352621333333',
+            contact_name='Fu', text='hi', payload={'x': 1},
+            received_at=timezone.now(),
+        )
+
+        with self.assertRaises(StorageErasureError):
+            delete_full_account(self.user)
+
+        # The number is recorded and swept BEFORE the fallible stage, because a
+        # retry no longer has the profile that holds it.
+        self.assertTrue(ErasedPhoneNumber.is_erased('+352621333333'))
+        inbound.refresh_from_db()
+        self.assertEqual((inbound.from_number, inbound.text), ('erased', ''))
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_outbound_match_ignores_phone_formatting(self, _s):
+        from crush_lu.models import CrushProfile
+        from crush_lu.views import delete_full_account
+        from hub.models import WhatsAppMessage
+
+        CrushProfile.objects.filter(user=self.user).update(
+            phone_number='+352621888888', phone_verified=True
+        )
+        rows = [
+            WhatsAppMessage.objects.create(
+                user=self.other, recipient=recipient, template_name='t',
+                language='en', parameters={'1': 'Fu'}, status='sent',
+            )
+            for recipient in ('+352 621 888 888', '352-621-888-888', '(352) 621.888.888')
+        ]
+
+        delete_full_account(self.user)
+
+        for row in rows:
+            row.refresh_from_db()
+            self.assertEqual((row.recipient, row.parameters), ('', {}))
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_hub_send_to_an_erased_number_stores_a_sanitised_row(self, _s):
+        from hub.models import ErasedPhoneNumber, WhatsAppMessage
+        from hub.whatsapp_service import send_whatsapp_template
+
+        ErasedPhoneNumber.record(['+352621999999'])
+        response = patch('hub.whatsapp_service.requests.post').start()
+        self.addCleanup(patch.stopall)
+        response.return_value.status_code = 200
+        response.return_value.json.return_value = {'messages': [{'id': 'wamid.x'}]}
+
+        message = send_whatsapp_template(
+            sender=self.other, recipient='+352 621 999 999', template_name='t',
+            language='en', parameters={'1': 'Fu'},
+        )
+
+        stored = WhatsAppMessage.objects.get(pk=message.pk)
+        self.assertEqual(
+            (stored.recipient, stored.parameters, stored.status_history), ('', {}, [])
+        )
+
+    def test_erasure_digests_survive_secret_key_rotation(self):
+        from django.test import override_settings
+
+        from hub.models import ErasedPhoneNumber
+
+        with override_settings(SECRET_KEY='old-key-1234567890-old-key-1234567890'):
+            ErasedPhoneNumber.record(['+352621222111'])
+            self.assertTrue(ErasedPhoneNumber.is_erased('+352621222111'))
+
+        with override_settings(
+            SECRET_KEY='new-key-1234567890-new-key-1234567890',
+            SECRET_KEY_FALLBACKS=['old-key-1234567890-old-key-1234567890'],
+        ):
+            self.assertTrue(ErasedPhoneNumber.is_erased('+352621222111'))
+            # Migrated to the current key, so it keeps working once the
+            # fallback is dropped.
+            self.assertEqual(ErasedPhoneNumber.objects.count(), 2)
+
+        with override_settings(
+            SECRET_KEY='new-key-1234567890-new-key-1234567890', SECRET_KEY_FALLBACKS=[]
+        ):
+            self.assertTrue(ErasedPhoneNumber.is_erased('+352621222111'))
+
+    def test_a_new_verified_owner_is_not_silenced_by_an_old_tombstone(self):
+        from crush_lu.models import CrushProfile
+        from hub.models import ErasedPhoneNumber
+
+        ErasedPhoneNumber.record(['+352621444444'])
+        self.assertTrue(ErasedPhoneNumber.is_erased('352621444444'))
+
+        CrushProfile.objects.filter(user=self.other).update(
+            phone_number='+352 621 444 444', phone_verified=True
+        )
+
+        self.assertFalse(ErasedPhoneNumber.is_erased('352621444444'))

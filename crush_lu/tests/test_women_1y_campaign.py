@@ -942,8 +942,11 @@ class ReceiptConsentTests(TestCase):
                 "send_women_1y_campaign", "--send", "--limit", "1",
                 stdout=StringIO(), stderr=StringIO(),
             )
-        row = NewsletterRecipient.objects.get(newsletter=newsletter, user=user)
-        self.assertEqual(row.email, "")
+        self.assertFalse(
+            NewsletterRecipient.objects.filter(newsletter=newsletter, user=user)
+            .exclude(email="")
+            .exists()
+        )
 
     def test_retry_of_a_failed_receipt_does_not_restore_the_address(self):
         from crush_lu.campaign_women_1y import get_campaign, get_newsletter
@@ -987,8 +990,10 @@ class ReceiptConsentTests(TestCase):
                 stdout=StringIO(), stderr=StringIO(),
             )
         send.assert_not_called()
-        row = NewsletterRecipient.objects.get(newsletter=newsletter, user=user)
-        self.assertEqual((row.status, row.email), ("skipped", ""))
+        # Consent is gone: no receipt is created at all.
+        self.assertFalse(
+            NewsletterRecipient.objects.filter(newsletter=newsletter, user=user).exists()
+        )
 
     def test_failure_text_goes_through_write_receipt_and_is_suppressed(self):
         from unittest.mock import patch

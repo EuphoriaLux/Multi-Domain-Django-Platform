@@ -965,41 +965,87 @@ class EventCoachAvailability(models.Model):
 
 
 class ErasedPhoneNumber(models.Model):
-    """Erasure suppression record: a salted digest of an erased phone number.
+    """Erasure suppression record: a keyed digest of an erased phone number.
 
-    Lets the inbound webhook store a late message from an erased member
-    sanitised instead of resurrecting their number, name and text. Only a keyed
-    SHA-256 of the digits is kept, never the number.
+    Lets the inbound webhook (and the Hub send path) store a late message for
+    an erased member sanitised instead of resurrecting their number, name and
+    text. Only an HMAC-SHA256 of the digits is kept, never the number.
+
+    Key rotation: digests are checked under ``SECRET_KEY`` AND every
+    ``SECRET_KEY_FALLBACKS`` entry, and a match under an old key is re-recorded
+    under the current one, so rotating the key never orphans a tombstone (the
+    numbers themselves are gone, so a digest cannot be rebuilt later).
     """
 
     digest = models.CharField(max_length=64, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     @staticmethod
-    def _digest(number):
+    def digits(number):
+        return "".join(ch for ch in str(number or "") if ch.isdigit())
+
+    @classmethod
+    def _digests(cls, number):
+        """(current_digest, [all digests incl. fallback keys]) for ``number``."""
         import hashlib
         import hmac
 
         from django.conf import settings
 
-        digits = "".join(ch for ch in str(number or "") if ch.isdigit())
+        digits = cls.digits(number)
         if not digits:
-            return ""
-        return hmac.new(
-            settings.SECRET_KEY.encode(), digits.encode(), hashlib.sha256
-        ).hexdigest()
+            return "", []
+        keys = [settings.SECRET_KEY, *getattr(settings, "SECRET_KEY_FALLBACKS", [])]
+        all_digests = [
+            hmac.new(str(k).encode(), digits.encode(), hashlib.sha256).hexdigest()
+            for k in keys
+        ]
+        return all_digests[0], all_digests
 
     @classmethod
     def record(cls, numbers):
         for number in numbers or ():
-            digest = cls._digest(number)
-            if digest:
-                cls.objects.get_or_create(digest=digest)
+            current, _all = cls._digests(number)
+            if current:
+                cls.objects.get_or_create(digest=current)
+
+    @classmethod
+    def _has_live_verified_owner(cls, digits):
+        """True when an active member currently has this number verified.
+
+        A tombstone must not silence a legitimate member: the old profile
+        released the number, so the same person rejoining (or a carrier
+        reassigning it) can verify it on a new account.
+        """
+        from django.apps import apps
+        from django.db.models import F, Value
+        from django.db.models.functions import Replace
+
+        profile_model = apps.get_model("crush_lu", "CrushProfile")
+        digits_expr = F("phone_number")
+        for junk in (" ", "-", "(", ")", ".", "+"):
+            digits_expr = Replace(digits_expr, Value(junk), Value(""))
+        return (
+            profile_model.objects.filter(phone_verified=True, user__is_active=True)
+            .annotate(_digits=digits_expr)
+            .filter(_digits=digits)
+            .exists()
+        )
 
     @classmethod
     def is_erased(cls, number):
-        digest = cls._digest(number)
-        return bool(digest) and cls.objects.filter(digest=digest).exists()
+        current, all_digests = cls._digests(number)
+        if not current:
+            return False
+        matched = list(
+            cls.objects.filter(digest__in=all_digests).values_list("digest", flat=True)
+        )
+        if not matched:
+            return False
+        if current not in matched:
+            # Matched under a fallback key only: migrate it to the current key.
+            cls.objects.get_or_create(digest=current)
+        return not cls._has_live_verified_owner(cls.digits(number))
 
     def __str__(self):
         return f"erased:{self.digest[:8]}"

@@ -496,7 +496,6 @@ class WhatsAppAdapter:
         # BEFORE it is linked; if it commits after, its final sweep cleans it.
         with transaction.atomic():
             if not newsletter_service.locked_consent_holds(user):
-                error = ''
                 if message is not None:
                     message.recipient = ''
                     message.parameters = {}
@@ -504,6 +503,13 @@ class WhatsAppAdapter:
                     message.save(
                         update_fields=['recipient', 'parameters', 'status_history']
                     )
+                # Consent is gone: never create a receipt (a profile-only
+                # deletion severs these links and a late writer must not
+                # restore one); blank an existing row's error text only.
+                CampaignRecipient.objects.filter(
+                    campaign=campaign, channel=self.key, user=user
+                ).update(error_message='')
+                return
             CampaignRecipient.objects.update_or_create(
                 campaign=campaign,
                 channel=self.key,
@@ -656,7 +662,10 @@ class PushAdapter:
         # write only); error text is dropped once consent is gone.
         with transaction.atomic():
             if not newsletter_service.locked_consent_holds(user):
-                error = ''
+                CampaignRecipient.objects.filter(
+                    campaign=campaign, channel=self.key, user=user
+                ).update(error_message='')
+                return
             CampaignRecipient.objects.update_or_create(
                 campaign=campaign,
                 channel=self.key,
