@@ -470,7 +470,637 @@ def _retire_event_checkouts_before_profile_deletion(user):
             claim.save(update_fields=["state", "claimed_at"])
 
 
-def delete_crushlu_profile_only(user):
+# Account erasure registry (#1183, GDPR Art. 17).
+#
+# The User row survives account deletion (it is anonymised, not deleted), so
+# every ``on_delete=CASCADE`` foreign key pointing at User never fires. These
+# are the User-keyed crush_lu models that hold personal content or device /
+# contact identifiers; each entry is purged explicitly. ORDER MATTERS: parents
+# a PROTECT/CASCADE chain hangs off go after their children where it applies
+# (chat messages and chats before the weekly requests that own them).
+# A tuple lists every field whose value may be the erased user.
+ACCOUNT_ERASURE_PURGE = (
+    # Crush Connect weekly cycle: chat text, requests, cards, answers.
+    ("ConnectChatMessage", ("sender",)),
+    ("ConnectCoffeeDate", ("proposer",)),
+    ("ConnectTemporaryChat", ("participant_1", "participant_2")),
+    ("ConnectWeeklyRequest", ("requester", "recipient")),
+    ("ConnectCycleCard", ("target_user",)),
+    ("ConnectCycleFeedback", ("user",)),
+    ("ConnectWeekSession", ("user",)),
+    ("ConnectCoachPick", ("member", "candidate")),
+    ("ConnectPairExclusion", ("user_a", "user_b")),
+    ("CrushConnectMembership", ("user",)),
+    ("CrushConnectWaitlist", ("user",)),
+    ("MatchScore", ("user_a", "user_b")),
+    # Free text and event interaction authored by the member.
+    ("CrushSpark", ("sender",)),
+    ("JourneyGift", ("sender",)),
+    ("EventFeedback", ("user",)),
+    ("EventPollSuggestion", ("user",)),
+    ("EventPollVote", ("user",)),
+    ("EventActivityVote", ("user",)),
+    ("PresentationRating", ("presenter", "rater")),
+    ("PresentationQueue", ("user",)),
+    ("IndividualScore", ("user",)),
+    ("EventLobbyParticipation", ("user",)),
+    ("JourneyProgress", ("user",)),
+    ("AdventProgress", ("user",)),
+    ("QRCodeToken", ("user",)),
+    # Devices, push endpoints, phone numbers and activity tracking.
+    ("PushSubscription", ("user",)),
+    ("PWADeviceInstallation", ("user",)),
+    ("IOSAppDevice", ("user",)),
+    ("IOSNativeAuthCode", ("user",)),
+    ("AndroidAppDevice", ("user",)),
+    ("WalletPassProxy", ("user",)),
+    ("Notification", ("user",)),
+    ("PhoneOTP", ("user",)),
+    ("ProfileReminder", ("user",)),
+    ("UserActivity", ("user",)),
+    ("DailyUserActivity", ("user",)),
+    ("EmailPreference", ("user",)),
+    # Quiz seating / roles are per-member participation data (#1183).
+    ("QuizTableMembership", ("user",)),
+    ("QuizRotationSchedule", ("user",)),
+)
+
+# Many-to-many relations to User. The User row survives, so their through rows
+# are never cascaded: the member is removed from each explicitly.
+# (QuizTable.members goes through QuizTableMembership, purged above.)
+ACCOUNT_ERASURE_M2M_CRUSH = (("crush_lu", "MeetupEvent", "invited_users"),)
+ACCOUNT_ERASURE_M2M_OTHER_APPS = (("hub", "HubResource", "audience"),)
+ACCOUNT_ERASURE_M2M_VIA_PURGED_THROUGH = (("crush_lu", "QuizTable", "members"),)
+
+# Scalar (non-FK) integer/char columns holding a user pk. They never cascade;
+# the full-account path deletes the matching rows (session/OAuth bookkeeping
+# with IP, user agent and serialised state).
+ACCOUNT_ERASURE_SCALAR_USER_IDS = (("crush_lu", "OAuthState", "auth_user_id"),)
+
+# Identifying payload blanked on the rows whose user link is severed below.
+ACCOUNT_ERASURE_ANONYMIZE_BLANK = {
+    "EventInvitation": (
+        "guest_email", "guest_first_name", "guest_last_name",
+        "approval_notes", "coach_notes",
+    ),
+    # first_name/last_name are tombstoned separately (unique constraint).
+    "SpecialUserExperience": (
+        "custom_welcome_title", "custom_welcome_title_en",
+        "custom_welcome_title_de", "custom_welcome_title_fr",
+        "custom_welcome_message", "custom_welcome_message_en",
+        "custom_welcome_message_de", "custom_welcome_message_fr",
+        "custom_landing_url",
+    ),
+    "JourneyGift": (
+        "recipient_name", "recipient_email", "claim_error_message",
+        "location_first_met",
+    ),
+    "CacheChallengeAttempt": ("last_answer",),
+    # Sender's description of the recipient and the coach's notes about them.
+    # The sender's own message text stays (clearly sender-authored).
+    "CrushSpark": ("sender_description", "coach_notes"),
+}
+
+# Export completeness registries (GDPR Art. 15/20). Every concrete or
+# many-to-many field of these models is either exported under the same key
+# (ACCOUNT_EXPORT_KEY_ALIASES lists the renamed ones) or listed here with the
+# reason it is not. test_gdpr_data_export fails when a new field is in neither.
+ACCOUNT_EXPORT_KEY_ALIASES = {"interests_new": "interests_selected"}
+ACCOUNT_EXPORT_PROFILE_EXCLUDED = {
+    "id": "internal key",
+    "user": "the account block already exports the account",
+    "welcome_seen_at": "UI onboarding flag, not member data",
+    "coach_intro_seen_at": "UI onboarding flag, not member data",
+    "last_draft_saved": "draft bookkeeping",
+    "draft_expires_at": "draft bookkeeping",
+    "phone_verification_uid": "verification credential",
+    "photo_1": "binary media; photos_uploaded reports the count",
+    "photo_2": "binary media; photos_uploaded reports the count",
+    "photo_3": "binary media; photos_uploaded reports the count",
+    "photo_verification_key": "internal storage key",
+    "photo_review_key": "internal storage key",
+    "photo_reviewed_by": "staff identity",
+    "photo_review_notes": "staff-written moderation note",
+    "apple_pass_serial": "wallet pass identifier",
+    "apple_auth_token": "wallet credential",
+    "google_wallet_object_id": "wallet pass identifier",
+    "outlook_contact_id": "staff CRM sync identifier",
+    "outlook_photo_key": "staff CRM sync storage key",
+}
+ACCOUNT_EXPORT_CONSENT_EXCLUDED = {
+    "id": "internal key",
+    "user": "the account block already exports the account",
+    "updated_at": "audit timestamp",
+}
+ACCOUNT_EXPORT_EMAIL_PREF_EXCLUDED = {
+    "id": "internal key",
+    "user": "the account block already exports the account",
+    "unsubscribe_token": "bearer credential for the one-click unsubscribe link",
+    "created_at": "audit timestamp",
+    "updated_at": "audit timestamp",
+}
+ACCOUNT_EXPORT_COACH_EXCLUDED = {
+    "id": "internal key",
+    "user": "the account block already exports the account",
+    "photo": "binary media; has_photo reports presence",
+}
+
+# Erasure of the consent row. The FULL-account path sanitises the
+# identity-layer fields; the Crush-specific ones are revoked on both paths.
+# Retained fields and the reason (test-checked: every field is in one list).
+ACCOUNT_ERASURE_CONSENT_SANITIZED = (
+    "powerup_consent_given",
+    "powerup_consent_date",
+    "powerup_consent_ip",
+    "crushlu_consent_given",
+    "crushlu_consent_date",
+    "crushlu_consent_ip",
+    "marketing_consent",
+    "marketing_consent_date",
+)
+ACCOUNT_ERASURE_CONSENT_RETAINED = {
+    "id": "internal key",
+    "user": "link to the anonymised account",
+    "powerup_terms_version": "version string, not personal data",
+    "crushlu_terms_version": "version string, not personal data",
+    "crushlu_banned": "blocks profile re-creation; the minimal audit record",
+    "crushlu_ban_date": "audit: when the ban/revocation happened",
+    "crushlu_ban_reason": "audit: why (user_deletion)",
+    "created_at": "audit timestamp",
+    "updated_at": "audit timestamp",
+}
+# CrushCoach erasure: fields reset to defaults/blank vs kept for the
+# protected relationships (reviews, premium memberships, removal requests).
+ACCOUNT_ERASURE_COACH_RESET = (
+    "bio", "bio_en", "bio_de", "bio_fr",
+    "specializations", "specializations_en", "specializations_de",
+    "specializations_fr", "spoken_languages", "phone_number", "photo",
+    "availability_windows", "is_active", "accepting_premium",
+    "working_mode", "is_away", "away_until",
+)
+ACCOUNT_ERASURE_COACH_RETAINED = {
+    "id": "internal key (referenced by protected relations)",
+    "user": "link to the anonymised account",
+    "max_active_reviews": "capacity setting, not personal data",
+    "max_premium_members": "capacity setting, not personal data",
+    "hybrid_features_enabled": "feature flag, not personal data",
+    "created_at": "audit timestamp",
+}
+
+# Nullable (SET_NULL) links to the member. Account deletion anonymises the User
+# instead of deleting it, so SET_NULL never fires either: sever the link in
+# place (keeping the row for counts/audit) instead. (model, field) pairs.
+ACCOUNT_ERASURE_ANONYMIZE = (
+    ("CampaignClick", "user"),
+    ("CrushSpark", "recipient"),
+    ("JourneyGift", "claimed_by"),
+    ("ReferralAttribution", "referred_user"),
+    ("SpecialUserExperience", "linked_user"),
+    ("EventInvitation", "created_user"),
+    ("CacheChallengeAttempt", "answered_by"),
+    ("ConnectWeekSession", "compatibility_highlight_user"),
+)
+
+# Other apps: personal data on the User that only the FULL account deletion
+# removes (Crush.lu-profile-only deletion stays scoped to crush_lu).
+ACCOUNT_ERASURE_PURGE_OTHER_APPS = (
+    ("hub", "HubTimelineEvent", ("user",)),
+    ("hub", "HubRequest", ("user",)),
+    ("hub", "HubProfile", ("user",)),
+    ("hub", "EventCoachAvailability", ("user",)),
+    ("entreprinder", "EntrepreneurProfile", ("user",)),
+    ("entreprinder", "UserPixelStats", ("user",)),
+    ("entreprinder", "UserPixelCooldown", ("user",)),
+    ("delegations", "DelegationProfile", ("user",)),
+)
+ACCOUNT_ERASURE_ANONYMIZE_OTHER_APPS = (
+    ("entreprinder", "Pixel", "placed_by"),
+    ("entreprinder", "PixelHistory", "placed_by"),
+)
+# Deliberately NOT handled for other apps (listed in the PR for a decision):
+# hub.SocialPost, hub.WhatsAppMessage (staff-authored business records),
+# token_blacklist.OutstandingToken (deleting it would un-blacklist refresh
+# tokens; the anonymised user is inactive), and staff-actor SET_NULL links
+# (arborist.*, onboarding.*, hub.PartnerOnboardingStep.done_by).
+
+# User-keyed crush_lu models deliberately KEPT after account deletion, and why.
+# ``test_account_deletion`` fails when a new User FK model is in neither list,
+# so a new table cannot silently outlive an erasure request.
+ACCOUNT_ERASURE_RETAINED = {
+    # Money owed / paid: legal retention and the member's refund rights.
+    "PaymentTransaction": "financial record",
+    "CrushCredit": "refund rights; voided or kept by delete_crushlu_profile_only",
+    "PremiumMembership": "financial record",
+    "PremiumPaymentRecoveryCase": "financial record",
+    # Consent / ban record that stops the account being re-created.
+    "UserDataConsent": "ban + consent audit record",
+    # Moderation and safety: product decision pending (see PR #1183).
+    "UserBlock": "safety record, product decision pending",
+    "UserReport": "safety record, product decision pending",
+    "ConnectReport": "safety record, product decision pending",
+    # Interaction records shared with another member: product decision pending.
+    "EventMeetSignal": "shared with counterpart, product decision pending",
+    "EventMeetingConfirmation": "shared with counterpart, product decision pending",
+    "ConfirmedEncounter": "shared with counterpart, product decision pending",
+    "ConfirmedEncounterRemovalRequest": "PROTECT; moderation record",
+    # Send logs are kept for aggregate audit but anonymised in place by
+    # _anonymize_send_logs (email snapshot, error text, WhatsApp phone/params).
+    "NewsletterRecipient": "send log, anonymised in place",
+    "CampaignRecipient": "send log, anonymised in place",
+    # Staff-actor references (the member is the staff user, not data subject).
+    "CallAttempt": "staff actor reference",
+    "MeetupEvent": "staff actor reference",
+    "CuratedEventGroup": "staff actor reference",
+    "CuratedEventGroupMembership": "staff actor reference",
+    "Newsletter": "staff actor reference",
+    "Campaign": "staff actor reference",
+    "CustomSmsBatch": "staff actor reference",
+    # Handled by the profile/registration deletion in delete_crushlu_profile_only.
+    "CrushProfile": "deleted explicitly",
+    "CoachSession": "deleted explicitly",
+    "EventRegistration": "deleted explicitly",
+    "EventConnection": "deleted explicitly",
+    "ConnectionMessage": "deleted explicitly",
+    # Staff accounts and staff-owned objects (not member data).
+    "CrushCoach": "anonymised in place by _anonymize_coach_record",
+    "QuizEvent": "staff-created",
+    "CacheHunt": "staff-created",
+}
+
+
+def _delete_files_of_cascade(queryset):
+    """Delete the stored files of every object a delete of ``queryset`` removes."""
+    from django.db.models.deletion import Collector
+
+    collector = Collector(using=queryset.db)
+    collector.collect(list(queryset))
+    for fast in collector.fast_deletes:
+        _delete_stored_files(fast)
+    for model, instances in collector.data.items():
+        _delete_stored_files(model.objects.filter(pk__in=[o.pk for o in instances]))
+
+
+def _erase_special_experience_journeys(experiences):
+    """Delete the personalised journey/advent graph of severed experiences.
+
+    These are bespoke gifts written for the erased person (journey names,
+    chapter text, final message, advent title/teasers, reward photos/audio/
+    video, advent background). Files go first, then the rows (cascade).
+    Not covered (deferred): journeys referenced only through JourneyGift.
+    """
+    from django.apps import apps
+
+    journeys = apps.get_model("crush_lu", "JourneyConfiguration").objects.filter(
+        special_experience__in=list(experiences)
+    )
+    if journeys.exists():
+        _delete_files_of_cascade(journeys)
+        journeys.delete()
+
+
+def _erase_oauth_state(user):
+    from django.apps import apps
+
+    for app_label, model_name, field in ACCOUNT_ERASURE_SCALAR_USER_IDS:
+        apps.get_model(app_label, model_name).objects.filter(
+            **{field: user.pk}
+        ).delete()
+
+
+def _collect_user_email_addresses(user):
+    """Lower-cased addresses the member has VERIFIED as theirs.
+
+    allauth lets anyone add an arbitrary secondary address that is never
+    verified, so unverified rows (and a never-verified ``user.email``) must
+    not key erasure of records that belong to somebody else's mailbox.
+    """
+    from allauth.account.models import EmailAddress
+
+    return {
+        a.strip().lower()
+        for a in EmailAddress.objects.filter(user=user, verified=True).values_list(
+            "email", flat=True
+        )
+        if a
+    }
+
+
+def _anonymize_pending_recipient_records(addresses):
+    """Blank pending invitations/gifts addressed to the member's verified email.
+
+    An unaccepted ``EventInvitation`` and an unclaimed ``JourneyGift`` have no
+    user FK yet (``created_user`` / ``claimed_by`` are set on acceptance), so
+    the relation-based registry cannot find them; only the address can.
+    """
+    from django.db.models import FileField
+
+    from crush_lu.models import EventInvitation, JourneyGift
+
+    for address in {a.strip().lower() for a in addresses if a}:
+        EventInvitation.objects.filter(
+            guest_email__iexact=address, created_user__isnull=True
+        ).update(
+            **{name: "" for name in ACCOUNT_ERASURE_ANONYMIZE_BLANK["EventInvitation"]}
+        )
+        gifts = JourneyGift.objects.filter(
+            recipient_email__iexact=address, claimed_by__isnull=True
+        )
+        # Read before blanking: the update removes the rows from the filter.
+        created = list(gifts.values_list("pk", "created_at"))
+        # Personalised media first, while the address still finds the rows.
+        _delete_stored_files(gifts)
+        gifts.update(
+            **{
+                **{
+                    f.name: ""
+                    for f in JourneyGift._meta.concrete_fields
+                    if isinstance(f, FileField)
+                },
+                **{name: "" for name in ACCOUNT_ERASURE_ANONYMIZE_BLANK["JourneyGift"]},
+            }
+        )
+        for pk, created_at in created:
+            JourneyGift.objects.filter(pk=pk).update(date_first_met=created_at.date())
+
+
+def _anonymize_email_delivery(addresses):
+    """Strip personal text from delivery-health records for given addresses.
+
+    Deliverability choice: the EmailSuppression row KEEPS its address (the
+    lookup key) so a hard-bounced mailbox is not mailed again, e.g. if another
+    account later uses it; only the free-text diagnostic is cleared. Bounce
+    events keep classification and ids for dedupe but lose recipient, subject
+    and diagnostic.
+    """
+    from crush_lu.models import EmailBounceEvent, EmailSuppression
+
+    addresses = {a.strip().lower() for a in addresses if a}
+    if not addresses:
+        return
+    EmailSuppression.objects.filter(email__in=addresses).update(diagnostic="")
+    for address in addresses:
+        EmailBounceEvent.objects.filter(recipient__iexact=address).update(
+            recipient="", subject="", diagnostic=""
+        )
+
+
+def _remove_user_from_m2m(app_label, model_name, field_name, user):
+    """Delete the through rows linking ``user`` through a M2M ``field_name``."""
+    from django.apps import apps
+
+    field = apps.get_model(app_label, model_name)._meta.get_field(field_name)
+    field.remote_field.through.objects.filter(
+        **{field.m2m_reverse_field_name(): user.pk}
+    ).delete()
+
+
+def _anonymize_coach_record(user):
+    """Erase a coach's personal data while keeping operational integrity.
+
+    The CrushCoach row is referenced by reviews, premium memberships and
+    removal requests (some PROTECT), so it is anonymised in place: contact and
+    bio blanked, photo deleted, deactivated. Push subscriptions (endpoints,
+    keys, fingerprints) are deleted outright.
+    """
+    from django.apps import apps
+
+    coach_model = apps.get_model("crush_lu", "CrushCoach")
+    coaches = coach_model.objects.filter(user=user)
+    if not coaches.exists():
+        return
+    _delete_stored_files(coaches)
+    blank_text = {}
+    for field in coach_model._meta.concrete_fields:
+        if field.name.split("_")[0] in ("bio", "specializations") and (
+            field.get_internal_type() in ("TextField", "CharField")
+        ):
+            blank_text[field.name] = ""
+    resets = {
+        name: coach_model._meta.get_field(name).get_default()
+        for name in ("working_mode", "is_away", "away_until")
+    }
+    coaches.update(
+        **blank_text,
+        **resets,
+        phone_number="",
+        photo="",
+        spoken_languages=[],
+        availability_windows=[],
+        is_active=False,
+        accepting_premium=False,
+    )
+    apps.get_model("crush_lu", "CoachPushSubscription").objects.filter(
+        coach__user=user
+    ).delete()
+
+
+# Denormalised JSON lists of user primary keys (no FK, so nothing cascades).
+ACCOUNT_ERASURE_ID_LISTS = (("crush_lu", "CustomSmsBatch", "manual_user_ids"),)
+
+
+def _remove_user_from_id_lists(user):
+    """Drop the erased user's pk from retained JSON id-list columns."""
+    from django.apps import apps
+
+    for app_label, model_name, field in ACCOUNT_ERASURE_ID_LISTS:
+        model = apps.get_model(app_label, model_name)
+        for row in model.objects.exclude(**{field: []}).iterator():
+            ids = getattr(row, field) or []
+            kept = [value for value in ids if value != user.pk]
+            if kept != ids:
+                model.objects.filter(pk=row.pk).update(**{field: kept})
+
+
+def _anonymize_send_logs(user):
+    """Strip identifiers from mail/WhatsApp send logs, keeping the audit rows.
+
+    NewsletterRecipient snapshots the address; a WhatsApp CampaignRecipient
+    points at a WhatsAppMessage holding the phone number and merged
+    name/email template parameters. Counts and statuses are preserved.
+    """
+    from crush_lu.models import CampaignRecipient
+    from crush_lu.newsletter_service import anonymize_newsletter_receipts
+    from hub.models import WhatsAppMessage
+
+    anonymize_newsletter_receipts(user)
+    message_ids = list(
+        CampaignRecipient.objects.filter(
+            user=user, whatsapp_message__isnull=False
+        ).values_list("whatsapp_message_id", flat=True)
+    )
+    if message_ids:
+        WhatsAppMessage.objects.filter(pk__in=message_ids).update(
+            recipient="", parameters={}, status_history=[]
+        )
+    CampaignRecipient.objects.filter(user=user).update(error_message="")
+
+
+class StorageErasureError(RuntimeError):
+    """A stored personal file could not be deleted: erasure must not go on.
+
+    Fail closed: the caller's transaction rolls back (or the tombstone stays
+    ``deletion_in_progress``), so the database keeps the key that locates the
+    file and the member can retry. Dropping the key after a failed delete would
+    leave a personal file in storage that nothing can find again.
+    """
+
+
+def _delete_stored_files(queryset):
+    """Delete every FileField/ImageField file of the rows in ``queryset``.
+
+    QuerySet.delete() removes rows only, and delete_user_storage() sweeps just
+    users/<id>/, so files stored elsewhere (e.g. journey_gifts/qr/<code>.png,
+    gift and spark chapter media, wallet-proxy photos) would be orphaned.
+    A file that is already missing is fine (storage.delete is idempotent); any
+    other storage error raises StorageErasureError AFTER every file has been
+    attempted, and BEFORE the caller removes or blanks the reference.
+    """
+    from django.db import models as dj_models
+
+    file_fields = [
+        f for f in queryset.model._meta.concrete_fields
+        if isinstance(f, dj_models.FileField)
+    ]
+    if not file_fields:
+        return 0
+    deleted = 0
+    failures = []
+    for row in queryset.iterator():
+        for field in file_fields:
+            name = getattr(row, field.attname, None)
+            if not name:
+                continue
+            try:
+                field.storage.delete(str(name))
+                deleted += 1
+            except Exception as exc:  # noqa: BLE001 - re-raised below
+                logger.error(
+                    "Could not delete %s.%s file %r: %s",
+                    queryset.model.__name__, field.name, name, exc,
+                )
+                failures.append(f"{queryset.model.__name__}.{field.name}")
+    if failures:
+        raise StorageErasureError(
+            "Could not delete stored files for: " + ", ".join(sorted(set(failures)))
+        )
+    return deleted
+
+
+def _purge_user_keyed_personal_data(user):
+    """Delete the User-keyed personal rows listed in ACCOUNT_ERASURE_PURGE."""
+    from django.apps import apps
+
+    summary = {}
+    # Revoke consent and set the ban BEFORE anything is purged, in its own
+    # short transaction, so an overlapping newsletter/campaign send sees the
+    # revocation (has_current_consent) before EmailPreference disappears and
+    # can_send_email() could re-create default-enabled preferences.
+    with transaction.atomic():
+        apps.get_model("crush_lu", "UserDataConsent").objects.filter(
+            user=user
+        ).update(
+            crushlu_consent_given=False,
+            crushlu_consent_date=None,
+            crushlu_consent_ip=None,
+            crushlu_banned=True,
+            crushlu_ban_date=timezone.now(),
+            crushlu_ban_reason="deletion_in_progress",
+        )
+    with transaction.atomic():
+        _anonymize_send_logs(user)
+        for model_name, fields in ACCOUNT_ERASURE_PURGE:
+            model = apps.get_model("crush_lu", model_name)
+            condition = Q()
+            for field in fields:
+                condition |= Q(**{field: user})
+            _delete_stored_files(model.objects.filter(condition))
+            deleted, _ = model.objects.filter(condition).delete()
+            if deleted:
+                summary[model_name] = deleted
+        # IP / user agent / landing page of the member's referral visit.
+        apps.get_model("crush_lu", "ReferralAttribution").objects.filter(
+            referred_user=user
+        ).update(ip_address="", user_agent="", session_key="", landing_path="")
+        for model_name, field in ACCOUNT_ERASURE_ANONYMIZE:
+            model = apps.get_model("crush_lu", model_name)
+            rows = model.objects.filter(**{field: user})
+            if model_name == "JourneyGift":
+                # Gifts the erased member CLAIMED (sent by someone else): the
+                # gift row stays with its sender, but media tied to the
+                # recipient's claim and the recipient-personal first-meeting
+                # details go. The sender's own message text stays (clearly
+                # sender-authored); judgment listed in the PR body.
+                from django.db import models as dj_models
+
+                _delete_stored_files(rows)
+                rows.update(
+                    **{
+                        f.name: ""
+                        for f in model._meta.concrete_fields
+                        if isinstance(f, dj_models.FileField)
+                    }
+                )
+                for row in rows:
+                    model.objects.filter(pk=row.pk).update(
+                        date_first_met=row.created_at.date()
+                    )
+            if model_name == "CrushSpark":
+                # Sparks SENT TO the erased member: the row stays with its
+                # sender, but the personalised chapter images/video/audio
+                # made for the recipient are removed from storage and cleared.
+                from django.db import models as dj_models
+
+                _delete_stored_files(rows)
+                rows.update(
+                    **{
+                        f.name: ""
+                        for f in model._meta.concrete_fields
+                        if isinstance(f, dj_models.FileField)
+                    }
+                )
+            if model_name == "CacheChallengeAttempt":
+                # The answer photo is the member's own upload.
+                _delete_stored_files(rows)
+                rows.update(photo="")
+            if model_name == "SpecialUserExperience":
+                _erase_special_experience_journeys(rows)
+                # (first_name, last_name) is unique while unlinked, so each
+                # erased row gets a distinct non-identifying tombstone.
+                for row in rows:
+                    model.objects.filter(pk=row.pk).update(
+                        first_name="Erased", last_name=f"user-{row.pk}"
+                    )
+            blank = {
+                name: ""
+                for name in ACCOUNT_ERASURE_ANONYMIZE_BLANK.get(model_name, ())
+            }
+            rows.update(**blank, **{field: None})
+        for app_label, model_name, field in ACCOUNT_ERASURE_M2M_CRUSH:
+            _remove_user_from_m2m(app_label, model_name, field, user)
+        _remove_user_from_id_lists(user)
+    # Final sweep AFTER the consent revocation and purge committed: an
+    # in-flight sender that wrote a receipt before it saw the revocation is
+    # cleaned up here (write_receipt covers writers that start afterwards).
+    _anonymize_send_logs(user)
+    if summary:
+        logger.info("Erased User-keyed personal data for user %s: %s", user.id, summary)
+    return summary
+
+
+def _finalize_deletion(user):
+    """Make the ban reason permanent once every erasure stage has succeeded.
+
+    Until then the reason is ``deletion_in_progress``, which lets a member
+    whose deletion failed part-way retry through the deletion endpoints.
+    """
+    from crush_lu.models.profiles import UserDataConsent
+
+    UserDataConsent.objects.filter(user=user).update(
+        crushlu_ban_reason="user_deletion"
+    )
+
+
+def delete_crushlu_profile_only(user, finalize=True):
     """
     Delete ONLY Crush.lu profile data, keeping PowerUp account intact.
 
@@ -515,7 +1145,10 @@ def delete_crushlu_profile_only(user):
                 try:
                     photo.delete(save=False)
                 except Exception as e:
-                    logger.warning(f"Could not delete {photo_field}: {e}")
+                    logger.error(f"Could not delete {photo_field}: {e}")
+                    raise StorageErasureError(
+                        f"Could not delete profile {photo_field}"
+                    ) from e
 
         # Delete the profile (cascades to related data via Django's on_delete)
         profile.delete()
@@ -523,7 +1156,9 @@ def delete_crushlu_profile_only(user):
 
     # Clean up blob storage folder (users/{user_id}/)
     success, deleted_count = delete_user_storage(user.id)
-    if success and deleted_count > 0:
+    if not success:
+        raise StorageErasureError(f"Could not sweep users/{user.id}/ storage")
+    if deleted_count > 0:
         logger.info(f"Deleted {deleted_count} blob(s) from storage for user {user.id}")
 
     # Delete ProfileSubmissions (in case profile was deleted manually)
@@ -629,6 +1264,11 @@ def delete_crushlu_profile_only(user):
     # Delete CoachSessions
     CoachSession.objects.filter(user=user).delete()
 
+    # Purge everything else keyed on the User (chats, Connect data, devices,
+    # push endpoints, phone OTPs, ...): the User row survives, so none of it
+    # cascades on its own (#1183).
+    _purge_user_keyed_personal_data(user)
+
     # Clear Crush.lu consent and set permanent ban
     if hasattr(user, "data_consent"):
         consent = user.data_consent
@@ -637,9 +1277,11 @@ def delete_crushlu_profile_only(user):
         consent.crushlu_consent_ip = None
         consent.crushlu_banned = True
         consent.crushlu_ban_date = timezone.now()
-        consent.crushlu_ban_reason = "user_deletion"
+        # Stays retryable (ConsentMiddleware lets the deletion endpoints
+        # through) until every stage has succeeded; see _finalize_deletion.
+        consent.crushlu_ban_reason = "deletion_in_progress"
         consent.save()
-        logger.info(f"Set permanent Crush.lu ban for user {user.id}")
+        logger.info(f"Set Crush.lu ban for user {user.id}")
 
     # After the revocation has committed: blank any newsletter receipt an
     # in-flight sender wrote before it saw the revocation.
@@ -652,7 +1294,79 @@ def delete_crushlu_profile_only(user):
 
     CampaignClick.objects.filter(user=user).update(user=None)
 
+    if finalize:
+        _finalize_deletion(user)
     logger.info(f"Crush.lu profile deleted for user {user.id} (PowerUp account kept)")
+
+
+def _purge_other_apps_personal_data(user):
+    """Full-account deletion only: purge profile-type data from other apps."""
+    from django.apps import apps
+
+    with transaction.atomic():
+        for app_label, model_name, fields in ACCOUNT_ERASURE_PURGE_OTHER_APPS:
+            model = apps.get_model(app_label, model_name)
+            condition = Q()
+            for field in fields:
+                condition |= Q(**{field: user})
+            _delete_stored_files(model.objects.filter(condition))
+            model.objects.filter(condition).delete()
+        for app_label, model_name, field in ACCOUNT_ERASURE_M2M_OTHER_APPS:
+            _remove_user_from_m2m(app_label, model_name, field, user)
+        for app_label, model_name, field in ACCOUNT_ERASURE_ANONYMIZE_OTHER_APPS:
+            model = apps.get_model(app_label, model_name)
+            model.objects.filter(**{field: user}).update(**{field: None})
+
+
+def _phone_digits(value):
+    """Digits-only form of a phone number (how Meta reports ``from``)."""
+    return "".join(ch for ch in (value or "") if ch.isdigit())
+
+
+def _collect_user_phone_numbers(user):
+    """Normalised verified phone number(s) for this user.
+
+    Must run BEFORE the profile is deleted, while the number can still be
+    correlated with WhatsApp inbound messages (which carry no user FK).
+    """
+    numbers = set()
+    # Only the profile's currently verified number. PhoneOTP rows prove
+    # nothing: an OTP can be requested for someone else's number, and issuing
+    # a new code marks the previous row consumed without any verification.
+    profile = CrushProfile.objects.filter(user=user, phone_verified=True).first()
+    if profile is not None:
+        numbers.add(_phone_digits(profile.phone_number))
+    numbers.discard("")
+    return numbers
+
+
+def _anonymize_whatsapp_inbound(phone_digits):
+    """Blank the member's identifying data on matching inbound messages."""
+    from hub.models import WhatsAppInboundMessage
+
+    if not phone_digits:
+        return 0
+    candidates = set(phone_digits) | {f"+{d}" for d in phone_digits}
+    return WhatsAppInboundMessage.objects.filter(from_number__in=candidates).update(
+        from_number="erased", contact_name="", text="", payload={}
+    )
+
+
+def _sanitize_identity_consent(user):
+    """Full-account deletion: revoke/clear every identity-layer consent field.
+
+    Keeps only the minimal audit fields (ban flag/date/reason, versions,
+    timestamps) listed in ACCOUNT_ERASURE_CONSENT_RETAINED.
+    """
+    from crush_lu.models.profiles import UserDataConsent
+
+    UserDataConsent.objects.filter(user=user).update(
+        powerup_consent_given=False,
+        powerup_consent_date=None,
+        powerup_consent_ip=None,
+        marketing_consent=False,
+        marketing_consent_date=None,
+    )
 
 
 def delete_full_account(user):
@@ -678,8 +1392,23 @@ def delete_full_account(user):
 
     logger.info(f"Starting full account deletion for user {user.id}")
 
+    # WhatsApp inbound messages have no User FK; correlate by phone number
+    # while the profile still holds it.
+    phone_numbers = _collect_user_phone_numbers(user)
+    # Addresses must be captured before the User row is anonymised.
+    addresses = _collect_user_email_addresses(user)
+
     # First delete Crush.lu profile
-    delete_crushlu_profile_only(user)
+    delete_crushlu_profile_only(user, finalize=False)
+    _anonymize_whatsapp_inbound(phone_numbers)
+
+    # Then the other platforms' personal data on this account (hub,
+    # entreprinder, delegations): the User row survives, so it never cascades.
+    _purge_other_apps_personal_data(user)
+    _sanitize_identity_consent(user)
+    _erase_oauth_state(user)
+    # Coach record (full-account deletion only; profile-only keeps coaching).
+    _anonymize_coach_record(user)
 
     # Anonymize User record (instead of deleting to preserve referential integrity)
     user.email = f"deleted_{user.id}@deleted.crush.lu"
@@ -696,6 +1425,10 @@ def delete_full_account(user):
     # Delete social accounts and tokens (allauth)
     SocialToken.objects.filter(account__user=user).delete()
     SocialAccount.objects.filter(user=user).delete()
+
+    _anonymize_email_delivery(addresses)
+    _anonymize_pending_recipient_records(addresses)
+    _finalize_deletion(user)
 
     logger.info(f"Full account deleted for user {user.id} (all platforms)")
 
@@ -1344,8 +2077,13 @@ def consent_confirm(request):
         consent.marketing_consent = marketing_consent
         consent.marketing_consent_date = timezone.now() if marketing_consent else None
         consent.save()
+        # Newsletters need both flags (newsletter_service.NEWSLETTER_OPT_IN), so
+        # an explicit opt-in here must switch the newsletter flag on as well.
+        preference_defaults = {"email_marketing": marketing_consent}
+        if marketing_consent:
+            preference_defaults["email_newsletter"] = True
         EmailPreference.objects.update_or_create(
-            user=request.user, defaults={"email_marketing": marketing_consent}
+            user=request.user, defaults=preference_defaults
         )
 
         logger.info(f"User {request.user.id} retroactively gave Crush.lu consent")
@@ -1818,13 +2556,27 @@ def resend_verification_email(request):
     return redirect("account_email_verification_sent")
 
 
+def _iso_or_none(value):
+    return value.isoformat() if value else None
+
+
 @crush_login_required
 def export_user_data(request):
     """
     GDPR Article 20 - Data Portability.
     Export all user's personal data as a JSON file download.
     """
+    from crush_lu.models import (
+        AndroidAppDevice,
+        CrushCoach,
+        IOSAppDevice,
+        PushSubscription,
+        PWADeviceInstallation,
+    )
     from crush_lu.models.profiles import UserDataConsent
+    from delegations.models import AccessLog, DelegationProfile
+    from entreprinder.models import EntrepreneurProfile
+    from hub.models import HubProfile, HubRequest, HubTimelineEvent
 
     user = request.user
     data = {
@@ -1832,6 +2584,8 @@ def export_user_data(request):
         "account": {
             "email": user.email,
             "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
             "date_joined": user.date_joined.isoformat(),
             "last_login": user.last_login.isoformat() if user.last_login else None,
         },
@@ -1846,17 +2600,308 @@ def export_user_data(request):
             "date_of_birth": (
                 str(profile.date_of_birth) if profile.date_of_birth else None
             ),
-            "canton": getattr(profile, "canton", None),
+            "phone_number": profile.phone_number or None,
+            "phone_verified": profile.phone_verified,
+            "location": profile.location or None,
             "bio": profile.bio,
+            # Legacy free-text field (deprecated for Event Identity members).
             "interests": profile.interests,
-            "status": getattr(profile, "status", None),
+            # Current curated selections, by readable name (all of them), and
+            # the up-to-three highlighted ones resolved from their opaque ids.
+            "interests_selected": [
+                interest.label for interest in profile.interests_new.all()
+            ],
+            "qualities": [trait.label for trait in profile.qualities.all()],
+            "defects": [trait.label for trait in profile.defects.all()],
+            "sought_qualities": [
+                trait.label for trait in profile.sought_qualities.all()
+            ],
+            "ask_me_about": [
+                interest.label for interest in profile.ask_me_about_interests
+            ],
+            "event_vibe": profile.event_vibe,
+            "event_languages": profile.event_languages,
+            "preferred_age_min": profile.preferred_age_min,
+            "preferred_age_max": profile.preferred_age_max,
+            "preferred_genders": profile.preferred_genders,
+            "preferred_language": profile.preferred_language,
+            "show_full_name": profile.show_full_name,
+            "show_exact_age": profile.show_exact_age,
+            "completion_status": profile.completion_status,
+            "verification_status": profile.verification_status,
+            "membership_tier": profile.membership_tier,
+            "referral_points": profile.referral_points,
             "is_community_supporter": profile.is_community_supporter,
+            # Autosave stores newer bio/gender/trait values only here until the
+            # form is submitted, so it is member-authored data.
+            "draft_data": profile.draft_data or None,
+            "verification_method": profile.verification_method,
+            "intent_probe": profile.get_intent_probe_display() or None,
+            "first_step_preference": profile.get_first_step_preference_display(),
+            "astro_enabled": profile.astro_enabled,
+            "phone_verified_at": _iso_or_none(profile.phone_verified_at),
+            "not_on_whatsapp": profile.not_on_whatsapp,
+            "photo_verified_at": _iso_or_none(profile.photo_verified_at),
+            "photo_review_status": profile.photo_review_status,
+            "photo_reviewed_at": _iso_or_none(profile.photo_reviewed_at),
+            "language_explicitly_set": profile.language_explicitly_set,
+            "show_photo_on_wallet": profile.show_photo_on_wallet,
+            "is_approved": profile.is_approved,
+            "is_active": profile.is_active,
+            "approved_at": _iso_or_none(profile.approved_at),
+            "on_break_at": _iso_or_none(profile.on_break_at),
+            "assigned_coach": (
+                profile.assigned_coach.user.first_name
+                if profile.assigned_coach_id
+                else None
+            ),
+            "assigned_coach_at": _iso_or_none(profile.assigned_coach_at),
+            "updated_at": _iso_or_none(profile.updated_at),
+            "photos_uploaded": sum(
+                1
+                for photo in (profile.photo_1, profile.photo_2, profile.photo_3)
+                if photo
+            ),
             "created_at": (
                 profile.created_at.isoformat()
                 if hasattr(profile, "created_at") and profile.created_at
                 else None
             ),
         }
+        # Deliberately NOT exported: credentials and internal identifiers
+        # (apple_auth_token, phone_verification_uid, wallet/outlook ids, photo
+        # storage keys, draft_data) and staff-side photo review notes.
+
+    # Profiles held by the other platforms on the same account (no tokens).
+    other_platforms = {}
+    hub_profile = HubProfile.objects.filter(user=user).first()
+    if hub_profile is not None:
+        other_platforms["hub"] = {
+            "organization": hub_profile.organization,
+            "primary_contact": hub_profile.primary_contact,
+            "phone": hub_profile.phone,
+            "created_at": hub_profile.created_at.isoformat(),
+        }
+    entrepreneur = EntrepreneurProfile.objects.filter(user=user).first()
+    if entrepreneur is not None:
+        other_platforms["entreprinder"] = {
+            "tagline": entrepreneur.tagline,
+            "bio": entrepreneur.bio,
+            "company": entrepreneur.company,
+            "industry": str(entrepreneur.industry) if entrepreneur.industry else None,
+            "location": entrepreneur.location,
+            "looking_for": entrepreneur.looking_for,
+            "offering": entrepreneur.offering,
+            "website": entrepreneur.website,
+            "linkedin_profile": entrepreneur.linkedin_profile,
+            "years_of_experience": entrepreneur.years_of_experience,
+            "is_mentor": entrepreneur.is_mentor,
+            "is_looking_for_funding": entrepreneur.is_looking_for_funding,
+            "is_investor": entrepreneur.is_investor,
+            "linkedin_photo_url": entrepreneur.linkedin_photo_url,
+            "skills": [skill.name for skill in entrepreneur.skills.all()],
+        }
+    from entreprinder.vibe.models import Pixel, PixelHistory, UserPixelStats
+
+    pixel_stats = list(
+        UserPixelStats.objects.filter(user=user).values(
+            "canvas_id", "total_pixels_placed", "last_pixel_placed", "created_at"
+        )
+    )
+    pixel_history = list(
+        PixelHistory.objects.filter(placed_by=user)
+        .order_by("placed_at")
+        .values("canvas_id", "x", "y", "color", "placed_at")
+    )
+    pixels = list(
+        Pixel.objects.filter(placed_by=user)
+        .order_by("placed_at")
+        .values("canvas_id", "x", "y", "color", "placed_at")
+    )
+    if pixel_stats or pixel_history or pixels:
+        other_platforms.setdefault("entreprinder", {})["pixel_canvas"] = {
+            "stats": [
+                {
+                    **row,
+                    "last_pixel_placed": _iso_or_none(row["last_pixel_placed"]),
+                    "created_at": _iso_or_none(row["created_at"]),
+                }
+                for row in pixel_stats
+            ],
+            "placements": [
+                {**row, "placed_at": _iso_or_none(row["placed_at"])}
+                for row in pixel_history
+            ],
+            "current_pixels": [
+                {**row, "placed_at": _iso_or_none(row["placed_at"])} for row in pixels
+            ],
+        }
+    delegation = DelegationProfile.objects.filter(user=user).first()
+    if delegation is not None:
+        other_platforms["delegations"] = {
+            "company": str(delegation.company) if delegation.company else None,
+            "microsoft_id": delegation.microsoft_id,
+            "microsoft_tenant_id": delegation.microsoft_tenant_id,
+            "department": delegation.department,
+            "job_title": delegation.job_title,
+            "office_location": delegation.office_location,
+            "has_profile_photo": bool(delegation.profile_photo),
+            "role": delegation.role,
+            "status": delegation.status,
+            "created_at": delegation.created_at.isoformat(),
+            "last_login_at": (
+                delegation.last_login_at.isoformat()
+                if delegation.last_login_at
+                else None
+            ),
+            "access_log": [
+                {
+                    "action": log.action,
+                    "details": log.details,
+                    "ip_address": log.ip_address,
+                    "user_agent": log.user_agent,
+                    "created_at": _iso_or_none(log.created_at),
+                }
+                for log in AccessLog.objects.filter(profile=delegation).order_by(
+                    "created_at"
+                )
+            ],
+        }
+    hub_requests = list(HubRequest.objects.filter(user=user).order_by("created_at"))
+    if hub_requests:
+        other_platforms.setdefault("hub", {})["requests"] = [
+            {
+                "subject": r.subject,
+                "summary": r.summary,
+                "category": r.category,
+                "status": r.status,
+                "priority": r.priority,
+                "created_at": _iso_or_none(r.created_at),
+                "updated_at": _iso_or_none(r.updated_at),
+            }
+            for r in hub_requests
+        ]
+    hub_events = list(
+        HubTimelineEvent.objects.filter(user=user).order_by("occurred_at")
+    )
+    if hub_events:
+        other_platforms.setdefault("hub", {})["timeline"] = [
+            {
+                "kind": e.kind,
+                "title": e.title,
+                "body": e.body,
+                "occurred_at": _iso_or_none(e.occurred_at),
+            }
+            for e in hub_events
+        ]
+    if other_platforms:
+        data["other_platforms"] = other_platforms
+
+    # Coach record (staff members only).
+    coach = CrushCoach.objects.filter(user=user).first()
+    if coach is not None:
+        data["coach_profile"] = {
+            "bio": coach.bio,
+            "bio_en": coach.bio_en,
+            "bio_de": coach.bio_de,
+            "bio_fr": coach.bio_fr,
+            "specializations": coach.specializations,
+            "specializations_en": coach.specializations_en,
+            "specializations_de": coach.specializations_de,
+            "specializations_fr": coach.specializations_fr,
+            "spoken_languages": coach.spoken_languages,
+            "phone_number": coach.phone_number or None,
+            "has_photo": bool(coach.photo),
+            "is_active": coach.is_active,
+            "max_active_reviews": coach.max_active_reviews,
+            "accepting_premium": coach.accepting_premium,
+            "max_premium_members": coach.max_premium_members,
+            "working_mode": coach.working_mode,
+            "availability_windows": coach.availability_windows,
+            "is_away": coach.is_away,
+            "away_until": _iso_or_none(coach.away_until),
+            "hybrid_features_enabled": coach.hybrid_features_enabled,
+            "created_at": _iso_or_none(coach.created_at),
+        }
+
+    # Email / WhatsApp preferences
+    email_prefs = EmailPreference.objects.filter(user=user).first()
+    if email_prefs is not None:
+        data["email_preferences"] = {
+            "email_profile_updates": email_prefs.email_profile_updates,
+            "email_event_reminders": email_prefs.email_event_reminders,
+            "email_new_connections": email_prefs.email_new_connections,
+            "email_new_messages": email_prefs.email_new_messages,
+            "email_newsletter": email_prefs.email_newsletter,
+            "email_marketing": email_prefs.email_marketing,
+            "whatsapp_opt_in": email_prefs.whatsapp_opt_in,
+            "unsubscribed_all": email_prefs.unsubscribed_all,
+        }
+
+    # Installed-app / app-device registrations: descriptive metadata only.
+    # device_token, registration_token, device_id and fingerprints are
+    # delivery or device identifiers and stay out of the file.
+    def _iso(value):
+        return value.isoformat() if value else None
+
+    pwa = PWADeviceInstallation.objects.filter(user=user).order_by("installed_at")
+    ios = IOSAppDevice.objects.filter(user=user).order_by("created_at")
+    android = AndroidAppDevice.objects.filter(user=user).order_by("created_at")
+    app_devices = [
+        {
+            "platform": "pwa",
+            "os_type": d.os_type,
+            "form_factor": d.form_factor,
+            "device_category": d.device_category,
+            "browser": d.browser,
+            "user_agent": d.user_agent or None,
+            "installed_at": _iso(d.installed_at),
+            "last_used_at": _iso(d.last_used_at),
+        }
+        for d in pwa
+    ]
+    for platform, queryset in (("ios", ios), ("android", android)):
+        app_devices.extend(
+            {
+                "platform": platform,
+                "device_name": d.device_name or None,
+                "system_version": d.system_version or None,
+                "app_version": d.app_version or None,
+                "app_build": d.app_build or None,
+                "user_agent": d.user_agent or None,
+                "enabled": d.enabled,
+                "notify_new_messages": d.notify_new_messages,
+                "notify_event_reminders": d.notify_event_reminders,
+                "notify_new_connections": d.notify_new_connections,
+                "notify_profile_updates": d.notify_profile_updates,
+                "registered_at": _iso(d.created_at),
+                "last_seen_at": _iso(d.last_seen_at),
+            }
+            for d in queryset
+        )
+    if app_devices:
+        data["app_devices"] = app_devices
+
+    # Push notification devices. The endpoint and keys are delivery secrets,
+    # so only the descriptive fields are exported.
+    push_devices = PushSubscription.objects.filter(user=user).order_by("created_at")
+    if push_devices.exists():
+        data["push_devices"] = [
+            {
+                "device_name": device.device_name or None,
+                "user_agent": device.user_agent or None,
+                "enabled": device.enabled,
+                "notify_new_messages": device.notify_new_messages,
+                "notify_event_reminders": device.notify_event_reminders,
+                "notify_new_connections": device.notify_new_connections,
+                "notify_profile_updates": device.notify_profile_updates,
+                "registered_at": device.created_at.isoformat(),
+                "last_used_at": (
+                    device.last_used_at.isoformat() if device.last_used_at else None
+                ),
+            }
+            for device in push_devices
+        ]
 
     # Event registrations
     registrations = (
@@ -2122,23 +3167,20 @@ def export_user_data(request):
     try:
         consent = UserDataConsent.objects.get(user=user)
         data["consent"] = {
-            "crushlu_consent_given": consent.crushlu_consent_given,
-            "crushlu_consent_date": (
-                consent.crushlu_consent_date.isoformat()
-                if consent.crushlu_consent_date
-                else None
-            ),
             "powerup_consent_given": consent.powerup_consent_given,
-            "powerup_consent_date": (
-                consent.powerup_consent_date.isoformat()
-                if consent.powerup_consent_date
-                else None
-            ),
-            "marketing_consent": (
-                consent.marketing_consent
-                if hasattr(consent, "marketing_consent")
-                else None
-            ),
+            "powerup_consent_date": _iso_or_none(consent.powerup_consent_date),
+            "powerup_consent_ip": consent.powerup_consent_ip,
+            "powerup_terms_version": consent.powerup_terms_version,
+            "crushlu_consent_given": consent.crushlu_consent_given,
+            "crushlu_consent_date": _iso_or_none(consent.crushlu_consent_date),
+            "crushlu_consent_ip": consent.crushlu_consent_ip,
+            "crushlu_terms_version": consent.crushlu_terms_version,
+            "crushlu_banned": consent.crushlu_banned,
+            "crushlu_ban_date": _iso_or_none(consent.crushlu_ban_date),
+            "crushlu_ban_reason": consent.crushlu_ban_reason,
+            "marketing_consent": consent.marketing_consent,
+            "marketing_consent_date": _iso_or_none(consent.marketing_consent_date),
+            "created_at": _iso_or_none(consent.created_at),
         }
     except UserDataConsent.DoesNotExist:
         pass
