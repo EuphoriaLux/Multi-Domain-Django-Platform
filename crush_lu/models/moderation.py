@@ -24,6 +24,7 @@ from django.db import models
 from django.utils import timezone
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
+from crush_lu.photo_review_reasons import PHOTO_REVISION_REASON_CHOICES
 
 
 class UserBlockQuerySet(models.QuerySet):
@@ -201,10 +202,7 @@ class ProfilePhotoReviewLog(models.Model):
     REASON_CHOICES = [
         ("clear_authentic", _("Clear and authentic photo")),
         ("fake_profile", _("Fake or impersonating profile")),
-        ("inappropriate", _("Inappropriate or explicit content")),
-        ("unclear_face", _("Face unclear or covered")),
-        ("group_photo", _("Group photo / cannot identify member")),
-        ("other", _("Other")),
+        *PHOTO_REVISION_REASON_CHOICES,
     ]
 
     profile = models.ForeignKey(

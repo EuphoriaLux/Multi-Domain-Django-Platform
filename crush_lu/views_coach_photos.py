@@ -12,6 +12,7 @@ from django.utils.translation import gettext as _
 from django.views.decorators.http import require_GET, require_POST
 
 from crush_lu.decorators import coach_required
+from crush_lu.photo_review_reasons import PHOTO_REVISION_REASON_CHOICES
 from crush_lu.services.photo_review import (
     get_photo_review_queue,
     PhotoReviewError,
@@ -38,6 +39,10 @@ def coach_photo_review_deck(request):
         "initial_cards": cards,
         "total_waiting": total_waiting,
         "scope": scope,
+        "photo_review_reason_choices": [
+            ("fake_profile", _("Fake or Suspicious Profile")),
+            *PHOTO_REVISION_REASON_CHOICES,
+        ],
     }
     return render(request, "crush_lu/coach_photo_review.html", context)
 
