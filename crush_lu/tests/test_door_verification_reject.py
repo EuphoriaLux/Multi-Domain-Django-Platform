@@ -190,6 +190,10 @@ class TestDoorVerificationReject:
         regular_user = User.objects.create_user(
             username="regular@t.test", email="regular@t.test", password="pw"
         )
+        from crush_lu.models.profiles import UserDataConsent
+        UserDataConsent.objects.update_or_create(
+            user=regular_user, defaults={"crushlu_consent_given": True}
+        )
         client.force_login(regular_user)
         user_resp = client.post(_reject_url(event, reg))
         assert user_resp.status_code == 302

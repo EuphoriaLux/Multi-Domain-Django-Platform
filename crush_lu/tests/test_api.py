@@ -55,6 +55,10 @@ class JourneyAPITests(SiteTestMixin, TestCase):
             first_name='Journey',
             last_name='User'
         )
+        from crush_lu.models.profiles import UserDataConsent
+        UserDataConsent.objects.update_or_create(
+            user=self.user, defaults={"crushlu_consent_given": True}
+        )
 
         CrushProfile.objects.create(
             user=self.user,
@@ -241,6 +245,10 @@ class VotingAPITests(SiteTestMixin, TestCase):
             password='testpass123',
             first_name='Voter',
             last_name='User'
+        )
+        from crush_lu.models.profiles import UserDataConsent
+        UserDataConsent.objects.update_or_create(
+            user=self.user, defaults={"crushlu_consent_given": True}
         )
 
         CrushProfile.objects.create(
@@ -543,6 +551,10 @@ class PushNotificationAPITests(SiteTestMixin, TestCase):
             first_name='Push',
             last_name='User'
         )
+        from crush_lu.models.profiles import UserDataConsent
+        UserDataConsent.objects.update_or_create(
+            user=self.user, defaults={"crushlu_consent_given": True}
+        )
 
         CrushProfile.objects.create(
             user=self.user,
@@ -733,6 +745,10 @@ class PhotoPuzzleAPITests(SiteTestMixin, TestCase):
             password='testpass123',
             first_name='Puzzle',
             last_name='User'
+        )
+        from crush_lu.models.profiles import UserDataConsent
+        UserDataConsent.objects.update_or_create(
+            user=self.user, defaults={"crushlu_consent_given": True}
         )
 
         CrushProfile.objects.create(
@@ -1021,6 +1037,10 @@ class APIErrorHandlingTests(SiteTestMixin, TestCase):
             password='testpass123',
             first_name='Error',
             last_name='Test'
+        )
+        from crush_lu.models.profiles import UserDataConsent
+        UserDataConsent.objects.update_or_create(
+            user=self.user, defaults={"crushlu_consent_given": True}
         )
 
         CrushProfile.objects.create(

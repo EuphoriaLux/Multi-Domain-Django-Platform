@@ -19,11 +19,18 @@ User = get_user_model()
 
 @pytest.fixture
 def user(db):
-    return User.objects.create_user(
+    from crush_lu.models.profiles import UserDataConsent
+
+    user = User.objects.create_user(
         username="ios-user",
         email="ios-user@example.com",
         password="test-pass-123",
     )
+    # Device list/register/preferences are behind the consent gate (#1217).
+    UserDataConsent.objects.update_or_create(
+        user=user, defaults={"crushlu_consent_given": True}
+    )
+    return user
 
 
 def test_apple_app_site_association_exposes_universal_links(client, settings):
