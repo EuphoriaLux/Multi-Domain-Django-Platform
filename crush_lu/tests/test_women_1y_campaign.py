@@ -961,6 +961,35 @@ class ReceiptConsentTests(TestCase):
             .exists()
         )
 
+    def test_deletion_during_the_send_does_not_abort_the_run(self):
+        from unittest.mock import patch
+
+        from crush_lu.campaign_women_1y import get_campaign, get_newsletter
+        from crush_lu.management.commands import send_women_1y_campaign as cmd
+
+        user = make_member("deletedmidsend")
+        newsletter = get_newsletter(get_campaign(create=True))
+
+        def send_then_delete(member, campaign):
+            # A profile-only deletion lands after the claim, before the save:
+            # consent revoked and the member's receipt rows removed.
+            UserDataConsent.objects.filter(user=member).update(
+                crushlu_consent_given=False, crushlu_banned=True
+            )
+            NewsletterRecipient.objects.filter(user=member).delete()
+            return True
+
+        with patch.object(cmd, "send_women_1y_email", side_effect=send_then_delete):
+            call_command(
+                "send_women_1y_campaign", "--send", "--limit", "1",
+                stdout=StringIO(), stderr=StringIO(),
+            )
+
+        # No DatabaseError, and the deleted row is not recreated.
+        self.assertFalse(
+            NewsletterRecipient.objects.filter(newsletter=newsletter, user=user).exists()
+        )
+
     def test_retry_of_a_failed_receipt_does_not_restore_the_address(self):
         from crush_lu.campaign_women_1y import get_campaign, get_newsletter
         from crush_lu.newsletter_service import write_receipt
