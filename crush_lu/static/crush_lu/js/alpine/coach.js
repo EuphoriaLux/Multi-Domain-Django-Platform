@@ -1515,7 +1515,10 @@ document.addEventListener("alpine:init", function () {
                     self.processedIds[urlMatch[1]] = true;
                 }
 
-                fetch(url, { method: "POST" })
+                fetch(url, {
+                    method: "POST",
+                    headers: { "X-CSRFToken": self.getCsrfToken() },
+                })
                     .then(function (r) {
                         return r.json();
                     })
@@ -1574,7 +1577,10 @@ document.addEventListener("alpine:init", function () {
                     self.processedIds[regId] = true;
                 }
 
-                fetch(url, { method: "POST" })
+                fetch(url, {
+                    method: "POST",
+                    headers: { "X-CSRFToken": self.getCsrfToken() },
+                })
                     .then(function (r) {
                         return r.json();
                     })

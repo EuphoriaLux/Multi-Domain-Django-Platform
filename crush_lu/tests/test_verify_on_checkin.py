@@ -20,6 +20,7 @@ from datetime import date, timedelta
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.signing import Signer
 from django.test import Client
@@ -1284,3 +1285,45 @@ def test_undo_checkin_transfers_provenance_to_surviving_authenticated_registrati
     profile.refresh_from_db()
     assert profile.verification_status == "pending"
     assert profile.verification_method == ""
+
+
+# ---------------------------------------------------------------------------
+# CSRF: the coach's session cookie authorises the check-in, so it is enforced
+# ---------------------------------------------------------------------------
+
+
+def test_checkin_post_without_a_csrf_token_is_rejected(event, coach):
+    """A cross-site form POST rides the coach's cookie but carries no token."""
+    cache.clear()
+    _, reg = _attendee(event, "csrfnone")
+    client = Client(enforce_csrf_checks=True)
+    client.force_login(coach.user)
+    token = Signer().sign(f"{reg.id}:{event.id}")
+
+    response = client.post(f"/api/events/checkin/{reg.id}/{token}/")
+
+    assert response.status_code == 403
+    reg.refresh_from_db()
+    assert reg.status == "confirmed"
+    assert reg.checked_in_at is None
+
+
+def test_checkin_post_with_the_csrf_token_header_succeeds(event, coach):
+    """What coach.js sends: the token in `X-CSRFToken`."""
+    from django.middleware.csrf import _get_new_csrf_string
+
+    cache.clear()
+    _, reg = _attendee(event, "csrfok")
+    client = Client(enforce_csrf_checks=True)
+    client.force_login(coach.user)
+    csrf = _get_new_csrf_string()
+    client.cookies["csrftoken"] = csrf
+    token = Signer().sign(f"{reg.id}:{event.id}")
+
+    response = client.post(
+        f"/api/events/checkin/{reg.id}/{token}/", HTTP_X_CSRFTOKEN=csrf
+    )
+
+    assert response.status_code == 200
+    reg.refresh_from_db()
+    assert reg.status == "attended"
