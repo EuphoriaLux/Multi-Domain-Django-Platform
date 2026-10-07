@@ -915,3 +915,47 @@ class ReviewRound8Tests(TestCase):
                 stderr=StringIO(),
             )
         self.assertEqual(send.call_count, 1)
+
+
+class ReceiptConsentTests(TestCase):
+    def test_command_never_writes_an_erased_users_address(self):
+        from unittest.mock import patch
+
+        from crush_lu.campaign_women_1y import get_campaign, get_newsletter
+        from crush_lu.management.commands import send_women_1y_campaign as cmd
+
+        user = make_member("erasedlater")
+        newsletter = get_newsletter(get_campaign(create=True))
+        real = cmd.write_receipt
+
+        def revoke_then_write(nl, member, defaults):
+            # Deletion lands between eligibility and the receipt write.
+            UserDataConsent.objects.filter(user=member).update(
+                crushlu_consent_given=False, crushlu_banned=True
+            )
+            return real(nl, member, defaults)
+
+        with patch.object(cmd, "write_receipt", side_effect=revoke_then_write), patch.object(
+            cmd, "send_women_1y_email", return_value=True
+        ):
+            call_command(
+                "send_women_1y_campaign", "--send", "--limit", "1",
+                stdout=StringIO(), stderr=StringIO(),
+            )
+        row = NewsletterRecipient.objects.get(newsletter=newsletter, user=user)
+        self.assertEqual(row.email, "")
+
+    def test_retry_of_a_failed_receipt_does_not_restore_the_address(self):
+        from crush_lu.campaign_women_1y import get_campaign, get_newsletter
+        from crush_lu.newsletter_service import write_receipt
+
+        user = make_member("retryerased")
+        newsletter = get_newsletter(get_campaign(create=True))
+        write_receipt(newsletter, user, {"status": "failed"})
+        UserDataConsent.objects.filter(user=user).update(
+            crushlu_consent_given=False, crushlu_banned=True
+        )
+        row, _ = write_receipt(
+            newsletter, user, {"status": "pending", "error_message": ""}
+        )
+        self.assertEqual((row.status, row.email), ("pending", ""))
