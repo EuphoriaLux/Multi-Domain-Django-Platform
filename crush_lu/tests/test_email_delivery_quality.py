@@ -133,14 +133,16 @@ class MultipartAndSuppressionTests(TestCase):
     def test_active_suppression_skips_send_case_insensitively(self):
         EmailSuppression.objects.create(email="BOUNCE@example.com")
 
-        result = send_domain_email(
-            subject="Skipped",
-            message="Body",
-            recipient_list=["bounce@example.com"],
-            domain="crush.lu",
-        )
-
-        self.assertEqual(result, 0)
+        for purpose in ("transactional", "campaign"):
+            with self.subTest(purpose=purpose):
+                result = send_domain_email(
+                    subject="Skipped",
+                    message="Body",
+                    recipient_list=["bounce@example.com"],
+                    domain="crush.lu",
+                    email_purpose=purpose,
+                )
+                self.assertEqual(result, 0)
         self.assertEqual(mail.outbox, [])
 
     def test_inactive_suppression_allows_send(self):
@@ -154,6 +156,73 @@ class MultipartAndSuppressionTests(TestCase):
         )
 
         self.assertEqual(result, 1)
+
+    def test_campaign_hold_blocks_promotions_but_allows_account_email(self):
+        EmailSuppression.objects.create(email="member@example.com", scope="campaign")
+        self.assertEqual(
+            send_domain_email(
+                subject="Event invitation",
+                message="Body",
+                recipient_list=["member@example.com"],
+                domain="crush.lu",
+                email_purpose="campaign",
+            ),
+            0,
+        )
+        self.assertEqual(mail.outbox, [])
+        self.assertEqual(
+            send_domain_email(
+                subject="Password reset",
+                message="Reset link",
+                recipient_list=["member@example.com"],
+                domain="crush.lu",
+            ),
+            1,
+        )
+        self.assertEqual(mail.outbox[0].to, ["member@example.com"])
+
+    def test_campaign_hold_filters_display_names_cc_and_bcc(self):
+        EmailSuppression.objects.create(email="held@example.com", scope="campaign")
+        send_domain_email(
+            subject="Campaign",
+            message="Body",
+            recipient_list=["Held <HELD@example.com>", "allowed@example.com"],
+            cc=["held@example.com", "cc@example.com"],
+            bcc=["held@example.com", "bcc@example.com"],
+            domain="crush.lu",
+            email_purpose="campaign",
+        )
+        self.assertEqual(mail.outbox[0].to, ["allowed@example.com"])
+        self.assertEqual(mail.outbox[0].cc, ["cc@example.com"])
+        self.assertEqual(mail.outbox[0].bcc, ["bcc@example.com"])
+
+    def test_deactivating_campaign_hold_restores_promotions(self):
+        EmailSuppression.objects.create(
+            email="member@example.com", scope="campaign", is_active=False
+        )
+        self.assertEqual(
+            send_domain_email(
+                subject="Campaign",
+                message="Body",
+                recipient_list=["member@example.com"],
+                domain="crush.lu",
+                email_purpose="campaign",
+            ),
+            1,
+        )
+
+    def test_campaign_hold_does_not_affect_other_platforms(self):
+        EmailSuppression.objects.create(email="member@example.com", scope="campaign")
+        self.assertEqual(
+            send_domain_email(
+                subject="Power Up",
+                message="Body",
+                recipient_list=["member@example.com"],
+                domain="powerup.lu",
+                email_purpose="campaign",
+            ),
+            1,
+        )
 
     def test_display_name_recipient_is_filtered_by_mailbox_address(self):
         EmailSuppression.objects.create(email="bounce@example.com")

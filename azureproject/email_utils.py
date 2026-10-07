@@ -188,7 +188,9 @@ def _is_test_environment():
     return False
 
 
-def _without_suppressed_crush_addresses(addresses, *, is_crush_email):
+def _without_suppressed_crush_addresses(
+    addresses, *, is_crush_email, email_purpose="transactional"
+):
     """Filter active hard-bounce suppressions without coupling other domains."""
     addresses = list(addresses or [])
     if not is_crush_email or not addresses:
@@ -201,12 +203,12 @@ def _without_suppressed_crush_addresses(addresses, *, is_crush_email):
 
     try:
         suppression_model = apps.get_model("crush_lu", "EmailSuppression")
-        suppressed = set(
-            suppression_model.objects.filter(
-                email__in=normalized.values(),
-                is_active=True,
-            ).values_list("email", flat=True)
+        holds = suppression_model.objects.filter(
+            email__in=normalized.values(), is_active=True
         )
+        if email_purpose != "campaign":
+            holds = holds.filter(scope="all")
+        suppressed = set(holds.values_list("email", flat=True))
     except (LookupError, OperationalError, ProgrammingError):
         # Deploys can briefly run before the new table exists. Failing open avoids
         # turning a deliverability safeguard into a platform-wide email outage.
@@ -224,7 +226,8 @@ def _without_suppressed_crush_addresses(addresses, *, is_crush_email):
 
 def send_domain_email(subject, message, recipient_list, request=None, domain=None,
                      html_message=None, from_email=None, cc=None, bcc=None,
-                     reply_to=None, fail_silently=False, attachments=None):
+                     reply_to=None, fail_silently=False, attachments=None,
+                     email_purpose="transactional"):
     """
     Send email using domain-specific configuration (Graph API, SMTP, or Console in DEBUG).
 
@@ -242,6 +245,7 @@ def send_domain_email(subject, message, recipient_list, request=None, domain=Non
         bcc: List of BCC email addresses (optional)
         reply_to: Reply address or iterable of reply addresses (optional)
         fail_silently: Whether to suppress exceptions (default: False)
+        email_purpose: "campaign" for promotional sends; defaults to "transactional".
         attachments: Optional iterable of (filename, content, mimetype) tuples
             to attach to the message (e.g. a calendar .ics file).
 
@@ -251,6 +255,9 @@ def send_domain_email(subject, message, recipient_list, request=None, domain=Non
     from django.core.mail import get_connection
     from django.conf import settings
 
+    if email_purpose not in {"transactional", "campaign"}:
+        raise ValueError("email_purpose must be transactional or campaign")
+
     # Get domain-specific configuration
     config = get_domain_email_config(request=request, domain=domain)
 
@@ -258,10 +265,14 @@ def send_domain_email(subject, message, recipient_list, request=None, domain=Non
     email_from = from_email or config['DEFAULT_FROM_EMAIL']
     is_crush_email = config.get('DOMAIN') == 'crush.lu'
     recipient_list = _without_suppressed_crush_addresses(
-        recipient_list, is_crush_email=is_crush_email
+        recipient_list, is_crush_email=is_crush_email, email_purpose=email_purpose
     )
-    cc = _without_suppressed_crush_addresses(cc, is_crush_email=is_crush_email)
-    bcc = _without_suppressed_crush_addresses(bcc, is_crush_email=is_crush_email)
+    cc = _without_suppressed_crush_addresses(
+        cc, is_crush_email=is_crush_email, email_purpose=email_purpose
+    )
+    bcc = _without_suppressed_crush_addresses(
+        bcc, is_crush_email=is_crush_email, email_purpose=email_purpose
+    )
     if not recipient_list:
         return 0
 
