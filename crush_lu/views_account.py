@@ -544,6 +544,93 @@ ACCOUNT_ERASURE_ANONYMIZE_BLANK = {
     "CacheChallengeAttempt": ("last_answer",),
 }
 
+# Export completeness registries (GDPR Art. 15/20). Every concrete or
+# many-to-many field of these models is either exported under the same key
+# (ACCOUNT_EXPORT_KEY_ALIASES lists the renamed ones) or listed here with the
+# reason it is not. test_gdpr_data_export fails when a new field is in neither.
+ACCOUNT_EXPORT_KEY_ALIASES = {"interests_new": "interests_selected"}
+ACCOUNT_EXPORT_PROFILE_EXCLUDED = {
+    "id": "internal key",
+    "user": "the account block already exports the account",
+    "welcome_seen_at": "UI onboarding flag, not member data",
+    "coach_intro_seen_at": "UI onboarding flag, not member data",
+    "draft_data": "transient unsaved form draft; saved values are exported",
+    "last_draft_saved": "draft bookkeeping",
+    "draft_expires_at": "draft bookkeeping",
+    "phone_verification_uid": "verification credential",
+    "photo_1": "binary media; photos_uploaded reports the count",
+    "photo_2": "binary media; photos_uploaded reports the count",
+    "photo_3": "binary media; photos_uploaded reports the count",
+    "photo_verification_key": "internal storage key",
+    "photo_review_key": "internal storage key",
+    "photo_reviewed_by": "staff identity",
+    "photo_review_notes": "staff-written moderation note",
+    "apple_pass_serial": "wallet pass identifier",
+    "apple_auth_token": "wallet credential",
+    "google_wallet_object_id": "wallet pass identifier",
+    "outlook_contact_id": "staff CRM sync identifier",
+    "outlook_photo_key": "staff CRM sync storage key",
+}
+ACCOUNT_EXPORT_CONSENT_EXCLUDED = {
+    "id": "internal key",
+    "user": "the account block already exports the account",
+    "updated_at": "audit timestamp",
+}
+ACCOUNT_EXPORT_EMAIL_PREF_EXCLUDED = {
+    "id": "internal key",
+    "user": "the account block already exports the account",
+    "unsubscribe_token": "bearer credential for the one-click unsubscribe link",
+    "created_at": "audit timestamp",
+    "updated_at": "audit timestamp",
+}
+ACCOUNT_EXPORT_COACH_EXCLUDED = {
+    "id": "internal key",
+    "user": "the account block already exports the account",
+    "photo": "binary media; has_photo reports presence",
+}
+
+# Erasure of the consent row. The FULL-account path sanitises the
+# identity-layer fields; the Crush-specific ones are revoked on both paths.
+# Retained fields and the reason (test-checked: every field is in one list).
+ACCOUNT_ERASURE_CONSENT_SANITIZED = (
+    "powerup_consent_given",
+    "powerup_consent_date",
+    "powerup_consent_ip",
+    "crushlu_consent_given",
+    "crushlu_consent_date",
+    "crushlu_consent_ip",
+    "marketing_consent",
+    "marketing_consent_date",
+)
+ACCOUNT_ERASURE_CONSENT_RETAINED = {
+    "id": "internal key",
+    "user": "link to the anonymised account",
+    "powerup_terms_version": "version string, not personal data",
+    "crushlu_terms_version": "version string, not personal data",
+    "crushlu_banned": "blocks profile re-creation; the minimal audit record",
+    "crushlu_ban_date": "audit: when the ban/revocation happened",
+    "crushlu_ban_reason": "audit: why (user_deletion)",
+    "created_at": "audit timestamp",
+    "updated_at": "audit timestamp",
+}
+# CrushCoach erasure: fields reset to defaults/blank vs kept for the
+# protected relationships (reviews, premium memberships, removal requests).
+ACCOUNT_ERASURE_COACH_RESET = (
+    "bio", "bio_en", "bio_de", "bio_fr",
+    "specializations", "specializations_en", "specializations_de",
+    "specializations_fr", "spoken_languages", "phone_number", "photo",
+    "availability_windows", "is_active", "accepting_premium",
+    "working_mode", "is_away", "away_until",
+)
+ACCOUNT_ERASURE_COACH_RETAINED = {
+    "id": "internal key (referenced by protected relations)",
+    "user": "link to the anonymised account",
+    "max_active_reviews": "capacity setting, not personal data",
+    "max_premium_members": "capacity setting, not personal data",
+    "hybrid_features_enabled": "feature flag, not personal data",
+    "created_at": "audit timestamp",
+}
+
 # Nullable (SET_NULL) links to the member. Account deletion anonymises the User
 # instead of deleting it, so SET_NULL never fires either: sever the link in
 # place (keeping the row for counts/audit) instead. (model, field) pairs.
@@ -656,8 +743,13 @@ def _anonymize_coach_record(user):
             field.get_internal_type() in ("TextField", "CharField")
         ):
             blank_text[field.name] = ""
+    resets = {
+        name: coach_model._meta.get_field(name).get_default()
+        for name in ("working_mode", "is_away", "away_until")
+    }
     coaches.update(
         **blank_text,
+        **resets,
         phone_number="",
         photo="",
         spoken_languages=[],
@@ -694,10 +786,11 @@ def _anonymize_send_logs(user):
     points at a WhatsAppMessage holding the phone number and merged
     name/email template parameters. Counts and statuses are preserved.
     """
-    from crush_lu.models import CampaignRecipient, NewsletterRecipient
+    from crush_lu.models import CampaignRecipient
+    from crush_lu.newsletter_service import anonymize_newsletter_receipts
     from hub.models import WhatsAppMessage
 
-    NewsletterRecipient.objects.filter(user=user).update(email="", error_message="")
+    anonymize_newsletter_receipts(user)
     message_ids = list(
         CampaignRecipient.objects.filter(
             user=user, whatsapp_message__isnull=False
@@ -1052,6 +1145,23 @@ def _anonymize_whatsapp_inbound(phone_digits):
     )
 
 
+def _sanitize_identity_consent(user):
+    """Full-account deletion: revoke/clear every identity-layer consent field.
+
+    Keeps only the minimal audit fields (ban flag/date/reason, versions,
+    timestamps) listed in ACCOUNT_ERASURE_CONSENT_RETAINED.
+    """
+    from crush_lu.models.profiles import UserDataConsent
+
+    UserDataConsent.objects.filter(user=user).update(
+        powerup_consent_given=False,
+        powerup_consent_date=None,
+        powerup_consent_ip=None,
+        marketing_consent=False,
+        marketing_consent_date=None,
+    )
+
+
 def delete_full_account(user):
     """
     Delete ENTIRE PowerUp account including User model and all platform data.
@@ -1086,6 +1196,7 @@ def delete_full_account(user):
     # Then the other platforms' personal data on this account (hub,
     # entreprinder, delegations): the User row survives, so it never cascades.
     _purge_other_apps_personal_data(user)
+    _sanitize_identity_consent(user)
     # Coach record (full-account deletion only; profile-only keeps coaching).
     _anonymize_coach_record(user)
 
@@ -2226,6 +2337,10 @@ def resend_verification_email(request):
     return redirect("account_email_verification_sent")
 
 
+def _iso_or_none(value):
+    return value.isoformat() if value else None
+
+
 @crush_login_required
 def export_user_data(request):
     """
@@ -2234,6 +2349,7 @@ def export_user_data(request):
     """
     from crush_lu.models import (
         AndroidAppDevice,
+        CrushCoach,
         IOSAppDevice,
         PushSubscription,
         PWADeviceInstallation,
@@ -2295,6 +2411,28 @@ def export_user_data(request):
             "membership_tier": profile.membership_tier,
             "referral_points": profile.referral_points,
             "is_community_supporter": profile.is_community_supporter,
+            "verification_method": profile.verification_method,
+            "intent_probe": profile.get_intent_probe_display() or None,
+            "first_step_preference": profile.get_first_step_preference_display(),
+            "astro_enabled": profile.astro_enabled,
+            "phone_verified_at": _iso_or_none(profile.phone_verified_at),
+            "not_on_whatsapp": profile.not_on_whatsapp,
+            "photo_verified_at": _iso_or_none(profile.photo_verified_at),
+            "photo_review_status": profile.photo_review_status,
+            "photo_reviewed_at": _iso_or_none(profile.photo_reviewed_at),
+            "language_explicitly_set": profile.language_explicitly_set,
+            "show_photo_on_wallet": profile.show_photo_on_wallet,
+            "is_approved": profile.is_approved,
+            "is_active": profile.is_active,
+            "approved_at": _iso_or_none(profile.approved_at),
+            "on_break_at": _iso_or_none(profile.on_break_at),
+            "assigned_coach": (
+                profile.assigned_coach.user.first_name
+                if profile.assigned_coach_id
+                else None
+            ),
+            "assigned_coach_at": _iso_or_none(profile.assigned_coach_at),
+            "updated_at": _iso_or_none(profile.updated_at),
             "photos_uploaded": sum(
                 1
                 for photo in (profile.photo_1, profile.photo_2, profile.photo_3)
@@ -2358,6 +2496,33 @@ def export_user_data(request):
         }
     if other_platforms:
         data["other_platforms"] = other_platforms
+
+    # Coach record (staff members only).
+    coach = CrushCoach.objects.filter(user=user).first()
+    if coach is not None:
+        data["coach_profile"] = {
+            "bio": coach.bio,
+            "bio_en": coach.bio_en,
+            "bio_de": coach.bio_de,
+            "bio_fr": coach.bio_fr,
+            "specializations": coach.specializations,
+            "specializations_en": coach.specializations_en,
+            "specializations_de": coach.specializations_de,
+            "specializations_fr": coach.specializations_fr,
+            "spoken_languages": coach.spoken_languages,
+            "phone_number": coach.phone_number or None,
+            "has_photo": bool(coach.photo),
+            "is_active": coach.is_active,
+            "max_active_reviews": coach.max_active_reviews,
+            "accepting_premium": coach.accepting_premium,
+            "max_premium_members": coach.max_premium_members,
+            "working_mode": coach.working_mode,
+            "availability_windows": coach.availability_windows,
+            "is_away": coach.is_away,
+            "away_until": _iso_or_none(coach.away_until),
+            "hybrid_features_enabled": coach.hybrid_features_enabled,
+            "created_at": _iso_or_none(coach.created_at),
+        }
 
     # Email / WhatsApp preferences
     email_prefs = EmailPreference.objects.filter(user=user).first()
@@ -2702,23 +2867,20 @@ def export_user_data(request):
     try:
         consent = UserDataConsent.objects.get(user=user)
         data["consent"] = {
-            "crushlu_consent_given": consent.crushlu_consent_given,
-            "crushlu_consent_date": (
-                consent.crushlu_consent_date.isoformat()
-                if consent.crushlu_consent_date
-                else None
-            ),
             "powerup_consent_given": consent.powerup_consent_given,
-            "powerup_consent_date": (
-                consent.powerup_consent_date.isoformat()
-                if consent.powerup_consent_date
-                else None
-            ),
-            "marketing_consent": (
-                consent.marketing_consent
-                if hasattr(consent, "marketing_consent")
-                else None
-            ),
+            "powerup_consent_date": _iso_or_none(consent.powerup_consent_date),
+            "powerup_consent_ip": consent.powerup_consent_ip,
+            "powerup_terms_version": consent.powerup_terms_version,
+            "crushlu_consent_given": consent.crushlu_consent_given,
+            "crushlu_consent_date": _iso_or_none(consent.crushlu_consent_date),
+            "crushlu_consent_ip": consent.crushlu_consent_ip,
+            "crushlu_terms_version": consent.crushlu_terms_version,
+            "crushlu_banned": consent.crushlu_banned,
+            "crushlu_ban_date": _iso_or_none(consent.crushlu_ban_date),
+            "crushlu_ban_reason": consent.crushlu_ban_reason,
+            "marketing_consent": consent.marketing_consent,
+            "marketing_consent_date": _iso_or_none(consent.marketing_consent_date),
+            "created_at": _iso_or_none(consent.created_at),
         }
     except UserDataConsent.DoesNotExist:
         pass

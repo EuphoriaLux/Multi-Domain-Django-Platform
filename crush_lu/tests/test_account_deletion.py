@@ -734,3 +734,91 @@ class NewsletterReceiptErasureTests(TestCase):
         delete_crushlu_profile_only(self.user)
         write_receipt(self.newsletter, self.user, {'status': 'sent'})
         self.assertEqual(NewsletterRecipient.objects.get().email, '')
+
+
+class ConsentAndCoachErasureTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from crush_lu.models import CrushProfile
+
+        self.user = get_user_model().objects.create_user(
+            username='cc@example.com', email='cc@example.com', password='x',
+        )
+        CrushProfile.objects.create(
+            user=self.user, date_of_birth=date(1995, 5, 15), gender='M',
+            location='Luxembourg', is_approved=True, is_active=True,
+        )
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_full_deletion_sanitises_identity_layer_consent(self, _s):
+        from crush_lu.models.profiles import UserDataConsent
+        from crush_lu.views import delete_full_account
+
+        UserDataConsent.objects.filter(user=self.user).update(
+            powerup_consent_given=True, powerup_consent_date=timezone.now(),
+            powerup_consent_ip='1.2.3.4', marketing_consent=True,
+            marketing_consent_date=timezone.now(),
+            crushlu_consent_given=True, crushlu_consent_ip='1.2.3.4',
+        )
+        delete_full_account(self.user)
+        consent = UserDataConsent.objects.get(user=self.user)
+        self.assertFalse(consent.powerup_consent_given)
+        self.assertIsNone(consent.powerup_consent_date)
+        self.assertIsNone(consent.powerup_consent_ip)
+        self.assertFalse(consent.marketing_consent)
+        self.assertIsNone(consent.marketing_consent_date)
+        self.assertFalse(consent.crushlu_consent_given)
+        self.assertIsNone(consent.crushlu_consent_ip)
+        self.assertTrue(consent.crushlu_banned)  # minimal audit record kept
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_profile_only_deletion_keeps_identity_layer_consent(self, _s):
+        from crush_lu.models.profiles import UserDataConsent
+        from crush_lu.views import delete_crushlu_profile_only
+
+        UserDataConsent.objects.filter(user=self.user).update(
+            powerup_consent_given=True, powerup_consent_ip='1.2.3.4',
+        )
+        from django.contrib.auth import get_user_model
+
+        fresh = get_user_model().objects.get(pk=self.user.pk)
+        delete_crushlu_profile_only(fresh)
+        consent = UserDataConsent.objects.get(user=self.user)
+        self.assertTrue(consent.powerup_consent_given)
+        self.assertEqual(consent.powerup_consent_ip, '1.2.3.4')
+
+    def test_every_consent_and_coach_field_is_classified(self):
+        from crush_lu.models import CrushCoach
+        from crush_lu.models.profiles import UserDataConsent
+        from crush_lu.views_account import (
+            ACCOUNT_ERASURE_COACH_RESET, ACCOUNT_ERASURE_COACH_RETAINED,
+            ACCOUNT_ERASURE_CONSENT_RETAINED, ACCOUNT_ERASURE_CONSENT_SANITIZED,
+        )
+
+        consent_fields = {f.name for f in UserDataConsent._meta.concrete_fields}
+        classified = set(ACCOUNT_ERASURE_CONSENT_SANITIZED) | set(
+            ACCOUNT_ERASURE_CONSENT_RETAINED
+        )
+        self.assertEqual(consent_fields - classified, set())
+        self.assertEqual(classified - consent_fields, set())
+        coach_fields = {f.name for f in CrushCoach._meta.concrete_fields}
+        classified = set(ACCOUNT_ERASURE_COACH_RESET) | set(
+            ACCOUNT_ERASURE_COACH_RETAINED
+        )
+        self.assertEqual(coach_fields - classified, set())
+        self.assertEqual(classified - coach_fields, set())
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_coach_scheduling_state_is_reset(self, _s):
+        from crush_lu.models import CrushCoach
+        from crush_lu.views import delete_full_account
+
+        coach = CrushCoach.objects.create(
+            user=self.user, bio='x', working_mode='scheduled', is_away=True,
+            away_until=timezone.now() + timedelta(days=3),
+        )
+        delete_full_account(self.user)
+        coach.refresh_from_db()
+        self.assertEqual(coach.working_mode, 'spontaneous')
+        self.assertFalse(coach.is_away)
+        self.assertIsNone(coach.away_until)

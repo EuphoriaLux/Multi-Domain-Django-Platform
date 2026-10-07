@@ -189,3 +189,109 @@ class ExportProfileCompletenessTests(TestCase):
 
     def test_no_other_platform_key_for_plain_members(self):
         self.assertNotIn("other_platforms", self._export())
+
+    def test_onboarding_choices_are_exported_readably(self):
+        CrushProfile.objects.filter(user=self.user).update(
+            intent_probe="events", first_step_preference="i_initiate",
+            astro_enabled=False,
+        )
+        profile = self._export()["profile"]
+        self.assertEqual(profile["intent_probe"], "I want to meet people at real events")
+        self.assertEqual(
+            profile["first_step_preference"], "I prefer to make the first step"
+        )
+        self.assertFalse(profile["astro_enabled"])
+
+
+class ExportRegistryCompletenessTests(TestCase):
+    """Every field of the personal-data models is exported or explicitly excluded."""
+
+    def setUp(self):
+        from crush_lu.models import CrushCoach, UserDataConsent
+
+        cache.clear()
+        self.user = User.objects.create_user(
+            "reg@example.com", "reg@example.com", "pw12345678"
+        )
+        CrushProfile.objects.create(
+            user=self.user, date_of_birth=date(1995, 1, 1), gender="F",
+            location="canton-luxembourg",
+        )
+        EmailPreference.get_or_create_for_user(self.user)
+        CrushCoach.objects.create(user=self.user, bio="b")
+        UserDataConsent.objects.get_or_create(user=self.user)
+        request = RequestFactory().get("/")
+        request.user = User.objects.get(pk=self.user.pk)
+        self.data = json.loads(export_user_data(request).content)
+
+    def _missing(self, model, block, excluded, aliases=None):
+        aliases = aliases or {}
+        exported = set(self.data[block])
+        names = [f.name for f in model._meta.concrete_fields]
+        names += [f.name for f in model._meta.many_to_many]
+        return sorted(
+            name for name in names
+            if aliases.get(name, name) not in exported and name not in excluded
+        )
+
+    def test_profile_fields(self):
+        from crush_lu.views_account import (
+            ACCOUNT_EXPORT_KEY_ALIASES, ACCOUNT_EXPORT_PROFILE_EXCLUDED,
+        )
+
+        self.assertEqual(
+            self._missing(
+                CrushProfile, "profile", ACCOUNT_EXPORT_PROFILE_EXCLUDED,
+                ACCOUNT_EXPORT_KEY_ALIASES,
+            ),
+            [],
+        )
+
+    def test_consent_fields(self):
+        from crush_lu.models import UserDataConsent
+        from crush_lu.views_account import ACCOUNT_EXPORT_CONSENT_EXCLUDED
+
+        self.assertEqual(
+            self._missing(UserDataConsent, "consent", ACCOUNT_EXPORT_CONSENT_EXCLUDED),
+            [],
+        )
+
+    def test_email_preference_fields(self):
+        from crush_lu.views_account import ACCOUNT_EXPORT_EMAIL_PREF_EXCLUDED
+
+        self.assertEqual(
+            self._missing(
+                EmailPreference, "email_preferences",
+                ACCOUNT_EXPORT_EMAIL_PREF_EXCLUDED,
+            ),
+            [],
+        )
+
+    def test_coach_fields(self):
+        from crush_lu.models import CrushCoach
+        from crush_lu.views_account import ACCOUNT_EXPORT_COACH_EXCLUDED
+
+        self.assertEqual(
+            self._missing(CrushCoach, "coach_profile", ACCOUNT_EXPORT_COACH_EXCLUDED),
+            [],
+        )
+
+    def test_excluded_lists_name_real_fields_and_secrets_stay_out(self):
+        from crush_lu.models import CrushCoach, UserDataConsent
+        from crush_lu.views_account import (
+            ACCOUNT_EXPORT_COACH_EXCLUDED, ACCOUNT_EXPORT_CONSENT_EXCLUDED,
+            ACCOUNT_EXPORT_EMAIL_PREF_EXCLUDED, ACCOUNT_EXPORT_PROFILE_EXCLUDED,
+        )
+
+        for model, excluded in (
+            (CrushProfile, ACCOUNT_EXPORT_PROFILE_EXCLUDED),
+            (UserDataConsent, ACCOUNT_EXPORT_CONSENT_EXCLUDED),
+            (EmailPreference, ACCOUNT_EXPORT_EMAIL_PREF_EXCLUDED),
+            (CrushCoach, ACCOUNT_EXPORT_COACH_EXCLUDED),
+        ):
+            real = {f.name for f in model._meta.get_fields()}
+            for name, reason in excluded.items():
+                self.assertIn(name, real, f"{model.__name__}.{name} does not exist")
+                self.assertTrue(reason)
+        self.assertNotIn("unsubscribe_token", self.data["email_preferences"])
+        self.assertNotIn("apple_auth_token", self.data["profile"])
