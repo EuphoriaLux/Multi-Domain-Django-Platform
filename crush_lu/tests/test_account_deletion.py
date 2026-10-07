@@ -1711,14 +1711,14 @@ class FollowupErasureTests(TestCase):
 
         with override_settings(
             ERASURE_DIGEST_KEY='dedicated-stable-key',
-            SECRET_KEY='first-secret-key-1234567890-first-secret',
+            SECRET_KEY='a' * 50,
         ):
             ErasedPhoneNumber.record(['+352621717171'])
 
         # SECRET_KEY rotated and the fallback already dropped.
         with override_settings(
             ERASURE_DIGEST_KEY='dedicated-stable-key',
-            SECRET_KEY='second-secret-key-1234567890-second-sec',
+            SECRET_KEY='b' * 50,
             SECRET_KEY_FALLBACKS=[],
         ):
             self.assertTrue(ErasedPhoneNumber.is_erased('+352621717171'))
