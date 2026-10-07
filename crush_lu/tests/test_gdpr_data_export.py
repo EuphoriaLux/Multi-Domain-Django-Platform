@@ -148,3 +148,21 @@ class ExportProfileCompletenessTests(TestCase):
         ):
             self.assertIn(key, device)
         self.assertFalse(device["notify_new_messages"])
+
+    def test_trait_selections_are_exported_by_label(self):
+        from crush_lu.models import Trait
+
+        quality = Trait.objects.create(
+            slug="t-kind", label="Kind", trait_type="quality", category="social"
+        )
+        defect = Trait.objects.create(
+            slug="t-messy", label="Messy", trait_type="defect", category="social"
+        )
+        profile = CrushProfile.objects.get(user=self.user)
+        profile.qualities.set([quality])
+        profile.sought_qualities.set([quality])
+        profile.defects.set([defect])
+        exported = self._export()["profile"]
+        self.assertEqual(exported["qualities"], ["Kind"])
+        self.assertEqual(exported["sought_qualities"], ["Kind"])
+        self.assertEqual(exported["defects"], ["Messy"])

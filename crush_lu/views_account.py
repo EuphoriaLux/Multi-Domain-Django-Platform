@@ -985,6 +985,45 @@ def _purge_other_apps_personal_data(user):
             model.objects.filter(**{field: user}).update(**{field: None})
 
 
+def _phone_digits(value):
+    """Digits-only form of a phone number (how Meta reports ``from``)."""
+    return "".join(ch for ch in (value or "") if ch.isdigit())
+
+
+def _collect_user_phone_numbers(user):
+    """Normalised phone numbers known for this user (profile + OTP records).
+
+    Must run BEFORE the profile is deleted, while the number can still be
+    correlated with WhatsApp inbound messages (which carry no user FK).
+    """
+    from crush_lu.models import PhoneOTP
+
+    numbers = set()
+    profile = CrushProfile.objects.filter(user=user).first()
+    if profile is not None:
+        numbers.add(_phone_digits(profile.phone_number))
+    numbers.update(
+        _phone_digits(n)
+        for n in PhoneOTP.objects.filter(user=user).values_list(
+            "phone_number", flat=True
+        )
+    )
+    numbers.discard("")
+    return numbers
+
+
+def _anonymize_whatsapp_inbound(phone_digits):
+    """Blank the member's identifying data on matching inbound messages."""
+    from hub.models import WhatsAppInboundMessage
+
+    if not phone_digits:
+        return 0
+    candidates = set(phone_digits) | {f"+{d}" for d in phone_digits}
+    return WhatsAppInboundMessage.objects.filter(from_number__in=candidates).update(
+        from_number="erased", contact_name="", text="", payload={}
+    )
+
+
 def delete_full_account(user):
     """
     Delete ENTIRE PowerUp account including User model and all platform data.
@@ -1008,8 +1047,13 @@ def delete_full_account(user):
 
     logger.info(f"Starting full account deletion for user {user.id}")
 
+    # WhatsApp inbound messages have no User FK; correlate by phone number
+    # while the profile still holds it.
+    phone_numbers = _collect_user_phone_numbers(user)
+
     # First delete Crush.lu profile
     delete_crushlu_profile_only(user)
+    _anonymize_whatsapp_inbound(phone_numbers)
 
     # Then the other platforms' personal data on this account (hub,
     # entreprinder, delegations): the User row survives, so it never cascades.
@@ -2198,6 +2242,11 @@ def export_user_data(request):
             # the up-to-three highlighted ones resolved from their opaque ids.
             "interests_selected": [
                 interest.label for interest in profile.interests_new.all()
+            ],
+            "qualities": [trait.label for trait in profile.qualities.all()],
+            "defects": [trait.label for trait in profile.defects.all()],
+            "sought_qualities": [
+                trait.label for trait in profile.sought_qualities.all()
             ],
             "ask_me_about": [
                 interest.label for interest in profile.ask_me_about_interests

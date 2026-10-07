@@ -611,3 +611,38 @@ class AccountErasureCompletenessTests(TestCase):
             team=team, station=station,
         )
         return station_attempt, challenge
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_whatsapp_inbound_messages_are_anonymised_by_phone(self, _s):
+        from crush_lu.models import CrushProfile, PhoneOTP
+        from crush_lu.views import delete_full_account
+        from hub.models import WhatsAppInboundMessage
+
+        CrushProfile.objects.filter(user=self.user).update(
+            phone_number='+352 621 111 111'
+        )
+        PhoneOTP.objects.create(
+            user=self.user, phone_number='+352621222222', code_hash='h',
+            expires_at=timezone.now() + timedelta(minutes=5),
+        )
+
+        def inbound(wa_id, number):
+            return WhatsAppInboundMessage.objects.create(
+                wa_message_id=wa_id, from_number=number, contact_name='Del Me',
+                text='hello', payload={'x': 1}, received_at=timezone.now(),
+            )
+
+        mine = inbound('wamid.1', '352621111111')
+        also_mine = inbound('wamid.2', '+352621222222')
+        theirs = inbound('wamid.3', '352699999999')
+
+        delete_full_account(self.user)
+
+        for row in (mine, also_mine):
+            row.refresh_from_db()
+            self.assertEqual(
+                (row.from_number, row.contact_name, row.text, row.payload),
+                ('erased', '', '', {}),
+            )
+        theirs.refresh_from_db()
+        self.assertEqual((theirs.contact_name, theirs.text), ('Del Me', 'hello'))
