@@ -406,7 +406,8 @@ class AccountErasureCompletenessTests(TestCase):
             ('', '', '', ''),
         )
         self.assertIsNone(special.linked_user)
-        self.assertEqual((special.first_name, special.last_name), ('', ''))
+        self.assertNotEqual(special.first_name, 'Gus')
+        self.assertNotEqual(special.last_name, 'Guest')
         self.assertIsNone(gift.claimed_by)
         self.assertEqual((gift.recipient_name, gift.recipient_email), ('', ''))
 
@@ -509,3 +510,104 @@ class AccountErasureCompletenessTests(TestCase):
             and (m._meta.app_label, m.__name__, f.name) not in handled
         ]
         self.assertEqual(unhandled, [])
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_two_erased_special_experiences_do_not_collide(self, _s):
+        from django.contrib.auth import get_user_model
+        from crush_lu.models import CrushProfile, SpecialUserExperience
+        from crush_lu.views import delete_full_account
+
+        third = get_user_model().objects.create_user(
+            username='third@example.com', email='third@example.com', password='x',
+        )
+        CrushProfile.objects.create(
+            user=third, date_of_birth=date(1995, 5, 15), gender='F',
+            location='Luxembourg', is_approved=True, is_active=True,
+        )
+        for user, first in ((self.user, 'Ann'), (third, 'Bob')):
+            SpecialUserExperience.objects.create(
+                first_name=first, last_name='Same', linked_user=user,
+            )
+        delete_full_account(self.user)
+        delete_full_account(third)
+        rows = list(SpecialUserExperience.objects.all())
+        self.assertEqual(len(rows), 2)
+        self.assertTrue(all(r.linked_user_id is None for r in rows))
+        self.assertEqual(len({(r.first_name, r.last_name) for r in rows}), 2)
+        self.assertNotIn('Ann', {r.first_name for r in rows})
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_cache_attempt_photo_is_deleted_when_link_is_severed(self, _s):
+        from django.core.files.base import ContentFile
+        from django.core.files.storage import InMemoryStorage
+
+        from crush_lu.models import CacheChallengeAttempt
+        from crush_lu.views import delete_full_account
+
+        station_attempt, challenge = self._setup_cache()
+        storage = InMemoryStorage()
+        name = storage.save('cache/answer.jpg', ContentFile(b'img'))
+        attempt = CacheChallengeAttempt.objects.create(
+            station_attempt=station_attempt, challenge=challenge,
+            answered_by=self.user, photo=name, last_answer='secret',
+        )
+        field = CacheChallengeAttempt._meta.get_field('photo')
+        with patch.object(field, 'storage', storage):
+            delete_full_account(self.user)
+        attempt.refresh_from_db()
+        self.assertFalse(storage.exists(name))
+        self.assertFalse(attempt.photo)
+        self.assertEqual(attempt.last_answer, '')
+        self.assertIsNone(attempt.answered_by)
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_coach_record_is_anonymised_in_place(self, _s):
+        from django.core.files.base import ContentFile
+        from django.core.files.storage import InMemoryStorage
+
+        from crush_lu.models import CoachPushSubscription, CrushCoach
+        from crush_lu.views import delete_full_account
+
+        storage = InMemoryStorage()
+        name = storage.save('coaches/1/p.jpg', ContentFile(b'img'))
+        coach = CrushCoach.objects.create(
+            user=self.user, bio='about me', specializations='x',
+            phone_number='+352621111111', photo=name, spoken_languages=['en'],
+        )
+        CoachPushSubscription.objects.create(
+            coach=coach, endpoint='https://p.example/c', p256dh_key='k',
+            auth_key='a',
+        )
+        field = CrushCoach._meta.get_field('photo')
+        with patch.object(field, 'storage', storage):
+            delete_full_account(self.user)
+        coach.refresh_from_db()  # row kept for referential integrity
+        self.assertEqual((coach.bio, coach.phone_number, coach.specializations),
+                         ('', '', ''))
+        self.assertFalse(coach.photo)
+        self.assertFalse(coach.is_active)
+        self.assertFalse(storage.exists(name))
+        self.assertFalse(CoachPushSubscription.objects.filter(coach=coach).exists())
+
+    def _setup_cache(self):
+        from crush_lu.models import (
+            CacheChallenge, CacheHunt, CacheStation, CacheStationAttempt,
+            CacheTeam, MeetupEvent,
+        )
+
+        event = MeetupEvent.objects.create(
+            title='H', description='d', event_type='mixer',
+            date_time=timezone.now() + timedelta(days=5), location='L',
+            address='A', max_participants=10,
+            registration_deadline=timezone.now() + timedelta(days=3),
+        )
+        hunt = CacheHunt.objects.create(
+            event=event, title='Hunt', created_by=self.other,
+        )
+        station = CacheStation.objects.create(hunt=hunt, order=1, name='S')
+        challenge = CacheChallenge.objects.create(station=station)
+        team = CacheTeam.objects.create(hunt=hunt, name='T', join_code='JOIN01')
+        station_attempt = CacheStationAttempt.objects.create(
+            team=team, station=station,
+        )
+        return station_attempt, challenge

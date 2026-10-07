@@ -538,9 +538,8 @@ ACCOUNT_ERASURE_ANONYMIZE_BLANK = {
         "guest_email", "guest_first_name", "guest_last_name",
         "approval_notes", "coach_notes",
     ),
-    "SpecialUserExperience": (
-        "first_name", "last_name", "custom_welcome_message",
-    ),
+    # first_name/last_name are tombstoned separately (unique constraint).
+    "SpecialUserExperience": ("custom_welcome_message",),
     "JourneyGift": ("recipient_name", "recipient_email", "claim_error_message"),
     "CacheChallengeAttempt": ("last_answer",),
 }
@@ -620,7 +619,7 @@ ACCOUNT_ERASURE_RETAINED = {
     "EventConnection": "deleted explicitly",
     "ConnectionMessage": "deleted explicitly",
     # Staff accounts and staff-owned objects (not member data).
-    "CrushCoach": "staff record",
+    "CrushCoach": "anonymised in place by _anonymize_coach_record",
     "QuizEvent": "staff-created",
     "CacheHunt": "staff-created",
 }
@@ -633,6 +632,41 @@ def _remove_user_from_m2m(app_label, model_name, field_name, user):
     field = apps.get_model(app_label, model_name)._meta.get_field(field_name)
     field.remote_field.through.objects.filter(
         **{field.m2m_reverse_field_name(): user.pk}
+    ).delete()
+
+
+def _anonymize_coach_record(user):
+    """Erase a coach's personal data while keeping operational integrity.
+
+    The CrushCoach row is referenced by reviews, premium memberships and
+    removal requests (some PROTECT), so it is anonymised in place: contact and
+    bio blanked, photo deleted, deactivated. Push subscriptions (endpoints,
+    keys, fingerprints) are deleted outright.
+    """
+    from django.apps import apps
+
+    coach_model = apps.get_model("crush_lu", "CrushCoach")
+    coaches = coach_model.objects.filter(user=user)
+    if not coaches.exists():
+        return
+    _delete_stored_files(coaches)
+    blank_text = {}
+    for field in coach_model._meta.concrete_fields:
+        if field.name.split("_")[0] in ("bio", "specializations") and (
+            field.get_internal_type() in ("TextField", "CharField")
+        ):
+            blank_text[field.name] = ""
+    coaches.update(
+        **blank_text,
+        phone_number="",
+        photo="",
+        spoken_languages=[],
+        availability_windows=[],
+        is_active=False,
+        accepting_premium=False,
+    )
+    apps.get_model("crush_lu", "CoachPushSubscription").objects.filter(
+        coach__user=user
     ).delete()
 
 
@@ -730,6 +764,17 @@ def _purge_user_keyed_personal_data(user):
         for model_name, field in ACCOUNT_ERASURE_ANONYMIZE:
             model = apps.get_model("crush_lu", model_name)
             rows = model.objects.filter(**{field: user})
+            if model_name == "CacheChallengeAttempt":
+                # The answer photo is the member's own upload.
+                _delete_stored_files(rows)
+                rows.update(photo="")
+            if model_name == "SpecialUserExperience":
+                # (first_name, last_name) is unique while unlinked, so each
+                # erased row gets a distinct non-identifying tombstone.
+                for row in rows:
+                    model.objects.filter(pk=row.pk).update(
+                        first_name="Erased", last_name=f"user-{row.pk}"
+                    )
             blank = {
                 name: ""
                 for name in ACCOUNT_ERASURE_ANONYMIZE_BLANK.get(model_name, ())
@@ -969,6 +1014,8 @@ def delete_full_account(user):
     # Then the other platforms' personal data on this account (hub,
     # entreprinder, delegations): the User row survives, so it never cascades.
     _purge_other_apps_personal_data(user)
+    # Coach record (full-account deletion only; profile-only keeps coaching).
+    _anonymize_coach_record(user)
 
     # Anonymize User record (instead of deleting to preserve referential integrity)
     user.email = f"deleted_{user.id}@deleted.crush.lu"
