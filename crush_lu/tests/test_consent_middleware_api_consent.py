@@ -25,6 +25,13 @@ GATED_API = [
     ("post", "/api/polls/1/vote/"),
     ("get", "/api/referral/me/"),
     ("post", "/api/referral/redeem/"),
+    # Linked-device metadata: not part of the pre-consent mobile bootstrap.
+    ("get", "/api/mobile/ios/devices/"),
+    ("post", "/api/mobile/ios/devices/register/"),
+    ("post", "/api/mobile/ios/devices/preferences/"),
+    ("get", "/api/mobile/android/devices/"),
+    ("post", "/api/mobile/android/devices/register/"),
+    ("post", "/api/mobile/android/devices/preferences/"),
 ]
 
 # Allowlisted pre-consent routes. The view may answer anything (400, 404,
@@ -38,6 +45,12 @@ ALLOWED_API = [
     ("post", "/api/push/mark-pwa-user/"),
     ("get", "/api/push/pwa-status/"),
     ("post", "/api/pwa/register-installation/"),
+    ("get", "/api/mobile/ios/config/"),
+    ("get", "/api/mobile/android/config/"),
+    ("post", "/api/mobile/ios/devices/unregister/"),
+    ("post", "/api/mobile/android/devices/unregister/"),
+    ("post", "/api/coach/push/unsubscribe/"),
+    ("post", "/api/coach/push/delete-subscription/"),
 ]
 
 
@@ -98,6 +111,13 @@ class ApiConsentGateTests(TestCase):
                 self.assertNotEqual(body.get("code"), "consent_required")
                 self.assertNotEqual(body, {"error": "banned"})
 
+    def test_consentless_coach_can_revoke_but_not_create_coach_push(self):
+        user = _make_user("coach@example.com", crushlu_consent_given=False)
+        self.client.force_login(user)
+        blocked = self._call("post", "/api/coach/push/subscribe/")
+        self.assertEqual(blocked.status_code, 403)
+        self.assertEqual(blocked.json(), {"code": "consent_required"})
+
     def test_member_without_consent_record_is_gated(self):
         user = User.objects.create_user(
             username="norecord@example.com", password="test-password"
@@ -149,6 +169,9 @@ class ApiConsentGateTests(TestCase):
         self.assertNotIn("/api/phone/", extras)
         self.assertFalse(any(p.startswith("/api/phone/") for p in extras))
         self.assertNotIn("/api/push/", extras)  # no blanket prefix
+        self.assertNotIn(
+            "/api/mobile/", CrushConsentMiddleware.API_CONSENT_EXEMPT_PATHS
+        )
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")

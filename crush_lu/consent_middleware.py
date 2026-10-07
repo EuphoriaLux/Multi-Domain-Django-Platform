@@ -107,10 +107,29 @@ class CrushConsentMiddleware:
 
     # /api/ paths a member WITHOUT Crush.lu consent may still call (#1217).
     # Everything else under /api/ answers 403 {"code": "consent_required"}.
-    # Starts from the ban-exempt set (key-authenticated machine endpoints and
-    # the CSRF/VAPID bootstrap) and adds only what the routes show must work
-    # before consent is recorded, or lets a member withdraw data:
-    API_CONSENT_EXEMPT_PATHS = API_BAN_EXEMPT_PATHS + (
+    # Starts from the ban-exempt set minus the blanket /api/mobile/ prefix
+    # (key-authenticated machine endpoints and the CSRF/VAPID bootstrap) and
+    # adds only what the routes show must work before consent is recorded, or
+    # lets a member withdraw data:
+    API_CONSENT_EXEMPT_PATHS = tuple(
+        p for p in API_BAN_EXEMPT_PATHS if p != "/api/mobile/"
+    ) + (
+        # Native-app shell: config and the auth handoff/complete bridge run
+        # while signing in (before consent_confirm); unregister is withdrawal.
+        # Device list/register/preferences read or persist linked-device
+        # metadata, so they stay gated.
+        "/api/mobile/ios/config/",
+        "/api/mobile/ios/auth/handoff/",
+        "/api/mobile/ios/auth/complete/",
+        "/api/mobile/ios/devices/unregister/",
+        "/api/mobile/android/config/",
+        "/api/mobile/android/auth/handoff/",
+        "/api/mobile/android/auth/complete/",
+        "/api/mobile/android/devices/unregister/",
+        # Coach push revocation: the member routes below only delete
+        # PushSubscription rows, so a consentless coach needs these to opt out.
+        "/api/coach/push/unsubscribe/",
+        "/api/coach/push/delete-subscription/",
         # Session/JWT bridges used while signing in: /api/auth/status/ is polled
         # by the OAuth landing page before consent_confirm, /api/auth/spa-callback/
         # mints the hub SPA code, /api/token/ exchanges credentials or a refresh
