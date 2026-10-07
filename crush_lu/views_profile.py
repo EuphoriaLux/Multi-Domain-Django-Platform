@@ -26,6 +26,27 @@ from . import onboarding
 logger = logging.getLogger(__name__)
 
 
+def _rejected_profile_json_response(profile):
+    """403 JSON for a rejected profile, else None.
+
+    A rejected profile is terminal: only a coach re-verifying in person
+    overturns it. Post-pivot members have no ProfileSubmission row, so
+    verification_status itself is the only record and every self-service
+    write path must check it (issue #1188).
+    """
+    if profile.verification_status != "rejected":
+        return None
+    return JsonResponse(
+        {
+            "success": False,
+            "error": _(
+                "Your profile has been rejected and cannot be resubmitted. Please contact support@crush.lu."
+            ),
+        },
+        status=403,
+    )
+
+
 @crush_login_required
 @require_http_methods(["POST"])
 def save_profile_step1(request):
@@ -52,6 +73,10 @@ def save_profile_step1(request):
                 )
             except CrushCoach.DoesNotExist:
                 pass
+
+        blocked = _rejected_profile_json_response(profile)
+        if blocked:
+            return blocked
 
         # Validate date of birth and parse to date object
         date_of_birth_str = data.get("date_of_birth")
@@ -258,6 +283,10 @@ def save_profile_step2(request):
         data = json.loads(request.body)
 
         profile = CrushProfile.objects.get(user=request.user)
+
+        blocked = _rejected_profile_json_response(profile)
+        if blocked:
+            return blocked
 
         # SECURITY: Enforce phone verification before allowing Step 2
         if not profile.phone_verified:
@@ -560,6 +589,10 @@ def save_profile_step3(request):
     try:
         profile = CrushProfile.objects.get(user=request.user)
 
+        blocked = _rejected_profile_json_response(profile)
+        if blocked:
+            return blocked
+
         # Handle photos if uploaded (for backward compatibility with form submission).
         # Route through process_uploaded_image to enforce size limits, EXIF
         # stripping, and decompression-bomb protection (finding H1 — this path
@@ -669,6 +702,17 @@ def complete_profile_submission(request):
     try:
         profile = CrushProfile.objects.get(user=request.user)
 
+        # A rejected profile is terminal (issue #1188): reject before anything
+        # can flip it back to pending. Redirect matches the submission guard.
+        if profile.verification_status == "rejected":
+            messages.error(
+                request,
+                _(
+                    "Your profile has been rejected and cannot be resubmitted. Please contact support@crush.lu."
+                ),
+            )
+            return redirect("crush_lu:profile_rejected")
+
         # Journey guard: the 7-step onboarding flow requires the user to have
         # passed steps 1-3 (welcome, phone verify, coach intro) before the
         # submission gate can be cleared. This hardens against direct POSTs
@@ -737,6 +781,24 @@ def complete_profile_submission(request):
 
         try:
             with transaction.atomic():
+                # Recheck the rejection under the row lock (issue #1188): the
+                # check above read a possibly stale instance, and the save
+                # below would overwrite a concurrent rejection with "pending".
+                current_status = (
+                    CrushProfile.objects.select_for_update()
+                    .filter(pk=profile.pk)
+                    .values_list("verification_status", flat=True)
+                    .first()
+                )
+                if current_status == "rejected":
+                    messages.error(
+                        request,
+                        _(
+                            "Your profile has been rejected and cannot be resubmitted. Please contact support@crush.lu."
+                        ),
+                    )
+                    return redirect("crush_lu:profile_rejected")
+
                 # Mark as submitted — now "pending" means waiting to get
                 # verified at an event or via LuxID (no pre-event coach review).
                 profile.completion_status = (
