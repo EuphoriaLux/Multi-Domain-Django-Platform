@@ -91,3 +91,32 @@ class ExportProfileCompletenessTests(TestCase):
         self.assertNotIn("secret-endpoint", body)
         self.assertNotIn("secret-p256", body)
         self.assertNotIn("secret-auth", body)
+
+    def test_app_devices_export_metadata_without_tokens(self):
+        from crush_lu.models import (
+            AndroidAppDevice, IOSAppDevice, PWADeviceInstallation,
+        )
+
+        PWADeviceInstallation.objects.create(
+            user=self.user, device_fingerprint="FP-SECRET", device_category="mobile",
+            browser="Chrome",
+        )
+        IOSAppDevice.objects.create(
+            user=self.user, device_token="IOS-TOKEN-SECRET", device_id="IOS-ID-SECRET",
+            device_name="iPhone", app_version="1.0",
+        )
+        AndroidAppDevice.objects.create(
+            user=self.user, registration_token="AND-TOKEN-SECRET",
+            device_id="AND-ID-SECRET", device_name="Pixel 9",
+        )
+        data = self._export()
+        platforms = sorted(d["platform"] for d in data["app_devices"])
+        self.assertEqual(platforms, ["android", "ios", "pwa"])
+        body = json.dumps(data)
+        for secret in (
+            "FP-SECRET", "IOS-TOKEN-SECRET", "IOS-ID-SECRET",
+            "AND-TOKEN-SECRET", "AND-ID-SECRET",
+        ):
+            self.assertNotIn(secret, body)
+        self.assertIn("iPhone", body)
+        self.assertIn("Pixel 9", body)

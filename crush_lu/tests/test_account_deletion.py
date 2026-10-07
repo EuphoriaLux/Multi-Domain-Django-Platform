@@ -199,12 +199,14 @@ class AccountErasureCompletenessTests(TestCase):
         from django.contrib.auth import get_user_model
 
         from crush_lu.views_account import (
-            ACCOUNT_ERASURE_PURGE, ACCOUNT_ERASURE_RETAINED,
+            ACCOUNT_ERASURE_ANONYMIZE, ACCOUNT_ERASURE_PURGE,
+            ACCOUNT_ERASURE_RETAINED,
         )
 
         user_model = get_user_model()
         purged = {name for name, _fields in ACCOUNT_ERASURE_PURGE}
-        classified = purged | set(ACCOUNT_ERASURE_RETAINED)
+        anonymized = {name for name, _field in ACCOUNT_ERASURE_ANONYMIZE}
+        classified = purged | anonymized | set(ACCOUNT_ERASURE_RETAINED)
         self.assertFalse(purged & set(ACCOUNT_ERASURE_RETAINED))
         unclassified = []
         for model in apps.get_app_config('crush_lu').get_models():
@@ -213,7 +215,6 @@ class AccountErasureCompletenessTests(TestCase):
             owns_user_row = any(
                 f.is_relation
                 and f.related_model is user_model
-                and not f.null
                 for f in model._meta.concrete_fields
             )
             if owns_user_row and model.__name__ not in classified:
@@ -223,3 +224,108 @@ class AccountErasureCompletenessTests(TestCase):
             'Classify these in ACCOUNT_ERASURE_PURGE or ACCOUNT_ERASURE_RETAINED '
             '(crush_lu/views_account.py)',
         )
+
+    def test_every_other_app_user_fk_is_handled_or_deferred(self):
+        """Full-account deletion covers other installed apps too."""
+        from django.apps import apps
+        from django.contrib.auth import get_user_model
+
+        from crush_lu.views_account import (
+            ACCOUNT_ERASURE_ANONYMIZE_OTHER_APPS,
+            ACCOUNT_ERASURE_PURGE_OTHER_APPS,
+        )
+
+        handled = {
+            (app, name) for app, name, _f in ACCOUNT_ERASURE_PURGE_OTHER_APPS
+        } | {(app, name) for app, name, _f in ACCOUNT_ERASURE_ANONYMIZE_OTHER_APPS}
+        deferred = {
+            ("hub", "SocialPost"),
+            ("hub", "WhatsAppMessage"),
+            ("token_blacklist", "OutstandingToken"),
+            ("hub", "PartnerOnboardingStep"),
+            ("onboarding", "OnboardingSession"),
+            ("arborist", "ArboristLead"),
+            ("arborist", "LeadEvent"),
+        }
+        user_model = get_user_model()
+        unclassified = []
+        for model in apps.get_models():
+            label = model._meta.app_label
+            if label in ("crush_lu", "auth", "admin", "sessions",
+                         "contenttypes", "account", "socialaccount"):
+                continue
+            if model._meta.proxy:
+                continue
+            if any(
+                f.is_relation and f.related_model is user_model
+                for f in model._meta.concrete_fields
+            ) and (label, model.__name__) not in handled | deferred:
+                unclassified.append(f"{label}.{model.__name__}")
+        self.assertEqual(unclassified, [])
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_nullable_links_and_send_logs_are_anonymized_in_place(self, _s):
+        from crush_lu.models import (
+            Campaign, CampaignRecipient, CrushSpark, Newsletter,
+            NewsletterRecipient, ReferralAttribution,
+        )
+        from crush_lu.models.referrals import ReferralCode
+        from crush_lu.views import delete_full_account
+        from hub.models import WhatsAppMessage
+
+        newsletter = Newsletter.objects.create(
+            subject='S', body_html='x', audience='all_users',
+        )
+        NewsletterRecipient.objects.create(
+            newsletter=newsletter, user=self.user, email='del@example.com',
+            status='sent', error_message='bounce for del@example.com',
+        )
+        campaign = Campaign.objects.create(
+            name='c', channels=['whatsapp'], audience='all_users',
+        )
+        wa = WhatsAppMessage.objects.create(
+            user=self.other, recipient='+352621000000', template_name='t',
+            language='en', parameters={'1': 'Del', '2': 'del@example.com'},
+            status='sent',
+        )
+        CampaignRecipient.objects.create(
+            campaign=campaign, channel='whatsapp', user=self.user,
+            status='sent', whatsapp_message=wa,
+        )
+        code = ReferralCode.objects.create(referrer=self.other.crushprofile)
+        ReferralAttribution.objects.create(
+            referral_code=code, referrer=self.other.crushprofile,
+            referred_user=self.user, ip_address='1.2.3.4',
+            user_agent='UA', landing_path='/x', session_key='sk',
+        )
+
+        delete_full_account(self.user)
+
+        nr = NewsletterRecipient.objects.get(newsletter=newsletter)
+        self.assertEqual((nr.email, nr.error_message, nr.status), ('', '', 'sent'))
+        wa.refresh_from_db()
+        self.assertEqual((wa.recipient, wa.parameters), ('', {}))
+        self.assertEqual(
+            CampaignRecipient.objects.get(campaign=campaign).status, 'sent'
+        )
+        attribution = ReferralAttribution.objects.get()
+        self.assertIsNone(attribution.referred_user)
+        self.assertEqual(
+            (attribution.ip_address, attribution.user_agent), ('', '')
+        )
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_full_deletion_purges_other_app_profiles_profile_only_does_not(self, _s):
+        from crush_lu.views import delete_crushlu_profile_only, delete_full_account
+        from entreprinder.models import EntrepreneurProfile
+        from hub.models import HubProfile
+
+        for user in (self.user, self.other):
+            HubProfile.objects.create(user=user, organization='Acme')
+            EntrepreneurProfile.objects.create(user=user)
+        delete_crushlu_profile_only(self.user)
+        self.assertTrue(HubProfile.objects.filter(user=self.user).exists())
+        delete_full_account(self.user)
+        self.assertFalse(HubProfile.objects.filter(user=self.user).exists())
+        self.assertFalse(EntrepreneurProfile.objects.filter(user=self.user).exists())
+        self.assertTrue(HubProfile.objects.filter(user=self.other).exists())

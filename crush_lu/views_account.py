@@ -522,6 +522,42 @@ ACCOUNT_ERASURE_PURGE = (
     ("EmailPreference", ("user",)),
 )
 
+# Nullable (SET_NULL) links to the member. Account deletion anonymises the User
+# instead of deleting it, so SET_NULL never fires either: sever the link in
+# place (keeping the row for counts/audit) instead. (model, field) pairs.
+ACCOUNT_ERASURE_ANONYMIZE = (
+    ("CampaignClick", "user"),
+    ("CrushSpark", "recipient"),
+    ("JourneyGift", "claimed_by"),
+    ("ReferralAttribution", "referred_user"),
+    ("SpecialUserExperience", "linked_user"),
+    ("EventInvitation", "created_user"),
+    ("CacheChallengeAttempt", "answered_by"),
+    ("ConnectWeekSession", "compatibility_highlight_user"),
+)
+
+# Other apps: personal data on the User that only the FULL account deletion
+# removes (Crush.lu-profile-only deletion stays scoped to crush_lu).
+ACCOUNT_ERASURE_PURGE_OTHER_APPS = (
+    ("hub", "HubTimelineEvent", ("user",)),
+    ("hub", "HubRequest", ("user",)),
+    ("hub", "HubProfile", ("user",)),
+    ("hub", "EventCoachAvailability", ("user",)),
+    ("entreprinder", "EntrepreneurProfile", ("user",)),
+    ("entreprinder", "UserPixelStats", ("user",)),
+    ("entreprinder", "UserPixelCooldown", ("user",)),
+    ("delegations", "DelegationProfile", ("user",)),
+)
+ACCOUNT_ERASURE_ANONYMIZE_OTHER_APPS = (
+    ("entreprinder", "Pixel", "placed_by"),
+    ("entreprinder", "PixelHistory", "placed_by"),
+)
+# Deliberately NOT handled for other apps (listed in the PR for a decision):
+# hub.SocialPost, hub.WhatsAppMessage (staff-authored business records),
+# token_blacklist.OutstandingToken (deleting it would un-blacklist refresh
+# tokens; the anonymised user is inactive), and staff-actor SET_NULL links
+# (arborist.*, onboarding.*, hub.PartnerOnboardingStep.done_by).
+
 # User-keyed crush_lu models deliberately KEPT after account deletion, and why.
 # ``test_account_deletion`` fails when a new User FK model is in neither list,
 # so a new table cannot silently outlive an erasure request.
@@ -542,9 +578,18 @@ ACCOUNT_ERASURE_RETAINED = {
     "EventMeetingConfirmation": "shared with counterpart, product decision pending",
     "ConfirmedEncounter": "shared with counterpart, product decision pending",
     "ConfirmedEncounterRemovalRequest": "PROTECT; moderation record",
-    # Delivery logs of mail already sent (no content beyond the send record).
-    "NewsletterRecipient": "send log",
-    "CampaignRecipient": "send log",
+    # Send logs are kept for aggregate audit but anonymised in place by
+    # _anonymize_send_logs (email snapshot, error text, WhatsApp phone/params).
+    "NewsletterRecipient": "send log, anonymised in place",
+    "CampaignRecipient": "send log, anonymised in place",
+    # Staff-actor references (the member is the staff user, not data subject).
+    "CallAttempt": "staff actor reference",
+    "MeetupEvent": "staff actor reference",
+    "CuratedEventGroup": "staff actor reference",
+    "CuratedEventGroupMembership": "staff actor reference",
+    "Newsletter": "staff actor reference",
+    "Campaign": "staff actor reference",
+    "CustomSmsBatch": "staff actor reference",
     # Handled by the profile/registration deletion in delete_crushlu_profile_only.
     "CrushProfile": "deleted explicitly",
     "CoachSession": "deleted explicitly",
@@ -560,12 +605,36 @@ ACCOUNT_ERASURE_RETAINED = {
 }
 
 
+def _anonymize_send_logs(user):
+    """Strip identifiers from mail/WhatsApp send logs, keeping the audit rows.
+
+    NewsletterRecipient snapshots the address; a WhatsApp CampaignRecipient
+    points at a WhatsAppMessage holding the phone number and merged
+    name/email template parameters. Counts and statuses are preserved.
+    """
+    from crush_lu.models import CampaignRecipient, NewsletterRecipient
+    from hub.models import WhatsAppMessage
+
+    NewsletterRecipient.objects.filter(user=user).update(email="", error_message="")
+    message_ids = list(
+        CampaignRecipient.objects.filter(
+            user=user, whatsapp_message__isnull=False
+        ).values_list("whatsapp_message_id", flat=True)
+    )
+    if message_ids:
+        WhatsAppMessage.objects.filter(pk__in=message_ids).update(
+            recipient="", parameters={}, status_history=[]
+        )
+    CampaignRecipient.objects.filter(user=user).update(error_message="")
+
+
 def _purge_user_keyed_personal_data(user):
     """Delete the User-keyed personal rows listed in ACCOUNT_ERASURE_PURGE."""
     from django.apps import apps
 
     summary = {}
     with transaction.atomic():
+        _anonymize_send_logs(user)
         for model_name, fields in ACCOUNT_ERASURE_PURGE:
             model = apps.get_model("crush_lu", model_name)
             condition = Q()
@@ -574,6 +643,13 @@ def _purge_user_keyed_personal_data(user):
             deleted, _ = model.objects.filter(condition).delete()
             if deleted:
                 summary[model_name] = deleted
+        # IP / user agent / landing page of the member's referral visit.
+        apps.get_model("crush_lu", "ReferralAttribution").objects.filter(
+            referred_user=user
+        ).update(ip_address="", user_agent="", session_key="", landing_path="")
+        for model_name, field in ACCOUNT_ERASURE_ANONYMIZE:
+            model = apps.get_model("crush_lu", model_name)
+            model.objects.filter(**{field: user}).update(**{field: None})
     if summary:
         logger.info("Erased User-keyed personal data for user %s: %s", user.id, summary)
     return summary
@@ -758,6 +834,22 @@ def delete_crushlu_profile_only(user):
     logger.info(f"Crush.lu profile deleted for user {user.id} (PowerUp account kept)")
 
 
+def _purge_other_apps_personal_data(user):
+    """Full-account deletion only: purge profile-type data from other apps."""
+    from django.apps import apps
+
+    with transaction.atomic():
+        for app_label, model_name, fields in ACCOUNT_ERASURE_PURGE_OTHER_APPS:
+            model = apps.get_model(app_label, model_name)
+            condition = Q()
+            for field in fields:
+                condition |= Q(**{field: user})
+            model.objects.filter(condition).delete()
+        for app_label, model_name, field in ACCOUNT_ERASURE_ANONYMIZE_OTHER_APPS:
+            model = apps.get_model(app_label, model_name)
+            model.objects.filter(**{field: user}).update(**{field: None})
+
+
 def delete_full_account(user):
     """
     Delete ENTIRE PowerUp account including User model and all platform data.
@@ -783,6 +875,10 @@ def delete_full_account(user):
 
     # First delete Crush.lu profile
     delete_crushlu_profile_only(user)
+
+    # Then the other platforms' personal data on this account (hub,
+    # entreprinder, delegations): the User row survives, so it never cascades.
+    _purge_other_apps_personal_data(user)
 
     # Anonymize User record (instead of deleting to preserve referential integrity)
     user.email = f"deleted_{user.id}@deleted.crush.lu"
@@ -1927,7 +2023,12 @@ def export_user_data(request):
     GDPR Article 20 - Data Portability.
     Export all user's personal data as a JSON file download.
     """
-    from crush_lu.models import PushSubscription
+    from crush_lu.models import (
+        AndroidAppDevice,
+        IOSAppDevice,
+        PushSubscription,
+        PWADeviceInstallation,
+    )
     from crush_lu.models.profiles import UserDataConsent
 
     user = request.user
@@ -1997,6 +2098,46 @@ def export_user_data(request):
             "whatsapp_opt_in": email_prefs.whatsapp_opt_in,
             "unsubscribed_all": email_prefs.unsubscribed_all,
         }
+
+    # Installed-app / app-device registrations: descriptive metadata only.
+    # device_token, registration_token, device_id and fingerprints are
+    # delivery or device identifiers and stay out of the file.
+    def _iso(value):
+        return value.isoformat() if value else None
+
+    pwa = PWADeviceInstallation.objects.filter(user=user).order_by("installed_at")
+    ios = IOSAppDevice.objects.filter(user=user).order_by("created_at")
+    android = AndroidAppDevice.objects.filter(user=user).order_by("created_at")
+    app_devices = [
+        {
+            "platform": "pwa",
+            "os_type": d.os_type,
+            "form_factor": d.form_factor,
+            "device_category": d.device_category,
+            "browser": d.browser,
+            "user_agent": d.user_agent or None,
+            "installed_at": _iso(d.installed_at),
+            "last_used_at": _iso(d.last_used_at),
+        }
+        for d in pwa
+    ]
+    for platform, queryset in (("ios", ios), ("android", android)):
+        app_devices.extend(
+            {
+                "platform": platform,
+                "device_name": d.device_name or None,
+                "system_version": d.system_version or None,
+                "app_version": d.app_version or None,
+                "app_build": d.app_build or None,
+                "user_agent": d.user_agent or None,
+                "enabled": d.enabled,
+                "registered_at": _iso(d.created_at),
+                "last_seen_at": _iso(d.last_seen_at),
+            }
+            for d in queryset
+        )
+    if app_devices:
+        data["app_devices"] = app_devices
 
     # Push notification devices. The endpoint and keys are delivery secrets,
     # so only the descriptive fields are exported.
