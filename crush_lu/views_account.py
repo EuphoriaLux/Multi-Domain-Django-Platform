@@ -1083,6 +1083,11 @@ def delete_crushlu_profile_only(user):
     from crush_lu.newsletter_service import anonymize_newsletter_receipts
 
     anonymize_newsletter_receipts(user)
+    # A click attributed in the window between the redirect's consent check and
+    # its insert is cleaned here (the redirect itself takes no lock).
+    from crush_lu.models import CampaignClick
+
+    CampaignClick.objects.filter(user=user).update(user=None)
 
     logger.info(f"Crush.lu profile deleted for user {user.id} (PowerUp account kept)")
 

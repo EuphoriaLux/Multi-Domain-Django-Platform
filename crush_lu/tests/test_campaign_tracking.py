@@ -265,3 +265,22 @@ class EmailLegRewritingTests(TestCase):
         html_body = mail.outbox[0].alternatives[0].content
         self.assertIn('href="https://crush.lu/events/"', html_body)
         self.assertNotIn('/c/', html_body)
+
+
+class ClickSweepOnDeletionTests(TestCase):
+    def test_deletion_clears_attribution_of_late_clicks(self):
+        from unittest.mock import patch
+
+        from crush_lu.views import delete_crushlu_profile_only
+
+        user = make_user('late@example.com')
+        campaign = Campaign.objects.create(
+            name='Late', channels=['email'], audience='all_users',
+        )
+        build_tracked_url('https://crush.lu/x/', campaign, 'email', user)
+        link = CampaignLink.objects.get()
+        # A click attributed in the redirect's check-to-insert window.
+        CampaignClick.objects.create(link=link, user=user)
+        with patch('crush_lu.storage.delete_user_storage', return_value=(True, 0)):
+            delete_crushlu_profile_only(user)
+        self.assertIsNone(CampaignClick.objects.get().user)
