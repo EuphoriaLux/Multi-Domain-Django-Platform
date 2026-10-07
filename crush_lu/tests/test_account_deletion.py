@@ -329,3 +329,40 @@ class AccountErasureCompletenessTests(TestCase):
         self.assertFalse(HubProfile.objects.filter(user=self.user).exists())
         self.assertFalse(EntrepreneurProfile.objects.filter(user=self.user).exists())
         self.assertTrue(HubProfile.objects.filter(user=self.other).exists())
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_purged_models_files_outside_user_folder_are_deleted(self, _s):
+        """JourneyGift QR codes live in public storage, not users/<id>/ (#1183)."""
+        from django.core.files.base import ContentFile
+        from django.core.files.storage import InMemoryStorage
+
+        from crush_lu.models import JourneyGift
+        from crush_lu.views import delete_full_account
+
+        storage = InMemoryStorage()
+        qr_name = storage.save('journey_gifts/qr/ABC123.png', ContentFile(b'png'))
+        other_name = storage.save('journey_gifts/qr/KEEP.png', ContentFile(b'png'))
+        gift = JourneyGift.objects.create(
+            sender=self.user, recipient_name='R',
+            date_first_met=date(2024, 1, 1), location_first_met='Lux',
+        )
+        keep = JourneyGift.objects.create(
+            sender=self.other, recipient_name='R',
+            date_first_met=date(2024, 1, 1), location_first_met='Lux',
+        )
+        JourneyGift.objects.filter(pk=gift.pk).update(qr_code_image=qr_name)
+        JourneyGift.objects.filter(pk=keep.pk).update(qr_code_image=other_name)
+        # A missing file must not abort the purge.
+        JourneyGift.objects.create(
+            sender=self.user, recipient_name='R2', qr_code_image='gone/missing.png',
+            date_first_met=date(2024, 1, 1), location_first_met='Lux',
+        )
+
+        field = JourneyGift._meta.get_field('qr_code_image')
+        with patch.object(field, 'storage', storage):
+            delete_full_account(self.user)
+
+        self.assertFalse(storage.exists(qr_name))
+        self.assertTrue(storage.exists(other_name))
+        self.assertFalse(JourneyGift.objects.filter(sender=self.user).exists())
+        self.assertTrue(JourneyGift.objects.filter(pk=keep.pk).exists())

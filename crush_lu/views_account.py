@@ -628,6 +628,39 @@ def _anonymize_send_logs(user):
     CampaignRecipient.objects.filter(user=user).update(error_message="")
 
 
+def _delete_stored_files(queryset):
+    """Delete every FileField/ImageField file of the rows in ``queryset``.
+
+    QuerySet.delete() removes rows only, and delete_user_storage() sweeps just
+    users/<id>/, so files stored elsewhere (e.g. journey_gifts/qr/<code>.png,
+    gift and spark chapter media, wallet-proxy photos) would be orphaned.
+    Missing or undeletable files are tolerated: the row purge must proceed.
+    """
+    from django.db import models as dj_models
+
+    file_fields = [
+        f for f in queryset.model._meta.concrete_fields
+        if isinstance(f, dj_models.FileField)
+    ]
+    if not file_fields:
+        return 0
+    deleted = 0
+    for row in queryset.iterator():
+        for field in file_fields:
+            name = getattr(row, field.attname, None)
+            if not name:
+                continue
+            try:
+                field.storage.delete(str(name))
+                deleted += 1
+            except Exception as exc:  # noqa: BLE001 - never block erasure
+                logger.warning(
+                    "Could not delete %s.%s file %r: %s",
+                    queryset.model.__name__, field.name, name, exc,
+                )
+    return deleted
+
+
 def _purge_user_keyed_personal_data(user):
     """Delete the User-keyed personal rows listed in ACCOUNT_ERASURE_PURGE."""
     from django.apps import apps
@@ -640,6 +673,7 @@ def _purge_user_keyed_personal_data(user):
             condition = Q()
             for field in fields:
                 condition |= Q(**{field: user})
+            _delete_stored_files(model.objects.filter(condition))
             deleted, _ = model.objects.filter(condition).delete()
             if deleted:
                 summary[model_name] = deleted
@@ -2055,8 +2089,16 @@ def export_user_data(request):
             "phone_verified": profile.phone_verified,
             "location": profile.location or None,
             "bio": profile.bio,
+            # Legacy free-text field (deprecated for Event Identity members).
             "interests": profile.interests,
-            "ask_me_about": profile.ask_me_about,
+            # Current curated selections, by readable name (all of them), and
+            # the up-to-three highlighted ones resolved from their opaque ids.
+            "interests_selected": [
+                interest.label for interest in profile.interests_new.all()
+            ],
+            "ask_me_about": [
+                interest.label for interest in profile.ask_me_about_interests
+            ],
             "event_vibe": profile.event_vibe,
             "event_languages": profile.event_languages,
             "preferred_age_min": profile.preferred_age_min,

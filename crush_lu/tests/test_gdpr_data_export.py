@@ -30,7 +30,6 @@ class ExportProfileCompletenessTests(TestCase):
             preferred_age_min=25,
             preferred_age_max=40,
             preferred_genders=["M"],
-            ask_me_about=["cats"],
             event_vibe="chill",
             event_languages=["en", "fr"],
             apple_auth_token="SECRET-APPLE",
@@ -50,7 +49,7 @@ class ExportProfileCompletenessTests(TestCase):
         self.assertEqual(profile["preferred_age_min"], 25)
         self.assertEqual(profile["preferred_age_max"], 40)
         self.assertEqual(profile["preferred_genders"], ["M"])
-        self.assertEqual(profile["ask_me_about"], ["cats"])
+        self.assertEqual(profile["ask_me_about"], [])
         self.assertEqual(profile["event_vibe"], "chill")
         self.assertEqual(profile["event_languages"], ["en", "fr"])
         for key in (
@@ -120,3 +119,19 @@ class ExportProfileCompletenessTests(TestCase):
             self.assertNotIn(secret, body)
         self.assertIn("iPhone", body)
         self.assertIn("Pixel 9", body)
+
+    def test_curated_interests_exported_by_name_not_id(self):
+        from crush_lu.models import Interest
+
+        hiking = Interest.objects.create(
+            slug="t-hiking", label="Hiking", category="outdoors"
+        )
+        jazz = Interest.objects.create(slug="t-jazz", label="Jazz", category="culture")
+        Interest.objects.create(slug="t-chess", label="Chess", category="games")
+        profile = CrushProfile.objects.get(user=self.user)
+        profile.interests_new.set([hiking, jazz])
+        profile.ask_me_about = [jazz.pk]
+        profile.save()
+        exported = self._export()["profile"]
+        self.assertEqual(sorted(exported["interests_selected"]), ["Hiking", "Jazz"])
+        self.assertEqual(exported["ask_me_about"], ["Jazz"])
