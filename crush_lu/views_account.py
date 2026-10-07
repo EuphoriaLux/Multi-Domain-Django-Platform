@@ -1211,25 +1211,18 @@ def _phone_digits(value):
 
 
 def _collect_user_phone_numbers(user):
-    """Normalised phone numbers known for this user (profile + OTP records).
+    """Normalised verified phone number(s) for this user.
 
     Must run BEFORE the profile is deleted, while the number can still be
     correlated with WhatsApp inbound messages (which carry no user FK).
     """
-    from crush_lu.models import PhoneOTP
-
     numbers = set()
-    # Only numbers whose ownership was verified: an OTP can be requested for
-    # someone else's number, so unverified/unconsumed codes prove nothing.
+    # Only the profile's currently verified number. PhoneOTP rows prove
+    # nothing: an OTP can be requested for someone else's number, and issuing
+    # a new code marks the previous row consumed without any verification.
     profile = CrushProfile.objects.filter(user=user, phone_verified=True).first()
     if profile is not None:
         numbers.add(_phone_digits(profile.phone_number))
-    numbers.update(
-        _phone_digits(n)
-        for n in PhoneOTP.objects.filter(user=user, consumed=True).values_list(
-            "phone_number", flat=True
-        )
-    )
     numbers.discard("")
     return numbers
 
@@ -2474,6 +2467,8 @@ def export_user_data(request):
         "account": {
             "email": user.email,
             "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
             "date_joined": user.date_joined.isoformat(),
             "last_login": user.last_login.isoformat() if user.last_login else None,
         },

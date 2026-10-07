@@ -625,7 +625,8 @@ class AccountErasureCompletenessTests(TestCase):
             user=self.user, phone_number='+352621222222', code_hash='h',
             expires_at=timezone.now() + timedelta(minutes=5), consumed=True,
         )
-        # An OTP requested for someone else's number was never verified.
+        # A consumed row can just be a code superseded by a resend, and an OTP
+        # can be requested for someone else's number: neither proves ownership.
         PhoneOTP.objects.create(
             user=self.user, phone_number='+352699999999', code_hash='h',
             expires_at=timezone.now() + timedelta(minutes=5), consumed=False,
@@ -638,19 +639,19 @@ class AccountErasureCompletenessTests(TestCase):
             )
 
         mine = inbound('wamid.1', '352621111111')
-        also_mine = inbound('wamid.2', '+352621222222')
+        superseded = inbound('wamid.2', '+352621222222')  # consumed != verified
         theirs = inbound('wamid.3', '352699999999')  # only an unverified OTP
 
         delete_full_account(self.user)
 
-        for row in (mine, also_mine):
+        mine.refresh_from_db()
+        self.assertEqual(
+            (mine.from_number, mine.contact_name, mine.text, mine.payload),
+            ('erased', '', '', {}),
+        )
+        for row in (superseded, theirs):
             row.refresh_from_db()
-            self.assertEqual(
-                (row.from_number, row.contact_name, row.text, row.payload),
-                ('erased', '', '', {}),
-            )
-        theirs.refresh_from_db()
-        self.assertEqual((theirs.contact_name, theirs.text), ('Del Me', 'hello'))
+            self.assertEqual((row.contact_name, row.text), ('Del Me', 'hello'))
 
     @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
     def test_erased_user_pk_is_removed_from_manual_sms_batches(self, _s):

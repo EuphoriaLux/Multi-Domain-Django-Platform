@@ -61,6 +61,17 @@ class ExportProfileCompletenessTests(TestCase):
         ):
             self.assertIn(key, profile)
 
+    def test_account_block_exports_names_even_when_full_name_is_hidden(self):
+        User.objects.filter(pk=self.user.pk).update(
+            first_name="Ada", last_name="Lovelace"
+        )
+        CrushProfile.objects.filter(user=self.user).update(show_full_name=False)
+
+        account = self._export()["account"]
+
+        self.assertEqual(account["first_name"], "Ada")
+        self.assertEqual(account["last_name"], "Lovelace")
+
     def test_nonexistent_fields_are_gone(self):
         profile = self._export()["profile"]
         self.assertNotIn("canton", profile)
