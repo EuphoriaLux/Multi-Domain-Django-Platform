@@ -1814,6 +1814,7 @@ def export_user_data(request):
     GDPR Article 20 - Data Portability.
     Export all user's personal data as a JSON file download.
     """
+    from crush_lu.models import PushSubscription
     from crush_lu.models.profiles import UserDataConsent
 
     user = request.user
@@ -1836,17 +1837,70 @@ def export_user_data(request):
             "date_of_birth": (
                 str(profile.date_of_birth) if profile.date_of_birth else None
             ),
-            "canton": getattr(profile, "canton", None),
+            "phone_number": profile.phone_number or None,
+            "phone_verified": profile.phone_verified,
+            "location": profile.location or None,
             "bio": profile.bio,
             "interests": profile.interests,
-            "status": getattr(profile, "status", None),
+            "ask_me_about": profile.ask_me_about,
+            "event_vibe": profile.event_vibe,
+            "event_languages": profile.event_languages,
+            "preferred_age_min": profile.preferred_age_min,
+            "preferred_age_max": profile.preferred_age_max,
+            "preferred_genders": profile.preferred_genders,
+            "preferred_language": profile.preferred_language,
+            "show_full_name": profile.show_full_name,
+            "show_exact_age": profile.show_exact_age,
+            "completion_status": profile.completion_status,
+            "verification_status": profile.verification_status,
+            "membership_tier": profile.membership_tier,
+            "referral_points": profile.referral_points,
             "is_community_supporter": profile.is_community_supporter,
+            "photos_uploaded": sum(
+                1
+                for photo in (profile.photo_1, profile.photo_2, profile.photo_3)
+                if photo
+            ),
             "created_at": (
                 profile.created_at.isoformat()
                 if hasattr(profile, "created_at") and profile.created_at
                 else None
             ),
         }
+        # Deliberately NOT exported: credentials and internal identifiers
+        # (apple_auth_token, phone_verification_uid, wallet/outlook ids, photo
+        # storage keys, draft_data) and staff-side photo review notes.
+
+    # Email / WhatsApp preferences
+    email_prefs = EmailPreference.objects.filter(user=user).first()
+    if email_prefs is not None:
+        data["email_preferences"] = {
+            "email_profile_updates": email_prefs.email_profile_updates,
+            "email_event_reminders": email_prefs.email_event_reminders,
+            "email_new_connections": email_prefs.email_new_connections,
+            "email_new_messages": email_prefs.email_new_messages,
+            "email_newsletter": email_prefs.email_newsletter,
+            "email_marketing": email_prefs.email_marketing,
+            "whatsapp_opt_in": email_prefs.whatsapp_opt_in,
+            "unsubscribed_all": email_prefs.unsubscribed_all,
+        }
+
+    # Push notification devices. The endpoint and keys are delivery secrets,
+    # so only the descriptive fields are exported.
+    push_devices = PushSubscription.objects.filter(user=user).order_by("created_at")
+    if push_devices.exists():
+        data["push_devices"] = [
+            {
+                "device_name": device.device_name or None,
+                "user_agent": device.user_agent or None,
+                "enabled": device.enabled,
+                "registered_at": device.created_at.isoformat(),
+                "last_used_at": (
+                    device.last_used_at.isoformat() if device.last_used_at else None
+                ),
+            }
+            for device in push_devices
+        ]
 
     # Event registrations
     registrations = (
