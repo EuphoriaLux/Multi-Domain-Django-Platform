@@ -570,3 +570,34 @@ class SlaSweepTests(TestCase):
         sub.refresh_from_db()
         self.assertEqual(response.status_code, 500)
         self.assertEqual(sub.booking_token, token)
+
+    def test_sla_tick_command_recovers_a_stale_unsent_claim(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        sub = self._submission("tick")
+        with patch(SEND, return_value=1):
+            self._sweep()
+        sub.refresh_from_db()
+        token = sub.booking_token
+        # The coach is outside the hybrid gate and the SLA is not breached: only
+        # the shared lease-recovery predicate may pick this up.
+        CrushCoach.objects.filter(pk=self.coach.pk).update(
+            hybrid_features_enabled=False
+        )
+        ProfileSubmission.objects.filter(pk=sub.pk).update(
+            sla_deadline=timezone.now() + timedelta(hours=5),
+            fallback_offer_sent_at=None,
+            fallback_offer_claimed_at=timezone.now() - timedelta(hours=1),
+        )
+
+        out = StringIO()
+        with patch(SEND, return_value=1) as send:
+            call_command("sla_tick", stdout=out)
+
+        sub.refresh_from_db()
+        send.assert_called_once()
+        self.assertEqual(sub.booking_token, token)
+        self.assertIsNotNone(sub.fallback_offer_sent_at)
+        self.assertIn("processed=1", out.getvalue())

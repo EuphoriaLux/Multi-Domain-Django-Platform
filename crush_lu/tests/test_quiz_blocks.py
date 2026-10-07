@@ -424,3 +424,31 @@ class TestConsolidationIgnoresBlocksForPlacement:
         ]
         # ... while the host is still told, neutrally.
         assert any("may not want to be together" in w for w in result["warnings"])
+
+
+@pytest.mark.django_db
+class TestDistinctPairCounting:
+    def test_one_pair_seated_together_in_several_rounds_counts_once(
+        self, quiz_event_4t  # noqa: F811
+    ):
+        quiz = quiz_event_4t
+        man = _make_user("once_m0", "M")
+        woman = _make_user("once_f0", "F")
+        _check_in_attended(quiz, man)
+        _check_in_attended(quiz, woman)
+        table = QuizRotationSchedule.objects.get(
+            quiz=quiz, round_number=0, user=man
+        ).table
+        for round_number in (1, 2):
+            for user, role in ((man, "anchor"), (woman, "rotator")):
+                QuizRotationSchedule.objects.create(
+                    quiz=quiz,
+                    round_number=round_number,
+                    table=table,
+                    user=user,
+                    role=role,
+                )
+        UserBlock.objects.create(blocker=woman, blocked=man, reason="other")
+
+        # Three rounds at one table is still one blocked pair.
+        assert blocked_table_conflict_count(quiz) == 1

@@ -227,7 +227,10 @@ def blocked_table_conflict_count(quiz, *, upcoming_only=False):
     seated = {}
     for round_number, table_id, user_id in rows:
         seated.setdefault((round_number, table_id), set()).add(user_id)
-    return sum(1 for members in seated.values() for pair in pairs if pair <= members)
+    # Distinct pairs, not pair-rounds: one pair sharing three rounds is one pair.
+    return len(
+        {pair for members in seated.values() for pair in pairs if pair <= members}
+    )
 
 
 def current_block_warnings(quiz):
@@ -1405,9 +1408,9 @@ def _simulated_block_conflicts(round_0, moves, new_num_tables, blocked_pairs, qu
             anchors_by_table[table_no - 1].append(r.user_id)
         else:
             rotators_by_table[(r.rotation_group, table_no - 1)].append(r.user_id)
-    layout_conflicts = sum(
-        1 for members in layout.values() for pair in blocked_pairs if pair <= members
-    )
+    conflicting = {
+        pair for members in layout.values() for pair in blocked_pairs if pair <= members
+    }
     men, women = _order_round0(anchors_by_table, rotators_by_table, new_num_tables)
     try:
         schedule = generate_rotation_schedule(
@@ -1415,19 +1418,18 @@ def _simulated_block_conflicts(round_0, moves, new_num_tables, blocked_pairs, qu
         )["schedule"]
     except ValidationError:
         # Too few people for a rotation; the layout itself is all there is.
-        return layout_conflicts
+        return len(conflicting)
     seated = defaultdict(set)
     for entry in schedule:
+        # Round 0 is the persisted check-in layout (counted above); only rounds
+        # 1+ come from the regenerated rotation, exactly as on apply.
+        if entry["round_number"] < 1:
+            continue
         seated[(entry["round_number"], entry["table_number"])].add(entry["user"])
-    return max(
-        layout_conflicts,
-        sum(
-            1
-            for members in seated.values()
-            for pair in blocked_pairs
-            if pair <= members
-        ),
-    )
+    conflicting |= {
+        pair for members in seated.values() for pair in blocked_pairs if pair <= members
+    }
+    return len(conflicting)
 
 
 def consolidate_tables(quiz, *, apply=False, moves_override=None):

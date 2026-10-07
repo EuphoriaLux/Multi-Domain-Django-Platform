@@ -1066,6 +1066,9 @@ document.addEventListener("alpine:init", function () {
                 return this.consolidationPreview !== null;
             },
             get hasConsolidationWarnings() {
+                if (this.consolidationPreview && this.consolidationPreview.edited) {
+                    return true;
+                }
                 return (
                     this.consolidationPreview !== null &&
                     Array.isArray(this.consolidationPreview.warnings) &&
@@ -1074,6 +1077,11 @@ document.addEventListener("alpine:init", function () {
             },
             get consolidationWarningText() {
                 // Bound with x-text (textContent), so server text is never parsed as HTML.
+                if (this.consolidationPreview && this.consolidationPreview.edited) {
+                    // The server cannot preview an edited layout, so do not show
+                    // warnings that belong to the automatic plan as if current.
+                    return this._i18n.consolidateEditedNote;
+                }
                 if (!this.hasConsolidationWarnings) return "";
                 return this.consolidationPreview.warnings.join(" ");
             },
@@ -1508,7 +1516,12 @@ document.addEventListener("alpine:init", function () {
                 } else if (type === "quiz.tables_consolidated") {
                     // Same reason as quiz.table_dissolved — the scoring grid
                     // is server-rendered from `tables`; reload to rebuild it.
-                    window.location.reload();
+                    // The client that applied it reloads from its own response
+                    // path instead (after showing any warnings), so it skips
+                    // this immediate reload; every other client still reloads.
+                    if (!this._consolidationApplyInFlight) {
+                        window.location.reload();
+                    }
                 } else if (type === "quiz.error") {
                     this.showError(data.message || "An error occurred");
                 }
@@ -1637,6 +1650,9 @@ document.addEventListener("alpine:init", function () {
                 var self = this;
                 if (this.consolidationLoading) return;
                 this.consolidationLoading = true;
+                // The apply broadcast reaches this client too; mark it so the
+                // WebSocket handler leaves the (delayed) reload to our response.
+                this._consolidationApplyInFlight = !!apply;
                 var payload = { apply: !!apply };
                 if (
                     apply &&
@@ -1665,6 +1681,7 @@ document.addEventListener("alpine:init", function () {
                     .then(function (res) {
                         self.consolidationLoading = false;
                         if (!res.ok) {
+                            self._consolidationApplyInFlight = false;
                             self.consolidationPreview = null;
                             self.showError(
                                 res.data && res.data.error
@@ -1699,6 +1716,7 @@ document.addEventListener("alpine:init", function () {
                     })
                     .catch(function () {
                         self.consolidationLoading = false;
+                        self._consolidationApplyInFlight = false;
                         self.consolidationPreview = null;
                         self.showError(self._i18n.consolidateFailed);
                     });
@@ -1749,6 +1767,7 @@ document.addEventListener("alpine:init", function () {
                             self.consolidationPreview.moves[idx]
                         ) {
                             self.consolidationPreview.moves[idx].to_table = val;
+                            self.consolidationPreview.edited = true;
                         }
                     });
                     li.appendChild(sel);

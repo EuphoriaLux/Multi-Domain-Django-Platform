@@ -210,35 +210,14 @@ def revert_fallback_offer(submission_pk, booking_token, *, reason):
     return True
 
 
-@csrf_exempt
-@require_http_methods(["POST"])
-def sla_sweep(request):
-    """POST /api/admin/hybrid-coach-sla-sweep/
+def run_sla_sweep(host, is_secure, *, actor="system"):
+    """One drain of the SLA fallback queue; the single implementation.
 
-    For each pending submission where:
-      * sla_deadline has passed,
-      * fallback hasn't been offered yet (or an earlier claim went stale, or a
-        failed send has backed off),
-      * the submission isn't paused or already booked,
-      * the assigned coach opted into hybrid features,
-
-    claim it under a row lock (``fallback_offered_at``, a 30-day
-    ``booking_token``, ``fallback_offer_claimed_at``, a ``fallback_offered``
-    ``system_actions`` entry), commit, and only then send the email.
-
-    Mail never goes out under a lock. If the send fails (or the time budget runs
-    out) the offer is cleared so the submission is retried; if the worker dies
-    mid-way the claim has no ``fallback_offer_sent_at`` and is reclaimed after
-    ``SLA_CLAIM_LEASE``. A submission that stopped being bookable between
-    claim and send is cleared without a mail. A member who unsubscribed or whose address is suppressed
-    is marked sent without a mail (retrying cannot help).
-
-    Idempotent on repeat calls. One call drains oldest-breach-first until the
-    queue is empty or ``SLA_SWEEP_SEND_BUDGET_SECONDS`` is spent.
+    Used by the ``sla_sweep`` endpoint and the ``sla_tick`` dev command, so
+    the candidate selection (new breaches, backed-off retries, stale-lease
+    recovery) and the per-row claim/send/undo logic exist exactly once.
+    Returns the counters that the endpoint reports.
     """
-    if not _authenticate_admin_request(request):
-        return _unauthorized(request)
-
     import time
 
     from .models import ProfileSubmission
@@ -250,12 +229,6 @@ def sla_sweep(request):
         deliver_sla_fallback_email,
     )
 
-    if not getattr(settings, "HYBRID_COACH_SYSTEM_ENABLED", False):
-        logger.info("[sla_sweep] HYBRID_COACH_SYSTEM_ENABLED=False — skipping")
-        return _hybrid_disabled()
-
-    host = _resolve_email_host(request)
-    is_secure = request.is_secure()
     now = timezone.now()
     started = time.monotonic()
 
@@ -287,7 +260,7 @@ def sla_sweep(request):
                         recovered = mark_fallback_offered(
                             sub,
                             now,
-                            actor="system",
+                            actor=actor,
                             reason="sla_breach",
                             sla_deadline=(
                                 sub.sla_deadline.isoformat()
@@ -342,17 +315,51 @@ def sla_sweep(request):
         deferred,
         uncertain,
     )
-    return JsonResponse(
-        {
-            "processed": processed,
-            "failed": failed,
-            "skipped": skipped,
-            "deferred": deferred,
-            "uncertain": uncertain,
-            "timestamp": now.isoformat(),
-        },
-        status=202,
-    )
+    return {
+        "processed": processed,
+        "failed": failed,
+        "skipped": skipped,
+        "deferred": deferred,
+        "uncertain": uncertain,
+        "timestamp": now.isoformat(),
+    }
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def sla_sweep(request):
+    """POST /api/admin/hybrid-coach-sla-sweep/
+
+    For each pending submission where:
+      * sla_deadline has passed,
+      * fallback hasn't been offered yet (or an earlier claim went stale, or a
+        failed send has backed off),
+      * the submission isn't paused or already booked,
+      * the assigned coach opted into hybrid features,
+
+    claim it under a row lock (``fallback_offered_at``, a 30-day
+    ``booking_token``, ``fallback_offer_claimed_at``, a ``fallback_offered``
+    ``system_actions`` entry), commit, and only then send the email.
+
+    Mail never goes out under a lock. If the send fails (or the time budget runs
+    out) the offer is cleared so the submission is retried; if the worker dies
+    mid-way the claim has no ``fallback_offer_sent_at`` and is reclaimed after
+    ``SLA_CLAIM_LEASE``. A submission that stopped being bookable between
+    claim and send is cleared without a mail. A member who unsubscribed or whose address is suppressed
+    is marked sent without a mail (retrying cannot help).
+
+    Idempotent on repeat calls. One call drains oldest-breach-first until the
+    queue is empty or ``SLA_SWEEP_SEND_BUDGET_SECONDS`` is spent.
+    """
+    if not _authenticate_admin_request(request):
+        return _unauthorized(request)
+
+    if not getattr(settings, "HYBRID_COACH_SYSTEM_ENABLED", False):
+        logger.info("[sla_sweep] HYBRID_COACH_SYSTEM_ENABLED=False — skipping")
+        return _hybrid_disabled()
+
+    result = run_sla_sweep(_resolve_email_host(request), request.is_secure())
+    return JsonResponse(result, status=202)
 
 
 def _resolve_email_host(request) -> str:
