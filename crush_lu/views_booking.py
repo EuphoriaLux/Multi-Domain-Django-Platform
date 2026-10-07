@@ -57,9 +57,7 @@ def _resolve_token(booking_token):
     # rejected, review_call_completed, or is_paused). Without this guard, a
     # stale emailed link could still reach claim_for_submission and spawn a
     # booked slot / coach reassignment against a closed submission.
-    if submission.status != "pending":
-        raise Http404("Booking link no longer valid")
-    if submission.review_call_completed or submission.is_paused:
+    if not submission.is_self_booking_open():
         raise Http404("Booking link no longer valid")
 
     return submission
