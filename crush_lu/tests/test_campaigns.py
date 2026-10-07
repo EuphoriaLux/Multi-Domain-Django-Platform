@@ -48,7 +48,7 @@ vapid_test_settings = override_settings(
 )
 
 
-def make_user(email, **profile_kwargs):
+def make_user(email, consented=True, **profile_kwargs):
     user = User.objects.create_user(
         username=email,
         email=email,
@@ -64,6 +64,11 @@ def make_user(email, **profile_kwargs):
         }
         defaults.update(profile_kwargs)
         CrushProfile.objects.create(user=user, **defaults)
+        # Audiences require Crush.lu consent (#1184); the signal default is False.
+        UserDataConsent.objects.update_or_create(
+            user=user,
+            defaults={'crushlu_consent_given': consented},
+        )
     return user
 
 
