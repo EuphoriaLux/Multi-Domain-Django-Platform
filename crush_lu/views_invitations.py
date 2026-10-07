@@ -117,6 +117,27 @@ def invitation_accept(request, code):
                     preferred_language=preferred_lang,
                 )
 
+                # Record the consent the guest just gave. ``agree_to_terms`` is a
+                # required checkbox with the same wording as the signup form's
+                # ``crushlu_consent``; without this the guest's UserDataConsent
+                # keeps the signal default (not given), so their first gated page
+                # bounces them to /consent/confirm/ for a consent they already gave.
+                # Marketing stays opted out (the invite form has no such checkbox).
+                from .models.profiles import UserDataConsent
+                from .oauth_statekit import get_client_ip
+
+                consent, _created = UserDataConsent.objects.get_or_create(user=user)
+                consent.crushlu_consent_given = True
+                consent.crushlu_consent_date = timezone.now()
+                consent.crushlu_consent_ip = get_client_ip(request)
+                consent.save(
+                    update_fields=[
+                        "crushlu_consent_given",
+                        "crushlu_consent_date",
+                        "crushlu_consent_ip",
+                    ]
+                )
+
                 # Update invitation
                 invitation.created_user = user
                 invitation.status = "accepted"
