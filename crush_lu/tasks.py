@@ -231,6 +231,41 @@ SLA_EMAIL_FAILED = "failed"
 # The submission moved on (approved, rejected, call done, paused) after the offer
 # was claimed: the link would 404, so nothing is sent and the caller clears it.
 SLA_EMAIL_STALE = "stale"
+# The transport failed AFTER the request may have reached Graph (read timeout,
+# connection reset). The mail may well be delivered, so the booking token it
+# carries must not be cleared; a later lease retry re-sends the SAME token.
+SLA_EMAIL_AMBIGUOUS = "ambiguous"
+
+
+def _is_outcome_ambiguous(exc):
+    """True when ``exc`` may have happened after Graph accepted the message.
+
+    Read timeouts, dropped/reset connections and truncated responses leave the
+    outcome unknown. HTTP error statuses, validation errors, token failures and
+    connect timeouts (nothing was sent) are definite failures. Token fetches
+    that fail on the network also land here; the cost is only a lease-delayed
+    retry with the same token.
+    """
+    import requests
+
+    seen = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        if isinstance(
+            exc,
+            (requests.exceptions.ReadTimeout, requests.exceptions.ChunkedEncodingError),
+        ):
+            return True
+        if isinstance(exc, requests.exceptions.ConnectionError) and not isinstance(
+            exc, requests.exceptions.ConnectTimeout
+        ):
+            return True
+        if isinstance(
+            exc, (ConnectionResetError, ConnectionAbortedError, BrokenPipeError)
+        ):
+            return True
+        exc = exc.__cause__ or exc.__context__
+    return False
 
 
 def _is_email_suppressed(email):
@@ -262,6 +297,9 @@ def deliver_sla_fallback_email(submission_id, host, is_secure=True):
     * ``SLA_EMAIL_STALE`` -- the submission is no longer bookable (same
       predicate as the booking page); nothing is sent and the caller clears the
       offer without retrying;
+    * ``SLA_EMAIL_AMBIGUOUS`` -- the transport failed after Graph may have
+      accepted the message; the token is kept and the lease retry reuses it
+      (a duplicate email with the same working link is accepted);
     * ``SLA_EMAIL_FAILED`` -- the send raised or was suppressed (returned 0).
       The caller should undo the offer so the next sweep retries.
 
@@ -367,6 +405,12 @@ def deliver_sla_fallback_email(submission_id, host, is_secure=True):
             fail_silently=False,
         )
     except Exception as e:  # noqa: BLE001
+        if _is_outcome_ambiguous(e):
+            logger.warning(
+                f"[TASK] SLA fallback email for submission {submission_id} has an "
+                f"unknown outcome ({type(e).__name__}); keeping its booking token"
+            )
+            return SLA_EMAIL_AMBIGUOUS
         logger.error(
             f"[TASK] Failed SLA fallback email for submission {submission_id}: "
             f"{type(e).__name__}"

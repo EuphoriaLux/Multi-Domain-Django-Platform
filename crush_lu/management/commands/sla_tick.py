@@ -47,6 +47,7 @@ class Command(BaseCommand):
         )
         from crush_lu.models import ProfileSubmission
         from crush_lu.tasks import (
+            SLA_EMAIL_AMBIGUOUS,
             SLA_EMAIL_FAILED,
             SLA_EMAIL_SENT,
             SLA_EMAIL_STALE,
@@ -105,6 +106,12 @@ class Command(BaseCommand):
             outcome = deliver_sla_fallback_email(
                 sub.pk, opts["host"], not opts["insecure"]
             )
+            if outcome == SLA_EMAIL_AMBIGUOUS:
+                self.stderr.write(
+                    f"  submission #{sub.pk}: send outcome unknown; token kept, "
+                    "the lease retry reuses it"
+                )
+                continue
             if outcome == SLA_EMAIL_STALE:
                 revert_fallback_offer(sub.pk, token, reason="no_longer_bookable")
                 continue

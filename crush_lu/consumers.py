@@ -715,6 +715,11 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
             await self.send_error(guard["error"])
             return
 
+        # A block created mid-quiz can put a pair at one table in the next
+        # round; tell the host (own socket only) before the room moves.
+        for warning in await self.get_upcoming_block_warnings():
+            await self.send_error(warning)
+
         rotation_data = await self.advance_round_and_rotate()
         # A rebuild that could not produce seating for the new round comes
         # back as an error, and it has to reach the host the way the guard
@@ -1766,6 +1771,21 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
         from crush_lu.services.quiz_rotation import check_can_rotate
 
         return check_can_rotate(self.quiz_id)
+
+    @database_sync_to_async
+    def get_upcoming_block_warnings(self):
+        """Host-only warnings about blocked pairs sharing a table in a later round."""
+        from crush_lu.models.quiz import QuizEvent
+        from crush_lu.services.quiz_rotation import (
+            _blocked_table_warning,
+            blocked_table_conflict_count,
+        )
+
+        quiz = QuizEvent.objects.filter(id=self.quiz_id).first()
+        if quiz is None:
+            return []
+        count = blocked_table_conflict_count(quiz, upcoming_only=True)
+        return [_blocked_table_warning(count)] if count else []
 
     @database_sync_to_async
     def advance_round_and_rotate(self):

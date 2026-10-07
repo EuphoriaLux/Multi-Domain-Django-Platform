@@ -406,3 +406,90 @@ class SlaSweepTests(TestCase):
             + module.SLA_SWEEP_WORST_CASE_SEND_SECONDS,
             caller_timeout - module.SLA_SWEEP_SAFETY_MARGIN_SECONDS,
         )
+
+    def test_reclaim_with_an_expired_token_mints_a_fresh_one(self):
+        sub = self._submission("expired")
+        with patch(SEND, return_value=1):
+            self._sweep()
+        sub.refresh_from_db()
+        old_token = sub.booking_token
+        ProfileSubmission.objects.filter(pk=sub.pk).update(
+            fallback_offer_sent_at=None,
+            fallback_offer_claimed_at=timezone.now() - timedelta(hours=1),
+            booking_token_expires_at=timezone.now() - timedelta(days=1),
+        )
+
+        with patch(SEND, return_value=1):
+            self._sweep()
+
+        sub.refresh_from_db()
+        self.assertNotEqual(sub.booking_token, old_token)
+        self.assertGreater(sub.booking_token_expires_at, timezone.now())
+
+    def test_reclaim_keeps_a_still_valid_token(self):
+        sub = self._submission("valid")
+        with patch(SEND, return_value=1):
+            self._sweep()
+        sub.refresh_from_db()
+        token = sub.booking_token
+        ProfileSubmission.objects.filter(pk=sub.pk).update(
+            fallback_offer_sent_at=None,
+            fallback_offer_claimed_at=timezone.now() - timedelta(hours=1),
+        )
+
+        with patch(SEND, return_value=1):
+            self._sweep()
+
+        sub.refresh_from_db()
+        self.assertEqual(sub.booking_token, token)
+
+    def test_ambiguous_transport_failure_keeps_the_token_and_retries_same_link(self):
+        import requests
+
+        sub = self._submission("ambiguous")
+        with patch(SEND, side_effect=requests.exceptions.ReadTimeout("slow")):
+            body = self._sweep().json()
+
+        sub.refresh_from_db()
+        token = sub.booking_token
+        self.assertEqual(
+            (body["uncertain"], body["failed"], body["processed"]), (1, 0, 0)
+        )
+        self.assertIsNotNone(token)
+        self.assertIsNone(sub.fallback_offer_sent_at)
+
+        # Inside the lease nothing is re-sent; after it the SAME token is reused.
+        with patch(SEND, return_value=1) as send:
+            self._sweep()
+        send.assert_not_called()
+        ProfileSubmission.objects.filter(pk=sub.pk).update(
+            fallback_offer_claimed_at=timezone.now() - timedelta(hours=1)
+        )
+        with patch(SEND, return_value=1) as send:
+            body = self._sweep().json()
+        sub.refresh_from_db()
+        self.assertEqual(body["processed"], 1)
+        self.assertEqual(sub.booking_token, token)
+        self.assertIsNotNone(sub.fallback_offer_sent_at)
+
+    def test_definite_http_failure_still_clears_the_token(self):
+        sub = self._submission("definite")
+        with patch(
+            SEND, side_effect=Exception("Failed to send email via Graph API: HTTP 400")
+        ):
+            body = self._sweep().json()
+
+        sub.refresh_from_db()
+        self.assertEqual((body["failed"], body["uncertain"]), (1, 0))
+        self.assertIsNone(sub.booking_token)
+
+    def test_connect_timeout_is_a_definite_failure(self):
+        import requests
+
+        sub = self._submission("connecttimeout")
+        with patch(SEND, side_effect=requests.exceptions.ConnectTimeout("nope")):
+            body = self._sweep().json()
+
+        sub.refresh_from_db()
+        self.assertEqual((body["failed"], body["uncertain"]), (1, 0))
+        self.assertIsNone(sub.booking_token)

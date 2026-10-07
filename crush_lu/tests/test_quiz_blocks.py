@@ -222,3 +222,96 @@ class TestQuizStartWarnsAboutLateBlock:
 
         assert not result.get("error")
         assert any("blocked pair" in w for w in result["host_warnings"])
+
+
+@pytest.mark.django_db
+class TestQuizBlocksMidQuiz:
+    @pytest.fixture(autouse=True)
+    def _keep_test_connection_open(self, monkeypatch):
+        monkeypatch.setattr("channels.db.close_old_connections", lambda *a, **kw: None)
+
+    def _seat(self, quiz):
+        men = [_make_user(f"mid_m{i}", "M") for i in range(2)]
+        women = [_make_user(f"mid_f{i}", "F") for i in range(4)]
+        for user in men + women:
+            _check_in_attended(quiz, user)
+        generate_rotation_rounds(quiz)
+        return men, women
+
+    def test_consolidate_endpoint_returns_block_warnings(
+        self, client, quiz_event_4t  # noqa: F811
+    ):
+        quiz = quiz_event_4t
+        men = [_make_user(f"api_m{i}", "M") for i in range(3)]
+        women = [_make_user(f"api_f{i}", "F") for i in range(4)]
+        for user in men + women:
+            _check_in_attended(quiz, user)
+        # Block every man against every woman: no layout can avoid a shared
+        # table, so the preview must carry a warning.
+        for man in men:
+            for woman in women:
+                UserBlock.objects.create(blocker=man, blocked=woman, reason="other")
+        assert client.login(username="consol_coach@test.com", password="testpass123")
+
+        response = client.post(
+            f"/api/quiz/{quiz.id}/consolidate-tables/",
+            data="{}",
+            content_type="application/json",
+            HTTP_HOST="crush.lu",
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["changed"] is True
+        assert any("blocked pair" in w for w in body["warnings"])
+
+    def test_upcoming_conflicts_are_counted_without_the_current_round(
+        self, quiz_event_4t  # noqa: F811
+    ):
+        quiz = quiz_event_4t
+        men, women = self._seat(quiz)
+        quiz.current_round = quiz.rounds.order_by("sort_order")[0]
+        quiz.status = "active"
+        quiz.save(update_fields=["current_round", "status"])
+        # Every anchor/rotator pair meets in some round of a full rotation.
+        for man in men:
+            for woman in women:
+                UserBlock.objects.create(blocker=man, blocked=woman, reason="other")
+
+        assert blocked_table_conflict_count(quiz, upcoming_only=True) >= 1
+        assert blocked_table_conflict_count(
+            quiz, upcoming_only=True
+        ) < blocked_table_conflict_count(quiz)
+
+    def test_rotate_warns_the_host_only_after_a_mid_quiz_block(
+        self, quiz_event_4t  # noqa: F811
+    ):
+        from unittest.mock import AsyncMock, MagicMock
+
+        from asgiref.sync import async_to_sync
+
+        from crush_lu.consumers import QuizConsumer
+
+        quiz = quiz_event_4t
+        men, women = self._seat(quiz)
+        quiz.current_round = quiz.rounds.order_by("sort_order")[0]
+        quiz.status = "active"
+        quiz.save(update_fields=["current_round", "status"])
+        for man in men:
+            for woman in women:
+                UserBlock.objects.create(blocker=man, blocked=woman, reason="other")
+
+        consumer = QuizConsumer()
+        consumer.quiz_id = quiz.id
+        consumer.quiz_group = f"quiz_{quiz.id}"
+        consumer.send_error = AsyncMock()
+        consumer.check_can_rotate = AsyncMock(return_value={})
+        consumer.advance_round_and_rotate = AsyncMock(return_value={"error": "stop"})
+        consumer.channel_layer = MagicMock()
+
+        async_to_sync(consumer.handle_rotate)()
+
+        messages = [call.args[0] for call in consumer.send_error.await_args_list]
+        assert any("blocked pair" in m for m in messages)
+        # Host socket only: nothing was broadcast to the room.
+        consumer.channel_layer.group_send.assert_not_called()

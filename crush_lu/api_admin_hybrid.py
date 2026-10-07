@@ -125,6 +125,14 @@ def mark_fallback_offered(sub, now, *, actor, reason, **details):
         sub.log_system_action(
             "fallback_claim_recovered", actor=actor, reason="stale_claim"
         )
+        # Keep the token only while its link still works; an expired token
+        # (booking page 404s) is replaced before the email goes out.
+        if sub.booking_token_expires_at is None or sub.booking_token_expires_at < now:
+            sub.booking_token = uuid.uuid4()
+            sub.booking_token_expires_at = now + FALLBACK_TOKEN_TTL
+            sub.log_system_action(
+                "fallback_token_renewed", actor=actor, reason="expired_token"
+            )
     else:
         sub.fallback_offered_at = now
         sub.booking_token = uuid.uuid4()
@@ -221,6 +229,7 @@ def sla_sweep(request):
 
     from .models import ProfileSubmission
     from .tasks import (
+        SLA_EMAIL_AMBIGUOUS,
         SLA_EMAIL_FAILED,
         SLA_EMAIL_SENT,
         SLA_EMAIL_STALE,
@@ -239,7 +248,7 @@ def sla_sweep(request):
     def budget_spent():
         return time.monotonic() - started > SLA_SWEEP_SEND_BUDGET_SECONDS
 
-    processed = failed = skipped = deferred = 0
+    processed = failed = skipped = deferred = uncertain = 0
     attempted = set()
     while not budget_spent():
         # Phase 1 -- claim a chunk under the lock, no I/O beyond the database.
@@ -294,6 +303,11 @@ def sla_sweep(request):
                     revert_fallback_offer(pk, token, reason="email_not_sent")
                 failed += 1
                 continue
+            if outcome == SLA_EMAIL_AMBIGUOUS:
+                # Graph may have accepted it: keep the token in the mail, leave
+                # the claim leased so the retry re-sends the SAME token.
+                uncertain += 1
+                continue
             if outcome == SLA_EMAIL_STALE:
                 # Completed/paused/approved/rejected since the claim: clear the
                 # misleading offer, no retry (it is no longer eligible).
@@ -307,11 +321,12 @@ def sla_sweep(request):
                 skipped += 1
 
     logger.info(
-        "[sla_sweep] processed=%d failed=%d skipped=%d deferred=%d",
+        "[sla_sweep] processed=%d failed=%d skipped=%d deferred=%d uncertain=%d",
         processed,
         failed,
         skipped,
         deferred,
+        uncertain,
     )
     return JsonResponse(
         {
@@ -319,6 +334,7 @@ def sla_sweep(request):
             "failed": failed,
             "skipped": skipped,
             "deferred": deferred,
+            "uncertain": uncertain,
             "timestamp": now.isoformat(),
         },
         status=202,

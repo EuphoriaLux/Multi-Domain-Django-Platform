@@ -193,7 +193,7 @@ def generate_rotation_schedule(men, women, num_rounds=3, num_tables=None):
     }
 
 
-def blocked_table_conflict_count(quiz):
+def blocked_table_conflict_count(quiz, *, upcoming_only=False):
     """Count blocked pairs seated at the same table in the same round.
 
     Peer blocks are enforced symmetrically. The rotation itself is a fixed
@@ -214,6 +214,8 @@ def blocked_table_conflict_count(quiz):
     # a round that is already over cannot be fixed, so it must not keep the
     # warning alive for the rest of the evening.
     first_relevant_round = quiz.get_round_number() if quiz.current_round_id else 0
+    if upcoming_only:
+        first_relevant_round += 1
     rows = list(
         QuizRotationSchedule.objects.filter(
             quiz=quiz, round_number__gte=first_relevant_round

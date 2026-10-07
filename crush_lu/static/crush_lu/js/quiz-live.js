@@ -1065,6 +1065,18 @@ document.addEventListener("alpine:init", function () {
             get hasConsolidationPreview() {
                 return this.consolidationPreview !== null;
             },
+            get hasConsolidationWarnings() {
+                return (
+                    this.consolidationPreview !== null &&
+                    Array.isArray(this.consolidationPreview.warnings) &&
+                    this.consolidationPreview.warnings.length > 0
+                );
+            },
+            get consolidationWarningText() {
+                // Bound with x-text (textContent), so server text is never parsed as HTML.
+                if (!this.hasConsolidationWarnings) return "";
+                return this.consolidationPreview.warnings.join(" ");
+            },
             get hasConsolidationMoves() {
                 return (
                     this.consolidationPreview !== null &&
@@ -1649,8 +1661,21 @@ document.addEventListener("alpine:init", function () {
                         if (apply) {
                             // Hard reload — the server-rendered scoring grid
                             // (`{% for table in tables %}`) needs to be rebuilt
-                            // after num_tables shrinks.
-                            window.location.reload();
+                            // after num_tables shrinks. If the applied layout
+                            // left a blocked pair at one table, show that
+                            // first so the reload does not erase it.
+                            var warnings =
+                                res.data && Array.isArray(res.data.warnings)
+                                    ? res.data.warnings
+                                    : [];
+                            if (warnings.length > 0) {
+                                self.showError(warnings.join(" "));
+                                setTimeout(function () {
+                                    window.location.reload();
+                                }, 5000);
+                            } else {
+                                window.location.reload();
+                            }
                         } else {
                             self.consolidationPreview = res.data;
                             // Render the move list into the preview <ul>.

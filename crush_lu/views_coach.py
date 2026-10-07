@@ -1995,7 +1995,12 @@ def coach_offer_self_booking(request, submission_id):
         mark_fallback_sent,
         revert_fallback_offer,
     )
-    from .tasks import SLA_EMAIL_FAILED, SLA_EMAIL_STALE, deliver_sla_fallback_email
+    from .tasks import (
+        SLA_EMAIL_AMBIGUOUS,
+        SLA_EMAIL_FAILED,
+        SLA_EMAIL_STALE,
+        deliver_sla_fallback_email,
+    )
 
     coach = request.coach
     submission = get_object_or_404(
@@ -2068,7 +2073,10 @@ def coach_offer_self_booking(request, submission_id):
             + "</p>",
             status=500,
         )
-    mark_fallback_sent(submission.pk)
+    if outcome != SLA_EMAIL_AMBIGUOUS:
+        # Unknown outcome: keep the token, leave the claim unsent so the sweep's
+        # lease retry re-sends the same link.
+        mark_fallback_sent(submission.pk)
 
     return render(
         request,
