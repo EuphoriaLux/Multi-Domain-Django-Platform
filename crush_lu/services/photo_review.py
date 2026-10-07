@@ -21,6 +21,7 @@ from crush_lu.models import (
     ConnectCoachPick,
     CrushConnectMembership,
     CrushProfile,
+    ProfilePhotoReviewState,
     ProfilePhotoReviewLog,
     UserReport,
     UserDataConsent,
@@ -89,24 +90,28 @@ def _format_phone_info(phone_number: str):
         }
 
 
-def get_photo_review_queue(coach: CrushCoach, limit: int = 40, *, cursor=""):
+PHOTO_REVIEW_FIELDS = ("photo_1", "photo_2", "photo_3")
+
+
+def get_photo_review_queue(
+    coach: CrushCoach, limit: int = 40, *, cursor="", scope="all"
+):
     """
-    Fetch profiles waiting for photo review, ordered by urgency:
-    1. Crush Connect onboarded members whose photo is pending review
-    2. Members who started Connect onboarding
-    3. Other active members with a photo
-    Excludes the reviewing coach, deactivated/banned users, and already approved/flagged photos.
+    Fetch pending images, prioritizing Connect members before general profiles.
+    ``connect`` narrows the queue to users with a Crush Connect membership;
+    ``all`` includes every eligible profile. Both scopes share review state.
     """
+    if scope not in ("all", "connect"):
+        raise PhotoReviewError(_("Invalid review queue."), 400)
     base_qs = (
         CrushProfile.objects.filter(
             is_active=True,
             user__is_active=True,
-            photo_review_status="pending",
             user_id__in=UserDataConsent.objects.filter(
                 crushlu_consent_given=True, crushlu_banned=False
             ).values("user_id"),
         )
-        .exclude(Q(photo_1="") | Q(photo_1__isnull=True))
+        .exclude(Q(photo_review_status="flagged_fake"))
         .exclude(verification_status="rejected")
         .exclude(user=coach.user)
         .select_related(
@@ -114,10 +119,13 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40, *, cursor=""):
             "user__crush_connect_membership",
             "user__crush_connect_membership__story_prompt",
         )
-        .prefetch_related(
-            "interests_new",
-        )
+        .prefetch_related("interests_new", "photo_review_states")
     )
+    if scope == "connect":
+        base_qs = base_qs.filter(
+            user__crush_connect_membership__isnull=False,
+            user__crush_connect_membership__excluded_by_coach=False,
+        )
 
     # Priority score, snapshotted at the instant the review pass started (the
     # first page; every cursor carries it). A membership created or onboarded
@@ -132,8 +140,9 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40, *, cursor=""):
         try:
             position = signing.loads(cursor, salt="coach-photo-queue", max_age=86400)
             priority, profile_id = int(position["priority"]), int(position["id"])
+            field_index = int(position["field_index"])
             as_of = parse_datetime(position["as_of"])
-            if as_of is None:
+            if as_of is None or field_index not in range(len(PHOTO_REVIEW_FIELDS)):
                 raise ValueError("Invalid queue snapshot")
         except (signing.BadSignature, KeyError, TypeError, ValueError):
             raise PhotoReviewError(_("Invalid request payload"), 400) from None
@@ -163,19 +172,43 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40, *, cursor=""):
             output_field=models.IntegerField(),
         ),
     )
-    # Keyset on keys that hold still for the pass: the pass-start priority
-    # snapshot and the id. An auto_now updated_at would move a card behind the
-    # cursor whenever its member edits their profile mid-session.
-    annotated_qs = annotated_qs.order_by("-priority", "-id")
-
-    if position is not None:
-        annotated_qs = annotated_qs.filter(
-            Q(priority__lt=priority) | Q(priority=priority, pk__lt=profile_id)
+    # Merge the top page from each slot. The signed keyset includes the slot
+    # index so a profile with multiple pending images is reviewed exactly once
+    # per image, even when one card ends a page and another starts the next.
+    queue_items = []
+    total_waiting = 0
+    for index, photo_field in enumerate(PHOTO_REVIEW_FIELDS):
+        photo_exists = ProfilePhotoReviewState.objects.filter(
+            profile_id=OuterRef("pk"),
+            photo_field=photo_field,
+            photo_key=OuterRef(photo_field),
+            status__in=("approved", "needs_revision", "flagged_fake"),
         )
-    profiles = list(annotated_qs[:limit])
+        slot_qs = annotated_qs.filter(**{f"{photo_field}__gt": ""}).filter(
+            ~Exists(photo_exists)
+        )
+        if photo_field == "photo_1":
+            slot_qs = slot_qs.exclude(
+                photo_review_status__in=("approved", "needs_revision")
+            )
+        total_waiting += slot_qs.count()
+        if position is not None:
+            after_cursor = Q(priority__lt=priority) | Q(
+                priority=priority, pk__lt=profile_id
+            )
+            if index > field_index:
+                after_cursor |= Q(priority=priority, pk=profile_id)
+            slot_qs = slot_qs.filter(after_cursor)
+        for profile in slot_qs.order_by("-priority", "-id")[:limit]:
+            queue_items.append((profile, photo_field, index))
+    queue_items.sort(key=lambda item: (-item[0].priority, -item[0].pk, item[2]))
+    selected_items = queue_items[:limit]
+    profiles = [
+        (profile, photo_field, index) for profile, photo_field, index in selected_items
+    ]
     cards = []
     now = timezone.now()
-    for p in profiles:
+    for p, review_field, field_index in profiles:
         mem = getattr(p.user, "crush_connect_membership", None)
         photo_1_url = (
             reverse(
@@ -204,11 +237,32 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40, *, cursor=""):
 
         photos = []
         if photo_1_url:
-            photos.append({"field": "photo_1", "url": photo_1_url})
+            photos.append(
+                {
+                    "field": "photo_1",
+                    "url": photo_1_url,
+                    "photo_key": p.photo_1.name,
+                    "status": p.get_photo_field_review_status("photo_1"),
+                }
+            )
         if photo_2_url:
-            photos.append({"field": "photo_2", "url": photo_2_url})
+            photos.append(
+                {
+                    "field": "photo_2",
+                    "url": photo_2_url,
+                    "photo_key": p.photo_2.name,
+                    "status": p.get_photo_field_review_status("photo_2"),
+                }
+            )
         if photo_3_url:
-            photos.append({"field": "photo_3", "url": photo_3_url})
+            photos.append(
+                {
+                    "field": "photo_3",
+                    "url": photo_3_url,
+                    "photo_key": p.photo_3.name,
+                    "status": p.get_photo_field_review_status("photo_3"),
+                }
+            )
 
         story_text = ""
         story_prompt = ""
@@ -296,9 +350,21 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40, *, cursor=""):
             {
                 "id": p.id,
                 "queue_cursor": signing.dumps(
-                    {"priority": p.priority, "id": p.pk, "as_of": as_of.isoformat()},
+                    {
+                        "priority": p.priority,
+                        "id": p.pk,
+                        "field_index": field_index,
+                        "as_of": as_of.isoformat(),
+                    },
                     salt="coach-photo-queue",
                 ),
+                "scope": scope,
+                "photo_field": review_field,
+                "review_photo_label": {
+                    "photo_1": _("primary photo"),
+                    "photo_2": _("photo 2"),
+                    "photo_3": _("photo 3"),
+                }[review_field],
                 "user_id": p.user.id,
                 "display_name": p.display_name or p.user.first_name or p.user.username,
                 "age": p.age_display or "",
@@ -340,8 +406,13 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40, *, cursor=""):
                 "interests": interests,
                 "photos": photos,
                 "photo_count": len(photos),
-                "photo_key": getattr(p.photo_1, "name", "") or "",
-                "photo_review_status": p.photo_review_status,
+                "photo_key": getattr(getattr(p, review_field), "name", "") or "",
+                "photo_review_status": p.get_photo_field_review_status(review_field),
+                "review_photo_index": next(
+                    i
+                    for i, photo in enumerate(photos)
+                    if photo["field"] == review_field
+                ),
                 "story_prompt": story_prompt or _("Prompt"),
                 "story_text": story_text,
                 "relationship_goal": relationship_goal,
@@ -354,8 +425,6 @@ def get_photo_review_queue(coach: CrushCoach, limit: int = 40, *, cursor=""):
                 "member_since": p.created_at.strftime("%b %Y") if p.created_at else "",
             }
         )
-
-    total_waiting = base_qs.count()
 
     return cards, total_waiting
 
@@ -428,14 +497,27 @@ def _notify_revision_safely(profile, reason, notes, request, log_id):
 def _send_revision_and_reconcile(profile, reason, notes, request, log_id):
     # The CAS coordinates cross-worker Undo with a sender already in flight.
     # No network work happens inside the moderation transaction or row lock.
-    if not ProfilePhotoReviewLog.objects.filter(
-        pk=log_id,
-        undone_at__isnull=True,
-        revision_notification_state="",
-        profile__photo_1=models.F("photo_key"),
-        profile__photo_review_key=models.F("photo_key"),
-        profile__photo_review_status="needs_revision",
-    ).update(revision_notification_state="sending"):
+    revision_log = (
+        ProfilePhotoReviewLog.objects.filter(
+            pk=log_id,
+            undone_at__isnull=True,
+            revision_notification_state="",
+            profile__photo_review_states__photo_field=models.F("photo_field"),
+            profile__photo_review_states__photo_key=models.F("photo_key"),
+            profile__photo_review_states__status="needs_revision",
+        )
+        .annotate(
+            current_photo_key=models.Case(
+                models.When(photo_field="photo_1", then=models.F("profile__photo_1")),
+                models.When(photo_field="photo_2", then=models.F("profile__photo_2")),
+                models.When(photo_field="photo_3", then=models.F("profile__photo_3")),
+                output_field=models.CharField(max_length=255),
+            )
+        )
+        .filter(photo_key=models.F("current_photo_key"))
+    )
+    photo_field = revision_log.values_list("photo_field", flat=True).first()
+    if not revision_log.update(revision_notification_state="sending"):
         return
     delivered = False
     try:
@@ -459,6 +541,7 @@ def _send_revision_and_reconcile(profile, reason, notes, request, log_id):
                 feedback=notes or feedback.get(reason, feedback["other"]),
                 request=request,
                 photo_review_log_id=log_id,
+                photo_field=photo_field,
             )
         delivered = True
     except Exception:
@@ -502,8 +585,8 @@ def submit_photo_review(
         raise PhotoReviewError(_("Invalid photo review decision."), 400)
     if reason and reason not in dict(ProfilePhotoReviewLog.REASON_CHOICES):
         raise PhotoReviewError(_("Invalid photo review reason."), 400)
-    if photo_field != "photo_1":
-        raise PhotoReviewError(_("Only the primary photo can be reviewed."), 400)
+    if photo_field not in PHOTO_REVIEW_FIELDS:
+        raise PhotoReviewError(_("Invalid photo field."), 400)
     allowed_reasons = {
         "approved": {"", "clear_authentic"},
         "flagged_fake": {"fake_profile"},
@@ -537,41 +620,71 @@ def submit_photo_review(
             or consent.crushlu_banned
         ):
             raise PhotoReviewError(_("Profile not available for review."), 403)
-        current_key = profile.photo_1.name or ""
+        current_key = getattr(profile, photo_field).name or ""
         if current_key != photo_key:
             raise PhotoReviewError(
                 _("This member's photo changed. Reload and check the new one.")
             )
-        if profile.photo_review_status != "pending":
+        if profile.photo_review_status == "flagged_fake":
+            raise PhotoReviewError(_("Profile not available for review."), 403)
+        review_state = (
+            ProfilePhotoReviewState.objects.select_for_update()
+            .filter(profile=profile, photo_field=photo_field)
+            .first()
+        )
+        current_status = (
+            review_state.status
+            if review_state is not None and review_state.photo_key == current_key
+            else "pending"
+        )
+        if (
+            review_state is None
+            and photo_field == "photo_1"
+            and profile.photo_review_key == current_key
+            and profile.photo_review_status in ("approved", "needs_revision")
+        ):
+            current_status = profile.photo_review_status
+        if current_status != "pending":
             raise PhotoReviewError(
                 _("This photo has already been reviewed. Reload the queue.")
             )
         now = timezone.now()
-        # The conditional UPDATE also protects the file key at the write boundary.
-        claimed = CrushProfile.objects.filter(
-            pk=profile.pk,
-            photo_1=photo_key,
-            photo_review_status="pending",
-        ).update(
-            photo_review_status=decision,
-            photo_review_key=photo_key,
-            photo_reviewed_at=now,
-            photo_reviewed_by=coach,
-            photo_review_notes=notes,
+        state, _created = ProfilePhotoReviewState.objects.update_or_create(
+            profile=profile,
+            photo_field=photo_field,
+            defaults={
+                "photo_key": photo_key,
+                "status": decision,
+                "reviewed_at": now,
+                "reviewed_by": coach,
+                "notes": notes,
+            },
         )
-        if not claimed:
-            raise PhotoReviewError(
-                _("This member's photo changed. Reload and check the new one.")
-            )
-        profile.refresh_from_db()
+        if photo_field == "photo_1" or decision == "flagged_fake":
+            legacy_defaults = {
+                "photo_review_status": decision,
+                "photo_review_key": photo_key if photo_field == "photo_1" else "",
+                "photo_reviewed_at": now,
+                "photo_reviewed_by": coach,
+                "photo_review_notes": notes,
+            }
+            if decision == "flagged_fake":
+                legacy_defaults["photo_review_status"] = "flagged_fake"
+                legacy_defaults["photo_review_key"] = (
+                    photo_key if photo_field == "photo_1" else ""
+                )
+            CrushProfile.objects.filter(pk=profile.pk).update(**legacy_defaults)
+            for field, value in legacy_defaults.items():
+                setattr(profile, field, value)
         log = ProfilePhotoReviewLog.objects.create(
             profile=profile,
             coach=coach,
+            photo_field=photo_field,
             photo_key=photo_key,
             decision=decision,
             reason=reason,
             notes=notes,
-            previous_status="pending",
+            previous_status=current_status,
             decision_at=now,
         )
         if decision == "flagged_fake":
@@ -650,7 +763,7 @@ def submit_photo_review(
             "decision": decision,
             "profile_id": profile.pk,
             "log_id": log.pk,
-            "new_status": profile.photo_review_status,
+            "new_status": state.status,
         }
 
 
@@ -681,16 +794,33 @@ def undo_last_photo_review(coach: CrushCoach, *, log_id=None, request=None):
             .order_by("-pk")
             .first()
         )
+        current_key = getattr(profile, log.photo_field).name or ""
+        state = (
+            ProfilePhotoReviewState.objects.select_for_update()
+            .filter(
+                profile=profile,
+                photo_field=log.photo_field,
+                photo_key=log.photo_key,
+            )
+            .first()
+        )
         if (
             log.undone_at is not None
             or latest is None
             or latest.pk != log.pk
-            or profile.photo_1.name != log.photo_key
-            or profile.photo_review_key != log.photo_key
-            or profile.photo_review_status != log.decision
-            or profile.photo_reviewed_by_id != coach.pk
-            or profile.photo_reviewed_at != log.decision_at
+            or current_key != log.photo_key
+            or state is None
+            or state.status != log.decision
+            or state.reviewed_by_id != coach.pk
+            or state.reviewed_at != log.decision_at
             or log.previous_status != "pending"
+            or (
+                log.photo_field == "photo_1"
+                and (
+                    profile.photo_review_status != log.decision
+                    or profile.photo_review_key != log.photo_key
+                )
+            )
         ):
             raise PhotoReviewError(
                 _("This review is no longer current and cannot be undone.")
@@ -754,13 +884,32 @@ def undo_last_photo_review(coach: CrushCoach, *, log_id=None, request=None):
                         "exclusion_reason",
                     ]
                 )
-        CrushProfile.objects.filter(pk=profile.pk, photo_1=log.photo_key).update(
-            photo_review_status="pending",
-            photo_review_key="",
-            photo_reviewed_at=None,
-            photo_reviewed_by=None,
-            photo_review_notes="",
-        )
+        state.delete()
+        if log.photo_field == "photo_1" or log.decision == "flagged_fake":
+            primary_key = profile.photo_1.name or ""
+            primary_state = (
+                ProfilePhotoReviewState.objects.filter(
+                    profile=profile,
+                    photo_field="photo_1",
+                    photo_key=primary_key,
+                ).first()
+                if primary_key
+                else None
+            )
+            legacy_values = {
+                "photo_review_status": (
+                    primary_state.status if primary_state else "pending"
+                ),
+                "photo_review_key": primary_state.photo_key if primary_state else "",
+                "photo_reviewed_at": (
+                    primary_state.reviewed_at if primary_state else None
+                ),
+                "photo_reviewed_by_id": (
+                    primary_state.reviewed_by_id if primary_state else None
+                ),
+                "photo_review_notes": primary_state.notes if primary_state else "",
+            }
+            CrushProfile.objects.filter(pk=profile.pk).update(**legacy_values)
         restored_picks = skipped_picks = 0
         for snapshot in log.withdrawn_picks:
             pick = (

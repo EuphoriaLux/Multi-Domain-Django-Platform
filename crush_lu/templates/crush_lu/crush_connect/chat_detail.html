@@ -28,6 +28,9 @@ rules) so the thread can claim most of the viewport.
             <h1 class="font-display text-lg font-semibold tracking-tight text-gray-900 dark:text-white truncate mb-0 min-w-0">
                 {{ partner.first_name|default:_("A member") }}
             </h1>
+            {% if partner.crushprofile.is_photo_review_approved %}
+            <span class="text-[10px] font-semibold text-crush-purple dark:text-crush-pink">{% trans "Coach-reviewed photo" %}</span>
+            {% endif %}
             {% if is_open %}
             <span data-expiry-chip class="connect-chat-expiry-chip shrink-0 inline-flex items-center gap-1 rounded-full bg-gray-100 dark:bg-slate-700 px-2.5 py-1 text-[11px] font-semibold text-gray-600 dark:text-gray-300">
                 {% include "shared/icons/clock.html" with class="w-3 h-3" %}
@@ -46,6 +49,9 @@ rules) so the thread can claim most of the viewport.
     </header>
     {% if not is_open %}
     <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">{% trans "This conversation has ended." %}</p>
+    {% endif %}
+    {% if not partner_photo_hidden %}
+        {% include "crush_lu/crush_connect/_reviewed_secondary_photos.html" with profile=partner.crushprofile %}
     {% endif %}
 
     {# --- Coffee date plan: pinned above the thread, never a closed <details> for the primary status --- #}

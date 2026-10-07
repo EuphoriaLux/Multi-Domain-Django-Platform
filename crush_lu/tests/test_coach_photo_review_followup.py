@@ -9,7 +9,12 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import override
 
-from crush_lu.models import CrushProfile, Notification, ProfilePhotoReviewLog
+from crush_lu.models import (
+    CrushProfile,
+    Notification,
+    ProfilePhotoReviewLog,
+    ProfilePhotoReviewState,
+)
 from crush_lu.models.crush_connect import Interest
 from crush_lu.notification_service import NotificationService, NotificationType
 from crush_lu.services.photo_review import (
@@ -62,7 +67,7 @@ def test_invalid_combinations_have_no_side_effects(decision, reason):
     assert not Notification.objects.exists()
 
 
-def test_secondary_photo_submission_is_refused():
+def test_secondary_photo_submission_with_primary_photo_key_is_refused():
     coach, profile = _make_coach(), _make_candidate()
     client = Client()
     client.force_login(coach.user)
@@ -77,7 +82,7 @@ def test_secondary_photo_submission_is_refused():
         },
         content_type="application/json",
     )
-    assert response.status_code == 400
+    assert response.status_code == 409
     assert not ProfilePhotoReviewLog.objects.exists()
 
 
@@ -250,6 +255,28 @@ def test_revision_notice_asks_only_for_a_new_photo(safe_side_effects):
     ]
 
 
+def test_secondary_revision_notice_names_the_reviewed_slot():
+    coach, profile = _make_coach(), _make_candidate()
+    profile.photo_2 = "users/2/photos/second.jpg"
+    profile.save(update_fields=["photo_2"])
+    with TestCase.captureOnCommitCallbacks(execute=True):
+        result = submit_photo_review(
+            coach,
+            profile.pk,
+            "needs_revision",
+            "inappropriate",
+            photo_key=profile.photo_2.name,
+            photo_field="photo_2",
+        )
+    notice = Notification.objects.get(
+        dedupe_key=f"photo-review:{result['log_id']}:revision"
+    )
+    assert "second profile photo" in notice.body
+    assert "replace your photo" not in notice.body
+    log = ProfilePhotoReviewLog.objects.get(pk=result["log_id"])
+    assert log.photo_field == "photo_2"
+
+
 def test_undo_during_send_is_corrected_after_sender_finishes(safe_side_effects):
     coach, profile = _make_coach(), _make_candidate()
 
@@ -359,6 +386,11 @@ def test_lobby_and_encounter_proxies_deny_moderated_photos(
     alice, ben = _make_member("alice"), _make_member("ben", gender="M")
     profile = ben.crushprofile
     profile.photo_1.save("ben.jpg", ContentFile(b"photo"), save=True)
+    ProfilePhotoReviewState.objects.update_or_create(
+        profile=profile,
+        photo_field="photo_1",
+        defaults={"photo_key": profile.photo_1.name, "status": "approved"},
+    )
     event = _make_event()
     _join(alice, event)
     _join(ben, event)
