@@ -76,6 +76,67 @@ def pytest_collection_modifyitems(session, config, items):
                 item.fixturenames.insert(0, "_restore_migration_seeded_rows")
 
 
+def _replay_snapshot(snapshot):
+    """Save a ``serializers.serialize("json", ...)`` snapshot back, skipping orphans.
+
+    The snapshot only holds ``crush_lu`` rows, but those rows can point at
+    tables the flush also emptied and the snapshot never covered, chiefly
+    ``auth.User`` (``CrushCoach.user``). Replaying such a row restores a child
+    whose parent is gone, and the ``check_constraints()`` that follows raises
+    an FK error at module teardown. A row whose non-``crush_lu`` FK target no
+    longer exists, and every snapshot row that depends on a skipped one, is
+    left out: nothing can rely on a row whose owner no longer exists.
+
+    Must run inside ``constraint_checks_disabled()`` (see the fixture).
+    Returns the ``(label, pk)`` pairs that were skipped.
+    """
+    from django.core import serializers
+
+    pending = list(serializers.deserialize("json", snapshot, ignorenonexistent=True))
+    present = {(w.object._meta.label, w.object.pk) for w in pending}
+    skipped = set()
+
+    def fk_targets(wrapped):
+        obj = wrapped.object
+        for field in obj._meta.concrete_fields:
+            if not field.is_relation or field.many_to_many:
+                continue
+            value = getattr(obj, field.attname)
+            if value is None:
+                continue
+            yield field.related_model, value
+        # Many-to-many rows are recreated by ``wrapped.save()`` as junction
+        # rows, so their targets must survive too (MeetupEvent.invited_users
+        # and .coaches point at users/coaches a flush removed).
+        for name, pks in (wrapped.m2m_data or {}).items():
+            related = obj._meta.get_field(name).related_model
+            for pk in pks:
+                yield related, pk
+
+    changed = True
+    while changed:
+        changed = False
+        for wrapped in pending:
+            key = (wrapped.object._meta.label, wrapped.object.pk)
+            if key in skipped:
+                continue
+            for target_model, value in fk_targets(wrapped):
+                target_key = (target_model._meta.label, value)
+                if target_key in present:
+                    orphan = target_key in skipped
+                else:
+                    orphan = not target_model._base_manager.filter(pk=value).exists()
+                if orphan:
+                    skipped.add(key)
+                    changed = True
+                    break
+
+    for wrapped in pending:
+        if (wrapped.object._meta.label, wrapped.object.pk) not in skipped:
+            wrapped.save()
+    return sorted(skipped)
+
+
 @pytest.fixture(scope="module")
 def _restore_migration_seeded_rows(django_db_setup, django_db_blocker):
     """Put the crush_lu data-migration catalogues back after this module
@@ -143,10 +204,7 @@ def _restore_migration_seeded_rows(django_db_setup, django_db_blocker):
         # points at another Trait, so no single insertion order satisfies
         # every FK.
         with transaction.atomic(), db_connection.constraint_checks_disabled():
-            for wrapped in serializers.deserialize(
-                "json", snapshot, ignorenonexistent=True
-            ):
-                wrapped.save()
+            _replay_snapshot(snapshot)
         db_connection.check_constraints()
 
         # Replaying explicit pks leaves the sequences behind them, so the
