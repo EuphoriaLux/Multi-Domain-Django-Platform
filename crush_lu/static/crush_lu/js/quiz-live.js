@@ -1596,7 +1596,22 @@ document.addEventListener("alpine:init", function () {
                             return;
                         }
                         // Reload to refresh the orphan list + table overview.
-                        window.location.reload();
+                        // A move onto a table with a blocked counterpart is
+                        // allowed but warned about; show it (showError binds via
+                        // x-text, never innerHTML) and delay the reload so the
+                        // host actually sees it.
+                        var warnings =
+                            res.data && Array.isArray(res.data.warnings)
+                                ? res.data.warnings
+                                : [];
+                        if (warnings.length > 0) {
+                            self.showError(warnings.join(" "));
+                            setTimeout(function () {
+                                window.location.reload();
+                            }, 5000);
+                        } else {
+                            window.location.reload();
+                        }
                     })
                     .catch(function () {
                         btn.disabled = false;

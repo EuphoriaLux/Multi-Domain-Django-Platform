@@ -81,13 +81,29 @@ SLA_FAILED_RETRY_BACKOFF = timedelta(minutes=30)
 
 
 def _sweep_candidates(now, exclude_pks=()):
-    """Submissions the sweep may claim now: fresh breaches, backed-off retries
-    of failed sends, and stale claims whose worker never finished sending."""
+    """Submissions the sweep may claim now.
+
+    Two independent groups:
+
+    * new work, which needs the SLA breach and the hybrid coach gate: fresh
+      breaches and backed-off retries of failed sends;
+    * lease recovery: a claim that was made (by the sweep OR by a coach's manual
+      offer) and never marked sent for ``SLA_CLAIM_LEASE``. It only re-sends the
+      SAME booking token, so it needs neither the SLA breach nor the coach gate;
+      it just must still be bookable.
+    """
+
     from django.db.models import Q
 
     from .models import ProfileSubmission
 
-    never_offered = Q(fallback_offered_at__isnull=True, booking_token__isnull=True) & (
+    never_offered = Q(
+        fallback_offered_at__isnull=True,
+        booking_token__isnull=True,
+        sla_deadline__isnull=False,
+        sla_deadline__lte=now,
+        coach__hybrid_features_enabled=True,
+    ) & (
         Q(fallback_offer_claimed_at__isnull=True)
         | Q(fallback_offer_claimed_at__lt=now - SLA_FAILED_RETRY_BACKOFF)
     )
@@ -102,10 +118,8 @@ def _sweep_candidates(now, exclude_pks=()):
         ProfileSubmission.objects.filter(
             never_offered | stale_claim,
             status="pending",
-            sla_deadline__lte=now,
-            sla_deadline__isnull=False,
-            coach__hybrid_features_enabled=True,
             is_paused=False,
+            review_call_completed=False,
         )
         .exclude(booked_slots__status="booked")
         .exclude(pk__in=list(exclude_pks))

@@ -2017,8 +2017,18 @@ def coach_offer_self_booking(request, submission_id):
             status=410,
         )
 
+    # An offer whose email outcome is still unknown (claimed, never marked
+    # sent) may be re-sent by the coach, with the SAME token. Anything already
+    # sent (or offered before the lease fields existed) is only re-rendered.
+    unsent_claim = bool(
+        submission.fallback_offered_at
+        and submission.booking_token
+        and submission.fallback_offer_claimed_at
+        and not submission.fallback_offer_sent_at
+    )
+
     # Already offered — render current status, do not re-send.
-    if submission.fallback_offered_at:
+    if submission.fallback_offered_at and not unsent_claim:
         return render(
             request,
             "crush_lu/_self_booking_offer.html",
@@ -2039,9 +2049,10 @@ def coach_offer_self_booking(request, submission_id):
         )
 
     now = timezone.now()
+    recovered = False
     try:
         with transaction.atomic():
-            mark_fallback_offered(
+            recovered = mark_fallback_offered(
                 submission,
                 now,
                 actor=f"coach:{coach.user.username}",
@@ -2064,9 +2075,12 @@ def coach_offer_self_booking(request, submission_id):
         submission.pk, request.get_host(), request.is_secure()
     )
     if outcome in (SLA_EMAIL_FAILED, SLA_EMAIL_STALE):
-        revert_fallback_offer(
-            submission.pk, submission.booking_token, reason="email_not_sent"
-        )
+        # A re-send of an earlier claim keeps its token: that mail may have
+        # reached the member, so only a fresh offer is undone.
+        if not recovered or outcome == SLA_EMAIL_STALE:
+            revert_fallback_offer(
+                submission.pk, submission.booking_token, reason="email_not_sent"
+            )
         return HttpResponse(
             '<p class="text-xs text-red-600 dark:text-red-400">'
             + str(_("Could not send the booking offer. Try again."))

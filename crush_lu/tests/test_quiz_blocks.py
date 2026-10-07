@@ -283,17 +283,24 @@ class TestQuizBlocksMidQuiz:
             quiz, upcoming_only=True
         ) < blocked_table_conflict_count(quiz)
 
-    def test_rotate_warns_the_host_only_after_a_mid_quiz_block(
+    def test_rotate_warns_the_host_after_a_self_heal_and_still_broadcasts(
         self, quiz_event_4t  # noqa: F811
     ):
-        from unittest.mock import AsyncMock, MagicMock
+        from unittest.mock import AsyncMock
 
         from asgiref.sync import async_to_sync
 
         from crush_lu.consumers import QuizConsumer
 
         quiz = quiz_event_4t
-        men, women = self._seat(quiz)
+        men = [_make_user(f"heal_m{i}", "M") for i in range(2)]
+        women = [_make_user(f"heal_f{i}", "F") for i in range(4)]
+        for user in men + women:
+            _check_in_attended(quiz, user)
+        # No rotation rows beyond round 0: the advance has to self-heal.
+        assert not QuizRotationSchedule.objects.filter(
+            quiz=quiz, round_number=1
+        ).exists()
         quiz.current_round = quiz.rounds.order_by("sort_order")[0]
         quiz.status = "active"
         quiz.save(update_fields=["current_round", "status"])
@@ -306,12 +313,14 @@ class TestQuizBlocksMidQuiz:
         consumer.quiz_group = f"quiz_{quiz.id}"
         consumer.send_error = AsyncMock()
         consumer.check_can_rotate = AsyncMock(return_value={})
-        consumer.advance_round_and_rotate = AsyncMock(return_value={"error": "stop"})
-        consumer.channel_layer = MagicMock()
+        consumer.channel_layer = AsyncMock()
 
         async_to_sync(consumer.handle_rotate)()
 
         messages = [call.args[0] for call in consumer.send_error.await_args_list]
         assert any("blocked pair" in m for m in messages)
-        # Host socket only: nothing was broadcast to the room.
-        consumer.channel_layer.group_send.assert_not_called()
+        # Warn-only: the room still rotates, and the warning is not in it.
+        consumer.channel_layer.group_send.assert_awaited_once()
+        sent = consumer.channel_layer.group_send.await_args.args[1]
+        assert sent["type"] == "quiz.rotate"
+        assert "blocked" not in str(sent["data"])

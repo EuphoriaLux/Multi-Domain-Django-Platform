@@ -493,3 +493,80 @@ class SlaSweepTests(TestCase):
         sub.refresh_from_db()
         self.assertEqual((body["failed"], body["uncertain"]), (1, 0))
         self.assertIsNone(sub.booking_token)
+
+    def _coach_offer(self, sub):
+        UserDataConsent.objects.filter(user=self.coach.user).update(
+            crushlu_consent_given=True
+        )
+        self.client.force_login(self.coach.user)
+        return self.client.post(
+            f"/en/coach/review/{sub.pk}/offer-booking/", HTTP_HOST="crush.lu"
+        )
+
+    def test_ambiguous_manual_offer_is_retried_by_the_sweep_before_the_sla(self):
+        import requests
+
+        sub = self._submission("manual")
+        # Not breached, and the coach is outside the hybrid gate: only lease
+        # recovery may pick this up.
+        ProfileSubmission.objects.filter(pk=sub.pk).update(
+            sla_deadline=timezone.now() + timedelta(hours=24)
+        )
+        with patch(SEND, side_effect=requests.exceptions.ReadTimeout("slow")):
+            response = self._coach_offer(sub)
+        self.assertEqual(response.status_code, 200)
+        sub.refresh_from_db()
+        token = sub.booking_token
+        self.assertIsNotNone(token)
+        self.assertIsNone(sub.fallback_offer_sent_at)
+
+        CrushCoach.objects.filter(pk=self.coach.pk).update(
+            hybrid_features_enabled=False
+        )
+        ProfileSubmission.objects.filter(pk=sub.pk).update(
+            fallback_offer_claimed_at=timezone.now() - timedelta(hours=1)
+        )
+        with patch(SEND, return_value=1) as send:
+            body = self._sweep().json()
+
+        sub.refresh_from_db()
+        self.assertEqual(body["processed"], 1)
+        send.assert_called_once()
+        self.assertEqual(sub.booking_token, token)
+        self.assertIsNotNone(sub.fallback_offer_sent_at)
+
+    def test_coach_repost_resends_an_unsent_claim_but_not_a_sent_one(self):
+        import requests
+
+        sub = self._submission("repost")
+        with patch(SEND, side_effect=requests.exceptions.ReadTimeout("slow")):
+            self._coach_offer(sub)
+        sub.refresh_from_db()
+        token = sub.booking_token
+
+        with patch(SEND, return_value=1) as send:
+            self._coach_offer(sub)
+        send.assert_called_once()
+        sub.refresh_from_db()
+        self.assertEqual(sub.booking_token, token)
+        self.assertIsNotNone(sub.fallback_offer_sent_at)
+
+        with patch(SEND, return_value=1) as send:
+            self._coach_offer(sub)
+        send.assert_not_called()
+
+    def test_failed_resend_of_an_unsent_claim_keeps_its_token(self):
+        import requests
+
+        sub = self._submission("resendfail")
+        with patch(SEND, side_effect=requests.exceptions.ReadTimeout("slow")):
+            self._coach_offer(sub)
+        sub.refresh_from_db()
+        token = sub.booking_token
+
+        with patch(SEND, return_value=0):
+            response = self._coach_offer(sub)
+
+        sub.refresh_from_db()
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(sub.booking_token, token)

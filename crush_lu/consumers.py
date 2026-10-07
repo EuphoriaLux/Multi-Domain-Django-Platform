@@ -715,11 +715,6 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
             await self.send_error(guard["error"])
             return
 
-        # A block created mid-quiz can put a pair at one table in the next
-        # round; tell the host (own socket only) before the room moves.
-        for warning in await self.get_upcoming_block_warnings():
-            await self.send_error(warning)
-
         rotation_data = await self.advance_round_and_rotate()
         # A rebuild that could not produce seating for the new round comes
         # back as an error, and it has to reach the host the way the guard
@@ -732,6 +727,13 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
         if rotation_data.get("error"):
             await self.send_error(rotation_data["error"])
             return
+
+        # A block created mid-quiz (or a schedule the advance just self-healed)
+        # can put a pair at one table from the round now starting. Warn the
+        # host's own socket AFTER the advance, so the self-heal is covered, and
+        # BEFORE the broadcast. Warn-only: the room still moves.
+        for warning in await self.get_block_warnings():
+            await self.send_error(warning)
 
         if rotation_data.get("finished"):
             # No more rounds — broadcast finished status with leaderboard
@@ -1773,8 +1775,8 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
         return check_can_rotate(self.quiz_id)
 
     @database_sync_to_async
-    def get_upcoming_block_warnings(self):
-        """Host-only warnings about blocked pairs sharing a table in a later round."""
+    def get_block_warnings(self):
+        """Host-only warnings about blocked pairs sharing a table from the current round on."""
         from crush_lu.models.quiz import QuizEvent
         from crush_lu.services.quiz_rotation import (
             _blocked_table_warning,
@@ -1784,7 +1786,7 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
         quiz = QuizEvent.objects.filter(id=self.quiz_id).first()
         if quiz is None:
             return []
-        count = blocked_table_conflict_count(quiz, upcoming_only=True)
+        count = blocked_table_conflict_count(quiz)
         return [_blocked_table_warning(count)] if count else []
 
     @database_sync_to_async
