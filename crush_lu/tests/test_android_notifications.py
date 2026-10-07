@@ -38,7 +38,14 @@ def test_derive_project_id_from_email(email, expected):
 
 @pytest.fixture
 def user(db):
-    return User.objects.create_user(username="testuser", email="test@example.com", password="password")
+    from crush_lu.models.profiles import UserDataConsent
+
+    user = User.objects.create_user(username="testuser", email="test@example.com", password="password")
+    # Device list/register/preferences are behind the consent gate (#1217).
+    UserDataConsent.objects.update_or_create(
+        user=user, defaults={"crushlu_consent_given": True}
+    )
+    return user
 
 
 @pytest.fixture
