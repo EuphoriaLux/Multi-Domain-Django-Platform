@@ -1,5 +1,6 @@
 from datetime import timedelta
 import json
+from unittest import mock
 
 from allauth.account.models import EmailAddress
 from django.contrib.auth.models import User
@@ -629,6 +630,65 @@ class SelfServiceEditPathTests(TestCase):
             },
             HTTP_HOST="crush.lu",
         )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("rejected", response["Location"])
+        self._assert_still_rejected()
+
+    def _reject_mid_request(self, *args, **kwargs):
+        """Side effect: a coach rejection commits after the view loaded the row."""
+        self._reject_without_submission()
+        return mock.DEFAULT
+
+    def test_rejection_committed_mid_request_survives_complete(self):
+        """Recheck under the lock: the stale instance must not write 'pending'.
+
+        SQLite ignores select_for_update, so this asserts the fresh-read
+        recheck, not the locking itself.
+        """
+        EmailAddress.objects.create(
+            user=self.user, email=self.user.email, verified=True, primary=True
+        )
+
+        def missing_then_reject(*args, **kwargs):
+            self._reject_without_submission()
+            return []
+
+        with mock.patch.object(
+            CrushProfile, "get_missing_fields", side_effect=missing_then_reject
+        ):
+            response = self.client.post("/api/profile/complete/", HTTP_HOST="crush.lu")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("rejected", response["Location"])
+        self._assert_still_rejected()
+
+    def test_rejection_committed_mid_request_survives_create_profile(self):
+        EmailAddress.objects.create(
+            user=self.user, email=self.user.email, verified=True, primary=True
+        )
+
+        def reject_and_accept(*args, **kwargs):
+            self._reject_without_submission()
+            return True
+
+        with mock.patch(
+            "crush_lu.views.is_valid_language", side_effect=reject_and_accept
+        ) as raced:
+            response = self.client.post(
+                "/en/create-profile/",
+                data={
+                    "phone_number": "+35212345678",
+                    "date_of_birth": (
+                        timezone.now().date() - timedelta(days=30 * 365)
+                    ).isoformat(),
+                    "gender": "F",
+                    "location": "canton-luxembourg",
+                    "bio": "x",
+                    "interests": "Reading",
+                    "event_languages": ["en"],
+                },
+                HTTP_HOST="crush.lu",
+            )
+        self.assertTrue(raced.called)  # the race fired after the first guard
         self.assertEqual(response.status_code, 302)
         self.assertIn("rejected", response["Location"])
         self._assert_still_rejected()

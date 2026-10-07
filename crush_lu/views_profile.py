@@ -781,6 +781,24 @@ def complete_profile_submission(request):
 
         try:
             with transaction.atomic():
+                # Recheck the rejection under the row lock (issue #1188): the
+                # check above read a possibly stale instance, and the save
+                # below would overwrite a concurrent rejection with "pending".
+                current_status = (
+                    CrushProfile.objects.select_for_update()
+                    .filter(pk=profile.pk)
+                    .values_list("verification_status", flat=True)
+                    .first()
+                )
+                if current_status == "rejected":
+                    messages.error(
+                        request,
+                        _(
+                            "Your profile has been rejected and cannot be resubmitted. Please contact support@crush.lu."
+                        ),
+                    )
+                    return redirect("crush_lu:profile_rejected")
+
                 # Mark as submitted — now "pending" means waiting to get
                 # verified at an event or via LuxID (no pre-event coach review).
                 profile.completion_status = (
