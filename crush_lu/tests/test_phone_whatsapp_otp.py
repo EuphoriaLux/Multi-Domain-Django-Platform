@@ -43,6 +43,10 @@ class WhatsAppOTPTests(SiteTestMixin, TestCase):
         self.user = User.objects.create_user(
             username="otp@example.com", email="otp@example.com", password="pw"
         )
+        from crush_lu.models.profiles import UserDataConsent
+        UserDataConsent.objects.update_or_create(
+            user=self.user, defaults={"crushlu_consent_given": True}
+        )
         self.client.force_login(self.user)
         self.send_url = reverse("api_phone_whatsapp_send")
         self.verify_url = reverse("api_phone_whatsapp_verify")

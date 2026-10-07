@@ -8,6 +8,7 @@ from django.contrib.auth.models import User
 from django.core.cache import cache
 
 from crush_lu.models import CoachPushSubscription, CrushCoach, PushSubscription
+from crush_lu.models.profiles import UserDataConsent
 from crush_lu.services.push_endpoints import (
     InvalidPushEndpoint,
     PushSession,
@@ -27,6 +28,10 @@ VALID_ENDPOINT = "https://fcm.googleapis.com/fcm/send/example-token"
 def test_subscription_rejects_private_destination(client, coach_api):
     cache.clear()
     user = User.objects.create_user("push-security", password="test-password")
+    # Coach push routes are not on the pre-consent allowlist (#1217).
+    UserDataConsent.objects.update_or_create(
+        user=user, defaults={"crushlu_consent_given": True}
+    )
     if coach_api:
         CrushCoach.objects.create(user=user, is_active=True)
     client.force_login(user)
@@ -99,6 +104,9 @@ def test_invalid_destinations_are_rejected(endpoint):
 def subscriber(db):
     cache.clear()
     user = User.objects.create_user("push-guard", password="test-password")
+    UserDataConsent.objects.update_or_create(
+        user=user, defaults={"crushlu_consent_given": True}
+    )
     coach = CrushCoach.objects.create(user=user, is_active=True)
     return user, coach
 
