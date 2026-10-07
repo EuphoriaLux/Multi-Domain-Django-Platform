@@ -29,7 +29,7 @@ from crush_lu.newsletter_service import get_newsletter_recipients, send_newslett
 User = get_user_model()
 
 
-def make_profile(consented=True, **kwargs):
+def make_profile(consented=True, opted_in=True, **kwargs):
     """Create a CrushProfile; consented by default.
 
     Newsletter/campaign audiences require ``crushlu_consent_given`` (#1184);
@@ -40,6 +40,12 @@ def make_profile(consented=True, **kwargs):
     UserDataConsent.objects.update_or_create(
         user=profile.user, defaults={"crushlu_consent_given": consented},
     )
+    if opted_in:
+        # Newsletters need explicit opt-in (#1185, Option A).
+        EmailPreference.objects.update_or_create(
+            user=profile.user,
+            defaults={"email_marketing": True, "email_newsletter": True},
+        )
     return profile
 
 
@@ -191,15 +197,14 @@ class NewsletterAudienceTests(TestCase):
         recipients = get_newsletter_recipients(newsletter)
         self.assertNotIn(self.user_no_profile, recipients)
 
-    def test_users_without_preference_record_included(self):
-        """Users without an EmailPreference record should be included (default=True)."""
-        # No EmailPreference created for any user
+    def test_users_without_preference_record_are_excluded(self):
+        """Explicit opt-in (#1185, Option A): no preference row means no opt-in."""
+        EmailPreference.objects.all().delete()
         newsletter = Newsletter.objects.create(
             subject='Test', body_html='<p>Hi</p>', audience='all_users',
         )
         recipients = get_newsletter_recipients(newsletter)
-        # user_no_profile excluded (no CrushProfile), 2 users with profiles included
-        self.assertEqual(recipients.count(), 2)
+        self.assertEqual(recipients.count(), 0)
 
 
 class NewsletterSendTests(TestCase):
@@ -601,12 +606,51 @@ class NewsletterOptOutControlsTests(TestCase):
         # Other (service) preferences are untouched.
         self.assertTrue(prefs.email_event_reminders)
 
-    def test_marketing_unsubscribe_button_shown_when_only_newsletter_on(self):
-        prefs = EmailPreference.get_or_create_for_user(self.user)
-        self.assertFalse(prefs.email_marketing)
-        self.assertTrue(prefs.email_newsletter)
-        response = self.client.get(f'/en/unsubscribe/{prefs.unsubscribe_token}/')
-        self.assertContains(response, 'value="unsubscribe_marketing"')
+    def test_visible_state_status_row_and_audience_agree_for_all_flag_combos(self):
+        """Option A: email_marketing is the visible choice; sending needs both."""
+        from django.template.loader import render_to_string
+
+        for marketing, newsletter in (
+            (False, False), (False, True), (True, False), (True, True),
+        ):
+            with self.subTest(marketing=marketing, newsletter=newsletter):
+                EmailPreference.objects.update_or_create(
+                    user=self.user,
+                    defaults={
+                        'email_marketing': marketing,
+                        'email_newsletter': newsletter,
+                    },
+                )
+                prefs = EmailPreference.objects.get(user=self.user)
+                page = self.client.get(
+                    f'/en/unsubscribe/{prefs.unsubscribe_token}/'
+                ).content.decode()
+                shows_button = 'value="unsubscribe_marketing"' in page
+                self.assertEqual(shows_button, marketing)
+                toggle = render_to_string(
+                    'crush_lu/partials/edit_account_notifications.html',
+                    {'email_prefs': prefs, 'profile': self.user.crushprofile},
+                )
+                import re
+
+                tag = re.search(
+                    r'<input[^>]*data-pref-key="email_marketing"[^>]*>', toggle
+                ) or re.search(
+                    r'<input[^>]*email_marketing[^>]*>', toggle
+                )
+                self.assertIsNotNone(tag)
+                self.assertEqual(
+                    re.search(r'\schecked(\s|=|>)', tag.group(0)) is not None,
+                    marketing,
+                )
+                in_audience = self.user in get_newsletter_recipients(
+                    self.newsletter
+                )
+                self.assertEqual(in_audience, marketing and newsletter)
+
+    def test_audience_shrinks_to_opted_in_members_only(self):
+        EmailPreference.objects.filter(user=self.user).update(email_marketing=False)
+        self.assertNotIn(self.user, get_newsletter_recipients(self.newsletter))
 
     def test_resubscribe_keeps_the_marketing_choice_consistent(self):
         """Resubscribe must not turn newsletters back on behind an OFF toggle."""
@@ -834,8 +878,11 @@ class EmailPreferenceNewsletterFieldTests(TestCase):
         pref = EmailPreference.get_or_create_for_user(self.user)
         self.assertTrue(pref.email_newsletter)
 
-    def test_can_send_newsletter_true(self):
+    def test_can_send_newsletter_requires_marketing_opt_in(self):
         pref = EmailPreference.get_or_create_for_user(self.user)
+        self.assertFalse(pref.can_send('newsletter'))  # default: not opted in
+        pref.email_marketing = True
+        pref.save()
         self.assertTrue(pref.can_send('newsletter'))
 
     def test_can_send_newsletter_false_when_opted_out(self):
