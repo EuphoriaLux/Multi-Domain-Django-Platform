@@ -19,6 +19,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase
+from django.utils import timezone
 
 from crush_lu.models import CrushProfile, EmailPreference
 from crush_lu.models.profiles import UserDataConsent
@@ -688,6 +689,46 @@ class SendTimeConsentRecheckTests(TestCase):
             newsletter=self.newsletter, user=self.user
         )
         self.assertEqual((row.status, row.email), ('skipped', ''))
+
+    def test_send_newsletter_skips_user_who_went_on_break_after_resolution(self):
+        from crush_lu import newsletter_service
+
+        real = newsletter_service.get_newsletter_recipients
+
+        def resolve_then_break(newsletter):
+            ids = list(real(newsletter).values_list('id', flat=True))
+            CrushProfile.objects.filter(user=self.user).update(
+                on_break_at=timezone.now()
+            )
+            return User.objects.filter(id__in=ids)
+
+        with patch.object(
+            newsletter_service, 'get_newsletter_recipients',
+            side_effect=resolve_then_break,
+        ), patch.object(newsletter_service, '_send_newsletter_to_user') as send:
+            results = send_newsletter(self.newsletter)
+        send.assert_not_called()
+        self.assertEqual(results['skipped'], 1)
+
+    def test_receipts_never_write_the_address_back_after_erasure(self):
+        """An in-flight send holds the pre-erasure User; receipts re-read."""
+        from crush_lu import newsletter_service
+
+        def send_then_erase(newsletter, user, link_rewriter):
+            UserDataConsent.objects.filter(user=user).update(
+                crushlu_consent_given=False, crushlu_banned=True,
+            )
+            return 1
+
+        with patch.object(
+            newsletter_service, '_send_newsletter_to_user',
+            side_effect=send_then_erase,
+        ):
+            send_newsletter(self.newsletter)
+        row = NewsletterRecipient.objects.get(
+            newsletter=self.newsletter, user=self.user
+        )
+        self.assertEqual((row.status, row.email), ('sent', ''))
 
     def test_has_current_consent(self):
         from crush_lu.newsletter_service import has_current_consent
