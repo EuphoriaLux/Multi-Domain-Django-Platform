@@ -444,10 +444,10 @@ class AccountErasureCompletenessTests(TestCase):
 
         def spy(user):
             consent = UserDataConsent.objects.get(user=user)
-            seen['state'] = (
+            seen.setdefault('state', (
                 consent.crushlu_consent_given, consent.crushlu_banned,
                 EmailPreference.objects.filter(user=user).exists(),
-            )
+            ))
             return real(user)
 
         with patch.object(views_account, '_anonymize_send_logs', side_effect=spy):
@@ -662,3 +662,28 @@ class AccountErasureCompletenessTests(TestCase):
         delete_full_account(self.user)  # second path stays idempotent
         keep.refresh_from_db()
         self.assertEqual(keep.manual_user_ids, [self.other.pk])
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_final_sweep_cleans_receipts_written_during_the_purge(self, _s):
+        """A receipt written by an in-flight sender mid-purge is blanked."""
+        from crush_lu import views_account
+        from crush_lu.models import Newsletter, NewsletterRecipient
+
+        newsletter = Newsletter.objects.create(
+            subject='S', body_html='x', audience='all_users',
+        )
+        real = views_account._remove_user_from_id_lists
+
+        def late_receipt(user):
+            NewsletterRecipient.objects.update_or_create(
+                newsletter=newsletter, user=user,
+                defaults={'email': 'del@example.com', 'status': 'sent'},
+            )
+            return real(user)
+
+        with patch.object(
+            views_account, '_remove_user_from_id_lists', side_effect=late_receipt
+        ):
+            views_account.delete_crushlu_profile_only(self.user)
+        row = NewsletterRecipient.objects.get(newsletter=newsletter)
+        self.assertEqual((row.status, row.email), ('sent', ''))

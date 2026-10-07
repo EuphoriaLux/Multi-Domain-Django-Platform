@@ -800,6 +800,10 @@ def _purge_user_keyed_personal_data(user):
         for app_label, model_name, field in ACCOUNT_ERASURE_M2M_CRUSH:
             _remove_user_from_m2m(app_label, model_name, field, user)
         _remove_user_from_id_lists(user)
+    # Final sweep AFTER the consent revocation and purge committed: an
+    # in-flight sender that wrote a receipt before it saw the revocation is
+    # cleaned up here (write_receipt covers writers that start afterwards).
+    _anonymize_send_logs(user)
     if summary:
         logger.info("Erased User-keyed personal data for user %s: %s", user.id, summary)
     return summary
