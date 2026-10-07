@@ -470,6 +470,115 @@ def _retire_event_checkouts_before_profile_deletion(user):
             claim.save(update_fields=["state", "claimed_at"])
 
 
+# Account erasure registry (#1183, GDPR Art. 17).
+#
+# The User row survives account deletion (it is anonymised, not deleted), so
+# every ``on_delete=CASCADE`` foreign key pointing at User never fires. These
+# are the User-keyed crush_lu models that hold personal content or device /
+# contact identifiers; each entry is purged explicitly. ORDER MATTERS: parents
+# a PROTECT/CASCADE chain hangs off go after their children where it applies
+# (chat messages and chats before the weekly requests that own them).
+# A tuple lists every field whose value may be the erased user.
+ACCOUNT_ERASURE_PURGE = (
+    # Crush Connect weekly cycle: chat text, requests, cards, answers.
+    ("ConnectChatMessage", ("sender",)),
+    ("ConnectCoffeeDate", ("proposer",)),
+    ("ConnectTemporaryChat", ("participant_1", "participant_2")),
+    ("ConnectWeeklyRequest", ("requester", "recipient")),
+    ("ConnectCycleCard", ("target_user",)),
+    ("ConnectCycleFeedback", ("user",)),
+    ("ConnectWeekSession", ("user",)),
+    ("ConnectCoachPick", ("member", "candidate")),
+    ("ConnectPairExclusion", ("user_a", "user_b")),
+    ("CrushConnectMembership", ("user",)),
+    ("CrushConnectWaitlist", ("user",)),
+    ("MatchScore", ("user_a", "user_b")),
+    # Free text and event interaction authored by the member.
+    ("CrushSpark", ("sender",)),
+    ("JourneyGift", ("sender",)),
+    ("EventFeedback", ("user",)),
+    ("EventPollSuggestion", ("user",)),
+    ("EventPollVote", ("user",)),
+    ("EventActivityVote", ("user",)),
+    ("PresentationRating", ("presenter", "rater")),
+    ("PresentationQueue", ("user",)),
+    ("IndividualScore", ("user",)),
+    ("EventLobbyParticipation", ("user",)),
+    ("JourneyProgress", ("user",)),
+    ("AdventProgress", ("user",)),
+    ("QRCodeToken", ("user",)),
+    # Devices, push endpoints, phone numbers and activity tracking.
+    ("PushSubscription", ("user",)),
+    ("PWADeviceInstallation", ("user",)),
+    ("IOSAppDevice", ("user",)),
+    ("IOSNativeAuthCode", ("user",)),
+    ("AndroidAppDevice", ("user",)),
+    ("WalletPassProxy", ("user",)),
+    ("Notification", ("user",)),
+    ("PhoneOTP", ("user",)),
+    ("ProfileReminder", ("user",)),
+    ("UserActivity", ("user",)),
+    ("DailyUserActivity", ("user",)),
+    ("EmailPreference", ("user",)),
+)
+
+# User-keyed crush_lu models deliberately KEPT after account deletion, and why.
+# ``test_account_deletion`` fails when a new User FK model is in neither list,
+# so a new table cannot silently outlive an erasure request.
+ACCOUNT_ERASURE_RETAINED = {
+    # Money owed / paid: legal retention and the member's refund rights.
+    "PaymentTransaction": "financial record",
+    "CrushCredit": "refund rights; voided or kept by delete_crushlu_profile_only",
+    "PremiumMembership": "financial record",
+    "PremiumPaymentRecoveryCase": "financial record",
+    # Consent / ban record that stops the account being re-created.
+    "UserDataConsent": "ban + consent audit record",
+    # Moderation and safety: product decision pending (see PR #1183).
+    "UserBlock": "safety record, product decision pending",
+    "UserReport": "safety record, product decision pending",
+    "ConnectReport": "safety record, product decision pending",
+    # Interaction records shared with another member: product decision pending.
+    "EventMeetSignal": "shared with counterpart, product decision pending",
+    "EventMeetingConfirmation": "shared with counterpart, product decision pending",
+    "ConfirmedEncounter": "shared with counterpart, product decision pending",
+    "ConfirmedEncounterRemovalRequest": "PROTECT; moderation record",
+    # Delivery logs of mail already sent (no content beyond the send record).
+    "NewsletterRecipient": "send log",
+    "CampaignRecipient": "send log",
+    # Handled by the profile/registration deletion in delete_crushlu_profile_only.
+    "CrushProfile": "deleted explicitly",
+    "CoachSession": "deleted explicitly",
+    "EventRegistration": "deleted explicitly",
+    "EventConnection": "deleted explicitly",
+    "ConnectionMessage": "deleted explicitly",
+    # Staff accounts and staff-owned objects (not member data).
+    "CrushCoach": "staff record",
+    "QuizEvent": "staff-created",
+    "CacheHunt": "staff-created",
+    "QuizTableMembership": "event table seating, no personal content",
+    "QuizRotationSchedule": "event table seating, no personal content",
+}
+
+
+def _purge_user_keyed_personal_data(user):
+    """Delete the User-keyed personal rows listed in ACCOUNT_ERASURE_PURGE."""
+    from django.apps import apps
+
+    summary = {}
+    with transaction.atomic():
+        for model_name, fields in ACCOUNT_ERASURE_PURGE:
+            model = apps.get_model("crush_lu", model_name)
+            condition = Q()
+            for field in fields:
+                condition |= Q(**{field: user})
+            deleted, _ = model.objects.filter(condition).delete()
+            if deleted:
+                summary[model_name] = deleted
+    if summary:
+        logger.info("Erased User-keyed personal data for user %s: %s", user.id, summary)
+    return summary
+
+
 def delete_crushlu_profile_only(user):
     """
     Delete ONLY Crush.lu profile data, keeping PowerUp account intact.
@@ -628,6 +737,11 @@ def delete_crushlu_profile_only(user):
 
     # Delete CoachSessions
     CoachSession.objects.filter(user=user).delete()
+
+    # Purge everything else keyed on the User (chats, Connect data, devices,
+    # push endpoints, phone OTPs, ...): the User row survives, so none of it
+    # cascades on its own (#1183).
+    _purge_user_keyed_personal_data(user)
 
     # Clear Crush.lu consent and set permanent ban
     if hasattr(user, "data_consent"):
