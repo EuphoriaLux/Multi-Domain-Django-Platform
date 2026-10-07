@@ -45101,5 +45101,83 @@ msgstr "Ajoutez une nouvelle photo principale depuis votre profil. Vous n’avez
 msgid "Upload a new photo"
 msgstr "Ajouter une nouvelle photo"
 
+#: crush_lu/templates/crush_lu/coach_photo_review.html
+msgid "Crush overall"
+msgstr "Crush – général"
+
+#: crush_lu/templates/crush_lu/coach_photo_review.html
+msgid "Each card reviews one image. Other photos are shown for context; the decision applies to the labeled image only. Reviews are shared between both queues."
+msgstr "Chaque carte concerne une seule image. Les autres photos sont affichées à titre de contexte ; la décision s’applique uniquement à l’image indiquée. Les deux files partagent les mêmes évaluations."
+
+#: crush_lu/templates/crush_lu/coach_photo_review.html
+msgid "This card is reviewing"
+msgstr "Cette carte concerne"
+
+#: crush_lu/templates/crush_lu/coach_photo_review.html
+msgid "Return to that image before deciding."
+msgstr "Revenez à cette image avant de prendre une décision."
+
+#: crush_lu/templates/crush_lu/coach_photo_review.html
+msgid "Show image under review"
+msgstr "Afficher l’image évaluée"
+
+#: crush_lu/templates/crush_lu/crush_connect/_reviewed_secondary_photos.html
+msgid "Coach-reviewed profile photos"
+msgstr "Photos de profil examinées par un coach"
+
+#: crush_lu/templates/crush_lu/crush_connect/_candidate_card.html
+#: crush_lu/templates/crush_lu/crush_connect/_cycle_card.html
+#: crush_lu/templates/crush_lu/crush_connect/_permitted_profile.html
+#: crush_lu/templates/crush_lu/crush_connect/_review_card.html
+msgid "Coach-reviewed photo"
+msgstr "Photo examinée par un coach"
+
+#: crush_lu/templates/crush_lu/crush_connect/_candidate_card.html
+#: crush_lu/templates/crush_lu/crush_connect/_cycle_card.html
+#: crush_lu/templates/crush_lu/crush_connect/_review_card.html
+msgid "A Crush Coach reviewed this specific photo"
+msgstr "Un coach Crush a examiné cette photo précise."
+
+#: crush_lu/services/photo_review.py
+msgid "primary photo"
+msgstr "photo principale"
+
+#: crush_lu/services/photo_review.py
+msgid "photo 2"
+msgstr "photo 2"
+
+#: crush_lu/services/photo_review.py
+msgid "photo 3"
+msgstr "photo 3"
+
+#: crush_lu/email_helpers.py
+#: crush_lu/notification_service.py
+msgid "main profile photo"
+msgstr "photo principale du profil"
+
+#: crush_lu/email_helpers.py
+#: crush_lu/notification_service.py
+msgid "second profile photo"
+msgstr "deuxième photo du profil"
+
+#: crush_lu/email_helpers.py
+#: crush_lu/notification_service.py
+msgid "third profile photo"
+msgstr "troisième photo du profil"
+
+#: crush_lu/notification_service.py
+msgid "profile photo"
+msgstr "photo de profil"
+
+#, python-format
+#: crush_lu/notification_service.py
+#: crush_lu/templates/crush_lu/emails/photo_revision_request.html
+msgid "Your coach asked you to replace your %(photo)s. The rest of your profile can stay as it is."
+msgstr "Votre coach vous a demandé de remplacer votre %(photo)s. Le reste de votre profil peut rester tel quel."
+
+#: crush_lu/templates/crush_lu/emails/photo_revision_request.html
+msgid "Upload a replacement photo in that slot. You do not need to change anything else."
+msgstr "Ajoutez une photo de remplacement dans cet emplacement. Vous n’avez rien d’autre à modifier."
+
 msgid "Show this QR to a coach at the door."
 msgstr "Montrez ce code QR à un coach à l'entrée."

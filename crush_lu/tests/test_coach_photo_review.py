@@ -16,6 +16,7 @@ from crush_lu.models import (
     CrushConnectMembership,
     CrushProfile,
     ProfilePhotoReviewLog,
+    ProfilePhotoReviewState,
     UserDataConsent,
     UserReport,
 )
@@ -149,6 +150,81 @@ def test_get_photo_review_queue_filtering_and_priority():
     assert p1.id in card_ids
     assert coach_profile.id not in card_ids
     assert total >= 1
+
+
+@pytest.mark.django_db
+def test_photo_queue_scopes_and_shared_per_image_decisions():
+    coach = _make_coach("scoped_deck_coach")
+    connect_profile = _make_candidate(
+        "connect_scoped", photo_key="users/20/photos/primary.jpg"
+    )
+    connect_profile.photo_2 = "users/20/photos/second.jpg"
+    connect_profile.photo_3 = "users/20/photos/third.jpg"
+    connect_profile.save(update_fields=["photo_2", "photo_3"])
+    general_profile = _make_candidate("general_scoped", onboarded=False)
+
+    all_cards, all_total = get_photo_review_queue(coach, scope="all")
+    connect_cards, connect_total = get_photo_review_queue(coach, scope="connect")
+    assert all_total == 4
+    assert connect_total == 3
+    assert {card["id"] for card in all_cards} == {
+        connect_profile.pk,
+        general_profile.pk,
+    }
+    assert {
+        card["photo_field"] for card in all_cards if card["id"] == connect_profile.pk
+    } == {
+        "photo_1",
+        "photo_2",
+        "photo_3",
+    }
+    assert all(card["id"] == connect_profile.pk for card in connect_cards)
+    CrushConnectMembership.objects.filter(user=connect_profile.user).update(
+        excluded_by_coach=True
+    )
+    assert get_photo_review_queue(coach, scope="all")[1] == 4
+    assert get_photo_review_queue(coach, scope="connect")[1] == 0
+    CrushConnectMembership.objects.filter(user=connect_profile.user).update(
+        excluded_by_coach=False
+    )
+
+    submit_photo_review(
+        coach=coach,
+        profile_id=connect_profile.pk,
+        decision="approved",
+        photo_key=connect_profile.photo_2.name,
+        photo_field="photo_2",
+    )
+    all_cards, all_total = get_photo_review_queue(coach, scope="all")
+    connect_cards, connect_total = get_photo_review_queue(coach, scope="connect")
+    assert all_total == 3
+    assert connect_total == 2
+    assert all(card["photo_field"] != "photo_2" for card in all_cards)
+    assert all(card["photo_field"] != "photo_2" for card in connect_cards)
+
+    undo_last_photo_review(coach)
+    assert get_photo_review_queue(coach, scope="connect")[1] == 3
+    submit_photo_review(
+        coach=coach,
+        profile_id=connect_profile.pk,
+        decision="approved",
+        photo_key=connect_profile.photo_2.name,
+        photo_field="photo_2",
+    )
+
+    connect_profile.photo_2 = "users/20/photos/replaced.jpg"
+    connect_profile.save(update_fields=["photo_2"])
+    connect_profile.refresh_from_db()
+    assert connect_profile.get_photo_field_review_status("photo_2") == "pending"
+    cards, total = get_photo_review_queue(coach, scope="connect")
+    assert total == 3
+    assert any(
+        card["id"] == connect_profile.pk and card["photo_field"] == "photo_2"
+        for card in cards
+    )
+    assert ProfilePhotoReviewState.objects.filter(
+        profile=connect_profile, photo_field="photo_2", status="approved"
+    ).exists()
 
 
 @pytest.mark.django_db

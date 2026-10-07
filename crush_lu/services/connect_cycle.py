@@ -132,6 +132,7 @@ def get_cycle_eligible_pool(user):
         GATE_QUESTION_COUNT,
         exclude_assigned_coach_pairs,
         filter_connect_identity_verified,
+        filter_primary_photo_review_approved,
     )
 
     if not cycle_access_open(user):
@@ -178,9 +179,11 @@ def get_cycle_eligible_pool(user):
     active_request_subq = _excluding_pair_requests(user, OuterRef("pk"))
 
     excluded_ids: set[int] = set()
-    for a, b in ConnectPairExclusion.active(now=now).filter(
-        Q(user_a=user) | Q(user_b=user)
-    ).values_list("user_a_id", "user_b_id"):
+    for a, b in (
+        ConnectPairExclusion.active(now=now)
+        .filter(Q(user_a=user) | Q(user_b=user))
+        .values_list("user_a_id", "user_b_id")
+    ):
         excluded_ids.add(a)
         excluded_ids.add(b)
     excluded_ids.discard(user.pk)
@@ -194,35 +197,39 @@ def get_cycle_eligible_pool(user):
         | Q(requester=OuterRef("pk"), recipient=user)
     )
 
-    qs = (
-        User.objects.filter(
-            is_active=True,
-            crushprofile__verification_status="verified",
-            crushprofile__is_active=True,
-            crush_connect_membership__onboarded_at__isnull=False,
-            crush_connect_membership__excluded_by_coach=False,
-            crush_connect_membership__paused_at__isnull=True,
-            crush_connect_membership__photo_share_consent=True,
-            last_login__gte=inactivity_cutoff,
+    qs = filter_primary_photo_review_approved(
+        (
+            User.objects.filter(
+                is_active=True,
+                crushprofile__verification_status="verified",
+                crushprofile__is_active=True,
+                crush_connect_membership__onboarded_at__isnull=False,
+                crush_connect_membership__excluded_by_coach=False,
+                crush_connect_membership__paused_at__isnull=True,
+                crush_connect_membership__photo_share_consent=True,
+                last_login__gte=inactivity_cutoff,
+            )
+            .exclude(
+                Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True)
+            )
+            .exclude(
+                crushprofile__photo_review_status__in=["needs_revision", "flagged_fake"]
+            )
+            .exclude(pk__in=already_carded_ids)
+            .exclude(pk__in=excluded_ids)
+            .exclude(pk=user.pk)
+            .annotate(
+                _gate_q_count=Count(
+                    "crush_connect_membership__gate_questions", distinct=True
+                ),
+                _has_connection=Exists(existing_connection_subq),
+                _has_active_request=Exists(active_request_subq),
+                _has_block=block_exists_subquery(user),
+            )
+            .filter(_gate_q_count__gte=GATE_QUESTION_COUNT)
+            .filter(_has_connection=False)
+            .filter(_has_active_request=False)
         )
-        .exclude(Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True))
-        .exclude(
-            crushprofile__photo_review_status__in=["needs_revision", "flagged_fake"]
-        )
-        .exclude(pk__in=already_carded_ids)
-        .exclude(pk__in=excluded_ids)
-        .exclude(pk=user.pk)
-        .annotate(
-            _gate_q_count=Count(
-                "crush_connect_membership__gate_questions", distinct=True
-            ),
-            _has_connection=Exists(existing_connection_subq),
-            _has_active_request=Exists(active_request_subq),
-            _has_block=block_exists_subquery(user),
-        )
-        .filter(_gate_q_count__gte=GATE_QUESTION_COUNT)
-        .filter(_has_connection=False)
-        .filter(_has_active_request=False)
         .filter(_has_block=False)
         .select_related("crushprofile", "crush_connect_membership")
     )
@@ -537,7 +544,13 @@ def visible_cycle_cards(cards, viewer):
     # Generation can return a list; reload its surviving rows in one query,
     # preserving its original order and preloading the permitted profile fields.
     if isinstance(cards, QuerySet):
-        return list(cards.filter(target_user_id__in=eligible.values("pk")))
+        return list(
+            cards.filter(target_user_id__in=eligible.values("pk"))
+            .select_related(
+                "target_user__crushprofile", "target_user__crush_connect_membership"
+            )
+            .prefetch_related("target_user__crushprofile__photo_review_states")
+        )
     card_ids = [card.pk for card in cards]
     if not card_ids:
         return []
@@ -545,9 +558,11 @@ def visible_cycle_cards(cards, viewer):
         card.pk: card
         for card in ConnectCycleCard.objects.filter(
             pk__in=card_ids, target_user_id__in=eligible.values("pk")
-        ).select_related(
+        )
+        .select_related(
             "target_user__crushprofile", "target_user__crush_connect_membership"
         )
+        .prefetch_related("target_user__crushprofile__photo_review_states")
     }
     return [visible[pk] for pk in card_ids if pk in visible]
 

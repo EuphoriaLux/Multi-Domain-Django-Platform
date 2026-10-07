@@ -1,0 +1,15 @@
+{% load i18n crush_media %}
+{% with reviewed_fields=profile.get_coach_reviewed_secondary_photo_fields %}
+{% if reviewed_fields %}
+<div class="grid grid-cols-2 gap-3 px-4 pb-4" aria-label="{% trans 'Coach-reviewed profile photos' %}">
+    {% for photo_field in reviewed_fields %}
+    <figure class="relative overflow-hidden rounded-xl bg-gray-100 dark:bg-slate-700">
+        {% profile_photo profile photo_field css_class="w-full aspect-[4/5] object-cover" alt_text=profile.display_name %}
+        <figcaption class="absolute inset-x-1 bottom-1 text-center rounded-full bg-black/70 px-2 py-1 text-[10px] font-semibold text-white">
+            {% trans "Coach-reviewed photo" %}
+        </figcaption>
+    </figure>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
