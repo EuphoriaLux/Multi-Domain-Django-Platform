@@ -80,6 +80,31 @@ def has_current_consent(user):
     ).exists()
 
 
+def is_on_break(user):
+    """Fresh read of the self-service break state (see exclude_on_break_users)."""
+    from .models.profiles import CrushProfile
+
+    return CrushProfile.objects.filter(
+        user_id=user.pk, on_break_at__isnull=False
+    ).exists()
+
+
+def receipt_email(user):
+    """Address to store in a NewsletterRecipient receipt, read fresh.
+
+    An in-flight send holds the User loaded before an account deletion may
+    have anonymised the send log, so every receipt write re-reads consent and
+    the current address: an erased/unconsented user never gets an address
+    written back.
+    """
+    if not has_current_consent(user):
+        return ''
+    return (
+        User.objects.filter(pk=user.pk).values_list('email', flat=True).first()
+        or ''
+    )
+
+
 def exclude_banned_users(users):
     """Exclude users who deleted their profile or are banned from Crush.lu."""
     from .models.profiles import UserDataConsent
@@ -337,7 +362,11 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
         # Double-check consent and preference (may have changed since the
         # queryset was evaluated, e.g. account deletion during a batch pause)
         consented = has_current_consent(user)
-        if not consented or not can_send_email(user, 'newsletter'):
+        if (
+            not consented
+            or is_on_break(user)
+            or not can_send_email(user, 'newsletter')
+        ):
             NewsletterRecipient.objects.update_or_create(
                 newsletter=newsletter,
                 user=user,
@@ -345,7 +374,7 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
                     # Never write the address back for a user whose consent is
                     # gone (account deletion may have anonymised this log
                     # moments earlier).
-                    'email': user.email if consented else '',
+                    'email': receipt_email(user),
                     'status': 'skipped',
                     'error_message': 'User opted out of newsletters',
                 },
@@ -359,7 +388,7 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
         NewsletterRecipient.objects.update_or_create(
             newsletter=newsletter,
             user=user,
-            defaults={'email': user.email, 'status': 'pending'},
+            defaults={'email': receipt_email(user), 'status': 'pending'},
         )
 
         try:
@@ -371,7 +400,7 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
                     newsletter=newsletter,
                     user=user,
                     defaults={
-                        'email': user.email,
+                        'email': receipt_email(user),
                         'status': 'skipped',
                         'sent_at': None,
                         'error_message': 'Active hard-bounce suppression',
@@ -383,7 +412,7 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
                 newsletter=newsletter,
                 user=user,
                 defaults={
-                    'email': user.email,
+                    'email': receipt_email(user),
                     'status': 'sent',
                     'sent_at': timezone.now(),
                 },
@@ -399,7 +428,7 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
                 newsletter=newsletter,
                 user=user,
                 defaults={
-                    'email': user.email,
+                    'email': receipt_email(user),
                     'status': 'failed',
                     'error_message': error_msg,
                 },

@@ -17,6 +17,7 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 
 from crush_lu.models import CampaignClick, CampaignLink
+from crush_lu.newsletter_service import has_current_consent
 from crush_lu.services.campaigns import click_signer
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,10 @@ def campaign_click_redirect(request, token):
             # different campaign URL degrades to an anonymous click.
             if signed_token == token:
                 user = User.objects.filter(pk=int(user_id)).first()
+                # An old link must not re-attribute clicks to an erased or
+                # unconsented member: degrade to an anonymous click.
+                if user is not None and not has_current_consent(user):
+                    user = None
             else:
                 logger.info("Campaign click signature for a different link")
         except (BadSignature, ValueError):

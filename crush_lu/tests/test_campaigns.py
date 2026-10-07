@@ -789,3 +789,56 @@ class WhatsAppMidRunOptOutTests(TestCase):
             adapter.send_batch(campaign, limit=5)
         send.assert_not_called()
         self.assertFalse(CampaignRecipient.objects.filter(campaign=campaign).exists())
+
+
+class RecheckQueryBudgetTests(TestCase):
+    """The per-recipient recheck must not re-resolve the audience (#1185)."""
+
+    def test_recheck_never_resolves_segments_or_counts(self):
+        from unittest.mock import patch as _patch
+
+        users = [
+            make_user(f'q{i}@example.com', phone_number=f'+3526210000{i}',
+                      phone_verified=True)
+            for i in range(3)
+        ]
+        for user in users:
+            opt_in_whatsapp(user)
+            add_push_subscription(user, endpoint_suffix=str(user.pk))
+        with _patch(
+            'crush_lu.admin.user_segments.get_segment_definitions'
+        ) as segments, _patch(
+            'crush_lu.services.campaigns.resolve_campaign_audience'
+        ) as audience:
+            for adapter in (CHANNEL_ADAPTERS['whatsapp'], CHANNEL_ADAPTERS['push']):
+                for user in users:
+                    self.assertTrue(adapter.still_reachable(user))
+        segments.assert_not_called()
+        audience.assert_not_called()
+
+    def test_recheck_is_a_small_constant_number_of_queries(self):
+        user = make_user('qq@example.com', phone_number='+352621000099',
+                         phone_verified=True)
+        opt_in_whatsapp(user)
+        add_push_subscription(user)
+        with self.assertNumQueries(7):
+            CHANNEL_ADAPTERS['whatsapp'].still_reachable(user)
+            CHANNEL_ADAPTERS['push'].still_reachable(user)
+
+    def test_opt_outs_still_block_the_recheck(self):
+        user = make_user('qo@example.com', phone_number='+352621000098',
+                         phone_verified=True)
+        opt_in_whatsapp(user)
+        add_push_subscription(user)
+        wa, push = CHANNEL_ADAPTERS['whatsapp'], CHANNEL_ADAPTERS['push']
+        self.assertTrue(wa.still_reachable(user))
+        EmailPreference.objects.filter(user=user).update(whatsapp_opt_in=False)
+        self.assertFalse(wa.still_reachable(user))
+        EmailPreference.objects.filter(user=user).update(whatsapp_opt_in=True)
+        CrushProfile.objects.filter(user=user).update(not_on_whatsapp=True)
+        self.assertFalse(wa.still_reachable(user))
+        PushSubscription.objects.filter(user=user).update(enabled=False)
+        self.assertFalse(push.still_reachable(user))
+        PushSubscription.objects.filter(user=user).update(enabled=True)
+        CrushProfile.objects.filter(user=user).update(on_break_at=timezone.now())
+        self.assertFalse(push.still_reachable(user))

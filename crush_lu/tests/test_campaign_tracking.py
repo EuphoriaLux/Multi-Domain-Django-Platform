@@ -165,6 +165,17 @@ class ClickRedirectViewTests(TestCase):
         self.assertEqual(click.user, self.user)
         self.assertEqual(click.link, self.link)
 
+    def test_erased_or_unconsented_recipient_counts_anonymous_click(self):
+        """An old signed link must not re-attribute clicks to an erased user."""
+        from crush_lu.models import UserDataConsent
+
+        UserDataConsent.objects.filter(user=self.user).update(
+            crushlu_consent_given=False, crushlu_banned=True,
+        )
+        response = self.client.get(self._path(self.tracked))
+        self.assertEqual(response.status_code, 302)
+        self.assertIsNone(CampaignClick.objects.get().user)
+
     def test_tampered_signature_counts_anonymous_click(self):
         response = self.client.get(
             f'/c/{self.link.token}/?r={self.user.pk}:forged-signature'
