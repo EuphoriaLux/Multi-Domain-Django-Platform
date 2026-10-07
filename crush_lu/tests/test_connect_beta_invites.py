@@ -16,7 +16,6 @@ Reuses the Connect suite's fixtures (see ``test_crush_connect``'s docstring for
 the cross-import convention).
 """
 
-from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
@@ -33,6 +32,7 @@ from crush_lu.management.commands.send_connect_beta_invites import (
     candidates_for_wave,
     wave_for_user,
 )
+from crush_lu.models import EmailSuppression
 from crush_lu.models.crush_connect import CrushConnectWaitlist
 from crush_lu.tests.test_crush_connect import _make_user, _mark_attended
 
@@ -197,6 +197,20 @@ def test_send_delivers_one_email_and_stamps_the_row():
     row.refresh_from_db()
     assert row.beta_invited_at is not None
     assert row.beta_invite_wave == CONNECT_BETA_WAVE_CONNECT_WEEK
+
+
+@pytest.mark.django_db
+def test_campaign_hold_skips_beta_invite_without_stamping_the_row():
+    row = _waitlist(_event_verified("campaign_hold"))
+    EmailSuppression.objects.create(email=row.user.email, scope="campaign")
+    mail.outbox = []
+
+    call_command("send_connect_beta_invites", wave=1)
+
+    assert mail.outbox == []
+    row.refresh_from_db()
+    assert row.beta_invited_at is None
+    assert row.beta_invite_wave is None
 
 
 @pytest.mark.django_db

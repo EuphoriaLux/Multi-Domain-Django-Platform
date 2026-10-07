@@ -22,11 +22,29 @@ from django.test import TestCase
 from django.utils import timezone
 
 from crush_lu.models import CrushProfile, EmailPreference
+from crush_lu.models import EmailSuppression
 from crush_lu.models.profiles import UserDataConsent
 from crush_lu.models.newsletter import Newsletter, NewsletterRecipient
 from crush_lu.newsletter_service import get_newsletter_recipients, send_newsletter
 
 User = get_user_model()
+
+
+class CampaignHoldIntegrationTests(TestCase):
+    def test_newsletter_sender_respects_campaign_hold_without_changing_consent(self):
+        from django.core import mail
+        from crush_lu.newsletter_service import _send_newsletter_to_user
+
+        user = User.objects.create_user(username="held", email="held@example.com")
+        make_profile(user=user, date_of_birth="1995-01-01", gender="F")
+        EmailSuppression.objects.create(email=user.email, scope="campaign")
+        newsletter = Newsletter.objects.create(subject="Event", body_html="<p>Hello</p>")
+        self.assertEqual(_send_newsletter_to_user(newsletter, user), 0)
+        self.assertEqual(mail.outbox, [])
+        user.refresh_from_db()
+        self.assertTrue(user.is_active)
+        self.assertTrue(user.email_preference.email_marketing)
+        self.assertTrue(user.email_preference.email_newsletter)
 
 
 def make_profile(consented=True, opted_in=True, **kwargs):
