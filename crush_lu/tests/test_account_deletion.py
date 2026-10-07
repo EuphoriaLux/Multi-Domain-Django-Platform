@@ -366,3 +366,146 @@ class AccountErasureCompletenessTests(TestCase):
         self.assertTrue(storage.exists(other_name))
         self.assertFalse(JourneyGift.objects.filter(sender=self.user).exists())
         self.assertTrue(JourneyGift.objects.filter(pk=keep.pk).exists())
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_severed_links_also_blank_identifying_payload(self, _s):
+        from crush_lu.models import (
+            EventInvitation, JourneyGift, MeetupEvent, SpecialUserExperience,
+        )
+        from crush_lu.views import delete_full_account
+
+        event = MeetupEvent.objects.create(
+            title='E', description='d', event_type='mixer',
+            date_time=timezone.now() + timedelta(days=5), location='L',
+            address='A', max_participants=10,
+            registration_deadline=timezone.now() + timedelta(days=3),
+        )
+        invitation = EventInvitation.objects.create(
+            event=event, guest_email='g@example.com', guest_first_name='Gus',
+            guest_last_name='Guest', created_user=self.user,
+            coach_notes='note about Gus',
+        )
+        special = SpecialUserExperience.objects.create(
+            first_name='Gus', last_name='Guest', linked_user=self.user,
+        )
+        gift = JourneyGift.objects.create(
+            sender=self.other, recipient_name='Gus', recipient_email='g@example.com',
+            claimed_by=self.user, date_first_met=date(2024, 1, 1),
+            location_first_met='Lux',
+        )
+
+        delete_full_account(self.user)
+
+        invitation.refresh_from_db()
+        special.refresh_from_db()
+        gift.refresh_from_db()
+        self.assertIsNone(invitation.created_user)
+        self.assertEqual(
+            (invitation.guest_email, invitation.guest_first_name,
+             invitation.guest_last_name, invitation.coach_notes),
+            ('', '', '', ''),
+        )
+        self.assertIsNone(special.linked_user)
+        self.assertEqual((special.first_name, special.last_name), ('', ''))
+        self.assertIsNone(gift.claimed_by)
+        self.assertEqual((gift.recipient_name, gift.recipient_email), ('', ''))
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_other_app_files_are_deleted_from_their_storage(self, _s):
+        from django.core.files.base import ContentFile
+        from django.core.files.storage import InMemoryStorage
+
+        from crush_lu.views import delete_full_account
+        from delegations.models import DelegationProfile
+
+        storage = InMemoryStorage()
+        name = storage.save('delegations/me.jpg', ContentFile(b'img'))
+        DelegationProfile.objects.create(user=self.user, profile_photo=name)
+        field = DelegationProfile._meta.get_field('profile_photo')
+        with patch.object(field, 'storage', storage):
+            delete_full_account(self.user)
+        self.assertFalse(storage.exists(name))
+        self.assertFalse(DelegationProfile.objects.filter(user=self.user).exists())
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_consent_is_revoked_before_anything_is_purged(self, _s):
+        from crush_lu import views_account
+        from crush_lu.email_helpers import can_send_email
+        from crush_lu.models import EmailPreference
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.filter(user=self.user).update(
+            crushlu_consent_given=True
+        )
+        EmailPreference.get_or_create_for_user(self.user)
+        seen = {}
+        real = views_account._anonymize_send_logs
+
+        def spy(user):
+            consent = UserDataConsent.objects.get(user=user)
+            seen['state'] = (
+                consent.crushlu_consent_given, consent.crushlu_banned,
+                EmailPreference.objects.filter(user=user).exists(),
+            )
+            return real(user)
+
+        with patch.object(views_account, '_anonymize_send_logs', side_effect=spy):
+            views_account.delete_crushlu_profile_only(self.user)
+        self.assertEqual(seen['state'], (False, True, True))
+        # Purged prefs are not resurrected for the banned account.
+        self.assertFalse(can_send_email(self.user, 'newsletter'))
+        self.assertFalse(EmailPreference.objects.filter(user=self.user).exists())
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_user_m2m_memberships_and_quiz_rows_are_erased(self, _s):
+        from crush_lu.models import MeetupEvent, QuizEvent, QuizTable
+        from crush_lu.models import QuizTableMembership
+        from crush_lu.views import delete_full_account
+        from hub.models import HubResource
+
+        event = MeetupEvent.objects.create(
+            title='Q', description='d', event_type='mixer',
+            date_time=timezone.now() + timedelta(days=5), location='L',
+            address='A', max_participants=10,
+            registration_deadline=timezone.now() + timedelta(days=3),
+        )
+        event.invited_users.add(self.user, self.other)
+        resource = HubResource.objects.create(title='R')
+        resource.audience.add(self.user, self.other)
+        quiz = QuizEvent.objects.create(event=event, created_by=self.other)
+        table = QuizTable.objects.create(quiz=quiz, table_number=1)
+        QuizTableMembership.objects.create(table=table, user=self.user)
+        QuizTableMembership.objects.create(table=table, user=self.other)
+
+        delete_full_account(self.user)
+
+        self.assertEqual(list(event.invited_users.all()), [self.other])
+        self.assertEqual(list(resource.audience.all()), [self.other])
+        self.assertEqual(
+            list(QuizTableMembership.objects.values_list('user', flat=True)),
+            [self.other.pk],
+        )
+
+    def test_every_user_m2m_relation_is_handled(self):
+        from django.apps import apps
+        from django.contrib.auth import get_user_model
+
+        from crush_lu.views_account import (
+            ACCOUNT_ERASURE_M2M_CRUSH, ACCOUNT_ERASURE_M2M_OTHER_APPS,
+            ACCOUNT_ERASURE_M2M_VIA_PURGED_THROUGH,
+        )
+
+        handled = (
+            set(ACCOUNT_ERASURE_M2M_CRUSH)
+            | set(ACCOUNT_ERASURE_M2M_OTHER_APPS)
+            | set(ACCOUNT_ERASURE_M2M_VIA_PURGED_THROUGH)
+        )
+        user_model = get_user_model()
+        unhandled = [
+            f'{m._meta.app_label}.{m.__name__}.{f.name}'
+            for m in apps.get_models()
+            for f in m._meta.local_many_to_many
+            if f.related_model is user_model
+            and (m._meta.app_label, m.__name__, f.name) not in handled
+        ]
+        self.assertEqual(unhandled, [])

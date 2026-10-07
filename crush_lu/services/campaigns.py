@@ -332,6 +332,16 @@ class WhatsAppAdapter:
         )
 
     def eligible_users(self, campaign):
+        return _exclude_processed(
+            self.channel_audience(campaign), campaign, self.key
+        )
+
+    def channel_audience(self, campaign):
+        """Everyone currently reachable on this channel (before dedupe).
+
+        Re-evaluated per recipient right before each paid send so an opt-out,
+        unsubscribe, number change or deletion mid-run is honoured.
+        """
         users = resolve_campaign_audience(campaign)
         # Explicit opt-in only: a missing EmailPreference row means NOT opted
         # in (whatsapp_opt_in defaults to False — GDPR).
@@ -346,7 +356,7 @@ class WhatsAppAdapter:
             crushprofile__phone_verified=True,
             crushprofile__not_on_whatsapp=False,
         ).exclude(crushprofile__phone_number='')
-        return _exclude_processed(users, campaign, self.key)
+        return users
 
     def send_batch(self, campaign, limit, deadline=None, stdout=None):
         from hub.whatsapp_service import send_whatsapp_template
@@ -381,9 +391,10 @@ class WhatsAppAdapter:
             user = User.objects.filter(id=user_id).first()
             if user is None:
                 continue
-            # Consent/ban may have changed since the audience was resolved
-            # (e.g. account deletion mid-run): never send to such a user.
-            if not newsletter_service.has_current_consent(user):
+            # Consent, ban or this channel's own predicates may have changed
+            # since the audience was resolved (opt-out, unsubscribe, deletion
+            # mid-run): re-read exactly what the audience filters on.
+            if not self.channel_audience(campaign).filter(pk=user.pk).exists():
                 continue
             profile = getattr(user, 'crushprofile', None)
             lang = get_user_preferred_language(user=user, default='en')
@@ -461,9 +472,14 @@ class PushAdapter:
     key = Campaign.CHANNEL_PUSH
 
     def eligible_users(self, campaign):
+        return _exclude_processed(
+            self.channel_audience(campaign), campaign, self.key
+        )
+
+    def channel_audience(self, campaign):
+        """Currently reachable on push (re-checked right before each send)."""
         users = resolve_campaign_audience(campaign)
-        users = users.filter(push_subscriptions__enabled=True).distinct()
-        return _exclude_processed(users, campaign, self.key)
+        return users.filter(push_subscriptions__enabled=True).distinct()
 
     def send_batch(self, campaign, limit, deadline=None, stdout=None):
         from crush_lu.push_notifications import send_push_notification
@@ -498,9 +514,10 @@ class PushAdapter:
             user = User.objects.filter(id=user_id).first()
             if user is None:
                 continue
-            # Consent/ban may have changed since the audience was resolved
-            # (e.g. account deletion mid-run): never send to such a user.
-            if not newsletter_service.has_current_consent(user):
+            # Consent, ban or this channel's own predicates may have changed
+            # since the audience was resolved (opt-out, unsubscribe, deletion
+            # mid-run): re-read exactly what the audience filters on.
+            if not self.channel_audience(campaign).filter(pk=user.pk).exists():
                 continue
             lang = get_user_preferred_language(user=user, default='en')
 

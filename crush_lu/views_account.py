@@ -520,7 +520,30 @@ ACCOUNT_ERASURE_PURGE = (
     ("UserActivity", ("user",)),
     ("DailyUserActivity", ("user",)),
     ("EmailPreference", ("user",)),
+    # Quiz seating / roles are per-member participation data (#1183).
+    ("QuizTableMembership", ("user",)),
+    ("QuizRotationSchedule", ("user",)),
 )
+
+# Many-to-many relations to User. The User row survives, so their through rows
+# are never cascaded: the member is removed from each explicitly.
+# (QuizTable.members goes through QuizTableMembership, purged above.)
+ACCOUNT_ERASURE_M2M_CRUSH = (("crush_lu", "MeetupEvent", "invited_users"),)
+ACCOUNT_ERASURE_M2M_OTHER_APPS = (("hub", "HubResource", "audience"),)
+ACCOUNT_ERASURE_M2M_VIA_PURGED_THROUGH = (("crush_lu", "QuizTable", "members"),)
+
+# Identifying payload blanked on the rows whose user link is severed below.
+ACCOUNT_ERASURE_ANONYMIZE_BLANK = {
+    "EventInvitation": (
+        "guest_email", "guest_first_name", "guest_last_name",
+        "approval_notes", "coach_notes",
+    ),
+    "SpecialUserExperience": (
+        "first_name", "last_name", "custom_welcome_message",
+    ),
+    "JourneyGift": ("recipient_name", "recipient_email", "claim_error_message"),
+    "CacheChallengeAttempt": ("last_answer",),
+}
 
 # Nullable (SET_NULL) links to the member. Account deletion anonymises the User
 # instead of deleting it, so SET_NULL never fires either: sever the link in
@@ -600,9 +623,17 @@ ACCOUNT_ERASURE_RETAINED = {
     "CrushCoach": "staff record",
     "QuizEvent": "staff-created",
     "CacheHunt": "staff-created",
-    "QuizTableMembership": "event table seating, no personal content",
-    "QuizRotationSchedule": "event table seating, no personal content",
 }
+
+
+def _remove_user_from_m2m(app_label, model_name, field_name, user):
+    """Delete the through rows linking ``user`` through a M2M ``field_name``."""
+    from django.apps import apps
+
+    field = apps.get_model(app_label, model_name)._meta.get_field(field_name)
+    field.remote_field.through.objects.filter(
+        **{field.m2m_reverse_field_name(): user.pk}
+    ).delete()
 
 
 def _anonymize_send_logs(user):
@@ -666,6 +697,21 @@ def _purge_user_keyed_personal_data(user):
     from django.apps import apps
 
     summary = {}
+    # Revoke consent and set the ban BEFORE anything is purged, in its own
+    # short transaction, so an overlapping newsletter/campaign send sees the
+    # revocation (has_current_consent) before EmailPreference disappears and
+    # can_send_email() could re-create default-enabled preferences.
+    with transaction.atomic():
+        apps.get_model("crush_lu", "UserDataConsent").objects.filter(
+            user=user
+        ).update(
+            crushlu_consent_given=False,
+            crushlu_consent_date=None,
+            crushlu_consent_ip=None,
+            crushlu_banned=True,
+            crushlu_ban_date=timezone.now(),
+            crushlu_ban_reason="user_deletion",
+        )
     with transaction.atomic():
         _anonymize_send_logs(user)
         for model_name, fields in ACCOUNT_ERASURE_PURGE:
@@ -683,7 +729,14 @@ def _purge_user_keyed_personal_data(user):
         ).update(ip_address="", user_agent="", session_key="", landing_path="")
         for model_name, field in ACCOUNT_ERASURE_ANONYMIZE:
             model = apps.get_model("crush_lu", model_name)
-            model.objects.filter(**{field: user}).update(**{field: None})
+            rows = model.objects.filter(**{field: user})
+            blank = {
+                name: ""
+                for name in ACCOUNT_ERASURE_ANONYMIZE_BLANK.get(model_name, ())
+            }
+            rows.update(**blank, **{field: None})
+        for app_label, model_name, field in ACCOUNT_ERASURE_M2M_CRUSH:
+            _remove_user_from_m2m(app_label, model_name, field, user)
     if summary:
         logger.info("Erased User-keyed personal data for user %s: %s", user.id, summary)
     return summary
@@ -878,7 +931,10 @@ def _purge_other_apps_personal_data(user):
             condition = Q()
             for field in fields:
                 condition |= Q(**{field: user})
+            _delete_stored_files(model.objects.filter(condition))
             model.objects.filter(condition).delete()
+        for app_label, model_name, field in ACCOUNT_ERASURE_M2M_OTHER_APPS:
+            _remove_user_from_m2m(app_label, model_name, field, user)
         for app_label, model_name, field in ACCOUNT_ERASURE_ANONYMIZE_OTHER_APPS:
             model = apps.get_model(app_label, model_name)
             model.objects.filter(**{field: user}).update(**{field: None})
@@ -2173,6 +2229,10 @@ def export_user_data(request):
                 "app_build": d.app_build or None,
                 "user_agent": d.user_agent or None,
                 "enabled": d.enabled,
+                "notify_new_messages": d.notify_new_messages,
+                "notify_event_reminders": d.notify_event_reminders,
+                "notify_new_connections": d.notify_new_connections,
+                "notify_profile_updates": d.notify_profile_updates,
                 "registered_at": _iso(d.created_at),
                 "last_seen_at": _iso(d.last_seen_at),
             }
@@ -2190,6 +2250,10 @@ def export_user_data(request):
                 "device_name": device.device_name or None,
                 "user_agent": device.user_agent or None,
                 "enabled": device.enabled,
+                "notify_new_messages": device.notify_new_messages,
+                "notify_event_reminders": device.notify_event_reminders,
+                "notify_new_connections": device.notify_new_connections,
+                "notify_profile_updates": device.notify_profile_updates,
                 "registered_at": device.created_at.isoformat(),
                 "last_used_at": (
                     device.last_used_at.isoformat() if device.last_used_at else None

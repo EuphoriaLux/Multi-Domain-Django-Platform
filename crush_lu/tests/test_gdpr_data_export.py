@@ -135,3 +135,16 @@ class ExportProfileCompletenessTests(TestCase):
         exported = self._export()["profile"]
         self.assertEqual(sorted(exported["interests_selected"]), ["Hiking", "Jazz"])
         self.assertEqual(exported["ask_me_about"], ["Jazz"])
+
+    def test_device_notification_category_flags_are_exported(self):
+        PushSubscription.objects.create(
+            user=self.user, endpoint="https://p.example/x", p256dh_key="k",
+            auth_key="a", notify_new_messages=False, notify_event_reminders=True,
+        )
+        device = self._export()["push_devices"][0]
+        for key in (
+            "notify_new_messages", "notify_event_reminders",
+            "notify_new_connections", "notify_profile_updates",
+        ):
+            self.assertIn(key, device)
+        self.assertFalse(device["notify_new_messages"])
