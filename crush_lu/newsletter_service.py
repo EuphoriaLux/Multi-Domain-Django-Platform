@@ -229,14 +229,13 @@ def write_receipt(newsletter, user, defaults):
             values['email'] = ''
             if 'error_message' in values or values.get('status') == 'failed':
                 values['error_message'] = SUPPRESSED_CONSENT_REVOKED
-            existing = NewsletterRecipient.objects.filter(
-                newsletter=newsletter, user=user
-            ).first()
-            if existing is None:
+            # One UPDATE decides: a deletion sweep may remove the row at any
+            # moment (it takes no consent lock), so a zero-row update just means
+            # there is nothing to blank, and no stale instance is refreshed.
+            rows = NewsletterRecipient.objects.filter(newsletter=newsletter, user=user)
+            if not rows.update(**values):
                 return ReceiptResult(None, False, False)
-            NewsletterRecipient.objects.filter(pk=existing.pk).update(**values)
-            existing.refresh_from_db()
-            return ReceiptResult(existing, False, False)
+            return ReceiptResult(rows.first(), False, False)
         row, created = NewsletterRecipient.objects.update_or_create(
             newsletter=newsletter, user=user, defaults=values,
         )
