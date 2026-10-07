@@ -575,9 +575,13 @@ def release_table_on_undo(quiz_event, user):
     # Mirror of the assign path: a live quiz has to be reseated around the
     # gap, and generate_rotation_rounds preserves the current and already-
     # played rounds so the room does not move mid-question.
+    rotation_warnings = []
     if quiz_event.status in ("active", "paused"):
         try:
-            generate_rotation_rounds(quiz_event, preserve_current_round=True)
+            regenerated = generate_rotation_rounds(
+                quiz_event, preserve_current_round=True
+            )
+            rotation_warnings = list((regenerated or {}).get("warnings") or [])
         except Exception:
             import logging
 
@@ -588,7 +592,7 @@ def release_table_on_undo(quiz_event, user):
                 user.pk,
             )
 
-    return {
+    released = {
         "table_number": table_number,
         "membership_table_numbers": membership_table_numbers,
         # Whether the individual leaderboard just changed. Everyone in the
@@ -596,6 +600,11 @@ def release_table_on_undo(quiz_event, user):
         # has a wider audience to tell than the seat change alone implies.
         "scores_removed": scores_removed,
     }
+    if rotation_warnings:
+        # Removing a rotator can reshuffle future rounds and newly seat a
+        # blocked pair; host-only, sent by the check-in broadcast.
+        released["warnings"] = rotation_warnings
+    return released
 
 
 def generate_rotation_rounds(quiz, from_round=1, preserve_current_round=False):

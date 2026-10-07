@@ -1719,6 +1719,15 @@ document.addEventListener("alpine:init", function () {
                         self._consolidationApplyInFlight = false;
                         self.consolidationPreview = null;
                         self.showError(self._i18n.consolidateFailed);
+                        // An apply that fails ambiguously (response lost or
+                        // unparseable) may still have committed, and the
+                        // broadcast's own reload was skipped while the request
+                        // was in flight. Reloading is safe either way.
+                        if (apply) {
+                            setTimeout(function () {
+                                window.location.reload();
+                            }, 3000);
+                        }
                     });
             },
 

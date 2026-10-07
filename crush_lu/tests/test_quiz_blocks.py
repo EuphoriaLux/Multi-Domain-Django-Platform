@@ -565,3 +565,29 @@ class TestQuizBlockWarningsFromCheckinAndLowAttendance:
         async_to_sync(consumer.handle_start_quiz)()
 
         consumer.send_error.assert_awaited_once_with("no anchors a blocked pair")
+
+    def test_undo_returns_regenerated_warnings_for_the_host(
+        self, quiz_event_4t  # noqa: F811
+    ):
+        from crush_lu.models.events import EventRegistration
+        from crush_lu.services.quiz_rotation import release_table_on_undo
+
+        quiz = quiz_event_4t
+        men = [_make_user(f"undo_m{i}", "M") for i in range(2)]
+        women = [_make_user(f"undo_f{i}", "F") for i in range(5)]
+        for user in men + women:
+            _check_in_attended(quiz, user)
+        generate_rotation_rounds(quiz)
+        quiz.current_round = quiz.rounds.order_by("sort_order")[0]
+        quiz.status = "active"
+        quiz.save(update_fields=["current_round", "status"])
+        for man in men:
+            for woman in women:
+                UserBlock.objects.create(blocker=man, blocked=woman, reason="other")
+        EventRegistration.objects.filter(
+            event=quiz.event, user=women[-1]
+        ).update(status="confirmed")
+
+        released = release_table_on_undo(quiz, women[-1])
+
+        assert any("blocked pair" in w for w in released["warnings"])
