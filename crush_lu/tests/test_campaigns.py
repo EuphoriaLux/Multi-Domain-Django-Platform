@@ -69,6 +69,11 @@ def make_user(email, consented=True, **profile_kwargs):
             user=user,
             defaults={'crushlu_consent_given': consented},
         )
+        # Newsletters need explicit opt-in (#1185, Option A).
+        EmailPreference.objects.update_or_create(
+            user=user,
+            defaults={'email_marketing': True, 'email_newsletter': True},
+        )
     return user
 
 

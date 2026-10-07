@@ -234,7 +234,7 @@ def get_newsletter_recipients(newsletter):
     Resolve the audience for a newsletter into a User queryset.
 
     Filters:
-    - email_newsletter preference must be True (or no preference record yet)
+    - email_marketing AND email_newsletter must both be True (explicit opt-in)
     - unsubscribed_all must be False
     - Excludes users already sent/skipped for this newsletter (resumability)
 
@@ -248,11 +248,17 @@ def get_newsletter_recipients(newsletter):
 
     users = resolve_audience(newsletter.audience, newsletter.segment_key)
 
-    # Exclude users who opted out of newsletters
-    opted_out_user_ids = EmailPreference.objects.filter(
-        Q(email_newsletter=False) | Q(unsubscribed_all=True)
+    # Explicit opt-in (decided by Tom, 2026-10-07, #1185): only members who
+    # turned Marketing & Promotions ON receive newsletters/campaign emails.
+    # The newsletter flag must also be on (the settings toggle writes both) and
+    # a member who paused all mail is excluded. A missing preference row means
+    # no opt-in.
+    opted_in_user_ids = EmailPreference.objects.filter(
+        email_marketing=True,
+        email_newsletter=True,
+        unsubscribed_all=False,
     ).values_list('user_id', flat=True)
-    users = users.exclude(id__in=opted_out_user_ids)
+    users = users.filter(id__in=opted_in_user_ids)
 
     users = exclude_banned_users(users)
     users = exclude_on_break_users(users)

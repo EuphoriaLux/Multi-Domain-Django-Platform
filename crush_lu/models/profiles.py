@@ -2844,7 +2844,8 @@ class EmailPreference(models.Model):
             "event_reminders": self.email_event_reminders,
             "new_connections": self.email_new_connections,
             "new_messages": self.email_new_messages,
-            "newsletter": self.email_newsletter,
+            # Explicit opt-in: the visible Marketing & Promotions toggle decides.
+            "newsletter": self.email_newsletter and self.email_marketing,
             "marketing": self.email_marketing,
         }
 

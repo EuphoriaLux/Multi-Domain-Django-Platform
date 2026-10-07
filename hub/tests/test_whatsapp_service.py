@@ -264,7 +264,11 @@ class WhatsAppAdapterSendTests(TestCase):
         )
         EmailPreference.objects.update_or_create(
             user=self.member,
-            defaults={"whatsapp_opt_in": True},
+            defaults={
+                "whatsapp_opt_in": True,
+                "email_marketing": True,
+                "email_newsletter": True,
+            },
         )
         self.campaign = Campaign.objects.create(
             name="WA campaign",
@@ -413,7 +417,11 @@ class WhatsAppAdapterSendTests(TestCase):
         )
         EmailPreference.objects.update_or_create(
             user=second,
-            defaults={"whatsapp_opt_in": True},
+            defaults={
+                "whatsapp_opt_in": True,
+                "email_marketing": True,
+                "email_newsletter": True,
+            },
         )
         self.campaign.status = "sending"
         self.campaign.save(update_fields=["status"])

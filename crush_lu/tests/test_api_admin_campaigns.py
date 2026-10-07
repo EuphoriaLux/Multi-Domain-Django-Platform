@@ -12,7 +12,7 @@ from django.core import mail
 from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
-from crush_lu.models import Campaign, CrushProfile, UserDataConsent
+from crush_lu.models import Campaign, CrushProfile, EmailPreference, UserDataConsent
 from crush_lu.services.campaigns import create_campaign
 
 User = get_user_model()
@@ -35,6 +35,11 @@ def make_member(email):
     )
     # Audiences require Crush.lu consent (#1184); the signal default is False.
     UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
+    # Newsletters need explicit opt-in (#1185, Option A).
+    EmailPreference.objects.update_or_create(
+        user=user,
+        defaults={'email_marketing': True, 'email_newsletter': True},
+    )
     return user
 
 
