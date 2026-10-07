@@ -581,6 +581,12 @@ class BounceClassificationTests(TestCase):
         self.assertEqual(EmailBounceEvent.objects.count(), 0)
 
     def test_persisted_diagnostic_does_not_retain_original_message_content(self):
+        from django.contrib.auth import get_user_model
+
+        # Detail is only kept for a live member's own address.
+        get_user_model().objects.create_user(
+            "person@example.net", "person@example.net", "x"
+        )
         secret = "private reset link https://crush.lu/reset/secret-token"
         message = delivery_report_message(
             subject="Undeliverable: Private event invitation",
@@ -595,6 +601,22 @@ class BounceClassificationTests(TestCase):
         self.assertNotIn(secret, event.diagnostic)
         self.assertIn("5.1.10", event.diagnostic)
         self.assertEqual(event.subject, "Delivery report")
+
+    def test_late_bounce_for_an_erased_address_stores_no_personal_detail(self):
+        """Fail closed: no live account owns the address (e.g. it was erased)."""
+        message = delivery_report_message(
+            body={"content": "person@example.net wasn't found. Status 5.1.10."}
+        )
+
+        process_graph_bounce(message, apply=True)
+
+        event = EmailBounceEvent.objects.get()
+        self.assertEqual((event.recipient, event.diagnostic), ("", ""))
+        self.assertEqual(event.classification, "hard")
+        suppression = EmailSuppression.objects.get(email="person@example.net")
+        # Still suppressed (never mailed again) but without the diagnostic.
+        self.assertTrue(suppression.is_active)
+        self.assertEqual(suppression.diagnostic, "")
 
     @patch(
         "crush_lu.management.commands.process_email_bounces._get_message_mime",
