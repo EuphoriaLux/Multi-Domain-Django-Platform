@@ -759,3 +759,33 @@ class DispatchCommandTests(TestCase):
         campaign.refresh_from_db()
         self.assertEqual(campaign.status, 'sent')
         self.assertEqual(len(mail.outbox), 1)
+
+
+class WhatsAppMidRunOptOutTests(TestCase):
+    """The per-recipient recheck re-reads the channel predicates (#1185)."""
+
+    def test_whatsapp_opt_out_after_resolution_blocks_the_paid_send(self):
+        user = make_user(
+            'wa-late@example.com', phone_number='+352621999999',
+            phone_verified=True,
+        )
+        opt_in_whatsapp(user)
+        campaign = Campaign.objects.create(
+            name='WA', channels=['whatsapp'], audience='all_users',
+            whatsapp_template_name='tpl',
+        )
+        adapter = CHANNEL_ADAPTERS['whatsapp']
+        real = adapter.eligible_users
+
+        def resolve_then_opt_out(c):
+            qs = real(c)
+            ids = list(qs.values_list('id', flat=True))
+            EmailPreference.objects.filter(user=user).update(whatsapp_opt_in=False)
+            return User.objects.filter(id__in=ids)
+
+        with patch.object(
+            adapter, 'eligible_users', side_effect=resolve_then_opt_out
+        ), patch('hub.whatsapp_service.send_whatsapp_template') as send:
+            adapter.send_batch(campaign, limit=5)
+        send.assert_not_called()
+        self.assertFalse(CampaignRecipient.objects.filter(campaign=campaign).exists())
