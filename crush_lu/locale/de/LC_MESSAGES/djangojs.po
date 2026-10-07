@@ -328,3 +328,6 @@ msgstr "Dieser QR-Code ist kein Crush.lu-Ticket."
 #: static/crush_lu/js/alpine-components.js
 msgid "This button has no action link. Please reload the page."
 msgstr "Diese Schaltfläche hat keinen Aktionslink. Bitte aktualisiere die Seite."
+
+msgid "Your coach session has expired. Please sign in again."
+msgstr "Deine Coach-Sitzung ist abgelaufen. Bitte melde dich erneut an."

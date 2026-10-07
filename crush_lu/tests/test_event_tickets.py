@@ -23,7 +23,7 @@ from django.urls import reverse
 from django.utils import timezone, translation
 from django.utils.translation import gettext
 
-from crush_lu.models import CrushProfile, EventRegistration, MeetupEvent
+from crush_lu.models import CrushCoach, CrushProfile, EventRegistration, MeetupEvent
 from crush_lu.models.profiles import UserDataConsent
 from crush_lu.qr_utils import generate_qr_code_svg
 from crush_lu.views_ticket import _generate_checkin_token
@@ -51,6 +51,18 @@ def event_user(db):
     )
     UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
     return user
+
+
+@pytest.fixture
+def door_coach(db):
+    """An active coach — only a coach session may check anyone in (#1186)."""
+    user = User.objects.create_user(
+        username="doorcoach@test.com", email="doorcoach@test.com", password="p"
+    )
+    UserDataConsent.objects.update_or_create(
+        user=user, defaults={"crushlu_consent_given": True}
+    )
+    return CrushCoach.objects.create(user=user, is_active=True)
 
 
 @pytest.fixture
@@ -141,7 +153,8 @@ class TestCheckinTokenGeneration:
 class TestCheckinAPI:
     """Test the check-in API endpoint."""
 
-    def test_successful_checkin(self, client, confirmed_registration):
+    def test_successful_checkin(self, client, confirmed_registration, door_coach):
+        client.force_login(door_coach.user)
         token = _generate_checkin_token(confirmed_registration)
         url = f"/api/events/checkin/{confirmed_registration.id}/{token}/"
         response = client.post(url)
@@ -155,7 +168,8 @@ class TestCheckinAPI:
         assert confirmed_registration.status == "attended"
         assert confirmed_registration.checked_in_at is not None
 
-    def test_already_attended(self, client, confirmed_registration):
+    def test_already_attended(self, client, confirmed_registration, door_coach):
+        client.force_login(door_coach.user)
         token = _generate_checkin_token(confirmed_registration)
         confirmed_registration.status = "attended"
         confirmed_registration.checked_in_at = timezone.now()
@@ -180,7 +194,8 @@ class TestCheckinAPI:
         response = client.post(url)
         assert response.status_code == 400
 
-    def test_cancelled_registration(self, client, confirmed_registration):
+    def test_cancelled_registration(self, client, confirmed_registration, door_coach):
+        client.force_login(door_coach.user)
         token = _generate_checkin_token(confirmed_registration)
         confirmed_registration.status = "cancelled"
         confirmed_registration.save()
@@ -190,7 +205,8 @@ class TestCheckinAPI:
         assert response.status_code == 400
         assert "Cancelled" in response.json()["error"]
 
-    def test_outside_checkin_window(self, client, event_user, past_event):
+    def test_outside_checkin_window(self, client, event_user, past_event, door_coach):
+        client.force_login(door_coach.user)
         reg = EventRegistration.objects.create(
             event=past_event,
             user=event_user,
@@ -325,7 +341,7 @@ class TestTicketHonesty:
         assert "qr-canvas" not in html
 
     def test_ticket_qr_encodes_the_signed_checkin_url(
-        self, client, event_user, confirmed_registration
+        self, client, event_user, confirmed_registration, door_coach
     ):
         from crush_lu import views_ticket
 
@@ -343,6 +359,7 @@ class TestTicketHonesty:
         )
         spy.assert_called_once_with(expected)
         # The token is the one the coach check-in API accepts.
+        client.force_login(door_coach.user)
         assert (
             client.post(
                 f"/api/events/checkin/{confirmed_registration.id}/"

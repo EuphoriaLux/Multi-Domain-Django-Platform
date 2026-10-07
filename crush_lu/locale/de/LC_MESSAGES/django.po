@@ -44978,3 +44978,6 @@ msgstr "Lade in deinem Profil ein neues Hauptfoto hoch. Sonst musst du nichts ä
 #: crush_lu/templates/crush_lu/emails/photo_revision_request.html
 msgid "Upload a new photo"
 msgstr "Neues Foto hochladen"
+
+msgid "Show this QR to a coach at the door."
+msgstr "Zeige diesen QR-Code einem Coach am Eingang."
