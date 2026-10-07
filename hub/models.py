@@ -963,3 +963,43 @@ class EventCoachAvailability(models.Model):
     def __str__(self):
         return f"{self.coach_name or self.user} - Event {self.event_id} ({self.status})"
 
+
+class ErasedPhoneNumber(models.Model):
+    """Erasure suppression record: a salted digest of an erased phone number.
+
+    Lets the inbound webhook store a late message from an erased member
+    sanitised instead of resurrecting their number, name and text. Only a keyed
+    SHA-256 of the digits is kept, never the number.
+    """
+
+    digest = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @staticmethod
+    def _digest(number):
+        import hashlib
+        import hmac
+
+        from django.conf import settings
+
+        digits = "".join(ch for ch in str(number or "") if ch.isdigit())
+        if not digits:
+            return ""
+        return hmac.new(
+            settings.SECRET_KEY.encode(), digits.encode(), hashlib.sha256
+        ).hexdigest()
+
+    @classmethod
+    def record(cls, numbers):
+        for number in numbers or ():
+            digest = cls._digest(number)
+            if digest:
+                cls.objects.get_or_create(digest=digest)
+
+    @classmethod
+    def is_erased(cls, number):
+        digest = cls._digest(number)
+        return bool(digest) and cls.objects.filter(digest=digest).exists()
+
+    def __str__(self):
+        return f"erased:{self.digest[:8]}"

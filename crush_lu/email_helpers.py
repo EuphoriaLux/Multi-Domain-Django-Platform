@@ -204,6 +204,15 @@ def can_send_email(user, email_type):
             # re-created for them by the lookup below.
             return False
 
+        if email_type in FINANCIAL_EMAIL_TYPES:
+            # Never re-create default preferences here: that would silently
+            # drop a master opt-out. Honour an existing opt-out; with no row,
+            # the notice is allowed and no row is created.
+            existing = EmailPreference.objects.filter(user=user).first()
+            if existing is None:
+                return True
+            return existing.can_send(email_type)
+
         email_prefs = EmailPreference.get_or_create_for_user(user)
         return email_prefs.can_send(email_type)
     except Exception as e:

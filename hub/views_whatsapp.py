@@ -25,7 +25,7 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import WhatsAppInboundMessage, WhatsAppMessage
+from .models import ErasedPhoneNumber, WhatsAppInboundMessage, WhatsAppMessage
 from .serializers import (
     WhatsAppInboundMessageSerializer,
     WhatsAppMessageSerializer,
@@ -284,8 +284,17 @@ class WhatsAppWebhookView(View):
         except (TypeError, ValueError):
             received_at = datetime.now(timezone.utc)
 
+        # A late message from a member whose account was erased is stored
+        # sanitised: the number, name, text and payload must not come back.
+        erased = ErasedPhoneNumber.is_erased(from_number)
+        sanitised = {
+            "from_number": "erased",
+            "contact_name": "",
+            "text": "",
+            "payload": {},
+        }
         # get_or_create makes Meta's webhook retries a no-op (wa_id is unique).
-        WhatsAppInboundMessage.objects.get_or_create(
+        row, created = WhatsAppInboundMessage.objects.get_or_create(
             wa_message_id=wa_id,
             defaults={
                 "from_number": from_number,
@@ -294,8 +303,14 @@ class WhatsAppWebhookView(View):
                 "text": text,
                 "payload": msg,
                 "received_at": received_at,
+                **(sanitised if erased else {}),
             },
         )
+        # Erasure records the number BEFORE its sweep, so re-checking after the
+        # insert closes the window where the check preceded the erasure and
+        # the insert followed its sweep.
+        if created and not erased and ErasedPhoneNumber.is_erased(from_number):
+            WhatsAppInboundMessage.objects.filter(pk=row.pk).update(**sanitised)
 
     def _apply_status(self, event: dict) -> None:
         wa_id = event.get("id")

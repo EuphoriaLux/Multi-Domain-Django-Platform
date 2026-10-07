@@ -442,13 +442,13 @@ class AccountErasureCompletenessTests(TestCase):
         seen = {}
         real = views_account._anonymize_send_logs
 
-        def spy(user):
+        def spy(user, **kwargs):
             consent = UserDataConsent.objects.get(user=user)
             seen.setdefault('state', (
                 consent.crushlu_consent_given, consent.crushlu_banned,
                 EmailPreference.objects.filter(user=user).exists(),
             ))
-            return real(user)
+            return real(user, **kwargs)
 
         with patch.object(views_account, '_anonymize_send_logs', side_effect=spy):
             views_account.delete_crushlu_profile_only(self.user)
@@ -690,9 +690,34 @@ class AccountErasureCompletenessTests(TestCase):
         with patch.object(
             views_account, '_remove_user_from_id_lists', side_effect=late_receipt
         ):
-            views_account.delete_crushlu_profile_only(self.user)
+            views_account.delete_crushlu_profile_only(self.user, full_account=True)
+        # Full-account deletion anonymises the User, so the row stays, blank.
         row = NewsletterRecipient.objects.get(newsletter=newsletter)
         self.assertEqual((row.status, row.email), ('sent', ''))
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_final_sweep_removes_late_receipts_on_profile_only_deletion(self, _s):
+        """The User stays real there, so a late receipt's link must go too."""
+        from crush_lu import views_account
+        from crush_lu.models import Newsletter, NewsletterRecipient
+
+        newsletter = Newsletter.objects.create(
+            subject='S', body_html='x', audience='all_users',
+        )
+        real = views_account._remove_user_from_id_lists
+
+        def late_receipt(user):
+            NewsletterRecipient.objects.update_or_create(
+                newsletter=newsletter, user=user,
+                defaults={'email': 'del@example.com', 'status': 'sent'},
+            )
+            return real(user)
+
+        with patch.object(
+            views_account, '_remove_user_from_id_lists', side_effect=late_receipt
+        ):
+            views_account.delete_crushlu_profile_only(self.user)
+        self.assertFalse(NewsletterRecipient.objects.filter(newsletter=newsletter).exists())
 
 
 class NewsletterReceiptErasureTests(TestCase):
@@ -727,7 +752,8 @@ class NewsletterReceiptErasureTests(TestCase):
         self.assertEqual(
             NewsletterRecipient.objects.get().email, 'nr@example.com'
         )
-        delete_crushlu_profile_only(self.user)
+        # Full-account path: the User is anonymised, so the row is kept blank.
+        delete_crushlu_profile_only(self.user, full_account=True)
         row = NewsletterRecipient.objects.get()
         self.assertEqual((row.status, row.email), ('sent', ''))
 
@@ -1286,3 +1312,256 @@ class Round10ErasureTests(TestCase):
 
         with self.assertRaises(StorageErasureError):
             delete_crushlu_profile_only(self.user)
+
+
+class FollowupErasureTests(TestCase):
+    """Codex findings left open on the merged #1225 (#1183)."""
+
+    def setUp(self):
+        from allauth.account.models import EmailAddress
+        from django.contrib.auth import get_user_model
+        from django.core.cache import cache
+        from crush_lu.models import CrushProfile, MeetupEvent
+
+        cache.clear()
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='fu@example.com', email='fu@example.com', password='x',
+            first_name='Fu', last_name='Ture',
+        )
+        self.other = User.objects.create_user(
+            username='fo@example.com', email='fo@example.com', password='x',
+        )
+        for user in (self.user, self.other):
+            CrushProfile.objects.create(
+                user=user, date_of_birth=date(1995, 5, 15), gender='M',
+                location='Luxembourg',
+            )
+        EmailAddress.objects.create(
+            user=self.user, email='fu@example.com', verified=True, primary=True,
+        )
+        self.event = MeetupEvent.objects.create(
+            title='E', description='d', event_type='mixer',
+            date_time=timezone.now() + timedelta(days=5), location='L',
+            address='A', max_participants=10,
+            registration_deadline=timezone.now() + timedelta(days=3),
+        )
+
+    # 1 -- fallible storage cleanup happens before the account is deactivated
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_pending_gift_storage_failure_leaves_the_account_able_to_retry(self, _s):
+        from django.core.files.storage import InMemoryStorage
+
+        from crush_lu.models import JourneyGift
+        from crush_lu.models.profiles import UserDataConsent
+        from crush_lu.views_account import StorageErasureError
+        from crush_lu.views import delete_full_account
+
+        storage = InMemoryStorage()
+        gift = JourneyGift.objects.create(
+            sender=self.other, recipient_name='Fu', recipient_email='fu@example.com',
+            date_first_met=date(2024, 1, 1), location_first_met='Lux',
+        )
+        JourneyGift.objects.filter(pk=gift.pk).update(
+            qr_code_image='journey_gifts/qr/PEND.png'
+        )
+        field = JourneyGift._meta.get_field('qr_code_image')
+        with patch.object(field, 'storage', storage), patch.object(
+            storage, 'delete', side_effect=OSError('azure unavailable')
+        ):
+            with self.assertRaises(StorageErasureError):
+                delete_full_account(self.user)
+
+        self.user.refresh_from_db()
+        # Still able to sign in and retry: not anonymised, not deactivated.
+        self.assertTrue(self.user.is_active)
+        self.assertEqual(self.user.email, 'fu@example.com')
+        self.assertEqual(
+            UserDataConsent.objects.get(user=self.user).crushlu_ban_reason,
+            'deletion_in_progress',
+        )
+
+    # 2 -- profile-only deletion severs the send-log links
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_profile_only_deletion_removes_recipient_links(self, _s):
+        from crush_lu.models import (
+            Campaign, CampaignRecipient, Newsletter, NewsletterRecipient,
+        )
+        from crush_lu.views import delete_crushlu_profile_only
+
+        newsletter = Newsletter.objects.create(subject='s', body_html='b')
+        NewsletterRecipient.objects.create(
+            newsletter=newsletter, user=self.user, email='fu@example.com',
+            status='sent',
+        )
+        NewsletterRecipient.objects.create(
+            newsletter=newsletter, user=self.other, email='fo@example.com',
+            status='sent',
+        )
+        campaign = Campaign.objects.create(
+            name='c', channels=['email'], audience='all_users',
+        )
+        CampaignRecipient.objects.create(
+            campaign=campaign, channel='email', user=self.user, status='sent',
+        )
+
+        delete_crushlu_profile_only(self.user)
+
+        self.assertFalse(NewsletterRecipient.objects.filter(user=self.user).exists())
+        self.assertFalse(CampaignRecipient.objects.filter(user=self.user).exists())
+        self.assertTrue(NewsletterRecipient.objects.filter(user=self.other).exists())
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_full_deletion_keeps_anonymised_recipient_rows(self, _s):
+        from crush_lu.models import Newsletter, NewsletterRecipient
+        from crush_lu.views import delete_full_account
+
+        newsletter = Newsletter.objects.create(subject='s', body_html='b')
+        NewsletterRecipient.objects.create(
+            newsletter=newsletter, user=self.user, email='fu@example.com',
+            status='sent',
+        )
+
+        delete_full_account(self.user)
+
+        row = NewsletterRecipient.objects.get(user=self.user)
+        self.assertEqual((row.email, row.status), ('', 'sent'))
+
+    # 3 -- the master opt-out survives profile-only deletion
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_master_opt_out_survives_profile_only_deletion(self, _s):
+        from crush_lu.email_helpers import can_send_email
+        from crush_lu.models import EmailPreference
+        from crush_lu.views import delete_crushlu_profile_only
+
+        EmailPreference.objects.update_or_create(
+            user=self.user, defaults={'unsubscribed_all': True}
+        )
+
+        delete_crushlu_profile_only(self.user)
+
+        self.assertTrue(
+            EmailPreference.objects.filter(
+                user=self.user, unsubscribed_all=True
+            ).exists()
+        )
+        self.assertFalse(can_send_email(self.user, 'crush_credit_expiry'))
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_refund_notice_does_not_recreate_default_preferences(self, _s):
+        from crush_lu.email_helpers import can_send_email
+        from crush_lu.models import EmailPreference
+        from crush_lu.views import delete_crushlu_profile_only
+
+        delete_crushlu_profile_only(self.user)
+        self.assertFalse(EmailPreference.objects.filter(user=self.user).exists())
+
+        self.assertTrue(can_send_email(self.user, 'crush_credit_expiry'))
+        self.assertFalse(EmailPreference.objects.filter(user=self.user).exists())
+
+    # 4 -- bounce detail is decided under a lock held through the write
+    def test_bounce_detail_check_locks_the_matching_user(self):
+        from unittest.mock import patch as _patch
+
+        from django.db.models.query import QuerySet
+
+        from crush_lu.services.email_bounces import _belongs_to_live_account
+
+        calls = []
+        real = QuerySet.select_for_update
+
+        def spy(qs, *args, **kwargs):
+            calls.append(kwargs)
+            return real(qs, *args, **kwargs)
+
+        with _patch.object(QuerySet, 'select_for_update', spy):
+            self.assertTrue(_belongs_to_live_account('fu@example.com', lock=True))
+
+        self.assertEqual(calls, [{'of': ('self',)}])
+
+    def test_bounce_for_an_account_erased_before_the_check_stores_no_detail(self):
+        from crush_lu.services.email_bounces import _belongs_to_live_account
+        from crush_lu.views import delete_full_account
+
+        with patch('crush_lu.storage.delete_user_storage', return_value=(True, 0)):
+            delete_full_account(self.user)
+
+        self.assertFalse(_belongs_to_live_account('fu@example.com', lock=True))
+
+    # 5 -- a late inbound webhook is stored sanitised
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_late_inbound_message_from_an_erased_number_is_sanitised(self, _s):
+        from crush_lu.models import CrushProfile
+        from crush_lu.views import delete_full_account
+        from hub.models import ErasedPhoneNumber, WhatsAppInboundMessage
+        from hub.views_whatsapp import WhatsAppWebhookView
+
+        CrushProfile.objects.filter(user=self.user).update(
+            phone_number='+352 621 555 555', phone_verified=True
+        )
+        delete_full_account(self.user)
+        self.assertTrue(ErasedPhoneNumber.is_erased('+352621555555'))
+        # The number itself is never stored, only a keyed digest.
+        self.assertFalse(
+            ErasedPhoneNumber.objects.filter(digest__contains='352621555555').exists()
+        )
+
+        WhatsAppWebhookView()._store_inbound(
+            {
+                'id': 'wamid.late', 'from': '352621555555', 'type': 'text',
+                'text': {'body': 'hello again'}, 'timestamp': '1790000000',
+            },
+            {'352621555555': 'Fu Ture'},
+        )
+
+        row = WhatsAppInboundMessage.objects.get(wa_message_id='wamid.late')
+        self.assertEqual(
+            (row.from_number, row.contact_name, row.text, row.payload),
+            ('erased', '', '', {}),
+        )
+
+    def test_inbound_message_from_an_unrelated_number_is_stored_normally(self):
+        from hub.models import WhatsAppInboundMessage
+        from hub.views_whatsapp import WhatsAppWebhookView
+
+        WhatsAppWebhookView()._store_inbound(
+            {
+                'id': 'wamid.ok', 'from': '352621000999', 'type': 'text',
+                'text': {'body': 'hi'}, 'timestamp': '1790000000',
+            },
+            {'352621000999': 'Someone'},
+        )
+
+        row = WhatsAppInboundMessage.objects.get(wa_message_id='wamid.ok')
+        self.assertEqual((row.from_number, row.text), ('352621000999', 'hi'))
+
+    # 6 -- WhatsApp messages sent straight from the Hub CRM
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_direct_outbound_whatsapp_messages_are_sanitised_by_recipient(self, _s):
+        from crush_lu.models import CrushProfile
+        from crush_lu.views import delete_full_account
+        from hub.models import WhatsAppMessage
+
+        CrushProfile.objects.filter(user=self.user).update(
+            phone_number='+352 621 777 777', phone_verified=True
+        )
+        mine = WhatsAppMessage.objects.create(
+            user=self.other, recipient='+352621777777', template_name='t',
+            language='en', parameters={'1': 'Fu'}, status='sent',
+            status_history=[{'error_message': '+352621777777'}],
+        )
+        theirs = WhatsAppMessage.objects.create(
+            user=self.other, recipient='+352621000111', template_name='t',
+            language='en', parameters={'1': 'X'}, status='sent',
+        )
+
+        delete_full_account(self.user)
+
+        mine.refresh_from_db()
+        theirs.refresh_from_db()
+        self.assertEqual(
+            (mine.recipient, mine.parameters, mine.status_history), ('', {}, [])
+        )
+        # Sender and audit fields stay.
+        self.assertEqual((mine.user_id, mine.template_name), (self.other.pk, 't'))
+        self.assertEqual(theirs.recipient, '+352621000111')
