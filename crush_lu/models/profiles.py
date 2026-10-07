@@ -1862,7 +1862,9 @@ class ProfileSubmission(models.Model):
     fallback_offer_claimed_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text=_("When the sweep last claimed this submission for a fallback email."),
+        help_text=_(
+            "When the sweep last claimed this submission for a fallback email."
+        ),
     )
     fallback_offer_sent_at = models.DateTimeField(
         null=True,
@@ -2019,6 +2021,20 @@ class ProfileSubmission(models.Model):
             return None
         elapsed = (timezone.now() - self.recontact_started_at).days
         return 14 - elapsed
+
+    def is_self_booking_open(self):
+        """True while a self-booking link for this submission can still work.
+
+        Single source of truth for "the submission is still bookable": the
+        booking landing page (``views_booking._resolve_token``), the slot claim
+        and the fallback email sender all use it, so an email is never sent for
+        a link that would 404. Token expiry is separate (it depends on a clock).
+        """
+        return (
+            self.status == "pending"
+            and not self.review_call_completed
+            and not self.is_paused
+        )
 
     def log_system_action(self, type_: str, actor: str = "system", **details):
         """Append an audit entry to system_actions.

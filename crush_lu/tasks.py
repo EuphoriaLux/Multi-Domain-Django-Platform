@@ -228,6 +228,9 @@ def send_pre_screening_user_push_task(submission_id):
 SLA_EMAIL_SENT = "sent"
 SLA_EMAIL_SKIPPED = "skipped"
 SLA_EMAIL_FAILED = "failed"
+# The submission moved on (approved, rejected, call done, paused) after the offer
+# was claimed: the link would 404, so nothing is sent and the caller clears it.
+SLA_EMAIL_STALE = "stale"
 
 
 def _is_email_suppressed(email):
@@ -256,6 +259,9 @@ def deliver_sla_fallback_email(submission_id, host, is_secure=True):
     * ``SLA_EMAIL_SKIPPED`` -- nothing to send by design (submission gone,
       member unsubscribed, address on the hard-bounce suppression list, no
       booking token). Retrying cannot change this;
+    * ``SLA_EMAIL_STALE`` -- the submission is no longer bookable (same
+      predicate as the booking page); nothing is sent and the caller clears the
+      offer without retrying;
     * ``SLA_EMAIL_FAILED`` -- the send raised or was suppressed (returned 0).
       The caller should undo the offer so the next sweep retries.
 
@@ -286,6 +292,13 @@ def deliver_sla_fallback_email(submission_id, host, is_secure=True):
             f"[TASK] Submission {submission_id} not found for SLA fallback email"
         )
         return SLA_EMAIL_SKIPPED
+
+    if not submission.is_self_booking_open():
+        logger.info(
+            f"[TASK] Not sending SLA fallback email for submission "
+            f"{submission_id}: no longer bookable"
+        )
+        return SLA_EMAIL_STALE
 
     user = submission.profile.user
     if not can_send_email(user, "profile_updates"):

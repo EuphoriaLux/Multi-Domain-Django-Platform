@@ -1995,7 +1995,7 @@ def coach_offer_self_booking(request, submission_id):
         mark_fallback_sent,
         revert_fallback_offer,
     )
-    from .tasks import SLA_EMAIL_FAILED, deliver_sla_fallback_email
+    from .tasks import SLA_EMAIL_FAILED, SLA_EMAIL_STALE, deliver_sla_fallback_email
 
     coach = request.coach
     submission = get_object_or_404(
@@ -2058,7 +2058,7 @@ def coach_offer_self_booking(request, submission_id):
     outcome = deliver_sla_fallback_email(
         submission.pk, request.get_host(), request.is_secure()
     )
-    if outcome == SLA_EMAIL_FAILED:
+    if outcome in (SLA_EMAIL_FAILED, SLA_EMAIL_STALE):
         revert_fallback_offer(
             submission.pk, submission.booking_token, reason="email_not_sent"
         )

@@ -338,13 +338,17 @@ def viewer_applicant(user, profile, event, registration=None):
     )
 
 
-def count_mutual_matches(viewer, applicants):
+def count_mutual_matches(viewer, applicants, *, blocked_user_ids=frozenset()):
     """How many applicants this viewer and the applicant both want to meet.
 
     Self-excluded by ``user_id``: an applicant is always a perfect match for
     themselves, and counting it would inflate every number by one and make the
     signal appear on a pool of one. Incomplete identity or event-preference
     data contributes no count, matching the fail-closed grouping guarantee.
+
+    ``blocked_user_ids`` are the viewer's block counterparts in either
+    direction: grouping never seats them together, so they are not part of the
+    pool the viewer could actually be matched with.
     """
     if _grouping_incomplete_reasons(viewer):
         return 0
@@ -352,6 +356,7 @@ def count_mutual_matches(viewer, applicants):
         1
         for applicant in applicants
         if applicant.user_id != viewer.user_id
+        and applicant.user_id not in blocked_user_ids
         and not _grouping_incomplete_reasons(applicant)
         and passes_event_hard_filters(viewer, applicant)
     )

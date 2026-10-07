@@ -200,16 +200,24 @@ def blocked_table_conflict_count(quiz):
     combinatorial pattern (anchors stay, group A/B rotators advance), so it can
     only *avoid* a blocked pair at check-in (see ``assign_table_on_checkin``);
     later rounds can still put them together. This is the best-effort residual,
-    surfaced as a count so the host can use a manual table move. Identities and
+    surfaced as a count so the host can use a manual table move. Rounds that
+    are already over are ignored. Identities and
     block direction are deliberately not returned.
     """
+
     from crush_lu.models.quiz import QuizRotationSchedule
     from crush_lu.services.blocking import blocked_pairs_among
 
+    if quiz.status == "finished":
+        return 0
+    # Only the current and upcoming rounds matter: a table two people shared in
+    # a round that is already over cannot be fixed, so it must not keep the
+    # warning alive for the rest of the evening.
+    first_relevant_round = quiz.get_round_number() if quiz.current_round_id else 0
     rows = list(
-        QuizRotationSchedule.objects.filter(quiz=quiz).values_list(
-            "round_number", "table_id", "user_id"
-        )
+        QuizRotationSchedule.objects.filter(
+            quiz=quiz, round_number__gte=first_relevant_round
+        ).values_list("round_number", "table_id", "user_id")
     )
     pairs = blocked_pairs_among(user_id for _, _, user_id in rows)
     if not pairs:
@@ -1265,6 +1273,26 @@ def manual_assign_table(quiz, user, table_number):
             else:
                 rotation_group = "C"
 
+        # A deliberate host move stays the host's call, so a block is a
+        # warning here, not a refusal (automatic seating avoids it instead).
+        from crush_lu.services.blocking import blocked_user_ids
+
+        counterpart_ids = blocked_user_ids(user)
+        move_warnings = []
+        if (
+            counterpart_ids
+            and QuizRotationSchedule.objects.filter(
+                quiz=locked_quiz,
+                round_number=0,
+                table=table,
+                user_id__in=counterpart_ids,
+            ).exists()
+        ):
+            move_warnings.append(
+                "This table already seats someone this member has a block "
+                "with. Consider a different table."
+            )
+
         QuizTableMembership.objects.create(table=table, user=user)
         QuizRotationSchedule.objects.update_or_create(
             quiz=locked_quiz,
@@ -1291,7 +1319,10 @@ def manual_assign_table(quiz, user, table_number):
                 user.pk,
             )
 
-    return {"table_number": table_number, "role": role}
+    result = {"table_number": table_number, "role": role}
+    if move_warnings:
+        result["warnings"] = move_warnings
+    return result
 
 
 def split_participants_by_gender(registrations_with_profiles):
@@ -1445,14 +1476,34 @@ def consolidate_tables(quiz, *, apply=False, moves_override=None):
         if r.table.table_number <= new_num_tables:
             keeper_role_counts[r.table.table_number][r.role] += 1
 
+    from crush_lu.services.blocking import blocked_pairs_among
+
+    blocked_pairs = blocked_pairs_among(r.user_id for r in round_0)
+    blocked_with = defaultdict(set)
+    for pair in blocked_pairs:
+        first, second = tuple(pair)
+        blocked_with[first].add(second)
+        blocked_with[second].add(first)
+    members_by_table = defaultdict(set)
+    for r in round_0:
+        if r.table.table_number <= new_num_tables:
+            members_by_table[r.table.table_number].add(r.user_id)
+
     moves = []
     # Stable order: process excess by (table_number asc, user_id asc)
     excess_round0.sort(key=lambda r: (r.table.table_number, r.user_id))
     for r in excess_round0:
+        # Automatic destination: never a table that already seats someone this
+        # member has a block with while another keeper is available.
         target = min(
             range(1, new_num_tables + 1),
-            key=lambda n: (keeper_role_counts[n][r.role], n),
+            key=lambda n: (
+                bool(blocked_with[r.user_id] & members_by_table[n]),
+                keeper_role_counts[n][r.role],
+                n,
+            ),
         )
+        members_by_table[target].add(r.user_id)
         keeper_role_counts[target][r.role] += 1
         profile = getattr(r.user, "crushprofile", None)
         display_name = (
@@ -1528,6 +1579,23 @@ def consolidate_tables(quiz, *, apply=False, moves_override=None):
         "tables_removed": tables_removed,
         "table_sizes_after": table_sizes_after,
     }
+
+    # Warn (never refuse) about blocked pairs left sharing a table by the final
+    # layout; this also covers the coach's own destination overrides.
+    final_members = defaultdict(set)
+    moved_to = {m["user_id"]: m["to_table"] for m in moves}
+    for r in round_0:
+        table_no = moved_to.get(r.user_id, r.table.table_number)
+        if table_no <= new_num_tables:
+            final_members[table_no].add(r.user_id)
+    shared = sum(
+        1
+        for members in final_members.values()
+        for pair in blocked_pairs
+        if pair <= members
+    )
+    if shared:
+        result["warnings"] = [_blocked_table_warning(shared)]
 
     if not apply:
         return result

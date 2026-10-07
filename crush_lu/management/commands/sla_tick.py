@@ -49,6 +49,7 @@ class Command(BaseCommand):
         from crush_lu.tasks import (
             SLA_EMAIL_FAILED,
             SLA_EMAIL_SENT,
+            SLA_EMAIL_STALE,
             deliver_sla_fallback_email,
         )
 
@@ -104,6 +105,9 @@ class Command(BaseCommand):
             outcome = deliver_sla_fallback_email(
                 sub.pk, opts["host"], not opts["insecure"]
             )
+            if outcome == SLA_EMAIL_STALE:
+                revert_fallback_offer(sub.pk, token, reason="no_longer_bookable")
+                continue
             if outcome == SLA_EMAIL_FAILED:
                 revert_fallback_offer(sub.pk, token, reason="email_not_sent")
                 failed += 1

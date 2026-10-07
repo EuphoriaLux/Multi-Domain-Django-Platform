@@ -735,3 +735,14 @@ class ProjectEventGroupsLoadsBlocksTests(TestCase):
         self.assertEqual(projection.blocked_registration_pairs, ((1, 2),))
         for group in projection.viable_groups:
             self.assertFalse({1, 2} <= set(group.registration_ids))
+
+
+class MutualMatchBlockTests(SimpleTestCase):
+    def test_blocked_counterparts_are_not_counted_in_the_match_pool(self):
+        viewer = _applicant(1)
+        pool = [_applicant(key) for key in range(1, 6)]
+
+        self.assertEqual(count_mutual_matches(viewer, pool), 4)
+        self.assertEqual(
+            count_mutual_matches(viewer, pool, blocked_user_ids={1_002, 1_003}), 2
+        )

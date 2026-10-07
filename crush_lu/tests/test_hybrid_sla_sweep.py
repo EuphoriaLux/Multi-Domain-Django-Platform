@@ -352,3 +352,51 @@ class SlaSweepTests(TestCase):
         sub.refresh_from_db()
         self.assertEqual(sub.booking_token, token)
         self.assertTrue(revert_fallback_offer(sub.pk, token, reason="x"))
+
+    def test_submission_that_moved_on_after_claim_gets_no_email(self):
+        import crush_lu.api_admin_hybrid as module
+
+        for label, change in (
+            ("paused", {"is_paused": True}),
+            ("approved", {"status": "approved"}),
+            ("completed", {"review_call_completed": True}),
+        ):
+            sub = self._submission(f"moved{label}")
+            original = module.mark_fallback_offered
+
+            def claim_then_change(s, *args, _change=change, _pk=sub.pk, **kwargs):
+                result = original(s, *args, **kwargs)
+                # A coach acts between the committed claim and the send.
+                if s.pk == _pk:
+                    ProfileSubmission.objects.filter(pk=_pk).update(**_change)
+                return result
+
+            with (
+                patch.object(module, "mark_fallback_offered", claim_then_change),
+                patch(SEND, return_value=1) as send,
+            ):
+                body = self._sweep().json()
+
+            sub.refresh_from_db()
+            send.assert_not_called()
+            self.assertEqual(body["processed"], 0, label)
+            self.assertIsNone(sub.fallback_offered_at, label)
+            self.assertIsNone(sub.booking_token, label)
+
+    def test_send_budget_stays_below_the_function_caller_timeout(self):
+        import re
+        from pathlib import Path
+
+        import crush_lu.api_admin_hybrid as module
+
+        source = (
+            Path(__file__).resolve().parents[2]
+            / "azure-functions"
+            / "hybrid-maintenance"
+            / "function_app.py"
+        ).read_text(encoding="utf-8")
+        caller_timeout = int(re.search(r"timeout: int = (\d+)", source).group(1))
+
+        # Leaves room for one in-flight send and cleanup before the caller
+        # gives up and marks the invocation failed.
+        self.assertLessEqual(module.SLA_SWEEP_SEND_BUDGET_SECONDS, caller_timeout - 15)

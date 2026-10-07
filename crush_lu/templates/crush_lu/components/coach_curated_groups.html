@@ -52,6 +52,12 @@ from a @coach_required page only and must never be reused on a member surface.
         </p>
     </div>
 
+    {% if panel.blocked_pair_count %}
+    <div class="card p-4 mb-4 text-sm text-amber-700 dark:text-amber-300" data-curated-blocked-pairs>
+        {% blocktrans count counter=panel.blocked_pair_count %}{{ counter }} pair of applicants is kept in separate groups because of a block between them.{% plural %}{{ counter }} pairs of applicants are kept in separate groups because of blocks between them.{% endblocktrans %}
+    </div>
+    {% endif %}
+
     {# 2. Preflight: what the projector would do with the pool right now #}
     {% if panel.preflight %}
     <div class="card p-5 mb-4" data-curated-preflight>

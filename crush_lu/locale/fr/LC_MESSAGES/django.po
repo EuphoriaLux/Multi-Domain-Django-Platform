@@ -45181,3 +45181,10 @@ msgstr "Ajoutez une photo de remplacement dans cet emplacement. Vous n’avez ri
 
 msgid "Show this QR to a coach at the door."
 msgstr "Montrez ce code QR à un coach à l'entrée."
+
+#, python-format
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "%(counter)s pair of applicants is kept in separate groups because of a block between them."
+msgid_plural "%(counter)s pairs of applicants are kept in separate groups because of blocks between them."
+msgstr[0] "%(counter)s paire de candidats est placée dans des groupes séparés en raison d’un blocage entre eux."
+msgstr[1] "%(counter)s paires de candidats sont placées dans des groupes séparés en raison de blocages entre eux."

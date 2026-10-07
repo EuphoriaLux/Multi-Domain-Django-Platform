@@ -55,10 +55,11 @@ FALLBACK_TOKEN_TTL = timedelta(days=30)
 # production has no task worker, so each call sends mail synchronously. A fixed
 # per-call cap would take hours to clear a burst, so instead one call claims
 # small chunks (oldest breach first) and keeps going until the queue is empty or
-# the wall-clock budget (well under the 120 s gunicorn timeout) is spent. A
-# faster timer would shorten recovery time but is not needed for correctness.
+# the wall-clock budget is spent. The caller (_call_admin_endpoint) gives up
+# after 60 s, so the budget leaves room for one in-flight send plus cleanup; a
+# longer caller timeout would allow a larger budget. A faster timer would shorten recovery time but is not needed for correctness.
 SLA_SWEEP_CLAIM_CHUNK = 10
-SLA_SWEEP_SEND_BUDGET_SECONDS = 80
+SLA_SWEEP_SEND_BUDGET_SECONDS = 40
 # Delivery lease: a claim that was never marked sent for this long belonged to a
 # worker that died between commit and send, so it is claimed again.
 SLA_CLAIM_LEASE = timedelta(minutes=15)
@@ -73,9 +74,7 @@ def _sweep_candidates(now, exclude_pks=()):
 
     from .models import ProfileSubmission
 
-    never_offered = Q(
-        fallback_offered_at__isnull=True, booking_token__isnull=True
-    ) & (
+    never_offered = Q(fallback_offered_at__isnull=True, booking_token__isnull=True) & (
         Q(fallback_offer_claimed_at__isnull=True)
         | Q(fallback_offer_claimed_at__lt=now - SLA_FAILED_RETRY_BACKOFF)
     )
@@ -117,9 +116,7 @@ def mark_fallback_offered(sub, now, *, actor, reason, **details):
         sub.fallback_offered_at = now
         sub.booking_token = uuid.uuid4()
         sub.booking_token_expires_at = now + FALLBACK_TOKEN_TTL
-        sub.log_system_action(
-            "fallback_offered", actor=actor, reason=reason, **details
-        )
+        sub.log_system_action("fallback_offered", actor=actor, reason=reason, **details)
     sub.save(
         update_fields=[
             "fallback_offered_at",
@@ -197,7 +194,8 @@ def sla_sweep(request):
     Mail never goes out under a lock. If the send fails (or the time budget runs
     out) the offer is cleared so the submission is retried; if the worker dies
     mid-way the claim has no ``fallback_offer_sent_at`` and is reclaimed after
-    ``SLA_CLAIM_LEASE``. A member who unsubscribed or whose address is suppressed
+    ``SLA_CLAIM_LEASE``. A submission that stopped being bookable between
+    claim and send is cleared without a mail. A member who unsubscribed or whose address is suppressed
     is marked sent without a mail (retrying cannot help).
 
     Idempotent on repeat calls. One call drains oldest-breach-first until the
@@ -212,6 +210,7 @@ def sla_sweep(request):
     from .tasks import (
         SLA_EMAIL_FAILED,
         SLA_EMAIL_SENT,
+        SLA_EMAIL_STALE,
         deliver_sla_fallback_email,
     )
 
@@ -281,6 +280,12 @@ def sla_sweep(request):
                 if not recovered:
                     revert_fallback_offer(pk, token, reason="email_not_sent")
                 failed += 1
+                continue
+            if outcome == SLA_EMAIL_STALE:
+                # Completed/paused/approved/rejected since the claim: clear the
+                # misleading offer, no retry (it is no longer eligible).
+                revert_fallback_offer(pk, token, reason="no_longer_bookable")
+                skipped += 1
                 continue
             mark_fallback_sent(pk)
             if outcome == SLA_EMAIL_SENT:
