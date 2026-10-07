@@ -193,6 +193,102 @@ def generate_rotation_schedule(men, women, num_rounds=3, num_tables=None):
     }
 
 
+def blocked_table_conflict_count(quiz, *, upcoming_only=False):
+    """Count blocked pairs seated at the same table in the same round.
+
+    Peer blocks are enforced symmetrically. The rotation itself is a fixed
+    combinatorial pattern (anchors stay, group A/B rotators advance), so it can
+    only *avoid* a blocked pair at check-in (see ``assign_table_on_checkin``);
+    later rounds can still put them together. This is the best-effort residual,
+    surfaced as a count so the host can use a manual table move. Rounds that
+    are already over are ignored. Identities and
+    block direction are deliberately not returned.
+    """
+
+    from crush_lu.models.quiz import QuizRotationSchedule
+    from crush_lu.services.blocking import blocked_pairs_among
+
+    if quiz.status == "finished":
+        return 0
+    # Only the current and upcoming rounds matter: a table two people shared in
+    # a round that is already over cannot be fixed, so it must not keep the
+    # warning alive for the rest of the evening.
+    first_relevant_round = quiz.get_round_number() if quiz.current_round_id else 0
+    if upcoming_only:
+        first_relevant_round += 1
+    rows = list(
+        QuizRotationSchedule.objects.filter(
+            quiz=quiz, round_number__gte=first_relevant_round
+        ).values_list("round_number", "table_id", "user_id")
+    )
+    pairs = blocked_pairs_among(user_id for _, _, user_id in rows)
+    if not pairs:
+        return 0
+    seated = {}
+    for round_number, table_id, user_id in rows:
+        seated.setdefault((round_number, table_id), set()).add(user_id)
+    # Distinct pairs, not pair-rounds: one pair sharing three rounds is one pair.
+    return len(
+        {pair for members in seated.values() for pair in pairs if pair <= members}
+    )
+
+
+def current_block_warnings(quiz):
+    """The one block-warning helper every quiz surface uses.
+
+    Informational only (a block mostly means "not interested", so the two may
+    attend the same evening): returns a list (empty when there is nothing to
+    mention) covering blocked pairs that share a table in the current or an
+    upcoming round. Call sites: quiz start
+    (via ``generate_rotation_rounds`` / ``compute_rotation_warnings``), rotate,
+    resume (consumers ``get_block_warnings``), manual table assign and
+    consolidation (via the regenerated schedule). Counts only; identities and
+    block direction never leave the service.
+    """
+
+    count = blocked_table_conflict_count(quiz)
+    return [_blocked_table_warning(count)] if count else []
+
+
+def _merge_warnings(*groups):
+    merged = []
+    for group in groups:
+        for warning in group or ():
+            if warning not in merged:
+                merged.append(warning)
+    return merged
+
+
+def _order_round0(anchors_by_table, rotators_by_table, num_tables):
+    """Anchor/rotator order that reproduces the persisted round-0 layout.
+
+    Shared by ``generate_rotation_rounds`` (real rows) and the consolidation
+    preview (planned layout) so both feed ``generate_rotation_schedule``
+    identically.
+    """
+    ordered_men = []
+    max_anchors = (
+        max(len(v) for v in anchors_by_table.values()) if anchors_by_table else 0
+    )
+    for rank in range(max_anchors):
+        for t in range(num_tables):
+            if rank < len(anchors_by_table.get(t, [])):
+                ordered_men.append(anchors_by_table[t][rank])
+    ordered_women = []
+    for group in ["A", "B", "C"]:
+        for t in range(num_tables):
+            ordered_women.extend(rotators_by_table.get((group, t), []))
+    return ordered_men, ordered_women
+
+
+def _blocked_table_warning(count):
+    return (
+        f"For your information: {count} blocked pair(s) share a table in at least "
+        "one round. A block usually just means they are not interested, so they "
+        "may not want to be together; you can move one of them if you prefer."
+    )
+
+
 def assign_table_on_checkin(quiz_event, user):
     """
     Incrementally assign a user to a quiz table at check-in time (round 0).
@@ -201,7 +297,9 @@ def assign_table_on_checkin(quiz_event, user):
     M → anchor, F → rotator, NB/O/P → whichever pool is smaller.
 
     Returns:
-        dict with {"table_number": int, "role": str} or None if no tables.
+        dict with {"table_number": int, "role": str} (plus "warnings": list[str]
+        when a late check-in regenerated the schedule and it has warnings for
+        the host), or None if no tables.
     """
     from django.db import transaction
     from django.db.models import Count
@@ -330,9 +428,13 @@ def assign_table_on_checkin(quiz_event, user):
     # played rounds via preserve_current_round=True: the boundary is
     # recomputed under that lock so a concurrent
     # advance_round_and_rotate cannot make the preserved range stale.
+    rotation_warnings = []
     if quiz_event.status in ("active", "paused"):
         try:
-            generate_rotation_rounds(quiz_event, preserve_current_round=True)
+            regenerated = generate_rotation_rounds(
+                quiz_event, preserve_current_round=True
+            )
+            rotation_warnings = list((regenerated or {}).get("warnings") or [])
         except Exception:
             import logging
 
@@ -343,10 +445,15 @@ def assign_table_on_checkin(quiz_event, user):
                 user.pk,
             )
 
-    return {
+    assignment = {
         "table_number": target_table.table_number,
         "role": role,
     }
+    if rotation_warnings:
+        # Host-only: the check-in broadcast carries these to the quiz host
+        # group; they never go into a participant-facing response.
+        assignment["warnings"] = rotation_warnings
+    return assignment
 
 
 def release_table_on_undo(quiz_event, user):
@@ -468,9 +575,13 @@ def release_table_on_undo(quiz_event, user):
     # Mirror of the assign path: a live quiz has to be reseated around the
     # gap, and generate_rotation_rounds preserves the current and already-
     # played rounds so the room does not move mid-question.
+    rotation_warnings = []
     if quiz_event.status in ("active", "paused"):
         try:
-            generate_rotation_rounds(quiz_event, preserve_current_round=True)
+            regenerated = generate_rotation_rounds(
+                quiz_event, preserve_current_round=True
+            )
+            rotation_warnings = list((regenerated or {}).get("warnings") or [])
         except Exception:
             import logging
 
@@ -481,7 +592,7 @@ def release_table_on_undo(quiz_event, user):
                 user.pk,
             )
 
-    return {
+    released = {
         "table_number": table_number,
         "membership_table_numbers": membership_table_numbers,
         # Whether the individual leaderboard just changed. Everyone in the
@@ -489,6 +600,11 @@ def release_table_on_undo(quiz_event, user):
         # has a wider audience to tell than the seat change alone implies.
         "scores_removed": scores_removed,
     }
+    if rotation_warnings:
+        # Removing a rotator can reshuffle future rounds and newly seat a
+        # blocked pair; host-only, sent by the check-in broadcast.
+        released["warnings"] = rotation_warnings
+    return released
 
 
 def generate_rotation_rounds(quiz, from_round=1, preserve_current_round=False):
@@ -596,27 +712,16 @@ def generate_rotation_rounds(quiz, from_round=1, preserve_current_round=False):
             else:
                 rotators_by_table[(r.rotation_group, t_idx)].append(r.user)
 
-        # Interleave anchors to match _distribute_evenly round-robin
-        ordered_men = []
-        max_anchors = (
-            max(len(v) for v in anchors_by_table.values())
-            if anchors_by_table
-            else 0
+        ordered_men, ordered_women = _order_round0(
+            anchors_by_table, rotators_by_table, num_tables
         )
-        for rank in range(max_anchors):
-            for t in range(num_tables):
-                if rank < len(anchors_by_table.get(t, [])):
-                    ordered_men.append(anchors_by_table[t][rank])
         # Append late arrivals not in round 0
         for m in men_all:
             if m.id not in round_0_users:
                 ordered_men.append(m)
 
-        # Rotators: ordered by group (A, B, C), then by table index
-        ordered_women = []
-        for group in ["A", "B", "C"]:
-            for t in range(num_tables):
-                ordered_women.extend(rotators_by_table.get((group, t), []))
+        # Rotators were ordered by group (A, B, C), then table index; late
+        # arrivals follow.
         for w in women_all:
             if w.id not in round_0_users:
                 ordered_women.append(w)
@@ -668,6 +773,10 @@ def generate_rotation_rounds(quiz, from_round=1, preserve_current_round=False):
 
         quiz.tables_generated_at = timezone.now()
         quiz.save(update_fields=["tables_generated_at"])
+
+        result["warnings"] = _merge_warnings(
+            result["warnings"], current_block_warnings(quiz)
+        )
 
     return {
         "num_tables": actual_num_tables,
@@ -878,10 +987,15 @@ def compute_rotation_warnings(quiz):
         .order_by("registered_at")
     )
     if registrations.count() < 4:
-        return [
-            f"Only {registrations.count()} attended registration(s). "
-            f"Need at least 4 to start the quiz."
-        ]
+        # Persisted rows from an earlier, larger rotation can still seat a
+        # blocked pair after check-in undos, so block warnings still apply.
+        return _merge_warnings(
+            [
+                f"Only {registrations.count()} attended registration(s). "
+                f"Need at least 4 to start the quiz."
+            ],
+            current_block_warnings(quiz),
+        )
 
     men, women = split_participants_by_gender(registrations)
     warnings = []
@@ -907,7 +1021,7 @@ def compute_rotation_warnings(quiz):
             f"spillover distributed round-robin)."
         )
 
-    return warnings
+    return _merge_warnings(warnings, current_block_warnings(quiz))
 
 
 def dissolve_table(quiz, table_number):
@@ -1206,6 +1320,25 @@ def manual_assign_table(quiz, user, table_number):
             else:
                 rotation_group = "C"
 
+        # Blocks are information for the host, never a gate: this only warns.
+        from crush_lu.services.blocking import blocked_user_ids
+
+        counterpart_ids = blocked_user_ids(user)
+        move_warnings = []
+        if (
+            counterpart_ids
+            and QuizRotationSchedule.objects.filter(
+                quiz=locked_quiz,
+                round_number=0,
+                table=table,
+                user_id__in=counterpart_ids,
+            ).exists()
+        ):
+            move_warnings.append(
+                "For your information: this table already seats someone this "
+                "member has a block with, so they may not want to be together."
+            )
+
         QuizTableMembership.objects.create(table=table, user=user)
         QuizRotationSchedule.objects.update_or_create(
             quiz=locked_quiz,
@@ -1218,10 +1351,13 @@ def manual_assign_table(quiz, user, table_number):
             },
         )
 
-    # Pick up future-round seating for active quizzes.
+    # Pick up future-round seating for active quizzes. Its warnings (a blocked
+    # pair the regenerated rotation seats together later) belong in the reply.
+    regeneration_warnings = []
     if quiz.status in ("active", "paused"):
         try:
-            generate_rotation_rounds(quiz, preserve_current_round=True)
+            regeneration = generate_rotation_rounds(quiz, preserve_current_round=True)
+            regeneration_warnings = list(regeneration.get("warnings") or [])
         except Exception:
             import logging
 
@@ -1232,7 +1368,11 @@ def manual_assign_table(quiz, user, table_number):
                 user.pk,
             )
 
-    return {"table_number": table_number, "role": role}
+    result = {"table_number": table_number, "role": role}
+    all_warnings = _merge_warnings(move_warnings, regeneration_warnings)
+    if all_warnings:
+        result["warnings"] = all_warnings
+    return result
 
 
 def split_participants_by_gender(registrations_with_profiles):
@@ -1272,6 +1412,49 @@ def split_participants_by_gender(registrations_with_profiles):
             women.append(user)
 
     return men, women
+
+
+def _simulated_block_conflicts(round_0, moves, new_num_tables, blocked_pairs, quiz):
+    """Blocked table-sharing the rotation built from a planned layout would have."""
+    from collections import defaultdict
+
+    if not blocked_pairs:
+        return 0
+    moved_to = {m["user_id"]: m["to_table"] for m in moves}
+    anchors_by_table = defaultdict(list)
+    rotators_by_table = defaultdict(list)
+    layout = defaultdict(set)
+    for r in round_0:
+        table_no = moved_to.get(r.user_id, r.table.table_number)
+        if table_no > new_num_tables:
+            continue
+        layout[table_no].add(r.user_id)
+        if r.role == "anchor":
+            anchors_by_table[table_no - 1].append(r.user_id)
+        else:
+            rotators_by_table[(r.rotation_group, table_no - 1)].append(r.user_id)
+    conflicting = {
+        pair for members in layout.values() for pair in blocked_pairs if pair <= members
+    }
+    men, women = _order_round0(anchors_by_table, rotators_by_table, new_num_tables)
+    try:
+        schedule = generate_rotation_schedule(
+            men, women, quiz.rounds.count() or 3, num_tables=new_num_tables
+        )["schedule"]
+    except ValidationError:
+        # Too few people for a rotation; the layout itself is all there is.
+        return len(conflicting)
+    seated = defaultdict(set)
+    for entry in schedule:
+        # Round 0 is the persisted check-in layout (counted above); only rounds
+        # 1+ come from the regenerated rotation, exactly as on apply.
+        if entry["round_number"] < 1:
+            continue
+        seated[(entry["round_number"], entry["table_number"])].add(entry["user"])
+    conflicting |= {
+        pair for members in seated.values() for pair in blocked_pairs if pair <= members
+    }
+    return len(conflicting)
 
 
 def consolidate_tables(quiz, *, apply=False, moves_override=None):
@@ -1386,6 +1569,11 @@ def consolidate_tables(quiz, *, apply=False, moves_override=None):
         if r.table.table_number <= new_num_tables:
             keeper_role_counts[r.table.table_number][r.role] += 1
 
+    from crush_lu.services.blocking import blocked_pairs_among
+
+    # Blocks only feed the host warning below; they never steer placement.
+    blocked_pairs = blocked_pairs_among(r.user_id for r in round_0)
+
     moves = []
     # Stable order: process excess by (table_number asc, user_id asc)
     excess_round0.sort(key=lambda r: (r.table.table_number, r.user_id))
@@ -1470,6 +1658,15 @@ def consolidate_tables(quiz, *, apply=False, moves_override=None):
         "table_sizes_after": table_sizes_after,
     }
 
+    # Warn (never refuse) about blocked pairs the compacted layout would seat
+    # together in ANY round: simulate the rotation that applying would
+    # generate from this layout (also covers the coach's own overrides).
+    shared = _simulated_block_conflicts(
+        round_0, moves, new_num_tables, blocked_pairs, quiz
+    )
+    if shared:
+        result["warnings"] = [_blocked_table_warning(shared)]
+
     if not apply:
         return result
 
@@ -1516,7 +1713,14 @@ def consolidate_tables(quiz, *, apply=False, moves_override=None):
     # outside the atomic block above so its own select_for_update can take
     # the row lock cleanly.
     try:
-        generate_rotation_rounds(quiz, from_round=1, preserve_current_round=False)
+        regeneration = generate_rotation_rounds(
+            quiz, from_round=1, preserve_current_round=False
+        )
+        # The regenerated schedule is authoritative: its conflicts replace the
+        # preview-time estimate.
+        result["warnings"] = list(regeneration.get("warnings") or [])
+        if not result["warnings"]:
+            result.pop("warnings", None)
     except ValidationError:
         # Not enough anchors/rotators to build a rotation even after
         # consolidation — surface to the caller. Round 0 is still good.
