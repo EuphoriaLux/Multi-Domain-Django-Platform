@@ -225,15 +225,86 @@ def send_pre_screening_user_push_task(submission_id):
         )
 
 
-@task(priority=5)
-def send_sla_fallback_email_task(submission_id, host, is_secure=True):
-    """Email the user their self-booking link after SLA breach (Phase 3).
+SLA_EMAIL_SENT = "sent"
+SLA_EMAIL_SKIPPED = "skipped"
+SLA_EMAIL_FAILED = "failed"
+# The submission moved on (approved, rejected, call done, paused) after the offer
+# was claimed: the link would 404, so nothing is sent and the caller clears it.
+SLA_EMAIL_STALE = "stale"
+# The transport failed AFTER the request may have reached Graph (read timeout,
+# connection reset). The mail may well be delivered, so the booking token it
+# carries must not be cleared; a later lease retry re-sends the SAME token.
+SLA_EMAIL_AMBIGUOUS = "ambiguous"
 
-    Enqueued by the hybrid-coach SLA sweep admin endpoint once
-    fallback_offered_at + booking_token have been persisted. Idempotent:
-    unsubscribe check + the caller's own "offered once" guard both prevent
-    duplicate sends. Failures log but don't raise — the system_actions
-    audit log already records the offer independent of delivery.
+
+def _is_outcome_ambiguous(exc):
+    """True when ``exc`` may have happened after Graph accepted the message.
+
+    Read timeouts, dropped/reset connections and truncated responses leave the
+    outcome unknown. HTTP error statuses, validation errors, token failures and
+    connect timeouts (nothing was sent) are definite failures. Token fetches
+    that fail on the network also land here; the cost is only a lease-delayed
+    retry with the same token.
+    """
+    import requests
+
+    seen = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        if isinstance(
+            exc,
+            (requests.exceptions.ReadTimeout, requests.exceptions.ChunkedEncodingError),
+        ):
+            return True
+        if isinstance(exc, requests.exceptions.ConnectionError) and not isinstance(
+            exc, requests.exceptions.ConnectTimeout
+        ):
+            return True
+        if isinstance(
+            exc, (ConnectionResetError, ConnectionAbortedError, BrokenPipeError)
+        ):
+            return True
+        exc = exc.__cause__ or exc.__context__
+    return False
+
+
+def _is_email_suppressed(email):
+    from django.db.utils import OperationalError, ProgrammingError
+
+    from .models import EmailSuppression
+
+    normalized = (email or "").strip().lower()
+    if not normalized:
+        return True
+    try:
+        return EmailSuppression.objects.filter(
+            email=normalized, is_active=True
+        ).exists()
+    except (OperationalError, ProgrammingError):
+        # Same fail-open stance as send_domain_email's own filter.
+        return False
+
+
+def deliver_sla_fallback_email(submission_id, host, is_secure=True):
+    """Build and send the self-booking email; report what actually happened.
+
+    Returns one of:
+
+    * ``SLA_EMAIL_SENT`` -- the mail backend accepted at least one message;
+    * ``SLA_EMAIL_SKIPPED`` -- nothing to send by design (submission gone,
+      member unsubscribed, address on the hard-bounce suppression list, no
+      booking token). Retrying cannot change this;
+    * ``SLA_EMAIL_STALE`` -- the submission is no longer bookable (same
+      predicate as the booking page); nothing is sent and the caller clears the
+      offer without retrying;
+    * ``SLA_EMAIL_AMBIGUOUS`` -- the transport failed after Graph may have
+      accepted the message; the token is kept and the lease retry reuses it
+      (a duplicate email with the same working link is accepted);
+    * ``SLA_EMAIL_FAILED`` -- the send raised or was suppressed (returned 0).
+      The caller should undo the offer so the next sweep retries.
+
+    Never raises: callers that sit under row locks or in a request must not be
+    broken by a mail outage.
     """
     from django.template.loader import render_to_string
     from django.urls import reverse
@@ -258,67 +329,114 @@ def send_sla_fallback_email_task(submission_id, host, is_secure=True):
         logger.warning(
             f"[TASK] Submission {submission_id} not found for SLA fallback email"
         )
-        return
+        return SLA_EMAIL_SKIPPED
+
+    if not submission.is_self_booking_open():
+        logger.info(
+            f"[TASK] Not sending SLA fallback email for submission "
+            f"{submission_id}: no longer bookable"
+        )
+        return SLA_EMAIL_STALE
 
     user = submission.profile.user
     if not can_send_email(user, "profile_updates"):
         logger.info(
-            f"[TASK] Skipping SLA fallback email to {user.email} (unsubscribed)"
+            f"[TASK] Skipping SLA fallback email for submission {submission_id} "
+            "(unsubscribed)"
         )
-        return
+        return SLA_EMAIL_SKIPPED
 
     if not submission.booking_token:
         logger.warning(
             f"[TASK] Submission {submission_id} has no booking_token; skipping email"
         )
-        return
+        return SLA_EMAIL_SKIPPED
 
-    fake_request = _build_fake_request(host, is_secure)
-    lang = get_user_preferred_language(user=user, request=fake_request, default="en")
-
-    with translation.override(lang):
-        booking_path = reverse(
-            "crush_lu:book_screening",
-            kwargs={"booking_token": submission.booking_token},
+    # send_domain_email silently drops actively suppressed (hard-bounced)
+    # addresses and returns 0, which is indistinguishable from an outage. A
+    # suppressed address never becomes deliverable on its own, so treat it as
+    # terminal like an unsubscribe rather than retrying it every sweep.
+    if _is_email_suppressed(user.email):
+        logger.info(
+            f"[TASK] Skipping SLA fallback email for submission {submission_id} "
+            "(address suppressed)"
         )
-    scheme = "https" if is_secure else "http"
-    booking_url = f"{scheme}://{host}{booking_path}"
-
-    context = get_email_context_with_unsubscribe(
-        user,
-        fake_request,
-        booking_url=booking_url,
-        coach=submission.coach,
-        submission=submission,
-    )
-
-    with translation.override(lang):
-        subject = _("Book your Crush.lu screening call")
-        html_message = render_to_string(
-            "crush_lu/emails/screening_fallback_offered.html", context
-        )
-        plain_message = html_to_plain_text(
-            render_to_string(
-                "crush_lu/emails/screening_fallback_offered.txt", context
-            )
-        )
+        return SLA_EMAIL_SKIPPED
 
     try:
-        send_domain_email(
+        fake_request = _build_fake_request(host, is_secure)
+        lang = get_user_preferred_language(
+            user=user, request=fake_request, default="en"
+        )
+
+        with translation.override(lang):
+            booking_path = reverse(
+                "crush_lu:book_screening",
+                kwargs={"booking_token": submission.booking_token},
+            )
+        scheme = "https" if is_secure else "http"
+        booking_url = f"{scheme}://{host}{booking_path}"
+
+        context = get_email_context_with_unsubscribe(
+            user,
+            fake_request,
+            booking_url=booking_url,
+            coach=submission.coach,
+            submission=submission,
+        )
+
+        with translation.override(lang):
+            subject = _("Book your Crush.lu screening call")
+            html_message = render_to_string(
+                "crush_lu/emails/screening_fallback_offered.html", context
+            )
+            plain_message = html_to_plain_text(
+                render_to_string(
+                    "crush_lu/emails/screening_fallback_offered.txt", context
+                )
+            )
+
+        sent = send_domain_email(
             subject=subject,
             message=plain_message,
             html_message=html_message,
             recipient_list=[user.email],
             request=fake_request,
-            fail_silently=True,
-        )
-        logger.info(
-            f"[TASK] SLA fallback email sent for submission {submission_id}"
+            fail_silently=False,
         )
     except Exception as e:  # noqa: BLE001
+        if _is_outcome_ambiguous(e):
+            logger.warning(
+                f"[TASK] SLA fallback email for submission {submission_id} has an "
+                f"unknown outcome ({type(e).__name__}); keeping its booking token"
+            )
+            return SLA_EMAIL_AMBIGUOUS
         logger.error(
-            f"[TASK] Failed SLA fallback email for submission {submission_id}: {e}"
+            f"[TASK] Failed SLA fallback email for submission {submission_id}: "
+            f"{type(e).__name__}"
         )
+        return SLA_EMAIL_FAILED
+
+    if not sent:
+        logger.warning(
+            f"[TASK] SLA fallback email for submission {submission_id} was "
+            "suppressed or not accepted by the mail backend"
+        )
+        return SLA_EMAIL_FAILED
+    logger.info(f"[TASK] SLA fallback email sent for submission {submission_id}")
+    return SLA_EMAIL_SENT
+
+
+@task(priority=5)
+def send_sla_fallback_email_task(submission_id, host, is_secure=True):
+    """Email the user their self-booking link after SLA breach (Phase 3).
+
+    Thin wrapper over :func:`deliver_sla_fallback_email` for callers that only
+    want fire-and-forget. The SLA sweep, ``sla_tick`` and the coach-initiated
+    offer call the helper directly, because they must know whether the mail
+    went out and undo the offer when it did not.
+    """
+    deliver_sla_fallback_email(submission_id, host, is_secure)
 
 
 @task(priority=0)

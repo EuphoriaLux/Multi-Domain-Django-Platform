@@ -152,8 +152,13 @@ def current_generation_groups(event):
     return [group for group in groups if group.generation == generation]
 
 
-def coach_group_panel(event, registrations=None):
+def coach_group_panel(event, registrations=None, *, blocked_user_pairs=()):
     """Everything the coach "Groups" tab shows, or ``None`` when it must not.
+
+    ``blocked_user_pairs`` is the coach-scoped output of
+    ``services.event_conflicts.event_conflict_pairs`` for this event (sorted
+    user-id tuples). It only feeds an informational count of blocked pairs that
+    share a stored group; blocks never influence grouping.
 
     ``registrations`` is the coach page's already-loaded, non-cancelled list
     (``select_related`` on profile and preference); pass it to avoid a second
@@ -275,6 +280,11 @@ def coach_group_panel(event, registrations=None):
         "next_action_label": NEXT_ACTION_LABELS[next_action],
         "admin_url": admin_url,
         "preflight": preflight,
+        # Information only: a block usually means "not interested", and the two
+        # may still attend the same evening. Count only, no identities.
+        "blocked_pairs_in_groups": _blocked_pairs_sharing_a_group(
+            memberships, blocked_user_pairs
+        ),
         "groups": [_group_card(group, memberships, participants) for group in groups],
         "left_out": {
             "preview": not groups,
@@ -282,6 +292,23 @@ def coach_group_panel(event, registrations=None):
             "eligible": left_out_eligible,
         },
     }
+
+
+def _blocked_pairs_sharing_a_group(memberships, blocked_user_pairs):
+    if not blocked_user_pairs:
+        return 0
+    users_by_group = {}
+    for membership in memberships:
+        if membership.released_at is None:
+            users_by_group.setdefault(membership.group_id, set()).add(
+                membership.registration.user_id
+            )
+    return sum(
+        1
+        for pair in blocked_user_pairs
+        for users in users_by_group.values()
+        if set(pair) <= users
+    )
 
 
 def _stage(event, groups):

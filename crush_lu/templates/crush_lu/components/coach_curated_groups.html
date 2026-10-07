@@ -52,6 +52,12 @@ from a @coach_required page only and must never be reused on a member surface.
         </p>
     </div>
 
+    {% if panel.blocked_pairs_in_groups %}
+    <div class="card p-4 mb-4 text-sm text-gray-600 dark:text-gray-300" data-curated-blocked-pairs>
+        {% blocktrans count counter=panel.blocked_pairs_in_groups %}For your information: {{ counter }} blocked pair shares a group. A block usually just means they are not interested, so they may not want to be together.{% plural %}For your information: {{ counter }} blocked pairs share a group. A block usually just means they are not interested, so they may not want to be together.{% endblocktrans %}
+    </div>
+    {% endif %}
+
     {# 2. Preflight: what the projector would do with the pool right now #}
     {% if panel.preflight %}
     <div class="card p-5 mb-4" data-curated-preflight>

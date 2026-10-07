@@ -45181,3 +45181,14 @@ msgstr "Ajoutez une photo de remplacement dans cet emplacement. Vous n’avez ri
 
 msgid "Show this QR to a coach at the door."
 msgstr "Montrez ce code QR à un coach à l'entrée."
+
+#, python-format
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "For your information: %(counter)s blocked pair shares a group. A block usually just means they are not interested, so they may not want to be together."
+msgid_plural "For your information: %(counter)s blocked pairs share a group. A block usually just means they are not interested, so they may not want to be together."
+msgstr[0] "Pour information : %(counter)s paire bloquée partage un groupe. Un blocage signifie le plus souvent un simple manque d’intérêt ; ces personnes ont peut-être choisi de ne plus interagir."
+msgstr[1] "Pour information : %(counter)s paires bloquées partagent un groupe. Un blocage signifie le plus souvent un simple manque d’intérêt ; ces personnes ont peut-être choisi de ne plus interagir."
+
+#: templates/crush_lu/quiz_coach.html
+msgid "You changed the layout, so the block information for the automatic plan no longer applies. Any warnings are shown after you apply."
+msgstr "Vous avez modifié la disposition : les informations de blocage du plan automatique ne s’appliquent plus. Les éventuels avertissements s’affichent après l’application."

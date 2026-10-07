@@ -2001,6 +2001,15 @@ def _broadcast_quiz_table_update(event, table_assignment, affected_user_id=None)
                 "data": {"table_number": table_number},
             },
         )
+        # Warnings a late check-in produced (e.g. a blocked pair now seated
+        # together). Host group only, as one message: players never see who
+        # blocked whom, and the host UI keeps just the last error it is shown.
+        warnings = (table_assignment or {}).get("warnings")
+        if warnings:
+            async_to_sync(channel_layer.group_send)(
+                f"quiz_{quiz_event.id}_host",
+                {"type": "quiz.error", "data": {"message": " ".join(warnings)}},
+            )
     except Exception:
         logger.exception("Failed to broadcast quiz table update for event %s", event.id)
 

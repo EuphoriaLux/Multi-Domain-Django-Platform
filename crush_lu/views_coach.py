@@ -1990,8 +1990,17 @@ def coach_offer_self_booking(request, submission_id):
     """
     import uuid
     from django.conf import settings as _settings
-    from .api_admin_hybrid import FALLBACK_TOKEN_TTL
-    from .tasks import send_sla_fallback_email_task
+    from .api_admin_hybrid import (
+        mark_fallback_offered,
+        mark_fallback_sent,
+        revert_fallback_offer,
+    )
+    from .tasks import (
+        SLA_EMAIL_AMBIGUOUS,
+        SLA_EMAIL_FAILED,
+        SLA_EMAIL_STALE,
+        deliver_sla_fallback_email,
+    )
 
     coach = request.coach
     submission = get_object_or_404(
@@ -2008,8 +2017,18 @@ def coach_offer_self_booking(request, submission_id):
             status=410,
         )
 
+    # An offer whose email outcome is still unknown (claimed, never marked
+    # sent) may be re-sent by the coach, with the SAME token. Anything already
+    # sent (or offered before the lease fields existed) is only re-rendered.
+    unsent_claim = bool(
+        submission.fallback_offered_at
+        and submission.booking_token
+        and submission.fallback_offer_claimed_at
+        and not submission.fallback_offer_sent_at
+    )
+
     # Already offered — render current status, do not re-send.
-    if submission.fallback_offered_at:
+    if submission.fallback_offered_at and not unsent_claim:
         return render(
             request,
             "crush_lu/_self_booking_offer.html",
@@ -2030,28 +2049,14 @@ def coach_offer_self_booking(request, submission_id):
         )
 
     now = timezone.now()
+    recovered = False
     try:
         with transaction.atomic():
-            submission.fallback_offered_at = now
-            submission.booking_token = uuid.uuid4()
-            submission.booking_token_expires_at = now + FALLBACK_TOKEN_TTL
-            submission.log_system_action(
-                "fallback_offered",
+            recovered = mark_fallback_offered(
+                submission,
+                now,
                 actor=f"coach:{coach.user.username}",
                 reason="coach_initiated",
-            )
-            submission.save(
-                update_fields=[
-                    "fallback_offered_at",
-                    "booking_token",
-                    "booking_token_expires_at",
-                    "system_actions",
-                ]
-            )
-            send_sla_fallback_email_task.enqueue(
-                submission_id=submission.pk,
-                host=request.get_host(),
-                is_secure=request.is_secure(),
             )
     except Exception:
         logger.exception(
@@ -2063,6 +2068,29 @@ def coach_offer_self_booking(request, submission_id):
             + "</p>",
             status=500,
         )
+
+    # Send only after the offer is committed; if the mail did not go out, undo
+    # the offer so the coach can try again instead of seeing a dead "offered".
+    outcome = deliver_sla_fallback_email(
+        submission.pk, request.get_host(), request.is_secure()
+    )
+    if outcome in (SLA_EMAIL_FAILED, SLA_EMAIL_STALE):
+        # A re-send of an earlier claim keeps its token: that mail may have
+        # reached the member, so only a fresh offer is undone.
+        if not recovered or outcome == SLA_EMAIL_STALE:
+            revert_fallback_offer(
+                submission.pk, submission.booking_token, reason="email_not_sent"
+            )
+        return HttpResponse(
+            '<p class="text-xs text-red-600 dark:text-red-400">'
+            + str(_("Could not send the booking offer. Try again."))
+            + "</p>",
+            status=500,
+        )
+    if outcome != SLA_EMAIL_AMBIGUOUS:
+        # Unknown outcome: keep the token, leave the claim unsent so the sweep's
+        # lease retry re-sends the same link.
+        mark_fallback_sent(submission.pk)
 
     return render(
         request,
@@ -2834,7 +2862,7 @@ def coach_event_detail(request, event_id):
     # the template renders nothing new and the tab does not exist.
     from .services.curated_group_insights import coach_group_panel
 
-    curated_groups_panel = coach_group_panel(event, all_regs)
+    curated_groups_panel = coach_group_panel(event, all_regs, blocked_user_pairs=pairs)
 
     # Status filter — controls which section(s) the template renders
     status_filter = request.GET.get("status", "all")

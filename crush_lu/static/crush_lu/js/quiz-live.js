@@ -1065,6 +1065,26 @@ document.addEventListener("alpine:init", function () {
             get hasConsolidationPreview() {
                 return this.consolidationPreview !== null;
             },
+            get hasConsolidationWarnings() {
+                if (this.consolidationPreview && this.consolidationPreview.edited) {
+                    return true;
+                }
+                return (
+                    this.consolidationPreview !== null &&
+                    Array.isArray(this.consolidationPreview.warnings) &&
+                    this.consolidationPreview.warnings.length > 0
+                );
+            },
+            get consolidationWarningText() {
+                // Bound with x-text (textContent), so server text is never parsed as HTML.
+                if (this.consolidationPreview && this.consolidationPreview.edited) {
+                    // The server cannot preview an edited layout, so do not show
+                    // warnings that belong to the automatic plan as if current.
+                    return this._i18n.consolidateEditedNote;
+                }
+                if (!this.hasConsolidationWarnings) return "";
+                return this.consolidationPreview.warnings.join(" ");
+            },
             get hasConsolidationMoves() {
                 return (
                     this.consolidationPreview !== null &&
@@ -1496,7 +1516,12 @@ document.addEventListener("alpine:init", function () {
                 } else if (type === "quiz.tables_consolidated") {
                     // Same reason as quiz.table_dissolved — the scoring grid
                     // is server-rendered from `tables`; reload to rebuild it.
-                    window.location.reload();
+                    // The client that applied it reloads from its own response
+                    // path instead (after showing any warnings), so it skips
+                    // this immediate reload; every other client still reloads.
+                    if (!this._consolidationApplyInFlight) {
+                        window.location.reload();
+                    }
                 } else if (type === "quiz.error") {
                     this.showError(data.message || "An error occurred");
                 }
@@ -1584,7 +1609,22 @@ document.addEventListener("alpine:init", function () {
                             return;
                         }
                         // Reload to refresh the orphan list + table overview.
-                        window.location.reload();
+                        // A move onto a table with a blocked counterpart is
+                        // allowed but warned about; show it (showError binds via
+                        // x-text, never innerHTML) and delay the reload so the
+                        // host actually sees it.
+                        var warnings =
+                            res.data && Array.isArray(res.data.warnings)
+                                ? res.data.warnings
+                                : [];
+                        if (warnings.length > 0) {
+                            self.showError(warnings.join(" "));
+                            setTimeout(function () {
+                                window.location.reload();
+                            }, 5000);
+                        } else {
+                            window.location.reload();
+                        }
                     })
                     .catch(function () {
                         btn.disabled = false;
@@ -1610,6 +1650,9 @@ document.addEventListener("alpine:init", function () {
                 var self = this;
                 if (this.consolidationLoading) return;
                 this.consolidationLoading = true;
+                // The apply broadcast reaches this client too; mark it so the
+                // WebSocket handler leaves the (delayed) reload to our response.
+                this._consolidationApplyInFlight = !!apply;
                 var payload = { apply: !!apply };
                 if (
                     apply &&
@@ -1638,6 +1681,7 @@ document.addEventListener("alpine:init", function () {
                     .then(function (res) {
                         self.consolidationLoading = false;
                         if (!res.ok) {
+                            self._consolidationApplyInFlight = false;
                             self.consolidationPreview = null;
                             self.showError(
                                 res.data && res.data.error
@@ -1649,8 +1693,21 @@ document.addEventListener("alpine:init", function () {
                         if (apply) {
                             // Hard reload — the server-rendered scoring grid
                             // (`{% for table in tables %}`) needs to be rebuilt
-                            // after num_tables shrinks.
-                            window.location.reload();
+                            // after num_tables shrinks. If the applied layout
+                            // left a blocked pair at one table, show that
+                            // first so the reload does not erase it.
+                            var warnings =
+                                res.data && Array.isArray(res.data.warnings)
+                                    ? res.data.warnings
+                                    : [];
+                            if (warnings.length > 0) {
+                                self.showError(warnings.join(" "));
+                                setTimeout(function () {
+                                    window.location.reload();
+                                }, 5000);
+                            } else {
+                                window.location.reload();
+                            }
                         } else {
                             self.consolidationPreview = res.data;
                             // Render the move list into the preview <ul>.
@@ -1659,8 +1716,18 @@ document.addEventListener("alpine:init", function () {
                     })
                     .catch(function () {
                         self.consolidationLoading = false;
+                        self._consolidationApplyInFlight = false;
                         self.consolidationPreview = null;
                         self.showError(self._i18n.consolidateFailed);
+                        // An apply that fails ambiguously (response lost or
+                        // unparseable) may still have committed, and the
+                        // broadcast's own reload was skipped while the request
+                        // was in flight. Reloading is safe either way.
+                        if (apply) {
+                            setTimeout(function () {
+                                window.location.reload();
+                            }, 3000);
+                        }
                     });
             },
 
@@ -1709,6 +1776,7 @@ document.addEventListener("alpine:init", function () {
                             self.consolidationPreview.moves[idx]
                         ) {
                             self.consolidationPreview.moves[idx].to_table = val;
+                            self.consolidationPreview.edited = true;
                         }
                     });
                     li.appendChild(sel);
