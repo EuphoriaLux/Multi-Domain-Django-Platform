@@ -115,6 +115,21 @@ def newsletter_opt_in_holds(user):
     return newsletter_opted_in_user_ids().filter(user_id=user.pk).exists()
 
 
+def email_send_conditions_hold(user):
+    """Every condition for sending a newsletter/campaign email to ONE user.
+
+    consent, not banned, not on a break, marketing on, newsletter on, not
+    unsubscribed from all. The early per-recipient check and the final
+    pre-handoff check both evaluate exactly this (final == early), reading the
+    rows fresh each time.
+    """
+    return (
+        has_current_consent(user)
+        and not is_on_break(user)
+        and newsletter_opt_in_holds(user)
+    )
+
+
 class ConsentRevokedBeforeSend(Exception):
     """Raised by the final pre-send check; a privacy skip, never a failure."""
 
@@ -131,7 +146,7 @@ def final_send_address(user):
     # Consent/ban AND the current newsletter opt-in, read in the same step: a
     # member who switched Marketing & Promotions or Newsletters off while the
     # message was being rendered must not receive it.
-    if not has_current_consent(user) or not newsletter_opt_in_holds(user):
+    if not email_send_conditions_hold(user):
         raise ConsentRevokedBeforeSend()
     address = (
         User.objects.filter(pk=user.pk).values_list('email', flat=True).first()
@@ -474,11 +489,8 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
 
         # Double-check consent and preference (may have changed since the
         # queryset was evaluated, e.g. account deletion during a batch pause)
-        consented = has_current_consent(user)
-        if (
-            not consented
-            or is_on_break(user)
-            or not can_send_email(user, 'newsletter')
+        if not email_send_conditions_hold(user) or not can_send_email(
+            user, 'newsletter'
         ):
             write_receipt(
                 newsletter, user, defaults={

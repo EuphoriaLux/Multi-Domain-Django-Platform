@@ -1042,3 +1042,15 @@ class ReceiptConsentTests(TestCase):
         with patch("crush_lu.campaign_women_1y.send_domain_email") as provider:
             self.assertEqual(send_women_1y_email(user, campaign), 0)
         provider.assert_not_called()
+
+    def test_final_check_blocks_a_member_who_went_on_break(self):
+        from unittest.mock import patch
+
+        from crush_lu.campaign_women_1y import get_campaign, send_women_1y_email
+
+        user = make_member("lateBreak")
+        campaign = get_campaign(create=True)
+        CrushProfile.objects.filter(user=user).update(on_break_at=timezone.now())
+        with patch("crush_lu.campaign_women_1y.send_domain_email") as provider:
+            self.assertEqual(send_women_1y_email(user, campaign), 0)
+        provider.assert_not_called()
