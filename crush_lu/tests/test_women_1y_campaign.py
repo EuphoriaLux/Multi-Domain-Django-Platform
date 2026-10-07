@@ -25,6 +25,7 @@ from crush_lu.campaign_women_1y import (
 from crush_lu.models import (
     CrushProfile,
     EmailPreference,
+    EmailSuppression,
     Campaign,
     CampaignLink,
     MeetupEvent,
@@ -35,6 +36,18 @@ from crush_lu.models import (
 User = get_user_model()
 HOST = "crush.lu"
 UTM = "utm_source=email&utm_medium=email&utm_campaign=women_1y&utm_content=cta"
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+class AnniversaryCampaignHoldTests(TestCase):
+    def test_anniversary_sender_respects_campaign_only_hold(self):
+        from crush_lu.campaign_women_1y import send_women_1y_email
+
+        user = make_member("heldcampaign")
+        EmailSuppression.objects.create(email=user.email, scope="campaign")
+        campaign = get_campaign(create=True)
+        self.assertEqual(send_women_1y_email(user, campaign), 0)
+        self.assertEqual(mail.outbox, [])
 
 
 def make_member(name, gender="F", status="incomplete", marketing=True, **profile):

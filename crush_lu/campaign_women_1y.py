@@ -279,6 +279,7 @@ def send_women_1y_email(user, campaign, to=None, test_mode=False, unsubscribe_ur
         # to the PowerUp sender.
         domain="crush.lu",
         fail_silently=False,
+        email_purpose="campaign",
     )
 
 

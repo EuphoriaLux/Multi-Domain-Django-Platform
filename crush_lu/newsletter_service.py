@@ -298,8 +298,6 @@ def get_newsletter_recipients(newsletter):
     Returns:
         QuerySet of User objects
     """
-    from .models import EmailPreference
-
     users = resolve_audience(newsletter.audience, newsletter.segment_key)
 
     # Explicit opt-in (decided by Tom, 2026-10-07, #1185): only members who
@@ -817,4 +815,5 @@ def _send_newsletter_to_user(newsletter, user, link_rewriter=None):
         from_email=settings.CRUSH_NEWSLETTER_FROM_EMAIL,
         domain='crush.lu',
         fail_silently=False,
+        email_purpose="campaign",
     )

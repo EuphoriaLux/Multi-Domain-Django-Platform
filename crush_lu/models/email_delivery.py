@@ -5,7 +5,7 @@ from django.utils import timezone
 
 
 class EmailSuppression(models.Model):
-    """An address that outbound Crush.lu email must not contact."""
+    """A reversible delivery hold, optionally limited to campaign email."""
 
     SOURCE_CHOICES = [
         ("graph_ndr", "Microsoft Graph NDR"),
@@ -13,6 +13,11 @@ class EmailSuppression(models.Model):
     ]
 
     email = models.EmailField(unique=True)
+    scope = models.CharField(
+        max_length=12,
+        choices=[("all", "All email"), ("campaign", "Campaigns only")],
+        default="all",
+    )
     is_active = models.BooleanField(default=True, db_index=True)
     reason = models.CharField(max_length=120, default="hard_bounce")
     source = models.CharField(

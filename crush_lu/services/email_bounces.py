@@ -232,10 +232,13 @@ def process_graph_bounce(
             },
         )
         if result.classification == "hard":
+            # A verified permanent recipient failure applies to every email
+            # purpose, including an address already held for campaigns only.
             EmailSuppression.objects.update_or_create(
                 email=result.recipient,
                 defaults={
                     "is_active": True,
+                    "scope": "all",
                     "reason": "hard_bounce",
                     "source": "graph_ndr",
                     "diagnostic": diagnostic,
