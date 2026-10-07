@@ -1993,6 +1993,17 @@ document.addEventListener("alpine:init", function () {
                 return true;
             },
 
+            // A 403 `coach_required` means the coach's own session lapsed (a
+            // member's self-scan gets the same code, but never runs this page).
+            _checkinErrorMessage: function (data, fallback) {
+                if (data.code === "coach_required") {
+                    return gettext(
+                        "Your coach session has expired. Please sign in again.",
+                    );
+                }
+                return data.error || fallback;
+            },
+
             handleScan: function (text) {
                 var self = this;
                 // qr-scanner keeps decoding ~10x/s while the code is visible;
@@ -2051,7 +2062,10 @@ document.addEventListener("alpine:init", function () {
                         } else {
                             self.success = false;
                             self.errorState = true;
-                            self.message = data.error || gettext("Check-in failed.");
+                            self.message = self._checkinErrorMessage(
+                                data,
+                                gettext("Check-in failed."),
+                            );
                         }
                         self._resumeScanSoon();
                     })
@@ -2102,7 +2116,10 @@ document.addEventListener("alpine:init", function () {
                             var i18n = window._checkinI18n || {};
                             btn.textContent = i18n.checkIn || "Check In";
                             alert(
-                                data.error || i18n.checkinFailed || "Check-in failed",
+                                self._checkinErrorMessage(
+                                    data,
+                                    i18n.checkinFailed || "Check-in failed",
+                                ),
                             );
                         }
                     })

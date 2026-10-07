@@ -45056,3 +45056,6 @@ msgstr "Dein Coach hat dich gebeten, dein %(photo)s zu ersetzen. Der Rest deines
 #: crush_lu/templates/crush_lu/emails/photo_revision_request.html
 msgid "Upload a replacement photo in that slot. You do not need to change anything else."
 msgstr "Lade ein Ersatzfoto in diesem Bereich hoch. Sonst musst du nichts ändern."
+
+msgid "Show this QR to a coach at the door."
+msgstr "Zeige diesen QR-Code einem Coach am Eingang."
