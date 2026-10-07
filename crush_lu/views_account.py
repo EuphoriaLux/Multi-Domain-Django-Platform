@@ -935,13 +935,25 @@ def _anonymize_send_logs(user):
     CampaignRecipient.objects.filter(user=user).update(error_message="")
 
 
+class StorageErasureError(RuntimeError):
+    """A stored personal file could not be deleted: erasure must not go on.
+
+    Fail closed: the caller's transaction rolls back (or the tombstone stays
+    ``deletion_in_progress``), so the database keeps the key that locates the
+    file and the member can retry. Dropping the key after a failed delete would
+    leave a personal file in storage that nothing can find again.
+    """
+
+
 def _delete_stored_files(queryset):
     """Delete every FileField/ImageField file of the rows in ``queryset``.
 
     QuerySet.delete() removes rows only, and delete_user_storage() sweeps just
     users/<id>/, so files stored elsewhere (e.g. journey_gifts/qr/<code>.png,
     gift and spark chapter media, wallet-proxy photos) would be orphaned.
-    Missing or undeletable files are tolerated: the row purge must proceed.
+    A file that is already missing is fine (storage.delete is idempotent); any
+    other storage error raises StorageErasureError AFTER every file has been
+    attempted, and BEFORE the caller removes or blanks the reference.
     """
     from django.db import models as dj_models
 
@@ -952,6 +964,7 @@ def _delete_stored_files(queryset):
     if not file_fields:
         return 0
     deleted = 0
+    failures = []
     for row in queryset.iterator():
         for field in file_fields:
             name = getattr(row, field.attname, None)
@@ -960,11 +973,16 @@ def _delete_stored_files(queryset):
             try:
                 field.storage.delete(str(name))
                 deleted += 1
-            except Exception as exc:  # noqa: BLE001 - never block erasure
-                logger.warning(
+            except Exception as exc:  # noqa: BLE001 - re-raised below
+                logger.error(
                     "Could not delete %s.%s file %r: %s",
                     queryset.model.__name__, field.name, name, exc,
                 )
+                failures.append(f"{queryset.model.__name__}.{field.name}")
+    if failures:
+        raise StorageErasureError(
+            "Could not delete stored files for: " + ", ".join(sorted(set(failures)))
+        )
     return deleted
 
 
@@ -1127,7 +1145,10 @@ def delete_crushlu_profile_only(user, finalize=True):
                 try:
                     photo.delete(save=False)
                 except Exception as e:
-                    logger.warning(f"Could not delete {photo_field}: {e}")
+                    logger.error(f"Could not delete {photo_field}: {e}")
+                    raise StorageErasureError(
+                        f"Could not delete profile {photo_field}"
+                    ) from e
 
         # Delete the profile (cascades to related data via Django's on_delete)
         profile.delete()
@@ -1135,7 +1156,9 @@ def delete_crushlu_profile_only(user, finalize=True):
 
     # Clean up blob storage folder (users/{user_id}/)
     success, deleted_count = delete_user_storage(user.id)
-    if success and deleted_count > 0:
+    if not success:
+        raise StorageErasureError(f"Could not sweep users/{user.id}/ storage")
+    if deleted_count > 0:
         logger.info(f"Deleted {deleted_count} blob(s) from storage for user {user.id}")
 
     # Delete ProfileSubmissions (in case profile was deleted manually)

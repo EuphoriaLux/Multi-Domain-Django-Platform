@@ -173,6 +173,30 @@ def classify_bounce(message: dict, *, owned_addresses=None) -> BounceClassificat
     return BounceClassification(classification, recipient, diagnostic)
 
 
+def _belongs_to_live_account(address: str) -> bool:
+    """True when ``address`` is a current, active member's own email.
+
+    Fail-closed guard for post-erasure bounces: an erased account keeps no
+    recognisable address (its User email is tombstoned and its EmailAddress
+    rows are deleted), so a late delivery report for it matches nothing here
+    and is stored without personal detail instead of resurrecting the address
+    and diagnostic that erasure just blanked.
+    """
+    from allauth.account.models import EmailAddress
+    from django.contrib.auth import get_user_model
+
+    if not address:
+        return False
+    return (
+        get_user_model()
+        .objects.filter(email__iexact=address, is_active=True)
+        .exists()
+        or EmailAddress.objects.filter(
+            email__iexact=address, user__is_active=True
+        ).exists()
+    )
+
+
 def process_graph_bounce(
     message: dict, *, apply: bool = False, owned_addresses=None
 ) -> BounceClassification:
@@ -187,14 +211,20 @@ def process_graph_bounce(
     if not source_message_id:
         raise ValueError("Graph message has no stable id")
 
+    # Personal detail (address, diagnostic text) is kept only for a live
+    # member. The suppression row still keys on the address so a hard-bounced
+    # mailbox is never mailed again (see _anonymize_email_delivery).
+    keep_detail = _belongs_to_live_account(result.recipient)
+    diagnostic = result.diagnostic if keep_detail else ""
+
     with transaction.atomic():
         EmailBounceEvent.objects.update_or_create(
             source_message_id=str(source_message_id)[:512],
             defaults={
-                "recipient": result.recipient,
+                "recipient": result.recipient if keep_detail else "",
                 "classification": result.classification,
                 "subject": "Delivery report",
-                "diagnostic": result.diagnostic,
+                "diagnostic": diagnostic,
                 "received_at": parse_datetime(message.get("receivedDateTime") or ""),
             },
         )
@@ -205,7 +235,7 @@ def process_graph_bounce(
                     "is_active": True,
                     "reason": "hard_bounce",
                     "source": "graph_ndr",
-                    "diagnostic": result.diagnostic,
+                    "diagnostic": diagnostic,
                 },
             )
     return result

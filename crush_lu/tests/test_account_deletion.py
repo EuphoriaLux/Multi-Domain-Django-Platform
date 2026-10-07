@@ -1251,3 +1251,38 @@ class Round10ErasureTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertIn(self.user.pk, set(newsletter_opted_in_user_ids()))
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_storage_failure_fails_the_erasure_and_keeps_the_reference(self, _s):
+        from django.core.files.storage import InMemoryStorage
+
+        from crush_lu.models import JourneyGift
+        from crush_lu.views_account import StorageErasureError
+        from crush_lu.views import delete_full_account
+
+        storage = InMemoryStorage()
+        gift = JourneyGift.objects.create(
+            sender=self.user, recipient_name='R',
+            date_first_met=date(2024, 1, 1), location_first_met='Lux',
+        )
+        JourneyGift.objects.filter(pk=gift.pk).update(
+            qr_code_image='journey_gifts/qr/STUCK.png'
+        )
+        field = JourneyGift._meta.get_field('qr_code_image')
+        with patch.object(field, 'storage', storage), patch.object(
+            storage, 'delete', side_effect=OSError('azure unavailable')
+        ):
+            with self.assertRaises(StorageErasureError):
+                delete_full_account(self.user)
+
+        # The row (and so the key that locates the file) survives for a retry.
+        gift.refresh_from_db()
+        self.assertEqual(gift.qr_code_image.name, 'journey_gifts/qr/STUCK.png')
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(False, 0))
+    def test_failed_user_storage_sweep_fails_the_erasure(self, _s):
+        from crush_lu.views_account import StorageErasureError
+        from crush_lu.views import delete_crushlu_profile_only
+
+        with self.assertRaises(StorageErasureError):
+            delete_crushlu_profile_only(self.user)
