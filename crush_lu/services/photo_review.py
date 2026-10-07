@@ -35,6 +35,10 @@ from crush_lu.notification_service import (
     NotificationType,
 )
 from crush_lu.services.blocking import is_blocked_pair
+from crush_lu.photo_review_reasons import (
+    PHOTO_REVISION_REASONS,
+    get_photo_revision_feedback,
+)
 from crush_lu.services.crush_connect import is_catalogue_eligible
 
 logger = logging.getLogger(__name__)
@@ -522,23 +526,10 @@ def _send_revision_and_reconcile(profile, reason, notes, request, log_id):
     delivered = False
     try:
         with override(profile.preferred_language or "en"):
-            feedback = {
-                "inappropriate": _(
-                    "Please replace the inappropriate image with a suitable photo of yourself."
-                ),
-                "group_photo": _(
-                    "Please upload a photo showing only you, so members can identify you."
-                ),
-                "unclear_face": _(
-                    "Please upload a clearer profile photo where your face is visible."
-                ),
-                "other": _(
-                    "Please replace your profile photo with a clear, suitable photo of yourself."
-                ),
-            }
             notify_photo_revision(
                 user=profile.user,
-                feedback=notes or feedback.get(reason, feedback["other"]),
+                feedback=get_photo_revision_feedback(reason),
+                photo_review_reason=reason,
                 request=request,
                 photo_review_log_id=log_id,
                 photo_field=photo_field,
@@ -590,7 +581,7 @@ def submit_photo_review(
     allowed_reasons = {
         "approved": {"", "clear_authentic"},
         "flagged_fake": {"fake_profile"},
-        "needs_revision": {"inappropriate", "unclear_face", "group_photo", "other"},
+        "needs_revision": set(PHOTO_REVISION_REASONS),
     }
     if reason not in allowed_reasons[decision]:
         raise PhotoReviewError(_("Invalid photo review reason."), 400)

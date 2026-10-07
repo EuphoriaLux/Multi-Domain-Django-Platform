@@ -74,7 +74,11 @@ document.addEventListener("alpine:init", function () {
                 this.activePhotoIndex = this.currentCard.photos.findIndex(
                     (photo) => photo.field === this.currentCard.photo_field,
                 );
-                this.$nextTick(() => this.rootElement.focus());
+                this.$nextTick(() => {
+                    // Return to the photo after advancing, clearing the mobile top bar.
+                    this.rootElement.scrollIntoView({ block: "start" });
+                    this.rootElement.focus({ preventScroll: true });
+                });
             },
             get undoDisabled() {
                 return this.isSubmitting || this.isLoading || !this.lastDecision;
@@ -266,11 +270,6 @@ document.addEventListener("alpine:init", function () {
             get hasMultiplePhotos() {
                 return !!(this.currentCard && this.currentCard.photos.length > 1);
             },
-            get isFakeReason() { return this.selectedReason === "fake_profile"; },
-            get isInappropriateReason() { return this.selectedReason === "inappropriate"; },
-            get isUnclearReason() { return this.selectedReason === "unclear_face"; },
-            get isGroupReason() { return this.selectedReason === "group_photo"; },
-            get isOtherReason() { return this.selectedReason === "other"; },
             selectFlagReason(event) { this.selectedReason = event.target.value; },
             updateFlagNotes(event) { this.flagNotes = event.target.value; },
             get currentPhotoUrl() {
@@ -363,7 +362,7 @@ document.addEventListener("alpine:init", function () {
                 this._modalReturnFocus = document.activeElement;
                 this.showModal();
                 this.$nextTick(() =>
-                    this.rootElement.querySelector('input[value="fake_profile"]').focus(),
+                    this.rootElement.querySelector("#photo-review-reason").focus(),
                 );
             },
             openRevisionModal() {
@@ -371,7 +370,7 @@ document.addEventListener("alpine:init", function () {
                 this.openFlagModal();
                 this.selectedReason = "unclear_face";
                 this.$nextTick(() =>
-                    this.rootElement.querySelector('input[value="unclear_face"]').focus(),
+                    this.rootElement.querySelector("#photo-review-reason").focus(),
                 );
             },
             closeFlagModal() {
@@ -381,7 +380,7 @@ document.addEventListener("alpine:init", function () {
             },
             trapModalFocus(event) {
                 const elements = Array.from(
-                    event.currentTarget.querySelectorAll("input, textarea, button"),
+                    event.currentTarget.querySelectorAll("input, select, textarea, button"),
                 ).filter((el) => !el.disabled);
                 const first = elements[0],
                     last = elements[elements.length - 1];
@@ -442,7 +441,7 @@ document.addEventListener("alpine:init", function () {
                     this.showReviewPhoto();
                     this.totalWaiting = Math.max(0, this.totalWaiting - 1);
                     this.hideModal();
-                    this.$nextTick(() => this.rootElement.focus());
+                    this.$nextTick(() => this.rootElement.focus({ preventScroll: true }));
                 } catch (error) {
                     this.errorMessage = error.message || this.rootElement.dataset.error;
                 } finally {

@@ -45070,3 +45070,57 @@ msgstr[1] "Zur Information: %(counter)s gesperrte Paare teilen sich eine Gruppe.
 #: templates/crush_lu/quiz_coach.html
 msgid "You changed the layout, so the block information for the automatic plan no longer applies. Any warnings are shown after you apply."
 msgstr "Sie haben das Layout geändert, daher gelten die Sperr-Hinweise des automatischen Plans nicht mehr. Hinweise werden nach dem Anwenden angezeigt."
+
+msgid "Blurry or low-quality photo"
+msgstr "Unscharfes Foto oder schlechte Bildqualität"
+
+msgid "Please upload a sharp, clear photo. Avoid blurry or pixelated images."
+msgstr ""
+"Bitte lade ein scharfes, klares Foto hoch. Vermeide unscharfe oder "
+"verpixelte Bilder."
+
+msgid "Photo too dark or poorly lit"
+msgstr "Foto zu dunkel oder schlecht beleuchtet"
+
+msgid "Please upload a well-lit photo so your face can be seen clearly."
+msgstr ""
+"Bitte lade ein gut beleuchtetes Foto hoch, auf dem dein Gesicht deutlich zu "
+"erkennen ist."
+
+msgid "Heavy filters or altered appearance"
+msgstr "Starke Filter oder verändertes Aussehen"
+
+msgid ""
+"Please upload a natural photo without filters that change your appearance."
+msgstr ""
+"Bitte lade ein natürliches Foto ohne Filter hoch, die dein Aussehen "
+"verändern."
+
+msgid "Does not show the member"
+msgstr "Zeigt nicht das Mitglied"
+
+msgid ""
+"Please upload a photo of yourself instead of a landscape, object, drawing or"
+" screenshot."
+msgstr ""
+"Bitte lade ein Foto von dir selbst hoch statt einer Landschaft, eines "
+"Gegenstands, einer Zeichnung oder eines Screenshots."
+
+msgid "Face cropped or too far away"
+msgstr "Gesicht abgeschnitten oder zu weit entfernt"
+
+msgid ""
+"Please upload a closer photo showing your whole face, without cropping it."
+msgstr ""
+"Bitte lade ein Foto aus der Nähe hoch, das dein ganzes Gesicht zeigt, ohne "
+"es abzuschneiden."
+
+msgid ""
+"For photo replacement requests, the selected reason is sent in the member's "
+"language. Coach notes stay internal."
+msgstr ""
+"Bei Fotowechsel-Anfragen wird der ausgewählte Grund in der Sprache des "
+"Mitglieds gesendet. Coach-Notizen bleiben intern."
+
+msgid "Internal coach note (optional, 255 characters maximum)"
+msgstr "Interne Coach-Notiz (optional, höchstens 255 Zeichen)"

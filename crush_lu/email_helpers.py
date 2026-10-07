@@ -493,7 +493,9 @@ def send_profile_revision_request(profile, request, feedback):
     )
 
 
-def send_photo_revision_request(user, request=None, feedback="", photo_field="photo_1"):
+def send_photo_revision_request(
+    user, request=None, feedback="", photo_field="photo_1", *, reason=""
+):
     """Ask for a replacement photo; the profile itself stays as it is.
 
     A coach photo review leaves profile approval untouched, so unlike
@@ -504,6 +506,10 @@ def send_photo_revision_request(user, request=None, feedback="", photo_field="ph
 
     lang = get_user_preferred_language(user=user, request=request, default="en")
     with translation.override(lang):
+        if reason:
+            from .photo_review_reasons import get_photo_revision_feedback
+
+            feedback = get_photo_revision_feedback(reason)
         subject = _("Please replace your profile photo")
         photo_slot_label = {
             "photo_1": _("main profile photo"),
