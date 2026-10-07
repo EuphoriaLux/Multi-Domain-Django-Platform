@@ -849,6 +849,7 @@ def api_update_email_preference(request):
         "email_new_connections",
         "email_new_messages",
         "email_marketing",
+        "email_newsletter",
         "whatsapp_opt_in",
     }
 
@@ -878,7 +879,14 @@ def api_update_email_preference(request):
 
     email_prefs = EmailPreference.get_or_create_for_user(request.user)
     setattr(email_prefs, key, value)
-    email_prefs.save(update_fields=[key])
+    update_fields = [key]
+    if key == "email_marketing":
+        # The "Marketing & Promotions" toggle is described as covering
+        # newsletters, so it must also drive the flag the newsletter and
+        # campaign senders actually read (#1185).
+        email_prefs.email_newsletter = value
+        update_fields.append("email_newsletter")
+    email_prefs.save(update_fields=update_fields)
     return JsonResponse({"success": True})
 
 
@@ -921,7 +929,10 @@ def email_unsubscribe(request, token):
 
         elif action == "unsubscribe_marketing":
             # Only unsubscribe from marketing emails
+            # Also clear email_newsletter: that is the flag newsletters and
+            # campaigns read, so clearing email_marketing alone did nothing.
             email_prefs.email_marketing = False
+            email_prefs.email_newsletter = False
             email_prefs.save()
             messages.success(
                 request, _("You have been unsubscribed from marketing emails.")
@@ -934,6 +945,7 @@ def email_unsubscribe(request, token):
             email_prefs.email_event_reminders = True
             email_prefs.email_new_connections = True
             email_prefs.email_new_messages = True
+            email_prefs.email_newsletter = True
             email_prefs.save()
             messages.success(
                 request, _("You have been re-subscribed to Crush.lu emails.")
