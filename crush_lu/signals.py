@@ -4172,6 +4172,12 @@ def refresh_apple_event_ticket_on_registration_change(
     transaction.on_commit(_after_commit)
 
 
+# "No check-in view ran this save" — distinct from a view that ran with no coach
+# session (`_checkin_coach = None`), which must not fall back to the event's
+# first coach.
+_NO_SCANNER = object()
+
+
 @receiver(post_save, sender=EventRegistration)
 def assign_coach_on_first_attendance(sender, instance, created, **kwargs):
     """
@@ -4181,7 +4187,7 @@ def assign_coach_on_first_attendance(sender, instance, created, **kwargs):
     ``CrushProfile.assigned_coach``. This is the path that earns it: when a
     registration is marked "attended" and the member has no coach yet, the
     coach who scanned them in (``instance._checkin_coach``, set by
-    ``views_checkin.event_checkin_api``) becomes their permanent coach —
+    ``views_checkin.event_checkin_api`` and consumed by the next save) becomes their permanent coach —
     the person who actually met them at the door, not whoever happens to be
     first in the event's coach list. Admin saves that bypass the check-in views
     carry no scanner attribute and fall back to the event's first assigned coach;
@@ -4195,6 +4201,12 @@ def assign_coach_on_first_attendance(sender, instance, created, **kwargs):
     from a record rather than from a timestamp comparison it has no way of
     attributing to a workflow.
     """
+    # One-shot: consumed on every save, so a registration instance a check-in
+    # view marked is not still carrying that scanner into a later, unrelated
+    # save (an admin edit on the same object would otherwise silently skip the
+    # first-coach fallback).
+    scanner = instance.__dict__.pop("_checkin_coach", _NO_SCANNER)
+
     if instance.status != "attended":
         return
 
@@ -4202,14 +4214,14 @@ def assign_coach_on_first_attendance(sender, instance, created, **kwargs):
     if profile is None or profile.assigned_coach_id:
         return
 
-    if hasattr(instance, "_checkin_coach"):
+    if scanner is _NO_SCANNER:
+        # Admin/staff save with no view involved: keep the fallback.
+        coach = instance.event.coaches.first()
+    else:
         # A check-in view ran this save. `None` means it had no coach session
         # (a member's own scan); the event's first coach did not meet them, so
         # crediting that coach would invent a relationship. (#1187)
-        coach = instance._checkin_coach
-    else:
-        # Admin/staff save with no view involved: keep the fallback.
-        coach = instance.event.coaches.first()
+        coach = scanner
     if coach is None:
         return
 
