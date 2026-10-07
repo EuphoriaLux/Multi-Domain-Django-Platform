@@ -65,6 +65,21 @@ def _resolve_audience_unfiltered(audience, segment_key=''):
     return User.objects.none()
 
 
+def has_current_consent(user):
+    """True while the user still has Crush.lu consent and is not banned.
+
+    Audience querysets are evaluated once, but a send run can pause for
+    minutes between batches; account deletion (consent revoked, ban set) can
+    land in between. Every per-recipient send loop re-checks this right before
+    it sends, using a fresh read of the consent row.
+    """
+    from .models.profiles import UserDataConsent
+
+    return UserDataConsent.objects.filter(
+        user_id=user.pk, crushlu_consent_given=True, crushlu_banned=False
+    ).exists()
+
+
 def exclude_banned_users(users):
     """Exclude users who deleted their profile or are banned from Crush.lu."""
     from .models.profiles import UserDataConsent
@@ -319,8 +334,11 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
             skipped += 1
             continue
 
-        # Double-check preference (may have changed since queryset evaluation)
-        if not can_send_email(user, 'newsletter'):
+        # Double-check consent and preference (may have changed since the
+        # queryset was evaluated, e.g. account deletion during a batch pause)
+        if not has_current_consent(user) or not can_send_email(
+            user, 'newsletter'
+        ):
             NewsletterRecipient.objects.update_or_create(
                 newsletter=newsletter,
                 user=user,
