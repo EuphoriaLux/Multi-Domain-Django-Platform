@@ -128,6 +128,53 @@ class GdprRetentionCommandTests(TestCase):
         )
         self.assertTrue(ErasedPhoneNumber.objects.filter(pk=row.pk).exists())
 
+    def test_tombstone_refreshed_after_selection_survives_the_delete(self):
+        from unittest.mock import patch
+
+        from django.db.models.query import QuerySet
+
+        from hub.models import ErasedPhoneNumber
+
+        ErasedPhoneNumber.record(["+352621000005"])
+        row = ErasedPhoneNumber.objects.get()
+        ErasedPhoneNumber.objects.filter(pk=row.pk).update(
+            created_at=timezone.now() - timedelta(days=120)
+        )
+        real_delete = QuerySet.delete
+
+        def refresh_then_delete(qs):
+            # The number is erased again after the sweep selected the row.
+            if qs.model is ErasedPhoneNumber:
+                ErasedPhoneNumber.objects.filter(pk=row.pk).update(
+                    created_at=timezone.now()
+                )
+            return real_delete(qs)
+
+        with patch.object(QuerySet, "delete", refresh_then_delete):
+            call_command("gdpr_retention_cleanup", **{"apply": True}, stdout=StringIO())
+
+        self.assertTrue(ErasedPhoneNumber.objects.filter(pk=row.pk).exists())
+
+    def test_record_recreates_a_tombstone_the_sweep_just_deleted(self):
+        from unittest.mock import patch
+
+        from django.db.models.query import QuerySet
+
+        from hub.models import ErasedPhoneNumber
+
+        ErasedPhoneNumber.record(["+352621000006"])
+        real_update = QuerySet.update
+
+        def delete_then_update(qs, **kwargs):
+            if qs.model is ErasedPhoneNumber:
+                ErasedPhoneNumber.objects.all().delete()
+            return real_update(qs, **kwargs)
+
+        with patch.object(QuerySet, "update", delete_then_update):
+            ErasedPhoneNumber.record(["+352621000006"])
+
+        self.assertTrue(ErasedPhoneNumber.is_erased("+352621000006"))
+
     def test_negative_erased_phone_window_is_rejected(self):
         from django.core.management.base import CommandError
 

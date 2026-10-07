@@ -1761,3 +1761,61 @@ class FollowupErasureTests(TestCase):
 
         message.refresh_from_db()
         self.assertEqual(len(message.status_history), 1)
+
+    # --- round 4 of Codex on #1234 -------------------------------------------
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_outbound_match_strips_every_non_digit(self, _s):
+        from crush_lu.models import CrushProfile
+        from crush_lu.views import delete_full_account
+        from hub.models import WhatsAppMessage
+
+        CrushProfile.objects.filter(user=self.user).update(
+            phone_number='+352621666555', phone_verified=True
+        )
+        rows = [
+            WhatsAppMessage.objects.create(
+                user=self.other, recipient=recipient, template_name='t',
+                language='en', parameters={'1': 'Fu'}, status='sent',
+            )
+            for recipient in (
+                '+352/621/666/555', '+352 621 666 555', 'tel:+352_621_666_555',
+            )
+        ]
+        keep = WhatsAppMessage.objects.create(
+            user=self.other, recipient='+352621000444', template_name='t',
+            language='en', parameters={'1': 'X'}, status='sent',
+        )
+
+        delete_full_account(self.user)
+
+        for row in rows:
+            row.refresh_from_db()
+            self.assertEqual((row.recipient, row.parameters), ('', {}))
+        keep.refresh_from_db()
+        self.assertEqual(keep.recipient, '+352621000444')
+
+    def test_get_unsubscribe_url_never_creates_a_preference_when_told_not_to(self):
+        from crush_lu.email_helpers import get_unsubscribe_url
+        from crush_lu.models import EmailPreference
+
+        EmailPreference.objects.filter(user=self.user).delete()
+
+        self.assertIsNone(get_unsubscribe_url(self.user, None, create_preferences=False))
+        self.assertFalse(EmailPreference.objects.filter(user=self.user).exists())
+
+    @patch('crush_lu.email_helpers.send_domain_email', return_value=1)
+    def test_credit_expiry_notice_does_not_recreate_purged_preferences(self, _send):
+        from types import SimpleNamespace
+
+        from crush_lu.email_helpers import send_crush_credit_expiry_reminder
+        from crush_lu.models import EmailPreference
+
+        EmailPreference.objects.filter(user=self.user).delete()
+        credit = SimpleNamespace(
+            remaining_cents=2000, expires_at=timezone.now() + timedelta(days=5),
+            cash_refund_still_available=True,
+        )
+
+        send_crush_credit_expiry_reminder(self.user, [credit])
+
+        self.assertFalse(EmailPreference.objects.filter(user=self.user).exists())

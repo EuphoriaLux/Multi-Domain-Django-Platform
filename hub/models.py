@@ -1016,14 +1016,20 @@ class ErasedPhoneNumber(models.Model):
         for number in numbers or ():
             current, _all = cls._digests(number)
             if current:
+                from django.utils import timezone
+
                 _row, created = cls.objects.get_or_create(digest=current)
                 if not created:
                     # Erased again (e.g. a new owner of a reassigned number
                     # who later deletes): restart the retention clock so the
                     # sweep cannot expire the tombstone right after this erasure.
-                    from django.utils import timezone
-
-                    cls.objects.filter(pk=_row.pk).update(created_at=timezone.now())
+                    refreshed = cls.objects.filter(pk=_row.pk).update(
+                        created_at=timezone.now()
+                    )
+                    if not refreshed:
+                        # The retention sweep deleted it between our read and
+                        # the update: record it afresh.
+                        cls.objects.get_or_create(digest=current)
 
     @classmethod
     def _has_live_verified_owner(cls, digits):

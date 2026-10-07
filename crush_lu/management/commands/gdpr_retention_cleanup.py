@@ -335,14 +335,15 @@ class Command(BaseCommand):
         stay small and the loop makes progress; the next scheduled run prunes
         whatever is left.
         """
-        model = queryset.model
         ordered = queryset.order_by(order_by, "pk")
         total = 0
         while True:
             pks = list(ordered.values_list("pk", flat=True)[:chunk_size])
             if not pks:
                 return total, False
-            deleted, _ = model.objects.filter(pk__in=pks).delete()
+            # Re-apply the category's own filter (cutoff) to the delete: a
+            # row refreshed after it was selected must survive.
+            deleted, _ = queryset.filter(pk__in=pks).delete()
             total += deleted
             if time.monotonic() >= deadline:
                 return total, True

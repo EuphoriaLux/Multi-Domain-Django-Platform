@@ -1392,18 +1392,24 @@ def _anonymize_whatsapp_outbound(phone_digits):
     if not phone_digits:
         return 0
     # The Hub send endpoint stores the admin-typed recipient verbatim
-    # ("+352 621 777 777", hyphens...), so compare normalised digits.
-    from django.db.models import F, Value
-    from django.db.models.functions import Replace
-
-    digits_expr = F("recipient")
-    for junk in (" ", "-", "(", ")", ".", "+"):
-        digits_expr = Replace(digits_expr, Value(junk), Value(""))
-    return (
-        WhatsAppMessage.objects.annotate(_digits=digits_expr)
-        .filter(_digits__in=set(phone_digits))
-        .update(recipient="", parameters={}, status_history=[])
-    )
+    # ("+352 621 777 777", "+352/621/777/777", non-breaking spaces...), so
+    # compare digits-only, the same rule as _phone_digits(). Done in Python:
+    # there is no database-portable "strip every non-digit" expression, and
+    # this runs once per full-account deletion over a small CRM table.
+    wanted = set(phone_digits)
+    matching = [
+        pk
+        for pk, recipient in WhatsAppMessage.objects.exclude(recipient="")
+        .values_list("pk", "recipient")
+        .iterator(chunk_size=2000)
+        if _phone_digits(recipient) in wanted
+    ]
+    total = 0
+    for start in range(0, len(matching), 500):
+        total += WhatsAppMessage.objects.filter(
+            pk__in=matching[start : start + 500]
+        ).update(recipient="", parameters={}, status_history=[])
+    return total
 
 
 def _sanitize_identity_consent(user):
