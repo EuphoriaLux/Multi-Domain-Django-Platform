@@ -511,12 +511,18 @@ def next_visible_event(user, now):
         is_cancelled=False,
         date_time__gte=MeetupEvent.live_lookback_cutoff(now),
     ).order_by("date_time")
-    for event in candidates:
-        if event.end_time < now:
-            continue
-        if _filter_private_events([event], user):
-            return event
-    return None
+    live = [event for event in candidates if event.end_time >= now]
+    # One batched visibility pass instead of a query round per candidate.
+    visible_ids = {e.id for e in _filter_private_events(live, user)}
+    private_ids = [e.id for e in live if e.is_private_invitation]
+    if private_ids and user.is_authenticated:
+        # Same rule as event_detail: an active registration grants access.
+        visible_ids |= set(
+            EventRegistration.objects.filter(user=user, event_id__in=private_ids)
+            .exclude(status="cancelled")
+            .values_list("event_id", flat=True)
+        )
+    return next((event for event in live if event.id in visible_ids), None)
 
 
 def event_list(request):

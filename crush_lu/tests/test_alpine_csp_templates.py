@@ -27,6 +27,11 @@ def _templates():
 
 
 class AlpineCspTemplateTests(SimpleTestCase):
+    def test_guard_rejects_django_tag_call_arguments(self):
+        expr = "subscriptionHealthStatus({{ subscription.id }})"
+        self.assertTrue(re.search(r"\(\s*[^\s)]", expr))
+        self.assertFalse(re.search(r"\(\s*[^\s)]", "subscriptionHealthStatus()"))
+
     def test_x_data_is_a_bare_component_name(self):
         offenders = []
         for path in _templates():
@@ -34,6 +39,13 @@ class AlpineCspTemplateTests(SimpleTestCase):
             for m in XDATA.finditer(text):
                 expr = m.group("expr").strip()
                 if not expr:
+                    continue
+                # Reject call arguments on the raw expression first: stripping
+                # Django tags would turn ``f({{ obj.id }})`` into ``f()``.
+                if re.search(r"\(\s*[^\s)]", expr):
+                    offenders.append(
+                        f'{path.relative_to(TEMPLATE_ROOT)}: x-data="{expr}"'
+                    )
                     continue
                 stripped = DJANGO_TAGS.sub("", expr).strip()
                 if re.fullmatch(r"[A-Za-z_$][\w$]*(\(\s*\))?", stripped):

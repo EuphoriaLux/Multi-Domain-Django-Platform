@@ -293,6 +293,29 @@ document.addEventListener("alpine:init", function () {
             init: function () {
                 this.q = this.$el.dataset.q || "";
                 this.cat = this.$el.dataset.category || "";
+                // Back/forward: HTMX restores a DOM snapshot whose button
+                // state (and Alpine state) can be stale, so re-derive both
+                // from the URL it just restored.
+                var self = this;
+                this._onRestore = function () {
+                    var params = new URLSearchParams(window.location.search);
+                    self.q = params.get("q") || "";
+                    self.cat = params.get("category") || "";
+                    self.$el.dataset.q = self.q;
+                    self.$el.dataset.category = self.cat;
+                    self._syncButtons();
+                };
+                document.body.addEventListener(
+                    "htmx:historyRestore",
+                    this._onRestore,
+                );
+            },
+
+            destroy: function () {
+                document.body.removeEventListener(
+                    "htmx:historyRestore",
+                    this._onRestore,
+                );
             },
 
             selectCategory: function (event) {

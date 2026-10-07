@@ -9,10 +9,14 @@ from datetime import date, timedelta
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.test import Client, TestCase, override_settings
-from django.urls import reverse
 from django.utils import timezone
 
-from crush_lu.models import CrushProfile, EventInvitation, ProfileSubmission
+from crush_lu.models import (
+    CrushProfile,
+    EventInvitation,
+    EventRegistration,
+    ProfileSubmission,
+)
 from crush_lu.tests.test_event_time_states import _grant_crush_access, _make_event
 from crush_lu.views_events import next_visible_event
 
@@ -51,9 +55,7 @@ class OnboardingTeaserVisibilityTests(TestCase):
     def _submitted_context(self):
         client = Client()
         client.force_login(self.user)
-        response = client.get(
-            reverse("crush_lu:profile_submitted"), HTTP_HOST="crush.lu"
-        )
+        response = client.get("/en/profile-submitted/", HTTP_HOST="crush.lu")
         self.assertEqual(response.status_code, 200)
         return response
 
@@ -97,10 +99,35 @@ class OnboardingTeaserVisibilityTests(TestCase):
             guest_first_name="Teaser",
             guest_last_name="A",
             created_user=self.user,
-            approval_status="pending",
+            approval_status="pending_approval",
         )
 
         self.assertEqual(next_visible_event(self.user, timezone.now()), self.public)
+
+    def test_active_registration_grants_private_event_access(self):
+        EventRegistration.objects.create(
+            event=self.private, user=self.user, status="confirmed"
+        )
+
+        self.assertEqual(next_visible_event(self.user, timezone.now()), self.private)
+
+    def test_cancelled_registration_does_not_grant_access(self):
+        EventRegistration.objects.create(
+            event=self.private, user=self.user, status="cancelled"
+        )
+
+        self.assertEqual(next_visible_event(self.user, timezone.now()), self.public)
+
+    def test_private_candidates_are_checked_in_constant_queries(self):
+        for i in range(4):
+            extra = _make_event(
+                f"Extra private {i}", timezone.now() + timedelta(hours=2 + i)
+            )
+            extra.is_private_invitation = True
+            extra.save()
+
+        with self.assertNumQueries(4):
+            self.assertEqual(next_visible_event(self.user, timezone.now()), self.public)
 
     def test_dashboard_next_event_hides_private_event(self):
         self.profile.verification_status = "verified"
@@ -108,7 +135,7 @@ class OnboardingTeaserVisibilityTests(TestCase):
         client = Client()
         client.force_login(self.user)
 
-        response = client.get(reverse("crush_lu:dashboard"), HTTP_HOST="crush.lu")
+        response = client.get("/en/dashboard/", HTTP_HOST="crush.lu")
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Secret Invitation Gala")
