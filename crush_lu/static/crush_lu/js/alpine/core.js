@@ -281,6 +281,54 @@ document.addEventListener("alpine:init", function () {
         };
     }
 
+    // Changelog search/filter toolbar. Category buttons are real submit
+    // buttons (the form submit does the filtering); this only keeps the
+    // pressed styling in step because the toolbar sits outside the swapped
+    // timeline. Initial state comes from data-* attributes (CSP build).
+    Alpine.data("changelogToolbar", function () {
+        return {
+            q: "",
+            cat: "",
+
+            init: function () {
+                this.q = this.$el.dataset.q || "";
+                this.cat = this.$el.dataset.category || "";
+            },
+
+            selectCategory: function (event) {
+                var btn = event.currentTarget;
+                this.cat = btn.getAttribute("data-category-value") || "";
+                this._syncButtons();
+            },
+
+            _syncButtons: function () {
+                var self = this;
+                var on = ["bg-crush-purple", "text-white", "border-crush-purple"];
+                var off = [
+                    "bg-white",
+                    "dark:bg-gray-900",
+                    "text-crush-dark",
+                    "dark:text-gray-200",
+                    "border-gray-300",
+                    "dark:border-gray-700",
+                    "hover:border-crush-purple",
+                ];
+                var buttons = this.$el.querySelectorAll("[data-category-value]");
+                buttons.forEach(function (btn) {
+                    var active =
+                        (btn.getAttribute("data-category-value") || "") === self.cat;
+                    btn.setAttribute("aria-pressed", active ? "true" : "false");
+                    on.forEach(function (c) {
+                        btn.classList.toggle(c, active);
+                    });
+                    off.forEach(function (c) {
+                        btn.classList.toggle(c, !active);
+                    });
+                });
+            },
+        };
+    });
+
     // Event ticket "Add to Google Wallet" button component
     Alpine.data("eventTicketButton", function () {
         return {
@@ -2520,13 +2568,28 @@ document.addEventListener("alpine:init", function () {
 
     // CSP-safe wrapper component for individual subscription health status
     // Creates computed properties for a specific subscription ID
-    Alpine.data("subscriptionHealthStatus", function (subscriptionId) {
+    // CSP build: no call arguments in x-data, so the id comes from
+    // data-subscription-id on the element.
+    Alpine.data("subscriptionHealthStatus", function () {
         return {
-            subscriptionId: subscriptionId,
+            subscriptionId: null,
 
-            // Get the parent pushPreferences component
+            init: function () {
+                this.subscriptionId = parseInt(
+                    this.$el.dataset.subscriptionId,
+                    10,
+                );
+            },
+
+            // The parent pushPreferences component. $root would be this
+            // element's own scope (it declares x-data), so read the nearest
+            // scope above it instead.
             get parentComponent() {
-                return this.$root;
+                return (
+                    (this.$el.parentElement &&
+                        Alpine.$data(this.$el.parentElement)) ||
+                    {}
+                );
             },
 
             // CSP-safe computed properties
