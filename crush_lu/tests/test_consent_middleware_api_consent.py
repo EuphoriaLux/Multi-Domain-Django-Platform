@@ -214,6 +214,24 @@ class ApiBearerTokenGateTests(TestCase):
         response = self._get(user, "/api/csrf-token/")
         self.assertEqual(response.status_code, 200)
 
+    def test_clean_session_cannot_shield_a_banned_bearer_user(self):
+        banned = _make_user(
+            "jwt5@example.com", crushlu_consent_given=True, crushlu_banned=True
+        )
+        clean = _make_user("jwt6@example.com", crushlu_consent_given=True)
+        self.client.force_login(clean)
+        response = self._get(banned)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json(), {"error": "banned"})
+
+    def test_clean_bearer_cannot_shield_a_consentless_session_user(self):
+        consentless = _make_user("jwt7@example.com", crushlu_consent_given=False)
+        clean = _make_user("jwt8@example.com", crushlu_consent_given=True)
+        self.client.force_login(consentless)
+        response = self._get(clean)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json(), {"code": "consent_required"})
+
     def test_invalid_bearer_token_is_left_to_the_view(self):
         response = self.client.get(
             "/api/referral/me/", HTTP_AUTHORIZATION="Bearer not-a-jwt", **HOST

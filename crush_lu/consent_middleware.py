@@ -166,26 +166,32 @@ class CrushConsentMiddleware:
         if self.is_on_crush_domain(request):
             path = self._strip_language_prefix(request.path)
             if path.startswith("/api/"):
-                # Resolved lazily: only needed when a gate below applies.
-                api_user = None
+                # Every identity the request could act as is gated (see
+                # _resolve_api_users); resolved lazily, once.
+                api_users = None
                 if not self._is_api_ban_exempt_path(path):
-                    api_user = self._resolve_api_user(request)
-                    if api_user is not None and self.is_banned(api_user):
+                    api_users = self._resolve_api_users(request)
+                    banned = next((u for u in api_users if self.is_banned(u)), None)
+                    if banned is not None:
                         logger.info(
                             "Banned user %s denied API request to %s",
-                            api_user.id,
+                            banned.id,
                             request.path,
                         )
                         return JsonResponse({"error": "banned"}, status=403)
                 # Consent comes after the ban check so a deletion tombstone
                 # (banned, consent False) keeps its "banned" answer.
                 if not self._is_api_consent_exempt_path(path):
-                    if api_user is None:
-                        api_user = self._resolve_api_user(request)
-                    if api_user is not None and not self.has_crushlu_consent(api_user):
+                    if api_users is None:
+                        api_users = self._resolve_api_users(request)
+                    unconsented = next(
+                        (u for u in api_users if not self.has_crushlu_consent(u)),
+                        None,
+                    )
+                    if unconsented is not None:
                         logger.info(
                             "User %s denied API request to %s without Crush.lu consent",
-                            api_user.id,
+                            unconsented.id,
                             request.path,
                         )
                         return JsonResponse({"code": "consent_required"}, status=403)
@@ -276,27 +282,30 @@ class CrushConsentMiddleware:
         return path
 
     @staticmethod
-    def _resolve_api_user(request):
-        """The member behind an /api/ request, or None when unauthenticated.
+    def _resolve_api_users(request):
+        """Every member an /api/ request could act as (possibly empty).
 
-        ``request.user`` only reflects the session. DRF views also accept a
-        JWT bearer token that is authenticated after middleware runs, so a
-        banned or consentless member could skip both gates by sending one
-        (e.g. a token from api.crush.lu to /api/referral/*). Resolve it here
-        with the same authenticator; an invalid token yields None and the
-        view answers 401 as before.
+        ``request.user`` only reflects the session, but DRF views also accept
+        a JWT bearer token, authenticated after middleware runs, and (with no
+        session authenticator configured) act as the bearer user even when a
+        session is present, while plain Django views act as the session user.
+        Gate both so neither can be paired with a clean account to dodge a
+        ban or consent check. An invalid token adds nobody; the view answers
+        401 as before.
         """
+        users = []
         if request.user.is_authenticated:
-            return request.user
-        if not request.META.get("HTTP_AUTHORIZATION", "").lower().startswith("bearer "):
-            return None
-        from rest_framework_simplejwt.authentication import JWTAuthentication
+            users.append(request.user)
+        if request.META.get("HTTP_AUTHORIZATION", "").lower().startswith("bearer "):
+            from rest_framework_simplejwt.authentication import JWTAuthentication
 
-        try:
-            result = JWTAuthentication().authenticate(request)
-        except Exception:  # noqa: BLE001 - invalid/expired token: view decides
-            return None
-        return result[0] if result else None
+            try:
+                result = JWTAuthentication().authenticate(request)
+            except Exception:  # noqa: BLE001 - invalid/expired token: view decides
+                result = None
+            if result and all(result[0].pk != u.pk for u in users):
+                users.append(result[0])
+        return users
 
     def _is_api_ban_exempt_path(self, path):
         return self._matches_api_paths(path, self.API_BAN_EXEMPT_PATHS)
