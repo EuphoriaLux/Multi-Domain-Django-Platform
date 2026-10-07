@@ -1426,3 +1426,45 @@ def test_self_scanned_attendance_alone_does_not_satisfy_the_identity_gate(event,
     assert filter_connect_identity_verified(
         User.objects.filter(pk=profile.user_id)
     ).exists()
+
+
+# ---------------------------------------------------------------------------
+# CSRF: the coach's session cookie authorises the check-in, so it is enforced
+# ---------------------------------------------------------------------------
+
+
+def test_checkin_post_without_a_csrf_token_is_rejected(event, coach):
+    """A cross-site form POST rides the coach's cookie but carries no token."""
+    cache.clear()
+    _, reg = _attendee(event, "csrfnone")
+    client = Client(enforce_csrf_checks=True)
+    client.force_login(coach.user)
+    token = Signer().sign(f"{reg.id}:{event.id}")
+
+    response = client.post(f"/api/events/checkin/{reg.id}/{token}/")
+
+    assert response.status_code == 403
+    reg.refresh_from_db()
+    assert reg.status == "confirmed"
+    assert reg.checked_in_at is None
+
+
+def test_checkin_post_with_the_csrf_token_header_succeeds(event, coach):
+    """What coach.js sends: the token in `X-CSRFToken`."""
+    from django.middleware.csrf import _get_new_csrf_string
+
+    cache.clear()
+    _, reg = _attendee(event, "csrfok")
+    client = Client(enforce_csrf_checks=True)
+    client.force_login(coach.user)
+    csrf = _get_new_csrf_string()
+    client.cookies["csrftoken"] = csrf
+    token = Signer().sign(f"{reg.id}:{event.id}")
+
+    response = client.post(
+        f"/api/events/checkin/{reg.id}/{token}/", HTTP_X_CSRFTOKEN=csrf
+    )
+
+    assert response.status_code == 200
+    reg.refresh_from_db()
+    assert reg.status == "attended"

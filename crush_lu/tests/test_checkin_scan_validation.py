@@ -52,6 +52,9 @@ const sandbox = {
     fetch: (u) => { fetched.push(String(u)); return new Promise(() => {}); },
     document: {
         addEventListener: (name, cb) => { if (name === "alpine:init") initCb = cb; },
+        // getCsrfToken() runs on every check-in POST (X-CSRFToken header).
+        querySelector: () => null,
+        cookie: "",
     },
     Alpine: {
         data: (name, fn) => { components[name] = fn; },
