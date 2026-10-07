@@ -2,7 +2,7 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    dependencies = [("crush_lu", "0267_per_photo_review_state")]
+    dependencies = [("crush_lu", "0268_sla_fallback_offer_lease")]
 
     operations = [
         migrations.AddField(

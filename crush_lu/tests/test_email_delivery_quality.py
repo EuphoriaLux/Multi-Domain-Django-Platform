@@ -556,7 +556,7 @@ class BounceClassificationTests(TestCase):
         self.assertEqual(result.classification, "unknown")
         self.assertFalse(EmailSuppression.objects.exists())
 
-    def test_hard_bounce_preserves_operator_selected_campaign_scope(self):
+    def test_hard_bounce_upgrades_campaign_hold_and_blocks_account_email(self):
         hold = EmailSuppression.objects.create(
             email="person@example.net", scope="campaign"
         )
@@ -564,9 +564,32 @@ class BounceClassificationTests(TestCase):
         process_graph_bounce(delivery_report_message(), apply=True)
 
         hold.refresh_from_db()
-        self.assertEqual(hold.scope, "campaign")
+        self.assertEqual(hold.scope, "all")
         self.assertTrue(hold.is_active)
         self.assertEqual(hold.reason, "hard_bounce")
+        self.assertEqual(
+            send_domain_email(
+                subject="Password reset",
+                message="Reset link",
+                recipient_list=[hold.email],
+                domain="crush.lu",
+            ),
+            0,
+        )
+
+    def test_mailbox_full_preserves_campaign_only_hold(self):
+        hold = EmailSuppression.objects.create(
+            email="person@example.net", scope="campaign"
+        )
+        message = delivery_report_message(
+            _raw_mime=delivery_report_mime((hold.email, "5.2.2", "failed"))
+        )
+
+        result = process_graph_bounce(message, apply=True)
+
+        self.assertEqual(result.classification, "soft")
+        hold.refresh_from_db()
+        self.assertEqual(hold.scope, "campaign")
         self.assertEqual(
             send_domain_email(
                 subject="Password reset",
