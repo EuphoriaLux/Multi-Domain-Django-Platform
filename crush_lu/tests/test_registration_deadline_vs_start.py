@@ -1,4 +1,5 @@
 """Registration must close by the event start (issue #1198)."""
+
 from datetime import timedelta
 
 from django.core.exceptions import ValidationError
