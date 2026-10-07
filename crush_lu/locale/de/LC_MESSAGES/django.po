@@ -45062,7 +45062,14 @@ msgstr "Zeige diesen QR-Code einem Coach am Eingang."
 
 #, python-format
 #: templates/crush_lu/components/coach_curated_groups.html
-msgid "%(counter)s pair of applicants is kept in separate groups because of a block between them."
-msgid_plural "%(counter)s pairs of applicants are kept in separate groups because of blocks between them."
-msgstr[0] "%(counter)s Bewerberpaar wird wegen einer Sperre zwischen den beiden in getrennten Gruppen gehalten."
-msgstr[1] "%(counter)s Bewerberpaare werden wegen Sperren zwischen ihnen in getrennten Gruppen gehalten."
+msgid "Conflict detected: %(counter)s blocked pair currently shares a group. Regenerate the groups before inviting or locking."
+msgid_plural "Conflict detected: %(counter)s blocked pairs currently share a group. Regenerate the groups before inviting or locking."
+msgstr[0] "Konflikt erkannt: %(counter)s gesperrtes Paar teilt derzeit eine Gruppe. Generieren Sie die Gruppen neu, bevor Sie einladen oder sperren."
+msgstr[1] "Konflikt erkannt: %(counter)s gesperrte Paare teilen derzeit eine Gruppe. Generieren Sie die Gruppen neu, bevor Sie einladen oder sperren."
+
+#, python-format
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "%(counter)s blocked pair of applicants detected. New groups will keep them apart."
+msgid_plural "%(counter)s blocked pairs of applicants detected. New groups will keep them apart."
+msgstr[0] "%(counter)s gesperrtes Bewerberpaar erkannt. Neue Gruppen halten die beiden getrennt."
+msgstr[1] "%(counter)s gesperrte Bewerberpaare erkannt. Neue Gruppen halten sie getrennt."

@@ -192,3 +192,33 @@ class TestQuizBlockPolicies:
         quiz.save(update_fields=["current_round", "status"])
 
         assert blocked_table_conflict_count(quiz) == 0
+
+
+@pytest.mark.django_db
+class TestQuizStartWarnsAboutLateBlock:
+    @pytest.fixture(autouse=True)
+    def _keep_test_connection_open(self, monkeypatch):
+        monkeypatch.setattr("channels.db.close_old_connections", lambda *a, **kw: None)
+
+    def test_block_created_after_generation_still_warns_on_start(
+        self, quiz_event_4t  # noqa: F811
+    ):
+        from asgiref.sync import async_to_sync
+
+        from crush_lu.consumers import QuizConsumer
+
+        quiz = quiz_event_4t
+        men = [_make_user(f"late_m{i}", "M") for i in range(2)]
+        women = [_make_user(f"late_f{i}", "F") for i in range(4)]
+        for user in men + women:
+            _check_in_attended(quiz, user)
+        # Rounds 1+ already exist before anyone blocks anyone.
+        generate_rotation_rounds(quiz)
+        UserBlock.objects.create(blocker=women[0], blocked=men[0], reason="other")
+
+        consumer = QuizConsumer()
+        consumer.quiz_id = quiz.id
+        result = async_to_sync(consumer.start_quiz_from_first_round)()
+
+        assert not result.get("error")
+        assert any("blocked pair" in w for w in result["host_warnings"])

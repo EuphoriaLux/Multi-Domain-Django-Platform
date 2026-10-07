@@ -275,11 +275,16 @@ def coach_group_panel(event, registrations=None):
         "next_action_label": NEXT_ACTION_LABELS[next_action],
         "admin_url": admin_url,
         "preflight": preflight,
-        # How many applicant pairs were kept apart because one blocked the
-        # other. Count only: block direction and reason never reach this view.
+        # Blocked applicant pairs a FRESH projection would keep apart. This is
+        # a detected constraint, not a statement about stored groups.
         "blocked_pair_count": (
             len(projection.blocked_registration_pairs) if projection else 0
         ),
+        # Blocked pairs that share a PERSISTED group right now (a block created
+        # after the groups were generated). Count only: block direction and
+        # reason never reach this view. Read live, so it flags without any
+        # change to the registration or payment path.
+        "blocked_group_conflicts": _persisted_block_conflicts(groups),
         "groups": [_group_card(group, memberships, participants) for group in groups],
         "left_out": {
             "preview": not groups,
@@ -287,6 +292,15 @@ def coach_group_panel(event, registrations=None):
             "eligible": left_out_eligible,
         },
     }
+
+
+def _persisted_block_conflicts(groups):
+    if not groups:
+        return 0
+    # Imported here: the workflow module imports this package's siblings.
+    from crush_lu.services.curated_group_workflow import _blocked_member_pair_count
+
+    return _blocked_member_pair_count(groups)
 
 
 def _stage(event, groups):

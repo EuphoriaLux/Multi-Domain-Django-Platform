@@ -1275,6 +1275,14 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
                     )
                 }
 
+        elif quiz.num_tables:
+            # Rounds already exist (generated earlier). A block created since
+            # then still matters, so re-derive the current warnings instead of
+            # starting silently.
+            from crush_lu.services.quiz_rotation import compute_rotation_warnings
+
+            rotation_warnings = list(compute_rotation_warnings(quiz))
+
         quiz.current_round = first_round
         quiz.current_question_index = 0
         quiz.status = "active"

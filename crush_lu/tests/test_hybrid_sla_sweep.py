@@ -383,7 +383,7 @@ class SlaSweepTests(TestCase):
             self.assertIsNone(sub.fallback_offered_at, label)
             self.assertIsNone(sub.booking_token, label)
 
-    def test_send_budget_stays_below_the_function_caller_timeout(self):
+    def test_last_send_start_plus_worst_case_fits_the_caller_timeout(self):
         import re
         from pathlib import Path
 
@@ -397,6 +397,12 @@ class SlaSweepTests(TestCase):
         ).read_text(encoding="utf-8")
         caller_timeout = int(re.search(r"timeout: int = (\d+)", source).group(1))
 
-        # Leaves room for one in-flight send and cleanup before the caller
-        # gives up and marks the invocation failed.
-        self.assertLessEqual(module.SLA_SWEEP_SEND_BUDGET_SECONDS, caller_timeout - 15)
+        # The documented caller timeout the constants assume is the real one.
+        self.assertEqual(module.SLA_SWEEP_CALLER_TIMEOUT_SECONDS, caller_timeout)
+        # No send may START so late that its worst case (30 s Graph send + up
+        # to 20 s cold token) outlives the caller.
+        self.assertLessEqual(
+            module.SLA_SWEEP_SEND_BUDGET_SECONDS
+            + module.SLA_SWEEP_WORST_CASE_SEND_SECONDS,
+            caller_timeout - module.SLA_SWEEP_SAFETY_MARGIN_SECONDS,
+        )

@@ -55,11 +55,24 @@ FALLBACK_TOKEN_TTL = timedelta(days=30)
 # production has no task worker, so each call sends mail synchronously. A fixed
 # per-call cap would take hours to clear a burst, so instead one call claims
 # small chunks (oldest breach first) and keeps going until the queue is empty or
-# the wall-clock budget is spent. The caller (_call_admin_endpoint) gives up
-# after 60 s, so the budget leaves room for one in-flight send plus cleanup; a
-# longer caller timeout would allow a larger budget. A faster timer would shorten recovery time but is not needed for correctness.
+# the start-of-send budget below is spent. A faster timer would shorten recovery time but is not needed for correctness.
 SLA_SWEEP_CLAIM_CHUNK = 10
-SLA_SWEEP_SEND_BUDGET_SECONDS = 40
+# The caller (_call_admin_endpoint in the HybridSLASweep Function) gives up after
+# 60 s. A send that STARTS late can still run for its worst case, so the sweep
+# stops starting sends at caller_timeout - worst_case_send - margin:
+#   worst case = Graph sendMail 30 s + a cold token fetch up to 20 s
+#   (GraphEmailBackend timeouts) = 50 s, margin 3 s  ->  new sends start in the
+#   first 7 s only. Typical sends take well under a second, so this still
+#   clears dozens per call; if throughput matters more, raise the Function's
+#   caller timeout (recommended in the PR) and this budget follows.
+SLA_SWEEP_CALLER_TIMEOUT_SECONDS = 60
+SLA_SWEEP_WORST_CASE_SEND_SECONDS = 50
+SLA_SWEEP_SAFETY_MARGIN_SECONDS = 3
+SLA_SWEEP_SEND_BUDGET_SECONDS = (
+    SLA_SWEEP_CALLER_TIMEOUT_SECONDS
+    - SLA_SWEEP_WORST_CASE_SEND_SECONDS
+    - SLA_SWEEP_SAFETY_MARGIN_SECONDS
+)
 # Delivery lease: a claim that was never marked sent for this long belonged to a
 # worker that died between commit and send, so it is claimed again.
 SLA_CLAIM_LEASE = timedelta(minutes=15)

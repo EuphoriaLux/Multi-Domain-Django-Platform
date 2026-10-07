@@ -84,3 +84,17 @@ class CuratedGroupLateBlockTests(TestCase):
         lock.assert_called_once()
 
         self.assertTrue(group_ids)
+
+    def test_panel_flags_a_block_that_now_shares_a_persisted_group(self):
+        from crush_lu.services.curated_group_insights import coach_group_panel
+
+        event = self.make_event()
+        registrations = self.make_applicants(event)
+        generate_group_projection(event, deterministic_seed="panel-flag")
+        approve_current_generation(event)
+
+        self.assertEqual(coach_group_panel(event)["blocked_group_conflicts"], 0)
+
+        self._block_two_members(registrations)
+
+        self.assertEqual(coach_group_panel(event)["blocked_group_conflicts"], 1)
