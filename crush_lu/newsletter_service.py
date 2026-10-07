@@ -9,6 +9,7 @@ import time
 
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.db import transaction
 from django.db.models import Q
 from django.template.loader import render_to_string
 from django.utils import timezone, translation
@@ -89,20 +90,39 @@ def is_on_break(user):
     ).exists()
 
 
-def receipt_email(user):
-    """Address to store in a NewsletterRecipient receipt, read fresh.
+def write_receipt(newsletter, user, defaults):
+    """Write a NewsletterRecipient receipt, storing the address only while the
+    user still has consent.
 
-    An in-flight send holds the User loaded before an account deletion may
-    have anonymised the send log, so every receipt write re-reads consent and
-    the current address: an erased/unconsented user never gets an address
-    written back.
+    The consent row is locked and re-read in the same transaction as the
+    write (select_for_update; SQLite ignores it, Postgres honours it), so a
+    concurrent account deletion either commits first (blank address stored) or
+    waits for this write and then sweeps it (see _anonymize_send_logs). An
+    erased or unconsented user never gets an address written back.
     """
-    if not has_current_consent(user):
-        return ''
-    return (
-        User.objects.filter(pk=user.pk).values_list('email', flat=True).first()
-        or ''
-    )
+    from .models.profiles import UserDataConsent
+
+    with transaction.atomic():
+        consented = (
+            UserDataConsent.objects.select_for_update()
+            .filter(
+                user_id=user.pk, crushlu_consent_given=True, crushlu_banned=False
+            )
+            .exists()
+        )
+        email = ''
+        if consented:
+            email = (
+                User.objects.filter(pk=user.pk)
+                .values_list('email', flat=True)
+                .first()
+                or ''
+            )
+        return NewsletterRecipient.objects.update_or_create(
+            newsletter=newsletter,
+            user=user,
+            defaults={**defaults, 'email': email},
+        )
 
 
 def exclude_banned_users(users):
@@ -367,14 +387,8 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
             or is_on_break(user)
             or not can_send_email(user, 'newsletter')
         ):
-            NewsletterRecipient.objects.update_or_create(
-                newsletter=newsletter,
-                user=user,
-                defaults={
-                    # Never write the address back for a user whose consent is
-                    # gone (account deletion may have anonymised this log
-                    # moments earlier).
-                    'email': receipt_email(user),
+            write_receipt(
+                newsletter, user, defaults={
                     'status': 'skipped',
                     'error_message': 'User opted out of newsletters',
                 },
@@ -385,10 +399,8 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
         # Durable pre-send claim: a crash after the Graph send but before the
         # receipt write must not cause a duplicate email on the next bounded
         # run (stale claims are swept to 'failed' below).
-        NewsletterRecipient.objects.update_or_create(
-            newsletter=newsletter,
-            user=user,
-            defaults={'email': receipt_email(user), 'status': 'pending'},
+        write_receipt(
+            newsletter, user, defaults={'status': 'pending'},
         )
 
         try:
@@ -396,11 +408,8 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
                 newsletter, user, link_rewriter
             )
             if delivery_count == 0:
-                NewsletterRecipient.objects.update_or_create(
-                    newsletter=newsletter,
-                    user=user,
-                    defaults={
-                        'email': receipt_email(user),
+                write_receipt(
+                    newsletter, user, defaults={
                         'status': 'skipped',
                         'sent_at': None,
                         'error_message': 'Active hard-bounce suppression',
@@ -408,11 +417,8 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
                 )
                 skipped += 1
                 continue
-            NewsletterRecipient.objects.update_or_create(
-                newsletter=newsletter,
-                user=user,
-                defaults={
-                    'email': receipt_email(user),
+            write_receipt(
+                newsletter, user, defaults={
                     'status': 'sent',
                     'sent_at': timezone.now(),
                 },
@@ -424,11 +430,8 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
 
         except Exception as e:
             error_msg = str(e)[:500]
-            NewsletterRecipient.objects.update_or_create(
-                newsletter=newsletter,
-                user=user,
-                defaults={
-                    'email': receipt_email(user),
+            write_receipt(
+                newsletter, user, defaults={
                     'status': 'failed',
                     'error_message': error_msg,
                 },
