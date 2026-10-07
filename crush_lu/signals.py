@@ -4183,8 +4183,9 @@ def assign_coach_on_first_attendance(sender, instance, created, **kwargs):
     coach who scanned them in (``instance._checkin_coach``, set by
     ``views_checkin.event_checkin_api``) becomes their permanent coach —
     the person who actually met them at the door, not whoever happens to be
-    first in the event's coach list. Anonymous/admin attendance transitions
-    carry no scanner and fall back to the event's first assigned coach.
+    first in the event's coach list. Admin saves that bypass the check-in views
+    carry no scanner attribute and fall back to the event's first assigned coach;
+    a check-in view with no coach session credits nobody.
     Idempotent — once a coach is assigned the member keeps it, and events
     with no coaches simply leave the member unassigned until a coached event
     is attended.
@@ -4201,7 +4202,14 @@ def assign_coach_on_first_attendance(sender, instance, created, **kwargs):
     if profile is None or profile.assigned_coach_id:
         return
 
-    coach = getattr(instance, "_checkin_coach", None) or instance.event.coaches.first()
+    if hasattr(instance, "_checkin_coach"):
+        # A check-in view ran this save. `None` means it had no coach session
+        # (a member's own scan); the event's first coach did not meet them, so
+        # crediting that coach would invent a relationship. (#1187)
+        coach = instance._checkin_coach
+    else:
+        # Admin/staff save with no view involved: keep the fallback.
+        coach = instance.event.coaches.first()
     if coach is None:
         return
 

@@ -45100,3 +45100,6 @@ msgstr "Ajoutez une nouvelle photo principale depuis votre profil. Vous n’avez
 #: crush_lu/templates/crush_lu/emails/photo_revision_request.html
 msgid "Upload a new photo"
 msgstr "Ajouter une nouvelle photo"
+
+msgid "Show this QR to a coach at the door."
+msgstr "Montrez ce code QR à un coach à l'entrée."

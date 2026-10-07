@@ -27,6 +27,7 @@ from django.utils import timezone
 
 from crush_lu.models import (
     ConfirmedEncounter,
+    CrushCoach,
     CrushConnectMembership,
     CrushProfile,
     EventLobbyParticipation,
@@ -368,6 +369,15 @@ class TestCheckinNeverDependsOnLobby:
     """§19: a normal event check-in never depends on the lobby succeeding."""
 
     def _checkin(self, client, registration):
+        # Only a coach session may check anyone in (#1186).
+        coach_user, _ = User.objects.get_or_create(
+            username="doorcoach", defaults={"email": "doorcoach@t.test"}
+        )
+        UserDataConsent.objects.update_or_create(
+            user=coach_user, defaults={"crushlu_consent_given": True}
+        )
+        CrushCoach.objects.get_or_create(user=coach_user, defaults={"is_active": True})
+        client.force_login(coach_user)
         token = Signer().sign(f"{registration.pk}:{registration.event_id}")
         url = reverse(
             "event_checkin_api",
@@ -1756,3 +1766,22 @@ class TestLateAdmissionConsistency:
             == lobby.CRUSH_FLOW_CRUSH
         )
         assert lobby.viewer_participation(requester, event) is None
+
+
+class TestAnonymousScanNeverOpensTheLobby:
+    """#1186: the member's own QR must not admit them to the lobby."""
+
+    def test_anonymous_post_three_hours_before_start_changes_nothing(self, client):
+        event = _make_event(starts_in_minutes=180)
+        member = _make_member("alice")
+        registration = EventRegistration.objects.create(
+            event=event, user=member, status="confirmed"
+        )
+        token = Signer().sign(f"{registration.pk}:{event.pk}")
+
+        response = client.post(f"/api/events/checkin/{registration.pk}/{token}/")
+
+        assert response.status_code == 403
+        registration.refresh_from_db()
+        assert registration.status == "confirmed"
+        assert EventLobbyParticipation.objects.count() == 0
