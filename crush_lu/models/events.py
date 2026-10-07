@@ -796,6 +796,20 @@ class MeetupEvent(models.Model):
         super().clean()
         self.validate_partner_offer()
 
+        # Registration must close on or before the event starts (issue #1198).
+        # Plain English like validate_partner_offer: admin is forced to English.
+        if (
+            self.registration_deadline
+            and self.date_time
+            and self.registration_deadline > self.date_time
+        ):
+            raise ValidationError(
+                {
+                    "registration_deadline": "Registration deadline must be on or "
+                    "before the event start."
+                }
+            )
+
         # Eligibility lives inside unmet_publish_requirements(), which returns
         # nothing for an event echo.lu would not publish -- so cancelling,
         # making private, or editing a finished event is never blocked by an
@@ -992,6 +1006,7 @@ class MeetupEvent(models.Model):
             self.is_published
             and not self.is_cancelled
             and now < self.registration_deadline
+            and now < self.date_time
         )
 
     @property
@@ -1001,6 +1016,7 @@ class MeetupEvent(models.Model):
             self.is_published
             and not self.is_cancelled
             and now < self.registration_deadline
+            and now < self.date_time
             and self.get_confirmed_count() < self.max_participants
         )
 

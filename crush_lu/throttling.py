@@ -18,8 +18,23 @@ Rates are configured in settings.py under REST_FRAMEWORK['DEFAULT_THROTTLE_RATES
 """
 from rest_framework.throttling import SimpleRateThrottle
 
+from crush_lu.oauth_statekit import get_client_ip
 
-class LoginRateThrottle(SimpleRateThrottle):
+
+class ClientIPThrottleMixin:
+    """Key throttles on the bare client IP.
+
+    Azure's X-Forwarded-For is ``IP:PORT`` and the port changes with every
+    TCP connection, so DRF's default ``get_ident`` (the whole header) hands
+    each new connection a fresh bucket. Same normalisation as the
+    ``@ratelimit`` decorator.
+    """
+
+    def get_ident(self, request):
+        return get_client_ip(request) or "unknown"
+
+
+class LoginRateThrottle(ClientIPThrottleMixin, SimpleRateThrottle):
     """
     Throttle for login attempts.
     Uses IP address as the cache key to prevent brute-force attacks.
@@ -35,7 +50,7 @@ class LoginRateThrottle(SimpleRateThrottle):
         }
 
 
-class SignupRateThrottle(SimpleRateThrottle):
+class SignupRateThrottle(ClientIPThrottleMixin, SimpleRateThrottle):
     """
     Throttle for signup/registration attempts.
     Stricter than login to prevent mass account creation.
@@ -50,7 +65,7 @@ class SignupRateThrottle(SimpleRateThrottle):
         }
 
 
-class PhoneVerificationRateThrottle(SimpleRateThrottle):
+class PhoneVerificationRateThrottle(ClientIPThrottleMixin, SimpleRateThrottle):
     """
     Throttle for phone verification attempts.
     Prevents abuse of SMS sending functionality.
@@ -65,7 +80,7 @@ class PhoneVerificationRateThrottle(SimpleRateThrottle):
         }
 
 
-class QuizPinRateThrottle(SimpleRateThrottle):
+class QuizPinRateThrottle(ClientIPThrottleMixin, SimpleRateThrottle):
     """
     Throttle for quiz projector PIN verification attempts.
 
@@ -87,7 +102,7 @@ class QuizPinRateThrottle(SimpleRateThrottle):
         }
 
 
-class PasswordResetRateThrottle(SimpleRateThrottle):
+class PasswordResetRateThrottle(ClientIPThrottleMixin, SimpleRateThrottle):
     """
     Throttle for password reset requests.
     Prevents email enumeration and spam via password reset emails.
