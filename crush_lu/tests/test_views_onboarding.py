@@ -97,6 +97,10 @@ class WelcomeIntentApiTests(_SiteMixin, TestCase):
             email="alex@example.com",
             password="pass-pass-pass",
         )
+        from crush_lu.models.profiles import UserDataConsent
+        UserDataConsent.objects.update_or_create(
+            user=self.user, defaults={"crushlu_consent_given": True}
+        )
         self.profile = CrushProfile.objects.create(user=self.user)
         self.url = "/api/welcome/intent/"  # language-neutral
         self.client.login(username="alex@example.com", password="pass-pass-pass")

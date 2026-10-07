@@ -409,6 +409,10 @@ class TestCheckinPrintingAPI(TestCase):
             first_name="Coach",
             password="secretpassword",
         )
+        from crush_lu.models.profiles import UserDataConsent
+        UserDataConsent.objects.update_or_create(
+            user=self.coach_user, defaults={"crushlu_consent_given": True}
+        )
         self.coach = CrushCoach.objects.create(
             user=self.coach_user,
             is_active=True,
@@ -417,6 +421,10 @@ class TestCheckinPrintingAPI(TestCase):
             username="alex@test.lu",
             email="alex@test.lu",
             first_name="Alex",
+        )
+        from crush_lu.models.profiles import UserDataConsent
+        UserDataConsent.objects.update_or_create(
+            user=self.attendee_user, defaults={"crushlu_consent_given": True}
         )
         self.profile = CrushProfile.objects.create(
             user=self.attendee_user,
