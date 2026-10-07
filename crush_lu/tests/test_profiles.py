@@ -551,6 +551,88 @@ class SelfServiceEditPathTests(TestCase):
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.verification_status, "pending")
 
+    def _reject_without_submission(self):
+        """Post-pivot rejection: status on the profile, no ProfileSubmission."""
+        CrushProfile.objects.filter(pk=self.profile.pk).update(
+            verification_status="rejected", is_approved=False
+        )
+
+    def _assert_still_rejected(self):
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.verification_status, "rejected")
+        self.assertFalse(
+            ProfileSubmission.objects.filter(profile=self.profile).exists()
+        )
+
+    def test_rejected_profile_cannot_reinstate_via_save_step1(self):
+        self._reject_without_submission()
+        response = self.client.post(
+            "/api/profile/save-step1/",
+            data=json.dumps(
+                {
+                    "phone_number": "+35212345678",
+                    "date_of_birth": (
+                        timezone.now().date() - timedelta(days=30 * 365)
+                    ).isoformat(),
+                    "gender": "F",
+                    "location": "canton-luxembourg",
+                }
+            ),
+            content_type="application/json",
+            HTTP_HOST="crush.lu",
+        )
+        self.assertEqual(response.status_code, 403)
+        self._assert_still_rejected()
+
+    def test_rejected_profile_cannot_reinstate_via_save_step2(self):
+        self._reject_without_submission()
+        response = self.client.post(
+            "/api/profile/save-step2/",
+            data=json.dumps({}),
+            content_type="application/json",
+            HTTP_HOST="crush.lu",
+        )
+        self.assertEqual(response.status_code, 403)
+        self._assert_still_rejected()
+
+    def test_rejected_profile_cannot_reinstate_via_save_step3(self):
+        self._reject_without_submission()
+        response = self.client.post(
+            "/api/profile/save-step3/",
+            data={"event_languages": ["en"]},
+            HTTP_HOST="crush.lu",
+        )
+        self.assertEqual(response.status_code, 403)
+        self._assert_still_rejected()
+
+    def test_rejected_profile_cannot_reinstate_via_complete(self):
+        self._reject_without_submission()
+        response = self.client.post("/api/profile/complete/", HTTP_HOST="crush.lu")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("rejected", response["Location"])
+        self._assert_still_rejected()
+
+    def test_rejected_profile_cannot_reinstate_via_create_profile_post(self):
+        self._reject_without_submission()
+        response = self.client.post(
+            "/en/create-profile/",
+            data={
+                "phone_number": "+35212345678",
+                "date_of_birth": (
+                    timezone.now().date() - timedelta(days=30 * 365)
+                ).isoformat(),
+                "gender": "F",
+                "location": "canton-luxembourg",
+                "bio": "x",
+                "interests": "Reading",
+                "event_languages": ["en"],
+            },
+            HTTP_HOST="crush.lu",
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("rejected", response["Location"])
+        self._assert_still_rejected()
+
     def test_resubmit_while_pending_creates_no_duplicate_submission(self):
         """An edit + resubmit cycle must not stack ProfileSubmission rows.
 

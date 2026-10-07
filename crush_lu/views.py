@@ -819,6 +819,16 @@ def create_profile(request):
         existing_profile = None
         try:
             existing_profile = CrushProfile.objects.get(user=request.user)
+            # A rejected profile is terminal (issue #1188): never rebuild the
+            # form on it, or the POST below would set it back to pending.
+            if existing_profile.verification_status == "rejected":
+                messages.error(
+                    request,
+                    _(
+                        "Your profile has been rejected and cannot be resubmitted. Please contact support@crush.lu."
+                    ),
+                )
+                return redirect("crush_lu:profile_rejected")
             form = CrushProfileForm(
                 request.POST, request.FILES, instance=existing_profile
             )
