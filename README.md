@@ -250,6 +250,11 @@ SECRET_KEY=<secure-random-key>
 AZURE_POSTGRESQL_CONNECTIONSTRING=<connection-string>
 AZURE_ACCOUNT_NAME=<storage-account>
 AZURE_ACCOUNT_KEY=<storage-key>
+# Dedicated, NEVER-rotated key for the GDPR erased-phone-number tombstones
+# (hub.ErasedPhoneNumber). Production slot only, slot-sticky. Unlike SECRET_KEY
+# it must not change: the numbers are gone, so a digest cannot be rebuilt.
+# Missing => a startup ERROR log and a `check --deploy` warning (azureproject.W001).
+ERASURE_DIGEST_KEY=<random-key>
 
 # Email (Microsoft Graph)
 GRAPH_TENANT_ID=<tenant-id>

@@ -41,3 +41,12 @@ class AzureprojectConfig(AppConfig):
             os.environ.get("DJANGO_ENV", "unknown"),
             os.environ.get("DJANGO_SETTINGS_MODULE", "unknown"),
         )
+
+        # Register the deploy checks and surface a missing erasure key as an
+        # ERROR record (App Insights `traces`) on every production boot. It
+        # never blocks startup: staging legitimately has no key.
+        from azureproject import checks
+
+        problem = checks.erasure_key_problem()
+        if problem:
+            logging.getLogger("azureproject").error(problem)
