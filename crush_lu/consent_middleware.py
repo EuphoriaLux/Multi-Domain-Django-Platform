@@ -103,6 +103,10 @@ class CrushConsentMiddleware:
         "/api/csrf-token/",
         "/api/push/vapid-public-key/",
         "/api/webhooks/",
+        # JWT logout only blacklists the caller's refresh token; a banned client
+        # must still be able to end its own session. Other /api/token/ routes
+        # stay gated.
+        "/api/token/logout/",
     )
 
     # /api/ paths a member WITHOUT Crush.lu consent may still call (#1217).

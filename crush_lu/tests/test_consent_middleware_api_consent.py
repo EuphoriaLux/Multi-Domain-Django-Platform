@@ -238,6 +238,22 @@ class ApiBearerTokenGateTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json(), {"code": "consent_required"})
 
+    def test_banned_bearer_user_can_still_log_out(self):
+        from rest_framework_simplejwt.tokens import RefreshToken
+
+        user = _make_user(
+            "jwt9@example.com", crushlu_consent_given=True, crushlu_banned=True
+        )
+        refresh = RefreshToken.for_user(user)
+        response = self.client.post(
+            "/api/token/logout/",
+            data=json.dumps({"refresh": str(refresh)}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}",
+            **HOST,
+        )
+        self.assertEqual(response.status_code, 200)
+
     def test_invalid_bearer_token_is_left_to_the_view(self):
         response = self.client.get(
             "/api/referral/me/", HTTP_AUTHORIZATION="Bearer not-a-jwt", **HOST
