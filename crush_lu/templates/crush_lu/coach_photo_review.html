@@ -11,6 +11,7 @@
      data-decide-url="{% url 'crush_lu:coach_photo_review_decide' %}"
      data-undo-url="{% url 'crush_lu:coach_photo_review_undo' %}"
      data-more-url="{% url 'crush_lu:coach_photo_review_more' %}"
+     data-scope="{{ scope }}"
      data-error="{% trans 'Could not complete this action. Please try again.' %}"
      data-picks-not-restored="{% trans "Undone. Some Coach's Picks could not be restored because the members' situation changed." %}"
      @keydown.window="handleKeydown">
@@ -23,7 +24,15 @@
         </div>
         <button type="button" class="btn-crush-outline btn-sm" @click="undoLastDecision" :disabled="undoDisabled">{% trans "Undo" %}</button>
     </div>
-    <p class="text-sm text-muted-fg mb-4">{% trans "Swipe right to approve, left to flag, or up to skip. L / Right: approve. H / Left: flag. K: request revision. Space: next photo. U: undo." %}</p>
+    <nav class="flex gap-2 mb-4" aria-label="{% trans 'Photo review queue' %}">
+        <a href="{% url 'crush_lu:coach_photo_review_deck' %}?scope=connect"
+           class="btn-crush-outline btn-sm {% if scope == 'connect' %}ring-2 ring-crush-purple{% endif %}"
+           {% if scope == 'connect' %}aria-current="page"{% endif %}>{% trans "Crush Connect" %}</a>
+        <a href="{% url 'crush_lu:coach_photo_review_deck' %}?scope=all"
+           class="btn-crush-outline btn-sm {% if scope == 'all' %}ring-2 ring-crush-purple{% endif %}"
+           {% if scope == 'all' %}aria-current="page"{% endif %}>{% trans "Crush overall" %}</a>
+    </nav>
+    <p class="text-sm text-muted-fg mb-4">{% trans "Each card reviews one image. Other photos are shown for context; the decision applies to the labeled image only. Reviews are shared between both queues." %}</p>
     <p role="alert" class="text-red-700 dark:text-red-300 mb-3" x-show="hasError" x-text="errorMessage" x-cloak></p>
     <p role="status" class="text-sm text-muted-fg mb-3" x-show="hasNotice" x-text="noticeMessage" x-cloak></p>
     <template x-if="currentCard">
@@ -40,8 +49,8 @@
                 </div>
             </div>
             <div x-show="isSecondaryPhoto" class="p-3 text-sm text-muted-fg">
-                {% trans "Decisions apply to the primary photo. Return to it before reviewing." %}
-                <button type="button" class="btn-crush-outline btn-sm" @click="showPrimaryPhoto">{% trans "Review primary photo" %}</button>
+                {% trans "This card is reviewing" %} <span x-text="reviewPhotoLabel"></span>. {% trans "Return to that image before deciding." %}
+                <button type="button" class="btn-crush-outline btn-sm" @click="showReviewPhoto">{% trans "Show image under review" %}</button>
             </div>
             <div class="p-4 sm:p-5 space-y-3.5 max-h-[30rem] overflow-y-auto">
                 <div class="flex items-start justify-between gap-2 border-b border-gray-100 dark:border-gray-700 pb-3">

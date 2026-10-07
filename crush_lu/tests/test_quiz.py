@@ -2483,7 +2483,13 @@ class TestQuizPhotoUrl:
         from crush_lu.models import CrushProfile
         from crush_lu.views_quiz import _photo_url
 
-        profile = CrushProfile(user_id=7, is_approved=True, photo_1="p.jpg")
+        profile = CrushProfile(
+            user_id=7,
+            is_approved=True,
+            photo_1="p.jpg",
+            photo_review_status="approved",
+            photo_review_key="p.jpg",
+        )
         assert _photo_url(profile) == "/api/quiz/photo/7/"
 
     def test_unapproved_profile_gets_no_url(self):

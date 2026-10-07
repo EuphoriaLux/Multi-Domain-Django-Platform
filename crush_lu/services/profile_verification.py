@@ -6,7 +6,7 @@ from datetime import datetime
 from django.utils import timezone
 from django.db.models import Case, F, Value, When
 
-from crush_lu.models import CrushProfile, EventRegistration
+from crush_lu.models import CrushProfile, EventRegistration, ProfilePhotoReviewState
 from crush_lu.models.profiles import UserDataConsent
 
 
@@ -36,6 +36,20 @@ def _photo_review_reset(target_status):
             "photo_review_notes": "",
         }.items()
     }
+
+
+def _clear_reset_primary_photo_approval(profile):
+    """Keep the per-image decision in step with a legacy primary reset."""
+    photo_key = getattr(profile.photo_1, "name", "") or ""
+    if not photo_key:
+        return
+    ProfilePhotoReviewState.objects.filter(
+        profile_id=profile.pk,
+        photo_field="photo_1",
+        photo_key=photo_key,
+        status="approved",
+        profile__photo_review_status="pending",
+    ).delete()
 
 
 def coach_visible_unverified_profiles():
@@ -195,6 +209,9 @@ def transition_unverified_profile(
     if not transitioned:
         return False
 
+    if review_reset:
+        _clear_reset_primary_photo_approval(profile)
+
     # Only once the CAS above won: a no-op transition means another path holds
     # the verification, and wiping the door's provenance would take evidence
     # away from a member somebody else just verified.
@@ -238,6 +255,9 @@ def reject_door_verification(
     )
     if not updated:
         return False
+
+    if review_reset:
+        _clear_reset_primary_photo_approval(profile)
 
     # See `transition_unverified_profile`: only after the CAS won.
     _clear_door_photo_attestations(profile)
