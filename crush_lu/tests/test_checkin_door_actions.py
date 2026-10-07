@@ -1787,7 +1787,7 @@ class TestProfilelessAttendeePrivacy:
 
     @pytest.mark.django_db
     def test_scan_response_never_carries_the_username(self, client):
-        _make_coach()
+        client.force_login(_make_coach().user)
         event = _make_event()
         registration = self._profileless_registration(event)
 
@@ -1805,7 +1805,7 @@ class TestProfilelessAttendeePrivacy:
         dating profile; a legal first name is not interchangeable with one, and
         the QR path is reachable by anyone holding a photographed ticket.
         """
-        _make_coach()
+        client.force_login(_make_coach().user)
         event = _make_event()
         registration = self._profileless_registration(event, first_name="Ada")
 
@@ -1820,11 +1820,11 @@ class TestProfilelessAttendeePrivacy:
         coach login, where rendering every profileless row as the same
         placeholder helps nobody."""
         coach = _make_coach()
+        client.force_login(coach.user)
         event = _make_event()
         registration = self._profileless_registration(event, first_name="Ada")
         _scan(client, event, registration)
 
-        client.force_login(coach.user)
         payload = client.post(
             reverse(
                 "coach_undo_checkin",
@@ -1859,9 +1859,9 @@ class TestRecoveredRowCanBeCheckedInAgain:
         from crush_lu.views_ticket import _generate_checkin_token
 
         _generate_checkin_token(registration)
+        client.force_login(coach.user)
         _scan(client, event, registration)
 
-        client.force_login(coach.user)
         payload = client.post(
             reverse(
                 "coach_undo_checkin",
@@ -1877,7 +1877,7 @@ class TestRecoveredRowCanBeCheckedInAgain:
     @pytest.mark.django_db
     def test_the_qr_payload_does_not_carry_it(self, client):
         """It rides the coach-only branch, like the search haystack."""
-        _make_coach()
+        client.force_login(_make_coach().user)
         attendee = _make_attendee()
         event = _make_event()
         registration = EventRegistration.objects.create(

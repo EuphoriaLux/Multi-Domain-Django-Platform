@@ -15,6 +15,7 @@ Covers:
 
 Run with: python manage.py test crush_lu.tests.test_secret_key_rotation
 """
+
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -23,7 +24,7 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from crush_lu.models import EventRegistration, MeetupEvent
+from crush_lu.models import CrushCoach, EventRegistration, MeetupEvent
 from crush_lu.models.ios_app import IOSNativeAuthCode, _hash_native_auth_code
 from crush_lu.models.profiles import UserDataConsent
 
@@ -73,11 +74,20 @@ class CheckinTokenRotationTests(TestCase):
         self.registration = EventRegistration.objects.create(
             event=self.event, user=self.user, status="confirmed"
         )
+        # Only a coach session may check anyone in (#1186).
+        coach_user = User.objects.create_user(
+            username="rotationcoach@test.com",
+            email="rotationcoach@test.com",
+            password="p",
+        )
+        UserDataConsent.objects.update_or_create(
+            user=coach_user, defaults={"crushlu_consent_given": True}
+        )
+        CrushCoach.objects.create(user=coach_user, is_active=True)
+        self.coach_user = coach_user
         # Simulate a ticket that was generated and stored *before* the
         # rotation: signed with what will become the "old" key.
-        old_token = Signer(key=OLD_KEY).sign(
-            f"{self.registration.pk}:{self.event.pk}"
-        )
+        old_token = Signer(key=OLD_KEY).sign(f"{self.registration.pk}:{self.event.pk}")
         self.registration.checkin_token = old_token
         self.registration.save(update_fields=["checkin_token"])
         self.url = reverse(
@@ -87,6 +97,8 @@ class CheckinTokenRotationTests(TestCase):
 
     @override_settings(SECRET_KEY=NEW_KEY, SECRET_KEY_FALLBACKS=[OLD_KEY])
     def test_old_ticket_still_scans_when_old_key_is_a_fallback(self):
+        # Logged in under the overridden key: the session hash is keyed on it.
+        self.client.force_login(self.coach_user)
         response = self.client.post(self.url)
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()["success"])
