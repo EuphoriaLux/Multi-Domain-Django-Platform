@@ -6,7 +6,7 @@ Interactive swipe deck for coaches to review, approve, or flag photos and fakes 
 
 import json
 import logging
-from django.http import JsonResponse
+from django.http import HttpResponseBadRequest, JsonResponse
 from django.shortcuts import render
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_GET, require_POST
@@ -29,11 +29,15 @@ def coach_photo_review_deck(request):
     Render the coach swipe deck for fast photo review.
     Initial cards are injected directly into the template context for immediate render.
     """
-    cards, total_waiting = get_photo_review_queue(request.coach, limit=30)
+    scope = request.GET.get("scope", "all")
+    if scope not in ("all", "connect"):
+        return HttpResponseBadRequest(_("Invalid review queue."))
+    cards, total_waiting = get_photo_review_queue(request.coach, limit=30, scope=scope)
     context = {
         "coach": request.coach,
         "initial_cards": cards,
         "total_waiting": total_waiting,
+        "scope": scope,
     }
     return render(request, "crush_lu/coach_photo_review.html", context)
 
@@ -135,11 +139,14 @@ def coach_photo_review_undo(request):
 def coach_photo_review_more(request):
     """Load the next batch of cards for endless swipe review."""
     cursor = request.GET.get("cursor", "")
+    scope = request.GET.get("scope", "all")
+    if scope not in ("all", "connect"):
+        return JsonResponse({"error": _("Invalid review queue.")}, status=400)
     if len(cursor) > 1024:
         return JsonResponse({"error": _("Invalid request payload")}, status=400)
     try:
         cards, total_waiting = get_photo_review_queue(
-            request.coach, limit=30, cursor=cursor
+            request.coach, limit=30, cursor=cursor, scope=scope
         )
     except PhotoReviewError as exc:
         return JsonResponse({"error": exc.message}, status=exc.status)

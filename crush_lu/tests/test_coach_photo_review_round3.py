@@ -142,6 +142,40 @@ def test_reprocessing_carries_coach_approval_to_processed_key(tmp_path, monkeypa
     assert not storage.exists(old_key)
 
 
+def test_reprocessing_carries_secondary_photo_review_to_processed_key(
+    tmp_path, monkeypatch
+):
+    from crush_lu.management.commands.reprocess_photos import Command
+    from crush_lu.models import ProfilePhotoReviewState
+
+    storage = FileSystemStorage(location=tmp_path)
+    monkeypatch.setattr(CrushProfile._meta.get_field("photo_2"), "storage", storage)
+    coach, profile = _make_coach(), _make_candidate(has_photo=False)
+    profile.photo_2.save("secondary.jpg", ContentFile(b"original" * 1000), save=True)
+    old_key = profile.photo_2.name
+    submit_photo_review(
+        coach,
+        profile.pk,
+        "approved",
+        photo_key=old_key,
+        photo_field="photo_2",
+    )
+    monkeypatch.setattr(
+        "crush_lu.management.commands.reprocess_photos.process_uploaded_image",
+        lambda *args: ContentFile(b"small", name="processed.jpg"),
+    )
+    stats = {"processed": 0, "skipped": 0, "errors": 0}
+    with TestCase.captureOnCommitCallbacks(execute=True):
+        Command()._process_photo(profile, "photo_2", profile.photo_2, False, stats)
+    profile.refresh_from_db()
+    state = ProfilePhotoReviewState.objects.get(profile=profile, photo_field="photo_2")
+    assert stats == {"processed": 1, "skipped": 0, "errors": 0}
+    assert profile.photo_2.name != old_key
+    assert state.photo_key == profile.photo_2.name
+    assert profile.get_photo_field_review_status("photo_2") == "approved"
+    assert not storage.exists(old_key)
+
+
 @pytest.mark.parametrize("race", ["replaced", "moderated"])
 def test_skipped_slot_does_not_delete_current_photo_on_next_slot(
     tmp_path, monkeypatch, race

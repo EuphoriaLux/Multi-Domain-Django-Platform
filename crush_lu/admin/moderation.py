@@ -160,6 +160,7 @@ class ProfilePhotoReviewLogAdmin(admin.ModelAdmin):
     list_display = (
         "coach",
         "profile",
+        "photo_field",
         "decision",
         "reason",
         "created_at",
@@ -171,6 +172,7 @@ class ProfilePhotoReviewLogAdmin(admin.ModelAdmin):
         "profile__user__first_name",
         "profile__user__last_name",
         "profile__user__email",
+        "photo_field",
         "notes",
     )
     readonly_fields = (

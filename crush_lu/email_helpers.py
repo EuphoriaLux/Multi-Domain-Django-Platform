@@ -470,8 +470,8 @@ def send_profile_revision_request(profile, request, feedback):
     )
 
 
-def send_photo_revision_request(user, request=None, feedback=""):
-    """Ask for a replacement primary photo; the profile itself stays as it is.
+def send_photo_revision_request(user, request=None, feedback="", photo_field="photo_1"):
+    """Ask for a replacement photo; the profile itself stays as it is.
 
     A coach photo review leaves profile approval untouched, so unlike
     ``send_profile_revision_request`` this never asks for a resubmission.
@@ -482,12 +482,18 @@ def send_photo_revision_request(user, request=None, feedback=""):
     lang = get_user_preferred_language(user=user, request=request, default="en")
     with translation.override(lang):
         subject = _("Please replace your profile photo")
+        photo_slot_label = {
+            "photo_1": _("main profile photo"),
+            "photo_2": _("second profile photo"),
+            "photo_3": _("third profile photo"),
+        }.get(photo_field, _("profile photo"))
         html_message = render_to_string(
             "crush_lu/emails/photo_revision_request.html",
             {
                 "user": user,
                 "first_name": user.first_name,
                 "feedback": feedback,
+                "photo_slot_label": photo_slot_label,
                 "LANGUAGE_CODE": lang,
                 "edit_profile_url": get_user_language_url(
                     user, "crush_lu:edit_profile", request
