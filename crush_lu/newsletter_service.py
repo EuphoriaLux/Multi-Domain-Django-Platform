@@ -336,14 +336,16 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
 
         # Double-check consent and preference (may have changed since the
         # queryset was evaluated, e.g. account deletion during a batch pause)
-        if not has_current_consent(user) or not can_send_email(
-            user, 'newsletter'
-        ):
+        consented = has_current_consent(user)
+        if not consented or not can_send_email(user, 'newsletter'):
             NewsletterRecipient.objects.update_or_create(
                 newsletter=newsletter,
                 user=user,
                 defaults={
-                    'email': user.email,
+                    # Never write the address back for a user whose consent is
+                    # gone (account deletion may have anonymised this log
+                    # moments earlier).
+                    'email': user.email if consented else '',
                     'status': 'skipped',
                     'error_message': 'User opted out of newsletters',
                 },

@@ -96,6 +96,14 @@ class RecipientSelectionTests(TestCase):
         EmailPreference.objects.filter(user=user).update(email_marketing=False)
         self.assertEqual(self.emails(), set())
 
+    def test_requires_recorded_crushlu_consent(self):
+        # #1184: a lazily created, never-consented profile is not mailed.
+        user = make_member("noprofileconsent")
+        UserDataConsent.objects.filter(user=user).update(
+            crushlu_consent_given=False
+        )
+        self.assertEqual(self.emails(), set())
+
     def test_unsubscribed_all_vetoes_consent(self):
         user = make_member("unsub")
         EmailPreference.objects.filter(user=user).update(
