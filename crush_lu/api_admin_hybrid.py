@@ -237,6 +237,34 @@ def revert_fallback_offer(submission_pk, booking_token, *, reason):
     return True
 
 
+def _lock_sweep_chunk(now, attempted, picked_pks=None):
+    """Lock the next chunk of sweep candidates and return their pks.
+
+    The chunk is picked by an unlocked subquery, so a concurrent sweep can claim
+    a picked row before this statement locks it. ``skip_locked`` does not help
+    once that sweep has committed: the row is no longer locked. The candidate
+    predicate is therefore applied again on the locked statement itself, and
+    Postgres (READ COMMITTED) re-evaluates it against the latest committed
+    version of every row it locks, dropping a row claimed in between. Without
+    it the row would read as a recovered claim and its mail would go out twice.
+
+    ``picked_pks`` replaces the subquery (tests use it to stand in for a row
+    claimed between the pick and the lock).
+    """
+    if picked_pks is None:
+        picked_pks = (
+            _sweep_candidates(now, attempted)
+            .order_by("sweep_priority", "sla_deadline", "pk")
+            .values("pk")[:SLA_SWEEP_CLAIM_CHUNK]
+        )
+    return list(
+        _sweep_candidates(now, attempted)
+        .filter(pk__in=picked_pks)
+        .select_for_update(skip_locked=True, of=("self",))
+        .values_list("pk", flat=True)
+    )
+
+
 def run_sla_sweep(host, is_secure, *, actor="system"):
     """One drain of the SLA fallback queue; the single implementation.
 
@@ -268,15 +296,7 @@ def run_sla_sweep(host, is_secure, *, actor="system"):
         # Phase 1 -- claim a chunk under the lock, no I/O beyond the database.
         claimed = []  # (pk, booking_token, recovered)
         with transaction.atomic():
-            locked_ids = list(
-                ProfileSubmission.objects.filter(
-                    pk__in=_sweep_candidates(now, attempted)
-                    .order_by("sweep_priority", "sla_deadline", "pk")
-                    .values("pk")[:SLA_SWEEP_CLAIM_CHUNK]
-                )
-                .select_for_update(skip_locked=True)
-                .values_list("pk", flat=True)
-            )
+            locked_ids = _lock_sweep_chunk(now, attempted)
             for sub in _with_sweep_priority(
                 ProfileSubmission.objects.filter(pk__in=locked_ids), now
             ).order_by("sweep_priority", "sla_deadline", "pk"):
