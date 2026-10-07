@@ -792,6 +792,8 @@ def _anonymize_pending_recipient_records(addresses):
     user FK yet (``created_user`` / ``claimed_by`` are set on acceptance), so
     the relation-based registry cannot find them; only the address can.
     """
+    from django.db.models import FileField
+
     from crush_lu.models import EventInvitation, JourneyGift
 
     for address in {a.strip().lower() for a in addresses if a}:
@@ -805,8 +807,17 @@ def _anonymize_pending_recipient_records(addresses):
         )
         # Read before blanking: the update removes the rows from the filter.
         created = list(gifts.values_list("pk", "created_at"))
+        # Personalised media first, while the address still finds the rows.
+        _delete_stored_files(gifts)
         gifts.update(
-            **{name: "" for name in ACCOUNT_ERASURE_ANONYMIZE_BLANK["JourneyGift"]}
+            **{
+                **{
+                    f.name: ""
+                    for f in JourneyGift._meta.concrete_fields
+                    if isinstance(f, FileField)
+                },
+                **{name: "" for name in ACCOUNT_ERASURE_ANONYMIZE_BLANK["JourneyGift"]},
+            }
         )
         for pk, created_at in created:
             JourneyGift.objects.filter(pk=pk).update(date_first_met=created_at.date())
@@ -975,7 +986,7 @@ def _purge_user_keyed_personal_data(user):
             crushlu_consent_ip=None,
             crushlu_banned=True,
             crushlu_ban_date=timezone.now(),
-            crushlu_ban_reason="user_deletion",
+            crushlu_ban_reason="deletion_in_progress",
         )
     with transaction.atomic():
         _anonymize_send_logs(user)
@@ -1058,7 +1069,20 @@ def _purge_user_keyed_personal_data(user):
     return summary
 
 
-def delete_crushlu_profile_only(user):
+def _finalize_deletion(user):
+    """Make the ban reason permanent once every erasure stage has succeeded.
+
+    Until then the reason is ``deletion_in_progress``, which lets a member
+    whose deletion failed part-way retry through the deletion endpoints.
+    """
+    from crush_lu.models.profiles import UserDataConsent
+
+    UserDataConsent.objects.filter(user=user).update(
+        crushlu_ban_reason="user_deletion"
+    )
+
+
+def delete_crushlu_profile_only(user, finalize=True):
     """
     Delete ONLY Crush.lu profile data, keeping PowerUp account intact.
 
@@ -1230,9 +1254,11 @@ def delete_crushlu_profile_only(user):
         consent.crushlu_consent_ip = None
         consent.crushlu_banned = True
         consent.crushlu_ban_date = timezone.now()
-        consent.crushlu_ban_reason = "user_deletion"
+        # Stays retryable (ConsentMiddleware lets the deletion endpoints
+        # through) until every stage has succeeded; see _finalize_deletion.
+        consent.crushlu_ban_reason = "deletion_in_progress"
         consent.save()
-        logger.info(f"Set permanent Crush.lu ban for user {user.id}")
+        logger.info(f"Set Crush.lu ban for user {user.id}")
 
     # After the revocation has committed: blank any newsletter receipt an
     # in-flight sender wrote before it saw the revocation.
@@ -1245,6 +1271,8 @@ def delete_crushlu_profile_only(user):
 
     CampaignClick.objects.filter(user=user).update(user=None)
 
+    if finalize:
+        _finalize_deletion(user)
     logger.info(f"Crush.lu profile deleted for user {user.id} (PowerUp account kept)")
 
 
@@ -1348,7 +1376,7 @@ def delete_full_account(user):
     addresses = _collect_user_email_addresses(user)
 
     # First delete Crush.lu profile
-    delete_crushlu_profile_only(user)
+    delete_crushlu_profile_only(user, finalize=False)
     _anonymize_whatsapp_inbound(phone_numbers)
 
     # Then the other platforms' personal data on this account (hub,
@@ -1377,6 +1405,7 @@ def delete_full_account(user):
 
     _anonymize_email_delivery(addresses)
     _anonymize_pending_recipient_records(addresses)
+    _finalize_deletion(user)
 
     logger.info(f"Full account deleted for user {user.id} (all platforms)")
 
@@ -2025,8 +2054,13 @@ def consent_confirm(request):
         consent.marketing_consent = marketing_consent
         consent.marketing_consent_date = timezone.now() if marketing_consent else None
         consent.save()
+        # Newsletters need both flags (newsletter_service.NEWSLETTER_OPT_IN), so
+        # an explicit opt-in here must switch the newsletter flag on as well.
+        preference_defaults = {"email_marketing": marketing_consent}
+        if marketing_consent:
+            preference_defaults["email_newsletter"] = True
         EmailPreference.objects.update_or_create(
-            user=request.user, defaults={"email_marketing": marketing_consent}
+            user=request.user, defaults=preference_defaults
         )
 
         logger.info(f"User {request.user.id} retroactively gave Crush.lu consent")
@@ -2643,6 +2677,41 @@ def export_user_data(request):
             "is_investor": entrepreneur.is_investor,
             "linkedin_photo_url": entrepreneur.linkedin_photo_url,
             "skills": [skill.name for skill in entrepreneur.skills.all()],
+        }
+    from entreprinder.vibe.models import Pixel, PixelHistory, UserPixelStats
+
+    pixel_stats = list(
+        UserPixelStats.objects.filter(user=user).values(
+            "canvas_id", "total_pixels_placed", "last_pixel_placed", "created_at"
+        )
+    )
+    pixel_history = list(
+        PixelHistory.objects.filter(placed_by=user)
+        .order_by("placed_at")
+        .values("canvas_id", "x", "y", "color", "placed_at")
+    )
+    pixels = list(
+        Pixel.objects.filter(placed_by=user)
+        .order_by("placed_at")
+        .values("canvas_id", "x", "y", "color", "placed_at")
+    )
+    if pixel_stats or pixel_history or pixels:
+        other_platforms.setdefault("entreprinder", {})["pixel_canvas"] = {
+            "stats": [
+                {
+                    **row,
+                    "last_pixel_placed": _iso_or_none(row["last_pixel_placed"]),
+                    "created_at": _iso_or_none(row["created_at"]),
+                }
+                for row in pixel_stats
+            ],
+            "placements": [
+                {**row, "placed_at": _iso_or_none(row["placed_at"])}
+                for row in pixel_history
+            ],
+            "current_pixels": [
+                {**row, "placed_at": _iso_or_none(row["placed_at"])} for row in pixels
+            ],
         }
     delegation = DelegationProfile.objects.filter(user=user).first()
     if delegation is not None:

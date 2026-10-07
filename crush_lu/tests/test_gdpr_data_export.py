@@ -345,3 +345,36 @@ class ExportRegistryCompletenessTests(TestCase):
         self.assertEqual(hub["requests"][0]["subject"], "Need help")
         self.assertEqual(hub["timeline"][0]["title"], "Called")
         self.assertEqual(data["other_platforms"]["entreprinder"]["skills"], ["Welding"])
+
+
+class ExportPixelActivityTests(TestCase):
+    def test_pixel_canvas_activity_is_exported_without_an_entrepreneur_profile(self):
+        from django.utils import timezone
+
+        from entreprinder.vibe.models import (
+            Pixel,
+            PixelCanvas,
+            PixelHistory,
+            UserPixelStats,
+        )
+
+        cache.clear()
+        user = User.objects.create_user("px@example.com", "px@example.com", "pw12345678")
+        canvas = PixelCanvas.objects.create(name="c", width=10, height=10)
+        Pixel.objects.create(canvas=canvas, x=1, y=2, color="#FF0000", placed_by=user)
+        PixelHistory.objects.create(
+            canvas=canvas, x=1, y=2, color="#FF0000", placed_by=user
+        )
+        UserPixelStats.objects.create(
+            user=user, canvas=canvas, total_pixels_placed=3,
+            last_pixel_placed=timezone.now(),
+        )
+        request = RequestFactory().get("/")
+        request.user = user
+
+        data = json.loads(export_user_data(request).content)
+
+        pixel = data["other_platforms"]["entreprinder"]["pixel_canvas"]
+        self.assertEqual(pixel["stats"][0]["total_pixels_placed"], 3)
+        self.assertEqual(pixel["placements"][0]["color"], "#FF0000")
+        self.assertEqual((pixel["current_pixels"][0]["x"], pixel["current_pixels"][0]["y"]), (1, 2))

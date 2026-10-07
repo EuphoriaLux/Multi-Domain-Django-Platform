@@ -1179,3 +1179,75 @@ class Round10ErasureTests(TestCase):
         bounce.refresh_from_db()
         self.assertEqual(invitation.guest_email, 'victim@example.com')
         self.assertEqual(bounce.recipient, 'victim@example.com')
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_pending_gift_media_is_deleted_before_blanking(self, _s):
+        from django.core.files.base import ContentFile
+        from django.core.files.storage import InMemoryStorage
+
+        from crush_lu.models import JourneyGift
+        from crush_lu.views import delete_full_account
+
+        storage = InMemoryStorage()
+        name = storage.save('journey_gifts/qr/PEND.png', ContentFile(b'png'))
+        gift = JourneyGift.objects.create(
+            sender=self.other, recipient_name='Del', recipient_email='del@example.com',
+            date_first_met=date(2024, 1, 1), location_first_met='Lux',
+        )
+        JourneyGift.objects.filter(pk=gift.pk).update(qr_code_image=name)
+
+        field = JourneyGift._meta.get_field('qr_code_image')
+        with patch.object(field, 'storage', storage):
+            delete_full_account(self.user)
+
+        gift.refresh_from_db()
+        self.assertFalse(gift.qr_code_image)
+        self.assertFalse(storage.exists(name))
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_failed_full_deletion_stays_retryable_until_it_finishes(self, _s):
+        from crush_lu.models.profiles import UserDataConsent
+        from crush_lu.views import delete_full_account
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user, defaults={'crushlu_consent_given': True}
+        )
+        with patch(
+            'crush_lu.views_account._purge_other_apps_personal_data',
+            side_effect=RuntimeError('boom'),
+        ):
+            with self.assertRaises(RuntimeError):
+                delete_full_account(self.user)
+
+        consent = UserDataConsent.objects.get(user=self.user)
+        self.assertTrue(consent.crushlu_banned)
+        # ConsentMiddleware only lets the retry endpoints through for this.
+        self.assertEqual(consent.crushlu_ban_reason, 'deletion_in_progress')
+
+        delete_full_account(self.user)
+        consent.refresh_from_db()
+        self.assertEqual(consent.crushlu_ban_reason, 'user_deletion')
+
+    def test_legacy_consent_confirm_opt_in_enables_newsletters_too(self):
+        from django.core.cache import cache
+        from django.test import Client
+
+        from crush_lu.models import EmailPreference
+        from crush_lu.newsletter_service import newsletter_opted_in_user_ids
+
+        cache.clear()
+        EmailPreference.objects.update_or_create(
+            user=self.user,
+            defaults={'email_marketing': False, 'email_newsletter': False},
+        )
+        client = Client()
+        client.force_login(self.user)
+
+        response = client.post(
+            '/en/consent/confirm/',
+            {'crushlu_consent': 'on', 'marketing_consent': 'on'},
+            HTTP_HOST='crush.lu',
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(self.user.pk, set(newsletter_opted_in_user_ids()))
