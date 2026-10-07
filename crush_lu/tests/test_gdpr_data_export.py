@@ -166,3 +166,26 @@ class ExportProfileCompletenessTests(TestCase):
         self.assertEqual(exported["qualities"], ["Kind"])
         self.assertEqual(exported["sought_qualities"], ["Kind"])
         self.assertEqual(exported["defects"], ["Messy"])
+
+    def test_other_platform_profiles_are_exported_without_tokens(self):
+        from delegations.models import DelegationProfile
+        from entreprinder.models import EntrepreneurProfile
+        from hub.models import HubProfile
+
+        HubProfile.objects.create(
+            user=self.user, organization="Acme", primary_contact="Ann",
+            phone="+352621000111",
+        )
+        EntrepreneurProfile.objects.create(user=self.user, tagline="Hi")
+        DelegationProfile.objects.create(
+            user=self.user, microsoft_id="MS-ID-1", microsoft_tenant_id="TENANT-1",
+            job_title="Dev",
+        )
+        other = self._export()["other_platforms"]
+        self.assertEqual(other["hub"]["organization"], "Acme")
+        self.assertEqual(other["entreprinder"]["tagline"], "Hi")
+        self.assertEqual(other["delegations"]["microsoft_id"], "MS-ID-1")
+        self.assertEqual(other["delegations"]["job_title"], "Dev")
+
+    def test_no_other_platform_key_for_plain_members(self):
+        self.assertNotIn("other_platforms", self._export())

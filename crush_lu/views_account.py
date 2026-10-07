@@ -670,6 +670,23 @@ def _anonymize_coach_record(user):
     ).delete()
 
 
+# Denormalised JSON lists of user primary keys (no FK, so nothing cascades).
+ACCOUNT_ERASURE_ID_LISTS = (("crush_lu", "CustomSmsBatch", "manual_user_ids"),)
+
+
+def _remove_user_from_id_lists(user):
+    """Drop the erased user's pk from retained JSON id-list columns."""
+    from django.apps import apps
+
+    for app_label, model_name, field in ACCOUNT_ERASURE_ID_LISTS:
+        model = apps.get_model(app_label, model_name)
+        for row in model.objects.exclude(**{field: []}).iterator():
+            ids = getattr(row, field) or []
+            kept = [value for value in ids if value != user.pk]
+            if kept != ids:
+                model.objects.filter(pk=row.pk).update(**{field: kept})
+
+
 def _anonymize_send_logs(user):
     """Strip identifiers from mail/WhatsApp send logs, keeping the audit rows.
 
@@ -782,6 +799,7 @@ def _purge_user_keyed_personal_data(user):
             rows.update(**blank, **{field: None})
         for app_label, model_name, field in ACCOUNT_ERASURE_M2M_CRUSH:
             _remove_user_from_m2m(app_label, model_name, field, user)
+        _remove_user_from_id_lists(user)
     if summary:
         logger.info("Erased User-keyed personal data for user %s: %s", user.id, summary)
     return summary
@@ -2211,6 +2229,9 @@ def export_user_data(request):
         PWADeviceInstallation,
     )
     from crush_lu.models.profiles import UserDataConsent
+    from delegations.models import DelegationProfile
+    from entreprinder.models import EntrepreneurProfile
+    from hub.models import HubProfile
 
     user = request.user
     data = {
@@ -2278,6 +2299,55 @@ def export_user_data(request):
         # Deliberately NOT exported: credentials and internal identifiers
         # (apple_auth_token, phone_verification_uid, wallet/outlook ids, photo
         # storage keys, draft_data) and staff-side photo review notes.
+
+    # Profiles held by the other platforms on the same account (no tokens).
+    other_platforms = {}
+    hub_profile = HubProfile.objects.filter(user=user).first()
+    if hub_profile is not None:
+        other_platforms["hub"] = {
+            "organization": hub_profile.organization,
+            "primary_contact": hub_profile.primary_contact,
+            "phone": hub_profile.phone,
+            "created_at": hub_profile.created_at.isoformat(),
+        }
+    entrepreneur = EntrepreneurProfile.objects.filter(user=user).first()
+    if entrepreneur is not None:
+        other_platforms["entreprinder"] = {
+            "tagline": entrepreneur.tagline,
+            "bio": entrepreneur.bio,
+            "company": entrepreneur.company,
+            "industry": str(entrepreneur.industry) if entrepreneur.industry else None,
+            "location": entrepreneur.location,
+            "looking_for": entrepreneur.looking_for,
+            "offering": entrepreneur.offering,
+            "website": entrepreneur.website,
+            "linkedin_profile": entrepreneur.linkedin_profile,
+            "years_of_experience": entrepreneur.years_of_experience,
+            "is_mentor": entrepreneur.is_mentor,
+            "is_looking_for_funding": entrepreneur.is_looking_for_funding,
+            "is_investor": entrepreneur.is_investor,
+        }
+    delegation = DelegationProfile.objects.filter(user=user).first()
+    if delegation is not None:
+        other_platforms["delegations"] = {
+            "company": str(delegation.company) if delegation.company else None,
+            "microsoft_id": delegation.microsoft_id,
+            "microsoft_tenant_id": delegation.microsoft_tenant_id,
+            "department": delegation.department,
+            "job_title": delegation.job_title,
+            "office_location": delegation.office_location,
+            "has_profile_photo": bool(delegation.profile_photo),
+            "role": delegation.role,
+            "status": delegation.status,
+            "created_at": delegation.created_at.isoformat(),
+            "last_login_at": (
+                delegation.last_login_at.isoformat()
+                if delegation.last_login_at
+                else None
+            ),
+        }
+    if other_platforms:
+        data["other_platforms"] = other_platforms
 
     # Email / WhatsApp preferences
     email_prefs = EmailPreference.objects.filter(user=user).first()

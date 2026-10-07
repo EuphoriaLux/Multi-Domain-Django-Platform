@@ -266,7 +266,7 @@ class AccountErasureCompletenessTests(TestCase):
     @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
     def test_nullable_links_and_send_logs_are_anonymized_in_place(self, _s):
         from crush_lu.models import (
-            Campaign, CampaignRecipient, CrushSpark, Newsletter,
+            Campaign, CampaignRecipient, Newsletter,
             NewsletterRecipient, ReferralAttribution,
         )
         from crush_lu.models.referrals import ReferralCode
@@ -646,3 +646,19 @@ class AccountErasureCompletenessTests(TestCase):
             )
         theirs.refresh_from_db()
         self.assertEqual((theirs.contact_name, theirs.text), ('Del Me', 'hello'))
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_erased_user_pk_is_removed_from_manual_sms_batches(self, _s):
+        from crush_lu.models.custom_sms import CustomSmsBatch
+        from crush_lu.views import delete_crushlu_profile_only, delete_full_account
+
+        batch = CustomSmsBatch.objects.create(
+            manual_user_ids=[self.user.pk, self.other.pk],
+        )
+        keep = CustomSmsBatch.objects.create(manual_user_ids=[self.other.pk])
+        delete_crushlu_profile_only(self.user)
+        batch.refresh_from_db()
+        self.assertEqual(batch.manual_user_ids, [self.other.pk])
+        delete_full_account(self.user)  # second path stays idempotent
+        keep.refresh_from_db()
+        self.assertEqual(keep.manual_user_ids, [self.other.pk])
