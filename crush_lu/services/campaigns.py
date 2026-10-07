@@ -35,6 +35,8 @@ from crush_lu.models import (
     CampaignLink,
     CampaignRecipient,
     EmailPreference,
+    CrushProfile,
+    PushSubscription,
 )
 from crush_lu.utils.i18n import get_user_preferred_language
 
@@ -332,6 +334,35 @@ class WhatsAppAdapter:
         )
 
     def eligible_users(self, campaign):
+        return _exclude_processed(
+            self.channel_audience(campaign), campaign, self.key
+        )
+
+    @staticmethod
+    def still_reachable(user):
+        """Volatile WhatsApp predicates for ONE user (cheap single reads)."""
+        if not newsletter_service.has_current_consent(user):
+            return False
+        if newsletter_service.is_on_break(user):
+            return False
+        if not EmailPreference.objects.filter(
+            user_id=user.pk, whatsapp_opt_in=True, unsubscribed_all=False
+        ).exists():
+            return False
+        return (
+            CrushProfile.objects.filter(
+                user_id=user.pk, phone_verified=True, not_on_whatsapp=False
+            )
+            .exclude(phone_number='')
+            .exists()
+        )
+
+    def channel_audience(self, campaign):
+        """Everyone currently reachable on this channel (before dedupe).
+
+        Re-evaluated per recipient right before each paid send so an opt-out,
+        unsubscribe, number change or deletion mid-run is honoured.
+        """
         users = resolve_campaign_audience(campaign)
         # Explicit opt-in only: a missing EmailPreference row means NOT opted
         # in (whatsapp_opt_in defaults to False — GDPR).
@@ -346,7 +377,7 @@ class WhatsAppAdapter:
             crushprofile__phone_verified=True,
             crushprofile__not_on_whatsapp=False,
         ).exclude(crushprofile__phone_number='')
-        return _exclude_processed(users, campaign, self.key)
+        return users
 
     def send_batch(self, campaign, limit, deadline=None, stdout=None):
         from hub.whatsapp_service import send_whatsapp_template
@@ -381,6 +412,13 @@ class WhatsAppAdapter:
             user = User.objects.filter(id=user_id).first()
             if user is None:
                 continue
+            # Consent, ban, break or this channel's own predicates may have
+            # changed since the audience was resolved (opt-out, unsubscribe,
+            # deletion mid-run). Single-user predicate reads only: never
+            # re-resolve the audience per recipient (segment audiences run
+            # dozens of COUNT queries each time).
+            if not self.still_reachable(user):
+                continue
             profile = getattr(user, 'crushprofile', None)
             lang = get_user_preferred_language(user=user, default='en')
             parameters = {}
@@ -405,10 +443,23 @@ class WhatsAppAdapter:
             if not created and claim.status != 'pending':
                 continue  # processed by a concurrent tick
 
+            # Final reachability check and fresh number, immediately before the
+            # paid Meta call (no lock is held across it by design; an accepted
+            # message cannot be recalled).
+            if not self.still_reachable(user):
+                if created:
+                    claim.delete()
+                continue
+            phone = (
+                CrushProfile.objects.filter(user_id=user.pk)
+                .values_list('phone_number', flat=True)
+                .first()
+            )
+
             try:
                 message = send_whatsapp_template(
                     sender=sender,
-                    recipient=profile.phone_number,
+                    recipient=phone,
                     template_name=campaign.whatsapp_template_name,
                     language=lang,
                     parameters=parameters,
@@ -457,9 +508,25 @@ class PushAdapter:
     key = Campaign.CHANNEL_PUSH
 
     def eligible_users(self, campaign):
+        return _exclude_processed(
+            self.channel_audience(campaign), campaign, self.key
+        )
+
+    @staticmethod
+    def still_reachable(user):
+        """Volatile push predicates for ONE user (cheap single reads)."""
+        return (
+            newsletter_service.has_current_consent(user)
+            and not newsletter_service.is_on_break(user)
+            and PushSubscription.objects.filter(
+                user_id=user.pk, enabled=True
+            ).exists()
+        )
+
+    def channel_audience(self, campaign):
+        """Currently reachable on push."""
         users = resolve_campaign_audience(campaign)
-        users = users.filter(push_subscriptions__enabled=True).distinct()
-        return _exclude_processed(users, campaign, self.key)
+        return users.filter(push_subscriptions__enabled=True).distinct()
 
     def send_batch(self, campaign, limit, deadline=None, stdout=None):
         from crush_lu.push_notifications import send_push_notification
@@ -494,6 +561,13 @@ class PushAdapter:
             user = User.objects.filter(id=user_id).first()
             if user is None:
                 continue
+            # Consent, ban, break or this channel's own predicates may have
+            # changed since the audience was resolved (opt-out, unsubscribe,
+            # deletion mid-run). Single-user predicate reads only: never
+            # re-resolve the audience per recipient (segment audiences run
+            # dozens of COUNT queries each time).
+            if not self.still_reachable(user):
+                continue
             lang = get_user_preferred_language(user=user, default='en')
 
             # Durable pre-send claim (same pattern as WhatsApp): a worker
@@ -516,6 +590,12 @@ class PushAdapter:
                 with translation.override(lang):
                     title = campaign.push_title
                     body = campaign.push_body
+                # Final reachability check immediately before the provider
+                # call (no lock across it by design).
+                if not self.still_reachable(user):
+                    if created:
+                        claim.delete()
+                    continue
                 outcome = send_push_notification(
                     user,
                     title,

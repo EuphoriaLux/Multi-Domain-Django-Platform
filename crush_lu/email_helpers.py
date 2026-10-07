@@ -180,6 +180,15 @@ def can_send_email(user, email_type):
     """
     try:
         from .models import EmailPreference
+        from .models.profiles import UserDataConsent
+
+        # A banned user (deleted their Crush.lu profile/account) must never be
+        # mailed, and must not get default-enabled preferences re-created for
+        # them by the lookup below.
+        if UserDataConsent.objects.filter(
+            user_id=user.pk, crushlu_banned=True
+        ).exists():
+            return False
 
         email_prefs = EmailPreference.get_or_create_for_user(user)
         return email_prefs.can_send(email_type)

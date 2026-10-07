@@ -118,9 +118,9 @@ def sync_newsletter_counters(newsletter):
 def eligible_recipients(include_sent=False):
     """Users who may receive the campaign.
 
-    Active female members, not verified, not on a break, whose marketing
-    email preference (``EmailPreference.email_marketing``) is on and who have
-    not unsubscribed.
+    Active female members, not verified, not on a break, who hold the shared
+    newsletter opt-in (``newsletter_service.NEWSLETTER_OPT_IN``: marketing on,
+    newsletter on, not unsubscribed from all).
 
     Deliberately NOT the signup tick (``UserDataConsent.marketing_consent``):
     the settings toggle used to clear only ``email_marketing`` and left no
@@ -128,6 +128,8 @@ def eligible_recipients(include_sent=False):
     and the consent page now copy the tick into ``email_marketing``, so new
     consent is recorded where this filter looks. ``unsubscribed_all`` vetoes.
     """
+    from crush_lu.newsletter_service import newsletter_opted_in_user_ids
+
     already_logged = NewsletterRecipient.objects.filter(
         newsletter__campaign__slug=CAMPAIGN_SLUG, user=OuterRef("pk")
     )
@@ -140,10 +142,14 @@ def eligible_recipients(include_sent=False):
             crushprofile__verification_status__in=UNVERIFIED_STATUSES,
         )
         .exclude(email="")
-        .filter(email_preference__email_marketing=True)
-        .exclude(email_preference__unsubscribed_all=True)
+        # The shared newsletter opt-in predicate (email_marketing AND
+        # email_newsletter AND not unsubscribed_all), same as the resolver.
+        .filter(pk__in=newsletter_opted_in_user_ids())
         # delete_crushlu_profile_only keeps the user active but bans them.
         .exclude(data_consent__crushlu_banned=True)
+        # Same recorded-consent predicate as newsletter_service.resolve_audience
+        # (#1184): a lazily created, never-consented profile is not mailed.
+        .filter(data_consent__crushlu_consent_given=True)
         .select_related("crushprofile")
         .order_by("pk")
     )
@@ -251,11 +257,24 @@ def send_women_1y_email(user, campaign, to=None, test_mode=False, unsubscribe_ur
     subject, text, html = build_email(
         user, campaign, test_mode=test_mode, unsubscribe_url=unsubscribe_url
     )
+    recipient = to
+    if recipient is None:
+        # Final consent check and fresh address immediately before the
+        # handoff (no lock is held across the provider call by design).
+        from crush_lu.newsletter_service import (
+            ConsentRevokedBeforeSend,
+            final_send_address,
+        )
+
+        try:
+            recipient = final_send_address(user)
+        except ConsentRevokedBeforeSend:
+            return 0
     return send_domain_email(
         subject=subject,
         message=text,
         html_message=html,
-        recipient_list=[to or user.email],
+        recipient_list=[recipient],
         # Batch sender has no request; without a domain the config falls back
         # to the PowerUp sender.
         domain="crush.lu",
