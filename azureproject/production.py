@@ -15,11 +15,23 @@ DJANGO_ENV = os.environ.get("DJANGO_ENV", "production")
 # A parsed link-local IPv4 exception lets instrumentation inspect Azure probes.
 # HealthCheckMiddleware restricts internal effective hosts to probe paths;
 # no DNS-prefix exception is safe here because every later get_host() uses it.
+from django.core.exceptions import ImproperlyConfigured
 from django.http import request as django_request
 
 from .settings import *  # noqa
 from .settings import BASE_DIR, _env_bool, channel_layer_hosts
 from .host_validation import is_azure_internal_host  # noqa: E402
+
+# settings.py substitutes a committed placeholder key under pytest or DEBUG.
+# Production must never boot on one, whatever settings.py guessed about the
+# process: re-check the real environment variable here.
+if not os.environ.get("SECRET_KEY") or SECRET_KEY in {
+    "test-secret-key-for-pytest",
+    "dev-insecure-key-change-in-production",
+}:
+    raise ImproperlyConfigured(
+        "The SECRET_KEY environment variable must be set in production."
+    )
 
 _original_validate_host = django_request.validate_host
 

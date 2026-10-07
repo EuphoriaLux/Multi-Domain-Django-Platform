@@ -9870,11 +9870,6 @@ msgstr ""
 msgid "Your browser doesn't support push notifications."
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\account_settings.html:737
-#: .\crush_lu\templates\crush_lu\partials\edit_account_notifications.html:397
-msgid "Allow notifications in your browser settings to receive coach alerts."
-msgstr ""
-
 #: .\crush_lu\templates\crush_lu\account_settings.html:748
 #: .\crush_lu\templates\crush_lu\partials\edit_account_notifications.html:407
 msgid ""
@@ -28700,4 +28695,86 @@ msgstr ""
 
 #: templates/crush_lu/_connection_response.html:36
 msgid "Profiles shared"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_photo_review.html
+msgid "Crush overall"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_photo_review.html
+msgid "Each card reviews one image. Other photos are shown for context; the decision applies to the labeled image only. Reviews are shared between both queues."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_photo_review.html
+msgid "This card is reviewing"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_photo_review.html
+msgid "Return to that image before deciding."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_photo_review.html
+msgid "Show image under review"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_photo_review.html
+msgid "Online photo review does not verify identity or in-person photo authenticity."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/crush_connect/_reviewed_secondary_photos.html
+msgid "Coach-reviewed profile photos"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/crush_connect/_candidate_card.html
+#: crush_lu/templates/crush_lu/crush_connect/_cycle_card.html
+#: crush_lu/templates/crush_lu/crush_connect/_permitted_profile.html
+#: crush_lu/templates/crush_lu/crush_connect/_review_card.html
+msgid "Coach-reviewed photo"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/crush_connect/_candidate_card.html
+#: crush_lu/templates/crush_lu/crush_connect/_cycle_card.html
+#: crush_lu/templates/crush_lu/crush_connect/_review_card.html
+msgid "A Crush Coach reviewed this specific photo"
+msgstr ""
+
+#: crush_lu/services/photo_review.py
+msgid "primary photo"
+msgstr ""
+
+#: crush_lu/services/photo_review.py
+msgid "photo 2"
+msgstr ""
+
+#: crush_lu/services/photo_review.py
+msgid "photo 3"
+msgstr ""
+
+#: crush_lu/email_helpers.py
+#: crush_lu/notification_service.py
+msgid "main profile photo"
+msgstr ""
+
+#: crush_lu/email_helpers.py
+#: crush_lu/notification_service.py
+msgid "second profile photo"
+msgstr ""
+
+#: crush_lu/email_helpers.py
+#: crush_lu/notification_service.py
+msgid "third profile photo"
+msgstr ""
+
+#: crush_lu/notification_service.py
+msgid "profile photo"
+msgstr ""
+
+#, python-format
+#: crush_lu/notification_service.py
+#: crush_lu/templates/crush_lu/emails/photo_revision_request.html
+msgid "Your coach asked you to replace your %(photo)s. The rest of your profile can stay as it is."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/emails/photo_revision_request.html
+msgid "Upload a replacement photo in that slot. You do not need to change anything else."
 msgstr ""

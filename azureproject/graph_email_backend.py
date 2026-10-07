@@ -4,7 +4,9 @@ Microsoft Graph API email backend for Django.
 Sends emails using Microsoft Graph instead of SMTP.
 """
 import base64
+import functools
 import logging
+import threading
 from email.utils import parseaddr
 from urllib.parse import quote
 
@@ -16,6 +18,36 @@ logger = logging.getLogger(__name__)
 # One sendMail request: connect plus read, at most 30 s in all.
 GRAPH_CONNECT_TIMEOUT_SECONDS = 10
 GRAPH_READ_TIMEOUT_SECONDS = 20
+
+# Token acquisition (#925): MSAL sends at most two requests on a cold app --
+# the tenant's OIDC discovery and the token request (login.microsoftonline.com
+# needs no instance discovery) -- each bounded by connect plus read, with no
+# retry. A warm app answers from its token cache without any request.
+GRAPH_TOKEN_CONNECT_TIMEOUT_SECONDS = 5
+GRAPH_TOKEN_READ_TIMEOUT_SECONDS = 5
+GRAPH_TOKEN_REQUESTS = 2
+GRAPH_TOKEN_TIMEOUT_SECONDS = GRAPH_TOKEN_REQUESTS * (
+    GRAPH_TOKEN_CONNECT_TIMEOUT_SECONDS + GRAPH_TOKEN_READ_TIMEOUT_SECONDS
+)
+
+# One MSAL app per credential set and process, so its token cache survives
+# between sends: a fresh app per send always missed the cache and paid both
+# requests every time.
+_msal_apps = {}
+_msal_apps_lock = threading.Lock()
+
+
+def _token_http_client():
+    """A requests session with the (connect, read) token timeouts and none of
+    MSAL's default retry, which would double a request's worst case."""
+    import requests
+
+    session = requests.Session()
+    session.request = functools.partial(
+        session.request,
+        timeout=(GRAPH_TOKEN_CONNECT_TIMEOUT_SECONDS, GRAPH_TOKEN_READ_TIMEOUT_SECONDS),
+    )
+    return session
 
 
 class GraphEmailBackend(BaseEmailBackend):
@@ -47,14 +79,20 @@ class GraphEmailBackend(BaseEmailBackend):
         authority = f"https://login.microsoftonline.com/{self.tenant_id}"
         scope = ["https://graph.microsoft.com/.default"]
 
-        # Note: Do NOT use azure_region with client credentials flow.
-        # Regional endpoints only work with managed identities, not app-only auth.
-        # Using azure_region causes AADSTS100007 error.
-        app = msal.ConfidentialClientApplication(
-            self.client_id,
-            authority=authority,
-            client_credential=self.client_secret,
-        )
+        key = (self.tenant_id, self.client_id, self.client_secret)
+        with _msal_apps_lock:
+            app = _msal_apps.get(key)
+            if app is None:
+                # Note: Do NOT use azure_region with client credentials flow.
+                # Regional endpoints only work with managed identities, not
+                # app-only auth. Using azure_region causes AADSTS100007 error.
+                app = msal.ConfidentialClientApplication(
+                    self.client_id,
+                    authority=authority,
+                    client_credential=self.client_secret,
+                    http_client=_token_http_client(),
+                )
+                _msal_apps[key] = app
 
         # Try to get token from cache first
         result = app.acquire_token_silent(scope, account=None)

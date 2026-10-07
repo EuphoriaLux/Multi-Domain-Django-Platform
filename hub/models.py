@@ -893,6 +893,9 @@ class SocialPost(models.Model):
     content = models.TextField(blank=True, default="")
     media_url = models.URLField(blank=True, null=True, default=None)
     media_urls = models.JSONField(default=list, blank=True)
+    media_type = models.CharField(
+        max_length=5, choices=[("image", "Image"), ("video", "Video")], default="image"
+    )
     generation_key = models.CharField(
         max_length=200, unique=True, null=True, blank=True
     )
@@ -913,3 +916,50 @@ class SocialPost(models.Model):
 
     def __str__(self):
         return f"[{self.language.upper()}] {self.hook or self.content[:30]} ({self.status})"
+
+
+class EventCoachAvailability(models.Model):
+    class Role(models.TextChoices):
+        ANIMATION = "Animation", "Animation"
+        ACCUEIL = "Accueil", "Accueil"
+        PHOTO_VIDEO = "Photo/Vidéo", "Photo/Vidéo"
+        SUPPORT = "Support", "Support"
+
+    class Status(models.TextChoices):
+        AVAILABLE = "available", "Disponible"
+        ASSIGNED = "assigned", "Assigné"
+        DECLINED = "declined", "Écarté"
+
+    event = models.ForeignKey(
+        "crush_lu.MeetupEvent",
+        on_delete=models.CASCADE,
+        related_name="coach_availabilities",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="hub_coach_availabilities",
+    )
+    coach_name = models.CharField(max_length=255, blank=True)
+    role = models.CharField(
+        max_length=50, choices=Role.choices, default=Role.ANIMATION
+    )
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.AVAILABLE
+    )
+    note = models.TextField(blank=True, default="")
+    declared_at = models.DateTimeField(auto_now_add=True)
+    assigned_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-declared_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event", "user"],
+                name="unique_hub_event_user_availability",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.coach_name or self.user} - Event {self.event_id} ({self.status})"
+

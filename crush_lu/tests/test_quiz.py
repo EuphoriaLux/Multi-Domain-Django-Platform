@@ -2483,7 +2483,13 @@ class TestQuizPhotoUrl:
         from crush_lu.models import CrushProfile
         from crush_lu.views_quiz import _photo_url
 
-        profile = CrushProfile(user_id=7, is_approved=True, photo_1="p.jpg")
+        profile = CrushProfile(
+            user_id=7,
+            is_approved=True,
+            photo_1="p.jpg",
+            photo_review_status="approved",
+            photo_review_key="p.jpg",
+        )
         assert _photo_url(profile) == "/api/quiz/photo/7/"
 
     def test_unapproved_profile_gets_no_url(self):
@@ -2749,7 +2755,11 @@ class TestCheckinAPITableAssignment:
         reg.checkin_token = token
         reg.save()
 
+        from crush_lu.models import CrushCoach
+
+        CrushCoach.objects.create(user=coach, is_active=True)
         client = Client()
+        client.force_login(coach)
         response = client.post(f"/api/events/checkin/{reg.id}/{token}/")
         data = response.json()
 
@@ -2793,7 +2803,17 @@ class TestCheckinAPITableAssignment:
         reg.checkin_token = token
         reg.save()
 
+        from crush_lu.models import CrushCoach
+
+        door_user = User.objects.create_user(
+            username="mixerdoor@test.com",
+            email="mixerdoor@test.com",
+            password="testpass123",
+        )
+        _grant_consent(door_user)
+        CrushCoach.objects.create(user=door_user, is_active=True)
         client = Client()
+        client.force_login(door_user)
         response = client.post(f"/api/events/checkin/{reg.id}/{token}/")
         data = response.json()
 

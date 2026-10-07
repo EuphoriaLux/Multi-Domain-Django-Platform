@@ -172,6 +172,32 @@ class PremiumCheckoutLockTests(TestCase):
         self.assertEqual(self._statuses(), {"CHK_NEW_1": "pending"})
         self.sumup["deactivate_checkout"].assert_not_called()
 
+    def test_no_checkout_is_created_once_the_deadline_cannot_fit_it(self):
+        """#925: settlement may spend the request's one deadline; creation
+        then defers instead of starting SumUp calls Gunicorn would cut off."""
+        from crush_lu.services import premium_recovery
+
+        # Creating needs room for three calls (customer, checkout, a possible
+        # deactivate): 60 s.
+        with patch.object(premium_recovery, "REQUEST_TOTAL_SECONDS", 59):
+            response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 503)
+        self.sumup["create_customer"].assert_not_called()
+        self.assertEqual(self.created, [])
+        self.assertEqual(self._statuses(), {})
+
+    def test_a_reused_checkout_needs_room_only_for_its_close(self):
+        """Reuse makes no creation call: a DELETE and one read (40 s) fit."""
+        from crush_lu.services import premium_recovery
+
+        self._pending_row("CHK_REUSE")
+        with patch.object(premium_recovery, "REQUEST_TOTAL_SECONDS", 45):
+            response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["checkout_id"], "CHK_REUSE")
+
     def test_unpayable_newest_and_older_checkouts_are_retired(self):
         """A stale-price newest checkout and every older one are closed first."""
         older = self._pending_row("CHK_OLD")

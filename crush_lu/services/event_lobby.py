@@ -49,6 +49,7 @@ GATE_NOT_VERIFIED = "profile_not_verified"
 GATE_NO_LUXID = "no_luxid"
 GATE_NO_PHOTO_CONSENT = "no_photo_consent"
 GATE_NO_PHOTO = "no_photo"
+GATE_PHOTO_REVISION = "photo_revision"
 
 
 class LobbyAccessError(Exception):
@@ -150,6 +151,13 @@ def participant_gate(user) -> tuple[bool, str]:
         or profile.verification_status != "verified"
     ):
         return False, GATE_NOT_VERIFIED
+    if profile.photo_review_status == "flagged_fake":
+        # Same as a coach exclusion even once staff lift the exclusion: the
+        # flag is sticky, so never invite a photo swap that cannot clear it.
+        return False, GATE_EXCLUDED
+    if profile.photo_review_status == "needs_revision":
+        # Actionable: lobby_locked.html links straight to the photo editor.
+        return False, GATE_PHOTO_REVISION
     if not profile.has_luxid_connected:
         return False, GATE_NO_LUXID
 
@@ -264,25 +272,36 @@ def eligible_participations(event):
     luxid_native_subq, luxid_oidc_subq = CrushProfile.luxid_account_querysets(
         OuterRef("user_id")
     )
-    return (
-        EventLobbyParticipation.objects.filter(
-            event=event,
-            event_registration__status="attended",
-            user__crush_connect_membership__onboarded_at__isnull=False,
-            user__crush_connect_membership__excluded_by_coach=False,
-            user__crush_connect_membership__paused_at__isnull=True,
-            user__crush_connect_membership__photo_share_consent=True,
-            user__crushprofile__is_active=True,
-            user__crushprofile__verification_status="verified",
-        )
-        .exclude(user__crushprofile__photo_1="")
-        .exclude(user__crushprofile__photo_1__isnull=True)
-        .annotate(
-            _has_luxid_native=Exists(luxid_native_subq),
-            _has_luxid_oidc=Exists(luxid_oidc_subq),
-        )
-        .filter(Q(_has_luxid_native=True) | Q(_has_luxid_oidc=True))
-        .select_related("user", "user__crushprofile")
+    from crush_lu.services.crush_connect import filter_primary_photo_review_approved
+
+    return filter_primary_photo_review_approved(
+        (
+            EventLobbyParticipation.objects.filter(
+                event=event,
+                event_registration__status="attended",
+                user__crush_connect_membership__onboarded_at__isnull=False,
+                user__crush_connect_membership__excluded_by_coach=False,
+                user__crush_connect_membership__paused_at__isnull=True,
+                user__crush_connect_membership__photo_share_consent=True,
+                user__crushprofile__is_active=True,
+                user__crushprofile__verification_status="verified",
+            )
+            .exclude(user__crushprofile__photo_1="")
+            .exclude(user__crushprofile__photo_1__isnull=True)
+            .exclude(
+                user__crushprofile__photo_review_status__in=(
+                    "needs_revision",
+                    "flagged_fake",
+                )
+            )
+            .annotate(
+                _has_luxid_native=Exists(luxid_native_subq),
+                _has_luxid_oidc=Exists(luxid_oidc_subq),
+            )
+            .filter(Q(_has_luxid_native=True) | Q(_has_luxid_oidc=True))
+            .select_related("user", "user__crushprofile")
+        ),
+        profile_prefix="user__crushprofile",
     )
 
 
@@ -367,7 +386,9 @@ def is_recap_admissible(user, event, now=None) -> bool:
     ok, reason = participant_gate(user)
     if ok:
         return True
-    if reason in (GATE_NOT_ONBOARDED, GATE_NO_MEMBERSHIP) and may_learn_lobby_exists(user):
+    if reason in (GATE_NOT_ONBOARDED, GATE_NO_MEMBERSHIP) and may_learn_lobby_exists(
+        user
+    ):
         return True
     return False
 

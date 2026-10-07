@@ -21,6 +21,7 @@ Blocking is silent: the blocked user is never notified (standard practice).
 
 from django.contrib.auth.models import User
 from django.db import models
+from django.utils import timezone
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
@@ -185,3 +186,124 @@ class UserReport(models.Model):
 
     def __str__(self):
         return f"{self.reporter_id} ⚑ {self.reported_user_id} ({self.status})"
+
+
+class ProfilePhotoReviewLog(models.Model):
+    """Audit log of coach photo review decisions in the swipe queue."""
+
+    DECISION_CHOICES = [
+        ("approved", _("Approved / Authentic")),
+        ("flagged_fake", _("Flagged Fake or Suspicious")),
+        ("needs_revision", _("Needs Revision")),
+        ("skipped", _("Skipped")),
+    ]
+
+    REASON_CHOICES = [
+        ("clear_authentic", _("Clear and authentic photo")),
+        ("fake_profile", _("Fake or impersonating profile")),
+        ("inappropriate", _("Inappropriate or explicit content")),
+        ("unclear_face", _("Face unclear or covered")),
+        ("group_photo", _("Group photo / cannot identify member")),
+        ("other", _("Other")),
+    ]
+
+    profile = models.ForeignKey(
+        "crush_lu.CrushProfile",
+        on_delete=models.CASCADE,
+        related_name="photo_review_logs",
+    )
+    photo_field = models.CharField(
+        max_length=7,
+        choices=(
+            ("photo_1", _("Primary photo")),
+            ("photo_2", _("Photo 2")),
+            ("photo_3", _("Photo 3")),
+        ),
+        default="photo_1",
+    )
+    coach = models.ForeignKey(
+        "crush_lu.CrushCoach",
+        on_delete=models.CASCADE,
+        related_name="photo_review_logs",
+    )
+    photo_key = models.CharField(max_length=255)
+    decision = models.CharField(max_length=20, choices=DECISION_CHOICES)
+    reason = models.CharField(max_length=50, blank=True, choices=REASON_CHOICES)
+    notes = models.CharField(max_length=255, blank=True)
+    previous_status = models.CharField(max_length=20, blank=True)
+    decision_at = models.DateTimeField(default=timezone.now)
+    undone_at = models.DateTimeField(null=True, blank=True)
+    revision_notification_state = models.CharField(
+        max_length=20, blank=True, default="", editable=False
+    )
+    exclusion_created = models.BooleanField(default=False)
+    # Whether this decision created the Connect membership that carries the
+    # exclusion, so Undo can remove a row the member never started.
+    membership_created = models.BooleanField(default=False)
+    withdrawn_picks = models.JSONField(default=list, blank=True)
+    report = models.ForeignKey(
+        UserReport, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = _("Profile Photo Review Log")
+        verbose_name_plural = _("Profile Photo Review Logs")
+        indexes = [
+            models.Index(fields=["coach", "-created_at"], name="photo_rev_coach_idx"),
+            models.Index(fields=["profile", "-created_at"], name="photo_rev_prof_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.coach} -> {self.profile} {self.photo_field} ({self.decision})"
+
+
+class ProfilePhotoReviewState(models.Model):
+    """Current coach decision for one exact profile photo file."""
+
+    PHOTO_FIELDS = (
+        ("photo_1", _("Primary photo")),
+        ("photo_2", _("Photo 2")),
+        ("photo_3", _("Photo 3")),
+    )
+    STATUS_CHOICES = [
+        ("approved", _("Coach reviewed")),
+        ("needs_revision", _("Needs revision")),
+        ("flagged_fake", _("Flagged fake or suspicious")),
+    ]
+
+    profile = models.ForeignKey(
+        "crush_lu.CrushProfile",
+        on_delete=models.CASCADE,
+        related_name="photo_review_states",
+    )
+    photo_field = models.CharField(max_length=7, choices=PHOTO_FIELDS)
+    photo_key = models.CharField(max_length=255)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    reviewed_at = models.DateTimeField(default=timezone.now)
+    reviewed_by = models.ForeignKey(
+        "crush_lu.CrushCoach",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="photo_review_states",
+    )
+    notes = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("profile", "photo_field"),
+                name="unique_photo_review_state_per_slot",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=("photo_field", "status"),
+                name="photo_state_field_status_idx",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.profile} {self.photo_field}: {self.status}"

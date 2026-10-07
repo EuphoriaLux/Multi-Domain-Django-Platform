@@ -206,6 +206,24 @@ def exclude_assigned_coach_pairs(qs, user, field="pk"):
     return qs.exclude(**{f"{field}__in": pair_ids})
 
 
+def filter_primary_photo_review_approved(qs, profile_prefix="crushprofile"):
+    """Drop members whose exact current primary photo a coach moderated.
+
+    Pending (not yet reviewed) photos stay eligible, as before per-photo review.
+    """
+    from crush_lu.models import ProfilePhotoReviewState
+
+    moderated = ProfilePhotoReviewState.objects.filter(
+        profile_id=OuterRef(f"{profile_prefix}__pk"),
+        photo_field="photo_1",
+        photo_key=OuterRef(f"{profile_prefix}__photo_1"),
+        status__in=("needs_revision", "flagged_fake"),
+    )
+    return qs.annotate(_coach_moderated_primary=Exists(moderated)).filter(
+        _coach_moderated_primary=False
+    )
+
+
 def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
     """
     The member must have an approved profile, active Premium membership, and
@@ -226,6 +244,7 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
         user_profile is None
         or not user_profile.is_approved
         or not user_profile.is_active
+        or user_profile.photo_review_status in ("needs_revision", "flagged_fake")
         or not user.is_active
     ):
         return User.objects.none()
@@ -280,6 +299,9 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
         # verification, so a member can be verified yet photoless — or clear
         # their photo after onboarding. They must not be offered to a coach.
         .exclude(Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True))
+        .exclude(
+            crushprofile__photo_review_status__in=["needs_revision", "flagged_fake"]
+        )
         .annotate(
             _has_connection=Exists(existing_connection_subq),
             _has_block=block_exists_subquery(user),
@@ -291,6 +313,7 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
         .exclude(pk__in=hidden_encounter_user_ids(user))
         .select_related("crushprofile", "crush_connect_membership")
     )
+    qs = filter_primary_photo_review_approved(qs)
     # LuxID OR attended in-person event satisfies identity verification for
     # the candidate catalogue (Option B / Issue #539).
     qs = filter_connect_identity_verified(qs)
@@ -457,17 +480,25 @@ def active_week_questions(today: date | None = None):
 
 def filter_catalogue_eligible(qs):
     """Queryset equivalent of is_catalogue_eligible for stored-card read paths."""
-    return filter_connect_identity_verified(
-        qs.filter(
-            is_active=True,
-            crushprofile__is_active=True,
-            crush_connect_membership__onboarded_at__isnull=False,
-            crush_connect_membership__excluded_by_coach=False,
-            crush_connect_membership__paused_at__isnull=True,
-            crush_connect_membership__photo_share_consent=True,
-            last_login__gte=timezone.now()
-            - timedelta(days=CONNECT_INACTIVITY_WINDOW_DAYS),
-        ).exclude(Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True))
+    return filter_primary_photo_review_approved(
+        filter_connect_identity_verified(
+            qs.filter(
+                is_active=True,
+                crushprofile__is_active=True,
+                crush_connect_membership__onboarded_at__isnull=False,
+                crush_connect_membership__excluded_by_coach=False,
+                crush_connect_membership__paused_at__isnull=True,
+                crush_connect_membership__photo_share_consent=True,
+                last_login__gte=timezone.now()
+                - timedelta(days=CONNECT_INACTIVITY_WINDOW_DAYS),
+            )
+            .exclude(
+                Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True)
+            )
+            .exclude(
+                crushprofile__photo_review_status__in=["flagged_fake", "needs_revision"]
+            )
+        )
     )
 
 
@@ -475,13 +506,8 @@ def is_catalogue_eligible(user) -> bool:
     """
     Whether ``user`` currently qualifies for the candidate catalogue:
     verified profile WITH a photo + LuxID linked + onboarded (not
-    coach-excluded) + active within CONNECT_INACTIVITY_WINDOW_DAYS. The photo
-    arm matters since fast-track event
-    verification made photo_1 optional: photoless members must not be
-    readable, and a member who clears their photo after onboarding drops
-    out at the next action point.
-
-    Eligibility is re-checked whenever a coach pool or cycle card is built.
+    coach-excluded) + active within CONNECT_INACTIVITY_WINDOW_DAYS +
+    photo not flagged or awaiting revision.
     """
     profile = getattr(user, "crushprofile", None)
     membership = getattr(user, "crush_connect_membership", None)
@@ -490,6 +516,7 @@ def is_catalogue_eligible(user) -> bool:
         profile is not None
         and profile.verification_status == "verified"
         and profile.photo_1
+        and profile.photo_review_status not in ("flagged_fake", "needs_revision")
         and profile.is_connect_identity_verified
         and membership is not None
         and profile.is_active
@@ -509,6 +536,7 @@ def is_premium_connect_eligible(user) -> bool:
         profile is not None
         and profile.is_approved
         and profile.photo_1
+        and profile.photo_review_status not in ("flagged_fake", "needs_revision")
         and profile.has_active_premium
         and membership is not None
         and profile.is_active

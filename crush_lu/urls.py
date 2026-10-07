@@ -6,6 +6,7 @@ from allauth.account.views import LoginView, LogoutView
 from allauth.account.forms import LoginForm
 from . import views
 from . import views_static
+from . import views_women_1y
 from . import views_pre_screening
 from . import views_crush_connect
 from . import views_connect_cycle
@@ -154,6 +155,7 @@ from . import views_crush_spark
 from . import views_ticket
 from . import views_quiz
 from . import views_coach as views_coach_module
+from . import views_coach_photos
 from . import views_quiz_config
 from . import views_crush_cache
 from . import views_changelog
@@ -234,6 +236,9 @@ urlpatterns = [
     # Landing and public pages
     path('', views.home, name='home'),
     path('about/', views.about, name='about'),
+    # Women's 1-year campaign landing + CTA router (crush_lu/campaign_women_1y.py)
+    path('women-1-year/', views_women_1y.women_1y_landing, name='women_1y_landing'),
+    path('women-1-year/go/', views_women_1y.women_1y_go, name='women_1y_go'),
     path('test-upstair/', views.test_upstair, name='test_upstair'),
     path('changelog/', views_changelog.changelog_list, name='changelog_list'),
     path('changelog/<slug:slug>/', views_changelog.changelog_detail, name='changelog_detail'),
@@ -679,6 +684,10 @@ urlpatterns = [
     path('notifications/', views.notifications_page, name='notifications'),
     path('coach/profiles/', views.coach_profiles, name='coach_profiles'),
     path('coach/unverified/', views.coach_unverified_profiles, name='coach_unverified_profiles'),
+    path('coach/photo-review/', views_coach_photos.coach_photo_review_deck, name='coach_photo_review_deck'),
+    path('coach/photo-review/decide/', views_coach_photos.coach_photo_review_decide, name='coach_photo_review_decide'),
+    path('coach/photo-review/undo/', views_coach_photos.coach_photo_review_undo, name='coach_photo_review_undo'),
+    path('coach/photo-review/more/', views_coach_photos.coach_photo_review_more, name='coach_photo_review_more'),
     path('coach/members/', views.coach_members, name='coach_members'),
     path('coach/profile/edit/', views.coach_edit_profile, name='coach_edit_profile'),
     path('coach/review/<int:submission_id>/', views.coach_review_profile, name='coach_review_profile'),

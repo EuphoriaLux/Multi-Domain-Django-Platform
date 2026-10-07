@@ -101,6 +101,13 @@ def pytest_configure(config):
     # settings — blocks a production env var from leaking in.
     os.environ['DJANGO_TASKS_BACKEND'] = 'django.tasks.backends.immediate.ImmediateBackend'
 
+    # Keep a local .env's USE_AZURITE=true from pointing tests at a dead
+    # emulator (127.0.0.1:10000) and its Azure SDK retry loops. pytest-django
+    # imports settings before this hook runs, so in THIS process it is
+    # settings.py's IS_TESTING that keeps Azurite off; this env var only
+    # protects what inherits the environment (xdist workers, subprocess tests).
+    os.environ['USE_AZURITE'] = 'false'
+
     # Patch staticfiles storage BEFORE Django fully initializes
     # This is needed because ManifestStaticFilesStorage fails without collectstatic
     from django.conf import settings
@@ -108,10 +115,23 @@ def pytest_configure(config):
         settings.STORAGES['staticfiles'] = {
             'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'
         }
-        # Use local filesystem for media during tests (not Azure Blob)
+        # Use local filesystem for media during tests (not Azure Blob).
+        # Only 'default': rewriting every alias would strip arborist_private's
+        # fail-closed LocalPrivateStorage and its private location. The platform
+        # media factories that fields take as storage= callables build Azure
+        # backends directly, and ran when models were imported, before this
+        # hook; they go local on their own under pytest
+        # (azureproject.storage_shared.local_storage_for_tests).
         settings.STORAGES['default'] = {
             'BACKEND': 'django.core.files.storage.FileSystemStorage'
         }
+
+    # xdist workers inherit the AZURE_ACCOUNT_NAME set above, so they load the
+    # settings branch that defines no MEDIA_ROOT, and Django's '' default would
+    # write local uploads (e.g. journey_gifts/qr/) into the repository root.
+    # Use the gitignored media/ that a single-process run already gets.
+    if not settings.MEDIA_ROOT:
+        settings.MEDIA_ROOT = str(settings.BASE_DIR / 'media')
 
     # Force console email backend for tests (no real emails sent)
     settings.EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'

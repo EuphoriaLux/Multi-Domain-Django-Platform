@@ -11,7 +11,7 @@ from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from crush_lu.models import CrushProfile, CrushCoach
+from crush_lu.models import CrushProfile, CrushCoach, ProfilePhotoReviewState
 from crush_lu.utils.image_processing import process_uploaded_image
 
 logger = logging.getLogger(__name__)
@@ -101,6 +101,18 @@ class Command(BaseCommand):
         obj_label = self._get_label(obj, field_name)
 
         try:
+            is_profile = isinstance(obj, CrushProfile)
+            if (
+                is_profile
+                and field_name == "photo_1"
+                and CrushProfile.objects.filter(
+                    pk=obj.pk,
+                    photo_review_status__in=("needs_revision", "flagged_fake"),
+                ).exists()
+            ):
+                self.stdout.write(f"  Skipped {obj_label}: negative photo moderation")
+                stats["skipped"] += 1
+                return
             # Read the current file
             field.open("rb")
             original_data = field.read()
@@ -131,19 +143,11 @@ class Command(BaseCommand):
                 stats["skipped"] += 1
                 return
 
-            # Delete the old blob first, then save the new one.
-            # The storage backend generates unique names (UUID) on save,
-            # so without deleting first we'd leave orphan blobs.
+            # Upload outside the row lock; keep the current file until its
+            # database reference has safely moved to the processed copy.
             old_blob_name = field.name
             storage = field.storage
             field.save(old_blob_name, processed, save=False)
-
-            # Delete old blob if the path changed (storage generated a new name)
-            if field.name != old_blob_name:
-                try:
-                    storage.delete(old_blob_name)
-                except Exception:
-                    logger.warning("Could not delete old blob: %s", old_blob_name)
 
             # Save the model to persist the field reference. If this is a verified
             # primary photo, carry forward the attestation to the new key.
@@ -160,16 +164,94 @@ class Command(BaseCommand):
             if carries_attestation:
                 obj.photo_verification_key = field.name
                 update_fields.extend(["photo_verification_key", "photo_verified_at"])
-                # Only the carry-forward needs the save and the provenance
-                # repoint to land together; a plain reprocess (the overwhelming
-                # majority of a backfill) must not pay a BEGIN/COMMIT per photo.
+            review_fields = (
+                "photo_review_status",
+                "photo_review_key",
+                "photo_reviewed_at",
+                "photo_reviewed_by_id",
+                "photo_review_notes",
+            )
+            if is_profile:
+                photo_slots = ("photo_1", "photo_2", "photo_3")
                 with transaction.atomic():
-                    obj.save(update_fields=update_fields)
-                    self._carry_forward_registration_attestation(
-                        obj, old_blob_name, field.name
+                    current = (
+                        CrushProfile.objects.select_for_update(of=("self",))
+                        .values("pk", *photo_slots, *review_fields)
+                        .get(pk=obj.pk)
                     )
+                    current_review_state = (
+                        ProfilePhotoReviewState.objects.select_for_update()
+                        .filter(
+                            profile_id=obj.pk,
+                            photo_field=field_name,
+                            photo_key=old_blob_name,
+                        )
+                        .first()
+                    )
+                    # CrushProfile.save deletes the blob of every slot whose
+                    # in-memory key differs from the row, whatever update_fields
+                    # says. The iterator's copy may predate a member's upload
+                    # (or an earlier slot's skip below), so match the locked
+                    # row in every slot this call does not write.
+                    for slot in photo_slots:
+                        if slot != field_name:
+                            setattr(obj, slot, current[slot])
+                    if current[field_name] != old_blob_name or (
+                        field_name == "photo_1"
+                        and current["photo_review_status"]
+                        in ("needs_revision", "flagged_fake")
+                    ):
+                        if field.name != old_blob_name:
+                            transaction.on_commit(
+                                lambda key=field.name: self._delete_blob_safely(
+                                    storage, key
+                                )
+                            )
+                        # field.save() already pointed this instance at the
+                        # discarded upload; leave it on the row's state so the
+                        # next slot does not write or clean up against it.
+                        setattr(obj, field_name, current[field_name])
+                        if carries_attestation:
+                            obj.photo_verification_key = old_blob_name
+                        self.stdout.write(
+                            f"  Skipped {obj_label}: photo changed or moderated"
+                        )
+                        stats["skipped"] += 1
+                        return
+                    if (
+                        field_name == "photo_1"
+                        and current["photo_review_key"] == old_blob_name
+                        and current["photo_reviewed_at"] is not None
+                    ):
+                        # Same image, new key: carry the coach's decision read
+                        # under this lock, never the iterator's stale copy, so
+                        # CrushProfile.save keeps it instead of re-queueing.
+                        for review_field in review_fields:
+                            setattr(obj, review_field, current[review_field])
+                        obj.photo_review_key = field.name
+                        update_fields.extend(
+                            [
+                                "photo_review_status",
+                                "photo_review_key",
+                                "photo_reviewed_at",
+                                "photo_reviewed_by",
+                                "photo_review_notes",
+                            ]
+                        )
+                    obj.save(update_fields=update_fields)
+                    if current_review_state:
+                        current_review_state.photo_key = field.name
+                        current_review_state.save(update_fields=["photo_key"])
+                    if carries_attestation:
+                        self._carry_forward_registration_attestation(
+                            obj, old_blob_name, field.name
+                        )
             else:
                 obj.save(update_fields=update_fields)
+            if field.name != old_blob_name:
+                transaction.on_commit(
+                    lambda: self._delete_blob_safely(storage, old_blob_name)
+                )
 
             self.stdout.write(
                 f"  Processed {obj_label}: "
@@ -197,6 +279,12 @@ class Command(BaseCommand):
                 )
                 logger.exception("Error reprocessing %s", obj_label)
                 stats["errors"] += 1
+
+    def _delete_blob_safely(self, storage, key):
+        try:
+            storage.delete(key)
+        except Exception:
+            logger.warning("Could not delete reprocessed blob: %s", key)
 
     def _carry_forward_registration_attestation(self, profile, old_key, new_key):
         """Repoint door check-in provenance at the reprocessed photo.

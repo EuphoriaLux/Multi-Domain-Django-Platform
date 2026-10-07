@@ -7,6 +7,7 @@ Sends push and email as independent channels based on user preferences:
 2. If user has email preference enabled, send email
 Both channels are attempted independently — push success does not suppress email.
 """
+
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
@@ -27,24 +28,27 @@ class NotificationType(Enum):
     IMPORTANT: Each enum member MUST have a unique value to avoid Python's enum aliasing
     behavior where members with the same value become aliases of the first member.
     """
-    PROFILE_APPROVED = 'profile_approved'
-    PROFILE_REVISION = 'profile_revision'
-    PROFILE_REJECTED = 'profile_rejected'
-    PROFILE_RECONTACT = 'profile_recontact'
-    NEW_MESSAGE = 'new_message'
-    NEW_CONNECTION = 'new_connection'
-    CONNECTION_ACCEPTED = 'connection_accepted'
-    MUTUAL_MATCH = 'mutual_match'
-    EVENT_REMINDER = 'event_reminder'
-    EVENT_REGISTRATION = 'event_registration'
-    EVENT_WAITLIST = 'event_waitlist'
-    SPARK_COACH_ASSIGNMENT = 'spark_coach_assignment'
-    SPARK_RECIPIENT_ASSIGNED = 'spark_recipient_assigned'
-    SPARK_JOURNEY_READY = 'spark_journey_ready'
-    SPARK_COMPLETED = 'spark_completed'
+
+    PROFILE_APPROVED = "profile_approved"
+    PROFILE_REVISION = "profile_revision"
+    PHOTO_REVISION = "photo_revision"
+    PHOTO_REVIEW_RETRACTED = "photo_review_retracted"
+    PROFILE_REJECTED = "profile_rejected"
+    PROFILE_RECONTACT = "profile_recontact"
+    NEW_MESSAGE = "new_message"
+    NEW_CONNECTION = "new_connection"
+    CONNECTION_ACCEPTED = "connection_accepted"
+    MUTUAL_MATCH = "mutual_match"
+    EVENT_REMINDER = "event_reminder"
+    EVENT_REGISTRATION = "event_registration"
+    EVENT_WAITLIST = "event_waitlist"
+    SPARK_COACH_ASSIGNMENT = "spark_coach_assignment"
+    SPARK_RECIPIENT_ASSIGNED = "spark_recipient_assigned"
+    SPARK_JOURNEY_READY = "spark_journey_ready"
+    SPARK_COMPLETED = "spark_completed"
     # Value kept equal to the bell row type the pre-#994 code wrote, so
     # existing Notification rows and any filter on it keep matching.
-    CONNECT_WEEK_REQUEST = 'connect_week_request_received'
+    CONNECT_WEEK_REQUEST = "connect_week_request_received"
 
     @property
     def preference_key(self) -> str:
@@ -53,22 +57,24 @@ class NotificationType(Enum):
         Multiple notification types can share a preference key.
         """
         preference_mapping = {
-            'profile_approved': 'profile_updates',
-            'profile_revision': 'profile_updates',
-            'profile_rejected': 'profile_updates',
-            'profile_recontact': 'profile_updates',
-            'new_message': 'new_messages',
-            'new_connection': 'new_connections',
-            'connection_accepted': 'new_connections',
-            'mutual_match': 'new_connections',
-            'event_reminder': 'event_reminders',
-            'event_registration': 'event_reminders',
-            'event_waitlist': 'event_reminders',
-            'spark_coach_assignment': 'event_reminders',
-            'spark_recipient_assigned': 'new_connections',
-            'spark_journey_ready': 'new_connections',
-            'spark_completed': 'new_connections',
-            'connect_week_request_received': 'new_connections',
+            "profile_approved": "profile_updates",
+            "profile_revision": "profile_updates",
+            "photo_revision": "profile_updates",
+            "photo_review_retracted": "profile_updates",
+            "profile_rejected": "profile_updates",
+            "profile_recontact": "profile_updates",
+            "new_message": "new_messages",
+            "new_connection": "new_connections",
+            "connection_accepted": "new_connections",
+            "mutual_match": "new_connections",
+            "event_reminder": "event_reminders",
+            "event_registration": "event_reminders",
+            "event_waitlist": "event_reminders",
+            "spark_coach_assignment": "event_reminders",
+            "spark_recipient_assigned": "new_connections",
+            "spark_journey_ready": "new_connections",
+            "spark_completed": "new_connections",
+            "connect_week_request_received": "new_connections",
         }
         return preference_mapping.get(self.value, self.value)
 
@@ -79,6 +85,7 @@ class NotificationResult:
     Result of notification delivery attempt.
     Tracks what was attempted and what succeeded.
     """
+
     # Push notification results
     push_attempted: bool = False
     push_success_count: int = 0
@@ -204,11 +211,10 @@ class NotificationService:
         # --- Push channel (independent) ---
         try:
             from .models import IOSAppDevice, AndroidAppDevice, PushSubscription
-            push_filter = {f'notify_{preference_key}': True}
+
+            push_filter = {f"notify_{preference_key}": True}
             push_subscriptions = PushSubscription.objects.filter(
-                user=user,
-                enabled=True,
-                **push_filter
+                user=user, enabled=True, **push_filter
             )
             ios_devices = IOSAppDevice.objects.filter(
                 user=user,
@@ -220,14 +226,20 @@ class NotificationService:
                 enabled=True,
                 **push_filter,
             )
-            if push_subscriptions.exists() or ios_devices.exists() or android_devices.exists():
+            if (
+                push_subscriptions.exists()
+                or ios_devices.exists()
+                or android_devices.exists()
+            ):
                 result.push_attempted = True
 
             if push_subscriptions.exists():
                 try:
-                    push_result = NotificationService._send_push(user, notification_type, context)
-                    result.push_success_count += push_result.get('success', 0)
-                    result.push_failed_count += push_result.get('failed', 0)
+                    push_result = NotificationService._send_push(
+                        user, notification_type, context
+                    )
+                    result.push_success_count += push_result.get("success", 0)
+                    result.push_failed_count += push_result.get("failed", 0)
                 except Exception as e:
                     logger.error(f"Error sending push to {user.username}: {e}")
                     result.errors.append(f"Push error: {e}")
@@ -238,8 +250,8 @@ class NotificationService:
                     ios_result = NotificationService._send_ios_push(
                         user, notification_type, context, request
                     )
-                    result.push_success_count += ios_result.get('success', 0)
-                    result.push_failed_count += ios_result.get('failed', 0)
+                    result.push_success_count += ios_result.get("success", 0)
+                    result.push_failed_count += ios_result.get("failed", 0)
                 except Exception as e:
                     logger.error(f"Error sending iOS push to {user.username}: {e}")
                     result.errors.append(f"iOS push error: {e}")
@@ -250,8 +262,8 @@ class NotificationService:
                     android_result = NotificationService._send_android_push(
                         user, notification_type, context, request
                     )
-                    result.push_success_count += android_result.get('success', 0)
-                    result.push_failed_count += android_result.get('failed', 0)
+                    result.push_success_count += android_result.get("success", 0)
+                    result.push_failed_count += android_result.get("failed", 0)
                 except Exception as e:
                     logger.error(f"Error sending Android push to {user.username}: {e}")
                     result.errors.append(f"Android push error: {e}")
@@ -263,6 +275,7 @@ class NotificationService:
         # --- Email channel (independent) ---
         try:
             from .email_helpers import can_send_email
+
             if can_send_email(user, preference_key):
                 result.email_attempted = True
                 email_sent = NotificationService._send_email(
@@ -274,7 +287,7 @@ class NotificationService:
                         f"Email sent to {user.email} ({notification_type.name})"
                     )
             else:
-                result.email_skipped_reason = 'user_unsubscribed'
+                result.email_skipped_reason = "user_unsubscribed"
                 logger.info(
                     f"Email skipped for {user.email} ({notification_type.name}): "
                     f"user unsubscribed"
@@ -294,6 +307,7 @@ class NotificationService:
         if not result.inapp_created:
             try:
                 from .models import Notification
+
                 payload = NotificationService._render_inapp_payload(
                     user, notification_type, context, request
                 )
@@ -309,7 +323,9 @@ class NotificationService:
                     result.inapp_created = True
                     result.inapp_id = obj.id
             except Exception as e:
-                logger.error(f"Error writing in-app notification for {user.username}: {e}")
+                logger.error(
+                    f"Error writing in-app notification for {user.username}: {e}"
+                )
                 result.errors.append(f"In-app error: {e}")
 
         return result
@@ -317,7 +333,7 @@ class NotificationService:
     @staticmethod
     def _render_inapp_payload(
         user,
-        notification_type: 'NotificationType',
+        notification_type: "NotificationType",
         context: dict,
         request: Optional[HttpRequest],
     ) -> Optional[dict]:
@@ -330,7 +346,7 @@ class NotificationService:
         from django.utils import translation
         from .email_helpers import get_user_preferred_language
 
-        lang = get_user_preferred_language(user=user, request=request, default='en')
+        lang = get_user_preferred_language(user=user, request=request, default="en")
 
         def get_user_language_url(user, url_name, request, kwargs=None):
             """Build a relative path for the bell deep-link.
@@ -343,40 +359,84 @@ class NotificationService:
             session locale.
             """
             url_paths = {
-                'crush_lu:dashboard': '/dashboard/',
-                'crush_lu:edit_profile': '/edit-profile/',
-                'crush_lu:my_connections': '/my-connections/',
-                'crush_lu:my_events': '/my-events/',
-                'crush_lu:connect_week_inbox': '/crush-connect/week/inbox/',
+                "crush_lu:dashboard": "/dashboard/",
+                "crush_lu:edit_profile": "/edit-profile/",
+                "crush_lu:my_connections": "/my-connections/",
+                "crush_lu:my_events": "/my-events/",
+                "crush_lu:connect_week_inbox": "/crush-connect/week/inbox/",
             }
             if url_name in url_paths:
                 return url_paths[url_name]
-            if url_name == 'crush_lu:event_detail' and kwargs and kwargs.get('event_id'):
+            if (
+                url_name == "crush_lu:event_detail"
+                and kwargs
+                and kwargs.get("event_id")
+            ):
                 return f"/events/{kwargs['event_id']}/"
             # Sane fallback so we always have *somewhere* to send the user
-            return '/dashboard/'
+            return "/dashboard/"
 
         with translation.override(lang):
-            event = context.get('event')
-            connection = context.get('connection')
-            profile = context.get('profile')
+            event = context.get("event")
 
             if notification_type == NotificationType.PROFILE_APPROVED:
                 return {
                     "title": _("Your profile is approved"),
-                    "body": _("You can now register for events and connect with other members."),
-                    "link_url": get_user_language_url(user, 'crush_lu:dashboard', request),
+                    "body": _(
+                        "You can now register for events and connect with other members."
+                    ),
+                    "link_url": get_user_language_url(
+                        user, "crush_lu:dashboard", request
+                    ),
                 }
 
             if notification_type == NotificationType.PROFILE_REVISION:
-                feedback = context.get('feedback') or context.get('coach_notes', '')
+                feedback = context.get("feedback") or context.get("coach_notes", "")
                 body_str = str(_("Your coach asked for a few changes."))
                 if feedback:
                     body_str = f"{body_str} {feedback}"
                 return {
                     "title": _("Profile revision requested"),
                     "body": body_str,
-                    "link_url": get_user_language_url(user, 'crush_lu:edit_profile', request),
+                    "link_url": get_user_language_url(
+                        user, "crush_lu:edit_profile", request
+                    ),
+                }
+
+            if notification_type == NotificationType.PHOTO_REVISION:
+                # Photo moderation never touches profile approval: ask only
+                # for the replacement photo, never a profile resubmission.
+                photo_label = {
+                    "photo_1": _("main profile photo"),
+                    "photo_2": _("second profile photo"),
+                    "photo_3": _("third profile photo"),
+                }.get(context.get("photo_field"), _("profile photo"))
+                body_str = str(
+                    _(
+                        "Your coach asked you to replace your %(photo)s. The rest of your profile can stay as it is."
+                    )
+                ) % {"photo": photo_label}
+                if context.get("feedback"):
+                    body_str = f"{body_str} {context['feedback']}"
+                return {
+                    "title": _("Please replace your profile photo"),
+                    "body": body_str,
+                    "link_url": get_user_language_url(
+                        user, "crush_lu:edit_profile", request
+                    ),
+                    "metadata": {"photo_review_log_id": context["photo_review_log_id"]},
+                }
+
+            if notification_type == NotificationType.PHOTO_REVIEW_RETRACTED:
+                return {
+                    "title": _("Photo revision request withdrawn"),
+                    "body": _(
+                        "Your coach withdrew the earlier photo revision request. You do not need to replace your photo because of that request."
+                    ),
+                    "link_url": get_user_language_url(
+                        user, "crush_lu:edit_profile", request
+                    ),
+                    "metadata": {"photo_review_log_id": context["photo_review_log_id"]},
                 }
 
             if notification_type == NotificationType.PROFILE_REJECTED:
@@ -389,28 +449,32 @@ class NotificationService:
                     # pick up whichever locale the acting coach was using.
                     "title": _("Profile not approved"),
                     "body": str(
-                        context.get('feedback') or context.get('coach_notes', '') or ""
+                        context.get("feedback") or context.get("coach_notes", "") or ""
                     ),
-                    "link_url": get_user_language_url(user, 'crush_lu:dashboard', request),
+                    "link_url": get_user_language_url(
+                        user, "crush_lu:dashboard", request
+                    ),
                 }
 
             if notification_type == NotificationType.PROFILE_RECONTACT:
                 return {
                     "title": _("Your coach would like to talk"),
                     "body": _("Open your dashboard to see how to reach them."),
-                    "link_url": get_user_language_url(user, 'crush_lu:dashboard', request),
+                    "link_url": get_user_language_url(
+                        user, "crush_lu:dashboard", request
+                    ),
                 }
 
             if notification_type == NotificationType.NEW_MESSAGE:
-                msg = context.get('message')
+                msg = context.get("message")
                 preview = ""
                 if msg is not None:
-                    preview = (getattr(msg, 'message', '') or '')[:140]
+                    preview = (getattr(msg, "message", "") or "")[:140]
                 return {
                     "title": _("New message"),
                     "body": preview,
                     "link_url": get_user_language_url(
-                        user, 'crush_lu:my_connections', request
+                        user, "crush_lu:my_connections", request
                     ),
                 }
 
@@ -419,7 +483,7 @@ class NotificationService:
                     "title": _("New connection request"),
                     "body": _("Someone you met wants to connect."),
                     "link_url": get_user_language_url(
-                        user, 'crush_lu:my_connections', request
+                        user, "crush_lu:my_connections", request
                     ),
                 }
 
@@ -428,7 +492,7 @@ class NotificationService:
                     "title": _("Your connection request was accepted"),
                     "body": _("Open your connections to start chatting."),
                     "link_url": get_user_language_url(
-                        user, 'crush_lu:my_connections', request
+                        user, "crush_lu:my_connections", request
                     ),
                 }
 
@@ -437,12 +501,12 @@ class NotificationService:
                     "title": _("It's a mutual match"),
                     "body": _("You both said yes — say hi."),
                     "link_url": get_user_language_url(
-                        user, 'crush_lu:my_connections', request
+                        user, "crush_lu:my_connections", request
                     ),
                 }
 
             if notification_type == NotificationType.CONNECT_WEEK_REQUEST:
-                weekly_request = context.get('weekly_request')
+                weekly_request = context.get("weekly_request")
                 return {
                     "title": _("Someone wants to get to know you"),
                     "body": _(
@@ -450,10 +514,12 @@ class NotificationService:
                         "encounters. Take a look and decide."
                     ),
                     "link_url": get_user_language_url(
-                        user, 'crush_lu:connect_week_inbox', request
+                        user, "crush_lu:connect_week_inbox", request
                     ),
                     "metadata": {
-                        "weekly_request_id": weekly_request.pk if weekly_request else None
+                        "weekly_request_id": (
+                            weekly_request.pk if weekly_request else None
+                        )
                     },
                 }
 
@@ -462,18 +528,24 @@ class NotificationService:
                     "title": _("Event reminder: {title}").format(title=event.title),
                     "body": _("Make sure you're ready — check the details."),
                     "link_url": get_user_language_url(
-                        user, 'crush_lu:event_detail', request,
-                        kwargs={'event_id': event.id},
+                        user,
+                        "crush_lu:event_detail",
+                        request,
+                        kwargs={"event_id": event.id},
                     ),
                 }
 
             if notification_type == NotificationType.EVENT_REGISTRATION and event:
                 return {
-                    "title": _("You're registered for {title}").format(title=event.title),
+                    "title": _("You're registered for {title}").format(
+                        title=event.title
+                    ),
                     "body": _("See you there!"),
                     "link_url": get_user_language_url(
-                        user, 'crush_lu:event_detail', request,
-                        kwargs={'event_id': event.id},
+                        user,
+                        "crush_lu:event_detail",
+                        request,
+                        kwargs={"event_id": event.id},
                     ),
                 }
 
@@ -482,8 +554,10 @@ class NotificationService:
                     "title": _("On the waitlist: {title}").format(title=event.title),
                     "body": _("We'll notify you if a spot opens up."),
                     "link_url": get_user_language_url(
-                        user, 'crush_lu:event_detail', request,
-                        kwargs={'event_id': event.id},
+                        user,
+                        "crush_lu:event_detail",
+                        request,
+                        kwargs={"event_id": event.id},
                     ),
                 }
 
@@ -493,7 +567,7 @@ class NotificationService:
             return {
                 "title": _("New update"),
                 "body": "",
-                "link_url": get_user_language_url(user, 'crush_lu:dashboard', request),
+                "link_url": get_user_language_url(user, "crush_lu:dashboard", request),
             }
 
     @staticmethod
@@ -511,50 +585,88 @@ class NotificationService:
                 return push_notifications.send_profile_approved_notification(user) or {}
 
             elif notification_type == NotificationType.PROFILE_REVISION:
-                feedback = context.get('feedback', context.get('coach_notes', ''))
-                return push_notifications.send_profile_revision_notification(user, feedback) or {}
+                feedback = context.get("feedback", context.get("coach_notes", ""))
+                return (
+                    push_notifications.send_profile_revision_notification(
+                        user, feedback
+                    )
+                    or {}
+                )
+
+            elif notification_type in (
+                NotificationType.PHOTO_REVISION,
+                NotificationType.PHOTO_REVIEW_RETRACTED,
+            ):
+                payload = NotificationService._render_inapp_payload(
+                    user, notification_type, context, None
+                )
+                return (
+                    push_notifications.send_push_notification(
+                        user=user,
+                        title=payload["title"],
+                        body=payload["body"],
+                        url=payload["link_url"],
+                        tag=f"photo-review-{context['photo_review_log_id']}",
+                        preference_key="profile_updates",
+                    )
+                    or {}
+                )
 
             elif notification_type == NotificationType.PROFILE_REJECTED:
-                reason = context.get('feedback', context.get('coach_notes', ''))
-                return push_notifications.send_profile_rejected_notification(
-                    user, reason
-                ) or {}
+                reason = context.get("feedback", context.get("coach_notes", ""))
+                return (
+                    push_notifications.send_profile_rejected_notification(user, reason)
+                    or {}
+                )
 
             elif notification_type == NotificationType.PROFILE_RECONTACT:
-                return push_notifications.send_profile_recontact_notification(user) or {}
+                return (
+                    push_notifications.send_profile_recontact_notification(user) or {}
+                )
 
             elif notification_type == NotificationType.NEW_MESSAGE:
-                message = context.get('message')
+                message = context.get("message")
                 if message:
-                    return push_notifications.send_new_message_notification(user, message) or {}
+                    return (
+                        push_notifications.send_new_message_notification(user, message)
+                        or {}
+                    )
 
             elif notification_type in (
                 NotificationType.NEW_CONNECTION,
                 NotificationType.CONNECTION_ACCEPTED,
                 NotificationType.MUTUAL_MATCH,
             ):
-                connection = context.get('connection')
+                connection = context.get("connection")
                 if connection:
-                    return push_notifications.send_new_connection_notification(user, connection) or {}
+                    return (
+                        push_notifications.send_new_connection_notification(
+                            user, connection
+                        )
+                        or {}
+                    )
 
             elif notification_type == NotificationType.EVENT_REMINDER:
-                event = context.get('event')
+                event = context.get("event")
                 if event:
                     return push_notifications.send_event_reminder(user, event) or {}
 
             elif notification_type == NotificationType.CONNECT_WEEK_REQUEST:
-                weekly_request = context.get('weekly_request')
+                weekly_request = context.get("weekly_request")
                 if weekly_request:
-                    return push_notifications.send_connect_week_request_notification(
-                        user, weekly_request
-                    ) or {}
+                    return (
+                        push_notifications.send_connect_week_request_notification(
+                            user, weekly_request
+                        )
+                        or {}
+                    )
 
             # For types without specific push functions, use generic
-            return {'success': 0, 'failed': 0, 'total': 0}
+            return {"success": 0, "failed": 0, "total": 0}
 
         except Exception as e:
             logger.error(f"Push notification error for {notification_type.name}: {e}")
-            return {'success': 0, 'failed': 1, 'total': 1}
+            return {"success": 0, "failed": 1, "total": 1}
 
     @staticmethod
     def _send_ios_push(
@@ -570,7 +682,7 @@ class NotificationService:
             user, notification_type, context, request
         )
         if not payload:
-            return {'success': 0, 'failed': 0, 'total': 0}
+            return {"success": 0, "failed": 0, "total": 0}
 
         return ios_push.send_native_push_notification(
             user=user,
@@ -579,7 +691,7 @@ class NotificationService:
             url=payload.get("link_url", "/en/dashboard/"),
             tag=notification_type.value,
             preference_key=notification_type.preference_key,
-        ) or {'success': 0, 'failed': 0, 'total': 0}
+        ) or {"success": 0, "failed": 0, "total": 0}
 
     @staticmethod
     def _send_android_push(
@@ -595,7 +707,7 @@ class NotificationService:
             user, notification_type, context, request
         )
         if not payload:
-            return {'success': 0, 'failed': 0, 'total': 0}
+            return {"success": 0, "failed": 0, "total": 0}
 
         return android_push.send_native_android_push_notification(
             user=user,
@@ -604,14 +716,14 @@ class NotificationService:
             url=payload.get("link_url", "/en/dashboard/"),
             tag=notification_type.value,
             preference_key=notification_type.preference_key,
-        ) or {'success': 0, 'failed': 0, 'total': 0}
+        ) or {"success": 0, "failed": 0, "total": 0}
 
     @staticmethod
     def _send_email(
         user,
         notification_type: NotificationType,
         context: dict,
-        request: Optional[HttpRequest]
+        request: Optional[HttpRequest],
     ) -> bool:
         """
         Route to appropriate email function.
@@ -623,8 +735,8 @@ class NotificationService:
 
         try:
             if notification_type == NotificationType.PROFILE_APPROVED:
-                profile = context.get('profile')
-                coach_notes = context.get('coach_notes')
+                profile = context.get("profile")
+                coach_notes = context.get("coach_notes")
                 if profile and request:
                     result = email_helpers.send_profile_approved_notification(
                         profile, request, coach_notes=coach_notes
@@ -632,17 +744,36 @@ class NotificationService:
                     return result == 1
 
             elif notification_type == NotificationType.PROFILE_REVISION:
-                profile = context.get('profile')
-                feedback = context.get('feedback', context.get('coach_notes', ''))
+                profile = context.get("profile")
+                feedback = context.get("feedback", context.get("coach_notes", ""))
                 if profile and request:
                     result = email_helpers.send_profile_revision_request(
                         profile, request, feedback=feedback
                     )
                     return result == 1
 
+            elif notification_type == NotificationType.PHOTO_REVISION:
+                return (
+                    email_helpers.send_photo_revision_request(
+                        user,
+                        request,
+                        feedback=context.get("feedback", ""),
+                        photo_field=context.get("photo_field", "photo_1"),
+                    )
+                    == 1
+                )
+
+            elif notification_type == NotificationType.PHOTO_REVIEW_RETRACTED:
+                return (
+                    email_helpers.send_photo_review_retracted_notification(
+                        user, request
+                    )
+                    == 1
+                )
+
             elif notification_type == NotificationType.PROFILE_REJECTED:
-                profile = context.get('profile')
-                feedback = context.get('feedback', context.get('coach_notes', ''))
+                profile = context.get("profile")
+                feedback = context.get("feedback", context.get("coach_notes", ""))
                 if profile and request:
                     result = email_helpers.send_profile_rejected_notification(
                         profile, request, reason=feedback
@@ -650,8 +781,8 @@ class NotificationService:
                     return result == 1
 
             elif notification_type == NotificationType.PROFILE_RECONTACT:
-                profile = context.get('profile')
-                coach = context.get('coach')
+                profile = context.get("profile")
+                coach = context.get("coach")
                 if profile and coach and request:
                     result = email_helpers.send_profile_recontact_notification(
                         profile, coach, request
@@ -659,7 +790,7 @@ class NotificationService:
                     return result == 1
 
             elif notification_type == NotificationType.NEW_MESSAGE:
-                message = context.get('message')
+                message = context.get("message")
                 if message and request:
                     result = email_helpers.send_new_message_notification(
                         user, message, request
@@ -667,8 +798,8 @@ class NotificationService:
                     return result == 1
 
             elif notification_type == NotificationType.NEW_CONNECTION:
-                connection = context.get('connection')
-                requester = context.get('requester')
+                connection = context.get("connection")
+                requester = context.get("requester")
                 if connection and request:
                     result = email_helpers.send_new_connection_request_notification(
                         user, connection, requester, request
@@ -676,8 +807,8 @@ class NotificationService:
                     return result == 1
 
             elif notification_type == NotificationType.CONNECTION_ACCEPTED:
-                connection = context.get('connection')
-                accepter = context.get('accepter')
+                connection = context.get("connection")
+                accepter = context.get("accepter")
                 if connection and request:
                     result = email_helpers.send_connection_accepted_notification(
                         user, connection, accepter, request
@@ -685,8 +816,8 @@ class NotificationService:
                     return result == 1
 
             elif notification_type == NotificationType.MUTUAL_MATCH:
-                connection = context.get('connection')
-                other_user = context.get('other_user')
+                connection = context.get("connection")
+                other_user = context.get("other_user")
                 if connection and other_user and request:
                     result = email_helpers.send_mutual_match_email(
                         user, connection, other_user, request
@@ -694,8 +825,8 @@ class NotificationService:
                     return result == 1
 
             elif notification_type == NotificationType.EVENT_REMINDER:
-                registration = context.get('registration')
-                days_until = context.get('days_until', 1)
+                registration = context.get("registration")
+                days_until = context.get("days_until", 1)
                 # Deliberately NOT gated on `request`. The scheduled sweep
                 # (`send_event_reminders`, driven by the EventReminders timer)
                 # has no HTTP request, so requiring one meant the day-before
@@ -710,7 +841,7 @@ class NotificationService:
                     return result == 1
 
             elif notification_type == NotificationType.EVENT_REGISTRATION:
-                registration = context.get('registration')
+                registration = context.get("registration")
                 if registration and request:
                     result = email_helpers.send_event_registration_confirmation(
                         registration, request
@@ -718,7 +849,7 @@ class NotificationService:
                     return result == 1
 
             elif notification_type == NotificationType.EVENT_WAITLIST:
-                registration = context.get('registration')
+                registration = context.get("registration")
                 if registration and request:
                     result = email_helpers.send_event_waitlist_notification(
                         registration, request
@@ -726,7 +857,7 @@ class NotificationService:
                     return result == 1
 
             elif notification_type == NotificationType.CONNECT_WEEK_REQUEST:
-                weekly_request = context.get('weekly_request')
+                weekly_request = context.get("weekly_request")
                 # Not gated on `request`, for the same reason as EVENT_REMINDER:
                 # the request is sent from a view today, but the service is
                 # also called without one (tests, any future sweep) and the
@@ -744,9 +875,7 @@ class NotificationService:
 
         except AttributeError as e:
             # Email helper function doesn't exist yet
-            logger.warning(
-                f"Email helper not found for {notification_type.name}: {e}"
-            )
+            logger.warning(f"Email helper not found for {notification_type.name}: {e}")
             return False
         except Exception as e:
             logger.error(f"Email error for {notification_type.name}: {e}")
@@ -754,7 +883,9 @@ class NotificationService:
 
 
 # Convenience functions for common notification types
-def notify_profile_approved(user, profile, coach_notes: str = None, request=None) -> NotificationResult:
+def notify_profile_approved(
+    user, profile, coach_notes: str = None, request=None
+) -> NotificationResult:
     """Send profile approved notification (once per verification lifecycle).
 
     Reaching "verified" is observed by several paths — the Verify button, a
@@ -822,35 +953,59 @@ def notify_profile_approved(user, profile, coach_notes: str = None, request=None
             f"Skipping duplicate profile_approved notification for {user.username}"
         )
         result = NotificationResult()
-        result.email_skipped_reason = 'duplicate'
+        result.email_skipped_reason = "duplicate"
         return result
 
     return NotificationService.notify(
         user=user,
         dedupe_key=lifecycle_key,
         notification_type=NotificationType.PROFILE_APPROVED,
-        context={'profile': profile, 'coach_notes': coach_notes},
-        request=request
+        context={"profile": profile, "coach_notes": coach_notes},
+        request=request,
     )
 
 
-def notify_profile_revision(user, profile, feedback: str, request=None) -> NotificationResult:
+def notify_profile_revision(
+    user, profile, feedback: str, request=None
+) -> NotificationResult:
     """Send profile revision request notification."""
     return NotificationService.notify(
         user=user,
         notification_type=NotificationType.PROFILE_REVISION,
-        context={'profile': profile, 'feedback': feedback},
-        request=request
+        context={"profile": profile, "feedback": feedback},
+        request=request,
     )
 
 
-def notify_profile_rejected(user, profile, feedback: str, request=None) -> NotificationResult:
+def notify_photo_revision(
+    user, feedback: str, request=None, *, photo_review_log_id, photo_field="photo_1"
+) -> NotificationResult:
+    """Ask for a replacement photo after a coach photo review.
+
+    Deduped per review, so Undo can find and retract exactly this bell row.
+    """
+    return NotificationService.notify(
+        user=user,
+        notification_type=NotificationType.PHOTO_REVISION,
+        context={
+            "feedback": feedback,
+            "photo_review_log_id": photo_review_log_id,
+            "photo_field": photo_field,
+        },
+        request=request,
+        dedupe_key=f"photo-review:{photo_review_log_id}:revision",
+    )
+
+
+def notify_profile_rejected(
+    user, profile, feedback: str, request=None
+) -> NotificationResult:
     """Send profile rejected notification."""
     return NotificationService.notify(
         user=user,
         notification_type=NotificationType.PROFILE_REJECTED,
-        context={'profile': profile, 'feedback': feedback},
-        request=request
+        context={"profile": profile, "feedback": feedback},
+        request=request,
     )
 
 
@@ -859,32 +1014,38 @@ def notify_new_message(recipient, message, request=None) -> NotificationResult:
     return NotificationService.notify(
         user=recipient,
         notification_type=NotificationType.NEW_MESSAGE,
-        context={'message': message},
-        request=request
+        context={"message": message},
+        request=request,
     )
 
 
-def notify_new_connection(recipient, connection, requester, request=None) -> NotificationResult:
+def notify_new_connection(
+    recipient, connection, requester, request=None
+) -> NotificationResult:
     """Send new connection request notification."""
     return NotificationService.notify(
         user=recipient,
         notification_type=NotificationType.NEW_CONNECTION,
-        context={'connection': connection, 'requester': requester},
-        request=request
+        context={"connection": connection, "requester": requester},
+        request=request,
     )
 
 
-def notify_connection_accepted(recipient, connection, accepter, request=None) -> NotificationResult:
+def notify_connection_accepted(
+    recipient, connection, accepter, request=None
+) -> NotificationResult:
     """Send connection accepted notification."""
     return NotificationService.notify(
         user=recipient,
         notification_type=NotificationType.CONNECTION_ACCEPTED,
-        context={'connection': connection, 'accepter': accepter},
-        request=request
+        context={"connection": connection, "accepter": accepter},
+        request=request,
     )
 
 
-def notify_mutual_match(user, other_user, connection, request=None) -> NotificationResult:
+def notify_mutual_match(
+    user, other_user, connection, request=None
+) -> NotificationResult:
     """
     Send "It's a Match!" notification when both attendees independently
     requested a connection. Use this in place of notify_connection_accepted
@@ -893,12 +1054,14 @@ def notify_mutual_match(user, other_user, connection, request=None) -> Notificat
     return NotificationService.notify(
         user=user,
         notification_type=NotificationType.MUTUAL_MATCH,
-        context={'connection': connection, 'other_user': other_user},
+        context={"connection": connection, "other_user": other_user},
         request=request,
     )
 
 
-def notify_connect_week_request(recipient, weekly_request, request=None) -> NotificationResult:
+def notify_connect_week_request(
+    recipient, weekly_request, request=None
+) -> NotificationResult:
     """Tell the recipient of a Connect Week request that someone chose them.
 
     Email + push + bell, rendered in the *recipient's* language. Until this
@@ -913,7 +1076,7 @@ def notify_connect_week_request(recipient, weekly_request, request=None) -> Noti
     result = NotificationService.notify(
         user=recipient,
         notification_type=NotificationType.CONNECT_WEEK_REQUEST,
-        context={'weekly_request': weekly_request},
+        context={"weekly_request": weekly_request},
         request=request,
     )
     try:
@@ -969,7 +1132,9 @@ def send_connect_week_request_whatsapp(recipient, weekly_request):
         .first()
     )
     if sender is None:
-        logger.warning("WhatsApp Connect Week request skipped: no active superuser to attribute the send to")
+        logger.warning(
+            "WhatsApp Connect Week request skipped: no active superuser to attribute the send to"
+        )
         return None
 
     requester = weekly_request.requester
@@ -993,17 +1158,19 @@ def send_connect_week_request_whatsapp(recipient, weekly_request):
     )
 
 
-def notify_event_reminder(user, registration, event, days_until: int = 1, request=None) -> NotificationResult:
+def notify_event_reminder(
+    user, registration, event, days_until: int = 1, request=None
+) -> NotificationResult:
     """Send event reminder notification."""
     return NotificationService.notify(
         user=user,
         notification_type=NotificationType.EVENT_REMINDER,
         context={
-            'registration': registration,
-            'event': event,
-            'days_until': days_until
+            "registration": registration,
+            "event": event,
+            "days_until": days_until,
         },
-        request=request
+        request=request,
     )
 
 
@@ -1012,8 +1179,8 @@ def notify_profile_recontact(user, profile, coach, request=None) -> Notification
     return NotificationService.notify(
         user=user,
         notification_type=NotificationType.PROFILE_RECONTACT,
-        context={'profile': profile, 'coach': coach},
-        request=request
+        context={"profile": profile, "coach": coach},
+        request=request,
     )
 
 
@@ -1054,7 +1221,9 @@ def notify_report_filed(report) -> int:
             )
             notified += 1
         except Exception:
-            logger.exception("Failed writing report notification for staff %s", staff.pk)
+            logger.exception(
+                "Failed writing report notification for staff %s", staff.pk
+            )
     return notified
 
 

@@ -1,0 +1,171 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n static %}
+{% block title %}{% trans "Photo Review Deck" %} - Crush.lu{% endblock %}
+{% block pre_alpine_js %}
+{% include "crush_lu/partials/alpine_bundle.html" with bundle="coach" %}
+{% endblock %}
+{% block content %}
+{{ initial_cards|json_script:"photo-review-cards" }}
+<div class="max-w-xl mx-auto px-4 py-6 pb-56 sm:pb-24" x-data="photoSwipeDeck" tabindex="-1"
+     data-total="{{ total_waiting }}"
+     data-decide-url="{% url 'crush_lu:coach_photo_review_decide' %}"
+     data-undo-url="{% url 'crush_lu:coach_photo_review_undo' %}"
+     data-more-url="{% url 'crush_lu:coach_photo_review_more' %}"
+     data-scope="{{ scope }}"
+     data-error="{% trans 'Could not complete this action. Please try again.' %}"
+     data-picks-not-restored="{% trans "Undone. Some Coach's Picks could not be restored because the members' situation changed." %}"
+     @keydown.window="handleKeydown">
+    {% csrf_token %}
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+            <a href="{% url 'crush_lu:coach_dashboard' %}" class="text-sm text-crush-purple-dark dark:text-crush-purple-light">{% trans "Coach Dashboard" %}</a>
+            <h1>{% trans "Photo Review Deck" %}</h1>
+            <p class="text-sm text-muted-fg"><span x-text="totalWaiting"></span> {% trans "waiting" %}</p>
+        </div>
+        <button type="button" class="btn-crush-outline btn-sm" @click="undoLastDecision" :disabled="undoDisabled">{% trans "Undo" %}</button>
+    </div>
+    <nav class="flex gap-2 mb-4" aria-label="{% trans 'Photo review queue' %}">
+        <a href="{% url 'crush_lu:coach_photo_review_deck' %}?scope=connect"
+           class="btn-crush-outline btn-sm {% if scope == 'connect' %}ring-2 ring-crush-purple{% endif %}"
+           {% if scope == 'connect' %}aria-current="page"{% endif %}>{% trans "Crush Connect" %}</a>
+        <a href="{% url 'crush_lu:coach_photo_review_deck' %}?scope=all"
+           class="btn-crush-outline btn-sm {% if scope == 'all' %}ring-2 ring-crush-purple{% endif %}"
+           {% if scope == 'all' %}aria-current="page"{% endif %}>{% trans "Crush overall" %}</a>
+    </nav>
+    <p class="text-sm text-muted-fg mb-4">{% trans "Each card reviews one image. Other photos are shown for context; the decision applies to the labeled image only. Reviews are shared between both queues." %}</p>
+    <p role="alert" class="text-red-700 dark:text-red-300 mb-3" x-show="hasError" x-text="errorMessage" x-cloak></p>
+    <p role="status" class="text-sm text-muted-fg mb-3" x-show="hasNotice" x-text="noticeMessage" x-cloak></p>
+    <template x-if="currentCard">
+        <article class="bg-white dark:bg-gray-800 rounded-2xl shadow-crush-sm overflow-hidden border border-gray-200 dark:border-gray-700">
+            <div class="relative">
+                <div class="h-64 sm:h-80 bg-gray-100 dark:bg-gray-900 select-none" style="touch-action: none;"
+                     :style="cardTransformStyle" @pointerdown="startDrag" @pointermove="onDrag" @pointerup="endDrag" @pointercancel="cancelDrag">
+                    <img :src="currentPhotoUrl" :alt="cardName" class="w-full h-full object-contain pointer-events-none" draggable="false">
+                </div>
+                <div class="absolute bottom-3 inset-x-3 flex items-center justify-between gap-3" x-show="hasMultiplePhotos">
+                    <button type="button" class="btn-crush-outline btn-sm bg-white/90 backdrop-blur-sm shadow-sm" @click="prevPhoto">{% trans "Previous photo" %}</button>
+                    <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-black/60 text-white backdrop-blur-sm" x-text="photoIndicatorText"></span>
+                    <button type="button" class="btn-crush-outline btn-sm bg-white/90 backdrop-blur-sm shadow-sm" @click="nextPhoto">{% trans "Next photo" %}</button>
+                </div>
+            </div>
+            <div x-show="isSecondaryPhoto" class="p-3 text-sm text-muted-fg">
+                {% trans "This card is reviewing" %} <span x-text="reviewPhotoLabel"></span>. {% trans "Return to that image before deciding." %}
+                <button type="button" class="btn-crush-outline btn-sm" @click="showReviewPhoto">{% trans "Show image under review" %}</button>
+            </div>
+            <div class="p-4 sm:p-5 space-y-3.5 max-h-[30rem] overflow-y-auto">
+                <div class="flex items-start justify-between gap-2 border-b border-gray-100 dark:border-gray-700 pb-3">
+                    <div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h2 class="text-xl font-bold text-gray-900 dark:text-white" x-text="cardName"></h2>
+                            <span class="text-base text-gray-500 dark:text-gray-400 font-medium" x-text="cardAgeAndGender"></span>
+                        </div>
+                        <p class="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            <span x-text="cardLocation"></span>
+                            <span class="text-gray-300 dark:text-gray-600" x-show="hasLocation">·</span>
+                            <span class="text-xs text-muted-fg" x-show="hasDob" x-text="cardDobLabel"></span>
+                        </p>
+                    </div>
+                    <span class="text-xs font-medium text-muted-fg bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded whitespace-nowrap" x-text="cardMemberSince"></span>
+                </div>
+
+                <div x-show="hasRiskFlags" class="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 space-y-1">
+                    <div class="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1">
+                        <span>⚠️</span>
+                        <span>{% trans "Inconsistency / Risk Flags" %}</span>
+                    </div>
+                    <p class="text-xs font-medium text-amber-900 dark:text-amber-200" x-text="riskFlagsSummary"></p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-1.5">
+                    <span x-show="hasLuxid" class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                        <span>🛡️</span> {% trans "LuxID Verified" %}
+                    </span>
+                    <span x-show="hasAttendedEvent" class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                        <span>🎟️</span> {% trans "Event Attended" %}
+                    </span>
+                    <span x-show="hasPhone" class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                        <span>📱</span> <span x-text="cardPhoneBadge"></span>
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 text-xs bg-gray-50 dark:bg-gray-900/40 p-2.5 rounded-xl border border-gray-100 dark:border-gray-800">
+                    <div x-show="hasWork">
+                        <span class="text-muted-fg block">{% trans "Work" %}</span>
+                        <span class="font-medium text-gray-900 dark:text-gray-100" x-text="cardWork"></span>
+                    </div>
+                    <div x-show="hasEdu">
+                        <span class="text-muted-fg block">{% trans "Education" %}</span>
+                        <span class="font-medium text-gray-900 dark:text-gray-100" x-text="cardEdu"></span>
+                    </div>
+                    <div x-show="hasHeight">
+                        <span class="text-muted-fg block">{% trans "Height" %}</span>
+                        <span class="font-medium text-gray-900 dark:text-gray-100" x-text="cardHeight"></span>
+                    </div>
+                    <div x-show="hasGoal">
+                        <span class="text-muted-fg block">{% trans "Looking for" %}</span>
+                        <span class="font-medium text-gray-900 dark:text-gray-100" x-text="cardGoal"></span>
+                    </div>
+                    <div x-show="hasLanguages" class="col-span-2">
+                        <span class="text-muted-fg block">{% trans "Languages" %}</span>
+                        <span class="font-medium text-gray-900 dark:text-gray-100" x-text="cardLanguages"></span>
+                    </div>
+                </div>
+
+                <div x-show="hasBio" class="p-3 bg-purple-50/50 dark:bg-purple-950/20 rounded-xl border border-purple-100 dark:border-purple-900/40">
+                    <span class="text-xs font-bold text-purple-900 dark:text-purple-300 block mb-1">{% trans "Bio" %}</span>
+                    <p class="text-sm text-gray-800 dark:text-gray-200 italic" x-text="cardBio"></p>
+                </div>
+                <p x-show="hasNoBio" class="text-xs text-muted-fg italic">{% trans "No bio written yet." %}</p>
+
+                <div x-show="hasStory" class="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-800">
+                    <span class="text-xs font-bold text-muted-fg block mb-1" x-text="cardStoryPrompt"></span>
+                    <p class="text-sm text-gray-800 dark:text-gray-200" x-text="cardStory"></p>
+                </div>
+
+                <div x-show="hasInterests">
+                    <span class="text-xs font-bold text-muted-fg block mb-1">{% trans "Interests & Hobbies" %}</span>
+                    <p class="text-xs text-gray-700 dark:text-gray-300 font-medium" x-text="cardInterests"></p>
+                </div>
+
+                <div x-show="hasLifestyle">
+                    <span class="text-xs font-bold text-muted-fg block mb-1">{% trans "Lifestyle Pace & Energy" %}</span>
+                    <p class="text-xs text-gray-600 dark:text-gray-400" x-text="cardLifestyleTags"></p>
+                </div>
+
+                <p class="text-xs text-muted-fg border-t border-gray-100 dark:border-gray-700 pt-2">{% trans "Online photo review does not verify identity or in-person photo authenticity." %}</p>
+            </div>
+        </article>
+    </template>
+    <div class="fixed bottom-20 inset-x-0 z-30 max-w-xl mx-auto bg-white dark:bg-gray-800 p-3 flex flex-wrap justify-center gap-3 sm:static sm:mt-4 sm:bg-transparent sm:dark:bg-transparent rounded-xl shadow-crush-sm" x-show="hasCard">
+        <button type="button" class="btn-danger" @click="openFlagModal" :disabled="actionsDisabled">{% trans "Flag / Reject" %}</button>
+        <button type="button" class="btn-crush-outline" @click="skipCard" :disabled="actionsDisabled">{% trans "Skip" %}</button>
+        <button type="button" class="btn-crush-solid" @click="approveCurrentCard" :disabled="actionsDisabled">{% trans "Approve" %}</button>
+    </div>
+    <div x-show="isEmpty" x-cloak class="text-center py-8 space-y-4">
+        <p>{% trans "No more photos in this review pass." %}</p>
+        <button type="button" class="btn-crush-solid" @click="restartQueue" :disabled="isLoading">{% trans "Start a New Review Pass" %}</button>
+    </div>
+    <p role="status" x-show="isLoading" x-cloak class="text-center text-muted-fg mt-4">{% trans "Loading…" %}</p>
+    <div x-show="isModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="photo-review-modal-title" @keydown.escape.window="closeFlagModal">
+        <div class="fixed inset-0 bg-black/60" @click="closeFlagModal"></div>
+        <div class="relative max-w-lg mx-auto mt-12 mb-24 p-5 bg-white dark:bg-gray-800 rounded-2xl shadow-crush-lg" @keydown.tab="trapModalFocus">
+            <h2 id="photo-review-modal-title">{% trans "Flag or Request Revision" %}</h2>
+            <fieldset class="space-y-3 my-4">
+                <legend class="sr-only">{% trans "Photo review reason" %}</legend>
+                <label class="flex items-start gap-3"><input type="radio" :checked="isFakeReason" @change="selectFlagReason" value="fake_profile" name="photo-review-reason"><span>{% trans "Fake or Suspicious Profile" %}</span></label>
+                <label class="flex items-start gap-3"><input type="radio" :checked="isInappropriateReason" @change="selectFlagReason" value="inappropriate" name="photo-review-reason"><span>{% trans "Inappropriate or Offensive Image" %}</span></label>
+                <label class="flex items-start gap-3"><input type="radio" :checked="isUnclearReason" @change="selectFlagReason" value="unclear_face" name="photo-review-reason"><span>{% trans "Unclear Face" %}</span></label>
+                <label class="flex items-start gap-3"><input type="radio" :checked="isGroupReason" @change="selectFlagReason" value="group_photo" name="photo-review-reason"><span>{% trans "Group Photo" %}</span></label>
+                <label class="flex items-start gap-3"><input type="radio" :checked="isOtherReason" @change="selectFlagReason" value="other" name="photo-review-reason"><span>{% trans "Other" %}</span></label>
+            </fieldset>
+            <p class="text-sm text-muted-fg mb-3">{% trans "Fake profiles are excluded from Connect. Other reasons ask the member to replace their photo." %}</p>
+            <label for="photo-review-notes" class="block text-sm mb-1">{% trans "Feedback note (optional, 255 characters maximum)" %}</label>
+            <textarea id="photo-review-notes" :value="flagNotes" @input="updateFlagNotes" maxlength="255" rows="3" class="input-crush w-full"></textarea>
+            <div class="flex justify-end gap-3 mt-4">
+                <button type="button" class="btn-crush-outline" @click="closeFlagModal" :disabled="isSubmitting">{% trans "Cancel" %}</button>
+                <button type="button" class="btn-danger" @click="submitFlagDecision" :disabled="isSubmitting">{% trans "Submit Decision" %}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

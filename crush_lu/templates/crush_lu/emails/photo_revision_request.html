@@ -1,0 +1,25 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+{% block title %}{% trans "Please replace your profile photo" %} - Crush.lu{% endblock %}
+{% block header_title %}{% trans "Please replace your profile photo" %}{% endblock %}
+{% block content %}
+<h2>{% blocktrans with first_name=first_name %}Hey {{ first_name }},{% endblocktrans %}</h2>
+
+<p>{% blocktrans with photo=photo_slot_label %}Your coach asked you to replace your {{ photo }}. The rest of your profile can stay as it is.{% endblocktrans %}</p>
+
+{% if feedback %}
+<div class="info-box">
+    <strong>{% trans "Feedback from your coach:" %}</strong>
+    <p>{{ feedback }}</p>
+</div>
+{% endif %}
+
+<p>{% trans "Upload a replacement photo in that slot. You do not need to change anything else." %}</p>
+
+<a href="{{ edit_profile_url }}" class="button">{% trans "Upload a new photo" %}</a>
+
+<p>
+    {% trans "Best," %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
+</p>
+{% endblock %}

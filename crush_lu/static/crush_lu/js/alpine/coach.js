@@ -10,6 +10,511 @@
 import { makeModal, mixin } from "./shared.js";
 
 document.addEventListener("alpine:init", function () {
+    Alpine.data("photoSwipeDeck", function () {
+        return mixin(makeModal(false), {
+            rootElement: null,
+            cards: [],
+            queueCursor: "",
+            totalWaiting: 0,
+            activePhotoIndex: 0,
+            isSubmitting: false,
+            isLoading: false,
+            errorMessage: "",
+            noticeMessage: "",
+            selectedReason: "unclear_face",
+            flagNotes: "",
+            lastDecision: null,
+            isDragging: false,
+            startX: 0,
+            startY: 0,
+            deltaX: 0,
+            deltaY: 0,
+            init() {
+                this.rootElement = this.$el;
+                this.cards = JSON.parse(
+                    document.getElementById("photo-review-cards").textContent,
+                );
+                this.totalWaiting = Number(this.rootElement.dataset.total);
+                if (this.cards.length) {
+                    this.queueCursor = this.cards[this.cards.length - 1].queue_cursor;
+                    this.showReviewPhoto();
+                }
+            },
+            get currentCard() {
+                return this.cards[0] || null;
+            },
+            get hasCard() {
+                return !!this.currentCard;
+            },
+            get hasError() {
+                return !!this.errorMessage;
+            },
+            get hasNotice() {
+                return !!this.noticeMessage;
+            },
+            get isEmpty() {
+                return !this.hasCard && !this.isLoading;
+            },
+            get actionsDisabled() {
+                return this.isSubmitting || this.isLoading || !this.hasCard || this.isSecondaryPhoto;
+            },
+            get isSecondaryPhoto() {
+                return !!(
+                    this.currentCard &&
+                    this.currentCard.photos[this.activePhotoIndex] &&
+                    this.currentCard.photos[this.activePhotoIndex].field !==
+                        this.currentCard.photo_field
+                );
+            },
+            get reviewPhotoLabel() {
+                return this.currentCard ? this.currentCard.review_photo_label : "";
+            },
+            showReviewPhoto() {
+                if (!this.currentCard) return;
+                this.activePhotoIndex = this.currentCard.photos.findIndex(
+                    (photo) => photo.field === this.currentCard.photo_field,
+                );
+                this.$nextTick(() => this.rootElement.focus());
+            },
+            get undoDisabled() {
+                return this.isSubmitting || this.isLoading || !this.lastDecision;
+            },
+            get cardName() {
+                return this.currentCard ? this.currentCard.display_name : "";
+            },
+            get cardAge() {
+                return this.currentCard ? this.currentCard.age : "";
+            },
+            get cardGender() {
+                return this.currentCard ? this.currentCard.gender : "";
+            },
+            get cardAgeAndGender() {
+                if (!this.currentCard) return "";
+                return [this.currentCard.age, this.currentCard.gender]
+                    .filter(Boolean)
+                    .join(" · ");
+            },
+            get cardLocation() {
+                return this.currentCard ? this.currentCard.location : "";
+            },
+            get hasLocation() {
+                return !!(this.currentCard && this.currentCard.location);
+            },
+            get cardDob() {
+                return this.currentCard ? this.currentCard.date_of_birth : "";
+            },
+            get hasDob() {
+                return !!(this.currentCard && this.currentCard.date_of_birth);
+            },
+            get cardDobLabel() {
+                return this.currentCard ? this.currentCard.dob_label : "";
+            },
+            get cardPhone() {
+                return this.currentCard ? this.currentCard.phone_number : "";
+            },
+            get cardPhoneCountry() {
+                return this.currentCard ? this.currentCard.phone_country : "";
+            },
+            get hasPhone() {
+                return !!(this.currentCard && this.currentCard.phone_number);
+            },
+            get hasPhoneVerified() {
+                return !!(
+                    this.currentCard &&
+                    this.currentCard.phone_number &&
+                    this.currentCard.phone_verified
+                );
+            },
+            get hasPhoneUnverified() {
+                return !!(
+                    this.currentCard &&
+                    this.currentCard.phone_number &&
+                    !this.currentCard.phone_verified
+                );
+            },
+            get cardPhoneBadge() {
+                return this.currentCard ? this.currentCard.phone_badge : "";
+            },
+            get cardBio() {
+                return this.currentCard ? this.currentCard.bio : "";
+            },
+            get hasBio() {
+                return !!(
+                    this.currentCard &&
+                    this.currentCard.bio &&
+                    this.currentCard.bio.trim()
+                );
+            },
+            get hasNoBio() {
+                return !this.hasBio;
+            },
+            get cardWork() {
+                return this.currentCard ? this.currentCard.work : "";
+            },
+            get hasWork() {
+                return !!(this.currentCard && this.currentCard.work);
+            },
+            get cardEdu() {
+                return this.currentCard ? this.currentCard.education : "";
+            },
+            get hasEdu() {
+                return !!(this.currentCard && this.currentCard.education);
+            },
+            get cardHeight() {
+                return this.currentCard ? this.currentCard.height : "";
+            },
+            get hasHeight() {
+                return !!(this.currentCard && this.currentCard.height);
+            },
+            get cardLanguages() {
+                return this.currentCard && this.currentCard.languages
+                    ? this.currentCard.languages.join(", ")
+                    : "";
+            },
+            get hasLanguages() {
+                return !!(
+                    this.currentCard &&
+                    this.currentCard.languages &&
+                    this.currentCard.languages.length
+                );
+            },
+            get cardInterests() {
+                return this.currentCard && this.currentCard.interests
+                    ? this.currentCard.interests.join(" · ")
+                    : "";
+            },
+            get hasInterests() {
+                return !!(
+                    this.currentCard &&
+                    this.currentCard.interests &&
+                    this.currentCard.interests.length
+                );
+            },
+            get cardStory() {
+                return this.currentCard ? this.currentCard.story_text : "";
+            },
+            get cardStoryPrompt() {
+                return this.currentCard && this.currentCard.story_prompt
+                    ? this.currentCard.story_prompt
+                    : "";
+            },
+            get hasStory() {
+                return !!(
+                    this.currentCard &&
+                    this.currentCard.story_text &&
+                    this.currentCard.story_text.trim()
+                );
+            },
+            get cardGoal() {
+                return this.currentCard ? this.currentCard.relationship_goal : "";
+            },
+            get hasGoal() {
+                return !!(this.currentCard && this.currentCard.relationship_goal);
+            },
+            get cardLifestyleTags() {
+                return this.currentCard && this.currentCard.lifestyle_tags
+                    ? this.currentCard.lifestyle_tags.join(" · ")
+                    : "";
+            },
+            get hasLifestyle() {
+                return !!(
+                    this.currentCard &&
+                    this.currentCard.lifestyle_tags &&
+                    this.currentCard.lifestyle_tags.length
+                );
+            },
+            get cardMemberSince() {
+                return this.currentCard && this.currentCard.member_since
+                    ? this.currentCard.member_since_label
+                    : "";
+            },
+            get riskFlags() {
+                return (this.currentCard && this.currentCard.risk_flags) || [];
+            },
+            get hasRiskFlags() {
+                return this.riskFlags.length > 0;
+            },
+            get riskFlagsSummary() {
+                return this.riskFlags.join(" · ");
+            },
+            get photoIndicatorText() {
+                if (
+                    !this.currentCard ||
+                    !this.currentCard.photos ||
+                    !this.currentCard.photos.length
+                )
+                    return "";
+                return `${this.activePhotoIndex + 1} / ${this.currentCard.photos.length}`;
+            },
+            get cardDetails() {
+                return this.currentCard
+                    ? [
+                          this.currentCard.age,
+                          this.currentCard.gender,
+                          this.currentCard.location,
+                      ]
+                          .filter(Boolean)
+                          .join(" · ")
+                    : "";
+            },
+            get hasLuxid() {
+                return !!(this.currentCard && this.currentCard.is_luxid_verified);
+            },
+            get hasAttendedEvent() {
+                return !!(this.currentCard && this.currentCard.has_attended_event);
+            },
+            get hasMultiplePhotos() {
+                return !!(this.currentCard && this.currentCard.photos.length > 1);
+            },
+            get isFakeReason() { return this.selectedReason === "fake_profile"; },
+            get isInappropriateReason() { return this.selectedReason === "inappropriate"; },
+            get isUnclearReason() { return this.selectedReason === "unclear_face"; },
+            get isGroupReason() { return this.selectedReason === "group_photo"; },
+            get isOtherReason() { return this.selectedReason === "other"; },
+            selectFlagReason(event) { this.selectedReason = event.target.value; },
+            updateFlagNotes(event) { this.flagNotes = event.target.value; },
+            get currentPhotoUrl() {
+                return this.currentCard && this.currentCard.photos[this.activePhotoIndex]
+                    ? this.currentCard.photos[this.activePhotoIndex].url
+                    : "";
+            },
+            get cardTransformStyle() {
+                return this.isDragging
+                    ? `transform: translate(${this.deltaX}px, ${this.deltaY}px) rotate(${this.deltaX * 0.08}deg)`
+                    : "";
+            },
+            startDrag(event) {
+                if (
+                    this.actionsDisabled ||
+                    this.isModalOpen ||
+                    (event.pointerType === "mouse" && event.button !== 0)
+                )
+                    return;
+                this.isDragging = true;
+                this.startX = event.clientX;
+                this.startY = event.clientY;
+                event.currentTarget.setPointerCapture(event.pointerId);
+            },
+            onDrag(event) {
+                if (!this.isDragging) return;
+                this.deltaX = event.clientX - this.startX;
+                this.deltaY = event.clientY - this.startY;
+            },
+            endDrag() {
+                if (!this.isDragging) return;
+                const dx = this.deltaX,
+                    dy = this.deltaY;
+                this.cancelDrag();
+                if (dx > 90) this.approveCurrentCard();
+                else if (dx < -90) this.openFlagModal();
+                else if (dy < -110 && Math.abs(dx) < 60) this.skipCard();
+            },
+            cancelDrag() {
+                this.isDragging = false;
+                this.deltaX = 0;
+                this.deltaY = 0;
+            },
+            nextPhoto() {
+                if (this.hasCard)
+                    this.activePhotoIndex =
+                        (this.activePhotoIndex + 1) % this.currentCard.photos.length;
+            },
+            prevPhoto() {
+                if (this.hasCard)
+                    this.activePhotoIndex =
+                        (this.activePhotoIndex + this.currentCard.photos.length - 1) %
+                        this.currentCard.photos.length;
+            },
+            handleKeydown(event) {
+                if (
+                    this.isModalOpen ||
+                    this.isSubmitting ||
+                    this.isLoading ||
+                    event.target.closest(
+                        "input, textarea, select, button, a, [contenteditable]",
+                    )
+                )
+                    return;
+                const key = event.key.toLowerCase();
+                if (key === "u") {
+                    event.preventDefault();
+                    this.undoLastDecision();
+                    return;
+                }
+                if (!this.hasCard) return;
+                if (key === "l" || key === "arrowright") this.approveCurrentCard();
+                else if (key === "h" || key === "arrowleft") this.openFlagModal();
+                else if (key === "k") this.openRevisionModal();
+                else if (key === "arrowup") this.skipCard();
+                else if (key === " ") this.nextPhoto();
+                else return;
+                event.preventDefault();
+            },
+            async skipCard() {
+                if (this.actionsDisabled) return;
+                this.cards.shift();
+                this.showReviewPhoto();
+                if (this.cards.length < 5) await this.fetchMoreCards();
+            },
+            openFlagModal() {
+                if (this.actionsDisabled) return;
+                this.selectedReason = "fake_profile";
+                this.flagNotes = "";
+                this._modalReturnFocus = document.activeElement;
+                this.showModal();
+                this.$nextTick(() =>
+                    this.rootElement.querySelector('input[value="fake_profile"]').focus(),
+                );
+            },
+            openRevisionModal() {
+                if (this.actionsDisabled) return;
+                this.openFlagModal();
+                this.selectedReason = "unclear_face";
+                this.$nextTick(() =>
+                    this.rootElement.querySelector('input[value="unclear_face"]').focus(),
+                );
+            },
+            closeFlagModal() {
+                if (this.isSubmitting || !this.isModalOpen) return;
+                this.hideModal();
+                if (this._modalReturnFocus) this._modalReturnFocus.focus();
+            },
+            trapModalFocus(event) {
+                const elements = Array.from(
+                    event.currentTarget.querySelectorAll("input, textarea, button"),
+                ).filter((el) => !el.disabled);
+                const first = elements[0],
+                    last = elements[elements.length - 1];
+                if (event.shiftKey && document.activeElement === first) {
+                    event.preventDefault();
+                    last.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            },
+            async _post(url, payload) {
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": this.rootElement.querySelector(
+                            '[name="csrfmiddlewaretoken"]',
+                        ).value,
+                    },
+                    body: JSON.stringify(payload),
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success)
+                    throw new Error(data.error || this.rootElement.dataset.error);
+                return data;
+            },
+            async approveCurrentCard() {
+                await this._decide("approved");
+            },
+            async submitFlagDecision() {
+                await this._decide(
+                    this.selectedReason === "fake_profile"
+                        ? "flagged_fake"
+                        : "needs_revision",
+                );
+            },
+            async _decide(decision) {
+                if (this.actionsDisabled) return;
+                const card = this.currentCard;
+                this.isSubmitting = true;
+                this.errorMessage = "";
+                this.noticeMessage = "";
+                try {
+                    const data = await this._post(this.rootElement.dataset.decideUrl, {
+                        profile_id: card.id,
+                        photo_key: card.photo_key,
+                        photo_field: card.photo_field,
+                        decision,
+                        reason:
+                            decision === "approved"
+                                ? "clear_authentic"
+                                : this.selectedReason,
+                        notes: decision === "approved" ? "" : this.flagNotes,
+                    });
+                    this.lastDecision = { logId: data.log_id, card };
+                    this.cards.shift();
+                    this.showReviewPhoto();
+                    this.totalWaiting = Math.max(0, this.totalWaiting - 1);
+                    this.hideModal();
+                    this.$nextTick(() => this.rootElement.focus());
+                } catch (error) {
+                    this.errorMessage = error.message || this.rootElement.dataset.error;
+                } finally {
+                    this.isSubmitting = false;
+                }
+                if (this.cards.length < 5) await this.fetchMoreCards();
+            },
+            async undoLastDecision() {
+                if (this.undoDisabled) return;
+                this.isSubmitting = true;
+                this.errorMessage = "";
+                this.noticeMessage = "";
+                try {
+                    const data = await this._post(this.rootElement.dataset.undoUrl, {
+                        log_id: this.lastDecision.logId,
+                    });
+                    // Picks whose members' situation changed stay withdrawn.
+                    this.noticeMessage = data.skipped_picks
+                        ? this.rootElement.dataset.picksNotRestored
+                        : "";
+                    this.cards = this.cards.filter(
+                        (card) =>
+                            card.id !== this.lastDecision.card.id ||
+                            card.photo_field !== this.lastDecision.card.photo_field,
+                    );
+                    this.cards.unshift(this.lastDecision.card);
+                    this.lastDecision = null;
+                    this.showReviewPhoto();
+                    this.totalWaiting++;
+                } catch (error) {
+                    this.errorMessage = error.message || this.rootElement.dataset.error;
+                } finally {
+                    this.isSubmitting = false;
+                }
+            },
+            restartQueue() {
+                if (this.isLoading || this.isSubmitting) return;
+                this.queueCursor = "";
+                this.fetchMoreCards();
+            },
+            async fetchMoreCards() {
+                if (this.isLoading || this.isSubmitting) return;
+                this.isLoading = true;
+                try {
+                    const response = await fetch(
+                        this.rootElement.dataset.moreUrl +
+                            "?scope=" +
+                            encodeURIComponent(this.rootElement.dataset.scope) +
+                            "&cursor=" +
+                            encodeURIComponent(this.queueCursor),
+                    );
+                    if (!response.ok) throw new Error(this.rootElement.dataset.error);
+                    const data = await response.json();
+                    if (data.cards.length) this.queueCursor = data.cards[data.cards.length - 1].queue_cursor;
+                    const hadCards = this.cards.length > 0;
+                    const ids = new Set(
+                        this.cards.map((card) => `${card.id}:${card.photo_field}`),
+                    );
+                    data.cards.forEach((card) => {
+                        const key = `${card.id}:${card.photo_field}`;
+                        if (!ids.has(key)) this.cards.push(card);
+                    });
+                    this.totalWaiting = data.total_waiting;
+                    if (!hadCards) this.showReviewPhoto();
+                } catch (error) {
+                    this.errorMessage = error.message || this.rootElement.dataset.error;
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+        });
+    });
     // The only path the coach door scanner may POST a scanned QR to — see
     // coachCheckin._checkinPathFromScan. Group 1 is the registration id.
     var CHECKIN_API_PATH_RE = /^\/api\/events\/checkin\/(\d+)\/[^\/]+\/$/;
@@ -1488,6 +1993,17 @@ document.addEventListener("alpine:init", function () {
                 return true;
             },
 
+            // A 403 `coach_required` means the coach's own session lapsed (a
+            // member's self-scan gets the same code, but never runs this page).
+            _checkinErrorMessage: function (data, fallback) {
+                if (data.code === "coach_required") {
+                    return gettext(
+                        "Your coach session has expired. Please sign in again.",
+                    );
+                }
+                return data.error || fallback;
+            },
+
             handleScan: function (text) {
                 var self = this;
                 // qr-scanner keeps decoding ~10x/s while the code is visible;
@@ -1549,7 +2065,10 @@ document.addEventListener("alpine:init", function () {
                         } else {
                             self.success = false;
                             self.errorState = true;
-                            self.message = data.error || gettext("Check-in failed.");
+                            self.message = self._checkinErrorMessage(
+                                data,
+                                gettext("Check-in failed."),
+                            );
                         }
                         self._resumeScanSoon();
                     })
@@ -1603,7 +2122,10 @@ document.addEventListener("alpine:init", function () {
                             var i18n = window._checkinI18n || {};
                             btn.textContent = i18n.checkIn || "Check In";
                             alert(
-                                data.error || i18n.checkinFailed || "Check-in failed",
+                                self._checkinErrorMessage(
+                                    data,
+                                    i18n.checkinFailed || "Check-in failed",
+                                ),
                             );
                         }
                     })

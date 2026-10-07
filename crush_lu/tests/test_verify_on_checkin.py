@@ -74,6 +74,12 @@ def coach():
     return CrushCoach.objects.create(user=user, bio="c", is_active=True)
 
 
+def _coach_user(name):
+    return User.objects.create_user(
+        username=f"{name}@t.test", email=f"{name}@t.test", password="pw12345678"
+    )
+
+
 def _premium_coach():
     """PremiumMembership requires a coach FK, so give it its own."""
     user = User.objects.create_user(
@@ -168,16 +174,19 @@ def test_profile_without_a_photo_is_not_auto_verified(event, coach):
     assert not profile.is_photo_verified
 
 
-def test_self_scan_without_a_coach_session_checks_in_but_does_not_verify(event):
-    """The attendee holds their own QR — it must not be a self-verify."""
+def test_self_scan_without_a_coach_session_is_refused(event):
+    """The attendee holds their own QR — it must be neither check-in nor verify."""
+    cache.clear()
     profile, reg = _attendee(event, "selfscan")
     response = _scan(reg, event, as_coach=None)
 
-    assert response.status_code == 200
-    assert response.json()["auto_verified"] is False
+    assert response.status_code == 403
+    assert response.json()["success"] is False
+    assert response.json()["code"] == "coach_required"
     reg.refresh_from_db()
     profile.refresh_from_db()
-    assert reg.status == "attended"  # unchanged behaviour
+    assert reg.status == "confirmed"
+    assert reg.checked_in_at is None
     assert profile.verification_status == "pending"
     assert profile.is_approved is False
     assert not profile.is_photo_verified
@@ -251,7 +260,9 @@ def test_inactive_coach_session_does_not_verify(event, coach):
     CrushCoach.objects.filter(pk=coach.pk).update(is_active=False)
     response = _scan(reg, event, as_coach=coach)
 
-    assert response.json()["auto_verified"] is False
+    assert response.status_code == 403
+    reg.refresh_from_db()
+    assert reg.status == "confirmed"
     profile.refresh_from_db()
     assert profile.verification_status == "pending"
 
@@ -326,12 +337,10 @@ def test_pending_submission_is_approved_by_the_auto_verify(event, coach):
     assert sub.coach_id == coach.id
 
 
-def test_rescan_by_a_coach_verifies_a_self_scanned_attendee(event, coach):
-    """A first scan without a coach session must not strand them unverified."""
+def test_rescan_by_a_coach_verifies_a_row_attended_before_this_rule(event, coach):
+    """Rows marked attended without a coach (legacy/admin) still get verified."""
     profile, reg = _attendee(event, "rescan")
-
-    first = _scan(reg, event, as_coach=None).json()
-    assert first["auto_verified"] is False
+    EventRegistration.objects.filter(pk=reg.pk).update(status="attended")
     profile.refresh_from_db()
     assert profile.verification_status == "pending"
 
@@ -374,8 +383,8 @@ def test_repeated_rescans_fire_the_side_effects_only_once(
     )
 
     profile, reg = _attendee(event, "doublescan")
-    # First scan has no coach session, so it only checks in.
-    _scan(reg, event, as_coach=None)
+    # Attended without a coach (legacy/admin row), so the first scan re-verifies.
+    EventRegistration.objects.filter(pk=reg.pk).update(status="attended")
 
     with django_capture_on_commit_callbacks(execute=True):
         first = _scan(reg, event, as_coach=coach).json()
@@ -507,16 +516,45 @@ def test_scanning_coach_becomes_the_assigned_coach(event, coach):
     assert profile.assigned_coach_at is not None
 
 
-def test_anonymous_scan_still_assigns_the_events_first_coach(event, coach):
-    """No coach session on the request -> the legacy fallback stands."""
+def test_anonymous_scan_assigns_no_coach(event, coach):
+    """A member's own scan is refused, so nobody is credited as their coach."""
     scanner = _second_coach()
     event.coaches.add(coach, scanner)
     profile, reg = _attendee(event, "assignanon")
 
-    _scan(reg, event, as_coach=None)
+    assert _scan(reg, event, as_coach=None).status_code == 403
+
+    profile.refresh_from_db()
+    assert profile.assigned_coach_id is None
+
+
+def test_admin_attendance_save_still_falls_back_to_the_first_coach(event, coach):
+    """No check-in view involved (admin/staff save) -> the legacy fallback."""
+    event.coaches.add(coach)
+    profile, reg = _attendee(event, "assignadmin")
+
+    reg.status = "attended"
+    reg.save()
 
     profile.refresh_from_db()
     assert profile.assigned_coach_id == coach.id
+    reg.refresh_from_db()
+    assert reg.checkin_granted_coach_id == coach.id
+
+
+def test_checkin_save_without_a_coach_never_credits_the_first_coach(event, coach):
+    """A view-driven save that carries no scanner must not fall back (#1187)."""
+    event.coaches.add(coach)
+    profile, reg = _attendee(event, "assignnone")
+
+    reg._checkin_coach = None
+    reg.status = "attended"
+    reg.save()
+
+    profile.refresh_from_db()
+    assert profile.assigned_coach_id is None
+    reg.refresh_from_db()
+    assert reg.checkin_granted_coach_id is None
 
 
 def test_existing_coach_is_never_reassigned_by_a_scan(event, coach):
@@ -1285,6 +1323,83 @@ def test_undo_checkin_transfers_provenance_to_surviving_authenticated_registrati
     profile.refresh_from_db()
     assert profile.verification_status == "pending"
     assert profile.verification_method == ""
+
+
+# ---------------------------------------------------------------------------
+# Regression: a member's own QR is not a check-in (#1186, #1187)
+# ---------------------------------------------------------------------------
+
+
+def test_anonymous_post_does_not_check_in_or_open_the_attendee_list(event):
+    """#1186: the POST used to flip `confirmed -> attended` hours before start,
+    which is what unlocked `/events/<id>/attendees/` for a non-attendee."""
+    cache.clear()
+    event.date_time = timezone.now() + timedelta(hours=3)
+    event.save(update_fields=["date_time"])
+    profile, reg = _attendee(event, "outsider")
+
+    assert _scan(reg, event, as_coach=None).status_code == 403
+
+    reg.refresh_from_db()
+    assert reg.status == "confirmed"
+    assert reg.checked_in_at is None
+
+    client = Client()
+    client.force_login(profile.user)
+    response = client.get(f"/en/events/{event.id}/attendees/")
+    assert response.status_code == 404
+
+
+def test_self_scan_does_not_satisfy_the_connect_identity_gate(event):
+    """#1187: a self-scan used to credit `event.coaches.first()` as the member's
+    coach, which made a bare `attended` row count as in-person verification."""
+    from crush_lu.services.crush_connect import filter_connect_identity_verified
+
+    cache.clear()
+    profile, reg = _attendee(event, "selfgate")
+    CrushProfile.objects.filter(pk=profile.pk).update(
+        verification_status="verified", verification_method="admin"
+    )
+    event.coaches.add(CrushCoach.objects.create(user=_coach_user("gatecoach")))
+
+    assert _scan(reg, event, as_coach=None).status_code == 403
+
+    profile.refresh_from_db()
+    assert profile.assigned_coach_id is None
+    assert profile.has_attended_event is False
+    qs = filter_connect_identity_verified(User.objects.filter(pk=profile.user_id))
+    assert not qs.exists()
+
+
+def test_self_scanned_attendance_alone_does_not_satisfy_the_identity_gate(event, coach):
+    """A bare `attended` row (no grant, no assigned coach, no attestation) —
+    however it got there — is not coach-authenticated attendance."""
+    from crush_lu.services.crush_connect import filter_connect_identity_verified
+
+    event.coaches.add(coach)
+    profile, reg = _attendee(event, "baregate")
+    CrushProfile.objects.filter(pk=profile.pk).update(
+        verification_status="verified", verification_method="admin"
+    )
+    # Attended with a save that carries no scanner: nobody is credited.
+    reg._checkin_coach = None
+    reg.status = "attended"
+    reg.save()
+
+    profile.refresh_from_db()
+    assert profile.assigned_coach_id is None
+    assert profile.has_attended_event is False
+    assert not filter_connect_identity_verified(
+        User.objects.filter(pk=profile.user_id)
+    ).exists()
+
+    # Control: the same attendance with a coach grant does satisfy it.
+    EventRegistration.objects.filter(pk=reg.pk).update(checkin_granted_coach=coach)
+    profile.refresh_from_db()
+    assert profile.has_attended_event is True
+    assert filter_connect_identity_verified(
+        User.objects.filter(pk=profile.user_id)
+    ).exists()
 
 
 # ---------------------------------------------------------------------------

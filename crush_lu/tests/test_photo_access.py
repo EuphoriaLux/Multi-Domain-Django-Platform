@@ -25,6 +25,7 @@ from crush_lu.models import (
     EventVotingSession,
     MeetupEvent,
     PremiumMembership,
+    ProfilePhotoReviewState,
     UserBlock,
 )
 from crush_lu.models.crush_connect import ConnectCoachPick
@@ -53,7 +54,9 @@ def _local_photos(settings, tmp_path):
     cache.clear()
 
 
-def _member(username, *, verified=True, photo_consent=None, photo=True):
+def _member(
+    username, *, verified=True, photo_consent=None, photo=True, photo_reviewed=True
+):
     user = User.objects.create_user(
         username=username, email=f"{username}@example.com", password="x"
     )
@@ -69,6 +72,13 @@ def _member(username, *, verified=True, photo_consent=None, photo=True):
     )
     if photo:
         profile.photo_1.save("p.jpg", ContentFile(b"jpegbytes"), save=True)
+        if photo_reviewed:
+            ProfilePhotoReviewState.objects.create(
+                profile=profile,
+                photo_field="photo_1",
+                photo_key=profile.photo_1.name,
+                status="approved",
+            )
     if photo_consent is not None:
         SocialAccount.objects.create(user=user, provider="luxid", uid=f"lx-{user.pk}")
         CrushConnectMembership.objects.create(
@@ -561,8 +571,7 @@ class TestHiddenEncounterSurfaces:
 
 
 class TestPhotoFields:
-    """Member surfaces render only ``photo_1``; 2 and 3 stay with the owner,
-    coaches and superusers."""
+    """Secondary photos are restricted to owners, coaches and eligible pairs."""
 
     def _with_second_photo(self, user):
         profile = user.crushprofile
@@ -587,6 +596,34 @@ class TestPhotoFields:
             client.force_login(viewer)
             response = client.get(f"/en/media/profile/{alice.pk}/photo_2/")
             assert response.status_code == 200
+
+    def test_connect_pair_sees_only_the_exact_reviewed_photo(self, client):
+        alice = self._with_second_photo(_member("alice", photo_consent=True))
+        ben = _member("ben", photo_consent=True)
+        session = ConnectWeekSession.objects.create(user=ben)
+        ConnectCycleCard.objects.create(
+            session=session,
+            day_number=1,
+            card_index=1,
+            target_user=alice,
+            generated_date=timezone.localdate(),
+        )
+
+        client.force_login(ben)
+        photo_2_url = f"/en/media/profile/{alice.pk}/photo_2/"
+        assert client.get(photo_2_url).status_code == 403
+
+        profile = alice.crushprofile
+        ProfilePhotoReviewState.objects.create(
+            profile=profile,
+            photo_field="photo_2",
+            photo_key=profile.photo_2.name,
+            status="approved",
+        )
+        assert client.get(photo_2_url).status_code == 200
+
+        profile.photo_2.save("replacement.jpg", ContentFile(b"newbytes"), save=True)
+        assert client.get(photo_2_url).status_code == 403
 
 
 class TestVotingResultsCoachView:
@@ -707,6 +744,25 @@ class TestQuizPhoto:
         CrushCoach.objects.create(user=coach, is_active=True)
         assert _quiz_photo(client, coach, alice).status_code == 200
         assert _quiz_photo(client, alice, alice).status_code == 200
+
+    @pytest.mark.parametrize("decision", ["needs_revision", "flagged_fake"])
+    def test_moderated_photo_never_reaches_the_projector(self, client, decision):
+        """A coach-moderated image is not projected to the room, whoever
+        signed the projector in; only its owner still sees it."""
+        from crush_lu.views_quiz import _photo_url
+
+        host = _member("host")
+        alice = _member("alice")
+        _quiz(created_by=host, owner=alice)
+        staff = User.objects.create_user("staff", "st@example.com", "x", is_staff=True)
+        coach = _member("coach")
+        CrushCoach.objects.create(user=coach, is_active=True)
+        assert _photo_url(alice.crushprofile) == f"/api/quiz/photo/{alice.pk}/"
+        CrushProfile.objects.filter(user=alice).update(photo_review_status=decision)
+        for viewer in (host, staff, coach):
+            assert _quiz_photo(client, viewer, alice).status_code == 404
+        assert _quiz_photo(client, alice, alice).status_code == 200
+        assert _photo_url(CrushProfile.objects.get(user=alice)) is None
 
     def test_unrelated_approved_member_refused(self, client):
         alice, mallory = _member("alice"), _member("mallory")

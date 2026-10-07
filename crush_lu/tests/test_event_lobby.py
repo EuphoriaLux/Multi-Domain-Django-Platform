@@ -27,12 +27,14 @@ from django.utils import timezone
 
 from crush_lu.models import (
     ConfirmedEncounter,
+    CrushCoach,
     CrushConnectMembership,
     CrushProfile,
     EventLobbyParticipation,
     EventMeetSignal,
     EventRegistration,
     MeetupEvent,
+    ProfilePhotoReviewState,
     UserBlock,
     UserDataConsent,
 )
@@ -94,6 +96,12 @@ def _make_member(
     if photo:
         profile.photo_1 = f"users/{user.pk}/photos/test.jpg"
         profile.save(update_fields=["photo_1"])
+        ProfilePhotoReviewState.objects.create(
+            profile=profile,
+            photo_field="photo_1",
+            photo_key=profile.photo_1.name,
+            status="approved",
+        )
     if luxid:
         SocialAccount.objects.create(
             user=user, provider="luxid", uid=f"luxid-test-{user.pk}"
@@ -368,6 +376,15 @@ class TestCheckinNeverDependsOnLobby:
     """§19: a normal event check-in never depends on the lobby succeeding."""
 
     def _checkin(self, client, registration):
+        # Only a coach session may check anyone in (#1186).
+        coach_user, _ = User.objects.get_or_create(
+            username="doorcoach", defaults={"email": "doorcoach@t.test"}
+        )
+        UserDataConsent.objects.update_or_create(
+            user=coach_user, defaults={"crushlu_consent_given": True}
+        )
+        CrushCoach.objects.get_or_create(user=coach_user, defaults={"is_active": True})
+        client.force_login(coach_user)
         token = Signer().sign(f"{registration.pk}:{registration.event_id}")
         url = reverse(
             "event_checkin_api",
@@ -1147,6 +1164,11 @@ class TestLobbyPhoto:
         settings.MEDIA_ROOT = str(tmp_path)
         profile = user.crushprofile
         profile.photo_1.save("lobby.jpg", ContentFile(b"jpegbytes"), save=True)
+        ProfilePhotoReviewState.objects.update_or_create(
+            profile=profile,
+            photo_field="photo_1",
+            defaults={"photo_key": profile.photo_1.name, "status": "approved"},
+        )
         return profile
 
     def test_participant_fetches_photo_by_handle(self, client, settings, tmp_path):
@@ -1160,7 +1182,7 @@ class TestLobbyPhoto:
         response = client.get(self._photo_url(event, _handle_of(ben, event)))
         assert response.status_code == 200
         assert response["Content-Type"] == "image/jpeg"
-        assert response["Cache-Control"] == "private, max-age=300"
+        assert response["Cache-Control"] == "private, no-store"
 
     def test_photo_is_proxied_never_a_sas_redirect(self, client, settings, tmp_path):
         """§13 revocation: even with Azure storage configured the endpoint
@@ -1756,3 +1778,22 @@ class TestLateAdmissionConsistency:
             == lobby.CRUSH_FLOW_CRUSH
         )
         assert lobby.viewer_participation(requester, event) is None
+
+
+class TestAnonymousScanNeverOpensTheLobby:
+    """#1186: the member's own QR must not admit them to the lobby."""
+
+    def test_anonymous_post_three_hours_before_start_changes_nothing(self, client):
+        event = _make_event(starts_in_minutes=180)
+        member = _make_member("alice")
+        registration = EventRegistration.objects.create(
+            event=event, user=member, status="confirmed"
+        )
+        token = Signer().sign(f"{registration.pk}:{event.pk}")
+
+        response = client.post(f"/api/events/checkin/{registration.pk}/{token}/")
+
+        assert response.status_code == 403
+        registration.refresh_from_db()
+        assert registration.status == "confirmed"
+        assert EventLobbyParticipation.objects.count() == 0

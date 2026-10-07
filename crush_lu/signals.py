@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import requests
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.contrib.auth.signals import user_logged_in
+from django.contrib.auth.signals import user_logged_in, user_logged_out
 from django.core.files.base import ContentFile
 from django.db.models import Exists, OuterRef, Q
 from django.core.signals import request_finished, request_started
@@ -1728,50 +1728,24 @@ def create_crush_profile_from_facebook(sender, instance, created, **kwargs):
 
 @receiver(user_logged_in)
 def store_oauth_result_for_duplicate_handling(sender, request, user, **kwargs):
-    """
-    Store OAuth result in database for handling duplicate callback requests.
-
-    On Android PWA, duplicate OAuth callbacks can arrive before cookies are committed.
-    The first callback processes successfully but the second sees no session.
-    By storing the result in the database, the second request can recover the auth.
-
-    This signal fires AFTER Allauth successfully logs in the user.
-    We store the user_id and redirect URL so duplicate requests can complete.
-    """
-    # Get state_id from request GET params (should be available on callback URL)
-    state_id = request.GET.get("state")
-    if not state_id:
-        # Not an OAuth login, skip
-        return
+    """Bind recovery to the browser that successfully completed allauth."""
+    from .oauth_recovery import store_callback_result
 
     try:
-        from crush_lu.models import OAuthState
+        store_callback_result(request, user)
+    except Exception:
+        # Recovery is optional; the successfully authenticated session survives.
+        logger.exception("[OAUTH-RESULT] Could not issue callback recovery proof")
 
-        # Determine redirect URL based on profile existence
-        has_profile = hasattr(user, "crushprofile")
-        redirect_url = "/dashboard/" if has_profile else "/create-profile/"
 
-        # Update the OAuth state with completion info
-        updated = OAuthState.objects.filter(state_id=state_id).update(
-            auth_completed=True,
-            auth_user_id=user.id,
-            auth_redirect_url=redirect_url,
-            last_callback_at=timezone.now(),
-        )
+@receiver(user_logged_out)
+def revoke_oauth_result_on_logout(sender, request, **kwargs):
+    from .oauth_recovery import revoke_callback_recovery
 
-        if updated:
-            logger.info(
-                f"[OAUTH-RESULT] Stored OAuth result for state {state_id[:8]}... "
-                f"(user_id={user.id}, redirect={redirect_url})"
-            )
-        else:
-            logger.warning(
-                f"[OAUTH-RESULT] Could not find OAuth state {state_id[:8]}... to store result"
-            )
-
-    except Exception as e:
-        # Non-critical - just log and continue
-        logger.error(f"[OAUTH-RESULT] Error storing OAuth result: {e}")
+    try:
+        revoke_callback_recovery(request)
+    except Exception:
+        logger.exception("[OAUTH-RESULT] Could not revoke callback recovery proof")
 
 
 @receiver(user_logged_in)
@@ -4209,8 +4183,9 @@ def assign_coach_on_first_attendance(sender, instance, created, **kwargs):
     coach who scanned them in (``instance._checkin_coach``, set by
     ``views_checkin.event_checkin_api``) becomes their permanent coach —
     the person who actually met them at the door, not whoever happens to be
-    first in the event's coach list. Anonymous/admin attendance transitions
-    carry no scanner and fall back to the event's first assigned coach.
+    first in the event's coach list. Admin saves that bypass the check-in views
+    carry no scanner attribute and fall back to the event's first assigned coach;
+    a check-in view with no coach session credits nobody.
     Idempotent — once a coach is assigned the member keeps it, and events
     with no coaches simply leave the member unassigned until a coached event
     is attended.
@@ -4227,7 +4202,14 @@ def assign_coach_on_first_attendance(sender, instance, created, **kwargs):
     if profile is None or profile.assigned_coach_id:
         return
 
-    coach = getattr(instance, "_checkin_coach", None) or instance.event.coaches.first()
+    if hasattr(instance, "_checkin_coach"):
+        # A check-in view ran this save. `None` means it had no coach session
+        # (a member's own scan); the event's first coach did not meet them, so
+        # crediting that coach would invent a relationship. (#1187)
+        coach = instance._checkin_coach
+    else:
+        # Admin/staff save with no view involved: keep the fallback.
+        coach = instance.event.coaches.first()
     if coach is None:
         return
 

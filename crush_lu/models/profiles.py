@@ -662,6 +662,48 @@ class CrushProfile(models.Model):
         upload_to=user_photo_path, blank=True, null=True, storage=crush_photo_storage
     )
 
+    # Online Coach Photo Review / Vetting (for Crush Connect and safe discovery)
+    PHOTO_REVIEW_STATUS_CHOICES = [
+        ("pending", _("Pending Review")),
+        ("approved", _("Approved / Authentic")),
+        ("needs_revision", _("Needs Revision (Unclear / Inappropriate)")),
+        ("flagged_fake", _("Flagged Fake / Suspicious")),
+    ]
+    photo_review_status = models.CharField(
+        max_length=20,
+        choices=PHOTO_REVIEW_STATUS_CHOICES,
+        default="pending",
+        db_index=True,
+        help_text=_("Coach online photo review status for Crush Connect"),
+    )
+    photo_review_key = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        editable=False,
+        help_text=_("Storage key of photo_1 when reviewed; change invalidates review"),
+    )
+    photo_reviewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        editable=False,
+        help_text=_("When the current photo was reviewed by a coach"),
+    )
+    photo_reviewed_by = models.ForeignKey(
+        "crush_lu.CrushCoach",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="photo_reviews_conducted",
+        help_text=_("Coach who reviewed the current photo"),
+    )
+    photo_review_notes = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text=_("Internal note from coach on photo decision"),
+    )
+
     # Privacy Settings
     show_full_name = models.BooleanField(
         default=False,
@@ -1163,6 +1205,93 @@ class CrushProfile(models.Model):
             and self.photo_verification_key == current_key
         )
 
+    @property
+    def is_photo_review_approved(self) -> bool:
+        """Whether the current primary image has a coach's online approval."""
+        return self.is_photo_field_review_approved("photo_1")
+
+    def get_photo_field_review_state(self, photo_field: str):
+        """Return the current exact-file decision, treating stale keys as pending."""
+        if photo_field not in ("photo_1", "photo_2", "photo_3"):
+            raise ValueError(f"Unsupported profile photo field: {photo_field}")
+        current_key = getattr(getattr(self, photo_field), "name", "") or ""
+        if not current_key:
+            return None
+        if not self.pk:
+            return None
+
+        state = None
+        prefetched = getattr(self, "_prefetched_objects_cache", {}).get(
+            "photo_review_states"
+        )
+        if prefetched is not None:
+            state = next(
+                (
+                    item
+                    for item in prefetched
+                    if item.photo_field == photo_field and item.photo_key == current_key
+                ),
+                None,
+            )
+        else:
+            state = self.photo_review_states.filter(
+                photo_field=photo_field, photo_key=current_key
+            ).first()
+        if state is not None:
+            return state
+
+        # The legacy primary fields remain a compatibility fallback for rows
+        # written before the per-slot review migration or by older code.
+        if (
+            photo_field == "photo_1"
+            and self.photo_review_key == current_key
+            and self.photo_review_status in ("approved", "needs_revision")
+        ):
+            return None
+        return None
+
+    def get_photo_field_review_status(self, photo_field: str) -> str:
+        """Return the current status for a slot; absent/stale decisions are pending."""
+        current_key = getattr(getattr(self, photo_field), "name", "") or ""
+        if photo_field == "photo_1":
+            if self.photo_review_status == "flagged_fake":
+                return "flagged_fake"
+            if self.photo_review_status == "needs_revision":
+                return "needs_revision"
+        state = self.get_photo_field_review_state(photo_field)
+        if state is not None:
+            return state.status
+        if photo_field == "photo_1":
+            if current_key and self.photo_review_key == current_key:
+                return self.photo_review_status
+        return "pending"
+
+    def is_photo_field_review_approved(self, photo_field: str) -> bool:
+        current_key = getattr(getattr(self, photo_field, None), "name", "") or ""
+        if photo_field == "photo_1" and (
+            self.photo_review_status == "flagged_fake"
+            or self.photo_review_status == "needs_revision"
+        ):
+            return False
+        state = self.get_photo_field_review_state(photo_field)
+        if state is not None:
+            return state.status == "approved"
+        return bool(
+            photo_field == "photo_1"
+            and current_key
+            and self.photo_review_status == "approved"
+            and self.photo_review_key == current_key
+        )
+
+    def get_coach_reviewed_secondary_photo_fields(self):
+        """Secondary slots safe to include in a Connect member-facing gallery."""
+        return [
+            photo_field
+            for photo_field in ("photo_2", "photo_3")
+            if getattr(self, photo_field)
+            and self.is_photo_field_review_approved(photo_field)
+        ]
+
     def mark_current_photo_verified(
         self, *, verified_at=None, allowed_statuses=("pending", "verified")
     ) -> bool:
@@ -1264,6 +1393,17 @@ class CrushProfile(models.Model):
                 instance.photo_verification_key,
                 instance.photo_verified_at,
             )
+        review_fields = (
+            "photo_review_status",
+            "photo_review_key",
+            "photo_reviewed_at",
+            "photo_reviewed_by_id",
+            "photo_review_notes",
+        )
+        if all(field in field_names for field in review_fields):
+            instance._loaded_photo_review = tuple(
+                getattr(instance, field) for field in review_fields
+            )
         return instance
 
     def save(self, *args, **kwargs):
@@ -1275,6 +1415,7 @@ class CrushProfile(models.Model):
         4. Protect an untouched language choice from stale full-row saves.
         5. Protect an untouched verification decision from stale full-row saves.
         6. Invalidate photo attestation when the primary photo changes.
+        7. Omit untouched online photo-review columns from unrelated updates.
         """
         loaded_verification = getattr(self, "_loaded_verification", None)
         verification_fields = (
@@ -1303,6 +1444,7 @@ class CrushProfile(models.Model):
         if self.verification_status == "verified" and not self.verification_method:
             self.verification_method = "admin"
 
+        omit_review_fields = ()
         if self.pk:  # Only on update, not create
             try:
                 old_instance = CrushProfile.objects.get(pk=self.pk)
@@ -1347,12 +1489,62 @@ class CrushProfile(models.Model):
                     else:
                         self.photo_verification_key = ""
                         self.photo_verified_at = None
+
+                    # Reset online coach photo review on photo change unless carrying forward
+                    if old_instance.photo_review_status == "flagged_fake":
+                        # A fake-profile flag judges the member, not one file:
+                        # a new upload must not launder it back into the
+                        # queue. Only the stale key goes; lifting the flag
+                        # stays an explicit coach or admin decision.
+                        self.photo_review_status = "flagged_fake"
+                        self.photo_review_key = ""
+                        self.photo_reviewed_at = old_instance.photo_reviewed_at
+                        self.photo_reviewed_by_id = old_instance.photo_reviewed_by_id
+                        self.photo_review_notes = old_instance.photo_review_notes
+                    elif (
+                        old_photo_key
+                        and old_instance.photo_review_key == old_photo_key
+                        and self.photo_review_key == new_photo_key
+                        and self.photo_reviewed_at is not None
+                    ):
+                        pass
+                    else:
+                        self.photo_review_status = "pending"
+                        self.photo_review_key = ""
+                        self.photo_reviewed_at = None
+                        self.photo_reviewed_by = None
+                        self.photo_review_notes = ""
+
                     if update_fields is not None:
                         kwargs["update_fields"] = set(update_fields) | {
                             "photo_verification_key",
                             "photo_verified_at",
+                            "photo_review_status",
+                            "photo_review_key",
+                            "photo_reviewed_at",
+                            "photo_reviewed_by",
+                            "photo_review_notes",
                         }
                 else:
+                    # Preserve moderation written while an unrelated request
+                    # held this instance, without reviving its stale pending state.
+                    review_fields = (
+                        "photo_review_status",
+                        "photo_review_key",
+                        "photo_reviewed_at",
+                        "photo_reviewed_by_id",
+                        "photo_review_notes",
+                    )
+                    loaded_review = getattr(self, "_loaded_photo_review", None)
+                    if (
+                        update_fields is None
+                        and loaded_review is not None
+                        and tuple(getattr(self, field) for field in review_fields)
+                        == loaded_review
+                    ):
+                        for field in review_fields:
+                            setattr(self, field, getattr(old_instance, field))
+                        omit_review_fields = review_fields
                     # A coach may attest the photo while another request holds
                     # an older profile instance. Preserve that newer decision
                     # across an unrelated full-row save, just like the profile
@@ -1440,6 +1632,19 @@ class CrushProfile(models.Model):
                             pass  # Don't block save if cleanup fails
             except CrushProfile.DoesNotExist:
                 pass
+        if omit_review_fields:
+            # Copying the latest tuple above keeps this instance useful, but
+            # only omitting its columns protects a decision that commits
+            # between that read and this UPDATE. Keep all other loaded fields,
+            # including auto_now fields and wallet signal inputs.
+            kwargs["update_fields"] = {
+                field.name
+                for field in self._meta.concrete_fields
+                if not field.primary_key
+                and not field.generated
+                and field.attname in self.__dict__
+                and field.attname not in omit_review_fields
+            }
         super().save(*args, **kwargs)
         # This instance is now in step with the row, so a later save on it
         # judges "touched since" against what was actually written.
@@ -1454,6 +1659,13 @@ class CrushProfile(models.Model):
             getattr(self.photo_1, "name", "") or "",
             self.photo_verification_key,
             self.photo_verified_at,
+        )
+        self._loaded_photo_review = (
+            self.photo_review_status,
+            self.photo_review_key,
+            self.photo_reviewed_at,
+            self.photo_reviewed_by_id,
+            self.photo_review_notes,
         )
 
     def reset_phone_verification(self):

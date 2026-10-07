@@ -16,7 +16,7 @@ from django.contrib import messages as django_messages
 from django.db import transaction
 from django.db.models import Prefetch, Count, Q, F
 from django.urls import reverse
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -29,6 +29,7 @@ from crush_lu.models import (
     CrushCoach,
     CrushProfile,
     PremiumPaymentRecoveryCase,
+    ProfilePhotoReviewState,
     ProfileSubmission,
     EventRegistration,
     EventConnection,
@@ -554,6 +555,7 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
     filter_horizontal = ("interests_new", "qualities", "defects", "sought_qualities")
     readonly_fields = (
         "get_quick_status_summary",
+        "get_photo_review_summary",
         "get_user_account_info",
         "user",
         "created_at",
@@ -591,6 +593,7 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
         "export_profiles_csv",
         "send_bulk_email",
         "merge_accounts",
+        "lift_photo_review_moderation",
     ]
     inlines = [ProfileSubmissionProfileInline]
     change_list_template = "admin/crush_lu/crushprofile/change_list.html"
@@ -697,7 +700,15 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
         (
             "Photos",
             {
-                "fields": ("photo_1", "photo_2", "photo_3"),
+                "fields": (
+                    "get_photo_review_summary",
+                    "photo_1",
+                    "photo_2",
+                    "photo_3",
+                ),
+                "description": _(
+                    "Each status applies to the exact image file shown in that slot."
+                ),
             },
         ),
         (
@@ -939,6 +950,55 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
         return mark_safe('<span style="color: #999;">No photo</span>')
 
     get_photo_preview.short_description = _("Photo")
+
+    def get_photo_review_summary(self, obj):
+        states = {
+            state.photo_field: state
+            for state in obj.photo_review_states.select_related("reviewed_by__user")
+        }
+        profile_status_labels = dict(CrushProfile.PHOTO_REVIEW_STATUS_CHOICES)
+        state_status_labels = dict(ProfilePhotoReviewState.STATUS_CHOICES)
+        rows = []
+        for photo_field, label in (
+            ("photo_1", _("Primary photo")),
+            ("photo_2", _("Photo 2")),
+            ("photo_3", _("Photo 3")),
+        ):
+            key = getattr(getattr(obj, photo_field), "name", "") or ""
+            state = states.get(photo_field)
+            if state is not None and state.photo_key == key:
+                status = state.status
+                reviewer = state.reviewed_by
+                reviewed_at = state.reviewed_at
+                status_label = state_status_labels.get(status, status)
+            elif photo_field == "photo_1":
+                status = obj.get_photo_field_review_status(photo_field)
+                reviewer = obj.photo_reviewed_by
+                reviewed_at = obj.photo_reviewed_at
+                status_label = profile_status_labels.get(status, status)
+            else:
+                status_label = _("Pending Review") if key else _("No image")
+                reviewer = None
+                reviewed_at = None
+
+            reviewer_name = (
+                reviewer.user.get_full_name() or reviewer.user.username
+                if reviewer
+                else _("Not reviewed")
+            )
+            timestamp = (
+                timezone.localtime(reviewed_at).strftime("%Y-%m-%d %H:%M")
+                if reviewed_at
+                else ""
+            )
+            rows.append((label, status_label, reviewer_name, timestamp))
+        return format_html_join(
+            "",
+            "<div><strong>{}:</strong> {} — {} {}</div>",
+            rows,
+        )
+
+    get_photo_review_summary.short_description = _("Coach photo review")
 
     def phone_verified_icon(self, obj):
         """Display phone verification status with icon"""
@@ -1639,6 +1699,91 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
             )
         else:
             django_messages.warning(request, _("No profiles selected."))
+
+    @admin.action(
+        description=_("Lift photo review flag (send photo back to coach review)")
+    )
+    def lift_photo_review_moderation(self, request, queryset):
+        """Return a coach-moderated photo to the coach review queue.
+
+        The only path that lifts a fake flag (a new upload never does) or a
+        revision request once the reviewing coach's 15-minute Undo is gone.
+        The current photo is reviewed again; a coach exclusion is a separate
+        lever with its own audit (Crush Connect membership admin) and stays.
+        Audited in the admin history of each profile.
+        """
+        from crush_lu.models import CrushConnectMembership
+
+        moderated = ("flagged_fake", "needs_revision")
+        lifted = still_excluded = 0
+        candidates = queryset.filter(
+            Q(photo_review_status__in=moderated)
+            | Q(photo_review_states__status="needs_revision")
+        ).distinct()
+        for pk in candidates.values_list("pk", flat=True):
+            with transaction.atomic():
+                profile = (
+                    CrushProfile.objects.select_for_update(of=("self",))
+                    .select_related("user")
+                    .filter(pk=pk)
+                    .first()
+                )
+                if profile is None:
+                    continue
+                old_status = profile.photo_review_status
+                if old_status in moderated:
+                    if not CrushProfile.objects.filter(
+                        pk=pk, photo_review_status=old_status
+                    ).update(
+                        photo_review_status="pending",
+                        photo_review_key="",
+                        photo_reviewed_at=None,
+                        photo_reviewed_by=None,
+                        photo_review_notes="",
+                    ):
+                        continue
+                if old_status == "flagged_fake":
+                    ProfilePhotoReviewState.objects.filter(
+                        profile_id=pk, status="flagged_fake"
+                    ).delete()
+                else:
+                    # Every slot's revision request, current file or not.
+                    if not ProfilePhotoReviewState.objects.filter(
+                        profile_id=pk, status="needs_revision"
+                    ).delete()[0] and old_status not in moderated:
+                        continue
+                self.log_change(
+                    request,
+                    profile,
+                    f"Lifted photo review status '{old_status}' -> 'pending'",
+                )
+            lifted += 1
+            still_excluded += CrushConnectMembership.objects.filter(
+                user_id=profile.user_id, excluded_by_coach=True
+            ).exists()
+
+        if not lifted:
+            django_messages.warning(
+                request, _("No selected profile has a flagged or revision photo.")
+            )
+            return
+        django_messages.success(
+            request,
+            _(
+                "Lifted the photo review decision for %(count)s profile(s). "
+                "Their current photo is back in the coach review queue."
+            )
+            % {"count": lifted},
+        )
+        if still_excluded:
+            django_messages.warning(
+                request,
+                _(
+                    "%(count)s of them are still excluded from Crush Connect. "
+                    "Review that exclusion in the Crush Connect membership admin."
+                )
+                % {"count": still_excluded},
+            )
 
     @admin.action(description=_("Sync selected profiles to Outlook contacts"))
     def sync_to_outlook(self, request, queryset):
@@ -2690,24 +2835,33 @@ class PremiumMembershipAdmin(admin.ModelAdmin):
 
     @admin.action(description=_("Confirm payment & assign coach"))
     def confirm_payment(self, request, queryset):
+        from crush_lu.views_payments import _lock_premium_checkout_state
+
         confirmed = 0
         errors = []
         for membership in queryset.select_related("coach", "user"):
             if membership.status == "active":
                 continue
-            # #925: a captured payment awaiting recovery is applied through
-            # its case, which records the resolution the refund sweep reads.
-            if PremiumPaymentRecoveryCase.objects.filter(
-                premium_membership=membership,
-                status=PremiumPaymentRecoveryCase.Status.OPEN,
-            ).exists():
-                errors.append(
-                    f"{membership.user}: open payment recovery case; "
-                    "apply or resolve it there"
-                )
-                continue
             try:
-                membership.confirm(by_user=request.user)
+                with transaction.atomic():
+                    # #925: payments -> membership, the order capture and
+                    # checkout lock in. A capture opening a case on this
+                    # membership either committed first (seen below) or
+                    # waits for this confirmation.
+                    _lock_premium_checkout_state(membership.pk, set())
+                    # A captured payment awaiting recovery is applied through
+                    # its case, which records the resolution the refund sweep
+                    # reads.
+                    if PremiumPaymentRecoveryCase.objects.filter(
+                        premium_membership=membership,
+                        status=PremiumPaymentRecoveryCase.Status.OPEN,
+                    ).exists():
+                        errors.append(
+                            f"{membership.user}: open payment recovery case; "
+                            "apply or resolve it there"
+                        )
+                        continue
+                    membership.confirm(by_user=request.user)
                 confirmed += 1
             except CrushProfile.DoesNotExist:
                 errors.append(f"{membership.user}: no profile")

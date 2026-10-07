@@ -21,26 +21,47 @@ from crush_lu.models.quiz import (
 )
 from crush_lu.throttling import QuizPinRateThrottle, ratelimit_view
 
-
 logger = logging.getLogger(__name__)
+
+# A coach judged these images unfit to show. The projector puts the photo in
+# front of the whole room, so no coach, creator or staff privilege reopens it.
+_MODERATED_PHOTO_STATUSES = ("needs_revision", "flagged_fake")
 
 
 def _photo_url(profile):
     """Return the quiz photo URL, or None when ``quiz_display_photo`` would 404.
 
-    Mirrors that view's gates (approved profile with a photo_1). Emitting a URL
-    for an unapproved profile made every projector poll re-request a photo the
-    endpoint refuses; the initials avatar is the intended fallback.
+    Mirrors that view's gates (approved profile with an unmoderated photo_1).
+    Emitting a URL for an unapproved profile made every projector poll
+    re-request a photo the endpoint refuses; the initials avatar is the
+    intended fallback.
     """
-    if profile and profile.is_approved and getattr(profile, "photo_1", None):
+    if (
+        profile
+        and profile.is_approved
+        and getattr(profile, "photo_1", None)
+        and profile.photo_review_status not in _MODERATED_PHOTO_STATUSES
+    ):
         return f"/api/quiz/photo/{profile.user_id}/"
     return None
 
 
 _AVATAR_COLORS = [
-    "#8B5CF6", "#EC4899", "#F59E0B", "#10B981", "#3B82F6",
-    "#EF4444", "#06B6D4", "#F97316", "#6366F1", "#14B8A6",
-    "#E879F9", "#84CC16", "#F43F5E", "#22D3EE", "#A78BFA",
+    "#8B5CF6",
+    "#EC4899",
+    "#F59E0B",
+    "#10B981",
+    "#3B82F6",
+    "#EF4444",
+    "#06B6D4",
+    "#F97316",
+    "#6366F1",
+    "#14B8A6",
+    "#E879F9",
+    "#84CC16",
+    "#F43F5E",
+    "#22D3EE",
+    "#A78BFA",
 ]
 
 
@@ -345,7 +366,9 @@ def quiz_table_display(request, event_id):
     display_token = quiz.display_token or ""
     req_token = request.GET.get("token", "")
     try:
-        _token_ok = pin_required and secrets.compare_digest(str(req_token), str(display_token))
+        _token_ok = pin_required and secrets.compare_digest(
+            str(req_token), str(display_token)
+        )
     except (TypeError, UnicodeEncodeError):
         _token_ok = False
     if _token_ok:
@@ -576,6 +599,12 @@ def quiz_display_photo(request, user_id):
 
     if not profile.is_approved:
         raise Http404("Profile not approved")
+
+    if (
+        profile.photo_review_status in _MODERATED_PHOTO_STATUSES
+        and request.user.pk != profile.user_id
+    ):
+        raise Http404("Photo under moderation")
 
     if not _can_view_quiz_photo(request.user, profile.user_id):
         logger.warning(

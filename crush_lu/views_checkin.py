@@ -348,10 +348,11 @@ def event_checkin_api(request, registration_id, token):
     "{registration_id}:{event_id}". This endpoint:
 
     1. Verifies the signed token
-    2. Validates registration exists and is confirmed
-    3. Checks the event is within the check-in window (default: 12 hours)
-    4. Marks registration as attended with checked_in_at timestamp
-    5. Returns JSON with attendee name and success status
+    2. Requires an active coach session (a member's own QR never checks them in)
+    3. Validates registration exists and is confirmed
+    4. Checks the event is within the check-in window (default: 12 hours)
+    5. Marks registration as attended with checked_in_at timestamp
+    6. Returns JSON with attendee name and success status
     """
     # Verify token
     signer = Signer()
@@ -380,6 +381,22 @@ def event_checkin_api(request, registration_id, token):
         return JsonResponse(
             {"success": False, "error": "Token does not match registration."},
             status=400,
+        )
+
+    # The QR is the attendee's own credential, so the token alone must never
+    # check anyone in: a self-POST would flip the registration to attended
+    # (opening the lobby, quiz, attendee list and Connect identity gate) with
+    # nobody at the door having seen them. Only an active coach session may
+    # check in, verify or re-scan. Checked before the registration is loaded so
+    # an unauthenticated caller learns nothing about it. (#1186, #1187)
+    if _scanning_coach(request) is None:
+        return JsonResponse(
+            {
+                "success": False,
+                "code": "coach_required",
+                "error": str(_("Show this QR to a coach at the door.")),
+            },
+            status=403,
         )
 
     # Fetch registration
@@ -435,10 +452,9 @@ def event_checkin_api(request, registration_id, token):
 
     # Check if already attended
     if registration.status == "attended":
-        # A re-scan must still verify. Two ways to be here with a pending
-        # profile: the first scan carried no coach session (the self-scan this
-        # endpoint deliberately still allows), or the row was marked attended
-        # before this feature existed. Without this the coach is silently back
+        # A re-scan must still verify. Rows can be here with a pending
+        # profile because they were marked attended without a coach (admin or
+        # legacy rows, from before this endpoint required a coach session). Without this the coach is silently back
         # to tapping Verify.
         # Lock the registration first, matching the main check-in path below.
         # Without it two near-simultaneous re-scans (a double-tap, or two

@@ -2075,6 +2075,17 @@ class PendingPaymentDoorAndAdminTests(TestCase):
             user=self.user,
             defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
         )
+        # Only a coach session may check anyone in (#1186).
+        from crush_lu.models import CrushCoach
+
+        coach_user = User.objects.create_user(
+            username="door2coach@test.com", email="door2coach@test.com", password="p"
+        )
+        UserDataConsent.objects.update_or_create(
+            user=coach_user, defaults={"crushlu_consent_given": True}
+        )
+        CrushCoach.objects.create(user=coach_user, is_active=True)
+        self.client.force_login(coach_user)
 
     def test_pending_registration_can_be_scanned_at_the_door(self):
         from crush_lu.models import EventRegistration
