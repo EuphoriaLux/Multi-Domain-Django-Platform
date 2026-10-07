@@ -298,8 +298,11 @@ document.addEventListener("alpine:init", function () {
                 // values are the fallback for a URL with unknown values.
                 var params = new URLSearchParams(window.location.search);
                 var urlCat = params.get("category") || "";
-                var known = this.$el.querySelector(
-                    '[data-category-value="' + urlCat.replace(/"/g, "") + '"]',
+                var known = Array.prototype.some.call(
+                    this.$el.querySelectorAll("[data-category-value]"),
+                    function (btn) {
+                        return btn.getAttribute("data-category-value") === urlCat;
+                    },
                 );
                 this.q = params.has("q")
                     ? params.get("q")
