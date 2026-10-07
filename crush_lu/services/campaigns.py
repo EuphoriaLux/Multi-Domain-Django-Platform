@@ -381,6 +381,10 @@ class WhatsAppAdapter:
             user = User.objects.filter(id=user_id).first()
             if user is None:
                 continue
+            # Consent/ban may have changed since the audience was resolved
+            # (e.g. account deletion mid-run): never send to such a user.
+            if not newsletter_service.has_current_consent(user):
+                continue
             profile = getattr(user, 'crushprofile', None)
             lang = get_user_preferred_language(user=user, default='en')
             parameters = {}
@@ -493,6 +497,10 @@ class PushAdapter:
 
             user = User.objects.filter(id=user_id).first()
             if user is None:
+                continue
+            # Consent/ban may have changed since the audience was resolved
+            # (e.g. account deletion mid-run): never send to such a user.
+            if not newsletter_service.has_current_consent(user):
                 continue
             lang = get_user_preferred_language(user=user, default='en')
 

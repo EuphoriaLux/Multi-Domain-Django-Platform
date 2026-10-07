@@ -1059,7 +1059,6 @@ def email_unsubscribe(request, token):
             email_prefs.email_event_reminders = True
             email_prefs.email_new_connections = True
             email_prefs.email_new_messages = True
-            email_prefs.email_newsletter = True
             email_prefs.save()
             messages.success(
                 request, _("You have been re-subscribed to Crush.lu emails.")
