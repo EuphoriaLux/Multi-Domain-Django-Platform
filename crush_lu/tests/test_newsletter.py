@@ -730,6 +730,22 @@ class SendTimeConsentRecheckTests(TestCase):
         )
         self.assertEqual((row.status, row.email), ('sent', ''))
 
+    def test_write_receipt_stores_address_only_while_consented(self):
+        """The write itself re-reads consent, so a stale check cannot leak it."""
+        from crush_lu.newsletter_service import write_receipt
+
+        stale_user = User.objects.get(pk=self.user.pk)
+        row, _ = write_receipt(self.newsletter, stale_user, {'status': 'pending'})
+        self.assertEqual(row.email, 'rc@example.com')
+        # Consent revoked after the caller's earlier check, before this write.
+        UserDataConsent.objects.filter(user=self.user).update(
+            crushlu_consent_given=False, crushlu_banned=True,
+        )
+        row, _ = write_receipt(self.newsletter, stale_user, {'status': 'sent'})
+        self.assertEqual((row.status, row.email), ('sent', ''))
+        row.refresh_from_db()
+        self.assertEqual(row.email, '')
+
     def test_has_current_consent(self):
         from crush_lu.newsletter_service import has_current_consent
 
