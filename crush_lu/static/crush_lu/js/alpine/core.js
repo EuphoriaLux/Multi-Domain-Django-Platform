@@ -291,31 +291,21 @@ document.addEventListener("alpine:init", function () {
             cat: "",
 
             init: function () {
-                this.q = this.$el.dataset.q || "";
-                this.cat = this.$el.dataset.category || "";
-                // Back/forward: HTMX restores a DOM snapshot whose button
-                // state (and Alpine state) can be stale, so re-derive both
-                // from the URL it just restored.
-                var self = this;
-                this._onRestore = function () {
-                    var params = new URLSearchParams(window.location.search);
-                    self.q = params.get("q") || "";
-                    self.cat = params.get("category") || "";
-                    self.$el.dataset.q = self.q;
-                    self.$el.dataset.category = self.cat;
-                    self._syncButtons();
-                };
-                document.body.addEventListener(
-                    "htmx:historyRestore",
-                    this._onRestore,
+                // Back/forward: HTMX swaps in a cached body snapshot whose
+                // button state can be stale, and fires htmx:historyRestore
+                // before this component exists. So the URL, not the snapshot,
+                // is the source of truth here; the server-rendered data-*
+                // values are the fallback for a URL with unknown values.
+                var params = new URLSearchParams(window.location.search);
+                var urlCat = params.get("category") || "";
+                var known = this.$el.querySelector(
+                    '[data-category-value="' + urlCat.replace(/"/g, "") + '"]',
                 );
-            },
-
-            destroy: function () {
-                document.body.removeEventListener(
-                    "htmx:historyRestore",
-                    this._onRestore,
-                );
+                this.q = params.has("q")
+                    ? params.get("q")
+                    : this.$el.dataset.q || "";
+                this.cat = known ? urlCat : this.$el.dataset.category || "";
+                this._syncButtons();
             },
 
             selectCategory: function (event) {
