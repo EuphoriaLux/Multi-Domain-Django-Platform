@@ -518,43 +518,6 @@ def _generate_group_projection(
 
 
 @transaction.atomic
-def _blocked_member_pair_count(groups):
-    """Blocked pairs (either direction) sharing a group right now.
-
-    Persisted groups outlive the projection that built them, so a block created
-    after generation is invisible to the stored digest check. Count only; who
-    blocked whom never leaves this function.
-    """
-    from collections import defaultdict
-
-    from crush_lu.services.blocking import blocked_pairs_among
-
-    rows = list(
-        CuratedEventGroupMembership.objects.filter(
-            group__in=groups, released_at__isnull=True
-        ).values_list("group_id", "registration__user_id")
-    )
-    pairs = blocked_pairs_among(user_id for _, user_id in rows)
-    if not pairs:
-        return 0
-    members_by_group = defaultdict(set)
-    for group_id, user_id in rows:
-        members_by_group[group_id].add(user_id)
-    return sum(
-        1 for members in members_by_group.values() for pair in pairs if pair <= members
-    )
-
-
-def _refuse_blocked_members(groups):
-    """Refuse to certify or invite a roster that seats a blocked pair together."""
-
-    if _blocked_member_pair_count(groups):
-        raise ValidationError(
-            "Two members of a group have blocked each other since this "
-            "generation was created. Regenerate the groups before continuing."
-        )
-
-
 def approve_current_generation(event_or_id, *, actor=None):
     """Certify every group in the current generation and return invitees."""
 
@@ -596,8 +559,6 @@ def approve_current_generation(event_or_id, *, actor=None):
                 "Applications, preferences or event settings changed after this "
                 "draft was generated. Regenerate before selecting anyone."
             )
-
-    _refuse_blocked_members(current)
 
     for group in current:
         if group.status == CuratedEventGroup.STATUS_DRAFT:
@@ -651,7 +612,6 @@ def get_approved_current_generation(event_or_id):
         raise ValidationError(
             "Every current group must be explicitly approved before invitations."
         )
-    _refuse_blocked_members(current)
     for group in current:
         summary = group.schedule_viability(evaluate_preferences=False)
         if summary["schedule_digest"] != group.schedule_digest:
@@ -703,16 +663,6 @@ def lock_current_generation(event_or_id, *, actor=None):
     if any(group.status != CuratedEventGroup.STATUS_PROVISIONAL for group in current):
         raise ValidationError(
             "Every current group must be provisional before the generation can lock."
-        )
-    # Members have paid by the time the evening locks, so a late block cannot
-    # be resolved by refusing: flag it (the assigned coach already sees the
-    # conflict pair on the event page) and let the evening proceed.
-    blocked_pairs = _blocked_member_pair_count(current)
-    if blocked_pairs:
-        logger.warning(
-            "Locking event %s with %d blocked member pair(s) sharing a group",
-            event.pk,
-            blocked_pairs,
         )
     for group in current:
         group.lock(by=actor)

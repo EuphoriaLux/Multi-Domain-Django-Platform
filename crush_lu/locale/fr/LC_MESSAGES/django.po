@@ -45184,14 +45184,7 @@ msgstr "Montrez ce code QR à un coach à l'entrée."
 
 #, python-format
 #: templates/crush_lu/components/coach_curated_groups.html
-msgid "Conflict detected: %(counter)s blocked pair currently shares a group. Regenerate the groups before inviting or locking."
-msgid_plural "Conflict detected: %(counter)s blocked pairs currently share a group. Regenerate the groups before inviting or locking."
-msgstr[0] "Conflit détecté : %(counter)s paire bloquée partage actuellement un groupe. Régénérez les groupes avant d’inviter ou de verrouiller."
-msgstr[1] "Conflit détecté : %(counter)s paires bloquées partagent actuellement un groupe. Régénérez les groupes avant d’inviter ou de verrouiller."
-
-#, python-format
-#: templates/crush_lu/components/coach_curated_groups.html
-msgid "%(counter)s blocked pair of applicants detected. New groups will keep them apart."
-msgid_plural "%(counter)s blocked pairs of applicants detected. New groups will keep them apart."
-msgstr[0] "%(counter)s paire de candidats bloquée détectée. Les nouveaux groupes les sépareront."
-msgstr[1] "%(counter)s paires de candidats bloquées détectées. Les nouveaux groupes les sépareront."
+msgid "For your information: %(counter)s blocked pair shares a group. A block usually just means they are not interested, so they may not want to be together."
+msgid_plural "For your information: %(counter)s blocked pairs share a group. A block usually just means they are not interested, so they may not want to be together."
+msgstr[0] "Pour information : %(counter)s paire bloquée partage un groupe. Un blocage signifie le plus souvent un simple manque d’intérêt ; ces personnes ont peut-être choisi de ne plus interagir."
+msgstr[1] "Pour information : %(counter)s paires bloquées partagent un groupe. Un blocage signifie le plus souvent un simple manque d’intérêt ; ces personnes ont peut-être choisi de ne plus interagir."

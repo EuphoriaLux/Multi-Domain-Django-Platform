@@ -52,13 +52,9 @@ from a @coach_required page only and must never be reused on a member surface.
         </p>
     </div>
 
-    {% if panel.blocked_group_conflicts %}
-    <div class="card p-4 mb-4 text-sm text-red-700 dark:text-red-300" data-curated-blocked-conflict>
-        {% blocktrans count counter=panel.blocked_group_conflicts %}Conflict detected: {{ counter }} blocked pair currently shares a group. Regenerate the groups before inviting or locking.{% plural %}Conflict detected: {{ counter }} blocked pairs currently share a group. Regenerate the groups before inviting or locking.{% endblocktrans %}
-    </div>
-    {% elif panel.blocked_pair_count %}
-    <div class="card p-4 mb-4 text-sm text-amber-700 dark:text-amber-300" data-curated-blocked-pairs>
-        {% blocktrans count counter=panel.blocked_pair_count %}{{ counter }} blocked pair of applicants detected. New groups will keep them apart.{% plural %}{{ counter }} blocked pairs of applicants detected. New groups will keep them apart.{% endblocktrans %}
+    {% if panel.blocked_pairs_in_groups %}
+    <div class="card p-4 mb-4 text-sm text-gray-600 dark:text-gray-300" data-curated-blocked-pairs>
+        {% blocktrans count counter=panel.blocked_pairs_in_groups %}For your information: {{ counter }} blocked pair shares a group. A block usually just means they are not interested, so they may not want to be together.{% plural %}For your information: {{ counter }} blocked pairs share a group. A block usually just means they are not interested, so they may not want to be together.{% endblocktrans %}
     </div>
     {% endif %}
 

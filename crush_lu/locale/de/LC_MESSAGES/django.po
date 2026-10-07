@@ -45062,14 +45062,7 @@ msgstr "Zeige diesen QR-Code einem Coach am Eingang."
 
 #, python-format
 #: templates/crush_lu/components/coach_curated_groups.html
-msgid "Conflict detected: %(counter)s blocked pair currently shares a group. Regenerate the groups before inviting or locking."
-msgid_plural "Conflict detected: %(counter)s blocked pairs currently share a group. Regenerate the groups before inviting or locking."
-msgstr[0] "Konflikt erkannt: %(counter)s gesperrtes Paar teilt derzeit eine Gruppe. Generieren Sie die Gruppen neu, bevor Sie einladen oder sperren."
-msgstr[1] "Konflikt erkannt: %(counter)s gesperrte Paare teilen derzeit eine Gruppe. Generieren Sie die Gruppen neu, bevor Sie einladen oder sperren."
-
-#, python-format
-#: templates/crush_lu/components/coach_curated_groups.html
-msgid "%(counter)s blocked pair of applicants detected. New groups will keep them apart."
-msgid_plural "%(counter)s blocked pairs of applicants detected. New groups will keep them apart."
-msgstr[0] "%(counter)s gesperrtes Bewerberpaar erkannt. Neue Gruppen halten die beiden getrennt."
-msgstr[1] "%(counter)s gesperrte Bewerberpaare erkannt. Neue Gruppen halten sie getrennt."
+msgid "For your information: %(counter)s blocked pair shares a group. A block usually just means they are not interested, so they may not want to be together."
+msgid_plural "For your information: %(counter)s blocked pairs share a group. A block usually just means they are not interested, so they may not want to be together."
+msgstr[0] "Zur Information: %(counter)s gesperrtes Paar teilt sich eine Gruppe. Eine Sperre bedeutet meist nur, dass kein Interesse besteht, daher möchten die beiden möglicherweise nicht zusammen sein."
+msgstr[1] "Zur Information: %(counter)s gesperrte Paare teilen sich eine Gruppe. Eine Sperre bedeutet meist nur, dass kein Interesse besteht, daher möchten die beiden möglicherweise nicht zusammen sein."

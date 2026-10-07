@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from hashlib import sha256
 from types import MappingProxyType
-from typing import Any, Collection, Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from django.conf import settings
 
@@ -164,10 +164,6 @@ class GroupProjection:
     pinned_unassigned_registration_ids: tuple[int, ...]
     pinned_infeasible_registration_ids: tuple[int, ...]
     retains_all_pinned: bool
-    # Registration-id pairs (sorted) where one applicant blocked the other.
-    # They are never placed in the same group; this is surfaced so staff can
-    # see that the separation, not a shortage of compatibility, left someone out.
-    blocked_registration_pairs: tuple[tuple[int, int], ...] = ()
 
     @property
     def groups(self) -> tuple[ProjectedGroup, ...]:
@@ -183,10 +179,6 @@ class CompatibilityGraph:
     registration_ids: tuple[int, ...]
     edges: tuple[tuple[int, int], ...]
     _adjacency: Mapping[int, frozenset[int]] = field(repr=False, compare=False)
-    # Registration-id pairs that must never share a group (peer blocks).
-    blocked_pairs: frozenset[frozenset[int]] = field(
-        default=frozenset(), repr=False, compare=False
-    )
 
     def neighbours(self, registration_id: int) -> frozenset[int]:
         return self._adjacency.get(registration_id, frozenset())
@@ -338,17 +330,13 @@ def viewer_applicant(user, profile, event, registration=None):
     )
 
 
-def count_mutual_matches(viewer, applicants, *, blocked_user_ids=frozenset()):
+def count_mutual_matches(viewer, applicants):
     """How many applicants this viewer and the applicant both want to meet.
 
     Self-excluded by ``user_id``: an applicant is always a perfect match for
     themselves, and counting it would inflate every number by one and make the
     signal appear on a pool of one. Incomplete identity or event-preference
     data contributes no count, matching the fail-closed grouping guarantee.
-
-    ``blocked_user_ids`` are the viewer's block counterparts in either
-    direction: grouping never seats them together, so they are not part of the
-    pool the viewer could actually be matched with.
     """
     if _grouping_incomplete_reasons(viewer):
         return 0
@@ -356,7 +344,6 @@ def count_mutual_matches(viewer, applicants, *, blocked_user_ids=frozenset()):
         1
         for applicant in applicants
         if applicant.user_id != viewer.user_id
-        and applicant.user_id not in blocked_user_ids
         and not _grouping_incomplete_reasons(applicant)
         and passes_event_hard_filters(viewer, applicant)
     )
@@ -385,17 +372,12 @@ def build_compatibility_graph(
     applicants: Iterable[Any],
     *,
     ineligibility_reasons: Mapping[int, tuple[str, ...]] | None = None,
-    blocked_user_pairs: Collection[frozenset[int]] = frozenset(),
 ) -> CompatibilityGraph:
     """Return the reciprocal hard-filter graph for event applicants.
 
     No Connect membership, profile-completeness, score, or demographic route is
     consulted. Duplicate or absent registration IDs are rejected because a
     schedule that cannot be persisted unambiguously is not a valid projection.
-
-    ``blocked_user_pairs`` holds ``frozenset({user_a, user_b})`` entries; a
-    block in either direction removes the edge and is recorded on the graph so
-    group formation can keep the pair apart.
     """
 
     by_id: dict[int, Any] = {}
@@ -419,7 +401,6 @@ def build_compatibility_graph(
         registration_id: set() for registration_id in registration_ids
     }
     edges: list[tuple[int, int]] = []
-    blocked_registration_pairs: set[frozenset[int]] = set()
     for index, left_id in enumerate(registration_ids):
         left = by_id[left_id]
         if ineligibility_reasons.get(left_id) or _grouping_incomplete_reasons(left):
@@ -429,11 +410,6 @@ def build_compatibility_graph(
             if ineligibility_reasons.get(right_id) or _grouping_incomplete_reasons(
                 right
             ):
-                continue
-            if blocked_user_pairs and (
-                frozenset((left.user_id, right.user_id)) in blocked_user_pairs
-            ):
-                blocked_registration_pairs.add(frozenset((left_id, right_id)))
                 continue
             if not passes_event_hard_filters(left, right):
                 continue
@@ -451,7 +427,6 @@ def build_compatibility_graph(
         registration_ids=registration_ids,
         edges=tuple(edges),
         _adjacency=frozen_adjacency,
-        blocked_pairs=frozenset(blocked_registration_pairs),
     )
 
 
@@ -465,18 +440,12 @@ def project_event_groups(
 ) -> GroupProjection:
     """Load lifecycle-aware candidates and project fixed groups for ``event``."""
 
-    from crush_lu.services.blocking import blocked_pairs_among
-
-    applicants = load_grouping_candidates(event, seat_holders_only=seat_holders_only)
     return project_groups(
         event,
-        applicants,
+        load_grouping_candidates(event, seat_holders_only=seat_holders_only),
         minimum_dates=minimum_dates,
         target_dates=target_dates,
         deterministic_seed=deterministic_seed,
-        blocked_user_pairs=blocked_pairs_among(
-            applicant.user_id for applicant in applicants
-        ),
     )
 
 
@@ -487,7 +456,6 @@ def project_groups(
     minimum_dates: int = DEFAULT_MIN_DATES,
     target_dates: int = DEFAULT_TARGET_DATES,
     deterministic_seed: str | int | None = None,
-    blocked_user_pairs: Collection[frozenset[int]] = frozenset(),
 ) -> GroupProjection:
     """Project deterministic, fixed-membership groups and concrete rounds.
 
@@ -508,13 +476,6 @@ def project_groups(
     :func:`_build_schedule` constructs an actual schedule. Consequently the
     engine may conservatively leave someone unassigned rather than promise a
     guarantee it cannot demonstrate.
-
-    Peer blocks (``blocked_user_pairs``, either direction) are a hard
-    constraint: a blocked pair is never placed in the same group, even when the
-    two would otherwise be reachable through other members. When that makes a
-    perfect grouping impossible the projection is best-effort: one of the pair
-    is left unassigned (see ``unassigned_registration_ids`` and
-    ``blocked_registration_pairs``) rather than seated with the other.
     """
 
     if minimum_dates < 1:
@@ -523,13 +484,11 @@ def project_groups(
         raise ValueError("target_dates must be at least minimum_dates")
 
     applicants = tuple(applicants)
-    blocked_user_pairs = _relevant_blocked_pairs(applicants, blocked_user_pairs)
     input_digest = _projection_input_digest(
         event,
         applicants,
         minimum_dates=minimum_dates,
         target_dates=target_dates,
-        blocked_user_pairs=blocked_user_pairs,
     )
     group_size = _event_group_size(event, len(applicants))
     if group_size > MAX_PROJECTED_GROUP_SIZE:
@@ -546,7 +505,6 @@ def project_groups(
     graph = build_compatibility_graph(
         applicants,
         ineligibility_reasons=ineligibility_reasons,
-        blocked_user_pairs=blocked_user_pairs,
     )
     by_id = {applicant.registration_id: applicant for applicant in applicants}
 
@@ -585,7 +543,6 @@ def project_groups(
             target_dates=target_dates,
             ineligibility_reasons=ineligibility_reasons,
             input_digest=input_digest,
-            blocked_registration_pairs=_sorted_pairs(graph.blocked_pairs),
         )
 
     candidates: list[_GroupCandidate] = []
@@ -701,7 +658,6 @@ def project_groups(
         pinned_unassigned_registration_ids=pinned_unassigned,
         pinned_infeasible_registration_ids=pinned_infeasible,
         retains_all_pinned=not pinned_unassigned,
-        blocked_registration_pairs=_sorted_pairs(graph.blocked_pairs),
     )
 
 
@@ -715,29 +671,7 @@ def _event_group_size(event, applicant_count: int) -> int:
     return applicant_count
 
 
-def _sorted_pairs(pairs) -> tuple[tuple[int, int], ...]:
-    return tuple(sorted(tuple(sorted(pair)) for pair in pairs))
-
-
-def _relevant_blocked_pairs(applicants, blocked_user_pairs):
-    """Only blocks whose two users both applied matter (and enter the digest)."""
-
-    if not blocked_user_pairs:
-        return frozenset()
-    user_ids = {applicant.user_id for applicant in applicants}
-    return frozenset(
-        pair for pair in blocked_user_pairs if len(pair) == 2 and pair <= user_ids
-    )
-
-
-def _projection_input_digest(
-    event,
-    applicants,
-    *,
-    minimum_dates,
-    target_dates,
-    blocked_user_pairs=frozenset(),
-):
+def _projection_input_digest(event, applicants, *, minimum_dates, target_dates):
     """Keyed proof of every input, without persisting preference values."""
 
     applicant_rows = []
@@ -798,10 +732,6 @@ def _projection_input_digest(
         "target_dates": target_dates,
         "applicants": applicant_rows,
     }
-    if blocked_user_pairs:
-        # Only present when a block exists, so every pre-existing digest is
-        # unchanged; a block placed after a draft makes that draft stale.
-        payload["blocked_user_pairs"] = _sorted_pairs(blocked_user_pairs)
     digest_key = getattr(
         settings,
         "CURATED_GROUP_INPUT_DIGEST_KEY",
@@ -903,7 +833,6 @@ def _empty_projection(
     target_dates: int,
     ineligibility_reasons: Mapping[int, tuple[str, ...]],
     input_digest: str,
-    blocked_registration_pairs: tuple[tuple[int, int], ...] = (),
 ) -> GroupProjection:
     ordered_ids = tuple(sorted(registration_ids))
     ordered_pinned = tuple(sorted(pinned_ids))
@@ -924,7 +853,6 @@ def _empty_projection(
         pinned_unassigned_registration_ids=ordered_pinned,
         pinned_infeasible_registration_ids=ordered_pinned,
         retains_all_pinned=not ordered_pinned,
-        blocked_registration_pairs=blocked_registration_pairs,
     )
 
 
@@ -1124,10 +1052,6 @@ def _candidate_memberships(
     structurally_possible: list[tuple[int, ...]] = []
     for membership in raw:
         member_set = set(membership)
-        if graph.blocked_pairs and any(
-            pair <= member_set for pair in graph.blocked_pairs
-        ):
-            continue
         if all(
             len(graph.neighbours(registration_id) & member_set) >= minimum_dates
             for registration_id in membership

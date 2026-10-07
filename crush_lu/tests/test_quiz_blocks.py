@@ -1,4 +1,4 @@
-﻿# ruff: noqa: F811
+# ruff: noqa: F811
 """Quiz rotation honours UserBlock best-effort and warns about the residual."""
 
 import pytest
@@ -25,31 +25,18 @@ def _table_of(quiz, user):
 
 @pytest.mark.django_db
 class TestQuizBlocks:
-    def test_checkin_avoids_the_table_of_a_blocked_member(
-        self, quiz_event_4t
-    ):  # noqa: F811
+
+    def test_a_block_does_not_change_checkin_seating(self, quiz_event_4t):  # noqa: F811
         quiz = quiz_event_4t
-        man = _make_user("blk_m0", "M")
+        man = _make_user("same_m0", "M")
         _check_in_attended(quiz, man)
-        woman = _make_user("blk_f0", "F")
-        # Without the block the first rotator goes to the lowest table (1),
-        # which is where the lone anchor sits.
+        woman = _make_user("same_f0", "F")
         UserBlock.objects.create(blocker=woman, blocked=man, reason="other")
 
         _check_in_attended(quiz, woman)
 
-        assert _table_of(quiz, woman) != _table_of(quiz, man)
-
-    def test_block_direction_is_symmetric_at_checkin(self, quiz_event_4t):  # noqa: F811
-        quiz = quiz_event_4t
-        man = _make_user("sym_m0", "M")
-        _check_in_attended(quiz, man)
-        woman = _make_user("sym_f0", "F")
-        UserBlock.objects.create(blocker=man, blocked=woman, reason="other")
-
-        _check_in_attended(quiz, woman)
-
-        assert _table_of(quiz, woman) != _table_of(quiz, man)
+        # A block is "not interested", not a separation: same table as without.
+        assert _table_of(quiz, woman) == _table_of(quiz, man)
 
     def test_unblocked_checkin_behaviour_is_unchanged(
         self, quiz_event_4t
@@ -141,38 +128,6 @@ class TestQuizBlockPolicies:
         result = manual_assign_table(quiz, woman, 1)
 
         assert "warnings" not in result
-
-    def test_consolidate_avoids_a_table_with_a_blocked_member(
-        self, quiz_event_4t
-    ):  # noqa: F811
-        from crush_lu.services.quiz_rotation import consolidate_tables
-
-        quiz = quiz_event_4t
-        men = [_make_user(f"con_m{i}", "M") for i in range(3)]
-        women = [_make_user(f"con_f{i}", "F") for i in range(4)]
-        for user in men + women:
-            _check_in_attended(quiz, user)
-        mover = QuizRotationSchedule.objects.get(
-            quiz=quiz, round_number=0, table__table_number=4
-        ).user
-        plan = consolidate_tables(quiz, apply=False)
-        planned_table = next(
-            m["to_table"] for m in plan["moves"] if m["user_id"] == mover.pk
-        )
-        anchor_there = QuizRotationSchedule.objects.get(
-            quiz=quiz,
-            round_number=0,
-            role="anchor",
-            table__table_number=planned_table,
-        ).user
-        UserBlock.objects.create(blocker=anchor_there, blocked=mover, reason="other")
-
-        replanned = consolidate_tables(quiz, apply=False)
-
-        new_table = next(
-            m["to_table"] for m in replanned["moves"] if m["user_id"] == mover.pk
-        )
-        assert new_table != planned_table
 
     def test_conflicts_in_finished_rounds_stop_warning(
         self, quiz_event_4t
@@ -405,7 +360,7 @@ class TestQuizBlockWarningSurfaces:
 
         def count(body):
             text = next(w for w in body["warnings"] if "blocked pair" in w)
-            return int(re.match(r"(\d+)", text).group(1))
+            return int(re.search(r"(\d+) blocked pair", text).group(1))
 
         assert count(preview) >= 1
         assert count(applied) >= 1
@@ -445,3 +400,27 @@ class TestQuizBlockWarningSurfaces:
             str(call.args) for call in consumer.channel_layer.group_send.await_args_list
         )
         assert "blocked" not in broadcast
+
+
+@pytest.mark.django_db
+class TestConsolidationIgnoresBlocksForPlacement:
+    def test_blocks_do_not_change_the_planned_moves(self, quiz_event_4t):  # noqa: F811
+        from crush_lu.services.quiz_rotation import consolidate_tables
+
+        quiz = quiz_event_4t
+        men = [_make_user(f"plan_m{i}", "M") for i in range(3)]
+        women = [_make_user(f"plan_f{i}", "F") for i in range(4)]
+        for user in men + women:
+            _check_in_attended(quiz, user)
+        before = consolidate_tables(quiz, apply=False)["moves"]
+        for man in men:
+            for woman in women:
+                UserBlock.objects.create(blocker=man, blocked=woman, reason="other")
+
+        result = consolidate_tables(quiz, apply=False)
+
+        assert [(m["user_id"], m["to_table"]) for m in result["moves"]] == [
+            (m["user_id"], m["to_table"]) for m in before
+        ]
+        # ... while the host is still told, neutrally.
+        assert any("may not want to be together" in w for w in result["warnings"])

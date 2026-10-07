@@ -233,13 +233,16 @@ def blocked_table_conflict_count(quiz, *, upcoming_only=False):
 def current_block_warnings(quiz):
     """The one block-warning helper every quiz surface uses.
 
-    Returns a list (empty when nothing conflicts) covering blocked pairs that
-    share a table in the current or an upcoming round. Call sites: quiz start
+    Informational only (a block mostly means "not interested", so the two may
+    attend the same evening): returns a list (empty when there is nothing to
+    mention) covering blocked pairs that share a table in the current or an
+    upcoming round. Call sites: quiz start
     (via ``generate_rotation_rounds`` / ``compute_rotation_warnings``), rotate,
     resume (consumers ``get_block_warnings``), manual table assign and
     consolidation (via the regenerated schedule). Counts only; identities and
     block direction never leave the service.
     """
+
     count = blocked_table_conflict_count(quiz)
     return [_blocked_table_warning(count)] if count else []
 
@@ -277,8 +280,9 @@ def _order_round0(anchors_by_table, rotators_by_table, num_tables):
 
 def _blocked_table_warning(count):
     return (
-        f"{count} blocked pair seating(s) share a table in at least one round. "
-        "Move one of them to a different table manually."
+        f"For your information: {count} blocked pair(s) share a table in at least "
+        "one round. A block usually just means they are not interested, so they "
+        "may not want to be together; you can move one of them if you prefer."
     )
 
 
@@ -377,27 +381,10 @@ def assign_table_on_checkin(quiz_event, user):
             .values_list("table_id", "cnt")
         )
 
-        # Never seat a member with someone who blocked them (or whom they
-        # blocked) while another table is available; then fewest of this role.
-        from crush_lu.services.blocking import blocked_user_ids
-
-        counterpart_ids = blocked_user_ids(user)
-        blocked_table_ids = (
-            set(
-                QuizRotationSchedule.objects.filter(
-                    quiz=quiz_event, round_number=0, user_id__in=counterpart_ids
-                ).values_list("table_id", flat=True)
-            )
-            if counterpart_ids
-            else set()
-        )
+        # Pick table with fewest members of this role
         target_table = min(
             locked_tables,
-            key=lambda t: (
-                t.id in blocked_table_ids,
-                role_counts.get(t.id, 0),
-                t.table_number,
-            ),
+            key=lambda t: (role_counts.get(t.id, 0), t.table_number),
         )
 
         # Determine rotation group for rotators
@@ -1305,8 +1292,7 @@ def manual_assign_table(quiz, user, table_number):
             else:
                 rotation_group = "C"
 
-        # A deliberate host move stays the host's call, so a block is a
-        # warning here, not a refusal (automatic seating avoids it instead).
+        # Blocks are information for the host, never a gate: this only warns.
         from crush_lu.services.blocking import blocked_user_ids
 
         counterpart_ids = blocked_user_ids(user)
@@ -1321,8 +1307,8 @@ def manual_assign_table(quiz, user, table_number):
             ).exists()
         ):
             move_warnings.append(
-                "This table already seats someone this member has a block "
-                "with. Consider a different table."
+                "For your information: this table already seats someone this "
+                "member has a block with, so they may not want to be together."
             )
 
         QuizTableMembership.objects.create(table=table, user=user)
@@ -1558,32 +1544,17 @@ def consolidate_tables(quiz, *, apply=False, moves_override=None):
 
     from crush_lu.services.blocking import blocked_pairs_among
 
+    # Blocks only feed the host warning below; they never steer placement.
     blocked_pairs = blocked_pairs_among(r.user_id for r in round_0)
-    blocked_with = defaultdict(set)
-    for pair in blocked_pairs:
-        first, second = tuple(pair)
-        blocked_with[first].add(second)
-        blocked_with[second].add(first)
-    members_by_table = defaultdict(set)
-    for r in round_0:
-        if r.table.table_number <= new_num_tables:
-            members_by_table[r.table.table_number].add(r.user_id)
 
     moves = []
     # Stable order: process excess by (table_number asc, user_id asc)
     excess_round0.sort(key=lambda r: (r.table.table_number, r.user_id))
     for r in excess_round0:
-        # Automatic destination: never a table that already seats someone this
-        # member has a block with while another keeper is available.
         target = min(
             range(1, new_num_tables + 1),
-            key=lambda n: (
-                bool(blocked_with[r.user_id] & members_by_table[n]),
-                keeper_role_counts[n][r.role],
-                n,
-            ),
+            key=lambda n: (keeper_role_counts[n][r.role], n),
         )
-        members_by_table[target].add(r.user_id)
         keeper_role_counts[target][r.role] += 1
         profile = getattr(r.user, "crushprofile", None)
         display_name = (

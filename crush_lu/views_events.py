@@ -1062,13 +1062,7 @@ def _curated_member_outlook(event, *, user=None, profile=None, registration=None
         if not viewer.gender or viewer.age is None:
             outlook["viewer_match"] = "profile_incomplete"
         else:
-            from crush_lu.services.blocking import blocked_user_ids
-
-            count = count_mutual_matches(
-                viewer,
-                load_applicants(event),
-                blocked_user_ids=blocked_user_ids(user),
-            )
+            count = count_mutual_matches(viewer, load_applicants(event))
             outlook["viewer_match"] = match_bucket(count, configured_group_size)
 
     applications = int(pool.get("applications") or 0)

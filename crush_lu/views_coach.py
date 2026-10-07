@@ -2862,7 +2862,7 @@ def coach_event_detail(request, event_id):
     # the template renders nothing new and the tab does not exist.
     from .services.curated_group_insights import coach_group_panel
 
-    curated_groups_panel = coach_group_panel(event, all_regs)
+    curated_groups_panel = coach_group_panel(event, all_regs, blocked_user_pairs=pairs)
 
     # Status filter — controls which section(s) the template renders
     status_filter = request.GET.get("status", "all")

@@ -152,8 +152,13 @@ def current_generation_groups(event):
     return [group for group in groups if group.generation == generation]
 
 
-def coach_group_panel(event, registrations=None):
+def coach_group_panel(event, registrations=None, *, blocked_user_pairs=()):
     """Everything the coach "Groups" tab shows, or ``None`` when it must not.
+
+    ``blocked_user_pairs`` is the coach-scoped output of
+    ``services.event_conflicts.event_conflict_pairs`` for this event (sorted
+    user-id tuples). It only feeds an informational count of blocked pairs that
+    share a stored group; blocks never influence grouping.
 
     ``registrations`` is the coach page's already-loaded, non-cancelled list
     (``select_related`` on profile and preference); pass it to avoid a second
@@ -275,16 +280,11 @@ def coach_group_panel(event, registrations=None):
         "next_action_label": NEXT_ACTION_LABELS[next_action],
         "admin_url": admin_url,
         "preflight": preflight,
-        # Blocked applicant pairs a FRESH projection would keep apart. This is
-        # a detected constraint, not a statement about stored groups.
-        "blocked_pair_count": (
-            len(projection.blocked_registration_pairs) if projection else 0
+        # Information only: a block usually means "not interested", and the two
+        # may still attend the same evening. Count only, no identities.
+        "blocked_pairs_in_groups": _blocked_pairs_sharing_a_group(
+            memberships, blocked_user_pairs
         ),
-        # Blocked pairs that share a PERSISTED group right now (a block created
-        # after the groups were generated). Count only: block direction and
-        # reason never reach this view. Read live, so it flags without any
-        # change to the registration or payment path.
-        "blocked_group_conflicts": _persisted_block_conflicts(groups),
         "groups": [_group_card(group, memberships, participants) for group in groups],
         "left_out": {
             "preview": not groups,
@@ -294,13 +294,21 @@ def coach_group_panel(event, registrations=None):
     }
 
 
-def _persisted_block_conflicts(groups):
-    if not groups:
+def _blocked_pairs_sharing_a_group(memberships, blocked_user_pairs):
+    if not blocked_user_pairs:
         return 0
-    # Imported here: the workflow module imports this package's siblings.
-    from crush_lu.services.curated_group_workflow import _blocked_member_pair_count
-
-    return _blocked_member_pair_count(groups)
+    users_by_group = {}
+    for membership in memberships:
+        if membership.released_at is None:
+            users_by_group.setdefault(membership.group_id, set()).add(
+                membership.registration.user_id
+            )
+    return sum(
+        1
+        for pair in blocked_user_pairs
+        for users in users_by_group.values()
+        if set(pair) <= users
+    )
 
 
 def _stage(event, groups):
