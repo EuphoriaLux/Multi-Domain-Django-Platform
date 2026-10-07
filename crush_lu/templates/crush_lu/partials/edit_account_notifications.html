@@ -225,7 +225,7 @@
 
                     {% for subscription in push_subscriptions %}
                     <div class="{% if not forloop.first %}mt-6 pt-6 border-t border-gray-200 dark:border-gray-700{% endif %}"
-                         x-data="subscriptionHealthStatus({{ subscription.id }})"
+                         x-data="subscriptionHealthStatus"
                          data-subscription-id="{{ subscription.id }}"
                          data-endpoint="{{ subscription.endpoint }}"
                          data-fingerprint="{{ subscription.device_fingerprint }}">

@@ -27,7 +27,9 @@
 
     {# Filter + search bar — Alpine.js CSP-safe, HTMX for server-side updates. #}
     <div class="changelog-toolbar mb-8"
-         x-data="{ open: false, q: '{{ q|escapejs }}', cat: '{{ category|escapejs }}' }">
+         x-data="changelogToolbar"
+         data-q="{{ q }}"
+         data-category="{{ category }}">
         <form method="get"
               action="{% url 'crush_lu:changelog_list' %}"
               hx-get="{% url 'crush_lu:changelog_list' %}"
@@ -56,20 +58,20 @@
                 <button type="submit"
                         name="category"
                         value=""
-                        @click="cat = ''"
-                        :aria-pressed="cat === ''"
-                        :class="cat === '' ? 'bg-crush-purple text-white border-crush-purple' : 'bg-white dark:bg-gray-900 text-crush-dark dark:text-gray-200 border-gray-300 dark:border-gray-700 hover:border-crush-purple'"
-                        class="rounded-full border px-4 py-2 text-sm font-medium transition">
+                        data-category-value=""
+                        @click="selectCategory"
+                        aria-pressed="{% if not category %}true{% else %}false{% endif %}"
+                        class="{% if not category %}bg-crush-purple text-white border-crush-purple{% else %}bg-white dark:bg-gray-900 text-crush-dark dark:text-gray-200 border-gray-300 dark:border-gray-700 hover:border-crush-purple{% endif %} rounded-full border px-4 py-2 text-sm font-medium transition">
                     {% trans "All" %}
                 </button>
                 {% for choice in category_choices %}
                 <button type="submit"
                         name="category"
                         value="{{ choice.value }}"
-                        @click="cat = '{{ choice.value }}'"
-                        :aria-pressed="cat === '{{ choice.value }}'"
-                        :class="cat === '{{ choice.value }}' ? 'bg-crush-purple text-white border-crush-purple' : 'bg-white dark:bg-gray-900 text-crush-dark dark:text-gray-200 border-gray-300 dark:border-gray-700 hover:border-crush-purple'"
-                        class="rounded-full border px-4 py-2 text-sm font-medium transition">
+                        data-category-value="{{ choice.value }}"
+                        @click="selectCategory"
+                        aria-pressed="{% if category == choice.value %}true{% else %}false{% endif %}"
+                        class="{% if category == choice.value %}bg-crush-purple text-white border-crush-purple{% else %}bg-white dark:bg-gray-900 text-crush-dark dark:text-gray-200 border-gray-300 dark:border-gray-700 hover:border-crush-purple{% endif %} rounded-full border px-4 py-2 text-sm font-medium transition">
                     {{ choice.label }}
                 </button>
                 {% endfor %}
