@@ -193,6 +193,40 @@ def generate_rotation_schedule(men, women, num_rounds=3, num_tables=None):
     }
 
 
+def blocked_table_conflict_count(quiz):
+    """Count blocked pairs seated at the same table in the same round.
+
+    Peer blocks are enforced symmetrically. The rotation itself is a fixed
+    combinatorial pattern (anchors stay, group A/B rotators advance), so it can
+    only *avoid* a blocked pair at check-in (see ``assign_table_on_checkin``);
+    later rounds can still put them together. This is the best-effort residual,
+    surfaced as a count so the host can use a manual table move. Identities and
+    block direction are deliberately not returned.
+    """
+    from crush_lu.models.quiz import QuizRotationSchedule
+    from crush_lu.services.blocking import blocked_pairs_among
+
+    rows = list(
+        QuizRotationSchedule.objects.filter(quiz=quiz).values_list(
+            "round_number", "table_id", "user_id"
+        )
+    )
+    pairs = blocked_pairs_among(user_id for _, _, user_id in rows)
+    if not pairs:
+        return 0
+    seated = {}
+    for round_number, table_id, user_id in rows:
+        seated.setdefault((round_number, table_id), set()).add(user_id)
+    return sum(1 for members in seated.values() for pair in pairs if pair <= members)
+
+
+def _blocked_table_warning(count):
+    return (
+        f"{count} blocked pair seating(s) share a table in at least one round. "
+        "Move one of them to a different table manually."
+    )
+
+
 def assign_table_on_checkin(quiz_event, user):
     """
     Incrementally assign a user to a quiz table at check-in time (round 0).
@@ -288,10 +322,27 @@ def assign_table_on_checkin(quiz_event, user):
             .values_list("table_id", "cnt")
         )
 
-        # Pick table with fewest members of this role
+        # Never seat a member with someone who blocked them (or whom they
+        # blocked) while another table is available; then fewest of this role.
+        from crush_lu.services.blocking import blocked_user_ids
+
+        counterpart_ids = blocked_user_ids(user)
+        blocked_table_ids = (
+            set(
+                QuizRotationSchedule.objects.filter(
+                    quiz=quiz_event, round_number=0, user_id__in=counterpart_ids
+                ).values_list("table_id", flat=True)
+            )
+            if counterpart_ids
+            else set()
+        )
         target_table = min(
             locked_tables,
-            key=lambda t: (role_counts.get(t.id, 0), t.table_number),
+            key=lambda t: (
+                t.id in blocked_table_ids,
+                role_counts.get(t.id, 0),
+                t.table_number,
+            ),
         )
 
         # Determine rotation group for rotators
@@ -669,6 +720,10 @@ def generate_rotation_rounds(quiz, from_round=1, preserve_current_round=False):
         quiz.tables_generated_at = timezone.now()
         quiz.save(update_fields=["tables_generated_at"])
 
+        conflicts = blocked_table_conflict_count(quiz)
+        if conflicts:
+            result["warnings"].append(_blocked_table_warning(conflicts))
+
     return {
         "num_tables": actual_num_tables,
         "warnings": result["warnings"],
@@ -906,6 +961,10 @@ def compute_rotation_warnings(quiz):
             f"(groups A/B hold {len(women) - spillover}, "
             f"spillover distributed round-robin)."
         )
+
+    conflicts = blocked_table_conflict_count(quiz)
+    if conflicts:
+        warnings.append(_blocked_table_warning(conflicts))
 
     return warnings
 

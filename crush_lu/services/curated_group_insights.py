@@ -275,6 +275,11 @@ def coach_group_panel(event, registrations=None):
         "next_action_label": NEXT_ACTION_LABELS[next_action],
         "admin_url": admin_url,
         "preflight": preflight,
+        # How many applicant pairs were kept apart because one blocked the
+        # other. Count only: block direction and reason never reach this view.
+        "blocked_pair_count": (
+            len(projection.blocked_registration_pairs) if projection else 0
+        ),
         "groups": [_group_card(group, memberships, participants) for group in groups],
         "left_out": {
             "preview": not groups,

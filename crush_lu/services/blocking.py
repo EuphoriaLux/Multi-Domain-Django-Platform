@@ -27,6 +27,31 @@ def is_blocked_pair(user_a, user_b) -> bool:
     return UserBlock.objects.between(user_a, user_b).exists()
 
 
+def blocked_pairs_among(user_ids) -> frozenset[frozenset[int]]:
+    """Every blocked pair (either direction) whose two members are in ``user_ids``.
+
+    One query. Returns ``frozenset({a, b})`` entries so callers can test a pair
+    without caring about which side blocked. Block direction and reason never
+    leave this helper.
+    """
+    from crush_lu.models import UserBlock
+
+    ids = {uid for uid in user_ids if uid is not None}
+    if len(ids) < 2:
+        return frozenset()
+    rows = (
+        UserBlock.objects.filter(blocker_id__in=ids, blocked_id__in=ids)
+        .order_by()
+        .values_list("blocker_id", "blocked_id")
+        .distinct()
+    )
+    return frozenset(
+        frozenset((blocker_id, blocked_id))
+        for blocker_id, blocked_id in rows
+        if blocker_id != blocked_id
+    )
+
+
 def block_exists_subquery(user, outer_field: str = "pk"):
     """``Exists`` subquery flagging rows whose user is block-related to ``user``.
 
