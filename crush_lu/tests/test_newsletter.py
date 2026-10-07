@@ -878,6 +878,26 @@ class SendTimeConsentRecheckTests(TestCase):
         )
         self.assertEqual(row.status, 'skipped')
 
+    def test_break_between_early_check_and_final_check_sends_nothing(self):
+        from crush_lu import newsletter_service
+
+        def early_ok_then_break(user, email_type):
+            CrushProfile.objects.filter(user=user).update(
+                on_break_at=timezone.now()
+            )
+            return True
+
+        with patch.object(
+            newsletter_service, 'can_send_email', side_effect=early_ok_then_break
+        ), patch.object(newsletter_service, 'send_domain_email') as provider:
+            results = send_newsletter(self.newsletter)
+        provider.assert_not_called()
+        self.assertEqual((results['sent'], results['skipped']), (0, 1))
+        row = NewsletterRecipient.objects.get(
+            newsletter=self.newsletter, user=self.user
+        )
+        self.assertEqual(row.status, 'skipped')
+
     def test_has_current_consent(self):
         from crush_lu.newsletter_service import has_current_consent
 
