@@ -252,6 +252,55 @@ class TestInvitationAcceptanceView:
         assert pending_invitation.created_user is not None
 
 
+    def test_invitation_acceptance_records_consent(self, client, pending_invitation):
+        """The required terms checkbox is stored as the guest's Crush.lu consent (#1231)."""
+        url = reverse('crush_lu:invitation_accept', kwargs={'code': pending_invitation.invitation_code})
+        dob = timezone.now().date() - timedelta(days=365 * 25)
+
+        client.post(url, data={
+            'date_of_birth': dob.strftime('%Y-%m-%d'),
+            'agree_to_terms': True,
+        })
+
+        user = User.objects.get(email=pending_invitation.guest_email)
+        consent = UserDataConsent.objects.get(user=user)
+        assert consent.crushlu_consent_given is True
+        assert consent.crushlu_consent_date is not None
+        assert consent.crushlu_consent_ip
+        # The invite form has no marketing checkbox: stays opted out.
+        assert consent.marketing_consent is False
+
+    def test_invitation_acceptance_without_terms_creates_nothing(
+        self, client, pending_invitation
+    ):
+        """Declining the terms checkbox creates no user and so no consent record (#1231)."""
+        url = reverse('crush_lu:invitation_accept', kwargs={'code': pending_invitation.invitation_code})
+        dob = timezone.now().date() - timedelta(days=365 * 25)
+
+        response = client.post(url, data={
+            'date_of_birth': dob.strftime('%Y-%m-%d'),
+            'agree_to_terms': False,
+        })
+
+        assert response.status_code == 200
+        assert not User.objects.filter(email=pending_invitation.guest_email).exists()
+
+    def test_guest_is_not_bounced_to_consent_page_after_accepting(
+        self, client, pending_invitation
+    ):
+        """A freshly accepted guest reaches gated pages without a consent detour (#1231)."""
+        url = reverse('crush_lu:invitation_accept', kwargs={'code': pending_invitation.invitation_code})
+        dob = timezone.now().date() - timedelta(days=365 * 25)
+        client.post(url, data={
+            'date_of_birth': dob.strftime('%Y-%m-%d'),
+            'agree_to_terms': True,
+        })
+
+        response = client.get('/en/dashboard/', HTTP_HOST='crush.lu')
+
+        assert '/consent/confirm/' not in response.get('Location', '')
+
+
 @pytest.mark.django_db
 @pytest.mark.urls('azureproject.urls_crush')
 class TestEventRegistrationSecurity:
