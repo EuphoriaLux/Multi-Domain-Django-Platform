@@ -17,6 +17,7 @@ from crush_lu.models import (
     CampaignClick,
     CampaignLink,
     CrushProfile,
+    EmailPreference,
     UserDataConsent,
 )
 from crush_lu.models.newsletter import Newsletter
@@ -45,6 +46,11 @@ def make_user(email):
     )
     # Audiences require Crush.lu consent (#1184); the signal default is False.
     UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
+    # Newsletters need explicit opt-in (#1185, Option A).
+    EmailPreference.objects.update_or_create(
+        user=user,
+        defaults={'email_marketing': True, 'email_newsletter': True},
+    )
     return user
 
 
