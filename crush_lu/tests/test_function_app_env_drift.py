@@ -246,3 +246,100 @@ def test_every_timer_url_resolves_to_a_real_django_route():
             )
         checked += 1
     assert checked, "No DJANGO_*_URL entries found in local.settings.json.example"
+
+
+# ---------------------------------------------------------------------------
+# Inventory guard: EVERY env var each Function App reads, not just the
+# DJANGO_*_URL ones above. ADMIN_API_KEY, the *_ENABLED kill switches and the
+# finops/contact-sync apps were outside the checks above, so a variable added
+# to a function_app.py could be missing from the example settings and
+# provisioning with no test failing - the timer then just logs and returns.
+# ---------------------------------------------------------------------------
+
+FUNCTIONS_ROOT = FUNCTION_APP_DIR.parent
+DEPLOY_FINOPS_SH = FUNCTIONS_ROOT.parent / "scripts" / "deploy-finops-function.sh"
+
+# Known gap, deliberately recorded rather than hidden: the finops deploy script
+# predates the retail-price timer and never sets these two, so re-running it
+# leaves that timer dormant (RETAIL_PRICE_SYNC_ENABLED defaults to false). They
+# are set by hand. Remove an entry here when the script learns to set it.
+FINOPS_DEPLOY_SCRIPT_KNOWN_GAPS = {
+    "DJANGO_RETAIL_PRICE_WEBHOOK_URL",
+    "RETAIL_PRICE_SYNC_ENABLED",
+}
+
+
+def _env_vars_read(function_app_py: Path) -> set[str]:
+    """Literal names passed to os.environ.get / os.getenv / os.environ[...]."""
+    tree = ast.parse(function_app_py.read_text(encoding="utf-8"))
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            f = node.func
+            is_getenv = f.attr == "getenv" and getattr(f.value, "id", "") == "os"
+            is_environ_get = (
+                f.attr == "get"
+                and isinstance(f.value, ast.Attribute)
+                and f.value.attr == "environ"
+            )
+            if (is_getenv or is_environ_get) and node.args:
+                arg = node.args[0]
+                if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                    found.add(arg.value)
+        elif (
+            isinstance(node, ast.Subscript)
+            and isinstance(node.value, ast.Attribute)
+            and node.value.attr == "environ"
+            and isinstance(node.slice, ast.Constant)
+            and isinstance(node.slice.value, str)
+        ):
+            found.add(node.slice.value)
+    return found
+
+
+def _example_keys(app_dir: Path) -> set[str]:
+    path = app_dir / "local.settings.json.example"
+    return set(json.loads(path.read_text(encoding="utf-8"))["Values"])
+
+
+@pytest.mark.parametrize(
+    "app", ["hybrid-maintenance", "contact-sync", "finops-daily-sync"]
+)
+def test_every_env_var_a_function_reads_is_in_its_example_settings(app):
+    app_dir = FUNCTIONS_ROOT / app
+    read = _env_vars_read(app_dir / "function_app.py")
+    # hybrid-maintenance reads its URLs through a variable, so only the
+    # literal reads are visible here; the declared URLs are checked above.
+    if app == "hybrid-maintenance":
+        read |= _declared_env_vars()
+    assert read, f"{app}: no environment reads found - has the AST pattern drifted?"
+    missing = read - _example_keys(app_dir)
+    assert not missing, (
+        f"{app}/local.settings.json.example lacks {sorted(missing)}, which "
+        "function_app.py reads. Document every setting a timer depends on."
+    )
+
+
+def test_hybrid_provisioning_sets_the_non_url_settings_too():
+    """ADMIN_API_KEY and HYBRID_MAINTENANCE_ENABLED gate every timer."""
+    non_url = {
+        v
+        for v in _env_vars_read(FUNCTION_APP_PY)
+        if not re.fullmatch(r"DJANGO_.*_URL", v)
+    }
+    assert {"ADMIN_API_KEY", "HYBRID_MAINTENANCE_ENABLED"} <= non_url
+    for path in (PROVISION_PS1, PROVISION_SH):
+        text = path.read_text(encoding="utf-8")
+        missing = {v for v in non_url if v not in text}
+        assert not missing, f"{path.name} never mentions {sorted(missing)}"
+
+
+def test_finops_deploy_script_sets_every_setting_except_known_gaps():
+    read = _env_vars_read(FUNCTIONS_ROOT / "finops-daily-sync" / "function_app.py")
+    text = DEPLOY_FINOPS_SH.read_text(encoding="utf-8")
+    missing = {v for v in read if v not in text}
+    assert missing == FINOPS_DEPLOY_SCRIPT_KNOWN_GAPS, (
+        f"deploy-finops-function.sh misses {sorted(missing)}; recorded known "
+        f"gaps are {sorted(FINOPS_DEPLOY_SCRIPT_KNOWN_GAPS)}. Update the script "
+        "or the allow-list so the two agree."
+    )
