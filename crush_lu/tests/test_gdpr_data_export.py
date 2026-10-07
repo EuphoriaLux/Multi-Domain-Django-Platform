@@ -181,7 +181,19 @@ class ExportProfileCompletenessTests(TestCase):
             user=self.user, microsoft_id="MS-ID-1", microsoft_tenant_id="TENANT-1",
             job_title="Dev",
         )
+        from delegations.models import AccessLog
+
+        AccessLog.objects.create(
+            profile=DelegationProfile.objects.get(user=self.user),
+            action=AccessLog.ACTION_CHOICES[0][0], details="login ok",
+            ip_address="9.9.9.9", user_agent="UA-1",
+        )
         other = self._export()["other_platforms"]
+        log = other["delegations"]["access_log"][0]
+        self.assertEqual(
+            (log["details"], log["ip_address"], log["user_agent"]),
+            ("login ok", "9.9.9.9", "UA-1"),
+        )
         self.assertEqual(other["hub"]["organization"], "Acme")
         self.assertEqual(other["entreprinder"]["tagline"], "Hi")
         self.assertEqual(other["delegations"]["microsoft_id"], "MS-ID-1")

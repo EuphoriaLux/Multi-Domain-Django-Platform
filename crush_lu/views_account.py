@@ -551,7 +551,10 @@ ACCOUNT_ERASURE_ANONYMIZE_BLANK = {
         "custom_welcome_message_de", "custom_welcome_message_fr",
         "custom_landing_url",
     ),
-    "JourneyGift": ("recipient_name", "recipient_email", "claim_error_message"),
+    "JourneyGift": (
+        "recipient_name", "recipient_email", "claim_error_message",
+        "location_first_met",
+    ),
     "CacheChallengeAttempt": ("last_answer",),
 }
 
@@ -944,6 +947,26 @@ def _purge_user_keyed_personal_data(user):
         for model_name, field in ACCOUNT_ERASURE_ANONYMIZE:
             model = apps.get_model("crush_lu", model_name)
             rows = model.objects.filter(**{field: user})
+            if model_name == "JourneyGift":
+                # Gifts the erased member CLAIMED (sent by someone else): the
+                # gift row stays with its sender, but media tied to the
+                # recipient's claim and the recipient-personal first-meeting
+                # details go. The sender's own message text stays (clearly
+                # sender-authored); judgment listed in the PR body.
+                from django.db import models as dj_models
+
+                _delete_stored_files(rows)
+                rows.update(
+                    **{
+                        f.name: ""
+                        for f in model._meta.concrete_fields
+                        if isinstance(f, dj_models.FileField)
+                    }
+                )
+                for row in rows:
+                    model.objects.filter(pk=row.pk).update(
+                        date_first_met=row.created_at.date()
+                    )
             if model_name == "CacheChallengeAttempt":
                 # The answer photo is the member's own upload.
                 _delete_stored_files(rows)
@@ -2441,7 +2464,7 @@ def export_user_data(request):
         PWADeviceInstallation,
     )
     from crush_lu.models.profiles import UserDataConsent
-    from delegations.models import DelegationProfile
+    from delegations.models import AccessLog, DelegationProfile
     from entreprinder.models import EntrepreneurProfile
     from hub.models import HubProfile, HubRequest, HubTimelineEvent
 
@@ -2584,6 +2607,18 @@ def export_user_data(request):
                 if delegation.last_login_at
                 else None
             ),
+            "access_log": [
+                {
+                    "action": log.action,
+                    "details": log.details,
+                    "ip_address": log.ip_address,
+                    "user_agent": log.user_agent,
+                    "created_at": _iso_or_none(log.created_at),
+                }
+                for log in AccessLog.objects.filter(profile=delegation).order_by(
+                    "created_at"
+                )
+            ],
         }
     hub_requests = list(HubRequest.objects.filter(user=user).order_by("created_at"))
     if hub_requests:

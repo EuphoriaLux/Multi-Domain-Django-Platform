@@ -25,6 +25,7 @@ from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.signing import Signer
+from django.db import transaction
 from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone, translation
@@ -489,29 +490,31 @@ class WhatsAppAdapter:
         return result
 
     def _record(self, campaign, user, status, message=None, error=''):
-        if not newsletter_service.has_current_consent(user):
-            # Deletion landed while the provider call was in flight: do not
-            # attach the phone number / parameters / error text (which can
-            # contain them) to a log row after the erasure sweeps ran.
-            error = ''
-            if message is not None:
-                message.recipient = ''
-                message.parameters = {}
-                message.status_history = []
-                message.save(
-                    update_fields=['recipient', 'parameters', 'status_history']
-                )
-        CampaignRecipient.objects.update_or_create(
-            campaign=campaign,
-            channel=self.key,
-            user=user,
-            defaults={
-                'status': status,
-                'sent_at': timezone.now() if status == 'sent' else None,
-                'error_message': error,
-                'whatsapp_message': message,
-            },
-        )
+        # One transaction with the consent row lock (as in write_receipt): the
+        # lock covers only this DB write after the provider returned, never the
+        # provider call. If deletion committed first, the message is sanitised
+        # BEFORE it is linked; if it commits after, its final sweep cleans it.
+        with transaction.atomic():
+            if not newsletter_service.locked_consent_holds(user):
+                error = ''
+                if message is not None:
+                    message.recipient = ''
+                    message.parameters = {}
+                    message.status_history = []
+                    message.save(
+                        update_fields=['recipient', 'parameters', 'status_history']
+                    )
+            CampaignRecipient.objects.update_or_create(
+                campaign=campaign,
+                channel=self.key,
+                user=user,
+                defaults={
+                    'status': status,
+                    'sent_at': timezone.now() if status == 'sent' else None,
+                    'error_message': error,
+                    'whatsapp_message': message,
+                },
+            )
 
 
 class PushAdapter:
@@ -649,16 +652,21 @@ class PushAdapter:
         )
 
     def _record(self, campaign, user, status, error=''):
-        CampaignRecipient.objects.update_or_create(
-            campaign=campaign,
-            channel=self.key,
-            user=user,
-            defaults={
-                'status': status,
-                'sent_at': timezone.now() if status == 'sent' else None,
-                'error_message': error,
-            },
-        )
+        # Same locked-consent write as the WhatsApp adapter (lock around the DB
+        # write only); error text is dropped once consent is gone.
+        with transaction.atomic():
+            if not newsletter_service.locked_consent_holds(user):
+                error = ''
+            CampaignRecipient.objects.update_or_create(
+                campaign=campaign,
+                channel=self.key,
+                user=user,
+                defaults={
+                    'status': status,
+                    'sent_at': timezone.now() if status == 'sent' else None,
+                    'error_message': error,
+                },
+            )
 
 
 CHANNEL_ADAPTERS = {

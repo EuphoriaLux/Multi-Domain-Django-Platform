@@ -970,3 +970,90 @@ class Round8ErasureTests(TestCase):
         self.assertFalse(JourneyConfiguration.objects.exists())
         self.assertFalse(AdventCalendar.objects.exists())
         self.assertFalse(storage.exists(bg))
+
+
+class Round9ErasureTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from crush_lu.models import CrushProfile
+
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='r9@example.com', email='r9@example.com', password='x',
+        )
+        self.sender = User.objects.create_user(
+            username='sender9@example.com', email='sender9@example.com', password='x',
+        )
+        for u in (self.user, self.sender):
+            CrushProfile.objects.create(
+                user=u, date_of_birth=date(1995, 5, 15), gender='M',
+                location='Luxembourg', is_approved=True, is_active=True,
+            )
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_claimed_gift_media_and_personal_details_are_erased(self, _s):
+        from django.core.files.base import ContentFile
+        from django.core.files.storage import InMemoryStorage
+
+        from crush_lu.models import JourneyGift
+        from crush_lu.views import delete_full_account
+
+        storage = InMemoryStorage()
+        photo = storage.save('journey_gifts/c1.jpg', ContentFile(b'x'))
+        audio = storage.save('journey_gifts/a.mp3', ContentFile(b'x'))
+        gift = JourneyGift.objects.create(
+            sender=self.sender, recipient_name='R9', claimed_by=self.user,
+            sender_message='From the sender', date_first_met=date(2024, 3, 3),
+            location_first_met='Cafe Rue X', chapter1_image=photo,
+            chapter4_audio=audio,
+        )
+        with patch.object(
+            JourneyGift._meta.get_field('chapter1_image'), 'storage', storage
+        ), patch.object(
+            JourneyGift._meta.get_field('chapter4_audio'), 'storage', storage
+        ):
+            delete_full_account(self.user)
+        gift.refresh_from_db()
+        self.assertFalse(storage.exists(photo))
+        self.assertFalse(storage.exists(audio))
+        self.assertEqual((gift.chapter1_image.name, gift.chapter4_audio.name), ('', ''))
+        self.assertEqual((gift.location_first_met, gift.recipient_name), ('', ''))
+        self.assertEqual(gift.date_first_met, gift.created_at.date())
+        self.assertEqual(gift.sender_message, 'From the sender')
+        self.assertIsNone(gift.claimed_by)
+
+    def test_whatsapp_link_is_serialised_with_the_consent_lock(self):
+        """Revoked between the recheck and the link => stored message is blank."""
+        from crush_lu.models import Campaign, CampaignRecipient
+        from crush_lu.models.profiles import UserDataConsent
+        from crush_lu.services import campaigns
+        from hub.models import WhatsAppMessage
+
+        campaign = Campaign.objects.create(
+            name='c', channels=['whatsapp'], audience='all_users',
+        )
+        message = WhatsAppMessage.objects.create(
+            user=self.sender, recipient='+352621000009', template_name='t',
+            language='en', parameters={'1': 'r9'}, status='sent',
+        )
+        UserDataConsent.objects.filter(user=self.user).update(
+            crushlu_consent_given=True
+        )
+        real = campaigns.newsletter_service.locked_consent_holds
+
+        def revoke_then_lock(user):
+            UserDataConsent.objects.filter(user=user).update(
+                crushlu_consent_given=False, crushlu_banned=True
+            )
+            return real(user)
+
+        with patch.object(
+            campaigns.newsletter_service, 'locked_consent_holds',
+            side_effect=revoke_then_lock,
+        ):
+            campaigns.CHANNEL_ADAPTERS['whatsapp']._record(
+                campaign, self.user, 'sent', message=message
+            )
+        message.refresh_from_db()
+        self.assertEqual((message.recipient, message.parameters), ('', {}))
+        self.assertEqual(CampaignRecipient.objects.get().whatsapp_message_id, message.pk)
