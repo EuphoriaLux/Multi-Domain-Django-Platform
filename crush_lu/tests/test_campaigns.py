@@ -231,6 +231,28 @@ class ResumabilityTests(TestCase):
             adapter.send_batch(self.campaign, limit=1)
         self.assertEqual(claims_seen, [True])
 
+    def test_push_skips_user_banned_after_audience_resolution(self):
+        """Account deletion landing mid-run must stop the send (#1183)."""
+        adapter = CHANNEL_ADAPTERS['push']
+        real = adapter.eligible_users
+
+        def resolve_then_ban(campaign):
+            qs = real(campaign)
+            ids = list(qs.values_list('id', flat=True))
+            UserDataConsent.objects.filter(user_id__in=ids).update(
+                crushlu_consent_given=False, crushlu_banned=True,
+            )
+            return User.objects.filter(id__in=ids)
+
+        with patch.object(
+            adapter, 'eligible_users', side_effect=resolve_then_ban
+        ), patch('crush_lu.push_notifications.send_push_notification') as send:
+            adapter.send_batch(self.campaign, limit=5)
+        send.assert_not_called()
+        self.assertFalse(
+            CampaignRecipient.objects.filter(campaign=self.campaign).exists()
+        )
+
     def test_push_batch_respects_limit_and_resumes(self):
         adapter = CHANNEL_ADAPTERS['push']
         result = adapter.send_batch(self.campaign, limit=2)

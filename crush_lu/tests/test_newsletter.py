@@ -607,18 +607,77 @@ class NewsletterOptOutControlsTests(TestCase):
         response = self.client.get(f'/en/unsubscribe/{prefs.unsubscribe_token}/')
         self.assertContains(response, 'value="unsubscribe_marketing"')
 
-    def test_resubscribe_restores_newsletter_flag(self):
+    def test_resubscribe_keeps_the_marketing_choice_consistent(self):
+        """Resubscribe must not turn newsletters back on behind an OFF toggle."""
         prefs = EmailPreference.get_or_create_for_user(self.user)
+        self._post_pref('email_marketing', False)
         self.client.post(
             f'/en/unsubscribe/{prefs.unsubscribe_token}/',
-            {'action': 'unsubscribe_marketing'},
+            {'action': 'unsubscribe_all'},
         )
         self.client.post(
             f'/en/unsubscribe/{prefs.unsubscribe_token}/',
             {'action': 'resubscribe'},
         )
         prefs.refresh_from_db()
-        self.assertTrue(prefs.email_newsletter)
+        self.assertFalse(prefs.unsubscribed_all)
+        self.assertFalse(prefs.email_marketing)
+        self.assertFalse(prefs.email_newsletter)
+        self.assertNotIn(self.user, get_newsletter_recipients(self.newsletter))
+
+
+class SendTimeConsentRecheckTests(TestCase):
+    """Consent/ban revoked after the audience was resolved must stop the send."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='rc@example.com', email='rc@example.com', password='x',
+        )
+        make_profile(
+            user=self.user, date_of_birth='1995-01-01', gender='F',
+            location='Luxembourg', is_approved=True,
+        )
+        self.newsletter = Newsletter.objects.create(
+            subject='S', body_html='<p>x</p>', audience='all_users',
+        )
+
+    def test_send_newsletter_skips_user_banned_after_resolution(self):
+        from crush_lu import newsletter_service
+
+        real = newsletter_service.get_newsletter_recipients
+
+        def resolve_then_revoke(newsletter):
+            ids = list(real(newsletter).values_list('id', flat=True))
+            UserDataConsent.objects.filter(user=self.user).update(
+                crushlu_consent_given=False, crushlu_banned=True,
+            )
+            return User.objects.filter(id__in=ids)
+
+        with patch.object(
+            newsletter_service, 'get_newsletter_recipients',
+            side_effect=resolve_then_revoke,
+        ), patch.object(newsletter_service, '_send_newsletter_to_user') as send:
+            results = send_newsletter(self.newsletter)
+        send.assert_not_called()
+        self.assertEqual(results['sent'], 0)
+        self.assertEqual(results['skipped'], 1)
+
+    def test_can_send_email_denies_banned_user_without_creating_prefs(self):
+        from crush_lu.email_helpers import can_send_email
+
+        UserDataConsent.objects.filter(user=self.user).update(
+            crushlu_consent_given=False, crushlu_banned=True,
+        )
+        EmailPreference.objects.filter(user=self.user).delete()
+        self.assertFalse(can_send_email(self.user, 'newsletter'))
+        self.assertFalse(EmailPreference.objects.filter(user=self.user).exists())
+
+    def test_has_current_consent(self):
+        from crush_lu.newsletter_service import has_current_consent
+
+        self.assertTrue(has_current_consent(self.user))
+        UserDataConsent.objects.filter(user=self.user).update(crushlu_banned=True)
+        self.assertFalse(has_current_consent(self.user))
 
 
 class EmailPreferenceNewsletterFieldTests(TestCase):
