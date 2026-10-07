@@ -641,6 +641,17 @@ def delete_crushlu_profile_only(user):
         consent.save()
         logger.info(f"Set permanent Crush.lu ban for user {user.id}")
 
+    # After the revocation has committed: blank any newsletter receipt an
+    # in-flight sender wrote before it saw the revocation.
+    from crush_lu.newsletter_service import anonymize_newsletter_receipts
+
+    anonymize_newsletter_receipts(user)
+    # A click attributed in the window between the redirect's consent check and
+    # its insert is cleaned here (the redirect itself takes no lock).
+    from crush_lu.models import CampaignClick
+
+    CampaignClick.objects.filter(user=user).update(user=None)
+
     logger.info(f"Crush.lu profile deleted for user {user.id} (PowerUp account kept)")
 
 
@@ -849,6 +860,7 @@ def api_update_email_preference(request):
         "email_new_connections",
         "email_new_messages",
         "email_marketing",
+        "email_newsletter",
         "whatsapp_opt_in",
     }
 
@@ -878,7 +890,14 @@ def api_update_email_preference(request):
 
     email_prefs = EmailPreference.get_or_create_for_user(request.user)
     setattr(email_prefs, key, value)
-    email_prefs.save(update_fields=[key])
+    update_fields = [key]
+    if key == "email_marketing":
+        # The "Marketing & Promotions" toggle is described as covering
+        # newsletters, so it must also drive the flag the newsletter and
+        # campaign senders actually read (#1185).
+        email_prefs.email_newsletter = value
+        update_fields.append("email_newsletter")
+    email_prefs.save(update_fields=update_fields)
     return JsonResponse({"success": True})
 
 
@@ -921,7 +940,10 @@ def email_unsubscribe(request, token):
 
         elif action == "unsubscribe_marketing":
             # Only unsubscribe from marketing emails
+            # Also clear email_newsletter: that is the flag newsletters and
+            # campaigns read, so clearing email_marketing alone did nothing.
             email_prefs.email_marketing = False
+            email_prefs.email_newsletter = False
             email_prefs.save()
             messages.success(
                 request, _("You have been unsubscribed from marketing emails.")

@@ -96,6 +96,14 @@ class RecipientSelectionTests(TestCase):
         EmailPreference.objects.filter(user=user).update(email_marketing=False)
         self.assertEqual(self.emails(), set())
 
+    def test_requires_recorded_crushlu_consent(self):
+        # #1184: a lazily created, never-consented profile is not mailed.
+        user = make_member("noprofileconsent")
+        UserDataConsent.objects.filter(user=user).update(
+            crushlu_consent_given=False
+        )
+        self.assertEqual(self.emails(), set())
+
     def test_unsubscribed_all_vetoes_consent(self):
         user = make_member("unsub")
         EmailPreference.objects.filter(user=user).update(
@@ -907,3 +915,142 @@ class ReviewRound8Tests(TestCase):
                 stderr=StringIO(),
             )
         self.assertEqual(send.call_count, 1)
+
+
+class ReceiptConsentTests(TestCase):
+    def test_command_never_writes_an_erased_users_address(self):
+        from unittest.mock import patch
+
+        from crush_lu.campaign_women_1y import get_campaign, get_newsletter
+        from crush_lu.management.commands import send_women_1y_campaign as cmd
+
+        user = make_member("erasedlater")
+        newsletter = get_newsletter(get_campaign(create=True))
+        real = cmd.write_receipt
+
+        def revoke_then_write(nl, member, defaults):
+            # Deletion lands between eligibility and the receipt write.
+            UserDataConsent.objects.filter(user=member).update(
+                crushlu_consent_given=False, crushlu_banned=True
+            )
+            return real(nl, member, defaults)
+
+        with patch.object(cmd, "write_receipt", side_effect=revoke_then_write), patch.object(
+            cmd, "send_women_1y_email", return_value=True
+        ):
+            call_command(
+                "send_women_1y_campaign", "--send", "--limit", "1",
+                stdout=StringIO(), stderr=StringIO(),
+            )
+        row = NewsletterRecipient.objects.get(newsletter=newsletter, user=user)
+        self.assertEqual(row.email, "")
+
+    def test_retry_of_a_failed_receipt_does_not_restore_the_address(self):
+        from crush_lu.campaign_women_1y import get_campaign, get_newsletter
+        from crush_lu.newsletter_service import write_receipt
+
+        user = make_member("retryerased")
+        newsletter = get_newsletter(get_campaign(create=True))
+        write_receipt(newsletter, user, {"status": "failed"})
+        UserDataConsent.objects.filter(user=user).update(
+            crushlu_consent_given=False, crushlu_banned=True
+        )
+        row, _ = write_receipt(
+            newsletter, user, {"status": "pending", "error_message": ""}
+        )
+        self.assertEqual((row.status, row.email), ("pending", ""))
+
+    def test_command_sends_nothing_when_consent_is_revoked_before_the_claim(self):
+        from unittest.mock import patch
+
+        from crush_lu.campaign_women_1y import get_campaign, get_newsletter
+        from crush_lu.management.commands import send_women_1y_campaign as cmd
+
+        user = make_member("nosend")
+        newsletter = get_newsletter(get_campaign(create=True))
+        real = cmd.write_receipt
+        calls = {"n": 0}
+
+        def revoke_first(nl, member, defaults):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                UserDataConsent.objects.filter(user=member).update(
+                    crushlu_consent_given=False, crushlu_banned=True
+                )
+            return real(nl, member, defaults)
+
+        with patch.object(cmd, "write_receipt", side_effect=revoke_first), patch.object(
+            cmd, "send_women_1y_email", return_value=True
+        ) as send:
+            call_command(
+                "send_women_1y_campaign", "--send", "--limit", "1",
+                stdout=StringIO(), stderr=StringIO(),
+            )
+        send.assert_not_called()
+        row = NewsletterRecipient.objects.get(newsletter=newsletter, user=user)
+        self.assertEqual((row.status, row.email), ("skipped", ""))
+
+    def test_failure_text_goes_through_write_receipt_and_is_suppressed(self):
+        from unittest.mock import patch
+
+        from crush_lu.campaign_women_1y import get_campaign, get_newsletter
+        from crush_lu.management.commands import send_women_1y_campaign as cmd
+        from crush_lu.newsletter_service import SUPPRESSED_CONSENT_REVOKED
+
+        user = make_member("failtext")
+        newsletter = get_newsletter(get_campaign(create=True))
+
+        def boom_after_revoke(member, campaign):
+            UserDataConsent.objects.filter(user=member).update(
+                crushlu_consent_given=False, crushlu_banned=True
+            )
+            raise RuntimeError("bounced failtext@example.com")
+
+        with patch.object(cmd, "send_women_1y_email", side_effect=boom_after_revoke):
+            call_command(
+                "send_women_1y_campaign", "--send", "--limit", "1",
+                stdout=StringIO(), stderr=StringIO(),
+            )
+        row = NewsletterRecipient.objects.get(newsletter=newsletter, user=user)
+        self.assertEqual(
+            (row.status, row.email, row.error_message),
+            ("failed", "", SUPPRESSED_CONSENT_REVOKED),
+        )
+
+    def test_four_flag_combinations_use_the_shared_newsletter_predicate(self):
+        user = make_member("combos")
+        for marketing, newsletter in (
+            (False, False), (False, True), (True, False), (True, True),
+        ):
+            with self.subTest(marketing=marketing, newsletter=newsletter):
+                EmailPreference.objects.filter(user=user).update(
+                    email_marketing=marketing, email_newsletter=newsletter
+                )
+                self.assertEqual(
+                    eligible_recipients().filter(pk=user.pk).exists(),
+                    marketing and newsletter,
+                )
+
+    def test_final_check_requires_the_opt_in_for_the_bespoke_email(self):
+        from unittest.mock import patch
+
+        from crush_lu.campaign_women_1y import get_campaign, send_women_1y_email
+
+        user = make_member("lateoptout")
+        campaign = get_campaign(create=True)
+        EmailPreference.objects.filter(user=user).update(email_newsletter=False)
+        with patch("crush_lu.campaign_women_1y.send_domain_email") as provider:
+            self.assertEqual(send_women_1y_email(user, campaign), 0)
+        provider.assert_not_called()
+
+    def test_final_check_blocks_a_member_who_went_on_break(self):
+        from unittest.mock import patch
+
+        from crush_lu.campaign_women_1y import get_campaign, send_women_1y_email
+
+        user = make_member("lateBreak")
+        campaign = get_campaign(create=True)
+        CrushProfile.objects.filter(user=user).update(on_break_at=timezone.now())
+        with patch("crush_lu.campaign_women_1y.send_domain_email") as provider:
+            self.assertEqual(send_women_1y_email(user, campaign), 0)
+        provider.assert_not_called()

@@ -13,7 +13,13 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import TestCase, override_settings
 
-from crush_lu.models import Campaign, CampaignRecipient, CrushProfile, EmailPreference
+from crush_lu.models import (
+    Campaign,
+    CampaignRecipient,
+    CrushProfile,
+    EmailPreference,
+    UserDataConsent,
+)
 from crush_lu.services.campaigns import CHANNEL_ADAPTERS
 from hub.models import WhatsAppMessage
 from hub.whatsapp_service import (
@@ -252,9 +258,17 @@ class WhatsAppAdapterSendTests(TestCase):
             phone_number="+352621222333",
             phone_verified=True,
         )
+        # Audiences require Crush.lu consent (#1184); the signal default is False.
+        UserDataConsent.objects.filter(user=self.member).update(
+            crushlu_consent_given=True
+        )
         EmailPreference.objects.update_or_create(
             user=self.member,
-            defaults={"whatsapp_opt_in": True},
+            defaults={
+                "whatsapp_opt_in": True,
+                "email_marketing": True,
+                "email_newsletter": True,
+            },
         )
         self.campaign = Campaign.objects.create(
             name="WA campaign",
@@ -398,9 +412,16 @@ class WhatsAppAdapterSendTests(TestCase):
             phone_number="+352621444555",
             phone_verified=True,
         )
+        UserDataConsent.objects.filter(user=second).update(
+            crushlu_consent_given=True
+        )
         EmailPreference.objects.update_or_create(
             user=second,
-            defaults={"whatsapp_opt_in": True},
+            defaults={
+                "whatsapp_opt_in": True,
+                "email_marketing": True,
+                "email_newsletter": True,
+            },
         )
         self.campaign.status = "sending"
         self.campaign.save(update_fields=["status"])

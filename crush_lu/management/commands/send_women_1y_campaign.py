@@ -47,7 +47,11 @@ from crush_lu.campaign_women_1y import (
     sync_newsletter_counters,
 )
 from crush_lu.models import Campaign, NewsletterRecipient
-from crush_lu.newsletter_service import BATCH_PAUSE_SECONDS, BATCH_SIZE
+from crush_lu.newsletter_service import (
+    BATCH_PAUSE_SECONDS,
+    BATCH_SIZE,
+    write_receipt,
+)
 from crush_lu.utils.i18n import build_absolute_url
 
 LOCK_KEY = "women_1y_campaign_send_lock"
@@ -220,20 +224,29 @@ class Command(BaseCommand):
             if user is None:
                 skipped += 1
                 continue
-            row, created = NewsletterRecipient.objects.get_or_create(
-                newsletter=newsletter,
-                user=user,
-                defaults={"email": user.email, "status": "pending"},
-            )
-            if not created:
-                if row.status != "failed" or not opts["retry_failed"]:
-                    skipped += 1
-                    continue
+            # Every receipt write goes through write_receipt(): it takes the
+            # consent lock and stores the address only while consent holds, so
+            # this command can never restore an erased user's address.
+            row = NewsletterRecipient.objects.filter(
+                newsletter=newsletter, user=user
+            ).first()
+            if row is None:
+                claim = write_receipt(newsletter, user, {"status": "pending"})
+            elif row.status == "failed" and opts["retry_failed"]:
                 # Reclaim a failed receipt for a fresh attempt.
-                row.status = "pending"
-                row.error_message = ""
-                row.email = user.email
-                row.save(update_fields=["status", "error_message", "email"])
+                claim = write_receipt(
+                    newsletter, user, {"status": "pending", "error_message": ""}
+                )
+            else:
+                skipped += 1
+                continue
+            row = claim[0]
+            if not claim.allowed:
+                # Consent revoked between eligibility and the locked write:
+                # a privacy skip; never send.
+                write_receipt(newsletter, user, {"status": "skipped"})
+                skipped += 1
+                continue
             sync_newsletter_counters(newsletter)
             attempted += 1
             try:
@@ -241,9 +254,12 @@ class Command(BaseCommand):
             except (
                 Exception
             ) as exc:  # noqa: BLE001 - one bad address must not stop the run
-                row.status = "failed"
-                row.error_message = str(exc)[:500]
-                row.save(update_fields=["status", "error_message"])
+                # Via write_receipt: error text may contain the address, and
+                # is suppressed if consent has since been revoked.
+                write_receipt(
+                    newsletter, user,
+                    {"status": "failed", "error_message": str(exc)[:500]},
+                )
                 sync_newsletter_counters(newsletter)
                 failed += 1
                 self.stderr.write(f"failed {user.pk}: {exc}")

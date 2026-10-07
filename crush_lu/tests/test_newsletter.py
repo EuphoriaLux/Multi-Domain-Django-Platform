@@ -19,12 +19,85 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase
+from django.utils import timezone
 
 from crush_lu.models import CrushProfile, EmailPreference
+from crush_lu.models.profiles import UserDataConsent
 from crush_lu.models.newsletter import Newsletter, NewsletterRecipient
 from crush_lu.newsletter_service import get_newsletter_recipients, send_newsletter
 
 User = get_user_model()
+
+
+def make_profile(consented=True, opted_in=True, **kwargs):
+    """Create a CrushProfile; consented by default.
+
+    Newsletter/campaign audiences require ``crushlu_consent_given`` (#1184);
+    the post-save signal creates the consent row with it False, so fixtures
+    flip it unless a test passes ``consented=False``.
+    """
+    profile = CrushProfile.objects.create(**kwargs)
+    UserDataConsent.objects.update_or_create(
+        user=profile.user, defaults={"crushlu_consent_given": consented},
+    )
+    if opted_in:
+        # Newsletters need explicit opt-in (#1185, Option A).
+        EmailPreference.objects.update_or_create(
+            user=profile.user,
+            defaults={"email_marketing": True, "email_newsletter": True},
+        )
+    return profile
+
+
+class NewsletterConsentGateTests(TestCase):
+    """#1184: a lazily-created profile without Crush.lu consent is never mailed."""
+
+    def setUp(self):
+        self.unconsented = User.objects.create_user(
+            username='nc@example.com', email='nc@example.com', password='x',
+        )
+        make_profile(
+            consented=False, user=self.unconsented,
+            date_of_birth='1995-01-01', gender='M', location='Luxembourg',
+            is_approved=True, verification_status='verified',
+        )
+        self.consented = User.objects.create_user(
+            username='c@example.com', email='c@example.com', password='x',
+        )
+        make_profile(
+            user=self.consented,
+            date_of_birth='1995-01-01', gender='F', location='Luxembourg',
+            is_approved=True, verification_status='verified',
+        )
+
+    def test_unconsented_profile_excluded_from_every_audience(self):
+        for audience in ('all_users', 'all_profiles', 'approved_profiles'):
+            nl = Newsletter.objects.create(
+                subject='S', body_html='<p>x</p>', audience=audience,
+            )
+            recipients = get_newsletter_recipients(nl)
+            self.assertNotIn(self.unconsented, recipients, audience)
+            self.assertIn(self.consented, recipients, audience)
+
+    def test_user_without_consent_row_excluded(self):
+        UserDataConsent.objects.filter(user=self.consented).delete()
+        nl = Newsletter.objects.create(
+            subject='S', body_html='<p>x</p>', audience='all_users',
+        )
+        self.assertNotIn(self.consented, get_newsletter_recipients(nl))
+
+    def test_campaign_audience_applies_the_same_gate(self):
+        from crush_lu.services.campaigns import (
+            CHANNEL_ADAPTERS, create_campaign, resolve_campaign_audience,
+        )
+        campaign = create_campaign(
+            name='c', channels=['email'], audience='all_users',
+        )
+        self.assertNotIn(self.unconsented, resolve_campaign_audience(campaign))
+        self.assertIn(self.consented, resolve_campaign_audience(campaign))
+        eligible = CHANNEL_ADAPTERS['email'].eligible_users(campaign)
+        self.assertNotIn(self.unconsented, eligible)
+        self.assertIn(self.consented, eligible)
 
 
 class NewsletterAudienceTests(TestCase):
@@ -48,7 +121,7 @@ class NewsletterAudienceTests(TestCase):
             first_name='Un',
             last_name='Approved',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user_unapproved,
             date_of_birth='1995-01-01',
             gender='M',
@@ -64,7 +137,7 @@ class NewsletterAudienceTests(TestCase):
             first_name='App',
             last_name='Roved',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user_approved,
             date_of_birth='1995-01-01',
             gender='F',
@@ -124,15 +197,14 @@ class NewsletterAudienceTests(TestCase):
         recipients = get_newsletter_recipients(newsletter)
         self.assertNotIn(self.user_no_profile, recipients)
 
-    def test_users_without_preference_record_included(self):
-        """Users without an EmailPreference record should be included (default=True)."""
-        # No EmailPreference created for any user
+    def test_users_without_preference_record_are_excluded(self):
+        """Explicit opt-in (#1185, Option A): no preference row means no opt-in."""
+        EmailPreference.objects.all().delete()
         newsletter = Newsletter.objects.create(
             subject='Test', body_html='<p>Hi</p>', audience='all_users',
         )
         recipients = get_newsletter_recipients(newsletter)
-        # user_no_profile excluded (no CrushProfile), 2 users with profiles included
-        self.assertEqual(recipients.count(), 2)
+        self.assertEqual(recipients.count(), 0)
 
 
 class NewsletterSendTests(TestCase):
@@ -145,7 +217,7 @@ class NewsletterSendTests(TestCase):
             password='testpass123',
             first_name='Alice',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user1, date_of_birth='1995-01-01',
             gender='F', location='Luxembourg',
         )
@@ -155,7 +227,7 @@ class NewsletterSendTests(TestCase):
             password='testpass123',
             first_name='Bob',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user2, date_of_birth='1995-01-01',
             gender='M', location='Luxembourg',
         )
@@ -289,7 +361,7 @@ class NewsletterEmailRenderTests(TestCase):
             password='testpass123',
             first_name='Render',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user, date_of_birth='1995-01-01',
             gender='F', location='Luxembourg',
         )
@@ -362,7 +434,7 @@ class NewsletterManagementCommandTests(TestCase):
             password='testpass123',
             first_name='Cmd',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user, date_of_birth='1995-01-01',
             gender='M', location='Luxembourg',
         )
@@ -399,14 +471,14 @@ class NewsletterManagementCommandTests(TestCase):
         user2 = User.objects.create_user(
             username='cmd2@example.com', email='cmd2@example.com', password='pass',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=user2, date_of_birth='1995-01-01',
             gender='F', location='Luxembourg',
         )
         user3 = User.objects.create_user(
             username='cmd3@example.com', email='cmd3@example.com', password='pass',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=user3, date_of_birth='1995-01-01',
             gender='M', location='Luxembourg',
         )
@@ -474,6 +546,366 @@ class NewsletterModelTests(TestCase):
             )
 
 
+class NewsletterOptOutControlsTests(TestCase):
+    """#1185: the marketing controls drive the flag newsletters really read."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from django.test import Client
+
+        cache.clear()
+        self.user = User.objects.create_user(
+            username='ctl@example.com', email='ctl@example.com', password='x',
+        )
+        make_profile(
+            user=self.user, date_of_birth='1995-01-01', gender='F',
+            location='Luxembourg', is_approved=True,
+        )
+        self.client = Client(HTTP_HOST='crush.lu')
+        self.newsletter = Newsletter.objects.create(
+            subject='S', body_html='<p>x</p>', audience='all_users',
+        )
+
+    def _post_pref(self, key, value):
+        import json
+
+        self.client.force_login(self.user)
+        return self.client.post(
+            '/api/email/preferences/',
+            data=json.dumps({'key': key, 'value': value}),
+            content_type='application/json',
+        )
+
+    def test_marketing_toggle_off_stops_newsletters(self):
+        self.assertIn(self.user, get_newsletter_recipients(self.newsletter))
+        self.assertEqual(self._post_pref('email_marketing', False).status_code, 200)
+        self.assertNotIn(self.user, get_newsletter_recipients(self.newsletter))
+
+    def test_marketing_toggle_on_reenables_newsletters(self):
+        self._post_pref('email_marketing', False)
+        self._post_pref('email_marketing', True)
+        self.assertIn(self.user, get_newsletter_recipients(self.newsletter))
+
+    def test_newsletter_key_is_accepted_by_the_preferences_api(self):
+        self.assertEqual(self._post_pref('email_newsletter', False).status_code, 200)
+        self.assertNotIn(self.user, get_newsletter_recipients(self.newsletter))
+
+    def test_unsubscribe_marketing_only_clears_newsletter_flag_too(self):
+        prefs = EmailPreference.get_or_create_for_user(self.user)
+        prefs.email_marketing = True
+        prefs.save()
+        response = self.client.post(
+            f'/en/unsubscribe/{prefs.unsubscribe_token}/',
+            {'action': 'unsubscribe_marketing'},
+        )
+        self.assertEqual(response.status_code, 200)
+        prefs.refresh_from_db()
+        self.assertFalse(prefs.email_marketing)
+        self.assertFalse(prefs.email_newsletter)
+        self.assertNotIn(self.user, get_newsletter_recipients(self.newsletter))
+        # Other (service) preferences are untouched.
+        self.assertTrue(prefs.email_event_reminders)
+
+    def test_visible_state_status_row_and_audience_agree_for_all_flag_combos(self):
+        """Option A: email_marketing is the visible choice; sending needs both."""
+        from django.template.loader import render_to_string
+
+        for marketing, newsletter in (
+            (False, False), (False, True), (True, False), (True, True),
+        ):
+            with self.subTest(marketing=marketing, newsletter=newsletter):
+                EmailPreference.objects.update_or_create(
+                    user=self.user,
+                    defaults={
+                        'email_marketing': marketing,
+                        'email_newsletter': newsletter,
+                    },
+                )
+                prefs = EmailPreference.objects.get(user=self.user)
+                page = self.client.get(
+                    f'/en/unsubscribe/{prefs.unsubscribe_token}/'
+                ).content.decode()
+                shows_button = 'value="unsubscribe_marketing"' in page
+                self.assertEqual(shows_button, marketing)
+                toggle = render_to_string(
+                    'crush_lu/partials/edit_account_notifications.html',
+                    {'email_prefs': prefs, 'profile': self.user.crushprofile},
+                )
+                import re
+
+                tag = re.search(
+                    r'<input[^>]*data-pref-key="email_marketing"[^>]*>', toggle
+                ) or re.search(
+                    r'<input[^>]*email_marketing[^>]*>', toggle
+                )
+                self.assertIsNotNone(tag)
+                self.assertEqual(
+                    re.search(r'\schecked(\s|=|>)', tag.group(0)) is not None,
+                    marketing,
+                )
+                in_audience = self.user in get_newsletter_recipients(
+                    self.newsletter
+                )
+                self.assertEqual(in_audience, marketing and newsletter)
+
+    def test_audience_shrinks_to_opted_in_members_only(self):
+        EmailPreference.objects.filter(user=self.user).update(email_marketing=False)
+        self.assertNotIn(self.user, get_newsletter_recipients(self.newsletter))
+
+    def test_resubscribe_keeps_the_marketing_choice_consistent(self):
+        """Resubscribe must not turn newsletters back on behind an OFF toggle."""
+        prefs = EmailPreference.get_or_create_for_user(self.user)
+        self._post_pref('email_marketing', False)
+        self.client.post(
+            f'/en/unsubscribe/{prefs.unsubscribe_token}/',
+            {'action': 'unsubscribe_all'},
+        )
+        self.client.post(
+            f'/en/unsubscribe/{prefs.unsubscribe_token}/',
+            {'action': 'resubscribe'},
+        )
+        prefs.refresh_from_db()
+        self.assertFalse(prefs.unsubscribed_all)
+        self.assertFalse(prefs.email_marketing)
+        self.assertFalse(prefs.email_newsletter)
+        self.assertNotIn(self.user, get_newsletter_recipients(self.newsletter))
+
+
+class SendTimeConsentRecheckTests(TestCase):
+    """Consent/ban revoked after the audience was resolved must stop the send."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='rc@example.com', email='rc@example.com', password='x',
+        )
+        make_profile(
+            user=self.user, date_of_birth='1995-01-01', gender='F',
+            location='Luxembourg', is_approved=True,
+        )
+        self.newsletter = Newsletter.objects.create(
+            subject='S', body_html='<p>x</p>', audience='all_users',
+        )
+
+    def test_send_newsletter_skips_user_banned_after_resolution(self):
+        from crush_lu import newsletter_service
+
+        real = newsletter_service.get_newsletter_recipients
+
+        def resolve_then_revoke(newsletter):
+            ids = list(real(newsletter).values_list('id', flat=True))
+            UserDataConsent.objects.filter(user=self.user).update(
+                crushlu_consent_given=False, crushlu_banned=True,
+            )
+            return User.objects.filter(id__in=ids)
+
+        with patch.object(
+            newsletter_service, 'get_newsletter_recipients',
+            side_effect=resolve_then_revoke,
+        ), patch.object(newsletter_service, '_send_newsletter_to_user') as send:
+            results = send_newsletter(self.newsletter)
+        send.assert_not_called()
+        self.assertEqual(results['sent'], 0)
+        self.assertEqual(results['skipped'], 1)
+
+    def test_can_send_email_denies_banned_user_without_creating_prefs(self):
+        from crush_lu.email_helpers import can_send_email
+
+        UserDataConsent.objects.filter(user=self.user).update(
+            crushlu_consent_given=False, crushlu_banned=True,
+        )
+        EmailPreference.objects.filter(user=self.user).delete()
+        self.assertFalse(can_send_email(self.user, 'newsletter'))
+        self.assertFalse(EmailPreference.objects.filter(user=self.user).exists())
+
+    def test_privacy_skipped_recipient_never_stores_the_address(self):
+        """Deletion can anonymise the log first; the skip must not undo it."""
+        from crush_lu import newsletter_service
+
+        UserDataConsent.objects.filter(user=self.user).update(
+            crushlu_consent_given=False, crushlu_banned=True,
+        )
+        with patch.object(
+            newsletter_service, 'get_newsletter_recipients',
+            return_value=User.objects.filter(id=self.user.id),
+        ):
+            send_newsletter(self.newsletter)
+        row = NewsletterRecipient.objects.get(
+            newsletter=self.newsletter, user=self.user
+        )
+        self.assertEqual((row.status, row.email), ('skipped', ''))
+
+    def test_send_newsletter_skips_user_who_went_on_break_after_resolution(self):
+        from crush_lu import newsletter_service
+
+        real = newsletter_service.get_newsletter_recipients
+
+        def resolve_then_break(newsletter):
+            ids = list(real(newsletter).values_list('id', flat=True))
+            CrushProfile.objects.filter(user=self.user).update(
+                on_break_at=timezone.now()
+            )
+            return User.objects.filter(id__in=ids)
+
+        with patch.object(
+            newsletter_service, 'get_newsletter_recipients',
+            side_effect=resolve_then_break,
+        ), patch.object(newsletter_service, '_send_newsletter_to_user') as send:
+            results = send_newsletter(self.newsletter)
+        send.assert_not_called()
+        self.assertEqual(results['skipped'], 1)
+
+    def test_receipts_never_write_the_address_back_after_erasure(self):
+        """An in-flight send holds the pre-erasure User; receipts re-read."""
+        from crush_lu import newsletter_service
+
+        def send_then_erase(newsletter, user, link_rewriter):
+            UserDataConsent.objects.filter(user=user).update(
+                crushlu_consent_given=False, crushlu_banned=True,
+            )
+            return 1
+
+        with patch.object(
+            newsletter_service, '_send_newsletter_to_user',
+            side_effect=send_then_erase,
+        ):
+            send_newsletter(self.newsletter)
+        row = NewsletterRecipient.objects.get(
+            newsletter=self.newsletter, user=self.user
+        )
+        self.assertEqual((row.status, row.email), ('sent', ''))
+
+    def test_write_receipt_stores_address_only_while_consented(self):
+        """The write itself re-reads consent, so a stale check cannot leak it."""
+        from crush_lu.newsletter_service import write_receipt
+
+        stale_user = User.objects.get(pk=self.user.pk)
+        row, _ = write_receipt(self.newsletter, stale_user, {'status': 'pending'})
+        self.assertEqual(row.email, 'rc@example.com')
+        # Consent revoked after the caller's earlier check, before this write.
+        UserDataConsent.objects.filter(user=self.user).update(
+            crushlu_consent_given=False, crushlu_banned=True,
+        )
+        row, _ = write_receipt(self.newsletter, stale_user, {'status': 'sent'})
+        self.assertEqual((row.status, row.email), ('sent', ''))
+        row.refresh_from_db()
+        self.assertEqual(row.email, '')
+
+    def test_revocation_between_check_and_locked_write_sends_nothing(self):
+        """The locked write is the authority: no consent => no send (#1184)."""
+        from crush_lu import newsletter_service
+
+        real = newsletter_service.write_receipt
+        calls = {'n': 0}
+
+        def revoke_before_claim(nl, user, defaults):
+            calls['n'] += 1
+            if calls['n'] == 1:  # the pre-send claim
+                UserDataConsent.objects.filter(user=user).update(
+                    crushlu_consent_given=False, crushlu_banned=True,
+                )
+            return real(nl, user, defaults)
+
+        with patch.object(
+            newsletter_service, 'write_receipt', side_effect=revoke_before_claim
+        ), patch.object(newsletter_service, '_send_newsletter_to_user') as send:
+            results = send_newsletter(self.newsletter)
+        send.assert_not_called()
+        self.assertEqual((results['sent'], results['skipped']), (0, 1))
+        row = NewsletterRecipient.objects.get(
+            newsletter=self.newsletter, user=self.user
+        )
+        self.assertEqual((row.status, row.email), ('skipped', ''))
+
+    def test_error_text_is_suppressed_when_consent_is_gone(self):
+        from crush_lu.newsletter_service import (
+            SUPPRESSED_CONSENT_REVOKED, write_receipt,
+        )
+
+        UserDataConsent.objects.filter(user=self.user).update(
+            crushlu_consent_given=False, crushlu_banned=True,
+        )
+        result = write_receipt(
+            self.newsletter, self.user,
+            {'status': 'failed', 'error_message': 'bounce rc@example.com'},
+        )
+        self.assertFalse(result.allowed)
+        row, _ = result
+        self.assertEqual(
+            (row.email, row.error_message), ('', SUPPRESSED_CONSENT_REVOKED)
+        )
+
+    def test_final_pre_send_check_blocks_the_provider_call(self):
+        """The last check before the handoff: consent gone => nothing sent."""
+        from crush_lu import newsletter_service
+
+        # True for the loop's early check, False for the final check.
+        with patch.object(
+            newsletter_service, 'has_current_consent', side_effect=[True, False]
+        ), patch.object(newsletter_service, 'send_domain_email') as provider:
+            results = send_newsletter(self.newsletter)
+        provider.assert_not_called()
+        self.assertEqual((results['sent'], results['skipped']), (0, 1))
+
+    def test_final_check_uses_the_fresh_address(self):
+        from crush_lu import newsletter_service
+
+        User.objects.filter(pk=self.user.pk).update(email='fresh@example.com')
+        with patch.object(
+            newsletter_service, 'send_domain_email', return_value=1
+        ) as provider:
+            send_newsletter(self.newsletter)
+        self.assertEqual(
+            provider.call_args.kwargs['recipient_list'], ['fresh@example.com']
+        )
+
+    def test_opt_out_between_early_check_and_final_check_sends_nothing(self):
+        """Final handoff re-reads the opt-in, not just consent (Option A)."""
+        from crush_lu import newsletter_service
+
+        # Early check passes (patched); the member then switches Marketing off.
+        def early_ok_then_opt_out(user, email_type):
+            EmailPreference.objects.filter(user=user).update(email_marketing=False)
+            return True
+
+        with patch.object(
+            newsletter_service, 'can_send_email', side_effect=early_ok_then_opt_out
+        ), patch.object(newsletter_service, 'send_domain_email') as provider:
+            results = send_newsletter(self.newsletter)
+        provider.assert_not_called()
+        self.assertEqual((results['sent'], results['skipped']), (0, 1))
+        row = NewsletterRecipient.objects.get(
+            newsletter=self.newsletter, user=self.user
+        )
+        self.assertEqual(row.status, 'skipped')
+
+    def test_break_between_early_check_and_final_check_sends_nothing(self):
+        from crush_lu import newsletter_service
+
+        def early_ok_then_break(user, email_type):
+            CrushProfile.objects.filter(user=user).update(
+                on_break_at=timezone.now()
+            )
+            return True
+
+        with patch.object(
+            newsletter_service, 'can_send_email', side_effect=early_ok_then_break
+        ), patch.object(newsletter_service, 'send_domain_email') as provider:
+            results = send_newsletter(self.newsletter)
+        provider.assert_not_called()
+        self.assertEqual((results['sent'], results['skipped']), (0, 1))
+        row = NewsletterRecipient.objects.get(
+            newsletter=self.newsletter, user=self.user
+        )
+        self.assertEqual(row.status, 'skipped')
+
+    def test_has_current_consent(self):
+        from crush_lu.newsletter_service import has_current_consent
+
+        self.assertTrue(has_current_consent(self.user))
+        UserDataConsent.objects.filter(user=self.user).update(crushlu_banned=True)
+        self.assertFalse(has_current_consent(self.user))
+
+
 class EmailPreferenceNewsletterFieldTests(TestCase):
     """Test the new email_newsletter field on EmailPreference."""
 
@@ -486,8 +918,11 @@ class EmailPreferenceNewsletterFieldTests(TestCase):
         pref = EmailPreference.get_or_create_for_user(self.user)
         self.assertTrue(pref.email_newsletter)
 
-    def test_can_send_newsletter_true(self):
+    def test_can_send_newsletter_requires_marketing_opt_in(self):
         pref = EmailPreference.get_or_create_for_user(self.user)
+        self.assertFalse(pref.can_send('newsletter'))  # default: not opted in
+        pref.email_marketing = True
+        pref.save()
         self.assertTrue(pref.can_send('newsletter'))
 
     def test_can_send_newsletter_false_when_opted_out(self):
@@ -530,7 +965,7 @@ class NewsletterLanguageFilterTests(TestCase):
             email='en@example.com',
             password='testpass123',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user_en,
             date_of_birth='1995-01-01',
             gender='M',
@@ -544,7 +979,7 @@ class NewsletterLanguageFilterTests(TestCase):
             email='de@example.com',
             password='testpass123',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user_de,
             date_of_birth='1995-01-01',
             gender='F',
@@ -558,7 +993,7 @@ class NewsletterLanguageFilterTests(TestCase):
             email='fr@example.com',
             password='testpass123',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user_fr,
             date_of_birth='1995-01-01',
             gender='M',
@@ -698,7 +1133,7 @@ class NewsletterTypeTests(TestCase):
             password='testpass123',
             first_name='Tester',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=user, date_of_birth='1995-01-01',
             gender='F', location='Luxembourg',
         )
@@ -727,7 +1162,7 @@ class NewsletterTypeTests(TestCase):
             password='testpass123',
             first_name='Standard',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=user, date_of_birth='1995-01-01',
             gender='M', location='Luxembourg',
         )
@@ -755,7 +1190,7 @@ class NewsletterMultilingualTests(TestCase):
             password='testpass123',
             first_name='English',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user_en,
             date_of_birth='1995-01-01',
             gender='M',
@@ -770,7 +1205,7 @@ class NewsletterMultilingualTests(TestCase):
             password='testpass123',
             first_name='Deutsch',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user_de,
             date_of_birth='1995-01-01',
             gender='F',
@@ -785,7 +1220,7 @@ class NewsletterMultilingualTests(TestCase):
             password='testpass123',
             first_name='Francais',
         )
-        CrushProfile.objects.create(
+        make_profile(
             user=self.user_fr,
             date_of_birth='1995-01-01',
             gender='M',

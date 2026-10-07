@@ -12,7 +12,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 
-from crush_lu.models import CrushProfile
+from crush_lu.models import CrushProfile, EmailPreference
 from crush_lu.models.crush_connect import CrushConnectMembership
 from crush_lu.models.profiles import UserDataConsent
 from crush_lu.newsletter_service import exclude_on_break_users
@@ -42,7 +42,17 @@ def _make_profile(user, **overrides):
         verification_status="verified",
     )
     defaults.update(overrides)
-    return CrushProfile.objects.create(**defaults)
+    profile = CrushProfile.objects.create(**defaults)
+    # Audiences require Crush.lu consent (#1184); the signal default is False.
+    UserDataConsent.objects.update_or_create(
+        user=user, defaults={"crushlu_consent_given": True},
+    )
+    # Newsletters need explicit opt-in (#1185, Option A).
+    EmailPreference.objects.update_or_create(
+        user=user,
+        defaults={'email_marketing': True, 'email_newsletter': True},
+    )
+    return profile
 
 
 class TakeABreakModelTests(TestCase):

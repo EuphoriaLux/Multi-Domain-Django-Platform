@@ -48,7 +48,7 @@ vapid_test_settings = override_settings(
 )
 
 
-def make_user(email, **profile_kwargs):
+def make_user(email, consented=True, **profile_kwargs):
     user = User.objects.create_user(
         username=email,
         email=email,
@@ -64,6 +64,16 @@ def make_user(email, **profile_kwargs):
         }
         defaults.update(profile_kwargs)
         CrushProfile.objects.create(user=user, **defaults)
+        # Audiences require Crush.lu consent (#1184); the signal default is False.
+        UserDataConsent.objects.update_or_create(
+            user=user,
+            defaults={'crushlu_consent_given': consented},
+        )
+        # Newsletters need explicit opt-in (#1185, Option A).
+        EmailPreference.objects.update_or_create(
+            user=user,
+            defaults={'email_marketing': True, 'email_newsletter': True},
+        )
     return user
 
 
@@ -225,6 +235,28 @@ class ResumabilityTests(TestCase):
         ):
             adapter.send_batch(self.campaign, limit=1)
         self.assertEqual(claims_seen, [True])
+
+    def test_push_skips_user_banned_after_audience_resolution(self):
+        """Account deletion landing mid-run must stop the send (#1183)."""
+        adapter = CHANNEL_ADAPTERS['push']
+        real = adapter.eligible_users
+
+        def resolve_then_ban(campaign):
+            qs = real(campaign)
+            ids = list(qs.values_list('id', flat=True))
+            UserDataConsent.objects.filter(user_id__in=ids).update(
+                crushlu_consent_given=False, crushlu_banned=True,
+            )
+            return User.objects.filter(id__in=ids)
+
+        with patch.object(
+            adapter, 'eligible_users', side_effect=resolve_then_ban
+        ), patch('crush_lu.push_notifications.send_push_notification') as send:
+            adapter.send_batch(self.campaign, limit=5)
+        send.assert_not_called()
+        self.assertFalse(
+            CampaignRecipient.objects.filter(campaign=self.campaign).exists()
+        )
 
     def test_push_batch_respects_limit_and_resumes(self):
         adapter = CHANNEL_ADAPTERS['push']
@@ -732,3 +764,121 @@ class DispatchCommandTests(TestCase):
         campaign.refresh_from_db()
         self.assertEqual(campaign.status, 'sent')
         self.assertEqual(len(mail.outbox), 1)
+
+
+class WhatsAppMidRunOptOutTests(TestCase):
+    """The per-recipient recheck re-reads the channel predicates (#1185)."""
+
+    def test_whatsapp_opt_out_after_resolution_blocks_the_paid_send(self):
+        user = make_user(
+            'wa-late@example.com', phone_number='+352621999999',
+            phone_verified=True,
+        )
+        opt_in_whatsapp(user)
+        campaign = Campaign.objects.create(
+            name='WA', channels=['whatsapp'], audience='all_users',
+            whatsapp_template_name='tpl',
+        )
+        adapter = CHANNEL_ADAPTERS['whatsapp']
+        real = adapter.eligible_users
+
+        def resolve_then_opt_out(c):
+            qs = real(c)
+            ids = list(qs.values_list('id', flat=True))
+            EmailPreference.objects.filter(user=user).update(whatsapp_opt_in=False)
+            return User.objects.filter(id__in=ids)
+
+        with patch.object(
+            adapter, 'eligible_users', side_effect=resolve_then_opt_out
+        ), patch('hub.whatsapp_service.send_whatsapp_template') as send:
+            adapter.send_batch(campaign, limit=5)
+        send.assert_not_called()
+        self.assertFalse(CampaignRecipient.objects.filter(campaign=campaign).exists())
+
+
+class FinalPreSendCheckTests(TestCase):
+    def test_whatsapp_final_check_blocks_the_paid_call_and_drops_the_claim(self):
+        user = make_user(
+            'final-wa@example.com', phone_number='+352621000077',
+            phone_verified=True,
+        )
+        opt_in_whatsapp(user)
+        campaign = Campaign.objects.create(
+            name='F', channels=['whatsapp'], audience='all_users',
+            whatsapp_template_name='tpl',
+        )
+        adapter = CHANNEL_ADAPTERS['whatsapp']
+        # Early check passes, the final one (right before the call) fails.
+        with patch.object(
+            type(adapter), 'still_reachable', side_effect=[True, False]
+        ), patch('hub.whatsapp_service.send_whatsapp_template') as send:
+            adapter.send_batch(campaign, limit=5)
+        send.assert_not_called()
+        self.assertFalse(CampaignRecipient.objects.filter(campaign=campaign).exists())
+
+    def test_push_final_check_blocks_the_call(self):
+        user = make_user('final-push@example.com')
+        add_push_subscription(user)
+        campaign = Campaign.objects.create(
+            name='FP', channels=['push'], audience='all_users',
+        )
+        adapter = CHANNEL_ADAPTERS['push']
+        with patch.object(
+            type(adapter), 'still_reachable', side_effect=[True, False]
+        ), patch('crush_lu.push_notifications.send_push_notification') as send:
+            adapter.send_batch(campaign, limit=5)
+        send.assert_not_called()
+        self.assertFalse(CampaignRecipient.objects.filter(campaign=campaign).exists())
+
+
+class RecheckQueryBudgetTests(TestCase):
+    """The per-recipient recheck must not re-resolve the audience (#1185)."""
+
+    def test_recheck_never_resolves_segments_or_counts(self):
+        from unittest.mock import patch as _patch
+
+        users = [
+            make_user(f'q{i}@example.com', phone_number=f'+3526210000{i}',
+                      phone_verified=True)
+            for i in range(3)
+        ]
+        for user in users:
+            opt_in_whatsapp(user)
+            add_push_subscription(user, endpoint_suffix=str(user.pk))
+        with _patch(
+            'crush_lu.admin.user_segments.get_segment_definitions'
+        ) as segments, _patch(
+            'crush_lu.services.campaigns.resolve_campaign_audience'
+        ) as audience:
+            for adapter in (CHANNEL_ADAPTERS['whatsapp'], CHANNEL_ADAPTERS['push']):
+                for user in users:
+                    self.assertTrue(adapter.still_reachable(user))
+        segments.assert_not_called()
+        audience.assert_not_called()
+
+    def test_recheck_is_a_small_constant_number_of_queries(self):
+        user = make_user('qq@example.com', phone_number='+352621000099',
+                         phone_verified=True)
+        opt_in_whatsapp(user)
+        add_push_subscription(user)
+        with self.assertNumQueries(7):
+            CHANNEL_ADAPTERS['whatsapp'].still_reachable(user)
+            CHANNEL_ADAPTERS['push'].still_reachable(user)
+
+    def test_opt_outs_still_block_the_recheck(self):
+        user = make_user('qo@example.com', phone_number='+352621000098',
+                         phone_verified=True)
+        opt_in_whatsapp(user)
+        add_push_subscription(user)
+        wa, push = CHANNEL_ADAPTERS['whatsapp'], CHANNEL_ADAPTERS['push']
+        self.assertTrue(wa.still_reachable(user))
+        EmailPreference.objects.filter(user=user).update(whatsapp_opt_in=False)
+        self.assertFalse(wa.still_reachable(user))
+        EmailPreference.objects.filter(user=user).update(whatsapp_opt_in=True)
+        CrushProfile.objects.filter(user=user).update(not_on_whatsapp=True)
+        self.assertFalse(wa.still_reachable(user))
+        PushSubscription.objects.filter(user=user).update(enabled=False)
+        self.assertFalse(push.still_reachable(user))
+        PushSubscription.objects.filter(user=user).update(enabled=True)
+        CrushProfile.objects.filter(user=user).update(on_break_at=timezone.now())
+        self.assertFalse(push.still_reachable(user))

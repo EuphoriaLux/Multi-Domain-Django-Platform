@@ -9,6 +9,7 @@ import time
 
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.db import transaction
 from django.db.models import Q
 from django.template.loader import render_to_string
 from django.utils import timezone, translation
@@ -32,7 +33,18 @@ def resolve_audience(audience, segment_key=''):
 
     Shared by newsletter sending and the multi-channel campaign service
     (crush_lu/services/campaigns.py) so both target audiences identically.
+
+    Only users with a recorded Crush.lu consent
+    (``UserDataConsent.crushlu_consent_given``) are returned. Profiles are
+    lazily created for cross-domain accounts on their first crush.lu login and
+    ConsentMiddleware only then asks them to consent, so a profile alone is not
+    consent. Users without a consent row are dropped too (no consent recorded).
     """
+    users = _resolve_audience_unfiltered(audience, segment_key)
+    return users.filter(data_consent__crushlu_consent_given=True)
+
+
+def _resolve_audience_unfiltered(audience, segment_key=''):
     if audience == 'all_users':
         return User.objects.filter(is_active=True, crushprofile__isnull=False)
     elif audience == 'all_profiles':
@@ -52,6 +64,172 @@ def resolve_audience(audience, segment_key=''):
 
     logger.error(f"Unknown audience type: {audience}")
     return User.objects.none()
+
+
+def has_current_consent(user):
+    """True while the user still has Crush.lu consent and is not banned.
+
+    Audience querysets are evaluated once, but a send run can pause for
+    minutes between batches; account deletion (consent revoked, ban set) can
+    land in between. Every per-recipient send loop re-checks this right before
+    it sends, using a fresh read of the consent row.
+    """
+    from .models.profiles import UserDataConsent
+
+    return UserDataConsent.objects.filter(
+        user_id=user.pk, crushlu_consent_given=True, crushlu_banned=False
+    ).exists()
+
+
+def is_on_break(user):
+    """Fresh read of the self-service break state (see exclude_on_break_users)."""
+    from .models.profiles import CrushProfile
+
+    return CrushProfile.objects.filter(
+        user_id=user.pk, on_break_at__isnull=False
+    ).exists()
+
+
+# THE newsletter/campaign-email opt-in predicate (Option A, #1185). Every path
+# that sends marketing or newsletter email uses it: the audience resolver
+# (get_newsletter_recipients), EmailPreference.can_send('newsletter'), the
+# final pre-send check (final_send_address) and the women_1y bespoke command.
+NEWSLETTER_OPT_IN = {
+    'email_marketing': True,
+    'email_newsletter': True,
+    'unsubscribed_all': False,
+}
+
+
+def newsletter_opted_in_user_ids():
+    """User ids that currently hold the newsletter opt-in (queryset)."""
+    from .models import EmailPreference
+
+    return EmailPreference.objects.filter(**NEWSLETTER_OPT_IN).values_list(
+        'user_id', flat=True
+    )
+
+
+def newsletter_opt_in_holds(user):
+    """Fresh single-user read of the shared opt-in predicate."""
+    return newsletter_opted_in_user_ids().filter(user_id=user.pk).exists()
+
+
+def email_send_conditions_hold(user):
+    """Every condition for sending a newsletter/campaign email to ONE user.
+
+    consent, not banned, not on a break, marketing on, newsletter on, not
+    unsubscribed from all. The early per-recipient check and the final
+    pre-handoff check both evaluate exactly this (final == early), reading the
+    rows fresh each time.
+    """
+    return (
+        has_current_consent(user)
+        and not is_on_break(user)
+        and newsletter_opt_in_holds(user)
+    )
+
+
+class ConsentRevokedBeforeSend(Exception):
+    """Raised by the final pre-send check; a privacy skip, never a failure."""
+
+
+def final_send_address(user):
+    """Last check before handing a message to the provider (no work after it).
+
+    Returns the CURRENT address, or raises ConsentRevokedBeforeSend if consent
+    is gone or the user is banned. Locks are deliberately not held across the
+    provider call (it can take tens of seconds); a message already accepted by
+    the provider cannot be recalled, so the residual window is the time between
+    this read and the provider accepting the request.
+    """
+    # Consent/ban AND the current newsletter opt-in, read in the same step: a
+    # member who switched Marketing & Promotions or Newsletters off while the
+    # message was being rendered must not receive it.
+    if not email_send_conditions_hold(user):
+        raise ConsentRevokedBeforeSend()
+    address = (
+        User.objects.filter(pk=user.pk).values_list('email', flat=True).first()
+    )
+    if not address:
+        raise ConsentRevokedBeforeSend()
+    return address
+
+
+def anonymize_newsletter_receipts(user):
+    """Blank the address and error text on a user's NewsletterRecipient rows.
+
+    Called by account deletion after the consent revocation has committed.
+    Together with write_receipt() this closes the race with an in-flight send:
+    a receipt written before the revocation is blanked here, and one written
+    after it is stored blank. Rows and statuses are kept for send counts.
+    """
+    return NewsletterRecipient.objects.filter(user=user).update(
+        email='', error_message=''
+    )
+
+
+def locked_consent_holds(user):
+    """Re-read consent under a row lock. Call inside transaction.atomic().
+
+    select_for_update serialises with account deletion on Postgres (SQLite
+    ignores it). True only while consent is given and the user is not banned.
+    """
+    from .models.profiles import UserDataConsent
+
+    return (
+        UserDataConsent.objects.select_for_update()
+        .filter(user_id=user.pk, crushlu_consent_given=True, crushlu_banned=False)
+        .exists()
+    )
+
+
+SUPPRESSED_CONSENT_REVOKED = 'suppressed: consent revoked'
+
+
+class ReceiptResult(tuple):
+    """(row, created) plus ``allowed``: whether consent held at the locked read.
+
+    Callers MUST NOT send when ``allowed`` is False (consent revoked or user
+    banned between their earlier check and this write).
+    """
+
+    def __new__(cls, row, created, allowed):
+        obj = super().__new__(cls, (row, created))
+        obj.allowed = allowed
+        return obj
+
+
+def write_receipt(newsletter, user, defaults):
+    """Write a NewsletterRecipient receipt, storing the address only while the
+    user still has consent, and report whether sending is still allowed.
+
+    The consent row is locked and re-read in the same transaction as the
+    write, so the write either sees the revocation or commits first and is
+    blanked by anonymize_newsletter_receipts() when deletion runs it after the
+    revocation commits. When consent is gone the stored email is blank and any
+    caller-supplied error text (which may contain the address) is replaced by
+    a generic marker; the returned ``allowed`` is False and the caller must not
+    send.
+    """
+    with transaction.atomic():
+        allowed = locked_consent_holds(user)
+        values = dict(defaults)
+        if allowed:
+            values['email'] = (
+                User.objects.filter(pk=user.pk)
+                .values_list('email', flat=True)
+                .first()
+                or ''
+            )
+        else:
+            values['email'] = ''
+            if 'error_message' in values or values.get('status') == 'failed':
+                values['error_message'] = SUPPRESSED_CONSENT_REVOKED
+        row, created = NewsletterRecipient.objects.update_or_create(
+            newsletter=newsletter, user=user, defaults=values,
+        )
+        return ReceiptResult(row, created, allowed)
 
 
 def exclude_banned_users(users):
@@ -99,7 +277,7 @@ def get_newsletter_recipients(newsletter):
     Resolve the audience for a newsletter into a User queryset.
 
     Filters:
-    - email_newsletter preference must be True (or no preference record yet)
+    - email_marketing AND email_newsletter must both be True (explicit opt-in)
     - unsubscribed_all must be False
     - Excludes users already sent/skipped for this newsletter (resumability)
 
@@ -113,11 +291,12 @@ def get_newsletter_recipients(newsletter):
 
     users = resolve_audience(newsletter.audience, newsletter.segment_key)
 
-    # Exclude users who opted out of newsletters
-    opted_out_user_ids = EmailPreference.objects.filter(
-        Q(email_newsletter=False) | Q(unsubscribed_all=True)
-    ).values_list('user_id', flat=True)
-    users = users.exclude(id__in=opted_out_user_ids)
+    # Explicit opt-in (decided by Tom, 2026-10-07, #1185): only members who
+    # turned Marketing & Promotions ON receive newsletters/campaign emails.
+    # The newsletter flag must also be on (the settings toggle writes both) and
+    # a member who paused all mail is excluded. A missing preference row means
+    # no opt-in.
+    users = users.filter(id__in=newsletter_opted_in_user_ids())
 
     users = exclude_banned_users(users)
     users = exclude_on_break_users(users)
@@ -308,13 +487,13 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
             skipped += 1
             continue
 
-        # Double-check preference (may have changed since queryset evaluation)
-        if not can_send_email(user, 'newsletter'):
-            NewsletterRecipient.objects.update_or_create(
-                newsletter=newsletter,
-                user=user,
-                defaults={
-                    'email': user.email,
+        # Double-check consent and preference (may have changed since the
+        # queryset was evaluated, e.g. account deletion during a batch pause)
+        if not email_send_conditions_hold(user) or not can_send_email(
+            user, 'newsletter'
+        ):
+            write_receipt(
+                newsletter, user, defaults={
                     'status': 'skipped',
                     'error_message': 'User opted out of newsletters',
                 },
@@ -325,22 +504,29 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
         # Durable pre-send claim: a crash after the Graph send but before the
         # receipt write must not cause a duplicate email on the next bounded
         # run (stale claims are swept to 'failed' below).
-        NewsletterRecipient.objects.update_or_create(
-            newsletter=newsletter,
-            user=user,
-            defaults={'email': user.email, 'status': 'pending'},
+        claim = write_receipt(
+            newsletter, user, defaults={'status': 'pending'},
         )
+        if not claim.allowed:
+            # Consent was revoked between the early check and the locked
+            # write: a privacy skip. Never send, never retry.
+            write_receipt(
+                newsletter, user,
+                defaults={
+                    'status': 'skipped',
+                    'error_message': SUPPRESSED_CONSENT_REVOKED,
+                },
+            )
+            skipped += 1
+            continue
 
         try:
             delivery_count = _send_newsletter_to_user(
                 newsletter, user, link_rewriter
             )
             if delivery_count == 0:
-                NewsletterRecipient.objects.update_or_create(
-                    newsletter=newsletter,
-                    user=user,
-                    defaults={
-                        'email': user.email,
+                write_receipt(
+                    newsletter, user, defaults={
                         'status': 'skipped',
                         'sent_at': None,
                         'error_message': 'Active hard-bounce suppression',
@@ -348,11 +534,8 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
                 )
                 skipped += 1
                 continue
-            NewsletterRecipient.objects.update_or_create(
-                newsletter=newsletter,
-                user=user,
-                defaults={
-                    'email': user.email,
+            write_receipt(
+                newsletter, user, defaults={
                     'status': 'sent',
                     'sent_at': timezone.now(),
                 },
@@ -362,13 +545,20 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
             if stdout and (sent % 10 == 0):
                 log(f"  Sent {sent}/{recipient_count}...")
 
+        except ConsentRevokedBeforeSend:
+            write_receipt(
+                newsletter, user,
+                defaults={
+                    'status': 'skipped',
+                    'error_message': SUPPRESSED_CONSENT_REVOKED,
+                },
+            )
+            skipped += 1
+            continue
         except Exception as e:
             error_msg = str(e)[:500]
-            NewsletterRecipient.objects.update_or_create(
-                newsletter=newsletter,
-                user=user,
-                defaults={
-                    'email': user.email,
+            write_receipt(
+                newsletter, user, defaults={
                     'status': 'failed',
                     'error_message': error_msg,
                 },
@@ -606,11 +796,13 @@ def _send_newsletter_to_user(newsletter, user, link_rewriter=None):
         # After plain_message is derived, so the text part keeps direct URLs.
         html_message = link_rewriter(html_message, user)
 
+    # Final consent check and fresh address, immediately before the handoff.
+    address = final_send_address(user)
     return send_domain_email(
         subject=subject,
         message=plain_message,
         html_message=html_message,
-        recipient_list=[user.email],
+        recipient_list=[address],
         from_email=settings.CRUSH_NEWSLETTER_FROM_EMAIL,
         domain='crush.lu',
         fail_silently=False,

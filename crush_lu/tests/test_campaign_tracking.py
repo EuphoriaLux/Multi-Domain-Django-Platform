@@ -17,6 +17,8 @@ from crush_lu.models import (
     CampaignClick,
     CampaignLink,
     CrushProfile,
+    EmailPreference,
+    UserDataConsent,
 )
 from crush_lu.models.newsletter import Newsletter
 from crush_lu.newsletter_service import send_newsletter
@@ -41,6 +43,13 @@ def make_user(email):
         gender='M',
         location='Luxembourg',
         is_approved=True,
+    )
+    # Audiences require Crush.lu consent (#1184); the signal default is False.
+    UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
+    # Newsletters need explicit opt-in (#1185, Option A).
+    EmailPreference.objects.update_or_create(
+        user=user,
+        defaults={'email_marketing': True, 'email_newsletter': True},
     )
     return user
 
@@ -162,6 +171,17 @@ class ClickRedirectViewTests(TestCase):
         self.assertEqual(click.user, self.user)
         self.assertEqual(click.link, self.link)
 
+    def test_erased_or_unconsented_recipient_counts_anonymous_click(self):
+        """An old signed link must not re-attribute clicks to an erased user."""
+        from crush_lu.models import UserDataConsent
+
+        UserDataConsent.objects.filter(user=self.user).update(
+            crushlu_consent_given=False, crushlu_banned=True,
+        )
+        response = self.client.get(self._path(self.tracked))
+        self.assertEqual(response.status_code, 302)
+        self.assertIsNone(CampaignClick.objects.get().user)
+
     def test_tampered_signature_counts_anonymous_click(self):
         response = self.client.get(
             f'/c/{self.link.token}/?r={self.user.pk}:forged-signature'
@@ -251,3 +271,57 @@ class EmailLegRewritingTests(TestCase):
         html_body = mail.outbox[0].alternatives[0].content
         self.assertIn('href="https://crush.lu/events/"', html_body)
         self.assertNotIn('/c/', html_body)
+
+
+class ClickSweepOnDeletionTests(TestCase):
+    def test_deletion_clears_attribution_of_late_clicks(self):
+        from unittest.mock import patch
+
+        from crush_lu.views import delete_crushlu_profile_only
+
+        user = make_user('late@example.com')
+        campaign = Campaign.objects.create(
+            name='Late', channels=['email'], audience='all_users',
+        )
+        build_tracked_url('https://crush.lu/x/', campaign, 'email', user)
+        link = CampaignLink.objects.get()
+        # A click attributed in the redirect's check-to-insert window.
+        CampaignClick.objects.create(link=link, user=user)
+        with patch('crush_lu.storage.delete_user_storage', return_value=(True, 0)):
+            delete_crushlu_profile_only(user)
+        self.assertIsNone(CampaignClick.objects.get().user)
+
+
+class LockedClickAttributionTests(TestCase):
+    def test_revocation_between_check_and_insert_degrades_to_anonymous(self):
+        from unittest.mock import patch
+
+        from crush_lu import views_campaign_click
+
+        user = make_user('race@example.com')
+        UserDataConsent.objects.filter(user=user).update(
+            crushlu_consent_given=True
+        )
+        campaign = Campaign.objects.create(
+            name='Race', channels=['email'], audience='all_users',
+        )
+        tracked = build_tracked_url('https://crush.lu/x/', campaign, 'email', user)
+        link = CampaignLink.objects.get()
+        real_locked = views_campaign_click.locked_consent_holds
+
+        def revoke_then_check(member):
+            # Deletion lands after the unlocked check, before the insert.
+            UserDataConsent.objects.filter(user=member).update(
+                crushlu_consent_given=False, crushlu_banned=True
+            )
+            return real_locked(member)
+
+        parts = urlsplit(tracked)
+        with patch.object(
+            views_campaign_click, 'locked_consent_holds', side_effect=revoke_then_check
+        ):
+            response = Client(HTTP_HOST='crush.lu').get(
+                f"{parts.path}?{parts.query}"
+            )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(CampaignClick.objects.get(link=link).user, None)
