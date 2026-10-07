@@ -107,6 +107,27 @@ class GdprRetentionCommandTests(TestCase):
         self.assertFalse(ErasedPhoneNumber.is_erased("+352621000001"))
         self.assertTrue(ErasedPhoneNumber.is_erased("+352621000002"))
 
+    def test_recording_a_number_again_restarts_its_retention_clock(self):
+        from hub.models import ErasedPhoneNumber
+
+        ErasedPhoneNumber.record(["+352621000003"])
+        row = ErasedPhoneNumber.objects.get()
+        ErasedPhoneNumber.objects.filter(pk=row.pk).update(
+            created_at=timezone.now() - timedelta(days=89)
+        )
+
+        # The number is erased again, e.g. by a new owner who later deletes.
+        ErasedPhoneNumber.record(["+352 621 000 003"])
+        self.assertEqual(ErasedPhoneNumber.objects.count(), 1)
+
+        # With the old 89-day-old clock a 1-day window would delete it; the
+        # restarted clock keeps it.
+        call_command(
+            "gdpr_retention_cleanup", **{"apply": True, "erased_phone_days": 1},
+            stdout=StringIO(),
+        )
+        self.assertTrue(ErasedPhoneNumber.objects.filter(pk=row.pk).exists())
+
     def test_negative_erased_phone_window_is_rejected(self):
         from django.core.management.base import CommandError
 
