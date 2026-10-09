@@ -181,12 +181,13 @@ def event_numbers(event: MeetupEvent) -> dict[int, int]:
 
 
 class _Guest:
-    __slots__ = ("pk", "status", "interests", "ask", "langs", "dob", "vibe")
+    __slots__ = ("pk", "user_id", "status", "interests", "ask", "langs", "dob", "vibe")
 
     def __init__(self, registration: EventRegistration):
         user = getattr(registration, "user", None)
         profile = getattr(user, "crushprofile", None) if user else None
         self.pk = registration.pk
+        self.user_id = registration.user_id
         self.status = registration.status
         if profile is None:
             self.interests, self.ask, self.langs = set(), set(), set()
@@ -259,10 +260,19 @@ def affinity_list(
     me = next((g for g in guests if g.pk == registration.pk), None)
     if me is None:
         me = _Guest(registration)
+    # A block in either direction keeps both people off each other's list, as
+    # on the lobby and the post-event attendees page: the ticket must never
+    # send someone looking for a person they blocked or who blocked them.
+    from crush_lu.services.blocking import blocked_user_ids
+
+    blocked = blocked_user_ids(registration.user) if registration.user_id else set()
     others = [
         g
         for g in guests
-        if g.pk != registration.pk and g.pk in numbers and g.status in LISTED_STATUSES
+        if g.pk != registration.pk
+        and g.pk in numbers
+        and g.status in LISTED_STATUSES
+        and g.user_id not in blocked
     ]
 
     # The percentile scale is fixed on the regular guests (no_show included,

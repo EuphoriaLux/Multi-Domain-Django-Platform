@@ -273,3 +273,15 @@ class MixerTicketTests(TestCase):
         profile.save()
         guest = _Guest(self.regs[0])
         self.assertEqual(guest.ask, {self.interests[0].pk})
+
+    def test_blocked_pairs_never_appear_on_each_others_list(self):
+        from crush_lu.models import UserBlock
+
+        a, b = self.regs[1], self.regs[2]
+        numbers = event_numbers(self.event)
+        UserBlock.objects.create(blocker=b.user, blocked=a.user)
+        num_a, rows_a, others_a = affinity_list(a, self.event)
+        _, rows_b, _ = affinity_list(b, self.event)
+        self.assertNotIn(numbers[b.pk], [n for n, _ in rows_a])
+        self.assertNotIn(num_a, [n for n, _ in rows_b])
+        self.assertEqual(others_a, 23)
