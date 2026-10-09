@@ -174,3 +174,39 @@ class MixerTicketTests(TestCase):
         self.assertEqual(reg.status, "attended")
         # Checking in (confirmed -> attended) must not renumber anyone.
         self.assertEqual(event_numbers(self.event)[reg.pk], 3)
+
+    def test_door_promotion_is_appended_without_renumbering(self):
+        # Registered before everyone else, so pk order alone would make it #1.
+        early_waiter = self.regs[0]
+        early_waiter.status = "waitlist"
+        early_waiter.save()
+        before = event_numbers(self.event)
+        self.assertNotIn(early_waiter.pk, before)
+
+        early_waiter.status = "attended"
+        early_waiter.checkin_prior_status = "waitlist"
+        early_waiter.checked_in_at = timezone.now()
+        early_waiter.save()
+        after = event_numbers(self.event)
+        for pk, number in before.items():
+            self.assertEqual(after[pk], number)
+        self.assertEqual(after[early_waiter.pk], len(before) + 1)
+
+    def test_qr_points_to_the_post_event_attendees_page(self):
+        text = preview_checkin_ticket_text(
+            registration=self.regs[0], event=self.event, language="fr"
+        )
+        self.assertIn(f"https://crush.lu/fr/events/{self.event.id}/attendees/", text)
+        self.assertNotIn("my-crush", text)
+
+    def test_unprintable_name_falls_back_to_a_label(self):
+        user = self.regs[0].user
+        user.first_name = "Анна"
+        user.save()
+        text = preview_checkin_ticket_text(
+            registration=self.regs[0], event=self.event, language="fr"
+        )
+        name_line = next(
+            line for line in text.splitlines() if line.rstrip().endswith("N° 1")
+        )
+        self.assertTrue(name_line.startswith("INVITÉ(E)"))

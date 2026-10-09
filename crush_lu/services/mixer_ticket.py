@@ -20,6 +20,12 @@ has closed (it closes at ``event.date_time``, see ``_event_cancel_refusal``).
 ``no_show`` stays in the numbering so a coach marking an absentee mid-event
 does not shift everybody else's number; it is excluded from the lists.
 
+Someone who reaches ``attended`` at the door from another status (a waitlist
+promotion, a seat-holding ``pending`` row) was never in that list, so slotting
+them in by pk would renumber everyone after them. ``checkin_prior_status``
+records where a check-in came from: those late arrivals are appended after
+the last regular number, in check-in order.
+
 Affinity
 --------
 Built only from Event Identity fields every member fills in for events
@@ -137,15 +143,20 @@ def printable(text: str) -> str:
 
 
 def event_numbers(event: MeetupEvent) -> dict[int, int]:
-    """Registration pk -> event number (1..N), in registration order."""
+    """Registration pk -> event number: regular guests 1..N, then door arrivals."""
     from crush_lu.models import EventRegistration
 
-    pks = (
-        EventRegistration.objects.filter(event=event, status__in=NUMBERED_STATUSES)
-        .order_by("pk")
-        .values_list("pk", flat=True)
-    )
-    return {pk: i for i, pk in enumerate(pks, 1)}
+    rows = EventRegistration.objects.filter(
+        event=event, status__in=NUMBERED_STATUSES
+    ).values_list("pk", "status", "checkin_prior_status", "checked_in_at")
+    regular, late = [], []
+    for pk, status, prior, checked_in_at in rows:
+        if status == "attended" and prior not in ("", "confirmed"):
+            late.append((checked_in_at is None, checked_in_at, pk))
+        else:
+            regular.append(pk)
+    ordered = sorted(regular) + [pk for *_, pk in sorted(late)]
+    return {pk: i for i, pk in enumerate(ordered, 1)}
 
 
 class _Guest:
@@ -336,9 +347,18 @@ def _qr_url(event, lang: str) -> str:
     try:
         from django.urls import reverse
 
-        return f"{base}{reverse('crush_lu:my_crush')}"
+        # Explicit urlconf: the default one builds /crush/... paths (AGENTS.md).
+        path = reverse(
+            "crush_lu:event_attendees",
+            kwargs={"event_id": event.id},
+            urlconf="azureproject.urls_crush",
+        )
+        return f"{base}{path}"
     except Exception:
-        return f"{base}/{lang}/my-crush/"
+        event_id = getattr(event, "id", None)
+        if event_id:
+            return f"{base}/{lang}/events/{event_id}/attendees/"
+        return f"{base}/{lang}/events/"
 
 
 def build_mixer_ticket_directives(
@@ -420,7 +440,9 @@ def build_mixer_ticket_directives(
     out.append(
         Text(
             justify(
-                printable(name).upper()[: cols - 14],
+                (printable(name) or _t(lang, "Invité(e)", "Gast", "Guest")).upper()[
+                    : cols - 14
+                ],
                 _t(
                     lang,
                     f"N° {number or '?'}",
