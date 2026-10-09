@@ -712,3 +712,37 @@ def test_gallery_keeps_an_approved_secondary_photo_while_its_replacement_waits()
     _replace(profile, "photo_2", "users/1/photos/second-new.jpg")
     assert profile.get_coach_reviewed_secondary_photo_fields() == ["photo_2"]
     assert get_public_photo_key(profile, "photo_2") == "users/1/photos/second.jpg"
+
+
+# --- Third review round --------------------------------------------------------
+
+
+def test_lifting_a_fake_flag_sends_the_photo_back_to_review_unpublished():
+    from crush_lu.admin.profiles import CrushProfileAdmin
+    from crush_lu.admin.site import crush_admin_site
+    from crush_lu.tests.test_coach_photo_review_round4 import _staff_request
+
+    coach, profile = _make_coach(), _make_candidate()
+    assert get_public_photo_key(profile, "photo_1")  # published before the flag
+    _decide(coach, profile, ("photo_1", "flagged_fake", "fake_profile"))
+
+    CrushProfileAdmin(CrushProfile, crush_admin_site).lift_photo_review_moderation(
+        _staff_request(), CrushProfile.objects.filter(pk=profile.pk)
+    )
+    profile.refresh_from_db()
+    assert profile.photo_review_status == "pending"
+    assert get_public_photo_key(profile, "photo_1") == ""
+    cards, _total = get_photo_review_queue(coach)
+    assert [card["id"] for card in cards] == [profile.pk]
+
+
+def test_a_decision_releases_an_expired_claim_of_another_coach():
+    coach_a, coach_b = _make_coach("coach_a"), _make_coach("coach_b")
+    profile = _make_candidate()
+    get_photo_review_queue(coach_a)
+    PhotoReviewClaim.objects.update(expires_at=timezone.now() - timedelta(seconds=1))
+
+    _decide(coach_b, profile, ("photo_1", "approved", "clear_authentic"))
+    assert not PhotoReviewClaim.objects.filter(profile=profile).exists()
+    # Nothing left to deal, for either coach.
+    assert get_photo_review_queue(coach_a)[0] == []

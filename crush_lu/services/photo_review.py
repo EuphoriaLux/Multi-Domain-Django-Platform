@@ -282,6 +282,10 @@ def get_photo_review_queue(
         window = candidates[position : position + limit - len(cards)]
         position += len(window)
         held = claim_members_for_review(coach, [p.pk for p in window], now)
+        if held:
+            # A decision may have committed between the queue query and the
+            # claim; deal only members still waiting for review.
+            held &= set(waiting_qs.filter(pk__in=held).values_list("pk", flat=True))
         for profile in window:
             if profile.pk in held:
                 card = _build_card(profile, as_of=as_of, scope=scope, now=now)
@@ -878,11 +882,13 @@ def submit_member_review(coach: CrushCoach, profile_id: int, decisions, request=
         ):
             raise PhotoReviewError(_("Profile not available for review."), 403)
         now = timezone.now()
-        if (
-            PhotoReviewClaim.objects.filter(profile=profile, expires_at__gt=now)
-            .exclude(coach=coach)
-            .exists()
-        ):
+        # Locked: a queue dealing this card to another coach waits for this
+        # decision (its claim UPDATE/INSERT blocks on the row), then re-checks
+        # the card is still waiting, so it never deals a decided member.
+        claim = (
+            PhotoReviewClaim.objects.select_for_update().filter(profile=profile).first()
+        )
+        if claim is not None and claim.coach_id != coach.pk and claim.expires_at > now:
             raise PhotoReviewError(
                 _("Another coach is reviewing this member. Skip to the next card.")
             )
@@ -890,7 +896,8 @@ def submit_member_review(coach: CrushCoach, profile_id: int, decisions, request=
             _apply_decision(coach, profile, item, batch_id=batch_id, now=now)
             for item in normalized
         ]
-        PhotoReviewClaim.objects.filter(profile=profile, coach=coach).delete()
+        # Decided: release the card whoever last held it (an expired claim too).
+        PhotoReviewClaim.objects.filter(profile=profile).delete()
         revision_ids = [
             log.pk for log, _state in results if log.decision == "needs_revision"
         ]

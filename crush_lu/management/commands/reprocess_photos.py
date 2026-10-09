@@ -243,15 +243,19 @@ class Command(BaseCommand):
                                 "photo_review_notes",
                             ]
                         )
-                    # Same image under a new key: keep it published, and do
-                    # not count it against the member's daily upload limit.
+                    # Same image under a new key: not a member upload, so it
+                    # does not count against the daily upload limit.
+                    obj._skip_photo_upload_record = True
+                    obj.save(update_fields=update_fields)
+                    # Keep it published under the new key. Moved only after
+                    # the save, so CrushProfile.save() still sees the old key
+                    # as published and leaves its file alone; the old file is
+                    # deleted on commit below, never before.
                     PublishedProfilePhoto.objects.filter(
                         profile_id=obj.pk,
                         photo_field=field_name,
                         photo_key=old_blob_name,
                     ).update(photo_key=field.name)
-                    obj._skip_photo_upload_record = True
-                    obj.save(update_fields=update_fields)
                     if current_review_state:
                         current_review_state.photo_key = field.name
                         current_review_state.save(update_fields=["photo_key"])

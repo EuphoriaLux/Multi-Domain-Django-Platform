@@ -116,7 +116,12 @@ def event_attendees(request, event_id):
         .select_related("user__crushprofile")
         # Event Identity chips render per attendee — prefetch the taxonomy M2M
         # so the card row stays N+1-free (spec §7).
-        .prefetch_related("user__crushprofile__interests_new")
+        .prefetch_related(
+            "user__crushprofile__interests_new",
+            # has_public_photo reads both per card (photo_publication).
+            "user__crushprofile__photo_review_states",
+            "user__crushprofile__published_photos",
+        )
     )
 
     # Pre-fetch all connections for this user+event into dicts for O(1) lookups
@@ -965,6 +970,11 @@ def my_connections(request):
         EventConnection.objects.filter(requester=request.user)
         .exclude(recipient_id__in=blocked_ids)
         .select_related("recipient__crushprofile", "event", "assigned_coach")
+        # has_public_photo / profile_photo read both per card.
+        .prefetch_related(
+            "recipient__crushprofile__photo_review_states",
+            "recipient__crushprofile__published_photos",
+        )
         .order_by("-requested_at")
     )
 
@@ -975,6 +985,10 @@ def my_connections(request):
         .exclude(flow=EventConnection.FLOW_CRUSH)
         .exclude(requester_id__in=blocked_ids)
         .select_related("requester__crushprofile", "event")
+        .prefetch_related(
+            "requester__crushprofile__photo_review_states",
+            "requester__crushprofile__published_photos",
+        )
         .order_by("-requested_at")
     )
 
@@ -992,6 +1006,12 @@ def my_connections(request):
             "recipient__crushprofile",
             "event",
             "assigned_coach",
+        )
+        .prefetch_related(
+            "requester__crushprofile__photo_review_states",
+            "requester__crushprofile__published_photos",
+            "recipient__crushprofile__photo_review_states",
+            "recipient__crushprofile__published_photos",
         )
         .order_by("-requested_at")
     )
