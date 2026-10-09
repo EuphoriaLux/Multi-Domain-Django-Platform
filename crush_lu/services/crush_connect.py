@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, List, Tuple
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Exists, OuterRef, Q, QuerySet
+from django.db.models import Exists, F, OuterRef, Q, QuerySet
 from django.utils import timezone
 
 if TYPE_CHECKING:
@@ -223,13 +223,33 @@ def filter_primary_photo_review_approved(qs, profile_prefix="crushprofile"):
         photo_key=OuterRef(f"{profile_prefix}__photo_1"),
         status__in=("needs_revision", "flagged_fake"),
     )
+    approved = ProfilePhotoReviewState.objects.filter(
+        profile_id=OuterRef(f"{profile_prefix}__pk"),
+        photo_field="photo_1",
+        photo_key=OuterRef(f"{profile_prefix}__photo_1"),
+        status="approved",
+    )
     published = PublishedProfilePhoto.objects.filter(
         profile_id=OuterRef(f"{profile_prefix}__pk"), photo_field="photo_1"
     )
+    # Same rule as ``photo_publication.get_public_photo_key``: the current
+    # file is approved (per-image state or legacy primary decision), or an
+    # earlier approved or pre-existing photo is published.
     return qs.annotate(
         _coach_moderated_primary=Exists(moderated),
+        _approved_primary=Exists(approved),
         _published_primary=Exists(published),
-    ).filter(_coach_moderated_primary=False, _published_primary=True)
+    ).filter(
+        Q(_approved_primary=True)
+        | Q(_published_primary=True)
+        | Q(
+            **{
+                f"{profile_prefix}__photo_review_status": "approved",
+                f"{profile_prefix}__photo_review_key": F(f"{profile_prefix}__photo_1"),
+            }
+        ),
+        _coach_moderated_primary=False,
+    )
 
 
 def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
@@ -517,7 +537,7 @@ def is_catalogue_eligible(user) -> bool:
     coach-excluded) + active within CONNECT_INACTIVITY_WINDOW_DAYS +
     photo not flagged or awaiting revision.
     """
-    from crush_lu.services.photo_publication import get_published_key
+    from crush_lu.services.photo_publication import get_public_photo_key
 
     profile = getattr(user, "crushprofile", None)
     membership = getattr(user, "crush_connect_membership", None)
@@ -528,7 +548,7 @@ def is_catalogue_eligible(user) -> bool:
         and profile.photo_1
         and profile.photo_review_status not in ("flagged_fake", "needs_revision")
         # A first primary photo waits for coach approval before members see it.
-        and get_published_key(profile, "photo_1")
+        and get_public_photo_key(profile, "photo_1")
         and profile.is_connect_identity_verified
         and membership is not None
         and profile.is_active

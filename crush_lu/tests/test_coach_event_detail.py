@@ -32,6 +32,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from crush_lu.models import (
+    ProfilePhotoReviewState,
     CrushCoach,
     EventLobbyParticipation,
     EventRegistration,
@@ -471,6 +472,15 @@ class TestCoachLobbyPreview:
         settings.MEDIA_ROOT = str(tmp_path)
         member.crushprofile.photo_1.save(
             "lobby.jpg", ContentFile(b"jpegbytes"), save=True
+        )
+        # Only members whose photo others may see are on the roster.
+        ProfilePhotoReviewState.objects.update_or_create(
+            profile=member.crushprofile,
+            photo_field="photo_1",
+            defaults={
+                "photo_key": member.crushprofile.photo_1.name,
+                "status": "approved",
+            },
         )
         _join(member, event)
         client.force_login(coach)

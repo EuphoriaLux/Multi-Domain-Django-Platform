@@ -23,6 +23,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from crush_lu.models import (
+    ProfilePhotoReviewState,
     ConfirmedEncounter,
     ConfirmedEncounterRemovalRequest,
     CrushCoach,
@@ -676,6 +677,12 @@ class TestPeopleIveMetPages:
         settings.MEDIA_ROOT = str(tmp_path)
         profile = user.crushprofile
         profile.photo_1.save("encounter.jpg", ContentFile(b"jpegbytes"), save=True)
+        # A replaced photo reaches other members only once a coach approves it.
+        ProfilePhotoReviewState.objects.update_or_create(
+            profile=profile,
+            photo_field="photo_1",
+            defaults={"photo_key": profile.photo_1.name, "status": "approved"},
+        )
 
     def test_collection_lists_encounters(self, client):
         alice = _make_member("alice")
