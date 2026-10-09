@@ -66,10 +66,10 @@ class MixerTicketTests(TestCase):
         cancelled = self._guest(90, "cancelled")
         waiting = self._guest(91, "waitlist")
         numbers = event_numbers(self.event)
-        self.assertEqual(sorted(numbers.values()), list(range(1, 26)))
+        self.assertEqual(sorted(numbers.values()), list(range(1, 27)))
         self.assertEqual(numbers[self.regs[0].pk], 1)
         self.assertNotIn(cancelled.pk, numbers)
-        self.assertNotIn(waiting.pk, numbers)
+        self.assertEqual(numbers[waiting.pk], 26)  # reserved after the regulars
 
     def test_no_show_keeps_numbers_stable_but_leaves_lists(self):
         before = event_numbers(self.event)
@@ -181,7 +181,7 @@ class MixerTicketTests(TestCase):
         early_waiter.status = "waitlist"
         early_waiter.save()
         before = event_numbers(self.event)
-        self.assertNotIn(early_waiter.pk, before)
+        self.assertEqual(before[early_waiter.pk], len(before))
 
         early_waiter.status = "attended"
         early_waiter.checkin_prior_status = "waitlist"
@@ -190,7 +190,7 @@ class MixerTicketTests(TestCase):
         after = event_numbers(self.event)
         for pk, number in before.items():
             self.assertEqual(after[pk], number)
-        self.assertEqual(after[early_waiter.pk], len(before) + 1)
+        self.assertEqual(after, before)
 
     def test_qr_points_to_the_post_event_attendees_page(self):
         text = preview_checkin_ticket_text(
@@ -237,3 +237,21 @@ class MixerTicketTests(TestCase):
         profile.is_active = False
         profile.save()
         self.assertEqual(_member_count(), total - 1)
+
+    def test_undoing_a_door_admission_keeps_every_number(self):
+        first = self._guest(80, "waitlist")
+        second = self._guest(81, "waitlist")
+        before = event_numbers(self.event)
+        for reg in (first, second):
+            reg.status = "attended"
+            reg.checkin_prior_status = "waitlist"
+            reg.checked_in_at = timezone.now()
+            reg.save()
+        self.assertEqual(event_numbers(self.event), before)
+
+        # coach_undo_checkin restores the prior status and clears provenance.
+        first.status = "waitlist"
+        first.checkin_prior_status = ""
+        first.checked_in_at = None
+        first.save()
+        self.assertEqual(event_numbers(self.event), before)

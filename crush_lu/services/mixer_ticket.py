@@ -23,8 +23,11 @@ does not shift everybody else's number; it is excluded from the lists.
 Someone who reaches ``attended`` at the door from another status (a waitlist
 promotion, a seat-holding ``pending`` row) was never in that list, so slotting
 them in by pk would renumber everyone after them. ``checkin_prior_status``
-records where a check-in came from: those late arrivals are appended after
-the last regular number, in check-in order.
+records where a check-in came from. Every waitlist/pending row therefore
+holds a reserved number after the last regular one, in pk order, whether or
+not it is ever admitted: admitting it, or undoing that admission
+(``coach_undo_checkin`` restores the prior status), keeps the same number, so
+no badge already printed ever changes. Unused reserved numbers are gaps.
 
 Affinity
 --------
@@ -68,6 +71,8 @@ logger = logging.getLogger(__name__)
 
 # Statuses that hold a number. ``no_show`` keeps its number (see module doc).
 NUMBERED_STATUSES = ("confirmed", "attended", "no_show")
+# Statuses that can still be admitted at the door: they get a reserved number.
+RESERVED_STATUSES = ("waitlist", "pending")
 # Statuses that appear in other guests' lists.
 LISTED_STATUSES = ("confirmed", "attended")
 
@@ -150,17 +155,19 @@ def _is_door_arrival(registration) -> bool:
 
 
 def event_numbers(event: MeetupEvent) -> dict[int, int]:
-    """Registration pk -> event number: regular guests 1..N, then door arrivals."""
+    """Registration pk -> event number: regular guests 1..N, then reserved ones."""
     from crush_lu.models import EventRegistration
 
-    rows = EventRegistration.objects.filter(event=event, status__in=NUMBERED_STATUSES)
-    regular, late = [], []
-    for reg in rows.only("pk", "status", "checkin_prior_status", "checked_in_at"):
-        if _is_door_arrival(reg):
-            late.append((reg.checked_in_at is None, reg.checked_in_at, reg.pk))
+    rows = EventRegistration.objects.filter(
+        event=event, status__in=NUMBERED_STATUSES + RESERVED_STATUSES
+    )
+    regular, reserved = [], []
+    for reg in rows.only("pk", "status", "checkin_prior_status"):
+        if reg.status in RESERVED_STATUSES or _is_door_arrival(reg):
+            reserved.append(reg.pk)
         else:
             regular.append(reg.pk)
-    ordered = sorted(regular) + [pk for *_, pk in sorted(late)]
+    ordered = sorted(regular) + sorted(reserved)
     return {pk: i for i, pk in enumerate(ordered, 1)}
 
 
