@@ -230,6 +230,18 @@ def lobby_flags(settings):
     settings.AZURE_ACCOUNT_NAME = ""
 
 
+def _give_approved_photo(member):
+    """A real photo file a coach approved: only those reach the lobby roster
+    (a new upload waits for review, see services/photo_publication.py)."""
+    profile = member.crushprofile
+    profile.photo_1.save("lobby.jpg", ContentFile(b"jpegbytes"), save=True)
+    ProfilePhotoReviewState.objects.update_or_create(
+        profile=profile,
+        photo_field="photo_1",
+        defaults={"photo_key": profile.photo_1.name, "status": "approved"},
+    )
+
+
 @pytest.mark.usefixtures("lobby_flags")
 class TestCoachLobbyPreview:
     def test_coach_previews_live_lobby_without_attending(self, client):
@@ -470,18 +482,7 @@ class TestCoachLobbyPreview:
         event = _make_event(starts_in_minutes=-30)
         member = _make_member("photoone")
         settings.MEDIA_ROOT = str(tmp_path)
-        member.crushprofile.photo_1.save(
-            "lobby.jpg", ContentFile(b"jpegbytes"), save=True
-        )
-        # Only members whose photo others may see are on the roster.
-        ProfilePhotoReviewState.objects.update_or_create(
-            profile=member.crushprofile,
-            photo_field="photo_1",
-            defaults={
-                "photo_key": member.crushprofile.photo_1.name,
-                "status": "approved",
-            },
-        )
+        _give_approved_photo(member)
         _join(member, event)
         client.force_login(coach)
 
@@ -504,9 +505,7 @@ class TestCoachLobbyPreview:
         event = _make_event(starts_in_minutes=-30)
         member = _make_member("photorecap")
         settings.MEDIA_ROOT = str(tmp_path)
-        member.crushprofile.photo_1.save(
-            "lobby.jpg", ContentFile(b"jpegbytes"), save=True
-        )
+        _give_approved_photo(member)
         _join(member, event)
         handle = _handle_of(member, event)
         _end_event(event)
@@ -533,9 +532,7 @@ class TestCoachLobbyPreview:
         event = _make_event(starts_in_minutes=-30)
         member = _make_member("photoguard")
         settings.MEDIA_ROOT = str(tmp_path)
-        member.crushprofile.photo_1.save(
-            "lobby.jpg", ContentFile(b"jpegbytes"), save=True
-        )
+        _give_approved_photo(member)
         _join(member, event)
         client.force_login(outsider)
 
