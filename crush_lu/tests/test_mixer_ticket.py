@@ -311,3 +311,24 @@ class MixerTicketTests(TestCase):
         unpaid.status = "no_show"
         unpaid.save()
         self.assertEqual(event_numbers(self.event), before)
+
+    def test_deactivated_or_banned_members_are_not_listed(self):
+        from crush_lu.models.profiles import UserDataConsent
+
+        numbers = event_numbers(self.event)
+        gone_user, gone_profile, banned = self.regs[6], self.regs[7], self.regs[8]
+        gone_user.user.is_active = False
+        gone_user.user.save()
+        profile = gone_profile.user.crushprofile
+        profile.is_active = False
+        profile.save()
+        UserDataConsent.objects.update_or_create(
+            user=banned.user, defaults={"crushlu_banned": True}
+        )
+
+        _, rows, others = affinity_list(self.regs[0], self.event)
+        listed = [n for n, _ in rows]
+        for reg in (gone_user, gone_profile, banned):
+            self.assertNotIn(numbers[reg.pk], listed)
+        self.assertEqual(others, 21)
+        self.assertEqual(event_numbers(self.event), numbers)

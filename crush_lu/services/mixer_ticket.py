@@ -193,7 +193,17 @@ def event_numbers(event: MeetupEvent) -> dict[int, int]:
 
 
 class _Guest:
-    __slots__ = ("pk", "user_id", "status", "interests", "ask", "langs", "dob", "vibe")
+    __slots__ = (
+        "pk",
+        "user_id",
+        "status",
+        "interests",
+        "ask",
+        "langs",
+        "dob",
+        "vibe",
+        "removed",
+    )
 
     def __init__(self, registration: EventRegistration):
         user = getattr(registration, "user", None)
@@ -201,6 +211,15 @@ class _Guest:
         self.pk = registration.pk
         self.user_id = registration.user_id
         self.status = registration.status
+        # Deactivated account or profile, or banned: keeps its number (so no
+        # badge shifts) but must never be listed for others to go looking for.
+        consent = getattr(user, "data_consent", None) if user else None
+        self.removed = bool(
+            user is None
+            or not user.is_active
+            or (profile is not None and not profile.is_active)
+            or (consent is not None and consent.crushlu_banned)
+        )
         if profile is None:
             self.interests, self.ask, self.langs = set(), set(), set()
             self.dob, self.vibe = None, ""
@@ -264,7 +283,7 @@ def affinity_list(
     numbers = event_numbers(event)
     regs = list(
         EventRegistration.objects.filter(event=event, status__in=NUMBERED_STATUSES)
-        .select_related("user__crushprofile")
+        .select_related("user__crushprofile", "user__data_consent")
         .prefetch_related("user__crushprofile__interests_new")
         .order_by("pk")
     )
@@ -293,6 +312,7 @@ def affinity_list(
         and g.pk in numbers
         and g.status in LISTED_STATUSES
         and g.user_id not in blocked
+        and not g.removed
     ]
 
     # The percentile scale is fixed on the regular guests (no_show included,
