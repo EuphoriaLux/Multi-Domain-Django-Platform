@@ -384,9 +384,17 @@ def _big_number_png(number: int | None) -> bytes | None:
         return None
 
 
-def _bar(pct: int) -> str:
-    filled = max(1, min(10, round(pct / 10)))
-    return "█" * filled + "░" * (10 - filled)
+def _bar(pct: int, width: int = 10) -> str:
+    filled = max(1, min(width, round(pct * width / 100)))
+    return "█" * filled + "░" * (width - filled)
+
+
+def _affinity_row(number: int, pct: int, cols: int) -> str:
+    """One list row; the 80 mm layout is kept as is, 58 mm gets a compact one."""
+    if cols >= 40:
+        return f"  #{number:<3}  {_bar(pct)}  {pct:>3}%    ____________"
+    row = f"#{number:<3} {_bar(pct, 6)} {pct:>3}% "
+    return row + "_" * max(4, cols - len(row))
 
 
 def _attendee_name(registration, coach_authenticated: bool, lang: str) -> str:
@@ -564,20 +572,24 @@ def build_mixer_ticket_directives(
     out.append(Rule("-"))
 
     if rows:
-        out.append(
-            Text(
-                _t(
-                    lang,
-                    "  N°    AFFINITÉ            PRÉNOM",
-                    "  NR.   AFFINITÄT           VORNAME",
-                    "  NO.   AFFINITY            FIRST NAME",
-                ),
-                bold=True,
+        if cols >= 40:
+            header = _t(
+                lang,
+                "  N°    AFFINITÉ            PRÉNOM",
+                "  NR.   AFFINITÄT           VORNAME",
+                "  NO.   AFFINITY            FIRST NAME",
             )
-        )
+        else:
+            header = _t(
+                lang,
+                "N°   AFFINITÉ    PRÉNOM",
+                "NR.  AFFINITÄT   VORNAME",
+                "NO.  AFFINITY    NAME",
+            )
+        out.append(Text(header, bold=True))
         out.append(Rule("-"))
         for n, pct in rows[:LIST_SIZE]:
-            out.append(Text(f"  #{n:<3}  {_bar(pct)}  {pct:>3}%    ____________"))
+            out.append(Text(_affinity_row(n, pct, cols)))
         out.append(Rule("-"))
         rest = others_count - min(len(rows), LIST_SIZE)
         if rest > 0:

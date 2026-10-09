@@ -1298,6 +1298,10 @@ def build_checkin_ticket_directives(
     from django.utils.translation import override as translation_override
 
     cols = paper.columns
+    # Before the language: a registration-only call must fall back to the
+    # event's languages exactly like a call passing both.
+    if event is None and registration is not None:
+        event = getattr(registration, "event", None)
     lang = resolve_ticket_language(
         registration=registration, event=event, language=language
     )
@@ -1336,9 +1340,6 @@ def build_checkin_ticket_directives(
                 "Jean" if lang == "fr" else ("Max" if lang == "de" else "Alex")
             )
             candidate_num = "(#99)"
-
-        if event is None and registration is not None:
-            event = getattr(registration, "event", None)
 
         if event:
             event_title = getattr(event, "title", event_title)

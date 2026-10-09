@@ -332,3 +332,26 @@ class MixerTicketTests(TestCase):
             self.assertNotIn(numbers[reg.pk], listed)
         self.assertEqual(others, 21)
         self.assertEqual(event_numbers(self.event), numbers)
+
+    def test_58mm_rows_fit_the_paper(self):
+        from power_up.atmos.printing.layout import Paper
+
+        text = preview_checkin_ticket_text(
+            registration=self.regs[0],
+            event=self.event,
+            paper=Paper.MM58,
+            language="fr",
+        )
+        rows = [line for line in text.splitlines() if line.startswith("#")]
+        self.assertEqual(len(rows), LIST_SIZE)
+        self.assertTrue(all(len(row) <= Paper.MM58.columns for row in rows))
+
+    def test_registration_only_call_uses_the_event_languages(self):
+        self.event.languages = ["de"]
+        self.event.save()
+        profile = self.regs[0].user.crushprofile
+        profile.preferred_language = "en"
+        profile.language_explicitly_set = False
+        profile.save()
+        text = preview_checkin_ticket_text(registration=self.regs[0])
+        self.assertIn("DEINE AFFINITÄTEN", text)
