@@ -1203,6 +1203,9 @@ def undo_last_photo_review(coach: CrushCoach, *, log_id=None, request=None):
         if delivered and sent_before:
             lead_id = min(sent_before)
             transaction.on_commit(lambda: _retract_revision_safely(lead_id, request))
+        # The card goes back into this coach's deck: hold it again, so no
+        # other coach is dealt the member meanwhile.
+        claim_members_for_review(coach, [profile.pk])
         return {
             "success": True,
             "undone_decision": log.decision,

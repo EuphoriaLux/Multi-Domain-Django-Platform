@@ -187,6 +187,17 @@ def held_photo_keys(profile):
     ]
 
 
+def delete_held_photos_on_commit(profile):
+    """Schedule deletion of published files that are no longer live.
+
+    Call before deleting a profile's publication rows: those rows are the
+    only reference to a held approved photo, so it would otherwise stay in
+    storage with nothing pointing at it.
+    """
+    for photo_field, key in held_photo_keys(profile):
+        _delete_blob_on_commit(profile, photo_field, key)
+
+
 def record_photo_upload(profile, photo_field):
     from crush_lu.models import ProfilePhotoUpload
 

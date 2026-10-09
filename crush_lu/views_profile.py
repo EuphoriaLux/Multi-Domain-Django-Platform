@@ -1259,9 +1259,9 @@ def delete_profile_photo(request, slot):
         photo_field = getattr(profile, photo_field_name)
 
         if photo_field:
-            # Delete the actual file
-            photo_field.delete(save=False)
-            # Clear the field
+            # Clear the field. CrushProfile.save() deletes the file, and keeps
+            # one other members still see until the save has succeeded
+            # (services/photo_publication.py), so never delete it here first.
             setattr(profile, photo_field_name, None)
             profile.save(update_fields=[photo_field_name])
             logger.info(f"Photo {slot} deleted for user {request.user.id}")

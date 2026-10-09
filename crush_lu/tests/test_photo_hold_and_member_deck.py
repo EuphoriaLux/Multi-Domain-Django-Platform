@@ -746,3 +746,70 @@ def test_a_decision_releases_an_expired_claim_of_another_coach():
     assert not PhotoReviewClaim.objects.filter(profile=profile).exists()
     # Nothing left to deal, for either coach.
     assert get_photo_review_queue(coach_a)[0] == []
+
+
+# --- Fourth review round -------------------------------------------------------
+
+
+def test_lifting_a_fake_flag_on_a_secondary_photo_rereviews_every_photo(
+    deleted_blobs,
+):
+    from crush_lu.admin.profiles import CrushProfileAdmin
+    from crush_lu.admin.site import crush_admin_site
+    from crush_lu.tests.test_coach_photo_review_round4 import _staff_request
+
+    coach, profile = _make_coach(), _make_candidate()
+    _decide(coach, profile, ("photo_1", "approved", "clear_authentic"))
+    profile.refresh_from_db()
+    held_key = profile.photo_1.name
+    _replace(profile, "photo_1", "users/1/photos/newer.jpg")
+    _replace(profile, "photo_2", "users/1/photos/second.jpg")
+    _decide(coach, profile, ("photo_2", "flagged_fake", "fake_profile"))
+
+    with TestCase.captureOnCommitCallbacks(execute=True):
+        CrushProfileAdmin(CrushProfile, crush_admin_site).lift_photo_review_moderation(
+            _staff_request(), CrushProfile.objects.filter(pk=profile.pk)
+        )
+    profile.refresh_from_db()
+    assert get_public_photo_key(profile, "photo_1") == ""
+    assert get_public_photo_key(profile, "photo_2") == ""
+    # The held approved file had no other reference left: it is deleted.
+    assert held_key in deleted_blobs
+    assert "users/1/photos/newer.jpg" not in deleted_blobs
+    cards, _total = get_photo_review_queue(coach)
+    assert cards[0]["pending_fields"] == ["photo_1", "photo_2"]
+
+
+def test_undo_takes_the_card_back_for_the_coach():
+    coach_a, coach_b = _make_coach("coach_a"), _make_coach("coach_b")
+    profile = _make_candidate()
+    get_photo_review_queue(coach_a)
+    result = _decide(coach_a, profile, ("photo_1", "approved", "clear_authentic"))
+    assert not PhotoReviewClaim.objects.filter(profile=profile).exists()
+
+    undo_last_photo_review(coach_a, log_id=result["log_id"])
+    assert PhotoReviewClaim.objects.get(profile=profile).coach == coach_a
+    assert get_photo_review_queue(coach_b)[0] == []
+
+
+def test_deleting_a_photo_keeps_the_approved_file_if_the_save_fails(
+    deleted_blobs, monkeypatch
+):
+    from django.db import models as dj_models
+
+    coach, profile = _make_coach(), _make_candidate()
+    _decide(coach, profile, ("photo_1", "approved", "clear_authentic"))
+    profile.refresh_from_db()
+    key = profile.photo_1.name
+
+    def boom(self, *args, **kwargs):
+        raise RuntimeError("database down")
+
+    client = Client(raise_request_exception=False)
+    client.force_login(profile.user)
+    monkeypatch.setattr(dj_models.Model, "save", boom)
+    client.delete("/api/profile/delete-photo/1/")
+    monkeypatch.undo()
+    assert key not in deleted_blobs
+    profile.refresh_from_db()
+    assert get_public_photo_key(profile, "photo_1") == key
