@@ -285,3 +285,29 @@ class MixerTicketTests(TestCase):
         self.assertNotIn(numbers[b.pk], [n for n, _ in rows_a])
         self.assertNotIn(num_a, [n for n, _ in rows_b])
         self.assertEqual(others_a, 23)
+
+    def test_hidden_encounters_never_appear_on_each_others_list(self):
+        from crush_lu.models import ConfirmedEncounter
+
+        a, b = self.regs[3], self.regs[5]
+        low, high = sorted((a.user, b.user), key=lambda u: u.pk)
+        ConfirmedEncounter.objects.create(
+            user_low=low, user_high=high, status="removal_pending"
+        )
+        numbers = event_numbers(self.event)
+        _, rows_a, _ = affinity_list(a, self.event)
+        _, rows_b, _ = affinity_list(b, self.event)
+        self.assertNotIn(numbers[b.pk], [n for n, _ in rows_a])
+        self.assertNotIn(numbers[a.pk], [n for n, _ in rows_b])
+
+    def test_unpaid_no_show_keeps_its_reserved_number(self):
+        self.event.registration_fee = 10
+        self.event.save()
+        for reg in self.regs:
+            reg.payment_confirmed = True
+            reg.save()
+        unpaid = self._guest(86, "pending")
+        before = event_numbers(self.event)
+        unpaid.status = "no_show"
+        unpaid.save()
+        self.assertEqual(event_numbers(self.event), before)

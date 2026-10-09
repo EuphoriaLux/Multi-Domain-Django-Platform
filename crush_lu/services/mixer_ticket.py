@@ -147,17 +147,29 @@ def printable(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _is_late_entry(registration, starts_at) -> bool:
-    """Gained a seat once printing may have started, so it was never regular.
+def _is_late_entry(registration, event) -> bool:
+    """True for a row that held a reserved number rather than a regular one.
 
-    Either checked in from a status that held no number (waitlist, pending),
-    or a pending seat whose payment settled after the event started -- the
-    payment path flips it to ``confirmed`` without any check-in provenance.
+    - checked in from a status that held no number (waitlist, pending);
+    - a pending seat whose payment settled after the event started -- the
+      payment path flips it to ``confirmed`` without any check-in provenance;
+    - an unpaid seat of a paid event marked ``no_show``: it was ``pending``,
+      since a confirmed seat of a paid event is always paid.
+
+    A waitlist row marked ``no_show`` leaves no trace and cannot be told from a
+    confirmed one, so waitlist absentees must simply be left on the waitlist.
     """
     if registration.status == "attended" and (
         registration.checkin_prior_status or ""
     ) not in ("", "confirmed"):
         return True
+    if (
+        registration.status == "no_show"
+        and (getattr(event, "registration_fee", 0) or 0) > 0
+        and not registration.payment_confirmed
+    ):
+        return True
+    starts_at = getattr(event, "date_time", None)
     paid_at = registration.payment_date
     return bool(paid_at and starts_at and paid_at >= starts_at)
 
@@ -170,9 +182,9 @@ def event_numbers(event: MeetupEvent) -> dict[int, int]:
         event=event, status__in=NUMBERED_STATUSES + RESERVED_STATUSES
     )
     regular, reserved = [], []
-    starts_at = getattr(event, "date_time", None)
-    for reg in rows.only("pk", "status", "checkin_prior_status", "payment_date"):
-        if reg.status in RESERVED_STATUSES or _is_late_entry(reg, starts_at):
+    fields = ("pk", "status", "checkin_prior_status", "payment_date")
+    for reg in rows.only(*fields, "payment_confirmed"):
+        if reg.status in RESERVED_STATUSES or _is_late_entry(reg, event):
             reserved.append(reg.pk)
         else:
             regular.append(reg.pk)
@@ -263,9 +275,17 @@ def affinity_list(
     # A block in either direction keeps both people off each other's list, as
     # on the lobby and the post-event attendees page: the ticket must never
     # send someone looking for a person they blocked or who blocked them.
+    # Pairs hidden by an encounter-removal request stay mutually invisible at
+    # later events too (services/event_lobby.py), so they are dropped the same
+    # way -- the lobby and the attendees page union both sets identically.
     from crush_lu.services.blocking import blocked_user_ids
+    from crush_lu.services.event_lobby import hidden_encounter_user_ids
 
-    blocked = blocked_user_ids(registration.user) if registration.user_id else set()
+    blocked = set()
+    if registration.user_id:
+        blocked = blocked_user_ids(registration.user) | hidden_encounter_user_ids(
+            registration.user
+        )
     others = [
         g
         for g in guests
@@ -279,7 +299,7 @@ def affinity_list(
     # door arrivals excluded), so marking an absentee or admitting someone at
     # the door mid-print never changes a percentage already on paper, and both
     # tickets of a pair always show the same figure.
-    cohort = [g for g, r in zip(guests, regs) if not _is_late_entry(r, event.date_time)]
+    cohort = [g for g, r in zip(guests, regs) if not _is_late_entry(r, event)]
 
     interest_scores = sorted(
         s
