@@ -142,19 +142,24 @@ def printable(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _is_door_arrival(registration) -> bool:
+    """Checked in from a status that held no number (waitlist, pending)."""
+    return registration.status == "attended" and (
+        registration.checkin_prior_status or ""
+    ) not in ("", "confirmed")
+
+
 def event_numbers(event: MeetupEvent) -> dict[int, int]:
     """Registration pk -> event number: regular guests 1..N, then door arrivals."""
     from crush_lu.models import EventRegistration
 
-    rows = EventRegistration.objects.filter(
-        event=event, status__in=NUMBERED_STATUSES
-    ).values_list("pk", "status", "checkin_prior_status", "checked_in_at")
+    rows = EventRegistration.objects.filter(event=event, status__in=NUMBERED_STATUSES)
     regular, late = [], []
-    for pk, status, prior, checked_in_at in rows:
-        if status == "attended" and prior not in ("", "confirmed"):
-            late.append((checked_in_at is None, checked_in_at, pk))
+    for reg in rows.only("pk", "status", "checkin_prior_status", "checked_in_at"):
+        if _is_door_arrival(reg):
+            late.append((reg.checked_in_at is None, reg.checked_in_at, reg.pk))
         else:
-            regular.append(pk)
+            regular.append(reg.pk)
     ordered = sorted(regular) + [pk for *_, pk in sorted(late)]
     return {pk: i for i, pk in enumerate(ordered, 1)}
 
@@ -228,7 +233,7 @@ def affinity_list(
 
     numbers = event_numbers(event)
     regs = list(
-        EventRegistration.objects.filter(event=event, status__in=LISTED_STATUSES)
+        EventRegistration.objects.filter(event=event, status__in=NUMBERED_STATUSES)
         .select_related("user__crushprofile")
         .prefetch_related("user__crushprofile__interests_new")
         .order_by("pk")
@@ -237,20 +242,30 @@ def affinity_list(
     me = next((g for g in guests if g.pk == registration.pk), None)
     if me is None:
         me = _Guest(registration)
-    others = [g for g in guests if g.pk != registration.pk and g.pk in numbers]
+    others = [
+        g
+        for g in guests
+        if g.pk != registration.pk and g.pk in numbers and g.status in LISTED_STATUSES
+    ]
+
+    # The percentile scale is fixed on the regular guests (no_show included,
+    # door arrivals excluded), so marking an absentee or admitting someone at
+    # the door mid-print never changes a percentage already on paper, and both
+    # tickets of a pair always show the same figure.
+    cohort = [g for g, r in zip(guests, regs) if not _is_door_arrival(r)]
 
     interest_scores = sorted(
         s
-        for i, a in enumerate(guests)
-        for b in guests[i + 1 :]
+        for i, a in enumerate(cohort)
+        for b in cohort[i + 1 :]
         if (s := _interest_score(a, b)) is not None
     )
     neutral = interest_scores[len(interest_scores) // 2] if interest_scores else 0.25
 
     room = sorted(
         _raw_affinity(a, b, neutral)
-        for i, a in enumerate(guests)
-        for b in guests[i + 1 :]
+        for i, a in enumerate(cohort)
+        for b in cohort[i + 1 :]
     )
 
     def display(raw: float) -> int:
@@ -322,7 +337,7 @@ def _member_count() -> int:
     try:
         from crush_lu.models import CrushProfile
 
-        return CrushProfile.objects.count()
+        return CrushProfile.objects.filter(is_active=True).count()
     except Exception:
         return 0
 

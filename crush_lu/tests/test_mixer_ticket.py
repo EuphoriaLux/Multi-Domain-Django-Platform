@@ -210,3 +210,30 @@ class MixerTicketTests(TestCase):
             line for line in text.splitlines() if line.rstrip().endswith("N° 1")
         )
         self.assertTrue(name_line.startswith("INVITÉ(E)"))
+
+    def test_percentages_do_not_move_when_door_statuses_change(self):
+        a, b = self.regs[4], self.regs[9]
+        num_b = event_numbers(self.event)[b.pk]
+        _, before, _ = affinity_list(a, self.event)
+
+        absent = self.regs[12]
+        absent.status = "no_show"
+        absent.save()
+        walk_up = self._guest(70, "attended", self.interests[:2])
+        walk_up.checkin_prior_status = "waitlist"
+        walk_up.checked_in_at = timezone.now()
+        walk_up.save()
+
+        num_a, after, _ = affinity_list(a, self.event)
+        _, b_rows, _ = affinity_list(b, self.event)
+        self.assertEqual(dict(before)[num_b], dict(after)[num_b])
+        self.assertEqual(dict(after)[num_b], dict(b_rows)[num_a])
+
+    def test_member_total_counts_only_active_profiles(self):
+        from crush_lu.services.mixer_ticket import _member_count
+
+        total = _member_count()
+        profile = self.regs[0].user.crushprofile
+        profile.is_active = False
+        profile.save()
+        self.assertEqual(_member_count(), total - 1)
