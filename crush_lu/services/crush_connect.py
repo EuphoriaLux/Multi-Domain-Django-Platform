@@ -207,11 +207,15 @@ def exclude_assigned_coach_pairs(qs, user, field="pk"):
 
 
 def filter_primary_photo_review_approved(qs, profile_prefix="crushprofile"):
-    """Drop members whose exact current primary photo a coach moderated.
+    """Keep members whose primary photo other members may actually see.
 
-    Pending (not yet reviewed) photos stay eligible, as before per-photo review.
+    Drops a coach-moderated current primary photo, and a member with no
+    published primary photo yet: a first upload waits for coach approval
+    (``services/photo_publication.py``), so listing that member would only
+    show a photo the endpoint refuses. A replacement waiting for review keeps
+    its member listed, with the earlier approved photo.
     """
-    from crush_lu.models import ProfilePhotoReviewState
+    from crush_lu.models import ProfilePhotoReviewState, PublishedProfilePhoto
 
     moderated = ProfilePhotoReviewState.objects.filter(
         profile_id=OuterRef(f"{profile_prefix}__pk"),
@@ -219,9 +223,13 @@ def filter_primary_photo_review_approved(qs, profile_prefix="crushprofile"):
         photo_key=OuterRef(f"{profile_prefix}__photo_1"),
         status__in=("needs_revision", "flagged_fake"),
     )
-    return qs.annotate(_coach_moderated_primary=Exists(moderated)).filter(
-        _coach_moderated_primary=False
+    published = PublishedProfilePhoto.objects.filter(
+        profile_id=OuterRef(f"{profile_prefix}__pk"), photo_field="photo_1"
     )
+    return qs.annotate(
+        _coach_moderated_primary=Exists(moderated),
+        _published_primary=Exists(published),
+    ).filter(_coach_moderated_primary=False, _published_primary=True)
 
 
 def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
@@ -505,10 +513,12 @@ def filter_catalogue_eligible(qs):
 def is_catalogue_eligible(user) -> bool:
     """
     Whether ``user`` currently qualifies for the candidate catalogue:
-    verified profile WITH a photo + LuxID linked + onboarded (not
+    verified profile WITH a published photo + LuxID linked + onboarded (not
     coach-excluded) + active within CONNECT_INACTIVITY_WINDOW_DAYS +
     photo not flagged or awaiting revision.
     """
+    from crush_lu.services.photo_publication import get_published_key
+
     profile = getattr(user, "crushprofile", None)
     membership = getattr(user, "crush_connect_membership", None)
     inactivity_cutoff = timezone.now() - timedelta(days=CONNECT_INACTIVITY_WINDOW_DAYS)
@@ -517,6 +527,8 @@ def is_catalogue_eligible(user) -> bool:
         and profile.verification_status == "verified"
         and profile.photo_1
         and profile.photo_review_status not in ("flagged_fake", "needs_revision")
+        # A first primary photo waits for coach approval before members see it.
+        and get_published_key(profile, "photo_1")
         and profile.is_connect_identity_verified
         and membership is not None
         and profile.is_active

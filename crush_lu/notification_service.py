@@ -360,7 +360,8 @@ class NotificationService:
             """
             url_paths = {
                 "crush_lu:dashboard": "/dashboard/",
-                "crush_lu:edit_profile": "/edit-profile/",
+                "crush_lu:edit_profile": "/profile/edit/",
+                "crush_lu:edit_profile_photos": "/profile/edit/?section=photos",
                 "crush_lu:my_connections": "/my-connections/",
                 "crush_lu:my_events": "/my-events/",
                 "crush_lu:connect_week_inbox": "/crush-connect/week/inbox/",
@@ -405,24 +406,39 @@ class NotificationService:
 
             if notification_type == NotificationType.PHOTO_REVISION:
                 # Photo moderation never touches profile approval: ask only
-                # for the replacement photo, never a profile resubmission.
-                photo_label = {
-                    "photo_1": _("main profile photo"),
-                    "photo_2": _("second profile photo"),
-                    "photo_3": _("third profile photo"),
-                }.get(context.get("photo_field"), _("profile photo"))
-                body_str = str(
-                    _(
-                        "Your coach asked you to replace your %(photo)s. The rest of your profile can stay as it is."
-                    )
-                ) % {"photo": photo_label}
-                if context.get("feedback"):
-                    body_str = f"{body_str} {context['feedback']}"
+                # for the replacement photos, never a profile resubmission.
+                # One member card is one notice, naming every photo.
+                from crush_lu.photo_review_reasons import photo_revision_items
+
+                items = photo_revision_items(_photo_revision_photos(context))
+                if len(items) == 1:
+                    body_str = str(
+                        _(
+                            "Your coach asked you to replace your %(photo)s. The rest of your profile can stay as it is."
+                        )
+                    ) % {"photo": items[0]["slot_label"]}
+                    advice = context.get("feedback") or items[0]["advice"]
+                    body_str = f"{body_str} {advice}"
+                    title = _("Please replace your profile photo")
+                else:
+                    body_str = str(
+                        _(
+                            "Your coach asked you to replace these photos: %(photos)s. The rest of your profile can stay as it is."
+                        )
+                    ) % {
+                        "photos": "; ".join(
+                            f"{item['slot_label']} ({item['reason_label']})"
+                            for item in items
+                        )
+                    }
+                    title = _("Please replace %(count)s of your profile photos") % {
+                        "count": len(items)
+                    }
                 return {
-                    "title": _("Please replace your profile photo"),
+                    "title": title,
                     "body": body_str,
                     "link_url": get_user_language_url(
-                        user, "crush_lu:edit_profile", request
+                        user, "crush_lu:edit_profile_photos", request
                     ),
                     "metadata": {"photo_review_log_id": context["photo_review_log_id"]},
                 }
@@ -760,6 +776,7 @@ class NotificationService:
                         feedback=context.get("feedback", ""),
                         photo_field=context.get("photo_field", "photo_1"),
                         reason=context.get("photo_review_reason", ""),
+                        photos=context.get("photos"),
                     )
                     == 1
                 )
@@ -978,18 +995,31 @@ def notify_profile_revision(
     )
 
 
+def _photo_revision_photos(context):
+    """The photos a PHOTO_REVISION notice covers (single-photo context too)."""
+    return context.get("photos") or [
+        {
+            "photo_field": context.get("photo_field", "photo_1"),
+            "reason": context.get("photo_review_reason", ""),
+        }
+    ]
+
+
 def notify_photo_revision(
     user,
-    feedback: str,
+    feedback: str = "",
     request=None,
     *,
     photo_review_log_id,
     photo_field="photo_1",
     photo_review_reason="",
+    photos=None,
 ) -> NotificationResult:
-    """Ask for a replacement photo after a coach photo review.
+    """Ask for replacement photos after a coach photo review.
 
-    Deduped per review, so Undo can find and retract exactly this bell row.
+    ``photos`` lists every photo of the reviewed member card as
+    ``{"photo_field", "reason"}``; one card sends one notice. Deduped per
+    review (its lowest log id), so Undo can find and retract exactly it.
     """
     return NotificationService.notify(
         user=user,
@@ -999,6 +1029,7 @@ def notify_photo_revision(
             "photo_review_log_id": photo_review_log_id,
             "photo_field": photo_field,
             "photo_review_reason": photo_review_reason,
+            "photos": photos or [],
         },
         request=request,
         dedupe_key=f"photo-review:{photo_review_log_id}:revision",

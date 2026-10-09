@@ -1266,6 +1266,12 @@ class CrushProfile(models.Model):
                 return self.photo_review_status
         return "pending"
 
+    def get_public_photo(self, photo_field: str):
+        """The file other members may see for a slot (see photo_publication)."""
+        from crush_lu.services.photo_publication import get_public_photo
+
+        return get_public_photo(self, photo_field)
+
     def is_photo_field_review_approved(self, photo_field: str) -> bool:
         current_key = getattr(getattr(self, photo_field, None), "name", "") or ""
         if photo_field == "photo_1" and (
@@ -1621,13 +1627,42 @@ class CrushProfile(models.Model):
                     self.preferred_language = old_instance.preferred_language
                     self.language_explicitly_set = old_instance.language_explicitly_set
 
-                # Clean up old photo blobs when replaced or cleared
+                # Clean up old photo blobs when replaced or cleared, except a
+                # published one: other members keep seeing it until a coach
+                # approves the replacement (services/photo_publication.py).
+                from crush_lu.models.moderation import PublishedProfilePhoto
+                from crush_lu.services import photo_publication
+
                 for field_name in ("photo_1", "photo_2", "photo_3"):
                     old_photo = getattr(old_instance, field_name)
                     new_photo = getattr(self, field_name)
-                    if old_photo and old_photo.name != getattr(new_photo, "name", None):
+                    old_key = getattr(old_photo, "name", "") or ""
+                    new_key = getattr(new_photo, "name", "") or ""
+                    if old_key == new_key:
+                        continue
+                    writes_slot = kwargs.get(
+                        "update_fields"
+                    ) is None or field_name in set(kwargs["update_fields"])
+                    if writes_slot and not new_key:
+                        photo_publication.drop_publication(
+                            self, field_name, live_key=old_key
+                        )
+                    elif writes_slot and not getattr(
+                        self, "_skip_photo_upload_record", False
+                    ):
+                        # A reprocessed file keeps its image; anything else
+                        # is a member upload counted for the daily limit.
+                        photo_publication.record_photo_upload(self, field_name)
+                    if (
+                        old_key
+                        and not PublishedProfilePhoto.objects.filter(
+                            profile_id=self.pk,
+                            photo_field=field_name,
+                            photo_key=old_key,
+                        ).exists()
+                    ):
                         try:
-                            old_photo.storage.delete(old_photo.name)
+                            old_photo.storage.delete(old_key)
                         except Exception:
                             pass  # Don't block save if cleanup fails
             except CrushProfile.DoesNotExist:

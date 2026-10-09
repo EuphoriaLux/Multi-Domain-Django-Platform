@@ -24,6 +24,10 @@ document.addEventListener("alpine:init", function () {
             selectedReason: "unclear_face",
             flagNotes: "",
             lastDecision: null,
+            // One card is one member: each waiting photo gets a decision in
+            // turn, and the card is submitted once, after its last photo.
+            reviewStep: 0,
+            cardDecisions: [],
             isDragging: false,
             startX: 0,
             startY: 0,
@@ -58,21 +62,69 @@ document.addEventListener("alpine:init", function () {
             get actionsDisabled() {
                 return this.isSubmitting || this.isLoading || !this.hasCard || this.isSecondaryPhoto;
             },
+            get reviewField() {
+                return this.currentCard
+                    ? this.currentCard.pending_fields[this.reviewStep] || ""
+                    : "";
+            },
+            get reviewPhoto() {
+                if (!this.currentCard) return null;
+                const field = this.reviewField;
+                return this.currentCard.photos.find((photo) => photo.field === field) || null;
+            },
+            get activePhoto() {
+                return this.currentCard
+                    ? this.currentCard.photos[this.activePhotoIndex] || null
+                    : null;
+            },
             get isSecondaryPhoto() {
-                return !!(
-                    this.currentCard &&
-                    this.currentCard.photos[this.activePhotoIndex] &&
-                    this.currentCard.photos[this.activePhotoIndex].field !==
-                        this.currentCard.photo_field
-                );
+                return !!(this.activePhoto && this.activePhoto.field !== this.reviewField);
             },
             get reviewPhotoLabel() {
-                return this.currentCard ? this.currentCard.review_photo_label : "";
+                return this.reviewPhoto ? this.reviewPhoto.label : "";
+            },
+            get activePhotoLabel() {
+                return this.activePhoto ? this.activePhoto.label : "";
+            },
+            get activePhotoStatus() {
+                if (!this.activePhoto) return "";
+                const decided = this.cardDecisions.find(
+                    (item) => item.photo_field === this.activePhoto.field,
+                );
+                return decided ? decided.summary : this.activePhoto.status_label;
+            },
+            get isReplacement() {
+                return !!(this.reviewPhoto && this.reviewPhoto.is_replacement);
+            },
+            get reviewProgressText() {
+                if (!this.currentCard) return "";
+                return this.rootElement.dataset.progress
+                    .replace("{current}", this.reviewStep + 1)
+                    .replace("{total}", this.currentCard.pending_fields.length);
+            },
+            get hasCardDecisions() {
+                return this.cardDecisions.length > 0;
+            },
+            get cardDecisionSummary() {
+                return this.cardDecisions
+                    .map((item) => `${item.label}: ${item.summary}`)
+                    .join(" · ");
+            },
+            resetCard() {
+                this.reviewStep = 0;
+                this.cardDecisions = [];
+            },
+            restartCard() {
+                if (this.isSubmitting) return;
+                this.resetCard();
+                this.showReviewPhoto();
             },
             showReviewPhoto() {
                 if (!this.currentCard) return;
-                this.activePhotoIndex = this.currentCard.photos.findIndex(
-                    (photo) => photo.field === this.currentCard.photo_field,
+                const field = this.reviewField;
+                this.activePhotoIndex = Math.max(
+                    0,
+                    this.currentCard.photos.findIndex((photo) => photo.field === field),
                 );
                 this.$nextTick(() => {
                     // Return to the photo after advancing, clearing the mobile top bar.
@@ -350,7 +402,8 @@ document.addEventListener("alpine:init", function () {
                 event.preventDefault();
             },
             async skipCard() {
-                if (this.actionsDisabled) return;
+                if (this.isSubmitting || this.isLoading || !this.hasCard) return;
+                this.resetCard();
                 this.cards.shift();
                 this.showReviewPhoto();
                 if (this.cards.length < 5) await this.fetchMoreCards();
@@ -404,8 +457,11 @@ document.addEventListener("alpine:init", function () {
                     body: JSON.stringify(payload),
                 });
                 const data = await response.json();
-                if (!response.ok || !data.success)
-                    throw new Error(data.error || this.rootElement.dataset.error);
+                if (!response.ok || !data.success) {
+                    const error = new Error(data.error || this.rootElement.dataset.error);
+                    error.status = response.status;
+                    throw error;
+                }
                 return data;
             },
             async approveCurrentCard() {
@@ -418,8 +474,44 @@ document.addEventListener("alpine:init", function () {
                         : "needs_revision",
                 );
             },
+            _reasonLabel(reason) {
+                const option = this.rootElement.querySelector(
+                    `#photo-review-reason option[value="${reason}"]`,
+                );
+                return option ? option.textContent.trim() : reason;
+            },
             async _decide(decision) {
                 if (this.actionsDisabled) return;
+                const photo = this.reviewPhoto;
+                const reason =
+                    decision === "approved" ? "clear_authentic" : this.selectedReason;
+                const item = {
+                    photo_field: photo.field,
+                    photo_key: photo.photo_key,
+                    decision,
+                    reason,
+                    notes: decision === "approved" ? "" : this.flagNotes,
+                    label: photo.label,
+                    summary:
+                        decision === "approved"
+                            ? this.rootElement.dataset.approvedLabel
+                            : this._reasonLabel(reason),
+                };
+                this.hideModal();
+                if (decision === "flagged_fake") {
+                    // A fake flag judges the member: it is sent on its own.
+                    await this._submitCard([item]);
+                    return;
+                }
+                this.cardDecisions.push(item);
+                if (this.reviewStep + 1 < this.currentCard.pending_fields.length) {
+                    this.reviewStep++;
+                    this.showReviewPhoto();
+                    return;
+                }
+                await this._submitCard(this.cardDecisions);
+            },
+            async _submitCard(items) {
                 const card = this.currentCard;
                 this.isSubmitting = true;
                 this.errorMessage = "";
@@ -427,27 +519,38 @@ document.addEventListener("alpine:init", function () {
                 try {
                     const data = await this._post(this.rootElement.dataset.decideUrl, {
                         profile_id: card.id,
-                        photo_key: card.photo_key,
-                        photo_field: card.photo_field,
-                        decision,
-                        reason:
-                            decision === "approved"
-                                ? "clear_authentic"
-                                : this.selectedReason,
-                        notes: decision === "approved" ? "" : this.flagNotes,
+                        decisions: items.map((item) => ({
+                            photo_field: item.photo_field,
+                            photo_key: item.photo_key,
+                            decision: item.decision,
+                            reason: item.reason,
+                            notes: item.notes,
+                        })),
                     });
                     this.lastDecision = { logId: data.log_id, card };
-                    this.cards.shift();
-                    this.showReviewPhoto();
-                    this.totalWaiting = Math.max(0, this.totalWaiting - 1);
-                    this.hideModal();
-                    this.$nextTick(() => this.rootElement.focus({ preventScroll: true }));
+                    this._advance();
                 } catch (error) {
-                    this.errorMessage = error.message || this.rootElement.dataset.error;
+                    if (error.status === 409) {
+                        // Another coach got there first, or the member changed
+                        // a photo: nothing to decide here any more.
+                        this.noticeMessage = error.message;
+                        this._advance();
+                    } else {
+                        this.errorMessage = error.message || this.rootElement.dataset.error;
+                        this.resetCard();
+                        this.showReviewPhoto();
+                    }
                 } finally {
                     this.isSubmitting = false;
                 }
-                if (this.cards.length < 5) await this.fetchMoreCards();
+                if (this.cards.length < 3) await this.fetchMoreCards();
+            },
+            _advance() {
+                this.resetCard();
+                this.cards.shift();
+                this.showReviewPhoto();
+                this.totalWaiting = Math.max(0, this.totalWaiting - 1);
+                this.$nextTick(() => this.rootElement.focus({ preventScroll: true }));
             },
             async undoLastDecision() {
                 if (this.undoDisabled) return;
@@ -463,12 +566,11 @@ document.addEventListener("alpine:init", function () {
                         ? this.rootElement.dataset.picksNotRestored
                         : "";
                     this.cards = this.cards.filter(
-                        (card) =>
-                            card.id !== this.lastDecision.card.id ||
-                            card.photo_field !== this.lastDecision.card.photo_field,
+                        (card) => card.id !== this.lastDecision.card.id,
                     );
                     this.cards.unshift(this.lastDecision.card);
                     this.lastDecision = null;
+                    this.resetCard();
                     this.showReviewPhoto();
                     this.totalWaiting++;
                 } catch (error) {
@@ -479,6 +581,7 @@ document.addEventListener("alpine:init", function () {
             },
             restartQueue() {
                 if (this.isLoading || this.isSubmitting) return;
+                this.resetCard();
                 this.queueCursor = "";
                 this.fetchMoreCards();
             },
@@ -497,12 +600,9 @@ document.addEventListener("alpine:init", function () {
                     const data = await response.json();
                     if (data.cards.length) this.queueCursor = data.cards[data.cards.length - 1].queue_cursor;
                     const hadCards = this.cards.length > 0;
-                    const ids = new Set(
-                        this.cards.map((card) => `${card.id}:${card.photo_field}`),
-                    );
+                    const ids = new Set(this.cards.map((card) => card.id));
                     data.cards.forEach((card) => {
-                        const key = `${card.id}:${card.photo_field}`;
-                        if (!ids.has(key)) this.cards.push(card);
+                        if (!ids.has(card.id)) this.cards.push(card);
                     });
                     this.totalWaiting = data.total_waiting;
                     if (!hadCards) this.showReviewPhoto();

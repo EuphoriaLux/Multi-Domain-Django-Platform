@@ -614,7 +614,10 @@ def quiz_display_photo(request, user_id):
         )
         raise PermissionDenied("You don't have permission to view this photo")
 
-    photo = getattr(profile, "photo_1", None)
+    from .services.photo_publication import photo_for_viewer
+
+    # Projected to the room: a held replacement waits for coach review.
+    photo = photo_for_viewer(request.user, profile, "photo_1")
     if not photo:
         raise Http404("No photo")
 

@@ -26,6 +26,7 @@ from crush_lu.models import (
     MeetupEvent,
     PremiumMembership,
     ProfilePhotoReviewState,
+    PublishedProfilePhoto,
     UserBlock,
 )
 from crush_lu.models.crush_connect import ConnectCoachPick
@@ -78,6 +79,10 @@ def _member(
                 photo_field="photo_1",
                 photo_key=profile.photo_1.name,
                 status="approved",
+            )
+            # A coach approval also publishes the photo to other members.
+            PublishedProfilePhoto.objects.create(
+                profile=profile, photo_field="photo_1", photo_key=profile.photo_1.name
             )
     if photo_consent is not None:
         SocialAccount.objects.create(user=user, provider="luxid", uid=f"lx-{user.pk}")

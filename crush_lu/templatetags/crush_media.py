@@ -110,3 +110,58 @@ def profile_photo(profile, photo_field, css_class='', alt_text='Profile photo',
         'display_name': profile.display_name if profile else 'User',
         'fallback': fallback,
     }
+
+
+@register.simple_tag(takes_context=True)
+def member_photo_review(context, slot):
+    """What the member should know about their own photo in ``slot``.
+
+    Returns ``None`` when there is nothing to say, else a dict with
+    ``state`` (``needs_replacement`` / ``in_review``), and for a replacement
+    request the coach's ``reason_label`` and ``advice``; ``held`` is True when
+    other members still see an earlier approved photo.
+    """
+    from crush_lu.models import CrushProfile, ProfilePhotoReviewLog
+    from crush_lu.photo_review_reasons import photo_revision_items
+    from crush_lu.services.photo_publication import get_published_key
+
+    request = context.get("request")
+    user = getattr(request, "user", None)
+    if user is None or not user.is_authenticated:
+        return None
+    photo_field = f"photo_{slot}"
+    profile = (
+        CrushProfile.objects.filter(user=user)
+        .prefetch_related("photo_review_states", "published_photos")
+        .first()
+    )
+    if profile is None or photo_field not in ("photo_1", "photo_2", "photo_3"):
+        return None
+    live = getattr(getattr(profile, photo_field), "name", "") or ""
+    if not live:
+        return None
+    status = profile.get_photo_field_review_status(photo_field)
+    published = get_published_key(profile, photo_field)
+    if status == "needs_revision":
+        reason = (
+            ProfilePhotoReviewLog.objects.filter(
+                profile=profile,
+                photo_field=photo_field,
+                photo_key=live,
+                decision="needs_revision",
+                undone_at__isnull=True,
+            )
+            .order_by("-pk")
+            .values_list("reason", flat=True)
+            .first()
+        )
+        item = photo_revision_items([{"photo_field": photo_field, "reason": reason}])[0]
+        return {
+            "state": "needs_replacement",
+            "reason_label": item["reason_label"],
+            "advice": item["advice"],
+            "held": bool(published and published != live),
+        }
+    if status == "pending":
+        return {"state": "in_review", "held": bool(published and published != live)}
+    return None

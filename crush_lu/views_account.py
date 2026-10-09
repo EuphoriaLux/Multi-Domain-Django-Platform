@@ -1177,6 +1177,19 @@ def delete_crushlu_profile_only(user, finalize=True, full_account=False):
                     raise StorageErasureError(
                         f"Could not delete profile {photo_field}"
                     ) from e
+        # An approved photo still shown while its replacement waits for review
+        # is a separate file; the folder sweep below would find it too, but
+        # erasure must not depend on where the file happens to live.
+        from crush_lu.services.photo_publication import held_photo_keys
+
+        for photo_field, key in held_photo_keys(profile):
+            try:
+                profile._meta.get_field(photo_field).storage.delete(key)
+            except Exception as e:
+                logger.error(f"Could not delete held {photo_field}: {e}")
+                raise StorageErasureError(
+                    f"Could not delete held profile {photo_field}"
+                ) from e
 
         # Delete the profile (cascades to related data via Django's on_delete)
         profile.delete()

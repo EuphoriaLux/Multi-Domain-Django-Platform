@@ -514,39 +514,47 @@ def send_profile_revision_request(profile, request, feedback):
 
 
 def send_photo_revision_request(
-    user, request=None, feedback="", photo_field="photo_1", *, reason=""
+    user, request=None, feedback="", photo_field="photo_1", *, reason="", photos=None
 ):
-    """Ask for a replacement photo; the profile itself stays as it is.
+    """Ask for replacement photos; the profile itself stays as it is.
 
     A coach photo review leaves profile approval untouched, so unlike
     ``send_profile_revision_request`` this never asks for a resubmission.
+    ``photos`` (``[{"photo_field", "reason"}]``) lists every photo of one
+    reviewed member card, so the member gets one email naming each of them.
     """
     from django.utils import translation
     from django.utils.translation import gettext as _
 
+    from .photo_review_reasons import photo_revision_items
+
     lang = get_user_preferred_language(user=user, request=request, default="en")
     with translation.override(lang):
-        if reason:
-            from .photo_review_reasons import get_photo_revision_feedback
-
-            feedback = get_photo_revision_feedback(reason)
-        subject = _("Please replace your profile photo")
-        photo_slot_label = {
-            "photo_1": _("main profile photo"),
-            "photo_2": _("second profile photo"),
-            "photo_3": _("third profile photo"),
-        }.get(photo_field, _("profile photo"))
+        items = photo_revision_items(
+            photos or [{"photo_field": photo_field, "reason": reason}]
+        )
+        if len(items) == 1 and feedback and not reason and not photos:
+            # A caller-written message, not one of the standard reasons.
+            items[0].update(advice=feedback, reason_label="")
+        subject = (
+            _("Please replace your profile photo")
+            if len(items) == 1
+            else _("Please replace %(count)s of your profile photos")
+            % {"count": len(items)}
+        )
         html_message = render_to_string(
             "crush_lu/emails/photo_revision_request.html",
             {
                 "user": user,
                 "first_name": user.first_name,
-                "feedback": feedback,
-                "photo_slot_label": photo_slot_label,
+                "photos": items,
+                "photo_slot_label": items[0]["slot_label"],
+                "feedback": items[0]["advice"],
                 "LANGUAGE_CODE": lang,
                 "edit_profile_url": get_user_language_url(
                     user, "crush_lu:edit_profile", request
-                ),
+                )
+                + "?section=photos",
                 "social_links": get_social_links(),
                 **get_email_base_urls(user, request),
             },

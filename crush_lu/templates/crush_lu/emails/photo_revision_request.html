@@ -5,16 +5,31 @@
 {% block content %}
 <h2>{% blocktrans with first_name=first_name %}Hey {{ first_name }},{% endblocktrans %}</h2>
 
+{% if photos|length > 1 %}
+<p>{% trans "Your coach asked you to replace these photos. The rest of your profile can stay as it is." %}</p>
+
+{% for photo in photos %}
+<div class="info-box">
+    <strong>{{ photo.slot_label|capfirst }}: {{ photo.reason_label }}</strong>
+    <p>{{ photo.advice }}</p>
+</div>
+{% endfor %}
+
+<p>{% trans "On your profile, these photos are marked “Needs replacement”. Upload a new photo in each of them. You do not need to change anything else." %}</p>
+{% else %}
 <p>{% blocktrans with photo=photo_slot_label %}Your coach asked you to replace your {{ photo }}. The rest of your profile can stay as it is.{% endblocktrans %}</p>
 
 {% if feedback %}
 <div class="info-box">
-    <strong>{% trans "Feedback from your coach:" %}</strong>
+    {% with photo=photos.0 %}{% if photo.reason_label %}<strong>{{ photo.reason_label }}</strong>{% else %}<strong>{% trans "Feedback from your coach:" %}</strong>{% endif %}{% endwith %}
     <p>{{ feedback }}</p>
 </div>
 {% endif %}
 
 <p>{% trans "Upload a replacement photo in that slot. You do not need to change anything else." %}</p>
+{% endif %}
+
+<p>{% trans "Until a coach has checked your new photo, other members keep seeing your previous approved photo, if you had one." %}</p>
 
 <a href="{{ edit_profile_url }}" class="button">{% trans "Upload a new photo" %}</a>
 

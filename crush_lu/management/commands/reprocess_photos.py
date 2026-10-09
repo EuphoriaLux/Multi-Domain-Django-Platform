@@ -11,7 +11,12 @@ from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from crush_lu.models import CrushProfile, CrushCoach, ProfilePhotoReviewState
+from crush_lu.models import (
+    CrushCoach,
+    CrushProfile,
+    ProfilePhotoReviewState,
+    PublishedProfilePhoto,
+)
 from crush_lu.utils.image_processing import process_uploaded_image
 
 logger = logging.getLogger(__name__)
@@ -238,6 +243,14 @@ class Command(BaseCommand):
                                 "photo_review_notes",
                             ]
                         )
+                    # Same image under a new key: keep it published, and do
+                    # not count it against the member's daily upload limit.
+                    PublishedProfilePhoto.objects.filter(
+                        profile_id=obj.pk,
+                        photo_field=field_name,
+                        photo_key=old_blob_name,
+                    ).update(photo_key=field.name)
+                    obj._skip_photo_upload_record = True
                     obj.save(update_fields=update_fields)
                     if current_review_state:
                         current_review_state.photo_key = field.name

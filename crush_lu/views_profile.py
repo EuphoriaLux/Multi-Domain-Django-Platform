@@ -483,6 +483,12 @@ def upload_photo_draft(request):
         # Get or create profile
         profile, created = CrushProfile.objects.get_or_create(user=request.user)
 
+        from .services.photo_publication import photo_upload_refusal
+
+        refusal = photo_upload_refusal(profile, f"photo_{photo_number}")
+        if refusal:
+            return JsonResponse({"success": False, "error": refusal}, status=429)
+
         # Process image: fix orientation, strip EXIF metadata, resize.
         # Rejects oversized files before decoding (see MAX_UPLOAD_BYTES).
         try:
@@ -1013,6 +1019,15 @@ def import_social_photo(request):
                 {"success": False, "error": "Social account not found"}, status=404
             )
 
+        from .services.photo_publication import photo_upload_refusal
+
+        refusal = photo_upload_refusal(
+            CrushProfile.objects.filter(user=request.user).first(),
+            f"photo_{photo_slot}",
+        )
+        if refusal:
+            return JsonResponse({"success": False, "error": refusal}, status=429)
+
         # Download and save the photo
         result = download_and_save_social_photo(
             request.user, social_account, photo_slot
@@ -1107,6 +1122,22 @@ def upload_profile_photo(request, slot):
                 },
             )
 
+        from .services.photo_publication import photo_upload_refusal
+
+        refusal = photo_upload_refusal(profile, f"photo_{slot}")
+        if refusal:
+            return render(
+                request,
+                "crush_lu/partials/photo_card.html",
+                {
+                    "slot": slot,
+                    "photo": getattr(profile, f"photo_{slot}"),
+                    "is_main": slot == 1,
+                    "error": refusal,
+                    "social_photos": social_photos,
+                },
+            )
+
         # Validate photo using form validation
         temp_form = CrushProfileForm(
             data={}, files={f"photo_{slot}": photo_file}, instance=profile
@@ -1146,9 +1177,9 @@ def upload_profile_photo(request, slot):
                         "slot": slot,
                         "photo": getattr(profile, photo_field_name),
                         "is_main": slot == 1,
-                        "error": " ".join(e.messages)
-                        if hasattr(e, "messages")
-                        else str(e),
+                        "error": (
+                            " ".join(e.messages) if hasattr(e, "messages") else str(e)
+                        ),
                         "social_photos": social_photos,
                     },
                 )
