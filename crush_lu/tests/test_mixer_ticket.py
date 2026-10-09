@@ -255,3 +255,21 @@ class MixerTicketTests(TestCase):
         first.checked_in_at = None
         first.save()
         self.assertEqual(event_numbers(self.event), before)
+
+    def test_payment_settling_during_the_evening_keeps_numbers(self):
+        payer = self._guest(85, "pending")
+        before = event_numbers(self.event)
+        payer.status = "confirmed"
+        payer.payment_confirmed = True
+        payer.payment_date = self.event.date_time + timedelta(minutes=5)
+        payer.save()
+        self.assertEqual(event_numbers(self.event), before)
+
+    def test_stale_ask_me_about_ids_are_ignored(self):
+        from crush_lu.services.mixer_ticket import _Guest
+
+        profile = self.regs[0].user.crushprofile
+        profile.ask_me_about = [self.interests[5].pk, self.interests[0].pk]
+        profile.save()
+        guest = _Guest(self.regs[0])
+        self.assertEqual(guest.ask, {self.interests[0].pk})

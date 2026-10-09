@@ -147,11 +147,19 @@ def printable(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _is_door_arrival(registration) -> bool:
-    """Checked in from a status that held no number (waitlist, pending)."""
-    return registration.status == "attended" and (
+def _is_late_entry(registration, starts_at) -> bool:
+    """Gained a seat once printing may have started, so it was never regular.
+
+    Either checked in from a status that held no number (waitlist, pending),
+    or a pending seat whose payment settled after the event started -- the
+    payment path flips it to ``confirmed`` without any check-in provenance.
+    """
+    if registration.status == "attended" and (
         registration.checkin_prior_status or ""
-    ) not in ("", "confirmed")
+    ) not in ("", "confirmed"):
+        return True
+    paid_at = registration.payment_date
+    return bool(paid_at and starts_at and paid_at >= starts_at)
 
 
 def event_numbers(event: MeetupEvent) -> dict[int, int]:
@@ -162,8 +170,9 @@ def event_numbers(event: MeetupEvent) -> dict[int, int]:
         event=event, status__in=NUMBERED_STATUSES + RESERVED_STATUSES
     )
     regular, reserved = [], []
-    for reg in rows.only("pk", "status", "checkin_prior_status"):
-        if reg.status in RESERVED_STATUSES or _is_door_arrival(reg):
+    starts_at = getattr(event, "date_time", None)
+    for reg in rows.only("pk", "status", "checkin_prior_status", "payment_date"):
+        if reg.status in RESERVED_STATUSES or _is_late_entry(reg, starts_at):
             reserved.append(reg.pk)
         else:
             regular.append(reg.pk)
@@ -184,7 +193,8 @@ class _Guest:
             self.dob, self.vibe = None, ""
             return
         self.interests = {i.pk for i in profile.interests_new.all()}
-        self.ask = {str(x) for x in (profile.ask_me_about or [])}
+        # Only ids still selected, as CrushProfile.ask_me_about_interests does.
+        self.ask = {x for x in (profile.ask_me_about or []) if x in self.interests}
         self.langs = set(profile.event_languages or [])
         self.dob = profile.date_of_birth
         self.vibe = profile.event_vibe or ""
@@ -259,7 +269,7 @@ def affinity_list(
     # door arrivals excluded), so marking an absentee or admitting someone at
     # the door mid-print never changes a percentage already on paper, and both
     # tickets of a pair always show the same figure.
-    cohort = [g for g, r in zip(guests, regs) if not _is_door_arrival(r)]
+    cohort = [g for g, r in zip(guests, regs) if not _is_late_entry(r, event.date_time)]
 
     interest_scores = sorted(
         s
