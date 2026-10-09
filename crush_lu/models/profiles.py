@@ -1451,6 +1451,7 @@ class CrushProfile(models.Model):
             self.verification_method = "admin"
 
         omit_review_fields = ()
+        uploaded_slots = []
         if self.pk:  # Only on update, not create
             try:
                 old_instance = CrushProfile.objects.get(pk=self.pk)
@@ -1651,8 +1652,9 @@ class CrushProfile(models.Model):
                         self, "_skip_photo_upload_record", False
                     ):
                         # A reprocessed file keeps its image; anything else
-                        # is a member upload counted for the daily limit.
-                        photo_publication.record_photo_upload(self, field_name)
+                        # is a member upload counted for the daily limit,
+                        # once the save below has succeeded.
+                        uploaded_slots.append(field_name)
                     if (
                         old_key
                         and not PublishedProfilePhoto.objects.filter(
@@ -1681,6 +1683,11 @@ class CrushProfile(models.Model):
                 and field.attname not in omit_review_fields
             }
         super().save(*args, **kwargs)
+        if uploaded_slots:
+            from crush_lu.services import photo_publication
+
+            for field_name in uploaded_slots:
+                photo_publication.record_photo_upload(self, field_name)
         # This instance is now in step with the row, so a later save on it
         # judges "touched since" against what was actually written.
         self._loaded_language = (

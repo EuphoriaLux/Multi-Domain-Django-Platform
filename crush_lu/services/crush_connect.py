@@ -209,46 +209,52 @@ def exclude_assigned_coach_pairs(qs, user, field="pk"):
 def filter_primary_photo_review_approved(qs, profile_prefix="crushprofile"):
     """Keep members whose primary photo other members may actually see.
 
-    Drops a coach-moderated current primary photo, and a member with no
-    published primary photo yet: a first upload waits for coach approval
-    (``services/photo_publication.py``), so listing that member would only
-    show a photo the endpoint refuses. A replacement waiting for review keeps
-    its member listed, with the earlier approved photo.
+    Same rule as ``photo_publication.get_public_photo_key``: the current file
+    is approved (per-image state or legacy primary decision), or a photo is
+    published and the current file is not coach-moderated, or an earlier
+    approved photo is published while its replacement waits for review or
+    was refused. A first upload waits for coach approval, so listing that
+    member would only show a photo the endpoint refuses.
     """
     from crush_lu.models import ProfilePhotoReviewState, PublishedProfilePhoto
 
+    live_key = OuterRef(f"{profile_prefix}__photo_1")
+    profile_pk = OuterRef(f"{profile_prefix}__pk")
     moderated = ProfilePhotoReviewState.objects.filter(
-        profile_id=OuterRef(f"{profile_prefix}__pk"),
+        profile_id=profile_pk,
         photo_field="photo_1",
-        photo_key=OuterRef(f"{profile_prefix}__photo_1"),
+        photo_key=live_key,
         status__in=("needs_revision", "flagged_fake"),
     )
     approved = ProfilePhotoReviewState.objects.filter(
-        profile_id=OuterRef(f"{profile_prefix}__pk"),
+        profile_id=profile_pk,
         photo_field="photo_1",
-        photo_key=OuterRef(f"{profile_prefix}__photo_1"),
+        photo_key=live_key,
         status="approved",
     )
     published = PublishedProfilePhoto.objects.filter(
-        profile_id=OuterRef(f"{profile_prefix}__pk"), photo_field="photo_1"
+        profile_id=profile_pk, photo_field="photo_1"
     )
-    # Same rule as ``photo_publication.get_public_photo_key``: the current
-    # file is approved (per-image state or legacy primary decision), or an
-    # earlier approved or pre-existing photo is published.
     return qs.annotate(
         _coach_moderated_primary=Exists(moderated),
         _approved_primary=Exists(approved),
         _published_primary=Exists(published),
+        _published_earlier_primary=Exists(published.exclude(photo_key=live_key)),
     ).filter(
-        Q(_approved_primary=True)
-        | Q(_published_primary=True)
+        Q(_published_earlier_primary=True)
         | Q(
-            **{
-                f"{profile_prefix}__photo_review_status": "approved",
-                f"{profile_prefix}__photo_review_key": F(f"{profile_prefix}__photo_1"),
-            }
-        ),
-        _coach_moderated_primary=False,
+            Q(_approved_primary=True)
+            | Q(_published_primary=True)
+            | Q(
+                **{
+                    f"{profile_prefix}__photo_review_status": "approved",
+                    f"{profile_prefix}__photo_review_key": F(
+                        f"{profile_prefix}__photo_1"
+                    ),
+                }
+            ),
+            _coach_moderated_primary=False,
+        )
     )
 
 

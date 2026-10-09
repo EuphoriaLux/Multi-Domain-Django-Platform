@@ -670,6 +670,27 @@ def _normalize_decisions(decisions):
     return normalized
 
 
+def _is_refused_replacement(photo_field, decision, photo_key, published_key):
+    """A revision request on a main photo that replaced an approved one.
+
+    The earlier approved photo stays published, so the member stays visible
+    (Connect, lobby) with it: only this file is refused, recorded on its
+    per-image state, never on the profile-wide status that pauses a member.
+    """
+    return (
+        photo_field == "photo_1"
+        and decision == "needs_revision"
+        and bool(published_key)
+        and published_key != photo_key
+    )
+
+
+def _writes_legacy_status(photo_field, decision, photo_key, published_key):
+    if photo_field != "photo_1" and decision != "flagged_fake":
+        return False
+    return not _is_refused_replacement(photo_field, decision, photo_key, published_key)
+
+
 def _apply_decision(coach, profile, item, *, batch_id, now):
     """Record one photo's decision on a locked, reviewable profile."""
     photo_field = item["photo_field"]
@@ -716,7 +737,15 @@ def _apply_decision(coach, profile, item, *, batch_id, now):
             "notes": notes,
         },
     )
-    if photo_field == "photo_1" or decision == "flagged_fake":
+    published_key = (
+        PublishedProfilePhoto.objects.filter(
+            profile_id=profile.pk, photo_field=photo_field
+        )
+        .values_list("photo_key", flat=True)
+        .first()
+        or ""
+    )
+    if _writes_legacy_status(photo_field, decision, photo_key, published_key):
         legacy_defaults = {
             "photo_review_status": decision,
             "photo_review_key": photo_key if photo_field == "photo_1" else "",
@@ -733,14 +762,7 @@ def _apply_decision(coach, profile, item, *, batch_id, now):
     if decision == "approved":
         previous_published = publish_photo(profile, photo_field, photo_key)
     else:
-        previous_published = (
-            PublishedProfilePhoto.objects.filter(
-                profile_id=profile.pk, photo_field=photo_field
-            )
-            .values_list("photo_key", flat=True)
-            .first()
-            or ""
-        )
+        previous_published = published_key
         if decision == "needs_revision" and previous_published == photo_key:
             unpublish_photo(profile, photo_field, photo_key)
     log = ProfilePhotoReviewLog.objects.create(
@@ -947,7 +969,13 @@ def _undo_decision(coach, profile, log):
         or state.reviewed_at != log.decision_at
         or log.previous_status != "pending"
         or (
-            log.photo_field == "photo_1"
+            _writes_legacy_status(
+                log.photo_field,
+                log.decision,
+                log.photo_key,
+                log.previous_published_key,
+            )
+            and log.photo_field == "photo_1"
             and (
                 profile.photo_review_status != log.decision
                 or profile.photo_review_key != log.photo_key

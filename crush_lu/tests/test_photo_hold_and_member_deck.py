@@ -99,7 +99,10 @@ def test_first_upload_is_hidden_from_members_until_approved():
     viewer = _viewer()
 
     assert photo_for_viewer(viewer, profile, "photo_1") is None
-    assert photo_for_viewer(profile.user, profile, "photo_1").name == "users/1/photos/photo1.jpg"
+    assert (
+        photo_for_viewer(profile.user, profile, "photo_1").name
+        == "users/1/photos/photo1.jpg"
+    )
     assert photo_for_viewer(viewer, profile, "photo_1", privileged=True)
 
     _decide(coach, profile, ("photo_1", "approved", "clear_authentic"))
@@ -118,7 +121,10 @@ def test_replacement_of_approved_photo_is_held_until_approval(deleted_blobs):
     assert old_key not in deleted_blobs
     viewer = _viewer()
     assert photo_for_viewer(viewer, profile, "photo_1").name == old_key
-    assert photo_for_viewer(profile.user, profile, "photo_1").name == "users/1/photos/new.jpg"
+    assert (
+        photo_for_viewer(profile.user, profile, "photo_1").name
+        == "users/1/photos/new.jpg"
+    )
 
     with TestCase.captureOnCommitCallbacks(execute=True):
         _decide(coach, profile, ("photo_1", "approved", "clear_authentic"))
@@ -137,8 +143,47 @@ def test_refused_replacement_keeps_the_earlier_approved_photo(notices):
 
     _decide(coach, profile, ("photo_1", "needs_revision", "blurry_photo"))
     profile.refresh_from_db()
-    assert profile.photo_review_status == "needs_revision"
+    # Only the refused file is marked; the member is not paused profile-wide.
+    assert profile.get_photo_field_review_status("photo_1") == "needs_revision"
+    assert profile.photo_review_status != "needs_revision"
     assert get_public_photo_key(profile, "photo_1") == old_key
+
+
+def test_member_with_a_refused_replacement_stays_listed(notices):
+    from crush_lu.services.crush_connect import (
+        filter_primary_photo_review_approved,
+        is_catalogue_eligible,
+    )
+    from crush_lu.services.event_lobby import GATE_PHOTO_REVISION, participant_gate
+
+    coach, profile = _make_coach(), _make_candidate()
+    _decide(coach, profile, ("photo_1", "approved", "clear_authentic"))
+    profile.refresh_from_db()
+    _replace(profile, "photo_1", "users/1/photos/blurry.jpg")
+    result = _decide(coach, profile, ("photo_1", "needs_revision", "blurry_photo"))
+    user = User.objects.get(pk=profile.user_id)
+
+    listed = filter_primary_photo_review_approved(User.objects.filter(pk=user.pk))
+    assert listed.exists()
+    assert is_catalogue_eligible(user)
+    assert participant_gate(user)[1] != GATE_PHOTO_REVISION
+
+    # Undo still works on a decision that never touched the profile status.
+    undo_last_photo_review(coach, log_id=result["log_id"])
+    profile.refresh_from_db()
+    assert profile.get_photo_field_review_status("photo_1") == "pending"
+
+
+def test_refused_first_photo_still_pauses_the_member(notices):
+    from crush_lu.services.crush_connect import filter_primary_photo_review_approved
+
+    coach, profile = _make_coach(), _make_candidate()
+    _decide(coach, profile, ("photo_1", "needs_revision", "unclear_face"))
+    profile.refresh_from_db()
+    assert profile.photo_review_status == "needs_revision"
+    assert not filter_primary_photo_review_approved(
+        User.objects.filter(pk=profile.user_id)
+    ).exists()
 
 
 def test_refusing_a_published_photo_hides_it_and_undo_restores_it(notices):
@@ -190,9 +235,9 @@ def test_photo_endpoint_serves_the_published_file_to_members(settings):
         return False
 
     url = f"/en/media/profile/{profile.user_id}/photo_1/"
-    with patch(
-        "crush_lu.views_media.can_view_profile_photo", return_value=True
-    ), patch("crush_lu.views_media.os.path.exists", side_effect=exists):
+    with patch("crush_lu.views_media.can_view_profile_photo", return_value=True), patch(
+        "crush_lu.views_media.os.path.exists", side_effect=exists
+    ):
         for viewer in (_make_candidate("viewer_member").user, profile.user):
             client = Client()
             client.force_login(viewer)
@@ -489,3 +534,76 @@ def test_revision_notice_link_resolves():
     )
     path = payload["link_url"].split("?")[0]
     assert resolve(f"/en{path}", "azureproject.urls_crush").url_name == "edit_profile"
+
+
+# --- Review follow-ups ---------------------------------------------------------
+
+
+def test_quiz_projects_the_approved_photo_while_a_replacement_is_refused(
+    notices, settings
+):
+    from crush_lu.views_quiz import _photo_url
+
+    coach, profile = _make_coach(), _make_candidate()
+    _decide(coach, profile, ("photo_1", "approved", "clear_authentic"))
+    profile.refresh_from_db()
+    old_key = profile.photo_1.name
+    _replace(profile, "photo_1", "users/1/photos/refused.jpg")
+    _decide(coach, profile, ("photo_1", "needs_revision", "blurry_photo"))
+    profile.refresh_from_db()
+
+    assert _photo_url(profile) == f"/api/quiz/photo/{profile.user_id}/"
+    viewer = _make_candidate("quiz_viewer").user
+    assert photo_for_viewer(viewer, profile, "photo_1").name == old_key
+
+
+def test_social_import_keeps_the_published_file(deleted_blobs, monkeypatch):
+    from types import SimpleNamespace
+
+    from crush_lu import social_photos
+
+    coach, profile = _make_coach(), _make_candidate()
+    _decide(coach, profile, ("photo_1", "approved", "clear_authentic"))
+    profile.refresh_from_db()
+    old_key = profile.photo_1.name
+
+    monkeypatch.setattr(
+        social_photos,
+        "get_social_photo_url",
+        lambda account: "data:image/jpeg;base64,anBlZw==",
+    )
+    monkeypatch.setattr(
+        social_photos, "process_uploaded_image", lambda raw, name=None: raw
+    )
+    stored = []
+
+    def fake_save(self, name, content, save=True):
+        self.name = f"users/1/photos/{name}"
+        stored.append(self.name)
+
+    monkeypatch.setattr(type(profile.photo_1), "save", fake_save)
+    account = SimpleNamespace(provider="google", user=profile.user)
+    result = social_photos.download_and_save_social_photo(profile.user, account, 1)
+    assert result["success"], result
+
+    profile.refresh_from_db()
+    assert stored and profile.photo_1.name == stored[0]
+    assert old_key not in deleted_blobs
+    assert get_public_photo_key(profile, "photo_1") == old_key
+
+
+def test_failed_save_does_not_use_up_the_upload_limit(monkeypatch):
+    from django.db import models as dj_models
+
+    profile = _make_candidate()
+    before = ProfilePhotoUpload.objects.count()
+
+    def boom(self, *args, **kwargs):
+        raise RuntimeError("database down")
+
+    monkeypatch.setattr(dj_models.Model, "save", boom)
+    profile.photo_2 = "users/1/photos/never-saved.jpg"
+    with pytest.raises(RuntimeError):
+        profile.save(update_fields=["photo_2"])
+    monkeypatch.undo()
+    assert ProfilePhotoUpload.objects.count() == before
