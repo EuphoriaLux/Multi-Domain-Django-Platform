@@ -1337,11 +1337,27 @@ def build_checkin_ticket_directives(
             )
             candidate_num = "(#99)"
 
+        if event is None and registration is not None:
+            event = getattr(registration, "event", None)
+
         if event:
             event_title = getattr(event, "title", event_title)
             event_dt = getattr(event, "date_time", None)
             if event_dt:
                 date_str = _format_ticket_date(event_dt, lang=lang)
+
+        if getattr(event, "event_type", "") == "mixer":
+            from crush_lu.services.mixer_ticket import build_mixer_ticket_directives
+
+            return build_mixer_ticket_directives(
+                registration=registration,
+                event=event,
+                paper=paper,
+                coach_authenticated=coach_authenticated,
+                lang=lang,
+                date_str=date_str,
+                logo_path=_get_crush_ghost_logo_path(),
+            )
 
         table_display = "WELCOME" if lang != "fr" else "BIENVENUE"
         if table_number:
