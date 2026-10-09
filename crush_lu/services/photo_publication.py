@@ -167,10 +167,12 @@ def drop_publication(profile, photo_field):
     rows = PublishedProfilePhoto.objects.filter(
         profile_id=profile.pk, photo_field=photo_field
     )
-    for key in list(rows.values_list("photo_key", flat=True)):
-        if key:
-            _delete_blob_on_commit(profile, photo_field, key)
+    keys = [key for key in rows.values_list("photo_key", flat=True) if key]
+    # Row first, file after commit: a file is never deleted while a row
+    # still points at it.
     rows.delete()
+    for key in keys:
+        _delete_blob_on_commit(profile, photo_field, key)
 
 
 def held_photo_keys(profile):

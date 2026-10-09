@@ -1689,14 +1689,21 @@ class CrushProfile(models.Model):
                 and field.attname in self.__dict__
                 and field.attname not in omit_review_fields
             }
-        super().save(*args, **kwargs)
         if uploaded_slots or cleared_slots:
+            from django.db import transaction
+
             from crush_lu.services import photo_publication
 
-            for field_name in uploaded_slots:
-                photo_publication.record_photo_upload(self, field_name)
-            for field_name in cleared_slots:
-                photo_publication.drop_publication(self, field_name)
+            # One transaction: the cleared field and its removed publication
+            # commit together, and a removed file is deleted only after both.
+            with transaction.atomic():
+                super().save(*args, **kwargs)
+                for field_name in uploaded_slots:
+                    photo_publication.record_photo_upload(self, field_name)
+                for field_name in cleared_slots:
+                    photo_publication.drop_publication(self, field_name)
+        else:
+            super().save(*args, **kwargs)
         # This instance is now in step with the row, so a later save on it
         # judges "touched since" against what was actually written.
         self._loaded_language = (

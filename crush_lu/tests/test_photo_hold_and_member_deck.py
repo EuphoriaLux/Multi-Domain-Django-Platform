@@ -813,3 +813,25 @@ def test_deleting_a_photo_keeps_the_approved_file_if_the_save_fails(
     assert key not in deleted_blobs
     profile.refresh_from_db()
     assert get_public_photo_key(profile, "photo_1") == key
+
+
+def test_removed_publication_row_is_gone_before_its_file_is_deleted(monkeypatch):
+    coach, profile = _make_coach(), _make_candidate()
+    _decide(coach, profile, ("photo_1", "approved", "clear_authentic"))
+    profile.refresh_from_db()
+    key = profile.photo_1.name
+    rows_when_deleted = []
+
+    def record(name):
+        rows_when_deleted.append(
+            (name, PublishedProfilePhoto.objects.filter(photo_key=name).exists())
+        )
+
+    monkeypatch.setattr(
+        CrushProfile._meta.get_field("photo_1").storage, "delete", record
+    )
+    profile.photo_1 = None
+    with TestCase.captureOnCommitCallbacks(execute=True):
+        profile.save(update_fields=["photo_1"])
+    assert (key, False) in rows_when_deleted
+    assert (key, True) not in rows_when_deleted
