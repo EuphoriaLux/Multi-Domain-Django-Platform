@@ -1290,12 +1290,17 @@ class CrushProfile(models.Model):
         )
 
     def get_coach_reviewed_secondary_photo_fields(self):
-        """Secondary slots safe to include in a Connect member-facing gallery."""
+        """Secondary slots safe to include in a Connect member-facing gallery.
+
+        A slot whose replacement waits for review (or was refused) still
+        shows its earlier approved photo, like the primary slot.
+        """
+        from crush_lu.services.photo_publication import get_public_photo_key
+
         return [
             photo_field
             for photo_field in ("photo_2", "photo_3")
-            if getattr(self, photo_field)
-            and self.is_photo_field_review_approved(photo_field)
+            if getattr(self, photo_field) and get_public_photo_key(self, photo_field)
         ]
 
     def mark_current_photo_verified(
@@ -1452,6 +1457,7 @@ class CrushProfile(models.Model):
 
         omit_review_fields = ()
         uploaded_slots = []
+        cleared_slots = []
         if self.pk:  # Only on update, not create
             try:
                 old_instance = CrushProfile.objects.get(pk=self.pk)
@@ -1645,9 +1651,10 @@ class CrushProfile(models.Model):
                         "update_fields"
                     ) is None or field_name in set(kwargs["update_fields"])
                     if writes_slot and not new_key:
-                        photo_publication.drop_publication(
-                            self, field_name, live_key=old_key
-                        )
+                        # Removed: its published file goes too, once the
+                        # save below has succeeded (the old live file stays
+                        # until then if it is the published one).
+                        cleared_slots.append(field_name)
                     elif writes_slot and not getattr(
                         self, "_skip_photo_upload_record", False
                     ):
@@ -1683,11 +1690,13 @@ class CrushProfile(models.Model):
                 and field.attname not in omit_review_fields
             }
         super().save(*args, **kwargs)
-        if uploaded_slots:
+        if uploaded_slots or cleared_slots:
             from crush_lu.services import photo_publication
 
             for field_name in uploaded_slots:
                 photo_publication.record_photo_upload(self, field_name)
+            for field_name in cleared_slots:
+                photo_publication.drop_publication(self, field_name)
         # This instance is now in step with the row, so a later save on it
         # judges "touched since" against what was actually written.
         self._loaded_language = (

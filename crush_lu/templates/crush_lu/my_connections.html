@@ -91,7 +91,7 @@
                                 <div class="flex items-center">
                                     <!-- Profile Photo -->
                                     <div class="mr-4">
-                                        {% if connection.recipient.crushprofile|has_photo:'photo_1' %}
+                                        {% if connection.recipient.crushprofile|has_public_photo:'photo_1' %}
                                             <img src="{% profile_photo_url connection.recipient.crushprofile 'photo_1' %}"
                                                  alt="{{ connection.recipient.crushprofile.display_name }}"
                                                  class="w-14 h-14 rounded-full object-cover"
@@ -125,7 +125,7 @@
                                 <div class="flex items-center">
                                     <!-- Profile Photo -->
                                     <div class="mr-4">
-                                        {% if connection.recipient.crushprofile|has_photo:'photo_1' %}
+                                        {% if connection.recipient.crushprofile|has_public_photo:'photo_1' %}
                                             <img src="{% profile_photo_url connection.recipient.crushprofile 'photo_1' %}"
                                                  alt="{{ connection.recipient.crushprofile.display_name }}"
                                                  class="w-14 h-14 rounded-full object-cover"

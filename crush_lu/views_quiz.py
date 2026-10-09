@@ -607,8 +607,15 @@ def quiz_display_photo(request, user_id):
 
     from .services.photo_publication import photo_for_viewer
 
-    # Projected to the room: a held replacement waits for coach review.
-    photo = photo_for_viewer(request.user, profile, "photo_1")
+    # Projected to the room, whoever operates the display: the public
+    # (coach-approved) photo whenever there is one, so a replacement waiting
+    # for review never reaches the room. Only without one does the owner
+    # still get their own upload.
+    photo = photo_for_viewer(None, profile, "photo_1") or (
+        photo_for_viewer(request.user, profile, "photo_1")
+        if request.user.pk == profile.user_id
+        else None
+    )
     if not photo:
         raise Http404("No photo")
 

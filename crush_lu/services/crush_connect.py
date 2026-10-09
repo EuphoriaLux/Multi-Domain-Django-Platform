@@ -26,6 +26,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Exists, F, OuterRef, Q, QuerySet
 from django.utils import timezone
+from crush_lu.services.photo_publication import primary_photo_in_review
 
 if TYPE_CHECKING:
     from django.contrib.auth.models import User
@@ -279,6 +280,8 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
         or not user_profile.is_approved
         or not user_profile.is_active
         or user_profile.photo_review_status in ("needs_revision", "flagged_fake")
+        # Not shown to others until a coach approves the photo: same both ways.
+        or primary_photo_in_review(user_profile)
         or not user.is_active
     ):
         return User.objects.none()
@@ -575,6 +578,7 @@ def is_premium_connect_eligible(user) -> bool:
         and profile.is_approved
         and profile.photo_1
         and profile.photo_review_status not in ("flagged_fake", "needs_revision")
+        and not primary_photo_in_review(profile)
         and profile.has_active_premium
         and membership is not None
         and profile.is_active

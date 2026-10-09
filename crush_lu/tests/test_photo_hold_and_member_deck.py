@@ -208,7 +208,8 @@ def test_removing_a_photo_also_removes_its_held_approved_file(deleted_blobs):
     _replace(profile, "photo_1", "users/1/photos/new.jpg")
 
     profile.photo_1 = None
-    profile.save(update_fields=["photo_1"])
+    with TestCase.captureOnCommitCallbacks(execute=True):
+        profile.save(update_fields=["photo_1"])
     assert old_key in deleted_blobs
     assert "users/1/photos/new.jpg" in deleted_blobs
     assert not PublishedProfilePhoto.objects.filter(profile=profile).exists()
@@ -607,3 +608,107 @@ def test_failed_save_does_not_use_up_the_upload_limit(monkeypatch):
         profile.save(update_fields=["photo_2"])
     monkeypatch.undo()
     assert ProfilePhotoUpload.objects.count() == before
+
+
+# --- Second review round -------------------------------------------------------
+
+
+def test_member_with_a_photo_in_review_cannot_see_others_either():
+    from crush_lu.services.crush_connect import is_premium_connect_eligible
+    from crush_lu.services.event_lobby import GATE_PHOTO_IN_REVIEW, participant_gate
+    from crush_lu.services.photo_publication import primary_photo_in_review
+
+    profile = _make_candidate()
+    PublishedProfilePhoto.objects.filter(profile=profile).delete()
+    user = User.objects.get(pk=profile.user_id)
+
+    assert primary_photo_in_review(profile)
+    assert participant_gate(user) == (False, GATE_PHOTO_IN_REVIEW)
+    assert not is_premium_connect_eligible(user)
+
+    coach = _make_coach()
+    _decide(coach, profile, ("photo_1", "approved", "clear_authentic"))
+    profile.refresh_from_db()
+    assert not primary_photo_in_review(profile)
+    assert participant_gate(User.objects.get(pk=profile.user_id))[1] != (
+        GATE_PHOTO_IN_REVIEW
+    )
+
+
+def test_photo_tag_renders_the_fallback_for_an_unapproved_photo():
+    from django.template import Context, Template
+    from django.test import RequestFactory
+
+    profile = _make_candidate()
+    PublishedProfilePhoto.objects.filter(profile=profile).delete()
+    template = Template(
+        "{% load crush_media %}{% profile_photo profile 'photo_1' %}"
+        "|{% if profile|has_public_photo:'photo_1' %}yes{% else %}no{% endif %}"
+    )
+
+    def render(user):
+        request = RequestFactory().get("/")
+        request.user = user
+        return template.render(Context({"profile": profile, "request": request}))
+
+    other = render(_make_candidate("other_member").user)
+    assert "/media/profile/" not in other
+    assert other.endswith("|no")
+    assert "/media/profile/" in render(profile.user)
+
+
+def test_removing_a_photo_keeps_the_approved_file_if_the_save_fails(
+    deleted_blobs, monkeypatch
+):
+    from django.db import models as dj_models
+
+    coach, profile = _make_coach(), _make_candidate()
+    _decide(coach, profile, ("photo_1", "approved", "clear_authentic"))
+    profile.refresh_from_db()
+    old_key = profile.photo_1.name
+    _replace(profile, "photo_1", "users/1/photos/new.jpg")
+
+    def boom(self, *args, **kwargs):
+        raise RuntimeError("database down")
+
+    monkeypatch.setattr(dj_models.Model, "save", boom)
+    profile.photo_1 = None
+    with pytest.raises(RuntimeError):
+        profile.save(update_fields=["photo_1"])
+    monkeypatch.undo()
+    assert old_key not in deleted_blobs
+    assert PublishedProfilePhoto.objects.filter(photo_key=old_key).exists()
+
+
+def test_projector_shows_the_approved_photo_to_its_owner_too(settings):
+    settings.AZURE_ACCOUNT_NAME = ""
+    coach, profile = _make_coach(), _make_candidate()
+    _decide(coach, profile, ("photo_1", "approved", "clear_authentic"))
+    profile.refresh_from_db()
+    _replace(profile, "photo_1", "users/1/photos/new.jpg")
+    opened = []
+
+    def exists(path):
+        if "/photos/" in str(path):
+            opened.append(str(path))
+        return False
+
+    with patch("crush_lu.views_quiz._can_view_quiz_photo", return_value=True), patch(
+        "crush_lu.views_quiz.os.path.exists", side_effect=exists
+    ):
+        client = Client()
+        client.force_login(profile.user)
+        client.get(f"/api/quiz/photo/{profile.user_id}/")
+    assert opened and opened[0].endswith("users/1/photos/photo1.jpg")
+
+
+def test_gallery_keeps_an_approved_secondary_photo_while_its_replacement_waits():
+    coach, profile = _make_coach(), _make_candidate()
+    _replace(profile, "photo_2", "users/1/photos/second.jpg")
+    _decide(coach, profile, ("photo_2", "approved", "clear_authentic"))
+    profile.refresh_from_db()
+    assert profile.get_coach_reviewed_secondary_photo_fields() == ["photo_2"]
+
+    _replace(profile, "photo_2", "users/1/photos/second-new.jpg")
+    assert profile.get_coach_reviewed_secondary_photo_fields() == ["photo_2"]
+    assert get_public_photo_key(profile, "photo_2") == "users/1/photos/second.jpg"

@@ -57,6 +57,38 @@ def has_photo(profile, photo_field):
 
 
 @register.filter
+def has_public_photo(profile, photo_field):
+    """Whether *other members* may see this photo slot.
+
+    Use instead of ``has_photo`` on pages that show another member: a photo
+    that no coach has approved yet is refused by the photo endpoint, so the
+    page should render its fallback rather than a broken image.
+
+        {% if other_profile|has_public_photo:'photo_1' %}
+    """
+    from crush_lu.services.photo_publication import get_public_photo_key
+
+    return bool(profile) and bool(get_public_photo_key(profile, photo_field))
+
+
+def _viewer_sees_live_photo(context, profile):
+    """The owner, active coaches and superusers see the live upload."""
+    request = context.get("request")
+    user = getattr(request, "user", None)
+    if user is None or not user.is_authenticated:
+        return False
+    if user.pk == profile.user_id or user.is_superuser:
+        return True
+    cached = getattr(request, "_crush_viewer_is_coach", None)
+    if cached is None:
+        from crush_lu.models import CrushCoach
+
+        cached = CrushCoach.objects.filter(user=user, is_active=True).exists()
+        request._crush_viewer_is_coach = cached
+    return cached
+
+
+@register.filter
 def split_interests(value):
     """Split a comma-separated interests string into a list of trimmed items.
 
@@ -67,8 +99,8 @@ def split_interests(value):
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-@register.inclusion_tag('crush_lu/components/profile_photo.html')
-def profile_photo(profile, photo_field, css_class='', alt_text='Profile photo',
+@register.inclusion_tag('crush_lu/components/profile_photo.html', takes_context=True)
+def profile_photo(context, profile, photo_field, css_class='', alt_text='Profile photo',
                   fallback='initials', hide_photo=False):
     """
     Render a profile photo with consistent fallback.
@@ -93,6 +125,13 @@ def profile_photo(profile, photo_field, css_class='', alt_text='Profile photo',
         Rendered component
     """
     photo = getattr(profile, photo_field, None) if profile and not hide_photo else None
+    if photo and not _viewer_sees_live_photo(context, profile):
+        # Other members only ever see an approved photo (photo_publication):
+        # render the fallback instead of a URL the endpoint refuses.
+        from crush_lu.services.photo_publication import get_public_photo_key
+
+        if not get_public_photo_key(profile, photo_field):
+            photo = None
 
     if photo:
         photo_url = reverse('crush_lu:serve_profile_photo', kwargs={

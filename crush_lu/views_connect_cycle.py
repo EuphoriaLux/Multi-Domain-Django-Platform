@@ -82,6 +82,12 @@ def _connect_week_access_blocker(user):
             {"section": "photos", "next": reverse("crush_lu:connect_week_home")}
         )
         return redirect(f"{reverse('crush_lu:edit_profile')}?{query}")
+    from crush_lu.services.photo_publication import primary_photo_in_review
+
+    if primary_photo_in_review(profile):
+        # Not shown to others until a coach approves the photo, so no cards
+        # either; the hub's photo step explains the wait.
+        return redirect("crush_lu:crush_connect_hub")
 
     if membership is None or membership.onboarded_at is None:
         if (

@@ -50,6 +50,7 @@ GATE_NO_LUXID = "no_luxid"
 GATE_NO_PHOTO_CONSENT = "no_photo_consent"
 GATE_NO_PHOTO = "no_photo"
 GATE_PHOTO_REVISION = "photo_revision"
+GATE_PHOTO_IN_REVIEW = "photo_in_review"
 
 
 class LobbyAccessError(Exception):
@@ -170,6 +171,12 @@ def participant_gate(user) -> tuple[bool, str]:
         return False, GATE_NO_PHOTO_CONSENT
     if not profile.photo_1:
         return False, GATE_NO_PHOTO
+    from crush_lu.services.photo_publication import primary_photo_in_review
+
+    if primary_photo_in_review(profile):
+        # Others cannot see this member until a coach approves the photo, so
+        # the lobby does not show others to them either (same rule both ways).
+        return False, GATE_PHOTO_IN_REVIEW
     return True, GATE_OK
 
 

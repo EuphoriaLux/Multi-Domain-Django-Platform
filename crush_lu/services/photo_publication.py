@@ -155,11 +155,12 @@ def restore_publication(profile, photo_field, photo_key):
     )
 
 
-def drop_publication(profile, photo_field, *, live_key=""):
+def drop_publication(profile, photo_field):
     """The member removed the slot: the published file goes too.
 
-    ``live_key`` is the file the caller already deletes; any other published
-    file is deleted here so a removed photo never stays reachable.
+    Called after the profile row was saved without the photo. The row goes
+    now and the file after commit, so a removed photo never stays reachable
+    and a rolled-back save keeps the approved photo intact.
     """
     from crush_lu.models import PublishedProfilePhoto
 
@@ -167,11 +168,8 @@ def drop_publication(profile, photo_field, *, live_key=""):
         profile_id=profile.pk, photo_field=photo_field
     )
     for key in list(rows.values_list("photo_key", flat=True)):
-        if key and key != live_key:
-            try:
-                profile._meta.get_field(photo_field).storage.delete(key)
-            except Exception:
-                logger.warning("Could not delete published profile photo %s", key)
+        if key:
+            _delete_blob_on_commit(profile, photo_field, key)
     rows.delete()
 
 
@@ -221,3 +219,18 @@ def photo_upload_refusal(profile, photo_field):
         "%(hours)s hours.",
         hours,
     ) % {"hours": hours}
+
+
+def primary_photo_in_review(profile):
+    """The member has a main photo, but no coach has approved one yet.
+
+    Others cannot see them (see ``get_public_photo_key``), so Connect and the
+    event lobby do not let them see others either until a coach approves it.
+    A coach-moderated photo has its own, actionable gates.
+    """
+    return bool(
+        profile is not None
+        and profile.photo_1
+        and profile.photo_review_status not in MODERATED_STATUSES
+        and not get_public_photo_key(profile, "photo_1")
+    )
