@@ -24,8 +24,9 @@ from typing import TYPE_CHECKING, List, Tuple
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Exists, OuterRef, Q, QuerySet
+from django.db.models import Exists, F, OuterRef, Q, QuerySet
 from django.utils import timezone
+from crush_lu.services.photo_publication import primary_photo_in_review
 
 if TYPE_CHECKING:
     from django.contrib.auth.models import User
@@ -207,20 +208,54 @@ def exclude_assigned_coach_pairs(qs, user, field="pk"):
 
 
 def filter_primary_photo_review_approved(qs, profile_prefix="crushprofile"):
-    """Drop members whose exact current primary photo a coach moderated.
+    """Keep members whose primary photo other members may actually see.
 
-    Pending (not yet reviewed) photos stay eligible, as before per-photo review.
+    Same rule as ``photo_publication.get_public_photo_key``: the current file
+    is approved (per-image state or legacy primary decision), or a photo is
+    published and the current file is not coach-moderated, or an earlier
+    approved photo is published while its replacement waits for review or
+    was refused. A first upload waits for coach approval, so listing that
+    member would only show a photo the endpoint refuses.
     """
-    from crush_lu.models import ProfilePhotoReviewState
+    from crush_lu.models import ProfilePhotoReviewState, PublishedProfilePhoto
 
+    live_key = OuterRef(f"{profile_prefix}__photo_1")
+    profile_pk = OuterRef(f"{profile_prefix}__pk")
     moderated = ProfilePhotoReviewState.objects.filter(
-        profile_id=OuterRef(f"{profile_prefix}__pk"),
+        profile_id=profile_pk,
         photo_field="photo_1",
-        photo_key=OuterRef(f"{profile_prefix}__photo_1"),
+        photo_key=live_key,
         status__in=("needs_revision", "flagged_fake"),
     )
-    return qs.annotate(_coach_moderated_primary=Exists(moderated)).filter(
-        _coach_moderated_primary=False
+    approved = ProfilePhotoReviewState.objects.filter(
+        profile_id=profile_pk,
+        photo_field="photo_1",
+        photo_key=live_key,
+        status="approved",
+    )
+    published = PublishedProfilePhoto.objects.filter(
+        profile_id=profile_pk, photo_field="photo_1"
+    )
+    return qs.annotate(
+        _coach_moderated_primary=Exists(moderated),
+        _approved_primary=Exists(approved),
+        _published_primary=Exists(published),
+        _published_earlier_primary=Exists(published.exclude(photo_key=live_key)),
+    ).filter(
+        Q(_published_earlier_primary=True)
+        | Q(
+            Q(_approved_primary=True)
+            | Q(_published_primary=True)
+            | Q(
+                **{
+                    f"{profile_prefix}__photo_review_status": "approved",
+                    f"{profile_prefix}__photo_review_key": F(
+                        f"{profile_prefix}__photo_1"
+                    ),
+                }
+            ),
+            _coach_moderated_primary=False,
+        )
     )
 
 
@@ -245,6 +280,8 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
         or not user_profile.is_approved
         or not user_profile.is_active
         or user_profile.photo_review_status in ("needs_revision", "flagged_fake")
+        # Not shown to others until a coach approves the photo: same both ways.
+        or primary_photo_in_review(user_profile)
         or not user.is_active
     ):
         return User.objects.none()
@@ -505,10 +542,12 @@ def filter_catalogue_eligible(qs):
 def is_catalogue_eligible(user) -> bool:
     """
     Whether ``user`` currently qualifies for the candidate catalogue:
-    verified profile WITH a photo + LuxID linked + onboarded (not
+    verified profile WITH a published photo + LuxID linked + onboarded (not
     coach-excluded) + active within CONNECT_INACTIVITY_WINDOW_DAYS +
     photo not flagged or awaiting revision.
     """
+    from crush_lu.services.photo_publication import get_public_photo_key
+
     profile = getattr(user, "crushprofile", None)
     membership = getattr(user, "crush_connect_membership", None)
     inactivity_cutoff = timezone.now() - timedelta(days=CONNECT_INACTIVITY_WINDOW_DAYS)
@@ -517,6 +556,8 @@ def is_catalogue_eligible(user) -> bool:
         and profile.verification_status == "verified"
         and profile.photo_1
         and profile.photo_review_status not in ("flagged_fake", "needs_revision")
+        # A first primary photo waits for coach approval before members see it.
+        and get_public_photo_key(profile, "photo_1")
         and profile.is_connect_identity_verified
         and membership is not None
         and profile.is_active
@@ -537,6 +578,7 @@ def is_premium_connect_eligible(user) -> bool:
         and profile.is_approved
         and profile.photo_1
         and profile.photo_review_status not in ("flagged_fake", "needs_revision")
+        and not primary_photo_in_review(profile)
         and profile.has_active_premium
         and membership is not None
         and profile.is_active

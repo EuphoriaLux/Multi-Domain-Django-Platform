@@ -41,6 +41,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Q
 from django.utils import timezone
+from crush_lu.services.photo_publication import primary_photo_in_review
 
 User = get_user_model()
 
@@ -144,6 +145,8 @@ def get_cycle_eligible_pool(user):
         or not user_profile.is_approved
         or not user_profile.is_active
         or user_profile.photo_review_status in ("needs_revision", "flagged_fake")
+        # Not shown to others until a coach approves the photo: same both ways.
+        or primary_photo_in_review(user_profile)
         or not user.is_active
     ):
         return User.objects.none()

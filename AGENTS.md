@@ -116,6 +116,8 @@ EN/DE/FR via `i18n_patterns` (language-prefixed URLs like `/fr/…`) **plus** `d
 
 `crush_lu/STYLE.md` is the **canonical visual + component reference** — read it before touching any `crush_lu/templates/crush_lu/` page. It defines the four canonical button variants, design tokens (brand colors live in **four** places that must stay in sync), shared component partials, and the Alpine.js mixin pattern.
 
+**Member photos are held until a coach approves them.** Other members only ever see a slot's *published* file (`PublishedProfilePhoto`, `crush_lu/services/photo_publication.py`): the last coach-approved photo. The live `CrushProfile.photo_N` is what the member uploaded last and is shown only to the owner, active coaches and superusers. Any new surface that serves a member's photo to someone else must go through `photo_for_viewer()` / `get_public_photo()`, never `profile.photo_1` directly. Coach review is one card per member (`services/photo_review.py`), claimed with `PhotoReviewClaim` so two coaches never get the same member.
+
 **Alpine.js runs under a CSP build** (no inline expressions with args): compose shared behaviour with the `mixin(target, source)` helper in `crush_lu/static/crush_lu/js/alpine/shared.js` — **never `Object.assign`/spread**, which silently kills getters. Register named components via `Alpine.data`.
 
 A **pre-commit design-token linter** (`crush_lu/scripts/lint_design_tokens.py`, wired in `.pre-commit-config.yaml`) flags hardcoded brand hexes and deprecated button classes in changed `crush_lu/templates/crush_lu/*.html` files. Install with `pip install pre-commit && pre-commit install`.

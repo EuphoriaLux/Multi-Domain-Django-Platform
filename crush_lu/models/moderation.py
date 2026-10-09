@@ -19,6 +19,8 @@ the in-person/coach-mediated product never required (review finding C2):
 Blocking is silent: the blocked user is never notified (standard practice).
 """
 
+import uuid
+
 from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
@@ -239,6 +241,12 @@ class ProfilePhotoReviewLog(models.Model):
     # exclusion, so Undo can remove a row the member never started.
     membership_created = models.BooleanField(default=False)
     withdrawn_picks = models.JSONField(default=list, blank=True)
+    # One member card's decisions share a batch: they are undone together and
+    # the member receives a single replacement request for all of them.
+    batch_id = models.UUIDField(null=True, blank=True, db_index=True)
+    # The slot's published (member-visible) file before this decision, so
+    # Undo can restore it when it is still the same file.
+    previous_published_key = models.CharField(max_length=255, blank=True)
     report = models.ForeignKey(
         UserReport, null=True, blank=True, on_delete=models.SET_NULL
     )
@@ -305,3 +313,88 @@ class ProfilePhotoReviewState(models.Model):
 
     def __str__(self):
         return f"{self.profile} {self.photo_field}: {self.status}"
+
+
+PHOTO_SLOT_CHOICES = (
+    ("photo_1", _("Primary photo")),
+    ("photo_2", _("Photo 2")),
+    ("photo_3", _("Photo 3")),
+)
+
+
+class PublishedProfilePhoto(models.Model):
+    """The file other members see for one photo slot.
+
+    The live ``CrushProfile.photo_N`` is what the member uploaded last; this
+    is the last file a coach approved (or that was already live when held
+    replacements were introduced). A replacement therefore never reaches
+    other members before a coach approves it, while the owner and coaches
+    keep seeing the live upload. The old blob is kept while it is published.
+    """
+
+    profile = models.ForeignKey(
+        "crush_lu.CrushProfile",
+        on_delete=models.CASCADE,
+        related_name="published_photos",
+    )
+    photo_field = models.CharField(max_length=7, choices=PHOTO_SLOT_CHOICES)
+    photo_key = models.CharField(max_length=255)
+    published_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("profile", "photo_field"),
+                name="unique_published_photo_per_slot",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.profile} {self.photo_field}: {self.photo_key}"
+
+
+class ProfilePhotoUpload(models.Model):
+    """One member upload into a photo slot, counted for the daily limit."""
+
+    profile = models.ForeignKey(
+        "crush_lu.CrushProfile",
+        on_delete=models.CASCADE,
+        related_name="photo_uploads",
+    )
+    photo_field = models.CharField(max_length=7, choices=PHOTO_SLOT_CHOICES)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=("profile", "photo_field", "created_at"),
+                name="photo_upload_slot_idx",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.profile} {self.photo_field} @ {self.created_at:%Y-%m-%d %H:%M}"
+
+
+class PhotoReviewClaim(models.Model):
+    """A short lease that keeps one member card in one coach's deck.
+
+    Other coaches' queues skip a member while the claim is live, so two
+    coaches never review the same member at the same time. Claims expire on
+    their own; nothing needs to release them for correctness.
+    """
+
+    profile = models.OneToOneField(
+        "crush_lu.CrushProfile",
+        on_delete=models.CASCADE,
+        related_name="photo_review_claim",
+    )
+    coach = models.ForeignKey(
+        "crush_lu.CrushCoach",
+        on_delete=models.CASCADE,
+        related_name="photo_review_claims",
+    )
+    expires_at = models.DateTimeField(db_index=True)
+
+    def __str__(self):
+        return f"{self.profile} claimed by {self.coach} until {self.expires_at}"

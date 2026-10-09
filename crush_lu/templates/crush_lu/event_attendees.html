@@ -344,7 +344,7 @@
                         <div class="flex items-start gap-4">
                             <!-- Profile Photo -->
                             <div class="shrink-0">
-                                {% if attendee.profile and attendee.profile|has_photo:'photo_1' %}
+                                {% if attendee.profile and attendee.profile|has_public_photo:'photo_1' %}
                                     <img src="{% profile_photo_url attendee.profile 'photo_1' %}"
                                          alt="{{ attendee.profile.display_name }}"
                                          class="w-20 h-20 rounded-full object-cover"

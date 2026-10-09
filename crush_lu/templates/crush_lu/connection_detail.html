@@ -75,7 +75,7 @@
             <div class="card-bordered p-6 lg:sticky lg:top-24">
                 {# Photo #}
                 <div class="text-center mb-4">
-                    {% if connection.status == 'shared' and other_profile|has_photo:'photo_1' %}
+                    {% if connection.status == 'shared' and other_profile|has_public_photo:'photo_1' %}
                         <img src="{% profile_photo_url other_profile 'photo_1' %}"
                              alt="{{ other_profile.display_name }}"
                              class="w-28 h-28 rounded-full object-cover mx-auto mb-3 ring-4 ring-purple-100 dark:ring-purple-900/50"

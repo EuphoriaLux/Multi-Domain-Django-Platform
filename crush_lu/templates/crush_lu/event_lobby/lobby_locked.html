@@ -17,7 +17,7 @@ count, or any hint of who is inside (§13).
         <div class="rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-6 text-center">
             <p class="text-3xl mb-3" aria-hidden="true">🔒</p>
             <h1 class="font-display text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                {% if gate_reason == "photo_revision" %}
+                {% if gate_reason == "photo_revision" or gate_reason == "photo_in_review" %}
                 {% trans "Profile photo review" %}
                 {% else %}
                 {% trans "Finish Crush Connect to join the Event Lobby" %}
@@ -26,6 +26,8 @@ count, or any hint of who is inside (§13).
             <p class="text-sm leading-relaxed text-gray-600 dark:text-gray-300 mb-5">
                 {% if gate_reason == "photo_revision" %}
                 {% trans "A coach requested an updated photo. Please upload a clear photo of yourself." %}
+                {% elif gate_reason == "photo_in_review" %}
+                {% trans "A coach is checking your new photo. Others in the lobby see you, and you see them, as soon as it is approved." %}
                 {% elif phase == "recap" %}
                 {% trans "Finish Crush Connect now to join this event's open recap and confirm who you met." %}
                 {% else %}
@@ -33,11 +35,13 @@ count, or any hint of who is inside (§13).
                 {% endif %}
             </p>
             {% url 'crush_lu:event_lobby' event.pk as lobby_url %}
-            <a href="{% if gate_reason == "not_onboarded" or gate_reason == "no_membership" %}{% url 'crush_lu:crush_connect_onboarding' %}?event_id={{ event.pk }}{% elif gate_reason == "photo_revision" %}{% url 'crush_lu:edit_profile' %}?section=photos&amp;next={{ lobby_url|urlencode:'' }}{% else %}{% url 'crush_lu:crush_connect_teaser' %}{% endif %}" class="btn-crush-primary inline-flex">
+            <a href="{% if gate_reason == "not_onboarded" or gate_reason == "no_membership" %}{% url 'crush_lu:crush_connect_onboarding' %}?event_id={{ event.pk }}{% elif gate_reason == "photo_revision" or gate_reason == "photo_in_review" %}{% url 'crush_lu:edit_profile' %}?section=photos&amp;next={{ lobby_url|urlencode:'' }}{% else %}{% url 'crush_lu:crush_connect_teaser' %}{% endif %}" class="btn-crush-primary inline-flex">
                 {% if gate_reason == "not_onboarded" or gate_reason == "no_membership" %}
                 {% trans "Finish Crush Connect" %}
                 {% elif gate_reason == "photo_revision" %}
                 {% trans "Update photo" %}
+                {% elif gate_reason == "photo_in_review" %}
+                {% trans "View my photos" %}
                 {% else %}
                 {% trans "About Crush Connect" %}
                 {% endif %}

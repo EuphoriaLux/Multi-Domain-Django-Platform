@@ -30,6 +30,7 @@ from crush_lu.models import (
     CrushProfile,
     PremiumPaymentRecoveryCase,
     ProfilePhotoReviewState,
+    PublishedProfilePhoto,
     ProfileSubmission,
     EventRegistration,
     EventConnection,
@@ -1743,9 +1744,18 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
                     ):
                         continue
                 if old_status == "flagged_fake":
-                    ProfilePhotoReviewState.objects.filter(
-                        profile_id=pk, status="flagged_fake"
-                    ).delete()
+                    # A suspected fake goes back to coach review, not straight
+                    # back in front of members: every photo is reviewed again
+                    # and nothing stays published until a coach approves it
+                    # (services/photo_publication). A held approved file that
+                    # is no longer live has no other reference: delete it.
+                    from crush_lu.services.photo_publication import (
+                        delete_held_photos_on_commit,
+                    )
+
+                    delete_held_photos_on_commit(profile)
+                    ProfilePhotoReviewState.objects.filter(profile_id=pk).delete()
+                    PublishedProfilePhoto.objects.filter(profile_id=pk).delete()
                 else:
                     # Every slot's revision request, current file or not.
                     if not ProfilePhotoReviewState.objects.filter(

@@ -58,6 +58,8 @@
      data-scope="{{ scope }}"
      data-error="{% trans 'Could not complete this action. Please try again.' %}"
      data-picks-not-restored="{% trans "Undone. Some Coach's Picks could not be restored because the members' situation changed." %}"
+     data-progress="{% trans 'Photo {current} of {total} to review' %}"
+     data-approved-label="{% trans 'Approved' %}"
      @keydown.window="handleKeydown">
     {% csrf_token %}
     <div class="flex items-center justify-between gap-3 px-4 lg:px-0 mb-4">
@@ -76,7 +78,7 @@
            class="btn-crush-outline btn-sm {% if scope == 'all' %}ring-2 ring-crush-purple{% endif %}"
            {% if scope == 'all' %}aria-current="page"{% endif %}>{% trans "Crush overall" %}</a>
     </nav>
-    <p class="text-sm text-muted-fg px-4 lg:px-0 mb-4">{% trans "Each card reviews one image. Other photos are shown for context; the decision applies to the labeled image only. Reviews are shared between both queues." %}</p>
+    <p class="text-sm text-muted-fg px-4 lg:px-0 mb-4">{% trans "Each card is one member. Decide every photo waiting for review; the member gets one message listing the photos to replace. While a card is in your deck, other coaches do not get it. Reviews are shared between both queues." %}</p>
     <p role="alert" class="text-red-700 dark:text-red-300 mb-3" x-show="hasError" x-text="errorMessage" x-cloak></p>
     <p role="status" class="text-sm text-muted-fg mb-3" x-show="hasNotice" x-text="noticeMessage" x-cloak></p>
     <template x-if="currentCard">
@@ -86,14 +88,28 @@
                      :style="cardTransformStyle" @pointerdown="startDrag" @pointermove="onDrag" @pointerup="endDrag" @pointercancel="cancelDrag">
                     <img :src="currentPhotoUrl" :alt="cardName" class="w-full h-full object-contain pointer-events-none" draggable="false">
                 </div>
+                <div class="absolute top-3 inset-x-3 flex items-center justify-between gap-2 pointer-events-none">
+                    <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-black/60 text-white backdrop-blur-sm" x-text="activePhotoLabel"></span>
+                    <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-black/60 text-white backdrop-blur-sm" x-text="activePhotoStatus"></span>
+                </div>
                 <div class="absolute bottom-3 inset-x-3 flex items-center justify-between gap-3" x-show="hasMultiplePhotos">
                     <button type="button" class="btn-crush-outline btn-sm bg-white/90 backdrop-blur-sm shadow-sm" @click="prevPhoto">{% trans "Previous photo" %}</button>
                     <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-black/60 text-white backdrop-blur-sm" x-text="photoIndicatorText"></span>
                     <button type="button" class="btn-crush-outline btn-sm bg-white/90 backdrop-blur-sm shadow-sm" @click="nextPhoto">{% trans "Next photo" %}</button>
                 </div>
             </div>
-            <div x-show="isSecondaryPhoto" class="p-3 text-sm text-muted-fg">
-                {% trans "This card is reviewing" %} <span x-text="reviewPhotoLabel"></span>. {% trans "Return to that image before deciding." %}
+            <div class="px-4 lg:px-0 pt-3 space-y-2">
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">
+                    <span x-text="reviewProgressText"></span>: <span x-text="reviewPhotoLabel"></span>
+                </p>
+                <p x-show="isReplacement" class="text-xs text-muted-fg">{% trans "This photo replaces one a coach already approved. Members keep seeing the approved photo until you approve this one." %}</p>
+                <div x-show="hasCardDecisions" class="flex flex-wrap items-center gap-2 text-xs text-muted-fg">
+                    <span x-text="cardDecisionSummary"></span>
+                    <button type="button" class="btn-crush-outline btn-sm" @click="restartCard" :disabled="isSubmitting">{% trans "Start this card over" %}</button>
+                </div>
+            </div>
+            <div x-show="isSecondaryPhoto" class="px-4 lg:px-0 pt-2 text-sm text-muted-fg">
+                {% trans "You are deciding on" %} <span x-text="reviewPhotoLabel"></span>. {% trans "Return to that image before deciding." %}
                 <button type="button" class="btn-crush-outline btn-sm" @click="showReviewPhoto">{% trans "Show image under review" %}</button>
             </div>
             <div class="px-4 py-5 lg:px-0 space-y-4">
@@ -186,7 +202,7 @@
         <button type="button" class="btn-crush-solid btn-sm" @click="approveCurrentCard" :disabled="actionsDisabled">{% trans "Approve" %}</button>
     </div>
     <div x-show="isEmpty" x-cloak class="text-center py-8 space-y-4">
-        <p>{% trans "No more photos in this review pass." %}</p>
+        <p>{% trans "No more members in this review pass." %}</p>
         <button type="button" class="btn-crush-solid" @click="restartQueue" :disabled="isLoading">{% trans "Start a New Review Pass" %}</button>
     </div>
     <p role="status" x-show="isLoading" x-cloak class="text-center text-muted-fg mt-4">{% trans "Loading…" %}</p>
@@ -202,7 +218,7 @@
                     {% endfor %}
                 </select>
             </div>
-            <p class="text-sm text-muted-fg mb-3">{% trans "Fake profiles are excluded from Connect. Other reasons ask the member to replace their photo." %}</p>
+            <p class="text-sm text-muted-fg mb-3">{% trans "Fake profiles are excluded from Connect, and the flag is sent on its own. Other reasons ask the member to replace this photo." %}</p>
             <p class="text-sm text-muted-fg mb-3">{% trans "For photo replacement requests, the selected reason is sent in the member's language. Coach notes stay internal." %}</p>
             <label for="photo-review-notes" class="block text-sm mb-1">{% trans "Internal coach note (optional, 255 characters maximum)" %}</label>
             <textarea id="photo-review-notes" :value="flagNotes" @input="updateFlagNotes" maxlength="255" rows="3" class="input-crush w-full"></textarea>

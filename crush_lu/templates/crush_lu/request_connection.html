@@ -15,7 +15,7 @@
         <!-- Profile Card -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
             <div class="text-center py-8 px-6">
-                {% if recipient.crushprofile|has_photo:'photo_1' %}
+                {% if recipient.crushprofile|has_public_photo:'photo_1' %}
                     <img src="{% profile_photo_url recipient.crushprofile 'photo_1' %}"
                          alt="{{ recipient.crushprofile.display_name }}"
                          class="w-28 h-28 rounded-full object-cover mx-auto mb-4"

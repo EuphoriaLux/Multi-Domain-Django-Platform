@@ -1,5 +1,6 @@
-{% load i18n socialaccount %}
-<div class="photo-upload-card {% if is_main %}photo-upload-card--main{% endif %}"
+{% load i18n socialaccount crush_media %}
+{% if photo %}{% member_photo_review slot as review %}{% endif %}
+<div class="photo-upload-card {% if is_main %}photo-upload-card--main{% endif %}{% if review.state == 'needs_replacement' %} ring-2 ring-red-500{% endif %}"
      x-data="photoPicker"
      data-slot="{{ slot }}"
      @click.away="close"
@@ -117,6 +118,21 @@
             {% include "shared/icons/arrow-path.html" with class="w-5 h-5 tw-animate-spin" %} {% trans "Uploading..." %}
         </span>
     </div>
+    {% if error %}
+    <div class="mt-2 p-2 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-sm text-red-800 dark:text-red-200" role="alert">{{ error }}</div>
+    {% endif %}
+    {% if review.state == 'needs_replacement' %}
+    <div class="mt-2 p-2 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-sm text-red-800 dark:text-red-200" role="status">
+        <strong class="block">{% blocktrans with reason=review.reason_label %}Needs replacement: {{ reason }}{% endblocktrans %}</strong>
+        <span>{{ review.advice }}</span>
+        {% if review.held %}<span class="block mt-1 text-xs">{% trans "Other members still see your previous approved photo." %}</span>{% else %}<span class="block mt-1 text-xs">{% trans "Other members do not see this photo." %}</span>{% endif %}
+    </div>
+    {% elif review.state == 'in_review' %}
+    <div class="mt-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-muted-fg" role="status">
+        <strong class="block">{% trans "In review" %}</strong>
+        {% if review.held %}{% trans "Other members keep seeing your previous approved photo until a coach approves this one." %}{% else %}{% trans "Other members will see this photo once a coach approves it." %}{% endif %}
+    </div>
+    {% endif %}
     <div class="photo-help" id="photo-help-{{ slot }}">
         {% if is_main %}
             {% if photo %}{% trans "Upload to replace" %}{% else %}{% trans "Your primary photo" %}{% endif %}

@@ -45246,3 +45246,149 @@ msgstr ""
 
 msgid "Internal coach note (optional, 255 characters maximum)"
 msgstr "Note interne du coach (facultative, 255 caractères maximum)"
+
+msgid "Main photo"
+msgstr "Photo principale"
+
+msgid "Photo 2"
+msgstr "Photo 2"
+
+msgid "Photo 3"
+msgstr "Photo 3"
+
+msgid "Waiting for review"
+msgstr "En attente de vérification"
+
+msgid "Replacement requested"
+msgstr "Remplacement demandé"
+
+msgid "Flagged"
+msgstr "Signalée"
+
+msgid "A fake-profile flag cannot be combined with other decisions."
+msgstr ""
+"Un signalement de faux profil ne peut pas être combiné avec d’autres "
+"décisions."
+
+msgid "Another coach is reviewing this member. Skip to the next card."
+msgstr "Un autre coach vérifie ce membre. Passez à la carte suivante."
+
+msgid ""
+"Your coach asked you to replace these photos: %(photos)s. The rest of your "
+"profile can stay as it is."
+msgstr ""
+"Votre coach vous a demandé de remplacer ces photos : %(photos)s. Le reste de"
+" votre profil peut rester tel quel."
+
+msgid "Please replace %(count)s of your profile photos"
+msgstr "Veuillez remplacer %(count)s de vos photos de profil"
+
+msgid ""
+"Your coach asked you to replace these photos. The rest of your profile can "
+"stay as it is."
+msgstr ""
+"Votre coach vous a demandé de remplacer ces photos. Le reste de votre profil"
+" peut rester tel quel."
+
+msgid ""
+"On your profile, these photos are marked “Needs replacement”. Upload a new "
+"photo in each of them. You do not need to change anything else."
+msgstr ""
+"Sur votre profil, ces photos sont marquées « À remplacer ». Ajoutez une "
+"nouvelle photo pour chacune d’elles. Vous n’avez rien d’autre à modifier."
+
+msgid ""
+"Until a coach has checked your new photo, other members keep seeing your "
+"previous approved photo, if you had one."
+msgstr ""
+"Tant qu’un coach n’a pas vérifié votre nouvelle photo, les autres membres "
+"continuent de voir votre photo approuvée précédente, si vous en aviez une."
+
+msgid "Needs replacement: %(reason)s"
+msgstr "À remplacer : %(reason)s"
+
+msgid "Other members still see your previous approved photo."
+msgstr "Les autres membres voient toujours votre photo approuvée précédente."
+
+msgid "Other members do not see this photo."
+msgstr "Les autres membres ne voient pas cette photo."
+
+msgid "In review"
+msgstr "En cours de vérification"
+
+msgid ""
+"Other members keep seeing your previous approved photo until a coach "
+"approves this one."
+msgstr ""
+"Les autres membres continuent de voir votre photo approuvée précédente "
+"jusqu’à ce qu’un coach approuve celle-ci."
+
+msgid "Other members will see this photo once a coach approves it."
+msgstr ""
+"Les autres membres verront cette photo dès qu’un coach l’aura approuvée."
+
+msgid "Photo {current} of {total} to review"
+msgstr "Photo {current} sur {total} à vérifier"
+
+msgid ""
+"Each card is one member. Decide every photo waiting for review; the member "
+"gets one message listing the photos to replace. While a card is in your "
+"deck, other coaches do not get it. Reviews are shared between both queues."
+msgstr ""
+"Chaque carte correspond à un membre. Décidez pour chaque photo en attente ; "
+"le membre reçoit un seul message listant les photos à remplacer. Tant qu’une"
+" carte est dans votre pile, les autres coachs ne la reçoivent pas. Les "
+"vérifications sont partagées entre les deux files."
+
+msgid ""
+"This photo replaces one a coach already approved. Members keep seeing the "
+"approved photo until you approve this one."
+msgstr ""
+"Cette photo remplace une photo déjà approuvée par un coach. Les membres "
+"voient la photo approuvée jusqu’à ce que vous approuviez celle-ci."
+
+msgid "Start this card over"
+msgstr "Recommencer cette carte"
+
+msgid "You are deciding on"
+msgstr "Vous décidez pour"
+
+msgid "No more members in this review pass."
+msgstr "Plus aucun membre dans ce passage de vérification."
+
+msgid ""
+"Fake profiles are excluded from Connect, and the flag is sent on its own. "
+"Other reasons ask the member to replace this photo."
+msgstr ""
+"Les faux profils sont exclus de Connect, et le signalement est envoyé seul. "
+"Les autres motifs demandent au membre de remplacer cette photo."
+
+msgid ""
+"You have changed this photo too often today. Please try again in %(hours)s "
+"hour."
+msgid_plural ""
+"You have changed this photo too often today. Please try again in %(hours)s "
+"hours."
+msgstr[0] ""
+"Vous avez modifié cette photo trop souvent aujourd’hui. Veuillez réessayer "
+"dans %(hours)s heure."
+msgstr[1] ""
+"Vous avez modifié cette photo trop souvent aujourd’hui. Veuillez réessayer "
+"dans %(hours)s heures."
+
+msgid ""
+"A coach is checking your new photo. Others in the lobby see you, and you see"
+" them, as soon as it is approved."
+msgstr ""
+"Un coach vérifie votre nouvelle photo. Dès qu’elle est approuvée, les autres"
+" membres du lobby vous voient, et vous les voyez."
+
+msgid "View my photos"
+msgstr "Voir mes photos"
+
+msgid ""
+"A coach is checking your photo. Connect opens for you as soon as it is "
+"approved."
+msgstr ""
+"Un coach vérifie votre photo. Connect s’ouvre pour vous dès qu’elle est "
+"approuvée."

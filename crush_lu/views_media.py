@@ -63,18 +63,10 @@ def can_view_profile_photo(viewer, profile_owner, photo_field="photo_1"):
     if viewer.is_superuser:
         return True
 
-    # A fake-profile flag remains profile-wide. The primary photo stays visible
-    # until a coach moderates it (pending is fine); secondary photos need an
-    # approval of the exact current file.
-    if profile_owner.photo_review_status == "flagged_fake":
-        return False
-    if photo_field == "photo_1":
-        if profile_owner.get_photo_field_review_status("photo_1") in (
-            "needs_revision",
-            "flagged_fake",
-        ):
-            return False
-    elif not profile_owner.is_photo_field_review_approved(photo_field):
+    # Other members see only a slot's published file: the last one a coach
+    # approved. A replacement waits for review while the earlier approved
+    # photo stays; a fake-profile flag hides every slot.
+    if not profile_owner.get_public_photo(photo_field):
         return False
 
     # Profile must be approved for others to see
@@ -369,8 +361,16 @@ def serve_profile_photo(request, user_id, photo_field):
         )
         raise PermissionDenied("You don't have permission to view this photo")
 
-    # Get the photo field
-    photo = getattr(profile, photo_field)
+    # The owner and reviewers see the live upload; everyone else the
+    # published file (a held replacement stays invisible to them).
+    from .services.photo_publication import photo_for_viewer
+
+    photo = photo_for_viewer(
+        request.user,
+        profile,
+        photo_field,
+        privileged=is_coach or request.user.is_superuser,
+    )
     if not photo:
         raise Http404("Photo not found")
 

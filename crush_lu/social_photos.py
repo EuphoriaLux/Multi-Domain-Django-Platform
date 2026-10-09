@@ -678,17 +678,10 @@ def download_and_save_social_photo(user, social_account, photo_slot):
         raw_file = ContentFile(image_data, name=filename)
         processed = process_uploaded_image(raw_file, filename)
 
-        # Save to appropriate photo field
+        # Save to appropriate photo field. The replaced file is cleaned up by
+        # CrushProfile.save(), which keeps it while other members still see
+        # it as the approved photo (services/photo_publication.py).
         photo_field = getattr(profile, f'photo_{photo_slot}')
-
-        # Delete existing photo if any
-        if photo_field:
-            try:
-                photo_field.delete(save=False)
-            except Exception:
-                pass
-
-        # Save new photo
         photo_field.save(filename, processed, save=False)
         profile.save()
 

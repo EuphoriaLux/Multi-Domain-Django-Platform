@@ -15,6 +15,7 @@ from crush_lu.models import (
     CrushConnectMembership,
     CrushProfile,
     ProfilePhotoReviewLog,
+    ProfilePhotoReviewState,
     UserReport,
 )
 from crush_lu.notification_service import NotificationService, NotificationType
@@ -120,6 +121,16 @@ def test_moderated_member_loses_persisted_connect_week_cards(
         profile = CrushProfile.objects.get(user=me)
         profile.photo_1 = "users/1/photos/replacement.jpg"
         profile.save(update_fields=["photo_1"])
+        # Others cannot see an unapproved photo, so Connect stays closed to
+        # this member too until a coach approves it (photo_publication).
+        response = client.get(WEEK_HOME_URL)
+        assert response.status_code == 302
+        assert response["Location"] == "/en/crush-connect/home/"
+        ProfilePhotoReviewState.objects.update_or_create(
+            profile=profile,
+            photo_field="photo_1",
+            defaults={"photo_key": profile.photo_1.name, "status": "approved"},
+        )
     else:
         # A fake flag lifts only by an explicit staff decision.
         CrushProfile.objects.filter(user=me).update(photo_review_status="pending")

@@ -18,6 +18,7 @@ from crush_lu.models import (
     CrushProfile,
     ProfilePhotoReviewLog,
     ProfilePhotoReviewState,
+    PublishedProfilePhoto,
     UserDataConsent,
 )
 from crush_lu.services.photo_review import (
@@ -62,6 +63,10 @@ def _review(coach, profile, decision="approved", **kwargs):
 def _approve_primary_photo(profile):
     now = timezone.now()
     photo_key = profile.photo_1.name
+    # An approval also publishes the photo to other members.
+    PublishedProfilePhoto.objects.update_or_create(
+        profile=profile, photo_field="photo_1", defaults={"photo_key": photo_key}
+    )
     ProfilePhotoReviewState.objects.update_or_create(
         profile=profile,
         photo_field="photo_1",
@@ -178,9 +183,9 @@ def test_queue_has_bounded_verification_queries_and_excludes_coach_total(
     CrushProfile.objects.create(user=coach.user, photo_1="coach.jpg")
     for number in range(30):
         _make_candidate(f"queued_{number}", has_luxid=number % 2 == 0)
-    # Each image slot is counted and keyset-selected independently, then
-    # interests and review states are prefetched in batches (never per card).
-    with django_assert_max_num_queries(8):
+    # One count and one keyset page of members, prefetches in batches (never
+    # per card) and a constant number of claim queries for the whole page.
+    with django_assert_max_num_queries(9):
         cards, total = get_photo_review_queue(coach, limit=30)
     assert len(cards) == total == 30
     assert sum(card["is_luxid_verified"] for card in cards) == 15
@@ -247,7 +252,18 @@ def test_revision_default_feedback_uses_member_language(
     profile.save(update_fields=["preferred_language"])
     with TestCase.captureOnCommitCallbacks(execute=True):
         _review(coach, profile, "needs_revision", reason="inappropriate")
-    assert word in isolate_review_side_effects.call_args.kwargs["feedback"]
+    kwargs = isolate_review_side_effects.call_args.kwargs
+    assert kwargs["photos"] == [{"photo_field": "photo_1", "reason": "inappropriate"}]
+    # The notice resolves the standard feedback in the member's language.
+    from crush_lu.notification_service import NotificationService, NotificationType
+
+    payload = NotificationService._render_inapp_payload(
+        profile.user,
+        NotificationType.PHOTO_REVISION,
+        {"photo_review_log_id": kwargs["photo_review_log_id"], **kwargs},
+        None,
+    )
+    assert word in payload["body"]
 
 
 @pytest.mark.parametrize("door", [True, False])
@@ -522,7 +538,9 @@ def test_revision_notifies_after_commit_and_uses_reason(isolate_review_side_effe
         profile.save(update_fields=["photo_1"])
         _review(coach, profile, "needs_revision", reason="inappropriate")
     isolate_review_side_effects.assert_called_once()
-    assert "inappropriate" in isolate_review_side_effects.call_args.kwargs["feedback"]
+    assert isolate_review_side_effects.call_args.kwargs["photos"] == [
+        {"photo_field": "photo_1", "reason": "inappropriate"}
+    ]
 
 
 def test_revision_rollback_sends_no_notification(isolate_review_side_effects):
@@ -560,7 +578,7 @@ def test_errors_never_expose_exception_details():
     client = Client()
     client.force_login(coach.user)
     with patch(
-        "crush_lu.views_coach_photos.submit_photo_review",
+        "crush_lu.views_coach_photos.submit_member_review",
         side_effect=RuntimeError("SECRET database internals"),
     ):
         response = _post(client, profile)

@@ -23,25 +23,19 @@ from crush_lu.throttling import QuizPinRateThrottle, ratelimit_view
 
 logger = logging.getLogger(__name__)
 
-# A coach judged these images unfit to show. The projector puts the photo in
-# front of the whole room, so no coach, creator or staff privilege reopens it.
-_MODERATED_PHOTO_STATUSES = ("needs_revision", "flagged_fake")
-
 
 def _photo_url(profile):
     """Return the quiz photo URL, or None when ``quiz_display_photo`` would 404.
 
-    Mirrors that view's gates (approved profile with an unmoderated photo_1).
+    Mirrors that view's gates (approved profile with a primary photo other
+    members may see, see ``photo_publication.get_public_photo_key``).
     Emitting a URL for an unapproved profile made every projector poll
     re-request a photo the endpoint refuses; the initials avatar is the
     intended fallback.
     """
-    if (
-        profile
-        and profile.is_approved
-        and getattr(profile, "photo_1", None)
-        and profile.photo_review_status not in _MODERATED_PHOTO_STATUSES
-    ):
+    from .services.photo_publication import get_public_photo_key
+
+    if profile and profile.is_approved and get_public_photo_key(profile, "photo_1"):
         return f"/api/quiz/photo/{profile.user_id}/"
     return None
 
@@ -600,12 +594,9 @@ def quiz_display_photo(request, user_id):
     if not profile.is_approved:
         raise Http404("Profile not approved")
 
-    if (
-        profile.photo_review_status in _MODERATED_PHOTO_STATUSES
-        and request.user.pk != profile.user_id
-    ):
-        raise Http404("Photo under moderation")
-
+    # Moderation is decided by photo_for_viewer below: a refused replacement
+    # still projects the earlier approved photo, a moderated photo without
+    # one projects nothing.
     if not _can_view_quiz_photo(request.user, profile.user_id):
         logger.warning(
             "quiz_display_photo denied: viewer=%s owner=%s",
@@ -614,7 +605,17 @@ def quiz_display_photo(request, user_id):
         )
         raise PermissionDenied("You don't have permission to view this photo")
 
-    photo = getattr(profile, "photo_1", None)
+    from .services.photo_publication import photo_for_viewer
+
+    # Projected to the room, whoever operates the display: the public
+    # (coach-approved) photo whenever there is one, so a replacement waiting
+    # for review never reaches the room. Only without one does the owner
+    # still get their own upload.
+    photo = photo_for_viewer(None, profile, "photo_1") or (
+        photo_for_viewer(request.user, profile, "photo_1")
+        if request.user.pk == profile.user_id
+        else None
+    )
     if not photo:
         raise Http404("No photo")
 

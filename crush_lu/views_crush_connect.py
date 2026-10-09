@@ -219,7 +219,14 @@ def _connect_readiness(user):
     photo_moderated = photo_needs_revision or bool(
         profile and profile.photo_review_status == "flagged_fake"
     )
-    has_photo = bool(profile and profile.photo_1 and not photo_moderated)
+    from crush_lu.services.photo_publication import primary_photo_in_review
+
+    # Others see the member only once a coach approved a photo (same rule
+    # both ways), so a photo still in review leaves this step open.
+    photo_in_review = primary_photo_in_review(profile)
+    has_photo = bool(
+        profile and profile.photo_1 and not photo_moderated and not photo_in_review
+    )
     has_photo_consent = bool(membership and membership.photo_share_consent)
     is_onboarded = bool(membership and membership.is_onboarded)
     has_questions = bool(membership and membership.has_gate_questions)
@@ -260,13 +267,25 @@ def _connect_readiness(user):
         {
             "key": "photo",
             "complete": has_photo,
-            "title": _("Profile photo review") if photo_needs_revision else _("Profile photo"),
+            "title": (
+                _("Profile photo review")
+                if photo_needs_revision or photo_in_review
+                else _("Profile photo")
+            ),
             "description": (
                 _("A coach requested an updated photo. Please upload a clear photo of yourself.")
                 if photo_needs_revision
+                else _("A coach is checking your photo. Connect opens for you as soon as it is approved.")
+                if photo_in_review
                 else _("A profile photo is required for your daily Connect suggestions.")
             ),
-            "cta_label": _("Update photo") if photo_needs_revision else _("Add a photo"),
+            "cta_label": (
+                _("Update photo")
+                if photo_needs_revision
+                else _("View my photos")
+                if photo_in_review
+                else _("Add a photo")
+            ),
             "cta_url": reverse("crush_lu:edit_profile") + "?section=photos",
         },
         {

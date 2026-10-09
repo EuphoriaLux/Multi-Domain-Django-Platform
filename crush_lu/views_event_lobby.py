@@ -309,14 +309,16 @@ def event_lobby_person_photo(request, user_id):
     if other is None:
         raise Http404("Photo not found")
 
-    if other.crushprofile.photo_review_status in (
-        "needs_revision",
-        "flagged_fake",
-    ) and not (
-        _user_is_active_coach(request.user) or request.user.is_superuser
-    ):
-        raise Http404("Photo not found")
-    photo = other.crushprofile.photo_1
+    from .services.photo_publication import photo_for_viewer
+
+    # Coaches see the live upload; members only the published (approved)
+    # file, which also hides a moderated or held photo.
+    photo = photo_for_viewer(
+        request.user,
+        other.crushprofile,
+        "photo_1",
+        privileged=_user_is_active_coach(request.user) or request.user.is_superuser,
+    )
     if not photo:
         raise Http404("Photo not found")
     try:
@@ -583,15 +585,14 @@ def lobby_photo(request, event_id, handle):
 
     # Lobby authorization stays authoritative; add only the moderation rule,
     # since the generic route has different pair-authorization requirements.
-    if target.user.crushprofile.photo_review_status in (
-        "needs_revision",
-        "flagged_fake",
-    ):
-        if target.user_id != request.user.pk and not (
-            _user_is_active_coach(request.user) or request.user.is_superuser
-        ):
-            raise Http404("Photo not found")
-    photo = target.user.crushprofile.photo_1
+    from .services.photo_publication import photo_for_viewer
+
+    photo = photo_for_viewer(
+        request.user,
+        target.user.crushprofile,
+        "photo_1",
+        privileged=_user_is_active_coach(request.user) or request.user.is_superuser,
+    )
     if not photo:
         raise Http404("Photo not found")
 

@@ -439,15 +439,35 @@ class CrushProfileForm(forms.ModelForm):
 
     def clean_photo_1(self):
         """Validate photo_1: file size, type, and image content"""
-        return self._validate_photo(self.cleaned_data.get('photo_1'), 'Photo 1')
+        return self._validate_photo(
+            self._check_photo_upload_limit(self.cleaned_data.get('photo_1'), 'photo_1'),
+            'Photo 1',
+        )
 
     def clean_photo_2(self):
         """Validate photo_2: file size, type, and image content"""
-        return self._validate_photo(self.cleaned_data.get('photo_2'), 'Photo 2')
+        return self._validate_photo(
+            self._check_photo_upload_limit(self.cleaned_data.get('photo_2'), 'photo_2'),
+            'Photo 2',
+        )
 
     def clean_photo_3(self):
         """Validate photo_3: file size, type, and image content"""
-        return self._validate_photo(self.cleaned_data.get('photo_3'), 'Photo 3')
+        return self._validate_photo(
+            self._check_photo_upload_limit(self.cleaned_data.get('photo_3'), 'photo_3'),
+            'Photo 3',
+        )
+
+    def _check_photo_upload_limit(self, photo, photo_field):
+        """Refuse a new file once the slot's daily upload limit is used up."""
+        from django.core.files.uploadedfile import UploadedFile
+        from .services.photo_publication import photo_upload_refusal
+
+        if isinstance(photo, UploadedFile) and self.instance and self.instance.pk:
+            refusal = photo_upload_refusal(self.instance, photo_field)
+            if refusal:
+                raise forms.ValidationError(refusal)
+        return photo
 
     def _validate_photo(self, photo, field_name):
         """
