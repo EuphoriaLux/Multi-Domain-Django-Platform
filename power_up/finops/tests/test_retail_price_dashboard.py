@@ -482,6 +482,11 @@ def test_region_lookups_never_scale_with_submitted_region_values(client, regular
     """Repeated or invented region values cost no extra queries."""
     _sync_region(timezone.localdate(), "westeurope", "10.00000000")
     client.force_login(regular_user)
+    # Warm the process-level caches cache.clear() does not reset (the
+    # site-config context processor creates its row on the first render), so
+    # both measured requests start from the same state.
+    client.get("/finops/prices/", {"region": ["westeurope"]})
+    cache.clear()
 
     with CaptureQueriesContext(connection) as few:
         client.get("/finops/prices/", {"region": ["westeurope"]})
