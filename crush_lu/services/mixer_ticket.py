@@ -13,8 +13,8 @@ Replaces the speed-dating ticket for ``event_type == "mixer"``. Each guest gets:
 
 Numbering
 ---------
-Numbers are stored on ``EventRegistration.event_number`` and never change once
-given, because they are printed on badges and on other guests' lists.
+Numbers are stored in ``MixerTicketNumber`` (one row per event and
+registration) and never change once given, because they are printed on badges and on other guests' lists.
 
 The first real ticket print of the event assigns them all at once:
 confirmed/attended/no_show registrations 1..N in registration order (pk), then
@@ -143,41 +143,45 @@ def printable(text: str) -> str:
 def assign_event_numbers(event: MeetupEvent) -> None:
     """Give every seated or waiting registration a number; never renumber.
 
-    Locks the event row first, then reads the registrations inside the lock,
-    so two desk devices printing at once cannot hand out one number twice
-    (the partial unique constraint turns any slip into an error on Postgres).
+    Locks the event row first, then reads inside the lock, so two desk devices
+    printing at once cannot hand out one number twice (the unique constraints
+    turn any slip into an error). Numbers live in their own table, so no save
+    of a registration can ever rewrite one.
     """
     from django.db import transaction
     from django.db.models import Max
 
-    from crush_lu.models import EventRegistration, MeetupEvent
+    from crush_lu.models import EventRegistration, MeetupEvent, MixerTicketNumber
 
     with transaction.atomic():
         MeetupEvent.objects.select_for_update().only("pk").get(pk=event.pk)
-        regs = EventRegistration.objects.filter(event=event)
+        numbered = MixerTicketNumber.objects.filter(event=event)
         missing = list(
-            regs.filter(
-                event_number__isnull=True,
-                status__in=SEATED_STATUSES + WAITING_STATUSES,
-            ).values_list("pk", "status")
+            EventRegistration.objects.filter(
+                event=event, status__in=SEATED_STATUSES + WAITING_STATUSES
+            )
+            .exclude(pk__in=numbered.values("registration_id"))
+            .values_list("pk", "status")
         )
         if not missing:
             return
-        top = regs.aggregate(top=Max("event_number"))["top"] or 0
+        top = numbered.aggregate(top=Max("number"))["top"] or 0
         seated = sorted(pk for pk, status in missing if status in SEATED_STATUSES)
         waiting = sorted(pk for pk, status in missing if status in WAITING_STATUSES)
-        for number, pk in enumerate(seated + waiting, top + 1):
-            EventRegistration.objects.filter(pk=pk).update(event_number=number)
+        MixerTicketNumber.objects.bulk_create(
+            MixerTicketNumber(event=event, registration_id=pk, number=number)
+            for number, pk in enumerate(seated + waiting, top + 1)
+        )
 
 
 def event_numbers(event: MeetupEvent) -> dict[int, int]:
-    """Registration pk -> stored event number (any status)."""
-    from crush_lu.models import EventRegistration
+    """Registration pk -> ticket number for this event (any current status)."""
+    from crush_lu.models import MixerTicketNumber
 
     return dict(
-        EventRegistration.objects.filter(
-            event=event, event_number__isnull=False
-        ).values_list("pk", "event_number")
+        MixerTicketNumber.objects.filter(event=event).values_list(
+            "registration_id", "number"
+        )
     )
 
 
@@ -272,7 +276,7 @@ def affinity_list(
     assign_event_numbers(event)
     numbers = event_numbers(event)
     regs = list(
-        EventRegistration.objects.filter(event=event, event_number__isnull=False)
+        EventRegistration.objects.filter(event=event, pk__in=list(numbers))
         .select_related("user__crushprofile", "user__data_consent")
         .prefetch_related("user__crushprofile__interests_new")
         .order_by("pk")
@@ -498,7 +502,9 @@ def build_mixer_ticket_directives(
     )
     png = _big_number_png(number)
     if png:
-        out.append(Image(source=png, width=432, align=Align.CENTER))
+        # 80 mm rolls print 576 dots, 58 mm rolls 384: stay well inside either.
+        raster_width = 432 if cols >= 48 else 336
+        out.append(Image(source=png, width=raster_width, align=Align.CENTER))
     else:
         out.append(
             Text(

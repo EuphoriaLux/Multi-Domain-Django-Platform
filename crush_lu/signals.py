@@ -3685,24 +3685,16 @@ def remember_previous_registration_status(sender, instance, **kwargs):
     field being written), which for waitlist promotion means handing out a seat
     per save rather than per cancellation.
 
-    One indexed primary-key lookup; deliberately fetches only the columns.
-
-    It also keeps a stored mixer ``event_number``. Numbers are assigned with
-    ``QuerySet.update()`` at the first ticket print, so any instance loaded
-    before that (an admin form, a view holding the row) still carries None
-    and a full ``save()`` would wipe a number already printed on badges.
+    One indexed primary-key lookup; deliberately fetches only the column.
     """
     if not instance.pk:
         instance._previous_status = None
         return
-    stored = (
+    instance._previous_status = (
         EventRegistration.objects.filter(pk=instance.pk)
-        .values_list("status", "event_number")
+        .values_list("status", flat=True)
         .first()
     )
-    instance._previous_status = stored[0] if stored else None
-    if stored and stored[1] is not None and instance.event_number is None:
-        instance.event_number = stored[1]
 
 
 @receiver(post_save, sender=EventRegistration)

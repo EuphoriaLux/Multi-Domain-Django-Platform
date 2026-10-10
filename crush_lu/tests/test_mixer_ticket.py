@@ -402,3 +402,44 @@ class MixerTicketTests(TestCase):
         )
         self.assertIn("Pas de noms. Pas de photos. Que des chiffres.", text)
         self.assertTrue(all(len(line) <= 48 for line in text.splitlines()))
+
+    def test_stale_full_save_cannot_wipe_a_number(self):
+        stale = EventRegistration.objects.get(pk=self.regs[5].pk)  # loaded first
+        before = self._numbers()
+        stale.special_requests = "edited in the admin"
+        stale.save()
+        self.assertEqual(self._numbers(), before)
+
+    def test_moving_a_registration_leaves_its_number_with_the_old_event(self):
+        before = self._numbers()
+        other = MeetupEvent.objects.create(
+            title="Other mixer",
+            description="",
+            event_type="mixer",
+            location="Atmos",
+            date_time=timezone.now() + timedelta(days=3),
+            registration_deadline=timezone.now() + timedelta(days=2),
+            duration_minutes=120,
+            max_participants=20,
+            is_published=True,
+        )
+        moved = self.regs[0]
+        moved.event = other
+        moved.save()
+        assign_event_numbers(other)
+        self.assertEqual(event_numbers(other), {moved.pk: 1})
+        self.assertEqual(self._numbers(), before)
+        _, rows, _ = affinity_list(self.regs[1], self.event)
+        self.assertNotIn(before[moved.pk], [n for n, _ in rows])
+
+    def test_58mm_badge_raster_fits_the_roll(self):
+        from power_up.atmos.printing.layout import Image, Paper
+
+        from crush_lu.services.ticket_printer import build_checkin_ticket_directives
+
+        directives = build_checkin_ticket_directives(
+            registration=self.regs[0], event=self.event, paper=Paper.MM58
+        )
+        widths = [d.width for d in directives if isinstance(d, Image)]
+        self.assertTrue(widths)
+        self.assertTrue(all(w <= 384 for w in widths))

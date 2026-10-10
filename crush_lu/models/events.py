@@ -1639,14 +1639,6 @@ class EventRegistration(models.Model):
         default="",
         help_text=_("Signed token for QR check-in"),
     )
-    # Social Mixer "Find your number": assigned once, at the event's first real
-    # ticket print, and never changed afterwards -- printed badges and other
-    # guests' lists carry it. See crush_lu/services/mixer_ticket.py.
-    event_number = models.PositiveIntegerField(
-        null=True,
-        blank=True,
-        help_text="Mixer ticket number, frozen at the first print",
-    )
     checked_in_at = models.DateTimeField(
         null=True,
         blank=True,
@@ -1824,15 +1816,6 @@ class EventRegistration(models.Model):
             models.Index(
                 fields=["user", "status"],
                 name="eventreg_user_status",
-            ),
-        ]
-        constraints = [
-            # Two badges with one number would break the game; on Postgres a
-            # concurrent double assignment fails loudly instead.
-            models.UniqueConstraint(
-                fields=["event", "event_number"],
-                condition=models.Q(event_number__isnull=False),
-                name="eventreg_unique_event_number",
             ),
         ]
 
@@ -4404,3 +4387,41 @@ class EventFeedback(models.Model):
     @property
     def is_detractor(self):
         return self.nps_score <= 6
+
+
+class MixerTicketNumber(models.Model):
+    """A guest's Social Mixer "Find your number" ticket number.
+
+    Its own table rather than a column on ``EventRegistration``: the number is
+    printed on badges and on other guests' lists, so it must never change, and
+    a full ``save()`` of a registration instance loaded before the number was
+    assigned would otherwise write it back as NULL. Keyed on the event as well,
+    so a registration an admin moves to another event leaves its number with
+    the event it was printed for. Assigned by
+    ``crush_lu.services.mixer_ticket.assign_event_numbers``.
+    """
+
+    event = models.ForeignKey(
+        MeetupEvent, on_delete=models.CASCADE, related_name="mixer_ticket_numbers"
+    )
+    registration = models.ForeignKey(
+        EventRegistration,
+        on_delete=models.CASCADE,
+        related_name="mixer_ticket_numbers",
+    )
+    number = models.PositiveIntegerField()
+    assigned_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event", "number"], name="mixerticket_unique_number"
+            ),
+            models.UniqueConstraint(
+                fields=["event", "registration"],
+                name="mixerticket_unique_registration",
+            ),
+        ]
+
+    def __str__(self):
+        return f"#{self.number} ({self.event_id})"
