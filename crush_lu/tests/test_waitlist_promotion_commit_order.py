@@ -8,8 +8,9 @@ the promoted row's own save queues on commit, ahead of any later callback.
 
 Its own module because it needs ``django_db(transaction=True)``: Django's
 ``TestCase`` defers every on_commit callback to the end of the test, so it
-cannot show this ordering. Flushing tests are paired with the seeded-row
-restore by ``crush_lu/tests/conftest.py``, which works per module.
+cannot show this ordering, nor that the callbacks run inside the canceller's
+request. Flushing tests are paired with the seeded-row restore by
+``crush_lu/tests/conftest.py``, which works per module.
 """
 
 from datetime import date, timedelta
@@ -32,8 +33,7 @@ class WorkerKilled(BaseException):
     ``except Exception`` on the way out can swallow it."""
 
 
-@pytest.fixture
-def seat(django_user_model):
+def _seat(django_user_model, *, waiter_has_profile=True):
     """A one-seat event, its seat-holder, and a waitlisted member who has
     switched off event-reminder emails."""
     from crush_lu.models import (
@@ -55,22 +55,25 @@ def seat(django_user_model):
         max_participants=1,
         registration_deadline=timezone.now() + timedelta(days=5),
         is_published=True,
+        # Only an open event admits an account without a CrushProfile.
+        **({} if waiter_has_profile else {"profile_requirement": "none"}),
     )
 
-    def member(email):
+    def member(email, profile=True):
         user = django_user_model.objects.create_user(
             username=email, email=email, password="testpass123"
         )
-        CrushProfile.objects.create(
-            user=user, date_of_birth=date(1995, 1, 1), gender="F", location="Lux"
-        )
+        if profile:
+            CrushProfile.objects.create(
+                user=user, date_of_birth=date(1995, 1, 1), gender="F", location="Lux"
+            )
         UserDataConsent.objects.update_or_create(
             user=user, defaults={"crushlu_consent_given": True}
         )
         return user
 
     holder_user = member("order-holder@example.com")
-    waiter = member("order-waiter@example.com")
+    waiter = member("order-waiter@example.com", profile=waiter_has_profile)
     prefs = EmailPreference.get_or_create_for_user(waiter)
     prefs.email_event_reminders = False
     prefs.save()
@@ -85,6 +88,11 @@ def seat(django_user_model):
             event=event, user=waiter, status="waitlist"
         ),
     )
+
+
+@pytest.fixture
+def seat(django_user_model):
+    return _seat(django_user_model)
 
 
 def _bell_seen_when(seat, target):
@@ -105,11 +113,11 @@ def _bell_seen_when(seat, target):
     return seen, patch(target, side_effect=record)
 
 
-def _cancel_page(seat):
+def _cancel_page(seat, language="en"):
     """The seat-holder cancels on their own page, as on crush.lu."""
     client = Client(HTTP_HOST="crush.lu")
     client.force_login(seat.holder_user)
-    return client.post(f"/en/events/{seat.event.id}/cancel/")
+    return client.post(f"/{language}/events/{seat.event.id}/cancel/")
 
 
 def test_cancellation_made_outside_the_member_page(seat):
@@ -197,3 +205,25 @@ def test_member_cancel_page_bell_survives_a_hung_wallet_refresh(
         _cancel_page(seat)
 
     _assert_bell_committed_with_the_seat(seat, wallet_refresh_hangs)
+
+
+def test_notice_ignores_the_cancellers_language(django_user_model):
+    """The notice is about another member. One without a CrushProfile has no
+    stored language and gets the site default, not the French of the
+    canceller whose request runs the promotion and its callbacks."""
+    from crush_lu.models import CrushProfile, Notification
+
+    seat = _seat(django_user_model, waiter_has_profile=False)
+    CrushProfile.objects.filter(user=seat.holder_user).update(preferred_language="fr")
+
+    response = _cancel_page(seat, language="fr")
+
+    assert response.status_code == 302
+    seat.waiting.refresh_from_db()
+    assert seat.waiting.status == "confirmed"
+    bell = Notification.objects.get(user=seat.waiter, notification_type=BELL_TYPE)
+    assert bell.title == "A spot opened up: you're in for Commit Order Mixer"
+    [sent] = [m for m in mail.outbox if seat.waiter.email in m.to]
+    assert sent.subject == "Event Registration Confirmed - Commit Order Mixer"
+    assert f"https://crush.lu/en/events/{seat.event.id}/" in sent.body
+    assert "/fr/" not in sent.body

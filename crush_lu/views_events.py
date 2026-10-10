@@ -2461,9 +2461,10 @@ def event_cancel(request, event_id):
                 # with the seat and no Wallet refresh queued by the saves above
                 # can run first. Email and push on commit, still before the
                 # canceller's email below, whose network send must not delay or
-                # lose them, and never for a seat a rollback takes back. The
+                # lose them, and never for a seat a rollback takes back. Not
+                # given this request: its language is the canceller's. The
                 # notice picks the payment ask for a "pending" seat itself.
-                announce_waitlist_promotions([promoted], request)
+                announce_waitlist_promotions([promoted])
 
             if credits:
                 messages.success(

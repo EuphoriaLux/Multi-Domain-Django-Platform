@@ -1370,7 +1370,7 @@ def notify_event_reminder(
     )
 
 
-def announce_waitlist_promotions(registrations, request=None) -> None:
+def announce_waitlist_promotions(registrations) -> None:
     """Tell members the waitlist just gave them a seat: bell now, the rest on commit.
 
     Called by every automatic promotion path inside the transaction that saved
@@ -1382,19 +1382,20 @@ def announce_waitlist_promotions(registrations, request=None) -> None:
     before any bell existed, leaving a committed seat unannounced.
 
     Email and push wait for the commit, so nobody hears about a seat a
-    rollback takes back.
+    rollback takes back. Never given a request: the notice is about another
+    member, and nothing of the request that freed the seat may shape it.
     """
     from django.db import transaction
 
     promoted = list(registrations)
     bells = write_waitlist_promotion_bells(promoted)
     transaction.on_commit(
-        lambda: notify_waitlist_promotions(promoted, request, bells_written=bells)
+        lambda: notify_waitlist_promotions(promoted, bells_written=bells)
     )
 
 
 def notify_waitlist_promotion(
-    registration, request=None, *, bell_written=False, deadline=None
+    registration, *, bell_written=False, deadline=None
 ) -> Optional[NotificationResult]:
     """Tell a member the waitlist just gave them a seat: email, push and bell.
 
@@ -1423,6 +1424,7 @@ def notify_waitlist_promotion(
     nobody may be told about a seat that is already gone.
     """
     from django.conf import settings
+    from django.utils import translation
 
     from .models import EventRegistration
     from .models.events import SEAT_HOLDING_STATUSES
@@ -1452,19 +1454,23 @@ def notify_waitlist_promotion(
         )
     notice = EventRegistration.PromotionNotice
     try:
-        result = NotificationService.notify(
-            user=registration.user,
-            notification_type=NotificationType.EVENT_WAITLIST_PROMOTED,
-            context={"registration": registration, "event": registration.event},
-            request=request,
-            # The bell is the one record every promoted member gets; if the
-            # batch could not write it, write it before a slow push or email
-            # can hang until the worker dies.
-            inapp_first=True,
-            write_inapp=not bell_written,
-            deadline=deadline,
-            email_first=True,
-        )
+        # Every channel falls back to the active language for a member with
+        # no stored one (no CrushProfile), and this runs inside the request
+        # that freed the seat: without the pin, a French canceller's notice
+        # would reach the promoted member in French.
+        with translation.override(settings.LANGUAGE_CODE):
+            result = NotificationService.notify(
+                user=registration.user,
+                notification_type=NotificationType.EVENT_WAITLIST_PROMOTED,
+                context={"registration": registration, "event": registration.event},
+                # The bell is the one record every promoted member gets; if
+                # the batch could not write it, write it before a slow push or
+                # email can hang until the worker dies.
+                inapp_first=True,
+                write_inapp=not bell_written,
+                deadline=deadline,
+                email_first=True,
+            )
     except Exception as exc:
         logger.error(
             "Failed to notify waitlist promotion for registration %s: %s",
@@ -1497,9 +1503,7 @@ def notify_waitlist_promotion(
     return result
 
 
-def notify_waitlist_promotions(
-    registrations, request=None, bells_written=frozenset()
-) -> None:
+def notify_waitlist_promotions(registrations, bells_written=frozenset()) -> None:
     """Email and push a committed batch without letting it outgrow the request.
 
     A capacity increase can promote many members at once, and on_commit
@@ -1553,7 +1557,6 @@ def notify_waitlist_promotions(
             return
         notify_waitlist_promotion(
             registration,
-            request,
             bell_written=registration.pk in bells_written,
             deadline=deadline,
         )
@@ -1592,13 +1595,17 @@ def write_waitlist_promotion_bells(registrations) -> set:
     the outcome is upgraded once email or push gets through. Returns the pks
     whose row was written; anyone else gets the bell from notify() instead.
     """
+    from django.conf import settings
     from django.db import transaction
     from django.db.models import Q
+    from django.utils import translation
 
     from .models import EventRegistration, Notification
 
     try:
-        with transaction.atomic():
+        # The member's own language, never the request's: see
+        # notify_waitlist_promotion.
+        with transaction.atomic(), translation.override(settings.LANGUAGE_CODE):
             stored = EventRegistration.objects.select_related(
                 "user__crushprofile", "event"
             ).in_bulk([r.pk for r in registrations])
