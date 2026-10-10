@@ -227,3 +227,50 @@ def test_notice_ignores_the_cancellers_language(django_user_model):
     assert sent.subject == "Event Registration Confirmed - Commit Order Mixer"
     assert f"https://crush.lu/en/events/{seat.event.id}/" in sent.body
     assert "/fr/" not in sent.body
+
+
+@pytest.fixture
+def notice_callback_raises():
+    """Anything the post-commit notice raises, after the seats committed."""
+    with patch(
+        "crush_lu.notification_service.notify_waitlist_promotions",
+        side_effect=RuntimeError("notice setup failed"),
+    ) as notice:
+        yield notice
+
+
+def test_a_failing_notice_never_costs_the_member_page_its_reply(
+    seat, notice_callback_raises
+):
+    with patch(
+        "crush_lu.views_events.send_event_cancellation_confirmation"
+    ) as cancellation_email:
+        response = _cancel_page(seat)
+
+    notice_callback_raises.assert_called_once()
+    assert response.status_code == 302
+    cancellation_email.assert_called_once()
+    seat.waiting.refresh_from_db()
+    assert seat.waiting.status == "confirmed"
+
+
+def test_a_failing_notice_never_costs_the_canceller_their_email(
+    seat, notice_callback_raises
+):
+    with patch(
+        "crush_lu.views_payments._send_member_cancellation_safely"
+    ) as cancellation_email:
+        seat.holder.status = "cancelled"
+        seat.holder.save()
+
+    notice_callback_raises.assert_called_once()
+    cancellation_email.assert_called_once()
+
+
+def test_a_failing_notice_never_fails_the_capacity_change(seat, notice_callback_raises):
+    seat.event.max_participants = 2
+    seat.event.save()
+
+    notice_callback_raises.assert_called_once()
+    seat.waiting.refresh_from_db()
+    assert seat.waiting.status == "confirmed"

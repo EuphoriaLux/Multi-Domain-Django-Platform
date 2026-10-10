@@ -1389,8 +1389,12 @@ def announce_waitlist_promotions(registrations) -> None:
 
     promoted = list(registrations)
     bells = write_waitlist_promotion_bells(promoted)
+    # Robust: the seats have committed by the time this runs, and anything it
+    # raises would otherwise escape into the request that freed the seat,
+    # failing it before the canceller's own cancellation email.
     transaction.on_commit(
-        lambda: notify_waitlist_promotions(promoted, bells_written=bells)
+        lambda: notify_waitlist_promotions(promoted, bells_written=bells),
+        robust=True,
     )
 
 
@@ -1419,9 +1423,10 @@ def notify_waitlist_promotion(
     not spend its time. A channel the deadline skips leaves a weaker outcome
     for the coach page to flag.
 
-    The row is re-read first: in a batch, a member can cancel (or staff can
-    withdraw the seat) while earlier members are still being notified, and
-    nobody may be told about a seat that is already gone.
+    The row and its event are re-read first: in a batch, a member can cancel
+    (or staff can withdraw the seat, or cancel or unpublish the event, or it
+    can start) while earlier members are still being notified, and nobody may
+    be told about a seat that is already gone.
     """
     from django.conf import settings
     from django.utils import translation
@@ -1429,24 +1434,26 @@ def notify_waitlist_promotion(
     from .models import EventRegistration
     from .models.events import SEAT_HOLDING_STATUSES
 
-    current_status = (
-        EventRegistration.objects.filter(
+    current = (
+        EventRegistration.objects.select_related("event")
+        .filter(
             pk=registration.pk,
             waitlist_promoted_at=registration.waitlist_promoted_at,
             status__in=SEAT_HOLDING_STATUSES,
         )
-        .values_list("status", flat=True)
         .first()
     )
-    if current_status is None:
+    # The same event test every promotion path applies before promoting.
+    if current is None or not current.event.accepts_waitlist_promotion:
         logger.info(
             "Skipping waitlist promotion notice for registration %s: the seat "
-            "from this promotion is no longer held",
+            "from this promotion is no longer held, or its event no longer "
+            "takes promotions",
             registration.pk,
         )
         return None
     # Payment ask or confirmation follows the row as it is now.
-    registration.status = current_status
+    registration.status = current.status
 
     if deadline is None:
         deadline = time.monotonic() + getattr(

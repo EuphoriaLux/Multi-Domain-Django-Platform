@@ -587,6 +587,42 @@ class CapacityIncreaseNoticeTests(_PromotionFixture):
             ).exists()
         )
 
+    def test_a_notice_for_an_event_that_no_longer_takes_promotions_sends_nothing(
+        self,
+    ):
+        """In a batch, staff can cancel or unpublish the event, or it can
+        start, while earlier members are still being notified; the seat row
+        itself stays confirmed."""
+        from crush_lu.models import EventRegistration, MeetupEvent
+        from crush_lu.notification_service import notify_waitlist_promotion
+
+        EventRegistration.objects.filter(pk=self.waiting.pk).update(
+            status="confirmed", waitlist_promoted_at=timezone.now()
+        )
+        self.waiting.refresh_from_db()
+        events = MeetupEvent.objects.filter(pk=self.event.pk)
+        original = events.values("is_cancelled", "is_published", "date_time").get()
+        for change in (
+            {"is_cancelled": True},
+            {"is_published": False},
+            {"date_time": timezone.now() - timedelta(minutes=1)},
+        ):
+            with self.subTest(change=sorted(change)):
+                events.update(**change)
+                with patch(
+                    "crush_lu.notification_service.NotificationService.notify"
+                ) as notify:
+                    self.assertIsNone(notify_waitlist_promotion(self.waiting))
+                notify.assert_not_called()
+                events.update(**original)
+
+        # The control: the same row, on the event as it was, is announced.
+        with patch(
+            "crush_lu.notification_service.NotificationService.notify"
+        ) as notify:
+            notify_waitlist_promotion(self.waiting)
+        notify.assert_called_once()
+
 
 class AdminWithdrawalTests(_PromotionFixture):
     def test_moving_a_promoted_seat_back_to_the_waitlist_clears_its_notice(self):
