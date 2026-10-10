@@ -45312,3 +45312,94 @@ msgstr[1] "%(count)s Mitglieder haben einen Platz von der Warteliste erhalten un
 
 msgid "No email or push reached them. Contact them before the event, or free the seat for the next person."
 msgstr "Weder E-Mail noch Push hat sie erreicht. Vor dem Event kontaktieren oder den Platz für die nächste Person freigeben."
+
+#: crush_lu/forms_crush_connect.py
+msgid "Who to show"
+msgstr "Wen anzeigen"
+
+#: crush_lu/forms_crush_connect.py
+msgid "Age from"
+msgstr "Alter von"
+
+#: crush_lu/forms_crush_connect.py
+msgid "Age to"
+msgstr "Alter bis"
+
+#: crush_lu/forms_crush_connect.py
+msgid "Speaks at least one of"
+msgstr "Spricht mindestens eine dieser Sprachen"
+
+#: crush_lu/forms_crush_connect.py
+msgid "Guest's gender"
+msgstr "Geschlecht des Gastes"
+
+#: crush_lu/forms_crush_connect.py
+msgid "Guest's age"
+msgstr "Alter des Gastes"
+
+#: crush_lu/templates/crush_lu/crush_connect/coach_showcase.html
+msgid "Connect Showcase"
+msgstr "Connect-Schaufenster"
+
+#: crush_lu/templates/crush_lu/crush_connect/coach_showcase.html
+msgid "Set the filters, then hand your phone to the guest. They swipe right if someone could fit and left if not. Nothing is saved and no member is notified."
+msgstr "Lege die Filter fest und gib dann dem Gast dein Handy. Nach rechts wischen heißt „könnte passen“, nach links „eher nicht“. Nichts wird gespeichert und kein Mitglied wird benachrichtigt."
+
+#: crush_lu/templates/crush_lu/crush_connect/coach_showcase.html
+msgid "Leave empty to show everyone."
+msgstr "Leer lassen, um alle anzuzeigen."
+
+#: crush_lu/templates/crush_lu/crush_connect/coach_showcase.html
+msgid "Leave empty for any language."
+msgstr "Leer lassen für alle Sprachen."
+
+#: crush_lu/templates/crush_lu/crush_connect/coach_showcase.html
+msgid "About the guest (optional)"
+msgstr "Über den Gast (optional)"
+
+#: crush_lu/templates/crush_lu/crush_connect/coach_showcase.html
+msgid "Shows only members who are open to someone of this gender and age, so a right swipe can go both ways."
+msgstr "Zeigt nur Mitglieder, die für jemanden dieses Geschlechts und Alters offen sind – so kann ein Wisch nach rechts in beide Richtungen passen."
+
+#: crush_lu/templates/crush_lu/crush_connect/coach_showcase.html
+msgid "Show candidates"
+msgstr "Profile anzeigen"
+
+#: crush_lu/templates/crush_lu/crush_connect/coach_showcase.html
+msgid "No Crush Connect member matches these filters."
+msgstr "Kein Crush-Connect-Mitglied passt zu diesen Filtern."
+
+#: crush_lu/templates/crush_lu/crush_connect/coach_showcase.html
+msgid "Change filters"
+msgstr "Filter ändern"
+
+#: crush_lu/templates/crush_lu/crush_connect/coach_showcase.html
+msgid "Card {current} of {total}"
+msgstr "Karte {current} von {total}"
+
+#: crush_lu/templates/crush_lu/crush_connect/coach_showcase.html
+msgid "{count} of {total} could fit"
+msgstr "{count} von {total} könnten passen"
+
+#: crush_lu/templates/crush_lu/crush_connect/coach_showcase.html
+msgid "Could fit"
+msgstr "Könnte passen"
+
+#: crush_lu/templates/crush_lu/crush_connect/coach_showcase.html
+msgid "Nothing from this round was saved."
+msgstr "Von dieser Runde wurde nichts gespeichert."
+
+#: crush_lu/templates/crush_lu/crush_connect/coach_showcase.html
+msgid "Shuffle again"
+msgstr "Neu mischen"
+
+#: crush_lu/templates/crush_lu/coach_event_detail.html
+msgid "Swipe Crush Connect members with a guest"
+msgstr "Crush-Connect-Mitglieder mit einem Gast durchwischen"
+
+#: crush_lu/templates/crush_lu/crush_connect/coach_showcase.html
+#, python-format
+msgid "%(counter)s member matches"
+msgid_plural "%(counter)s members match"
+msgstr[0] "%(counter)s Mitglied passt"
+msgstr[1] "%(counter)s Mitglieder passen"

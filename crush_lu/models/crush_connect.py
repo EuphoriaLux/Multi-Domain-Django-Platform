@@ -584,7 +584,16 @@ class CrushConnectMembership(models.Model):
 
     @property
     def active_gate_questions(self):
-        """The member's 3 ordered gate questions (with their truth answers)."""
+        """The member's 3 ordered gate questions (with their truth answers).
+
+        Uses a ``gate_questions`` prefetch when one is loaded (prefetch it with
+        ``select_related("question")``), so a page of cards stays one query.
+        """
+        prefetched = getattr(self, "_prefetched_objects_cache", {}).get(
+            "gate_questions"
+        )
+        if prefetched is not None:
+            return sorted(prefetched, key=lambda gate_question: gate_question.position)
         return self.gate_questions.select_related("question").order_by("position")
 
     @property

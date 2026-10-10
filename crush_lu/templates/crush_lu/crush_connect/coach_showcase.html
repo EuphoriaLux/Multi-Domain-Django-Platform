@@ -1,0 +1,149 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+{% comment %}
+Connect Showcase: the coach sets filters, then a guest at the event swipes a
+short shuffled deck of Crush Connect cards on the coach's phone. Swipes stay
+in the browser. Who may appear: services/connect_showcase.py.
+{% endcomment %}
+{% block title %}{% trans "Connect Showcase" %} - {{ event.title }} - Crush.lu{% endblock %}
+{% block mobile_page_title %}{% trans "Connect Showcase" %}{% endblock %}
+{% block body_class %}connect-showcase-page{% endblock %}
+{% block whatsapp_button %}{% endblock %}
+{% block extra_css %}
+<style nonce="{{ csp_nonce }}">
+    .showcase-stage {
+        /* Horizontal drags swipe the card; vertical ones still scroll it. */
+        touch-action: pan-y;
+        user-select: none;
+    }
+    .showcase-stage img {
+        pointer-events: none;
+        -webkit-user-drag: none;
+    }
+    @media (max-width: 1023px) {
+        .showcase-actions {
+            position: fixed;
+            inset-inline: 0;
+            bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+            padding: .75rem 1rem;
+            background: var(--bg-primary);
+            border-top: 1px solid var(--border-color);
+        }
+    }
+</style>
+{% endblock %}
+{% block pre_alpine_js %}
+{% include "crush_lu/partials/alpine_bundle.html" with bundle="coach" %}
+{% endblock %}
+{% block content %}
+<div class="max-w-xl mx-auto px-4 lg:px-0 py-4 lg:py-6 pb-28">
+    <div class="flex items-center gap-2 text-sm text-muted-fg mb-2">
+        <a href="{% url 'crush_lu:coach_event_list' %}" class="hover:text-crush-purple transition-colors">{% trans "Events" %}</a>
+        <span>/</span>
+        <a href="{% url 'crush_lu:coach_event_detail' event.id %}" class="hover:text-crush-purple transition-colors">{{ event.title|truncatechars:30 }}</a>
+    </div>
+    <h1 class="text-2xl font-bold dark:text-white max-lg:sr-only">{% trans "Connect Showcase" %}</h1>
+
+    {% if deck is None %}
+    {# ── Filters ───────────────────────────────────────────────────────── #}
+    <p class="text-sm text-muted-fg mt-2 mb-5">{% trans "Set the filters, then hand your phone to the guest. They swipe right if someone could fit and left if not. Nothing is saved and no member is notified." %}</p>
+
+    <form method="get" class="space-y-6">
+        <input type="hidden" name="show" value="1">
+
+        <fieldset>
+            <legend class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ form.genders.label }}</legend>
+            <div class="grid grid-cols-2 gap-2">
+                {% for choice in form.genders %}
+                <label class="cursor-pointer block">
+                    {{ choice.tag }}
+                    <span class="flex items-center justify-center px-3 py-2.5 rounded-xl text-sm font-medium border-2 transition-colors border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 peer-checked:border-crush-purple peer-checked:bg-crush-purple/10 peer-checked:text-crush-purple-dark dark:peer-checked:text-crush-purple-light peer-focus-visible:ring-2 peer-focus-visible:ring-crush-purple">{{ choice.choice_label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+            <p class="text-xs text-muted-fg mt-1">{% trans "Leave empty to show everyone." %}</p>
+        </fieldset>
+
+        <div class="grid grid-cols-2 gap-3">
+            {% include "crush_lu/components/form_field.html" with field=form.age_min %}
+            {% include "crush_lu/components/form_field.html" with field=form.age_max %}
+        </div>
+
+        <fieldset>
+            <legend class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ form.languages.label }}</legend>
+            <div class="flex flex-wrap gap-2">
+                {% for choice in form.languages %}
+                <label class="cursor-pointer">
+                    {{ choice.tag }}
+                    <span class="inline-flex items-center min-h-10 px-3 py-2 rounded-full text-sm font-medium border-2 transition-colors border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 peer-checked:border-crush-purple peer-checked:bg-crush-purple/10 peer-checked:text-crush-purple-dark dark:peer-checked:text-crush-purple-light peer-focus-visible:ring-2 peer-focus-visible:ring-crush-purple">{{ choice.choice_label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+            <p class="text-xs text-muted-fg mt-1">{% trans "Leave empty for any language." %}</p>
+        </fieldset>
+
+        <fieldset class="rounded-2xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
+            <legend class="px-1 text-sm font-medium text-gray-700 dark:text-gray-300">{% trans "About the guest (optional)" %}</legend>
+            <p class="text-xs text-muted-fg">{% trans "Shows only members who are open to someone of this gender and age, so a right swipe can go both ways." %}</p>
+            <div class="grid grid-cols-2 gap-3">
+                {% include "crush_lu/components/form_field.html" with field=form.guest_gender %}
+                {% include "crush_lu/components/form_field.html" with field=form.guest_age %}
+            </div>
+        </fieldset>
+
+        <button type="submit" class="btn-crush-primary w-full">{% trans "Show candidates" %}</button>
+    </form>
+
+    {% elif not deck %}
+    {# ── No one matches ───────────────────────────────────────────────── #}
+    <div class="text-center py-10 space-y-4">
+        <p class="text-gray-700 dark:text-gray-200">{% trans "No Crush Connect member matches these filters." %}</p>
+        <a href="?{{ filters_query }}" class="btn-crush-solid">{% trans "Change filters" %}</a>
+    </div>
+
+    {% else %}
+    {# ── Deck ──────────────────────────────────────────────────────────── #}
+    <div x-data="connectShowcaseDeck" class="mt-2"
+         data-progress="{% trans 'Card {current} of {total}' %}"
+         data-fit-summary="{% trans '{count} of {total} could fit' %}"
+         @keydown.window="handleKeydown">
+        <div class="flex items-center justify-between gap-3 mb-3">
+            <p class="text-sm text-muted-fg">
+                <span x-show="hasCard"><span x-text="progressText"></span> ·</span>
+                {% blocktrans count counter=pool_size %}{{ counter }} member matches{% plural %}{{ counter }} members match{% endblocktrans %}
+            </p>
+            <a href="?{{ filters_query }}" class="btn-crush-outline btn-sm">{% trans "Change filters" %}</a>
+        </div>
+
+        <div class="relative">
+            <div class="showcase-stage" :style="stageStyle"
+                 @pointerdown="startDrag" @pointermove="onDrag" @pointerup="endDrag" @pointercancel="cancelDrag">
+                {% for candidate in deck %}
+                <div data-showcase-card data-name="{{ candidate.first_name|default:_('A member') }}"{% if not forloop.first %} hidden{% endif %}>
+                    {% include "crush_lu/crush_connect/_candidate_card.html" with target=candidate target_profile=candidate.crushprofile target_membership=candidate.crush_connect_membership showcase=True %}
+                </div>
+                {% endfor %}
+            </div>
+            <span x-show="showsFitHint" x-cloak class="absolute top-6 left-6 z-20 rotate-[-12deg] rounded-xl border-4 border-emerald-500 bg-white/90 px-3 py-1 text-lg font-bold text-emerald-700 pointer-events-none">{% trans "Could fit" %}</span>
+            <span x-show="showsPassHint" x-cloak class="absolute top-6 right-6 z-20 rotate-[12deg] rounded-xl border-4 border-gray-500 bg-white/90 px-3 py-1 text-lg font-bold text-gray-700 pointer-events-none">{% trans "Not for me" %}</span>
+        </div>
+
+        <div x-show="isDone" x-cloak class="text-center py-8 space-y-4" role="status">
+            <p class="text-xl font-bold text-gray-900 dark:text-white" x-text="fitSummary"></p>
+            <p x-show="hasFits" class="text-gray-700 dark:text-gray-200" x-text="fitNamesText"></p>
+            <p class="text-sm text-muted-fg">{% trans "Nothing from this round was saved." %}</p>
+            <div class="flex flex-wrap justify-center gap-3">
+                <a href="?{{ filters_query }}&amp;show=1" class="btn-crush-solid">{% trans "Shuffle again" %}</a>
+                <a href="?{{ filters_query }}" class="btn-crush-outline">{% trans "Change filters" %}</a>
+            </div>
+        </div>
+
+        <div class="showcase-actions z-30 grid grid-cols-[1fr_auto_1fr] gap-2 mt-4">
+            <button type="button" class="btn-crush-outline" @click="markPass" :disabled="isDone">{% trans "Not for me" %}</button>
+            <button type="button" class="btn-crush-outline btn-sm" @click="undo" :disabled="undoDisabled">{% trans "Undo" %}</button>
+            <button type="button" class="btn-crush-solid" @click="markFit" :disabled="isDone">{% trans "Could fit" %}</button>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

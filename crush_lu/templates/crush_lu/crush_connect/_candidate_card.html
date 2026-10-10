@@ -8,6 +8,9 @@ Context:
     target       — the User being shown
     target_profile — target.crushprofile (passed in to avoid template chained lookups)
     target_membership — target.crush_connect_membership
+    showcase     — optional; True on the coach's Connect Showcase deck, which
+                   a coach shows an anonymous guest: every photo loads as
+                   other members see it, even on the coach's phone
 
 Privacy contract (Crush Connect):
     - first_name only, never user.get_full_name or username
@@ -25,7 +28,7 @@ Privacy contract (Crush Connect):
     consented, surfaced few (enforced in get_eligible_pool).
     {% endcomment %}
     <div class="relative aspect-[4/5] sm:aspect-[5/4] overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
-        {% profile_photo target_profile 'photo_1' css_class='w-full h-full object-cover' alt_text=target.first_name %}
+        {% profile_photo target_profile 'photo_1' css_class='w-full h-full object-cover' alt_text=target.first_name public_view=showcase %}
         {# Bottom scrim so the overlaid name stays legible over any photo. #}
         <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/15 pointer-events-none"></div>
 
@@ -64,7 +67,7 @@ Privacy contract (Crush Connect):
         </div>
     </div>
 
-    {% include "crush_lu/crush_connect/_reviewed_secondary_photos.html" with profile=target_profile %}
+    {% include "crush_lu/crush_connect/_reviewed_secondary_photos.html" with profile=target_profile public_view=showcase %}
 
     {# Card body #}
     <div class="p-5 flex flex-col gap-4">

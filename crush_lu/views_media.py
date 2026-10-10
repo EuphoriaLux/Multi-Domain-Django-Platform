@@ -298,6 +298,11 @@ def serve_profile_photo(request, user_id, photo_field):
 
     Rate limits: 200/min for regular users, 300/min for coaches.
 
+    ``?view=public`` serves the published file whoever asks. Pages a coach
+    shows to someone else (the Connect Showcase) use it, so the photo is
+    decided when it loads, never by a render-time check a later upload
+    could outrun.
+
     Args:
         user_id: ID of the profile owner
         photo_field: Which photo field (photo_1, photo_2, photo_3)
@@ -363,14 +368,17 @@ def serve_profile_photo(request, user_id, photo_field):
 
     # The owner and reviewers see the live upload; everyone else the
     # published file (a held replacement stays invisible to them).
-    from .services.photo_publication import photo_for_viewer
+    from .services.photo_publication import get_public_photo, photo_for_viewer
 
-    photo = photo_for_viewer(
-        request.user,
-        profile,
-        photo_field,
-        privileged=is_coach or request.user.is_superuser,
-    )
+    if request.GET.get("view") == "public":
+        photo = get_public_photo(profile, photo_field)
+    else:
+        photo = photo_for_viewer(
+            request.user,
+            profile,
+            photo_field,
+            privileged=is_coach or request.user.is_superuser,
+        )
     if not photo:
         raise Http404("Photo not found")
 
