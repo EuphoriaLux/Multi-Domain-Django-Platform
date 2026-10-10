@@ -152,6 +152,7 @@
             </button>
         </div>
     </div>
+    <p x-show="hasPrinterNotice" x-text="printerNotice" role="status" class="mb-4 text-sm text-red-700 dark:text-red-300" style="display: none;"></p>
 
     {# Camera viewport — qr-scanner attaches to the video and injects its scan-region overlay into the relative-positioned wrapper #}
     <div id="qr-reader" class="relative mb-4 rounded-lg overflow-hidden" style="display: none;">

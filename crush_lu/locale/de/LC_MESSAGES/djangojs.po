@@ -331,3 +331,11 @@ msgstr "Diese Schaltfläche hat keinen Aktionslink. Bitte aktualisiere die Seite
 
 msgid "Your coach session has expired. Please sign in again."
 msgstr "Deine Coach-Sitzung ist abgelaufen. Bitte melde dich erneut an."
+
+#: static/crush_lu/js/alpine/coach.js
+msgid "Printer not reachable. On a computer, start the print bridge (scripts/print_bridge.py) and print again."
+msgstr "Drucker nicht erreichbar. Starte auf einem Computer die Druckbrücke (scripts/print_bridge.py) und drucke erneut."
+
+#: static/crush_lu/js/alpine/coach.js
+msgid "The print bridge could not print this ticket. Its window shows why."
+msgstr "Die Druckbrücke konnte dieses Ticket nicht drucken. Der Grund steht in ihrem Fenster."

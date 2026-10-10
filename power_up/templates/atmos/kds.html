@@ -169,7 +169,14 @@
     var trimmed = base64Payload.trim();
     if (!/^[A-Za-z0-9+/=]+$/.test(trimmed)) return;
 
+    // The intent opens RawBT, which only exists on Android. A PC prints
+    // through scripts/print_bridge.py on the same port, or not at all.
+    var isAndroid = /Android/i.test(navigator.userAgent || "");
     var fireIntentFallback = function () {
+      if (!isAndroid) {
+        console.warn("Printer not reachable: start scripts/print_bridge.py on this computer.");
+        return;
+      }
       // Re-validated at the sink (this runs from async ws callbacks). The
       // base64 charset excludes ":" and "#", so `trimmed` cannot alter the
       // fixed intent: scheme or inject a second #Intent extras block.
@@ -195,7 +202,7 @@
           try { ws.close(); } catch (e) {}
           fireIntentFallback();
         }
-      }, 400);
+      }, isAndroid ? 400 : 10000);
 
       ws.onopen = function () {
         wsHandled = true;
