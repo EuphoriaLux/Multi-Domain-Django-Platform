@@ -128,14 +128,19 @@ def get_fcm_credentials():
 
 
 class _DeadlineRequest:
-    """google-auth transport that refuses to run past ``deadline``.
+    """google-auth transport that makes one bounded token-endpoint attempt.
 
     ``credentials.refresh()`` takes no timeout, and google-auth's requests
-    transport defaults to 120s — the whole gunicorn window. A per-call timeout
-    alone is not enough either: the token endpoint call is retried up to 3
-    times on a 5xx, with backoff sleeps in between. So every call gets what is
-    left until the deadline, and a call that would start after it raises
-    instead, which google-auth propagates straight out of the refresh.
+    transport defaults to 120s — the whole gunicorn window. So the call gets
+    what is left until ``deadline`` as its timeout, and refuses to start once
+    the deadline has passed.
+
+    A per-call timeout alone does not bound the refresh: google-auth retries a
+    failed token response (any 5xx, or a ``server_error``-style body) up to 3
+    times, sleeping 1s then 2s in its own loop, where this wrapper cannot see
+    the clock. A non-200 response therefore raises here instead of going back
+    to google-auth, so there is exactly one attempt and no backoff sleep. The
+    next notification tries again.
     """
 
     def __init__(self, deadline):
@@ -149,7 +154,13 @@ class _DeadlineRequest:
                 "FCM token refresh ran out of time"
             )
         kwargs["timeout"] = max(0.1, remaining)
-        return self._transport(*args, **kwargs)
+        response = self._transport(*args, **kwargs)
+        if response.status != 200:
+            raise google.auth.exceptions.TransportError(
+                f"FCM token endpoint returned HTTP {response.status}: "
+                f"{response.data[:200]!r}"
+            )
+        return response
 
 
 def _get_fcm_access_token(deadline):

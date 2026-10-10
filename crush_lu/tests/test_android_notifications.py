@@ -354,6 +354,34 @@ def test_android_token_refresh_failure_returns_failure_dict(
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize(
+    "status,body",
+    [
+        (503, {"error": "backend_error"}),
+        # Retried by google-auth on the body alone, whatever the status.
+        (400, {"error": "temporarily_unavailable"}),
+    ],
+)
+def test_android_retryable_token_error_is_not_retried_with_backoff(
+    status, body, user, android_device, fcm_credentials, token_endpoint, fcm_send
+):
+    # google-auth would sleep 1s then 2s between retries in its own loop,
+    # where the deadline cannot see the clock: one attempt, then fail.
+    error = MagicMock()
+    error.status = status
+    error.data = json.dumps(body).encode()
+    token_endpoint.return_value = error
+
+    with patch("google.auth._exponential_backoff.time.sleep") as backoff_sleep:
+        res = android_push.send_native_android_push_notification(user, "Title", "Body")
+
+    assert res == {"success": 0, "failed": 1, "total": 1}
+    token_endpoint.assert_called_once()
+    backoff_sleep.assert_not_called()
+    fcm_send.assert_not_called()
+
+
+@pytest.mark.django_db
 def test_android_push_does_not_wait_past_budget_for_a_concurrent_refresh(
     settings, user, android_device, fcm_credentials, token_endpoint, fcm_send
 ):

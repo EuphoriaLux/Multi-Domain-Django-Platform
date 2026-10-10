@@ -1861,10 +1861,11 @@ CRUSH_PUSH_SEND_TIMEOUT_SECONDS = float(
 # Ceiling on the FCM OAuth token refresh that precedes an Android fan-out.
 # google-auth's requests transport defaults to a 120s timeout — the whole
 # gunicorn window — and retries a 5xx up to 3 times with backoff sleeps, so an
-# unbounded refresh could stall the request before a single push went out.
-# Covers the whole refresh, retries included, and is drawn from the fan-out
-# budget above, so it can never run past it. Paid about once an hour per
-# process: the token is cached until it nears expiry.
+# unbounded refresh could stall the request before a single push went out. The
+# refresh is held to one attempt (a failed response is not retried; the next
+# notification tries again), and this ceiling is drawn from the fan-out budget
+# above, so it can never run past it. Paid about once an hour per process: the
+# token is cached until it nears expiry.
 CRUSH_PUSH_TOKEN_REFRESH_TIMEOUT_SECONDS = float(
     os.getenv("CRUSH_PUSH_TOKEN_REFRESH_TIMEOUT_SECONDS", "5")
 )
