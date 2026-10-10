@@ -173,6 +173,31 @@ class CancellationSignalNoticeTests(_PromotionFixture):
         self.waiting.refresh_from_db()
         self.assertEqual(self.waiting.promotion_notice, "push")
 
+    def test_the_email_is_recorded_before_a_push_can_kill_the_worker(self):
+        """The callback runs inline: a push that hangs until gunicorn kills
+        the worker never returns to the final outcome update."""
+        from crush_lu.models import PushSubscription
+
+        class WorkerKilled(BaseException):
+            pass
+
+        PushSubscription.objects.create(
+            user=self.waiter,
+            endpoint="https://push.example.test/sub",
+            p256dh_key="p256dh",
+            auth_key="auth",
+        )
+
+        with patch(
+            "crush_lu.push_notifications.send_push_notification",
+            side_effect=WorkerKilled,
+        ), self.assertRaises(WorkerKilled):
+            self._commit(self._cancel_holder())
+
+        self.assertEqual(len(self._waiter_mail()), 1)
+        self.waiting.refresh_from_db()
+        self.assertEqual(self.waiting.promotion_notice, "email")
+
     def test_banned_member_gets_no_email(self):
         from crush_lu.models.profiles import UserDataConsent
 
@@ -622,6 +647,24 @@ class CapacityIncreaseNoticeTests(_PromotionFixture):
         ) as notify:
             notify_waitlist_promotion(self.waiting)
         notify.assert_called_once()
+
+    def test_a_notice_renders_the_event_as_it_is_when_sent(self):
+        """Staff can edit the event while earlier members of a batch are
+        still being notified; the batch holds the event as it was."""
+        from crush_lu.models import EventRegistration, MeetupEvent
+        from crush_lu.notification_service import notify_waitlist_promotion
+
+        EventRegistration.objects.filter(pk=self.waiting.pk).update(
+            status="confirmed", waitlist_promoted_at=timezone.now()
+        )
+        self.waiting.refresh_from_db()
+        self.assertEqual(self.waiting.event.title, "Promotion Notice Mixer")
+        MeetupEvent.objects.filter(pk=self.event.pk).update(title="Renamed Mixer")
+
+        notify_waitlist_promotion(self.waiting)
+
+        [sent] = self._waiter_mail()
+        self.assertIn("Renamed Mixer", sent.subject)
 
 
 class AdminWithdrawalTests(_PromotionFixture):

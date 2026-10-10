@@ -12,7 +12,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import Callable, Optional
 
 from django.http import HttpRequest
 
@@ -157,6 +157,7 @@ class NotificationService:
         write_inapp: bool = True,
         deadline: Optional[float] = None,
         email_first: bool = False,
+        on_email_sent: Optional[Callable[[], None]] = None,
     ) -> NotificationResult:
         """
         Send notification via independent push and email channels.
@@ -189,6 +190,9 @@ class NotificationService:
             email_first: Send the email before the push channels, for a notice
                 whose email is the primary channel and must not lose the
                 deadline to slow push providers.
+            on_email_sent: Called as soon as the email is sent, before any
+                channel that follows it, so a caller can record the delivery
+                durably even if a later push hangs until the worker is killed.
 
         Returns:
             NotificationResult with delivery status
@@ -348,6 +352,8 @@ class NotificationService:
                             user.pk,
                             notification_type.name,
                         )
+                        if on_email_sent is not None:
+                            on_email_sent()
                 else:
                     result.email_skipped_reason = "user_unsubscribed"
                     logger.info(
@@ -1435,7 +1441,7 @@ def notify_waitlist_promotion(
     from .models.events import SEAT_HOLDING_STATUSES
 
     current = (
-        EventRegistration.objects.select_related("event")
+        EventRegistration.objects.select_related("event", "user__crushprofile")
         .filter(
             pk=registration.pk,
             waitlist_promoted_at=registration.waitlist_promoted_at,
@@ -1452,14 +1458,26 @@ def notify_waitlist_promotion(
             registration.pk,
         )
         return None
-    # Payment ask or confirmation follows the row as it is now.
-    registration.status = current.status
+    # Delivered from the row and event as they are now: the payment ask or
+    # the confirmation, and the title, time and fee staff may have edited
+    # while earlier members of a batch were being notified.
+    registration = current
 
     if deadline is None:
         deadline = time.monotonic() + getattr(
             settings, "WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS", 30.0
         )
     notice = EventRegistration.PromotionNotice
+    emailed = False
+
+    def record_email():
+        # Recorded before push starts: a push that hangs until the worker
+        # dies would otherwise leave coaches told that only the bell reached
+        # a member who has the email.
+        nonlocal emailed
+        emailed = True
+        _record_promotion_notice(registration, notice.EMAIL)
+
     try:
         # Every channel falls back to the active language for a member with
         # no stored one (no CrushProfile), and this runs inside the request
@@ -1477,6 +1495,7 @@ def notify_waitlist_promotion(
                 write_inapp=not bell_written,
                 deadline=deadline,
                 email_first=True,
+                on_email_sent=record_email,
             )
     except Exception as exc:
         logger.error(
@@ -1484,9 +1503,10 @@ def notify_waitlist_promotion(
             registration.pk,
             type(exc).__name__,
         )
-        _record_promotion_notice(
-            registration, notice.BELL if bell_written else notice.FAILED
-        )
+        if not emailed:
+            _record_promotion_notice(
+                registration, notice.BELL if bell_written else notice.FAILED
+            )
         return None
 
     if result.email_sent:
