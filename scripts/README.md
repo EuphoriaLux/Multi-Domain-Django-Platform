@@ -19,6 +19,10 @@ Utility scripts for development, translation, deployment, and maintenance tasks.
 
 - `setup_azurite.py` - Azure Blob Storage emulator setup (used by `setup_local_dev`)
 
+## Event Hardware
+
+- `print_bridge.py` - Thermal-ticket printing from a Windows/macOS/Linux PC: stands in for Android's RawBT on `ws://127.0.0.1:40213` so the check-in page (and the Atmos KDS) print there. Standard library only: `py scripts\print_bridge.py --list`, then `py scripts\print_bridge.py --printer "<name>"` and leave it running
+
 ## Security / Monitoring
 
 - `check_codeql_alerts.sh` - Check CodeQL security alerts

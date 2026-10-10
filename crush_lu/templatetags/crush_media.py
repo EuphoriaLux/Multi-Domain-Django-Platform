@@ -101,7 +101,7 @@ def split_interests(value):
 
 @register.inclusion_tag('crush_lu/components/profile_photo.html', takes_context=True)
 def profile_photo(context, profile, photo_field, css_class='', alt_text='Profile photo',
-                  fallback='initials', hide_photo=False):
+                  fallback='initials', hide_photo=False, public_view=False):
     """
     Render a profile photo with consistent fallback.
 
@@ -120,12 +120,15 @@ def profile_photo(context, profile, photo_field, css_class='', alt_text='Profile
         hide_photo: render the fallback even when a photo exists — for
                   surfaces where the viewer may no longer load it (see
                   views_media.can_view_profile_photo), instead of a 403 image
+        public_view: show what other members see even to a coach, decided by
+                  the endpoint when the image loads (``?view=public``) — for
+                  a page a coach shows to someone else (Connect Showcase)
 
     Returns:
         Rendered component
     """
     photo = getattr(profile, photo_field, None) if profile and not hide_photo else None
-    if photo and not _viewer_sees_live_photo(context, profile):
+    if photo and (public_view or not _viewer_sees_live_photo(context, profile)):
         # Other members only ever see an approved photo (photo_publication):
         # render the fallback instead of a URL the endpoint refuses.
         from crush_lu.services.photo_publication import get_public_photo_key
@@ -138,6 +141,8 @@ def profile_photo(context, profile, photo_field, css_class='', alt_text='Profile
             'user_id': profile.user.id,
             'photo_field': photo_field
         })
+        if public_view:
+            photo_url += '?view=public'
     else:
         photo_url = None
 

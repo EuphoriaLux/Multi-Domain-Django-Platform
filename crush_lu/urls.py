@@ -156,6 +156,7 @@ from . import views_ticket
 from . import views_quiz
 from . import views_coach as views_coach_module
 from . import views_coach_photos
+from . import views_connect_showcase
 from . import views_quiz_config
 from . import views_crush_cache
 from . import views_changelog
@@ -752,6 +753,7 @@ urlpatterns = [
     path('coach/events/', views.coach_event_list, name='coach_event_list'),
     path('coach/events/<int:event_id>/', views.coach_event_detail, name='coach_event_detail'),
     path('coach/events/<int:event_id>/checkin/', views_coach_module.coach_event_checkin, name='coach_event_checkin'),
+    path('coach/events/<int:event_id>/connect-showcase/', views_connect_showcase.coach_connect_showcase, name='coach_connect_showcase'),
     path('coach/events/<int:event_id>/sms-invite/', views_coach_module.coach_event_sms_invite, name='coach_event_sms_invite'),
     path('coach/events/<int:event_id>/sms-invite/<int:submission_id>/log/', views_coach_module.coach_log_event_sms_sent, name='coach_log_event_sms_sent'),
     path('coach/events/<int:event_id>/sms-invite/profile/<int:profile_id>/log/', views_coach_module.coach_log_event_sms_sent_by_profile, name='coach_log_event_sms_sent_by_profile'),

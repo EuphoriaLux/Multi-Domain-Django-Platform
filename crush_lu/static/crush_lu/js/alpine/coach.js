@@ -629,6 +629,130 @@ document.addEventListener("alpine:init", function () {
         return mixin({}, makeModal(false));
     });
 
+    // Connect Showcase: a guest swipes Crush Connect cards on the coach's
+    // phone. The cards are server-rendered and shown one at a time by
+    // toggling `hidden`; swipes stay in the browser and are never posted.
+    Alpine.data("connectShowcaseDeck", function () {
+        return {
+            rootElement: null,
+            cardElements: [],
+            index: 0,
+            decisions: [],
+            isDragging: false,
+            startX: 0,
+            deltaX: 0,
+            init() {
+                this.rootElement = this.$el;
+                this.cardElements = Array.from(
+                    this.rootElement.querySelectorAll("[data-showcase-card]"),
+                );
+                this.showCurrent();
+            },
+            get total() {
+                return this.cardElements.length;
+            },
+            get hasCard() {
+                return this.index < this.total;
+            },
+            get isDone() {
+                return this.total > 0 && !this.hasCard;
+            },
+            get undoDisabled() {
+                return this.decisions.length === 0;
+            },
+            get progressText() {
+                return this.rootElement.dataset.progress
+                    .replace("{current}", this.index + 1)
+                    .replace("{total}", this.total);
+            },
+            get fitNames() {
+                return this.decisions
+                    .filter((decision) => decision.fits)
+                    .map((decision) => decision.name);
+            },
+            get fitSummary() {
+                return this.rootElement.dataset.fitSummary
+                    .replace("{count}", this.fitNames.length)
+                    .replace("{total}", this.total);
+            },
+            get fitNamesText() {
+                return this.fitNames.join(", ");
+            },
+            get hasFits() {
+                return this.fitNames.length > 0;
+            },
+            get stageStyle() {
+                return this.isDragging
+                    ? `transform: translateX(${this.deltaX}px) rotate(${this.deltaX * 0.04}deg)`
+                    : "";
+            },
+            get showsFitHint() {
+                return this.isDragging && this.deltaX > 40;
+            },
+            get showsPassHint() {
+                return this.isDragging && this.deltaX < -40;
+            },
+            showCurrent() {
+                this.cardElements.forEach((element, position) => {
+                    element.hidden = position !== this.index;
+                });
+            },
+            decide(fits) {
+                if (!this.hasCard) return;
+                const card = this.cardElements[this.index];
+                this.decisions.push({ fits: fits, name: card.dataset.name });
+                this.index += 1;
+                this.showCurrent();
+                this.$nextTick(() => {
+                    this.rootElement.scrollIntoView({ block: "start" });
+                });
+            },
+            markFit() {
+                this.decide(true);
+            },
+            markPass() {
+                this.decide(false);
+            },
+            undo() {
+                if (this.undoDisabled) return;
+                this.decisions.pop();
+                this.index -= 1;
+                this.showCurrent();
+            },
+            startDrag(event) {
+                if (!this.hasCard || (event.pointerType === "mouse" && event.button !== 0))
+                    return;
+                this.isDragging = true;
+                this.startX = event.clientX;
+                event.currentTarget.setPointerCapture(event.pointerId);
+            },
+            onDrag(event) {
+                if (this.isDragging) this.deltaX = event.clientX - this.startX;
+            },
+            endDrag() {
+                if (!this.isDragging) return;
+                const dx = this.deltaX;
+                this.cancelDrag();
+                if (dx > 90) this.markFit();
+                else if (dx < -90) this.markPass();
+            },
+            cancelDrag() {
+                this.isDragging = false;
+                this.deltaX = 0;
+            },
+            handleKeydown(event) {
+                if (
+                    event.target instanceof Element &&
+                    event.target.closest("input, textarea, select, button, a, [contenteditable]")
+                )
+                    return;
+                if (event.key === "ArrowRight") this.markFit();
+                else if (event.key === "ArrowLeft") this.markPass();
+                else if (event.key === "Backspace") this.undo();
+            },
+        };
+    });
+
     // Coach check-in scanner component
     Alpine.data("coachCheckin", function () {
         return {
@@ -650,6 +774,7 @@ document.addEventListener("alpine:init", function () {
             // Thermal Printer state (PEC 80 / RawBT)
             printerEnabled: localStorage.getItem("crush_printer_enabled") === "true",
             autoPrint: localStorage.getItem("crush_autoprint_enabled") !== "false",
+            printerNotice: "",
 
             // WebSocket state
             ws: null,
@@ -739,6 +864,9 @@ document.addEventListener("alpine:init", function () {
                 return this.printerEnabled
                     ? i18n.printerActiveTitle || "Thermal printer active (RawBT)"
                     : i18n.printerDisabledTitle || "Thermal printer disabled";
+            },
+            get hasPrinterNotice() {
+                return this.printerNotice !== "";
             },
 
             // --- HTML helpers (XSS protection) ---
@@ -1703,6 +1831,7 @@ document.addEventListener("alpine:init", function () {
             // --- Thermal Printer (RawBT Protocol) ---
             togglePrinter: function () {
                 this.printerEnabled = !this.printerEnabled;
+                this.printerNotice = "";
                 localStorage.setItem(
                     "crush_printer_enabled",
                     this.printerEnabled ? "true" : "false",
@@ -1713,12 +1842,25 @@ document.addEventListener("alpine:init", function () {
                 if (!base64Payload || typeof base64Payload !== "string") return;
                 var trimmed = base64Payload.trim();
                 if (!/^[A-Za-z0-9+/=]+$/.test(trimmed)) return;
+                var self = this;
+                // RawBT and its intent: URL exist only on Android. A Windows,
+                // macOS or Linux PC prints through scripts/print_bridge.py,
+                // which listens on the same WebSocket port; with no bridge
+                // running there is nothing to fall back to, so say so
+                // instead of launching an intent the browser cannot open.
+                var isAndroid = /Android/i.test(navigator.userAgent || "");
 
                 // Single source of truth for the Android intent fallback —
                 // previously rebuilt independently at every call site, which
                 // is exactly the class of string PR #872 already had to
                 // hand-fix once (wrong URI scheme format).
                 var fireIntentFallback = function () {
+                    if (!isAndroid) {
+                        self.printerNotice = gettext(
+                            "Printer not reachable. On a computer, start the print bridge (scripts/print_bridge.py) and print again.",
+                        );
+                        return;
+                    }
                     // Re-validated here, right at the navigation, not just
                     // once at function entry: this fires from async
                     // WebSocket callbacks (onerror, a timeout, a caught
@@ -1748,17 +1890,21 @@ document.addEventListener("alpine:init", function () {
                     ws.binaryType = "arraybuffer";
                     var wsHandled = false;
 
+                    // Android races RawBT's socket against the intent. On a
+                    // PC the timer only catches a hung connect, and must
+                    // outlast the browser's local-network permission prompt.
                     var fallbackTimer = setTimeout(function () {
                         if (!wsHandled && ws.readyState !== 1) {
                             wsHandled = true;
                             try { ws.close(); } catch (e) {}
                             fireIntentFallback();
                         }
-                    }, 400);
+                    }, isAndroid ? 400 : 10000);
 
                     ws.onopen = function () {
                         wsHandled = true;
                         clearTimeout(fallbackTimer);
+                        self.printerNotice = "";
                         // send() can still throw (e.g. the socket closes in
                         // the instant between onopen firing and send() being
                         // called) — this runs asynchronously, outside the
@@ -1781,6 +1927,16 @@ document.addEventListener("alpine:init", function () {
                             wsHandled = true;
                             clearTimeout(fallbackTimer);
                             fireIntentFallback();
+                        }
+                    };
+
+                    // The print bridge closes with 1011 when the spooler
+                    // rejected the job; its window carries the reason.
+                    ws.onclose = function (closeEvent) {
+                        if (closeEvent.code === 1011) {
+                            self.printerNotice = gettext(
+                                "The print bridge could not print this ticket. Its window shows why.",
+                            );
                         }
                     };
                 } catch (e) {

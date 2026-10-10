@@ -332,3 +332,11 @@ msgstr "Ce bouton n'a pas de lien d'action. Merci de rafraîchir la page."
 
 msgid "Your coach session has expired. Please sign in again."
 msgstr "Votre session de coach a expiré. Veuillez vous reconnecter."
+
+#: static/crush_lu/js/alpine/coach.js
+msgid "Printer not reachable. On a computer, start the print bridge (scripts/print_bridge.py) and print again."
+msgstr "Imprimante injoignable. Sur un ordinateur, lancez le pont d'impression (scripts/print_bridge.py) puis réimprimez."
+
+#: static/crush_lu/js/alpine/coach.js
+msgid "The print bridge could not print this ticket. Its window shows why."
+msgstr "Le pont d'impression n'a pas pu imprimer ce ticket. Sa fenêtre en indique la raison."
