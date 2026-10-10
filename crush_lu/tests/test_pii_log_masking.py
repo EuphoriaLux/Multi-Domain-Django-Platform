@@ -289,6 +289,19 @@ def test_quoted_local_parts_are_masked():
     )
 
 
+def test_domains_with_combining_marks_are_masked():
+    # Devanagari vowel signs are combining marks, outside Python's \w.
+    record = _record("Sent to %s and %s", "jane@example.कॉम", "jane@कंपनी.com")
+    PIIMaskingFilter().filter(record)
+    assert record.getMessage() == "Sent to j***e@e***.कॉम and j***e@क***.com"
+
+
+def test_version_strings_are_not_addresses():
+    record = _record("Requires %s", "pkg@1.2.3")
+    PIIMaskingFilter().filter(record)
+    assert record.getMessage() == "Requires pkg@1.2.3"
+
+
 def test_localhost_and_ip_literal_domains_are_masked():
     # EmailValidator's `localhost` allowlist and bracketed IP literals.
     record = _record(

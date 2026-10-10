@@ -107,9 +107,11 @@ class PIIMaskingFilter(logging.Filter):
         }
     """
 
-    # Regex patterns for PII detection. \w is Unicode here, so internationalised
-    # domains (jane@müller.de, which Django's EmailValidator accepts) match;
-    # the TLD is letters only ([^\W\d_]).
+    # Regex patterns for PII detection. Domain labels take Django's own
+    # U+00A1-U+FFFF range on top of \w: \w alone misses the combining marks
+    # many scripts need (jane@example.कॉम). The TLD takes letters from the
+    # same range but no digits, so "pkg@1.2.3" stays readable; there is no
+    # trailing \b, which never holds after a combining mark.
     #
     # The character next to "@" may be anything Django accepts in a local
     # part, so no valid address escapes whole (member!@example.com). Before
@@ -122,7 +124,10 @@ class PIIMaskingFilter(logging.Filter):
     _LOCAL_QUOTED = r'"(?:[^"\\\r\n]|\\.)*"'
     # Every domain form EmailValidator accepts: a dotted hostname, its
     # `localhost` allowlist, and a bracketed IPv4/IPv6 literal.
-    _DOMAIN = r'(?:[\w.-]+\.[^\W\d_]{2,}\b|localhost\b|\[[0-9A-Fa-f:.]+\])'
+    _DOMAIN = (
+        r'(?:[\w¡-￿.-]+\.[A-Za-z¡-￿-]{2,}'
+        r'|localhost\b|\[[0-9A-Fa-f:.]+\])'
+    )
     EMAIL_PATTERN = re.compile(
         r'(?:' + _LOCAL_QUOTED + r'|' + _LOCAL_BODY + r'*' + _LOCAL_LAST + r')'
         r'@' + _DOMAIN
