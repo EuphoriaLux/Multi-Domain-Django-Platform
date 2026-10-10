@@ -589,3 +589,32 @@ class MixerTicketTests(TestCase):
         gone.refresh_from_db()
         _, own_rows, _ = affinity_list(gone, self.event)
         self.assertEqual(own_rows, [])
+
+    def test_a_one_guest_first_print_keeps_seeding_the_cohort(self):
+        from crush_lu.services.mixer_ticket import _first_print_registrations
+
+        EventRegistration.objects.filter(event=self.event).exclude(
+            pk=self.regs[0].pk
+        ).update(status="cancelled")
+        affinity_list(self.regs[0], self.event)
+        self.assertEqual(_first_print_registrations(self.event), {self.regs[0].pk})
+
+        second = self.regs[1]
+        second.refresh_from_db()
+        second.status = "confirmed"
+        second.save()
+        _, rows, _ = affinity_list(second, self.event)
+        self.assertEqual(
+            _first_print_registrations(self.event), {self.regs[0].pk, second.pk}
+        )
+        self.assertEqual(len(rows), 1)
+
+    def test_assignment_locks_the_event_before_the_registrations(self):
+        import inspect
+
+        from crush_lu.services import mixer_ticket
+
+        source = inspect.getsource(mixer_ticket.assign_event_numbers)
+        event_lock = source.index("MeetupEvent.objects.select_for_update()")
+        reg_lock = source.index("EventRegistration.objects.select_for_update(")
+        self.assertLess(event_lock, reg_lock)

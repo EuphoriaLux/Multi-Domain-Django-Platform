@@ -158,17 +158,22 @@ def assign_event_numbers(event: MeetupEvent) -> None:
     with transaction.atomic():
         MeetupEvent.objects.select_for_update().only("pk").get(pk=event.pk)
         numbered = MixerTicketNumber.objects.filter(event=event)
+        # Lock the candidate registrations too, after the event (the order
+        # event_cancel uses): a concurrent erasure then either finishes first,
+        # and its row is simply not read, or waits until the numbers exist.
+        # of=("self",): Postgres refuses FOR UPDATE on the outer-joined side.
         missing = list(
-            EventRegistration.objects.filter(
-                event=event, status__in=SEATED_STATUSES + WAITING_STATUSES
-            )
+            EventRegistration.objects.select_for_update(of=("self",))
+            .filter(event=event, status__in=SEATED_STATUSES + WAITING_STATUSES)
+            .order_by("pk")
             # Skip tombstones: a NULL inside NOT IN (...) matches nothing, which
             # would silently stop every later assignment.
             .exclude(
                 pk__in=numbered.filter(registration__isnull=False).values(
                     "registration_id"
                 )
-            ).values_list(
+            )
+            .values_list(
                 "pk",
                 "status",
                 "checkin_prior_status",
@@ -182,7 +187,11 @@ def assign_event_numbers(event: MeetupEvent) -> None:
             return
         # Tombstones (erased registrations) still count, so no number is reused.
         top = numbered.aggregate(top=Max("number"))["top"] or 0
-        first_print = top == 0
+        # The percentile cohort is seeded until it holds at least one pair: a
+        # first print with a single eligible guest had no percentages to keep.
+        first_print = (
+            numbered.filter(in_first_print=True, registration__isnull=False).count() < 2
+        )
         seated, waiting, cohort = [], [], set()
         for pk, status, prior, user_ok, profile_ok, banned, verification in missing:
             # A pending seat is held (paid event, money at the door); only the
