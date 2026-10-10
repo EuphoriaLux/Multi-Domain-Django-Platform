@@ -186,7 +186,7 @@ def assign_event_numbers(event: MeetupEvent) -> None:
         seated, waiting, cohort = [], [], set()
         for pk, status, prior, user_ok, profile_ok, banned, verification in missing:
             # A pending seat is held (paid event, money at the door); only the
-            # true waitlist stays out of the percentile cohort. So does anyone
+            # current waitlist stays out of the percentile cohort. So does anyone
             # already banned or deactivated now: they are never listed, so they
             # must not shape the frozen scale either.
             removed = (
@@ -195,12 +195,10 @@ def assign_event_numbers(event: MeetupEvent) -> None:
                 or bool(banned)
                 or verification == "rejected"
             )
-            # A no-show already recorded is known to be absent: keep it out too.
-            if (
-                "waitlist" not in (status, prior)
-                and status != "no_show"
-                and not removed
-            ):
+            # Only rows still waiting stay out; someone admitted from the
+            # waitlist is in the room. A no-show already recorded is known to
+            # be absent: keep it out too.
+            if status not in ("waitlist", "no_show") and not removed:
                 cohort.add(pk)
             # Checked in from the waitlist or a pending seat: still a waiting
             # guest, even when that check-in is the one printing first.

@@ -560,3 +560,19 @@ class MixerTicketTests(TestCase):
         self.assertNotIn(numbers[rejected.pk], [n for n, _ in rows])
         _, own_rows, _ = affinity_list(rejected, self.event)
         self.assertEqual(own_rows, [])
+
+    def test_an_admitted_waitlistee_printing_first_seeds_the_cohort(self):
+        from crush_lu.services.mixer_ticket import _first_print_registrations
+
+        EventRegistration.objects.filter(event=self.event).update(status="cancelled")
+        promoted = []
+        for reg in self.regs[:3]:
+            reg.refresh_from_db()
+            reg.status = "attended"
+            reg.checkin_prior_status = "waitlist"
+            reg.checked_in_at = timezone.now()
+            reg.save()
+            promoted.append(reg.pk)
+        _, rows, _ = affinity_list(self.regs[0], self.event)
+        self.assertEqual(_first_print_registrations(self.event), set(promoted))
+        self.assertEqual(len(rows), 2)
