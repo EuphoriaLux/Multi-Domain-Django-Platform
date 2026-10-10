@@ -6,6 +6,7 @@ while maintaining enough information for debugging.
 """
 import re
 import logging
+from collections.abc import Mapping
 
 
 def mask_email(email: str) -> str:
@@ -76,6 +77,17 @@ class PIIMaskingFilter(logging.Filter):
     """
     Logging filter that masks PII (emails, phone numbers) in log messages.
 
+    Only the email addresses themselves are replaced, in ``record.msg`` and in
+    every argument, so "Speed Dating @ Urban Bar" or a multi-line report that
+    happens to hold one address keeps the rest of its text. A non-string
+    argument (the recipient list of an email, a ``User`` whose ``__str__`` is
+    its address, an exception) is replaced by its masked ``str()`` only when
+    that text holds an address; otherwise it is passed through untouched.
+
+    In production this runs on the OpenTelemetry handler that exports to
+    Application Insights (attached in ``azureproject.telemetry_config``), not
+    only on the ERROR-level console handler from ``LOGGING``.
+
     Usage:
         Add to logging config:
         'filters': {
@@ -87,20 +99,45 @@ class PIIMaskingFilter(logging.Filter):
 
     # Regex patterns for PII detection
     EMAIL_PATTERN = re.compile(
-        r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+        r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
     )
     PHONE_PATTERN = re.compile(
         r'(\+?\d{1,4}[-.\s]?)?(\(?\d{2,4}\)?[-.\s]?)?\d{3,4}[-.\s]?\d{3,4}'
     )
 
+    def _mask_text(self, text):
+        return self.EMAIL_PATTERN.sub(lambda m: mask_email(m.group(0)), text)
+
+    def _mask_value(self, value):
+        """Return ``value`` with every email address in it masked.
+
+        Never mutates ``value``: a list argument can be the live recipient
+        list of the email being sent.
+        """
+        if isinstance(value, str):
+            return self._mask_text(value)
+        if value is None or isinstance(value, (int, float)):
+            return value
+        # Exact types: a namedtuple cannot be rebuilt from one iterable, so it
+        # takes the str() path below like any other object.
+        if type(value) in (list, tuple):
+            return type(value)(self._mask_value(item) for item in value)
+        if isinstance(value, Mapping):
+            return {key: self._mask_value(item) for key, item in value.items()}
+        try:
+            text = str(value)
+        except Exception:
+            # Formatting the record will fail the same way, so it is never
+            # exported; leave it for logging's own error handling.
+            return value
+        if self.EMAIL_PATTERN.search(text):
+            return self._mask_text(text)
+        return value
+
     def filter(self, record):
         """Filter log record to mask PII."""
-        if isinstance(record.msg, str):
-            # Mask emails
-            record.msg = self.EMAIL_PATTERN.sub(
-                lambda m: mask_email(m.group(0)),
-                record.msg
-            )
+        try:
+            record.msg = self._mask_value(record.msg)
             # Note: Phone masking disabled by default as it may cause false positives
             # Uncomment if needed:
             # record.msg = self.PHONE_PATTERN.sub(
@@ -108,12 +145,15 @@ class PIIMaskingFilter(logging.Filter):
             #     record.msg
             # )
 
-        # Also handle args
-        if record.args:
-            record.args = tuple(
-                mask_email(arg) if isinstance(arg, str) and '@' in arg else arg
-                for arg in record.args
-            )
+            # `logger.info("%(email)s", {...})` leaves a mapping in args, which
+            # has to stay a mapping for the message to format.
+            if record.args:
+                record.args = self._mask_value(record.args)
+        except Exception:
+            # A filter that raises propagates into the caller's logging call.
+            # Withhold the content rather than risk exporting it unmasked.
+            record.msg = "[log message withheld: PII masking failed]"
+            record.args = ()
 
         return True
 

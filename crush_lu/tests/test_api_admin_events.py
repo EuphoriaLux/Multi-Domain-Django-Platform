@@ -87,10 +87,9 @@ class _EndpointContract:
         self.assertNotIn("Karaoke", resp.content.decode())
 
     def test_logged_output_survives_the_pii_filter(self):
-        # Production runs every record through PIIMaskingFilter, whose
-        # argument branch masks any string containing "@" as one email. The
-        # output has to be the message itself, so that only real addresses
-        # are masked and the rest of the report survives.
+        # Production runs every record through PIIMaskingFilter. Only the
+        # real address may be masked; the rest of the report, "@" included,
+        # has to survive.
         from django.core.management import CommandError
 
         from azureproject.logging_utils import PIIMaskingFilter
