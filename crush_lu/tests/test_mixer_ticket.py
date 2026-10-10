@@ -443,3 +443,23 @@ class MixerTicketTests(TestCase):
         widths = [d.width for d in directives if isinstance(d, Image)]
         self.assertTrue(widths)
         self.assertTrue(all(w <= 384 for w in widths))
+
+    def test_an_erased_registrations_number_is_never_reused(self):
+        before = self._numbers()
+        top = max(before.values())
+        last = next(pk for pk, n in before.items() if n == top)
+        EventRegistration.objects.filter(pk=last).delete()
+        late = self._guest(78, "confirmed")
+        after = self._numbers()
+        self.assertEqual(after[late.pk], top + 1)
+        self.assertNotIn(last, after)
+
+    def test_a_late_seat_does_not_move_printed_percentages(self):
+        a, b = self.regs[4], self.regs[9]
+        num_b = self._numbers()[b.pk]
+        _, before, _ = affinity_list(a, self.event)
+        self._guest(79, "confirmed", self.interests[:3])
+        num_a, after, _ = affinity_list(a, self.event)
+        _, b_rows, _ = affinity_list(b, self.event)
+        self.assertEqual(dict(before)[num_b], dict(after)[num_b])
+        self.assertEqual(dict(after)[num_b], dict(b_rows)[num_a])

@@ -160,16 +160,28 @@ def assign_event_numbers(event: MeetupEvent) -> None:
             EventRegistration.objects.filter(
                 event=event, status__in=SEATED_STATUSES + WAITING_STATUSES
             )
-            .exclude(pk__in=numbered.values("registration_id"))
-            .values_list("pk", "status")
+            # Skip tombstones: a NULL inside NOT IN (...) matches nothing, which
+            # would silently stop every later assignment.
+            .exclude(
+                pk__in=numbered.filter(registration__isnull=False).values(
+                    "registration_id"
+                )
+            ).values_list("pk", "status")
         )
         if not missing:
             return
+        # Tombstones (erased registrations) still count, so no number is reused.
         top = numbered.aggregate(top=Max("number"))["top"] or 0
+        first_print = top == 0
         seated = sorted(pk for pk, status in missing if status in SEATED_STATUSES)
         waiting = sorted(pk for pk, status in missing if status in WAITING_STATUSES)
         MixerTicketNumber.objects.bulk_create(
-            MixerTicketNumber(event=event, registration_id=pk, number=number)
+            MixerTicketNumber(
+                event=event,
+                registration_id=pk,
+                number=number,
+                in_first_print=first_print,
+            )
             for number, pk in enumerate(seated + waiting, top + 1)
         )
 
@@ -179,9 +191,19 @@ def event_numbers(event: MeetupEvent) -> dict[int, int]:
     from crush_lu.models import MixerTicketNumber
 
     return dict(
-        MixerTicketNumber.objects.filter(event=event).values_list(
-            "registration_id", "number"
-        )
+        MixerTicketNumber.objects.filter(
+            event=event, registration__isnull=False
+        ).values_list("registration_id", "number")
+    )
+
+
+def _first_print_registrations(event: MeetupEvent) -> set[int]:
+    from crush_lu.models import MixerTicketNumber
+
+    return set(
+        MixerTicketNumber.objects.filter(
+            event=event, in_first_print=True, registration__isnull=False
+        ).values_list("registration_id", flat=True)
     )
 
 
@@ -309,10 +331,11 @@ def affinity_list(
         and not g.removed
     ]
 
-    # The percentile scale uses every numbered registration whatever its
-    # current status, so a no-show, a cancellation or a door admission between
-    # two prints never moves a percentage already on paper.
-    cohort = guests
+    # The percentile scale is frozen on the registrations numbered at the first
+    # print, whatever their current status: a no-show, a cancellation or a
+    # seat added later never moves a percentage already on paper.
+    first_batch = _first_print_registrations(event)
+    cohort = [g for g in guests if g.pk in first_batch]
 
     interest_scores = sorted(
         s

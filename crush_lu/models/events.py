@@ -4399,6 +4399,11 @@ class MixerTicketNumber(models.Model):
     so a registration an admin moves to another event leaves its number with
     the event it was printed for. Assigned by
     ``crush_lu.services.mixer_ticket.assign_event_numbers``.
+
+    Deleting a registration (account erasure) leaves an anonymous tombstone --
+    the row without its registration -- so a number already printed is never
+    handed to someone else. ``in_first_print`` marks the batch assigned at the
+    first print: the affinity percentile scale is frozen on it.
     """
 
     event = models.ForeignKey(
@@ -4406,10 +4411,13 @@ class MixerTicketNumber(models.Model):
     )
     registration = models.ForeignKey(
         EventRegistration,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="mixer_ticket_numbers",
     )
     number = models.PositiveIntegerField()
+    in_first_print = models.BooleanField(default=False)
     assigned_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
