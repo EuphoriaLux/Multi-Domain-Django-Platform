@@ -305,6 +305,64 @@ class CapacityIncreaseNoticeTests(_PromotionFixture):
         self.assertEqual(len(self._waiter_mail()), 1)
         self.assertEqual(self._bells().count(), 1)
 
+    def _second_waiter(self):
+        user = self._user("waiter2@example.com")
+        return user, self._register(user, "waitlist")
+
+    def _raise_capacity_and_commit(self, seats):
+        with self.captureOnCommitCallbacks(execute=False) as callbacks:
+            self.event.max_participants = seats
+            self.event.save()
+        self._commit(callbacks)
+
+    def test_batch_within_budget_notifies_every_promoted_member(self):
+        second, second_reg = self._second_waiter()
+
+        self._raise_capacity_and_commit(3)
+
+        second_reg.refresh_from_db()
+        self.assertEqual(second_reg.status, "confirmed")
+        self.assertEqual(len(self._waiter_mail()), 1)
+        self.assertEqual(len([m for m in mail.outbox if second.email in m.to]), 1)
+
+    @override_settings(WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS=0)
+    def test_batch_past_budget_still_writes_every_bell_and_logs(self):
+        """Every on_commit callback runs inside the admin request, so a large
+        capacity jump must stop sending once the budget is spent. Nobody is
+        dropped: the bell row needs no network, and staff get an ERROR."""
+        from crush_lu.models import Notification
+
+        second, second_reg = self._second_waiter()
+
+        with self.assertLogs("crush_lu.notification_service", "ERROR") as logs:
+            self._raise_capacity_and_commit(3)
+
+        self.assertEqual(mail.outbox, [])
+        for user in (self.waiter, second):
+            self.assertEqual(
+                Notification.objects.filter(
+                    user=user, notification_type=BELL_TYPE
+                ).count(),
+                1,
+            )
+        self.assertIn("budget", logs.output[0])
+        self.assertIn(str(second_reg.pk), logs.output[0])
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class BellLinkTests(_PromotionFixture):
+    def test_bell_link_resolves_to_the_event_page_on_crush_lu(self):
+        """The bell stores the unprefixed path like every other bell type;
+        LocaleMiddleware redirects it to a language-prefixed event page rather
+        than 404ing under i18n_patterns(prefix_default_language=True)."""
+        self._commit(self._cancel_holder())
+
+        link = self._bells().get().link_url
+        response = Client(HTTP_HOST="crush.lu").get(link)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], f"/en/events/{self.event.id}/")
+
 
 class SeatGrantedEmailGateTests(_PromotionFixture):
     """The transactional gate itself, and that it stays scoped to promotions."""

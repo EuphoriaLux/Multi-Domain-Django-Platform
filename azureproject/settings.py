@@ -1857,6 +1857,15 @@ CRUSH_PUSH_FANOUT_BUDGET_SECONDS = float(
 CRUSH_PUSH_SEND_TIMEOUT_SECONDS = float(
     os.getenv("CRUSH_PUSH_SEND_TIMEOUT_SECONDS", "10")
 )
+# Wall-clock budget for notifying a BATCH of waitlist promotions (a capacity
+# increase can promote many members at once) from one on_commit callback inside
+# the admin request. Checked before each member, and one member's notice can
+# itself take ~3x CRUSH_PUSH_FANOUT_BUDGET_SECONDS plus the email, so 30s keeps
+# the worst case inside the 120s gunicorn window. Members past the budget still
+# get the in-app bell row (no network) and are logged at ERROR, never dropped.
+WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS = float(
+    os.getenv("WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS", "30")
+)
 PASSKIT_PASS_PROVIDER = os.getenv(
     "PASSKIT_PASS_PROVIDER",
     "crush_lu.wallet.apple_pass.provide_pass_for_serial",

@@ -1235,7 +1235,7 @@ def promote_waitlist_on_capacity_increase(sender, instance, created, **kwargs):
         return
 
     from django.db import transaction
-    from .notification_service import notify_waitlist_promotion
+    from .notification_service import notify_waitlist_promotions
     from .views_events import _promote_from_waitlist
 
     with transaction.atomic():
@@ -1261,10 +1261,13 @@ def promote_waitlist_on_capacity_increase(sender, instance, created, **kwargs):
 
     # On commit, not merely outside the block above: an admin save wraps this
     # handler in its own transaction, and a member must never hear about a
-    # seat that a rollback takes back. The notice picks the payment ask for a
-    # "pending" seat itself.
-    for reg in promoted_registrations:
-        transaction.on_commit(lambda r=reg: notify_waitlist_promotion(r))
+    # seat that a rollback takes back. One callback for the whole batch, so a
+    # large capacity jump stays inside a wall-clock budget; anyone past it gets
+    # the bell row only. The notice picks the payment ask for a "pending" seat.
+    if promoted_registrations:
+        transaction.on_commit(
+            lambda regs=promoted_registrations: notify_waitlist_promotions(regs)
+        )
 
     if promoted_registrations:
         logger.info(

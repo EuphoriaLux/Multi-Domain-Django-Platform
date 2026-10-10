@@ -9,6 +9,7 @@ Both channels are attempted independently — push success does not suppress ema
 """
 
 import logging
+import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
@@ -1340,6 +1341,65 @@ def notify_waitlist_promotion(
         result.inapp_created,
     )
     return result
+
+
+def notify_waitlist_promotions(registrations, request=None) -> None:
+    """Notify a batch of promotions without letting the batch outgrow the request.
+
+    A capacity increase can promote many members at once, and on_commit
+    callbacks run inside the admin request (production has no task worker).
+    Members are notified in full until WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS
+    runs out. Everyone after that still gets the bell row, which needs no
+    network, and their registrations are logged at ERROR so staff can reach
+    them. The budget is checked before each member, so one member's notice
+    (bounded by the push fan-out budget and the email timeout) can overrun it.
+    """
+    from django.conf import settings
+
+    budget = getattr(settings, "WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS", 30.0)
+    deadline = time.monotonic() + budget
+    for index, registration in enumerate(registrations):
+        if time.monotonic() >= deadline:
+            bell_only = registrations[index:]
+            for late in bell_only:
+                _write_waitlist_promotion_bell(late)
+            logger.error(
+                "Waitlist promotion notice budget (%ss) ran out after %s of %s "
+                "member(s); bell only for registrations %s",
+                budget,
+                index,
+                len(registrations),
+                [late.pk for late in bell_only],
+            )
+            return
+        notify_waitlist_promotion(registration, request)
+
+
+def _write_waitlist_promotion_bell(registration) -> None:
+    """Write the in-app row alone: no email, no push, no network."""
+    from .models import Notification
+
+    try:
+        payload = NotificationService._render_inapp_payload(
+            registration.user,
+            NotificationType.EVENT_WAITLIST_PROMOTED,
+            {"registration": registration, "event": registration.event},
+            None,
+        )
+        Notification.objects.create(
+            user=registration.user,
+            notification_type=NotificationType.EVENT_WAITLIST_PROMOTED.value,
+            title=str(payload.get("title", ""))[:200],
+            body=str(payload.get("body", "")),
+            link_url=payload.get("link_url", ""),
+            metadata=payload.get("metadata", {}) or {},
+        )
+    except Exception as exc:
+        logger.error(
+            "Failed writing waitlist promotion bell for registration %s: %s",
+            registration.pk,
+            type(exc).__name__,
+        )
 
 
 def notify_profile_recontact(user, profile, coach, request=None) -> NotificationResult:
