@@ -629,6 +629,130 @@ document.addEventListener("alpine:init", function () {
         return mixin({}, makeModal(false));
     });
 
+    // Connect Showcase: a guest swipes Crush Connect cards on the coach's
+    // phone. The cards are server-rendered and shown one at a time by
+    // toggling `hidden`; swipes stay in the browser and are never posted.
+    Alpine.data("connectShowcaseDeck", function () {
+        return {
+            rootElement: null,
+            cardElements: [],
+            index: 0,
+            decisions: [],
+            isDragging: false,
+            startX: 0,
+            deltaX: 0,
+            init() {
+                this.rootElement = this.$el;
+                this.cardElements = Array.from(
+                    this.rootElement.querySelectorAll("[data-showcase-card]"),
+                );
+                this.showCurrent();
+            },
+            get total() {
+                return this.cardElements.length;
+            },
+            get hasCard() {
+                return this.index < this.total;
+            },
+            get isDone() {
+                return this.total > 0 && !this.hasCard;
+            },
+            get undoDisabled() {
+                return this.decisions.length === 0;
+            },
+            get progressText() {
+                return this.rootElement.dataset.progress
+                    .replace("{current}", this.index + 1)
+                    .replace("{total}", this.total);
+            },
+            get fitNames() {
+                return this.decisions
+                    .filter((decision) => decision.fits)
+                    .map((decision) => decision.name);
+            },
+            get fitSummary() {
+                return this.rootElement.dataset.fitSummary
+                    .replace("{count}", this.fitNames.length)
+                    .replace("{total}", this.total);
+            },
+            get fitNamesText() {
+                return this.fitNames.join(", ");
+            },
+            get hasFits() {
+                return this.fitNames.length > 0;
+            },
+            get stageStyle() {
+                return this.isDragging
+                    ? `transform: translateX(${this.deltaX}px) rotate(${this.deltaX * 0.04}deg)`
+                    : "";
+            },
+            get showsFitHint() {
+                return this.isDragging && this.deltaX > 40;
+            },
+            get showsPassHint() {
+                return this.isDragging && this.deltaX < -40;
+            },
+            showCurrent() {
+                this.cardElements.forEach((element, position) => {
+                    element.hidden = position !== this.index;
+                });
+            },
+            decide(fits) {
+                if (!this.hasCard) return;
+                const card = this.cardElements[this.index];
+                this.decisions.push({ fits: fits, name: card.dataset.name });
+                this.index += 1;
+                this.showCurrent();
+                this.$nextTick(() => {
+                    this.rootElement.scrollIntoView({ block: "start" });
+                });
+            },
+            markFit() {
+                this.decide(true);
+            },
+            markPass() {
+                this.decide(false);
+            },
+            undo() {
+                if (this.undoDisabled) return;
+                this.decisions.pop();
+                this.index -= 1;
+                this.showCurrent();
+            },
+            startDrag(event) {
+                if (!this.hasCard || (event.pointerType === "mouse" && event.button !== 0))
+                    return;
+                this.isDragging = true;
+                this.startX = event.clientX;
+                event.currentTarget.setPointerCapture(event.pointerId);
+            },
+            onDrag(event) {
+                if (this.isDragging) this.deltaX = event.clientX - this.startX;
+            },
+            endDrag() {
+                if (!this.isDragging) return;
+                const dx = this.deltaX;
+                this.cancelDrag();
+                if (dx > 90) this.markFit();
+                else if (dx < -90) this.markPass();
+            },
+            cancelDrag() {
+                this.isDragging = false;
+                this.deltaX = 0;
+            },
+            handleKeydown(event) {
+                if (
+                    event.target instanceof Element &&
+                    event.target.closest("input, textarea, select, button, a, [contenteditable]")
+                )
+                    return;
+                if (event.key === "ArrowRight") this.markFit();
+                else if (event.key === "ArrowLeft") this.markPass();
+                else if (event.key === "Backspace") this.undo();
+            },
+        };
+    });
+
     // Coach check-in scanner component
     Alpine.data("coachCheckin", function () {
         return {
