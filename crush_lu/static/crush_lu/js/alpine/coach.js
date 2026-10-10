@@ -774,6 +774,7 @@ document.addEventListener("alpine:init", function () {
             // Thermal Printer state (PEC 80 / RawBT)
             printerEnabled: localStorage.getItem("crush_printer_enabled") === "true",
             autoPrint: localStorage.getItem("crush_autoprint_enabled") !== "false",
+            printerNotice: "",
 
             // WebSocket state
             ws: null,
@@ -863,6 +864,9 @@ document.addEventListener("alpine:init", function () {
                 return this.printerEnabled
                     ? i18n.printerActiveTitle || "Thermal printer active (RawBT)"
                     : i18n.printerDisabledTitle || "Thermal printer disabled";
+            },
+            get hasPrinterNotice() {
+                return this.printerNotice !== "";
             },
 
             // --- HTML helpers (XSS protection) ---
@@ -1827,6 +1831,7 @@ document.addEventListener("alpine:init", function () {
             // --- Thermal Printer (RawBT Protocol) ---
             togglePrinter: function () {
                 this.printerEnabled = !this.printerEnabled;
+                this.printerNotice = "";
                 localStorage.setItem(
                     "crush_printer_enabled",
                     this.printerEnabled ? "true" : "false",
@@ -1837,12 +1842,25 @@ document.addEventListener("alpine:init", function () {
                 if (!base64Payload || typeof base64Payload !== "string") return;
                 var trimmed = base64Payload.trim();
                 if (!/^[A-Za-z0-9+/=]+$/.test(trimmed)) return;
+                var self = this;
+                // RawBT and its intent: URL exist only on Android. A Windows,
+                // macOS or Linux PC prints through scripts/print_bridge.py,
+                // which listens on the same WebSocket port; with no bridge
+                // running there is nothing to fall back to, so say so
+                // instead of launching an intent the browser cannot open.
+                var isAndroid = /Android/i.test(navigator.userAgent || "");
 
                 // Single source of truth for the Android intent fallback —
                 // previously rebuilt independently at every call site, which
                 // is exactly the class of string PR #872 already had to
                 // hand-fix once (wrong URI scheme format).
                 var fireIntentFallback = function () {
+                    if (!isAndroid) {
+                        self.printerNotice = gettext(
+                            "Printer not reachable. On a computer, start the print bridge (scripts/print_bridge.py) and print again.",
+                        );
+                        return;
+                    }
                     // Re-validated here, right at the navigation, not just
                     // once at function entry: this fires from async
                     // WebSocket callbacks (onerror, a timeout, a caught
@@ -1872,17 +1890,21 @@ document.addEventListener("alpine:init", function () {
                     ws.binaryType = "arraybuffer";
                     var wsHandled = false;
 
+                    // Android races RawBT's socket against the intent. On a
+                    // PC the timer only catches a hung connect, and must
+                    // outlast the browser's local-network permission prompt.
                     var fallbackTimer = setTimeout(function () {
                         if (!wsHandled && ws.readyState !== 1) {
                             wsHandled = true;
                             try { ws.close(); } catch (e) {}
                             fireIntentFallback();
                         }
-                    }, 400);
+                    }, isAndroid ? 400 : 10000);
 
                     ws.onopen = function () {
                         wsHandled = true;
                         clearTimeout(fallbackTimer);
+                        self.printerNotice = "";
                         // send() can still throw (e.g. the socket closes in
                         // the instant between onopen firing and send() being
                         // called) — this runs asynchronously, outside the
@@ -1905,6 +1927,16 @@ document.addEventListener("alpine:init", function () {
                             wsHandled = true;
                             clearTimeout(fallbackTimer);
                             fireIntentFallback();
+                        }
+                    };
+
+                    // The print bridge closes with 1011 when the spooler
+                    // rejected the job; its window carries the reason.
+                    ws.onclose = function (closeEvent) {
+                        if (closeEvent.code === 1011) {
+                            self.printerNotice = gettext(
+                                "The print bridge could not print this ticket. Its window shows why.",
+                            );
                         }
                     };
                 } catch (e) {
