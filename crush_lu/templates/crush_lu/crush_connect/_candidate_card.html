@@ -8,6 +8,8 @@ Context:
     target       — the User being shown
     target_profile — target.crushprofile (passed in to avoid template chained lookups)
     target_membership — target.crush_connect_membership
+    showcase     — optional; True on the coach's Connect Showcase deck, which
+                   a coach shows an anonymous guest (see the gallery below)
 
 Privacy contract (Crush Connect):
     - first_name only, never user.get_full_name or username
@@ -64,7 +66,11 @@ Privacy contract (Crush Connect):
         </div>
     </div>
 
-    {% include "crush_lu/crush_connect/_reviewed_secondary_photos.html" with profile=target_profile %}
+    {% comment %}
+    The showcase deck is rendered for a coach, whom the photo endpoint serves
+    the live upload: keep only secondary photos whose live file is published.
+    {% endcomment %}
+    {% include "crush_lu/crush_connect/_reviewed_secondary_photos.html" with profile=target_profile live_only=showcase %}
 
     {# Card body #}
     <div class="p-5 flex flex-col gap-4">

@@ -1,5 +1,9 @@
 {% load i18n crush_media %}
-{% with reviewed_fields=profile.get_coach_reviewed_secondary_photo_fields %}
+{% comment %}
+live_only — optional; set on the Connect Showcase, which a coach's phone
+shows to a guest: only slots whose live upload is the published file.
+{% endcomment %}
+{% public_secondary_photo_fields profile live_only=live_only as reviewed_fields %}
 {% if reviewed_fields %}
 <div class="grid grid-cols-2 gap-3 px-4 pb-4" aria-label="{% trans 'Coach-reviewed profile photos' %}">
     {% for photo_field in reviewed_fields %}
@@ -12,4 +16,3 @@
     {% endfor %}
 </div>
 {% endif %}
-{% endwith %}

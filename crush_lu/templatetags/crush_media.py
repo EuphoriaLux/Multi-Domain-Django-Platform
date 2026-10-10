@@ -88,6 +88,27 @@ def _viewer_sees_live_photo(context, profile):
     return cached
 
 
+@register.simple_tag
+def public_secondary_photo_fields(profile, live_only=False):
+    """Secondary slots other members may see, for a Connect photo gallery.
+
+    ``live_only`` keeps just the slots whose live upload IS the published
+    file. Use it on a page rendered for a coach but shown to someone else
+    (the Connect Showcase): the photo endpoint serves active coaches the
+    live upload, so a replacement still waiting for review would leak.
+    """
+    from crush_lu.services.photo_publication import get_public_photo_key
+
+    fields = profile.get_coach_reviewed_secondary_photo_fields()
+    if not live_only:
+        return fields
+    return [
+        field
+        for field in fields
+        if getattr(profile, field).name == get_public_photo_key(profile, field)
+    ]
+
+
 @register.filter
 def split_interests(value):
     """Split a comma-separated interests string into a list of trimmed items.
