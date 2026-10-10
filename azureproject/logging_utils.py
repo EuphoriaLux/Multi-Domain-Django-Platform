@@ -120,9 +120,12 @@ class PIIMaskingFilter(logging.Filter):
     _LOCAL_LAST = r"[\w.!#$%&'*+/=?^`{|}~-]"
     # Django also accepts a quoted local part: "john..doe"@example.com.
     _LOCAL_QUOTED = r'"(?:[^"\\\r\n]|\\.)*"'
+    # Every domain form EmailValidator accepts: a dotted hostname, its
+    # `localhost` allowlist, and a bracketed IPv4/IPv6 literal.
+    _DOMAIN = r'(?:[\w.-]+\.[^\W\d_]{2,}\b|localhost\b|\[[0-9A-Fa-f:.]+\])'
     EMAIL_PATTERN = re.compile(
         r'(?:' + _LOCAL_QUOTED + r'|' + _LOCAL_BODY + r'*' + _LOCAL_LAST + r')'
-        r'@[\w.-]+\.[^\W\d_]{2,}\b'
+        r'@' + _DOMAIN
     )
     PHONE_PATTERN = re.compile(
         r'(\+?\d{1,4}[-.\s]?)?(\(?\d{2,4}\)?[-.\s]?)?\d{3,4}[-.\s]?\d{3,4}'

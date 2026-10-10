@@ -289,6 +289,20 @@ def test_quoted_local_parts_are_masked():
     )
 
 
+def test_localhost_and_ip_literal_domains_are_masked():
+    # EmailValidator's `localhost` allowlist and bracketed IP literals.
+    record = _record(
+        "Signup for %s, %s and %s",
+        "member@localhost",
+        "member@[127.0.0.1]",
+        "admin@[::1]",
+    )
+    PIIMaskingFilter().filter(record)
+    assert record.getMessage() == (
+        "Signup for m***r@l***, m***r@[***.1] and a***n@[***"
+    )
+
+
 def test_every_local_part_character_django_accepts_is_caught():
     # A character next to "@" outside the pattern used to leave the whole
     # address in clear. Delimiters before it must not swallow a log label.
