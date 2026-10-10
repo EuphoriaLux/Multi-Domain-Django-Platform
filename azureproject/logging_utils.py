@@ -6,6 +6,9 @@ while maintaining enough information for debugging.
 """
 import re
 import logging
+# Builtins since 3.11; imported by name because ruff (no target-version set)
+# reports them as undefined, and CI gates on F82.
+from builtins import BaseExceptionGroup, ExceptionGroup
 from collections.abc import Mapping
 
 
@@ -106,8 +109,16 @@ class PIIMaskingFilter(logging.Filter):
     # Regex patterns for PII detection. \w is Unicode here, so internationalised
     # domains (jane@müller.de, which Django's EmailValidator accepts) match;
     # the TLD is letters only ([^\W\d_]).
+    #
+    # The character next to "@" may be anything Django accepts in a local
+    # part, so no valid address escapes whole (member!@example.com). Before
+    # that, the characters that double as delimiters in log text (= ' / & `
+    # { | }) end the match instead, so "user=jane@…" keeps its label and
+    # "['jane@…']" its quote. The cost: o'brien@… leaves "o'" in clear.
+    _LOCAL_BODY = r"[\w.!#$%*+?^~-]"
+    _LOCAL_LAST = r"[\w.!#$%&'*+/=?^`{|}~-]"
     EMAIL_PATTERN = re.compile(
-        r'\b[\w.%+-]+@[\w.-]+\.[^\W\d_]{2,}\b'
+        _LOCAL_BODY + r'*' + _LOCAL_LAST + r'@[\w.-]+\.[^\W\d_]{2,}\b'
     )
     PHONE_PATTERN = re.compile(
         r'(\+?\d{1,4}[-.\s]?)?(\(?\d{2,4}\)?[-.\s]?)?\d{3,4}[-.\s]?\d{3,4}'
@@ -137,6 +148,9 @@ class PIIMaskingFilter(logging.Filter):
                 continue
             chain.append(current)
             pending.extend((current.__cause__, current.__context__))
+            # A group's own text is only its label and a count.
+            if isinstance(current, BaseExceptionGroup):
+                pending.extend(current.exceptions)
         return chain
 
     def _mentions_address(self, exc):
@@ -151,15 +165,23 @@ class PIIMaskingFilter(logging.Filter):
         if id(exc) in memo:
             return memo[id(exc)]
         cls = type(exc)
+        is_group = isinstance(exc, BaseExceptionGroup)
         stand_in_cls = self._stand_in_classes.get(cls)
         if stand_in_cls is None:
             stand_in_cls = type(
                 cls.__name__,
-                (Exception,),
+                # A group has to stay a group for its children to render.
+                (ExceptionGroup if is_group else Exception,),
                 {'__module__': cls.__module__, '__qualname__': cls.__qualname__},
             )
             self._stand_in_classes[cls] = stand_in_cls
-        stand_in = stand_in_cls(self._mask_text(self._exception_text(exc)))
+        if is_group:
+            stand_in = stand_in_cls(
+                self._mask_text(str(exc.message)),
+                [self._stand_in(child, memo) for child in exc.exceptions],
+            )
+        else:
+            stand_in = stand_in_cls(self._mask_text(self._exception_text(exc)))
         memo[id(exc)] = stand_in
         stand_in.__traceback__ = exc.__traceback__
         stand_in.__cause__ = self._stand_in(exc.__cause__, memo)

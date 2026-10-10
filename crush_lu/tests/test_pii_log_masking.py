@@ -262,6 +262,23 @@ def test_internationalised_addresses_are_masked():
     assert record.getMessage() == "Invite sent to j***e@m***.de and j***n@e***.com"
 
 
+def test_every_local_part_character_django_accepts_is_caught():
+    # A character next to "@" outside the pattern used to leave the whole
+    # address in clear. Delimiters before it must not swallow a log label.
+    record = _record(
+        "Sent to %s, %s, %s and user=%s",
+        "member!@example.com",
+        "a=b@example.com",
+        "o'brien@example.com",
+        "jane@example.com",
+    )
+    PIIMaskingFilter().filter(record)
+    assert record.getMessage() == (
+        "Sent to m***!@e***.com, a=b***@e***.com, o'b***n@e***.com "
+        "and user=j***e@e***.com"
+    )
+
+
 # --- exceptions attached with exc_info -----------------------------------------
 
 MEMBER_EMAIL = "jane.member" + "@example.com"
@@ -332,3 +349,30 @@ def test_an_exception_without_an_address_is_left_as_it_is():
     )
     PIIMaskingFilter().filter(record)
     assert record.exc_info is exc_info
+
+
+def test_an_address_inside_an_exception_group_is_masked():
+    # The group's own text is only "label (N sub-exceptions)", so the
+    # address sits in a child that the traceback still prints.
+    import sys
+    import traceback
+    from builtins import ExceptionGroup  # named for ruff; see logging_utils
+
+    try:
+        raise ExceptionGroup(
+            "2 invitations failed",
+            [ValueError(f"bounce for {MEMBER_EMAIL}"), KeyError("slot")],
+        )
+    except ExceptionGroup:
+        exc_info = sys.exc_info()
+    record = logging.LogRecord(
+        "test", logging.ERROR, __file__, 1, "failed", (), exc_info
+    )
+    PIIMaskingFilter().filter(record)
+
+    rendered = "".join(traceback.format_exception(*record.exc_info))
+    assert MEMBER_EMAIL not in rendered
+    assert "ValueError: bounce for j***r@e***.com" in rendered
+    assert "ExceptionGroup: 2 invitations failed (2 sub-exceptions)" in rendered
+    assert "KeyError: 'slot'" in rendered
+    assert MEMBER_EMAIL in str(exc_info[1].exceptions[0])  # caller's is untouched
