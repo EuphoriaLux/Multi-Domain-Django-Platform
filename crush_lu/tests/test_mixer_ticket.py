@@ -490,3 +490,28 @@ class MixerTicketTests(TestCase):
         cohort = _first_print_registrations(self.event)
         self.assertNotIn(waiting.pk, cohort)
         self.assertEqual(cohort, {r.pk for r in self.regs})
+
+    def test_pending_seats_form_the_cohort_when_no_one_is_confirmed(self):
+        from crush_lu.services.mixer_ticket import _first_print_registrations
+
+        EventRegistration.objects.filter(event=self.event).update(status="pending")
+        first = self.regs[0]
+        first.refresh_from_db()
+        first.status = "attended"
+        first.checkin_prior_status = "pending"
+        first.save()
+        _, rows, _ = affinity_list(first, self.event)
+        self.assertEqual(
+            _first_print_registrations(self.event), {r.pk for r in self.regs}
+        )
+        self.assertGreater(len({pct for _, pct in rows}), 1)
+
+    def test_quiz_table_assignment_is_printed_on_a_mixer_ticket(self):
+        text = preview_checkin_ticket_text(
+            registration=self.regs[0],
+            event=self.event,
+            table_number=4,
+            seat_label="B",
+            language="fr",
+        )
+        self.assertIn("TABLE 4 (B)", text)

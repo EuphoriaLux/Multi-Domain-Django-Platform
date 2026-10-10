@@ -37,6 +37,7 @@ the list without inventing precision.
 from __future__ import annotations
 
 import io
+from bisect import bisect_left, bisect_right
 import logging
 import re
 from typing import TYPE_CHECKING
@@ -67,7 +68,8 @@ logger = logging.getLogger(__name__)
 SEATED_STATUSES = ("confirmed", "attended", "no_show")
 WAITING_STATUSES = ("waitlist", "pending")
 # Statuses that appear in other guests' lists.
-LISTED_STATUSES = ("confirmed", "attended")
+# `pending` holds a seat (paid at the door), so it is listed like a confirmed one.
+LISTED_STATUSES = ("confirmed", "attended", "pending")
 
 LIST_SIZE = 20
 DISPLAY_MIN = 35
@@ -173,8 +175,12 @@ def assign_event_numbers(event: MeetupEvent) -> None:
         # Tombstones (erased registrations) still count, so no number is reused.
         top = numbered.aggregate(top=Max("number"))["top"] or 0
         first_print = top == 0
-        seated, waiting = [], []
+        seated, waiting, cohort = [], [], set()
         for pk, status, prior in missing:
+            # A pending seat is held (paid event, money at the door); only the
+            # true waitlist stays out of the percentile cohort.
+            if "waitlist" not in (status, prior):
+                cohort.add(pk)
             # Checked in from the waitlist or a pending seat: still a waiting
             # guest, even when that check-in is the one printing first.
             door_arrival = status == "attended" and prior not in ("", "confirmed")
@@ -184,14 +190,13 @@ def assign_event_numbers(event: MeetupEvent) -> None:
                 waiting.append(pk)
         seated.sort()
         waiting.sort()
-        seated_set = set(seated)
         MixerTicketNumber.objects.bulk_create(
             MixerTicketNumber(
                 event=event,
                 registration_id=pk,
                 number=number,
-                # The percentile cohort: seated guests of the first print only.
-                in_first_print=first_print and pk in seated_set,
+                # The percentile cohort: seat holders of the first print only.
+                in_first_print=first_print and pk in cohort,
             )
             for number, pk in enumerate(seated + waiting, top + 1)
         )
@@ -369,8 +374,10 @@ def affinity_list(
     def display(raw: float) -> int:
         if not room:
             return DISPLAY_MIN
-        below = sum(1 for r in room if r < raw - 1e-9)
-        equal = sum(1 for r in room if abs(r - raw) <= 1e-9)
+        # `room` is sorted: two binary searches instead of two full scans per
+        # listed guest, which kept each print cubic in the room size.
+        below = bisect_left(room, raw - 1e-9)
+        equal = bisect_right(room, raw + 1e-9) - below
         frac = (below + equal / 2) / len(room)
         return DISPLAY_MIN + round((DISPLAY_MAX - DISPLAY_MIN) * frac)
 
@@ -513,6 +520,7 @@ def build_mixer_ticket_directives(
     lang: str = "fr",
     date_str: str = "",
     logo_path: str | None = None,
+    table_label: str = "",
 ) -> list[Directive]:
     """Full directive list for one guest's mixer ticket (caller sets the language)."""
     cols = paper.columns
@@ -600,6 +608,9 @@ def build_mixer_ticket_directives(
             bold=True,
         )
     )
+    if table_label:
+        # A mixer can host a quiz: its table assignment must reach the guest.
+        out.append(Text(table_label.upper(), Align.CENTER, bold=True))
     out.append(Rule("="))
 
     out.append(

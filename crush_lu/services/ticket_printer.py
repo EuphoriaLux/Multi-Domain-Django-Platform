@@ -1358,6 +1358,11 @@ def build_checkin_ticket_directives(
                 lang=lang,
                 date_str=date_str,
                 logo_path=_get_crush_ghost_logo_path(),
+                table_label=(
+                    f"TABLE {table_number}" + (f" ({seat_label})" if seat_label else "")
+                    if table_number
+                    else ""
+                ),
             )
 
         table_display = "WELCOME" if lang != "fr" else "BIENVENUE"
