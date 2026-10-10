@@ -243,11 +243,11 @@ def fcm_credentials(service_account_private_key):
         yield loader
 
 
-def _token_response():
+def _token_response(access_token="fresh-token"):
     response = MagicMock()
     response.status = 200
     response.data = json.dumps(
-        {"access_token": "fresh-token", "expires_in": 3600}
+        {"access_token": access_token, "expires_in": 3600}
     ).encode()
     return response
 
@@ -379,6 +379,49 @@ def test_android_retryable_token_error_is_not_retried_with_backoff(
     token_endpoint.assert_called_once()
     backoff_sleep.assert_not_called()
     fcm_send.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_android_token_rejected_by_fcm_is_refreshed_on_the_next_send(
+    user, android_device, fcm_credentials, token_endpoint, fcm_send
+):
+    token_endpoint.side_effect = [
+        _token_response("revoked-token"),
+        _token_response("new-token"),
+    ]
+    # Revoked server-side before its recorded expiry: still "valid" locally.
+    fcm_send.return_value = MagicMock(
+        status_code=401, text='{"error": {"status": "UNAUTHENTICATED"}}'
+    )
+
+    res = android_push.send_native_android_push_notification(user, "One", "Body")
+    assert res["failed"] == 1
+
+    fcm_send.return_value = MagicMock(status_code=200)
+    res = android_push.send_native_android_push_notification(user, "Two", "Body")
+
+    assert res["success"] == 1
+    assert token_endpoint.call_count == 2
+    headers = fcm_send.call_args.kwargs["headers"]
+    assert headers["Authorization"] == "Bearer new-token"
+    # The rejection was our token, not the device's.
+    android_device.refresh_from_db()
+    assert android_device.failure_count == 0
+
+
+def test_discard_fcm_token_keeps_a_token_another_thread_already_replaced(
+    fcm_credentials, token_endpoint
+):
+    deadline = time.monotonic() + 30
+    assert android_push._get_fcm_access_token(deadline)[0] == "fresh-token"
+    credentials = fcm_credentials.return_value[0]
+
+    android_push._discard_fcm_token("stale-token", deadline)
+    assert credentials.token == "fresh-token"
+
+    android_push._discard_fcm_token("fresh-token", deadline)
+    assert credentials.token is None
+    assert not credentials.valid
 
 
 @pytest.mark.django_db

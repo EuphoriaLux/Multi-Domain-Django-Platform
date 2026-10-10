@@ -193,6 +193,23 @@ def _get_fcm_access_token(deadline):
         _fcm_credentials_lock.release()
 
 
+def _discard_fcm_token(rejected_token, deadline):
+    """Forget the cached token after FCM rejected ``rejected_token``.
+
+    Clearing ``token`` makes the credentials invalid, so the next call
+    refreshes them. Only while the cache still holds that token: another
+    thread may already have replaced it. If the lock stays busy until
+    ``deadline`` it is left alone, and the next 401 tries again.
+    """
+    if not _fcm_credentials_lock.acquire(timeout=max(0.0, deadline - time.monotonic())):
+        return
+    try:
+        if _fcm_credentials is not None and _fcm_credentials[0].token == rejected_token:
+            _fcm_credentials[0].token = None
+    finally:
+        _fcm_credentials_lock.release()
+
+
 def send_native_android_push_notification(
     user,
     title,
@@ -248,6 +265,7 @@ def send_native_android_push_notification(
     success_count = 0
     failed_count = 0
     attempted = 0
+    token_rejected = False
 
     for device in devices[:limit]:
         if time.monotonic() >= deadline:
@@ -277,6 +295,13 @@ def send_native_android_push_notification(
                 # If token is invalid or unregistered, mark as failed
                 if response.status_code in [404, 410] or "UNREGISTERED" in response.text:
                     device.mark_failure()
+                elif response.status_code == 401 and not token_rejected:
+                    # Our OAuth token, not the device: FCM rejected it before
+                    # its recorded expiry (e.g. revoked server-side). Drop it
+                    # so the next notification mints a new one instead of
+                    # failing until the cached expiry, up to an hour away.
+                    token_rejected = True
+                    _discard_fcm_token(access_token, deadline)
                 failed_count += 1
         except Exception as e:
             logger.error(f"Exception during FCM send to device {device.id}: {e}")
