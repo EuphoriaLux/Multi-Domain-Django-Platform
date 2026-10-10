@@ -104,7 +104,11 @@ def origin_allowed(origin: str | None, extra: frozenset[str] = frozenset()) -> b
 
 
 def accept_key(client_key: str) -> str:
-    digest = hashlib.sha1((client_key + WEBSOCKET_GUID).encode("ascii")).digest()
+    # RFC 6455 fixes SHA-1 here; the accept key proves the server speaks
+    # WebSocket, it protects nothing.
+    digest = hashlib.sha1(
+        (client_key + WEBSOCKET_GUID).encode("ascii"), usedforsecurity=False
+    ).digest()
     return base64.b64encode(digest).decode("ascii")
 
 
