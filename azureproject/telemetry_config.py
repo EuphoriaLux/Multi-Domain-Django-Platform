@@ -14,6 +14,8 @@ import os
 import re
 import threading
 
+from azureproject.logging_utils import PIIMaskingFilter
+
 logger = logging.getLogger(__name__)
 
 # Exceptions to suppress from telemetry (fully qualified class names)
@@ -355,6 +357,9 @@ def configure_azure_monitor_telemetry(environment="production"):
             # consuming ~1.13 GB/month (~$3/mo) that bypasses sampling.
             enable_performance_counters=False,
         )
+        # configure_azure_monitor() just put its own LoggingHandler on root.
+        # Mask it before anything else logs through it.
+        mask_pii_on_otel_handlers()
 
         logger.info(
             f"Azure Monitor OpenTelemetry configured for '{environment}' "
@@ -384,6 +389,57 @@ def configure_azure_monitor_telemetry(environment="production"):
 _attach_otel_handler_lock = threading.Lock()
 
 
+def _otel_logging_handler_classes():
+    """Both LoggingHandler classes that export Python logs to App Insights.
+
+    ``configure_azure_monitor()`` attaches the one from
+    ``opentelemetry-instrumentation-logging``; this module attaches the SDK one.
+    They are unrelated classes, so an isinstance check needs both.
+    """
+    classes = []
+    try:
+        from opentelemetry.sdk._logs import LoggingHandler as SdkLoggingHandler
+
+        classes.append(SdkLoggingHandler)
+    except ImportError:
+        pass
+    try:
+        from opentelemetry.instrumentation.logging.handler import (
+            LoggingHandler as InstrumentationLoggingHandler,
+        )
+
+        classes.append(InstrumentationLoggingHandler)
+    except ImportError:
+        pass
+    return tuple(classes)
+
+
+def _ensure_pii_masking(handler):
+    """Add one PIIMaskingFilter to ``handler`` unless it already has one.
+
+    ``Handler.addFilter`` only dedupes by identity, so a fresh filter on every
+    per-worker re-attach would pile up.
+    """
+    if not any(isinstance(f, PIIMaskingFilter) for f in handler.filters):
+        handler.addFilter(PIIMaskingFilter())
+
+
+def mask_pii_on_otel_handlers():
+    """Put PIIMaskingFilter on every OTel LoggingHandler on the root logger.
+
+    These handlers ship INFO+ records to Application Insights. The
+    ``pii_masking`` filter in ``LOGGING`` sits on the ERROR-only console
+    handler and never sees those records, which is how member addresses
+    reached ``AppTraces`` (observed 2026-10-10). Idempotent.
+    """
+    classes = _otel_logging_handler_classes()
+    if not classes:
+        return
+    for handler in logging.getLogger().handlers:
+        if isinstance(handler, classes):
+            _ensure_pii_masking(handler)
+
+
 def attach_otel_logging_handler_to_root(level=logging.INFO):
     """
     Explicitly attach the OpenTelemetry LoggingHandler to the Python root logger.
@@ -402,7 +458,9 @@ def attach_otel_logging_handler_to_root(level=logging.INFO):
     record becomes an App Insights `traces` row, independent of any
     trace-context sampling decision on spans.
 
-    Safe to call multiple times — it will only attach one OTel handler.
+    Safe to call multiple times — it will only attach one OTel handler. Every
+    call also makes sure each OTel handler on root carries PIIMaskingFilter,
+    including one it did not attach itself.
 
     Returns True on success, False otherwise.
     """
@@ -430,6 +488,10 @@ def attach_otel_logging_handler_to_root(level=logging.INFO):
     # RuntimeLoggingCanaryMiddleware both call this, and the middleware runs on
     # a thread pool under the ASGI worker, so "check, then add" is racy.
     with _attach_otel_handler_lock:
+        # Runs before the early return below: the per-worker re-attach takes
+        # that return on every call after the first.
+        mask_pii_on_otel_handlers()
+
         # Idempotency: don't attach a second OTel handler if one is already present
         for existing in root_logger.handlers:
             if isinstance(existing, LoggingHandler):
@@ -437,6 +499,8 @@ def attach_otel_logging_handler_to_root(level=logging.INFO):
                 return True
 
         handler = LoggingHandler(level=level, logger_provider=logger_provider)
+        # Before addHandler, so it never exports a record unmasked.
+        _ensure_pii_masking(handler)
         root_logger.addHandler(handler)
         # Ensure root level is low enough to propagate records to the OTel handler
         if root_logger.level > level or root_logger.level == logging.NOTSET:

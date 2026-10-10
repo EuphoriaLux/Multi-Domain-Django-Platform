@@ -495,6 +495,9 @@ LOGGING = {
         "require_debug_false": {
             "()": "django.utils.log.RequireDebugFalse",
         },
+        # Covers the console handler only. The OTel handler that exports
+        # INFO+ to App Insights is not built from this dict; it gets its own
+        # PIIMaskingFilter in azureproject/telemetry_config.py.
         "pii_masking": {
             "()": "azureproject.logging_utils.PIIMaskingFilter",
         },
