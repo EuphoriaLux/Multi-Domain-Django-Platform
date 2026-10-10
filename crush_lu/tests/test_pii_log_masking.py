@@ -263,26 +263,44 @@ def test_internationalised_addresses_are_masked():
 
 
 def test_addresses_used_as_mapping_keys_are_masked_without_merging():
-    # A lone dict argument becomes record.args itself and prints whole.
+    # A lone dict argument becomes record.args itself and prints whole. Two
+    # keys mask to the same text, and a masked key must not replace a raw one.
     record = _record(
-        "Results: %s", {"jane@example.com": "sent", "jose@example.com": "failed"}
+        "Results: %s",
+        {"jane@example.com": "sent", "jose@example.com": "failed", "j***e@e***.com": 3},
     )
     PIIMaskingFilter().filter(record)
     assert record.getMessage() == (
-        "Results: {'j***e@e***.com': 'sent', 'j***e@e***.com#2': 'failed'}"
+        "Results: {'j***e@e***.com': 'sent', 'j***e@e***.com': 'failed', "
+        "'j***e@e***.com': 3}"
     )
 
 
+def test_addresses_as_placeholder_names_keep_their_own_values():
+    record = _record(
+        "%(jane@example.com)s / %(jose@example.com)s",
+        {"jane@example.com": "sent", "jose@example.com": "failed"},
+    )
+    PIIMaskingFilter().filter(record)
+    assert record.getMessage() == "sent / failed"
+
+
 def test_non_string_mapping_keys_are_masked():
-    class User:  # its __str__ is the address, as with the auth User here
-        def __str__(self):
-            return "jose@example.com"
+    class User:  # Django's model repr shows the address, as <User: ...>
+        def __repr__(self):
+            return "<User: jose@example.com>"
 
     record = _record("Results: %s", {("jane@example.com",): "sent", User(): "failed"})
     PIIMaskingFilter().filter(record)
     assert record.getMessage() == (
-        "Results: {('j***e@e***.com',): 'sent', 'j***e@e***.com': 'failed'}"
+        "Results: {('j***e@e***.com',): 'sent', <User: j***e@e***.com>: 'failed'}"
     )
+
+
+def test_a_nested_mapping_with_address_keys_is_masked_as_text():
+    record = _record("Batch %s: %s", 7, {"jane@example.com": "sent"})
+    PIIMaskingFilter().filter(record)
+    assert record.getMessage() == "Batch 7: {'j***e@e***.com': 'sent'}"
 
 
 def test_a_quoted_local_part_holding_several_addresses_is_masked_whole():

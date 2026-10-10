@@ -319,30 +319,25 @@ class PIIMaskingFilter(logging.Filter):
             return self._mask_text(text)
         return value
 
-    def _mask_mapping(self, mapping):
-        """Mask keys and values; keys stay distinct.
+    def _keys_hold_address(self, mapping):
+        # A dict prints its keys with repr(): a tuple or a User key shows its
+        # address as much as a string key does.
+        return any(
+            self._has_address(key if isinstance(key, str) else repr(key))
+            for key in mapping
+        )
 
-        A recipient-indexed dict has addresses as keys. Two of them can mask
-        to the same text, so a repeat gets a ``#2`` suffix rather than
-        silently replacing the earlier entry. Placeholder names used by
-        ``%(name)s`` hold no address and pass through unchanged.
+    def _mask_mapping(self, mapping):
+        """Mask a mapping argument's values, or all of it as text.
+
+        Keys holding addresses cannot be masked one by one: two of them can
+        mask to the same text and merge, or an already-masked key can
+        overwrite one. As its printed text, every entry stays. Without such
+        keys it stays a mapping and only the values are masked.
         """
-        masked = {}
-        for key, item in mapping.items():
-            # Not only strings: a tuple or a User key prints its address too.
-            new_key = self._mask_value(key)
-            if new_key is not key and new_key != key:
-                try:
-                    hash(new_key)
-                except TypeError:
-                    new_key = repr(new_key)
-                base, n = new_key, 2
-                while new_key in masked:
-                    new_key = f'{base}#{n}'
-                    n += 1
-                key = new_key
-            masked[key] = self._mask_value(item)
-        return masked
+        if self._keys_hold_address(mapping):
+            return self._mask_text(str(mapping))
+        return {key: self._mask_value(item) for key, item in mapping.items()}
 
     # Attributes every LogRecord has. Anything else came from ``extra=`` (or
     # another filter), and the OTel handler exports it as a custom dimension.
@@ -356,6 +351,16 @@ class PIIMaskingFilter(logging.Filter):
     def filter(self, record):
         """Filter log record to mask PII."""
         try:
+            # `logger.info("%(a)s", {...})` leaves a mapping in args. If its
+            # keys hold addresses, render with the real keys before masking:
+            # a key may be a placeholder name in msg, and masked keys can
+            # collide.
+            if isinstance(record.args, Mapping) and self._keys_hold_address(
+                record.args
+            ):
+                record.msg = record.getMessage()
+                record.args = ()
+
             record.msg = self._mask_value(record.msg)
             # Note: Phone masking disabled by default as it may cause false positives
             # Uncomment if needed:
@@ -364,8 +369,7 @@ class PIIMaskingFilter(logging.Filter):
             #     record.msg
             # )
 
-            # `logger.info("%(email)s", {...})` leaves a mapping in args, which
-            # has to stay a mapping for the message to format.
+            # A mapping left in args stays a mapping, for named placeholders.
             if record.args:
                 record.args = self._mask_value(record.args)
 
