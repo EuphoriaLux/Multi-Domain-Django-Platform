@@ -262,6 +262,17 @@ def test_internationalised_addresses_are_masked():
     assert record.getMessage() == "Invite sent to j***e@m***.de and j***n@e***.com"
 
 
+def test_addresses_used_as_mapping_keys_are_masked_without_merging():
+    # A lone dict argument becomes record.args itself and prints whole.
+    record = _record(
+        "Results: %s", {"jane@example.com": "sent", "jose@example.com": "failed"}
+    )
+    PIIMaskingFilter().filter(record)
+    assert record.getMessage() == (
+        "Results: {'j***e@e***.com': 'sent', 'j***e@e***.com#2': 'failed'}"
+    )
+
+
 def test_every_local_part_character_django_accepts_is_caught():
     # A character next to "@" outside the pattern used to leave the whole
     # address in clear. Delimiters before it must not swallow a log label.
@@ -335,6 +346,28 @@ def test_an_exception_mentioning_an_address_is_masked_on_export(exporter):
     # The caller's exception is untouched.
     assert "jane.member@example.com" in str(original)
     assert "jane.member@example.com" in str(original.__cause__)
+
+
+def test_extra_attributes_are_masked_on_export(exporter):
+    """extra= fields are exported as custom dimensions next to the message.
+
+    crush_lu/pre_screening_notifications.py copies str(exc) into
+    extra={"error": ...} beside a masked exc_info.
+    """
+    assert telemetry_config.attach_otel_logging_handler_to_root()
+
+    log.error(
+        "pre_screening.user_push_failed",
+        extra={"submission_id": 7, "error": f"no device for {MEMBER_EMAIL}"},
+    )
+
+    [exported] = [
+        item.log_record
+        for item in exporter.get_finished_logs()
+        if item.log_record.body == "pre_screening.user_push_failed"
+    ]
+    assert exported.attributes["error"] == "no device for j***r@e***.com"
+    assert exported.attributes["submission_id"] == 7
 
 
 def test_an_exception_without_an_address_is_left_as_it_is():

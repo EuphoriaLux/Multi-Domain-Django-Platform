@@ -219,7 +219,7 @@ class PIIMaskingFilter(logging.Filter):
         if type(value) in (list, tuple):
             return type(value)(self._mask_value(item) for item in value)
         if isinstance(value, Mapping):
-            return {key: self._mask_value(item) for key, item in value.items()}
+            return self._mask_mapping(value)
         try:
             text = str(value)
         except Exception:
@@ -229,6 +229,36 @@ class PIIMaskingFilter(logging.Filter):
         if self.EMAIL_PATTERN.search(text):
             return self._mask_text(text)
         return value
+
+    def _mask_mapping(self, mapping):
+        """Mask keys and values; keys stay distinct.
+
+        A recipient-indexed dict has addresses as keys. Two of them can mask
+        to the same text, so a repeat gets a ``#2`` suffix rather than
+        silently replacing the earlier entry. Placeholder names used by
+        ``%(name)s`` hold no address and pass through unchanged.
+        """
+        masked = {}
+        for key, item in mapping.items():
+            if isinstance(key, str):
+                new_key = self._mask_text(key)
+                if new_key != key:
+                    base, n = new_key, 2
+                    while new_key in masked:
+                        new_key = f'{base}#{n}'
+                        n += 1
+                key = new_key
+            masked[key] = self._mask_value(item)
+        return masked
+
+    # Attributes every LogRecord has. Anything else came from ``extra=`` (or
+    # another filter), and the OTel handler exports it as a custom dimension.
+    _STANDARD_RECORD_ATTRS = frozenset(
+        vars(logging.LogRecord('', 0, '', 0, '', (), None))
+    ) | {'message', 'asctime'}
+
+    def _custom_attrs(self, record):
+        return [key for key in vars(record) if key not in self._STANDARD_RECORD_ATTRS]
 
     def filter(self, record):
         """Filter log record to mask PII."""
@@ -251,6 +281,12 @@ class PIIMaskingFilter(logging.Filter):
             # Set when another handler already formatted the traceback.
             if isinstance(record.exc_text, str):
                 record.exc_text = self._mask_text(record.exc_text)
+
+            # e.g. extra={"error": str(exc)} beside a masked exc_info. An
+            # object (Django's `request`) is replaced only when its text
+            # holds an address, like any argument.
+            for key in self._custom_attrs(record):
+                setattr(record, key, self._mask_value(getattr(record, key)))
         except Exception:
             # A filter that raises propagates into the caller's logging call.
             # Withhold the content rather than risk exporting it unmasked.
@@ -258,6 +294,8 @@ class PIIMaskingFilter(logging.Filter):
             record.args = ()
             record.exc_info = None
             record.exc_text = None
+            for key in self._custom_attrs(record):
+                delattr(record, key)
 
         return True
 
