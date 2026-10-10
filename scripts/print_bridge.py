@@ -320,6 +320,10 @@ class WindowsSink:
                         "Windows' 'Generic / Text Only' driver."
                     )
                 raise _windows_error(ctypes, "cannot start the print job")
+            # Each End* call runs whenever its Start* succeeded, but its
+            # result only counts when nothing failed before it:
+            # EndDocPrinter is where the spooler commits the job, so a
+            # False there means no ticket.
             try:
                 if not dll.StartPagePrinter(handle):
                     raise _windows_error(ctypes, "cannot start the page")
@@ -334,10 +338,16 @@ class WindowsSink:
                         raise PrintError(
                             f"printer took {written.value} of {len(payload)} bytes"
                         )
-                finally:
+                except BaseException:
                     dll.EndPagePrinter(handle)
-            finally:
+                    raise
+                if not dll.EndPagePrinter(handle):
+                    raise _windows_error(ctypes, "cannot finish the page")
+            except BaseException:
                 dll.EndDocPrinter(handle)
+                raise
+            if not dll.EndDocPrinter(handle):
+                raise _windows_error(ctypes, "cannot finish the print job")
         finally:
             dll.ClosePrinter(handle)
 

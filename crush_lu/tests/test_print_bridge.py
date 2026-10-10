@@ -7,6 +7,7 @@ real RFC 6455 to it over loopback, writing to a file sink instead of a spooler.
 """
 
 import base64
+import ctypes
 import hashlib
 import os
 import socket
@@ -14,7 +15,10 @@ import struct
 import sys
 import tempfile
 import threading
+from ctypes import wintypes
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 from django.conf import settings
 from django.test import SimpleTestCase
@@ -260,6 +264,103 @@ class BridgeServerTests(SimpleTestCase):
 
     def test_server_listens_on_loopback_only(self):
         self.assertEqual(self.server.server_address[0], "127.0.0.1")
+
+
+class _FakeWinspool:
+    """winspool.drv stand-in: records calls, fails the ones it is told to."""
+
+    def __init__(self, fail=(), last_error=5):
+        self.calls = []
+        self.fail = set(fail)
+        self.last_error = last_error
+
+    def __getattr__(self, name):
+        def call(*args):
+            self.calls.append(name)
+            if name in self.fail:
+                return 0
+            if name == "OpenPrinterW":
+                args[1]._obj.value = 1  # the HANDLE out-parameter
+            if name == "WritePrinter":
+                args[3]._obj.value = args[2]  # bytes written
+            return 1
+
+        return call
+
+
+class WindowsSinkTests(SimpleTestCase):
+    """The spooler path, against a fake winspool so it runs on any OS."""
+
+    JOB = (
+        "OpenPrinterW",
+        "StartDocPrinterW",
+        "StartPagePrinter",
+        "WritePrinter",
+        "EndPagePrinter",
+        "EndDocPrinter",
+        "ClosePrinter",
+    )
+
+    def _sink(self, dll):
+        fake_ctypes = SimpleNamespace(
+            Structure=ctypes.Structure,
+            byref=ctypes.byref,
+            get_last_error=lambda: dll.last_error,
+            FormatError=lambda code: f"winerror {code}",
+        )
+        patcher = mock.patch.object(
+            print_bridge, "_winspool", return_value=(fake_ctypes, wintypes, dll)
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        sink = print_bridge.WindowsSink("POS-80")
+        dll.calls.clear()  # drop the startup open/close check
+        return sink
+
+    def test_a_ticket_is_one_complete_raw_job(self):
+        dll = _FakeWinspool()
+        self._sink(dll).send(b"\x1b@ticket")
+        self.assertEqual(dll.calls, list(self.JOB))
+
+    def test_a_job_the_spooler_does_not_commit_is_a_failure(self):
+        dll = _FakeWinspool(fail={"EndDocPrinter"})
+        with self.assertRaisesMessage(
+            print_bridge.PrintError, "cannot finish the print job"
+        ):
+            self._sink(dll).send(b"ticket")
+        self.assertEqual(dll.calls, list(self.JOB))
+
+    def test_an_unfinished_page_is_a_failure_and_the_job_still_ends(self):
+        dll = _FakeWinspool(fail={"EndPagePrinter"})
+        with self.assertRaisesMessage(
+            print_bridge.PrintError, "cannot finish the page"
+        ):
+            self._sink(dll).send(b"ticket")
+        self.assertEqual(dll.calls, list(self.JOB))
+
+    def test_a_failed_write_still_ends_the_page_job_and_printer_once(self):
+        dll = _FakeWinspool(fail={"WritePrinter"})
+        with self.assertRaisesMessage(
+            print_bridge.PrintError, "cannot write to the printer"
+        ):
+            self._sink(dll).send(b"ticket")
+        self.assertEqual(dll.calls, list(self.JOB))
+
+    def test_a_driver_refusing_raw_gets_the_driver_hint(self):
+        dll = _FakeWinspool(
+            fail={"StartDocPrinterW"},
+            last_error=print_bridge.ERROR_INVALID_DATATYPE,
+        )
+        with self.assertRaisesMessage(print_bridge.PrintError, "Generic / Text Only"):
+            self._sink(dll).send(b"ticket")
+        self.assertEqual(
+            dll.calls, ["OpenPrinterW", "StartDocPrinterW", "ClosePrinter"]
+        )
+
+    def test_a_missing_printer_fails_at_startup(self):
+        dll = _FakeWinspool(fail={"OpenPrinterW"})
+        with self.assertRaisesMessage(print_bridge.PrintError, "cannot open printer"):
+            self._sink(dll)
 
 
 class PrintPagesFallBackOnlyOnAndroidTests(SimpleTestCase):

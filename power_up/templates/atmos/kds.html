@@ -164,10 +164,16 @@
     stale.forEach(function (key) { storeRemove(localStorage, key); });
   }
 
-  function triggerRawBtPrint(base64Payload) {
+  // onHandedOff runs once the ticket has really left this page: sent over
+  // the print socket, or passed to RawBT's intent on Android. A PC with no
+  // reachable printer never calls it, and neither does a reload that
+  // cancels a pending socket, so the order stays pending and the next 4s
+  // cycle retries it.
+  function triggerRawBtPrint(base64Payload, onHandedOff) {
     if (!base64Payload || typeof base64Payload !== "string") return;
     var trimmed = base64Payload.trim();
     if (!/^[A-Za-z0-9+/=]+$/.test(trimmed)) return;
+    var handedOff = function () { if (onHandedOff) onHandedOff(); };
 
     // The intent opens RawBT, which only exists on Android. A PC prints
     // through scripts/print_bridge.py on the same port, or not at all.
@@ -184,6 +190,7 @@
       window.location.href =
         "intent:base64," + trimmed +
         "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
+      handedOff();
     };
 
     try {
@@ -212,6 +219,7 @@
         // wsHandled already true and no fallback fired.
         try {
           ws.send(bytes.buffer);
+          handedOff();
           setTimeout(function () { try { ws.close(); } catch (e) {} }, 250);
         } catch (e) {
           fireIntentFallback();
@@ -242,8 +250,7 @@
       .then(function (data) {
         if (!data || !data.success || !data.print_payload_base64) return;
         if (opts.auto && data.vignette_pending) return;  // stays pending, retried
-        triggerRawBtPrint(data.print_payload_base64);
-        if (opts.onHandled) opts.onHandled();
+        triggerRawBtPrint(data.print_payload_base64, opts.onHandled);
       })
       .catch(function () { /* stays pending; the next pass or tap retries */ });
   }
