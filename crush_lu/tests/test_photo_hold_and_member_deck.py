@@ -7,6 +7,7 @@ one notice naming every photo to replace.
 """
 
 from datetime import timedelta
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -231,8 +232,10 @@ def test_photo_endpoint_serves_the_published_file_to_members(settings):
     opened = []
 
     def exists(path):
-        if "/photos/" in str(path):
-            opened.append(str(path))
+        # ``photo.path`` is native, so use "/" on Windows too.
+        path = Path(path).as_posix()
+        if "/photos/" in path:
+            opened.append(path)
         return False
 
     url = f"/en/media/profile/{profile.user_id}/photo_1/"
@@ -689,8 +692,10 @@ def test_projector_shows_the_approved_photo_to_its_owner_too(settings):
     opened = []
 
     def exists(path):
-        if "/photos/" in str(path):
-            opened.append(str(path))
+        # ``photo.path`` is native, so use "/" on Windows too.
+        path = Path(path).as_posix()
+        if "/photos/" in path:
+            opened.append(path)
         return False
 
     with patch("crush_lu.views_quiz._can_view_quiz_photo", return_value=True), patch(
