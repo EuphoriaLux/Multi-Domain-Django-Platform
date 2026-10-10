@@ -515,3 +515,70 @@ class ConnectGateQuestionsForm(forms.ModelForm):
                     )
                 ]
             )
+
+
+# ---------------------------------------------------------------------------
+# Connect Showcase — the coach's filters before a guest swipes the deck
+# ---------------------------------------------------------------------------
+
+# "Prefer not to say" is never a Connect preference (the wizard hides it), so
+# it can be neither searched for nor checked against a candidate's choices.
+_SHOWCASE_GENDER_CHOICES = [
+    choice for choice in CrushProfile.GENDER_CHOICES if choice[0] != "P"
+]
+
+
+class ConnectShowcaseFilterForm(forms.Form):
+    """GET filters for ``coach_connect_showcase``; empty choices mean "any"."""
+
+    genders = forms.MultipleChoiceField(
+        choices=_SHOWCASE_GENDER_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "peer sr-only"}),
+        label=_("Who to show"),
+    )
+    age_min = forms.IntegerField(
+        min_value=18,
+        max_value=99,
+        required=False,
+        initial=18,
+        label=_("Age from"),
+        widget=forms.NumberInput(attrs={"class": "input-crush w-full"}),
+    )
+    age_max = forms.IntegerField(
+        min_value=18,
+        max_value=99,
+        required=False,
+        initial=99,
+        label=_("Age to"),
+        widget=forms.NumberInput(attrs={"class": "input-crush w-full"}),
+    )
+    languages = forms.MultipleChoiceField(
+        choices=CONNECT_LANGUAGE_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "peer sr-only"}),
+        label=_("Speaks at least one of"),
+    )
+    guest_gender = forms.ChoiceField(
+        choices=[("", _("Not specified"))] + _SHOWCASE_GENDER_CHOICES,
+        required=False,
+        label=_("Guest's gender"),
+        widget=forms.Select(attrs={"class": "form-select w-full"}),
+    )
+    guest_age = forms.IntegerField(
+        min_value=18,
+        max_value=99,
+        required=False,
+        label=_("Guest's age"),
+        widget=forms.NumberInput(attrs={"class": "input-crush w-full"}),
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        if self.errors:
+            return cleaned
+        # An empty bound means open-ended; a crossed range is a typo — swap it.
+        lo = cleaned.get("age_min") or 18
+        hi = cleaned.get("age_max") or 99
+        cleaned["age_min"], cleaned["age_max"] = min(lo, hi), max(lo, hi)
+        return cleaned
