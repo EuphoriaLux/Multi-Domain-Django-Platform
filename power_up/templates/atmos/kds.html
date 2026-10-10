@@ -168,8 +168,9 @@
   // the print socket, or passed to RawBT's intent on Android. A PC with no
   // reachable printer never calls it, and neither does a reload that
   // cancels a pending socket, so the order stays pending and the next 4s
-  // cycle retries it.
-  function triggerRawBtPrint(base64Payload, onHandedOff) {
+  // cycle retries it. onFailed runs if scripts/print_bridge.py then closes
+  // with 1011 (the spooler refused the job), so the caller can put it back.
+  function triggerRawBtPrint(base64Payload, onHandedOff, onFailed) {
     if (!base64Payload || typeof base64Payload !== "string") return;
     var trimmed = base64Payload.trim();
     if (!/^[A-Za-z0-9+/=]+$/.test(trimmed)) return;
@@ -232,6 +233,9 @@
           fireIntentFallback();
         }
       };
+      ws.onclose = function (closeEvent) {
+        if (closeEvent.code === 1011 && onFailed) onFailed();
+      };
     } catch (e) {
       fireIntentFallback();
     }
@@ -250,7 +254,7 @@
       .then(function (data) {
         if (!data || !data.success || !data.print_payload_base64) return;
         if (opts.auto && data.vignette_pending) return;  // stays pending, retried
-        triggerRawBtPrint(data.print_payload_base64, opts.onHandled);
+        triggerRawBtPrint(data.print_payload_base64, opts.onHandled, opts.onFailed);
       })
       .catch(function () { /* stays pending; the next pass or tap retries */ });
   }
@@ -303,6 +307,16 @@
     savePending(loadPending().filter(function (id) { return id !== orderId; }));
   }
 
+  // The print bridge refused a ticket already marked handled: retry it on
+  // the next cycle. A reload that lands first keeps it handled, which may
+  // lose this ticket but never prints one twice.
+  function markPending(orderId) {
+    saveSeen((loadSeen() || []).filter(function (id) { return id !== orderId; }));
+    var pendingNow = loadPending();
+    if (pendingNow.indexOf(orderId) === -1) pendingNow.push(orderId);
+    savePending(pendingNow);
+  }
+
   var seen = loadSeen();
   if (seen === null) {
     saveSeen(cards.map(function (card) {
@@ -342,6 +356,7 @@
           printOrder(button.getAttribute("data-print-url"), {
             auto: true,
             onHandled: function () { markHandled(id); },
+            onFailed: function () { markPending(id); },
           });
         }, index * 800);
       });
