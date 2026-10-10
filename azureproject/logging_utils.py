@@ -118,8 +118,9 @@ class PIIMaskingFilter(logging.Filter):
     # part of itself in clear (user+box/dept=shipping@…, o'brien@…). The
     # price is that a label glued to an address is masked with it
     # ("user=jane@…" becomes "u***e@…"). Only delimiters at the very start
-    # of the token are left outside, since one leading quote or slash
-    # reveals nothing and keeps "['jane@…']" readable. A quoted local part
+    # of the token are left outside, since a leading quote or slash reveals
+    # nothing and keeps "['jane@…']" readable, and only when other
+    # characters follow (&&&&@… is masked whole). A quoted local part
     # ("john..doe"@example.com) is taken whole, up to Django's 320-character
     # limit.
     #
@@ -178,9 +179,13 @@ class PIIMaskingFilter(logging.Filter):
         local = self._LOCAL_REVERSED.match(reversed_text, rpos)
         if not local:
             return None
-        start = at - (local.end() - rpos)
+        token_start = start = at - (local.end() - rpos)
         while start < at - 1 and text[start] in self._LEADING_DELIMITERS:
             start += 1
+        # Only when something else is left to mask: a local part made of
+        # delimiters alone (&&&&@…) is the identity itself.
+        if text[start] in self._LEADING_DELIMITERS:
+            return token_start
         return start
 
     def _find_addresses(self, text):

@@ -399,6 +399,13 @@ def test_every_local_part_character_django_accepts_is_masked_throughout():
     )
 
 
+def test_a_local_part_of_delimiters_alone_is_masked_whole():
+    # Valid for Django; the delimiters are the identity here.
+    record = _record("Sent to %s and %s", "&&&&@example.com", "'@example.com")
+    PIIMaskingFilter().filter(record)
+    assert record.getMessage() == "Sent to &***&@e***.com and '***@e***.com"
+
+
 def test_a_leading_delimiter_stays_outside_the_mask():
     # One leading quote or slash reveals nothing. A label glued to the
     # address in the same string is masked with it, the price of the rule
