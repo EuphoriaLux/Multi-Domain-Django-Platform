@@ -2035,14 +2035,15 @@ class EventRegistration(models.Model):
             self.cancelled_at = None
             if update_fields is not None:
                 kwargs["update_fields"] = set(update_fields) | {"cancelled_at"}
-        if self.status == "waitlist" and (
+        if self.status in ("waitlist", "cancelled") and (
             self.waitlist_promoted_at is not None or self.promotion_notice
         ):
-            # A waitlisted row holds no seat, so it has no promotion to report.
-            # Cleared on every save into the waitlist (admin change form,
-            # list_editable, shell), so a later restore never shows coaches an
-            # old promotion's outcome for a seat grant nobody announced. The
-            # bulk "Move to waitlist" action uses update() and clears it itself.
+            # A waitlisted or cancelled row holds no seat, so it has no
+            # promotion to report. Cleared on every save into either status
+            # (member cancel, admin change form, list_editable, shell), so a
+            # later restore never shows coaches an old promotion's outcome for
+            # a seat grant nobody announced. The bulk "Move to waitlist" and
+            # "Confirm" admin actions use update() and clear it themselves.
             self.waitlist_promoted_at = None
             self.promotion_notice = ""
             if kwargs.get("update_fields") is not None:

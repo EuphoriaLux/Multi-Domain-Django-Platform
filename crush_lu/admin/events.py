@@ -3615,8 +3615,12 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 status="confirmed",
                 # QuerySet.update bypasses EventRegistration.save(). A restored
                 # registration is a new cancellation-policy cycle and must not
-                # retain the previous cancellation's timing classification.
+                # retain the previous cancellation's timing classification, nor
+                # an earlier waitlist promotion's notice outcome: staff granted
+                # this seat, and no notice announced it.
                 cancelled_at=None,
+                waitlist_promoted_at=None,
+                promotion_notice="",
             )
             awaiting_payment = 0
             if pending_application_ids:
@@ -3624,7 +3628,12 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 # braces against acting on a row that moved under us.
                 awaiting_payment = EventRegistration.objects.filter(
                     pk__in=pending_application_ids, status="applied"
-                ).update(status="pending", cancelled_at=None)
+                ).update(
+                    status="pending",
+                    cancelled_at=None,
+                    waitlist_promoted_at=None,
+                    promotion_notice="",
+                )
 
             # Carry a released paid seat's resale claim onto the applicant now
             # taking it.

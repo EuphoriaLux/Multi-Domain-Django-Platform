@@ -478,26 +478,60 @@ class AdminWithdrawalTests(_PromotionFixture):
         self.assertIsNone(self.waiting.waitlist_promoted_at)
         self.assertEqual(self.waiting.promotion_notice, "")
 
-    def test_any_save_into_the_waitlist_clears_its_notice(self):
-        """The admin change form and list_editable save the model rather than
-        run the bulk action, with or without update_fields."""
-        for update_fields in (None, ["status"]):
-            with self.subTest(update_fields=update_fields):
-                from crush_lu.models import EventRegistration
+    def test_any_save_that_gives_up_the_seat_clears_its_notice(self):
+        """The admin change form, list_editable and the member's own cancel
+        save the model rather than run a bulk action, with or without
+        update_fields. Waitlisted and cancelled rows hold no seat."""
+        from crush_lu.models import EventRegistration
 
-                EventRegistration.objects.filter(pk=self.waiting.pk).update(
-                    status="confirmed",
-                    waitlist_promoted_at=timezone.now(),
-                    promotion_notice=EventRegistration.PromotionNotice.EMAIL,
-                )
-                self.waiting.refresh_from_db()
+        for status in ("waitlist", "cancelled"):
+            for update_fields in (None, ["status"]):
+                with self.subTest(status=status, update_fields=update_fields):
+                    EventRegistration.objects.filter(pk=self.waiting.pk).update(
+                        status="confirmed",
+                        cancelled_at=None,
+                        waitlist_promoted_at=timezone.now(),
+                        promotion_notice=EventRegistration.PromotionNotice.EMAIL,
+                    )
+                    self.waiting.refresh_from_db()
 
-                self.waiting.status = "waitlist"
-                self.waiting.save(update_fields=update_fields)
+                    self.waiting.status = status
+                    self.waiting._waitlist_promotion_handled = True
+                    self.waiting.save(update_fields=update_fields)
 
-                self.waiting.refresh_from_db()
-                self.assertIsNone(self.waiting.waitlist_promoted_at)
-                self.assertEqual(self.waiting.promotion_notice, "")
+                    self.waiting.refresh_from_db()
+                    self.assertIsNone(self.waiting.waitlist_promoted_at)
+                    self.assertEqual(self.waiting.promotion_notice, "")
+
+    def test_admin_confirm_restoring_a_cancelled_promotion_clears_its_notice(self):
+        """The bulk Confirm action restores cancelled rows with update(); the
+        seat it grants was never announced, so no old outcome may show."""
+        from django.test import RequestFactory
+
+        from crush_lu.admin.site import crush_admin_site
+        from crush_lu.models import EventRegistration
+
+        self._commit(self._cancel_holder())
+        # A cancellation that bypassed save() and so kept the old outcome.
+        EventRegistration.objects.filter(pk=self.waiting.pk).update(
+            status="cancelled", cancelled_at=timezone.now()
+        )
+        self.waiting.refresh_from_db()
+        self.assertEqual(self.waiting.promotion_notice, "email")
+
+        request = RequestFactory().post("/")
+        request.user = User.objects.create_superuser(
+            username="staff@example.com", email="staff@example.com", password="x"
+        )
+        with patch("crush_lu.admin.events.django_messages"):
+            crush_admin_site._registry[EventRegistration].confirm_registrations(
+                request, EventRegistration.objects.filter(pk=self.waiting.pk)
+            )
+
+        self.waiting.refresh_from_db()
+        self.assertEqual(self.waiting.status, "confirmed")
+        self.assertIsNone(self.waiting.waitlist_promoted_at)
+        self.assertEqual(self.waiting.promotion_notice, "")
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
