@@ -1235,11 +1235,8 @@ def promote_waitlist_on_capacity_increase(sender, instance, created, **kwargs):
         return
 
     from django.db import transaction
+    from .notification_service import notify_waitlist_promotion
     from .views_events import _promote_from_waitlist
-    from .email_helpers import (
-        send_event_payment_pending_notification,
-        send_event_registration_confirmation,
-    )
 
     with transaction.atomic():
         locked_event = MeetupEvent.objects.select_for_update().get(pk=instance.pk)
@@ -1262,22 +1259,12 @@ def promote_waitlist_on_capacity_increase(sender, instance, created, **kwargs):
             # Refresh to pick up updated counts
             locked_event.refresh_from_db()
 
-    # Send confirmation emails outside the transaction
+    # On commit, not merely outside the block above: an admin save wraps this
+    # handler in its own transaction, and a member must never hear about a
+    # seat that a rollback takes back. The notice picks the payment ask for a
+    # "pending" seat itself.
     for reg in promoted_registrations:
-        try:
-            # Paid events admit as "pending" (Pending Payment), so the promoted
-            # seat needs the payment ask, not a confirmation it hasn't earned.
-            if reg.status == "pending":
-                send_event_payment_pending_notification(reg)
-            else:
-                send_event_registration_confirmation(reg)
-        except Exception as e:
-            logger.error(
-                "Failed to send waitlist promotion email for user %s, event %s: %s",
-                reg.user.pk,
-                instance.id,
-                type(e).__name__,
-            )
+        transaction.on_commit(lambda r=reg: notify_waitlist_promotion(r))
 
     if promoted_registrations:
         logger.info(
@@ -3734,10 +3721,7 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
     event_pk = event.pk
 
     def _promote_after_commit():
-        from .email_helpers import (
-            send_event_payment_pending_notification,
-            send_event_registration_confirmation,
-        )
+        from .notification_service import notify_waitlist_promotion
         from .services.credits import (
             credit_registration_for_cancelled_event,
             issue_cancellation_credits,
@@ -3860,20 +3844,10 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
 
         if not promoted:
             return
-        try:
-            # Paid events admit as "pending" (Pending Payment), so the promoted
-            # seat needs the payment ask, not a confirmation it hasn't earned.
-            if promoted.status == "pending":
-                send_event_payment_pending_notification(promoted)
-            else:
-                send_event_registration_confirmation(promoted)
-        except Exception as e:
-            logger.error(
-                "Failed to send waitlist promotion email for user %s, event %s: %s",
-                promoted.user_id,
-                event_pk,
-                type(e).__name__,
-            )
+        # Already after commit. There is no request here: every channel builds
+        # its links, and the email its crush.lu sender, without one. The notice
+        # picks the payment ask for a "pending" seat itself.
+        notify_waitlist_promotion(promoted)
 
     transaction.on_commit(_promote_after_commit)
 

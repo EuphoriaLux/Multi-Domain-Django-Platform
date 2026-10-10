@@ -42,6 +42,7 @@ class NotificationType(Enum):
     EVENT_REMINDER = "event_reminder"
     EVENT_REGISTRATION = "event_registration"
     EVENT_WAITLIST = "event_waitlist"
+    EVENT_WAITLIST_PROMOTED = "event_waitlist_promoted"
     SPARK_COACH_ASSIGNMENT = "spark_coach_assignment"
     SPARK_RECIPIENT_ASSIGNED = "spark_recipient_assigned"
     SPARK_JOURNEY_READY = "spark_journey_ready"
@@ -70,6 +71,7 @@ class NotificationType(Enum):
             "event_reminder": "event_reminders",
             "event_registration": "event_reminders",
             "event_waitlist": "event_reminders",
+            "event_waitlist_promoted": "event_reminders",
             "spark_coach_assignment": "event_reminders",
             "spark_recipient_assigned": "new_connections",
             "spark_journey_ready": "new_connections",
@@ -77,6 +79,18 @@ class NotificationType(Enum):
             "connect_week_request_received": "new_connections",
         }
         return preference_mapping.get(self.value, self.value)
+
+    @property
+    def email_preference_key(self) -> str:
+        """The can_send_email() type that gates the email channel.
+
+        Same as preference_key, except for a waitlist promotion: its email is
+        transactional (TRANSACTIONAL_EMAIL_TYPES) and ignores the
+        event-reminders toggle, while push still follows the device's switch.
+        """
+        if self is NotificationType.EVENT_WAITLIST_PROMOTED:
+            return "event_seat_granted"
+        return self.preference_key
 
 
 @dataclass
@@ -276,7 +290,7 @@ class NotificationService:
         try:
             from .email_helpers import can_send_email
 
-            if can_send_email(user, preference_key):
+            if can_send_email(user, notification_type.email_preference_key):
                 result.email_attempted = True
                 email_sent = NotificationService._send_email(
                     user, notification_type, context, request
@@ -284,16 +298,17 @@ class NotificationService:
                 result.email_sent = email_sent
                 if email_sent:
                     logger.info(
-                        f"Email sent to {user.email} ({notification_type.name})"
+                        "Email sent to user %s (%s)", user.pk, notification_type.name
                     )
             else:
                 result.email_skipped_reason = "user_unsubscribed"
                 logger.info(
-                    f"Email skipped for {user.email} ({notification_type.name}): "
-                    f"user unsubscribed"
+                    "Email skipped for user %s (%s): user unsubscribed",
+                    user.pk,
+                    notification_type.name,
                 )
         except Exception as e:
-            logger.error(f"Error sending email to {user.email}: {e}")
+            logger.error("Error sending email to user %s: %s", user.pk, e)
             result.errors.append(f"Email error: {e}")
 
         # --- In-app channel (bell) — always create a row, independent of opt-outs.
@@ -577,6 +592,41 @@ class NotificationService:
                     ),
                 }
 
+            if notification_type == NotificationType.EVENT_WAITLIST_PROMOTED and event:
+                # A paid event admits a promoted member as "pending": the seat
+                # is held but not confirmed until they pay.
+                registration = context.get("registration")
+                if registration is not None and registration.status == "pending":
+                    title = _("A spot opened up for {title}").format(title=event.title)
+                    body = _(
+                        "You were on the waitlist and your spot is reserved. "
+                        "Complete payment to confirm it."
+                    )
+                else:
+                    title = _("A spot opened up: you're in for {title}").format(
+                        title=event.title
+                    )
+                    body = _(
+                        "You were on the waitlist and your spot is now "
+                        "confirmed. If you can't come any more, please cancel "
+                        "so the next person gets it."
+                    )
+                return {
+                    "title": title,
+                    "body": body,
+                    "link_url": get_user_language_url(
+                        user,
+                        "crush_lu:event_detail",
+                        request,
+                        kwargs={"event_id": event.id},
+                    ),
+                    "metadata": {
+                        "registration_id": (
+                            registration.pk if registration is not None else None
+                        )
+                    },
+                }
+
             # Generic fallback — record the type even if we don't have a
             # bespoke render path. Better to surface "something happened" than
             # silently drop.
@@ -666,6 +716,24 @@ class NotificationService:
                 event = context.get("event")
                 if event:
                     return push_notifications.send_event_reminder(user, event) or {}
+
+            elif notification_type == NotificationType.EVENT_WAITLIST_PROMOTED:
+                registration = context.get("registration")
+                payload = NotificationService._render_inapp_payload(
+                    user, notification_type, context, None
+                )
+                if registration and payload:
+                    return (
+                        push_notifications.send_push_notification(
+                            user=user,
+                            title=payload["title"],
+                            body=payload["body"],
+                            url=payload["link_url"],
+                            tag=f"waitlist-promoted-{registration.pk}",
+                            preference_key=notification_type.preference_key,
+                        )
+                        or {}
+                    )
 
             elif notification_type == NotificationType.CONNECT_WEEK_REQUEST:
                 weekly_request = context.get("weekly_request")
@@ -872,6 +940,25 @@ class NotificationService:
                     result = email_helpers.send_event_waitlist_notification(
                         registration, request
                     )
+                    return result == 1
+
+            elif notification_type == NotificationType.EVENT_WAITLIST_PROMOTED:
+                registration = context.get("registration")
+                # Not gated on `request`, for the same reason as EVENT_REMINDER:
+                # two of the three promotion paths are signals with no request,
+                # and both helpers build their URLs and send from crush.lu
+                # without one.
+                if registration:
+                    if registration.status == "pending":
+                        result = email_helpers.send_event_payment_pending_notification(
+                            registration, request
+                        )
+                    else:
+                        result = email_helpers.send_event_registration_confirmation(
+                            registration,
+                            request,
+                            email_type=notification_type.email_preference_key,
+                        )
                     return result == 1
 
             elif notification_type == NotificationType.CONNECT_WEEK_REQUEST:
@@ -1211,6 +1298,48 @@ def notify_event_reminder(
         },
         request=request,
     )
+
+
+def notify_waitlist_promotion(
+    registration, request=None
+) -> Optional[NotificationResult]:
+    """Tell a member the waitlist just gave them a seat: email, push and bell.
+
+    Called by every automatic promotion path once its transaction has
+    committed. The bell row is always written; the email ignores the
+    event-reminders toggle but honours the ban and the master unsubscribe
+    (TRANSACTIONAL_EMAIL_TYPES); push follows each device's event-reminders
+    switch. Before this, promotions were email-only behind the reminders
+    toggle, and on 2026-10-10 a member promoted into event 27 held a seat
+    without ever being told.
+
+    Best-effort: the promotion has already committed, so a notification
+    failure is logged and swallowed, never raised.
+    """
+    try:
+        result = NotificationService.notify(
+            user=registration.user,
+            notification_type=NotificationType.EVENT_WAITLIST_PROMOTED,
+            context={"registration": registration, "event": registration.event},
+            request=request,
+        )
+    except Exception as exc:
+        logger.error(
+            "Failed to notify waitlist promotion for registration %s: %s",
+            registration.pk,
+            type(exc).__name__,
+        )
+        return None
+
+    logger.info(
+        "Waitlist promotion notice for registration %s: email_sent=%s "
+        "push_sent=%s bell=%s",
+        registration.pk,
+        result.email_sent,
+        result.push_success_count,
+        result.inapp_created,
+    )
+    return result
 
 
 def notify_profile_recontact(user, profile, coach, request=None) -> NotificationResult:

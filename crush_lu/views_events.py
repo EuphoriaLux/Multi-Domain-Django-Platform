@@ -51,6 +51,7 @@ from .email_helpers import (
     send_event_waitlist_notification,
     send_event_cancellation_confirmation,
 )
+from .notification_service import notify_waitlist_promotion
 
 logger = logging.getLogger(__name__)
 
@@ -2472,16 +2473,12 @@ def event_cancel(request, event_id):
             logger.error(f"Failed to send event cancellation email: {e}")
 
         if promoted:
-            try:
-                # _promote_from_waitlist admits at _admitted_status(), so on a
-                # paid event the promoted seat is "pending" and must ask for
-                # payment rather than claim to be confirmed.
-                if promoted.status == "pending":
-                    send_event_payment_pending_notification(promoted, request)
-                else:
-                    send_event_registration_confirmation(promoted, request)
-            except Exception as e:
-                logger.error(f"Failed to send waitlist promotion email: {e}")
+            # On commit, like the two signal paths: the promoted member must
+            # never hear about a seat that a rollback takes back. The notice
+            # picks the payment ask for a "pending" seat itself.
+            transaction.on_commit(
+                lambda reg=promoted: notify_waitlist_promotion(reg, request)
+            )
 
         return redirect("crush_lu:dashboard")
 

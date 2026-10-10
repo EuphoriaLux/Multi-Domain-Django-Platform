@@ -8068,6 +8068,20 @@ msgstr "Bis dann!"
 msgid "On the waitlist: {title}"
 msgstr "Auf der Warteliste: {title}"
 
+#, python-brace-format
+msgid "A spot opened up for {title}"
+msgstr "Für {title} ist ein Platz frei geworden"
+
+msgid "You were on the waitlist and your spot is reserved. Complete payment to confirm it."
+msgstr "Du warst auf der Warteliste und dein Platz ist reserviert. Schließe die Zahlung ab, um ihn zu bestätigen."
+
+#, python-brace-format
+msgid "A spot opened up: you're in for {title}"
+msgstr "Ein Platz ist frei geworden: Du bist bei {title} dabei"
+
+msgid "You were on the waitlist and your spot is now confirmed. If you can't come any more, please cancel so the next person gets it."
+msgstr "Du warst auf der Warteliste und dein Platz ist jetzt bestätigt. Wenn du nicht mehr kommen kannst, sag bitte ab, damit die nächste Person nachrücken kann."
+
 #: notification_service.py:393
 msgid "We'll notify you if a spot opens up."
 msgstr "Wir benachrichtigen dich, wenn ein Platz frei wird."
