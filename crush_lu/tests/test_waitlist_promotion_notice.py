@@ -136,6 +136,9 @@ class CancellationSignalNoticeTests(_PromotionFixture):
         self.assertEqual(bell.link_url, f"/events/{self.event.id}/")
         self.assertEqual(bell.metadata, {"registration_id": self.waiting.pk})
         self.assertIn("you're in", bell.title)
+        # Recorded for the coach event page.
+        self.assertIsNotNone(self.waiting.waitlist_promoted_at)
+        self.assertEqual(self.waiting.promotion_notice, "email")
 
     def test_master_unsubscribe_gets_bell_but_no_email(self):
         self.prefs.unsubscribed_all = True
@@ -145,6 +148,29 @@ class CancellationSignalNoticeTests(_PromotionFixture):
 
         self.assertEqual(self._waiter_mail(), [])
         self.assertEqual(self._bells().count(), 1)
+        self.waiting.refresh_from_db()
+        self.assertEqual(self.waiting.promotion_notice, "bell")
+
+    def test_push_without_email_is_recorded_as_push_only(self):
+        from crush_lu.models import PushSubscription
+
+        self.prefs.unsubscribed_all = True
+        self.prefs.save()
+        PushSubscription.objects.create(
+            user=self.waiter,
+            endpoint="https://push.example.test/sub",
+            p256dh_key="p256dh",
+            auth_key="auth",
+        )
+
+        with patch(
+            "crush_lu.push_notifications.send_push_notification",
+            return_value={"success": 1, "failed": 0, "total": 1},
+        ):
+            self._commit(self._cancel_holder())
+
+        self.waiting.refresh_from_db()
+        self.assertEqual(self.waiting.promotion_notice, "push")
 
     def test_banned_member_gets_no_email(self):
         from crush_lu.models.profiles import UserDataConsent
@@ -220,6 +246,7 @@ class CancellationSignalNoticeTests(_PromotionFixture):
 
         self.waiting.refresh_from_db()
         self.assertEqual(self.waiting.status, "confirmed")
+        self.assertEqual(self.waiting.promotion_notice, "failed")
 
 
 class PaidEventNoticeTests(_PromotionFixture):
@@ -347,6 +374,9 @@ class CapacityIncreaseNoticeTests(_PromotionFixture):
             )
         self.assertIn("budget", logs.output[0])
         self.assertIn(str(second_reg.pk), logs.output[0])
+        for registration in (self.waiting, second_reg):
+            registration.refresh_from_db()
+            self.assertEqual(registration.promotion_notice, "bell")
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")

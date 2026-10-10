@@ -1315,8 +1315,12 @@ def notify_waitlist_promotion(
     without ever being told.
 
     Best-effort: the promotion has already committed, so a notification
-    failure is logged and swallowed, never raised.
+    failure is logged and swallowed, never raised. What reached the member is
+    recorded on the registration for the coach event page.
     """
+    from .models import EventRegistration
+
+    notice = EventRegistration.PromotionNotice
     try:
         result = NotificationService.notify(
             user=registration.user,
@@ -1330,7 +1334,18 @@ def notify_waitlist_promotion(
             registration.pk,
             type(exc).__name__,
         )
+        _record_promotion_notice(registration, notice.FAILED)
         return None
+
+    if result.email_sent:
+        outcome = notice.EMAIL
+    elif result.push_success_count:
+        outcome = notice.PUSH
+    elif result.inapp_created:
+        outcome = notice.BELL
+    else:
+        outcome = notice.FAILED
+    _record_promotion_notice(registration, outcome)
 
     logger.info(
         "Waitlist promotion notice for registration %s: email_sent=%s "
@@ -1375,9 +1390,29 @@ def notify_waitlist_promotions(registrations, request=None) -> None:
         notify_waitlist_promotion(registration, request)
 
 
+def _record_promotion_notice(registration, outcome) -> None:
+    """Store what reached the promoted member, for the coach event page.
+
+    A queryset update, never save(): this runs inside an on_commit callback,
+    and a save would re-enter the EventRegistration signal stack.
+    """
+    from .models import EventRegistration
+
+    try:
+        EventRegistration.objects.filter(pk=registration.pk).update(
+            promotion_notice=outcome
+        )
+    except Exception as exc:
+        logger.error(
+            "Failed recording promotion notice for registration %s: %s",
+            registration.pk,
+            type(exc).__name__,
+        )
+
+
 def _write_waitlist_promotion_bell(registration) -> None:
     """Write the in-app row alone: no email, no push, no network."""
-    from .models import Notification
+    from .models import EventRegistration, Notification
 
     try:
         payload = NotificationService._render_inapp_payload(
@@ -1400,6 +1435,9 @@ def _write_waitlist_promotion_bell(registration) -> None:
             registration.pk,
             type(exc).__name__,
         )
+        _record_promotion_notice(registration, EventRegistration.PromotionNotice.FAILED)
+        return
+    _record_promotion_notice(registration, EventRegistration.PromotionNotice.BELL)
 
 
 def notify_profile_recontact(user, profile, coach, request=None) -> NotificationResult:

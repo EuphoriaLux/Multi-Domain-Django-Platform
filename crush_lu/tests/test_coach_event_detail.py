@@ -685,3 +685,96 @@ class TestCoachRosterCountsEachRegistrationOnce:
         )
         assert len(listed) == len({r.pk for r in listed}) == ctx["total_registrations"]
         assert ctx["total_registrations"] == 5
+
+
+class TestWaitlistPromotionNotice:
+    """Incident 2026-10-10, event 27: a member the waitlist gave a seat to was
+    never told. The coach page now names anyone no email or push reached,
+    while there is still time to contact them."""
+
+    def _promoted(self, event, name, notice, status="confirmed"):
+        user = _make_member(name, membership=False)
+        return EventRegistration.objects.create(
+            event=event,
+            user=user,
+            status=status,
+            waitlist_promoted_at=timezone.now(),
+            promotion_notice=notice,
+        )
+
+    def _page(self, client, event, **params):
+        client.force_login(_make_coach())
+        return client.get(
+            reverse("crush_lu:coach_event_detail", args=[event.pk]), params
+        )
+
+    @pytest.mark.parametrize("notice", ["bell", "failed", ""])
+    def test_banner_and_chip_for_a_member_nothing_reached(self, client, notice):
+        """Blank means the notice crashed before recording an outcome, which
+        is the incident's own shape, so it is flagged too."""
+        event = _make_event(starts_in_minutes=24 * 60)
+        registration = self._promoted(event, "unreached", notice)
+
+        response = self._page(client, event)
+
+        assert response.status_code == 200
+        assert response.context["unnotified_promotions"] == [registration]
+        content = response.content.decode()
+        assert "data-unnotified-promotions" in content
+        assert 'data-promotion-notice="not-notified"' in content
+
+    def test_no_banner_when_email_or_push_reached_them(self, client):
+        event = _make_event(starts_in_minutes=24 * 60)
+        self._promoted(event, "emailed", "email")
+        self._promoted(event, "pushed", "push")
+
+        response = self._page(client, event)
+
+        assert response.context["unnotified_promotions"] == []
+        content = response.content.decode()
+        assert "data-unnotified-promotions" not in content
+        assert 'data-promotion-notice="email"' in content
+        assert 'data-promotion-notice="push"' in content
+
+    def test_unpaid_promoted_seat_is_flagged_too(self, client):
+        """A paid event admits the promoted member as "pending"; their seat
+        lapses if nobody tells them to pay."""
+        event = _make_event(starts_in_minutes=24 * 60)
+        registration = self._promoted(event, "unpaid", "bell", status="pending")
+
+        response = self._page(client, event)
+
+        assert response.context["unnotified_promotions"] == [registration]
+
+    def test_no_banner_once_the_event_has_started(self, client):
+        event = _make_event(starts_in_minutes=-30)
+        self._promoted(event, "toolate", "bell")
+
+        response = self._page(client, event)
+
+        assert response.context["unnotified_promotions"] == []
+        assert "data-unnotified-promotions" not in response.content.decode()
+
+    def test_ordinary_registration_has_no_marker(self, client):
+        event = _make_event(starts_in_minutes=24 * 60)
+        EventRegistration.objects.create(
+            event=event,
+            user=_make_member("direct", membership=False),
+            status="confirmed",
+        )
+
+        response = self._page(client, event)
+
+        assert "data-promotion-notice" not in response.content.decode()
+
+    def test_curated_roster_shows_the_marker(self, client):
+        event = _make_event(event_type="speed_dating", starts_in_minutes=24 * 60)
+        event.registration_mode = "curated"
+        event.save(update_fields=["registration_mode"])
+        self._promoted(event, "curated", "failed")
+
+        response = self._page(client, event)
+
+        content = response.content.decode()
+        roster = content[content.index("data-coach-event-roster") :]
+        assert 'data-promotion-notice="not-notified"' in roster
