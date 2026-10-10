@@ -168,7 +168,14 @@ def assign_event_numbers(event: MeetupEvent) -> None:
                 pk__in=numbered.filter(registration__isnull=False).values(
                     "registration_id"
                 )
-            ).values_list("pk", "status", "checkin_prior_status")
+            ).values_list(
+                "pk",
+                "status",
+                "checkin_prior_status",
+                "user__is_active",
+                "user__crushprofile__is_active",
+                "user__data_consent__crushlu_banned",
+            )
         )
         if not missing:
             return
@@ -176,10 +183,13 @@ def assign_event_numbers(event: MeetupEvent) -> None:
         top = numbered.aggregate(top=Max("number"))["top"] or 0
         first_print = top == 0
         seated, waiting, cohort = [], [], set()
-        for pk, status, prior in missing:
+        for pk, status, prior, user_ok, profile_ok, banned in missing:
             # A pending seat is held (paid event, money at the door); only the
-            # true waitlist stays out of the percentile cohort.
-            if "waitlist" not in (status, prior):
+            # true waitlist stays out of the percentile cohort. So does anyone
+            # already banned or deactivated now: they are never listed, so they
+            # must not shape the frozen scale either.
+            removed = not user_ok or profile_ok is False or bool(banned)
+            if "waitlist" not in (status, prior) and not removed:
                 cohort.add(pk)
             # Checked in from the waitlist or a pending seat: still a waiting
             # guest, even when that check-in is the one printing first.
@@ -468,7 +478,7 @@ def _is_anniversary(event) -> bool:
     return any(_ANNIVERSARY_RE.search(t) for t in titles)
 
 
-def _qr_url(event, lang: str) -> str:
+def _qr_url(event, lang: str, voting: bool = False) -> str:
     base = getattr(settings, "CRUSH_LU_CANONICAL_DOMAIN", "https://crush.lu").rstrip(
         "/"
     )
@@ -477,7 +487,7 @@ def _qr_url(event, lang: str) -> str:
 
         # Explicit urlconf: the default one builds /crush/... paths (AGENTS.md).
         path = reverse(
-            "crush_lu:event_attendees",
+            "crush_lu:event_voting_lobby" if voting else "crush_lu:event_attendees",
             kwargs={"event_id": event.id},
             urlconf="azureproject.urls_crush",
         )
@@ -485,7 +495,8 @@ def _qr_url(event, lang: str) -> str:
     except Exception:
         event_id = getattr(event, "id", None)
         if event_id:
-            return f"{base}/{lang}/events/{event_id}/attendees/"
+            subpath = "voting/lobby" if voting else "attendees"
+            return f"{base}/{lang}/events/{event_id}/{subpath}/"
         return f"{base}/{lang}/events/"
 
 
@@ -794,31 +805,50 @@ def build_mixer_ticket_directives(
         )
     out.append(Rule("-"))
 
-    out.append(
-        Text(
-            _t(
-                lang,
-                "APRÈS LA SOIRÉE, SCANNE ICI :",
-                "NACH DEM ABEND HIER SCANNEN:",
-                "AFTER THE EVENING, SCAN HERE:",
-            ),
-            Align.CENTER,
-            bold=True,
+    voting = bool(event is not None and getattr(event, "enable_activity_voting", False))
+    if voting:
+        # Same live-voting block and lobby QR the standard ticket prints.
+        from crush_lu.services.ticket_printer import _build_activity_voting_directives
+
+        out.extend(_build_activity_voting_directives(event=event, cols=cols, lang=lang))
+        out.append(
+            Text(
+                _t(
+                    lang,
+                    "SCANNE POUR VOTER EN DIRECT :",
+                    "SCANNEN ZUM LIVE-VOTEN:",
+                    "SCAN TO VOTE LIVE:",
+                ),
+                Align.CENTER,
+                bold=True,
+            )
         )
-    )
-    out.append(
-        Text(
-            _t(
-                lang,
-                "dis-nous qui t'a tapé dans l'œil",
-                "sag uns, wer dir gefallen hat",
-                "tell us who caught your eye",
-            ),
-            Align.CENTER,
+    else:
+        out.append(
+            Text(
+                _t(
+                    lang,
+                    "APRÈS LA SOIRÉE, SCANNE ICI :",
+                    "NACH DEM ABEND HIER SCANNEN:",
+                    "AFTER THE EVENING, SCAN HERE:",
+                ),
+                Align.CENTER,
+                bold=True,
+            )
         )
-    )
+        out.append(
+            Text(
+                _t(
+                    lang,
+                    "dis-nous qui t'a tapé dans l'œil",
+                    "sag uns, wer dir gefallen hat",
+                    "tell us who caught your eye",
+                ),
+                Align.CENTER,
+            )
+        )
     out.append(Feed(1))
-    qr = _qr_url(event, lang)
+    qr = _qr_url(event, lang, voting=voting)
     out.append(QrCode(qr, size=6))
     out.append(Feed(1))
     out.append(Text(qr, Align.CENTER))

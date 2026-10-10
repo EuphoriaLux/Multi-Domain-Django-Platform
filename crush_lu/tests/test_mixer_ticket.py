@@ -515,3 +515,25 @@ class MixerTicketTests(TestCase):
             language="fr",
         )
         self.assertIn("TABLE 4 (B)", text)
+
+    def test_live_voting_survives_on_a_mixer_ticket(self):
+        self.event.enable_activity_voting = True
+        self.event.save()
+        text = preview_checkin_ticket_text(
+            registration=self.regs[0], event=self.event, language="fr"
+        )
+        self.assertIn("VOTE DES ACTIVITÉS", text)
+        self.assertIn("SCANNE POUR VOTER EN DIRECT", text)
+        self.assertIn(f"/fr/events/{self.event.id}/voting/lobby/", text)
+        self.assertNotIn("APRÈS LA SOIRÉE", text)
+
+    def test_a_member_removed_before_the_first_print_is_not_in_the_cohort(self):
+        from crush_lu.services.mixer_ticket import _first_print_registrations
+
+        banned = self.regs[2]
+        banned.user.is_active = False
+        banned.user.save()
+        self._numbers()
+        cohort = _first_print_registrations(self.event)
+        self.assertNotIn(banned.pk, cohort)
+        self.assertEqual(len(cohort), len(self.regs) - 1)
