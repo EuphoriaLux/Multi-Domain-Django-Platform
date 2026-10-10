@@ -107,31 +107,35 @@ class PIIMaskingFilter(logging.Filter):
         }
     """
 
-    # Regex patterns for PII detection. Domain labels take Django's own
-    # U+00A1-U+FFFF range on top of \w: \w alone misses the combining marks
-    # many scripts need (jane@example.कॉम). The TLD takes letters from the
-    # same range but no digits, so "pkg@1.2.3" stays readable; there is no
-    # trailing \b, which never holds after a combining mark.
+    # Addresses are found by scanning out from each "@", not by one regex
+    # over the whole text. That regex restarted at every position of a long
+    # word run and backtracked quadratically: "x@" and 10,000 "a." labels
+    # took seconds, inline in the request that logged it. Each step below is
+    # an anchored match over one character class, so the cost stays linear.
     #
-    # The character next to "@" may be anything Django accepts in a local
-    # part, so no valid address escapes whole (member!@example.com). Before
-    # that, the characters that double as delimiters in log text (= ' / & `
-    # { | }) end the match instead, so "user=jane@…" keeps its label and
-    # "['jane@…']" its quote. The cost: o'brien@… leaves "o'" in clear.
-    _LOCAL_BODY = r"[\w.!#$%*+?^~-]"
-    _LOCAL_LAST = r"[\w.!#$%&'*+/=?^`{|}~-]"
-    # Django also accepts a quoted local part: "john..doe"@example.com.
-    _LOCAL_QUOTED = r'"(?:[^"\\\r\n]|\\.)*"'
-    # Every domain form EmailValidator accepts: a dotted hostname, its
-    # `localhost` allowlist, and a bracketed IPv4/IPv6 literal.
-    _DOMAIN = (
-        r'(?:[\w¡-￿.-]+\.[A-Za-z¡-￿-]{2,}'
-        r'|localhost\b|\[[0-9A-Fa-f:.]+\])'
-    )
-    EMAIL_PATTERN = re.compile(
-        r'(?:' + _LOCAL_QUOTED + r'|' + _LOCAL_BODY + r'*' + _LOCAL_LAST + r')'
-        r'@' + _DOMAIN
-    )
+    # Local part, read backwards from the "@": the character next to "@" may
+    # be anything Django accepts in a local part, so no valid address escapes
+    # whole (member!@example.com). Before that, characters that double as
+    # delimiters in log text (= ' / & ` { | }) end it, so "user=jane@…" keeps
+    # its label and "['jane@…']" its quote; the cost is that o'brien@… leaves
+    # "o'" in clear. A quoted local part ("john..doe"@example.com) is taken
+    # whole, up to Django's 320-character limit.
+    #
+    # Domain: every form EmailValidator accepts. Labels take \w plus any
+    # non-ASCII character, since combining marks (example.कॉम) and emoji or
+    # astral letters (😀.com, example.𐌀) all pass its IDNA fallback. The TLD
+    # takes no digits, so "pkg@1.2.3" stays readable, and needs two
+    # characters unless it is non-ASCII. Also the `localhost` allowlist and
+    # bracketed IP literals.
+    _NON_ASCII = f'{chr(0xA1)}-{chr(0x10FFFF)}'
+    _LOCAL_BODY = r"\w.!#$%*+?^~"
+    _LOCAL_LAST = _LOCAL_BODY + r"&'/=`{|}"
+    # Both run over the reversed text, starting just before the "@".
+    _LOCAL_REVERSED = re.compile(f'[{_LOCAL_LAST}-][{_LOCAL_BODY}-]*')
+    _QUOTED_REVERSED = re.compile(r'"(?:.\\|[^"\\\r\n]){0,320}"')
+    _DOMAIN_RUN = re.compile(rf'(?:(?!\s)[\w.\-{_NON_ASCII}])*')
+    _TLD = re.compile(rf'(?:(?![\d\s_])[\w\-{_NON_ASCII}])+')
+    _IP_LITERAL = re.compile(r'\[[0-9A-Fa-f:.]+\]')
     PHONE_PATTERN = re.compile(
         r'(\+?\d{1,4}[-.\s]?)?(\(?\d{2,4}\)?[-.\s]?)?\d{3,4}[-.\s]?\d{3,4}'
     )
@@ -139,10 +143,74 @@ class PIIMaskingFilter(logging.Filter):
     # Original exception class -> stand-in class with the same name and module.
     _stand_in_classes = {}
 
+    def _domain_end(self, text, start):
+        """End of the domain that starts at ``text[start]``, or None."""
+        if text.startswith('[', start):
+            literal = self._IP_LITERAL.match(text, start)
+            return literal.end() if literal else None
+        run = self._DOMAIN_RUN.match(text, start).group()
+        first_label = len(run) - len(run.lstrip('.'))
+        # The rightmost dot followed by a valid TLD. Whatever trails the TLD
+        # (a full stop, a digit) stays outside the address.
+        limit = len(run)
+        dot = run.rfind('.', 0, limit)
+        while dot > first_label:
+            tld = self._TLD.match(run, dot + 1, limit)
+            if tld and (len(tld.group()) >= 2 or not tld.group().isascii()):
+                return start + tld.end()
+            limit = dot
+            dot = run.rfind('.', 0, limit)
+        if run.rstrip('.') == 'localhost':
+            return start + len('localhost')
+        return None
+
+    def _local_start(self, text, reversed_text, at):
+        """Start of the local part that ends just before ``text[at]``."""
+        rpos = len(text) - at
+        if text[at - 1] == '"':
+            quoted = self._QUOTED_REVERSED.match(reversed_text, rpos)
+            if quoted:
+                return at - (quoted.end() - rpos)
+        local = self._LOCAL_REVERSED.match(reversed_text, rpos)
+        return at - (local.end() - rpos) if local else None
+
+    def _find_addresses(self, text):
+        """(start, end) of every address in ``text``, left to right."""
+        spans, reversed_text = [], None
+        at = text.find('@')
+        while at != -1:
+            end = self._domain_end(text, at + 1) if at > 0 else None
+            start = None
+            if end is not None:
+                if reversed_text is None:
+                    reversed_text = text[::-1]
+                start = self._local_start(text, reversed_text, at)
+            if start is None:
+                at = text.find('@', at + 1)
+                continue
+            if spans and start < spans[-1][1]:
+                # A quoted local part can hold an "address" of its own.
+                start = min(start, spans.pop()[0])
+            spans.append((start, end))
+            at = text.find('@', end)
+        return spans
+
+    def _has_address(self, text):
+        return '@' in text and bool(self._find_addresses(text))
+
     def _mask_text(self, text):
-        if '@' not in text:  # most records; skips the regex scan
+        if '@' not in text:  # most records
             return text
-        return self.EMAIL_PATTERN.sub(lambda m: mask_email(m.group(0)), text)
+        spans = self._find_addresses(text)
+        if not spans:
+            return text
+        parts, last = [], 0
+        for start, end in spans:
+            parts.append(text[last:start])
+            parts.append(mask_email(text[start:end]))
+            last = end
+        parts.append(text[last:])
+        return ''.join(parts)
 
     @staticmethod
     def _exception_text(exc):
@@ -168,7 +236,7 @@ class PIIMaskingFilter(logging.Filter):
     def _mentions_address(self, exc):
         texts = [self._exception_text(exc)]
         texts.extend(str(note) for note in getattr(exc, '__notes__', None) or ())
-        return any(self.EMAIL_PATTERN.search(text) for text in texts)
+        return any(self._has_address(text) for text in texts)
 
     def _stand_in(self, exc, memo):
         """A masked copy of ``exc`` and its chain, for the record only."""
@@ -238,7 +306,7 @@ class PIIMaskingFilter(logging.Filter):
             # Formatting the record will fail the same way, so it is never
             # exported; leave it for logging's own error handling.
             return value
-        if self.EMAIL_PATTERN.search(text):
+        if self._has_address(text):
             return self._mask_text(text)
         return value
 

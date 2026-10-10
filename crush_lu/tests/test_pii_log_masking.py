@@ -296,6 +296,35 @@ def test_domains_with_combining_marks_are_masked():
     assert record.getMessage() == "Sent to j***e@e***.कॉम and j***e@क***.com"
 
 
+def test_non_bmp_domains_are_masked():
+    # Django accepts these through its IDNA fallback; a one-character TLD
+    # is fine when it is non-ASCII.
+    record = _record("Sent to %s and %s", "jane@example.𐌀", "jane@😀.com")
+    PIIMaskingFilter().filter(record)
+    assert record.getMessage() == "Sent to j***e@e***.𐌀 and j***e@😀***.com"
+
+
+def test_masking_time_stays_linear_on_hostile_text():
+    """The filter runs inline on every exported record.
+
+    One regex over the whole text took seconds on these shapes (it restarts
+    at every position of a long run and backtracks), stalling the request
+    that logged, say, an upstream error body.
+    """
+    import time
+
+    hostile = [
+        "x@" + "a." * 50_000 + "1",
+        "a" * 100_000 + "@b",
+        ("a" * 1_000 + "@") * 100,
+        '"' + "a" * 100_000 + '"@example.com',
+    ]
+    started = time.perf_counter()
+    for text in hostile:
+        PIIMaskingFilter()._mask_text(text)
+    assert time.perf_counter() - started < 1.0
+
+
 def test_version_strings_are_not_addresses():
     record = _record("Requires %s", "pkg@1.2.3")
     PIIMaskingFilter().filter(record)
