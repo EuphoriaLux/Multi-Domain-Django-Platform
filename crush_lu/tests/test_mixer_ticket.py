@@ -10,6 +10,7 @@ from crush_lu.models import CrushProfile, EventRegistration, Interest, MeetupEve
 from crush_lu.services.mixer_ticket import (
     LIST_SIZE,
     affinity_list,
+    assign_event_numbers,
     event_numbers,
 )
 from crush_lu.services.ticket_printer import (
@@ -45,6 +46,11 @@ class MixerTicketTests(TestCase):
                 self._guest(i, "confirmed", self.interests[i % 3 : i % 3 + 3])
             )
 
+    def _numbers(self):
+        """What a real print does: assign missing numbers, then read them."""
+        assign_event_numbers(self.event)
+        return event_numbers(self.event)
+
     def _guest(self, i, status, interests=(), dob=None):
         user = User.objects.create_user(
             username=f"g{i}@test.lu", email=f"g{i}@test.lu", first_name=f"First{i}"
@@ -65,18 +71,18 @@ class MixerTicketTests(TestCase):
     def test_numbers_run_over_confirmed_in_registration_order(self):
         cancelled = self._guest(90, "cancelled")
         waiting = self._guest(91, "waitlist")
-        numbers = event_numbers(self.event)
+        numbers = self._numbers()
         self.assertEqual(sorted(numbers.values()), list(range(1, 27)))
         self.assertEqual(numbers[self.regs[0].pk], 1)
         self.assertNotIn(cancelled.pk, numbers)
         self.assertEqual(numbers[waiting.pk], 26)  # reserved after the regulars
 
     def test_no_show_keeps_numbers_stable_but_leaves_lists(self):
-        before = event_numbers(self.event)
+        before = self._numbers()
         absent = self.regs[3]
         absent.status = "no_show"
         absent.save()
-        self.assertEqual(event_numbers(self.event), before)
+        self.assertEqual(self._numbers(), before)
         _, rows, _ = affinity_list(self.regs[0], self.event)
         self.assertNotIn(before[absent.pk], [n for n, _ in rows])
 
@@ -122,7 +128,7 @@ class MixerTicketTests(TestCase):
     def test_guest_without_interests_is_not_pushed_to_the_top(self):
         empty = self._guest(50, "confirmed")
         _, rows, _ = affinity_list(self.regs[0], self.event)
-        numbers = event_numbers(self.event)
+        numbers = self._numbers()
         ranked = [n for n, _ in rows]
         self.assertGreater(ranked.index(numbers[empty.pk]), 0)
 
@@ -173,21 +179,21 @@ class MixerTicketTests(TestCase):
         reg.refresh_from_db()
         self.assertEqual(reg.status, "attended")
         # Checking in (confirmed -> attended) must not renumber anyone.
-        self.assertEqual(event_numbers(self.event)[reg.pk], 3)
+        self.assertEqual(self._numbers()[reg.pk], 3)
 
     def test_door_promotion_is_appended_without_renumbering(self):
         # Registered before everyone else, so pk order alone would make it #1.
         early_waiter = self.regs[0]
         early_waiter.status = "waitlist"
         early_waiter.save()
-        before = event_numbers(self.event)
+        before = self._numbers()
         self.assertEqual(before[early_waiter.pk], len(before))
 
         early_waiter.status = "attended"
         early_waiter.checkin_prior_status = "waitlist"
         early_waiter.checked_in_at = timezone.now()
         early_waiter.save()
-        after = event_numbers(self.event)
+        after = self._numbers()
         for pk, number in before.items():
             self.assertEqual(after[pk], number)
         self.assertEqual(after, before)
@@ -213,21 +219,40 @@ class MixerTicketTests(TestCase):
 
     def test_percentages_do_not_move_when_door_statuses_change(self):
         a, b = self.regs[4], self.regs[9]
-        num_b = event_numbers(self.event)[b.pk]
+        num_b = self._numbers()[b.pk]
         _, before, _ = affinity_list(a, self.event)
 
         absent = self.regs[12]
         absent.status = "no_show"
         absent.save()
-        walk_up = self._guest(70, "attended", self.interests[:2])
-        walk_up.checkin_prior_status = "waitlist"
-        walk_up.checked_in_at = timezone.now()
-        walk_up.save()
+        leaver = self.regs[13]
+        leaver.status = "cancelled"
+        leaver.save()
 
         num_a, after, _ = affinity_list(a, self.event)
         _, b_rows, _ = affinity_list(b, self.event)
         self.assertEqual(dict(before)[num_b], dict(after)[num_b])
         self.assertEqual(dict(after)[num_b], dict(b_rows)[num_a])
+
+    def test_cancellation_after_the_first_print_keeps_every_number(self):
+        before = self._numbers()
+        leaver = self.regs[3]
+        leaver.status = "cancelled"
+        leaver.save()
+        self.assertEqual(self._numbers(), before)
+        _, rows, _ = affinity_list(self.regs[0], self.event)
+        self.assertNotIn(before[leaver.pk], [n for n, _ in rows])
+
+    def test_a_late_seat_gets_the_next_free_number(self):
+        before = self._numbers()
+        late = self._guest(77, "confirmed")
+        after = self._numbers()
+        self.assertEqual({k: after[k] for k in before}, before)
+        self.assertEqual(after[late.pk], max(before.values()) + 1)
+
+    def test_coach_test_print_assigns_nothing(self):
+        preview_checkin_ticket_text(event=self.event, language="fr")
+        self.assertEqual(event_numbers(self.event), {})
 
     def test_member_total_counts_only_active_profiles(self):
         from crush_lu.services.mixer_ticket import _member_count
@@ -241,29 +266,29 @@ class MixerTicketTests(TestCase):
     def test_undoing_a_door_admission_keeps_every_number(self):
         first = self._guest(80, "waitlist")
         second = self._guest(81, "waitlist")
-        before = event_numbers(self.event)
+        before = self._numbers()
         for reg in (first, second):
             reg.status = "attended"
             reg.checkin_prior_status = "waitlist"
             reg.checked_in_at = timezone.now()
             reg.save()
-        self.assertEqual(event_numbers(self.event), before)
+        self.assertEqual(self._numbers(), before)
 
         # coach_undo_checkin restores the prior status and clears provenance.
         first.status = "waitlist"
         first.checkin_prior_status = ""
         first.checked_in_at = None
         first.save()
-        self.assertEqual(event_numbers(self.event), before)
+        self.assertEqual(self._numbers(), before)
 
     def test_payment_settling_during_the_evening_keeps_numbers(self):
         payer = self._guest(85, "pending")
-        before = event_numbers(self.event)
+        before = self._numbers()
         payer.status = "confirmed"
         payer.payment_confirmed = True
         payer.payment_date = self.event.date_time + timedelta(minutes=5)
         payer.save()
-        self.assertEqual(event_numbers(self.event), before)
+        self.assertEqual(self._numbers(), before)
 
     def test_stale_ask_me_about_ids_are_ignored(self):
         from crush_lu.services.mixer_ticket import _Guest
@@ -278,7 +303,7 @@ class MixerTicketTests(TestCase):
         from crush_lu.models import UserBlock
 
         a, b = self.regs[1], self.regs[2]
-        numbers = event_numbers(self.event)
+        numbers = self._numbers()
         UserBlock.objects.create(blocker=b.user, blocked=a.user)
         num_a, rows_a, others_a = affinity_list(a, self.event)
         _, rows_b, _ = affinity_list(b, self.event)
@@ -294,7 +319,7 @@ class MixerTicketTests(TestCase):
         ConfirmedEncounter.objects.create(
             user_low=low, user_high=high, status="removal_pending"
         )
-        numbers = event_numbers(self.event)
+        numbers = self._numbers()
         _, rows_a, _ = affinity_list(a, self.event)
         _, rows_b, _ = affinity_list(b, self.event)
         self.assertNotIn(numbers[b.pk], [n for n, _ in rows_a])
@@ -307,15 +332,15 @@ class MixerTicketTests(TestCase):
             reg.payment_confirmed = True
             reg.save()
         unpaid = self._guest(86, "pending")
-        before = event_numbers(self.event)
+        before = self._numbers()
         unpaid.status = "no_show"
         unpaid.save()
-        self.assertEqual(event_numbers(self.event), before)
+        self.assertEqual(self._numbers(), before)
 
     def test_deactivated_or_banned_members_are_not_listed(self):
         from crush_lu.models.profiles import UserDataConsent
 
-        numbers = event_numbers(self.event)
+        numbers = self._numbers()
         gone_user, gone_profile, banned = self.regs[6], self.regs[7], self.regs[8]
         gone_user.user.is_active = False
         gone_user.user.save()
@@ -331,7 +356,7 @@ class MixerTicketTests(TestCase):
         for reg in (gone_user, gone_profile, banned):
             self.assertNotIn(numbers[reg.pk], listed)
         self.assertEqual(others, 21)
-        self.assertEqual(event_numbers(self.event), numbers)
+        self.assertEqual(self._numbers(), numbers)
 
     def test_58mm_rows_fit_the_paper(self):
         from power_up.atmos.printing.layout import Paper
@@ -355,3 +380,25 @@ class MixerTicketTests(TestCase):
         profile.save()
         text = preview_checkin_ticket_text(registration=self.regs[0])
         self.assertIn("DEINE AFFINITÄTEN", text)
+
+    def test_58mm_ticket_has_no_line_wider_than_the_roll(self):
+        from power_up.atmos.printing.layout import Paper
+
+        for lang in ("fr", "de", "en"):
+            text = preview_checkin_ticket_text(
+                registration=self.regs[0],
+                event=self.event,
+                paper=Paper.MM58,
+                language=lang,
+            )
+            too_wide = [
+                line for line in text.splitlines() if len(line) > Paper.MM58.columns
+            ]
+            self.assertEqual(too_wide, [], lang)
+
+    def test_80mm_ticket_lines_are_unchanged_by_the_fit_pass(self):
+        text = preview_checkin_ticket_text(
+            registration=self.regs[0], event=self.event, language="fr"
+        )
+        self.assertIn("Pas de noms. Pas de photos. Que des chiffres.", text)
+        self.assertTrue(all(len(line) <= 48 for line in text.splitlines()))

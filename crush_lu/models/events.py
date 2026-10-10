@@ -1639,6 +1639,14 @@ class EventRegistration(models.Model):
         default="",
         help_text=_("Signed token for QR check-in"),
     )
+    # Social Mixer "Find your number": assigned once, at the event's first real
+    # ticket print, and never changed afterwards -- printed badges and other
+    # guests' lists carry it. See crush_lu/services/mixer_ticket.py.
+    event_number = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Mixer ticket number, frozen at the first print",
+    )
     checked_in_at = models.DateTimeField(
         null=True,
         blank=True,
@@ -1816,6 +1824,15 @@ class EventRegistration(models.Model):
             models.Index(
                 fields=["user", "status"],
                 name="eventreg_user_status",
+            ),
+        ]
+        constraints = [
+            # Two badges with one number would break the game; on Postgres a
+            # concurrent double assignment fails loudly instead.
+            models.UniqueConstraint(
+                fields=["event", "event_number"],
+                condition=models.Q(event_number__isnull=False),
+                name="eventreg_unique_event_number",
             ),
         ]
 

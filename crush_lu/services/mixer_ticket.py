@@ -13,21 +13,15 @@ Replaces the speed-dating ticket for ``event_type == "mixer"``. Each guest gets:
 
 Numbering
 ---------
-Numbers run 1..N over the event's confirmed/attended/no-show registrations in
-registration order (pk). They are computed at print time, not stored, so they
-are only stable while the confirmed list is: print once online cancellation
-has closed (it closes at ``event.date_time``, see ``_event_cancel_refusal``).
-``no_show`` stays in the numbering so a coach marking an absentee mid-event
-does not shift everybody else's number; it is excluded from the lists.
+Numbers are stored on ``EventRegistration.event_number`` and never change once
+given, because they are printed on badges and on other guests' lists.
 
-Someone who reaches ``attended`` at the door from another status (a waitlist
-promotion, a seat-holding ``pending`` row) was never in that list, so slotting
-them in by pk would renumber everyone after them. ``checkin_prior_status``
-records where a check-in came from. Every waitlist/pending row therefore
-holds a reserved number after the last regular one, in pk order, whether or
-not it is ever admitted: admitting it, or undoing that admission
-(``coach_undo_checkin`` restores the prior status), keeps the same number, so
-no badge already printed ever changes. Unused reserved numbers are gaps.
+The first real ticket print of the event assigns them all at once:
+confirmed/attended/no_show registrations 1..N in registration order (pk), then
+waitlist/pending ones, which may still be admitted. Any registration that
+gains a seat later gets the next free number. A cancellation, an undone
+check-in, a payment or a promotion keeps the number it has; only the lists
+filter on the current status. The coach test print never assigns anything.
 
 Affinity
 --------
@@ -69,10 +63,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Statuses that hold a number. ``no_show`` keeps its number (see module doc).
-NUMBERED_STATUSES = ("confirmed", "attended", "no_show")
-# Statuses that can still be admitted at the door: they get a reserved number.
-RESERVED_STATUSES = ("waitlist", "pending")
+# Statuses that get a number, regular seats first (see module doc).
+SEATED_STATUSES = ("confirmed", "attended", "no_show")
+WAITING_STATUSES = ("waitlist", "pending")
 # Statuses that appear in other guests' lists.
 LISTED_STATUSES = ("confirmed", "attended")
 
@@ -147,49 +140,45 @@ def printable(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _is_late_entry(registration, event) -> bool:
-    """True for a row that held a reserved number rather than a regular one.
+def assign_event_numbers(event: MeetupEvent) -> None:
+    """Give every seated or waiting registration a number; never renumber.
 
-    - checked in from a status that held no number (waitlist, pending);
-    - a pending seat whose payment settled after the event started -- the
-      payment path flips it to ``confirmed`` without any check-in provenance;
-    - an unpaid seat of a paid event marked ``no_show``: it was ``pending``,
-      since a confirmed seat of a paid event is always paid.
-
-    A waitlist row marked ``no_show`` leaves no trace and cannot be told from a
-    confirmed one, so waitlist absentees must simply be left on the waitlist.
+    Locks the event row first, then reads the registrations inside the lock,
+    so two desk devices printing at once cannot hand out one number twice
+    (the partial unique constraint turns any slip into an error on Postgres).
     """
-    if registration.status == "attended" and (
-        registration.checkin_prior_status or ""
-    ) not in ("", "confirmed"):
-        return True
-    if (
-        registration.status == "no_show"
-        and (getattr(event, "registration_fee", 0) or 0) > 0
-        and not registration.payment_confirmed
-    ):
-        return True
-    starts_at = getattr(event, "date_time", None)
-    paid_at = registration.payment_date
-    return bool(paid_at and starts_at and paid_at >= starts_at)
+    from django.db import transaction
+    from django.db.models import Max
+
+    from crush_lu.models import EventRegistration, MeetupEvent
+
+    with transaction.atomic():
+        MeetupEvent.objects.select_for_update().only("pk").get(pk=event.pk)
+        regs = EventRegistration.objects.filter(event=event)
+        missing = list(
+            regs.filter(
+                event_number__isnull=True,
+                status__in=SEATED_STATUSES + WAITING_STATUSES,
+            ).values_list("pk", "status")
+        )
+        if not missing:
+            return
+        top = regs.aggregate(top=Max("event_number"))["top"] or 0
+        seated = sorted(pk for pk, status in missing if status in SEATED_STATUSES)
+        waiting = sorted(pk for pk, status in missing if status in WAITING_STATUSES)
+        for number, pk in enumerate(seated + waiting, top + 1):
+            EventRegistration.objects.filter(pk=pk).update(event_number=number)
 
 
 def event_numbers(event: MeetupEvent) -> dict[int, int]:
-    """Registration pk -> event number: regular guests 1..N, then reserved ones."""
+    """Registration pk -> stored event number (any status)."""
     from crush_lu.models import EventRegistration
 
-    rows = EventRegistration.objects.filter(
-        event=event, status__in=NUMBERED_STATUSES + RESERVED_STATUSES
+    return dict(
+        EventRegistration.objects.filter(
+            event=event, event_number__isnull=False
+        ).values_list("pk", "event_number")
     )
-    regular, reserved = [], []
-    fields = ("pk", "status", "checkin_prior_status", "payment_date")
-    for reg in rows.only(*fields, "payment_confirmed"):
-        if reg.status in RESERVED_STATUSES or _is_late_entry(reg, event):
-            reserved.append(reg.pk)
-        else:
-            regular.append(reg.pk)
-    ordered = sorted(regular) + sorted(reserved)
-    return {pk: i for i, pk in enumerate(ordered, 1)}
 
 
 class _Guest:
@@ -280,9 +269,10 @@ def affinity_list(
     """Return (own number, [(number, percent)] best first, other guests count)."""
     from crush_lu.models import EventRegistration
 
+    assign_event_numbers(event)
     numbers = event_numbers(event)
     regs = list(
-        EventRegistration.objects.filter(event=event, status__in=NUMBERED_STATUSES)
+        EventRegistration.objects.filter(event=event, event_number__isnull=False)
         .select_related("user__crushprofile", "user__data_consent")
         .prefetch_related("user__crushprofile__interests_new")
         .order_by("pk")
@@ -315,11 +305,10 @@ def affinity_list(
         and not g.removed
     ]
 
-    # The percentile scale is fixed on the regular guests (no_show included,
-    # door arrivals excluded), so marking an absentee or admitting someone at
-    # the door mid-print never changes a percentage already on paper, and both
-    # tickets of a pair always show the same figure.
-    cohort = [g for g, r in zip(guests, regs) if not _is_late_entry(r, event)]
+    # The percentile scale uses every numbered registration whatever its
+    # current status, so a no-show, a cancellation or a door admission between
+    # two prints never moves a percentage already on paper.
+    cohort = guests
 
     interest_scores = sorted(
         s
@@ -449,6 +438,29 @@ def _qr_url(event, lang: str) -> str:
         if event_id:
             return f"{base}/{lang}/events/{event_id}/attendees/"
         return f"{base}/{lang}/events/"
+
+
+def _fit_to_paper(directives: list[Directive], cols: int) -> list[Directive]:
+    """Wrap any text line wider than the roll into lines with the same style.
+
+    The encoder writes ``Text`` verbatim, so on 58 mm paper (32 columns) a
+    48-column line would be hard-wrapped mid-word by the printer and lose its
+    centering. 80 mm lines already fit and pass through unchanged.
+    """
+    from dataclasses import replace
+
+    out: list[Directive] = []
+    for directive in directives:
+        if isinstance(directive, Text):
+            width = cols // (2 if directive.double_width else 1)
+            if len(directive.text) > width:
+                out.extend(
+                    replace(directive, text=part)
+                    for part in wrap(directive.text.strip(), width)
+                )
+                continue
+        out.append(directive)
+    return out
 
 
 def build_mixer_ticket_directives(
@@ -788,7 +800,7 @@ def build_mixer_ticket_directives(
     out.append(Rule("="))
     out.append(Feed(3))
     out.append(Cut(partial=True))
-    return out
+    return _fit_to_paper(out, cols)
 
 
 __all__ = [
