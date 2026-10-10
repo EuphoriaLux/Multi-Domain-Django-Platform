@@ -44,7 +44,9 @@ def exporter(monkeypatch):
 
     ``AppConfig.ready()`` has already put an OTel handler on root in this
     process, bound to the no-op default provider. It is set aside so the
-    attach under test builds its own, then everything is put back.
+    attach under test builds its own, then put back. Only OTel handlers are
+    touched: pytest swaps its own capture handlers on root between the setup
+    and teardown phases, and restoring a setup-time snapshot would leak them.
     """
     exporter = InMemoryLogRecordExporter()
     provider = LoggerProvider()
@@ -53,16 +55,16 @@ def exporter(monkeypatch):
     monkeypatch.setattr("opentelemetry._logs.get_logger_provider", lambda: provider)
 
     root = logging.getLogger()
-    saved_handlers, saved_level = list(root.handlers), root.level
-    for handler in saved_handlers:
-        if isinstance(handler, OTEL_HANDLER_CLASSES):
-            root.removeHandler(handler)
+    saved_level = root.level
+    saved_otel = _otel_handlers_on_root()
+    for handler in saved_otel:
+        root.removeHandler(handler)
 
     yield exporter
 
-    for handler in list(root.handlers):
+    for handler in _otel_handlers_on_root():
         root.removeHandler(handler)
-    for handler in saved_handlers:
+    for handler in saved_otel:
         root.addHandler(handler)
     root.setLevel(saved_level)
     provider.shutdown()
