@@ -252,3 +252,83 @@ def test_an_argument_that_cannot_be_rendered_does_not_raise():
     record = _record("value %s", broken)
     assert PIIMaskingFilter().filter(record) is True
     assert record.args == (broken,)
+
+
+def test_internationalised_addresses_are_masked():
+    # Django's EmailValidator accepts IDN domains; the old ASCII-only
+    # pattern let them through untouched.
+    record = _record("Invite sent to %s and %s", "jane@müller.de", "jürgen@example.com")
+    PIIMaskingFilter().filter(record)
+    assert record.getMessage() == "Invite sent to j***e@m***.de and j***n@e***.com"
+
+
+# --- exceptions attached with exc_info -----------------------------------------
+
+MEMBER_EMAIL = "jane.member" + "@example.com"
+
+
+def _raise_duplicate_signup(email):
+    """The shape of the duplicate-email signup failure in views_account.py.
+
+    The address arrives as a value, as it does in production: a traceback
+    prints source lines, and a literal address here would be one of them.
+    """
+    from django.db import IntegrityError
+
+    try:
+        raise ValueError(
+            'duplicate key value violates unique constraint "account_email_key"\n'
+            f"DETAIL:  Key (email)=({email}) already exists."
+        )
+    except ValueError as cause:
+        raise IntegrityError(f"Signup failed for {email}") from cause
+
+
+def test_an_exception_mentioning_an_address_is_masked_on_export(exporter):
+    """The OTel handler reads exc_info itself, not record.msg."""
+    assert telemetry_config.attach_otel_logging_handler_to_root()
+
+    try:
+        _raise_duplicate_signup(MEMBER_EMAIL)
+    except Exception as exc:
+        log.error(f"Signup failed for email: {exc}", exc_info=True)
+        original = exc
+
+    [exported] = [
+        item.log_record
+        for item in exporter.get_finished_logs()
+        if "Signup failed for email" in str(item.log_record.body)
+    ]
+    attributes = dict(exported.attributes)
+    exported_text = "\n".join(
+        [str(exported.body)] + [str(value) for value in attributes.values()]
+    )
+    assert "jane.member@example.com" not in exported_text
+    assert attributes["exception.type"] == "IntegrityError"
+    assert attributes["exception.message"] == "Signup failed for j***r@e***.com"
+    stacktrace = attributes["exception.stacktrace"]
+    # Still a useful trace: real frames, the original class names, the cause.
+    assert "_raise_duplicate_signup" in stacktrace
+    assert "django.db.utils.IntegrityError: Signup failed for j***r@e***.com" in (
+        stacktrace
+    )
+    assert "ValueError: duplicate key value" in stacktrace
+    assert "Key (email)=(j***r@e***.com) already exists." in stacktrace
+    assert "direct cause of the following exception" in stacktrace
+    # The caller's exception is untouched.
+    assert "jane.member@example.com" in str(original)
+    assert "jane.member@example.com" in str(original.__cause__)
+
+
+def test_an_exception_without_an_address_is_left_as_it_is():
+    try:
+        raise ValueError("no address here, just a @ sign")
+    except ValueError:
+        import sys
+
+        exc_info = sys.exc_info()
+    record = logging.LogRecord(
+        "test", logging.ERROR, __file__, 1, "failed", (), exc_info
+    )
+    PIIMaskingFilter().filter(record)
+    assert record.exc_info is exc_info

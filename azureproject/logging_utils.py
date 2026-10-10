@@ -84,6 +84,12 @@ class PIIMaskingFilter(logging.Filter):
     its address, an exception) is replaced by its masked ``str()`` only when
     that text holds an address; otherwise it is passed through untouched.
 
+    An exception attached with ``exc_info`` is exported with its own message
+    and stack trace, read from the exception object rather than from
+    ``record.msg``. When any exception in the chain mentions an address, the
+    record gets a masked stand-in chain with the same class names and
+    tracebacks; the caller's exception is never touched.
+
     In production this runs on the OpenTelemetry handler that exports to
     Application Insights (attached in ``azureproject.telemetry_config``), not
     only on the ERROR-level console handler from ``LOGGING``.
@@ -97,16 +103,84 @@ class PIIMaskingFilter(logging.Filter):
         }
     """
 
-    # Regex patterns for PII detection
+    # Regex patterns for PII detection. \w is Unicode here, so internationalised
+    # domains (jane@müller.de, which Django's EmailValidator accepts) match;
+    # the TLD is letters only ([^\W\d_]).
     EMAIL_PATTERN = re.compile(
-        r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
+        r'\b[\w.%+-]+@[\w.-]+\.[^\W\d_]{2,}\b'
     )
     PHONE_PATTERN = re.compile(
         r'(\+?\d{1,4}[-.\s]?)?(\(?\d{2,4}\)?[-.\s]?)?\d{3,4}[-.\s]?\d{3,4}'
     )
 
+    # Original exception class -> stand-in class with the same name and module.
+    _stand_in_classes = {}
+
     def _mask_text(self, text):
+        if '@' not in text:  # most records; skips the regex scan
+            return text
         return self.EMAIL_PATTERN.sub(lambda m: mask_email(m.group(0)), text)
+
+    @staticmethod
+    def _exception_text(exc):
+        try:
+            return str(exc)
+        except Exception:
+            return ''
+
+    @staticmethod
+    def _exception_chain(exc):
+        chain, pending = [], [exc]
+        while pending:
+            current = pending.pop()
+            if current is None or any(current is seen for seen in chain):
+                continue
+            chain.append(current)
+            pending.extend((current.__cause__, current.__context__))
+        return chain
+
+    def _mentions_address(self, exc):
+        texts = [self._exception_text(exc)]
+        texts.extend(str(note) for note in getattr(exc, '__notes__', None) or ())
+        return any(self.EMAIL_PATTERN.search(text) for text in texts)
+
+    def _stand_in(self, exc, memo):
+        """A masked copy of ``exc`` and its chain, for the record only."""
+        if exc is None:
+            return None
+        if id(exc) in memo:
+            return memo[id(exc)]
+        cls = type(exc)
+        stand_in_cls = self._stand_in_classes.get(cls)
+        if stand_in_cls is None:
+            stand_in_cls = type(
+                cls.__name__,
+                (Exception,),
+                {'__module__': cls.__module__, '__qualname__': cls.__qualname__},
+            )
+            self._stand_in_classes[cls] = stand_in_cls
+        stand_in = stand_in_cls(self._mask_text(self._exception_text(exc)))
+        memo[id(exc)] = stand_in
+        stand_in.__traceback__ = exc.__traceback__
+        stand_in.__cause__ = self._stand_in(exc.__cause__, memo)
+        stand_in.__context__ = self._stand_in(exc.__context__, memo)
+        # Assigning __cause__ sets this to True, so copy it last.
+        stand_in.__suppress_context__ = exc.__suppress_context__
+        notes = getattr(exc, '__notes__', None)
+        if notes:
+            stand_in.__notes__ = [self._mask_text(str(note)) for note in notes]
+        return stand_in
+
+    def _mask_exc_info(self, exc_info):
+        if not isinstance(exc_info, tuple) or len(exc_info) != 3:
+            return exc_info
+        exc_type, exc, tb = exc_info
+        if exc is None or not any(
+            self._mentions_address(e) for e in self._exception_chain(exc)
+        ):
+            return exc_info
+        # Keep the original type first: the OTel handler reports its __name__.
+        return (exc_type, self._stand_in(exc, {}), tb)
 
     def _mask_value(self, value):
         """Return ``value`` with every email address in it masked.
@@ -149,11 +223,19 @@ class PIIMaskingFilter(logging.Filter):
             # has to stay a mapping for the message to format.
             if record.args:
                 record.args = self._mask_value(record.args)
+
+            if record.exc_info:
+                record.exc_info = self._mask_exc_info(record.exc_info)
+            # Set when another handler already formatted the traceback.
+            if isinstance(record.exc_text, str):
+                record.exc_text = self._mask_text(record.exc_text)
         except Exception:
             # A filter that raises propagates into the caller's logging call.
             # Withhold the content rather than risk exporting it unmasked.
             record.msg = "[log message withheld: PII masking failed]"
             record.args = ()
+            record.exc_info = None
+            record.exc_text = None
 
         return True
 
