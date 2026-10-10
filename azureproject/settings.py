@@ -1853,9 +1853,20 @@ CRUSH_PUSH_FANOUT_BUDGET_SECONDS = float(
 # send inside it is bounded too — pywebpush defaults to timeout=None, so a
 # single unresponsive endpoint could otherwise hang past the budget by an
 # arbitrary amount. Clamped to whatever is left of the budget at call time.
-# The native channels already carry their own (httpx 10s / requests 10s).
+# The native sends already carry their own (httpx 10s / requests 10s); the
+# Android OAuth token refresh in front of them is bounded below.
 CRUSH_PUSH_SEND_TIMEOUT_SECONDS = float(
     os.getenv("CRUSH_PUSH_SEND_TIMEOUT_SECONDS", "10")
+)
+# Ceiling on the FCM OAuth token refresh that precedes an Android fan-out.
+# google-auth's requests transport defaults to a 120s timeout — the whole
+# gunicorn window — and retries a 5xx up to 3 times with backoff sleeps, so an
+# unbounded refresh could stall the request before a single push went out.
+# Covers the whole refresh, retries included, and is drawn from the fan-out
+# budget above, so it can never run past it. Paid about once an hour per
+# process: the token is cached until it nears expiry.
+CRUSH_PUSH_TOKEN_REFRESH_TIMEOUT_SECONDS = float(
+    os.getenv("CRUSH_PUSH_TOKEN_REFRESH_TIMEOUT_SECONDS", "5")
 )
 PASSKIT_PASS_PROVIDER = os.getenv(
     "PASSKIT_PASS_PROVIDER",

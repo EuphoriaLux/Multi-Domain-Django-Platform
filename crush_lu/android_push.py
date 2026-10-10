@@ -1,5 +1,6 @@
 import json
 import logging
+import threading
 import time
 
 import requests
@@ -7,6 +8,7 @@ import requests
 from django.conf import settings
 from google.oauth2 import service_account
 import google.auth
+import google.auth.exceptions
 import google.auth.transport.requests
 
 logger = logging.getLogger(__name__)
@@ -16,6 +18,14 @@ FCM_SCOPES = ["https://www.googleapis.com/auth/firebase.messaging"]
 # Suffix on every Google-managed service-account email:
 #   <name>@<project-id>.iam.gserviceaccount.com
 _GSA_EMAIL_SUFFIX = ".iam.gserviceaccount.com"
+
+# One credentials object per process, so its access token (valid about an
+# hour) is reused across notifications instead of being re-minted on every
+# send. The lock covers every touch of it — the validity check, the refresh
+# and the token read: google-auth assigns token and expiry separately, so an
+# unlocked reader could pair a fresh expiry with a stale token.
+_fcm_credentials_lock = threading.Lock()
+_fcm_credentials = None  # (credentials, project_id) once loaded
 
 
 def _derive_project_id_from_email(service_account_email):
@@ -117,6 +127,61 @@ def get_fcm_credentials():
     return None, None
 
 
+class _DeadlineRequest:
+    """google-auth transport that refuses to run past ``deadline``.
+
+    ``credentials.refresh()`` takes no timeout, and google-auth's requests
+    transport defaults to 120s — the whole gunicorn window. A per-call timeout
+    alone is not enough either: the token endpoint call is retried up to 3
+    times on a 5xx, with backoff sleeps in between. So every call gets what is
+    left until the deadline, and a call that would start after it raises
+    instead, which google-auth propagates straight out of the refresh.
+    """
+
+    def __init__(self, deadline):
+        self._deadline = deadline
+        self._transport = google.auth.transport.requests.Request()
+
+    def __call__(self, *args, **kwargs):
+        remaining = self._deadline - time.monotonic()
+        if remaining <= 0:
+            raise google.auth.exceptions.TransportError(
+                "FCM token refresh ran out of time"
+            )
+        kwargs["timeout"] = max(0.1, remaining)
+        return self._transport(*args, **kwargs)
+
+
+def _get_fcm_access_token(deadline):
+    """Return ``(access_token, project_id)``, refreshing only when needed.
+
+    Returns ``(None, None)`` when no FCM credentials are configured. Raises if
+    the token cannot be refreshed before ``deadline`` — including while waiting
+    for another thread's refresh to finish.
+    """
+    global _fcm_credentials
+
+    if not _fcm_credentials_lock.acquire(timeout=max(0.0, deadline - time.monotonic())):
+        raise TimeoutError("timed out waiting for a concurrent FCM token refresh")
+    try:
+        if _fcm_credentials is None:
+            credentials, project_id = get_fcm_credentials()
+            if not credentials or not project_id:
+                return None, None
+            _fcm_credentials = (credentials, project_id)
+        credentials, project_id = _fcm_credentials
+
+        if not credentials.valid:
+            refresh_timeout = getattr(
+                settings, "CRUSH_PUSH_TOKEN_REFRESH_TIMEOUT_SECONDS", 5.0
+            )
+            refresh_deadline = min(deadline, time.monotonic() + refresh_timeout)
+            credentials.refresh(_DeadlineRequest(refresh_deadline))
+        return credentials.token, project_id
+    finally:
+        _fcm_credentials_lock.release()
+
+
 def send_native_android_push_notification(
     user,
     title,
@@ -138,18 +203,24 @@ def send_native_android_push_notification(
     if not total:
         return {"success": 0, "failed": 0, "total": 0}
 
-    credentials, project_id = get_fcm_credentials()
-    if not credentials or not project_id:
-        logger.warning("Skipping Android push for user ID %s: FCM settings/credentials are missing.", user.id)
-        return {"success": 0, "failed": 0, "total": total}
+    # Bounded like the web fan-out in push_notifications.send_push_notification:
+    # production has no task worker, so this runs inside the request that
+    # triggered the notification. Each FCM post carries a 10s timeout, so the
+    # deadline — not the count — is what keeps a member with a pile of stale
+    # devices from eating the gunicorn window. It starts before the OAuth
+    # token refresh, so a slow token endpoint is charged to the same budget.
+    limit = getattr(settings, "CRUSH_PUSH_FANOUT_LIMIT", 10)
+    budget = getattr(settings, "CRUSH_PUSH_FANOUT_BUDGET_SECONDS", 10.0)
+    deadline = time.monotonic() + budget
 
-    # Refresh credentials to obtain OAuth2 access token
     try:
-        credentials.refresh(google.auth.transport.requests.Request())
-        access_token = credentials.token
+        access_token, project_id = _get_fcm_access_token(deadline)
     except Exception as e:
         logger.error(f"Error refreshing Google OAuth2 token for FCM: {e}")
         return {"success": 0, "failed": total, "total": total}
+    if not project_id:
+        logger.warning("Skipping Android push for user ID %s: FCM settings/credentials are missing.", user.id)
+        return {"success": 0, "failed": 0, "total": total}
 
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -162,15 +233,6 @@ def send_native_android_push_notification(
     data_payload = {}
     if url:
         data_payload["url"] = str(url)
-
-    # Bounded like the web fan-out in push_notifications.send_push_notification:
-    # production has no task worker, so this loop runs inside the request that
-    # triggered the notification. Each FCM post carries a 10s timeout, so the
-    # deadline — not the count — is what keeps a member with a pile of stale
-    # devices from eating the gunicorn window.
-    limit = getattr(settings, "CRUSH_PUSH_FANOUT_LIMIT", 10)
-    budget = getattr(settings, "CRUSH_PUSH_FANOUT_BUDGET_SECONDS", 10.0)
-    deadline = time.monotonic() + budget
 
     success_count = 0
     failed_count = 0
