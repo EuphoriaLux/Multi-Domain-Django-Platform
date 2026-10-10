@@ -191,7 +191,8 @@ def assign_event_numbers(event: MeetupEvent) -> None:
             # must not shape the frozen scale either.
             removed = (
                 not user_ok
-                or profile_ok is False
+                # None: no CrushProfile at all (outer join), so not a member.
+                or not profile_ok
                 or bool(banned)
                 or verification == "rejected"
             )
@@ -266,8 +267,11 @@ class _Guest:
         consent = getattr(user, "data_consent", None) if user else None
         self.removed = bool(
             user is None
+            # A real member always has a CrushProfile; a deleted one means the
+            # member is gone even though the account and registration remain.
+            or profile is None
             or not user.is_active
-            or (profile is not None and not profile.is_active)
+            or not profile.is_active
             or (consent is not None and consent.crushlu_banned)
             # Rejected, e.g. by the door "photo mismatch" action, which keeps
             # the account active and the registration attended.

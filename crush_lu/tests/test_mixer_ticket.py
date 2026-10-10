@@ -576,3 +576,16 @@ class MixerTicketTests(TestCase):
         _, rows, _ = affinity_list(self.regs[0], self.event)
         self.assertEqual(_first_print_registrations(self.event), set(promoted))
         self.assertEqual(len(rows), 2)
+
+    def test_a_profile_less_registration_is_treated_as_removed(self):
+        from crush_lu.services.mixer_ticket import _first_print_registrations
+
+        gone = self.regs[6]
+        CrushProfile.objects.filter(user=gone.user).delete()
+        numbers = self._numbers()
+        self.assertNotIn(gone.pk, _first_print_registrations(self.event))
+        _, rows, _ = affinity_list(self.regs[0], self.event)
+        self.assertNotIn(numbers[gone.pk], [n for n, _ in rows])
+        gone.refresh_from_db()
+        _, own_rows, _ = affinity_list(gone, self.event)
+        self.assertEqual(own_rows, [])
