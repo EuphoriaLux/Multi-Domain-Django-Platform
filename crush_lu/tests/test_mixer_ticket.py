@@ -471,3 +471,13 @@ class MixerTicketTests(TestCase):
         number, rows, others = affinity_list(owner, self.event)
         self.assertEqual(number, self._numbers()[owner.pk])
         self.assertEqual((rows, others), ([], 0))
+
+    def test_a_door_arrival_printing_first_is_numbered_after_the_seated(self):
+        walk_up = self.regs[0]  # lowest pk
+        walk_up.status = "attended"
+        walk_up.checkin_prior_status = "waitlist"
+        walk_up.checked_in_at = timezone.now()
+        walk_up.save()
+        numbers = self._numbers()
+        self.assertEqual(numbers[walk_up.pk], len(self.regs))
+        self.assertEqual(numbers[self.regs[1].pk], 1)

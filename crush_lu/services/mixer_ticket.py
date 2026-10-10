@@ -166,15 +166,24 @@ def assign_event_numbers(event: MeetupEvent) -> None:
                 pk__in=numbered.filter(registration__isnull=False).values(
                     "registration_id"
                 )
-            ).values_list("pk", "status")
+            ).values_list("pk", "status", "checkin_prior_status")
         )
         if not missing:
             return
         # Tombstones (erased registrations) still count, so no number is reused.
         top = numbered.aggregate(top=Max("number"))["top"] or 0
         first_print = top == 0
-        seated = sorted(pk for pk, status in missing if status in SEATED_STATUSES)
-        waiting = sorted(pk for pk, status in missing if status in WAITING_STATUSES)
+        seated, waiting = [], []
+        for pk, status, prior in missing:
+            # Checked in from the waitlist or a pending seat: still a waiting
+            # guest, even when that check-in is the one printing first.
+            door_arrival = status == "attended" and prior not in ("", "confirmed")
+            if status in SEATED_STATUSES and not door_arrival:
+                seated.append(pk)
+            else:
+                waiting.append(pk)
+        seated.sort()
+        waiting.sort()
         MixerTicketNumber.objects.bulk_create(
             MixerTicketNumber(
                 event=event,
