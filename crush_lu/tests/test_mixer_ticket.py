@@ -546,3 +546,17 @@ class MixerTicketTests(TestCase):
         absent.save()
         self._numbers()
         self.assertNotIn(absent.pk, _first_print_registrations(self.event))
+
+    def test_a_door_rejected_profile_is_neither_listed_nor_given_a_list(self):
+        from crush_lu.services.mixer_ticket import _first_print_registrations
+
+        rejected = self.regs[4]
+        CrushProfile.objects.filter(user=rejected.user).update(
+            verification_status="rejected", is_approved=False
+        )
+        numbers = self._numbers()
+        self.assertNotIn(rejected.pk, _first_print_registrations(self.event))
+        _, rows, _ = affinity_list(self.regs[0], self.event)
+        self.assertNotIn(numbers[rejected.pk], [n for n, _ in rows])
+        _, own_rows, _ = affinity_list(rejected, self.event)
+        self.assertEqual(own_rows, [])

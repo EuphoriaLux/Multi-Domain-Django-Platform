@@ -175,6 +175,7 @@ def assign_event_numbers(event: MeetupEvent) -> None:
                 "user__is_active",
                 "user__crushprofile__is_active",
                 "user__data_consent__crushlu_banned",
+                "user__crushprofile__verification_status",
             )
         )
         if not missing:
@@ -183,12 +184,17 @@ def assign_event_numbers(event: MeetupEvent) -> None:
         top = numbered.aggregate(top=Max("number"))["top"] or 0
         first_print = top == 0
         seated, waiting, cohort = [], [], set()
-        for pk, status, prior, user_ok, profile_ok, banned in missing:
+        for pk, status, prior, user_ok, profile_ok, banned, verification in missing:
             # A pending seat is held (paid event, money at the door); only the
             # true waitlist stays out of the percentile cohort. So does anyone
             # already banned or deactivated now: they are never listed, so they
             # must not shape the frozen scale either.
-            removed = not user_ok or profile_ok is False or bool(banned)
+            removed = (
+                not user_ok
+                or profile_ok is False
+                or bool(banned)
+                or verification == "rejected"
+            )
             # A no-show already recorded is known to be absent: keep it out too.
             if (
                 "waitlist" not in (status, prior)
@@ -265,6 +271,9 @@ class _Guest:
             or not user.is_active
             or (profile is not None and not profile.is_active)
             or (consent is not None and consent.crushlu_banned)
+            # Rejected, e.g. by the door "photo mismatch" action, which keeps
+            # the account active and the registration attended.
+            or (profile is not None and profile.verification_status == "rejected")
         )
         if profile is None:
             self.interests, self.ask, self.langs = set(), set(), set()
