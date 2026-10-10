@@ -4387,3 +4387,49 @@ class EventFeedback(models.Model):
     @property
     def is_detractor(self):
         return self.nps_score <= 6
+
+
+class MixerTicketNumber(models.Model):
+    """A guest's Social Mixer "Find your number" ticket number.
+
+    Its own table rather than a column on ``EventRegistration``: the number is
+    printed on badges and on other guests' lists, so it must never change, and
+    a full ``save()`` of a registration instance loaded before the number was
+    assigned would otherwise write it back as NULL. Keyed on the event as well,
+    so a registration an admin moves to another event leaves its number with
+    the event it was printed for. Assigned by
+    ``crush_lu.services.mixer_ticket.assign_event_numbers``.
+
+    Deleting a registration (account erasure) leaves an anonymous tombstone --
+    the row without its registration -- so a number already printed is never
+    handed to someone else. ``in_first_print`` marks the batch assigned at the
+    first print: the affinity percentile scale is frozen on it.
+    """
+
+    event = models.ForeignKey(
+        MeetupEvent, on_delete=models.CASCADE, related_name="mixer_ticket_numbers"
+    )
+    registration = models.ForeignKey(
+        EventRegistration,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="mixer_ticket_numbers",
+    )
+    number = models.PositiveIntegerField()
+    in_first_print = models.BooleanField(default=False)
+    assigned_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event", "number"], name="mixerticket_unique_number"
+            ),
+            models.UniqueConstraint(
+                fields=["event", "registration"],
+                name="mixerticket_unique_registration",
+            ),
+        ]
+
+    def __str__(self):
+        return f"#{self.number} ({self.event_id})"

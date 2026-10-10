@@ -1298,6 +1298,10 @@ def build_checkin_ticket_directives(
     from django.utils.translation import override as translation_override
 
     cols = paper.columns
+    # Before the language: a registration-only call must fall back to the
+    # event's languages exactly like a call passing both.
+    if event is None and registration is not None:
+        event = getattr(registration, "event", None)
     lang = resolve_ticket_language(
         registration=registration, event=event, language=language
     )
@@ -1342,6 +1346,24 @@ def build_checkin_ticket_directives(
             event_dt = getattr(event, "date_time", None)
             if event_dt:
                 date_str = _format_ticket_date(event_dt, lang=lang)
+
+        if getattr(event, "event_type", "") == "mixer":
+            from crush_lu.services.mixer_ticket import build_mixer_ticket_directives
+
+            return build_mixer_ticket_directives(
+                registration=registration,
+                event=event,
+                paper=paper,
+                coach_authenticated=coach_authenticated,
+                lang=lang,
+                date_str=date_str,
+                logo_path=_get_crush_ghost_logo_path(),
+                table_label=(
+                    f"TABLE {table_number}" + (f" ({seat_label})" if seat_label else "")
+                    if table_number
+                    else ""
+                ),
+            )
 
         table_display = "WELCOME" if lang != "fr" else "BIENVENUE"
         if table_number:
