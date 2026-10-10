@@ -307,6 +307,10 @@ def _promote_from_waitlist(event, cancelled_user=None, resale_source_registratio
 
     def _promote(candidate):
         candidate.status = _admitted_status(event, candidate)
+        # Shown to coaches until notify_waitlist_promotion records what reached
+        # the member; reset in case this row was promoted once before.
+        candidate.waitlist_promoted_at = timezone.now()
+        candidate.promotion_notice = ""
         candidate.resale_source_registration = None
         candidate.resale_source_payment = None
         candidate.resale_beneficiary = None
@@ -2015,6 +2019,10 @@ def event_register(request, event_id):
                     registration.resale_source_registration = None
                     registration.resale_source_payment = None
                     registration.resale_beneficiary = None
+                    # An earlier promotion belongs to the cancelled seat, not
+                    # this new registration.
+                    registration.waitlist_promoted_at = None
+                    registration.promotion_notice = ""
                 else:
                     registration = form.save(commit=False)
                     registration.event = locked_event

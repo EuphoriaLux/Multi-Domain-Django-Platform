@@ -45406,3 +45406,30 @@ msgid ""
 msgstr ""
 "Un coach vérifie votre photo. Connect s’ouvre pour vous dès qu’elle est "
 "approuvée."
+
+msgid "From waitlist"
+msgstr "Depuis la liste d’attente"
+
+msgid "emailed"
+msgstr "informé par e-mail"
+
+msgid "push only"
+msgstr "push uniquement"
+
+msgid "not notified"
+msgstr "non informé"
+
+msgid "The email did not go out; a push notification did."
+msgstr "L’e-mail n’est pas parti, mais une notification push oui."
+
+msgid "No email or push reached this member about the seat."
+msgstr "Ni e-mail ni push n’a informé ce membre de sa place."
+
+#, python-format
+msgid "%(count)s member got a seat from the waitlist and was not notified"
+msgid_plural "%(count)s members got a seat from the waitlist and were not notified"
+msgstr[0] "%(count)s membre a obtenu une place depuis la liste d’attente sans être informé"
+msgstr[1] "%(count)s membres ont obtenu une place depuis la liste d’attente sans être informés"
+
+msgid "No email or push reached them. Contact them before the event, or free the seat for the next person."
+msgstr "Ni e-mail ni push ne les a informés. À contacter avant l’événement, ou libérer la place pour la personne suivante."
