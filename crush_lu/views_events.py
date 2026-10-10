@@ -2448,6 +2448,15 @@ def event_cancel(request, event_id):
                     request.user,
                     resale_source_registration=registration,
                 )
+            if promoted:
+                # Queued inside the promotion's own transaction, so it runs the
+                # moment that commits: before the canceller's email below, whose
+                # network send must not delay or lose the promoted member's
+                # notice, and never for a seat a rollback takes back. The notice
+                # picks the payment ask for a "pending" seat itself.
+                transaction.on_commit(
+                    lambda reg=promoted: notify_waitlist_promotion(reg, request)
+                )
 
             if credits:
                 messages.success(
@@ -2471,14 +2480,6 @@ def event_cancel(request, event_id):
             )
         except Exception as e:
             logger.error(f"Failed to send event cancellation email: {e}")
-
-        if promoted:
-            # On commit, like the two signal paths: the promoted member must
-            # never hear about a seat that a rollback takes back. The notice
-            # picks the payment ask for a "pending" seat itself.
-            transaction.on_commit(
-                lambda reg=promoted: notify_waitlist_promotion(reg, request)
-            )
 
         return redirect("crush_lu:dashboard")
 

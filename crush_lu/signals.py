@@ -3827,6 +3827,16 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
                             else cancelled
                         ),
                     )
+                if promoted:
+                    # Queued inside the promotion's transaction, so it runs the
+                    # moment that commits: before the canceller's email below,
+                    # whose network send must not delay or lose the promoted
+                    # member's notice. No request here: every channel builds
+                    # its links, and the email its crush.lu sender, without
+                    # one. The notice picks the payment ask for "pending".
+                    transaction.on_commit(
+                        lambda reg=promoted: notify_waitlist_promotion(reg)
+                    )
         except Exception:
             logger.exception(
                 "Waitlist promotion failed after cancellation of registration %s",
@@ -3844,13 +3854,6 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
                 # because its payment was refunded outside Django.
                 cash_refunded=getattr(instance, "_external_cash_refund", False),
             )
-
-        if not promoted:
-            return
-        # Already after commit. There is no request here: every channel builds
-        # its links, and the email its crush.lu sender, without one. The notice
-        # picks the payment ask for a "pending" seat itself.
-        notify_waitlist_promotion(promoted)
 
     transaction.on_commit(_promote_after_commit)
 
