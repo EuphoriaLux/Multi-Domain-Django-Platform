@@ -1420,14 +1420,17 @@ def _record_promotion_notice(registration, outcome) -> None:
     """Store what reached the promoted member, for the coach event page.
 
     A queryset update, never save(): this runs inside an on_commit callback,
-    and a save would re-enter the EventRegistration signal stack.
+    and a save would re-enter the EventRegistration signal stack. Scoped to
+    this promotion's timestamp, so a late callback from an earlier promotion
+    of the same reused row cannot overwrite a newer promotion's outcome.
     """
     from .models import EventRegistration
 
     try:
-        EventRegistration.objects.filter(pk=registration.pk).update(
-            promotion_notice=outcome
-        )
+        EventRegistration.objects.filter(
+            pk=registration.pk,
+            waitlist_promoted_at=registration.waitlist_promoted_at,
+        ).update(promotion_notice=outcome)
     except Exception as exc:
         logger.error(
             "Failed recording promotion notice for registration %s: %s",

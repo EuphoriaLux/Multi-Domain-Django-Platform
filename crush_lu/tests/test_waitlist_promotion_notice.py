@@ -431,6 +431,26 @@ class BellLinkTests(_PromotionFixture):
         self.assertEqual(response["Location"], f"/en/events/{self.event.id}/")
 
 
+class PromotionNoticeRecordTests(_PromotionFixture):
+    def test_a_late_result_cannot_overwrite_a_newer_promotion(self):
+        """A reused row can be promoted again while an earlier promotion's
+        notice is still sending; that late result must not land on the new
+        cycle and hide (or fake) a failed notice."""
+        from crush_lu.models import EventRegistration
+        from crush_lu.notification_service import _record_promotion_notice
+
+        stale = EventRegistration.objects.get(pk=self.waiting.pk)
+        stale.waitlist_promoted_at = timezone.now() - timedelta(hours=1)
+        EventRegistration.objects.filter(pk=self.waiting.pk).update(
+            status="confirmed", waitlist_promoted_at=timezone.now()
+        )
+
+        _record_promotion_notice(stale, EventRegistration.PromotionNotice.EMAIL)
+
+        self.waiting.refresh_from_db()
+        self.assertEqual(self.waiting.promotion_notice, "")
+
+
 class SeatGrantedEmailGateTests(_PromotionFixture):
     """The transactional gate itself, and that it stays scoped to promotions."""
 

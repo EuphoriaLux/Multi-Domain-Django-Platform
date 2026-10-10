@@ -755,6 +755,19 @@ class TestWaitlistPromotionNotice:
         assert response.context["unnotified_promotions"] == []
         assert "data-unnotified-promotions" not in response.content.decode()
 
+    def test_no_banner_for_a_cancelled_event(self, client):
+        """Cancelling an event leaves its registrations confirmed/pending, so
+        the date alone would still tell coaches to chase members."""
+        event = _make_event(starts_in_minutes=24 * 60)
+        event.is_cancelled = True
+        event.save(update_fields=["is_cancelled"])
+        self._promoted(event, "cancelled", "bell")
+
+        response = self._page(client, event)
+
+        assert response.context["unnotified_promotions"] == []
+        assert "data-unnotified-promotions" not in response.content.decode()
+
     def test_ordinary_registration_has_no_marker(self, client):
         event = _make_event(starts_in_minutes=24 * 60)
         EventRegistration.objects.create(

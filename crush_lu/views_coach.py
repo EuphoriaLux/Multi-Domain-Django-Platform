@@ -2800,13 +2800,14 @@ def coach_event_detail(request, event_id):
     # Members the waitlist gave a seat to whom no email or push got through
     # (incident 2026-10-10, event 27). A blank outcome next to a promotion
     # time means the notice crashed before recording one, so it counts too.
-    # Only worth a banner while the coach can still reach them.
+    # Only worth a banner while the coach can still reach them, and never for
+    # a cancelled event, whose registrations stay confirmed/pending.
     reached = (
         EventRegistration.PromotionNotice.EMAIL,
         EventRegistration.PromotionNotice.PUSH,
     )
     unnotified_promotions = []
-    if event.date_time > timezone.now():
+    if event.date_time > timezone.now() and not event.is_cancelled:
         unnotified_promotions = [
             r
             for r in all_regs
