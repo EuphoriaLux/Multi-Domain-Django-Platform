@@ -1,18 +1,25 @@
 """Connect Showcase: a coach swipes Crush Connect cards with a guest at an event.
 
 The guest is anonymous and nothing is stored, so the safety lives in who may
-appear: the In the Mix catalogue, minus anyone whose live photo is not the
-published one (the photo endpoint serves coaches the live upload), anyone
-holding a seat at the event, and the coach.
+appear (the In the Mix catalogue, minus anyone holding a seat at the event and
+the coach) and in which photo loads: the published one, even though the page
+runs on a coach's phone, whom the photo endpoint otherwise serves the live
+upload.
+
+Requests use literal paths on the crush.lu host, so they go through the
+host routing (AGENTS.md: ``reverse()`` would resolve the default urlconf).
 """
 
 from datetime import date, timedelta
+from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.db import connection
 from django.test import Client
-from django.urls import reverse
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from crush_lu.models import (
@@ -30,7 +37,7 @@ from crush_lu.services.connect_showcase import (
 from crush_lu.services.photo_publication import get_public_photo_key
 from crush_lu.tests.test_coach_photo_review import _make_candidate, _make_coach
 
-pytestmark = [pytest.mark.django_db, pytest.mark.urls("azureproject.urls_crush")]
+pytestmark = pytest.mark.django_db
 
 User = get_user_model()
 
@@ -102,8 +109,14 @@ def _pool(event, coach, **filters):
 def _deck_url(event, **params):
     from urllib.parse import urlencode
 
-    url = reverse("crush_lu:coach_connect_showcase", args=[event.pk])
+    url = f"/en/coach/events/{event.pk}/connect-showcase/"
     return f"{url}?{urlencode(params, doseq=True)}" if params else url
+
+
+def _client(user):
+    client = Client(HTTP_HOST="crush.lu")
+    client.force_login(user)
+    return client
 
 
 # --- Access ------------------------------------------------------------------
@@ -111,8 +124,7 @@ def _deck_url(event, **params):
 
 def test_non_coach_is_turned_away(event):
     member = _member("plain_member")
-    client = Client()
-    client.force_login(member)
+    client = _client(member)
     response = client.get(_deck_url(event))
     assert response.status_code == 302
     assert "showcase" not in response.url
@@ -120,8 +132,7 @@ def test_non_coach_is_turned_away(event):
 
 def test_filter_screen_shows_no_cards(event, coach):
     _member("anna")
-    client = Client()
-    client.force_login(coach.user)
+    client = _client(coach.user)
     html = client.get(_deck_url(event)).content.decode()
     assert 'name="show"' in html
     assert "data-showcase-card" not in html
@@ -129,12 +140,9 @@ def test_filter_screen_shows_no_cards(event, coach):
 
 
 def test_event_page_links_to_the_showcase(event, coach):
-    client = Client()
-    client.force_login(coach.user)
-    html = client.get(
-        reverse("crush_lu:coach_event_detail", args=[event.pk])
-    ).content.decode()
-    assert reverse("crush_lu:coach_connect_showcase", args=[event.pk]) in html
+    client = _client(coach.user)
+    html = client.get(f"/en/coach/events/{event.pk}/").content.decode()
+    assert f'href="/en/coach/events/{event.pk}/connect-showcase/"' in html
 
 
 # --- Filters -----------------------------------------------------------------
@@ -201,26 +209,6 @@ def test_members_outside_the_catalogue_never_appear(event, coach):
     assert _pool(event, coach) == {"listed"}
 
 
-def test_member_with_a_held_replacement_photo_never_appears(event, coach):
-    """A coach's phone loads the live upload, so it must be the published one."""
-    _member("published_photo")
-    replaced = _member("replaced_photo").crushprofile
-    replaced.photo_1 = "users/replaced_photo/new.jpg"
-    replaced.save(update_fields=["photo_1"])
-    replaced.refresh_from_db()
-    # Other members still see the earlier approved photo...
-    assert (
-        get_public_photo_key(replaced, "photo_1") == "users/replaced_photo/photo1.jpg"
-    )
-
-    pool = get_showcase_pool(event=event, coach_user=coach.user)
-    # ...but the showcase leaves the member out rather than show the new one.
-    assert {user.username for user in pool} == {"published_photo"}
-    for user in pool:
-        profile = user.crushprofile
-        assert get_public_photo_key(profile, "photo_1") == profile.photo_1.name
-
-
 def test_seat_holders_at_this_event_and_the_coach_never_appear(event, coach):
     _member("elsewhere")
     for username, status in (
@@ -260,8 +248,7 @@ def test_deck_renders_the_member_safe_card_only(event, coach):
     profile = user.crushprofile
     user.last_name = "Surnameson"
     user.save(update_fields=["last_name"])
-    client = Client()
-    client.force_login(coach.user)
+    client = _client(coach.user)
 
     response = client.get(_deck_url(event, show=1, genders=["F"], age_min=25))
 
@@ -276,50 +263,77 @@ def test_deck_renders_the_member_safe_card_only(event, coach):
     assert 'href="?genders=F&amp;age_min=25"' in html
 
 
-def test_deck_shows_every_photo_whose_live_file_is_published(event, coach):
-    """Multiple photos show, but never a replacement still waiting for review.
+def _add_published_photo(profile, field):
+    key = f"users/{profile.user.username}/{field}.jpg"
+    setattr(profile, field, key)
+    profile.save(update_fields=[field])
+    PublishedProfilePhoto.objects.create(
+        profile=profile, photo_field=field, photo_key=key
+    )
 
-    The coach's phone is served the live upload, so a slot qualifies only
-    when its live file is the one other members already see.
+
+def test_every_photo_loads_as_members_see_it(event, coach):
+    """All photos show, each asking the endpoint for the published file.
+
+    The deck is rendered for a coach, and the endpoint serves coaches the
+    live upload. ``?view=public`` makes it decide when the image loads, so a
+    replacement uploaded after the deck was drawn still cannot reach the guest.
     """
     profile = _member("anna").crushprofile
-    for field in ("photo_2", "photo_3"):
-        key = f"users/anna/{field}.jpg"
-        setattr(profile, field, key)
-        profile.save(update_fields=[field])
-        PublishedProfilePhoto.objects.create(
-            profile=profile, photo_field=field, photo_key=key
-        )
+    _add_published_photo(profile, "photo_2")
+    _add_published_photo(profile, "photo_3")
     # photo_3 is replaced: members keep seeing the earlier published file.
     profile.photo_3 = "users/anna/photo_3_new.jpg"
     profile.save(update_fields=["photo_3"])
-    profile.refresh_from_db()
-    assert get_public_photo_key(profile, "photo_3") == "users/anna/photo_3.jpg"
-    client = Client()
-    client.force_login(coach.user)
+    client = _client(coach.user)
 
     html = client.get(_deck_url(event, show=1)).content.decode()
 
-    photo_url = f"/media/profile/{profile.user_id}/"
-    assert f"{photo_url}photo_1/" in html
-    assert f"{photo_url}photo_2/" in html
-    assert f"{photo_url}photo_3/" not in html
+    photo_url = f"/en/media/profile/{profile.user_id}/"
+    for field in ("photo_1", "photo_2", "photo_3"):
+        assert f'"{photo_url}{field}/?view=public"' in html
+        assert f'"{photo_url}{field}/"' not in html
 
 
-def test_other_cards_keep_showing_held_slots_as_published(event, coach):
-    """Outside the showcase the gallery is unchanged: the viewer's own photo
-    request is served the published file, so a held slot still appears."""
+def test_member_with_a_held_replacement_appears_with_the_published_photo(event, coach):
+    replaced = _member("replaced_photo").crushprofile
+    replaced.photo_1 = "users/replaced_photo/new.jpg"
+    replaced.save(update_fields=["photo_1"])
+    replaced.refresh_from_db()
+
+    assert _pool(event, coach) == {"replaced_photo"}
+    assert (
+        get_public_photo_key(replaced, "photo_1") == "users/replaced_photo/photo1.jpg"
+    )
+
+
+def test_public_view_serves_a_coach_the_published_file(event, coach, settings):
+    settings.AZURE_ACCOUNT_NAME = ""
+    profile = _member("anna").crushprofile
+    profile.photo_1 = "users/anna/new.jpg"
+    profile.save(update_fields=["photo_1"])
+    opened = []
+
+    def exists(path):
+        # ``photo.path`` is native, so use "/" on Windows too.
+        opened.append(Path(path).as_posix())
+        return False
+
+    url = f"/en/media/profile/{profile.user_id}/photo_1/"
+    client = _client(coach.user)
+    with patch("crush_lu.views_media.os.path.exists", side_effect=exists):
+        client.get(f"{url}?view=public")
+        client.get(url)
+
+    assert opened[0].endswith("users/anna/photo1.jpg")
+    assert opened[1].endswith("users/anna/new.jpg")
+
+
+def test_other_cards_keep_viewer_decided_photo_urls(event, coach):
     from django.template.loader import render_to_string
 
     profile = _member("anna").crushprofile
-    profile.photo_2 = "users/anna/photo_2.jpg"
-    profile.save(update_fields=["photo_2"])
-    PublishedProfilePhoto.objects.create(
-        profile=profile, photo_field="photo_2", photo_key="users/anna/photo_2.jpg"
-    )
-    profile.photo_2 = "users/anna/photo_2_new.jpg"
-    profile.save(update_fields=["photo_2"])
-    profile.refresh_from_db()
+    _add_published_photo(profile, "photo_2")
 
     def gallery(**extra):
         return render_to_string(
@@ -328,13 +342,31 @@ def test_other_cards_keep_showing_held_slots_as_published(event, coach):
         )
 
     assert "/photo_2/" in gallery()
-    assert "/photo_2/" not in gallery(live_only=True)
+    assert "/photo_2/?view=public" not in gallery()
+    assert "/photo_2/?view=public" in gallery(public_view=True)
+
+
+def test_deck_queries_do_not_grow_with_the_deck(event, coach):
+    def deck_queries():
+        cache.clear()
+        client = _client(coach.user)
+        with CaptureQueriesContext(connection) as queries:
+            assert client.get(_deck_url(event, show=1)).status_code == 200
+        return len(queries)
+
+    for number in range(2):
+        _member(f"small_{number}")
+    deck_queries()  # warm per-process caches (site, translations)
+    small = deck_queries()
+    for number in range(4):
+        _member(f"large_{number}")
+
+    assert deck_queries() == small
 
 
 def test_empty_pool_offers_to_change_filters(event, coach):
     _member("anna", gender="F")
-    client = Client()
-    client.force_login(coach.user)
+    client = _client(coach.user)
 
     html = client.get(_deck_url(event, show=1, genders=["M"])).content.decode()
 
@@ -344,8 +376,7 @@ def test_empty_pool_offers_to_change_filters(event, coach):
 
 def test_invalid_filters_return_to_the_form(event, coach):
     _member("anna")
-    client = Client()
-    client.force_login(coach.user)
+    client = _client(coach.user)
 
     html = client.get(_deck_url(event, show=1, age_min=12)).content.decode()
 
@@ -356,8 +387,7 @@ def test_invalid_filters_return_to_the_form(event, coach):
 
 def test_crossed_age_range_is_swapped(event, coach):
     _member("anna", born=_years_old(31))
-    client = Client()
-    client.force_login(coach.user)
+    client = _client(coach.user)
 
     html = client.get(_deck_url(event, show=1, age_min=40, age_max=25)).content.decode()
 
@@ -366,8 +396,7 @@ def test_crossed_age_range_is_swapped(event, coach):
 
 def test_swipes_are_never_posted(event, coach):
     _member("anna")
-    client = Client()
-    client.force_login(coach.user)
+    client = _client(coach.user)
 
     response = client.post(_deck_url(event), {"show": 1})
 

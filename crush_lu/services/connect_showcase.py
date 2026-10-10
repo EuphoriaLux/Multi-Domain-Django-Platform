@@ -9,12 +9,6 @@ Who can appear is the In the Mix catalogue (``filter_catalogue_eligible``:
 verified identity, onboarded, not paused or excluded, photo-sharing consent,
 active within 30 days, primary photo approved), narrowed further:
 
-- **The live primary photo must be the published one.** The card is rendered
-  for a coach, and ``serve_profile_photo`` hands active coaches the live
-  upload. A member whose replacement photo is still waiting for review would
-  otherwise show the guest a photo no coach has approved. Secondary photos
-  follow the same rule per slot, in the card's gallery
-  (``public_secondary_photo_fields`` with ``live_only``).
 - **Nobody holding a seat at this event.** The Event Lobby only names people
   in the room to each other after mutual interest; a coach's phone must not
   point an anonymous guest at someone across the room.
@@ -22,6 +16,12 @@ active within 30 days, primary photo approved), narrowed further:
 
 The optional "guest" gender and age apply each candidate's own Connect
 preferences, the reverse half of the mutual filter in ``get_eligible_pool``.
+
+Photos: the deck is rendered for a coach, and ``serve_profile_photo`` hands
+active coaches the live upload, including a replacement no coach has approved
+yet. The card therefore asks for every photo with ``?view=public``
+(``profile_photo`` ``public_view``), so the endpoint picks the published file
+when the image loads, not when the deck was drawn.
 """
 
 from __future__ import annotations
@@ -30,8 +30,9 @@ import random
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.db.models import Prefetch
 
-from crush_lu.models import EventRegistration
+from crush_lu.models import EventRegistration, MemberGateQuestion
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
 from crush_lu.services.crush_connect import _years_ago, filter_catalogue_eligible
 
@@ -63,7 +64,6 @@ def get_showcase_pool(
 
     qs = (
         filter_catalogue_eligible(User.objects.all())
-        .filter(_published_earlier_primary=False)
         .exclude(pk=coach_user.pk)
         .exclude(pk__in=seat_holder_ids)
     )
@@ -114,7 +114,13 @@ def draw_showcase_deck(pool, size=SHOWCASE_DECK_SIZE):
         .select_related("crushprofile", "crush_connect_membership")
         .prefetch_related(
             "crush_connect_membership__interests",
-            # Read per photo slot by the card's gallery (photo_publication).
+            Prefetch(
+                "crush_connect_membership__gate_questions",
+                queryset=MemberGateQuestion.objects.select_related("question"),
+            ),
+            # The card falls back to Event Identity interests.
+            "crushprofile__interests_new",
+            # Read per photo slot by the card (photo_publication).
             "crushprofile__published_photos",
             "crushprofile__photo_review_states",
         )
