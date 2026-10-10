@@ -184,12 +184,14 @@ def assign_event_numbers(event: MeetupEvent) -> None:
                 waiting.append(pk)
         seated.sort()
         waiting.sort()
+        seated_set = set(seated)
         MixerTicketNumber.objects.bulk_create(
             MixerTicketNumber(
                 event=event,
                 registration_id=pk,
                 number=number,
-                in_first_print=first_print,
+                # The percentile cohort: seated guests of the first print only.
+                in_first_print=first_print and pk in seated_set,
             )
             for number, pk in enumerate(seated + waiting, top + 1)
         )

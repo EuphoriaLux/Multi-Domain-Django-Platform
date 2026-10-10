@@ -481,3 +481,12 @@ class MixerTicketTests(TestCase):
         numbers = self._numbers()
         self.assertEqual(numbers[walk_up.pk], len(self.regs))
         self.assertEqual(numbers[self.regs[1].pk], 1)
+
+    def test_the_waitlist_is_not_part_of_the_percentile_cohort(self):
+        from crush_lu.services.mixer_ticket import _first_print_registrations
+
+        waiting = self._guest(88, "waitlist", self.interests[3:6])
+        self._numbers()
+        cohort = _first_print_registrations(self.event)
+        self.assertNotIn(waiting.pk, cohort)
+        self.assertEqual(cohort, {r.pk for r in self.regs})
