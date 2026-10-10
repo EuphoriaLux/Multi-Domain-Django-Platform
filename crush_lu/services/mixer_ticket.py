@@ -189,7 +189,12 @@ def assign_event_numbers(event: MeetupEvent) -> None:
             # already banned or deactivated now: they are never listed, so they
             # must not shape the frozen scale either.
             removed = not user_ok or profile_ok is False or bool(banned)
-            if "waitlist" not in (status, prior) and not removed:
+            # A no-show already recorded is known to be absent: keep it out too.
+            if (
+                "waitlist" not in (status, prior)
+                and status != "no_show"
+                and not removed
+            ):
                 cohort.add(pk)
             # Checked in from the waitlist or a pending seat: still a waiting
             # guest, even when that check-in is the one printing first.

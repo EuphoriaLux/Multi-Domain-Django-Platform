@@ -537,3 +537,12 @@ class MixerTicketTests(TestCase):
         cohort = _first_print_registrations(self.event)
         self.assertNotIn(banned.pk, cohort)
         self.assertEqual(len(cohort), len(self.regs) - 1)
+
+    def test_a_known_no_show_is_not_in_the_cohort(self):
+        from crush_lu.services.mixer_ticket import _first_print_registrations
+
+        absent = self.regs[3]
+        absent.status = "no_show"
+        absent.save()
+        self._numbers()
+        self.assertNotIn(absent.pk, _first_print_registrations(self.event))
