@@ -345,21 +345,47 @@ def test_localhost_and_ip_literal_domains_are_masked():
     )
 
 
-def test_every_local_part_character_django_accepts_is_caught():
-    # A character next to "@" outside the pattern used to leave the whole
-    # address in clear. Delimiters before it must not swallow a log label.
+def test_every_local_part_character_django_accepts_is_masked_throughout():
+    # All valid for Django's EmailValidator. No segment of the local part
+    # may stay in clear, wherever its delimiter characters sit.
     record = _record(
-        "Sent to %s, %s, %s and user=%s",
+        "Sent to %s, %s, %s and %s",
         "member!@example.com",
         "a=b@example.com",
         "o'brien@example.com",
-        "jane@example.com",
+        "user+mailbox/department=shipping@example.com",
     )
     PIIMaskingFilter().filter(record)
     assert record.getMessage() == (
-        "Sent to m***!@e***.com, a=b***@e***.com, o'b***n@e***.com "
-        "and user=j***e@e***.com"
+        "Sent to m***!@e***.com, a***b@e***.com, o***n@e***.com " "and u***g@e***.com"
     )
+
+
+def test_a_leading_delimiter_stays_outside_the_mask():
+    # One leading quote or slash reveals nothing. A label glued to the
+    # address in the same string is masked with it, the price of the rule
+    # above.
+    record = _record("To ['jane@example.com'], /path/x@a.lu and user=jane@example.com")
+    PIIMaskingFilter().filter(record)
+    assert record.getMessage() == (
+        "To ['j***e@e***.com'], /p***x@a***.lu and u***e@e***.com"
+    )
+
+
+def test_a_label_in_the_template_survives():
+    # Arguments are masked one by one before formatting, so a label that
+    # sits in the message template, not in the argument, is never touched.
+    record = _record("user=%s path=/path/%s", "jane@example.com", "x@a.lu")
+    PIIMaskingFilter().filter(record)
+    assert record.getMessage() == "user=j***e@e***.com path=/path/x***@a***.lu"
+
+
+def test_unicode_spaces_inside_a_domain_are_part_of_it():
+    # U+2003 sits in Django's accepted U+00A1-U+FFFF domain range.
+    address = f"jane@exam{chr(0x2003)}ple.com"
+    record = _record("Sent to %s", address)
+    PIIMaskingFilter().filter(record)
+    assert record.getMessage() == "Sent to j***e@e***.com"
 
 
 # --- exceptions attached with exc_info -----------------------------------------

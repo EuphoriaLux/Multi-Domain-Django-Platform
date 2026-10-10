@@ -113,28 +113,30 @@ class PIIMaskingFilter(logging.Filter):
     # took seconds, inline in the request that logged it. Each step below is
     # an anchored match over one character class, so the cost stays linear.
     #
-    # Local part, read backwards from the "@": the character next to "@" may
-    # be anything Django accepts in a local part, so no valid address escapes
-    # whole (member!@example.com). Before that, characters that double as
-    # delimiters in log text (= ' / & ` { | }) end it, so "user=jane@…" keeps
-    # its label and "['jane@…']" its quote; the cost is that o'brien@… leaves
-    # "o'" in clear. A quoted local part ("john..doe"@example.com) is taken
-    # whole, up to Django's 320-character limit.
+    # Local part, read backwards from the "@": every character Django accepts
+    # in a local part, all the way through, so a valid address never leaves
+    # part of itself in clear (user+box/dept=shipping@…, o'brien@…). The
+    # price is that a label glued to an address is masked with it
+    # ("user=jane@…" becomes "u***e@…"). Only delimiters at the very start
+    # of the token are left outside, since one leading quote or slash
+    # reveals nothing and keeps "['jane@…']" readable. A quoted local part
+    # ("john..doe"@example.com) is taken whole, up to Django's 320-character
+    # limit.
     #
     # Domain: every form EmailValidator accepts. Labels take \w plus any
-    # non-ASCII character, since combining marks (example.कॉम) and emoji or
-    # astral letters (😀.com, example.𐌀) all pass its IDNA fallback. The TLD
-    # takes no digits, so "pkg@1.2.3" stays readable, and needs two
-    # characters unless it is non-ASCII. Also the `localhost` allowlist and
-    # bracketed IP literals.
+    # non-ASCII character, since combining marks (example.कॉम), Unicode
+    # spaces inside its U+00A1-U+FFFF range, and emoji or astral letters
+    # (😀.com, example.𐌀) all pass it. The TLD takes no digits, so
+    # "pkg@1.2.3" stays readable, and needs two characters unless it is
+    # non-ASCII. Also the `localhost` allowlist and bracketed IP literals.
     _NON_ASCII = f'{chr(0xA1)}-{chr(0x10FFFF)}'
-    _LOCAL_BODY = r"\w.!#$%*+?^~"
-    _LOCAL_LAST = _LOCAL_BODY + r"&'/=`{|}"
+    _LOCAL_ATEXT = r"\w.!#$%&'*+/=?^`{|}~"
+    _LEADING_DELIMITERS = "&'/=`{|}"
     # Both run over the reversed text, starting just before the "@".
-    _LOCAL_REVERSED = re.compile(f'[{_LOCAL_LAST}-][{_LOCAL_BODY}-]*')
+    _LOCAL_REVERSED = re.compile(f'[{_LOCAL_ATEXT}-]+')
     _QUOTED_REVERSED = re.compile(r'"(?:.\\|[^"\\\r\n]){0,320}"')
-    _DOMAIN_RUN = re.compile(rf'(?:(?!\s)[\w.\-{_NON_ASCII}])*')
-    _TLD = re.compile(rf'(?:(?![\d\s_])[\w\-{_NON_ASCII}])+')
+    _DOMAIN_RUN = re.compile(rf'[\w.\-{_NON_ASCII}]*')
+    _TLD = re.compile(rf'(?:(?![\d_])[\w\-{_NON_ASCII}])+')
     _IP_LITERAL = re.compile(r'\[[0-9A-Fa-f:.]+\]')
     PHONE_PATTERN = re.compile(
         r'(\+?\d{1,4}[-.\s]?)?(\(?\d{2,4}\)?[-.\s]?)?\d{3,4}[-.\s]?\d{3,4}'
@@ -172,7 +174,12 @@ class PIIMaskingFilter(logging.Filter):
             if quoted:
                 return at - (quoted.end() - rpos)
         local = self._LOCAL_REVERSED.match(reversed_text, rpos)
-        return at - (local.end() - rpos) if local else None
+        if not local:
+            return None
+        start = at - (local.end() - rpos)
+        while start < at - 1 and text[start] in self._LEADING_DELIMITERS:
+            start += 1
+        return start
 
     def _find_addresses(self, text):
         """(start, end) of every address in ``text``, left to right."""
