@@ -453,6 +453,79 @@ class CapacityIncreaseNoticeTests(_PromotionFixture):
             registration.refresh_from_db()
             self.assertEqual(registration.promotion_notice, "email")
 
+    def test_the_bell_pass_costs_the_same_queries_for_any_batch_size(self):
+        """However many seats a capacity increase opens, writing the bells
+        must not grow with the batch before the deadline even starts."""
+        from crush_lu.models import EventRegistration
+        from crush_lu.notification_service import _write_waitlist_promotion_bells
+
+        now = timezone.now()
+        for index in range(4):
+            self._register(self._user(f"batch{index}@example.com"), "confirmed")
+        EventRegistration.objects.filter(event=self.event).update(
+            waitlist_promoted_at=now
+        )
+
+        def preloaded(limit):
+            return list(
+                EventRegistration.objects.select_related(
+                    "user__crushprofile", "event"
+                ).filter(event=self.event)[:limit]
+            )
+
+        small, large = preloaded(2), preloaded(6)
+        with self.assertNumQueries(2):  # one insert, one outcome update
+            self.assertEqual(len(_write_waitlist_promotion_bells(small)), 2)
+        with self.assertNumQueries(2):
+            self.assertEqual(len(_write_waitlist_promotion_bells(large)), 6)
+
+    def test_a_member_who_gives_the_seat_back_mid_batch_is_not_emailed(self):
+        """Every bell goes out first, so a later member can cancel while
+        earlier members are still being emailed. Nobody may then be told
+        about a seat that is already gone."""
+        from crush_lu import email_helpers
+        from crush_lu.models import EventRegistration
+
+        second, second_reg = self._second_waiter()
+        real_confirmation = email_helpers.send_event_registration_confirmation
+        calls = []
+
+        def confirmation(registration, *args, **kwargs):
+            calls.append(registration.pk)
+            if len(calls) == 1:
+                # Promotion runs in waitlist order; while the first member is
+                # being emailed, the second gives their new seat back.
+                EventRegistration.objects.filter(pk=second_reg.pk).update(
+                    status="cancelled", waitlist_promoted_at=None, promotion_notice=""
+                )
+            return real_confirmation(registration, *args, **kwargs)
+
+        with patch.object(
+            email_helpers, "send_event_registration_confirmation", confirmation
+        ):
+            self._raise_capacity_and_commit(3)
+
+        self.assertEqual(calls, [self.waiting.pk])
+        self.assertEqual(len(self._waiter_mail()), 1)
+        self.assertEqual([m for m in mail.outbox if second.email in m.to], [])
+
+    def test_a_notice_for_a_seat_already_gone_sends_nothing(self):
+        from crush_lu.models import EventRegistration, Notification
+        from crush_lu.notification_service import notify_waitlist_promotion
+
+        self.waiting.status = "confirmed"
+        self.waiting.waitlist_promoted_at = timezone.now()
+        # The row in the database never got (or already lost) this promotion.
+        EventRegistration.objects.filter(pk=self.waiting.pk).update(status="waitlist")
+
+        self.assertIsNone(notify_waitlist_promotion(self.waiting))
+        self.assertEqual(self._waiter_mail(), [])
+        self.assertFalse(
+            Notification.objects.filter(
+                user=self.waiter, notification_type=BELL_TYPE
+            ).exists()
+        )
+
 
 class AdminWithdrawalTests(_PromotionFixture):
     def test_moving_a_promoted_seat_back_to_the_waitlist_clears_its_notice(self):
