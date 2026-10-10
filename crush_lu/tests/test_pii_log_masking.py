@@ -273,6 +273,22 @@ def test_addresses_used_as_mapping_keys_are_masked_without_merging():
     )
 
 
+def test_quoted_local_parts_are_masked():
+    # Valid for Django's EmailValidator; the quote next to "@" used to stop
+    # the match. A quoted address in ordinary JSON-ish text still masks only
+    # the address.
+    record = _record(
+        "Sent to %s, %s and %s",
+        '"john..doe"@example.com',
+        '"a@b"@example.com',
+        '{"email": "jane@example.com"}',
+    )
+    PIIMaskingFilter().filter(record)
+    assert record.getMessage() == (
+        'Sent to "***"@e***.com, "***"@e***.com and {"email": "j***e@e***.com"}'
+    )
+
+
 def test_every_local_part_character_django_accepts_is_caught():
     # A character next to "@" outside the pattern used to leave the whole
     # address in clear. Delimiters before it must not swallow a log label.

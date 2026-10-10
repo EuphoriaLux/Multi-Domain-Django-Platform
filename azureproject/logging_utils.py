@@ -25,7 +25,8 @@ def mask_email(email: str) -> str:
         return email or '[empty]'
 
     try:
-        local, domain = email.split('@', 1)
+        # The last "@": a quoted local part ("a@b"@example.com) may hold one.
+        local, domain = email.rsplit('@', 1)
 
         # Mask local part (keep first and last char if long enough)
         if len(local) <= 2:
@@ -117,8 +118,11 @@ class PIIMaskingFilter(logging.Filter):
     # "['jane@…']" its quote. The cost: o'brien@… leaves "o'" in clear.
     _LOCAL_BODY = r"[\w.!#$%*+?^~-]"
     _LOCAL_LAST = r"[\w.!#$%&'*+/=?^`{|}~-]"
+    # Django also accepts a quoted local part: "john..doe"@example.com.
+    _LOCAL_QUOTED = r'"(?:[^"\\\r\n]|\\.)*"'
     EMAIL_PATTERN = re.compile(
-        _LOCAL_BODY + r'*' + _LOCAL_LAST + r'@[\w.-]+\.[^\W\d_]{2,}\b'
+        r'(?:' + _LOCAL_QUOTED + r'|' + _LOCAL_BODY + r'*' + _LOCAL_LAST + r')'
+        r'@[\w.-]+\.[^\W\d_]{2,}\b'
     )
     PHONE_PATTERN = re.compile(
         r'(\+?\d{1,4}[-.\s]?)?(\(?\d{2,4}\)?[-.\s]?)?\d{3,4}[-.\s]?\d{3,4}'
