@@ -154,6 +154,7 @@ class NotificationService:
         request: Optional[HttpRequest] = None,
         dedupe_key: Optional[str] = None,
         inapp_first: bool = False,
+        write_inapp: bool = True,
     ) -> NotificationResult:
         """
         Send notification via independent push and email channels.
@@ -176,6 +177,9 @@ class NotificationService:
                 without a claim. For a notice whose bell is the one guaranteed
                 record: a push or email that hangs until the worker is killed
                 can then no longer take the bell down with it.
+            write_inapp: False when the caller already wrote the bell row
+                itself, e.g. a batch that persists every member's row before
+                any network delivery starts. Ignored with a dedupe_key.
 
         Returns:
             NotificationResult with delivery status
@@ -227,7 +231,7 @@ class NotificationService:
                         dedupe_key,
                     )
                     return result
-        elif inapp_first:
+        elif inapp_first and write_inapp:
             NotificationService._write_inapp_row(
                 user, notification_type, context, request, result
             )
@@ -330,7 +334,7 @@ class NotificationService:
         # above as the claim, and writing it here too would both duplicate the
         # bell entry and trip the very constraint that guarded the send. Also
         # skipped when inapp_first already wrote it; retried if that failed.
-        if not result.inapp_created:
+        if write_inapp and not result.inapp_created:
             NotificationService._write_inapp_row(
                 user, notification_type, context, request, result
             )
@@ -1325,7 +1329,7 @@ def notify_event_reminder(
 
 
 def notify_waitlist_promotion(
-    registration, request=None
+    registration, request=None, *, bell_written=False
 ) -> Optional[NotificationResult]:
     """Tell a member the waitlist just gave them a seat: email, push and bell.
 
@@ -1339,7 +1343,9 @@ def notify_waitlist_promotion(
 
     Best-effort: the promotion has already committed, so a notification
     failure is logged and swallowed, never raised. What reached the member is
-    recorded on the registration for the coach event page.
+    recorded on the registration for the coach event page. ``bell_written``
+    means the caller already wrote this member's bell row (a batch does that
+    for everyone first), so only email and push are left to send.
     """
     from .models import EventRegistration
 
@@ -1353,6 +1359,7 @@ def notify_waitlist_promotion(
             # The bell is the one record every promoted member gets; write it
             # before a slow push or email can hang until the worker dies.
             inapp_first=True,
+            write_inapp=not bell_written,
         )
     except Exception as exc:
         logger.error(
@@ -1367,7 +1374,7 @@ def notify_waitlist_promotion(
         outcome = notice.EMAIL
     elif result.push_success_count:
         outcome = notice.PUSH
-    elif result.inapp_created:
+    elif result.inapp_created or bell_written:
         outcome = notice.BELL
     else:
         outcome = notice.FAILED
@@ -1389,31 +1396,33 @@ def notify_waitlist_promotions(registrations, request=None) -> None:
 
     A capacity increase can promote many members at once, and on_commit
     callbacks run inside the admin request (production has no task worker).
-    Members are notified in full until WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS
-    runs out. Everyone after that still gets the bell row, which needs no
-    network, and their registrations are logged at ERROR so staff can reach
-    them. The budget is checked before each member, so one member's notice
-    (bounded by the push fan-out budget and the email timeout) can overrun it.
+    Every member's bell row is written first: rows only, no network, so a
+    member whose push or email hangs until the worker is killed cannot cost
+    the members after them their notice too. Email and push then go out until
+    WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS runs out; anyone after that keeps
+    the bell only, and their registrations are logged at ERROR so staff can
+    reach them. The budget is checked before each member, so one member's
+    notice (bounded by the push fan-out budget and the email timeout) can
+    overrun it.
     """
     from django.conf import settings
 
+    bells = [_write_waitlist_promotion_bell(r) for r in registrations]
+
     budget = getattr(settings, "WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS", 30.0)
     deadline = time.monotonic() + budget
-    for index, registration in enumerate(registrations):
+    for index, (registration, bell) in enumerate(zip(registrations, bells)):
         if time.monotonic() >= deadline:
-            bell_only = registrations[index:]
-            for late in bell_only:
-                _write_waitlist_promotion_bell(late)
             logger.error(
                 "Waitlist promotion notice budget (%ss) ran out after %s of %s "
                 "member(s); bell only for registrations %s",
                 budget,
                 index,
                 len(registrations),
-                [late.pk for late in bell_only],
+                [late.pk for late in registrations[index:]],
             )
             return
-        notify_waitlist_promotion(registration, request)
+        notify_waitlist_promotion(registration, request, bell_written=bell)
 
 
 def _record_promotion_notice(registration, outcome) -> None:
@@ -1439,8 +1448,12 @@ def _record_promotion_notice(registration, outcome) -> None:
         )
 
 
-def _write_waitlist_promotion_bell(registration) -> None:
-    """Write the in-app row alone: no email, no push, no network."""
+def _write_waitlist_promotion_bell(registration) -> bool:
+    """Write the in-app row alone: no email, no push, no network.
+
+    Records "bell" as the outcome (upgraded once email or push gets through)
+    and returns whether the row was written.
+    """
     from .models import EventRegistration, Notification
 
     try:
@@ -1465,8 +1478,9 @@ def _write_waitlist_promotion_bell(registration) -> None:
             type(exc).__name__,
         )
         _record_promotion_notice(registration, EventRegistration.PromotionNotice.FAILED)
-        return
+        return False
     _record_promotion_notice(registration, EventRegistration.PromotionNotice.BELL)
+    return True
 
 
 def notify_profile_recontact(user, profile, coach, request=None) -> NotificationResult:

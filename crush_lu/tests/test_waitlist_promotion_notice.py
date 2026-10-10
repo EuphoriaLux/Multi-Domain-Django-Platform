@@ -415,6 +415,69 @@ class CapacityIncreaseNoticeTests(_PromotionFixture):
             registration.refresh_from_db()
             self.assertEqual(registration.promotion_notice, "bell")
 
+    def test_every_bell_in_the_batch_exists_before_any_email_goes_out(self):
+        """One member's email or push hanging until the worker is killed
+        must not cost the members after them their bell."""
+        from crush_lu import email_helpers
+        from crush_lu.models import Notification
+
+        second, second_reg = self._second_waiter()
+        promoted_users = [self.waiter, second]
+        bells_at_first_email = []
+        real_confirmation = email_helpers.send_event_registration_confirmation
+
+        def confirmation(*args, **kwargs):
+            if not bells_at_first_email:
+                bells_at_first_email.append(
+                    Notification.objects.filter(
+                        user__in=promoted_users, notification_type=BELL_TYPE
+                    ).count()
+                )
+            return real_confirmation(*args, **kwargs)
+
+        with patch.object(
+            email_helpers, "send_event_registration_confirmation", confirmation
+        ):
+            self._raise_capacity_and_commit(3)
+
+        self.assertEqual(bells_at_first_email, [2])
+        for user in promoted_users:
+            self.assertEqual(
+                Notification.objects.filter(
+                    user=user, notification_type=BELL_TYPE
+                ).count(),
+                1,
+                "the batch's bell is not written a second time",
+            )
+        for registration in (self.waiting, second_reg):
+            registration.refresh_from_db()
+            self.assertEqual(registration.promotion_notice, "email")
+
+
+class AdminWithdrawalTests(_PromotionFixture):
+    def test_moving_a_promoted_seat_back_to_the_waitlist_clears_its_notice(self):
+        """Otherwise a later restore shows coaches the old "emailed" result
+        for a seat grant nobody announced."""
+        from django.test import RequestFactory
+
+        from crush_lu.admin.site import crush_admin_site
+        from crush_lu.models import EventRegistration
+
+        self._commit(self._cancel_holder())
+        self.waiting.refresh_from_db()
+        self.assertEqual(self.waiting.promotion_notice, "email")
+
+        with patch("crush_lu.admin.events.django_messages"):
+            crush_admin_site._registry[EventRegistration].move_to_waitlist(
+                RequestFactory().post("/"),
+                EventRegistration.objects.filter(pk=self.waiting.pk),
+            )
+
+        self.waiting.refresh_from_db()
+        self.assertEqual(self.waiting.status, "waitlist")
+        self.assertIsNone(self.waiting.waitlist_promoted_at)
+        self.assertEqual(self.waiting.promotion_notice, "")
+
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class BellLinkTests(_PromotionFixture):
