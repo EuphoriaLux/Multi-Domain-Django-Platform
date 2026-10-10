@@ -704,9 +704,7 @@ class TestWaitlistPromotionNotice:
 
     def _page(self, client, event, **params):
         client.force_login(_make_coach())
-        return client.get(
-            reverse("crush_lu:coach_event_detail", args=[event.pk]), params
-        )
+        return client.get(f"/en/coach/events/{event.pk}/", params, HTTP_HOST="crush.lu")
 
     @pytest.mark.parametrize("notice", ["bell", "failed", ""])
     def test_banner_and_chip_for_a_member_nothing_reached(self, client, notice):

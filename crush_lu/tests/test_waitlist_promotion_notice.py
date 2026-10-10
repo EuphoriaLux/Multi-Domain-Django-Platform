@@ -24,7 +24,6 @@ from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
-from django.urls import reverse
 from django.utils import timezone
 
 User = get_user_model()
@@ -316,7 +315,6 @@ class PaidEventNoticeTests(_PromotionFixture):
         self.assertEqual(self._bells().count(), 1)
 
 
-@override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class MemberCancelViewNoticeTests(_PromotionFixture):
     """`views_events.event_cancel`: the member cancels on their own page."""
 
@@ -332,10 +330,9 @@ class MemberCancelViewNoticeTests(_PromotionFixture):
     def test_view_promotes_at_once_but_notifies_only_on_commit(self):
         client = Client(HTTP_HOST="crush.lu")
         client.force_login(self.member)
-        url = reverse("crush_lu:event_cancel", kwargs={"event_id": self.event.id})
 
         with self.captureOnCommitCallbacks(execute=False) as callbacks:
-            response = client.post(url)
+            response = client.post(f"/en/events/{self.event.id}/cancel/")
 
         self.assertEqual(response.status_code, 302)
         self.waiting.refresh_from_db()
@@ -715,7 +712,6 @@ class PromotionDeadlineTests(_PromotionFixture):
         self.assertEqual(self.waiting.promotion_notice, "email")
 
 
-@override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class BellLinkTests(_PromotionFixture):
     def test_bell_link_resolves_to_the_event_page_on_crush_lu(self):
         """The bell stores the unprefixed path like every other bell type;

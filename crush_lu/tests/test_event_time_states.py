@@ -112,8 +112,7 @@ class EventCancellationTimeGateTests(TestCase):
         # cancellation proves no notice was queued, not merely none sent yet.
         with self.captureOnCommitCallbacks(execute=True):
             return self.client.post(
-                reverse("crush_lu:event_cancel", args=[event.id]),
-                HTTP_HOST="crush.lu",
+                f"/en/events/{event.id}/cancel/", HTTP_HOST="crush.lu"
             )
 
     @patch("crush_lu.views_events.notify_waitlist_promotion")

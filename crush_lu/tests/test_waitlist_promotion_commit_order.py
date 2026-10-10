@@ -18,7 +18,6 @@ from unittest.mock import patch
 import pytest
 from django.core.cache import cache
 from django.test import Client
-from django.urls import reverse
 from django.utils import timezone
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -112,17 +111,14 @@ def test_cancellation_made_outside_the_member_page(seat):
     assert seen == [True]
 
 
-def test_member_cancel_page(seat, settings):
-    settings.ROOT_URLCONF = "azureproject.urls_crush"
+def test_member_cancel_page(seat):
     client = Client(HTTP_HOST="crush.lu")
     client.force_login(seat.holder_user)
     seen, patcher = _bell_seen_when(
         seat, "crush_lu.views_events.send_event_cancellation_confirmation"
     )
     with patcher:
-        response = client.post(
-            reverse("crush_lu:event_cancel", kwargs={"event_id": seat.event.id})
-        )
+        response = client.post(f"/en/events/{seat.event.id}/cancel/")
 
     assert response.status_code == 302
     seat.waiting.refresh_from_db()
