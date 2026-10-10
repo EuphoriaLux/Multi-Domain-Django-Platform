@@ -533,6 +533,114 @@ class AdminWithdrawalTests(_PromotionFixture):
         self.assertIsNone(self.waiting.waitlist_promoted_at)
         self.assertEqual(self.waiting.promotion_notice, "")
 
+    def test_admin_confirm_keeps_the_outcome_of_a_seat_already_held(self):
+        """Confirming a row that already holds its seat restores nothing, so
+        a promoted member only the bell reached must stay flagged."""
+        from django.test import RequestFactory
+
+        from crush_lu.admin.site import crush_admin_site
+        from crush_lu.models import EventRegistration
+
+        self.prefs.unsubscribed_all = True
+        self.prefs.save()
+        self._commit(self._cancel_holder())
+        self.waiting.refresh_from_db()
+        self.assertEqual(self.waiting.status, "confirmed")
+        promoted_at = self.waiting.waitlist_promoted_at
+
+        request = RequestFactory().post("/")
+        request.user = User.objects.create_superuser(
+            username="staff2@example.com", email="staff2@example.com", password="x"
+        )
+        with patch("crush_lu.admin.events.django_messages"):
+            crush_admin_site._registry[EventRegistration].confirm_registrations(
+                request, EventRegistration.objects.filter(pk=self.waiting.pk)
+            )
+
+        self.waiting.refresh_from_db()
+        self.assertEqual(self.waiting.waitlist_promoted_at, promoted_at)
+        self.assertEqual(self.waiting.promotion_notice, "bell")
+
+
+class PromotionDeadlineTests(_PromotionFixture):
+    """The notice runs inside the request that freed the seat, so its email
+    and push share one wall-clock deadline; the bell is never subject to it."""
+
+    def _subscribe(self):
+        from crush_lu.models import PushSubscription
+
+        PushSubscription.objects.create(
+            user=self.waiter,
+            endpoint="https://push.example.test/sub",
+            p256dh_key="p256dh",
+            auth_key="auth",
+        )
+
+    @override_settings(WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS=0)
+    def test_a_spent_deadline_skips_email_and_push_but_not_the_bell(self):
+        self._subscribe()
+
+        with patch("crush_lu.push_notifications.send_push_notification") as push:
+            self._commit(self._cancel_holder())
+
+        push.assert_not_called()
+        self.assertEqual(self._waiter_mail(), [])
+        self.assertEqual(self._bells().count(), 1)
+        self.waiting.refresh_from_db()
+        self.assertEqual(self.waiting.promotion_notice, "bell")
+
+    def test_email_goes_out_before_push(self):
+        """The email is the transactional channel; slow push providers must
+        not spend the deadline it needs."""
+        from crush_lu import email_helpers
+
+        self._subscribe()
+        order = []
+        real_confirmation = email_helpers.send_event_registration_confirmation
+
+        def confirmation(*args, **kwargs):
+            order.append("email")
+            return real_confirmation(*args, **kwargs)
+
+        def push(**kwargs):
+            order.append("push")
+            return {"success": 1, "failed": 0, "total": 1}
+
+        with patch.object(
+            email_helpers, "send_event_registration_confirmation", confirmation
+        ), patch(
+            "crush_lu.push_notifications.send_push_notification", side_effect=push
+        ):
+            self._commit(self._cancel_holder())
+
+        self.assertEqual(order, ["email", "push"])
+
+    def test_push_is_skipped_once_a_slow_email_spends_the_deadline(self):
+        from crush_lu import email_helpers
+        from crush_lu import notification_service
+
+        self._subscribe()
+        real_confirmation = email_helpers.send_event_registration_confirmation
+        clock = {"now": 1000.0}
+
+        def slow_confirmation(*args, **kwargs):
+            clock["now"] += 31  # past the 30s default budget
+            return real_confirmation(*args, **kwargs)
+
+        with patch.object(
+            notification_service.time, "monotonic", side_effect=lambda: clock["now"]
+        ), patch.object(
+            email_helpers, "send_event_registration_confirmation", slow_confirmation
+        ), patch(
+            "crush_lu.push_notifications.send_push_notification"
+        ) as push:
+            self._commit(self._cancel_holder())
+
+        push.assert_not_called()
+        self.assertEqual(len(self._waiter_mail()), 1)
+        self.waiting.refresh_from_db()
+        self.assertEqual(self.waiting.promotion_notice, "email")
+
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class BellLinkTests(_PromotionFixture):

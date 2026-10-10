@@ -1857,12 +1857,13 @@ CRUSH_PUSH_FANOUT_BUDGET_SECONDS = float(
 CRUSH_PUSH_SEND_TIMEOUT_SECONDS = float(
     os.getenv("CRUSH_PUSH_SEND_TIMEOUT_SECONDS", "10")
 )
-# Wall-clock budget for notifying a BATCH of waitlist promotions (a capacity
-# increase can promote many members at once) from one on_commit callback inside
-# the admin request. Checked before each member, and one member's notice can
-# itself take ~3x CRUSH_PUSH_FANOUT_BUDGET_SECONDS plus the email, so 30s keeps
-# the worst case inside the 120s gunicorn window. Members past the budget still
-# get the in-app bell row (no network) and are logged at ERROR, never dropped.
+# Wall-clock budget for the email and push of waitlist promotion notices, which
+# run inside the request that freed the seat: one member's notice on a
+# cancellation (ahead of the canceller's own email), or a whole capacity-increase
+# batch, which shares one budget. Checked before each channel starts; a channel
+# already running is bounded by its own timeout or fan-out budget, so 30s keeps
+# the worst case inside the 120s gunicorn window. The in-app bell row is written
+# first and never subject to it; anyone it cuts short is logged, never dropped.
 WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS = float(
     os.getenv("WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS", "30")
 )

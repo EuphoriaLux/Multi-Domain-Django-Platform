@@ -3611,16 +3611,25 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 if pk not in pending_application_ids and pk not in stale_application_ids
             ]
 
+            # Rows that get a seat back, read before the update below. Only
+            # these drop an earlier waitlist promotion's notice outcome: staff
+            # granted this seat and no notice announced it. A row that already
+            # held its seat keeps its outcome, so the coach page still warns
+            # about a promoted member nothing reached.
+            restored_ids = list(
+                EventRegistration.objects.filter(pk__in=confirm_ids)
+                .exclude(status__in=SEAT_HOLDING_STATUSES)
+                .values_list("pk", flat=True)
+            )
             updated = EventRegistration.objects.filter(pk__in=confirm_ids).update(
                 status="confirmed",
                 # QuerySet.update bypasses EventRegistration.save(). A restored
                 # registration is a new cancellation-policy cycle and must not
-                # retain the previous cancellation's timing classification, nor
-                # an earlier waitlist promotion's notice outcome: staff granted
-                # this seat, and no notice announced it.
+                # retain the previous cancellation's timing classification.
                 cancelled_at=None,
-                waitlist_promoted_at=None,
-                promotion_notice="",
+            )
+            EventRegistration.objects.filter(pk__in=restored_ids).update(
+                waitlist_promoted_at=None, promotion_notice=""
             )
             awaiting_payment = 0
             if pending_application_ids:

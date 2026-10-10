@@ -155,6 +155,8 @@ class NotificationService:
         dedupe_key: Optional[str] = None,
         inapp_first: bool = False,
         write_inapp: bool = True,
+        deadline: Optional[float] = None,
+        email_first: bool = False,
     ) -> NotificationResult:
         """
         Send notification via independent push and email channels.
@@ -180,6 +182,13 @@ class NotificationService:
             write_inapp: False when the caller already wrote the bell row
                 itself, e.g. a batch that persists every member's row before
                 any network delivery starts. Ignored with a dedupe_key.
+            deadline: Optional ``time.monotonic()`` value. An external channel
+                (web/iOS/Android push, email) that has not started by then is
+                skipped and logged, so the whole delivery fits a request. The
+                bell row is never subject to it.
+            email_first: Send the email before the push channels, for a notice
+                whose email is the primary channel and must not lose the
+                deadline to slow push providers.
 
         Returns:
             NotificationResult with delivery status
@@ -236,94 +245,127 @@ class NotificationService:
                 user, notification_type, context, request, result
             )
 
+        def deadline_passed(channel: str) -> bool:
+            """True once the caller's wall-clock deadline is spent (logged).
+
+            Checked before each external channel starts; a channel already
+            running is bounded by its own timeouts and fan-out budget.
+            """
+            if deadline is None or time.monotonic() < deadline:
+                return False
+            logger.warning(
+                "Skipping %s for user %s (%s): notice deadline passed",
+                channel,
+                user.pk,
+                notification_type.name,
+            )
+            result.errors.append(f"{channel} skipped: deadline")
+            return True
+
         # --- Push channel (independent) ---
-        try:
-            from .models import IOSAppDevice, AndroidAppDevice, PushSubscription
+        def push_channels():
+            try:
+                from .models import IOSAppDevice, AndroidAppDevice, PushSubscription
 
-            push_filter = {f"notify_{preference_key}": True}
-            push_subscriptions = PushSubscription.objects.filter(
-                user=user, enabled=True, **push_filter
-            )
-            ios_devices = IOSAppDevice.objects.filter(
-                user=user,
-                enabled=True,
-                **push_filter,
-            )
-            android_devices = AndroidAppDevice.objects.filter(
-                user=user,
-                enabled=True,
-                **push_filter,
-            )
-            if (
-                push_subscriptions.exists()
-                or ios_devices.exists()
-                or android_devices.exists()
-            ):
-                result.push_attempted = True
+                push_filter = {f"notify_{preference_key}": True}
+                push_subscriptions = PushSubscription.objects.filter(
+                    user=user, enabled=True, **push_filter
+                )
+                ios_devices = IOSAppDevice.objects.filter(
+                    user=user,
+                    enabled=True,
+                    **push_filter,
+                )
+                android_devices = AndroidAppDevice.objects.filter(
+                    user=user,
+                    enabled=True,
+                    **push_filter,
+                )
+                if (
+                    push_subscriptions.exists()
+                    or ios_devices.exists()
+                    or android_devices.exists()
+                ):
+                    result.push_attempted = True
 
-            if push_subscriptions.exists():
-                try:
-                    push_result = NotificationService._send_push(
-                        user, notification_type, context
-                    )
-                    result.push_success_count += push_result.get("success", 0)
-                    result.push_failed_count += push_result.get("failed", 0)
-                except Exception as e:
-                    logger.error(f"Error sending push to {user.username}: {e}")
-                    result.errors.append(f"Push error: {e}")
-                    result.push_failed_count += 1
+                if push_subscriptions.exists() and not deadline_passed("web push"):
+                    try:
+                        push_result = NotificationService._send_push(
+                            user, notification_type, context
+                        )
+                        result.push_success_count += push_result.get("success", 0)
+                        result.push_failed_count += push_result.get("failed", 0)
+                    except Exception as e:
+                        logger.error(f"Error sending push to {user.username}: {e}")
+                        result.errors.append(f"Push error: {e}")
+                        result.push_failed_count += 1
 
-            if ios_devices.exists():
-                try:
-                    ios_result = NotificationService._send_ios_push(
-                        user, notification_type, context, request
-                    )
-                    result.push_success_count += ios_result.get("success", 0)
-                    result.push_failed_count += ios_result.get("failed", 0)
-                except Exception as e:
-                    logger.error(f"Error sending iOS push to {user.username}: {e}")
-                    result.errors.append(f"iOS push error: {e}")
-                    result.push_failed_count += 1
+                if ios_devices.exists() and not deadline_passed("iOS push"):
+                    try:
+                        ios_result = NotificationService._send_ios_push(
+                            user, notification_type, context, request
+                        )
+                        result.push_success_count += ios_result.get("success", 0)
+                        result.push_failed_count += ios_result.get("failed", 0)
+                    except Exception as e:
+                        logger.error(f"Error sending iOS push to {user.username}: {e}")
+                        result.errors.append(f"iOS push error: {e}")
+                        result.push_failed_count += 1
 
-            if android_devices.exists():
-                try:
-                    android_result = NotificationService._send_android_push(
-                        user, notification_type, context, request
-                    )
-                    result.push_success_count += android_result.get("success", 0)
-                    result.push_failed_count += android_result.get("failed", 0)
-                except Exception as e:
-                    logger.error(f"Error sending Android push to {user.username}: {e}")
-                    result.errors.append(f"Android push error: {e}")
-                    result.push_failed_count += 1
-        except Exception as e:
-            logger.error(f"Error checking push subscriptions: {e}")
-            result.errors.append(f"Push check error: {e}")
+                if android_devices.exists() and not deadline_passed("Android push"):
+                    try:
+                        android_result = NotificationService._send_android_push(
+                            user, notification_type, context, request
+                        )
+                        result.push_success_count += android_result.get("success", 0)
+                        result.push_failed_count += android_result.get("failed", 0)
+                    except Exception as e:
+                        logger.error(
+                            f"Error sending Android push to {user.username}: {e}"
+                        )
+                        result.errors.append(f"Android push error: {e}")
+                        result.push_failed_count += 1
+            except Exception as e:
+                logger.error(f"Error checking push subscriptions: {e}")
+                result.errors.append(f"Push check error: {e}")
 
         # --- Email channel (independent) ---
-        try:
-            from .email_helpers import can_send_email
+        def email_channel():
+            try:
+                from .email_helpers import can_send_email
 
-            if can_send_email(user, notification_type.email_preference_key):
-                result.email_attempted = True
-                email_sent = NotificationService._send_email(
-                    user, notification_type, context, request
-                )
-                result.email_sent = email_sent
-                if email_sent:
-                    logger.info(
-                        "Email sent to user %s (%s)", user.pk, notification_type.name
+                if deadline_passed("email"):
+                    result.email_skipped_reason = "deadline"
+                elif can_send_email(user, notification_type.email_preference_key):
+                    result.email_attempted = True
+                    email_sent = NotificationService._send_email(
+                        user, notification_type, context, request
                     )
-            else:
-                result.email_skipped_reason = "user_unsubscribed"
-                logger.info(
-                    "Email skipped for user %s (%s): user unsubscribed",
-                    user.pk,
-                    notification_type.name,
-                )
-        except Exception as e:
-            logger.error("Error sending email to user %s: %s", user.pk, e)
-            result.errors.append(f"Email error: {e}")
+                    result.email_sent = email_sent
+                    if email_sent:
+                        logger.info(
+                            "Email sent to user %s (%s)",
+                            user.pk,
+                            notification_type.name,
+                        )
+                else:
+                    result.email_skipped_reason = "user_unsubscribed"
+                    logger.info(
+                        "Email skipped for user %s (%s): user unsubscribed",
+                        user.pk,
+                        notification_type.name,
+                    )
+            except Exception as e:
+                logger.error("Error sending email to user %s: %s", user.pk, e)
+                result.errors.append(f"Email error: {e}")
+
+        channels = (
+            (email_channel, push_channels)
+            if email_first
+            else (push_channels, email_channel)
+        )
+        for channel in channels:
+            channel()
 
         # --- In-app channel (bell) — always create a row, independent of opt-outs.
         # The bell is a historical surface; users can ignore it. They cannot opt
@@ -1329,7 +1371,7 @@ def notify_event_reminder(
 
 
 def notify_waitlist_promotion(
-    registration, request=None, *, bell_written=False
+    registration, request=None, *, bell_written=False, deadline=None
 ) -> Optional[NotificationResult]:
     """Tell a member the waitlist just gave them a seat: email, push and bell.
 
@@ -1346,9 +1388,22 @@ def notify_waitlist_promotion(
     recorded on the registration for the coach event page. ``bell_written``
     means the caller already wrote this member's bell row (a batch does that
     for everyone first), so only email and push are left to send.
+
+    Email and push share one wall-clock ``deadline`` (default: now plus
+    WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS), because this runs inside the
+    request that freed the seat, ahead of the canceller's own email. The email
+    goes first: it is the transactional channel, and slow push providers must
+    not spend its time. A channel the deadline skips leaves a weaker outcome
+    for the coach page to flag.
     """
+    from django.conf import settings
+
     from .models import EventRegistration
 
+    if deadline is None:
+        deadline = time.monotonic() + getattr(
+            settings, "WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS", 30.0
+        )
     notice = EventRegistration.PromotionNotice
     try:
         result = NotificationService.notify(
@@ -1360,6 +1415,8 @@ def notify_waitlist_promotion(
             # before a slow push or email can hang until the worker dies.
             inapp_first=True,
             write_inapp=not bell_written,
+            deadline=deadline,
+            email_first=True,
         )
     except Exception as exc:
         logger.error(
@@ -1401,9 +1458,9 @@ def notify_waitlist_promotions(registrations, request=None) -> None:
     the members after them their notice too. Email and push then go out until
     WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS runs out; anyone after that keeps
     the bell only, and their registrations are logged at ERROR so staff can
-    reach them. The budget is checked before each member, so one member's
-    notice (bounded by the push fan-out budget and the email timeout) can
-    overrun it.
+    reach them. The same deadline is forwarded into each member's notice and
+    checked before every channel, so only a channel already running (bounded
+    by its own timeout or fan-out budget) can overrun it.
     """
     from django.conf import settings
 
@@ -1422,7 +1479,9 @@ def notify_waitlist_promotions(registrations, request=None) -> None:
                 [late.pk for late in registrations[index:]],
             )
             return
-        notify_waitlist_promotion(registration, request, bell_written=bell)
+        notify_waitlist_promotion(
+            registration, request, bell_written=bell, deadline=deadline
+        )
 
 
 def _record_promotion_notice(registration, outcome) -> None:
