@@ -8068,6 +8068,20 @@ msgstr "Bis dann!"
 msgid "On the waitlist: {title}"
 msgstr "Auf der Warteliste: {title}"
 
+#, python-brace-format
+msgid "A spot opened up for {title}"
+msgstr "Für {title} ist ein Platz frei geworden"
+
+msgid "You were on the waitlist and your spot is reserved. Complete payment to confirm it."
+msgstr "Du warst auf der Warteliste und dein Platz ist reserviert. Schließe die Zahlung ab, um ihn zu bestätigen."
+
+#, python-brace-format
+msgid "A spot opened up: you're in for {title}"
+msgstr "Ein Platz ist frei geworden: Du bist bei {title} dabei"
+
+msgid "You were on the waitlist and your spot is now confirmed. If you can't come any more, please cancel so the next person gets it."
+msgstr "Du warst auf der Warteliste und dein Platz ist jetzt bestätigt. Wenn du nicht mehr kommen kannst, sag bitte ab, damit die nächste Person nachrücken kann."
+
 #: notification_service.py:393
 msgid "We'll notify you if a spot opens up."
 msgstr "Wir benachrichtigen dich, wenn ein Platz frei wird."
@@ -45271,6 +45285,33 @@ msgid ""
 msgstr ""
 "Ein Coach prüft gerade dein Foto. Connect öffnet sich für dich, sobald es "
 "genehmigt ist."
+
+msgid "From waitlist"
+msgstr "Von der Warteliste"
+
+msgid "emailed"
+msgstr "per E-Mail informiert"
+
+msgid "push only"
+msgstr "nur Push"
+
+msgid "not notified"
+msgstr "nicht benachrichtigt"
+
+msgid "The email did not go out; a push notification did."
+msgstr "Die E-Mail wurde nicht versendet, eine Push-Benachrichtigung schon."
+
+msgid "No email or push reached this member about the seat."
+msgstr "Weder E-Mail noch Push hat dieses Mitglied über den Platz erreicht."
+
+#, python-format
+msgid "%(count)s member got a seat from the waitlist and was not notified"
+msgid_plural "%(count)s members got a seat from the waitlist and were not notified"
+msgstr[0] "%(count)s Mitglied hat einen Platz von der Warteliste erhalten und wurde nicht benachrichtigt"
+msgstr[1] "%(count)s Mitglieder haben einen Platz von der Warteliste erhalten und wurden nicht benachrichtigt"
+
+msgid "No email or push reached them. Contact them before the event, or free the seat for the next person."
+msgstr "Weder E-Mail noch Push hat sie erreicht. Vor dem Event kontaktieren oder den Platz für die nächste Person freigeben."
 
 #: crush_lu/forms_crush_connect.py
 msgid "Who to show"

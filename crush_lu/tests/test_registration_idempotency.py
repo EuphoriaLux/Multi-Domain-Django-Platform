@@ -100,6 +100,27 @@ class RegistrationFixtures:
 
 
 class RegistrationRetryTests(RegistrationFixtures, TestCase):
+    def test_reactivated_cancelled_row_drops_its_old_promotion_marker(self):
+        """A seat the waitlist once gave this member belongs to the cancelled
+        registration. Registering again directly must not show coaches "from
+        waitlist, not notified" on the new one."""
+        event = self.event()
+        EventRegistration.objects.create(
+            event=event,
+            user=self.user,
+            status="cancelled",
+            waitlist_promoted_at=timezone.now() - timedelta(days=1),
+            promotion_notice=EventRegistration.PromotionNotice.BELL,
+        )
+
+        response = self.register(self.client_for(), event)
+
+        self.assertEqual(response.status_code, 302)
+        registration = EventRegistration.objects.get(event=event, user=self.user)
+        self.assertEqual(registration.status, "confirmed")
+        self.assertIsNone(registration.waitlist_promoted_at)
+        self.assertEqual(registration.promotion_notice, "")
+
     def test_repeated_application_preserves_preferences_and_queue_position(self):
         event = self.event(event_type="speed_dating", registration_mode="curated")
         client = self.client_for()

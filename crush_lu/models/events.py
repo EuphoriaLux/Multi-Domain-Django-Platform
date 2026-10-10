@@ -1632,6 +1632,34 @@ class EventRegistration(models.Model):
         ),
     )
 
+    # Waitlist promotion notice. On 2026-10-10 a member promoted into event 27
+    # held a seat and was never told; coaches now see who that happened to.
+    # `_promote_from_waitlist` stamps the promotion; `notify_waitlist_promotion`
+    # records what reached the member with a queryset update(), so no
+    # registration signal fires. Notes:
+    # ai-memory-hub/memories/crush-notification-consent-tiers.md
+    class PromotionNotice(models.TextChoices):
+        EMAIL = "email", _("Email")
+        PUSH = "push", _("Push only")
+        BELL = "bell", _("In-app only")
+        FAILED = "failed", _("Not sent")
+
+    waitlist_promoted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("When an automatic waitlist promotion gave this member a seat."),
+    )
+    promotion_notice = models.CharField(
+        max_length=8,
+        choices=PromotionNotice.choices,
+        blank=True,
+        default="",
+        help_text=_(
+            "What reached the member about that promotion. Blank with a "
+            "promotion time means the notice never recorded an outcome."
+        ),
+    )
+
     # QR Check-in
     checkin_token = models.CharField(
         max_length=128,
@@ -2007,6 +2035,22 @@ class EventRegistration(models.Model):
             self.cancelled_at = None
             if update_fields is not None:
                 kwargs["update_fields"] = set(update_fields) | {"cancelled_at"}
+        if self.status in ("waitlist", "cancelled") and (
+            self.waitlist_promoted_at is not None or self.promotion_notice
+        ):
+            # A waitlisted or cancelled row holds no seat, so it has no
+            # promotion to report. Cleared on every save into either status
+            # (member cancel, admin change form, list_editable, shell), so a
+            # later restore never shows coaches an old promotion's outcome for
+            # a seat grant nobody announced. The bulk "Move to waitlist" and
+            # "Confirm" admin actions use update() and clear it themselves.
+            self.waitlist_promoted_at = None
+            self.promotion_notice = ""
+            if kwargs.get("update_fields") is not None:
+                kwargs["update_fields"] = set(kwargs["update_fields"]) | {
+                    "waitlist_promoted_at",
+                    "promotion_notice",
+                }
 
         writes_group_sensitive_fields = update_fields is None or bool(
             {"status", "event", "event_id"}.intersection(update_fields)

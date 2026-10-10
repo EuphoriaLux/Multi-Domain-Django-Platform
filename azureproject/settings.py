@@ -1857,6 +1857,16 @@ CRUSH_PUSH_FANOUT_BUDGET_SECONDS = float(
 CRUSH_PUSH_SEND_TIMEOUT_SECONDS = float(
     os.getenv("CRUSH_PUSH_SEND_TIMEOUT_SECONDS", "10")
 )
+# Wall-clock budget for the email and push of waitlist promotion notices, which
+# run inside the request that freed the seat: one member's notice on a
+# cancellation (ahead of the canceller's own email), or a whole capacity-increase
+# batch, which shares one budget. Checked before each channel starts; a channel
+# already running is bounded by its own timeout or fan-out budget, so 30s keeps
+# the worst case inside the 120s gunicorn window. The in-app bell row is written
+# first and never subject to it; anyone it cuts short is logged, never dropped.
+WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS = float(
+    os.getenv("WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS", "30")
+)
 PASSKIT_PASS_PROVIDER = os.getenv(
     "PASSKIT_PASS_PROVIDER",
     "crush_lu.wallet.apple_pass.provide_pass_for_serial",

@@ -182,6 +182,14 @@ def get_email_context_with_unsubscribe(
 # member), exempt from the post-deletion ban gate in can_send_email().
 FINANCIAL_EMAIL_TYPES = frozenset({"crush_credit_expiry"})
 
+# Email types that tell a member about a seat they now hold without having
+# just asked for it (a waitlist promotion). They are not reminders: the "Event
+# Reminders" toggle reads "Reminders about upcoming events you're registered
+# for", and turning it off is not consent to miss being given a seat. They
+# bypass the per-category toggles but, unlike FINANCIAL_EMAIL_TYPES, still
+# honour the ban and the master unsubscribe.
+TRANSACTIONAL_EMAIL_TYPES = frozenset({"event_seat_granted"})
+
 
 def can_send_email(user, email_type):
     """
@@ -189,7 +197,8 @@ def can_send_email(user, email_type):
 
     Args:
         user: User object
-        email_type: Type of email (profile_updates, event_reminders, new_connections, new_messages, marketing)
+        email_type: Type of email (profile_updates, event_reminders, new_connections, new_messages, marketing),
+            or a member of FINANCIAL_EMAIL_TYPES / TRANSACTIONAL_EMAIL_TYPES
 
     Returns:
         bool: True if we can send, False if user has unsubscribed
@@ -225,6 +234,8 @@ def can_send_email(user, email_type):
             return existing.can_send(email_type)
 
         email_prefs = EmailPreference.get_or_create_for_user(user)
+        if email_type in TRANSACTIONAL_EMAIL_TYPES:
+            return not email_prefs.unsubscribed_all
         return email_prefs.can_send(email_type)
     except Exception as e:
         logger.warning(f"Could not check email preferences for user {user.id}: {e}")
@@ -716,7 +727,9 @@ def send_profile_recontact_notification(profile, coach, request):
     )
 
 
-def send_event_registration_confirmation(registration, request=None):
+def send_event_registration_confirmation(
+    registration, request=None, *, email_type="event_reminders"
+):
     """
     Send confirmation email for event registration.
 
@@ -725,6 +738,9 @@ def send_event_registration_confirmation(registration, request=None):
         request: Optional Django request object for domain detection.
                  If None, uses build_absolute_url() for URL generation
                  (e.g. when called from signal handlers).
+        email_type: The can_send_email() type that gates this send. A
+                 waitlist promotion passes "event_seat_granted" (see
+                 TRANSACTIONAL_EMAIL_TYPES).
 
     Returns:
         int: Number of emails sent
@@ -733,9 +749,11 @@ def send_event_registration_confirmation(registration, request=None):
     from django.utils.translation import gettext as _
 
     # Check email preferences
-    if not can_send_email(registration.user, "event_reminders"):
+    if not can_send_email(registration.user, email_type):
         logger.info(
-            f"Skipping event registration email to {registration.user.email} - user unsubscribed"
+            "Skipping event registration email to user %s - opted out of %s",
+            registration.user_id,
+            email_type,
         )
         return 0
 

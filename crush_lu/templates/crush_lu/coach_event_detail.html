@@ -405,6 +405,23 @@
         {% if other_count %}<span class="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-xs rounded-full {% if status_filter == 'other' %}bg-white/20{% else %}bg-gray-100 dark:bg-gray-700{% endif %}">{{ other_count }}</span>{% endif %}
     </a>
 </div>
+{% if unnotified_promotions %}
+<!-- ── Promoted from the waitlist, not notified ─────────────────────── -->
+<div class="mb-6 rounded-xl border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-4" role="status" data-unnotified-promotions>
+    <div class="flex items-start gap-2">
+        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 flex-shrink-0 text-amber-600 dark:text-amber-400" %}
+        <div class="min-w-0">
+            <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">{% blocktrans count count=unnotified_promotions|length %}{{ count }} member got a seat from the waitlist and was not notified{% plural %}{{ count }} members got a seat from the waitlist and were not notified{% endblocktrans %}</p>
+            <p class="text-xs text-amber-700 dark:text-amber-300 mt-1">{% trans "No email or push reached them. Contact them before the event, or free the seat for the next person." %}</p>
+            <ul class="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                {% for reg in unnotified_promotions %}
+                <li><a href="{% url 'crush_lu:coach_member_overview' reg.user_id %}" class="text-sm font-medium text-crush-purple dark:text-purple-400 underline">{% with profile=reg.user.crushprofile %}{% if profile %}{{ profile.display_name }}{% else %}{{ reg.user.first_name|default:reg.user.username }}{% endif %}{% endwith %}</a> <span class="text-xs text-amber-700 dark:text-amber-300">· {{ reg.waitlist_promoted_at|date:"M j, g:i A" }}</span></li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% comment %}
 Curated groups panel (curated speed dating with a group size). Read-only:
 stage banner, projector preflight, one card per group of the current
@@ -509,6 +526,7 @@ comes next.
                         {% include "shared/icons/clock.html" with class="w-3 h-3" %}
                         {% trans "Registered" %}: {{ reg.registered_at|date:"M j, g:i A" }}
                     </p>
+                    {% include "crush_lu/components/coach_promotion_notice.html" %}
                     {% if event.has_food_component and reg.dietary_restrictions %}
                     <p class="text-xs text-orange-600 dark:text-orange-400 flex items-center gap-1">
                         <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
@@ -805,6 +823,7 @@ size still select by moving rows to Confirmed / Pending Payment in admin.
                         {% include "shared/icons/clock.html" with class="w-3 h-3" %}
                         {% trans "Registered" %}: {{ reg.registered_at|date:"M j, g:i A" }}
                     </p>
+                    {% include "crush_lu/components/coach_promotion_notice.html" %}
                     {% if event.has_food_component and reg.dietary_restrictions %}
                     <p class="text-xs text-orange-600 dark:text-orange-400 flex items-center gap-1">
                         <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>

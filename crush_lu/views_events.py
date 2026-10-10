@@ -51,6 +51,7 @@ from .email_helpers import (
     send_event_waitlist_notification,
     send_event_cancellation_confirmation,
 )
+from .notification_service import announce_waitlist_promotions
 
 logger = logging.getLogger(__name__)
 
@@ -306,6 +307,10 @@ def _promote_from_waitlist(event, cancelled_user=None, resale_source_registratio
 
     def _promote(candidate):
         candidate.status = _admitted_status(event, candidate)
+        # Shown to coaches until notify_waitlist_promotion records what reached
+        # the member; reset in case this row was promoted once before.
+        candidate.waitlist_promoted_at = timezone.now()
+        candidate.promotion_notice = ""
         candidate.resale_source_registration = None
         candidate.resale_source_payment = None
         candidate.resale_beneficiary = None
@@ -2014,6 +2019,10 @@ def event_register(request, event_id):
                     registration.resale_source_registration = None
                     registration.resale_source_payment = None
                     registration.resale_beneficiary = None
+                    # An earlier promotion belongs to the cancelled seat, not
+                    # this new registration.
+                    registration.waitlist_promoted_at = None
+                    registration.promotion_notice = ""
                 else:
                     registration = form.save(commit=False)
                     registration.event = locked_event
@@ -2447,6 +2456,15 @@ def event_cancel(request, event_id):
                     request.user,
                     resale_source_registration=registration,
                 )
+            if promoted:
+                # The bell inside this transaction, so it commits or rolls back
+                # with the seat and no Wallet refresh queued by the saves above
+                # can run first. Email and push on commit, still before the
+                # canceller's email below, whose network send must not delay or
+                # lose them, and never for a seat a rollback takes back. Not
+                # given this request: its language is the canceller's. The
+                # notice picks the payment ask for a "pending" seat itself.
+                announce_waitlist_promotions([promoted])
 
             if credits:
                 messages.success(
@@ -2470,18 +2488,6 @@ def event_cancel(request, event_id):
             )
         except Exception as e:
             logger.error(f"Failed to send event cancellation email: {e}")
-
-        if promoted:
-            try:
-                # _promote_from_waitlist admits at _admitted_status(), so on a
-                # paid event the promoted seat is "pending" and must ask for
-                # payment rather than claim to be confirmed.
-                if promoted.status == "pending":
-                    send_event_payment_pending_notification(promoted, request)
-                else:
-                    send_event_registration_confirmation(promoted, request)
-            except Exception as e:
-                logger.error(f"Failed to send waitlist promotion email: {e}")
 
         return redirect("crush_lu:dashboard")
 

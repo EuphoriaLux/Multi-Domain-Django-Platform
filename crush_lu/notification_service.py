@@ -9,9 +9,10 @@ Both channels are attempted independently — push success does not suppress ema
 """
 
 import logging
+import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import Callable, Optional
 
 from django.http import HttpRequest
 
@@ -42,6 +43,7 @@ class NotificationType(Enum):
     EVENT_REMINDER = "event_reminder"
     EVENT_REGISTRATION = "event_registration"
     EVENT_WAITLIST = "event_waitlist"
+    EVENT_WAITLIST_PROMOTED = "event_waitlist_promoted"
     SPARK_COACH_ASSIGNMENT = "spark_coach_assignment"
     SPARK_RECIPIENT_ASSIGNED = "spark_recipient_assigned"
     SPARK_JOURNEY_READY = "spark_journey_ready"
@@ -70,6 +72,7 @@ class NotificationType(Enum):
             "event_reminder": "event_reminders",
             "event_registration": "event_reminders",
             "event_waitlist": "event_reminders",
+            "event_waitlist_promoted": "event_reminders",
             "spark_coach_assignment": "event_reminders",
             "spark_recipient_assigned": "new_connections",
             "spark_journey_ready": "new_connections",
@@ -77,6 +80,18 @@ class NotificationType(Enum):
             "connect_week_request_received": "new_connections",
         }
         return preference_mapping.get(self.value, self.value)
+
+    @property
+    def email_preference_key(self) -> str:
+        """The can_send_email() type that gates the email channel.
+
+        Same as preference_key, except for a waitlist promotion: its email is
+        transactional (TRANSACTIONAL_EMAIL_TYPES) and ignores the
+        event-reminders toggle, while push still follows the device's switch.
+        """
+        if self is NotificationType.EVENT_WAITLIST_PROMOTED:
+            return "event_seat_granted"
+        return self.preference_key
 
 
 @dataclass
@@ -138,6 +153,11 @@ class NotificationService:
         context: dict,
         request: Optional[HttpRequest] = None,
         dedupe_key: Optional[str] = None,
+        inapp_first: bool = False,
+        write_inapp: bool = True,
+        deadline: Optional[float] = None,
+        email_first: bool = False,
+        on_email_sent: Optional[Callable[[], None]] = None,
     ) -> NotificationResult:
         """
         Send notification via independent push and email channels.
@@ -156,6 +176,23 @@ class NotificationService:
                 returns immediately having sent nothing. Callers that want a
                 notification per call leave this None and keep the original
                 ordering (external channels first, bell row last).
+            inapp_first: Write the bell row before any external channel,
+                without a claim. For a notice whose bell is the one guaranteed
+                record: a push or email that hangs until the worker is killed
+                can then no longer take the bell down with it.
+            write_inapp: False when the caller already wrote the bell row
+                itself, e.g. a batch that persists every member's row before
+                any network delivery starts. Ignored with a dedupe_key.
+            deadline: Optional ``time.monotonic()`` value. An external channel
+                (web/iOS/Android push, email) that has not started by then is
+                skipped and logged, so the whole delivery fits a request. The
+                bell row is never subject to it.
+            email_first: Send the email before the push channels, for a notice
+                whose email is the primary channel and must not lose the
+                deadline to slow push providers.
+            on_email_sent: Called as soon as the email is sent, before any
+                channel that follows it, so a caller can record the delivery
+                durably even if a later push hangs until the worker is killed.
 
         Returns:
             NotificationResult with delivery status
@@ -207,94 +244,134 @@ class NotificationService:
                         dedupe_key,
                     )
                     return result
+        elif inapp_first and write_inapp:
+            NotificationService._write_inapp_row(
+                user, notification_type, context, request, result
+            )
+
+        def deadline_passed(channel: str) -> bool:
+            """True once the caller's wall-clock deadline is spent (logged).
+
+            Checked before each external channel starts; a channel already
+            running is bounded by its own timeouts and fan-out budget.
+            """
+            if deadline is None or time.monotonic() < deadline:
+                return False
+            logger.warning(
+                "Skipping %s for user %s (%s): notice deadline passed",
+                channel,
+                user.pk,
+                notification_type.name,
+            )
+            result.errors.append(f"{channel} skipped: deadline")
+            return True
 
         # --- Push channel (independent) ---
-        try:
-            from .models import IOSAppDevice, AndroidAppDevice, PushSubscription
+        def push_channels():
+            try:
+                from .models import IOSAppDevice, AndroidAppDevice, PushSubscription
 
-            push_filter = {f"notify_{preference_key}": True}
-            push_subscriptions = PushSubscription.objects.filter(
-                user=user, enabled=True, **push_filter
-            )
-            ios_devices = IOSAppDevice.objects.filter(
-                user=user,
-                enabled=True,
-                **push_filter,
-            )
-            android_devices = AndroidAppDevice.objects.filter(
-                user=user,
-                enabled=True,
-                **push_filter,
-            )
-            if (
-                push_subscriptions.exists()
-                or ios_devices.exists()
-                or android_devices.exists()
-            ):
-                result.push_attempted = True
+                push_filter = {f"notify_{preference_key}": True}
+                push_subscriptions = PushSubscription.objects.filter(
+                    user=user, enabled=True, **push_filter
+                )
+                ios_devices = IOSAppDevice.objects.filter(
+                    user=user,
+                    enabled=True,
+                    **push_filter,
+                )
+                android_devices = AndroidAppDevice.objects.filter(
+                    user=user,
+                    enabled=True,
+                    **push_filter,
+                )
+                if (
+                    push_subscriptions.exists()
+                    or ios_devices.exists()
+                    or android_devices.exists()
+                ):
+                    result.push_attempted = True
 
-            if push_subscriptions.exists():
-                try:
-                    push_result = NotificationService._send_push(
-                        user, notification_type, context
-                    )
-                    result.push_success_count += push_result.get("success", 0)
-                    result.push_failed_count += push_result.get("failed", 0)
-                except Exception as e:
-                    logger.error(f"Error sending push to {user.username}: {e}")
-                    result.errors.append(f"Push error: {e}")
-                    result.push_failed_count += 1
+                if push_subscriptions.exists() and not deadline_passed("web push"):
+                    try:
+                        push_result = NotificationService._send_push(
+                            user, notification_type, context
+                        )
+                        result.push_success_count += push_result.get("success", 0)
+                        result.push_failed_count += push_result.get("failed", 0)
+                    except Exception as e:
+                        logger.error(f"Error sending push to {user.username}: {e}")
+                        result.errors.append(f"Push error: {e}")
+                        result.push_failed_count += 1
 
-            if ios_devices.exists():
-                try:
-                    ios_result = NotificationService._send_ios_push(
-                        user, notification_type, context, request
-                    )
-                    result.push_success_count += ios_result.get("success", 0)
-                    result.push_failed_count += ios_result.get("failed", 0)
-                except Exception as e:
-                    logger.error(f"Error sending iOS push to {user.username}: {e}")
-                    result.errors.append(f"iOS push error: {e}")
-                    result.push_failed_count += 1
+                if ios_devices.exists() and not deadline_passed("iOS push"):
+                    try:
+                        ios_result = NotificationService._send_ios_push(
+                            user, notification_type, context, request
+                        )
+                        result.push_success_count += ios_result.get("success", 0)
+                        result.push_failed_count += ios_result.get("failed", 0)
+                    except Exception as e:
+                        logger.error(f"Error sending iOS push to {user.username}: {e}")
+                        result.errors.append(f"iOS push error: {e}")
+                        result.push_failed_count += 1
 
-            if android_devices.exists():
-                try:
-                    android_result = NotificationService._send_android_push(
-                        user, notification_type, context, request
-                    )
-                    result.push_success_count += android_result.get("success", 0)
-                    result.push_failed_count += android_result.get("failed", 0)
-                except Exception as e:
-                    logger.error(f"Error sending Android push to {user.username}: {e}")
-                    result.errors.append(f"Android push error: {e}")
-                    result.push_failed_count += 1
-        except Exception as e:
-            logger.error(f"Error checking push subscriptions: {e}")
-            result.errors.append(f"Push check error: {e}")
+                if android_devices.exists() and not deadline_passed("Android push"):
+                    try:
+                        android_result = NotificationService._send_android_push(
+                            user, notification_type, context, request
+                        )
+                        result.push_success_count += android_result.get("success", 0)
+                        result.push_failed_count += android_result.get("failed", 0)
+                    except Exception as e:
+                        logger.error(
+                            f"Error sending Android push to {user.username}: {e}"
+                        )
+                        result.errors.append(f"Android push error: {e}")
+                        result.push_failed_count += 1
+            except Exception as e:
+                logger.error(f"Error checking push subscriptions: {e}")
+                result.errors.append(f"Push check error: {e}")
 
         # --- Email channel (independent) ---
-        try:
-            from .email_helpers import can_send_email
+        def email_channel():
+            try:
+                from .email_helpers import can_send_email
 
-            if can_send_email(user, preference_key):
-                result.email_attempted = True
-                email_sent = NotificationService._send_email(
-                    user, notification_type, context, request
-                )
-                result.email_sent = email_sent
-                if email_sent:
-                    logger.info(
-                        f"Email sent to {user.email} ({notification_type.name})"
+                if deadline_passed("email"):
+                    result.email_skipped_reason = "deadline"
+                elif can_send_email(user, notification_type.email_preference_key):
+                    result.email_attempted = True
+                    email_sent = NotificationService._send_email(
+                        user, notification_type, context, request
                     )
-            else:
-                result.email_skipped_reason = "user_unsubscribed"
-                logger.info(
-                    f"Email skipped for {user.email} ({notification_type.name}): "
-                    f"user unsubscribed"
-                )
-        except Exception as e:
-            logger.error(f"Error sending email to {user.email}: {e}")
-            result.errors.append(f"Email error: {e}")
+                    result.email_sent = email_sent
+                    if email_sent:
+                        logger.info(
+                            "Email sent to user %s (%s)",
+                            user.pk,
+                            notification_type.name,
+                        )
+                        if on_email_sent is not None:
+                            on_email_sent()
+                else:
+                    result.email_skipped_reason = "user_unsubscribed"
+                    logger.info(
+                        "Email skipped for user %s (%s): user unsubscribed",
+                        user.pk,
+                        notification_type.name,
+                    )
+            except Exception as e:
+                logger.error("Error sending email to user %s: %s", user.pk, e)
+                result.errors.append(f"Email error: {e}")
+
+        channels = (
+            (email_channel, push_channels)
+            if email_first
+            else (push_channels, email_channel)
+        )
+        for channel in channels:
+            channel()
 
         # --- In-app channel (bell) — always create a row, independent of opt-outs.
         # The bell is a historical surface; users can ignore it. They cannot opt
@@ -303,32 +380,46 @@ class NotificationService:
         #
         # Skipped when a dedupe_key was given: that row was already written
         # above as the claim, and writing it here too would both duplicate the
-        # bell entry and trip the very constraint that guarded the send.
-        if not result.inapp_created:
-            try:
-                from .models import Notification
-
-                payload = NotificationService._render_inapp_payload(
-                    user, notification_type, context, request
-                )
-                if payload:
-                    obj = Notification.objects.create(
-                        user=user,
-                        notification_type=notification_type.value,
-                        title=payload.get("title", "")[:200],
-                        body=payload.get("body", ""),
-                        link_url=payload.get("link_url", ""),
-                        metadata=payload.get("metadata", {}) or {},
-                    )
-                    result.inapp_created = True
-                    result.inapp_id = obj.id
-            except Exception as e:
-                logger.error(
-                    f"Error writing in-app notification for {user.username}: {e}"
-                )
-                result.errors.append(f"In-app error: {e}")
+        # bell entry and trip the very constraint that guarded the send. Also
+        # skipped when inapp_first already wrote it; retried if that failed.
+        if write_inapp and not result.inapp_created:
+            NotificationService._write_inapp_row(
+                user, notification_type, context, request, result
+            )
 
         return result
+
+    @staticmethod
+    def _write_inapp_row(
+        user,
+        notification_type: "NotificationType",
+        context: dict,
+        request: Optional[HttpRequest],
+        result: NotificationResult,
+    ) -> None:
+        """Write the bell row and record it on ``result``; never raises."""
+        try:
+            from .models import Notification
+
+            payload = NotificationService._render_inapp_payload(
+                user, notification_type, context, request
+            )
+            if payload:
+                obj = Notification.objects.create(
+                    user=user,
+                    notification_type=notification_type.value,
+                    title=payload.get("title", "")[:200],
+                    body=payload.get("body", ""),
+                    link_url=payload.get("link_url", ""),
+                    metadata=payload.get("metadata", {}) or {},
+                )
+                result.inapp_created = True
+                result.inapp_id = obj.id
+        except Exception as e:
+            logger.error(
+                "Error writing in-app notification for user %s: %s", user.pk, e
+            )
+            result.errors.append(f"In-app error: {e}")
 
     @staticmethod
     def _render_inapp_payload(
@@ -577,6 +668,41 @@ class NotificationService:
                     ),
                 }
 
+            if notification_type == NotificationType.EVENT_WAITLIST_PROMOTED and event:
+                # A paid event admits a promoted member as "pending": the seat
+                # is held but not confirmed until they pay.
+                registration = context.get("registration")
+                if registration is not None and registration.status == "pending":
+                    title = _("A spot opened up for {title}").format(title=event.title)
+                    body = _(
+                        "You were on the waitlist and your spot is reserved. "
+                        "Complete payment to confirm it."
+                    )
+                else:
+                    title = _("A spot opened up: you're in for {title}").format(
+                        title=event.title
+                    )
+                    body = _(
+                        "You were on the waitlist and your spot is now "
+                        "confirmed. If you can't come any more, please cancel "
+                        "so the next person gets it."
+                    )
+                return {
+                    "title": title,
+                    "body": body,
+                    "link_url": get_user_language_url(
+                        user,
+                        "crush_lu:event_detail",
+                        request,
+                        kwargs={"event_id": event.id},
+                    ),
+                    "metadata": {
+                        "registration_id": (
+                            registration.pk if registration is not None else None
+                        )
+                    },
+                }
+
             # Generic fallback — record the type even if we don't have a
             # bespoke render path. Better to surface "something happened" than
             # silently drop.
@@ -666,6 +792,24 @@ class NotificationService:
                 event = context.get("event")
                 if event:
                     return push_notifications.send_event_reminder(user, event) or {}
+
+            elif notification_type == NotificationType.EVENT_WAITLIST_PROMOTED:
+                registration = context.get("registration")
+                payload = NotificationService._render_inapp_payload(
+                    user, notification_type, context, None
+                )
+                if registration and payload:
+                    return (
+                        push_notifications.send_push_notification(
+                            user=user,
+                            title=payload["title"],
+                            body=payload["body"],
+                            url=payload["link_url"],
+                            tag=f"waitlist-promoted-{registration.pk}",
+                            preference_key=notification_type.preference_key,
+                        )
+                        or {}
+                    )
 
             elif notification_type == NotificationType.CONNECT_WEEK_REQUEST:
                 weekly_request = context.get("weekly_request")
@@ -872,6 +1016,25 @@ class NotificationService:
                     result = email_helpers.send_event_waitlist_notification(
                         registration, request
                     )
+                    return result == 1
+
+            elif notification_type == NotificationType.EVENT_WAITLIST_PROMOTED:
+                registration = context.get("registration")
+                # Not gated on `request`, for the same reason as EVENT_REMINDER:
+                # two of the three promotion paths are signals with no request,
+                # and both helpers build their URLs and send from crush.lu
+                # without one.
+                if registration:
+                    if registration.status == "pending":
+                        result = email_helpers.send_event_payment_pending_notification(
+                            registration, request
+                        )
+                    else:
+                        result = email_helpers.send_event_registration_confirmation(
+                            registration,
+                            request,
+                            email_type=notification_type.email_preference_key,
+                        )
                     return result == 1
 
             elif notification_type == NotificationType.CONNECT_WEEK_REQUEST:
@@ -1211,6 +1374,324 @@ def notify_event_reminder(
         },
         request=request,
     )
+
+
+def announce_waitlist_promotions(registrations) -> None:
+    """Tell members the waitlist just gave them a seat: bell now, the rest on commit.
+
+    Called by every automatic promotion path inside the transaction that saved
+    the promoted rows. The bell rows and their "bell" outcome are written
+    here, so they commit or roll back with the seats. Written from an
+    on_commit callback, they queued behind the Apple and Google Wallet
+    refreshes each promoted row's save schedules; production runs callbacks
+    inline in the request, so slow wallet calls could use up the worker's time
+    before any bell existed, leaving a committed seat unannounced.
+
+    Email and push wait for the commit, so nobody hears about a seat a
+    rollback takes back. Never given a request: the notice is about another
+    member, and nothing of the request that freed the seat may shape it.
+    """
+    from django.db import transaction
+
+    promoted = list(registrations)
+    bells = write_waitlist_promotion_bells(promoted)
+    # Robust: the seats have committed by the time this runs, and anything it
+    # raises would otherwise escape into the request that freed the seat,
+    # failing it before the canceller's own cancellation email.
+    transaction.on_commit(
+        lambda: notify_waitlist_promotions(promoted, bells_written=bells),
+        robust=True,
+    )
+
+
+def notify_waitlist_promotion(
+    registration, *, bell_written=False, deadline=None
+) -> Optional[NotificationResult]:
+    """Tell a member the waitlist just gave them a seat: email, push and bell.
+
+    Runs once the promotion has committed. The bell row is always written,
+    normally already by announce_waitlist_promotions (``bell_written``), so
+    only email and push are left to send; the email ignores the
+    event-reminders toggle but honours the ban and the master unsubscribe
+    (TRANSACTIONAL_EMAIL_TYPES); push follows each device's event-reminders
+    switch. Before this, promotions were email-only behind the reminders
+    toggle, and on 2026-10-10 a member promoted into event 27 held a seat
+    without ever being told.
+
+    Best-effort: the promotion has already committed, so a notification
+    failure is logged and swallowed, never raised. What reached the member is
+    recorded on the registration for the coach event page.
+
+    Email and push share one wall-clock ``deadline`` (default: now plus
+    WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS), because this runs inside the
+    request that freed the seat, ahead of the canceller's own email. The email
+    goes first: it is the transactional channel, and slow push providers must
+    not spend its time. A channel the deadline skips leaves a weaker outcome
+    for the coach page to flag.
+
+    The row and its event are re-read first: in a batch, a member can cancel
+    (or staff can withdraw the seat, or cancel or unpublish the event, or it
+    can start) while earlier members are still being notified, and nobody may
+    be told about a seat that is already gone.
+    """
+    from django.conf import settings
+    from django.utils import translation
+
+    from .models import EventRegistration
+    from .models.events import SEAT_HOLDING_STATUSES
+
+    current = (
+        EventRegistration.objects.select_related("event", "user__crushprofile")
+        .filter(
+            pk=registration.pk,
+            waitlist_promoted_at=registration.waitlist_promoted_at,
+            status__in=SEAT_HOLDING_STATUSES,
+        )
+        .first()
+    )
+    # The same event test every promotion path applies before promoting.
+    if current is None or not current.event.accepts_waitlist_promotion:
+        logger.info(
+            "Skipping waitlist promotion notice for registration %s: the seat "
+            "from this promotion is no longer held, or its event no longer "
+            "takes promotions",
+            registration.pk,
+        )
+        return None
+    # Delivered from the row and event as they are now: the payment ask or
+    # the confirmation, and the title, time and fee staff may have edited
+    # while earlier members of a batch were being notified.
+    registration = current
+
+    if deadline is None:
+        deadline = time.monotonic() + getattr(
+            settings, "WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS", 30.0
+        )
+    notice = EventRegistration.PromotionNotice
+    emailed = False
+
+    def record_email():
+        # Recorded before push starts: a push that hangs until the worker
+        # dies would otherwise leave coaches told that only the bell reached
+        # a member who has the email.
+        nonlocal emailed
+        emailed = True
+        _record_promotion_notice(registration, notice.EMAIL)
+
+    try:
+        # Every channel falls back to the active language for a member with
+        # no stored one (no CrushProfile), and this runs inside the request
+        # that freed the seat: without the pin, a French canceller's notice
+        # would reach the promoted member in French.
+        with translation.override(settings.LANGUAGE_CODE):
+            result = NotificationService.notify(
+                user=registration.user,
+                notification_type=NotificationType.EVENT_WAITLIST_PROMOTED,
+                context={"registration": registration, "event": registration.event},
+                # The bell is the one record every promoted member gets; if
+                # the batch could not write it, write it before a slow push or
+                # email can hang until the worker dies.
+                inapp_first=True,
+                write_inapp=not bell_written,
+                deadline=deadline,
+                email_first=True,
+                on_email_sent=record_email,
+            )
+    except Exception as exc:
+        logger.error(
+            "Failed to notify waitlist promotion for registration %s: %s",
+            registration.pk,
+            type(exc).__name__,
+        )
+        if not emailed:
+            _record_promotion_notice(
+                registration, notice.BELL if bell_written else notice.FAILED
+            )
+        return None
+
+    if result.email_sent:
+        outcome = notice.EMAIL
+    elif result.push_success_count:
+        outcome = notice.PUSH
+    elif result.inapp_created or bell_written:
+        outcome = notice.BELL
+    else:
+        outcome = notice.FAILED
+    _record_promotion_notice(registration, outcome)
+
+    logger.info(
+        "Waitlist promotion notice for registration %s: email_sent=%s "
+        "push_sent=%s bell=%s",
+        registration.pk,
+        result.email_sent,
+        result.push_success_count,
+        result.inapp_created or bell_written,
+    )
+    return result
+
+
+def notify_waitlist_promotions(registrations, bells_written=frozenset()) -> None:
+    """Email and push a committed batch without letting it outgrow the request.
+
+    A capacity increase can promote many members at once, and on_commit
+    callbacks run inside the request (production has no task worker). The
+    bells are already written (``bells_written``, by
+    announce_waitlist_promotions); anyone that pass missed gets one here first,
+    in the same constant queries and with no network, so neither a large batch
+    nor a member whose push or email hangs until the worker is killed can cost
+    later members their bell. Email and push then go out until
+    WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS runs out; anyone after that keeps
+    the bell only, and their registrations are logged at ERROR so staff can
+    reach them. The same deadline is forwarded into each member's notice and
+    checked before every channel, so only a channel already running (bounded
+    by its own timeout or fan-out budget) can overrun it.
+    """
+    from django.conf import settings
+
+    from .models import EventRegistration
+    from .models.events import SEAT_HOLDING_STATUSES
+
+    stored = {
+        row.pk: row
+        for row in EventRegistration.objects.select_related(
+            "user__crushprofile", "event"
+        ).filter(pk__in=[r.pk for r in registrations], status__in=SEAT_HOLDING_STATUSES)
+    }
+    # Promotion order, and only rows still holding the seat from this
+    # promotion (a stored row with another timestamp belongs to a newer one).
+    promoted = [
+        stored[r.pk]
+        for r in registrations
+        if r.pk in stored
+        and stored[r.pk].waitlist_promoted_at == r.waitlist_promoted_at
+    ]
+    missed = [r for r in promoted if r.pk not in bells_written]
+    if missed:
+        bells_written = set(bells_written) | write_waitlist_promotion_bells(missed)
+
+    budget = getattr(settings, "WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS", 30.0)
+    deadline = time.monotonic() + budget
+    for index, registration in enumerate(promoted):
+        if time.monotonic() >= deadline:
+            logger.error(
+                "Waitlist promotion notice budget (%ss) ran out after %s of %s "
+                "member(s); bell only for registrations %s",
+                budget,
+                index,
+                len(promoted),
+                [late.pk for late in promoted[index:]],
+            )
+            return
+        notify_waitlist_promotion(
+            registration,
+            bell_written=registration.pk in bells_written,
+            deadline=deadline,
+        )
+
+
+def _record_promotion_notice(registration, outcome) -> None:
+    """Store what reached the promoted member, for the coach event page.
+
+    A queryset update, never save(): this runs inside an on_commit callback,
+    and a save would re-enter the EventRegistration signal stack. Scoped to
+    this promotion's timestamp, so a late callback from an earlier promotion
+    of the same reused row cannot overwrite a newer promotion's outcome.
+    """
+    from .models import EventRegistration
+
+    try:
+        EventRegistration.objects.filter(
+            pk=registration.pk,
+            waitlist_promoted_at=registration.waitlist_promoted_at,
+        ).update(promotion_notice=outcome)
+    except Exception as exc:
+        logger.error(
+            "Failed recording promotion notice for registration %s: %s",
+            registration.pk,
+            type(exc).__name__,
+        )
+
+
+def write_waitlist_promotion_bells(registrations) -> set:
+    """Write a batch's bell rows and record "bell", in constant queries.
+
+    One read (users, profiles and events preloaded, since each bell renders in
+    its member's language), one insert and one update, all inside a savepoint:
+    this runs inside the promotion's transaction, and a failed write must roll
+    back alone, never taking the seats with it. No email, no push, no network;
+    the outcome is upgraded once email or push gets through. Returns the pks
+    whose row was written; anyone else gets the bell from notify() instead.
+    """
+    from django.conf import settings
+    from django.db import transaction
+    from django.db.models import Q
+    from django.utils import translation
+
+    from .models import EventRegistration, Notification
+
+    try:
+        # The member's own language, never the request's: see
+        # notify_waitlist_promotion.
+        with transaction.atomic(), translation.override(settings.LANGUAGE_CODE):
+            stored = EventRegistration.objects.select_related(
+                "user__crushprofile", "event"
+            ).in_bulk([r.pk for r in registrations])
+            rows, written = [], []
+            for registration in registrations:
+                registration = stored.get(registration.pk)
+                if registration is None:
+                    continue
+                try:
+                    payload = NotificationService._render_inapp_payload(
+                        registration.user,
+                        NotificationType.EVENT_WAITLIST_PROMOTED,
+                        {"registration": registration, "event": registration.event},
+                        None,
+                    )
+                except Exception as exc:
+                    logger.error(
+                        "Failed rendering waitlist promotion bell for "
+                        "registration %s: %s",
+                        registration.pk,
+                        type(exc).__name__,
+                    )
+                    continue
+                rows.append(
+                    Notification(
+                        user=registration.user,
+                        notification_type=(
+                            NotificationType.EVENT_WAITLIST_PROMOTED.value
+                        ),
+                        title=str(payload.get("title", ""))[:200],
+                        body=str(payload.get("body", "")),
+                        link_url=payload.get("link_url", ""),
+                        metadata=payload.get("metadata", {}) or {},
+                    )
+                )
+                written.append(registration)
+            if not rows:
+                return set()
+
+            Notification.objects.bulk_create(rows)
+            # Scoped per row to its promotion timestamp, like
+            # _record_promotion_notice.
+            this_promotion = Q()
+            for registration in written:
+                this_promotion |= Q(
+                    pk=registration.pk,
+                    waitlist_promoted_at=registration.waitlist_promoted_at,
+                )
+            EventRegistration.objects.filter(this_promotion).update(
+                promotion_notice=EventRegistration.PromotionNotice.BELL
+            )
+    except Exception as exc:
+        logger.error(
+            "Failed writing %s waitlist promotion bells: %s",
+            len(registrations),
+            type(exc).__name__,
+        )
+        return set()
+    return {registration.pk for registration in written}
 
 
 def notify_profile_recontact(user, profile, coach, request=None) -> NotificationResult:
