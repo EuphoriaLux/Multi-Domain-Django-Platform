@@ -115,7 +115,7 @@ class EventCancellationTimeGateTests(TestCase):
                 f"/en/events/{event.id}/cancel/", HTTP_HOST="crush.lu"
             )
 
-    @patch("crush_lu.views_events.notify_waitlist_promotion")
+    @patch("crush_lu.notification_service.notify_waitlist_promotions")
     @patch("crush_lu.views_events.send_event_cancellation_confirmation")
     @patch("crush_lu.views_events._promote_from_waitlist")
     def test_attended_registration_is_refused_without_promotion_or_email(
@@ -137,7 +137,7 @@ class EventCancellationTimeGateTests(TestCase):
         cancellation_email.assert_not_called()
         promotion_email.assert_not_called()
 
-    @patch("crush_lu.views_events.notify_waitlist_promotion")
+    @patch("crush_lu.notification_service.notify_waitlist_promotions")
     @patch("crush_lu.views_events.send_event_cancellation_confirmation")
     @patch("crush_lu.views_events._promote_from_waitlist")
     def test_live_registration_is_refused_without_promotion_or_email(
@@ -161,7 +161,7 @@ class EventCancellationTimeGateTests(TestCase):
         cancellation_email.assert_not_called()
         promotion_email.assert_not_called()
 
-    @patch("crush_lu.views_events.notify_waitlist_promotion")
+    @patch("crush_lu.notification_service.notify_waitlist_promotions")
     @patch("crush_lu.views_events.send_event_cancellation_confirmation")
     def test_upcoming_cancellation_promotes_waitlist(
         self, cancellation_email, promotion_email
@@ -203,7 +203,7 @@ class EventCancellationTimeGateTests(TestCase):
         )
         self.assertTrue(entry["can_cancel"])
 
-    @patch("crush_lu.views_events.notify_waitlist_promotion")
+    @patch("crush_lu.notification_service.notify_waitlist_promotions")
     @patch("crush_lu.views_events.send_event_cancellation_confirmation")
     @patch("crush_lu.views_events._promote_from_waitlist")
     def test_past_registration_is_refused_without_promotion_or_email(

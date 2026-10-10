@@ -1370,13 +1370,37 @@ def notify_event_reminder(
     )
 
 
+def announce_waitlist_promotions(registrations, request=None) -> None:
+    """Tell members the waitlist just gave them a seat: bell now, the rest on commit.
+
+    Called by every automatic promotion path inside the transaction that saved
+    the promoted rows. The bell rows and their "bell" outcome are written
+    here, so they commit or roll back with the seats. Written from an
+    on_commit callback, they queued behind the Apple and Google Wallet
+    refreshes each promoted row's save schedules; production runs callbacks
+    inline in the request, so slow wallet calls could use up the worker's time
+    before any bell existed, leaving a committed seat unannounced.
+
+    Email and push wait for the commit, so nobody hears about a seat a
+    rollback takes back.
+    """
+    from django.db import transaction
+
+    promoted = list(registrations)
+    bells = write_waitlist_promotion_bells(promoted)
+    transaction.on_commit(
+        lambda: notify_waitlist_promotions(promoted, request, bells_written=bells)
+    )
+
+
 def notify_waitlist_promotion(
     registration, request=None, *, bell_written=False, deadline=None
 ) -> Optional[NotificationResult]:
     """Tell a member the waitlist just gave them a seat: email, push and bell.
 
-    Called by every automatic promotion path once its transaction has
-    committed. The bell row is always written; the email ignores the
+    Runs once the promotion has committed. The bell row is always written,
+    normally already by announce_waitlist_promotions (``bell_written``), so
+    only email and push are left to send; the email ignores the
     event-reminders toggle but honours the ban and the master unsubscribe
     (TRANSACTIONAL_EMAIL_TYPES); push follows each device's event-reminders
     switch. Before this, promotions were email-only behind the reminders
@@ -1385,9 +1409,7 @@ def notify_waitlist_promotion(
 
     Best-effort: the promotion has already committed, so a notification
     failure is logged and swallowed, never raised. What reached the member is
-    recorded on the registration for the coach event page. ``bell_written``
-    means the caller already wrote this member's bell row (a batch does that
-    for everyone first), so only email and push are left to send.
+    recorded on the registration for the coach event page.
 
     Email and push share one wall-clock ``deadline`` (default: now plus
     WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS), because this runs inside the
@@ -1435,8 +1457,9 @@ def notify_waitlist_promotion(
             notification_type=NotificationType.EVENT_WAITLIST_PROMOTED,
             context={"registration": registration, "event": registration.event},
             request=request,
-            # The bell is the one record every promoted member gets; write it
-            # before a slow push or email can hang until the worker dies.
+            # The bell is the one record every promoted member gets; if the
+            # batch could not write it, write it before a slow push or email
+            # can hang until the worker dies.
             inapp_first=True,
             write_inapp=not bell_written,
             deadline=deadline,
@@ -1448,7 +1471,9 @@ def notify_waitlist_promotion(
             registration.pk,
             type(exc).__name__,
         )
-        _record_promotion_notice(registration, notice.FAILED)
+        _record_promotion_notice(
+            registration, notice.BELL if bell_written else notice.FAILED
+        )
         return None
 
     if result.email_sent:
@@ -1467,21 +1492,23 @@ def notify_waitlist_promotion(
         registration.pk,
         result.email_sent,
         result.push_success_count,
-        result.inapp_created,
+        result.inapp_created or bell_written,
     )
     return result
 
 
-def notify_waitlist_promotions(registrations, request=None) -> None:
-    """Notify a batch of promotions without letting the batch outgrow the request.
+def notify_waitlist_promotions(
+    registrations, request=None, bells_written=frozenset()
+) -> None:
+    """Email and push a committed batch without letting it outgrow the request.
 
     A capacity increase can promote many members at once, and on_commit
-    callbacks run inside the admin request (production has no task worker).
-    Every member's bell row is written first, in a constant number of queries
-    (one read with users and profiles preloaded, one insert, one update) and
-    no network, so neither a large batch nor a member whose push or email
-    hangs until the worker is killed can cost later members their notice.
-    Email and push then go out until
+    callbacks run inside the request (production has no task worker). The
+    bells are already written (``bells_written``, by
+    announce_waitlist_promotions); anyone that pass missed gets one here first,
+    in the same constant queries and with no network, so neither a large batch
+    nor a member whose push or email hangs until the worker is killed can cost
+    later members their bell. Email and push then go out until
     WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS runs out; anyone after that keeps
     the bell only, and their registrations are logged at ERROR so staff can
     reach them. The same deadline is forwarded into each member's notice and
@@ -1507,7 +1534,9 @@ def notify_waitlist_promotions(registrations, request=None) -> None:
         if r.pk in stored
         and stored[r.pk].waitlist_promoted_at == r.waitlist_promoted_at
     ]
-    bells = _write_waitlist_promotion_bells(promoted)
+    missed = [r for r in promoted if r.pk not in bells_written]
+    if missed:
+        bells_written = set(bells_written) | write_waitlist_promotion_bells(missed)
 
     budget = getattr(settings, "WAITLIST_PROMOTION_NOTICE_BUDGET_SECONDS", 30.0)
     deadline = time.monotonic() + budget
@@ -1525,7 +1554,7 @@ def notify_waitlist_promotions(registrations, request=None) -> None:
         notify_waitlist_promotion(
             registration,
             request,
-            bell_written=registration.pk in bells,
+            bell_written=registration.pk in bells_written,
             deadline=deadline,
         )
 
@@ -1553,74 +1582,81 @@ def _record_promotion_notice(registration, outcome) -> None:
         )
 
 
-def _write_waitlist_promotion_bells(registrations) -> set:
-    """Write a batch's bell rows in one insert and record "bell" in one update.
+def write_waitlist_promotion_bells(registrations) -> set:
+    """Write a batch's bell rows and record "bell", in constant queries.
 
-    No email, no push, no network; the outcome is upgraded once email or push
-    gets through. Expects ``user__crushprofile`` and ``event`` preloaded, since
-    each bell is rendered in its member's language. Returns the pks whose row
-    was written; anyone else gets the bell from notify() instead.
+    One read (users, profiles and events preloaded, since each bell renders in
+    its member's language), one insert and one update, all inside a savepoint:
+    this runs inside the promotion's transaction, and a failed write must roll
+    back alone, never taking the seats with it. No email, no push, no network;
+    the outcome is upgraded once email or push gets through. Returns the pks
+    whose row was written; anyone else gets the bell from notify() instead.
     """
+    from django.db import transaction
     from django.db.models import Q
 
     from .models import EventRegistration, Notification
 
-    rows, written = [], []
-    for registration in registrations:
-        try:
-            payload = NotificationService._render_inapp_payload(
-                registration.user,
-                NotificationType.EVENT_WAITLIST_PROMOTED,
-                {"registration": registration, "event": registration.event},
-                None,
-            )
-        except Exception as exc:
-            logger.error(
-                "Failed rendering waitlist promotion bell for registration %s: %s",
-                registration.pk,
-                type(exc).__name__,
-            )
-            continue
-        rows.append(
-            Notification(
-                user=registration.user,
-                notification_type=NotificationType.EVENT_WAITLIST_PROMOTED.value,
-                title=str(payload.get("title", ""))[:200],
-                body=str(payload.get("body", "")),
-                link_url=payload.get("link_url", ""),
-                metadata=payload.get("metadata", {}) or {},
-            )
-        )
-        written.append(registration)
-    if not rows:
-        return set()
-
     try:
-        Notification.objects.bulk_create(rows)
+        with transaction.atomic():
+            stored = EventRegistration.objects.select_related(
+                "user__crushprofile", "event"
+            ).in_bulk([r.pk for r in registrations])
+            rows, written = [], []
+            for registration in registrations:
+                registration = stored.get(registration.pk)
+                if registration is None:
+                    continue
+                try:
+                    payload = NotificationService._render_inapp_payload(
+                        registration.user,
+                        NotificationType.EVENT_WAITLIST_PROMOTED,
+                        {"registration": registration, "event": registration.event},
+                        None,
+                    )
+                except Exception as exc:
+                    logger.error(
+                        "Failed rendering waitlist promotion bell for "
+                        "registration %s: %s",
+                        registration.pk,
+                        type(exc).__name__,
+                    )
+                    continue
+                rows.append(
+                    Notification(
+                        user=registration.user,
+                        notification_type=(
+                            NotificationType.EVENT_WAITLIST_PROMOTED.value
+                        ),
+                        title=str(payload.get("title", ""))[:200],
+                        body=str(payload.get("body", "")),
+                        link_url=payload.get("link_url", ""),
+                        metadata=payload.get("metadata", {}) or {},
+                    )
+                )
+                written.append(registration)
+            if not rows:
+                return set()
+
+            Notification.objects.bulk_create(rows)
+            # Scoped per row to its promotion timestamp, like
+            # _record_promotion_notice.
+            this_promotion = Q()
+            for registration in written:
+                this_promotion |= Q(
+                    pk=registration.pk,
+                    waitlist_promoted_at=registration.waitlist_promoted_at,
+                )
+            EventRegistration.objects.filter(this_promotion).update(
+                promotion_notice=EventRegistration.PromotionNotice.BELL
+            )
     except Exception as exc:
         logger.error(
             "Failed writing %s waitlist promotion bells: %s",
-            len(rows),
+            len(registrations),
             type(exc).__name__,
         )
         return set()
-
-    # Scoped per row to its promotion timestamp, like _record_promotion_notice.
-    this_promotion = Q()
-    for registration in written:
-        this_promotion |= Q(
-            pk=registration.pk, waitlist_promoted_at=registration.waitlist_promoted_at
-        )
-    try:
-        EventRegistration.objects.filter(this_promotion).update(
-            promotion_notice=EventRegistration.PromotionNotice.BELL
-        )
-    except Exception as exc:
-        logger.error(
-            "Failed recording promotion notices for %s registrations: %s",
-            len(written),
-            type(exc).__name__,
-        )
     return {registration.pk for registration in written}
 
 

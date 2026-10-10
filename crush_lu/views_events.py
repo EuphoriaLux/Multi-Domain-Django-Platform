@@ -51,7 +51,7 @@ from .email_helpers import (
     send_event_waitlist_notification,
     send_event_cancellation_confirmation,
 )
-from .notification_service import notify_waitlist_promotion
+from .notification_service import announce_waitlist_promotions
 
 logger = logging.getLogger(__name__)
 
@@ -2457,14 +2457,13 @@ def event_cancel(request, event_id):
                     resale_source_registration=registration,
                 )
             if promoted:
-                # Queued inside the promotion's own transaction, so it runs the
-                # moment that commits: before the canceller's email below, whose
-                # network send must not delay or lose the promoted member's
-                # notice, and never for a seat a rollback takes back. The notice
-                # picks the payment ask for a "pending" seat itself.
-                transaction.on_commit(
-                    lambda reg=promoted: notify_waitlist_promotion(reg, request)
-                )
+                # The bell inside this transaction, so it commits or rolls back
+                # with the seat and no Wallet refresh queued by the saves above
+                # can run first. Email and push on commit, still before the
+                # canceller's email below, whose network send must not delay or
+                # lose them, and never for a seat a rollback takes back. The
+                # notice picks the payment ask for a "pending" seat itself.
+                announce_waitlist_promotions([promoted], request)
 
             if credits:
                 messages.success(

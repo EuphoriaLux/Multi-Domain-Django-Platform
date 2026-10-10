@@ -1235,7 +1235,7 @@ def promote_waitlist_on_capacity_increase(sender, instance, created, **kwargs):
         return
 
     from django.db import transaction
-    from .notification_service import notify_waitlist_promotions
+    from .notification_service import announce_waitlist_promotions
     from .views_events import _promote_from_waitlist
 
     with transaction.atomic():
@@ -1259,15 +1259,15 @@ def promote_waitlist_on_capacity_increase(sender, instance, created, **kwargs):
             # Refresh to pick up updated counts
             locked_event.refresh_from_db()
 
-    # On commit, not merely outside the block above: an admin save wraps this
-    # handler in its own transaction, and a member must never hear about a
-    # seat that a rollback takes back. One callback for the whole batch, so a
-    # large capacity jump stays inside a wall-clock budget; anyone past it gets
-    # the bell row only. The notice picks the payment ask for a "pending" seat.
-    if promoted_registrations:
-        transaction.on_commit(
-            lambda regs=promoted_registrations: notify_waitlist_promotions(regs)
-        )
+        # Bells inside this block, so they commit or roll back with the seats
+        # and no Wallet refresh queued by the saves above can run first. Email
+        # and push wait for the commit: an admin save wraps this handler in its
+        # own transaction, and a member must never hear about a seat that a
+        # rollback takes back. One batch, so a large capacity jump stays inside
+        # a wall-clock budget; anyone past it gets the bell row only. The
+        # notice picks the payment ask for a "pending" seat.
+        if promoted_registrations:
+            announce_waitlist_promotions(promoted_registrations)
 
     if promoted_registrations:
         logger.info(
@@ -3724,7 +3724,7 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
     event_pk = event.pk
 
     def _promote_after_commit():
-        from .notification_service import notify_waitlist_promotion
+        from .notification_service import announce_waitlist_promotions
         from .services.credits import (
             credit_registration_for_cancelled_event,
             issue_cancellation_credits,
@@ -3828,15 +3828,13 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
                         ),
                     )
                 if promoted:
-                    # Queued inside the promotion's transaction, so it runs the
-                    # moment that commits: before the canceller's email below,
-                    # whose network send must not delay or lose the promoted
-                    # member's notice. No request here: every channel builds
-                    # its links, and the email its crush.lu sender, without
-                    # one. The notice picks the payment ask for "pending".
-                    transaction.on_commit(
-                        lambda reg=promoted: notify_waitlist_promotion(reg)
-                    )
+                    # The bell inside the promotion's transaction, so it
+                    # commits or rolls back with the seat and no Wallet refresh
+                    # queued by the promotion's save can run first. Email and
+                    # push on that commit, still before the canceller's email
+                    # below, whose network send must not delay or lose them.
+                    # The notice picks the payment ask for "pending".
+                    announce_waitlist_promotions([promoted])
         except Exception:
             logger.exception(
                 "Waitlist promotion failed after cancellation of registration %s",

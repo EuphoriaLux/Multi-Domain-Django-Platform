@@ -11,7 +11,8 @@ bell row is always written; push follows the device's event-reminders switch.
 
 Covers the three automatic paths: the member cancel view, the cancellation
 signal (admin, shell, payment reconciliation) and the capacity-increase
-signal. Each must notify only once the promotion has committed.
+signal. Each writes the bell inside the promotion's transaction, so it commits
+or rolls back with the seat, and sends email and push only once that commits.
 
 Run with: pytest crush_lu/tests/test_waitlist_promotion_notice.py -v
 """
@@ -23,6 +24,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.cache import cache
+from django.db import transaction
 from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
@@ -274,6 +276,21 @@ class CancellationSignalNoticeTests(_PromotionFixture):
         )
 
     def test_notice_failure_never_undoes_the_promotion(self):
+        """The bell fails too, so nothing reached the member: "Not sent"."""
+        with patch(
+            "crush_lu.notification_service.NotificationService.notify",
+            side_effect=RuntimeError("notification stack down"),
+        ), patch(
+            "crush_lu.notification_service.NotificationService._render_inapp_payload",
+            side_effect=RuntimeError("bell renderer down"),
+        ):
+            self._commit(self._cancel_holder())
+
+        self.waiting.refresh_from_db()
+        self.assertEqual(self.waiting.status, "confirmed")
+        self.assertEqual(self.waiting.promotion_notice, "failed")
+
+    def test_a_notice_crash_after_the_bell_still_reports_the_bell(self):
         with patch(
             "crush_lu.notification_service.NotificationService.notify",
             side_effect=RuntimeError("notification stack down"),
@@ -282,7 +299,8 @@ class CancellationSignalNoticeTests(_PromotionFixture):
 
         self.waiting.refresh_from_db()
         self.assertEqual(self.waiting.status, "confirmed")
-        self.assertEqual(self.waiting.promotion_notice, "failed")
+        self.assertEqual(self._bells().count(), 1)
+        self.assertEqual(self.waiting.promotion_notice, "bell")
 
 
 class PaidEventNoticeTests(_PromotionFixture):
@@ -327,7 +345,7 @@ class MemberCancelViewNoticeTests(_PromotionFixture):
             crushlu_consent_given=True
         )
 
-    def test_view_promotes_at_once_but_notifies_only_on_commit(self):
+    def test_view_promotes_and_writes_the_bell_at_once_but_emails_on_commit(self):
         client = Client(HTTP_HOST="crush.lu")
         client.force_login(self.member)
 
@@ -337,8 +355,9 @@ class MemberCancelViewNoticeTests(_PromotionFixture):
         self.assertEqual(response.status_code, 302)
         self.waiting.refresh_from_db()
         self.assertEqual(self.waiting.status, "confirmed")
-        self.assertEqual(self._waiter_mail(), [], "nothing before commit")
-        self.assertFalse(self._bells().exists(), "nothing before commit")
+        self.assertEqual(self._bells().count(), 1, "written with the seat")
+        self.assertEqual(self.waiting.promotion_notice, "bell")
+        self.assertEqual(self._waiter_mail(), [], "no email before commit")
 
         self._commit(callbacks)
 
@@ -351,20 +370,68 @@ class MemberCancelViewNoticeTests(_PromotionFixture):
 class CapacityIncreaseNoticeTests(_PromotionFixture):
     """`signals.promote_waitlist_on_capacity_increase`: staff add seats."""
 
-    def test_capacity_increase_notifies_only_on_commit(self):
+    def test_capacity_increase_writes_the_bell_at_once_but_emails_on_commit(self):
         with self.captureOnCommitCallbacks(execute=False) as callbacks:
             self.event.max_participants = 2
             self.event.save()
 
         self.waiting.refresh_from_db()
         self.assertEqual(self.waiting.status, "confirmed")
-        self.assertEqual(self._waiter_mail(), [], "nothing before commit")
-        self.assertFalse(self._bells().exists(), "nothing before commit")
+        self.assertEqual(self._bells().count(), 1, "written with the seat")
+        self.assertEqual(self.waiting.promotion_notice, "bell")
+        self.assertEqual(self._waiter_mail(), [], "no email before commit")
 
         self._commit(callbacks)
 
         self.assertEqual(len(self._waiter_mail()), 1)
         self.assertEqual(self._bells().count(), 1)
+        self.waiting.refresh_from_db()
+        self.assertEqual(self.waiting.promotion_notice, "email")
+
+    def test_a_rolled_back_capacity_change_takes_its_bells_with_it(self):
+        """An admin save wraps the handler in its own transaction. If the
+        rest of it fails, the rollback takes the seat, its bell and its email
+        with it."""
+        with self.captureOnCommitCallbacks(execute=False) as callbacks:
+            with self.assertRaises(RuntimeError), transaction.atomic():
+                self.event.max_participants = 2
+                self.event.save()
+                raise RuntimeError("the rest of the admin save failed")
+        self._commit(callbacks)
+
+        self.waiting.refresh_from_db()
+        self.assertEqual(self.waiting.status, "waitlist")
+        self.assertFalse(self._bells().exists())
+        self.assertEqual(self._waiter_mail(), [])
+
+    def test_a_bell_that_fails_to_write_never_costs_the_seat(self):
+        """The bell is written inside the promotion's transaction. A database
+        error there rolls back to its own savepoint: the seat still commits,
+        and the bell is written once the promotion has committed."""
+        from crush_lu.notification_service import NotificationService
+
+        real_render = NotificationService._render_inapp_payload
+
+        def unwritable(*args, **kwargs):
+            # link_url is NOT NULL: a genuine IntegrityError from the insert.
+            return {**real_render(*args, **kwargs), "link_url": None}
+
+        with patch.object(
+            NotificationService, "_render_inapp_payload", side_effect=unwritable
+        ), self.captureOnCommitCallbacks(execute=False) as callbacks:
+            self.event.max_participants = 2
+            self.event.save()
+
+        self.waiting.refresh_from_db()
+        self.assertEqual(self.waiting.status, "confirmed")
+        self.assertFalse(self._bells().exists())
+
+        self._commit(callbacks)
+
+        self.assertEqual(self._bells().count(), 1)
+        self.assertEqual(len(self._waiter_mail()), 1)
+        self.waiting.refresh_from_db()
+        self.assertEqual(self.waiting.promotion_notice, "email")
 
     def _second_waiter(self):
         user = self._user("waiter2@example.com")
@@ -452,9 +519,9 @@ class CapacityIncreaseNoticeTests(_PromotionFixture):
 
     def test_the_bell_pass_costs_the_same_queries_for_any_batch_size(self):
         """However many seats a capacity increase opens, writing the bells
-        must not grow with the batch before the deadline even starts."""
+        inside its transaction must not grow with the batch."""
         from crush_lu.models import EventRegistration
-        from crush_lu.notification_service import _write_waitlist_promotion_bells
+        from crush_lu.notification_service import write_waitlist_promotion_bells
 
         now = timezone.now()
         for index in range(4):
@@ -463,18 +530,15 @@ class CapacityIncreaseNoticeTests(_PromotionFixture):
             waitlist_promoted_at=now
         )
 
-        def preloaded(limit):
-            return list(
-                EventRegistration.objects.select_related(
-                    "user__crushprofile", "event"
-                ).filter(event=self.event)[:limit]
-            )
+        def promoted(limit):
+            return list(EventRegistration.objects.filter(event=self.event)[:limit])
 
-        small, large = preloaded(2), preloaded(6)
-        with self.assertNumQueries(2):  # one insert, one outcome update
-            self.assertEqual(len(_write_waitlist_promotion_bells(small)), 2)
-        with self.assertNumQueries(2):
-            self.assertEqual(len(_write_waitlist_promotion_bells(large)), 6)
+        small, large = promoted(2), promoted(6)
+        # A savepoint around one preloading read, one insert, one update.
+        with self.assertNumQueries(5):
+            self.assertEqual(len(write_waitlist_promotion_bells(small)), 2)
+        with self.assertNumQueries(5):
+            self.assertEqual(len(write_waitlist_promotion_bells(large)), 6)
 
     def test_a_member_who_gives_the_seat_back_mid_batch_is_not_emailed(self):
         """Every bell goes out first, so a later member can cancel while

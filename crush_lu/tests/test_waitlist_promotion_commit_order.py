@@ -3,7 +3,8 @@
 The promoted member's bell must exist before the canceller's email is
 attempted: that email is a synchronous network send, and a stall there until
 the worker is killed must not delay or lose the promoted member's only
-guaranteed notice (review on #1241).
+guaranteed notice (review on #1241). The same holds for the Wallet refreshes
+the promoted row's own save queues on commit, ahead of any later callback.
 
 Its own module because it needs ``django_db(transaction=True)``: Django's
 ``TestCase`` defers every on_commit callback to the end of the test, so it
@@ -16,6 +17,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+from django.core import mail
 from django.core.cache import cache
 from django.test import Client
 from django.utils import timezone
@@ -23,6 +25,11 @@ from django.utils import timezone
 pytestmark = pytest.mark.django_db(transaction=True)
 
 BELL_TYPE = "event_waitlist_promoted"
+
+
+class WorkerKilled(BaseException):
+    """What a gunicorn timeout does to the request: not an Exception, so no
+    ``except Exception`` on the way out can swallow it."""
 
 
 @pytest.fixture
@@ -98,6 +105,13 @@ def _bell_seen_when(seat, target):
     return seen, patch(target, side_effect=record)
 
 
+def _cancel_page(seat):
+    """The seat-holder cancels on their own page, as on crush.lu."""
+    client = Client(HTTP_HOST="crush.lu")
+    client.force_login(seat.holder_user)
+    return client.post(f"/en/events/{seat.event.id}/cancel/")
+
+
 def test_cancellation_made_outside_the_member_page(seat):
     seen, patcher = _bell_seen_when(
         seat, "crush_lu.views_payments._send_member_cancellation_safely"
@@ -112,15 +126,74 @@ def test_cancellation_made_outside_the_member_page(seat):
 
 
 def test_member_cancel_page(seat):
-    client = Client(HTTP_HOST="crush.lu")
-    client.force_login(seat.holder_user)
     seen, patcher = _bell_seen_when(
         seat, "crush_lu.views_events.send_event_cancellation_confirmation"
     )
     with patcher:
-        response = client.post(f"/en/events/{seat.event.id}/cancel/")
+        response = _cancel_page(seat)
 
     assert response.status_code == 302
     seat.waiting.refresh_from_db()
     assert seat.waiting.status == "confirmed"
     assert seen == [True]
+
+
+@pytest.fixture
+def wallet_refresh_hangs(seat):
+    """The promoted member holds a Google Wallet pass, and its refresh (two
+    HTTP calls at 30s each) runs until the worker is killed. The promoted
+    row's own save queues it on commit, ahead of any later callback."""
+    from crush_lu.models import CrushProfile
+
+    CrushProfile.objects.filter(user=seat.waiter).update(
+        google_wallet_object_id="issuer.order-waiter"
+    )
+    with patch(
+        "crush_lu.wallet.google_api.update_google_wallet_pass",
+        side_effect=WorkerKilled,
+    ) as refresh:
+        yield refresh
+
+
+def _assert_bell_committed_with_the_seat(seat, refresh):
+    from crush_lu.models import Notification
+
+    refresh.assert_called_once()
+    seat.waiting.refresh_from_db()
+    assert seat.waiting.status == "confirmed"
+    assert (
+        Notification.objects.filter(
+            user=seat.waiter, notification_type=BELL_TYPE
+        ).count()
+        == 1
+    )
+    # Email never got its turn; coaches see that only the bell reached them.
+    assert [m for m in mail.outbox if seat.waiter.email in m.to] == []
+    assert seat.waiting.promotion_notice == "bell"
+
+
+def test_capacity_increase_bell_survives_a_hung_wallet_refresh(
+    seat, wallet_refresh_hangs
+):
+    seat.event.max_participants = 2
+    with pytest.raises(WorkerKilled):
+        seat.event.save()
+
+    _assert_bell_committed_with_the_seat(seat, wallet_refresh_hangs)
+
+
+def test_cancellation_bell_survives_a_hung_wallet_refresh(seat, wallet_refresh_hangs):
+    seat.holder.status = "cancelled"
+    with pytest.raises(WorkerKilled):
+        seat.holder.save()
+
+    _assert_bell_committed_with_the_seat(seat, wallet_refresh_hangs)
+
+
+def test_member_cancel_page_bell_survives_a_hung_wallet_refresh(
+    seat, wallet_refresh_hangs
+):
+    with pytest.raises(WorkerKilled):
+        _cancel_page(seat)
+
+    _assert_bell_committed_with_the_seat(seat, wallet_refresh_hangs)
