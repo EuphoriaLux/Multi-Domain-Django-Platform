@@ -330,6 +330,10 @@ def affinity_list(
         and g.user_id not in blocked
         and not g.removed
     ]
+    # A banned or deactivated owner is hidden from everyone else's list, so
+    # their own ticket must not point them at anyone either.
+    if me.removed:
+        others = []
 
     # The percentile scale is frozen on the registrations numbered at the first
     # print, whatever their current status: a no-show, a cancellation or a

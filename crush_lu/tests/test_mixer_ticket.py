@@ -463,3 +463,11 @@ class MixerTicketTests(TestCase):
         _, b_rows, _ = affinity_list(b, self.event)
         self.assertEqual(dict(before)[num_b], dict(after)[num_b])
         self.assertEqual(dict(after)[num_b], dict(b_rows)[num_a])
+
+    def test_a_removed_owner_gets_an_empty_list(self):
+        owner = self.regs[0]
+        owner.user.is_active = False
+        owner.user.save()
+        number, rows, others = affinity_list(owner, self.event)
+        self.assertEqual(number, self._numbers()[owner.pk])
+        self.assertEqual((rows, others), ([], 0))
