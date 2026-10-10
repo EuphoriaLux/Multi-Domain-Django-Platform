@@ -273,6 +273,25 @@ def test_addresses_used_as_mapping_keys_are_masked_without_merging():
     )
 
 
+def test_non_string_mapping_keys_are_masked():
+    class User:  # its __str__ is the address, as with the auth User here
+        def __str__(self):
+            return "jose@example.com"
+
+    record = _record("Results: %s", {("jane@example.com",): "sent", User(): "failed"})
+    PIIMaskingFilter().filter(record)
+    assert record.getMessage() == (
+        "Results: {('j***e@e***.com',): 'sent', 'j***e@e***.com': 'failed'}"
+    )
+
+
+def test_a_quoted_local_part_holding_several_addresses_is_masked_whole():
+    quoted = '"secret:a@example.com:x:b@example.org:tail"@example.net'
+    record = _record("Sent to %s now", quoted)
+    PIIMaskingFilter().filter(record)
+    assert record.getMessage() == 'Sent to "***"@e***.net now'
+
+
 def test_quoted_local_parts_are_masked():
     # Valid for Django's EmailValidator; the quote next to "@" used to stop
     # the match. A quoted address in ordinary JSON-ish text still masks only
@@ -297,8 +316,9 @@ def test_domains_with_combining_marks_are_masked():
 
 
 def test_non_bmp_domains_are_masked():
-    # Django accepts these through its IDNA fallback; a one-character TLD
-    # is fine when it is non-ASCII.
+    # Django 6.0 rejects these, so no member has one; masked anyway, as raw
+    # input can still reach a log line. A one-character TLD is fine when it
+    # is non-ASCII.
     record = _record("Sent to %s and %s", "jane@example.𐌀", "jane@😀.com")
     PIIMaskingFilter().filter(record)
     assert record.getMessage() == "Sent to j***e@e***.𐌀 and j***e@😀***.com"
@@ -444,6 +464,23 @@ def test_an_exception_mentioning_an_address_is_masked_on_export(exporter):
     # The caller's exception is untouched.
     assert "jane.member@example.com" in str(original)
     assert "jane.member@example.com" in str(original.__cause__)
+
+
+def test_extra_attribute_names_holding_an_address_are_renamed(exporter):
+    """The name is exported too, as the custom dimension's name."""
+    assert telemetry_config.attach_otel_logging_handler_to_root()
+
+    log.info("bulk_send", extra={MEMBER_EMAIL: "sent", "batch": 3})
+
+    [exported] = [
+        item.log_record
+        for item in exporter.get_finished_logs()
+        if item.log_record.body == "bulk_send"
+    ]
+    attributes = dict(exported.attributes)
+    assert not any(MEMBER_EMAIL in key for key in attributes)
+    assert attributes["j***r@e***.com"] == "sent"
+    assert attributes["batch"] == 3
 
 
 def test_extra_attributes_are_masked_on_export(exporter):

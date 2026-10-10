@@ -124,11 +124,13 @@ class PIIMaskingFilter(logging.Filter):
     # limit.
     #
     # Domain: every form EmailValidator accepts. Labels take \w plus any
-    # non-ASCII character, since combining marks (example.कॉम), Unicode
-    # spaces inside its U+00A1-U+FFFF range, and emoji or astral letters
-    # (😀.com, example.𐌀) all pass it. The TLD takes no digits, so
-    # "pkg@1.2.3" stays readable, and needs two characters unless it is
-    # non-ASCII. Also the `localhost` allowlist and bracketed IP literals.
+    # non-ASCII character: its U+00A1-U+FFFF range covers combining marks
+    # (example.कॉम) and Unicode spaces, and astral characters (😀.com,
+    # example.𐌀) are masked as well, although Django 6.0 rejects them. The
+    # TLD takes no digits, so "pkg@1.2.3" stays readable, and needs two
+    # characters unless it is non-ASCII. Also the `localhost` allowlist and
+    # bracketed IP literals. IDNA dot look-alikes (example。com) are not
+    # dots here: Django 6.0 rejects them.
     _NON_ASCII = f'{chr(0xA1)}-{chr(0x10FFFF)}'
     _LOCAL_ATEXT = r"\w.!#$%&'*+/=?^`{|}~"
     _LEADING_DELIMITERS = "&'/=`{|}"
@@ -195,8 +197,8 @@ class PIIMaskingFilter(logging.Filter):
             if start is None:
                 at = text.find('@', at + 1)
                 continue
-            if spans and start < spans[-1][1]:
-                # A quoted local part can hold an "address" of its own.
+            # A quoted local part can hold "addresses" of its own, any number.
+            while spans and start < spans[-1][1]:
                 start = min(start, spans.pop()[0])
             spans.append((start, end))
             at = text.find('@', end)
@@ -327,13 +329,17 @@ class PIIMaskingFilter(logging.Filter):
         """
         masked = {}
         for key, item in mapping.items():
-            if isinstance(key, str):
-                new_key = self._mask_text(key)
-                if new_key != key:
-                    base, n = new_key, 2
-                    while new_key in masked:
-                        new_key = f'{base}#{n}'
-                        n += 1
+            # Not only strings: a tuple or a User key prints its address too.
+            new_key = self._mask_value(key)
+            if new_key is not key and new_key != key:
+                try:
+                    hash(new_key)
+                except TypeError:
+                    new_key = repr(new_key)
+                base, n = new_key, 2
+                while new_key in masked:
+                    new_key = f'{base}#{n}'
+                    n += 1
                 key = new_key
             masked[key] = self._mask_value(item)
         return masked
@@ -373,7 +379,16 @@ class PIIMaskingFilter(logging.Filter):
             # object (Django's `request`) is replaced only when its text
             # holds an address, like any argument.
             for key in self._custom_attrs(record):
-                setattr(record, key, self._mask_value(getattr(record, key)))
+                value = self._mask_value(getattr(record, key))
+                # The name is exported too, as the custom dimension's name.
+                new_key = self._mask_text(key)
+                if new_key != key:
+                    delattr(record, key)
+                    base, n = new_key, 2
+                    while hasattr(record, new_key):
+                        new_key = f'{base}#{n}'
+                        n += 1
+                setattr(record, new_key, value)
         except Exception:
             # A filter that raises propagates into the caller's logging call.
             # Withhold the content rather than risk exporting it unmasked.
