@@ -77,6 +77,27 @@ def mask_phone(phone: str) -> str:
         return digits[:2] + '*** **' + digits[-2:]
 
 
+class _MaskedArgument:
+    """Stands in for a log argument: its ``str()`` and ``repr()``, masked.
+
+    "%r" and every container ("%s" of a list or dict) print an argument with
+    ``repr()``, which need not match its ``str()``: a dataclass-style repr
+    can name an address that ``__str__`` leaves out.
+    """
+
+    __slots__ = ('_text', '_shown')
+
+    def __init__(self, text, shown):
+        self._text = text
+        self._shown = shown
+
+    def __str__(self):
+        return self._text
+
+    def __repr__(self):
+        return self._shown
+
+
 class PIIMaskingFilter(logging.Filter):
     """
     Logging filter that masks PII (emails, phone numbers) in log messages.
@@ -85,8 +106,9 @@ class PIIMaskingFilter(logging.Filter):
     every argument, so "Speed Dating @ Urban Bar" or a multi-line report that
     happens to hold one address keeps the rest of its text. A non-string
     argument (the recipient list of an email, a ``User`` whose ``__str__`` is
-    its address, an exception) is replaced by its masked ``str()`` only when
-    that text holds an address; otherwise it is passed through untouched.
+    its address, an exception) is replaced by a stand-in with its masked
+    ``str()`` and ``repr()`` only when either text holds an address; otherwise
+    it is passed through untouched.
 
     An exception attached with ``exc_info`` is exported with its own message
     and stack trace, read from the exception object rather than from
@@ -227,19 +249,24 @@ class PIIMaskingFilter(logging.Filter):
         return ''.join(parts)
 
     @staticmethod
-    def _exception_text(exc):
+    def _rendered(render, value):
         try:
-            return str(exc)
+            return render(value)
         except Exception:
             return ''
 
+    def _exception_text(self, exc):
+        return self._rendered(str, exc)
+
     @staticmethod
     def _exception_chain(exc):
-        chain, pending = [], [exc]
+        # Every exception stays referenced by `chain`, so its id is stable.
+        chain, seen, pending = [], set(), [exc]
         while pending:
             current = pending.pop()
-            if current is None or any(current is seen for seen in chain):
+            if current is None or id(current) in seen:
                 continue
+            seen.add(id(current))
             chain.append(current)
             pending.extend((current.__cause__, current.__context__))
             # A group's own text is only its label and a count.
@@ -249,6 +276,9 @@ class PIIMaskingFilter(logging.Filter):
 
     def _mentions_address(self, exc):
         texts = [self._exception_text(exc)]
+        # The OTel handler exports str(args[0]) as exception.message, which a
+        # custom __str__ need not show.
+        texts.extend(self._rendered(str, arg) for arg in exc.args)
         texts.extend(str(note) for note in getattr(exc, '__notes__', None) or ())
         return any(self._has_address(text) for text in texts)
 
@@ -320,8 +350,14 @@ class PIIMaskingFilter(logging.Filter):
             # Formatting the record will fail the same way, so it is never
             # exported; leave it for logging's own error handling.
             return value
-        if self._has_address(text):
-            return self._mask_text(text)
+        # Without its own __str__, str() already was repr(): rendering it again
+        # would evaluate a QuerySet a second time.
+        if type(value).__str__ is object.__str__:
+            shown = text
+        else:
+            shown = self._rendered(repr, value)
+        if self._has_address(text) or self._has_address(shown):
+            return _MaskedArgument(self._mask_text(text), self._mask_text(shown))
         return value
 
     def _keys_hold_address(self, mapping):
@@ -366,7 +402,9 @@ class PIIMaskingFilter(logging.Filter):
                 record.msg = record.getMessage()
                 record.args = ()
 
-            record.msg = self._mask_value(record.msg)
+            msg = self._mask_value(record.msg)
+            # getMessage() renders msg with str() alone: keep it plain text.
+            record.msg = str(msg) if isinstance(msg, _MaskedArgument) else msg
             # Note: Phone masking disabled by default as it may cause false positives
             # Uncomment if needed:
             # record.msg = self.PHONE_PATTERN.sub(
@@ -386,18 +424,21 @@ class PIIMaskingFilter(logging.Filter):
 
             # e.g. extra={"error": str(exc)} beside a masked exc_info. An
             # object (Django's `request`) is replaced only when its text
-            # holds an address, like any argument.
+            # holds an address, like any argument. Read and written through
+            # the dict: extra= accepts keys that are not strings, which
+            # getattr() and setattr() reject.
+            attrs = vars(record)
             for key in self._custom_attrs(record):
-                value = self._mask_value(getattr(record, key))
+                value = self._mask_value(attrs[key])
                 # The name is exported too, as the custom dimension's name.
-                new_key = self._mask_text(key)
+                new_key = self._mask_text(key) if isinstance(key, str) else key
                 if new_key != key:
-                    delattr(record, key)
+                    del attrs[key]
                     base, n = new_key, 2
-                    while hasattr(record, new_key):
+                    while new_key in attrs:
                         new_key = f'{base}#{n}'
                         n += 1
-                setattr(record, new_key, value)
+                attrs[new_key] = value
         except Exception:
             # A filter that raises propagates into the caller's logging call.
             # Withhold the content rather than risk exporting it unmasked.
@@ -406,7 +447,7 @@ class PIIMaskingFilter(logging.Filter):
             record.exc_info = None
             record.exc_text = None
             for key in self._custom_attrs(record):
-                delattr(record, key)
+                del vars(record)[key]
 
         return True
 

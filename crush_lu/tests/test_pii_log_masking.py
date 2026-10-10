@@ -218,6 +218,30 @@ def test_an_object_whose_text_is_an_address_is_masked():
     assert record.getMessage() == "Login by j***r@e***.com"
 
 
+def test_an_address_only_in_the_repr_is_masked():
+    # "%r" and containers print repr(), which can name what __str__ leaves out.
+    class Contact:
+        def __str__(self):
+            return "contact #7"
+
+        def __repr__(self):
+            return "<Contact jane.member@example.com>"
+
+    for msg, arg in [
+        ("%r", Contact()),
+        ("%s", [Contact()]),
+        ("%(who)s", {"who": [Contact()]}),
+    ]:
+        record = _record(msg, arg)
+        PIIMaskingFilter().filter(record)
+        assert "jane.member" not in record.getMessage()
+        assert "<Contact j***r@e***.com>" in record.getMessage()
+
+    record = _record("Saved %s", Contact())
+    PIIMaskingFilter().filter(record)
+    assert record.getMessage() == "Saved contact #7"
+
+
 def test_other_arguments_pass_through_untouched():
     marker = object()
     record = _record("%d items, ratio %.1f, %s, %s", 5, 0.25, None, marker)
@@ -491,6 +515,30 @@ def test_an_exception_mentioning_an_address_is_masked_on_export(exporter):
     assert "jane.member@example.com" in str(original.__cause__)
 
 
+def test_an_address_only_in_the_exception_args_is_masked_on_export(exporter):
+    """The OTel handler exports str(args[0]), not str(exc), as the message."""
+    assert telemetry_config.attach_otel_logging_handler_to_root()
+
+    class LookupFailed(Exception):
+        def __str__(self):
+            return "lookup failed"
+
+    try:
+        raise LookupFailed(MEMBER_EMAIL)
+    except LookupFailed:
+        log.error("member lookup", exc_info=True)
+
+    [exported] = [
+        item.log_record
+        for item in exporter.get_finished_logs()
+        if item.log_record.body == "member lookup"
+    ]
+    attributes = dict(exported.attributes)
+    assert MEMBER_EMAIL not in "\n".join(str(value) for value in attributes.values())
+    assert attributes["exception.type"] == "LookupFailed"
+    assert attributes["exception.message"] == "lookup failed"
+
+
 def test_extra_attribute_names_holding_an_address_are_renamed(exporter):
     """The name is exported too, as the custom dimension's name."""
     assert telemetry_config.attach_otel_logging_handler_to_root()
@@ -528,6 +576,25 @@ def test_extra_attributes_are_masked_on_export(exporter):
     ]
     assert exported.attributes["error"] == "no device for j***r@e***.com"
     assert exported.attributes["submission_id"] == 7
+
+
+def test_extra_keys_that_are_not_strings_do_not_raise():
+    # makeRecord() accepts them; getattr() and delattr() reject them, and a
+    # filter that raises fails the caller's logging call.
+    record = log.makeRecord(
+        log.name,
+        logging.INFO,
+        __file__,
+        1,
+        "message",
+        (),
+        None,
+        extra={1: "value", "error": f"no device for {MEMBER_EMAIL}"},
+    )
+    assert PIIMaskingFilter().filter(record) is True
+    assert vars(record)[1] == "value"
+    assert record.error == "no device for j***r@e***.com"
+    assert record.getMessage() == "message"
 
 
 def test_an_exception_without_an_address_is_left_as_it_is():
@@ -569,3 +636,28 @@ def test_an_address_inside_an_exception_group_is_masked():
     assert "ExceptionGroup: 2 invitations failed (2 sub-exceptions)" in rendered
     assert "KeyError: 'slot'" in rendered
     assert MEMBER_EMAIL in str(exc_info[1].exceptions[0])  # caller's is untouched
+
+
+def test_a_large_exception_group_is_scanned_in_linear_time():
+    """A bulk failure can group thousands of exceptions, logged inline.
+
+    Checking each child against every one already seen took 1.5 s for
+    10,000 children and grew with the square.
+    """
+    import sys
+    import time
+    from builtins import ExceptionGroup  # named for ruff; see logging_utils
+
+    try:
+        raise ExceptionGroup(
+            "bulk send failed", [ValueError(f"slot {n}") for n in range(20_000)]
+        )
+    except ExceptionGroup:
+        exc_info = sys.exc_info()
+    record = logging.LogRecord(
+        "test", logging.ERROR, __file__, 1, "failed", (), exc_info
+    )
+    started = time.perf_counter()
+    PIIMaskingFilter().filter(record)
+    assert time.perf_counter() - started < 1.0
+    assert record.exc_info is exc_info
