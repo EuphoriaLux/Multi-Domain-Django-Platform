@@ -153,6 +153,7 @@ class NotificationService:
         context: dict,
         request: Optional[HttpRequest] = None,
         dedupe_key: Optional[str] = None,
+        inapp_first: bool = False,
     ) -> NotificationResult:
         """
         Send notification via independent push and email channels.
@@ -171,6 +172,10 @@ class NotificationService:
                 returns immediately having sent nothing. Callers that want a
                 notification per call leave this None and keep the original
                 ordering (external channels first, bell row last).
+            inapp_first: Write the bell row before any external channel,
+                without a claim. For a notice whose bell is the one guaranteed
+                record: a push or email that hangs until the worker is killed
+                can then no longer take the bell down with it.
 
         Returns:
             NotificationResult with delivery status
@@ -222,6 +227,10 @@ class NotificationService:
                         dedupe_key,
                     )
                     return result
+        elif inapp_first:
+            NotificationService._write_inapp_row(
+                user, notification_type, context, request, result
+            )
 
         # --- Push channel (independent) ---
         try:
@@ -319,32 +328,46 @@ class NotificationService:
         #
         # Skipped when a dedupe_key was given: that row was already written
         # above as the claim, and writing it here too would both duplicate the
-        # bell entry and trip the very constraint that guarded the send.
+        # bell entry and trip the very constraint that guarded the send. Also
+        # skipped when inapp_first already wrote it; retried if that failed.
         if not result.inapp_created:
-            try:
-                from .models import Notification
-
-                payload = NotificationService._render_inapp_payload(
-                    user, notification_type, context, request
-                )
-                if payload:
-                    obj = Notification.objects.create(
-                        user=user,
-                        notification_type=notification_type.value,
-                        title=payload.get("title", "")[:200],
-                        body=payload.get("body", ""),
-                        link_url=payload.get("link_url", ""),
-                        metadata=payload.get("metadata", {}) or {},
-                    )
-                    result.inapp_created = True
-                    result.inapp_id = obj.id
-            except Exception as e:
-                logger.error(
-                    f"Error writing in-app notification for {user.username}: {e}"
-                )
-                result.errors.append(f"In-app error: {e}")
+            NotificationService._write_inapp_row(
+                user, notification_type, context, request, result
+            )
 
         return result
+
+    @staticmethod
+    def _write_inapp_row(
+        user,
+        notification_type: "NotificationType",
+        context: dict,
+        request: Optional[HttpRequest],
+        result: NotificationResult,
+    ) -> None:
+        """Write the bell row and record it on ``result``; never raises."""
+        try:
+            from .models import Notification
+
+            payload = NotificationService._render_inapp_payload(
+                user, notification_type, context, request
+            )
+            if payload:
+                obj = Notification.objects.create(
+                    user=user,
+                    notification_type=notification_type.value,
+                    title=payload.get("title", "")[:200],
+                    body=payload.get("body", ""),
+                    link_url=payload.get("link_url", ""),
+                    metadata=payload.get("metadata", {}) or {},
+                )
+                result.inapp_created = True
+                result.inapp_id = obj.id
+        except Exception as e:
+            logger.error(
+                "Error writing in-app notification for user %s: %s", user.pk, e
+            )
+            result.errors.append(f"In-app error: {e}")
 
     @staticmethod
     def _render_inapp_payload(
@@ -1323,6 +1346,9 @@ def notify_waitlist_promotion(
             notification_type=NotificationType.EVENT_WAITLIST_PROMOTED,
             context={"registration": registration, "event": registration.event},
             request=request,
+            # The bell is the one record every promoted member gets; write it
+            # before a slow push or email can hang until the worker dies.
+            inapp_first=True,
         )
     except Exception as exc:
         logger.error(

@@ -199,6 +199,43 @@ class CancellationSignalNoticeTests(_PromotionFixture):
         self.assertEqual(len(self._waiter_mail()), 1)
         self.assertEqual(self._bells().count(), 1)
 
+    def test_bell_is_written_before_any_push_or_email_is_attempted(self):
+        """A push that hangs until the worker is killed must not take the
+        bell, the one record every promoted member gets, down with it."""
+        from crush_lu.models import PushSubscription
+
+        PushSubscription.objects.create(
+            user=self.waiter,
+            endpoint="https://push.example.test/sub",
+            p256dh_key="p256dh",
+            auth_key="auth",
+        )
+        bell_existed_at_push = []
+        bell_existed_at_email = []
+
+        def push(**kwargs):
+            bell_existed_at_push.append(self._bells().exists())
+            return {"success": 1, "failed": 0, "total": 1}
+
+        from crush_lu import email_helpers
+
+        real_confirmation = email_helpers.send_event_registration_confirmation
+
+        def confirmation(*args, **kwargs):
+            bell_existed_at_email.append(self._bells().exists())
+            return real_confirmation(*args, **kwargs)
+
+        with patch(
+            "crush_lu.push_notifications.send_push_notification", side_effect=push
+        ), patch.object(
+            email_helpers, "send_event_registration_confirmation", confirmation
+        ):
+            self._commit(self._cancel_holder())
+
+        self.assertEqual(bell_existed_at_push, [True])
+        self.assertEqual(bell_existed_at_email, [True])
+        self.assertEqual(self._bells().count(), 1, "written once, not again")
+
     def test_bell_renders_in_the_members_language(self):
         profile = self.waiter.crushprofile
         profile.preferred_language = "de"
