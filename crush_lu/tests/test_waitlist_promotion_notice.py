@@ -136,6 +136,9 @@ class CancellationSignalNoticeTests(_PromotionFixture):
         self.assertEqual(bell.link_url, f"/events/{self.event.id}/")
         self.assertEqual(bell.metadata, {"registration_id": self.waiting.pk})
         self.assertIn("you're in", bell.title)
+        # Recorded for the coach event page.
+        self.assertIsNotNone(self.waiting.waitlist_promoted_at)
+        self.assertEqual(self.waiting.promotion_notice, "email")
 
     def test_master_unsubscribe_gets_bell_but_no_email(self):
         self.prefs.unsubscribed_all = True
@@ -145,6 +148,29 @@ class CancellationSignalNoticeTests(_PromotionFixture):
 
         self.assertEqual(self._waiter_mail(), [])
         self.assertEqual(self._bells().count(), 1)
+        self.waiting.refresh_from_db()
+        self.assertEqual(self.waiting.promotion_notice, "bell")
+
+    def test_push_without_email_is_recorded_as_push_only(self):
+        from crush_lu.models import PushSubscription
+
+        self.prefs.unsubscribed_all = True
+        self.prefs.save()
+        PushSubscription.objects.create(
+            user=self.waiter,
+            endpoint="https://push.example.test/sub",
+            p256dh_key="p256dh",
+            auth_key="auth",
+        )
+
+        with patch(
+            "crush_lu.push_notifications.send_push_notification",
+            return_value={"success": 1, "failed": 0, "total": 1},
+        ):
+            self._commit(self._cancel_holder())
+
+        self.waiting.refresh_from_db()
+        self.assertEqual(self.waiting.promotion_notice, "push")
 
     def test_banned_member_gets_no_email(self):
         from crush_lu.models.profiles import UserDataConsent
@@ -257,6 +283,7 @@ class CancellationSignalNoticeTests(_PromotionFixture):
 
         self.waiting.refresh_from_db()
         self.assertEqual(self.waiting.status, "confirmed")
+        self.assertEqual(self.waiting.promotion_notice, "failed")
 
 
 class PaidEventNoticeTests(_PromotionFixture):
@@ -384,6 +411,9 @@ class CapacityIncreaseNoticeTests(_PromotionFixture):
             )
         self.assertIn("budget", logs.output[0])
         self.assertIn(str(second_reg.pk), logs.output[0])
+        for registration in (self.waiting, second_reg):
+            registration.refresh_from_db()
+            self.assertEqual(registration.promotion_notice, "bell")
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
@@ -399,6 +429,26 @@ class BellLinkTests(_PromotionFixture):
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response["Location"], f"/en/events/{self.event.id}/")
+
+
+class PromotionNoticeRecordTests(_PromotionFixture):
+    def test_a_late_result_cannot_overwrite_a_newer_promotion(self):
+        """A reused row can be promoted again while an earlier promotion's
+        notice is still sending; that late result must not land on the new
+        cycle and hide (or fake) a failed notice."""
+        from crush_lu.models import EventRegistration
+        from crush_lu.notification_service import _record_promotion_notice
+
+        stale = EventRegistration.objects.get(pk=self.waiting.pk)
+        stale.waitlist_promoted_at = timezone.now() - timedelta(hours=1)
+        EventRegistration.objects.filter(pk=self.waiting.pk).update(
+            status="confirmed", waitlist_promoted_at=timezone.now()
+        )
+
+        _record_promotion_notice(stale, EventRegistration.PromotionNotice.EMAIL)
+
+        self.waiting.refresh_from_db()
+        self.assertEqual(self.waiting.promotion_notice, "")
 
 
 class SeatGrantedEmailGateTests(_PromotionFixture):

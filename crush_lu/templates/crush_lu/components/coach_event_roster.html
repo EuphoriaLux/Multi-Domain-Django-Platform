@@ -12,6 +12,7 @@
         <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
             <a href="{% url 'crush_lu:coach_member_overview' reg.user_id %}" class="font-semibold text-crush-purple dark:text-purple-400">{% with profile=reg.user.crushprofile %}{% if profile %}{{ profile.display_name }}{% else %}{{ reg.user.first_name|default:reg.user.username }}{% endif %}{% endwith %}</a>
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ reg.get_status_display }}</p>
+            {% include "crush_lu/components/coach_promotion_notice.html" %}
             <dl class="grid grid-cols-2 gap-2 mt-3 text-sm">
                 <div><dt class="text-xs text-gray-500 dark:text-gray-400">{% trans "Payment" %}</dt><dd class="font-medium dark:text-white">{{ row.payment }}</dd></div>
                 <div><dt class="text-xs text-gray-500 dark:text-gray-400">{% trans "Attendance" %}</dt><dd class="font-medium dark:text-white">{{ row.arrival }}</dd></div>
@@ -26,7 +27,7 @@
             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                 {% for row in rows %}
                 {% with reg=row.registration %}
-                <tr><td class="py-3 pr-4"><a href="{% url 'crush_lu:coach_member_overview' reg.user_id %}" class="font-medium text-crush-purple dark:text-purple-400">{% with profile=reg.user.crushprofile %}{% if profile %}{{ profile.display_name }}{% else %}{{ reg.user.first_name|default:reg.user.username }}{% endif %}{% endwith %}</a></td><td class="py-3 pr-4 dark:text-white">{{ reg.get_status_display }}</td><td class="py-3 pr-4 dark:text-white">{{ row.payment }}</td><td class="py-3 dark:text-white">{{ row.arrival }}</td></tr>
+                <tr><td class="py-3 pr-4"><a href="{% url 'crush_lu:coach_member_overview' reg.user_id %}" class="font-medium text-crush-purple dark:text-purple-400">{% with profile=reg.user.crushprofile %}{% if profile %}{{ profile.display_name }}{% else %}{{ reg.user.first_name|default:reg.user.username }}{% endif %}{% endwith %}</a></td><td class="py-3 pr-4 dark:text-white">{{ reg.get_status_display }}{% include "crush_lu/components/coach_promotion_notice.html" %}</td><td class="py-3 pr-4 dark:text-white">{{ row.payment }}</td><td class="py-3 dark:text-white">{{ row.arrival }}</td></tr>
                 {% endwith %}
                 {% endfor %}
             </tbody>
