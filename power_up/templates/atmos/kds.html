@@ -164,12 +164,26 @@
     stale.forEach(function (key) { storeRemove(localStorage, key); });
   }
 
-  function triggerRawBtPrint(base64Payload) {
+  // onHandedOff runs once the ticket has really left this page: sent over
+  // the print socket, or passed to RawBT's intent on Android. A PC with no
+  // reachable printer never calls it, and neither does a reload that
+  // cancels a pending socket, so the order stays pending and the next 4s
+  // cycle retries it. onFailed runs if scripts/print_bridge.py then closes
+  // with 1011 (the spooler refused the job), so the caller can put it back.
+  function triggerRawBtPrint(base64Payload, onHandedOff, onFailed) {
     if (!base64Payload || typeof base64Payload !== "string") return;
     var trimmed = base64Payload.trim();
     if (!/^[A-Za-z0-9+/=]+$/.test(trimmed)) return;
+    var handedOff = function () { if (onHandedOff) onHandedOff(); };
 
+    // The intent opens RawBT, which only exists on Android. A PC prints
+    // through scripts/print_bridge.py on the same port, or not at all.
+    var isAndroid = /Android/i.test(navigator.userAgent || "");
     var fireIntentFallback = function () {
+      if (!isAndroid) {
+        console.warn("Printer not reachable: start scripts/print_bridge.py on this computer.");
+        return;
+      }
       // Re-validated at the sink (this runs from async ws callbacks). The
       // base64 charset excludes ":" and "#", so `trimmed` cannot alter the
       // fixed intent: scheme or inject a second #Intent extras block.
@@ -177,6 +191,7 @@
       window.location.href =
         "intent:base64," + trimmed +
         "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
+      handedOff();
     };
 
     try {
@@ -195,7 +210,7 @@
           try { ws.close(); } catch (e) {}
           fireIntentFallback();
         }
-      }, 400);
+      }, isAndroid ? 400 : 10000);
 
       ws.onopen = function () {
         wsHandled = true;
@@ -205,6 +220,7 @@
         // wsHandled already true and no fallback fired.
         try {
           ws.send(bytes.buffer);
+          handedOff();
           setTimeout(function () { try { ws.close(); } catch (e) {} }, 250);
         } catch (e) {
           fireIntentFallback();
@@ -216,6 +232,9 @@
           clearTimeout(fallbackTimer);
           fireIntentFallback();
         }
+      };
+      ws.onclose = function (closeEvent) {
+        if (closeEvent.code === 1011 && onFailed) onFailed();
       };
     } catch (e) {
       fireIntentFallback();
@@ -235,8 +254,7 @@
       .then(function (data) {
         if (!data || !data.success || !data.print_payload_base64) return;
         if (opts.auto && data.vignette_pending) return;  // stays pending, retried
-        triggerRawBtPrint(data.print_payload_base64);
-        if (opts.onHandled) opts.onHandled();
+        triggerRawBtPrint(data.print_payload_base64, opts.onHandled, opts.onFailed);
       })
       .catch(function () { /* stays pending; the next pass or tap retries */ });
   }
@@ -289,6 +307,16 @@
     savePending(loadPending().filter(function (id) { return id !== orderId; }));
   }
 
+  // The print bridge refused a ticket already marked handled: retry it on
+  // the next cycle. A reload that lands first keeps it handled, which may
+  // lose this ticket but never prints one twice.
+  function markPending(orderId) {
+    saveSeen((loadSeen() || []).filter(function (id) { return id !== orderId; }));
+    var pendingNow = loadPending();
+    if (pendingNow.indexOf(orderId) === -1) pendingNow.push(orderId);
+    savePending(pendingNow);
+  }
+
   var seen = loadSeen();
   if (seen === null) {
     saveSeen(cards.map(function (card) {
@@ -328,6 +356,7 @@
           printOrder(button.getAttribute("data-print-url"), {
             auto: true,
             onHandled: function () { markHandled(id); },
+            onFailed: function () { markPending(id); },
           });
         }, index * 800);
       });
