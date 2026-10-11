@@ -28277,16 +28277,6 @@ msgstr "Nicht ganz richtig! Versuch eine andere Antwort."
 msgid "An error occurred. Please try again."
 msgstr "Ein Fehler ist aufgetreten. Bitte versuche es erneut."
 
-#: templates/crush_lu/journey/challenges/multiple_choice.html:31
-#: templates/crush_lu/journey/challenges/open_text.html:31
-#: templates/crush_lu/journey/challenges/riddle.html:33
-#: templates/crush_lu/journey/challenges/timeline_sort.html:31
-#: templates/crush_lu/journey/challenges/word_scramble.html:32
-#: templates/crush_lu/journey/challenges/would_you_rather.html:30
-#, python-format
-msgid "%(points)s points available"
-msgstr "%(points)s Punkte verdient"
-
 #: templates/crush_lu/journey/challenges/multiple_choice.html:44
 #, python-format
 msgid "You already answered this question and earned <strong>%(points)s point</strong>."
@@ -44176,7 +44166,12 @@ msgid "Shared before contact choices were available"
 msgstr "Geteilt, bevor die Kontaktauswahl verfügbar war"
 
 # UX Wave 6 · WP5 flows-rest
+#: templates/crush_lu/journey/challenges/multiple_choice.html
 #: templates/crush_lu/journey/challenges/open_text.html
+#: templates/crush_lu/journey/challenges/riddle.html
+#: templates/crush_lu/journey/challenges/timeline_sort.html
+#: templates/crush_lu/journey/challenges/word_scramble.html
+#: templates/crush_lu/journey/challenges/would_you_rather.html
 #, python-format
 msgid "%(points)s point available"
 msgid_plural "%(points)s points available"
