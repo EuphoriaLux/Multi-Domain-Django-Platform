@@ -13,6 +13,7 @@ Covers:
   descriptions say "coach-hosted" instead of "coach-curated".
 """
 
+import json
 import re
 from datetime import timedelta
 from html.parser import HTMLParser
@@ -186,6 +187,28 @@ class LegalCopyDecisionGTests(TestCase):
                 self.assertContains(self.client.get(path, **HOST), phrase)
 
     def test_meta_descriptions_and_json_ld_say_coach_hosted(self):
+        class DescriptionCollector(_Collector):
+            def __init__(self):
+                super().__init__()
+                self.schemas = []
+                self.schema_text = None
+
+            def handle_starttag(self, tag, attrs):
+                super().handle_starttag(tag, attrs)
+                if tag == "script" and dict(attrs).get("type") == "application/ld+json":
+                    self.schema_text = []
+
+            def handle_data(self, data):
+                if self.schema_text is not None:
+                    self.schema_text.append(data)
+
+            def handle_endtag(self, tag):
+                if tag == "script" and self.schema_text is not None:
+                    # Script text is JSON, not HTML: decode escapejs sequences
+                    # with json.loads without HTML-unescaping its contents.
+                    self.schemas.append(json.loads("".join(self.schema_text)))
+                    self.schema_text = None
+
         # /en/support/ has no meta_description block: base.html's default.
         for path in ("/en/events/", "/en/support/"):
             response = self.client.get(path, **HOST)
@@ -195,8 +218,7 @@ class LegalCopyDecisionGTests(TestCase):
                 _meta_description(response.content.decode()).lower(),
                 path,
             )
-        # home.html / how_it_works.html / about.html carry it in JSON-LD or
-        # og:description.
+        # Other pages carry it in JSON-LD or an actual description attribute.
         for path in (
             "/en/",
             "/en/about/",
@@ -205,9 +227,20 @@ class LegalCopyDecisionGTests(TestCase):
             "/en/support/",
         ):
             response = self.client.get(path, **HOST)
-            html = response.content.decode().lower()
-            self.assertNotIn("coach-curated", html, path)
-            self.assertIn("coach-hosted", html, path)
+            self.assertEqual(response.status_code, 200, path)
+            parsed = DescriptionCollector()
+            parsed.feed(response.content.decode())
+            descriptions = [
+                attrs.get("content", "")
+                for attrs in parsed.of("meta")
+                if attrs.get("name") == "description"
+                or attrs.get("property") == "og:description"
+            ]
+            copy = " ".join(
+                [*descriptions, json.dumps(parsed.schemas, ensure_ascii=False)]
+            ).lower()
+            self.assertNotIn("coach-curated", copy, path)
+            self.assertIn("coach-hosted", copy, path)
 
     def test_rtl_today_press_quote_is_kept_verbatim(self):
         response = self.client.get("/en/about/", **HOST)
