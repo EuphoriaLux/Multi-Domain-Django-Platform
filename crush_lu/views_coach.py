@@ -3172,9 +3172,11 @@ def coach_mark_event_no_shows(request, event_id):
         [event],
         context=f"Coach no-show (coach {request.coach.pk})",
         only_ids=shown_ids,
+        guard=no_show_refusal,
     )
     if result.refusal is not None:
-        # The locked re-check caught a curated group certified meanwhile.
+        # The locked re-check caught a change since the check above: the event
+        # was cancelled or rescheduled, or a curated group was certified.
         messages.error(
             request,
             _("No-shows were not recorded: %(reason)s.") % {"reason": result.refusal},

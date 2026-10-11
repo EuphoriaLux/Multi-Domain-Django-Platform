@@ -686,3 +686,47 @@ class NoShowServiceTests(NoShowFixturesMixin, TestCase):
         self.assertEqual(result.updated, 1)
         self.assertEqual(self._status(shown), "no_show")
         self.assertEqual(self._status(restored), "confirmed")
+
+    def test_the_locked_guard_sees_a_cancellation_made_after_the_check(self):
+        # The caller's instance predates the cancellation; the helper re-reads
+        # the locked row and runs the full guard against it.
+        event = make_event("Cancelled meanwhile", self.now - timedelta(days=1))
+        self._attended(event)
+        missing = self._register(event, "confirmed")
+        MeetupEvent.objects.filter(pk=event.pk).update(is_cancelled=True)
+
+        [result] = no_shows.mark_unattended_no_show(
+            [event], context="test", guard=no_shows.no_show_refusal
+        )
+
+        self.assertEqual(result.updated, 0)
+        self.assertEqual(str(result.refusal), "it was cancelled, so nobody missed it")
+        self.assertEqual(self._status(missing), "confirmed")
+
+    def test_the_locked_guard_sees_a_new_date_set_after_the_check(self):
+        event = make_event("Moved meanwhile", self.now - timedelta(days=1))
+        self._attended(event)
+        missing = self._register(event, "confirmed")
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            date_time=self.now + timedelta(days=7)
+        )
+
+        [result] = no_shows.mark_unattended_no_show(
+            [event], context="test", guard=no_shows.no_show_refusal
+        )
+
+        self.assertEqual(result.updated, 0)
+        self.assertEqual(str(result.refusal), "its check-in window has not closed yet")
+        self.assertEqual(self._status(missing), "confirmed")
+
+    def test_the_default_guard_keeps_the_quiz_action_free_of_time_checks(self):
+        # Only the curated check runs by default: the quiz host may tidy up a
+        # quiz that has not ended.
+        event = make_event("Live quiz", self.now - timedelta(minutes=30))
+        missing = self._register(event, "confirmed")
+
+        [result] = no_shows.mark_unattended_no_show([event], context="test")
+
+        self.assertEqual(result.updated, 1)
+        self.assertIsNone(result.refusal)
+        self.assertEqual(self._status(missing), "no_show")

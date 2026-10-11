@@ -2195,10 +2195,13 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                     ),
                 )
 
+        # The full guard again, under the event's locks: an event can be
+        # cancelled or rescheduled between the check above and the update.
         results = mark_unattended_no_show(
             eligible,
             context=f"Admin MeetupEvent no-show ({len(eligible)} event(s))",
             now=now,
+            guard=no_show_refusal,
         )
         for event, updated, left, refusal in results:
             if refusal is not None:

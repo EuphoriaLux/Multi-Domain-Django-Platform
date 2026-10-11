@@ -143,15 +143,18 @@ def no_show_refusal(event, now=None):
     return curated_group_refusal(event)
 
 
-def mark_unattended_no_show(events, *, context, now=None, only_ids=None):
+def mark_unattended_no_show(events, *, context, now=None, only_ids=None, guard=None):
     """Flip every unattended seat holder of *events* to ``no_show``.
 
-    Returns a ``NoShowResult`` per event, in the order given. The caller
-    decides which events are eligible; this applies no time guard, but it
-    does re-run ``curated_group_refusal`` under the event's locks (see the
-    loop). ``only_ids`` restricts the flip to those registrations: the coach
-    page passes the exact list it showed, so a row restored after the check
-    is never marked.
+    Returns a ``NoShowResult`` per event, in the order given. ``guard`` is
+    re-run under the event's locks against the freshly locked row, and a
+    refusal there changes nothing: the callers' own check ran unlocked, and
+    the event can be cancelled, rescheduled or have a curated group certified
+    in between. It defaults to ``curated_group_refusal`` alone, which keeps
+    the QuizEvent action's deliberate lack of a time guard; the MeetupEvent
+    action and the coach page pass ``no_show_refusal``. ``only_ids`` restricts
+    the flip to those registrations: the coach page passes the exact list it
+    showed, so a row restored after the check is never marked.
 
     The wallet refreshes are bounded by the refresh helpers' own push budgets
     and run ONCE for the whole call, so the request stays bounded however
@@ -177,19 +180,20 @@ def mark_unattended_no_show(events, *, context, now=None, only_ids=None):
     for event in events:
         with transaction.atomic():
             # The order CuratedEventGroup.mark_provisional() and lock() take:
-            # the event, then its registrations by pk. Held across the
-            # curated re-check and the update, so a group workflow cannot
-            # certify or lock one of these members in between (the callers'
-            # own check ran unlocked). SQLite ignores these locks, so the
+            # the event, then its registrations by pk. Held across the guard
+            # and the update, so nothing the guard checks can change in
+            # between (the callers' own check ran unlocked). The LOCKED row is
+            # what everything below reads: the caller's instance can predate a
+            # cancellation or a new date. SQLite ignores these locks, so the
             # order is pinned by a structural test, not by the suite passing.
-            MeetupEvent.objects.select_for_update().get(pk=event.pk)
+            event = MeetupEvent.objects.select_for_update().get(pk=event.pk)
             list(
                 EventRegistration.objects.select_for_update()
                 .filter(event_id=event.pk)
                 .order_by("pk")
                 .values_list("pk", flat=True)
             )
-            refusal = curated_group_refusal(event)
+            refusal = (guard or curated_group_refusal)(event)
             if refusal is not None:
                 results.append(NoShowResult(event, 0, 0, refusal))
                 continue
