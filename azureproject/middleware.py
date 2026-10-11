@@ -273,7 +273,6 @@ def csrf_failure_view(request, reason=""):
       Safari "CSRF token missing" reports, 2026-09).
 
     Never log the body, the token value, or any other user-supplied field.
-    Keep this one f-string: PIIMaskingFilter wipes %-style args containing "@".
     """
     content_type = request.META.get("CONTENT_TYPE") or "None"
     content_length = request.META.get("CONTENT_LENGTH") or "None"
