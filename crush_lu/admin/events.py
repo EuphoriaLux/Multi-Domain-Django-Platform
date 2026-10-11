@@ -606,6 +606,21 @@ class EventRegistrationAdminForm(forms.ModelForm):
         return cleaned_data
 
 
+def _forget_reassigned_promotion(registration, changed_fields):
+    """Clear a waitlist promotion's outcome when staff reassign its seat.
+
+    The outcome belongs to the member it reached and the event it named: a
+    seat handed to another member, or moved to another event, was never
+    announced to anyone, so the coach page must not say it was. Both admin
+    paths that can change those fields call this (the registration change
+    form and the event's registration inline). An account merge keeps it:
+    both accounts are the same person, who was told.
+    """
+    if {"event", "user"}.intersection(changed_fields):
+        registration.waitlist_promoted_at = None
+        registration.promotion_notice = ""
+
+
 # Inline admin for Event Registrations
 class EventRegistrationInline(admin.TabularInline):
     model = EventRegistration
@@ -2381,6 +2396,8 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             return
 
         instances = formset.save(commit=False)
+        for obj, changed_fields in formset.changed_objects:
+            _forget_reassigned_promotion(obj, changed_fields)
         for obj in formset.deleted_objects:
             obj.delete()
 
@@ -2631,6 +2648,8 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 level=django_messages.ERROR,
             )
             return
+        if change:
+            _forget_reassigned_promotion(obj, form.changed_data)
         confirmed_payment_date = obj.payment_date
         if payment_changed:
             if obj.payment_confirmed:
@@ -3611,6 +3630,16 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 if pk not in pending_application_ids and pk not in stale_application_ids
             ]
 
+            # Rows that get a seat back, read before the update below. Only
+            # these drop an earlier waitlist promotion's notice outcome: staff
+            # granted this seat and no notice announced it. A row that already
+            # held its seat keeps its outcome, so the coach page still warns
+            # about a promoted member nothing reached.
+            restored_ids = list(
+                EventRegistration.objects.filter(pk__in=confirm_ids)
+                .exclude(status__in=SEAT_HOLDING_STATUSES)
+                .values_list("pk", flat=True)
+            )
             updated = EventRegistration.objects.filter(pk__in=confirm_ids).update(
                 status="confirmed",
                 # QuerySet.update bypasses EventRegistration.save(). A restored
@@ -3618,13 +3647,21 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 # retain the previous cancellation's timing classification.
                 cancelled_at=None,
             )
+            EventRegistration.objects.filter(pk__in=restored_ids).update(
+                waitlist_promoted_at=None, promotion_notice=""
+            )
             awaiting_payment = 0
             if pending_application_ids:
                 # status="applied" in the filter as well as the lock: belt and
                 # braces against acting on a row that moved under us.
                 awaiting_payment = EventRegistration.objects.filter(
                     pk__in=pending_application_ids, status="applied"
-                ).update(status="pending", cancelled_at=None)
+                ).update(
+                    status="pending",
+                    cancelled_at=None,
+                    waitlist_promoted_at=None,
+                    promotion_notice="",
+                )
 
             # Carry a released paid seat's resale claim onto the applicant now
             # taking it.
@@ -3975,8 +4012,10 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                     if registration.status in SEAT_HOLDING_STATUSES
                 }
             )
+            # The seat goes back, so does any record of how its promotion was
+            # announced: a later restore must not show coaches that old result.
             updated = EventRegistration.objects.filter(pk__in=selected_ids).update(
-                status="waitlist"
+                status="waitlist", waitlist_promoted_at=None, promotion_notice=""
             )
 
         # Seat-holding -> waitlist frees a seat, and .update() emits no signals,

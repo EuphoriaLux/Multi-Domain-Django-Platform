@@ -2797,6 +2797,25 @@ def coach_event_detail(request, event_id):
     # inform that choice render on these very cards.
     all_applied = [r for r in all_regs if r.status == "applied"]
 
+    # Members the waitlist gave a seat to whom no email or push got through
+    # (incident 2026-10-10, event 27). A blank outcome next to a promotion
+    # time means the notice crashed before recording one, so it counts too.
+    # Only worth a banner while the coach can still reach them, and never for
+    # a cancelled event, whose registrations stay confirmed/pending.
+    reached = (
+        EventRegistration.PromotionNotice.EMAIL,
+        EventRegistration.PromotionNotice.PUSH,
+    )
+    unnotified_promotions = []
+    if event.date_time > timezone.now() and not event.is_cancelled:
+        unnotified_promotions = [
+            r
+            for r in all_regs
+            if r.status in ("confirmed", "pending")
+            and r.waitlist_promoted_at
+            and r.promotion_notice not in reached
+        ]
+
     # Annotate each waitlisted registration with its global queue position and
     # per-gender-pool position so the coach can see who is next in line.
     pool_counters = {}
@@ -3059,6 +3078,7 @@ def coach_event_detail(request, event_id):
         "other_registrations": all_other,
         "applied_registrations": all_applied,
         "applied_count": len(all_applied),
+        "unnotified_promotions": unnotified_promotions,
         "confirmed_count": confirmed_count,
         "seat_holding_count": seat_holding_count,
         "payment_due_count": payment_due_count,

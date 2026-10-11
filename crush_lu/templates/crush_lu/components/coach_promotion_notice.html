@@ -1,0 +1,21 @@
+{% load i18n %}{% comment %}
+What reached a member the waitlist gave a seat to, for coach cards and the
+roster. Expects `reg`. Renders nothing for a registration that was never
+promoted automatically. A blank outcome next to a promotion time means the
+notice crashed before recording one, so it reads as "not notified" too.
+{% endcomment %}{% if reg.waitlist_promoted_at %}{% if reg.promotion_notice == "email" %}
+<p class="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1" data-promotion-notice="email">
+    {% include "shared/icons/envelope.html" with class="w-3 h-3" %}
+    {% trans "From waitlist" %} · {% trans "emailed" %}
+</p>
+{% elif reg.promotion_notice == "push" %}
+<p class="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1" data-promotion-notice="push" title="{% trans 'The email did not go out; a push notification did.' %}">
+    {% include "shared/icons/device-mobile.html" with class="w-3 h-3" %}
+    {% trans "From waitlist" %} · {% trans "push only" %}
+</p>
+{% else %}
+<p class="text-xs font-medium text-amber-700 dark:text-amber-300 flex items-center gap-1" data-promotion-notice="not-notified" title="{% trans 'No email or push reached this member about the seat.' %}">
+    {% include "shared/icons/bell-slash.html" with class="w-3 h-3" %}
+    {% trans "From waitlist" %} · {% trans "not notified" %}
+</p>
+{% endif %}{% endif %}

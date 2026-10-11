@@ -108,12 +108,14 @@ class EventCancellationTimeGateTests(TestCase):
         return registration, waitlisted
 
     def _cancel(self, event):
-        return self.client.post(
-            reverse("crush_lu:event_cancel", args=[event.id]),
-            HTTP_HOST="crush.lu",
-        )
+        # The promotion notice is sent on commit; run the hooks so a refused
+        # cancellation proves no notice was queued, not merely none sent yet.
+        with self.captureOnCommitCallbacks(execute=True):
+            return self.client.post(
+                f"/en/events/{event.id}/cancel/", HTTP_HOST="crush.lu"
+            )
 
-    @patch("crush_lu.views_events.send_event_registration_confirmation")
+    @patch("crush_lu.notification_service.notify_waitlist_promotions")
     @patch("crush_lu.views_events.send_event_cancellation_confirmation")
     @patch("crush_lu.views_events._promote_from_waitlist")
     def test_attended_registration_is_refused_without_promotion_or_email(
@@ -135,7 +137,7 @@ class EventCancellationTimeGateTests(TestCase):
         cancellation_email.assert_not_called()
         promotion_email.assert_not_called()
 
-    @patch("crush_lu.views_events.send_event_registration_confirmation")
+    @patch("crush_lu.notification_service.notify_waitlist_promotions")
     @patch("crush_lu.views_events.send_event_cancellation_confirmation")
     @patch("crush_lu.views_events._promote_from_waitlist")
     def test_live_registration_is_refused_without_promotion_or_email(
@@ -159,7 +161,7 @@ class EventCancellationTimeGateTests(TestCase):
         cancellation_email.assert_not_called()
         promotion_email.assert_not_called()
 
-    @patch("crush_lu.views_events.send_event_registration_confirmation")
+    @patch("crush_lu.notification_service.notify_waitlist_promotions")
     @patch("crush_lu.views_events.send_event_cancellation_confirmation")
     def test_upcoming_cancellation_promotes_waitlist(
         self, cancellation_email, promotion_email
@@ -201,7 +203,7 @@ class EventCancellationTimeGateTests(TestCase):
         )
         self.assertTrue(entry["can_cancel"])
 
-    @patch("crush_lu.views_events.send_event_registration_confirmation")
+    @patch("crush_lu.notification_service.notify_waitlist_promotions")
     @patch("crush_lu.views_events.send_event_cancellation_confirmation")
     @patch("crush_lu.views_events._promote_from_waitlist")
     def test_past_registration_is_refused_without_promotion_or_email(
