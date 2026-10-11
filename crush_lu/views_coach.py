@@ -4,6 +4,7 @@ from django.core.paginator import Paginator
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.translation import gettext_lazy as _
+from django.utils.translation import ngettext
 from django.db import transaction
 from django.db.models import (
     Q,
@@ -2938,6 +2939,22 @@ def coach_event_detail(request, event_id):
     other_count = len(all_other)
     spots_remaining = max(0, event.max_participants - seat_holding_count)
 
+    # Seat holders never checked in, offered for no-show recording only when
+    # the POST would accept it (so the card never shows a refused button).
+    from .services.no_shows import (
+        NO_SHOW_CANDIDATE_STATUSES,
+        candidate_fingerprint,
+        no_show_refusal,
+    )
+
+    no_show_candidate_ids = [
+        r.pk
+        for r in all_regs
+        if r.status in NO_SHOW_CANDIDATE_STATUSES and r.checked_in_at is None
+    ]
+    if no_show_candidate_ids and no_show_refusal(event) is not None:
+        no_show_candidate_ids = []
+
     # Post-event activity: connections and sparks
     from .models.crush_spark import CrushSpark
 
@@ -3105,8 +3122,100 @@ def coach_event_detail(request, event_id):
         "feedback_summary": feedback_summary,
         "feedback_responses": feedback_responses,
         "coach_recap": coach_recap,
+        "no_show_candidate_count": len(no_show_candidate_ids),
+        "no_show_candidates": candidate_fingerprint(no_show_candidate_ids),
     }
     return render(request, "crush_lu/coach_event_detail.html", context)
+
+
+@coach_required
+@require_http_methods(["POST"])
+def coach_mark_event_no_shows(request, event_id):
+    """Record the event's no-shows: seat holders who were never checked in.
+
+    The same work and guards as the MeetupEvent admin action
+    (``services.no_shows``): refused until the check-in window has closed, for
+    a cancelled event, and when nobody was checked in at all. Open to every
+    active coach, like the door actions on the same event.
+    """
+    from .services.no_shows import (
+        candidate_fingerprint,
+        mark_unattended_no_show,
+        no_show_refusal,
+        unattended_registrations,
+    )
+
+    event = get_object_or_404(MeetupEvent, id=event_id)
+    reason = no_show_refusal(event)
+    if reason is not None:
+        messages.error(
+            request,
+            _("No-shows were not recorded: %(reason)s.") % {"reason": reason},
+        )
+        return redirect("crush_lu:coach_event_detail", event_id=event.id)
+    # Only the list the coach confirmed. A replayed offline POST or a page
+    # left open while someone else changed the roster must not mark more.
+    shown_ids = list(unattended_registrations(event).values_list("pk", flat=True))
+    if request.POST.get("candidates", "") != candidate_fingerprint(shown_ids):
+        messages.error(
+            request,
+            _(
+                "The list of members changed since the page was loaded, so "
+                "nothing was recorded. Check it and try again."
+            ),
+        )
+        return redirect("crush_lu:coach_event_detail", event_id=event.id)
+
+    # only_ids: a row restored between the check above and the update is not
+    # in the list the coach confirmed, so it is never marked.
+    [result] = mark_unattended_no_show(
+        [event],
+        context=f"Coach no-show (coach {request.coach.pk})",
+        only_ids=shown_ids,
+        guard=no_show_refusal,
+    )
+    if result.refusal is not None:
+        # The locked re-check caught a change since the check above: the event
+        # was cancelled or rescheduled, or a curated group was certified.
+        messages.error(
+            request,
+            _("No-shows were not recorded: %(reason)s.") % {"reason": result.refusal},
+        )
+        return redirect("crush_lu:coach_event_detail", event_id=event.id)
+    updated, left = result.updated, result.left
+    # .update() leaves no trace of who did it; this line is the record.
+    logger.info(
+        "Coach %s marked %s registration(s) of event %s as no-show (%s left)",
+        request.coach.pk,
+        updated,
+        event.pk,
+        left,
+    )
+    if updated or not left:
+        messages.success(
+            request,
+            ngettext(
+                "Marked %(count)s registration as no-show.",
+                "Marked %(count)s registrations as no-show.",
+                updated,
+            )
+            % {"count": updated},
+        )
+    if left:
+        # Held back by the Google Wallet cap, untouched: the card shows them
+        # again on reload, and the next press records them.
+        messages.warning(
+            request,
+            ngettext(
+                "%(count)s more member is still to be marked. Press the button "
+                "again to finish.",
+                "%(count)s more members are still to be marked. Press the button "
+                "again to finish.",
+                left,
+            )
+            % {"count": left},
+        )
+    return redirect("crush_lu:coach_event_detail", event_id=event.id)
 
 
 @coach_required

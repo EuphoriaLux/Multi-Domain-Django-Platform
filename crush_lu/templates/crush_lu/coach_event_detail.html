@@ -219,6 +219,25 @@
     </div>
 </div>
 
+<!-- No-shows: only once the check-in window has closed (services.no_shows) -->
+{% if no_show_candidate_count %}
+<div class="mb-6" data-no-show-panel>
+    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">{% trans "Attendance" %}</h3>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
+        <p class="text-sm font-medium dark:text-white">{% blocktrans count counter=no_show_candidate_count %}{{ counter }} member held a place but was never checked in.{% plural %}{{ counter }} members held a place but were never checked in.{% endblocktrans %}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Recording them as no-shows keeps attendance reports accurate. Nobody moves up from the waitlist." %}</p>
+        <details class="mt-3">
+            <summary class="cursor-pointer text-sm font-medium text-red-600 dark:text-red-400 hover:underline">{% trans "Mark as no-show" %}</summary>
+            <form method="post" action="{% url 'crush_lu:coach_mark_event_no_shows' event.id %}" class="mt-3">
+                {% csrf_token %}
+                <input type="hidden" name="candidates" value="{{ no_show_candidates }}">
+                <button type="submit" class="btn-danger btn-sm">{% blocktrans count counter=no_show_candidate_count %}Yes, mark {{ counter }} member as no-show{% plural %}Yes, mark {{ counter }} members as no-show{% endblocktrans %}</button>
+            </form>
+        </details>
+    </div>
+</div>
+{% endif %}
+
 <!-- Post-Event Activity -->
 {% if connection_count or spark_count %}
 <div class="mb-6">

@@ -683,7 +683,7 @@ def _google_relevant_changes(previous, instance, changed, now=None):
         went out while the event was still upcoming — so it can still be
         advertising it, and nothing else in the estate recomputes that (there
         is no "event ended" trigger; see the same reasoning in
-        admin.quiz.mark_unattended_as_no_show). The edit is then the only thing
+        services.no_shows.mark_unattended_no_show). The edit is then the only thing
         that would heal the card, and dropping it forfeits that for good.
 
     So the guard is "neither side is over", not "both sides agree".

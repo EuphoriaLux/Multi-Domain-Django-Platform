@@ -45647,3 +45647,64 @@ msgstr "Façon de se faire vérifier"
 #: crush_lu/templates/crush_lu/coach_dashboard.html:584
 msgid "Reward Levels"
 msgstr "Niveaux de récompense"
+
+#: crush_lu/templates/crush_lu/coach_event_detail.html:227
+#, python-format
+msgid "%(counter)s member held a place but was never checked in."
+msgid_plural "%(counter)s members held a place but were never checked in."
+msgstr[0] "%(counter)s membre avait une place mais n’a jamais été enregistré·e."
+msgstr[1] "%(counter)s membres avaient une place mais n’ont jamais été enregistré·es."
+
+#: crush_lu/templates/crush_lu/coach_event_detail.html:228
+msgid "Recording them as no-shows keeps attendance reports accurate. Nobody moves up from the waitlist."
+msgstr "Les marquer comme absent·es garde des rapports de présence exacts. Personne ne passe de la liste d’attente à une place."
+
+#: crush_lu/templates/crush_lu/coach_event_detail.html:230
+msgid "Mark as no-show"
+msgstr "Marquer comme absent·es"
+
+#: crush_lu/templates/crush_lu/coach_event_detail.html:233
+#, python-format
+msgid "Yes, mark %(counter)s member as no-show"
+msgid_plural "Yes, mark %(counter)s members as no-show"
+msgstr[0] "Oui, marquer %(counter)s membre comme absent·e"
+msgstr[1] "Oui, marquer %(counter)s membres comme absent·es"
+
+#: crush_lu/views_coach.py:3142
+#, python-format
+msgid "No-shows were not recorded: %(reason)s."
+msgstr "Les absences n’ont pas été enregistrées : %(reason)s."
+
+#: crush_lu/views_coach.py:3159
+#, python-format
+msgid "Marked %(count)s registration as no-show."
+msgid_plural "Marked %(count)s registrations as no-show."
+msgstr[0] "%(count)s inscription marquée comme absente."
+msgstr[1] "%(count)s inscriptions marquées comme absentes."
+
+#: crush_lu/services/no_shows.py:76
+msgid "it was cancelled, so nobody missed it"
+msgstr "l’événement a été annulé, personne ne l’a donc manqué"
+
+#: crush_lu/services/no_shows.py:80
+msgid "its check-in window has not closed yet"
+msgstr "la fenêtre d’enregistrement n’est pas encore fermée"
+
+#: crush_lu/services/no_shows.py:88
+msgid "nobody was checked in, so attendance was never recorded"
+msgstr "personne n’a été enregistré, la présence n’a donc jamais été relevée"
+
+#: crush_lu/services/no_shows.py:108
+msgid "some of these members are still in an open curated group; settle it through the group workflow first"
+msgstr "certains de ces membres sont encore dans un groupe sur sélection ouvert ; il faut d’abord le régler via le processus de groupe"
+
+#: crush_lu/views_coach.py:3165
+msgid "The list of members changed since the page was loaded, so nothing was recorded. Check it and try again."
+msgstr "La liste des membres a changé depuis le chargement de la page, rien n’a donc été enregistré. Vérifiez-la et réessayez."
+
+#: crush_lu/views_coach.py
+#, python-format
+msgid "%(count)s more member is still to be marked. Press the button again to finish."
+msgid_plural "%(count)s more members are still to be marked. Press the button again to finish."
+msgstr[0] "%(count)s autre membre reste à marquer. Appuyez à nouveau sur le bouton pour terminer."
+msgstr[1] "%(count)s autres membres restent à marquer. Appuyez à nouveau sur le bouton pour terminer."

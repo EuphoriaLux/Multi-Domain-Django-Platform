@@ -963,6 +963,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "start_curated_round_one",
         "repair_degraded_curated_groups",
         "cancel_events",
+        "mark_unattended_as_no_show",
         "send_event_reminders",
         "export_attendees_csv",
         "sync_to_echo_lu",
@@ -2163,6 +2164,70 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
     def cancel_events_and_credit(self, request, queryset):
         """Backward-compatible alias; the canonical action now always credits."""
         return self.cancel_events(request, queryset)
+
+    @admin.action(
+        description=_("🚷 Mark unchecked-in registrations as No Show (check-in closed)")
+    )
+    def mark_unattended_as_no_show(self, request, queryset):
+        """The QuizEvent action's no-show recording, for every event type.
+
+        Same work, wallet refreshes and no-waitlist-promotion rule
+        (``services.no_shows``), plus the guards the coach event page shares:
+        only once the door's check-in window has closed, never for a
+        cancelled event, and only where the scanner was actually used.
+        """
+        from crush_lu.services.no_shows import (
+            mark_unattended_no_show,
+            no_show_refusal,
+        )
+
+        now = timezone.now()
+        eligible = []
+        for event in queryset:
+            reason = no_show_refusal(event, now=now)
+            if reason is None:
+                eligible.append(event)
+            else:
+                django_messages.warning(
+                    request,
+                    _("'{event}' skipped: {reason}.").format(
+                        event=event, reason=reason
+                    ),
+                )
+
+        # The full guard again, under the event's locks: an event can be
+        # cancelled or rescheduled between the check above and the update.
+        results = mark_unattended_no_show(
+            eligible,
+            context=f"Admin MeetupEvent no-show ({len(eligible)} event(s))",
+            now=now,
+            guard=no_show_refusal,
+        )
+        for event, updated, left, refusal in results:
+            if refusal is not None:
+                django_messages.warning(
+                    request,
+                    _("'{event}' skipped: {reason}.").format(
+                        event=event, reason=refusal
+                    ),
+                )
+                continue
+            if updated or not left:
+                django_messages.success(
+                    request,
+                    _("'{event}': marked {count} registration(s) as No Show.").format(
+                        event=event, count=updated
+                    ),
+                )
+            if left:
+                django_messages.warning(
+                    request,
+                    _(
+                        "'{event}': {left} registration(s) not changed yet — the "
+                        "Google Wallet refresh limit was reached. Run the action "
+                        "again to record them."
+                    ).format(event=event, left=left),
+                )
 
     @admin.action(description=_("🔔 Send reminders to confirmed attendees"))
     def send_event_reminders(self, request, queryset):
