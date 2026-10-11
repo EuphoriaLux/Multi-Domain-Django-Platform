@@ -7,7 +7,6 @@ import logging
 import time
 
 from datetime import timedelta
-from django.db.models import Q
 from django.utils import timezone
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
@@ -15,7 +14,6 @@ from django.utils.translation import gettext_lazy as _
 from azureproject.domains import DOMAINS, get_urlconf_for_host
 from .models import (
     EventConnection,
-    CrushProfile,
     SpecialUserExperience,
     JourneyProgress,
     ProfileSubmission,
@@ -26,6 +24,7 @@ from .models import (
 
 from crush_lu import onboarding
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
+from crush_lu.services.member_context import member_context_data
 
 logger = logging.getLogger(__name__)
 
@@ -152,29 +151,9 @@ def crush_user_context(request):
         # removed) are hidden from every connection surface; reuse the same id
         # set so badge counts can't advertise a pair the lists now hide — the
         # dashboard query and my_connections combine both sets the same way.
-        from .services.blocking import blocked_user_ids
-        from .services.event_lobby import hidden_encounter_user_ids
-
-        blocked_ids = blocked_user_ids(request.user) | hidden_encounter_user_ids(
-            request.user
-        )
-
-        # Connection count for badge. Excludes blocked counterparts — a `shared`
-        # connection isn't terminated on block (contact was already exchanged),
-        # so without this it would keep inflating the active count while
-        # my_connections hides it. Pre-`shared` crush leads are private: the
-        # recipient's badge must not increment the moment a crush is declared
-        # (or when the coach starts review), and the crusher's lead is not a
-        # connection yet — it renders as a neutral lead, not a connection.
-        connection_count = (
-            EventConnection.objects.filter(
-                Q(requester=request.user) | Q(recipient=request.user),
-                status__in=["accepted", "coach_reviewing", "coach_approved", "shared"],
-            )
-            .excluding_unshared_crushes()
-            .exclude(Q(requester_id__in=blocked_ids) | Q(recipient_id__in=blocked_ids))
-            .count()
-        )
+        member_data = member_context_data(request)
+        blocked_ids = member_data.hidden_counterpart_ids
+        connection_count = member_data.connection_count
 
         # Pending connection requests (received). Exclude blocked requesters and
         # safety-removed counterparts so the nav/dashboard badge, the "#received"
@@ -206,7 +185,7 @@ def crush_user_context(request):
 
         # Profile submission status for visual indicators
         profile_submission = None
-        profile = CrushProfile.objects.filter(user=request.user).first()
+        profile = member_data.profile
         context["profile"] = profile
         # Template-safe existence flag for base.html (see _SAFE_NAV_DEFAULTS):
         # avoids a bare {% if user.crushprofile %} reverse lookup in the nav.
@@ -254,9 +233,7 @@ def crush_user_context(request):
             # Expired submissions are closed-out pre-pivot reviews — the navbar
             # must not resurrect "needs action" / coach labels for them, not
             # even from an older non-expired row.
-            profile_submission = ProfileSubmission.latest_for_profile(
-                profile, select_related=("coach__user",)
-            )
+            profile_submission = member_data.submission
 
             if profile_submission:
                 context["profile_submission"] = profile_submission

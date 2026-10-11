@@ -382,10 +382,17 @@ def _verify_pending_luxid_member(request, profile, submission):
         # guard too: a failure there costs the fix-up, not the page.
         if not profile.has_luxid_connected:
             return False
-        _execute_luxid_direct_verify(request.user, profile, submission, request)
+        from .services.member_context import invalidate_member_context_data
+
+        try:
+            _execute_luxid_direct_verify(request.user, profile, submission, request)
+        finally:
+            # The transition may have committed before a later side effect
+            # failed. Never render a cached profile/submission after that.
+            invalidate_member_context_data(request)
     except Exception:
-        # A failure leaves the member stuck on "pending" — never swallow it
-        # silently, but never 500 the page over it either.
+        # Keep failures observable without turning the member page into a
+        # 500; callers reload any state written before a partial failure.
         logger.exception(
             "[LUXID-VERIFY] Lazy fix-up failed for profile pk=%s", profile.pk
         )
@@ -399,23 +406,33 @@ def dashboard(request):
     """User dashboard - always shows the dating profile dashboard.
     Coaches access their coach dashboard via the dedicated Coach tab.
     """
+    from .services.member_context import member_context_data
     from .services.premium_recovery import blocks_new_charge
     from .views_premium import open_recovery_case
 
     # Regular user dashboard
     try:
-        profile = CrushProfile.objects.select_related("assigned_coach__user").get(
-            user=request.user
-        )
+        member_data = member_context_data(request)
+        profile = member_data.profile
+        if profile is None:
+            raise CrushProfile.DoesNotExist
         # Get latest submission status. Expired submissions are closed-out
         # pre-pivot reviews — the user verifies self-serve, so render them
         # like a user with no submission at all (even when older non-expired
         # rows exist — no falling back to legacy messaging).
-        latest_submission = ProfileSubmission.latest_for_profile(profile)
+        latest_submission = member_data.submission
 
         # Start over once verified, so nothing below renders the stale state.
         if _verify_pending_luxid_member(request, profile, latest_submission):
             return redirect("crush_lu:dashboard")
+
+        # A partly failed verification also invalidates the snapshot. Reload
+        # it so explicit dashboard context and the navbar agree after writes.
+        member_data = member_context_data(request)
+        profile = member_data.profile
+        if profile is None:
+            raise CrushProfile.DoesNotExist
+        latest_submission = member_data.submission
 
         # Every registration, oldest first. The dashboard renders only the NEXT
         # one plus counts — the full history lives on my_events, which already
@@ -431,24 +448,10 @@ def dashboard(request):
         # `shared` pair doesn't keep inflating the dashboard badge). Pre-`shared`
         # crush leads are excluded too — a private crush must never move the
         # recipient's counters, in coach_reviewing/coach_approved included.
-        from django.db.models import Q as _Q
-
-        from .services.blocking import blocked_user_ids
-        from .services.event_lobby import hidden_encounter_user_ids
-
-        # Blocked pairs AND safety-removed encounters (removal_pending /
-        # removed) stay mutually invisible, exactly as in my_connections.
-        _blocked_ids = blocked_user_ids(request.user) | hidden_encounter_user_ids(
-            request.user
-        )
-        connection_count = (
-            EventConnection.objects.active_for_user(request.user)
-            .excluding_unshared_crushes()
-            .exclude(
-                _Q(requester_id__in=_blocked_ids) | _Q(recipient_id__in=_blocked_ids)
-            )
-            .count()
-        )
+        # Blocked pairs AND safety-removed encounters stay mutually hidden.
+        # Reuse the same current-member snapshot as the navbar.
+        _blocked_ids = member_data.hidden_counterpart_ids
+        connection_count = member_data.connection_count
 
         # Received connection requests waiting on this member's own action —
         # the dashboard's "Needs action" block surfaces a few of these
