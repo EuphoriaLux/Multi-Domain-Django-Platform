@@ -329,26 +329,30 @@ def _release_request(cache_key, generation=None):
 def _parse_period(period_str):
     """
     Convert period string to seconds.
-    Examples: '15m' -> 900, '1h' -> 3600, '1d' -> 86400
+    Examples: 'm' -> 60, 'h' -> 3600, '15m' -> 900, '1d' -> 86400
     """
     if not period_str:
         return 900  # Default 15 minutes
 
+    # A rate such as '10/h' omits the multiplier, meaning one hour.
+    if period_str in {"s", "m", "h", "d"}:
+        period_str = f"1{period_str}"
+
     # Extract number and unit
     num_str = period_str[:-1] if period_str[-1].isalpha() else period_str
-    unit = period_str[-1] if period_str[-1].isalpha() else 'm'
+    unit = period_str[-1] if period_str[-1].isalpha() else "m"
 
     try:
         num = int(num_str)
     except ValueError:
         num = 15
-        unit = 'm'
+        unit = "m"
 
     multipliers = {
-        's': 1,        # seconds
-        'm': 60,       # minutes
-        'h': 3600,     # hours
-        'd': 86400,    # days
+        "s": 1,  # seconds
+        "m": 60,  # minutes
+        "h": 3600,  # hours
+        "d": 86400,  # days
     }
 
     return num * multipliers.get(unit, 60)

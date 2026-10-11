@@ -99,17 +99,8 @@ class PWAInstaller {
     }
 
     showInstallButton() {
-        // Check if user has dismissed the banner (re-show after 30 days)
-        var dismissed = localStorage.getItem("crush-pwa-install-dismissed");
-        if (dismissed) {
-            var dismissedAt = parseInt(dismissed, 10);
-            var thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-            if (!isNaN(dismissedAt) && Date.now() - dismissedAt < thirtyDaysMs) {
-                return;
-            }
-            // Expired or legacy 'true' value — remove and continue showing
-            localStorage.removeItem("crush-pwa-install-dismissed");
-        }
+        // Same 30-day dismissal policy as the dashboard's install card.
+        if (Alpine.store("prompts").installCooldownActive()) return;
 
         // Dispatch event to show banner with platform info (Alpine.js handles visibility)
         window.dispatchEvent(
@@ -141,7 +132,10 @@ class PWAInstaller {
         this.deferredPrompt.prompt();
 
         // Wait for the user to respond to the prompt
-        await this.deferredPrompt.userChoice;
+        var result = await this.deferredPrompt.userChoice;
+        if (result.outcome === "dismissed") {
+            this.dismissBanner();
+        }
 
         // Clear the deferred prompt
         this.deferredPrompt = null;
@@ -154,8 +148,7 @@ class PWAInstaller {
     }
 
     dismissBanner() {
-        // Remember user dismissed the banner
-        localStorage.setItem("crush-pwa-install-dismissed", Date.now().toString());
+        Alpine.store("prompts").dismissInstall();
         this.hideInstallButton();
     }
 

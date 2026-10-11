@@ -90,6 +90,38 @@ document.addEventListener("alpine:init", function () {
         set(name, on) {
             this[name] = !!on;
         },
+        // The banner and dashboard share one dismissal timestamp. A failed
+        // storage read suppresses an unsolicited offer, like sessionCount().
+        installCooldownActive() {
+            try {
+                var dismissed = localStorage.getItem("crush-pwa-install-dismissed");
+                if (dismissed === null) return false;
+                var dismissedAt = Number(dismissed);
+                var now = Date.now();
+                if (
+                    /^\d+$/.test(dismissed) &&
+                    Number.isSafeInteger(dismissedAt) &&
+                    dismissedAt > 0 &&
+                    dismissedAt <= now &&
+                    now - dismissedAt < 30 * 24 * 60 * 60 * 1000
+                ) {
+                    return true;
+                }
+                // Expired, future, malformed or legacy "true" values.
+                localStorage.removeItem("crush-pwa-install-dismissed");
+                return false;
+            } catch (e) {
+                return true;
+            }
+        },
+        dismissInstall() {
+            try {
+                localStorage.setItem("crush-pwa-install-dismissed", String(Date.now()));
+            } catch (e) {
+                // Still hide this visit's offer when storage is unavailable.
+            }
+            this.set("install", false);
+        },
         holdMessage() {
             this.messages += 1;
         },
@@ -7119,6 +7151,8 @@ document.addEventListener("alpine:init", function () {
                     Alpine.store("prompts").set("install", on);
                 });
 
+                if (document.documentElement.hasAttribute("data-native-app")) return;
+
                 // Check if already installed (standalone mode)
                 if (
                     window.matchMedia("(display-mode: standalone)").matches ||
@@ -7133,6 +7167,18 @@ document.addEventListener("alpine:init", function () {
                     self.isInstalled = true;
                     return;
                 }
+
+                window.addEventListener("pwa-hide-install", function () {
+                    self.canInstall = false;
+                    self.showInstructions = false;
+                    self.showFallback = false;
+                    self.deferredPrompt = null;
+                    Alpine.store("prompts").set("install", false);
+                });
+
+                // Installed status remains visible above; only the offer and
+                // iOS instructions obey the shared 30-day cooldown.
+                if (Alpine.store("prompts").installCooldownActive()) return;
 
                 // iOS-specific instructions (no beforeinstallprompt on iOS).
                 // iPadOS Safari reports a desktop "Macintosh" UA, so detect it
@@ -7149,6 +7195,7 @@ document.addEventListener("alpine:init", function () {
                 // Listen for beforeinstallprompt event (Chrome, Edge, Samsung)
                 window.addEventListener("beforeinstallprompt", function (e) {
                     e.preventDefault();
+                    if (Alpine.store("prompts").installCooldownActive()) return;
                     self.deferredPrompt = e;
                     self.canInstall = true;
                     self.showFallback = false;
@@ -7183,6 +7230,9 @@ document.addEventListener("alpine:init", function () {
                 self.deferredPrompt.userChoice.then(function (result) {
                     if (result.outcome === "accepted") {
                         self.isInstalled = true;
+                    } else if (result.outcome === "dismissed") {
+                        Alpine.store("prompts").dismissInstall();
+                        window.dispatchEvent(new CustomEvent("pwa-hide-install"));
                     }
                     // A used prompt can't be shown again, so a dismissed
                     // one must not leave a dead Install button behind. The

@@ -3204,6 +3204,7 @@
     padding: 60px;
     position: relative;
     z-index: 1;
+    overflow-wrap: anywhere;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
     border: 15px solid transparent;
     border-image: linear-gradient(135deg, #ffd700, #ffa500, #ff6b9d, #9b59b6) 1;
@@ -4356,6 +4357,16 @@ html:not(.dark) body.journey-bg #main-content :is(.journey-mc-option-card, .jour
     position: relative;
     z-index: 1;
 }
+.certificate-back .nav-btn {
+    max-width: 100%;
+    justify-content: center;
+    overflow-wrap: anywhere;
+}
+.certificate-container .action-btn {
+    max-width: calc(100% - 20px);
+    justify-content: center;
+    overflow-wrap: anywhere;
+}
 .certificate-header {
     text-align: center;
     margin-bottom: 40px;
@@ -4397,10 +4408,26 @@ html:not(.dark) body.journey-bg #main-content :is(.journey-mc-option-card, .jour
     background-clip: text;
     margin: 20px 0;
 }
-.stat-box {
+/* Certificate statistics must not inherit the global marketing stats grid. */
+.certificate-stats-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+    gap: 1rem;
+    margin: 40px 0;
+}
+.certificate-stat-box {
+    min-width: 0;
     text-align: center;
-    min-width: 150px;
-    margin: 10px;
+}
+.certificate-stat-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--color-crush-purple);
+}
+.certificate-stat-label {
+    font-size: 1rem;
+    color: var(--text-muted);
+    margin-top: 5px;
 }
 .quote-section {
     margin: 40px 0;
@@ -4560,10 +4587,6 @@ html.dark .certificate-signature-value {
 
     .certificate-journey-title {
         font-size: 1.5rem;
-    }
-
-    .stat-box {
-        min-width: 100px;
     }
 
     .certificate-footer {
