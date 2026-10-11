@@ -20,8 +20,15 @@ from unittest import mock
 import polib
 from django.conf import settings
 from django.core.cache import cache
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 
+from crush_lu.tests.test_event_lobby import (
+    _end_event,
+    _join,
+    _login,
+    _make_event,
+    _make_member,
+)
 from crush_lu.tests.test_ux_wave3_verify_email import (
     _FakeSocialSignupForm,
     _render_crush_page,
@@ -246,6 +253,57 @@ RECAP = {
         "Habt ihr euch persönlich getroffen?",
     ),
     "See People I've Met": ("Mes rencontres", "Meine Begegnungen"),
+    "Confirmed. They only find out if they confirm you too.": (
+        "Confirmé. Cette personne ne le saura que si elle confirme aussi vous avoir "
+        "rencontré(e).",
+        "Bestätigt. Die andere Person erfährt es nur, wenn sie ebenfalls bestätigt, "
+        "dich getroffen zu haben.",
+    ),
+    "{name} was added to People I have Met.": (
+        "{name} a été ajouté(e) à « Mes rencontres ».",
+        "{name} wurde zu „Meine Begegnungen“ hinzugefügt.",
+    ),
+    "The recap window has closed.": (
+        "La période de confirmation des rencontres est terminée.",
+        "Der Zeitraum zum Bestätigen deiner Begegnungen ist abgelaufen.",
+    ),
+    "people from the event believe you met.": (
+        "personnes présentes à l’événement pensent vous avoir rencontré(e).",
+        "Personen von der Veranstaltung glauben, dich getroffen zu haben.",
+    ),
+    "Mark everyone you actually met. It stays anonymous — a name is revealed and "
+    "added to People I've Met only when you both confirm.": (
+        "Indiquez toutes les personnes que vous avez réellement rencontrées. Cela "
+        "reste anonyme — un prénom est révélé et ajouté à « Mes rencontres » "
+        "uniquement lorsque vous confirmez tous les deux.",
+        "Markiere alle Personen, die du tatsächlich getroffen hast. Es bleibt "
+        "anonym — ein Name wird erst angezeigt und zu „Meine Begegnungen“ "
+        "hinzugefügt, wenn ihr beide bestätigt.",
+    ),
+    "No one else joined this lobby.": (
+        "Personne d’autre n’a rejoint ce lobby.",
+        "Niemand sonst ist dieser Lobby beigetreten.",
+    ),
+    "Tiles with a name are people you both wanted to meet at the event.": (
+        "Les vignettes avec un prénom correspondent aux personnes que vous "
+        "souhaitiez rencontrer à l’événement et qui souhaitaient également vous "
+        "rencontrer.",
+        "Kacheln mit einem Namen zeigen Personen, die du bei der Veranstaltung "
+        "treffen wolltest und die dich ebenfalls treffen wollten.",
+    ),
+    "Are you sure? This cannot be undone. You'll only be added to each other's "
+    "People I've Met if you both confirm.": (
+        "Êtes-vous sûr(e) ? Cette action est irréversible. Vous ne serez ajoutés à "
+        "vos listes « Mes rencontres » respectives que si vous confirmez tous les "
+        "deux.",
+        "Bist du sicher? Dies kann nicht rückgängig gemacht werden. Ihr werdet "
+        "nur zu euren jeweiligen Listen „Meine Begegnungen“ hinzugefügt, wenn "
+        "ihr beide bestätigt.",
+    ),
+    "Yes, we met": (
+        "Oui, nous nous sommes rencontrés",
+        "Ja, wir haben uns getroffen",
+    ),
 }
 
 
@@ -260,6 +318,55 @@ class RecapTranslationTests(SimpleTestCase):
                 if "fuzzy" in entry.flags or stale or entry.msgstr != expected:
                     wrong.append((msgid, entry.msgstr, entry.flags))
         self.assertEqual(wrong, [])
+
+
+@override_settings(
+    CRUSH_EVENT_LOBBY_ENABLED=True,
+    CRUSH_CONNECT_LAUNCHED=True,
+    AZURE_ACCOUNT_NAME="",
+)
+class RecapPageTranslationTests(TestCase):
+    def setUp(self):
+        cache.clear()
+
+    def test_recap_page_translates_populated_and_empty_states(self):
+        """Compiled translations reach both the page and its JS data messages."""
+        for populated in (False, True):
+            event = _make_event()
+            alice = _make_member(f"recap-alice-{populated}")
+            _join(alice, event)
+            if populated:
+                ben = _make_member("recap-ben", gender="M")
+                _join(ben, event)
+            _end_event(event)
+            _login(self.client, alice)
+
+            for lang in ("en", "de", "fr"):
+                with self.subTest(language=lang, populated=populated):
+                    response = self.client.get(
+                        f"/{lang}/events/{event.pk}/lobby/", HTTP_HOST=HOST
+                    )
+                    self.assertEqual(response.status_code, 200)
+                    self.assertTemplateUsed(response, "crush_lu/event_lobby/recap.html")
+                    body = html.unescape(response.content.decode())
+                    for msgid, (fr_text, de_text) in RECAP.items():
+                        if populated and msgid == "No one else joined this lobby.":
+                            continue
+                        if not populated and (
+                            msgid.startswith("Tiles with a name")
+                            or msgid == "Confirm you met this participant"
+                        ):
+                            continue
+                        expected = {"en": msgid, "fr": fr_text, "de": de_text}[lang]
+                        self.assertTrue(
+                            expected in body,
+                            f"{lang}/{populated}: missing translation for {msgid!r}",
+                        )
+                        if lang != "en":
+                            self.assertFalse(
+                                msgid in body,
+                                f"{lang}/{populated}: English fallback for {msgid!r}",
+                            )
 
 
 REFERRAL_TIER_MSGIDS = (

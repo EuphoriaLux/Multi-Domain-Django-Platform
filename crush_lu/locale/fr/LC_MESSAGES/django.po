@@ -26624,6 +26624,8 @@ msgstr "Qui avez-vous rencontré ?"
 #: templates/crush_lu/event_lobby/recap.html:18
 msgid "Confirmed. They only find out if they confirm you too."
 msgstr ""
+"Confirmé. Cette personne ne le saura que si elle confirme aussi vous avoir "
+"rencontré(e)."
 
 #: templates/crush_lu/event_lobby/recap.html:19
 msgid "You already confirmed you met this person."
@@ -26632,12 +26634,12 @@ msgstr "Vous avez déjà confirmé avoir rencontré cette personne."
 #: templates/crush_lu/event_lobby/recap.html:21
 #, python-brace-format
 msgid "{name} was added to People I have Met."
-msgstr ""
+msgstr "{name} a été ajouté(e) à « Mes rencontres »."
 
 #: templates/crush_lu/event_lobby/recap.html:22
 #: templates/crush_lu/event_lobby/recap.html:103
 msgid "The recap window has closed."
-msgstr ""
+msgstr "La période de confirmation des rencontres est terminée."
 
 #: templates/crush_lu/event_lobby/recap.html:32
 msgid "left to confirm"
@@ -26645,13 +26647,16 @@ msgstr "restant pour confirmer"
 
 #: templates/crush_lu/event_lobby/recap.html:36
 msgid "people from the event believe you met."
-msgstr ""
+msgstr "personnes présentes à l’événement pensent vous avoir rencontré(e)."
 
 #: templates/crush_lu/event_lobby/recap.html:39
 msgid ""
 "Mark everyone you actually met. It stays anonymous — a name is revealed and "
 "added to People I've Met only when you both confirm."
 msgstr ""
+"Indiquez toutes les personnes que vous avez réellement rencontrées. Cela "
+"reste anonyme — un prénom est révélé et ajouté à « Mes rencontres » "
+"uniquement lorsque vous confirmez tous les deux."
 
 #: templates/crush_lu/event_lobby/recap.html:55
 #: templates/crush_lu/event_lobby/recap.html:104
@@ -26664,11 +26669,13 @@ msgstr "Confirmez que vous avez rencontré cette personne"
 
 #: templates/crush_lu/event_lobby/recap.html:88
 msgid "No one else joined this lobby."
-msgstr ""
+msgstr "Personne d’autre n’a rejoint ce lobby."
 
 #: templates/crush_lu/event_lobby/recap.html:95
 msgid "Tiles with a name are people you both wanted to meet at the event."
 msgstr ""
+"Les vignettes avec un prénom correspondent aux personnes que vous souhaitiez "
+"rencontrer à l’événement et qui souhaitaient également vous rencontrer."
 
 #: templates/crush_lu/event_lobby/recap.html:114
 msgid "Did you meet in person?"
@@ -26679,10 +26686,13 @@ msgid ""
 "Are you sure? This cannot be undone. You'll only be added to each other's "
 "People I've Met if you both confirm."
 msgstr ""
+"Êtes-vous sûr(e) ? Cette action est irréversible. Vous ne serez ajoutés à "
+"vos listes « Mes rencontres » respectives que si vous confirmez tous les "
+"deux."
 
 #: templates/crush_lu/event_lobby/recap.html:124
 msgid "Yes, we met"
-msgstr ""
+msgstr "Oui, nous nous sommes rencontrés"
 
 #: templates/crush_lu/event_polls/_poll_results_partial.html:56
 msgid "Your vote has been recorded. Thank you!"
