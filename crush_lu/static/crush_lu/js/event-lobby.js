@@ -24,6 +24,10 @@ document.addEventListener("alpine:init", function () {
             ended: false,
             readOnly: false,
             confirmOpen: false,
+            confirmGeneration: 0,
+            accessRevoked: false,
+            confirmDialog: null,
+            componentRoot: null,
             confirmHandle: null,
             confirmPhotoUrl: "",
             sending: false,
@@ -37,6 +41,23 @@ document.addEventListener("alpine:init", function () {
 
             init: function () {
                 var root = this.$el;
+                var self = this;
+                this.componentRoot = root;
+                this.confirmDialog = window.makeEventConfirmDialog(
+                    root.querySelector("[data-confirm-dialog]"),
+                    function () { self.closeConfirm(); },
+                    function (opener, usable) {
+                        if (self.ended) return root.querySelector("[data-phase-focus]");
+                        if (usable(opener)) return opener;
+                        var tiles = root.querySelectorAll("button[data-handle]");
+                        for (var i = 0; i < tiles.length; i++) {
+                            if (opener && tiles[i].dataset.handle === opener.dataset.handle && usable(tiles[i])) {
+                                return tiles[i];
+                            }
+                        }
+                        return root.querySelector("[data-event-focus]");
+                    }
+                );
                 this.stateUrl = root.dataset.stateUrl;
                 this.signalUrl = root.dataset.signalUrl;
                 this.wsPath = root.dataset.wsPath;
@@ -75,7 +96,7 @@ document.addEventListener("alpine:init", function () {
                 this.bindGrid();
             },
 
-            destroy: function () {
+            stopUpdates: function () {
                 if (this.pollTimer !== null) clearInterval(this.pollTimer);
                 if (this.tickTimer !== null) clearInterval(this.tickTimer);
                 if (this.ws) {
@@ -85,6 +106,17 @@ document.addEventListener("alpine:init", function () {
             },
 
             // --- Header displays -------------------------------------------
+
+            destroy: function () {
+                this.confirmGeneration += 1;
+                this.confirmOpen = false;
+                this.sending = false;
+                this.confirmHandle = null;
+                this.confirmPhotoUrl = "";
+                this.accessRevoked = true;
+                this.stopUpdates();
+                if (this.confirmDialog) this.confirmDialog.destroy();
+            },
 
             get countdownDisplay() {
                 var s = Math.max(0, this.secondsToEnd);
@@ -167,29 +199,44 @@ document.addEventListener("alpine:init", function () {
                     if (this.signalsRemaining <= 0) this.showBanner(this.msgs.quota);
                     return;
                 }
-                this.$root.querySelectorAll("button[data-handle]").forEach(function (tile) {
+                this.componentRoot.querySelectorAll("button[data-handle]").forEach(function (tile) {
                     var selected = tile.dataset.handle === handle;
                     tile.setAttribute("aria-pressed", selected ? "true" : "false");
                     tile.classList.toggle("ring-4", selected);
                     tile.classList.toggle("ring-crush-pink", selected);
                 });
+                this.confirmGeneration += 1;
+                this.sending = false;
                 this.confirmHandle = handle;
                 this.confirmPhotoUrl = photoUrl || "";
                 this.confirmOpen = true;
+                var self = this;
+                var generation = this.confirmGeneration;
+                var opener = document.activeElement;
+                this.$nextTick(function () {
+                    if (self.confirmOpen && generation === self.confirmGeneration) {
+                        self.confirmDialog.open(opener);
+                    }
+                });
             },
 
             closeConfirm: function () {
+                this.confirmGeneration += 1;
                 this.confirmOpen = false;
-                this.$root.querySelectorAll('button[aria-pressed="true"]').forEach(function (tile) {
+                this.sending = false;
+                this.confirmDialog.close();
+                this.componentRoot.querySelectorAll('button[aria-pressed="true"]').forEach(function (tile) {
                     tile.setAttribute("aria-pressed", "false");
                     tile.classList.remove("ring-4", "ring-crush-pink");
                 });
                 this.confirmHandle = null;
+                this.confirmPhotoUrl = "";
             },
 
             confirmSignal: function () {
                 var self = this;
-                if (this.sending || !this.confirmHandle) return;
+                if (this.sending || !this.confirmOpen || !this.confirmHandle) return;
+                var generation = this.confirmGeneration;
                 this.sending = true;
                 fetch(this.signalUrl, {
                     method: "POST",
@@ -204,7 +251,13 @@ document.addEventListener("alpine:init", function () {
                         return r.json().catch(function () { return null; });
                     })
                     .then(function (data) {
-                        self.sending = false;
+                        if (self.accessRevoked || self.ended) return;
+                        // A cancelled request may have committed on the server.
+                        // Re-sync it without closing or relabelling a new sheet.
+                        if (generation !== self.confirmGeneration) {
+                            self.refetch();
+                            return;
+                        }
                         self.closeConfirm();
                         if (!data) return;
                         if (!data.ok) {
@@ -231,8 +284,7 @@ document.addEventListener("alpine:init", function () {
                         self.refetch();
                     })
                     .catch(function () {
-                        self.sending = false;
-                        self.closeConfirm();
+                        if (generation === self.confirmGeneration) self.closeConfirm();
                     });
             },
 
@@ -240,10 +292,11 @@ document.addEventListener("alpine:init", function () {
 
             refetch: function () {
                 var self = this;
+                if (this.accessRevoked || this.ended) return;
                 fetch(this.stateUrl, { headers: { "Accept": "application/json" } })
                     .then(function (r) { return self.readStateResponse(r); })
                     .then(function (data) {
-                        if (!data || !data.ok) return;
+                        if (!data || !data.ok || self.accessRevoked || self.ended) return;
                         self.applyState(data);
                     })
                     .catch(function () {});
@@ -258,6 +311,7 @@ document.addEventListener("alpine:init", function () {
             },
 
             revokeAccess: function () {
+                this.accessRevoked = true;
                 // Eligibility is evaluated on every state request. Purge all
                 // identity-bearing DOM and component state immediately when
                 // the server withdraws access; a stale open page must not
@@ -266,8 +320,6 @@ document.addEventListener("alpine:init", function () {
                 this.signalsRemaining = 0;
                 this.incomingCount = 0;
                 this.sending = false;
-                this.closeConfirm();
-                this.confirmPhotoUrl = "";
                 this.banner = "";
                 this.reveal = "";
                 this.renderRoster([]);
@@ -276,6 +328,7 @@ document.addEventListener("alpine:init", function () {
             },
 
             applyState: function (data) {
+                if (this.accessRevoked || this.ended) return;
                 var state = data.state || {};
                 this.secondsToEnd = state.seconds_to_end || 0;
                 this.signalsRemaining = state.signals_remaining || 0;
@@ -406,7 +459,8 @@ document.addEventListener("alpine:init", function () {
             markEnded: function () {
                 // §7.6: reject-at-end is server-side; this only flips the UI.
                 this.ended = true;
-                this.destroy();
+                this.closeConfirm();
+                this.stopUpdates();
             },
 
             // --- Countdown -------------------------------------------------
@@ -427,7 +481,7 @@ document.addEventListener("alpine:init", function () {
 
             connectWebSocket: function () {
                 var self = this;
-                if (!this.wsPath || !window.WebSocket) return;
+                if (this.ended || this.accessRevoked || !this.wsPath || !window.WebSocket) return;
                 var protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
                 this.ws = new WebSocket(protocol + "//" + window.location.host + this.wsPath);
                 this.ws.onmessage = function (event) {
@@ -446,8 +500,9 @@ document.addEventListener("alpine:init", function () {
                         fetch(self.stateUrl, { headers: { "Accept": "application/json" } })
                             .then(function (r) { return self.readStateResponse(r); })
                             .then(function (data) {
-                                if (!data || !data.ok) return;
+                                if (!data || !data.ok || self.accessRevoked || self.ended) return;
                                 self.applyState(data);
+                                if (self.accessRevoked || self.ended) return;
                                 var mutuals = data.mutuals || [];
                                 if (mutuals.length > 0) {
                                     self.announceReveal(mutuals[0].first_name);

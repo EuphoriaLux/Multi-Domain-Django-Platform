@@ -57,7 +57,7 @@
                     <span class="text-lobby-ink font-bold tabular-nums" x-text="countdownDisplay">--:--</span>
                 </span>
             </p>
-            <h1 class="font-display text-[1.9rem] leading-[1.15] font-semibold tracking-[-0.01em] text-lobby-ink mt-2 mb-1.5 text-balance">{{ event.title }}</h1>
+            <h1 data-event-focus tabindex="-1" class="font-display text-[1.9rem] leading-[1.15] font-semibold tracking-[-0.01em] text-lobby-ink mt-2 mb-1.5 text-balance">{{ event.title }}</h1>
             <p class="text-sm text-lobby-dim mb-0">
                 {% trans "Express interest in the room — quietly." %}
             </p>
@@ -262,7 +262,7 @@
             <p class="text-sm text-lobby-dim mb-6 max-w-sm mx-auto">
                 {% trans "Who did you meet? You have 48 hours to confirm." %}
             </p>
-            <a href="{% url 'crush_lu:event_lobby' event.id %}" class="inline-flex items-center gap-2 bg-crush-pink hover:bg-crush-pink-light text-lobby-night font-bold px-6 py-3 rounded-xl transition-colors">
+            <a data-phase-focus href="{% url 'crush_lu:event_lobby' event.id %}" class="inline-flex items-center gap-2 bg-crush-pink hover:bg-crush-pink-light text-lobby-night font-bold px-6 py-3 rounded-xl transition-colors">
                 {% trans "Open the recap" %}
                 <span aria-hidden="true">→</span>
             </a>
@@ -274,59 +274,62 @@
            and the small ledger echoes what you'd have left afterwards
            (slot lit iff remaining ≥ slot+1 — see the *Available getters).
            ═══════════════════════════════════════════════════════════════{% endcomment %}
-        <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+        <dialog data-confirm-dialog tabindex="-1" class="fixed inset-0 z-50 m-0 h-full max-h-none w-full max-w-none overflow-y-auto border-0 bg-transparent p-0"
              x-show="confirmOpen" x-cloak
              role="dialog" aria-modal="true" aria-labelledby="lobby-confirm-title">
-            <div class="absolute inset-0 bg-lobby-night/80" x-on:click="closeConfirm" aria-hidden="true"></div>
-            <div class="relative w-full sm:max-w-sm bg-lobby-room border border-lobby-edge border-b-0 sm:border-b rounded-t-2xl sm:rounded-2xl p-6 shadow-crush-lg text-lobby-ink">
-                <img x-bind:src="confirmPhotoUrl" alt="" class="w-24 h-24 rounded-2xl object-cover mx-auto mb-4">
-                <h2 id="lobby-confirm-title" class="font-display text-xl font-semibold text-center text-lobby-ink mb-2">
-                    {% trans "Spend a signal on them?" %}
-                </h2>
-                <p class="text-sm text-center text-lobby-dim mb-4">
-                    {% trans "It stays anonymous unless they pick you too. This cannot be undone." %}
-                </p>
-                <div class="flex items-center justify-center gap-2 mb-6">
-                    <span class="text-xs text-lobby-dim">{% trans "This leaves you" %}</span>
-                    {# Same server-conditioned overlays as the ledger — the sheet only opens with JS, but keep render-time truth. #}
-                    <span class="flex gap-1.5">
-                        <span class="relative lobby-spark lobby-spark--sm lobby-spark--spent">
-                            {% include "shared/icons/spark.html" with class="w-2.5 h-2.5" %}
-                            {% if state.signals_remaining >= 2 %}<span class="absolute -inset-px lobby-spark lobby-spark--sm" x-show="secondSignalAvailable">{% include "shared/icons/spark.html" with class="w-2.5 h-2.5" %}</span>{% endif %}
+            <div class="flex min-h-full items-end sm:items-center justify-center">
+                <div class="absolute inset-0 bg-lobby-night/80" x-on:click="closeConfirm" aria-hidden="true"></div>
+                <div class="relative w-full sm:max-w-sm bg-lobby-room border border-lobby-edge border-b-0 sm:border-b rounded-t-2xl sm:rounded-2xl p-6 shadow-crush-lg text-lobby-ink">
+                    <img x-bind:src="confirmPhotoUrl" alt="" class="w-24 h-24 rounded-2xl object-cover mx-auto mb-4">
+                    <h2 id="lobby-confirm-title" class="font-display text-xl font-semibold text-center text-lobby-ink mb-2">
+                        {% trans "Spend a signal on them?" %}
+                    </h2>
+                    <p class="text-sm text-center text-lobby-dim mb-4">
+                        {% trans "It stays anonymous unless they pick you too. This cannot be undone." %}
+                    </p>
+                    <div class="flex items-center justify-center gap-2 mb-6">
+                        <span class="text-xs text-lobby-dim">{% trans "This leaves you" %}</span>
+                        {# Same server-conditioned overlays as the ledger — the sheet only opens with JS, but keep render-time truth. #}
+                        <span class="flex gap-1.5">
+                            <span class="relative lobby-spark lobby-spark--sm lobby-spark--spent">
+                                {% include "shared/icons/spark.html" with class="w-2.5 h-2.5" %}
+                                {% if state.signals_remaining >= 2 %}<span class="absolute -inset-px lobby-spark lobby-spark--sm" x-show="secondSignalAvailable">{% include "shared/icons/spark.html" with class="w-2.5 h-2.5" %}</span>{% endif %}
+                            </span>
+                            <span class="relative lobby-spark lobby-spark--sm lobby-spark--spent">
+                                {% include "shared/icons/spark.html" with class="w-2.5 h-2.5" %}
+                                {% if state.signals_remaining >= 3 %}<span class="absolute -inset-px lobby-spark lobby-spark--sm" x-show="thirdSignalAvailable">{% include "shared/icons/spark.html" with class="w-2.5 h-2.5" %}</span>{% endif %}
+                            </span>
+                            <span class="lobby-spark lobby-spark--sm lobby-spark--spent">{% include "shared/icons/spark.html" with class="w-2.5 h-2.5" %}</span>
                         </span>
-                        <span class="relative lobby-spark lobby-spark--sm lobby-spark--spent">
-                            {% include "shared/icons/spark.html" with class="w-2.5 h-2.5" %}
-                            {% if state.signals_remaining >= 3 %}<span class="absolute -inset-px lobby-spark lobby-spark--sm" x-show="thirdSignalAvailable">{% include "shared/icons/spark.html" with class="w-2.5 h-2.5" %}</span>{% endif %}
-                        </span>
-                        <span class="lobby-spark lobby-spark--sm lobby-spark--spent">{% include "shared/icons/spark.html" with class="w-2.5 h-2.5" %}</span>
-                    </span>
-                </div>
-                <div class="flex gap-3">
-                    <button type="button" class="flex-1 px-4 py-2.5 text-sm font-bold text-lobby-ink bg-lobby-edge hover:brightness-125 rounded-xl transition-all"
-                            x-on:click="closeConfirm">
-                        {% trans "Cancel" %}
-                    </button>
-                    <button type="button" class="flex-1 px-4 py-2.5 text-sm font-bold text-lobby-night bg-crush-pink hover:bg-crush-pink-light rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            x-on:click="confirmSignal"
-                            x-bind:disabled="sending">
-                        {# CSP Alpine build forbids inline negation — bind the named getter. #}
-                        <span x-show="notSending">{% trans "Spend a signal" %}</span>
-                        <span x-show="sending" class="flex items-center justify-center gap-2">
-                            <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            {% trans "Sending..." %}
-                        </span>
-                    </button>
+                    </div>
+                    <div class="flex gap-3">
+                        <button type="button" class="flex-1 px-4 py-2.5 text-sm font-bold text-lobby-ink bg-lobby-edge hover:brightness-125 rounded-xl transition-all"
+                                data-confirm-cancel x-on:click="closeConfirm">
+                            {% trans "Cancel" %}
+                        </button>
+                        <button type="button" class="flex-1 px-4 py-2.5 text-sm font-bold text-lobby-night bg-crush-pink hover:bg-crush-pink-light rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                x-on:click="confirmSignal"
+                                x-bind:disabled="sending">
+                            {# CSP Alpine build forbids inline negation — bind the named getter. #}
+                            <span x-show="notSending">{% trans "Spend a signal" %}</span>
+                            <span x-show="sending" class="flex items-center justify-center gap-2">
+                                <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                {% trans "Sending..." %}
+                            </span>
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
+        </dialog>
 
     </div>
 </div>
 {% endblock %}
 
 {% block pre_alpine_js %}
+<script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/event-confirm-dialog.js' %}"></script>
 <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/event-lobby.js' %}"></script>
 {% endblock %}
