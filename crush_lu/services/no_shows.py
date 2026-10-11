@@ -132,10 +132,10 @@ def no_show_refusal(event, now=None):
 def mark_unattended_no_show(events, *, context, now=None):
     """Flip every unattended seat holder of *events* to ``no_show``.
 
-    Returns ``[(event, updated_count), ...]`` in the order given. The caller
-    decides which events are eligible; this applies no time guard.
-    ``updated_count`` is None for an event DEFERRED by the Google cap below:
-    nothing about it changed, so running the same call again records it.
+    Returns ``[(event, updated, left), ...]`` in the order given. The caller
+    decides which events are eligible; this applies no time guard. ``left``
+    counts rows held back by the Google cap below: they keep their status, so
+    running the same call again records them.
 
     The wallet refreshes are bounded by the refresh helpers' own push budgets
     and run ONCE for the whole call, so the request stays bounded however
@@ -146,7 +146,6 @@ def mark_unattended_no_show(events, *, context, now=None):
 
     now = now or timezone.now()
     results = []
-    processed = 0
     google_limit = getattr(settings, "WALLET_GOOGLE_BULK_UPDATE_LIMIT", 50)
 
     # Accumulated across the whole call, then refreshed ONCE: each refresh
@@ -163,7 +162,7 @@ def mark_unattended_no_show(events, *, context, now=None):
         affected = unattended_registrations(event)
         # GOOGLE member objects print the holder's "Next Event" block and have
         # no Google ticket to carry the change instead. Worked out first, so
-        # the cap below can be checked before anything is flipped.
+        # the cap below is spent before anything is flipped.
         # Collected before the update, while `affected` still matches.
         #
         # Two ways a holder here needs the PATCH, and the second is the USUAL
@@ -210,41 +209,55 @@ def mark_unattended_no_show(events, *, context, now=None):
 
         # Google has no poll: a PATCH the refresh helper drops past
         # WALLET_GOOGLE_BULK_UPDATE_LIMIT leaves that card stale for good, and
-        # once its row is no_show no rerun can reach it again. So stop BEFORE
-        # the flip instead. A deferred event keeps its rows as they are, and
-        # running the same action again records it under a fresh budget. The
-        # first event always goes through: one event alone over the cap falls
-        # back to the helper's own overflow, logged with the object ids.
-        if processed and (
-            len(voiding_google_profiles.keys() | event_google.keys()) > google_limit
+        # once its row is no_show no rerun can reach it again. So the cap is
+        # spent ROW BY ROW before anything is flipped: a row is marked only if
+        # its holder's PATCH fits (or needs none, or is already in this call's
+        # batch). Every other row keeps its status, so running the same call
+        # again picks it up under a fresh budget. No event is exempt, the first
+        # included. What this cannot cover is the helper's wall-clock deadline,
+        # which is decided on commit; anything it skips is logged with the
+        # object ids, and update_all_google_wallet_passes() heals those.
+        needs_patch = {profile.user_id: profile for profile in event_google.values()}
+        room = google_limit - len(voiding_google_profiles)
+        marked_ids = []
+        left = 0
+        for registration_id, user_id in affected.order_by("pk").values_list(
+            "pk", "user_id"
         ):
-            results.append((event, None))
-            continue
-        voiding_google_profiles.update(event_google)
+            profile = needs_patch.get(user_id)
+            if profile is None or profile.pk in voiding_google_profiles:
+                marked_ids.append(registration_id)
+            elif room > 0:
+                voiding_google_profiles[profile.pk] = profile
+                room -= 1
+                marked_ids.append(registration_id)
+            else:
+                left += 1
+        batch = affected.filter(pk__in=marked_ids)
 
         # Collected before the update, while the seats are still valid.
         # no_show is not a seat-holding status, so the rebuilt ticket is
         # `voided` — but .update() emits no signals, so without this the
         # holder keeps a ticket that still looks valid at the door.
         voiding_serials += list(
-            affected.exclude(apple_wallet_ticket_serial="").values_list(
+            batch.exclude(apple_wallet_ticket_serial="").values_list(
                 "apple_wallet_ticket_serial", flat=True
             )
         )
-        # ...and their Apple MEMBER passes. no_show is outside the candidate set of
-        # get_next_event_for_pass, so this event stops being the holder's next
-        # event and the card would otherwise keep advertising an event they
-        # were just marked absent from. A holder who never downloaded the
-        # ticket has only this serial.
+        # ...and their Apple MEMBER passes. no_show is outside the candidate
+        # set of get_next_event_for_pass, so this event stops being the
+        # holder's next event and the card would otherwise keep advertising an
+        # event they were just marked absent from. A holder who never
+        # downloaded the ticket has only this serial.
         voiding_serials += list(
-            CrushProfile.objects.filter(user__eventregistration__in=affected)
+            CrushProfile.objects.filter(user__eventregistration__in=batch)
             .exclude(apple_pass_serial="")
             .values_list("apple_pass_serial", flat=True)
             .distinct()
         )
         # .update() skips auto_now, so stamp updated_at by hand: it is the only
         # record of when the no-show was written.
-        updated = affected.update(status="no_show", updated_at=now)
+        updated = batch.update(status="no_show", updated_at=now) if marked_ids else 0
         if updated:
             # Leaving SEAT_HOLDING_STATUSES changes the page's remaining
             # capacity. A per-row save would have told Google through
@@ -253,8 +266,7 @@ def mark_unattended_no_show(events, *, context, now=None):
             from crush_lu.signals import _schedule_event_indexing_notification
 
             _schedule_event_indexing_notification(event.pk, skip_if_ineligible=True)
-        results.append((event, updated))
-        processed += 1
+        results.append((event, updated, left))
 
     if voiding_serials:
         try:

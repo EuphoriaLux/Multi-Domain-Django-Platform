@@ -2166,9 +2166,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         return self.cancel_events(request, queryset)
 
     @admin.action(
-        description=_(
-            "🚷 Mark unchecked-in registrations as No Show (check-in closed)"
-        )
+        description=_("🚷 Mark unchecked-in registrations as No Show (check-in closed)")
     )
     def mark_unattended_as_no_show(self, request, queryset):
         """The QuizEvent action's no-show recording, for every event type.
@@ -2202,22 +2200,23 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             context=f"Admin MeetupEvent no-show ({len(eligible)} event(s))",
             now=now,
         )
-        for event, updated in results:
-            if updated is None:
+        for event, updated, left in results:
+            if updated or not left:
+                django_messages.success(
+                    request,
+                    _("'{event}': marked {count} registration(s) as No Show.").format(
+                        event=event, count=updated
+                    ),
+                )
+            if left:
                 django_messages.warning(
                     request,
                     _(
-                        "'{event}': not changed yet — the Google Wallet refresh "
-                        "limit was reached. Run the action again to record it."
-                    ).format(event=event),
+                        "'{event}': {left} registration(s) not changed yet — the "
+                        "Google Wallet refresh limit was reached. Run the action "
+                        "again to record them."
+                    ).format(event=event, left=left),
                 )
-                continue
-            django_messages.success(
-                request,
-                _("'{event}': marked {count} registration(s) as No Show.").format(
-                    event=event, count=updated
-                ),
-            )
 
     @admin.action(description=_("🔔 Send reminders to confirmed attendees"))
     def send_event_reminders(self, request, queryset):

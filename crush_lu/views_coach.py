@@ -3168,25 +3168,41 @@ def coach_mark_event_no_shows(request, event_id):
         )
         return redirect("crush_lu:coach_event_detail", event_id=event.id)
 
-    [(_event, updated)] = mark_unattended_no_show(
+    [(_event, updated, left)] = mark_unattended_no_show(
         [event], context=f"Coach no-show (coach {request.coach.pk})"
     )
     # .update() leaves no trace of who did it; this line is the record.
     logger.info(
-        "Coach %s marked %s registration(s) of event %s as no-show",
+        "Coach %s marked %s registration(s) of event %s as no-show (%s left)",
         request.coach.pk,
         updated,
         event.pk,
+        left,
     )
-    messages.success(
-        request,
-        ngettext(
-            "Marked %(count)s registration as no-show.",
-            "Marked %(count)s registrations as no-show.",
-            updated,
+    if updated or not left:
+        messages.success(
+            request,
+            ngettext(
+                "Marked %(count)s registration as no-show.",
+                "Marked %(count)s registrations as no-show.",
+                updated,
+            )
+            % {"count": updated},
         )
-        % {"count": updated},
-    )
+    if left:
+        # Held back by the Google Wallet cap, untouched: the card shows them
+        # again on reload, and the next press records them.
+        messages.warning(
+            request,
+            ngettext(
+                "%(count)s more member is still to be marked. Press the button "
+                "again to finish.",
+                "%(count)s more members are still to be marked. Press the button "
+                "again to finish.",
+                left,
+            )
+            % {"count": left},
+        )
     return redirect("crush_lu:coach_event_detail", event_id=event.id)
 
 

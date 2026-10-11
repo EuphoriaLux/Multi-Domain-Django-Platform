@@ -45582,3 +45582,10 @@ msgstr "einige dieser Mitglieder sind noch in einer offenen kuratierten Gruppe; 
 #: crush_lu/views_coach.py:3165
 msgid "The list of members changed since the page was loaded, so nothing was recorded. Check it and try again."
 msgstr "Die Liste der Mitglieder hat sich seit dem Laden der Seite geändert, daher wurde nichts eingetragen. Bitte prüfe sie und versuche es erneut."
+
+#: crush_lu/views_coach.py
+#, python-format
+msgid "%(count)s more member is still to be marked. Press the button again to finish."
+msgid_plural "%(count)s more members are still to be marked. Press the button again to finish."
+msgstr[0] "%(count)s weiteres Mitglied muss noch markiert werden. Drücke den Button erneut, um abzuschließen."
+msgstr[1] "%(count)s weitere Mitglieder müssen noch markiert werden. Drücke den Button erneut, um abzuschließen."

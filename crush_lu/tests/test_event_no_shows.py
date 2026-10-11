@@ -102,6 +102,20 @@ class NoShowFixturesMixin:
     def _messages(self, response):
         return [str(message) for message in get_messages(response.wsgi_request)]
 
+    def _google_holder(self, event):
+        registration = self._register(event, "confirmed")
+        profile = CrushProfile.objects.create(
+            user=registration.user,
+            date_of_birth=date(1995, 1, 1),
+            gender="F",
+            location="Luxembourg",
+        )
+        # Set underneath the model so setup fires no wallet refresh itself.
+        CrushProfile.objects.filter(pk=profile.pk).update(
+            google_wallet_object_id=f"google-obj-{registration.pk}"
+        )
+        return registration
+
 
 class MeetupEventNoShowActionTests(NoShowFixturesMixin, TestCase):
     def setUp(self):
@@ -358,24 +372,10 @@ class MeetupEventNoShowActionTests(NoShowFixturesMixin, TestCase):
 
         self.assertEqual(self._status(missing), "no_show")
 
-    def _google_holder(self, event):
-        registration = self._register(event, "confirmed")
-        profile = CrushProfile.objects.create(
-            user=registration.user,
-            date_of_birth=date(1995, 1, 1),
-            gender="F",
-            location="Luxembourg",
-        )
-        # Set underneath the model so setup fires no wallet refresh itself.
-        CrushProfile.objects.filter(pk=profile.pk).update(
-            google_wallet_object_id=f"google-obj-{registration.pk}"
-        )
-        return registration
-
     @override_settings(WALLET_GOOGLE_BULK_UPDATE_LIMIT=1)
     def test_events_past_the_google_cap_are_deferred_not_stranded(self):
         # Google cards have no poll, and a no_show row is out of reach of any
-        # rerun, so an event that would overflow the shared PATCH cap is left
+        # rerun, so a row that would overflow the shared PATCH cap is left
         # untouched for the next run instead of being flipped with a stale card.
         first = make_event("First mixer", self.now - timedelta(days=2))
         second = make_event("Second mixer", self.now - timedelta(days=1))
@@ -396,8 +396,9 @@ class MeetupEventNoShowActionTests(NoShowFixturesMixin, TestCase):
             self.assertEqual(refresh_google.call_count, 1)
             self.assertEqual(len(refresh_google.call_args.args[0]), 1)
             self.assertIn(
-                f"'{second}': not changed yet — the Google Wallet refresh limit "
-                "was reached. Run the action again to record it.",
+                f"'{second}': 1 registration(s) not changed yet — the Google "
+                "Wallet refresh limit was reached. Run the action again to "
+                "record them.",
                 messages,
             )
 
@@ -405,6 +406,42 @@ class MeetupEventNoShowActionTests(NoShowFixturesMixin, TestCase):
 
         self.assertEqual(self._status(second_missing), "no_show")
         self.assertEqual(refresh_google.call_count, 2)
+
+    @override_settings(WALLET_GOOGLE_BULK_UPDATE_LIMIT=1)
+    def test_a_single_event_over_the_google_cap_is_split_across_runs(self):
+        # No event is exempt, the first included: within one event the cap is
+        # spent row by row, and a row without a Google card costs nothing.
+        event = make_event("Big mixer", self.now - timedelta(days=1))
+        self._attended(event)
+        first = self._google_holder(event)
+        second = self._google_holder(event)
+        no_card = self._register(event, "confirmed")
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            messages = self._run(event)
+
+            self.assertEqual(self._status(first), "no_show")
+            self.assertEqual(self._status(no_card), "no_show")
+            self.assertEqual(self._status(second), "confirmed")
+            self.assertEqual(len(refresh_google.call_args.args[0]), 1)
+            self.assertIn(f"'{event}': marked 2 registration(s) as No Show.", messages)
+            self.assertIn(
+                f"'{event}': 1 registration(s) not changed yet — the Google "
+                "Wallet refresh limit was reached. Run the action again to "
+                "record them.",
+                messages,
+            )
+
+            self._run(event)
+
+        self.assertEqual(self._status(second), "no_show")
+        self.assertEqual(
+            [p.user_id for p in refresh_google.call_args.args[0]], [second.user_id]
+        )
 
 
 class CoachEventNoShowTests(NoShowFixturesMixin, TestCase):
@@ -427,6 +464,31 @@ class CoachEventNoShowTests(NoShowFixturesMixin, TestCase):
             coach_no_shows(event),
             {"candidates": candidate_fingerprint(r.pk for r in shown)},
         )
+
+    @override_settings(WALLET_GOOGLE_BULK_UPDATE_LIMIT=1)
+    def test_a_press_over_the_google_cap_leaves_the_rest_for_the_next(self):
+        event = make_event("Busy mixer", self.now - timedelta(days=1))
+        self._attended(event)
+        first = self._google_holder(event)
+        second = self._google_holder(event)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch("crush_lu.wallet.google_api.refresh_google_wallet_objects"):
+            response = self._confirm(event, [first, second])
+            self.assertEqual(self._status(first), "no_show")
+            self.assertEqual(self._status(second), "confirmed")
+            self.assertIn(
+                "1 more member is still to be marked. Press the button again "
+                "to finish.",
+                self._messages(response),
+            )
+            # The card offers the rest on reload, and the next press takes it.
+            page = self.client.get(coach_event_page(event))
+            self.assertContains(page, "Yes, mark 1 member as no-show")
+            self._confirm(event, [second])
+
+        self.assertEqual(self._status(second), "no_show")
 
     def test_a_list_changed_since_the_page_loaded_is_refused(self):
         # An offline PWA replays a queued POST up to 24 hours later, and a
