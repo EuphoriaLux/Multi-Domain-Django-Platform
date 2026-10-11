@@ -202,6 +202,13 @@ def mark_unattended_as_no_show(modeladmin, request, queryset):
         context="Admin mark_unattended_as_no_show",
     )
     for event, updated in results:
+        if updated is None:
+            messages.warning(
+                request,
+                f"'{event}': not changed yet — the Google Wallet refresh limit "
+                f"was reached. Run the action again to record it.",
+            )
+            continue
         messages.success(
             request,
             f"'{event}': marked {updated} registration(s) as No Show.",

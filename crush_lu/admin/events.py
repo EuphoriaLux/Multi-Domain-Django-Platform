@@ -2203,6 +2203,15 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             now=now,
         )
         for event, updated in results:
+            if updated is None:
+                django_messages.warning(
+                    request,
+                    _(
+                        "'{event}': not changed yet — the Google Wallet refresh "
+                        "limit was reached. Run the action again to record it."
+                    ).format(event=event),
+                )
+                continue
             django_messages.success(
                 request,
                 _("'{event}': marked {count} registration(s) as No Show.").format(

@@ -45699,3 +45699,7 @@ msgstr "la fenêtre d’enregistrement n’est pas encore fermée"
 #: crush_lu/services/no_shows.py:88
 msgid "nobody was checked in, so attendance was never recorded"
 msgstr "personne n’a été enregistré, la présence n’a donc jamais été relevée"
+
+#: crush_lu/services/no_shows.py:108
+msgid "some of these members are still in an open curated group; settle it through the group workflow first"
+msgstr "certains de ces membres sont encore dans un groupe sur sélection ouvert ; il faut d’abord le régler via le processus de groupe"

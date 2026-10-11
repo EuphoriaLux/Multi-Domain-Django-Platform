@@ -14,22 +14,26 @@ urlconf as in production (AGENTS.md: `reverse()` resolves against the default
 urlconf, not the host's).
 """
 
-from datetime import timedelta
+from datetime import date, timedelta
+from decimal import Decimal
+from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.contrib.messages import get_messages
 from django.contrib.sites.models import Site
 from django.core import mail
 from django.core.cache import cache
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
 from crush_lu.models import (
     CrushCoach,
+    CrushProfile,
     EventRegistration,
     MeetupEvent,
     UserDataConsent,
 )
+from crush_lu.models.events import CuratedEventGroup, CuratedEventGroupMembership
 
 User = get_user_model()
 
@@ -246,6 +250,135 @@ class MeetupEventNoShowActionTests(NoShowFixturesMixin, TestCase):
 
         self.assertEqual(self._status(missed), "no_show")
         self.assertEqual(self._status(booked), "confirmed")
+
+    def _curated_event(self):
+        return make_event(
+            "Curated evening",
+            self.now - timedelta(days=1),
+            event_type="speed_dating",
+            registration_mode="curated",
+            group_size=6,
+            planned_groups=1,
+            registration_fee=Decimal("15.00"),
+            profile_requirement="none",
+        )
+
+    def _curated_member(self, event, status, **fields):
+        # A curated seat may only be granted through the audited bulk confirm,
+        # so the row is born an application and flipped underneath the model.
+        registration = self._register(event, "applied")
+        EventRegistration.objects.filter(pk=registration.pk).update(
+            status=status, **fields
+        )
+        registration.refresh_from_db()
+        return registration
+
+    def _provisional_group(self, event, registrations):
+        # Same construction as test_curated_group_reserve_notifications: build
+        # the roster as a draft, then flip the status underneath the model.
+        group = CuratedEventGroup.objects.create(
+            event=event,
+            generation=1,
+            group_number=1,
+            seed="no-show-test",
+            policy_version="reciprocal-graph-v1",
+        )
+        for position, registration in enumerate(registrations, start=1):
+            CuratedEventGroupMembership.objects.create(
+                event=event,
+                group=group,
+                registration=registration,
+                position=position,
+            )
+        CuratedEventGroup.objects.filter(pk=group.pk).update(
+            status=CuratedEventGroup.STATUS_PROVISIONAL,
+            provisional_at=self.now,
+        )
+        return group
+
+    def test_member_still_in_a_provisional_curated_group_is_refused(self):
+        # save() would degrade the group and retire its checkouts; .update()
+        # would not, so the group workflow has to settle it first.
+        event = self._curated_event()
+        attended = self._curated_member(
+            event, "attended", checked_in_at=event.date_time
+        )
+        missing = self._curated_member(event, "confirmed")
+        group = self._provisional_group(event, [attended, missing])
+
+        messages = self._run(event)
+
+        self.assertEqual(self._status(missing), "confirmed")
+        group.refresh_from_db()
+        self.assertEqual(group.status, CuratedEventGroup.STATUS_PROVISIONAL)
+        self.assertIn(
+            f"'{event}' skipped: some of these members are still in an open "
+            "curated group; settle it through the group workflow first.",
+            messages,
+        )
+
+    def test_released_curated_membership_does_not_block(self):
+        event = self._curated_event()
+        attended = self._curated_member(
+            event, "attended", checked_in_at=event.date_time
+        )
+        missing = self._curated_member(event, "confirmed")
+        self._provisional_group(event, [attended, missing])
+        CuratedEventGroupMembership.objects.filter(registration=missing).update(
+            released_at=self.now
+        )
+
+        self._run(event)
+
+        self.assertEqual(self._status(missing), "no_show")
+
+    def _google_holder(self, event):
+        registration = self._register(event, "confirmed")
+        profile = CrushProfile.objects.create(
+            user=registration.user,
+            date_of_birth=date(1995, 1, 1),
+            gender="F",
+            location="Luxembourg",
+        )
+        # Set underneath the model so setup fires no wallet refresh itself.
+        CrushProfile.objects.filter(pk=profile.pk).update(
+            google_wallet_object_id=f"google-obj-{registration.pk}"
+        )
+        return registration
+
+    @override_settings(WALLET_GOOGLE_BULK_UPDATE_LIMIT=1)
+    def test_events_past_the_google_cap_are_deferred_not_stranded(self):
+        # Google cards have no poll, and a no_show row is out of reach of any
+        # rerun, so an event that would overflow the shared PATCH cap is left
+        # untouched for the next run instead of being flipped with a stale card.
+        first = make_event("First mixer", self.now - timedelta(days=2))
+        second = make_event("Second mixer", self.now - timedelta(days=1))
+        for event in (first, second):
+            self._attended(event)
+        first_missing = self._google_holder(first)
+        second_missing = self._google_holder(second)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            messages = self._run(first, second)
+
+            self.assertEqual(self._status(first_missing), "no_show")
+            self.assertEqual(self._status(second_missing), "confirmed")
+            self.assertEqual(refresh_google.call_count, 1)
+            self.assertEqual(len(refresh_google.call_args.args[0]), 1)
+            self.assertIn(
+                f"'{second}': not changed yet — the Google Wallet refresh limit "
+                "was reached. Run the action again to record it.",
+                messages,
+            )
+
+            self._run(first, second)
+
+        self.assertEqual(self._status(second_missing), "no_show")
+        self.assertEqual(refresh_google.call_count, 2)
 
 
 class CoachEventNoShowTests(NoShowFixturesMixin, TestCase):

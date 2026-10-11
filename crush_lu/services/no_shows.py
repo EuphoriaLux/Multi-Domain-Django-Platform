@@ -86,6 +86,29 @@ def no_show_refusal(event, now=None):
         # The scanner was never used, so "not checked in" says nothing about
         # who came; the whole roster would be marked absent.
         return _("nobody was checked in, so attendance was never recorded")
+    if event.uses_curated_registration:
+        from crush_lu.models.events import (
+            CuratedEventGroup,
+            CuratedEventGroupMembership,
+        )
+
+        # EventRegistration.save() degrades a PROVISIONAL group (and schedules
+        # its checkout retirement and remedy) when a member leaves the roster,
+        # and refuses the change outright inside a LOCKED one. .update() does
+        # neither, so a member still active in such a group is settled through
+        # the audited group workflow first. A released membership is history.
+        if CuratedEventGroupMembership.objects.filter(
+            registration__in=unattended_registrations(event),
+            released_at__isnull=True,
+            group__status__in=(
+                CuratedEventGroup.STATUS_PROVISIONAL,
+                CuratedEventGroup.STATUS_LOCKED,
+            ),
+        ).exists():
+            return _(
+                "some of these members are still in an open curated group; "
+                "settle it through the group workflow first"
+            )
     return None
 
 
@@ -94,6 +117,8 @@ def mark_unattended_no_show(events, *, context, now=None):
 
     Returns ``[(event, updated_count), ...]`` in the order given. The caller
     decides which events are eligible; this applies no time guard.
+    ``updated_count`` is None for an event DEFERRED by the Google cap below:
+    nothing about it changed, so running the same call again records it.
 
     The wallet refreshes are bounded by the refresh helpers' own push budgets
     and run ONCE for the whole call, so the request stays bounded however
@@ -104,6 +129,8 @@ def mark_unattended_no_show(events, *, context, now=None):
 
     now = now or timezone.now()
     results = []
+    processed = 0
+    google_limit = getattr(settings, "WALLET_GOOGLE_BULK_UPDATE_LIMIT", 50)
 
     # Accumulated across the whole call, then refreshed ONCE: each refresh
     # helper opens its own push budget, so refreshing per event would restart
@@ -117,28 +144,9 @@ def mark_unattended_no_show(events, *, context, now=None):
 
     for event in events:
         affected = unattended_registrations(event)
-        # Collected before the update, while the seats are still valid.
-        # no_show is not a seat-holding status, so the rebuilt ticket is
-        # `voided` — but .update() emits no signals, so without this the
-        # holder keeps a ticket that still looks valid at the door.
-        voiding_serials += list(
-            affected.exclude(apple_wallet_ticket_serial="").values_list(
-                "apple_wallet_ticket_serial", flat=True
-            )
-        )
-        # ...and their MEMBER passes. no_show is outside the candidate set of
-        # get_next_event_for_pass, so this event stops being the holder's next
-        # event and the card would otherwise keep advertising an event they
-        # were just marked absent from. A holder who never downloaded the
-        # ticket has only this serial.
-        voiding_serials += list(
-            CrushProfile.objects.filter(user__eventregistration__in=affected)
-            .exclude(apple_pass_serial="")
-            .values_list("apple_pass_serial", flat=True)
-            .distinct()
-        )
-        # ...and their GOOGLE member objects, which print the same "Next Event"
-        # block and have no Google ticket to carry the change instead.
+        # GOOGLE member objects print the holder's "Next Event" block and have
+        # no Google ticket to carry the change instead. Worked out first, so
+        # the cap below can be checked before anything is flipped.
         # Collected before the update, while `affected` still matches.
         #
         # Two ways a holder here needs the PATCH, and the second is the USUAL
@@ -177,14 +185,51 @@ def mark_unattended_no_show(events, *, context, now=None):
                 [profile.user_id for profile in candidates], now=now
             )
         )
+        event_google = {}
         for profile in candidates:
             showing = displayed.get(profile.user_id)
             if event_ended or (showing is not None and showing.event_id == event.pk):
-                voiding_google_profiles[profile.pk] = profile
+                event_google[profile.pk] = profile
+
+        # Google has no poll: a PATCH the refresh helper drops past
+        # WALLET_GOOGLE_BULK_UPDATE_LIMIT leaves that card stale for good, and
+        # once its row is no_show no rerun can reach it again. So stop BEFORE
+        # the flip instead. A deferred event keeps its rows as they are, and
+        # running the same action again records it under a fresh budget. The
+        # first event always goes through: one event alone over the cap falls
+        # back to the helper's own overflow, logged with the object ids.
+        if processed and (
+            len(voiding_google_profiles.keys() | event_google.keys()) > google_limit
+        ):
+            results.append((event, None))
+            continue
+        voiding_google_profiles.update(event_google)
+
+        # Collected before the update, while the seats are still valid.
+        # no_show is not a seat-holding status, so the rebuilt ticket is
+        # `voided` — but .update() emits no signals, so without this the
+        # holder keeps a ticket that still looks valid at the door.
+        voiding_serials += list(
+            affected.exclude(apple_wallet_ticket_serial="").values_list(
+                "apple_wallet_ticket_serial", flat=True
+            )
+        )
+        # ...and their Apple MEMBER passes. no_show is outside the candidate set of
+        # get_next_event_for_pass, so this event stops being the holder's next
+        # event and the card would otherwise keep advertising an event they
+        # were just marked absent from. A holder who never downloaded the
+        # ticket has only this serial.
+        voiding_serials += list(
+            CrushProfile.objects.filter(user__eventregistration__in=affected)
+            .exclude(apple_pass_serial="")
+            .values_list("apple_pass_serial", flat=True)
+            .distinct()
+        )
         # .update() skips auto_now, so stamp updated_at by hand: it is the only
         # record of when the no-show was written.
         updated = affected.update(status="no_show", updated_at=now)
         results.append((event, updated))
+        processed += 1
 
     if voiding_serials:
         try:

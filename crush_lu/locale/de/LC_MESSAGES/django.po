@@ -45574,3 +45574,7 @@ msgstr "das Check-in-Fenster ist noch nicht geschlossen"
 #: crush_lu/services/no_shows.py:88
 msgid "nobody was checked in, so attendance was never recorded"
 msgstr "niemand wurde eingecheckt, die Anwesenheit wurde also nie erfasst"
+
+#: crush_lu/services/no_shows.py:108
+msgid "some of these members are still in an open curated group; settle it through the group workflow first"
+msgstr "einige dieser Mitglieder sind noch in einer offenen kuratierten Gruppe; diese muss zuerst über den Gruppen-Ablauf abgeschlossen werden"
