@@ -965,6 +965,51 @@ class PromotionNoticeRecordTests(_PromotionFixture):
                 else:
                     self.assertEqual(registration.promotion_notice, "email")
 
+    def test_the_event_inline_reassigning_a_promoted_seat_clears_its_notice(self):
+        """The event's registration inline saves through save_formset, not
+        through the registration admin's save_model."""
+        from types import SimpleNamespace
+
+        from django.test import RequestFactory
+
+        from crush_lu.admin.site import crush_admin_site
+        from crush_lu.models import EventRegistration, MeetupEvent
+
+        event_admin = crush_admin_site._registry[MeetupEvent]
+        other_member = self._user("inline-other@example.com")
+        for changed in ([], ["user"]):
+            with self.subTest(changed=changed):
+                EventRegistration.objects.filter(pk=self.waiting.pk).update(
+                    status="confirmed",
+                    user=self.waiter,
+                    waitlist_promoted_at=timezone.now(),
+                    promotion_notice=EventRegistration.PromotionNotice.EMAIL,
+                )
+                registration = EventRegistration.objects.get(pk=self.waiting.pk)
+                if changed:
+                    registration.user = other_member
+                formset = SimpleNamespace(
+                    model=EventRegistration,
+                    save=lambda commit, row=registration: [row],
+                    deleted_objects=[],
+                    saved_forms=[],
+                    changed_objects=[(registration, changed)],
+                    new_objects=[],
+                    save_m2m=lambda: None,
+                )
+
+                event_admin.save_formset(
+                    RequestFactory().post("/"), None, formset, change=True
+                )
+
+                registration.refresh_from_db()
+                if changed:
+                    self.assertEqual(registration.user, other_member)
+                    self.assertIsNone(registration.waitlist_promoted_at)
+                    self.assertEqual(registration.promotion_notice, "")
+                else:
+                    self.assertEqual(registration.promotion_notice, "email")
+
 
 class SeatGrantedEmailGateTests(_PromotionFixture):
     """The transactional gate itself, and that it stays scoped to promotions."""

@@ -606,6 +606,21 @@ class EventRegistrationAdminForm(forms.ModelForm):
         return cleaned_data
 
 
+def _forget_reassigned_promotion(registration, changed_fields):
+    """Clear a waitlist promotion's outcome when staff reassign its seat.
+
+    The outcome belongs to the member it reached and the event it named: a
+    seat handed to another member, or moved to another event, was never
+    announced to anyone, so the coach page must not say it was. Both admin
+    paths that can change those fields call this (the registration change
+    form and the event's registration inline). An account merge keeps it:
+    both accounts are the same person, who was told.
+    """
+    if {"event", "user"}.intersection(changed_fields):
+        registration.waitlist_promoted_at = None
+        registration.promotion_notice = ""
+
+
 # Inline admin for Event Registrations
 class EventRegistrationInline(admin.TabularInline):
     model = EventRegistration
@@ -2381,6 +2396,8 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             return
 
         instances = formset.save(commit=False)
+        for obj, changed_fields in formset.changed_objects:
+            _forget_reassigned_promotion(obj, changed_fields)
         for obj in formset.deleted_objects:
             obj.delete()
 
@@ -2631,13 +2648,8 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 level=django_messages.ERROR,
             )
             return
-        # A promotion's outcome belongs to the member it reached and the event
-        # it named: a seat handed to another member, or moved to another event,
-        # was never announced to anyone, so the coach page must not say it was.
-        # (An account merge keeps it: both accounts are the same person.)
-        if change and {"event", "user"}.intersection(form.changed_data):
-            obj.waitlist_promoted_at = None
-            obj.promotion_notice = ""
+        if change:
+            _forget_reassigned_promotion(obj, form.changed_data)
         confirmed_payment_date = obj.payment_date
         if payment_changed:
             if obj.payment_confirmed:
