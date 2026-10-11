@@ -18,13 +18,41 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.messages.storage.cookie import CookieStorage
 from django.core.cache import cache
 from django.http import HttpResponse
 from django.test import RequestFactory, SimpleTestCase, override_settings
 
-from crush_lu.decorators import _get_cache_key, ratelimit
+from crush_lu.decorators import _get_cache_key, _parse_period, ratelimit
+
+
+@pytest.mark.parametrize(
+    ("period", "seconds"),
+    [("s", 1), ("m", 60), ("h", 3600), ("d", 86400)],
+)
+def test_bare_period_unit_means_one_unit(period, seconds):
+    assert _parse_period(period) == seconds
+
+
+@pytest.mark.parametrize(
+    ("period", "seconds"),
+    [
+        ("15m", 900),
+        ("1h", 3600),
+        ("1d", 86400),
+        ("3s", 3),
+        ("2", 120),
+        ("2x", 120),
+        ("", 900),
+        ("garbage", 900),
+        ("x", 900),
+    ],
+)
+def test_numbered_periods_and_legacy_fallbacks(period, seconds):
+    assert _parse_period(period) == seconds
 
 
 @ratelimit(key="ip", rate="2/m", method="POST")
@@ -114,6 +142,30 @@ class RateLimitDecoratorTests(SimpleTestCase):
         else:
             request._messages = CookieStorage(request)
         return view(request)
+
+    def _assert_window_lifetime(self, rate, seconds):
+        @ratelimit(key="ip", rate=rate, method="POST")
+        def timed_view(request):
+            return HttpResponse("ok")
+
+        clock = [1_000_000.0]
+        with patch("time.time", side_effect=lambda: clock[0]):
+            self.assertEqual(self._post(view=timed_view).status_code, 200)
+            self.assertEqual(self._post(view=timed_view).status_code, 200)
+            self.assertEqual(self._post(view=timed_view).status_code, 429)
+            clock[0] += seconds - 1
+            self.assertEqual(self._post(view=timed_view).status_code, 429)
+            clock[0] += 1
+            self.assertEqual(self._post(view=timed_view).status_code, 200)
+
+    def test_minute_shorthand_window_expires_after_one_minute(self):
+        self._assert_window_lifetime("2/m", 60)
+
+    def test_hour_shorthand_window_expires_after_one_hour(self):
+        self._assert_window_lifetime("2/h", 3600)
+
+    def test_day_shorthand_window_expires_after_one_day(self):
+        self._assert_window_lifetime("2/d", 86400)
 
     # --- key: the client address, never the connection's port ---------------
 
@@ -316,9 +368,7 @@ class RateLimitDecoratorTests(SimpleTestCase):
         @ratelimit(key="ip", rate="2/m", method="POST", count_if=_created)
         def straddle_view(request):
             if request.POST.get("outcome") == "straddle":
-                clock[
-                    0
-                ] += 901  # window A (rate "2/m" parses as 15 minutes) expires while the view runs
+                clock[0] += 61  # window A expires while the view runs
                 # A second request starts window B and is counted there.
                 self._post(
                     view=straddle_view,
