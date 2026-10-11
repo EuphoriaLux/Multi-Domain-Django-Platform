@@ -1,5 +1,3 @@
-import logging
-
 from django.contrib import admin, messages
 from django.utils.translation import gettext_lazy as _
 from modeltranslation.admin import TranslationAdmin, TranslationTabularInline
@@ -15,8 +13,6 @@ from crush_lu.models.quiz import (
     QuizTableMembership,
 )
 from crush_lu.quiz_packs import PACKS, pack_names
-
-logger = logging.getLogger(__name__)
 
 
 class QuizEventInline(admin.StackedInline):
@@ -194,133 +190,22 @@ generate_quiz_night_tables.short_description = _("Generate Quiz Night table rota
 def mark_unattended_as_no_show(modeladmin, request, queryset):
     """Admin action: flip still-'confirmed' registrations to 'no_show' for
     the selected quiz events. Useful when the host forgot to scan someone
-    out and wants the attendance record to reflect reality."""
-    from django.utils import timezone
+    out and wants the attendance record to reflect reality.
 
-    from crush_lu.models import CrushProfile
-    from crush_lu.models.events import EventRegistration
-    from crush_lu.wallet_pass import get_next_event_registrations
+    The work (and the wallet refreshes it owes) lives in
+    ``services.no_shows``, shared with the MeetupEvent action that reaches
+    every other event type."""
+    from crush_lu.services.no_shows import mark_unattended_no_show
 
-    now = timezone.now()
-
-    # Accumulated across the whole action, then refreshed ONCE: each refresh
-    # helper opens its own push budget, so refreshing per quiz would restart
-    # the deadline for every selected row.
-    voiding_serials = []
-    # The Google half of the same accumulation, keyed by pk to DEDUPE. One
-    # holder can be registered for two of the selected quizzes, and unlike a
-    # repeated Apple serial each duplicate here is a real extra PATCH spent out
-    # of a budget whose overflow leaves other passes permanently stale.
-    voiding_google_profiles = {}
-
-    for quiz in queryset:
-        # Include "pending" seat holders: on a paid quiz a cash-at-the-door
-        # registrant who never arrives would otherwise sit as Pending Payment
-        # forever, still consuming a seat and never reaching no-show reporting.
-        # "attended", "cancelled" and "waitlist" stay excluded.
-        affected = EventRegistration.objects.filter(
-            event=quiz.event, status__in=["confirmed", "pending"]
-        )
-        # Collected before the update, while the seats are still valid.
-        # no_show is not a seat-holding status, so the rebuilt ticket is
-        # `voided` — but .update() emits no signals, so without this the
-        # holder keeps a ticket that still looks valid at the door.
-        voiding_serials += list(
-            affected.exclude(apple_wallet_ticket_serial="").values_list(
-                "apple_wallet_ticket_serial", flat=True
-            )
-        )
-        # ...and their MEMBER passes. no_show is outside the candidate set of
-        # get_next_event_for_pass, so this quiz stops being the holder's next
-        # event and the card would otherwise keep advertising an event they
-        # were just marked absent from. A holder who never downloaded the
-        # ticket has only this serial.
-        voiding_serials += list(
-            CrushProfile.objects.filter(user__eventregistration__in=affected)
-            .exclude(apple_pass_serial="")
-            .values_list("apple_pass_serial", flat=True)
-            .distinct()
-        )
-        # ...and their GOOGLE member objects, which print the same "Next Event"
-        # block and have no Google ticket to carry the change instead.
-        # Collected before the update, while `affected` still matches.
-        #
-        # Two ways a holder here needs the PATCH, and the second is the USUAL
-        # one, because this action is normally run after the quiz:
-        #
-        #   * the quiz is still live and is what their card is showing. The
-        #     no_show flip takes it out of PASS_NEXT_EVENT_STATUSES, so the
-        #     block changes. Crossing the status boundary is necessary but not
-        #     sufficient — a holder with an earlier eligible registration is
-        #     looking at that instead, and refreshing them writes a
-        #     byte-identical object out of a capped, poll-less budget.
-        #
-        #   * the quiz has already ENDED. get_next_event_for_pass stopped
-        #     selecting it the moment it finished, so it is nobody's displayed
-        #     event and the test above answers "refresh nobody" — but the Google
-        #     object is SERVER-SIDE state that only changes when we PATCH it,
-        #     and the last PATCH went out while the quiz was still upcoming. It
-        #     is therefore still advertising a finished quiz, and nothing else
-        #     recomputes it: there is no "event ended" trigger anywhere in the
-        #     estate. Optimising on the current logical selector cannot see
-        #     that, because the two diverge the instant an event ends.
-        #
-        # So an ended quiz takes the conservative branch. That is the same rule
-        # the event-change fan-out follows: over-refreshing spends budget,
-        # under-refreshing strands a wrong card with nothing left to correct it.
-        quiz_ended = quiz.event.end_time < now
-        quiz_candidates = list(
-            CrushProfile.objects.filter(user__eventregistration__in=affected).exclude(
-                google_wallet_object_id=""
-            )
-        )
-        displayed = (
-            {}
-            if quiz_ended
-            else get_next_event_registrations(
-                [profile.user_id for profile in quiz_candidates], now=now
-            )
-        )
-        for profile in quiz_candidates:
-            showing = displayed.get(profile.user_id)
-            if quiz_ended or (
-                showing is not None and showing.event_id == quiz.event_id
-            ):
-                voiding_google_profiles[profile.pk] = profile
-        updated = affected.update(status="no_show")
+    results = mark_unattended_no_show(
+        [quiz.event for quiz in queryset.select_related("event")],
+        context="Admin mark_unattended_as_no_show",
+    )
+    for event, updated in results:
         messages.success(
             request,
-            f"'{quiz.event}': marked {updated} registration(s) as No Show.",
+            f"'{event}': marked {updated} registration(s) as No Show.",
         )
-
-    if voiding_serials:
-        try:
-            from crush_lu.wallet.passkit_service import refresh_ticket_serials
-
-            refresh_ticket_serials(
-                voiding_serials, context="Admin mark_unattended_as_no_show"
-            )
-        except Exception:
-            logger.exception(
-                "Failed scheduling Apple ticket refresh for %s no-show "
-                "registration(s)",
-                len(voiding_serials),
-            )
-
-    if voiding_google_profiles:
-        try:
-            from crush_lu.wallet.google_api import refresh_google_wallet_objects
-
-            refresh_google_wallet_objects(
-                list(voiding_google_profiles.values()),
-                context="Admin mark_unattended_as_no_show",
-            )
-        except Exception:
-            logger.exception(
-                "Failed scheduling Google wallet refresh for %s no-show "
-                "registration(s)",
-                len(voiding_google_profiles),
-            )
 
 
 mark_unattended_as_no_show.short_description = _(
