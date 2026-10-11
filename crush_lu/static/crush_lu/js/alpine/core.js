@@ -6633,6 +6633,18 @@ document.addEventListener("alpine:init", function () {
             resendTimer: null,
             failureCount: 0,
             phoneAlreadyInUse: false,
+            dialogElement: null,
+            opener: null,
+            previousBodyOverflow: "",
+            usesNativeDialog: false,
+            isNativeModal: false,
+            hiddenBackground: [],
+            openSmsHandler: null,
+            openWhatsAppHandler: null,
+            fallbackKeyHandler: null,
+            fallbackFocusHandler: null,
+            flowGeneration: 0,
+            successTimer: null,
 
             // Computed getters for CSP compatibility
             get showPhoneInUseError() {
@@ -6643,6 +6655,12 @@ document.addEventListener("alpine:init", function () {
             },
             get isSendingStep() {
                 return this.step === "sending";
+            },
+            get isAwaitingSms() {
+                return this.channel === "sms" && this.step === "sending";
+            },
+            get modalAriaState() {
+                return this.isAwaitingSms ? "false" : "true";
             },
             get isCodeStep() {
                 return this.step === "code";
@@ -6736,29 +6754,193 @@ document.addEventListener("alpine:init", function () {
             },
 
             init: function () {
-                // Listen for modal open event
                 var self = this;
-                window.addEventListener("open-phone-modal", function () {
+                this.dialogElement = this.$el;
+                this.usesNativeDialog = typeof this.dialogElement.showModal === "function";
+                this.$watch("step", function () {
+                    self.$nextTick(function () {
+                        self.syncDialog();
+                        self.focusCurrentStep();
+                    });
+                });
+                this.openSmsHandler = function () {
                     self.channel = "sms";
                     self.open();
-                });
+                };
+                window.addEventListener("open-phone-modal", this.openSmsHandler);
 
                 // WhatsApp: open the modal and immediately kick off the send.
-                window.addEventListener("open-whatsapp-modal", function (e) {
+                this.openWhatsAppHandler = function (e) {
                     self.channel = "whatsapp";
                     self.open();
                     self.sendWhatsApp(e.detail);
-                });
+                };
+                window.addEventListener("open-whatsapp-modal", this.openWhatsAppHandler);
 
-                // Keyboard navigation: Escape key closes modal
-                document.addEventListener("keydown", function (e) {
-                    if (e.key === "Escape" && self.isOpen) {
+                // Older WebViews lack showModal(). Keep their overlay modal for
+                // keyboard and assistive technology users as well.
+                this.fallbackKeyHandler = function (e) {
+                    if (!self.isOpen) return;
+                    if (e.key === "Escape" && !self.isNativeModal) {
+                        e.preventDefault();
                         self.close();
+                    } else if (e.key === "Tab" && !self.isAwaitingSms) {
+                        self.trapTab(e);
+                    }
+                };
+                this.fallbackFocusHandler = function (e) {
+                    if (self.isOpen && !self.isNativeModal && !self.isAwaitingSms &&
+                        !self.dialogElement.contains(e.target)) {
+                        self.focusCurrentStep();
+                    }
+                };
+                document.addEventListener("keydown", this.fallbackKeyHandler);
+                document.addEventListener("focusin", this.fallbackFocusHandler);
+            },
+
+            destroy: function () {
+                this.close();
+                window.removeEventListener("open-phone-modal", this.openSmsHandler);
+                window.removeEventListener("open-whatsapp-modal", this.openWhatsAppHandler);
+                document.removeEventListener("keydown", this.fallbackKeyHandler);
+                document.removeEventListener("focusin", this.fallbackFocusHandler);
+            },
+
+            focusCurrentStep: function (retried) {
+                if (!this.isOpen || !this.dialogElement.hasAttribute("open")) return;
+                var target = this.$refs.closeButton;
+                if (this.step === "code") {
+                    target = this.$refs.otp0;
+                } else if (this.step === "fallback" && this.canFallbackToSms) {
+                    target = this.$refs.smsFallback;
+                } else if (this.step === "success") {
+                    target = this.$refs.successTitle;
+                }
+                if (target && target.getClientRects().length) {
+                    target.focus();
+                } else if (target && !retried) {
+                    // A fast response can change sending/verifying to the next
+                    // step before Alpine has displayed that step's controls.
+                    var self = this;
+                    var step = this.step;
+                    requestAnimationFrame(function () {
+                        if (self.step === step) self.focusCurrentStep(true);
+                    });
+                }
+            },
+
+            syncDialog: function () {
+                if (!this.isOpen) return;
+                // Firebase's invisible reCAPTCHA can require an interactive
+                // challenge outside this partial. A native modal would make its
+                // iframe inert and cover it even at Google's high z-index.
+                if (this.isAwaitingSms) {
+                    if (this.isNativeModal) this.dialogElement.close();
+                    this.isNativeModal = false;
+                    this.restoreFallbackBackground();
+                    this.dialogElement.setAttribute("open", "");
+                } else if (this.usesNativeDialog && !this.isNativeModal) {
+                    this.restoreFallbackBackground();
+                    this.dialogElement.removeAttribute("open");
+                    this.dialogElement.showModal();
+                    this.isNativeModal = true;
+                } else if (!this.usesNativeDialog && !this.dialogElement.hasAttribute("open")) {
+                    this.dialogElement.setAttribute("open", "");
+                }
+                if (!this.usesNativeDialog && !this.isAwaitingSms &&
+                    !this.hiddenBackground.length) {
+                    this.focusCurrentStep();
+                    this.hideFallbackBackground();
+                }
+            },
+
+            trapTab: function (event) {
+                var controls = Array.from(this.dialogElement.querySelectorAll(
+                    'button, a[href], input, select, textarea, [tabindex]',
+                )).filter(function (element) {
+                    return !element.disabled && element.tabIndex >= 0 &&
+                        element.getClientRects().length;
+                });
+                var first = controls[0];
+                var last = controls[controls.length - 1];
+                if (!first) {
+                    event.preventDefault();
+                    this.focusCurrentStep();
+                } else if (controls.indexOf(document.activeElement) === -1) {
+                    event.preventDefault();
+                    (event.shiftKey ? last : first).focus();
+                } else if (event.shiftKey && document.activeElement === first) {
+                    event.preventDefault();
+                    last.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            },
+
+            hideFallbackBackground: function () {
+                var branch = this.dialogElement;
+                // The partial can be nested inside a page section. Hide siblings
+                // at each level without hiding an ancestor of the dialog itself.
+                while (branch.parentElement) {
+                    var siblings = branch.parentElement.children;
+                    for (var i = 0; i < siblings.length; i++) {
+                        var sibling = siblings[i];
+                        if (sibling === branch) continue;
+                        this.hiddenBackground.push({
+                            element: sibling,
+                            inert: sibling.getAttribute("inert"),
+                            ariaHidden: sibling.getAttribute("aria-hidden"),
+                        });
+                        sibling.setAttribute("inert", "");
+                        sibling.setAttribute("aria-hidden", "true");
+                    }
+                    branch = branch.parentElement;
+                    if (branch === document.body) break;
+                }
+            },
+
+            restoreFallbackBackground: function () {
+                this.hiddenBackground.forEach(function (entry) {
+                    if (entry.inert === null) entry.element.removeAttribute("inert");
+                    else entry.element.setAttribute("inert", entry.inert);
+                    if (entry.ariaHidden === null) {
+                        entry.element.removeAttribute("aria-hidden");
+                    } else {
+                        entry.element.setAttribute("aria-hidden", entry.ariaHidden);
                     }
                 });
+                this.hiddenBackground = [];
+            },
+
+            restoreOpenerFocus: function () {
+                var candidates = [
+                    this.opener,
+                    document.querySelector('[x-data="onboardingPhoneContinue"] a'),
+                ].concat(Array.from(document.querySelectorAll(
+                    '[x-data="phoneVerificationComponent"] input[type="tel"]',
+                )));
+                for (var i = 0; i < candidates.length; i++) {
+                    var candidate = candidates[i];
+                    if (candidate && candidate.isConnected && !candidate.disabled &&
+                        candidate.getClientRects().length && !candidate.closest("[inert]")) {
+                        candidate.focus();
+                        break;
+                    }
+                }
+                this.opener = null;
             },
 
             open: function () {
+                // A repeated event must not replace the real opener with a
+                // digit/close control that already has focus inside the dialog.
+                if (!this.isOpen) {
+                    this.opener = document.activeElement;
+                    this.previousBodyOverflow = document.body.style.overflow;
+                }
+                this.flowGeneration++;
+                clearTimeout(this.successTimer);
+                this.successTimer = null;
                 // Clear any existing timer before opening (prevents memory leak from reopening)
                 if (this.resendTimer) {
                     clearInterval(this.resendTimer);
@@ -6779,35 +6961,62 @@ document.addEventListener("alpine:init", function () {
 
                 // Prevent body scroll when modal is open
                 document.body.style.overflow = "hidden";
+                var self = this;
+                this.$nextTick(function () {
+                    if (!self.isOpen) return;
+                    self.syncDialog();
+                    self.focusCurrentStep();
+                });
             },
 
             close: function () {
+                if (!this.isOpen) return;
                 this.isOpen = false;
+                this.flowGeneration++;
+                clearTimeout(this.successTimer);
+                this.successTimer = null;
                 // Clear timer on close
                 if (this.resendTimer) {
                     clearInterval(this.resendTimer);
                     this.resendTimer = null;
                 }
 
-                // Restore body scroll
-                document.body.style.overflow = "";
+                if (this.isNativeModal && this.dialogElement.open) this.dialogElement.close();
+                else this.dialogElement.removeAttribute("open");
+                this.isNativeModal = false;
+                this.restoreFallbackBackground();
+                document.body.style.overflow = this.previousBodyOverflow;
+                this.restoreOpenerFocus();
             },
 
-            showCodeStep: function (phone) {
+            onDialogClose: function () {
+                if (this.isOpen && !this.dialogElement.open) this.close();
+            },
+
+            finishVerification: function (phone, generation) {
+                // Verification still updates the page when the user cancelled
+                // while it was in flight, but must not take over a newer dialog.
+                window.dispatchEvent(new CustomEvent("phone-verified", { detail: phone }));
+                if (!this.isOpen || generation !== this.flowGeneration) return;
+                this.step = "success";
+                var self = this;
+                this.successTimer = setTimeout(function () {
+                    if (generation === self.flowGeneration) self.close();
+                }, 2000);
+            },
+
+            showCodeStep: function (phone, channel) {
+                // The public one-argument callback belongs to Firebase SMS.
+                // Ignore it after cancel or after switching to WhatsApp.
+                if (!this.isOpen || this.channel !== (channel || "sms")) return;
                 this.step = "code";
                 this.maskedPhone = phone.slice(0, 7) + "***" + phone.slice(-2);
                 this.startResendTimer();
-                var self = this;
-                this.$nextTick(function () {
-                    if (self.$refs && self.$refs.otp0) {
-                        self.$refs.otp0.focus();
-                    }
-                });
             },
 
             // CSP-compatible: get index from data-index attribute on element
             handleOtpInput: function (event) {
-                var el = event.target || this.$el;
+                var el = event.target || this.dialogElement;
                 var index = parseInt(el.dataset.index, 10);
                 var value = el.value;
                 if (value.length === 1 && index < 5) {
@@ -6821,7 +7030,7 @@ document.addEventListener("alpine:init", function () {
 
             // CSP-compatible: get index from data-index attribute on element
             handleOtpBackspace: function (event) {
-                var el = event.target || this.$el;
+                var el = event.target || this.dialogElement;
                 var index = parseInt(el.dataset.index, 10);
                 if (!el.value && index > 0) {
                     var prevRef = this.$refs["otp" + (index - 1)];
@@ -6848,6 +7057,7 @@ document.addEventListener("alpine:init", function () {
 
             verifyCode: function () {
                 var self = this;
+                var generation = this.flowGeneration;
                 var code = this.otpCode;
                 if (code.length !== 6) {
                     this.error = gettext("Please enter the 6-digit code");
@@ -6865,17 +7075,11 @@ document.addEventListener("alpine:init", function () {
                 if (window.phoneVerification) {
                     window.phoneVerification.verifyCode(code).then(function (result) {
                         if (result.success) {
-                            self.step = "success";
-                            // Update phone verification state
-                            window.dispatchEvent(
-                                new CustomEvent("phone-verified", {
-                                    detail: result.phone_number,
-                                }),
-                            );
-                            setTimeout(function () {
-                                self.close();
-                            }, 2000);
-                        } else if (result.error_code === "phone_already_in_use") {
+                            self.finishVerification(result.phone_number, generation);
+                            return;
+                        }
+                        if (!self.isOpen || generation !== self.flowGeneration) return;
+                        if (result.error_code === "phone_already_in_use") {
                             self.phoneAlreadyInUse = true;
                             self.step = "code";
                             self.error = result.error;
@@ -6896,6 +7100,7 @@ document.addEventListener("alpine:init", function () {
 
             resendCode: function () {
                 var self = this;
+                var generation = this.flowGeneration;
                 this.step = "sending";
                 this.error = "";
                 if (this.channel === "whatsapp") {
@@ -6907,6 +7112,7 @@ document.addEventListener("alpine:init", function () {
                     window.phoneVerification
                         .sendVerificationCode()
                         .then(function (result) {
+                            if (!self.isOpen || generation !== self.flowGeneration) return;
                             if (result.success) {
                                 self.failureCount = 0;
                                 self.step = "code";
@@ -6964,6 +7170,7 @@ document.addEventListener("alpine:init", function () {
 
             sendWhatsApp: function (phone) {
                 var self = this;
+                var generation = this.flowGeneration;
                 this.phoneNumber = phone;
                 this.step = "sending";
                 this.error = "";
@@ -6984,21 +7191,14 @@ document.addEventListener("alpine:init", function () {
                         });
                     })
                     .then(function (data) {
+                        if (data.success && data.already_verified) {
+                            self.finishVerification(data.phone_number, generation);
+                            return;
+                        }
+                        if (!self.isOpen || generation !== self.flowGeneration) return;
                         if (data.success) {
-                            if (data.already_verified) {
-                                self.step = "success";
-                                window.dispatchEvent(
-                                    new CustomEvent("phone-verified", {
-                                        detail: data.phone_number,
-                                    }),
-                                );
-                                setTimeout(function () {
-                                    self.close();
-                                }, 2000);
-                                return;
-                            }
                             self.clearOtp();
-                            self.showCodeStep(phone);
+                            self.showCodeStep(phone, "whatsapp");
                             return;
                         }
                         // Failed send: route everything to the fallback step.
@@ -7014,6 +7214,7 @@ document.addEventListener("alpine:init", function () {
                         self.step = "fallback";
                     })
                     .catch(function () {
+                        if (!self.isOpen || generation !== self.flowGeneration) return;
                         self.error = gettext(
                             "Could not send the WhatsApp code. Please try again.",
                         );
@@ -7023,6 +7224,7 @@ document.addEventListener("alpine:init", function () {
 
             verifyWhatsApp: function (code) {
                 var self = this;
+                var generation = this.flowGeneration;
                 fetch("/api/phone/whatsapp/verify/", {
                     method: "POST",
                     headers: {
@@ -7041,16 +7243,11 @@ document.addEventListener("alpine:init", function () {
                     .then(function (data) {
                         self.updateCsrf(data.csrfToken);
                         if (data.success && data.phone_verified) {
-                            self.step = "success";
-                            window.dispatchEvent(
-                                new CustomEvent("phone-verified", {
-                                    detail: data.phone_number,
-                                }),
-                            );
-                            setTimeout(function () {
-                                self.close();
-                            }, 2000);
-                        } else if (data.error_code === "phone_already_in_use") {
+                            self.finishVerification(data.phone_number, generation);
+                            return;
+                        }
+                        if (!self.isOpen || generation !== self.flowGeneration) return;
+                        if (data.error_code === "phone_already_in_use") {
                             self.phoneAlreadyInUse = true;
                             self.step = "code";
                             self.error = data.error;
@@ -7063,6 +7260,7 @@ document.addEventListener("alpine:init", function () {
                         }
                     })
                     .catch(function () {
+                        if (!self.isOpen || generation !== self.flowGeneration) return;
                         self.step = "code";
                         self.error = gettext("Verification failed. Please try again.");
                         self.clearOtp();

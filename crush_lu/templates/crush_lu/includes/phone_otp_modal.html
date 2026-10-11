@@ -8,14 +8,16 @@
   Expects (optional): whatsapp_enabled, whatsapp_number — the support
   fallback blocks render only when both are set.
 {% endcomment %}
-<div x-data="phoneVerificationModal"
+<dialog x-data="phoneVerificationModal"
      x-show="isOpen"
      x-cloak
-     @open-phone-modal.window="open"
      @close-phone-modal.window="close"
-     class="fixed inset-0 z-50 overflow-y-auto"
+     @cancel.prevent="close"
+     @close="onDialogClose"
+     class="fixed inset-0 z-50 m-0 h-full max-h-none w-full max-w-none overflow-y-auto border-0 bg-transparent p-0"
      role="dialog"
-     aria-modal="true">
+     aria-labelledby="phone-otp-title"
+     x-bind:aria-modal="modalAriaState">
     <!-- Backdrop -->
     <div x-show="isOpen"
          x-transition:enter="transition ease-out duration-300"
@@ -39,13 +41,13 @@
              class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6">
 
             <!-- Close button -->
-            <button @click="close" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600" aria-label="{% trans 'Close' %}">
+            <button type="button" x-ref="closeButton" @click="close" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600" aria-label="{% trans 'Close' %}">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
             </button>
 
-            <h3 class="text-xl font-semibold dark:text-white mb-4 flex items-center gap-2">
+            <h3 id="phone-otp-title" class="text-xl font-semibold dark:text-white mb-4 flex items-center gap-2">
                 {% include "shared/icons/phone.html" with class="w-5 h-5" %} {% trans "Verify Your Phone" %}
             </h3>
 
@@ -159,12 +161,12 @@
                     {% include "shared/icons/exclamation-circle.html" with class="w-6 h-6 text-amber-500" %}
                 </div>
                 <p class="mb-4 text-sm text-gray-700 dark:text-gray-300" x-text="error"></p>
-                <button x-show="canFallbackToSms"
+                <button type="button" x-ref="smsFallback" x-show="canFallbackToSms"
                         @click="switchToSms"
                         class="w-full py-3 bg-crush-purple text-white rounded-xl font-semibold hover:bg-crush-purple/90 transition">
                     {% trans "Verify by SMS instead" %}
                 </button>
-                <button @click="close"
+                <button type="button" @click="close"
                         class="mt-2 w-full py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
                     {% trans "Cancel" %}
                 </button>
@@ -183,9 +185,9 @@
                         <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                     </svg>
                 </div>
-                <h4 class="text-xl font-semibold text-green-700 dark:text-green-300 mb-2">{% trans "Phone Verified!" %}</h4>
+                <h4 x-ref="successTitle" tabindex="-1" class="text-xl font-semibold text-green-700 dark:text-green-300 mb-2">{% trans "Phone Verified!" %}</h4>
                 <p class="text-gray-500 dark:text-gray-400">{% trans "Your phone number has been verified successfully." %}</p>
             </div>
         </div>
     </div>
-</div>
+</dialog>
