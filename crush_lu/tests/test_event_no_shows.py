@@ -1,11 +1,13 @@
 """
-The MeetupEvent admin action that records no-shows for every event type.
+Recording no-shows for every event type: the MeetupEvent admin action and the
+button on the coach event page.
 
 Only the QuizEvent admin could record no-shows, so mixers and speed dating
 kept theirs as seat holders: event 27, a free mixer, still had 14
 never-checked-in rows ``confirmed`` a day after it ended (prod, 2026-10-11).
-The new action shares ``services.no_shows`` with the quiz action; these tests
-pin what it changes, what it leaves alone and which events it refuses.
+Both new surfaces share ``services.no_shows`` with the quiz action; these
+tests pin what they change, what they leave alone and which events they
+refuse.
 
 Requests use literal paths on the crush.lu host, so its middleware picks the
 urlconf as in production (AGENTS.md: `reverse()` resolves against the default
@@ -22,7 +24,12 @@ from django.core.cache import cache
 from django.test import Client, TestCase
 from django.utils import timezone
 
-from crush_lu.models import EventRegistration, MeetupEvent
+from crush_lu.models import (
+    CrushCoach,
+    EventRegistration,
+    MeetupEvent,
+    UserDataConsent,
+)
 
 User = get_user_model()
 
@@ -31,9 +38,17 @@ EVENTS = "/crush-admin/crush_lu/meetupevent/"
 ACTION = "mark_unattended_as_no_show"
 
 
+def coach_event_page(event):
+    return f"/en/coach/events/{event.pk}/"
+
+
+def coach_no_shows(event):
+    return f"/en/coach/events/{event.pk}/no-shows/"
+
+
 def make_event(title, start, **fields):
     fields = {
-        "description": "No-show admin fixture event",
+        "description": "No-show fixture event",
         "event_type": "mixer",
         "duration_minutes": 120,
         "location": "Luxembourg",
@@ -46,20 +61,14 @@ def make_event(title, start, **fields):
     return MeetupEvent.objects.create(title=title, date_time=start, **fields)
 
 
-class MeetupEventNoShowActionTests(TestCase):
+class NoShowFixturesMixin:
     def setUp(self):
         # Recycled SQLite primary keys share one rate-limit counter.
         cache.clear()
         Site.objects.get_or_create(
             id=1, defaults={"domain": "testserver", "name": "Test Server"}
         )
-        self.superuser = User.objects.create_superuser(
-            username="no_show_admin",
-            email="no-show-admin@example.com",
-            password="pw12345678",
-        )
         self.client = Client(HTTP_HOST=HOST)
-        self.client.force_login(self.superuser)
         self.now = timezone.now()
         self._users = 0
 
@@ -79,17 +88,31 @@ class MeetupEventNoShowActionTests(TestCase):
             event, "attended", checked_in_at=event.date_time + timedelta(minutes=5)
         )
 
+    def _status(self, registration):
+        registration.refresh_from_db()
+        return registration.status
+
+    def _messages(self, response):
+        return [str(message) for message in get_messages(response.wsgi_request)]
+
+
+class MeetupEventNoShowActionTests(NoShowFixturesMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.superuser = User.objects.create_superuser(
+            username="no_show_admin",
+            email="no-show-admin@example.com",
+            password="pw12345678",
+        )
+        self.client.force_login(self.superuser)
+
     def _run(self, *events):
         response = self.client.post(
             EVENTS,
             {"action": ACTION, "_selected_action": [event.pk for event in events]},
         )
         self.assertEqual(response.status_code, 302)
-        return [str(message) for message in get_messages(response.wsgi_request)]
-
-    def _status(self, registration):
-        registration.refresh_from_db()
-        return registration.status
+        return self._messages(response)
 
     def test_ended_mixer_marks_unchecked_in_seat_holders_as_no_show(self):
         event = make_event("Ended mixer", self.now - timedelta(days=1))
@@ -146,7 +169,9 @@ class MeetupEventNoShowActionTests(TestCase):
         messages = self._run(event)
 
         self.assertEqual(self._status(confirmed), "confirmed")
-        self.assertIn(f"'{event}' skipped: it has not ended yet.", messages)
+        self.assertIn(
+            f"'{event}' skipped: its check-in window has not closed yet.", messages
+        )
 
     def test_live_event_is_refused(self):
         # Started, not ended: late arrivals can still check in.
@@ -157,7 +182,25 @@ class MeetupEventNoShowActionTests(TestCase):
         messages = self._run(event)
 
         self.assertEqual(self._status(confirmed), "confirmed")
-        self.assertIn(f"'{event}' skipped: it has not ended yet.", messages)
+        self.assertIn(
+            f"'{event}' skipped: its check-in window has not closed yet.", messages
+        )
+
+    def test_just_ended_event_is_refused_while_the_door_still_admits(self):
+        # Ended an hour ago, but the QR check-in accepts a scan until 12 hours
+        # after the start and refuses a no_show row: a straggler marked now
+        # would be turned away at the door.
+        event = make_event("Just ended mixer", self.now - timedelta(hours=3))
+        self.assertLess(event.end_time, self.now)
+        self._attended(event)
+        confirmed = self._register(event, "confirmed")
+
+        messages = self._run(event)
+
+        self.assertEqual(self._status(confirmed), "confirmed")
+        self.assertIn(
+            f"'{event}' skipped: its check-in window has not closed yet.", messages
+        )
 
     def test_cancelled_event_is_refused(self):
         # Cancelling leaves registrations "confirmed"; nobody missed anything.
@@ -203,3 +246,107 @@ class MeetupEventNoShowActionTests(TestCase):
 
         self.assertEqual(self._status(missed), "no_show")
         self.assertEqual(self._status(booked), "confirmed")
+
+
+class CoachEventNoShowTests(NoShowFixturesMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.coach_user = User.objects.create_user(
+            username="no_show_coach",
+            email="no-show-coach@example.com",
+            password="pw12345678",
+        )
+        UserDataConsent.objects.update_or_create(
+            user=self.coach_user, defaults={"crushlu_consent_given": True}
+        )
+        CrushCoach.objects.create(user=self.coach_user, is_active=True)
+        self.client.force_login(self.coach_user)
+
+    def test_coach_marks_an_ended_events_no_shows(self):
+        event = make_event("Coach mixer", self.now - timedelta(days=1))
+        attended = self._attended(event)
+        confirmed = self._register(event, "confirmed")
+        pending = self._register(event, "pending")
+        waiting = self._register(event, "waitlist")
+
+        response = self.client.post(coach_no_shows(event))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], coach_event_page(event))
+        self.assertEqual(self._status(confirmed), "no_show")
+        self.assertEqual(self._status(pending), "no_show")
+        self.assertEqual(self._status(attended), "attended")
+        self.assertEqual(self._status(waiting), "waitlist")
+        self.assertIn("Marked 2 registrations as no-show.", self._messages(response))
+
+    def test_coach_is_refused_while_the_check_in_window_is_open(self):
+        event = make_event("Tonight's mixer", self.now - timedelta(hours=3))
+        self._attended(event)
+        confirmed = self._register(event, "confirmed")
+
+        response = self.client.post(coach_no_shows(event))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self._status(confirmed), "confirmed")
+        self.assertIn(
+            "No-shows were not recorded: its check-in window has not closed yet.",
+            self._messages(response),
+        )
+
+    def test_member_who_is_not_a_coach_changes_nothing(self):
+        event = make_event("Member mixer", self.now - timedelta(days=1))
+        self._attended(event)
+        confirmed = self._register(event, "confirmed")
+        member = User.objects.create_user(
+            username="plain_member",
+            email="plain-member@example.com",
+            password="pw12345678",
+        )
+        self.client.force_login(member)
+
+        response = self.client.post(coach_no_shows(event))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertNotEqual(response["Location"], coach_event_page(event))
+        self.assertEqual(self._status(confirmed), "confirmed")
+
+    def test_get_is_not_allowed(self):
+        event = make_event("Get mixer", self.now - timedelta(days=1))
+        self._attended(event)
+        confirmed = self._register(event, "confirmed")
+
+        response = self.client.get(coach_no_shows(event))
+
+        self.assertEqual(response.status_code, 405)
+        self.assertEqual(self._status(confirmed), "confirmed")
+
+    def test_event_page_offers_the_button_once_check_in_has_closed(self):
+        event = make_event("Offered mixer", self.now - timedelta(days=1))
+        self._attended(event)
+        self._register(event, "confirmed")
+
+        response = self.client.get(coach_event_page(event))
+
+        self.assertContains(response, "data-no-show-panel")
+        self.assertContains(response, f'action="{coach_no_shows(event)}"')
+        self.assertContains(response, "Yes, mark 1 member as no-show")
+
+    def test_event_page_hides_the_button_while_check_in_is_open(self):
+        event = make_event("Open door mixer", self.now - timedelta(hours=3))
+        self._attended(event)
+        self._register(event, "confirmed")
+
+        response = self.client.get(coach_event_page(event))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "data-no-show-panel")
+
+    def test_event_page_hides_the_button_when_everyone_came(self):
+        event = make_event("Full house mixer", self.now - timedelta(days=1))
+        self._attended(event)
+        self._attended(event)
+
+        response = self.client.get(coach_event_page(event))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "data-no-show-panel")

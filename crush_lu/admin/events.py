@@ -2166,15 +2166,17 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         return self.cancel_events(request, queryset)
 
     @admin.action(
-        description=_("🚷 Mark unchecked-in registrations as No Show (ended events)")
+        description=_(
+            "🚷 Mark unchecked-in registrations as No Show (check-in closed)"
+        )
     )
     def mark_unattended_as_no_show(self, request, queryset):
         """The QuizEvent action's no-show recording, for every event type.
 
         Same work, wallet refreshes and no-waitlist-promotion rule
-        (``services.no_shows``), plus the guards a mixer or speed dating
-        night needs: only ended, not cancelled events where the door scanner
-        was actually used.
+        (``services.no_shows``), plus the guards the coach event page shares:
+        only once the door's check-in window has closed, never for a
+        cancelled event, and only where the scanner was actually used.
         """
         from crush_lu.services.no_shows import (
             mark_unattended_no_show,

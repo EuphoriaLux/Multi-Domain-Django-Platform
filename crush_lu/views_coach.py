@@ -4,6 +4,7 @@ from django.core.paginator import Paginator
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.translation import gettext_lazy as _
+from django.utils.translation import ngettext
 from django.db import transaction
 from django.db.models import (
     Q,
@@ -2938,6 +2939,17 @@ def coach_event_detail(request, event_id):
     other_count = len(all_other)
     spots_remaining = max(0, event.max_participants - seat_holding_count)
 
+    # Seat holders never checked in, offered for no-show recording only when
+    # the POST would accept it (so the card never shows a refused button).
+    from .services.no_shows import NO_SHOW_CANDIDATE_STATUSES, no_show_refusal
+
+    no_show_candidate_count = sum(
+        r.status in NO_SHOW_CANDIDATE_STATUSES and r.checked_in_at is None
+        for r in all_regs
+    )
+    if no_show_candidate_count and no_show_refusal(event) is not None:
+        no_show_candidate_count = 0
+
     # Post-event activity: connections and sparks
     from .models.crush_spark import CrushSpark
 
@@ -3105,8 +3117,52 @@ def coach_event_detail(request, event_id):
         "feedback_summary": feedback_summary,
         "feedback_responses": feedback_responses,
         "coach_recap": coach_recap,
+        "no_show_candidate_count": no_show_candidate_count,
     }
     return render(request, "crush_lu/coach_event_detail.html", context)
+
+
+@coach_required
+@require_http_methods(["POST"])
+def coach_mark_event_no_shows(request, event_id):
+    """Record the event's no-shows: seat holders who were never checked in.
+
+    The same work and guards as the MeetupEvent admin action
+    (``services.no_shows``): refused until the check-in window has closed, for
+    a cancelled event, and when nobody was checked in at all. Open to every
+    active coach, like the door actions on the same event.
+    """
+    from .services.no_shows import mark_unattended_no_show, no_show_refusal
+
+    event = get_object_or_404(MeetupEvent, id=event_id)
+    reason = no_show_refusal(event)
+    if reason is not None:
+        messages.error(
+            request,
+            _("No-shows were not recorded: %(reason)s.") % {"reason": reason},
+        )
+        return redirect("crush_lu:coach_event_detail", event_id=event.id)
+
+    [(_event, updated)] = mark_unattended_no_show(
+        [event], context=f"Coach no-show (coach {request.coach.pk})"
+    )
+    # .update() leaves no trace of who did it; this line is the record.
+    logger.info(
+        "Coach %s marked %s registration(s) of event %s as no-show",
+        request.coach.pk,
+        updated,
+        event.pk,
+    )
+    messages.success(
+        request,
+        ngettext(
+            "Marked %(count)s registration as no-show.",
+            "Marked %(count)s registrations as no-show.",
+            updated,
+        )
+        % {"count": updated},
+    )
+    return redirect("crush_lu:coach_event_detail", event_id=event.id)
 
 
 @coach_required

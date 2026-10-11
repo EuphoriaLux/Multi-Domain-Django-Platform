@@ -17,7 +17,9 @@ wallets, which is why ``mark_unattended_no_show`` refreshes them itself.
 """
 
 import logging
+from datetime import timedelta
 
+from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -47,11 +49,23 @@ def unattended_registrations(event):
     )
 
 
+def checkin_closes_at(event):
+    """When the door stops admitting this event's seat holders.
+
+    The QR check-in (``views_checkin.event_checkin_api``) accepts a scan up to
+    ``EVENT_CHECKIN_WINDOW_HOURS`` after the start, and refuses any row that no
+    longer holds a seat — ``no_show`` included. Recording no-shows before this
+    point would turn away late arrivals with nothing at the door to undo it.
+    """
+    hours = getattr(settings, "EVENT_CHECKIN_WINDOW_HOURS", 12)
+    return max(event.end_time, event.date_time + timedelta(hours=hours))
+
+
 def no_show_refusal(event, now=None):
     """Why no-shows cannot be recorded for *event* yet, or None if they can.
 
-    The QuizEvent action predates these guards and does not apply them; the
-    MeetupEvent action, which reaches every event type, does.
+    Shared by the MeetupEvent admin action and the coach event page. The
+    QuizEvent action predates these guards and does not apply them.
     """
     from crush_lu.models.events import EventRegistration
 
@@ -60,10 +74,10 @@ def no_show_refusal(event, now=None):
         # Cancelling leaves the registrations untouched, so the roster still
         # reads "confirmed" for a party that never happened.
         return _("it was cancelled, so nobody missed it")
-    if event.end_time >= now:
-        # Late arrivals can still check in while it runs, and the door roster
-        # does not render no_show rows.
-        return _("it has not ended yet")
+    if checkin_closes_at(event) >= now:
+        # Covers future and running events too: a coach standing in the room
+        # when the event is scheduled to end must not lock out the stragglers.
+        return _("its check-in window has not closed yet")
     if (
         not EventRegistration.objects.filter(event=event)
         .filter(Q(status="attended") | Q(checked_in_at__isnull=False))
