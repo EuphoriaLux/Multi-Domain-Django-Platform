@@ -888,6 +888,83 @@ class PromotionNoticeRecordTests(_PromotionFixture):
         self.waiting.refresh_from_db()
         self.assertEqual(self.waiting.promotion_notice, "")
 
+    def test_the_member_data_export_includes_the_promotion(self):
+        """export_user_data promises all of a member's personal data."""
+        import json
+
+        from django.test import RequestFactory
+
+        from crush_lu.views_account import export_user_data
+
+        self._commit(self._cancel_holder())
+
+        def exported_registration(user):
+            request = RequestFactory().get("/")
+            request.user = user
+            [entry] = json.loads(export_user_data(request).content)[
+                "event_registrations"
+            ]
+            return entry
+
+        promotion = exported_registration(self.waiter)["waitlist_promotion"]
+        self.assertEqual(promotion["notice"], "email")
+        self.assertIsNotNone(promotion["promoted_at"])
+        self.assertNotIn("waitlist_promotion", exported_registration(self.member))
+
+    def test_an_admin_reassigning_a_promoted_seat_clears_its_notice(self):
+        """Handed to another member or moved to another event in the change
+        form, the seat was never announced to anyone."""
+        from types import SimpleNamespace
+
+        from django.test import RequestFactory
+
+        from crush_lu.admin.site import crush_admin_site
+        from crush_lu.models import EventRegistration, MeetupEvent
+
+        admin = crush_admin_site._registry[EventRegistration]
+        other_member = self._user("other@example.com")
+        other_event = MeetupEvent.objects.create(
+            title="Another Mixer",
+            description="Somewhere else",
+            event_type="mixer",
+            date_time=timezone.now() + timedelta(days=9),
+            location="Luxembourg",
+            address="1 Other Street",
+            max_participants=5,
+            registration_deadline=timezone.now() + timedelta(days=8),
+            is_published=True,
+        )
+        for changed, value in (
+            ([], None),
+            (["user"], other_member),
+            (["event"], other_event),
+        ):
+            with self.subTest(changed=changed):
+                EventRegistration.objects.filter(pk=self.waiting.pk).update(
+                    status="confirmed",
+                    event=self.event,
+                    user=self.waiter,
+                    waitlist_promoted_at=timezone.now(),
+                    promotion_notice=EventRegistration.PromotionNotice.EMAIL,
+                )
+                registration = EventRegistration.objects.get(pk=self.waiting.pk)
+                if changed:
+                    setattr(registration, changed[0], value)
+
+                admin.save_model(
+                    RequestFactory().post("/"),
+                    registration,
+                    SimpleNamespace(changed_data=changed, initial={}),
+                    change=True,
+                )
+
+                registration.refresh_from_db()
+                if changed:
+                    self.assertIsNone(registration.waitlist_promoted_at)
+                    self.assertEqual(registration.promotion_notice, "")
+                else:
+                    self.assertEqual(registration.promotion_notice, "email")
+
 
 class SeatGrantedEmailGateTests(_PromotionFixture):
     """The transactional gate itself, and that it stays scoped to promotions."""

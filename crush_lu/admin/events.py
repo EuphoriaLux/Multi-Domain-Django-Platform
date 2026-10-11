@@ -2631,6 +2631,13 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 level=django_messages.ERROR,
             )
             return
+        # A promotion's outcome belongs to the member it reached and the event
+        # it named: a seat handed to another member, or moved to another event,
+        # was never announced to anyone, so the coach page must not say it was.
+        # (An account merge keeps it: both accounts are the same person.)
+        if change and {"event", "user"}.intersection(form.changed_data):
+            obj.waitlist_promoted_at = None
+            obj.promotion_notice = ""
         confirmed_payment_date = obj.payment_date
         if payment_changed:
             if obj.payment_confirmed:

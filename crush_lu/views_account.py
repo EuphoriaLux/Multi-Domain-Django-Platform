@@ -3033,6 +3033,13 @@ def export_user_data(request):
                         pref.updated_at.isoformat() if pref.updated_at else None
                     ),
                 }
+            # When the waitlist gave this member the seat and which channel
+            # told them: their history, kept for the coach event page.
+            if reg.waitlist_promoted_at:
+                entry["waitlist_promotion"] = {
+                    "promoted_at": reg.waitlist_promoted_at.isoformat(),
+                    "notice": reg.promotion_notice or None,
+                }
             group_history = []
             own_pairings = list(reg.curated_pairing_participations.all())
             for membership in reg.curated_group_memberships.all():
