@@ -1,5 +1,5 @@
 {% extends 'crush_lu/base.html' %}
-{% load static %}
+{% load static social_tags %}
 {% load i18n %}
 
 {% block title %}{% trans "Crush.lu - Dating Luxembourg | Speed Dating Events & Singles Meetups" %}{% endblock %}
@@ -10,10 +10,11 @@
 {% block twitter_title %}{% trans "Crush.lu - Dating in Luxembourg | Speed Dating & Singles Events" %}{% endblock %}
 {% block twitter_description %}{% trans "Luxembourg's dating platform for real connections. Join speed dating events, social mixers, and singles meetups." %}{% endblock %}
 
-{% block meta_description %}{% trans "Crush.lu is Luxembourg's dating platform. Meet singles at speed dating events, social mixers, and themed meetups. Members are verified in person or via LuxID for authentic connections. Join free." %}{% endblock %}
+{% block meta_description %}{% luxid_available as luxid_offered %}{% if luxid_offered %}{% trans "Crush.lu is Luxembourg's dating platform. Meet singles at speed dating events, social mixers, and themed meetups. Members are verified in person or via LuxID for authentic connections. Join free." as meta_text %}{{ meta_text|force_escape }}{% else %}{% trans "Crush.lu is Luxembourg's dating platform. Meet singles at speed dating events, social mixers, and themed meetups. Members are verified in person at an event for authentic connections. Join free." as meta_text %}{{ meta_text|force_escape }}{% endif %}{% endblock %}
 {% block meta_keywords %}{% trans "crush.lu, dating luxembourg, speed dating luxembourg, singles events luxembourg, meetup luxembourg, dating events, luxembourg singles, rencontre luxembourg, singles in luxemburg" %}{% endblock %}
 
 {% block structured_data %}
+{% luxid_available as luxid_offered %}
 {{ block.super }}
 
 <!-- WebSite Schema for sitelinks search box -->
@@ -23,7 +24,7 @@
     "@type": "WebSite",
     "name": "Crush.lu",
     "url": "https://crush.lu",
-    "description": "{% trans "Privacy-first dating platform for Luxembourg with coach-hosted events and meaningful connections." %}",
+    "description": "{% trans "Privacy-first dating platform for Luxembourg with coach-hosted events and meaningful connections." as schema_text %}{{ schema_text|escapejs }}",
     "potentialAction": {
         "@type": "SearchAction",
         "target": "https://crush.lu/events/?q={search_term_string}",
@@ -40,26 +41,26 @@
     "mainEntity": [
         {
             "@type": "Question",
-            "name": "{% trans "How does Crush.lu work?" %}",
+            "name": "{% trans "How does Crush.lu work?" as schema_text %}{{ schema_text|escapejs }}",
             "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "{% trans "Create your profile, then get verified — come to an event and a coach verifies you in person, or connect your LuxID in seconds. Then join speed dating nights and social meetups to meet real people." %}"
+                "text": "{% if luxid_offered %}{% trans "Create your profile, then get verified — come to an event and a coach verifies you in person, or connect your LuxID in seconds. Then join speed dating nights and social meetups to meet real people." as schema_text %}{{ schema_text|escapejs }}{% else %}{% trans "Create your profile, then get verified — come to an event and a coach verifies you in person. Then join speed dating nights and social meetups to meet real people." as schema_text %}{{ schema_text|escapejs }}{% endif %}"
             }
         },
         {
             "@type": "Question",
-            "name": "{% trans "Is Crush.lu free to join?" %}",
+            "name": "{% trans "Is Crush.lu free to join?" as schema_text %}{{ schema_text|escapejs }}",
             "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "{% trans "Yes! Creating a profile is free. Some events may have a small registration fee to cover venue costs." %}"
+                "text": "{% trans "Yes! Creating a profile is free. Some events may have a small registration fee to cover venue costs." as schema_text %}{{ schema_text|escapejs }}"
             }
         },
         {
             "@type": "Question",
-            "name": "{% trans "What makes Crush.lu different from other dating apps?" %}",
+            "name": "{% trans "What makes Crush.lu different from other dating apps?" as schema_text %}{{ schema_text|escapejs }}",
             "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "{% trans "Crush.lu focuses on privacy-first, event-based dating. Members are verified in person at events or via LuxID, and you meet people at organized events instead of endless swiping." %}"
+                "text": "{% if luxid_offered %}{% trans "Crush.lu focuses on privacy-first, event-based dating. Members are verified in person at events or via LuxID, and you meet people at organized events instead of endless swiping." as schema_text %}{{ schema_text|escapejs }}{% else %}{% trans "Crush.lu focuses on privacy-first, event-based dating. Members are verified in person at events, and you meet people at organized events instead of endless swiping." as schema_text %}{{ schema_text|escapejs }}{% endif %}"
             }
         }
     ]
@@ -68,6 +69,7 @@
 {% endblock %}
 
 {% block content %}
+{% luxid_available as luxid_offered %}
 <div class="home-page">
 <!-- Hero Section -->
 <section class="hero-section" aria-labelledby="hero-heading" x-data="ghostEyes">
@@ -123,7 +125,7 @@
             </div>
             <h3 class="feature-title">{% trans "Privacy First" %}</h3>
             <p class="feature-text">
-                {% trans "Every member is verified — in person at an event or via LuxID. Real people only. Small community, big respect for privacy." %}
+                {% if luxid_offered %}{% trans "Every member is verified — in person at an event or via LuxID. Real people only. Small community, big respect for privacy." %}{% else %}{% trans "Every member is verified — in person at an event. Real people only. Small community, big respect for privacy." %}{% endif %}
             </p>
         </div>
         <div class="feature-card">
@@ -166,7 +168,7 @@
                 <div class="step-number" aria-hidden="true">2</div>
                 <div class="step-text">
                     <h3>{% trans "Get Verified" %}</h3>
-                    <p>{% trans "Come to an event and a coach verifies you in person, or connect your LuxID in seconds." %}</p>
+                    <p>{% if luxid_offered %}{% trans "Come to an event and a coach verifies you in person, or connect your LuxID in seconds." %}{% else %}{% trans "Come to an event and a coach verifies you in person." %}{% endif %}</p>
                 </div>
             </div>
             <div class="step-item">

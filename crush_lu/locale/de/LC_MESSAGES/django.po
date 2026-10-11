@@ -45413,3 +45413,118 @@ msgid "%(counter)s member matches"
 msgid_plural "%(counter)s members match"
 msgstr[0] "%(counter)s Mitglied passt"
 msgstr[1] "%(counter)s Mitglieder passen"
+
+#: crush_lu/templates/crush_lu/home.html:13
+msgid ""
+"Crush.lu is Luxembourg's dating platform. Meet singles at speed dating "
+"events, social mixers, and themed meetups. Members are verified in person at"
+" an event for authentic connections. Join free."
+msgstr ""
+"Crush.lu ist Luxemburgs Dating-Plattform. Triff Singles bei Speed-Dating-"
+"Events, Social Mixern und Themenabenden. Mitglieder werden persönlich bei "
+"einem Event verifiziert — für echte Verbindungen. Kostenlos beitreten."
+
+#: crush_lu/templates/crush_lu/home.html:47
+msgid ""
+"Create your profile, then get verified — come to an event and a coach "
+"verifies you in person. Then join speed dating nights and social meetups to "
+"meet real people."
+msgstr ""
+"Erstelle dein Profil, dann verifiziere dich — komm zu einem Event und ein "
+"Coach verifiziert dich persönlich. Dann nimm an Speed-Dating-Abenden und "
+"Social Meetups teil und triff echte Menschen."
+
+#: crush_lu/templates/crush_lu/home.html:63
+msgid ""
+"Crush.lu focuses on privacy-first, event-based dating. Members are verified "
+"in person at events, and you meet people at organized events instead of "
+"endless swiping."
+msgstr ""
+"Crush.lu setzt auf datenschutzorientiertes, eventbasiertes Dating. "
+"Mitglieder werden persönlich bei Events verifiziert, und du triffst Menschen"
+" bei organisierten Events statt endlosem Swipen."
+
+#: crush_lu/templates/crush_lu/home.html:128
+msgid ""
+"Every member is verified — in person at an event. Real people only. Small "
+"community, big respect for privacy."
+msgstr ""
+"Jedes Mitglied wird verifiziert — persönlich bei einem Event. Nur echte "
+"Menschen. Kleine Community, großer Respekt für Privatsphäre."
+
+#: crush_lu/templates/crush_lu/home.html:171
+#: crush_lu/templates/crush_lu/how_it_works.html:63
+msgid "Come to an event and a coach verifies you in person."
+msgstr "Komm zu einem Event und ein Coach verifiziert dich persönlich."
+
+#: crush_lu/templates/crush_lu/how_it_works.html:7
+msgid ""
+"Discover how Crush.lu helps you meet singles in Luxembourg. Create your "
+"profile, get verified at an event, join events, and make authentic "
+"connections. No endless swiping!"
+msgstr ""
+"Entdecke, wie Crush.lu dir hilft, Singles in Luxemburg zu treffen. Erstelle "
+"dein Profil, verifiziere dich bei einem Event, nimm an Events teil und "
+"knüpfe echte Verbindungen. Kein endloses Swipen!"
+
+#: crush_lu/templates/crush_lu/how_it_works.html:9
+msgid ""
+"Learn how Crush.lu works in 4 simple steps: Create your profile, get "
+"verified at an event, browse events, and meet real people. Luxembourg's "
+"privacy-first dating platform."
+msgstr ""
+"Erfahre, wie Crush.lu in 4 einfachen Schritten funktioniert: Erstelle dein "
+"Profil, verifiziere dich bei einem Event, entdecke Events und triff echte "
+"Menschen. Luxemburgs datenschutzorientierte Dating-Plattform."
+
+#: crush_lu/templates/crush_lu/how_it_works.html:111
+msgid "Verified in person"
+msgstr "Persönlich verifiziert"
+
+#: crush_lu/templates/crush_lu/how_it_works.html:139
+msgid ""
+"Come to an event and a coach verifies you in person. That's how we keep the "
+"community authentic."
+msgstr ""
+"Komm zu einem Event und ein Coach verifiziert dich persönlich. So halten wir"
+" die Community authentisch."
+
+#: crush_lu/templates/crush_lu/how_it_works.html:209
+msgid "Every member verified in person at an event"
+msgstr "Jedes Mitglied persönlich bei einem Event verifiziert"
+
+#: crush_lu/templates/crush_lu/how_it_works.html:231
+msgid "Real people, verified in person — not algorithms."
+msgstr "Echte Menschen, persönlich verifiziert — keine Algorithmen."
+
+#: crush_lu/templates/crush_lu/crush_connect.html:131
+msgid ""
+"Verify once through event attendance, answer your 3 questions, and you're "
+"discoverable in Connect Week and the coach-curated catalogue. No "
+"subscription, ever."
+msgstr ""
+"Verifiziere dich einmal durch Event-Teilnahme, beantworte deine 3 Fragen und"
+" werde in der Connect Week und im vom Coach kuratierten Katalog sichtbar. "
+"Ganz ohne Abo."
+
+#: crush_lu/templates/crush_lu/crush_connect.html:156
+msgid "Attend an in-person event — real people only."
+msgstr "Nimm an einem persönlichen Event teil — nur echte Menschen."
+
+#: crush_lu/templates/crush_lu/crush_connect.html:253
+msgid ""
+"Crush Connect requires verified identity to keep matching safe and "
+"authentic. Attend an event to get verified in person."
+msgstr ""
+"Crush Connect erfordert eine verifizierte Identität, damit das Matching "
+"sicher und authentisch bleibt. Nimm an einem Event teil, um dich persönlich "
+"verifizieren zu lassen."
+
+#: crush_lu/templates/crush_lu/how_it_works.html:106
+msgid "Way to Verify"
+msgstr "Weg zur Verifizierung"
+
+#: crush_lu/templates/crush_lu/membership.html:186
+#: crush_lu/templates/crush_lu/coach_dashboard.html:584
+msgid "Reward Levels"
+msgstr "Prämienstufen"
