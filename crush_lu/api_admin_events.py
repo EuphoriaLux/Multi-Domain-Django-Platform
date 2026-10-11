@@ -53,12 +53,11 @@ def _log_output(label: str, buffer: StringIO) -> None:
     """
     output = buffer.getvalue().strip()
     if output:
-        # Rendered here, not passed as a %s argument. The production
-        # PIIMaskingFilter masks any *argument* containing "@" as though the
-        # whole of it were one email address, which collapsed the entire
-        # report the moment an event title or error body held an "@". As the
-        # message itself it goes through the filter's email regex instead, so
-        # only real addresses are masked.
+        # Rendered here, not passed as a %s argument. Until 2026-10 the
+        # production PIIMaskingFilter masked any *argument* containing "@" as
+        # though the whole of it were one email address, which collapsed the
+        # entire report the moment an event title or error body held an "@".
+        # It now masks only real addresses, in the message and arguments alike.
         logger.error(
             f"[{label}] command output before the error:\n"
             f"{output[-_OUTPUT_LOG_CHARS:]}"
