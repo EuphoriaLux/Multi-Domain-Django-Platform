@@ -33,6 +33,7 @@ import csv
 from crush_lu.models import (
     CrushProfile,
     EventRegistration,
+    ProfilePhotoReviewState,
     ProfileSubmission,
     UserActivity,
     EmailPreference,
@@ -443,11 +444,23 @@ def get_segment_definitions(include_counts=True):
         latest_submission_status="recontact_coach"
     )
 
-    # Main photo a coach sent back. On photo_1 the profile-level status wins
-    # over any per-slot state (`CrushProfile.get_photo_field_review_status`),
-    # so it alone defines the cohort, whatever the verification status: a
-    # verified member is hidden from others just the same.
-    photo_main_sent_back = active.filter(photo_review_status="needs_revision")
+    # Main photo a coach sent back, read the way
+    # `CrushProfile.get_photo_field_review_status("photo_1")` reads it: a fake
+    # flag wins, then the profile-level status, then the decision on the live
+    # file. A refused replacement of an approved photo is recorded on the
+    # per-slot state only (`services.photo_review._is_refused_replacement`), so
+    # the profile-level status alone would miss it. Any verification status.
+    photo_main_sent_back = active.exclude(photo_review_status="flagged_fake").filter(
+        Q(photo_review_status="needs_revision")
+        | Exists(
+            ProfilePhotoReviewState.objects.filter(
+                profile_id=OuterRef("pk"),
+                photo_field="photo_1",
+                photo_key=OuterRef("photo_1"),
+                status="needs_revision",
+            )
+        )
+    )
 
     # Device & platform segments
     device_pwa = approved.filter(

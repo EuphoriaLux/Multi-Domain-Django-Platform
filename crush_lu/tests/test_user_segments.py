@@ -29,6 +29,7 @@ from crush_lu.models import (
     CrushProfile,
     EventRegistration,
     MeetupEvent,
+    ProfilePhotoReviewState,
     ProfileSubmission,
 )
 from crush_lu.models.connections import ConnectionMessage, EventConnection
@@ -338,7 +339,7 @@ class LegacyCoachReviewSegmentTests(SegmentFixturesMixin, TestCase):
 
 
 class PhotoSentBackSegmentTests(SegmentFixturesMixin, TestCase):
-    """Keyed on the main photo's profile-level status, as the photo gates read it."""
+    """The main photo's status, read as ``get_photo_field_review_status`` reads it."""
 
     def setUp(self):
         cache.clear()
@@ -375,6 +376,49 @@ class PhotoSentBackSegmentTests(SegmentFixturesMixin, TestCase):
         )
 
         self.assertEqual(_members("photo_main_sent_back"), {self.incomplete.pk})
+
+    def _refused_replacement(self, email, *, state_key, profile_status="approved"):
+        """An approved main photo replaced by a file a coach then refused.
+
+        ``_is_refused_replacement`` records the refusal on the per-slot state
+        only and leaves the profile-level status as it was.
+        """
+        profile = self._profile(email, status="verified")
+        live_key = f"users/{profile.pk}/photos/new.jpg"
+        CrushProfile.objects.filter(pk=profile.pk).update(
+            photo_1=live_key,
+            photo_review_status=profile_status,
+            photo_review_key=f"users/{profile.pk}/photos/old.jpg",
+        )
+        ProfilePhotoReviewState.objects.create(
+            profile=profile,
+            photo_field="photo_1",
+            photo_key=live_key if state_key == "live" else state_key,
+            status="needs_revision",
+        )
+        return profile
+
+    def test_refused_replacement_of_an_approved_photo_counts(self):
+        replaced = self._refused_replacement("replaced@example.com", state_key="live")
+
+        self.assertIn(replaced.pk, _members("photo_main_sent_back"))
+
+    def test_refusal_of_an_earlier_file_does_not_count(self):
+        # The member has uploaded again since: the live file is undecided.
+        stale = self._refused_replacement(
+            "stale@example.com", state_key="users/0/photos/earlier.jpg"
+        )
+
+        self.assertNotIn(stale.pk, _members("photo_main_sent_back"))
+
+    def test_fake_flag_wins_over_a_refused_file(self):
+        flagged = self._refused_replacement(
+            "flagged-refused@example.com",
+            state_key="live",
+            profile_status="flagged_fake",
+        )
+
+        self.assertNotIn(flagged.pk, _members("photo_main_sent_back"))
 
 
 class ConnectionActivitySegmentTests(SegmentFixturesMixin, TestCase):
