@@ -2569,9 +2569,8 @@ class SyncCommandTests(TestCase):
     @override_settings(**ENABLED)
     def test_the_warning_survives_the_pii_filter(self):
         # The per-event warning is the only place a stuck event is named, and
-        # production masks any log *argument* containing "@" as one email —
-        # which would collapse the whole warning. Rendered as the message,
-        # only real addresses are masked and the event and reason survive.
+        # production runs it through PIIMaskingFilter. Only real addresses may
+        # be masked; the event and reason have to survive.
         from azureproject.logging_utils import PIIMaskingFilter
 
         bad = make_event(title="Bad")

@@ -333,11 +333,11 @@ class Command(BaseCommand):
                 f"[{e.pk}] blocked on an untracked listing — run --audit"
                 for e in blocked
             ]
-            # Rendered here rather than passed as %s arguments: the production
-            # PII filter masks any argument containing "@" wholesale, as if it
-            # were one email, and event titles and echo.lu's error bodies can
-            # hold one. As the message, only real addresses get masked — see
-            # api_admin_events._log_output.
+            # Rendered here rather than passed as %s arguments: until 2026-10
+            # the production PII filter masked any argument containing "@"
+            # wholesale, and event titles and echo.lu's error bodies can hold
+            # one. It now masks only the addresses, in the message and in
+            # arguments alike — see api_admin_events._log_output.
             logger.warning(
                 f"[ECHO] sweep left {len(attention)} event(s) needing attention: "
                 + "; ".join(attention)
