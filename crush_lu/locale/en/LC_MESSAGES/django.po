@@ -19122,12 +19122,14 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\journey\challenges\multiple_choice.html:31
 #: .\crush_lu\templates\crush_lu\journey\challenges\open_text.html:31
 #: .\crush_lu\templates\crush_lu\journey\challenges\riddle.html:33
-#: .\crush_lu\templates\crush_lu\journey\challenges\timeline_sort.html:31
+#: .\crush_lu\templates\crush_lu\journey\challenges\timeline_sort.html:32
 #: .\crush_lu\templates\crush_lu\journey\challenges\word_scramble.html:32
 #: .\crush_lu\templates\crush_lu\journey\challenges\would_you_rather.html:30
 #, python-format
-msgid "%(points)s points available"
-msgstr ""
+msgid "%(points)s point available"
+msgid_plural "%(points)s points available"
+msgstr[0] ""
+msgstr[1] ""
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\multiple_choice.html:44
 #, python-format

@@ -16856,10 +16856,9 @@ msgid "Schedule the call"
 msgstr "Rappel planifié"
 
 #: templates/crush_lu/coach_connection_review.html:281
-#, fuzzy
 #| msgid "Saved"
 msgid "Save"
-msgstr "Enregistré"
+msgstr "Enregistrer"
 
 #: templates/crush_lu/coach_connection_review.html:289
 #, fuzzy
@@ -28380,16 +28379,6 @@ msgstr "Pas tout à fait ! Essaie une autre réponse."
 #: views_account.py:999 views_account.py:1011 views_advent.py:288
 msgid "An error occurred. Please try again."
 msgstr "Une erreur s'est produite. Veuillez réessayer."
-
-#: templates/crush_lu/journey/challenges/multiple_choice.html:31
-#: templates/crush_lu/journey/challenges/open_text.html:31
-#: templates/crush_lu/journey/challenges/riddle.html:33
-#: templates/crush_lu/journey/challenges/timeline_sort.html:31
-#: templates/crush_lu/journey/challenges/word_scramble.html:32
-#: templates/crush_lu/journey/challenges/would_you_rather.html:30
-#, python-format
-msgid "%(points)s points available"
-msgstr "%(points)s points disponibles"
 
 #: templates/crush_lu/journey/challenges/multiple_choice.html:44
 #, python-format
@@ -44302,7 +44291,12 @@ msgid "Shared before contact choices were available"
 msgstr "Partagé avant que le choix des coordonnées soit disponible"
 
 # UX Wave 6 · WP5 flows-rest
+#: templates/crush_lu/journey/challenges/multiple_choice.html
 #: templates/crush_lu/journey/challenges/open_text.html
+#: templates/crush_lu/journey/challenges/riddle.html
+#: templates/crush_lu/journey/challenges/timeline_sort.html
+#: templates/crush_lu/journey/challenges/word_scramble.html
+#: templates/crush_lu/journey/challenges/would_you_rather.html
 #, python-format
 msgid "%(points)s point available"
 msgid_plural "%(points)s points available"

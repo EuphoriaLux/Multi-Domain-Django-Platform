@@ -2659,6 +2659,7 @@ def export_user_data(request):
         PushSubscription,
         PWADeviceInstallation,
     )
+    from crush_lu.models.crush_connect_questions import MemberGateQuestion
     from crush_lu.models.event_polls import EventPollSuggestion, EventPollVote
     from crush_lu.models.profiles import UserDataConsent
     from delegations.models import AccessLog, DelegationProfile
@@ -2989,6 +2990,23 @@ def export_user_data(request):
             }
             for device in push_devices
         ]
+
+    # Member-owned Connect selections, including questions retired from rotation.
+    # Peer guesses/responders and coaching metadata belong to separate records.
+    selections = (
+        MemberGateQuestion.objects.filter(membership__user=user)
+        .select_related("question")
+        .order_by("position", "pk")
+    )
+    data["connect_question_selections"] = [
+        {
+            "question": selection.question.text,
+            "owner_answer": selection.owner_answer,
+            "position": selection.position,
+            "created_at": _iso_or_none(selection.created_at),
+        }
+        for selection in selections
+    ]
 
     # Responses authored by this member. Only labels identify the event/poll;
     # other attendees, poll descriptions/options and staff review data stay out.
