@@ -23,6 +23,7 @@ from django.contrib.messages import get_messages
 from django.contrib.sites.models import Site
 from django.core import mail
 from django.core.cache import cache
+from django.db.models.query import QuerySet
 from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
@@ -35,6 +36,7 @@ from crush_lu.models import (
 )
 from crush_lu.models.events import CuratedEventGroup, CuratedEventGroupMembership
 from crush_lu.models.quiz import QuizEvent
+from crush_lu.services import no_shows
 from crush_lu.services.no_shows import candidate_fingerprint
 
 User = get_user_model()
@@ -101,6 +103,51 @@ class NoShowFixturesMixin:
 
     def _messages(self, response):
         return [str(message) for message in get_messages(response.wsgi_request)]
+
+    def _curated_event(self):
+        return make_event(
+            "Curated evening",
+            self.now - timedelta(days=1),
+            event_type="speed_dating",
+            registration_mode="curated",
+            group_size=6,
+            planned_groups=1,
+            registration_fee=Decimal("15.00"),
+            profile_requirement="none",
+        )
+
+    def _curated_member(self, event, status, **fields):
+        # A curated seat may only be granted through the audited bulk confirm,
+        # so the row is born an application and flipped underneath the model.
+        registration = self._register(event, "applied")
+        EventRegistration.objects.filter(pk=registration.pk).update(
+            status=status, **fields
+        )
+        registration.refresh_from_db()
+        return registration
+
+    def _provisional_group(self, event, registrations):
+        # Same construction as test_curated_group_reserve_notifications: build
+        # the roster as a draft, then flip the status underneath the model.
+        group = CuratedEventGroup.objects.create(
+            event=event,
+            generation=1,
+            group_number=1,
+            seed="no-show-test",
+            policy_version="reciprocal-graph-v1",
+        )
+        for position, registration in enumerate(registrations, start=1):
+            CuratedEventGroupMembership.objects.create(
+                event=event,
+                group=group,
+                registration=registration,
+                position=position,
+            )
+        CuratedEventGroup.objects.filter(pk=group.pk).update(
+            status=CuratedEventGroup.STATUS_PROVISIONAL,
+            provisional_at=self.now,
+        )
+        return group
 
     def _google_holder(self, event):
         registration = self._register(event, "confirmed")
@@ -267,51 +314,6 @@ class MeetupEventNoShowActionTests(NoShowFixturesMixin, TestCase):
 
         self.assertEqual(self._status(missed), "no_show")
         self.assertEqual(self._status(booked), "confirmed")
-
-    def _curated_event(self):
-        return make_event(
-            "Curated evening",
-            self.now - timedelta(days=1),
-            event_type="speed_dating",
-            registration_mode="curated",
-            group_size=6,
-            planned_groups=1,
-            registration_fee=Decimal("15.00"),
-            profile_requirement="none",
-        )
-
-    def _curated_member(self, event, status, **fields):
-        # A curated seat may only be granted through the audited bulk confirm,
-        # so the row is born an application and flipped underneath the model.
-        registration = self._register(event, "applied")
-        EventRegistration.objects.filter(pk=registration.pk).update(
-            status=status, **fields
-        )
-        registration.refresh_from_db()
-        return registration
-
-    def _provisional_group(self, event, registrations):
-        # Same construction as test_curated_group_reserve_notifications: build
-        # the roster as a draft, then flip the status underneath the model.
-        group = CuratedEventGroup.objects.create(
-            event=event,
-            generation=1,
-            group_number=1,
-            seed="no-show-test",
-            policy_version="reciprocal-graph-v1",
-        )
-        for position, registration in enumerate(registrations, start=1):
-            CuratedEventGroupMembership.objects.create(
-                event=event,
-                group=group,
-                registration=registration,
-                position=position,
-            )
-        CuratedEventGroup.objects.filter(pk=group.pk).update(
-            status=CuratedEventGroup.STATUS_PROVISIONAL,
-            provisional_at=self.now,
-        )
-        return group
 
     def test_member_still_in_a_provisional_curated_group_is_refused(self):
         # save() would degrade the group and retire its checkouts; .update()
@@ -617,3 +619,70 @@ class CoachEventNoShowTests(NoShowFixturesMixin, TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "data-no-show-panel")
+
+
+class NoShowServiceTests(NoShowFixturesMixin, TestCase):
+    """The helper itself, below the callers' own (unlocked) checks."""
+
+    def test_locks_the_event_then_its_registrations_before_the_curated_check(
+        self,
+    ):
+        # mark_provisional() and lock() take the event, then its registrations
+        # by pk. The helper must take the same order and re-check the curated
+        # groups only once both are held. SQLite drops FOR UPDATE, so the order
+        # is recorded here rather than proven by a passing suite.
+        event = make_event("Locked mixer", self.now - timedelta(days=1))
+        self._attended(event)
+        self._register(event, "confirmed")
+        calls = []
+        original_lock = QuerySet.select_for_update
+        original_check = no_shows.curated_group_refusal
+
+        def recording_lock(queryset, *args, **kwargs):
+            calls.append(queryset.model.__name__)
+            return original_lock(queryset, *args, **kwargs)
+
+        def recording_check(checked_event):
+            calls.append("curated_group_refusal")
+            return original_check(checked_event)
+
+        with mock.patch.object(
+            QuerySet, "select_for_update", recording_lock
+        ), mock.patch.object(no_shows, "curated_group_refusal", recording_check):
+            no_shows.mark_unattended_no_show([event], context="test")
+
+        self.assertEqual(
+            calls[:3], ["MeetupEvent", "EventRegistration", "curated_group_refusal"]
+        )
+
+    def test_the_locked_recheck_refuses_a_group_certified_meanwhile(self):
+        # The callers' check ran before the locks; a group that became
+        # provisional since is caught here, and nothing changes.
+        event = self._curated_event()
+        attended = self._curated_member(
+            event, "attended", checked_in_at=event.date_time
+        )
+        missing = self._curated_member(event, "confirmed")
+        self._provisional_group(event, [attended, missing])
+
+        [result] = no_shows.mark_unattended_no_show([event], context="test")
+
+        self.assertEqual(result.updated, 0)
+        self.assertIsNotNone(result.refusal)
+        self.assertEqual(self._status(missing), "confirmed")
+
+    def test_only_ids_marks_nothing_outside_the_confirmed_list(self):
+        # The coach page passes the list it showed: a row restored after the
+        # check is not in it, so it is never marked.
+        event = make_event("Bound mixer", self.now - timedelta(days=1))
+        self._attended(event)
+        shown = self._register(event, "confirmed")
+        restored = self._register(event, "confirmed")
+
+        [result] = no_shows.mark_unattended_no_show(
+            [event], context="test", only_ids=[shown.pk]
+        )
+
+        self.assertEqual(result.updated, 1)
+        self.assertEqual(self._status(shown), "no_show")
+        self.assertEqual(self._status(restored), "confirmed")

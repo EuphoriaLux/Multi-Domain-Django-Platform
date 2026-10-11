@@ -18,8 +18,10 @@ wallets, which is why ``mark_unattended_no_show`` refreshes them itself.
 
 import logging
 from datetime import timedelta
+from typing import Any, NamedTuple
 
 from django.conf import settings
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -34,6 +36,18 @@ logger = logging.getLogger(__name__)
 #: attendance not restored). "attended", "cancelled", "waitlist" and "applied"
 #: are never touched.
 NO_SHOW_CANDIDATE_STATUSES = ("confirmed", "pending")
+
+
+class NoShowResult(NamedTuple):
+    """What ``mark_unattended_no_show`` did with one event."""
+
+    event: Any
+    #: Rows flipped to no_show.
+    updated: int
+    #: Rows held back by the Google Wallet cap; a rerun records them.
+    left: int = 0
+    #: Set when the locked re-check refused the event; nothing changed.
+    refusal: Any = None
 
 
 def unattended_registrations(event):
@@ -129,19 +143,21 @@ def no_show_refusal(event, now=None):
     return curated_group_refusal(event)
 
 
-def mark_unattended_no_show(events, *, context, now=None):
+def mark_unattended_no_show(events, *, context, now=None, only_ids=None):
     """Flip every unattended seat holder of *events* to ``no_show``.
 
-    Returns ``[(event, updated, left), ...]`` in the order given. The caller
-    decides which events are eligible; this applies no time guard. ``left``
-    counts rows held back by the Google cap below: they keep their status, so
-    running the same call again records them.
+    Returns a ``NoShowResult`` per event, in the order given. The caller
+    decides which events are eligible; this applies no time guard, but it
+    does re-run ``curated_group_refusal`` under the event's locks (see the
+    loop). ``only_ids`` restricts the flip to those registrations: the coach
+    page passes the exact list it showed, so a row restored after the check
+    is never marked.
 
     The wallet refreshes are bounded by the refresh helpers' own push budgets
     and run ONCE for the whole call, so the request stays bounded however
     many events are selected (production runs tasks inline).
     """
-    from crush_lu.models import CrushProfile
+    from crush_lu.models import CrushProfile, EventRegistration, MeetupEvent
     from crush_lu.wallet_pass import get_next_event_registrations
 
     now = now or timezone.now()
@@ -159,114 +175,140 @@ def mark_unattended_no_show(events, *, context, now=None):
     voiding_google_profiles = {}
 
     for event in events:
-        affected = unattended_registrations(event)
-        # GOOGLE member objects print the holder's "Next Event" block and have
-        # no Google ticket to carry the change instead. Worked out first, so
-        # the cap below is spent before anything is flipped.
-        # Collected before the update, while `affected` still matches.
-        #
-        # Two ways a holder here needs the PATCH, and the second is the USUAL
-        # one, because no-shows are normally recorded after the event:
-        #
-        #   * the event is still live and is what their card is showing. The
-        #     no_show flip takes it out of PASS_NEXT_EVENT_STATUSES, so the
-        #     block changes. Crossing the status boundary is necessary but not
-        #     sufficient — a holder with an earlier eligible registration is
-        #     looking at that instead, and refreshing them writes a
-        #     byte-identical object out of a capped, poll-less budget.
-        #
-        #   * the event has already ENDED. get_next_event_for_pass stopped
-        #     selecting it the moment it finished, so it is nobody's displayed
-        #     event and the test above answers "refresh nobody" — but the Google
-        #     object is SERVER-SIDE state that only changes when we PATCH it,
-        #     and the last PATCH went out while the event was still upcoming. It
-        #     is therefore still advertising a finished event, and nothing else
-        #     recomputes it: there is no "event ended" trigger anywhere in the
-        #     estate. Optimising on the current logical selector cannot see
-        #     that, because the two diverge the instant an event ends.
-        #
-        # So an ended event takes the conservative branch. That is the same
-        # rule the event-change fan-out follows: over-refreshing spends budget,
-        # under-refreshing strands a wrong card with nothing left to correct it.
-        event_ended = event.end_time < now
-        candidates = list(
-            CrushProfile.objects.filter(user__eventregistration__in=affected).exclude(
-                google_wallet_object_id=""
+        with transaction.atomic():
+            # The order CuratedEventGroup.mark_provisional() and lock() take:
+            # the event, then its registrations by pk. Held across the
+            # curated re-check and the update, so a group workflow cannot
+            # certify or lock one of these members in between (the callers'
+            # own check ran unlocked). SQLite ignores these locks, so the
+            # order is pinned by a structural test, not by the suite passing.
+            MeetupEvent.objects.select_for_update().get(pk=event.pk)
+            list(
+                EventRegistration.objects.select_for_update()
+                .filter(event_id=event.pk)
+                .order_by("pk")
+                .values_list("pk", flat=True)
             )
-        )
-        displayed = (
-            {}
-            if event_ended
-            else get_next_event_registrations(
-                [profile.user_id for profile in candidates], now=now
+            refusal = curated_group_refusal(event)
+            if refusal is not None:
+                results.append(NoShowResult(event, 0, 0, refusal))
+                continue
+            affected = unattended_registrations(event)
+            if only_ids is not None:
+                affected = affected.filter(pk__in=only_ids)
+            # GOOGLE member objects print the holder's "Next Event" block and have
+            # no Google ticket to carry the change instead. Worked out first, so
+            # the cap below is spent before anything is flipped.
+            # Collected before the update, while `affected` still matches.
+            #
+            # Two ways a holder here needs the PATCH, and the second is the USUAL
+            # one, because no-shows are normally recorded after the event:
+            #
+            #   * the event is still live and is what their card is showing. The
+            #     no_show flip takes it out of PASS_NEXT_EVENT_STATUSES, so the
+            #     block changes. Crossing the status boundary is necessary but not
+            #     sufficient — a holder with an earlier eligible registration is
+            #     looking at that instead, and refreshing them writes a
+            #     byte-identical object out of a capped, poll-less budget.
+            #
+            #   * the event has already ENDED. get_next_event_for_pass stopped
+            #     selecting it the moment it finished, so it is nobody's displayed
+            #     event and the test above answers "refresh nobody" — but the Google
+            #     object is SERVER-SIDE state that only changes when we PATCH it,
+            #     and the last PATCH went out while the event was still upcoming. It
+            #     is therefore still advertising a finished event, and nothing else
+            #     recomputes it: there is no "event ended" trigger anywhere in the
+            #     estate. Optimising on the current logical selector cannot see
+            #     that, because the two diverge the instant an event ends.
+            #
+            # So an ended event takes the conservative branch. That is the same
+            # rule the event-change fan-out follows: over-refreshing spends budget,
+            # under-refreshing strands a wrong card with nothing left to correct it.
+            event_ended = event.end_time < now
+            candidates = list(
+                CrushProfile.objects.filter(
+                    user__eventregistration__in=affected
+                ).exclude(google_wallet_object_id="")
             )
-        )
-        event_google = {}
-        for profile in candidates:
-            showing = displayed.get(profile.user_id)
-            if event_ended or (showing is not None and showing.event_id == event.pk):
-                event_google[profile.pk] = profile
-
-        # Google has no poll: a PATCH the refresh helper drops past
-        # WALLET_GOOGLE_BULK_UPDATE_LIMIT leaves that card stale for good, and
-        # once its row is no_show no rerun can reach it again. So the cap is
-        # spent ROW BY ROW before anything is flipped: a row is marked only if
-        # its holder's PATCH fits (or needs none, or is already in this call's
-        # batch). Every other row keeps its status, so running the same call
-        # again picks it up under a fresh budget. No event is exempt, the first
-        # included. What this cannot cover is the helper's wall-clock deadline,
-        # which is decided on commit; anything it skips is logged with the
-        # object ids, and update_all_google_wallet_passes() heals those.
-        needs_patch = {profile.user_id: profile for profile in event_google.values()}
-        room = google_limit - len(voiding_google_profiles)
-        marked_ids = []
-        left = 0
-        for registration_id, user_id in affected.order_by("pk").values_list(
-            "pk", "user_id"
-        ):
-            profile = needs_patch.get(user_id)
-            if profile is None or profile.pk in voiding_google_profiles:
-                marked_ids.append(registration_id)
-            elif room > 0:
-                voiding_google_profiles[profile.pk] = profile
-                room -= 1
-                marked_ids.append(registration_id)
-            else:
-                left += 1
-        batch = affected.filter(pk__in=marked_ids)
-
-        # Collected before the update, while the seats are still valid.
-        # no_show is not a seat-holding status, so the rebuilt ticket is
-        # `voided` — but .update() emits no signals, so without this the
-        # holder keeps a ticket that still looks valid at the door.
-        voiding_serials += list(
-            batch.exclude(apple_wallet_ticket_serial="").values_list(
-                "apple_wallet_ticket_serial", flat=True
+            displayed = (
+                {}
+                if event_ended
+                else get_next_event_registrations(
+                    [profile.user_id for profile in candidates], now=now
+                )
             )
-        )
-        # ...and their Apple MEMBER passes. no_show is outside the candidate
-        # set of get_next_event_for_pass, so this event stops being the
-        # holder's next event and the card would otherwise keep advertising an
-        # event they were just marked absent from. A holder who never
-        # downloaded the ticket has only this serial.
-        voiding_serials += list(
-            CrushProfile.objects.filter(user__eventregistration__in=batch)
-            .exclude(apple_pass_serial="")
-            .values_list("apple_pass_serial", flat=True)
-            .distinct()
-        )
-        # .update() skips auto_now, so stamp updated_at by hand: it is the only
-        # record of when the no-show was written.
-        updated = batch.update(status="no_show", updated_at=now) if marked_ids else 0
-        if updated:
-            # Leaving SEAT_HOLDING_STATUSES changes the page's remaining
-            # capacity. A per-row save would have told Google through
-            # trigger_google_indexing_on_registration_save; .update() fires no
-            # signal, so schedule the same coalesced, budgeted, on-commit ping.
-            from crush_lu.signals import _schedule_event_indexing_notification
+            event_google = {}
+            for profile in candidates:
+                showing = displayed.get(profile.user_id)
+                if event_ended or (
+                    showing is not None and showing.event_id == event.pk
+                ):
+                    event_google[profile.pk] = profile
 
-            _schedule_event_indexing_notification(event.pk, skip_if_ineligible=True)
-        results.append((event, updated, left))
+            # Google has no poll: a PATCH the refresh helper drops past
+            # WALLET_GOOGLE_BULK_UPDATE_LIMIT leaves that card stale for good, and
+            # once its row is no_show no rerun can reach it again. So the cap is
+            # spent ROW BY ROW before anything is flipped: a row is marked only if
+            # its holder's PATCH fits (or needs none, or is already in this call's
+            # batch). Every other row keeps its status, so running the same call
+            # again picks it up under a fresh budget. No event is exempt, the first
+            # included. What this cannot cover is the helper's wall-clock deadline,
+            # which is decided on commit; anything it skips is logged with the
+            # object ids, and update_all_google_wallet_passes() heals those.
+            needs_patch = {
+                profile.user_id: profile for profile in event_google.values()
+            }
+            room = google_limit - len(voiding_google_profiles)
+            marked_ids = []
+            left = 0
+            for registration_id, user_id in affected.order_by("pk").values_list(
+                "pk", "user_id"
+            ):
+                profile = needs_patch.get(user_id)
+                if profile is None or profile.pk in voiding_google_profiles:
+                    marked_ids.append(registration_id)
+                elif room > 0:
+                    voiding_google_profiles[profile.pk] = profile
+                    room -= 1
+                    marked_ids.append(registration_id)
+                else:
+                    left += 1
+            batch = affected.filter(pk__in=marked_ids)
+
+            # Collected before the update, while the seats are still valid.
+            # no_show is not a seat-holding status, so the rebuilt ticket is
+            # `voided` — but .update() emits no signals, so without this the
+            # holder keeps a ticket that still looks valid at the door.
+            voiding_serials += list(
+                batch.exclude(apple_wallet_ticket_serial="").values_list(
+                    "apple_wallet_ticket_serial", flat=True
+                )
+            )
+            # ...and their Apple MEMBER passes. no_show is outside the candidate
+            # set of get_next_event_for_pass, so this event stops being the
+            # holder's next event and the card would otherwise keep advertising an
+            # event they were just marked absent from. A holder who never
+            # downloaded the ticket has only this serial.
+            voiding_serials += list(
+                CrushProfile.objects.filter(user__eventregistration__in=batch)
+                .exclude(apple_pass_serial="")
+                .values_list("apple_pass_serial", flat=True)
+                .distinct()
+            )
+            # .update() skips auto_now, so stamp updated_at by hand: it is the only
+            # record of when the no-show was written.
+            updated = (
+                batch.update(status="no_show", updated_at=now) if marked_ids else 0
+            )
+            if updated:
+                # Leaving SEAT_HOLDING_STATUSES changes the page's remaining
+                # capacity. A per-row save would have told Google through
+                # trigger_google_indexing_on_registration_save; .update() fires no
+                # signal, so schedule the same coalesced, budgeted, on-commit ping.
+                from crush_lu.signals import _schedule_event_indexing_notification
+
+                _schedule_event_indexing_notification(event.pk, skip_if_ineligible=True)
+            results.append(NoShowResult(event, updated, left))
 
     if voiding_serials:
         try:

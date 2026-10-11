@@ -214,7 +214,10 @@ def mark_unattended_as_no_show(modeladmin, request, queryset):
     results = mark_unattended_no_show(
         events, context="Admin mark_unattended_as_no_show"
     )
-    for event, updated, left in results:
+    for event, updated, left, refusal in results:
+        if refusal is not None:
+            messages.warning(request, f"'{event}' skipped: {refusal}.")
+            continue
         if updated or not left:
             messages.success(
                 request,

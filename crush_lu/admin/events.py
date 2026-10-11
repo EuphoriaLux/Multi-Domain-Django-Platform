@@ -2200,7 +2200,15 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             context=f"Admin MeetupEvent no-show ({len(eligible)} event(s))",
             now=now,
         )
-        for event, updated, left in results:
+        for event, updated, left, refusal in results:
+            if refusal is not None:
+                django_messages.warning(
+                    request,
+                    _("'{event}' skipped: {reason}.").format(
+                        event=event, reason=refusal
+                    ),
+                )
+                continue
             if updated or not left:
                 django_messages.success(
                     request,

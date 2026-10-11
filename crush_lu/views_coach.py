@@ -3155,10 +3155,8 @@ def coach_mark_event_no_shows(request, event_id):
         return redirect("crush_lu:coach_event_detail", event_id=event.id)
     # Only the list the coach confirmed. A replayed offline POST or a page
     # left open while someone else changed the roster must not mark more.
-    current = candidate_fingerprint(
-        unattended_registrations(event).values_list("pk", flat=True)
-    )
-    if request.POST.get("candidates", "") != current:
+    shown_ids = list(unattended_registrations(event).values_list("pk", flat=True))
+    if request.POST.get("candidates", "") != candidate_fingerprint(shown_ids):
         messages.error(
             request,
             _(
@@ -3168,9 +3166,21 @@ def coach_mark_event_no_shows(request, event_id):
         )
         return redirect("crush_lu:coach_event_detail", event_id=event.id)
 
-    [(_event, updated, left)] = mark_unattended_no_show(
-        [event], context=f"Coach no-show (coach {request.coach.pk})"
+    # only_ids: a row restored between the check above and the update is not
+    # in the list the coach confirmed, so it is never marked.
+    [result] = mark_unattended_no_show(
+        [event],
+        context=f"Coach no-show (coach {request.coach.pk})",
+        only_ids=shown_ids,
     )
+    if result.refusal is not None:
+        # The locked re-check caught a curated group certified meanwhile.
+        messages.error(
+            request,
+            _("No-shows were not recorded: %(reason)s.") % {"reason": result.refusal},
+        )
+        return redirect("crush_lu:coach_event_detail", event_id=event.id)
+    updated, left = result.updated, result.left
     # .update() leaves no trace of who did it; this line is the record.
     logger.info(
         "Coach %s marked %s registration(s) of event %s as no-show (%s left)",
