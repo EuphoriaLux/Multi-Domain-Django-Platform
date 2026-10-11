@@ -11,6 +11,8 @@ from django.db.models import Q
 from django.utils import timezone
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
+
+from azureproject.domains import DOMAINS, get_urlconf_for_host
 from .models import (
     EventConnection,
     CrushProfile,
@@ -65,8 +67,23 @@ def _social_address_hold(request):
     return bool(_held_social_user_id(request))
 
 
+def _is_crush_request(request):
+    """Follow the selected platform, including aliases and local routing.
+
+    Middleware's URLconf is authoritative; resolving the host is only for
+    callers such as RequestFactory that have not run the routing middleware.
+    """
+    urlconf = getattr(request, "urlconf", None)
+    if urlconf is None:
+        urlconf = get_urlconf_for_host(request.get_host())
+    return getattr(urlconf, "__name__", urlconf) == DOMAINS["crush.lu"]["urlconf"]
+
+
 def crush_user_context(request):
     """Add user-specific context for navigation and UI"""
+    if not _is_crush_request(request):
+        return {}
+
     from .ios_app_utils import (
         is_android_device,
         is_android_native_request,
@@ -409,6 +426,9 @@ def site_config_context(request):
     via django-modeltranslation, while non-translated fields are
     cached as plain values.
     """
+    if not _is_crush_request(request):
+        return {}
+
     now = time.time()
     if _site_config_cache["config"] is None or now > _site_config_cache["expires"]:
         from .models import CrushSiteConfig
