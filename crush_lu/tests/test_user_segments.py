@@ -337,6 +337,46 @@ class LegacyCoachReviewSegmentTests(SegmentFixturesMixin, TestCase):
         self.assertNotIn(verified.pk, revision)
 
 
+class PhotoSentBackSegmentTests(SegmentFixturesMixin, TestCase):
+    """Keyed on the main photo's profile-level status, as the photo gates read it."""
+
+    def setUp(self):
+        cache.clear()
+        self.verified = self._profile(
+            "sent-back-verified@example.com", status="verified"
+        )
+        self.incomplete = self._profile(
+            "sent-back-incomplete@example.com", status="incomplete"
+        )
+        self.approved_photo = self._profile("photo-ok@example.com", status="verified")
+        self.flagged = self._profile("photo-flagged@example.com", status="verified")
+        self.deactivated = self._profile(
+            "sent-back-deactivated@example.com", status="verified"
+        )
+        CrushProfile.objects.filter(
+            pk__in=[self.verified.pk, self.incomplete.pk, self.deactivated.pk]
+        ).update(photo_review_status="needs_revision")
+        CrushProfile.objects.filter(pk=self.approved_photo.pk).update(
+            photo_review_status="approved"
+        )
+        CrushProfile.objects.filter(pk=self.flagged.pk).update(
+            photo_review_status="flagged_fake"
+        )
+        CrushProfile.objects.filter(pk=self.deactivated.pk).update(is_active=False)
+
+    def test_sent_back_main_photo_counts_whatever_the_verification_status(self):
+        self.assertEqual(
+            _members("photo_main_sent_back"), {self.verified.pk, self.incomplete.pk}
+        )
+
+    def test_member_leaves_the_segment_once_a_coach_approves_a_new_photo(self):
+        CrushProfile.objects.filter(pk=self.verified.pk).update(
+            photo_review_status="approved"
+        )
+
+        self.assertEqual(_members("photo_main_sent_back"), {self.incomplete.pk})
+
+
 class ConnectionActivitySegmentTests(SegmentFixturesMixin, TestCase):
     """The connection cards read the live post-event connection tables."""
 
@@ -416,6 +456,12 @@ class SegmentPageTests(SegmentFixturesMixin, TestCase):
             profile=self.recontact, status="recontact_coach"
         )
         self.rejected = self._profile("rejected@example.com", status="rejected")
+        self.photo_sent_back = self._profile(
+            "photo-sent-back@example.com", status="verified"
+        )
+        CrushProfile.objects.filter(pk=self.photo_sent_back.pk).update(
+            photo_review_status="needs_revision"
+        )
 
         self.expected = {
             "lifecycle_recently_approved": {self.approved},
@@ -423,6 +469,7 @@ class SegmentPageTests(SegmentFixturesMixin, TestCase):
             "pending_unbooked": {self.unbooked, self.recontact},
             "unverified_revision": {self.revision},
             "unverified_recontact": {self.recontact},
+            "photo_main_sent_back": {self.photo_sent_back},
         }
 
         admin = User.objects.create_superuser(

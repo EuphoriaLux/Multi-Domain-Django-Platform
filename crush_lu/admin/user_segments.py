@@ -6,6 +6,7 @@ Provides admin dashboard for viewing and managing user segments:
 - Inactive users (7d, 14d, 30d)
 - Pending verification (not booked, booked on an event)
 - Unverified profiles (never submitted, pending, revision, rejected, recontact)
+- Main photo sent back by a coach
 - Approved but never registered for event
 - No push subscription
 - Unsubscribed from emails
@@ -225,10 +226,10 @@ def get_segment_definitions(include_counts=True):
     queries) and leaves ``count`` as ``None`` — for callers that only need a
     segment's queryset, e.g. resolving one audience by key.
 
-    Categories (17 total):
-    1-7: Operational (profile, verification, activity, engagement, email, reminders, unverified)
-    8-12: Demographics (gender, age, gender x age, looking-for, language)
-    13-17: Behavioral (events, connections, membership, lifecycle, device)
+    Categories (18 total):
+    1-8: Operational (profile, verification, activity, engagement, email, reminders, unverified, photo review)
+    9-13: Demographics (gender, age, gender x age, looking-for, language)
+    14-18: Behavioral (events, connections, membership, lifecycle, device)
     """
     now = timezone.now()
     seven_days_ago = now - timedelta(days=7)
@@ -441,6 +442,12 @@ def get_segment_definitions(include_counts=True):
     unverified_recontact = awaiting_legacy_review.filter(
         latest_submission_status="recontact_coach"
     )
+
+    # Main photo a coach sent back. On photo_1 the profile-level status wins
+    # over any per-slot state (`CrushProfile.get_photo_field_review_status`),
+    # so it alone defines the cohort, whatever the verification status: a
+    # verified member is hidden from others just the same.
+    photo_main_sent_back = active.filter(photo_review_status="needs_revision")
 
     # Device & platform segments
     device_pwa = approved.filter(
@@ -908,6 +915,25 @@ def get_segment_definitions(include_counts=True):
                     "queryset": unverified_recontact,
                     "count": _count(unverified_recontact),
                     "color": "purple",
+                },
+            ],
+        },
+        "photo_review": {
+            "title": "Photo Review",
+            "icon": "📷",
+            "group": "operational",
+            "segments": [
+                {
+                    "name": "Main Photo Sent Back",
+                    "key": "photo_main_sent_back",
+                    "description": (
+                        "A coach sent the main photo back for a new one. Other "
+                        "members see no main photo, or an older approved one, "
+                        "until a coach approves the replacement"
+                    ),
+                    "queryset": photo_main_sent_back,
+                    "count": _count(photo_main_sent_back),
+                    "color": "orange",
                 },
             ],
         },
