@@ -45534,3 +45534,122 @@ msgid "%(counter)s member matches"
 msgid_plural "%(counter)s members match"
 msgstr[0] "%(counter)s membre correspond"
 msgstr[1] "%(counter)s membres correspondent"
+
+#: crush_lu/templates/crush_lu/home.html:13
+msgid ""
+"Crush.lu is Luxembourg's dating platform. Meet singles at speed dating "
+"events, social mixers, and themed meetups. Members are verified in person at"
+" an event for authentic connections. Join free."
+msgstr ""
+"Crush.lu est la plateforme de rencontres du Luxembourg. Rencontrez des "
+"célibataires lors de soirées speed dating, de mixers et d'événements à "
+"thème. Les membres sont vérifiés en personne lors d'un événement pour des "
+"connexions authentiques. Inscription gratuite."
+
+#: crush_lu/templates/crush_lu/home.html:47
+msgid ""
+"Create your profile, then get verified — come to an event and a coach "
+"verifies you in person. Then join speed dating nights and social meetups to "
+"meet real people."
+msgstr ""
+"Créez votre profil, puis faites-vous vérifier — venez à un événement et un "
+"coach vous vérifie en personne. Ensuite, participez aux soirées speed dating"
+" et aux rencontres pour rencontrer de vraies personnes."
+
+#: crush_lu/templates/crush_lu/home.html:63
+msgid ""
+"Crush.lu focuses on privacy-first, event-based dating. Members are verified "
+"in person at events, and you meet people at organized events instead of "
+"endless swiping."
+msgstr ""
+"Crush.lu mise sur des rencontres basées sur des événements et respectueuses "
+"de la vie privée. Les membres sont vérifiés en personne lors des événements,"
+" et vous rencontrez des gens lors d'événements organisés plutôt qu'en "
+"swipant sans fin."
+
+#: crush_lu/templates/crush_lu/home.html:128
+msgid ""
+"Every member is verified — in person at an event. Real people only. Small "
+"community, big respect for privacy."
+msgstr ""
+"Chaque membre est vérifié — en personne lors d'un événement. Que de vraies "
+"personnes. Petite communauté, grand respect de la vie privée."
+
+#: crush_lu/templates/crush_lu/home.html:171
+#: crush_lu/templates/crush_lu/how_it_works.html:63
+msgid "Come to an event and a coach verifies you in person."
+msgstr "Venez à un événement et un coach vous vérifie en personne."
+
+#: crush_lu/templates/crush_lu/how_it_works.html:7
+msgid ""
+"Discover how Crush.lu helps you meet singles in Luxembourg. Create your "
+"profile, get verified at an event, join events, and make authentic "
+"connections. No endless swiping!"
+msgstr ""
+"Découvrez comment Crush.lu vous aide à rencontrer des célibataires au "
+"Luxembourg. Créez votre profil, faites-vous vérifier lors d'un événement, "
+"participez aux événements et créez de vraies connexions. Sans swipe à "
+"l'infini !"
+
+#: crush_lu/templates/crush_lu/how_it_works.html:9
+msgid ""
+"Learn how Crush.lu works in 4 simple steps: Create your profile, get "
+"verified at an event, browse events, and meet real people. Luxembourg's "
+"privacy-first dating platform."
+msgstr ""
+"Découvrez comment fonctionne Crush.lu en 4 étapes simples : créez votre "
+"profil, faites-vous vérifier lors d'un événement, parcourez les événements "
+"et rencontrez de vraies personnes. La plateforme de rencontres du "
+"Luxembourg, respectueuse de la vie privée."
+
+#: crush_lu/templates/crush_lu/how_it_works.html:111
+msgid "Verified in person"
+msgstr "Vérifiés en personne"
+
+#: crush_lu/templates/crush_lu/how_it_works.html:139
+msgid ""
+"Come to an event and a coach verifies you in person. That's how we keep the "
+"community authentic."
+msgstr ""
+"Venez à un événement et un coach vous vérifie en personne. C'est ainsi que "
+"nous gardons la communauté authentique."
+
+#: crush_lu/templates/crush_lu/how_it_works.html:209
+msgid "Every member verified in person at an event"
+msgstr "Chaque membre vérifié en personne lors d'un événement"
+
+#: crush_lu/templates/crush_lu/how_it_works.html:231
+msgid "Real people, verified in person — not algorithms."
+msgstr "De vraies personnes, vérifiées en personne — pas d'algorithmes."
+
+#: crush_lu/templates/crush_lu/crush_connect.html:131
+msgid ""
+"Verify once through event attendance, answer your 3 questions, and you're "
+"discoverable in Connect Week and the coach-curated catalogue. No "
+"subscription, ever."
+msgstr ""
+"Vérifiez votre identité une seule fois en participant à un événement, "
+"répondez à vos 3 questions et devenez visible dans Connect Week et le "
+"catalogue sélectionné par les coachs. Aucun abonnement."
+
+#: crush_lu/templates/crush_lu/crush_connect.html:156
+msgid "Attend an in-person event — real people only."
+msgstr "Participez à un événement en personne — personnes réelles uniquement."
+
+#: crush_lu/templates/crush_lu/crush_connect.html:253
+msgid ""
+"Crush Connect requires verified identity to keep matching safe and "
+"authentic. Attend an event to get verified in person."
+msgstr ""
+"Crush Connect exige une identité vérifiée pour garantir des rencontres sûres"
+" et authentiques. Participez à un événement pour vous faire vérifier en "
+"personne."
+
+#: crush_lu/templates/crush_lu/how_it_works.html:106
+msgid "Way to Verify"
+msgstr "Façon de se faire vérifier"
+
+#: crush_lu/templates/crush_lu/membership.html:186
+#: crush_lu/templates/crush_lu/coach_dashboard.html:584
+msgid "Reward Levels"
+msgstr "Niveaux de récompense"

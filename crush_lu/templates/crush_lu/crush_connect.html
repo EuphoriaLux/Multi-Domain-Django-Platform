@@ -1,5 +1,5 @@
 {% extends 'crush_lu/base.html' %}
-{% load static i18n %}
+{% load static i18n social_tags %}
 {% block pre_alpine_js %}{{ block.super }}{% include "crush_lu/partials/alpine_bundle.html" with bundle="connect" %}{% endblock %}
 
 {% block extra_css %}<link rel="stylesheet" href="{% static 'crush_lu/css/marketing.css' %}">{% endblock %}
@@ -22,7 +22,7 @@
         {
             "@type": "ListItem",
             "position": 1,
-            "name": "{% trans "Home" %}",
+            "name": "{% trans "Home" as schema_text %}{{ schema_text|escapejs }}",
             "item": "https://crush.lu/"
         },
         {
@@ -37,6 +37,7 @@
 {% endblock %}
 
 {% block content %}
+{% luxid_available as luxid_offered %}
 <div class="crush-connect-page">
 
 <!-- Hero Section -->
@@ -126,7 +127,7 @@
                 <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-1">{% trans "In the Mix — free" %}</h3>
                 <p class="text-sm font-semibold text-crush-purple-dark dark:text-purple-300 mb-3">{% trans "Verified, discoverable, free — forever." %}</p>
                 <p class="text-gray-600 dark:text-gray-400 mb-4">
-                    {% trans "Verify once with LuxID or event attendance, answer your 3 questions, and you're discoverable in Connect Week and the coach-curated catalogue. No subscription, ever." %}
+                    {% if luxid_offered %}{% trans "Verify once with LuxID or event attendance, answer your 3 questions, and you're discoverable in Connect Week and the coach-curated catalogue. No subscription, ever." %}{% else %}{% trans "Verify once through event attendance, answer your 3 questions, and you're discoverable in Connect Week and the coach-curated catalogue. No subscription, ever." %}{% endif %}
                 </p>
                 <a href="{% url 'crush_lu:crush_connect_experience' 'in-the-mix' %}" class="inline-flex items-center gap-1 font-semibold text-crush-purple dark:text-crush-pink no-underline hover:underline">
                     {% trans "Explore" %} <span aria-hidden="true">→</span>
@@ -151,7 +152,7 @@
                     {% include "crush_lu/includes/ghost-story-approved.html" with class="w-20 h-20 ghost-glow" %}
                 </div>
                 <h3 class="text-base font-bold text-gray-900 dark:text-white">{% trans "Verify" %}</h3>
-                <p class="text-sm text-gray-600 dark:text-gray-400">{% trans "Connect your LuxID or attend an in-person event — free, real people only." %}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">{% if luxid_offered %}{% trans "Connect your LuxID or attend an in-person event — free, real people only." %}{% else %}{% trans "Attend an in-person event — real people only." %}{% endif %}</p>
             </div>
 
             <!-- Step 2 -->
@@ -248,10 +249,10 @@
             <!-- Verification is required before opting in — offer LuxID or Event Attendance CTAs -->
             <div class="rounded-lg bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800 p-4 space-y-3">
                 <p class="text-sm text-gray-700 dark:text-gray-300">
-                    {% trans "Crush Connect requires verified identity to keep matching safe and authentic. You can verify in two easy ways:" %}
+                    {% if luxid_offered %}{% trans "Crush Connect requires verified identity to keep matching safe and authentic. You can verify in two easy ways:" %}{% else %}{% trans "Crush Connect requires verified identity to keep matching safe and authentic. Attend an event to get verified in person." %}{% endif %}
                 </p>
                 <div class="flex flex-col sm:flex-row justify-center gap-3 pt-1">
-                    {% if luxid_connect_url %}
+                    {% if luxid_offered and luxid_connect_url %}
                     <a href="{{ luxid_connect_url }}"
                        class="btn-crush-solid btn-sm inline-flex items-center justify-center gap-2">
                         {% trans "Connect LuxID" %}

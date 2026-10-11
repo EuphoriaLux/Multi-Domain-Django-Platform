@@ -25,7 +25,7 @@
         {# Header — title, recap countdown, incoming confirmation counter (§7.7) #}
         <div class="rounded-2xl bg-gradient-to-br from-crush-purple to-crush-pink p-5 mb-4">
             <p class="text-xs font-bold uppercase tracking-[0.14em] text-white/90 mb-1">{% trans "Event recap" %}</p>
-            <h1 class="font-display text-2xl font-semibold tracking-tight text-white mb-2">{% trans "Who did you meet?" %}</h1>
+            <h1 data-event-focus tabindex="-1" class="font-display text-2xl font-semibold tracking-tight text-white mb-2">{% trans "Who did you meet?" %}</h1>
             <p class="text-sm text-white/90 mb-3">{{ event.title }}</p>
             <span class="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-sm font-semibold text-white" x-show="notClosed">
                 {% include "shared/icons/clock.html" with class="w-4 h-4" %}
@@ -101,36 +101,39 @@
              x-show="closed" x-cloak>
             <p class="text-3xl mb-2" aria-hidden="true">✅</p>
             <p class="font-semibold text-gray-900 dark:text-white mb-1">{% trans "The recap window has closed." %}</p>
-            <a href="{% url 'crush_lu:event_lobby_people' %}" class="text-sm font-semibold text-crush-purple">{% trans "See People I've Met" %}</a>
+            <a data-phase-focus href="{% url 'crush_lu:event_lobby_people' %}" class="text-sm font-semibold text-crush-purple">{% trans "See People I've Met" %}</a>
         </div>
 
         {# Irreversible confirmation dialog (§7.7 step 3). #}
-        <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+        <dialog data-confirm-dialog tabindex="-1" class="fixed inset-0 z-50 m-0 h-full max-h-none w-full max-w-none overflow-y-auto border-0 bg-transparent p-0"
              x-show="confirmOpen" x-cloak role="dialog" aria-modal="true" aria-labelledby="recap-confirm-title">
-            <div class="absolute inset-0 bg-black/50" x-on:click="closeConfirm" aria-hidden="true"></div>
-            <div class="relative w-full sm:max-w-sm bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl p-5 shadow-xl">
-                <img x-bind:src="confirmPhotoUrl" alt="" class="w-20 h-20 rounded-2xl object-cover mx-auto mb-3">
-                <h2 id="recap-confirm-title" class="font-display text-lg font-semibold text-center text-gray-900 dark:text-white mb-1">
-                    {% trans "Did you meet in person?" %}
-                </h2>
-                <p class="text-sm text-center text-gray-600 dark:text-gray-300 mb-4">
-                    {% trans "Are you sure? This cannot be undone. You'll only be added to each other's People I've Met if you both confirm." %}
-                </p>
-                <div class="flex gap-2">
-                    <button type="button" class="btn-crush-outline flex-1" x-on:click="closeConfirm">
-                        {% trans "Cancel" %}
-                    </button>
-                    <button type="button" class="btn-crush-primary flex-1" x-on:click="confirmMeeting" x-bind:disabled="sending">
-                        {% trans "Yes, we met" %}
-                    </button>
+            <div class="flex min-h-full items-end sm:items-center justify-center">
+                <div class="absolute inset-0 bg-black/50" x-on:click="closeConfirm" aria-hidden="true"></div>
+                <div class="relative w-full sm:max-w-sm bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl p-5 shadow-xl">
+                    <img x-bind:src="confirmPhotoUrl" alt="" class="w-20 h-20 rounded-2xl object-cover mx-auto mb-3">
+                    <h2 id="recap-confirm-title" class="font-display text-lg font-semibold text-center text-gray-900 dark:text-white mb-1">
+                        {% trans "Did you meet in person?" %}
+                    </h2>
+                    <p class="text-sm text-center text-gray-600 dark:text-gray-300 mb-4">
+                        {% trans "Are you sure? This cannot be undone. You'll only be added to each other's People I've Met if you both confirm." %}
+                    </p>
+                    <div class="flex gap-2">
+                        <button type="button" class="btn-crush-outline flex-1" data-confirm-cancel x-on:click="closeConfirm">
+                            {% trans "Cancel" %}
+                        </button>
+                        <button type="button" class="btn-crush-primary flex-1" x-on:click="confirmMeeting" x-bind:disabled="sending">
+                            {% trans "Yes, we met" %}
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
+        </dialog>
 
     </div>
 </div>
 {% endblock %}
 
 {% block pre_alpine_js %}
+<script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/event-confirm-dialog.js' %}"></script>
 <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/event-recap.js' %}"></script>
 {% endblock %}

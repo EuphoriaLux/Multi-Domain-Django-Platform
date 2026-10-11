@@ -2654,10 +2654,12 @@ def export_user_data(request):
     from crush_lu.models import (
         AndroidAppDevice,
         CrushCoach,
+        EventFeedback,
         IOSAppDevice,
         PushSubscription,
         PWADeviceInstallation,
     )
+    from crush_lu.models.event_polls import EventPollSuggestion, EventPollVote
     from crush_lu.models.profiles import UserDataConsent
     from delegations.models import AccessLog, DelegationProfile
     from entreprinder.models import EntrepreneurProfile
@@ -2988,6 +2990,53 @@ def export_user_data(request):
             for device in push_devices
         ]
 
+    # Responses authored by this member. Only labels identify the event/poll;
+    # other attendees, poll descriptions/options and staff review data stay out.
+    feedback = (
+        EventFeedback.objects.filter(user=user)
+        .select_related("event")
+        .order_by("created_at", "pk")
+    )
+    data["event_feedback"] = [
+        {
+            "event": response.event.title,
+            "event_date": _iso_or_none(response.event.date_time),
+            "nps_score": response.nps_score,
+            "would_recommend": response.would_recommend,
+            "what_worked": response.what_worked or None,
+            "what_to_improve": response.what_to_improve or None,
+            "created_at": _iso_or_none(response.created_at),
+        }
+        for response in feedback
+    ]
+    votes = (
+        EventPollVote.objects.filter(user=user)
+        .select_related("poll", "option")
+        .order_by("voted_at", "pk")
+    )
+    data["poll_votes"] = [
+        {
+            "poll": vote.poll.title,
+            "option": vote.option.name,
+            "voter_gender": vote.voter_gender or None,
+            "voted_at": _iso_or_none(vote.voted_at),
+        }
+        for vote in votes
+    ]
+    suggestions = (
+        EventPollSuggestion.objects.filter(user=user)
+        .select_related("poll")
+        .order_by("created_at", "pk")
+    )
+    data["poll_suggestions"] = [
+        {
+            "poll": suggestion.poll.title,
+            "text": suggestion.text,
+            "language": suggestion.language or None,
+            "created_at": _iso_or_none(suggestion.created_at),
+        }
+        for suggestion in suggestions
+    ]
     # Event registrations
     registrations = (
         EventRegistration.objects.filter(user=user)

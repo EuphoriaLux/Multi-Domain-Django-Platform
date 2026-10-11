@@ -20,6 +20,10 @@ document.addEventListener("alpine:init", function () {
             incomingConfirmations: 0,
             closed: false,
             confirmOpen: false,
+            confirmGeneration: 0,
+            accessRevoked: false,
+            confirmDialog: null,
+            componentRoot: null,
             confirmHandle: null,
             confirmPhotoUrl: "",
             confirmName: "",
@@ -32,6 +36,23 @@ document.addEventListener("alpine:init", function () {
 
             init: function () {
                 var root = this.$el;
+                var self = this;
+                this.componentRoot = root;
+                this.confirmDialog = window.makeEventConfirmDialog(
+                    root.querySelector("[data-confirm-dialog]"),
+                    function () { self.closeConfirm(); },
+                    function (opener, usable) {
+                        if (self.closed) return root.querySelector("[data-phase-focus]");
+                        if (usable(opener)) return opener;
+                        var tiles = root.querySelectorAll("button[data-handle]");
+                        for (var i = 0; i < tiles.length; i++) {
+                            if (opener && tiles[i].dataset.handle === opener.dataset.handle && usable(tiles[i])) {
+                                return tiles[i];
+                            }
+                        }
+                        return root.querySelector("[data-event-focus]");
+                    }
+                );
                 this.stateUrl = root.dataset.stateUrl;
                 this.confirmUrl = root.dataset.confirmUrl;
                 this.peopleUrl = root.dataset.peopleUrl;
@@ -55,9 +76,21 @@ document.addEventListener("alpine:init", function () {
                 this.bindGrid();
             },
 
-            destroy: function () {
+            stopUpdates: function () {
                 if (this.pollTimer !== null) clearInterval(this.pollTimer);
                 if (this.tickTimer !== null) clearInterval(this.tickTimer);
+            },
+
+            destroy: function () {
+                this.confirmGeneration += 1;
+                this.confirmOpen = false;
+                this.sending = false;
+                this.confirmHandle = null;
+                this.confirmPhotoUrl = "";
+                this.confirmName = "";
+                this.accessRevoked = true;
+                this.stopUpdates();
+                if (this.confirmDialog) this.confirmDialog.destroy();
             },
 
             get countdownDisplay() {
@@ -103,20 +136,36 @@ document.addEventListener("alpine:init", function () {
 
             openConfirm: function (handle, photoUrl, firstName) {
                 if (this.closed) return;
+                this.confirmGeneration += 1;
+                this.sending = false;
                 this.confirmHandle = handle;
                 this.confirmPhotoUrl = photoUrl || "";
                 this.confirmName = firstName;
                 this.confirmOpen = true;
+                var self = this;
+                var generation = this.confirmGeneration;
+                var opener = document.activeElement;
+                this.$nextTick(function () {
+                    if (self.confirmOpen && generation === self.confirmGeneration) {
+                        self.confirmDialog.open(opener);
+                    }
+                });
             },
 
             closeConfirm: function () {
+                this.confirmGeneration += 1;
                 this.confirmOpen = false;
+                this.sending = false;
+                this.confirmDialog.close();
                 this.confirmHandle = null;
+                this.confirmPhotoUrl = "";
+                this.confirmName = "";
             },
 
             confirmMeeting: function () {
                 var self = this;
-                if (this.sending || !this.confirmHandle) return;
+                if (this.sending || !this.confirmOpen || !this.confirmHandle) return;
+                var generation = this.confirmGeneration;
                 this.sending = true;
                 fetch(this.confirmUrl, {
                     method: "POST",
@@ -129,7 +178,13 @@ document.addEventListener("alpine:init", function () {
                 })
                     .then(function (r) { return r.json().catch(function () { return null; }); })
                     .then(function (data) {
-                        self.sending = false;
+                        if (self.accessRevoked || self.closed) return;
+                        // A cancelled request may have committed on the server.
+                        // Re-sync it without closing or relabelling a new sheet.
+                        if (generation !== self.confirmGeneration) {
+                            self.refetch();
+                            return;
+                        }
                         self.closeConfirm();
                         if (!data) return;
                         if (!data.ok) {
@@ -150,17 +205,17 @@ document.addEventListener("alpine:init", function () {
                         self.refetch();
                     })
                     .catch(function () {
-                        self.sending = false;
-                        self.closeConfirm();
+                        if (generation === self.confirmGeneration) self.closeConfirm();
                     });
             },
 
             refetch: function () {
                 var self = this;
+                if (this.accessRevoked || this.closed) return;
                 fetch(this.stateUrl, { headers: { "Accept": "application/json" } })
                     .then(function (r) { return self.readStateResponse(r); })
                     .then(function (data) {
-                        if (!data || !data.ok) return;
+                        if (!data || !data.ok || self.accessRevoked || self.closed) return;
                         self.applyState(data);
                     })
                     .catch(function () {});
@@ -175,15 +230,13 @@ document.addEventListener("alpine:init", function () {
             },
 
             revokeAccess: function () {
+                this.accessRevoked = true;
                 // The recap gate is live policy, not a one-time page-load
                 // decision. Remove photos and revealed names as soon as the
                 // authoritative endpoint withdraws access.
                 this.secondsToClose = 0;
                 this.incomingConfirmations = 0;
                 this.sending = false;
-                this.closeConfirm();
-                this.confirmPhotoUrl = "";
-                this.confirmName = "";
                 this.banner = "";
                 this.reveal = "";
                 this.renderRoster([]);
@@ -191,6 +244,7 @@ document.addEventListener("alpine:init", function () {
             },
 
             applyState: function (data) {
+                if (this.accessRevoked || this.closed) return;
                 var state = data.state || {};
                 this.secondsToClose = state.seconds_to_recap_close || 0;
                 this.incomingConfirmations = state.incoming_confirmations || 0;
@@ -275,7 +329,8 @@ document.addEventListener("alpine:init", function () {
 
             markClosed: function () {
                 this.closed = true;
-                this.destroy();
+                this.closeConfirm();
+                this.stopUpdates();
             },
 
             startCountdown: function () {
