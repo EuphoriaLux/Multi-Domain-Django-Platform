@@ -194,6 +194,11 @@ def test_native_close_cleans_up_and_restores_focus(page):
     page.locator("#sms-opener").click()
     _code_sent(page)
     page.locator(DIALOG).evaluate("element => element.close()")
+    # Native close hides the dialog and restores browser focus immediately;
+    # Alpine clears the scroll lock when the queued close event is delivered.
+    page.wait_for_function(
+        '!Alpine.$data(document.querySelector("' + DIALOG + '")).isOpen'
+    )
     expect(dialog).to_be_hidden()
     expect(page.locator("#sms-opener")).to_be_focused()
     assert page.evaluate("document.body.style.overflow") == ""
