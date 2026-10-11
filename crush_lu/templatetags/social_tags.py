@@ -180,8 +180,11 @@ def luxid_available(context):
     """True when the LuxID button is offered on this request (footer copy gate).
 
     Same availability as the LuxID button in ``crush_lu/auth.html``: a LuxID app
-    configured for the current site (DB) or in settings. It asks allauth's
-    read-only ``list_apps`` and never goes through ``list_providers``:
+    configured for the current site (DB) or in settings. allauth's read-only
+    ``list_apps(provider="luxid")`` matches both ``provider`` and ``provider_id``,
+    so this also includes legacy ``openid_connect`` apps with
+    ``provider_id="luxid"`` from either registry. Hidden apps are not offered.
+    It never goes through ``list_providers``:
     ``MultiDomainSocialAccountAdapter.list_providers`` has a recovery branch
     that *writes* (it links the Apple app to the current site), which must not
     run from a footer rendered on every page. Memoised on the request. Never

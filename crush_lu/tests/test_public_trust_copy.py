@@ -11,11 +11,14 @@ from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.core.cache import cache
+from django.template import Context
 from django.utils import translation
 from django.utils.safestring import mark_safe
 
+from crush_lu.luxid import get_luxid_connect_url
 from crush_lu.models import CrushCoach
 from crush_lu.models.profiles import UserDataConsent
+from crush_lu.templatetags.social_tags import luxid_available
 from crush_lu.tests.test_crush_connect import _login_eligible, _make_user
 
 HOST = "crush.lu"
@@ -73,6 +76,7 @@ class PublicPage(HTMLParser):
         self.schemas = []
         self.body = []
         self.headings = []
+        self.links = []
         self._script = None
         self._in_body = False
         self._heading = None
@@ -85,6 +89,8 @@ class PublicPage(HTMLParser):
             self.metadata[attrs.get("name", attrs.get("property"))] = attrs.get(
                 "content", ""
             )
+        elif tag == "a":
+            self.links.append(attrs.get("href"))
         elif tag == "body":
             self._in_body = True
         elif tag == "script":
@@ -315,3 +321,107 @@ def test_unverified_member_gets_only_available_connect_instructions(
                 in body
             )
         assert translation.gettext("Attend an Event") in body
+
+
+@pytest.fixture
+def real_luxid_registry(settings):
+    settings.SITE_ID = None
+    settings.ROOT_URLCONF = "azureproject.urls_crush"
+    settings.SOCIALACCOUNT_PROVIDERS = {}
+    main_site, _ = Site.objects.get_or_create(domain=HOST, defaults={"name": "Crush"})
+    other_site, _ = Site.objects.get_or_create(
+        domain="test.crush.lu", defaults={"name": "Test Crush"}
+    )
+    return main_site, other_site
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("lang", ["en", "de", "fr"])
+def test_legacy_luxid_registry_offers_real_connect_cta(
+    client, real_luxid_registry, lang
+):
+    main_site, _ = real_luxid_registry
+    app = SocialApp.objects.create(
+        provider="openid_connect",
+        provider_id="luxid",
+        name="Legacy LuxID",
+        client_id="legacy-test",
+        settings={"server_url": "https://login.luxid.lu"},
+    )
+    app.sites.add(main_site)
+    public = render_page(client, "how-it-works/", lang)
+    assert "LuxID" in public.metadata["description"]
+    member = _make_user(
+        username="legacy-trust", premium=False, has_luxid=False, onboarded=False
+    )
+    _login_eligible(client, member)
+    # No provider/URL mocks: the view calls get_luxid_connect_url itself.
+    response = client.get(f"/{lang}/crush-connect/", HTTP_HOST=HOST)
+    assert response.status_code == 200
+    assert luxid_available(Context({"request": response.wsgi_request})) is True
+    with translation.override(lang):
+        connect_url = get_luxid_connect_url(response.wsgi_request)
+    assert connect_url == response.context["luxid_connect_url"]
+    assert "/luxid/login/" in connect_url and connect_url.endswith("?process=connect")
+    parsed = PublicPage(response.content.decode())
+    assert connect_url in parsed.links
+    with translation.override(lang):
+        assert translation.gettext("Connect LuxID") in " ".join(parsed.body)
+    assert list(app.sites.values_list("pk", flat=True)) == [main_site.pk]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("state", ["hidden", "off_site", "linkedin"])
+def test_real_oidc_registry_does_not_offer_unavailable_luxid(
+    client, real_luxid_registry, state
+):
+    main_site, other_site = real_luxid_registry
+    app = SocialApp.objects.create(
+        provider="openid_connect",
+        provider_id="linkedin" if state == "linkedin" else "luxid",
+        name="OIDC verification test",
+        client_id="oidc-test",
+        settings={"hidden": state == "hidden"},
+    )
+    app.sites.add(other_site if state == "off_site" else main_site)
+    member = _make_user(
+        username="unavailable-legacy", premium=False, has_luxid=False, onboarded=False
+    )
+    _login_eligible(client, member)
+    response = client.get("/en/crush-connect/", HTTP_HOST=HOST)
+    assert response.status_code == 200
+    assert luxid_available(Context({"request": response.wsgi_request})) is False
+    parsed = PublicPage(response.content.decode())
+    assert "LuxID" not in " ".join(parsed.body)
+    assert not any("/luxid/login/" in link for link in parsed.links if link)
+    public = render_page(client, "how-it-works/")
+    assert "LuxID" not in public.metadata["description"]
+    assert CONNECT_VERIFICATION in " ".join(parsed.body)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "provider_id,hidden,offered",
+    [("luxid", False, True), ("luxid", True, False), ("linkedin", False, False)],
+)
+def test_settings_oidc_provider_id_controls_public_luxid_claim(
+    client, real_luxid_registry, settings, provider_id, hidden, offered
+):
+    settings.SOCIALACCOUNT_PROVIDERS = {
+        "openid_connect": {
+            "APPS": [
+                {
+                    "provider_id": provider_id,
+                    "name": "Settings OIDC",
+                    "client_id": "settings-test",
+                    "settings": {"hidden": hidden},
+                }
+            ]
+        }
+    }
+    response = client.get("/en/how-it-works/", HTTP_HOST=HOST)
+    assert response.status_code == 200
+    assert luxid_available(Context({"request": response.wsgi_request})) is offered
+    parsed = PublicPage(response.content.decode())
+    assert ("LuxID" in parsed.metadata["description"]) is offered
+    assert not SocialApp.objects.exists()
