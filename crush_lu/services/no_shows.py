@@ -61,11 +61,51 @@ def checkin_closes_at(event):
     return max(event.end_time, event.date_time + timedelta(hours=hours))
 
 
+def curated_group_refusal(event):
+    """Why the bulk path would bypass a curated group, or None.
+
+    EventRegistration.save() degrades a PROVISIONAL group (and schedules its
+    checkout retirement and remedy) when a member leaves the roster, and
+    refuses the change outright inside a LOCKED one. .update() does neither,
+    so a member still active in such a group is settled through the audited
+    group workflow first. A released membership is history.
+    """
+    if not event.uses_curated_registration:
+        return None
+    from crush_lu.models.events import CuratedEventGroup, CuratedEventGroupMembership
+
+    if CuratedEventGroupMembership.objects.filter(
+        registration__in=unattended_registrations(event),
+        released_at__isnull=True,
+        group__status__in=(
+            CuratedEventGroup.STATUS_PROVISIONAL,
+            CuratedEventGroup.STATUS_LOCKED,
+        ),
+    ).exists():
+        return _(
+            "some of these members are still in an open curated group; "
+            "settle it through the group workflow first"
+        )
+    return None
+
+
+def candidate_fingerprint(registration_ids):
+    """The exact rows a coach was shown, as the form carries them back.
+
+    The coach page POSTs this so the view marks only the list that was
+    confirmed. An offline PWA queues a failed POST and replays it up to 24
+    hours later (sw-workbox.js), and two people can act on one event, so the
+    list may have changed in between; the view then refuses and asks again.
+    """
+    return ",".join(str(pk) for pk in sorted(registration_ids))
+
+
 def no_show_refusal(event, now=None):
     """Why no-shows cannot be recorded for *event* yet, or None if they can.
 
     Shared by the MeetupEvent admin action and the coach event page. The
-    QuizEvent action predates these guards and does not apply them.
+    QuizEvent action predates the time guards and applies only
+    ``curated_group_refusal``.
     """
     from crush_lu.models.events import EventRegistration
 
@@ -86,30 +126,7 @@ def no_show_refusal(event, now=None):
         # The scanner was never used, so "not checked in" says nothing about
         # who came; the whole roster would be marked absent.
         return _("nobody was checked in, so attendance was never recorded")
-    if event.uses_curated_registration:
-        from crush_lu.models.events import (
-            CuratedEventGroup,
-            CuratedEventGroupMembership,
-        )
-
-        # EventRegistration.save() degrades a PROVISIONAL group (and schedules
-        # its checkout retirement and remedy) when a member leaves the roster,
-        # and refuses the change outright inside a LOCKED one. .update() does
-        # neither, so a member still active in such a group is settled through
-        # the audited group workflow first. A released membership is history.
-        if CuratedEventGroupMembership.objects.filter(
-            registration__in=unattended_registrations(event),
-            released_at__isnull=True,
-            group__status__in=(
-                CuratedEventGroup.STATUS_PROVISIONAL,
-                CuratedEventGroup.STATUS_LOCKED,
-            ),
-        ).exists():
-            return _(
-                "some of these members are still in an open curated group; "
-                "settle it through the group workflow first"
-            )
-    return None
+    return curated_group_refusal(event)
 
 
 def mark_unattended_no_show(events, *, context, now=None):
@@ -228,6 +245,14 @@ def mark_unattended_no_show(events, *, context, now=None):
         # .update() skips auto_now, so stamp updated_at by hand: it is the only
         # record of when the no-show was written.
         updated = affected.update(status="no_show", updated_at=now)
+        if updated:
+            # Leaving SEAT_HOLDING_STATUSES changes the page's remaining
+            # capacity. A per-row save would have told Google through
+            # trigger_google_indexing_on_registration_save; .update() fires no
+            # signal, so schedule the same coalesced, budgeted, on-commit ping.
+            from crush_lu.signals import _schedule_event_indexing_notification
+
+            _schedule_event_indexing_notification(event.pk, skip_if_ineligible=True)
         results.append((event, updated))
         processed += 1
 

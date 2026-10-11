@@ -45703,3 +45703,7 @@ msgstr "personne n’a été enregistré, la présence n’a donc jamais été r
 #: crush_lu/services/no_shows.py:108
 msgid "some of these members are still in an open curated group; settle it through the group workflow first"
 msgstr "certains de ces membres sont encore dans un groupe sur sélection ouvert ; il faut d’abord le régler via le processus de groupe"
+
+#: crush_lu/views_coach.py:3165
+msgid "The list of members changed since the page was loaded, so nothing was recorded. Check it and try again."
+msgstr "La liste des membres a changé depuis le chargement de la page, rien n’a donc été enregistré. Vérifiez-la et réessayez."

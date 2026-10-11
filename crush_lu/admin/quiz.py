@@ -195,11 +195,24 @@ def mark_unattended_as_no_show(modeladmin, request, queryset):
     The work (and the wallet refreshes it owes) lives in
     ``services.no_shows``, shared with the MeetupEvent action that reaches
     every other event type."""
-    from crush_lu.services.no_shows import mark_unattended_no_show
+    from crush_lu.services.no_shows import (
+        curated_group_refusal,
+        mark_unattended_no_show,
+    )
+
+    # No time guard here (the quiz host may tidy up a live quiz), but a quiz
+    # can sit on a curated speed-dating event, and the bulk path must never
+    # bypass a provisional or locked group there.
+    events = []
+    for quiz in queryset.select_related("event"):
+        reason = curated_group_refusal(quiz.event)
+        if reason is None:
+            events.append(quiz.event)
+        else:
+            messages.warning(request, f"'{quiz.event}' skipped: {reason}.")
 
     results = mark_unattended_no_show(
-        [quiz.event for quiz in queryset.select_related("event")],
-        context="Admin mark_unattended_as_no_show",
+        events, context="Admin mark_unattended_as_no_show"
     )
     for event, updated in results:
         if updated is None:

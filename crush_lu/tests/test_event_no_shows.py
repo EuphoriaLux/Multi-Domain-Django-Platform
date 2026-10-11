@@ -34,11 +34,14 @@ from crush_lu.models import (
     UserDataConsent,
 )
 from crush_lu.models.events import CuratedEventGroup, CuratedEventGroupMembership
+from crush_lu.models.quiz import QuizEvent
+from crush_lu.services.no_shows import candidate_fingerprint
 
 User = get_user_model()
 
 HOST = "crush.lu"
 EVENTS = "/crush-admin/crush_lu/meetupevent/"
+QUIZZES = "/crush-admin/crush_lu/quizevent/"
 ACTION = "mark_unattended_as_no_show"
 
 
@@ -317,6 +320,29 @@ class MeetupEventNoShowActionTests(NoShowFixturesMixin, TestCase):
             messages,
         )
 
+    def test_quiz_action_refuses_an_open_curated_group_too(self):
+        # The quiz action keeps no time guard, but a quiz can sit on a curated
+        # speed-dating event and must not bypass its group either.
+        event = self._curated_event()
+        attended = self._curated_member(
+            event, "attended", checked_in_at=event.date_time
+        )
+        missing = self._curated_member(event, "confirmed")
+        self._provisional_group(event, [attended, missing])
+        quiz = QuizEvent.objects.create(event=event, created_by=self.superuser)
+
+        response = self.client.post(
+            QUIZZES, {"action": ACTION, "_selected_action": [quiz.pk]}
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self._status(missing), "confirmed")
+        self.assertIn(
+            f"'{event}' skipped: some of these members are still in an open "
+            "curated group; settle it through the group workflow first.",
+            self._messages(response),
+        )
+
     def test_released_curated_membership_does_not_block(self):
         event = self._curated_event()
         attended = self._curated_member(
@@ -395,6 +421,49 @@ class CoachEventNoShowTests(NoShowFixturesMixin, TestCase):
         CrushCoach.objects.create(user=self.coach_user, is_active=True)
         self.client.force_login(self.coach_user)
 
+    def _confirm(self, event, shown):
+        """POST what the page sends: the exact candidate list it showed."""
+        return self.client.post(
+            coach_no_shows(event),
+            {"candidates": candidate_fingerprint(r.pk for r in shown)},
+        )
+
+    def test_a_list_changed_since_the_page_loaded_is_refused(self):
+        # An offline PWA replays a queued POST up to 24 hours later, and a
+        # second coach or an admin can change the roster meanwhile: the view
+        # marks only the list that was confirmed, or nothing.
+        event = make_event("Stale mixer", self.now - timedelta(days=1))
+        self._attended(event)
+        shown = self._register(event, "confirmed")
+        restored = self._register(event, "cancelled")
+        EventRegistration.objects.filter(pk=restored.pk).update(status="confirmed")
+
+        response = self._confirm(event, [shown])
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self._status(shown), "confirmed")
+        self.assertEqual(self._status(restored), "confirmed")
+        self.assertIn(
+            "The list of members changed since the page was loaded, so nothing "
+            "was recorded. Check it and try again.",
+            self._messages(response),
+        )
+
+    def test_marking_schedules_the_google_indexing_ping(self):
+        # Leaving the seat-holding statuses changes the page's capacity, and
+        # .update() fires none of the signals that would have said so.
+        event = make_event("Indexed mixer", self.now - timedelta(days=1))
+        self._attended(event)
+        missing = self._register(event, "confirmed")
+
+        with mock.patch(
+            "crush_lu.signals._schedule_event_indexing_notification"
+        ) as schedule:
+            self._confirm(event, [missing])
+
+        self.assertEqual(self._status(missing), "no_show")
+        schedule.assert_called_once_with(event.pk, skip_if_ineligible=True)
+
     def test_coach_marks_an_ended_events_no_shows(self):
         event = make_event("Coach mixer", self.now - timedelta(days=1))
         attended = self._attended(event)
@@ -402,7 +471,7 @@ class CoachEventNoShowTests(NoShowFixturesMixin, TestCase):
         pending = self._register(event, "pending")
         waiting = self._register(event, "waitlist")
 
-        response = self.client.post(coach_no_shows(event))
+        response = self._confirm(event, [confirmed, pending])
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response["Location"], coach_event_page(event))
@@ -456,13 +525,16 @@ class CoachEventNoShowTests(NoShowFixturesMixin, TestCase):
     def test_event_page_offers_the_button_once_check_in_has_closed(self):
         event = make_event("Offered mixer", self.now - timedelta(days=1))
         self._attended(event)
-        self._register(event, "confirmed")
+        missing = self._register(event, "confirmed")
 
         response = self.client.get(coach_event_page(event))
 
         self.assertContains(response, "data-no-show-panel")
         self.assertContains(response, f'action="{coach_no_shows(event)}"')
         self.assertContains(response, "Yes, mark 1 member as no-show")
+        self.assertContains(
+            response, f'name="candidates" value="{candidate_fingerprint([missing.pk])}"'
+        )
 
     def test_event_page_hides_the_button_while_check_in_is_open(self):
         event = make_event("Open door mixer", self.now - timedelta(hours=3))

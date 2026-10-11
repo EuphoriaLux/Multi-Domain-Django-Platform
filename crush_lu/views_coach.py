@@ -2941,14 +2941,19 @@ def coach_event_detail(request, event_id):
 
     # Seat holders never checked in, offered for no-show recording only when
     # the POST would accept it (so the card never shows a refused button).
-    from .services.no_shows import NO_SHOW_CANDIDATE_STATUSES, no_show_refusal
-
-    no_show_candidate_count = sum(
-        r.status in NO_SHOW_CANDIDATE_STATUSES and r.checked_in_at is None
-        for r in all_regs
+    from .services.no_shows import (
+        NO_SHOW_CANDIDATE_STATUSES,
+        candidate_fingerprint,
+        no_show_refusal,
     )
-    if no_show_candidate_count and no_show_refusal(event) is not None:
-        no_show_candidate_count = 0
+
+    no_show_candidate_ids = [
+        r.pk
+        for r in all_regs
+        if r.status in NO_SHOW_CANDIDATE_STATUSES and r.checked_in_at is None
+    ]
+    if no_show_candidate_ids and no_show_refusal(event) is not None:
+        no_show_candidate_ids = []
 
     # Post-event activity: connections and sparks
     from .models.crush_spark import CrushSpark
@@ -3117,7 +3122,8 @@ def coach_event_detail(request, event_id):
         "feedback_summary": feedback_summary,
         "feedback_responses": feedback_responses,
         "coach_recap": coach_recap,
-        "no_show_candidate_count": no_show_candidate_count,
+        "no_show_candidate_count": len(no_show_candidate_ids),
+        "no_show_candidates": candidate_fingerprint(no_show_candidate_ids),
     }
     return render(request, "crush_lu/coach_event_detail.html", context)
 
@@ -3132,7 +3138,12 @@ def coach_mark_event_no_shows(request, event_id):
     a cancelled event, and when nobody was checked in at all. Open to every
     active coach, like the door actions on the same event.
     """
-    from .services.no_shows import mark_unattended_no_show, no_show_refusal
+    from .services.no_shows import (
+        candidate_fingerprint,
+        mark_unattended_no_show,
+        no_show_refusal,
+        unattended_registrations,
+    )
 
     event = get_object_or_404(MeetupEvent, id=event_id)
     reason = no_show_refusal(event)
@@ -3140,6 +3151,20 @@ def coach_mark_event_no_shows(request, event_id):
         messages.error(
             request,
             _("No-shows were not recorded: %(reason)s.") % {"reason": reason},
+        )
+        return redirect("crush_lu:coach_event_detail", event_id=event.id)
+    # Only the list the coach confirmed. A replayed offline POST or a page
+    # left open while someone else changed the roster must not mark more.
+    current = candidate_fingerprint(
+        unattended_registrations(event).values_list("pk", flat=True)
+    )
+    if request.POST.get("candidates", "") != current:
+        messages.error(
+            request,
+            _(
+                "The list of members changed since the page was loaded, so "
+                "nothing was recorded. Check it and try again."
+            ),
         )
         return redirect("crush_lu:coach_event_detail", event_id=event.id)
 

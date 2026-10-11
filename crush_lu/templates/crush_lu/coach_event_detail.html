@@ -230,6 +230,7 @@
             <summary class="cursor-pointer text-sm font-medium text-red-600 dark:text-red-400 hover:underline">{% trans "Mark as no-show" %}</summary>
             <form method="post" action="{% url 'crush_lu:coach_mark_event_no_shows' event.id %}" class="mt-3">
                 {% csrf_token %}
+                <input type="hidden" name="candidates" value="{{ no_show_candidates }}">
                 <button type="submit" class="btn-danger btn-sm">{% blocktrans count counter=no_show_candidate_count %}Yes, mark {{ counter }} member as no-show{% plural %}Yes, mark {{ counter }} members as no-show{% endblocktrans %}</button>
             </form>
         </details>

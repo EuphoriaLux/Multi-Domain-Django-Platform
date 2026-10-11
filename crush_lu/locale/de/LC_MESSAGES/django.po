@@ -45578,3 +45578,7 @@ msgstr "niemand wurde eingecheckt, die Anwesenheit wurde also nie erfasst"
 #: crush_lu/services/no_shows.py:108
 msgid "some of these members are still in an open curated group; settle it through the group workflow first"
 msgstr "einige dieser Mitglieder sind noch in einer offenen kuratierten Gruppe; diese muss zuerst über den Gruppen-Ablauf abgeschlossen werden"
+
+#: crush_lu/views_coach.py:3165
+msgid "The list of members changed since the page was loaded, so nothing was recorded. Check it and try again."
+msgstr "Die Liste der Mitglieder hat sich seit dem Laden der Seite geändert, daher wurde nichts eingetragen. Bitte prüfe sie und versuche es erneut."
