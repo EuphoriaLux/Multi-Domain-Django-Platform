@@ -1,7 +1,7 @@
 """
 Tests for the shared ``crush_lu.decorators.ratelimit`` decorator.
 
-Two bypasses are pinned here:
+Three bypasses are pinned here:
 
 * Azure App Service sends ``X-Forwarded-For`` as ``IP:PORT`` and the port
   changes with every TCP connection, so keying on the raw header gave each new
@@ -11,11 +11,16 @@ Two bypasses are pinned here:
   That holds for ``count_if`` too: a success-only cap reserves its slot
   atomically before the view runs and releases it if the response doesn't
   qualify, instead of peeking before the view and counting after it.
+* A late release used the shared counter key after rollover, briefly reducing
+  the next window before compensation. Immutable physical reservations keep
+  that release from admitting an extra successful view in the next window.
 """
 
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -26,7 +31,17 @@ from django.core.cache import cache
 from django.http import HttpResponse
 from django.test import RequestFactory, SimpleTestCase, override_settings
 
-from crush_lu.decorators import _get_cache_key, _parse_period, ratelimit
+from crush_lu.decorators import (
+    _counter_key,
+    _counter_selector_key,
+    _count_request,
+    _generation_key,
+    _get_cache_key,
+    _parse_period,
+    _release_request,
+    _remaining_window_seconds,
+    ratelimit,
+)
 
 
 @pytest.mark.parametrize(
@@ -279,6 +294,16 @@ class RateLimitDecoratorTests(SimpleTestCase):
         request = self.factory.post("/", HTTP_X_FORWARDED_FOR=xff)
         return _get_cache_key(request, "ip", "success_only_view")
 
+    def _physical_key(self, key):
+        window = cache.get(_generation_key(key))
+        nonce = cache.get(_counter_selector_key(key, window))
+        while True:
+            physical = _counter_key(key, window, nonce)
+            successor = cache.get(f"{physical}:next")
+            if successor is None:
+                return physical
+            nonce = successor
+
     def test_success_only_rejected_response_releases_its_slot(self):
         xff = "203.0.113.7:1"
         statuses = [
@@ -289,7 +314,7 @@ class RateLimitDecoratorTests(SimpleTestCase):
             ).status_code
             for outcome in ("invalid", "create", "invalid", "invalid", "create")
         ]
-        count_at_cap = cache.get(self._success_only_key(xff))
+        count_at_cap = cache.get(self._physical_key(self._success_only_key(xff)))
 
         # Capped: every POST is refused without running the view, and a
         # refusal doesn't give back a slot a success holds.
@@ -308,7 +333,7 @@ class RateLimitDecoratorTests(SimpleTestCase):
         self.assertEqual(
             executed, ["invalid", "create", "invalid", "invalid", "create"]
         )
-        self.assertEqual(cache.get(self._success_only_key(xff)), 2)
+        self.assertEqual(cache.get(self._physical_key(self._success_only_key(xff))), 2)
 
     def test_success_only_view_that_raises_releases_its_slot(self):
         xff = "203.0.113.7:1"
@@ -327,7 +352,7 @@ class RateLimitDecoratorTests(SimpleTestCase):
     def test_success_only_release_keeps_the_window_expiry(self):
         xff = "203.0.113.7:1"
         self._post(view=success_only_view, HTTP_X_FORWARDED_FOR=xff)
-        key = self._success_only_key(xff)
+        key = self._physical_key(self._success_only_key(xff))
         internal_key = cache.make_key(key)
         expiry = cache._expire_info[internal_key]
 
@@ -346,15 +371,18 @@ class RateLimitDecoratorTests(SimpleTestCase):
             self.factory.post("/", HTTP_X_FORWARDED_FOR=xff), "ip", "expiring_view"
         )
 
+        physical_keys = []
+
         @ratelimit(key="ip", rate="2/m", method="POST", count_if=_created)
         def expiring_view(request):
-            cache.delete(key)  # the window expires while the view runs
+            physical_keys.append(self._physical_key(key))
+            cache.delete(physical_keys[-1])
             return HttpResponse(status=400)
 
         response = self._post(view=expiring_view, HTTP_X_FORWARDED_FOR=xff)
 
         self.assertEqual(response.status_code, 400)
-        self.assertIsNone(cache.get(key))
+        self.assertIsNone(cache.get(physical_keys[0]))
 
     def test_release_after_window_rollover_leaves_the_new_window_counted(self):
         # #1111: a reservation straddling the window expiry used to release
@@ -384,7 +412,7 @@ class RateLimitDecoratorTests(SimpleTestCase):
                 data={"outcome": "straddle"},
                 HTTP_X_FORWARDED_FOR=xff,
             )
-            self.assertEqual(cache.get(key), 1)
+            self.assertEqual(cache.get(self._physical_key(key)), 1)
 
     def test_counter_evicted_between_add_and_incr_restarts_at_one(self):
         real_incr = cache.incr
@@ -404,7 +432,13 @@ class RateLimitDecoratorTests(SimpleTestCase):
             ]
 
         self.assertEqual(statuses, [200, 200, 429])
-        self.assertEqual(cache.get(evicted[0]), 3)
+        self.assertIsNone(cache.get(evicted[0]))
+        logical = _get_cache_key(
+            self.factory.post("/", HTTP_X_FORWARDED_FOR="203.0.113.7:1"),
+            "ip",
+            "ip_view",
+        )
+        self.assertEqual(cache.get(self._physical_key(logical)), 3)
 
     def test_counter_recreated_by_another_request_after_eviction_keeps_counting(
         self,
@@ -415,8 +449,11 @@ class RateLimitDecoratorTests(SimpleTestCase):
         def evict_then_recreate(key, *args, **kwargs):
             if not evicted:
                 evicted.append(key)
-                # Evicted, then a concurrent request started a fresh window.
-                cache.set(key, 1, 60)
+                # A concurrent request elects/counts a fresh physical counter.
+                cache.delete(key)
+                self.assertEqual(
+                    self._post(HTTP_X_FORWARDED_FOR="203.0.113.7:1").status_code, 200
+                )
                 raise ValueError(f"Key '{key}' not found")
             return real_incr(key, *args, **kwargs)
 
@@ -426,7 +463,13 @@ class RateLimitDecoratorTests(SimpleTestCase):
 
         self.assertEqual(first.status_code, 200)
         self.assertEqual(second.status_code, 429)
-        self.assertEqual(cache.get(evicted[0]), 3)
+        self.assertIsNone(cache.get(evicted[0]))
+        logical = _get_cache_key(
+            self.factory.post("/", HTTP_X_FORWARDED_FOR="203.0.113.7:1"),
+            "ip",
+            "ip_view",
+        )
+        self.assertEqual(cache.get(self._physical_key(logical)), 3)
 
     # --- fail open when the cache is unavailable ----------------------------
 
@@ -490,141 +533,314 @@ class RateLimitDecoratorTests(SimpleTestCase):
             self._post(HTTP_X_FORWARDED_FOR="203.0.113.7:1").status_code, 200
         )
 
-    def test_rollover_between_increment_and_token_read_never_releases(self):
-        # The window can roll over after our increment but before we learn its
-        # token. The owner is then unknown, so the slot must not be released
-        # into the new window (it would grant that window a free request).
-        from crush_lu.decorators import (
-            _count_request,
-            _record_window_deadline,
-            _release_request,
-        )
-
+    def test_rollover_after_increment_retries_against_the_new_window(self):
         key = "ratelimit:rollover:test"
-        cache.delete(key)
-        cache.add(key, 0, 900)
-        _record_window_deadline(key, 900)
+        clock = [1_000_000.0]
         real_incr = cache.incr
+        fired = []
+        nested = []
 
         def incr_then_roll_over(name, *args, **kwargs):
             value = real_incr(name, *args, **kwargs)
-            cache.delete(key)  # window A expires...
-            cache.add(key, 1, 900)  # ...and a concurrent request opens window B
-            _record_window_deadline(key, 900)
+            if not fired:
+                fired.append(name)
+                clock[0] += 901
+                nested.append(_count_request(key, 900))
             return value
 
-        with patch.object(cache, "incr", side_effect=incr_then_roll_over):
-            count, generation = _count_request(key, 900)
+        with patch("time.time", side_effect=lambda: clock[0]):
+            _count_request(key, 900)
+            with patch.object(cache, "incr", side_effect=incr_then_roll_over):
+                count, reservation = _count_request(key, 900)
+            self.assertEqual(count, 2)
+            self.assertEqual(reservation, nested[0][1])
+            _release_request(key, reservation)
+            self.assertEqual(cache.get(reservation[1]), 1)
+            self.assertIsNone(cache.get(fired[0]))
 
-        self.assertEqual(count, 1)
-        self.assertIsNone(generation)
-        _release_request(key, generation)
-        self.assertEqual(cache.get(key), 1)
-
-    def test_rollover_between_generation_check_and_decrement_is_undone(self):
-        # The generation check passes, then the window rolls over before the
-        # decrement lands: the decrement hit the new window, so it is given back.
-        from crush_lu.decorators import _record_window_deadline, _release_request
-
+    def test_physical_counter_eviction_fences_old_release_from_successor(self):
         key = "ratelimit:rollover:decr"
-        cache.delete(key)
-        cache.add(key, 0, 900)
-        generation = _record_window_deadline(key, 900)
-        cache.incr(key)  # our reservation in window A
-        real_decr = cache.decr
-
-        def roll_over_then_decr(name, *args, **kwargs):
-            cache.delete(key)  # window A expires...
-            cache.add(key, 1, 900)  # ...window B opens with one request
-            _record_window_deadline(key, 900)
-            return real_decr(name, *args, **kwargs)
-
-        with patch.object(cache, "decr", side_effect=roll_over_then_decr):
-            _release_request(key, generation)
-
-        self.assertEqual(cache.get(key), 1)
-
-    def test_release_after_counter_expiry_never_takes_from_the_new_window(self):
-        # #1150: the token was written after the counter with the same timeout,
-        # so it outlived the counter. A release that passed the token check as
-        # the counter expired could then decrement a counter a new window had
-        # re-created (before that window recorded its own token), and the
-        # still-old token hid it: the new window got a free request.
-        from django.core.cache import caches
-        from django.core.cache.backends.locmem import LocMemCache
-
-        from crush_lu.decorators import _record_window_deadline, _release_request
-
-        if not isinstance(caches["default"], LocMemCache):
-            self.skipTest("drives LocMemCache expiry internals")
-
-        key = "ratelimit:rollover:expiry"
-        internal_key = cache.make_key(key)
-        clock = [1_000_000.0]
-        ticking = [True]
-
-        def now():
-            if ticking[0]:
-                clock[0] += 0.001  # real time moves on between cache calls
-            return clock[0]
-
-        real_decr = cache.decr
-
-        def expire_then_decr(name, *args, **kwargs):
-            # Freeze time at the instant the counter expires.
-            ticking[0] = False
-            clock[0] = cache._expire_info[internal_key]
-            cache.add(key, 0, 900)  # request B opens window B...
-            cache.incr(key)  # ...request C is counted in it
-            return real_decr(name, *args, **kwargs)
-
-        with patch("time.time", side_effect=now):
-            cache.add(key, 0, 900)
-            generation = _record_window_deadline(key, 900)
-            cache.incr(key)  # our reservation in window A
-            with patch.object(cache, "decr", side_effect=expire_then_decr):
-                _release_request(key, generation)
-            count = cache.get(key)
-
+        _, old = _count_request(key, 900)
+        root = cache.get(_generation_key(key))
+        cache.delete(old[1])  # Root/selector are still present.
+        count, fresh = _count_request(key, 900)
         self.assertEqual(count, 1)
+        self.assertNotEqual(old[1], fresh[1])
+        self.assertEqual(cache.get(_generation_key(key)), root)
+        with patch.object(cache, "decr", wraps=cache.decr) as decr:
+            _release_request(key, old)
+        decr.assert_called_once_with(old[1])
+        self.assertEqual(cache.get(fresh[1]), 1)
+        self.assertIsNone(cache.get(old[1]))
 
-    def test_stall_before_token_write_never_takes_from_the_new_window(self):
-        # #1150 follow-up: a fixed one-second head start fails if the worker
-        # stalls longer than that between creating the counter and writing its
-        # token: the token is again measured from a later start and outlives
-        # the counter. The release is then tied to the deadline taken before
-        # the counter was created, so no stall can carry it into a new window.
-        from django.core.cache import caches
-        from django.core.cache.backends.locmem import LocMemCache
-
-        from crush_lu.decorators import _count_request, _release_request
-
-        if not isinstance(caches["default"], LocMemCache):
-            self.skipTest("drives LocMemCache expiry internals")
-
-        key = "ratelimit:rollover:stall"
-        internal_key = cache.make_key(key)
+    def test_release_after_counter_expiry_never_touches_the_new_window(self):
+        key = "ratelimit:rollover:expiry"
         clock = [1_000_000.0]
-        real_set, real_decr = cache.set, cache.decr
+        with patch("time.time", side_effect=lambda: clock[0]):
+            _, old = _count_request(key, 900)
+            clock[0] = cache._expire_info[cache.make_key(old[1])]
+            count, fresh = _count_request(key, 900)
+            self.assertEqual(count, 1)
+            _release_request(key, old)
+            self.assertEqual(cache.get(fresh[1]), 1)
+            self.assertIsNone(cache.get(old[1]))
 
-        def stalled_set(*args, **kwargs):
-            clock[0] += 5  # descheduled for 5s after add(), before the write
-            return real_set(*args, **kwargs)
+    def test_stall_before_counter_publication_cannot_release_new_window(self):
+        key = "ratelimit:rollover:stall"
+        clock = [1_000_000.0]
+        real_add = cache.add
+        stalled = []
 
-        def expire_then_decr(name, *args, **kwargs):
-            clock[0] = cache._expire_info[internal_key]  # window A expires...
-            cache.add(key, 0, 900)  # ...request B opens window B...
-            cache.incr(key)  # ...and is counted in it
-            return real_decr(name, *args, **kwargs)
+        def stalled_add(name, *args, **kwargs):
+            if name.endswith(":counter") and not stalled:
+                stalled.append(name)
+                clock[0] += 5
+            return real_add(name, *args, **kwargs)
 
         with patch("time.time", side_effect=lambda: clock[0]):
-            with patch.object(cache, "set", side_effect=stalled_set):
-                count, generation = _count_request(key, 900)
+            with patch.object(cache, "add", side_effect=stalled_add):
+                count, old = _count_request(key, 900)
             self.assertEqual(count, 1)
-            # Release starts 1.5s before window A's counter expires.
-            clock[0] = cache._expire_info[internal_key] - 1.5
-            with patch.object(cache, "decr", side_effect=expire_then_decr):
-                _release_request(key, generation)
-            count = cache.get(key)
+            clock[0] = old[0]
+            _, fresh = _count_request(key, 900)
+            _release_request(key, old)
+            self.assertEqual(cache.get(fresh[1]), 1)
+            self.assertIsNone(cache.get(old[1]))
 
-        self.assertEqual(count, 1)
+    def test_late_release_never_admits_an_extra_success_in_a_full_new_window(self):
+        from crush_lu.decorators import _count_request, _release_request
+
+        xff = "203.0.113.7:1"
+        key = self._success_only_key(xff)
+        clock = [1_000_000.0]
+        real_decr = cache.decr
+        interleaved = []
+        fired = []
+
+        def delayed_decr(name, *args, **kwargs):
+            if fired:
+                return real_decr(name, *args, **kwargs)
+            fired.append(name)
+            clock[0] += 61  # A passed its checks, then stalled past expiry.
+            for _ in range(2):
+                interleaved.append(
+                    self._post(
+                        view=success_only_view, HTTP_X_FORWARDED_FOR=xff
+                    ).status_code
+                )
+            error = None
+            try:
+                value = real_decr(name, *args, **kwargs)
+            except ValueError as exc:
+                value, error = None, exc
+            # C runs after the decrement but before A can compensate. Counting
+            # the final cache value alone misses an already-created third gift.
+            interleaved.append(
+                self._post(view=success_only_view, HTTP_X_FORWARDED_FOR=xff).status_code
+            )
+            if error:
+                raise error
+            return value
+
+        with patch("time.time", side_effect=lambda: clock[0]):
+            _, generation = _count_request(key, 60)  # A's rejected reservation.
+            with patch.object(cache, "decr", side_effect=delayed_decr):
+                _release_request(key, generation)
+
+        self.assertEqual(interleaved, [302, 302, 429])
+        self.assertEqual(executed, ["create", "create"])
+
+    def _assert_evicted_selector_cannot_admit_an_old_branch(self, intermediate):
+        xff = "203.0.113.7:1"
+        key = self._success_only_key(xff)
+        _, reservation = _count_request(key, 60)
+        window = cache.get(_generation_key(key))
+        selector = _counter_selector_key(key, window)
+        if intermediate:
+            cache.delete(reservation[1])
+            selector = f"{reservation[1]}:next"
+            _, reservation = _count_request(key, 60)
+        old_key = reservation[1]
+        real_incr = cache.incr
+        fired = []
+        nested = []
+
+        def replace_selector_before_increment(name, *args, **kwargs):
+            if name == old_key and not fired:
+                fired.append(name)
+                cache.delete(selector)  # Physical old counter + root survive.
+                for _ in range(2):
+                    nested.append(
+                        self._post(
+                            view=success_only_view, HTTP_X_FORWARDED_FOR=xff
+                        ).status_code
+                    )
+            return real_incr(name, *args, **kwargs)
+
+        with patch.object(cache, "incr", side_effect=replace_selector_before_increment):
+            outer = self._post(view=success_only_view, HTTP_X_FORWARDED_FOR=xff)
+        self.assertEqual(nested, [302, 302])
+        self.assertEqual(outer.status_code, 429)
+        self.assertEqual(executed, ["create", "create"])
+        self.assertEqual(cache.get(_generation_key(key)), window)
+        self.assertEqual(cache.get(self._physical_key(key)), 2)
+        self.assertEqual(cache.get(old_key), 1)  # A refunded only its old slot.
+
+    def test_root_counter_selector_eviction_cannot_admit_an_old_branch(self):
+        self._assert_evicted_selector_cannot_admit_an_old_branch(False)
+
+    def test_intermediate_selector_eviction_cannot_admit_an_old_branch(self):
+        self._assert_evicted_selector_cannot_admit_an_old_branch(True)
+
+    def test_simultaneous_workers_share_one_window_and_counter(self):
+        barrier = Barrier(8, timeout=5)
+
+        def worker(index):
+            barrier.wait()
+            return self._post(
+                view=success_only_view, HTTP_X_FORWARDED_FOR=f"203.0.113.7:{index}"
+            ).status_code
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            statuses = list(pool.map(worker, range(8)))
+        self.assertEqual(sorted(statuses), [302, 302, 429, 429, 429, 429, 429, 429])
+        self.assertEqual(executed, ["create", "create"])
+
+    def test_competing_counter_publications_join_the_atomic_winner(self):
+        real_add = cache.add
+        nested = []
+        fired = []
+
+        def competing_add(name, *args, **kwargs):
+            if name.endswith(":counter") and not fired:
+                fired.append(name)
+                for _ in range(2):
+                    nested.append(self._post(view=success_only_view).status_code)
+            return real_add(name, *args, **kwargs)
+
+        with patch.object(cache, "add", side_effect=competing_add):
+            outer = self._post(view=success_only_view)
+        self.assertEqual(nested, [302, 302])
+        self.assertEqual(outer.status_code, 429)
+        self.assertEqual(executed, ["create", "create"])
+
+    def test_stale_window_creator_cannot_replace_a_newer_published_window(self):
+        clock = [1_000_000.0]
+        real_add = cache.add
+        fired = []
+        nested = []
+        key = self._success_only_key("203.0.113.7:1")
+
+        def delayed_add(name, value, *args, **kwargs):
+            if name == _generation_key(key) and not fired:
+                fired.append(value)
+                clock[0] += 61
+                for _ in range(2):
+                    nested.append(
+                        self._post(
+                            view=success_only_view, HTTP_X_FORWARDED_FOR="203.0.113.7:1"
+                        ).status_code
+                    )
+            return real_add(name, value, *args, **kwargs)
+
+        with patch("time.time", side_effect=lambda: clock[0]):
+            with patch.object(cache, "add", side_effect=delayed_add):
+                outer = self._post(
+                    view=success_only_view, HTTP_X_FORWARDED_FOR="203.0.113.7:1"
+                )
+            self.assertNotEqual(cache.get(_generation_key(key)), fired[0])
+            self.assertEqual(cache.get(self._physical_key(key)), 2)
+        self.assertEqual(nested, [302, 302])
+        self.assertEqual(outer.status_code, 429)
+        self.assertEqual(executed, ["create", "create"])
+
+    def test_marker_outliving_its_deadline_refuses_instead_of_failing_open(self):
+        clock = [1_000_000.0]
+        real_add = cache.add
+        fired = []
+
+        def delayed_add(name, *args, **kwargs):
+            if name.endswith(":window:v2") and not fired:
+                fired.append(name)
+                clock[0] += 61
+            return real_add(name, *args, **kwargs)
+
+        with patch("time.time", side_effect=lambda: clock[0]):
+            with patch.object(cache, "add", side_effect=delayed_add):
+                response = self._post(view=success_only_view)
+            self.assertIsNotNone(cache.get(fired[0]))
+            self.assertLess(cache.get(fired[0])[0], clock[0])
+            self.assertEqual(self._post(view=success_only_view).status_code, 429)
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(executed, [])
+
+    def test_candidate_expiring_before_publication_retries_a_metered_new_window(self):
+        clock = [1_000_000.0]
+        real_add = cache.add
+        counters = []
+        fired = []
+
+        def stalled_add(name, *args, **kwargs):
+            if ":counter:" in name and not name.endswith(":next"):
+                counters.append(name)
+            if name.endswith(":counter") and not fired:
+                fired.append(name)
+                clock[0] += 61
+            return real_add(name, *args, **kwargs)
+
+        with patch("time.time", side_effect=lambda: clock[0]):
+            with patch.object(cache, "add", side_effect=stalled_add):
+                first = self._post()
+            self.assertIsNone(cache.get(counters[0]))
+            self.assertEqual(
+                [first.status_code, self._post().status_code, self._post().status_code],
+                [200, 200, 429],
+            )
+
+    def test_counter_transition_retry_exhaustion_refuses_the_view(self):
+        def losing_incr(name, *args, **kwargs):
+            cache.delete(name)
+            raise ValueError("counter evicted")
+
+        with patch.object(cache, "incr", side_effect=losing_incr):
+            response = self._post(view=success_only_view)
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(executed, [])
+
+    def test_failed_increment_keeps_cache_outage_fail_open(self):
+        with patch.object(cache, "incr", return_value=None):
+            response = self._post(view=success_only_view)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(executed, ["create"])
+
+    def test_successor_expiry_and_retry_after_stay_at_the_original_anchor(self):
+        key = "ratelimit:successor:ttl"
+        clock = [1_000_000.0]
+        with patch("time.time", side_effect=lambda: clock[0]):
+            _, old = _count_request(key, 60)
+            root_expiry = cache._expire_info[cache.make_key(_generation_key(key))]
+            physical_expiry = cache._expire_info[cache.make_key(old[1])]
+            clock[0] += 20
+            cache.delete(old[1])
+            _, fresh = _count_request(key, 60)
+            self.assertEqual(
+                cache._expire_info[cache.make_key(fresh[1])], physical_expiry
+            )
+            self.assertEqual(
+                cache._expire_info[cache.make_key(f"{old[1]}:next")], root_expiry
+            )
+            self.assertEqual(_remaining_window_seconds(key, 60, fresh), 40)
+            clock[0] += 10
+            _count_request(key, 60)
+            _release_request(key, fresh)
+            self.assertEqual(
+                cache._expire_info[cache.make_key(fresh[1])], physical_expiry
+            )
+            self.assertEqual(_remaining_window_seconds(key, 60), 30)
+
+    def test_native_ttl_reads_the_window_marker_not_a_new_counter(self):
+        key = "ratelimit:ttl:backend"
+        _, reservation = _count_request(key, 60)
+        with patch.object(cache, "ttl", return_value=23.1, create=True) as ttl:
+            self.assertEqual(_remaining_window_seconds(key, 60, reservation), 24)
+        ttl.assert_called_once_with(_generation_key(key))
