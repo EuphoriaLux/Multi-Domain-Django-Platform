@@ -1,6 +1,8 @@
 """Dashboard history must be counted without hydrating closed event models."""
 
+from contextlib import contextmanager
 from datetime import timedelta
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.core.cache import cache
@@ -18,6 +20,20 @@ from crush_lu.services.member_context import (
 )
 from crush_lu.tests.test_dashboard_event_status import _make_event
 from crush_lu.tests.test_profile_edit_connect_card import _make_member
+
+
+@contextmanager
+def _capture_hydration(model):
+    """Count model construction without breaking Django's classmethod inspection."""
+    counter = SimpleNamespace(call_count=0)
+    original = model.from_db.__func__
+
+    def counted_from_db(cls, db, field_names, values, **kwargs):
+        counter.call_count += 1
+        return original(cls, db, field_names, values, **kwargs)
+
+    with patch.object(model, "from_db", classmethod(counted_from_db)):
+        yield counter
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
@@ -44,13 +60,9 @@ class DashboardHistoryLoadingTests(TestCase):
 
     def _measure(self, label):
         self.assertEqual(self._dashboard().status_code, 200)
-        with patch.object(
-            EventRegistration, "from_db", wraps=EventRegistration.from_db
-        ) as registrations, patch.object(
-            MeetupEvent, "from_db", wraps=MeetupEvent.from_db
-        ) as events, CaptureQueriesContext(
-            connection
-        ) as queries:
+        with _capture_hydration(EventRegistration) as registrations, _capture_hydration(
+            MeetupEvent
+        ) as events, CaptureQueriesContext(connection) as queries:
             response = self._dashboard()
         print(
             f"history_reads[{label}] queries={len(queries)} "
@@ -199,9 +211,7 @@ class DashboardHistoryLoadingTests(TestCase):
         self.assertEqual(response.context["attended_count"], 1)
         registration.event.date_time -= timedelta(microseconds=1)
         registration.event.save(update_fields=["date_time"])
-        with patch.object(
-            EventRegistration, "from_db", wraps=EventRegistration.from_db
-        ) as registrations:
+        with _capture_hydration(EventRegistration) as registrations:
             response = self._dashboard()
         self.assertEqual(response.context["post_event_actions"], [])
         self.assertEqual(response.context["attended_count"], 1)
@@ -222,9 +232,7 @@ class DashboardHistoryLoadingTests(TestCase):
         self.assertIsNone(actions[0]["lobby_cta"])
         registration.event.date_time -= timedelta(microseconds=1)
         registration.event.save(update_fields=["date_time"])
-        with patch.object(
-            EventRegistration, "from_db", wraps=EventRegistration.from_db
-        ) as registrations:
+        with _capture_hydration(EventRegistration) as registrations:
             response = self._dashboard()
         self.assertEqual(response.context["post_event_actions"], [])
         self.assertEqual(registrations.call_count, 0)
@@ -261,9 +269,7 @@ class DashboardHistoryLoadingTests(TestCase):
         other = _make_member("other-history@example.com")
         event = _make_event("Another member's event", days_from_now=-1)
         EventRegistration.objects.create(user=other, event=event, status="attended")
-        with patch.object(
-            EventRegistration, "from_db", wraps=EventRegistration.from_db
-        ) as registrations:
+        with _capture_hydration(EventRegistration) as registrations:
             response = self._dashboard()
         self.assertEqual(response.context["attended_count"], 0)
         self.assertEqual(response.context["upcoming_count"], 0)
@@ -285,8 +291,8 @@ class DashboardHistoryLoadingTests(TestCase):
             status="attended",
             connection_window_hours=24 * 200,
         )
-        with patch.object(
-            EventRegistration, "from_db", wraps=EventRegistration.from_db
+        with _capture_hydration(
+            EventRegistration
         ) as registrations, CaptureQueriesContext(connection) as queries:
             context = crush_user_context(self._request())
         self.assertEqual(context["upcoming_events_count"], 1)
@@ -358,13 +364,9 @@ class DashboardHistoryLoadingTests(TestCase):
             for index in range(40)
         ]
         request = self._request()
-        with patch.object(
-            EventRegistration, "from_db", wraps=EventRegistration.from_db
-        ) as registrations, patch.object(
-            MeetupEvent, "from_db", wraps=MeetupEvent.from_db
-        ) as events, CaptureQueriesContext(
-            connection
-        ) as queries:
+        with _capture_hydration(EventRegistration) as registrations, _capture_hydration(
+            MeetupEvent
+        ) as events, CaptureQueriesContext(connection) as queries:
             context = crush_user_context(request)
         print(
             f"history_reads[standalone_nav_40] queries={len(queries)} "
