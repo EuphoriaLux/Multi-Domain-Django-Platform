@@ -1121,7 +1121,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 "description": "Track progress through the event voting/presentation phases",
             },
         ),
-        ("Status", {"fields": ("is_published", "is_cancelled")}),
+        ("Status", {"fields": ("is_published", "is_cancelled", "cancellation_reason")}),
         (
             "🌍 echo.lu",
             {

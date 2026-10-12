@@ -23755,7 +23755,7 @@ msgstr ""
 #: templates/crush_lu/emails/profile_revision_request.html:32
 #: templates/crush_lu/emails/profile_submission_confirmation.html:45
 msgid "Best,"
-msgstr "Am besten,"
+msgstr "Viele Grüße,"
 
 #: templates/crush_lu/emails/event_feedback_request.html:4
 #: templates/crush_lu/emails/event_feedback_request.html:6
@@ -39232,6 +39232,13 @@ msgstr ""
 "Für diese Buchung wurde keine Zahlung erfasst, daher gibt es keine Zahlung "
 "oder Gutschrift zurückzuerstatten. Diese E-Mail bestätigt, dass das Event "
 "abgesagt wurde."
+
+msgid ""
+"There is no payment or credit to return for this application. This email "
+"confirms that the event has been cancelled."
+msgstr ""
+"Für diese Bewerbung ist keine Zahlung oder Gutschrift zurückzuerstatten. "
+"Diese E-Mail bestätigt, dass das Event abgesagt wurde."
 
 msgid ""
 "It is ready to use on any Crush.lu event and keeps the applicable credit "
