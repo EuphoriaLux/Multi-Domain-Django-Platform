@@ -23801,7 +23801,7 @@ msgstr "Inscription annulée"
 #: templates/crush_lu/emails/profile_revision_request.html:9
 #, python-format
 msgid "Hey %(first_name)s,"
-msgstr "Salut %(first_name)s,"
+msgstr "Bonjour %(first_name)s,"
 
 #: templates/crush_lu/emails/event_cancellation.html:11
 #, python-format
