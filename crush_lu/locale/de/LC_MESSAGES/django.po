@@ -23755,7 +23755,7 @@ msgstr ""
 #: templates/crush_lu/emails/profile_revision_request.html:32
 #: templates/crush_lu/emails/profile_submission_confirmation.html:45
 msgid "Best,"
-msgstr "Am besten,"
+msgstr "Viele Grüße,"
 
 #: templates/crush_lu/emails/event_feedback_request.html:4
 #: templates/crush_lu/emails/event_feedback_request.html:6
