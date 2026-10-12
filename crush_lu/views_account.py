@@ -2656,6 +2656,7 @@ def export_user_data(request):
         CrushCoach,
         EventFeedback,
         IOSAppDevice,
+        JourneyProgress,
         PushSubscription,
         PWADeviceInstallation,
     )
@@ -3006,6 +3007,38 @@ def export_user_data(request):
             "created_at": _iso_or_none(selection.created_at),
         }
         for selection in selections
+    ]
+
+    # Export owned tracking history, including inactive/namesake legacy rows.
+    # Playback access is narrower. Project scalars only: no journey resources.
+    progress_rows = (
+        JourneyProgress.objects.filter(user=user)
+        .order_by("started_at", "pk")
+        .values(
+            "current_chapter",
+            "total_points",
+            "total_time_seconds",
+            "is_completed",
+            "completed_at",
+            "started_at",
+            "last_activity",
+            "final_response",
+            "final_response_at",
+        )
+    )
+    data["journey_progress"] = [
+        {
+            "current_chapter": progress["current_chapter"],
+            "total_points": progress["total_points"],
+            "total_time_seconds": progress["total_time_seconds"],
+            "is_completed": progress["is_completed"],
+            "completed_at": _iso_or_none(progress["completed_at"]),
+            "started_at": _iso_or_none(progress["started_at"]),
+            "last_activity": _iso_or_none(progress["last_activity"]),
+            "final_response": progress["final_response"],
+            "final_response_at": _iso_or_none(progress["final_response_at"]),
+        }
+        for progress in progress_rows
     ]
 
     # Responses authored by this member. Only labels identify the event/poll;
