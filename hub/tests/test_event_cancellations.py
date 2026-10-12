@@ -257,15 +257,27 @@ class ListEndpointTests(EventCancellationFixture):
     def test_no_n_plus_one_across_event_count(self):
         for index in range(2):
             self._cancelled_event_with_credit()
+        # Warm the Sites middleware's first host lookup outside the capture;
+        # that one-time query is unrelated to the number of cancelled events.
+        self.assertEqual(self.client.get("/hub/events/cancelled").status_code, 200)
         with CaptureQueriesContext(connection) as small:
-            self.client.get("/hub/events/cancelled")
+            small_response = self.client.get("/hub/events/cancelled")
+        self.assertEqual(small_response.status_code, 200)
+        self.assertEqual(len(small_response.data["items"]), 2)
 
         for index in range(3):
             self._cancelled_event_with_credit()
         with CaptureQueriesContext(connection) as large:
-            self.client.get("/hub/events/cancelled")
+            large_response = self.client.get("/hub/events/cancelled")
+        self.assertEqual(large_response.status_code, 200)
+        self.assertEqual(len(large_response.data["items"]), 5)
 
-        self.assertEqual(len(small.captured_queries), len(large.captured_queries))
+        self.assertEqual(
+            len(small.captured_queries),
+            len(large.captured_queries),
+            msg=f"Small request SQL: {small.captured_queries!r}\n"
+            f"Large request SQL: {large.captured_queries!r}",
+        )
 
 
 class DetailEndpointTests(EventCancellationFixture):
@@ -420,8 +432,17 @@ class DetailEndpointTests(EventCancellationFixture):
                 payment=payment,
                 cash_refund_eligible=True,
             )
+        # Exclude the same one-time Site lookup from both query measurements.
+        self.assertEqual(
+            self.client.get(f"/hub/events/{small_event.pk}/cancellation").status_code,
+            200,
+        )
         with CaptureQueriesContext(connection) as small:
-            self.client.get(f"/hub/events/{small_event.pk}/cancellation")
+            small_response = self.client.get(
+                f"/hub/events/{small_event.pk}/cancellation"
+            )
+        self.assertEqual(small_response.status_code, 200)
+        self.assertEqual(len(small_response.data["items"]), 2)
 
         large_event = self._event(
             title="Large",
@@ -439,9 +460,18 @@ class DetailEndpointTests(EventCancellationFixture):
                 cash_refund_eligible=True,
             )
         with CaptureQueriesContext(connection) as large:
-            self.client.get(f"/hub/events/{large_event.pk}/cancellation")
+            large_response = self.client.get(
+                f"/hub/events/{large_event.pk}/cancellation"
+            )
+        self.assertEqual(large_response.status_code, 200)
+        self.assertEqual(len(large_response.data["items"]), 6)
 
-        self.assertEqual(len(small.captured_queries), len(large.captured_queries))
+        self.assertEqual(
+            len(small.captured_queries),
+            len(large.captured_queries),
+            msg=f"Small request SQL: {small.captured_queries!r}\n"
+            f"Large request SQL: {large.captured_queries!r}",
+        )
 
 
 class CashRefundOpenFlagEquivalenceTests(EventCancellationFixture):
