@@ -6,8 +6,6 @@ These make variables available to all templates
 import logging
 import time
 
-from datetime import timedelta
-from django.utils import timezone
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 
@@ -17,13 +15,10 @@ from .models import (
     SpecialUserExperience,
     JourneyProgress,
     ProfileSubmission,
-    EventRegistration,
-    MeetupEvent,
     Notification,
 )
 
 from crush_lu import onboarding
-from crush_lu.models.events import SEAT_HOLDING_STATUSES
 from crush_lu.services.member_context import member_context_data
 
 logger = logging.getLogger(__name__)
@@ -252,45 +247,14 @@ def crush_user_context(request):
                         profile_submission.coach.user.first_name
                     )
 
-        # Upcoming events for user (includes ongoing events until end_time)
-        # Use a generous cutoff to include events that may still be ongoing,
-        # then filter precisely in Python. This avoids timedelta * F()
-        # which is not supported on SQLite. The cutoff is the enforced max
-        # event duration, so a still-live event is never dropped from the nav
-        # regardless of its length (see MeetupEvent.live_lookback_cutoff).
-        now = timezone.now()
-        generous_cutoff = MeetupEvent.live_lookback_cutoff(now)
-        upcoming_registrations = list(
-            EventRegistration.objects.filter(
-                user=request.user,
-                event__date_time__gte=generous_cutoff,
-                # "applied" holds no seat, but the member still signed up and
-                # expects to see it among their upcoming events.
-                status__in=[*SEAT_HOLDING_STATUSES, "waitlist", "applied"],
-            )
-            .select_related("event")
-            .order_by("event__date_time")
-        )
-        # Filter precisely: keep events whose end_time hasn't passed, and drop
-        # any whose event has since been cancelled or unpublished. my_events
-        # skips those rows outright, so counting them here made the nav promise
-        # personal events that the page it links to would not show -- a member
-        # whose only seat was on a cancelled event landed on an empty page.
-        upcoming_registrations = [
-            reg
-            for reg in upcoming_registrations
-            if reg.event.is_published
-            and not reg.event.is_cancelled
-            and reg.event.date_time + timedelta(minutes=reg.event.duration_minutes or 0)
-            >= now
-        ][:5]
+        # All current seats share the dashboard snapshot; only the navbar
+        # display is capped. The dashboard keeps its full upcoming count.
+        upcoming_registrations = member_data.navigation_registrations
 
         # Prompt gating (UX Wave 4 · WP13a, decision I): the push prompt only
         # after a first successful booking, the install card only after that
         # or profile approval. The prompts store adds "never on a first visit".
-        has_booked = EventRegistration.objects.filter(
-            user=request.user, status__in=["confirmed", "attended"]
-        ).exists()
+        has_booked = member_data.has_booked
         context["prompt_push_eligible"] = has_booked
         context["prompt_install_eligible"] = has_booked or bool(
             profile and profile.is_approved
