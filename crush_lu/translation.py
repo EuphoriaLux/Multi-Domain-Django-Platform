@@ -42,7 +42,7 @@ class SpecialUserExperienceTranslationOptions(TranslationOptions):
 class MeetupEventTranslationOptions(TranslationOptions):
     """Translatable fields for meetup events."""
 
-    fields = ('title', 'description')
+    fields = ('title', 'description', 'cancellation_reason')
 
 
 class JourneyConfigurationTranslationOptions(TranslationOptions):
