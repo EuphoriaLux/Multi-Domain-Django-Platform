@@ -434,15 +434,10 @@ def dashboard(request):
             raise CrushProfile.DoesNotExist
         latest_submission = member_data.submission
 
-        # Every registration, oldest first. The dashboard renders only the NEXT
-        # one plus counts — the full history lives on my_events, which already
-        # splits upcoming/past properly. One query serves both the next-event
-        # card and every count below.
-        registrations = list(
-            EventRegistration.objects.filter(user=request.user)
-            .select_related("event")
-            .order_by("event__date_time")
-        )
+        # Only current/actionable registrations need event models. Closed
+        # history is counted in SQL and remains on my_events. The navbar
+        # reuses this request's upcoming rows instead of loading them again.
+        registrations = member_data.dashboard_registrations
 
         # Get connection count (exclude blocked counterparts so a blocked
         # `shared` pair doesn't keep inflating the dashboard badge). Pre-`shared`
@@ -487,12 +482,7 @@ def dashboard(request):
             """
             return bool(event) and event.is_published and not event.is_cancelled
 
-        # Derived from the list already in memory rather than its own query.
-        attended_count = sum(
-            1
-            for _r in registrations
-            if _r.status == "attended" and _event_is_visible(_r.event)
-        )
+        attended_count = member_data.registration_counts["attended"]
         has_attended_event = attended_count > 0
 
         # Premium = active PremiumMembership (paid or comped). Premium unlocks
@@ -540,26 +530,8 @@ def dashboard(request):
             lobby_cta,
         )
 
-        _now = timezone.now()
-
-        def _is_live_registration(reg):
-            """A seat on an event that hasn't finished yet.
-
-            Mirrors my_events: a cancelled seat, or one on an unpublished or
-            cancelled event, is not something the member still holds.
-            """
-            event = reg.event
-            if not _event_is_visible(event):
-                return False
-            # "applied" belongs here even though it holds no seat: the member
-            # did sign up, and an application that vanished from their own
-            # event list until an organiser acted would read as a lost form.
-            if reg.status not in (*SEAT_HOLDING_STATUSES, "waitlist", "applied"):
-                return False
-            return event.end_time >= _now
-
-        # `registrations` is ascending, so the first live seat IS the next one.
-        upcoming_registrations = [r for r in registrations if _is_live_registration(r)]
+        _now = member_data.event_now
+        upcoming_registrations = member_data.upcoming_registrations
         upcoming_count = len(upcoming_registrations)
         next_registration = (
             upcoming_registrations[0] if upcoming_registrations else None

@@ -24,10 +24,11 @@ these routes sit inside i18n_patterns(prefix_default_language=True).
 from __future__ import annotations
 
 import time
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.test import Client, RequestFactory, TestCase, override_settings
+from django.test import Client, TestCase, override_settings
 
 
 @override_settings(
@@ -201,16 +202,12 @@ class SignupRateLimitTests(TestCase):
         self.assertIn("Too many signup attempts", content)
 
     def test_retry_after_uses_remaining_signup_window(self):
-        from crush_lu.decorators import _get_cache_key
-
-        for _ in range(5):
-            self.client.post("/en/signup/", {})
-        key = _get_cache_key(RequestFactory().post("/en/signup/"), "ip", "signup")
-        self.assertIsNotNone(cache.get(f"{key}:deadline"))
-        cache.set(key, 5, timeout=10)
-        cache.set(f"{key}:deadline", time.time() + 10, timeout=10)
-
-        response = self.client.post("/en/signup/", {})
+        clock = [time.time()]
+        with patch("time.time", side_effect=lambda: clock[0]):
+            for _ in range(5):
+                self.client.post("/en/signup/", {})
+            clock[0] += 3600 - 10
+            response = self.client.post("/en/signup/", {})
 
         self.assertEqual(response.status_code, 429)
         self.assertGreaterEqual(int(response["Retry-After"]), 1)
@@ -414,20 +411,12 @@ class ResendVerificationRateLimitTests(TestCase):
         self.assertIn("Back to login", response.content.decode())
 
     def test_branded_retry_after_uses_remaining_window(self):
-        from crush_lu.decorators import _get_cache_key
-
-        for _ in range(3):
-            self.client.post("/en/signup/resend-verification/")
-        key = _get_cache_key(
-            RequestFactory().post("/en/signup/resend-verification/"),
-            "ip",
-            "resend_verification_email",
-        )
-        self.assertIsNotNone(cache.get(f"{key}:deadline"))
-        cache.set(key, 3, timeout=10)
-        cache.set(f"{key}:deadline", time.time() + 10, timeout=10)
-
-        response = self.client.post("/en/signup/resend-verification/")
+        clock = [time.time()]
+        with patch("time.time", side_effect=lambda: clock[0]):
+            for _ in range(3):
+                self.client.post("/en/signup/resend-verification/")
+            clock[0] += 3600 - 10
+            response = self.client.post("/en/signup/resend-verification/")
 
         self.assertEqual(response.status_code, 429)
         self.assertGreaterEqual(int(response["Retry-After"]), 1)

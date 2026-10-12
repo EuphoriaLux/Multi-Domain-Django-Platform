@@ -121,6 +121,11 @@ def ratelimit(
             # all pass on one read.
             try:
                 count, generation = _count_request(cache_key, period_seconds)
+            except _RateWindowBusy:
+                # Known stale/contended state is not a cache outage. Refuse or
+                # flag it conservatively rather than admit an unmetered view.
+                count = limit + 1
+                generation = None
             except Exception:
                 count = None
                 generation = None
@@ -133,7 +138,7 @@ def ratelimit(
                 # Rate limit exceeded
                 request.limited = True
                 request.limited_retry_after = _remaining_window_seconds(
-                    cache_key, period_seconds
+                    cache_key, period_seconds, generation
                 )
                 if block and count_if is not None:
                     # A refused request never counts toward a success-only
@@ -187,143 +192,166 @@ def ratelimit(
     return decorator
 
 
-def _window_deadline_key(cache_key):
-    return f"{cache_key}:deadline"
+class _RateWindowBusy(Exception):
+    """Known window transitions exhausted their bounded retry budget."""
 
 
 def _generation_key(cache_key):
-    return f"{cache_key}:generation"
+    # Separate the new protocol from counters/tokens held by an older worker.
+    return f"{cache_key}:window:v2"
 
 
-# A release must finish this long before its window's deadline. Covers clock
-# skew between workers or hosts that read the same deadline.
-_RELEASE_MARGIN_SECONDS = 1
+def _counter_selector_key(cache_key, window):
+    return f"{cache_key}:window:{window[1]}:counter"
 
 
-def _record_window_deadline(cache_key, period_seconds, deadline=None):
-    """Stamp a new window with its deadline and generation token.
-
-    ``deadline`` is the time.time() taken *before* the add() that created the
-    counter, plus the period, so the counter can never expire before it. The
-    token is ``(deadline, nonce)``; it is returned to the creating request and
-    read by the others, so every release knows its window's deadline.
-
-    The deadline key also tracks expiry for backends without a native TTL.
-    """
-    if deadline is None:
-        deadline = time.time() + period_seconds
-    token = (deadline, uuid.uuid4().hex)
-    cache.set(_generation_key(cache_key), token, period_seconds)
-    cache.set(_window_deadline_key(cache_key), deadline, period_seconds)
-    return token
+def _counter_key(cache_key, window, nonce):
+    return f"{_counter_selector_key(cache_key, window)}:{nonce}"
 
 
-def _window_open(generation):
-    """True while a counter stamped with ``generation`` cannot have expired."""
-    return time.time() < generation[0] - _RELEASE_MARGIN_SECONDS
+def _window_token(value):
+    return (
+        isinstance(value, tuple)
+        and len(value) == 2
+        and isinstance(value[0], (int, float))
+        and isinstance(value[1], str)
+    )
 
 
-def _remaining_window_seconds(cache_key, period_seconds):
-    """Return the counter's remaining fixed-window lifetime, rounded up."""
+def _remaining_window_seconds(cache_key, period_seconds, generation=None):
+    """Remaining anchored window lifetime, never a fresh counter/link timeout."""
     ttl = getattr(cache, "ttl", None)
     if callable(ttl):
         try:
-            remaining = ttl(cache_key)
+            remaining = ttl(_generation_key(cache_key))
             if isinstance(remaining, (int, float)) and remaining >= 0:
                 return max(1, min(period_seconds, math.ceil(remaining)))
         except Exception:
             pass
-
     try:
-        deadline = cache.get(_window_deadline_key(cache_key))
+        window = cache.get(_generation_key(cache_key))
     except Exception:
-        deadline = None
+        window = None
+    deadline = (
+        generation[0]
+        if generation is not None
+        else (window[0] if _window_token(window) else None)
+    )
     if isinstance(deadline, (int, float)):
         return max(1, min(period_seconds, math.ceil(deadline - time.time())))
-    # A concurrent first request may increment before the deadline key is
-    # written; the full period is accurate at the start of that window.
     return period_seconds
 
 
+def _counter_generation(cache_key, window, selector):
+    """Elect a pre-created physical counter with add(), never set/delete.
+
+    A published counter key is never re-created. Losing its data elects a new
+    nonce at its immutable :next selector, so old reservations stay fenced.
+    """
+    nonce = cache.get(selector)
+    if nonce is not None:
+        if not isinstance(nonce, str):
+            raise _RateWindowBusy
+        return nonce
+    remaining = window[0] - time.time()
+    if remaining <= 0:
+        raise _RateWindowBusy
+    nonce = uuid.uuid4().hex
+    created = cache.add(_counter_key(cache_key, window, nonce), 0, remaining)
+    if created is None:
+        return None  # django_redis IGNORE_EXCEPTIONS outage
+    if not created:
+        raise _RateWindowBusy  # Never reuse even an unpublished collision.
+    remaining = window[0] - time.time()
+    if remaining <= 0:
+        raise _RateWindowBusy
+    published = cache.add(selector, nonce, remaining)
+    if published is None:
+        return None
+    if published:
+        return nonce
+    winner = cache.get(selector)
+    if winner is None:
+        raise _RateWindowBusy  # Expiry during publication, not an outage proof.
+    if not isinstance(winner, str):
+        raise _RateWindowBusy
+    return winner
+
+
 def _count_request(cache_key, period_seconds):
-    """
-    Count one request in the key's window; return ``(total, generation)``.
+    """Reserve atomically; return (count, (deadline, immutable physical key)).
 
-    ``generation`` is the token of the window the increment landed in, or
-    None when that cannot be established (see below), in which case the slot
-    is never released.
+    The first request publishes a fixed window via atomic add(). Its counters
+    and immutable successor selectors receive only that window's remaining
+    lifetime. All increments/decrements use nonce-specific physical keys.
+    A stalled creator cannot replace a winner or re-create a published key.
+    Counter loss rotates to a fresh nonce without deleting a shared selector.
 
-    add() creates the counter, with the window's expiry, only if it is absent,
-    and incr() returns the incremented value, so concurrent requests each get
-    a distinct count (atomic INCR on django_redis, lock-held on LocMem). A
-    get-then-set let a burst all read the same value and pass together.
-    Requests over the limit are counted too; incr() keeps the expiry that
-    add() set, so they never extend the window.
+    Rollover/eviction contention retries are bounded and fail closed. Only a
+    cache exception or a swallowed failed add/incr uses the decorator's usual
+    outage fail-open behavior. Cache loss can still lose historical counts;
+    this cache-based limiter does not offer durable quotas.
     """
-    before = cache.get(_generation_key(cache_key))
-    created = None
-    deadline = time.time() + period_seconds  # before add(): never late (#1150)
-    if cache.add(cache_key, 0, period_seconds):
-        created = _record_window_deadline(cache_key, period_seconds, deadline)
-    try:
-        count = cache.incr(cache_key)
-    except ValueError:
-        # Evicted between add() and incr(): start a fresh window with this
-        # request, unless a concurrent request already did.
-        deadline = time.time() + period_seconds
-        if cache.add(cache_key, 1, period_seconds):
-            return 1, _record_window_deadline(cache_key, period_seconds, deadline)
-        created = None
-        count = cache.incr(cache_key)
-    if created is not None:
-        return count, created
-    # Joined an existing window. Reading the token on both sides of the
-    # increment proves which window counted it: a window rollover in between
-    # changes the token, and then the owner is unknown. An unknown owner is
-    # never released, so the race can only cost a slot, never grant one.
-    after = cache.get(_generation_key(cache_key))
-    return count, (before if before is not None and before == after else None)
+    for _window_attempt in range(3):
+        window = cache.get(_generation_key(cache_key))
+        if window is None:
+            candidate = (time.time() + period_seconds, uuid.uuid4().hex)
+            published = cache.add(_generation_key(cache_key), candidate, period_seconds)
+            if published is None:
+                return None, None
+            window = candidate if published else cache.get(_generation_key(cache_key))
+        if not _window_token(window) or window[0] <= time.time():
+            continue
+        selector = _counter_selector_key(cache_key, window)
+        path = []
+        try:
+            for _counter_attempt in range(8):
+                nonce = _counter_generation(cache_key, window, selector)
+                if nonce is None:
+                    return None, None
+                path.append((selector, nonce))
+                physical_key = _counter_key(cache_key, window, nonce)
+                successor_key = f"{physical_key}:next"
+                try:
+                    count = cache.incr(physical_key)
+                except ValueError:
+                    # A counter can disappear before its selector is visible,
+                    # or be evicted later. Never revive that physical identity.
+                    selector = successor_key
+                    continue
+                if not isinstance(count, int):
+                    return None, None
+                reservation = (window[0], physical_key)
+                successor = cache.get(successor_key)
+                connected = all(cache.get(key) == value for key, value in path)
+                current = cache.get(_generation_key(cache_key))
+                if not connected or current != window or window[0] <= time.time():
+                    _release_request(cache_key, reservation)
+                    break
+                if successor is not None:
+                    _release_request(cache_key, reservation)
+                    selector = successor_key
+                    continue
+                return count, reservation
+        except _RateWindowBusy:
+            continue
+    raise _RateWindowBusy
 
 
 def _release_request(cache_key, generation=None):
+    """Release only the exact counter returned by _count_request().
+
+    Its key is immutable and never re-created after publication. Expiry or
+    eviction therefore makes a release a no-op, rather than borrowing from a
+    newer window/counter and compensating after another request used the hole.
+    decr() never creates a key or extends its TTL.
     """
-    Give back a slot reserved by _count_request().
-
-    ``generation`` is the window token the reservation was counted in (see
-    _count_request); None means unknown, and nothing is released. If the window
-    has since expired and a new one started, the slot is already gone with the
-    old counter: releasing would take a count from the new window (#1111).
-
-    The proof is the token's deadline, not the token's presence (#1150). The
-    counter expires no earlier than that deadline (it was taken before the
-    add()), and the token was readable only after the add(). So a decrement
-    that returns with the clock still before the deadline (less a margin for
-    skew) ran after the counter was created and before it could expire: it
-    hit that counter, however long any earlier cache call stalled. Otherwise
-    it may have hit a newer window and is undone, which can only cost a slot.
-    A changed token (an evicted counter re-created early) is undone the same
-    way.
-
-    decr() is atomic and keeps the expiry add() set; on a missing key it
-    raises rather than creating one, so a release never extends the window
-    or leaves a counter without a timeout. A release that lands in a newer
-    window than its reservation could drive the counter below zero; undo it.
-    """
+    if generation is None:
+        return
     try:
-        if generation is None or not _window_open(generation):
-            return
-        if cache.get(_generation_key(cache_key)) != generation:
-            return
-        if cache.decr(cache_key) < 0:
-            cache.incr(cache_key)
-        elif not _window_open(generation) or (
-            cache.get(_generation_key(cache_key)) != generation
-        ):
-            # The decrement may have landed in a newer window: give it back.
-            cache.incr(cache_key)
+        cache.decr(generation[1])
     except Exception:
-        # Evicted or expired (nothing left to release) or cache unavailable.
-        pass
+        pass  # Missing/expired counter or cache outage: no slot to return.
 
 
 def _parse_period(period_str):
