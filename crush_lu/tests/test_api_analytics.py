@@ -689,6 +689,35 @@ class DisclosureControlTests(AnalyticsFixture):
                 self.data("members", age_band="30-34")["total_matching"], 0
             )
 
+    def test_a_tiny_gender_reads_unknown_and_leaves_the_real_ones_intact(self):
+        # Production shape (2026-10-12: F 607, M 1007, O 2, no gender 1268). The
+        # lone O member joins the retained "unknown" group; folding in the
+        # smallest real gender instead erased every woman's three values.
+        other = _make_member("olly@crush.lu", "O", date(1994, 4, 4))
+        for i in range(2):
+            _make_member(
+                f"blank{i}@crush.lu", "", None, location="", status="incomplete"
+            )
+        EventRegistration.objects.create(
+            event=self.night, user=other, status="confirmed"
+        )
+        with mock.patch.object(analytics, "SUPPRESSION_FLOOR", 2):
+            self.assertEqual(self.data("members", gender="F")["total_matching"], 2)
+            self.assertEqual(
+                self.data("members", gender="unknown")["total_matching"], 3
+            )
+            self.assertEqual(self.data("members", gender="O")["total_matching"], 0)
+            self.assertEqual(
+                self.data("members", gender="suppressed")["total_matching"], 0
+            )
+            detail = self.data("event_detail", event_id=str(self.night.id))
+        genders = {r["member"]: r["gender"] for r in detail["registrations"]}
+        self.assertEqual(genders[analytics.pseudonym(self.alice.id)], "F")
+        self.assertEqual(genders[analytics.pseudonym(other.id)], "unknown")
+        self.assertEqual(
+            detail["event"]["seat_holders_by_gender"], {"F": 2, "unknown": 1}
+        )
+
 
 @override_settings(**CONFIGURED)
 class HardeningTests(AnalyticsFixture):
@@ -822,6 +851,63 @@ class GeneralizationTests(TestCase):
         self.assertEqual(out[0]["canton"], "canton-esch")
         self.assertEqual(out[10]["canton"], "suppressed")
 
+    @staticmethod
+    def _blank(uid):
+        return {"user_id": uid, "gender": "", "date_of_birth": None, "location": ""}
+
+    @staticmethod
+    def _tuples(out, profiles):
+        return {tuple(out[p["user_id"]].values()) for p in profiles}
+
+    def test_a_tiny_gender_joins_unknown_instead_of_the_smallest_real_one(self):
+        # Production shape, scaled down: two large genders, a large group
+        # without gender, and two "O" members under the floor. Folding in the
+        # smallest retained sibling would erase every F member's three values.
+        women = [self._profile(i, "F", 27, "canton-luxembourg") for i in range(20)]
+        men = [self._profile(100 + i, "M", 33, "canton-esch") for i in range(30)]
+        others = [
+            self._profile(200 + i, "O", 27, "canton-luxembourg") for i in range(2)
+        ]
+        blanks = [self._blank(300 + i) for i in range(40)]
+        out = self._assert_k_anonymous(women + men + others + blanks, 5)
+        self.assertEqual(
+            self._tuples(out, women), {("F", "25-29", "canton-luxembourg")}
+        )
+        self.assertEqual(self._tuples(out, men), {("M", "30-34", "canton-esch")})
+        # The O members generalize further down with the blanks they joined.
+        self.assertEqual(self._tuples(out, others + blanks), {("unknown",) * 3})
+        self.assertNotIn("suppressed", {v for t in out.values() for v in t.values()})
+
+    def test_without_a_retained_unknown_group_the_smallest_sibling_still_folds(self):
+        # The fallback: nothing to hide in, so the bucket takes the smallest
+        # retained gender rather than leaving the O members alone in it.
+        women = [self._profile(i, "F", 27, "canton-luxembourg") for i in range(20)]
+        men = [self._profile(100 + i, "M", 33, "canton-esch") for i in range(30)]
+        others = [
+            self._profile(200 + i, "O", 27, "canton-luxembourg") for i in range(2)
+        ]
+        out = self._assert_k_anonymous(women + men + others, 5)
+        self.assertEqual(self._tuples(out, women + others), {("suppressed",) * 3})
+        self.assertEqual(out[100]["gender"], "M")
+
+    def test_a_tiny_age_band_joins_the_unknown_band_within_a_gender(self):
+        # The rule applies at every level: one minor next to five 18-24s and
+        # eight members without a birth date. The smallest retained band is
+        # 18-24, which the fold would have erased.
+        profiles = [self._profile(i, "M", 33, "canton-esch") for i in range(10)]
+        profiles += [self._profile(20 + i, "M", 22, "canton-esch") for i in range(5)]
+        profiles.append(self._profile(30, "M", 17, "canton-esch"))
+        profiles += [
+            {**self._blank(40 + i), "gender": "M", "location": "canton-esch"}
+            for i in range(8)
+        ]
+        out = self._assert_k_anonymous(profiles, 5)
+        self.assertEqual(out[20]["age_band"], "18-24")
+        self.assertEqual(
+            (out[30]["gender"], out[30]["age_band"], out[30]["canton"]),
+            ("M", "unknown", "canton-esch"),
+        )
+
     def test_missing_values_are_the_filterable_unknown_token(self):
         profiles = [
             {"user_id": i, "gender": "", "date_of_birth": None, "location": ""}
@@ -850,6 +936,34 @@ class GeneralizationTests(TestCase):
             ]
             with self.subTest(seed=seed):
                 self._assert_k_anonymous(profiles, 5)
+
+    def test_invariant_holds_with_a_tiny_gender_beside_large_ones(self):
+        import random
+
+        cantons = sorted(analytics.LOCATION_CODES) + ["", "somewhere"]
+        for seed in range(25):
+            rng = random.Random(seed)
+            weights = ["F"] * 3 + ["M"] * 4 + [None] * 4
+            profiles = [
+                self._profile(
+                    i, rng.choice(weights), rng.randint(16, 70), rng.choice(cantons)
+                )
+                for i in range(rng.randint(60, 400))
+            ]
+            # Some members without a gender also lack a birth date.
+            for p in profiles:
+                if p["gender"] is None and rng.random() < 0.7:
+                    p["date_of_birth"] = None
+            first = len(profiles)
+            profiles += [
+                self._profile(first + i, "O", rng.randint(18, 70), rng.choice(cantons))
+                for i in range(rng.randint(1, 4))
+            ]
+            with self.subTest(seed=seed):
+                out = self._assert_k_anonymous(profiles, 5)
+                for p in profiles:
+                    expected = {"F": "F", "M": "M"}.get(p["gender"], "unknown")
+                    self.assertEqual(out[p["user_id"]]["gender"], expected)
 
 
 class PrivilegeAuditTests(TestCase):

@@ -935,10 +935,27 @@ def _generalized_quasi_identifiers(profiles: list[dict]) -> dict[int, dict]:
 
     Generalization is top-down (gender, then age band within a gender, then
     canton within a gender+age group). At each level, groups smaller than
-    SUPPRESSION_FLOOR are pooled into that level's "suppressed" bucket; if the
-    bucket itself would end up non-empty but under the floor, the smallest
-    retained sibling groups are folded in until it reaches the floor. So every
-    distinct output (gender, age_band, canton) tuple covers at least
+    SUPPRESSION_FLOOR are pooled into that level's "suppressed" bucket. A
+    bucket that would end up non-empty but under the floor may not stand
+    alone, so it joins a sibling:
+
+    * the "unknown" group, when that one is itself retained. "unknown" already
+      means "no value reported at this level", so the label stays honest,
+      no reported value is erased, and the pooled members still generalize
+      further down by their own age band and canton like any other member of
+      the group. A single-dimension demographics() call already reports the
+      small group's value and count; what pooling protects is which pseudonym
+      carries it, and a class the size of "unknown" protects that better;
+    * otherwise the smallest retained siblings, folded in until the bucket
+      reaches the floor, and their members read "suppressed" too.
+
+    The fold is the expensive path: next to two large genders, a group
+    without gender and two "O" members, the smallest retained sibling is a
+    whole gender, and every member of it would lose all three values to cover
+    two people. A population with both a tiny value and a tiny "unknown" group
+    still takes it.
+
+    So every distinct output (gender, age_band, canton) tuple covers at least
     SUPPRESSION_FLOOR members: a lone member can never be the only one whose
     canton reads "suppressed" next to a detailed sibling cell.
     """
@@ -960,7 +977,11 @@ def _generalized_quasi_identifiers(profiles: list[dict]) -> dict[int, dict]:
             groups[raw[uid][level]].append(uid)
         retained = {k: v for k, v in groups.items() if len(v) >= floor}
         bucket = [uid for k, v in groups.items() if len(v) < floor for uid in v]
-        # Fold the smallest retained siblings into a non-empty, sub-floor bucket.
+        # A non-empty, sub-floor bucket joins a retained "unknown" group first.
+        if bucket and len(bucket) < floor and UNKNOWN in retained:
+            retained[UNKNOWN].extend(bucket)
+            bucket = []
+        # Otherwise fold the smallest retained siblings into it.
         # Keys are compared as strings so None (unknown) sorts deterministically.
         while bucket and len(bucket) < floor and retained:
             smallest = min(retained, key=lambda k: (len(retained[k]), str(k)))
@@ -1093,7 +1114,13 @@ def definitions() -> dict:
             "event_detail) gender, age_band and canton are generalized over the whole "
             f"real-member population: a value reads '{SUPPRESSED}' when fewer than "
             f"{SUPPRESSION_FLOOR} members share it (canton first, then age band, then "
-            "gender), and member filters match these generalized values. age_band is the "
+            f"gender). If those members are fewer than {SUPPRESSION_FLOOR} in total, they "
+            f"read '{UNKNOWN}' instead when at least {SUPPRESSION_FLOOR} members of the "
+            "same group (all members for gender, the gender for age_band, the gender and "
+            f"age band for canton) have no value (so gender={UNKNOWN} also matches rare "
+            "genders), and otherwise the smallest reported value is pooled into "
+            f"'{SUPPRESSED}' with them. Member filters match these generalized values. "
+            "age_band is the "
             f"current age band. As a guardrail, a members call whose filters leave 1-"
             f"{SUPPRESSION_FLOOR - 1} matches returns no rows; it is not a guarantee, "
             "since the non-demographic fields are visible in unfiltered rows."
@@ -1118,7 +1145,7 @@ def definitions() -> dict:
             "seat_holders_by_gender": (
                 "Seat holders per gender as member rows show it: generalized over "
                 "the whole real-member population, small groups pooled as "
-                "'suppressed'."
+                "'unknown' or 'suppressed' (see suppression)."
             ),
             "luxid_linked": "a LuxID social account (native or LuxID OIDC app) is connected",
             "connect_onboarded": "CrushConnectMembership.onboarded_at is set",
