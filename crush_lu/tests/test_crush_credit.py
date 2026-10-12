@@ -875,6 +875,80 @@ class EventCancelledCreditTests(CreditFixture):
         self.assertEqual(issued[0].amount_cents, 3000)
 
 
+class OrganiserCancellationReasonTests(CreditFixture):
+    """The organiser's reason reaches every member, in their own language."""
+
+    def setUp(self):
+        super().setUp()
+        self.staff = self._user("reason-organiser@crush.lu")
+        self.staff.is_staff = True
+        self.staff.is_superuser = True
+        self.staff.save(update_fields=["is_staff", "is_superuser"])
+
+    def _cancel(self, event):
+        from crush_lu.admin.events import MeetupEventAdmin
+        from crush_lu.admin.site import crush_admin_site
+
+        admin_obj = MeetupEventAdmin(MeetupEvent, crush_admin_site)
+        mail.outbox.clear()
+        with patch("crush_lu.admin.events._enqueue_echo_sync"):
+            admin_obj.cancel_events(
+                _admin_request(self.staff), MeetupEvent.objects.filter(pk=event.pk)
+            )
+        return {message.to[0]: message for message in mail.outbox}
+
+    def _applicant(self, event, email, language):
+        user = self._user(email)
+        CrushProfile.objects.filter(user=user).update(preferred_language=language)
+        return self._registration(event, user, status="applied")
+
+    def test_curated_applicants_get_the_reason_in_their_language(self):
+        event = self._event(
+            hours_away=96,
+            max_participants=14,
+            registration_mode="curated",
+            cancellation_reason_en="Not enough applicants matched each other.",
+            cancellation_reason_fr="Trop peu de candidatures compatibles.",
+        )
+        self._applicant(event, "fr-applicant@crush.lu", "fr")
+        self._applicant(event, "de-applicant@crush.lu", "de")
+        self._applicant(event, "en-applicant@crush.lu", "en")
+
+        sent = self._cancel(event)
+
+        self.assertEqual(len(sent), 3)
+        fr = sent["fr-applicant@crush.lu"].body
+        self.assertIn("Trop peu de candidatures compatibles.", fr)
+        self.assertIn("pour cette candidature", fr)
+        # No German reason was written: modeltranslation falls back to English.
+        de = sent["de-applicant@crush.lu"].body
+        self.assertIn("Not enough applicants matched each other.", de)
+        self.assertIn("Für diese Bewerbung", de)
+        self.assertNotIn("Am besten", de)
+        en = sent["en-applicant@crush.lu"].body
+        self.assertIn("Not enough applicants matched each other.", en)
+        self.assertIn("for this application", en)
+        self.assertNotIn("booking", en)
+
+    def test_reason_is_escaped_and_omitted_when_empty(self):
+        with_reason = self._event(
+            hours_away=96,
+            max_participants=5,
+            cancellation_reason_en="The venue <closed> early & for good.",
+        )
+        self._registration(with_reason, self._user("seat@crush.lu"), status="confirmed")
+        html = self._cancel(with_reason)["seat@crush.lu"].alternatives[0][0]
+        self.assertIn("The venue &lt;closed&gt; early &amp; for good.", html)
+
+        without_reason = self._event(hours_away=97, max_participants=5)
+        self._registration(
+            without_reason, self._user("no-reason@crush.lu"), status="confirmed"
+        )
+        message = self._cancel(without_reason)["no-reason@crush.lu"]
+        self.assertNotIn('class="info-box"', message.alternatives[0][0])
+        self.assertIn("No payment was recorded for this booking", message.body)
+
+
 # ---------------------------------------------------------------------------
 # The ledger itself
 # ---------------------------------------------------------------------------

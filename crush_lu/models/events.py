@@ -468,6 +468,17 @@ class MeetupEvent(models.Model):
     # Status & Features
     is_published = models.BooleanField(default=False)
     is_cancelled = models.BooleanField(default=False)
+    # Translatable (crush_lu/translation.py): the email renders it in each
+    # member's language, falling back to English.
+    cancellation_reason = models.TextField(
+        blank=True,
+        help_text=_(
+            "Optional. Shown to members in the cancellation email, in their "
+            "language (English is used when a translation is empty). Save the "
+            "event first, then run “Cancel selected events” from the event "
+            "list: ticking “Is cancelled” here sends no email."
+        ),
+    )
     organiser_cancellation_started_at = models.DateTimeField(
         null=True,
         blank=True,

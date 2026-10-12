@@ -39234,6 +39234,13 @@ msgstr ""
 "abgesagt wurde."
 
 msgid ""
+"There is no payment or credit to return for this application. This email "
+"confirms that the event has been cancelled."
+msgstr ""
+"Für diese Bewerbung ist keine Zahlung oder Gutschrift zurückzuerstatten. "
+"Diese E-Mail bestätigt, dass das Event abgesagt wurde."
+
+msgid ""
 "It is ready to use on any Crush.lu event and keeps the applicable credit "
 "expiry."
 msgstr ""
