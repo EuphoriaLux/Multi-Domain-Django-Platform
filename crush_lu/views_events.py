@@ -1107,6 +1107,67 @@ def _curated_member_outlook(event, *, user=None, profile=None, registration=None
     return outlook
 
 
+def _curated_age_range(event, *, user=None, profile=None, registration=None):
+    """What a curated event's age range means, for the event page.
+
+    On a curated evening ``min_age``/``max_age`` only say who may apply. Who a
+    member actually dates is narrower: ``passes_event_hard_filters`` pairs two
+    applicants only when each age sits inside the other's stated range, and the
+    round scheduler seats people along those edges alone. A bare "Ages 20-70"
+    reads as the spread of your dates when it is the spread of the room, and
+    kept people from applying, so the page explains it.
+
+    For a logged-in viewer the viewer's OWN range is added: their application's
+    snapshot, else the prefill the application form would offer. It is clamped
+    to the event's range and dropped when it narrows nothing. Nobody else's
+    preferences are ever read here.
+    """
+    if not event.uses_curated_registration:
+        return None
+    lo, hi = event.min_age, event.max_age
+    age_range = {"min": lo, "max": hi, "own_source": None, "own_outside": False}
+    if user is None or not user.is_authenticated:
+        return age_range
+
+    own, source = None, None
+    pref = getattr(registration, "preference", None) if registration else None
+    if pref is not None:
+        own, source = (pref.preferred_age_min, pref.preferred_age_max), "application"
+    else:
+        initial = EventPreferenceForm.initial_for(user, profile, event) or {}
+        own_min = initial.get("preferred_age_min")
+        own_max = initial.get("preferred_age_max")
+        if own_min is not None and own_max is not None:
+            own, source = (own_min, own_max), "saved"
+    if own is None:
+        return age_range
+
+    own_min, own_max = sorted(own)
+    if own_max < lo or own_min > hi:
+        # Nobody at this evening is inside the viewer's range, so every age
+        # pairing fails: say so rather than showing the example band.
+        age_range.update(
+            own_source=source, own_min=own_min, own_max=own_max, own_outside=True
+        )
+        return age_range
+    own_min, own_max = max(own_min, lo), min(own_max, hi)
+    if (own_min, own_max) == (lo, hi):
+        return age_range
+    # Geometry for the range bar, as whole percentages of the event range. The
+    # minimum width keeps a one-age range visible; the left edge is pulled in
+    # so that sliver still fits when it sits on the event's maximum.
+    span = max(hi - lo, 1)
+    width = max(2, round((own_max - own_min) * 100 / span))
+    age_range.update(
+        own_source=source,
+        own_min=own_min,
+        own_max=own_max,
+        own_left_pct=min(round((own_min - lo) * 100 / span), 100 - width),
+        own_width_pct=width,
+    )
+    return age_range
+
+
 def _curated_member_group(registration):
     """The viewer's own place in a provisional or locked group, or ``None``.
 
@@ -1453,6 +1514,12 @@ def event_detail(request, event_id):
         profile=user_profile,
         registration=registration,
     )
+    curated_age_range = _curated_age_range(
+        event,
+        user=request.user,
+        profile=user_profile,
+        registration=registration,
+    )
 
     # LuxID direct verification only accepts a submitted pending profile.
     # Incomplete members must finish the profile wizard first; rejected
@@ -1497,6 +1564,7 @@ def event_detail(request, event_id):
         "breadcrumb_jsonld": breadcrumb_jsonld,
         "event_lobby_cta": event_lobby_cta,
         "curated_group_outlook": curated_group_outlook,
+        "curated_age_range": curated_age_range,
         "has_sufficient_crush_credit": bool(
             request.user.is_authenticated
             and available_credit_cents(request.user)

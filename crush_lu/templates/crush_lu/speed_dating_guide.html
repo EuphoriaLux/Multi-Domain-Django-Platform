@@ -46,7 +46,7 @@
     </section>
     <section class="guide-note" aria-labelledby="booking-heading">
         <div class="guide-note__icon" aria-hidden="true">{% include 'shared/icons/users.html' with class='w-8 h-8' %}</div>
-        <div><h2 id="booking-heading">{% trans "Some evenings use curated groups" %}</h2><p>{% trans "For curated events, apply for free first. A place is not guaranteed: selected applicants receive an invitation to book and pay. Dates, prices and conditions are on the event page." %}</p></div>
+        <div><h2 id="booking-heading">{% trans "Some evenings use curated groups" %}</h2><p>{% trans "For curated events, apply for free first. A place is not guaranteed: selected applicants receive an invitation to book and pay. Dates, prices and conditions are on the event page." %} {% trans "You choose the age range you'd like to meet, and every date is with someone in it who also wants to meet someone your age." %}</p></div>
     </section>
     {% include 'crush_lu/components/event_arrival_guidance.html' %}
     <aside class="guide-other-format"><span>{% trans 'A game to bring you together' %}</span><a href="{% url 'crush_lu:quiz_night_guide' %}" class="guide-text-link">{% trans "Prefer a team game? Discover Quiz Night" %} <span aria-hidden="true">↗</span></a></aside>

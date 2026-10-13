@@ -126,10 +126,17 @@
         {% comment %}
         One or two compact lines: date/time, then place (+ ages, unless the
         bounds are the unfilled 18-99 placeholder — finding 1-05/4-07).
+        A curated event gets a third line instead of the bare ages: there the
+        range only says who may apply, and each member dates only people
+        inside their own chosen range, so "Ages 20-70" alone scared people off.
         {% endcomment %}
         <div class="text-gray-500 dark:text-gray-400 mb-3 text-sm flex flex-col gap-1">
             <span class="inline-flex items-center gap-1.5">{% include "shared/icons/calendar.html" with class="w-3.5 h-3.5 text-crush-purple" %} {{ event.date_time|date:"D" }}, {{ event.date_time|date:"j M Y" }} · {{ event.date_time|date:"TIME_FORMAT" }}</span>
-            <span class="inline-flex items-center gap-1.5">{% include "shared/icons/map-pin.html" with class="w-3.5 h-3.5 text-crush-purple" %} {% if user.is_authenticated and user_profile %}{{ event.location }}{% else %}{{ event.canton|default:"Luxembourg" }}{% endif %}{% if event.min_age > 18 or event.max_age < 99 %} · {% include "shared/icons/users.html" with class="w-3.5 h-3.5 text-crush-purple inline" %} {% blocktrans with min=event.min_age max=event.max_age %}Ages {{ min }}-{{ max }}{% endblocktrans %}{% endif %}</span>
+            <span class="inline-flex items-center gap-1.5">{% include "shared/icons/map-pin.html" with class="w-3.5 h-3.5 text-crush-purple" %} {% if user.is_authenticated and user_profile %}{{ event.location }}{% else %}{{ event.canton|default:"Luxembourg" }}{% endif %}{% if not event.uses_curated_registration %}{% if event.min_age > 18 or event.max_age < 99 %} · {% include "shared/icons/users.html" with class="w-3.5 h-3.5 text-crush-purple inline" %} {% blocktrans with min=event.min_age max=event.max_age %}Ages {{ min }}-{{ max }}{% endblocktrans %}{% endif %}{% endif %}</span>
+            {% if event.uses_curated_registration %}
+            {# The range sits in a nowrap span so a narrow card never splits "20-" from "70". #}
+            <span data-curated-age-promise class="inline-flex items-start gap-1.5">{% include "shared/icons/users.html" with class="w-3.5 h-3.5 mt-0.5 text-crush-purple flex-shrink-0" %} <span>{% trans "You choose the ages you meet" %}{% if event.min_age > 18 or event.max_age < 99 %} <span class="whitespace-nowrap">· {% blocktrans with min=event.min_age max=event.max_age %}open to {{ min }}-{{ max }}{% endblocktrans %}</span>{% endif %}</span></span>
+            {% endif %}
         </div>
 
         {% if event.get_languages_display %}
