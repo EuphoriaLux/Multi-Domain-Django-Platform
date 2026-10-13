@@ -249,12 +249,20 @@ def test_the_in_person_badge_follows_its_file(side_effects):
 def test_secondary_photos_can_be_reordered_whatever_their_review(side_effects):
     notify, wallet = side_effects
     coach, profile = _make_coach(), _member()
+    # A decision about a file that is no longer in slot 3: it moves with the
+    # slot but names its own file, so it must not approve K3.
+    stale = "users/1/photos/replaced.jpg"
+    ProfilePhotoReviewState.objects.create(
+        profile=profile, photo_field="photo_3", photo_key=stale, status="approved"
+    )
 
     swap = _swap(coach, profile, "photo_3", "photo_2", K3, K2)
 
     profile = _fresh(profile)
     assert (profile.photo_2.name, profile.photo_3.name) == (K3, K2)
-    assert _slots(ProfilePhotoReviewState, profile) == {"photo_3": K2}
+    assert _slots(ProfilePhotoReviewState, profile) == {"photo_2": stale, "photo_3": K2}
+    assert profile.get_photo_field_review_status("photo_2") == "pending"
+    assert profile.get_photo_field_review_status("photo_3") == "approved"
     assert _slots(PublishedProfilePhoto, profile) == {"photo_1": K1, "photo_3": K2}
     assert (profile.photo_review_status, profile.photo_review_key) == ("approved", K1)
     assert notify.call_args.kwargs["main_changed"] is False
