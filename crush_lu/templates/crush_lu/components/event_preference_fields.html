@@ -57,6 +57,10 @@ choices, so this template renders whatever the field offers.
             {% trans "To" as age_max_label %}
             {% include "crush_lu/components/form_field.html" with field=pref_form.preferred_age_max label=age_max_label size="sm" field_class="flex-1" %}
         </div>
+        {# Curated only: there this range is a hard, mutual filter on every date (passes_event_hard_filters). #}
+        {% if event.uses_curated_registration %}
+        <p data-curated-age-hint class="text-muted-fg text-xs mt-2">{% blocktrans with min=event.min_age max=event.max_age %}You only have dates with people in this range who also want to meet someone your age. Left empty, every age at this evening suits you ({{ min }}-{{ max }}).{% endblocktrans %}</p>
+        {% endif %}
     </fieldset>
 
     <fieldset>

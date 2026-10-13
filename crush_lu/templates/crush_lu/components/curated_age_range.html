@@ -1,0 +1,48 @@
+{% load i18n %}
+{% comment %}
+What a curated speed-dating event's age range means.
+
+The event's min/max age only says who may apply: each date is with someone
+whose age is inside the member's own range and who has the member's age inside
+theirs (crush_lu.matching.passes_event_hard_filters). A bare "Ages 20-70" read
+as the spread of your dates and put people off applying.
+
+Expects `age_range` from views_events._curated_age_range: the event's range
+plus, for a logged-in viewer, only the viewer's OWN range. Never another
+member's. Without an own range the bar shows a labelled example band; an own
+range that misses the evening entirely is called out instead of drawn.
+{% endcomment %}
+<div id="curated-age-range" data-curated-age-range class="bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700 text-purple-800 dark:text-purple-300 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+    <div class="flex items-start gap-2">
+        {% include "shared/icons/users.html" with class="w-5 h-5 flex-shrink-0 mt-0.5 text-crush-purple dark:text-purple-300" %}
+        <div class="flex-1 min-w-0">
+            <p class="font-semibold text-sm sm:text-base mb-1">{% trans "You choose who you meet" %}</p>
+            <p class="text-xs sm:text-sm mb-0">{% blocktrans with min=age_range.min max=age_range.max %}The evening is open to ages {{ min }}-{{ max }}, but you won't date all of them. When you apply, you choose the ages you'd like to meet. Each of your dates is with someone in that range who also wants to meet someone your age.{% endblocktrans %}</p>
+            <svg class="block w-full h-3 mt-3" aria-hidden="true" focusable="false">
+                <rect x="0" y="0" width="100%" height="100%" rx="6" class="fill-purple-200 dark:fill-purple-800"/>
+                {% if age_range.own_outside %}
+                {# The viewer's range misses this evening entirely: no band to draw. #}
+                {% elif age_range.own_source %}
+                <rect x="{{ age_range.own_left_pct }}%" y="0" width="{{ age_range.own_width_pct }}%" height="100%" rx="6" class="fill-crush-purple"/>
+                {% else %}
+                <rect x="30%" y="0" width="25%" height="100%" rx="6" class="fill-crush-purple"/>
+                {% endif %}
+            </svg>
+            <div class="flex justify-between text-xs mt-1" aria-hidden="true">
+                <span>{{ age_range.min }}</span>
+                <span>{{ age_range.max }}</span>
+            </div>
+            <p data-curated-age-own="{{ age_range.own_source|default:'example' }}"{% if age_range.own_outside %} data-curated-age-outside{% endif %} class="text-xs sm:text-sm mt-1 mb-0">
+                {% if age_range.own_outside %}
+                    <strong>{% blocktrans with lo=age_range.own_min hi=age_range.own_max min=age_range.min max=age_range.max %}Your age range ({{ lo }}-{{ hi }}) doesn't overlap with this evening's ages ({{ min }}-{{ max }}), so it would give you no dates.{% endblocktrans %}</strong>
+                {% elif age_range.own_source == "application" %}
+                    {% blocktrans with lo=age_range.own_min hi=age_range.own_max %}You asked to meet people aged {{ lo }}-{{ hi }}.{% endblocktrans %}
+                {% elif age_range.own_source == "saved" %}
+                    {% blocktrans with lo=age_range.own_min hi=age_range.own_max %}Your saved preferences: ages {{ lo }}-{{ hi }}. You can change them when you apply.{% endblocktrans %}
+                {% else %}
+                    {% trans "Highlighted: an example of a range you could pick." %}
+                {% endif %}
+            </p>
+        </div>
+    </div>
+</div>
