@@ -11,7 +11,7 @@
     </div>
     <div class="photo-preview-container{% if photo %} has-photo{% endif %}">
         {% if photo %}
-            <img src="{{ photo.url }}" alt="{% if is_main %}{% trans "Main profile photo" %}{% else %}{% blocktrans with slot=slot %}Profile photo {{ slot }}{% endblocktrans %}{% endif %}" class="photo-preview" id="preview-photo-{{ slot }}" loading="lazy">
+            <img src="{{ photo.url }}" alt="{% if is_main %}{% trans "Main profile photo" %}{% else %}{% blocktrans with slot=slot %}Profile photo {{ slot }}{% endblocktrans %}{% endif %}" class="photo-preview object-face" id="preview-photo-{{ slot }}" loading="lazy">
             <button type="button"
                     class="photo-delete-btn"
                     hx-delete="{% url 'api_delete_profile_photo' slot %}"

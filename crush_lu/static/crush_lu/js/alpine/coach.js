@@ -890,7 +890,7 @@ document.addEventListener("alpine:init", function () {
                     photoHtml =
                         '<img src="' +
                         this._escAttr(t.photoUrl) +
-                        '" class="w-full h-full object-cover" alt="">';
+                        '" class="w-full h-full object-cover object-face" alt="">';
                 } else {
                     photoHtml =
                         '<div class="w-full h-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center">' +
@@ -1504,7 +1504,7 @@ document.addEventListener("alpine:init", function () {
                 avatarWrap.className = "relative flex-shrink-0";
                 avatarWrap.setAttribute("data-checkin-avatar", "");
                 if (photoImg) {
-                    photoImg.className = "w-10 h-10 rounded-full object-cover";
+                    photoImg.className = "w-10 h-10 rounded-full object-cover object-face";
                     avatarWrap.appendChild(photoImg);
                 } else {
                     var initial = document.createElement("div");
@@ -1561,7 +1561,7 @@ document.addEventListener("alpine:init", function () {
                 left.className = "flex items-center gap-3 min-w-0";
                 if (photoImg) {
                     photoImg.className =
-                        "w-10 h-10 rounded-full object-cover flex-shrink-0";
+                        "w-10 h-10 rounded-full object-cover object-face flex-shrink-0";
                     left.appendChild(photoImg);
                 } else {
                     var initial = document.createElement("div");

@@ -1424,6 +1424,14 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
    TAILWIND UTILITIES LAYER
    Custom utility extensions
    ============================================================================= */
+/* Member profile photos: keep the upper part of the photo when a frame crops
+   it, where faces sit, instead of the centre. object-position only moves the
+   axis that overflows, so landscape photos stay centred horizontally.
+   Spec: ai-memory-hub/specs/2026-10-13-crush-photo-framing.md */
+@utility object-face {
+    object-position: 50% 25%;
+}
+
 @layer utilities {
     /* Text balance for headings (with fallback) */
     .text-balance {
@@ -2159,11 +2167,12 @@ html.dark .btn-crush-outline:hover {
     border: 3px solid rgba(155, 89, 182, 0.3);
 }
 
+/* No object-position here: these rules are unlayered and would beat the
+   object-face utility the member photo previews carry. */
 .photo-preview {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: center;
     display: block;
 }
 
@@ -2171,7 +2180,6 @@ html.dark .btn-crush-outline:hover {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: center;
     display: block;
 }
 
@@ -6624,7 +6632,7 @@ body.connect-wizard main.has-bottom-nav {
         outline-offset: 2px;
     }
     .lobby-tile > img {
-        @apply h-full w-full object-cover;
+        @apply h-full w-full object-cover object-face;
     }
     .lobby-tile--signalled::after,
     .lobby-tile--mutual::after {
@@ -6670,7 +6678,7 @@ body.connect-wizard main.has-bottom-nav {
         @apply flex items-center gap-3 rounded-xl border border-lobby-edge bg-lobby-room p-3;
     }
     .lobby-mutual-item > img {
-        @apply h-12 w-12 rounded-xl object-cover;
+        @apply h-12 w-12 rounded-xl object-cover object-face;
     }
     .lobby-mutual-item > p {
         @apply mb-0 font-display font-semibold text-lobby-ink;

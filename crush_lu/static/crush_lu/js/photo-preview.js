@@ -24,7 +24,7 @@ function previewImage(input, previewId) {
                 const img = document.createElement("img");
                 img.src = e.target.result;
                 img.alt = "Preview";
-                img.className = "photo-preview";
+                img.className = "photo-preview object-face";
                 img.id = previewId;
                 container.innerHTML = "";
                 container.appendChild(img);

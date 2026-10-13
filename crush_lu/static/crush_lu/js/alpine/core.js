@@ -4394,7 +4394,7 @@ document.addEventListener("alpine:init", function () {
                             var img = document.createElement("img");
                             img.src = srcs[k];
                             img.alt = "";
-                            img.className = "h-14 w-14 rounded-lg object-cover";
+                            img.className = "h-14 w-14 rounded-lg object-cover object-face";
                             reviewPhotos.appendChild(img);
                         }
                     } else {

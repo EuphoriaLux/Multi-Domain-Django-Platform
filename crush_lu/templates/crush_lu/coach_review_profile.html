@@ -93,13 +93,13 @@
             {# Photos Row #}
             <div class="flex flex-wrap gap-3 mb-6">
                 {% if profile|has_photo:'photo_1' %}
-                    <img src="{% profile_photo_url profile 'photo_1' %}" class="w-40 h-48 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="{% trans "Photo" %} 1" loading="lazy">
+                    <img src="{% profile_photo_url profile 'photo_1' %}" class="w-40 h-48 rounded-lg object-cover object-face border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="{% trans "Photo" %} 1" loading="lazy">
                 {% endif %}
                 {% if profile|has_photo:'photo_2' %}
-                    <img src="{% profile_photo_url profile 'photo_2' %}" class="w-40 h-48 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="{% trans "Photo" %} 2" loading="lazy">
+                    <img src="{% profile_photo_url profile 'photo_2' %}" class="w-40 h-48 rounded-lg object-cover object-face border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="{% trans "Photo" %} 2" loading="lazy">
                 {% endif %}
                 {% if profile|has_photo:'photo_3' %}
-                    <img src="{% profile_photo_url profile 'photo_3' %}" class="w-40 h-48 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="{% trans "Photo" %} 3" loading="lazy">
+                    <img src="{% profile_photo_url profile 'photo_3' %}" class="w-40 h-48 rounded-lg object-cover object-face border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="{% trans "Photo" %} 3" loading="lazy">
                 {% endif %}
             </div>
 

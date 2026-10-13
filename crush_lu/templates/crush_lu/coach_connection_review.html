@@ -25,7 +25,7 @@
             <div class="text-center flex-1">
                 {% if requester_profile.photo_1 %}
                     <div class="w-16 h-16 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 mx-auto mb-2">
-                        <img src="{% profile_photo_url requester_profile 'photo_1' %}" alt="{{ connection.requester.crushprofile.display_name }}" class="w-full h-full object-cover" loading="lazy">
+                        <img src="{% profile_photo_url requester_profile 'photo_1' %}" alt="{{ connection.requester.crushprofile.display_name }}" class="w-full h-full object-cover object-face" loading="lazy">
                     </div>
                 {% else %}
                     <div class="w-16 h-16 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center mx-auto mb-2">
@@ -85,7 +85,7 @@
             <div class="text-center flex-1">
                 {% if recipient_profile.photo_1 %}
                     <div class="w-16 h-16 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 mx-auto mb-2">
-                        <img src="{% profile_photo_url recipient_profile 'photo_1' %}" alt="{{ connection.recipient.crushprofile.display_name }}" class="w-full h-full object-cover" loading="lazy">
+                        <img src="{% profile_photo_url recipient_profile 'photo_1' %}" alt="{{ connection.recipient.crushprofile.display_name }}" class="w-full h-full object-cover object-face" loading="lazy">
                     </div>
                 {% else %}
                     <div class="w-16 h-16 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center mx-auto mb-2">

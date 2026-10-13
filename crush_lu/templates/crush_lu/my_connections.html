@@ -94,7 +94,7 @@
                                         {% if connection.recipient.crushprofile|has_public_photo:'photo_1' %}
                                             <img src="{% profile_photo_url connection.recipient.crushprofile 'photo_1' %}"
                                                  alt="{{ connection.recipient.crushprofile.display_name }}"
-                                                 class="w-14 h-14 rounded-full object-cover"
+                                                 class="w-14 h-14 rounded-full object-cover object-face"
                                                  loading="lazy">
                                         {% else %}
                                             <div class="w-14 h-14 rounded-full bg-gray-400 dark:bg-gray-600 flex items-center justify-center">
@@ -128,7 +128,7 @@
                                         {% if connection.recipient.crushprofile|has_public_photo:'photo_1' %}
                                             <img src="{% profile_photo_url connection.recipient.crushprofile 'photo_1' %}"
                                                  alt="{{ connection.recipient.crushprofile.display_name }}"
-                                                 class="w-14 h-14 rounded-full object-cover"
+                                                 class="w-14 h-14 rounded-full object-cover object-face"
                                                  loading="lazy">
                                         {% else %}
                                             <div class="w-14 h-14 rounded-full bg-gray-400 dark:bg-gray-600 flex items-center justify-center">

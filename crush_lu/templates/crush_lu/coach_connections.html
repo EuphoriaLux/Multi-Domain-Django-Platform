@@ -102,7 +102,7 @@
                                     <div class="flex items-center gap-2">
                                         {% if conn.requester.crushprofile.photo_1 %}
                                             <div class="w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex-shrink-0">
-                                                <img src="{% profile_photo_url conn.requester.crushprofile 'photo_1' %}" alt="{{ conn.requester_display_name }}" class="w-full h-full object-cover" loading="lazy">
+                                                <img src="{% profile_photo_url conn.requester.crushprofile 'photo_1' %}" alt="{{ conn.requester_display_name }}" class="w-full h-full object-cover object-face" loading="lazy">
                                             </div>
                                         {% else %}
                                             <div class="w-10 h-10 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center flex-shrink-0">
@@ -140,7 +140,7 @@
                                     <div class="flex items-center gap-2">
                                         {% if conn.recipient.crushprofile.photo_1 %}
                                             <div class="w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex-shrink-0">
-                                                <img src="{% profile_photo_url conn.recipient.crushprofile 'photo_1' %}" alt="{{ conn.recipient_display_name }}" class="w-full h-full object-cover" loading="lazy">
+                                                <img src="{% profile_photo_url conn.recipient.crushprofile 'photo_1' %}" alt="{{ conn.recipient_display_name }}" class="w-full h-full object-cover object-face" loading="lazy">
                                             </div>
                                         {% else %}
                                             <div class="w-10 h-10 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center flex-shrink-0">

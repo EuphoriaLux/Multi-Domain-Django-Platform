@@ -970,7 +970,7 @@ document.addEventListener("alpine:init", function () {
                     img.src = safePhotoUrl;
                     img.alt = "";
                     img.className =
-                        "shrink-0 rounded-full object-cover ring-2 ring-slate-700 " +
+                        "shrink-0 rounded-full object-cover object-face ring-2 ring-slate-700 " +
                         imgDim;
                     var fallback = document.createElement("div");
                     fallback.className =

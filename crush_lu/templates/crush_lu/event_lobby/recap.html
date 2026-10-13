@@ -73,7 +73,7 @@
                         {% if entry.already_met %}data-already-met="true"{% endif %}
                         aria-label="{% if entry.first_name %}{{ entry.first_name }}{% else %}{% trans 'Confirm you met this participant' %}{% endif %}"
                         class="recap-tile relative aspect-square overflow-hidden rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm focus:outline-none focus:ring-2 focus:ring-crush-purple transition-transform active:scale-[0.97]">
-                    <img src="{{ entry.photo_url }}" alt="" loading="lazy" class="w-full h-full object-cover">
+                    <img src="{{ entry.photo_url }}" alt="" loading="lazy" class="w-full h-full object-cover object-face">
                     {% if entry.already_met %}
                     <span class="absolute inset-x-0 bottom-0 bg-black/60 px-2 py-1 text-left text-xs font-medium text-white">{% trans "You've already met" %}</span>
                     {% elif entry.is_live_mutual %}
@@ -110,7 +110,7 @@
             <div class="flex min-h-full items-end sm:items-center justify-center">
                 <div class="absolute inset-0 bg-black/50" x-on:click="closeConfirm" aria-hidden="true"></div>
                 <div class="relative w-full sm:max-w-sm bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl p-5 shadow-xl">
-                    <img x-bind:src="confirmPhotoUrl" alt="" class="w-20 h-20 rounded-2xl object-cover mx-auto mb-3">
+                    <img x-bind:src="confirmPhotoUrl" alt="" class="w-20 h-20 rounded-2xl object-cover object-face mx-auto mb-3">
                     <h2 id="recap-confirm-title" class="font-display text-lg font-semibold text-center text-gray-900 dark:text-white mb-1">
                         {% trans "Did you meet in person?" %}
                     </h2>
