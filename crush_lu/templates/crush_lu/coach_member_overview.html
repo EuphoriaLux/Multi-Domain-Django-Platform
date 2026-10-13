@@ -68,7 +68,7 @@
             <!-- Photos (coaches always see unblurred) -->
             <div class="flex flex-wrap gap-2 flex-shrink-0">
                 {% if profile|has_photo:'photo_1' %}
-                    <img src="{% profile_photo_url profile 'photo_1' %}"
+                    <img src="{% profile_photo_url profile 'photo_1' %}" {% profile_photo_style profile 'photo_1' %}
                          class="w-24 h-24 rounded-xl object-cover object-face border-2 border-white dark:border-gray-700 shadow-md dark:shadow-gray-900/20"
                          alt="" loading="lazy">
                 {% else %}
@@ -77,12 +77,12 @@
                     </div>
                 {% endif %}
                 {% if profile|has_photo:'photo_2' %}
-                    <img src="{% profile_photo_url profile 'photo_2' %}"
+                    <img src="{% profile_photo_url profile 'photo_2' %}" {% profile_photo_style profile 'photo_2' %}
                          class="w-24 h-24 rounded-xl object-cover object-face border-2 border-white dark:border-gray-700 shadow-md dark:shadow-gray-900/20"
                          alt="" loading="lazy">
                 {% endif %}
                 {% if profile|has_photo:'photo_3' %}
-                    <img src="{% profile_photo_url profile 'photo_3' %}"
+                    <img src="{% profile_photo_url profile 'photo_3' %}" {% profile_photo_style profile 'photo_3' %}
                          class="w-24 h-24 rounded-xl object-cover object-face border-2 border-white dark:border-gray-700 shadow-md dark:shadow-gray-900/20"
                          alt="" loading="lazy">
                 {% endif %}
