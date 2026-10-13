@@ -13,6 +13,7 @@ live upload, other members the published one, ``photo_publication``).
 Spec: ai-memory-hub/specs/2026-10-13-crush-photo-framing.md
 """
 
+from django.db import transaction
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
@@ -37,21 +38,21 @@ def get_focus(profile, photo_key):
     if prefetched is not None:
         row = next((row for row in prefetched if row.photo_key == photo_key), None)
         return (row.focus_x, row.focus_y) if row else None
-    # A page often renders the same photo more than once (drawer avatar and
-    # page body): one query per file and profile instance.
-    memo = profile.__dict__.setdefault("_photo_focus_memo", {})
-    if photo_key not in memo:
+    # Without a prefetch: one query per profile instance for all its files, so
+    # a card showing three photos, or the drawer avatar plus the page body,
+    # reads once. Lists should still prefetch ``photo_framings``.
+    memo = profile.__dict__.get("_photo_focus_memo")
+    if memo is None:
         from crush_lu.models import ProfilePhotoFraming
 
-        row = (
-            ProfilePhotoFraming.objects.filter(
-                profile_id=profile.pk, photo_key=photo_key
-            )
-            .values_list("focus_x", "focus_y")
-            .first()
-        )
-        memo[photo_key] = tuple(row) if row else None
-    return memo[photo_key]
+        memo = {
+            key: (x, y)
+            for key, x, y in ProfilePhotoFraming.objects.filter(
+                profile_id=profile.pk
+            ).values_list("photo_key", "focus_x", "focus_y")
+        }
+        profile.__dict__["_photo_focus_memo"] = memo
+    return memo.get(photo_key)
 
 
 def object_position(focus):
@@ -113,14 +114,23 @@ def _percent(value):
 
 def _check_current(profile, photo_field, photo_key):
     """Frame only the file the coach is looking at: a photo replaced since
-    the page loaded is refused rather than framed blind."""
+    the page loaded is refused rather than framed blind.
+
+    Call inside the transaction that writes the framing: the profile row
+    stays locked until it commits, so a member upload cannot slip in between
+    this check and the write.
+    """
     if photo_field not in PHOTO_FIELDS:
         raise PhotoFramingError(_("Unknown photo."), status=400)
     from crush_lu.models import CrushProfile
 
-    if not photo_key or not (
-        CrushProfile.objects.filter(pk=profile.pk, **{photo_field: photo_key}).exists()
-    ):
+    current = (
+        CrushProfile.objects.select_for_update()
+        .filter(pk=profile.pk)
+        .values_list(photo_field, flat=True)
+        .first()
+    )
+    if not photo_key or current != photo_key:
         raise PhotoFramingError(
             _("This photo has changed since the page loaded. Reload and try again.")
         )
@@ -129,32 +139,34 @@ def _check_current(profile, photo_field, photo_key):
 def set_focus(coach, profile, photo_field, photo_key, focus_x, focus_y):
     """Store the focus a coach chose for the slot's current file."""
     x, y = _percent(focus_x), _percent(focus_y)
-    _check_current(profile, photo_field, photo_key)
     from crush_lu.models import ProfilePhotoFraming
 
+    with transaction.atomic():
+        _check_current(profile, photo_field, photo_key)
+        ProfilePhotoFraming.objects.update_or_create(
+            profile_id=profile.pk,
+            photo_key=photo_key,
+            defaults={
+                "focus_x": x,
+                "focus_y": y,
+                "set_by": coach,
+                "set_at": timezone.now(),
+            },
+        )
     profile.__dict__.pop("_photo_focus_memo", None)
-    ProfilePhotoFraming.objects.update_or_create(
-        profile_id=profile.pk,
-        photo_key=photo_key,
-        defaults={
-            "focus_x": x,
-            "focus_y": y,
-            "set_by": coach,
-            "set_at": timezone.now(),
-        },
-    )
     return x, y
 
 
 def clear_focus(profile, photo_field, photo_key):
     """Back to the default framing for the slot's current file."""
-    _check_current(profile, photo_field, photo_key)
     from crush_lu.models import ProfilePhotoFraming
 
+    with transaction.atomic():
+        _check_current(profile, photo_field, photo_key)
+        ProfilePhotoFraming.objects.filter(
+            profile_id=profile.pk, photo_key=photo_key
+        ).delete()
     profile.__dict__.pop("_photo_focus_memo", None)
-    ProfilePhotoFraming.objects.filter(
-        profile_id=profile.pk, photo_key=photo_key
-    ).delete()
 
 
 def move_focus(profile, old_key, new_key):

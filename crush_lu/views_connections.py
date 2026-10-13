@@ -976,6 +976,7 @@ def my_connections(request):
         .prefetch_related(
             "recipient__crushprofile__photo_review_states",
             "recipient__crushprofile__published_photos",
+            "recipient__crushprofile__photo_framings",
         )
         .order_by("-requested_at")
     )
@@ -990,6 +991,7 @@ def my_connections(request):
         .prefetch_related(
             "requester__crushprofile__photo_review_states",
             "requester__crushprofile__published_photos",
+            "requester__crushprofile__photo_framings",
         )
         .order_by("-requested_at")
     )
@@ -1014,6 +1016,8 @@ def my_connections(request):
             "requester__crushprofile__published_photos",
             "recipient__crushprofile__photo_review_states",
             "recipient__crushprofile__published_photos",
+            "requester__crushprofile__photo_framings",
+            "recipient__crushprofile__photo_framings",
         )
         .order_by("-requested_at")
     )

@@ -137,6 +137,50 @@ def test_a_saved_focus_is_seen_by_the_same_profile_instance():
     assert get_focus(profile, KEY) == (20, 30)
 
 
+def test_the_current_file_is_checked_under_a_lock_inside_the_write(monkeypatch):
+    """A member upload must not slip in between the check and the write.
+    SQLite ignores row locks, so assert the shape: the check takes the
+    profile row lock inside the transaction that writes the framing."""
+    from django.db import connection
+    from django.db.models.query import QuerySet
+
+    coach, profile = _make_coach(), _make_candidate()
+    original = QuerySet.select_for_update
+    depths = []
+
+    def spy(queryset, *args, **kwargs):
+        depths.append((queryset.model, len(connection.savepoint_ids)))
+        return original(queryset, *args, **kwargs)
+
+    monkeypatch.setattr(QuerySet, "select_for_update", spy)
+    outside = len(connection.savepoint_ids)
+    set_focus(coach, profile, "photo_1", KEY, 10, 10)
+    clear_focus(profile, "photo_1", KEY)
+
+    profile_locks = [depth for model, depth in depths if model is CrushProfile]
+    assert len(profile_locks) == 2  # one per write
+    assert all(depth > outside for depth in profile_locks)
+
+
+def test_without_a_prefetch_a_profile_reads_its_framings_once(
+    django_assert_num_queries,
+):
+    profile = _make_candidate()
+    for slot, key in enumerate(("a.jpg", "b.jpg", "c.jpg")):
+        _frame(profile, key, slot * 10, slot * 10)
+    fresh = CrushProfile.objects.get(pk=profile.pk)
+
+    with django_assert_num_queries(1):
+        assert [
+            get_focus(fresh, key) for key in ("a.jpg", "b.jpg", "c.jpg", "d.jpg")
+        ] == [
+            (0, 0),
+            (10, 10),
+            (20, 20),
+            None,
+        ]
+
+
 @pytest.mark.parametrize(
     "size, focus, box",
     [
