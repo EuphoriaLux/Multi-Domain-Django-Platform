@@ -45591,3 +45591,69 @@ msgid "%(count)s more member is still to be marked. Press the button again to fi
 msgid_plural "%(count)s more members are still to be marked. Press the button again to finish."
 msgstr[0] "%(count)s weiteres Mitglied muss noch markiert werden. Drücke den Button erneut, um abzuschließen."
 msgstr[1] "%(count)s weitere Mitglieder müssen noch markiert werden. Drücke den Button erneut, um abzuschließen."
+
+#: templates/crush_lu/includes/event_card.html
+#, python-format
+msgid "open to %(min)s-%(max)s"
+msgstr "offen für %(min)s-%(max)s"
+
+#: templates/crush_lu/includes/event_card.html
+msgid "You choose the ages you meet"
+msgstr "Du wählst, welches Alter du triffst"
+
+#: templates/crush_lu/event_detail.html
+#, python-format
+msgid "Open to ages %(min)s-%(max)s"
+msgstr "Offen für %(min)s-%(max)s Jahre"
+
+#: templates/crush_lu/components/curated_age_range.html
+msgid "You choose who you meet"
+msgstr "Du entscheidest, wen du triffst"
+
+#: templates/crush_lu/components/curated_age_range.html
+#, python-format
+msgid ""
+"The evening is open to ages %(min)s-%(max)s, but you won't date all of them. "
+"When you apply, you choose the ages you'd like to meet. Each of your dates is"
+" with someone in that range who also wants to meet someone your age."
+msgstr ""
+"Der Abend ist offen für %(min)s-%(max)s Jahre, aber du datest nicht alle "
+"davon. Bei deiner Bewerbung wählst du, welches Alter du treffen möchtest. "
+"Jedes deiner Dates ist mit jemandem aus diesem Bereich, der auch jemanden in "
+"deinem Alter treffen möchte."
+
+#: templates/crush_lu/components/curated_age_range.html
+#, python-format
+msgid "You asked to meet people aged %(lo)s-%(hi)s."
+msgstr "Du möchtest Menschen zwischen %(lo)s und %(hi)s Jahren treffen."
+
+#: templates/crush_lu/components/curated_age_range.html
+#, python-format
+msgid ""
+"Your saved preferences: ages %(lo)s-%(hi)s. You can change them when you "
+"apply."
+msgstr ""
+"Deine gespeicherten Vorlieben: %(lo)s-%(hi)s Jahre. Du kannst sie bei deiner "
+"Bewerbung ändern."
+
+#: templates/crush_lu/components/curated_age_range.html
+msgid "Highlighted: an example of a range you could pick."
+msgstr "Hervorgehoben: ein Beispiel für einen Bereich, den du wählen könntest."
+
+#: templates/crush_lu/components/event_preference_fields.html
+#, python-format
+msgid ""
+"You only have dates with people in this range who also want to meet someone "
+"your age. Left empty, every age at this evening suits you (%(min)s-%(max)s)."
+msgstr ""
+"Du hast nur Dates mit Menschen aus diesem Bereich, die auch jemanden in "
+"deinem Alter treffen möchten. Lässt du das Feld leer, passt dir jedes Alter "
+"an diesem Abend (%(min)s-%(max)s)."
+
+#: templates/crush_lu/speed_dating_guide.html
+msgid ""
+"You choose the age range you'd like to meet, and every date is with someone "
+"in it who also wants to meet someone your age."
+msgstr ""
+"Du wählst die Altersspanne, die du treffen möchtest, und jedes Date ist mit "
+"jemandem daraus, der auch jemanden in deinem Alter treffen möchte."

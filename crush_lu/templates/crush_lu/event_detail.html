@@ -156,7 +156,7 @@
                     </span>
                     {% endif %}
                     <span class="inline-flex items-center gap-1.5">
-                        {% blocktrans with min=event.min_age max=event.max_age %}Ages {{ min }}-{{ max }}{% endblocktrans %}
+                        {% if curated_age_range %}{% blocktrans with min=event.min_age max=event.max_age %}Open to ages {{ min }}-{{ max }}{% endblocktrans %}{% else %}{% blocktrans with min=event.min_age max=event.max_age %}Ages {{ min }}-{{ max }}{% endblocktrans %}{% endif %}
                     </span>
                     {% if not is_past and event.is_registration_accepting and not curated_group_outlook and not gender_pool_availability %}
                     <span class="inline-flex items-center gap-1.5 {% if viewer_spots_remaining <= 5 %}text-rose-600 dark:text-rose-400 font-semibold{% endif %}">
@@ -164,6 +164,11 @@
                     </span>
                     {% endif %}
                 </div>
+
+                {# Curated speed dating: the open range says who may apply, not who you date. Explained right under the fact that raised the question. #}
+                {% if curated_age_range and not is_past %}
+                {% include "crush_lu/components/curated_age_range.html" with age_range=curated_age_range only %}
+                {% endif %}
 
                 {# Wave 5 (R9): a member who owes payment sees the status right under the fact strip, #}
                 {# with no "Pay now" link - the single primary pay action is the card button in #}
@@ -326,7 +331,7 @@
                         <span class="font-semibold text-sm sm:text-base text-gray-700 dark:text-gray-200">{% trans "Requirements" %}</span>
                     </div>
                     <p class="text-gray-600 dark:text-gray-300 text-sm sm:text-base ml-7">
-                        {% blocktrans with min=event.min_age max=event.max_age %}Ages {{ min }}-{{ max }}{% endblocktrans %}<br>
+                        {% if curated_age_range %}{% blocktrans with min=event.min_age max=event.max_age %}Open to ages {{ min }}-{{ max }}{% endblocktrans %}{% else %}{% blocktrans with min=event.min_age max=event.max_age %}Ages {{ min }}-{{ max }}{% endblocktrans %}{% endif %}<br>
                         <span class="text-gray-500 dark:text-gray-400">{% blocktrans with deadline=event.registration_deadline|date:"DATETIME_FORMAT" %}Registration deadline: {{ deadline }}{% endblocktrans %}</span>
                     </p>
                     {% if event_languages_display %}

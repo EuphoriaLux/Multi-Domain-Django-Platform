@@ -45715,3 +45715,70 @@ msgid "%(count)s more member is still to be marked. Press the button again to fi
 msgid_plural "%(count)s more members are still to be marked. Press the button again to finish."
 msgstr[0] "%(count)s autre membre reste à marquer. Appuyez à nouveau sur le bouton pour terminer."
 msgstr[1] "%(count)s autres membres restent à marquer. Appuyez à nouveau sur le bouton pour terminer."
+
+#: templates/crush_lu/includes/event_card.html
+#, python-format
+msgid "open to %(min)s-%(max)s"
+msgstr "ouvert aux %(min)s-%(max)s ans"
+
+#: templates/crush_lu/includes/event_card.html
+msgid "You choose the ages you meet"
+msgstr "Vous choisissez l'âge des personnes rencontrées"
+
+#: templates/crush_lu/event_detail.html
+#, python-format
+msgid "Open to ages %(min)s-%(max)s"
+msgstr "Ouvert aux %(min)s-%(max)s ans"
+
+#: templates/crush_lu/components/curated_age_range.html
+msgid "You choose who you meet"
+msgstr "C'est vous qui choisissez qui vous rencontrez"
+
+#: templates/crush_lu/components/curated_age_range.html
+#, python-format
+msgid ""
+"The evening is open to ages %(min)s-%(max)s, but you won't date all of them. "
+"When you apply, you choose the ages you'd like to meet. Each of your dates is"
+" with someone in that range who also wants to meet someone your age."
+msgstr ""
+"La soirée est ouverte aux %(min)s-%(max)s ans, mais vous ne rencontrerez pas "
+"tout le monde. En postulant, vous choisissez l'âge des personnes que vous "
+"aimeriez rencontrer. Chacun de vos rendez-vous se fait avec une personne de "
+"cette tranche qui souhaite elle aussi rencontrer quelqu'un de votre âge."
+
+#: templates/crush_lu/components/curated_age_range.html
+#, python-format
+msgid "You asked to meet people aged %(lo)s-%(hi)s."
+msgstr "Vous avez demandé à rencontrer des personnes de %(lo)s à %(hi)s ans."
+
+#: templates/crush_lu/components/curated_age_range.html
+#, python-format
+msgid ""
+"Your saved preferences: ages %(lo)s-%(hi)s. You can change them when you "
+"apply."
+msgstr ""
+"Vos préférences enregistrées : %(lo)s-%(hi)s ans. Vous pourrez les modifier "
+"en postulant."
+
+#: templates/crush_lu/components/curated_age_range.html
+msgid "Highlighted: an example of a range you could pick."
+msgstr "En surbrillance : un exemple de tranche que vous pourriez choisir."
+
+#: templates/crush_lu/components/event_preference_fields.html
+#, python-format
+msgid ""
+"You only have dates with people in this range who also want to meet someone "
+"your age. Left empty, every age at this evening suits you (%(min)s-%(max)s)."
+msgstr ""
+"Vous n'avez de rendez-vous qu'avec des personnes de cette tranche qui "
+"souhaitent aussi rencontrer quelqu'un de votre âge. Si vous laissez ce champ "
+"vide, tous les âges de la soirée vous conviennent (%(min)s-%(max)s)."
+
+#: templates/crush_lu/speed_dating_guide.html
+msgid ""
+"You choose the age range you'd like to meet, and every date is with someone "
+"in it who also wants to meet someone your age."
+msgstr ""
+"Vous choisissez la tranche d'âge que vous souhaitez rencontrer, et chaque "
+"rendez-vous se fait avec une personne de cette tranche qui souhaite aussi "
+"rencontrer quelqu'un de votre âge."
