@@ -520,10 +520,19 @@ def _photo_url(event, handle) -> str:
 def _photo_focus(viewer, user_ids) -> dict[int, str]:
     """``object-position`` of the coach-set focus for each member's primary
     photo, as the lobby photo routes serve it to ``viewer``. One batch per
-    list: the lobby re-reads its roster while the event runs."""
+    list: the lobby re-reads its roster while the event runs.
+
+    Remembered on the viewer object for the rest of the request, so the
+    state poll's roster and mutuals (mostly the same people) share one batch.
+    """
     from crush_lu.services.photo_framing import primary_photo_positions
 
-    return primary_photo_positions(viewer, user_ids)
+    known = viewer.__dict__.setdefault("_lobby_photo_focus", {})
+    missing = {user_id for user_id in user_ids if user_id not in known}
+    if missing:
+        found = primary_photo_positions(viewer, missing)
+        known.update({user_id: found.get(user_id, "") for user_id in missing})
+    return {user_id: known[user_id] for user_id in user_ids if known[user_id]}
 
 
 def get_roster(viewer, event) -> list[dict]:

@@ -716,10 +716,13 @@
                      x-data="photoUpload"
                      data-photo-1-exists="{% if profile and profile.photo_1 %}true{% else %}false{% endif %}"
                      data-photo-1-url="{% if profile and profile.photo_1 %}{% profile_photo_url profile 'photo_1' %}{% endif %}"
+                     data-photo-1-focus="{% if profile and profile.photo_1 %}{% profile_photo_position profile 'photo_1' %}{% endif %}"
                      data-photo-2-exists="{% if profile and profile.photo_2 %}true{% else %}false{% endif %}"
                      data-photo-2-url="{% if profile and profile.photo_2 %}{% profile_photo_url profile 'photo_2' %}{% endif %}"
+                     data-photo-2-focus="{% if profile and profile.photo_2 %}{% profile_photo_position profile 'photo_2' %}{% endif %}"
                      data-photo-3-exists="{% if profile and profile.photo_3 %}true{% else %}false{% endif %}"
-                     data-photo-3-url="{% if profile and profile.photo_3 %}{% profile_photo_url profile 'photo_3' %}{% endif %}">
+                     data-photo-3-url="{% if profile and profile.photo_3 %}{% profile_photo_url profile 'photo_3' %}{% endif %}"
+                     data-photo-3-focus="{% if profile and profile.photo_3 %}{% profile_photo_position profile 'photo_3' %}{% endif %}">
                     <!-- Photo 1 -->
                     <div class="relative aspect-square">
                         <input type="file" name="photo_1" id="photo1" accept="image/*" class="hidden"
@@ -729,7 +732,7 @@
                                       cursor-pointer hover:border-purple-400 transition-all overflow-hidden
                                       bg-gray-50 dark:bg-gray-900 hover:bg-purple-50 dark:hover:bg-purple-900/30">
                             <div x-show="photo1HasImage" class="w-full h-full">
-                                <img x-bind:src="photo1Preview" class="w-full h-full object-cover object-face" alt="Photo preview">
+                                <img x-bind:src="photo1Preview" x-bind:style="photo1PreviewStyle" class="w-full h-full object-cover object-face" alt="Photo preview">
                             </div>
                             <div x-show="photo1NoImage" class="w-full h-full flex flex-col items-center justify-center text-muted-fg">
                                 <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -757,7 +760,7 @@
                                       cursor-pointer hover:border-purple-400 transition-all overflow-hidden
                                       bg-gray-50 dark:bg-gray-900 hover:bg-purple-50 dark:hover:bg-purple-900/30">
                             <div x-show="photo2HasImage" class="w-full h-full">
-                                <img x-bind:src="photo2Preview" class="w-full h-full object-cover object-face" alt="Photo preview">
+                                <img x-bind:src="photo2Preview" x-bind:style="photo2PreviewStyle" class="w-full h-full object-cover object-face" alt="Photo preview">
                             </div>
                             <div x-show="photo2NoImage" class="w-full h-full flex flex-col items-center justify-center text-muted-fg">
                                 <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -785,7 +788,7 @@
                                       cursor-pointer hover:border-purple-400 transition-all overflow-hidden
                                       bg-gray-50 dark:bg-gray-900 hover:bg-purple-50 dark:hover:bg-purple-900/30">
                             <div x-show="photo3HasImage" class="w-full h-full">
-                                <img x-bind:src="photo3Preview" class="w-full h-full object-cover object-face" alt="Photo preview">
+                                <img x-bind:src="photo3Preview" x-bind:style="photo3PreviewStyle" class="w-full h-full object-cover object-face" alt="Photo preview">
                             </div>
                             <div x-show="photo3NoImage" class="w-full h-full flex flex-col items-center justify-center text-muted-fg">
                                 <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -983,9 +986,9 @@
                         <div class="flex-1">
                             <span class="text-sm text-muted-fg">{% trans "Photos" %}</span>
                             <div class="mt-1 flex gap-2" x-ref="reviewPhotos" data-empty="{% trans 'No photos yet' %}" data-empty-nudge="{% trans 'Members recognise you at events by your photo — add one.' %}">
-                                {% if profile and profile.photo_1 %}<img src="{% profile_photo_url profile 'photo_1' %}" alt="" class="h-14 w-14 rounded-lg object-cover object-face">{% endif %}
-                                {% if profile and profile.photo_2 %}<img src="{% profile_photo_url profile 'photo_2' %}" alt="" class="h-14 w-14 rounded-lg object-cover object-face">{% endif %}
-                                {% if profile and profile.photo_3 %}<img src="{% profile_photo_url profile 'photo_3' %}" alt="" class="h-14 w-14 rounded-lg object-cover object-face">{% endif %}
+                                {% if profile and profile.photo_1 %}<img src="{% profile_photo_url profile 'photo_1' %}" {% profile_photo_style profile 'photo_1' %} alt="" class="h-14 w-14 rounded-lg object-cover object-face">{% endif %}
+                                {% if profile and profile.photo_2 %}<img src="{% profile_photo_url profile 'photo_2' %}" {% profile_photo_style profile 'photo_2' %} alt="" class="h-14 w-14 rounded-lg object-cover object-face">{% endif %}
+                                {% if profile and profile.photo_3 %}<img src="{% profile_photo_url profile 'photo_3' %}" {% profile_photo_style profile 'photo_3' %} alt="" class="h-14 w-14 rounded-lg object-cover object-face">{% endif %}
                                 {% if not profile or not profile.photo_1 %}
                                 <div class="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-700/50 dark:bg-amber-900/20">
                                     {% include "shared/icons/exclamation-circle.html" with class="w-4 h-4 text-amber-500 flex-shrink-0" %}
