@@ -135,6 +135,9 @@ document.addEventListener("alpine:init", function () {
             get undoDisabled() {
                 return this.isSubmitting || this.isLoading || !this.lastDecision;
             },
+            get cardFramingUrl() {
+                return this.currentCard ? this.currentCard.framing_url : "";
+            },
             get cardName() {
                 return this.currentCard ? this.currentCard.display_name : "";
             },
@@ -4464,6 +4467,125 @@ document.addEventListener("alpine:init", function () {
             selectDraft() { this.sendMode = "draft"; },
             selectSendNow() { this.sendMode = "now"; },
             selectSchedule() { this.sendMode = "schedule"; },
+        };
+    });
+
+    // One photo on the coach framing page (coach_member_photos.html). The
+    // focus is rendered as object-position: the image's (x%, y%) point lands
+    // on the frame's (x%, y%) point, so it stays in view in every frame.
+    // Spec: ai-memory-hub/specs/2026-10-13-crush-photo-framing.md
+    Alpine.data("photoFraming", function () {
+        return {
+            field: "",
+            photoKey: "",
+            saveUrl: "",
+            focusX: 50,
+            focusY: 25,
+            savedX: 50,
+            savedY: 25,
+            hasFocus: false,
+            isSaving: false,
+            statusMessage: "",
+            errorMessage: "",
+            init() {
+                const data = this.$el.dataset;
+                this.field = data.field;
+                this.photoKey = data.photoKey;
+                this.saveUrl = data.saveUrl;
+                this.focusX = this.savedX = Number(data.focusX);
+                this.focusY = this.savedY = Number(data.focusY);
+                this.hasFocus = data.hasFocus === "true";
+            },
+            get previewStyle() {
+                return `object-position: ${this.focusX}% ${this.focusY}%`;
+            },
+            get markerStyle() {
+                return `left: ${this.focusX}%; top: ${this.focusY}%`;
+            },
+            get positionText() {
+                return this.$root.dataset.positionText
+                    .replace("{x}", `${this.focusX}%`)
+                    .replace("{y}", `${this.focusY}%`);
+            },
+            get isDirty() {
+                return this.focusX !== this.savedX || this.focusY !== this.savedY;
+            },
+            get saveDisabled() {
+                return this.isSaving || !this.isDirty;
+            },
+            get resetDisabled() {
+                return this.isSaving || (!this.hasFocus && !this.isDirty);
+            },
+            _clamp(value) {
+                return Math.min(100, Math.max(0, Math.round(value)));
+            },
+            pickPoint(event) {
+                const rect = event.currentTarget.getBoundingClientRect();
+                if (!rect.width || !rect.height) return;
+                this.focusX = this._clamp(((event.clientX - rect.left) / rect.width) * 100);
+                this.focusY = this._clamp(((event.clientY - rect.top) / rect.height) * 100);
+                this.statusMessage = "";
+            },
+            nudgePoint(event) {
+                const step = event.shiftKey ? 10 : 2;
+                const moves = {
+                    ArrowLeft: [-step, 0],
+                    ArrowRight: [step, 0],
+                    ArrowUp: [0, -step],
+                    ArrowDown: [0, step],
+                };
+                const move = moves[event.key];
+                if (!move) return;
+                event.preventDefault();
+                this.focusX = this._clamp(this.focusX + move[0]);
+                this.focusY = this._clamp(this.focusY + move[1]);
+                this.statusMessage = "";
+            },
+            async _post(payload) {
+                this.isSaving = true;
+                this.errorMessage = "";
+                this.statusMessage = "";
+                try {
+                    const response = await fetch(this.saveUrl, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRFToken": document.querySelector(
+                                '[name="csrfmiddlewaretoken"]',
+                            ).value,
+                        },
+                        body: JSON.stringify(
+                            Object.assign(
+                                { photo_field: this.field, photo_key: this.photoKey },
+                                payload,
+                            ),
+                        ),
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.error || this.$root.dataset.errorText);
+                    }
+                    this.focusX = this.savedX = data.focus_x;
+                    this.focusY = this.savedY = data.focus_y;
+                    this.hasFocus = data.has_focus;
+                    return true;
+                } catch (error) {
+                    this.errorMessage = error.message || this.$root.dataset.errorText;
+                    return false;
+                } finally {
+                    this.isSaving = false;
+                }
+            },
+            async save() {
+                if (await this._post({ focus_x: this.focusX, focus_y: this.focusY })) {
+                    this.statusMessage = this.$root.dataset.savedText;
+                }
+            },
+            async resetFocus() {
+                if (await this._post({ reset: true })) {
+                    this.statusMessage = this.$root.dataset.resetText;
+                }
+            },
         };
     });
 });

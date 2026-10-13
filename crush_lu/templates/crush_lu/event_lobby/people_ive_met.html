@@ -27,7 +27,7 @@ an entry opens the member's full current Crush Connect profile (never a chat).
                 <a href="{{ person.profile_url }}"
                    class="flex items-center gap-3 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-3 no-underline hover:ring-crush-purple/40 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
                     {% if person.photo_url %}
-                    <img src="{{ person.photo_url }}" alt="" class="w-14 h-14 rounded-2xl object-cover object-face shrink-0">
+                    <img src="{{ person.photo_url }}"{% if person.photo_focus %} style="object-position: {{ person.photo_focus }}"{% endif %} alt="" class="w-14 h-14 rounded-2xl object-cover object-face shrink-0">
                     {% else %}
                     <div class="w-14 h-14 rounded-2xl bg-crush-purple/15 flex items-center justify-center shrink-0 font-semibold text-crush-purple">{{ person.first_name|first }}</div>
                     {% endif %}

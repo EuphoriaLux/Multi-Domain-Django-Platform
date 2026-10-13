@@ -121,6 +121,8 @@ def event_attendees(request, event_id):
             # has_public_photo reads both per card (photo_publication).
             "user__crushprofile__photo_review_states",
             "user__crushprofile__published_photos",
+            # profile_photo_style reads the coach-set focus (photo_framing).
+            "user__crushprofile__photo_framings",
         )
     )
 

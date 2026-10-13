@@ -17,6 +17,7 @@ from crush_lu.models import (
     ProfilePhotoReviewState,
     PublishedProfilePhoto,
 )
+from crush_lu.services.photo_framing import move_focus
 from crush_lu.utils.image_processing import process_uploaded_image
 
 logger = logging.getLogger(__name__)
@@ -259,6 +260,8 @@ class Command(BaseCommand):
                     if current_review_state:
                         current_review_state.photo_key = field.name
                         current_review_state.save(update_fields=["photo_key"])
+                    # A coach-set focus point belongs to the image, too.
+                    move_focus(obj, old_blob_name, field.name)
                     if carries_attestation:
                         self._carry_forward_registration_attestation(
                             obj, old_blob_name, field.name

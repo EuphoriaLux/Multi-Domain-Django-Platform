@@ -316,6 +316,7 @@ class TestPeopleIveMet:
             "user_id",
             "first_name",
             "photo_url",
+            "photo_focus",
             "profile_url",
             "created_at",
         }

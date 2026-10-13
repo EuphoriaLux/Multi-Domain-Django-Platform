@@ -278,12 +278,17 @@ def event_lobby_person(request, user_id):
     if other is None:
         raise Http404("Not found")
     membership = getattr(other, "crush_connect_membership", None)
+    from .services.photo_framing import primary_photo_positions
+
     response = render(
         request,
         "crush_lu/event_lobby/person_profile.html",
         {
             "person": other,
             "profile": other.crushprofile,
+            "photo_focus": primary_photo_positions(request.user, [other.pk]).get(
+                other.pk, ""
+            ),
             "membership": membership,
             "removal_reasons": ConfirmedEncounterRemovalRequest.REASON_CHOICES,
         },

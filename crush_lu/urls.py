@@ -779,6 +779,8 @@ urlpatterns = [
 
     # Coach member overview & assignment
     path('coach/member/<int:user_id>/', views.coach_member_overview, name='coach_member_overview'),
+    path('coach/member/<int:user_id>/photos/', views_coach_photos.coach_member_photos, name='coach_member_photos'),
+    path('coach/member/<int:user_id>/photos/focus/', views_coach_photos.coach_member_photo_focus, name='coach_member_photo_focus'),
     path('coach/member/<int:user_id>/matches/', views.coach_member_matches, name='coach_member_matches'),
     path('coach/member/<int:user_id>/verify/', views.coach_verify_member, name='coach_verify_member'),
     path('coach/match-pairs/', views.coach_match_pairs, name='coach_match_pairs'),

@@ -128,13 +128,21 @@ def profile_photo(context, profile, photo_field, css_class='', alt_text='Profile
         Rendered component
     """
     photo = getattr(profile, photo_field, None) if profile and not hide_photo else None
+    served_key = photo.name if photo else ""
     if photo and (public_view or not _viewer_sees_live_photo(context, profile)):
         # Other members only ever see an approved photo (photo_publication):
         # render the fallback instead of a URL the endpoint refuses.
         from crush_lu.services.photo_publication import get_public_photo_key
 
-        if not get_public_photo_key(profile, photo_field):
+        served_key = get_public_photo_key(profile, photo_field)
+        if not served_key:
             photo = None
+
+    focus_style = ""
+    if photo:
+        from crush_lu.services.photo_framing import focus_style as framing_style
+
+        focus_style = framing_style(profile, served_key)
 
     if photo:
         photo_url = reverse('crush_lu:serve_profile_photo', kwargs={
@@ -153,7 +161,36 @@ def profile_photo(context, profile, photo_field, css_class='', alt_text='Profile
         'alt_text': alt_text,
         'display_name': profile.display_name if profile else 'User',
         'fallback': fallback,
+        'focus_style': focus_style,
     }
+
+
+@register.simple_tag(takes_context=True)
+def profile_photo_style(context, profile, photo_field):
+    """``style`` attribute carrying a coach-set focus point, or nothing.
+
+    For raw ``<img>`` tags that load ``{% profile_photo_url %}``; resolves the
+    same file the photo route serves this viewer (live or published), since
+    the focus belongs to a file, not a slot.
+
+    Usage:
+        <img src="{% profile_photo_url p 'photo_1' %}"
+             {% profile_photo_style p 'photo_1' %} class="... object-cover object-face">
+    """
+    photo = getattr(profile, photo_field, None) if profile else None
+    if not photo:
+        return ''
+    from django.utils.html import format_html
+
+    from crush_lu.services.photo_framing import focus_style
+    from crush_lu.services.photo_publication import get_public_photo_key
+
+    if _viewer_sees_live_photo(context, profile):
+        served_key = photo.name
+    else:
+        served_key = get_public_photo_key(profile, photo_field)
+    style = focus_style(profile, served_key)
+    return format_html('style="{}"', style) if style else ''
 
 
 @register.simple_tag(takes_context=True)
