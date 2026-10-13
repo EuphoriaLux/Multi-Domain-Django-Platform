@@ -13,11 +13,15 @@ live upload, other members the published one, ``photo_publication``).
 Spec: ai-memory-hub/specs/2026-10-13-crush-photo-framing.md
 """
 
+import logging
+
 from django.db import transaction
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from crush_lu.services.photo_publication import PHOTO_FIELDS, photo_for_viewer
+
+logger = logging.getLogger(__name__)
 
 # Mirrors the object-face utility in tailwind-src/crush_lu/tailwind-input.css.
 DEFAULT_FOCUS = (50, 25)
@@ -154,6 +158,7 @@ def set_focus(coach, profile, photo_field, photo_key, focus_x, focus_y):
             },
         )
     profile.__dict__.pop("_photo_focus_memo", None)
+    _refresh_wallet_thumbnail(profile, photo_field)
     return x, y
 
 
@@ -167,6 +172,25 @@ def clear_focus(profile, photo_field, photo_key):
             profile_id=profile.pk, photo_key=photo_key
         ).delete()
     profile.__dict__.pop("_photo_focus_memo", None)
+    _refresh_wallet_thumbnail(profile, photo_field)
+
+
+def _refresh_wallet_thumbnail(profile, photo_field):
+    """The Apple pass thumbnail is cropped around the main photo's focus
+    (wallet/apple_pass.py). A framing writes no CrushProfile row, so the
+    profile signal that refreshes the pass never fires: advance its update
+    marker and push here (deferred to commit). Google Wallet crops the photo
+    URL itself, so it has nothing to update."""
+    if photo_field != "photo_1" or not getattr(profile, "apple_pass_serial", ""):
+        return
+    if not getattr(profile, "show_photo_on_wallet", True):
+        return
+    try:
+        from crush_lu.signals import _trigger_apple_pass_refresh
+
+        _trigger_apple_pass_refresh(profile)
+    except Exception:
+        logger.exception("Wallet refresh failed after framing profile %s", profile.pk)
 
 
 def move_focus(profile, old_key, new_key):

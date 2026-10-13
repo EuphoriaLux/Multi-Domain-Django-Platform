@@ -128,6 +128,47 @@ def test_clear_and_move_focus():
     assert not ProfilePhotoFraming.objects.exists()
 
 
+@pytest.mark.parametrize(
+    "photo_field, serial, on_wallet, refreshed",
+    [
+        ("photo_1", "pass-1", True, True),
+        ("photo_2", "pass-1", True, False),  # the pass shows the main photo
+        ("photo_1", "", True, False),  # no pass installed
+        ("photo_1", "pass-1", False, False),  # member hides their photo
+    ],
+)
+def test_framing_the_main_photo_refreshes_the_apple_pass(
+    photo_field, serial, on_wallet, refreshed
+):
+    """The pass thumbnail crops around the main photo's focus, and a framing
+    saves no profile row, so the profile signal never refreshes the pass."""
+    coach, profile = _make_coach(), _make_candidate()
+    CrushProfile.objects.filter(pk=profile.pk).update(
+        photo_2="users/1/photos/second.jpg",
+        apple_pass_serial=serial,
+        show_photo_on_wallet=on_wallet,
+    )
+    profile.refresh_from_db()
+    key = getattr(profile, photo_field).name
+
+    with patch("crush_lu.signals._trigger_apple_pass_refresh") as refresh:
+        set_focus(coach, profile, photo_field, key, 30, 30)
+        clear_focus(profile, photo_field, key)
+
+    assert refresh.call_count == (2 if refreshed else 0)
+
+
+def test_the_member_overview_thumbnails_show_the_saved_focus():
+    coach, profile = _make_coach(), _make_candidate()
+    _frame(profile, KEY, 35, 15)
+    client = Client()
+    client.force_login(coach.user)
+
+    page = client.get(f"/en/coach/member/{profile.user_id}/").content.decode()
+
+    assert 'style="object-position: 35% 15%"' in page
+
+
 def test_a_saved_focus_is_seen_by_the_same_profile_instance():
     coach, profile = _make_coach(), _make_candidate()
     assert get_focus(profile, KEY) is None  # memoised as "no focus"
