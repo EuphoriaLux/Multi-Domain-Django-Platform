@@ -3008,6 +3008,76 @@ msgstr ""
 "Dieses Foto hat sich seit dem Laden der Seite geändert. Lade die Seite neu "
 "und versuche es erneut."
 
+#: crush_lu/templates/crush_lu/coach_member_photos.html
+msgid "Make main photo"
+msgstr "Zum Hauptfoto machen"
+#: crush_lu/templates/crush_lu/coach_member_photos.html
+msgid "Move up"
+msgstr "Eins nach vorne"
+#: crush_lu/templates/crush_lu/coach_member_photos.html
+msgid "The member is told about every change to the order of their photos."
+msgstr ""
+"Das Mitglied wird über jede Änderung der Reihenfolge seiner Fotos informiert."
+#: crush_lu/templates/crush_lu/coach_member_photos.html
+msgid ""
+"Only an approved photo can become the main photo. Approve this photo first."
+msgstr ""
+"Nur ein freigegebenes Foto kann Hauptfoto werden. Gib dieses Foto zuerst "
+"frei."
+#: crush_lu/templates/crush_lu/coach_member_photos.html
+msgid ""
+"The current main photo was verified in person: the new main photo has no "
+"verified-photo badge until a coach verifies it at an event."
+msgstr ""
+"Das aktuelle Hauptfoto wurde persönlich verifiziert: Das neue Hauptfoto hat "
+"kein Verifiziert-Abzeichen, bis ein Coach es bei einem Event verifiziert."
+#: crush_lu/views_coach_photos.py
+#, python-format
+msgid "Main photo changed. %(name)s has been told."
+msgstr "Hauptfoto geändert. %(name)s wurde informiert."
+#: crush_lu/views_coach_photos.py
+#, python-format
+msgid "Photo order changed. %(name)s has been told."
+msgstr "Reihenfolge der Fotos geändert. %(name)s wurde informiert."
+#: crush_lu/services/photo_order.py
+msgid "There is no photo to move."
+msgstr "Es gibt kein Foto zum Verschieben."
+#: crush_lu/services/photo_order.py
+msgid "These photos changed since the page loaded. Reload and try again."
+msgstr ""
+"Diese Fotos haben sich seit dem Laden der Seite geändert. Lade die Seite neu "
+"und versuche es erneut."
+#: crush_lu/services/photo_order.py
+msgid "This member is flagged as a fake profile."
+msgstr "Dieses Mitglied ist als Fake-Profil markiert."
+#: crush_lu/services/photo_order.py
+msgid "Only an approved photo can become the main photo. Approve it first."
+msgstr "Nur ein freigegebenes Foto kann Hauptfoto werden. Gib es zuerst frei."
+#: crush_lu/notification_service.py
+msgid "Your coach chose your main photo"
+msgstr "Dein Coach hat dein Hauptfoto ausgewählt"
+#: crush_lu/notification_service.py
+msgid ""
+"Your coach made another of your photos your main photo, the one members see "
+"first. You can change your photos at any time in your profile."
+msgstr ""
+"Dein Coach hat ein anderes deiner Fotos zu deinem Hauptfoto gemacht, also zu "
+"dem Foto, das Mitglieder zuerst sehen. Du kannst deine Fotos jederzeit in "
+"deinem Profil ändern."
+#: crush_lu/notification_service.py
+msgid "Your coach changed the order of your photos"
+msgstr "Dein Coach hat die Reihenfolge deiner Fotos geändert"
+#: crush_lu/notification_service.py
+msgid ""
+"Your coach changed the order of your photos. You can change your photos at "
+"any time in your profile."
+msgstr ""
+"Dein Coach hat die Reihenfolge deiner Fotos geändert. Du kannst deine Fotos "
+"jederzeit in deinem Profil ändern."
+#: crush_lu/templates/crush_lu/emails/photo_order_changed.html
+msgid "View your photos"
+msgstr "Deine Fotos ansehen"
+
 #~ msgid "Write a personal message that will be revealed in Chapter 6..."
 #~ msgstr ""
 #~ "Schreibe eine persönliche Nachricht, die in Kapitel 6 enthüllt wird..."

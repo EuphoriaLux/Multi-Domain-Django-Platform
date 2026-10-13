@@ -224,10 +224,11 @@ def member_photo_review(context, slot):
     status = profile.get_photo_field_review_status(photo_field)
     published = get_published_key(profile, photo_field)
     if status == "needs_revision":
+        # By file, not slot: a coach may have moved the photo to another
+        # slot since the decision (services/photo_order.py).
         reason = (
             ProfilePhotoReviewLog.objects.filter(
                 profile=profile,
-                photo_field=photo_field,
                 photo_key=live,
                 decision="needs_revision",
                 undone_at__isnull=True,

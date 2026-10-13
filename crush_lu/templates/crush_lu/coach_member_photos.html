@@ -87,6 +87,32 @@
                 <p role="alert" class="text-sm text-red-700 dark:text-red-300 mt-3" x-show="errorMessage" x-text="errorMessage" x-cloak></p>
             </div>
         </div>
+        {% if slot.field != "photo_1" %}
+        {# Photo order (services/photo_order.py): plain posts, the page reloads with the new order. #}
+        <div class="border-t border-gray-200 dark:border-gray-700 mt-6 pt-4">
+            <div class="flex flex-wrap gap-3">
+                <form method="post" action="{% url 'crush_lu:coach_member_photo_swap' member.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="photo_field" value="{{ slot.field }}">
+                    <input type="hidden" name="photo_key" value="{{ slot.photo_key }}">
+                    <input type="hidden" name="target_field" value="photo_1">
+                    <input type="hidden" name="target_key" value="{{ main_key }}">
+                    <button type="submit" class="btn-crush-outline btn-sm"{% if not slot.can_become_main %} disabled{% endif %}>{% trans "Make main photo" %}</button>
+                </form>
+                {% if slot.previous_field and slot.previous_field != "photo_1" %}
+                <form method="post" action="{% url 'crush_lu:coach_member_photo_swap' member.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="photo_field" value="{{ slot.field }}">
+                    <input type="hidden" name="photo_key" value="{{ slot.photo_key }}">
+                    <input type="hidden" name="target_field" value="{{ slot.previous_field }}">
+                    <input type="hidden" name="target_key" value="{{ slot.previous_key }}">
+                    <button type="submit" class="btn-crush-outline btn-sm">{% trans "Move up" %}</button>
+                </form>
+                {% endif %}
+            </div>
+            <p class="text-xs text-muted-fg mt-2">{% trans "The member is told about every change to the order of their photos." %}{% if not slot.can_become_main %} {% trans "Only an approved photo can become the main photo. Approve this photo first." %}{% elif main_is_verified %} {% trans "The current main photo was verified in person: the new main photo has no verified-photo badge until a coach verifies it at an event." %}{% endif %}</p>
+        </div>
+        {% endif %}
     </section>
     {% empty %}
     <p class="text-sm text-muted-fg">{% trans "This member has no photos yet." %}</p>
