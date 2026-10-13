@@ -4,8 +4,8 @@
 # which 6.1 removed, so azureproject/urls.py failed to import. DRF 3.18.0 replaced it
 # with split_header_value, guarded on django.VERSION >= (6, 1). The matching Dependabot
 # `ignore` for Django >=6.1 was dropped in the same change, as that comment required.
-Django==6.1.1  # Requires Python 3.12+
-djangorestframework==3.18.1
+Django==6.1.2  # Requires Python 3.12+
+djangorestframework==3.18.3
 djangorestframework-simplejwt==5.5.1
 django-crispy-forms==2.7
 crispy-tailwind==1.0.3
@@ -19,7 +19,7 @@ psycopg2-binary==2.9.13  # Updated from 2.9.10 (security & bug fixes)
 django-allauth==65.19.7  # Updated from 65.1.0 (latest stable)
 PyJWT==2.15.1  # Updated from 2.11.0 (CVE-2026-32597: crit header bypass)
 cryptography>=50.0.2  # Required for JWT token verification with RSA keys (CVE-2026-26007, OpenSSL fixes)
-google-auth==2.59.1  # Required for Google Wallet API authentication
+google-auth==2.61.0  # Required for Google Wallet API authentication
 
 # Analytics reporting (GA4 Data API + Search Console) — used by scripts/ga4_report.py,
 # gsc_report.py, seo_funnel_report.py for SEO/traffic reporting.
@@ -68,7 +68,7 @@ pywebpush==2.5.0
 
 # Azure Application Insights - SDK-based for exception filtering
 # IMPORTANT: Set ApplicationInsightsAgent_EXTENSION_VERSION=disabled in Azure App Service
-azure-monitor-opentelemetry==1.8.10
+azure-monitor-opentelemetry==1.8.11
 
 # Cookie Consent (GDPR/ePrivacy)
 django-cookie-consent==1.0.0
@@ -80,6 +80,6 @@ polib==1.2.0  # .po file parsing for check_translations command and scripts/i18n
 # Testing
 pytest==9.1.1
 pytest-django==4.14.0
-pytest-playwright==0.9.0
+pytest-playwright==0.10.0
 pytest-mock==3.16.0  # Provides 'mocker' fixture for mocking
 playwright==1.63.0
