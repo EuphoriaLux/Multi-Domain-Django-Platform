@@ -230,6 +230,48 @@ def test_each_viewer_gets_the_focus_of_the_file_they_are_served():
     assert _render(tag, member, profile) == 'style="object-position: 10% 20%"'
 
 
+def test_the_owner_sees_the_focus_of_their_saved_photo_in_the_editor():
+    from django.template.loader import render_to_string
+
+    profile = _make_candidate()
+    _frame(profile, KEY, 40, 30)
+    request = RequestFactory().get("/")
+    request.user = profile.user
+
+    position = _render(
+        "{% profile_photo_position profile 'photo_1' %}", profile.user, profile
+    )
+    card = render_to_string(
+        "crush_lu/partials/photo_card.html",
+        {"slot": 1, "photo": profile.photo_1, "is_main": True},
+        request=request,
+    )
+
+    assert position == "40% 30%"
+    assert 'style="object-position: 40% 30%"' in card
+
+
+def test_lobby_lists_in_one_request_share_one_focus_batch():
+    from crush_lu.services import event_lobby
+
+    viewer = _viewer()
+    calls = []
+
+    def positions(_viewer, user_ids):
+        calls.append(set(user_ids))
+        return {user_id: "10% 20%" for user_id in user_ids if user_id == 1}
+
+    with patch(
+        "crush_lu.services.photo_framing.primary_photo_positions", side_effect=positions
+    ):
+        roster = event_lobby._photo_focus(viewer, [1, 2, 3])
+        mutuals = event_lobby._photo_focus(viewer, [1, 3])
+        later = event_lobby._photo_focus(viewer, [3, 4])
+
+    assert calls == [{1, 2, 3}, {4}]
+    assert roster == {1: "10% 20%"} and mutuals == {1: "10% 20%"} and later == {}
+
+
 def test_batched_positions_follow_the_photo_route_rule():
     framed = _held_replacement(_make_candidate())
     _frame(framed, KEY, 10, 20)

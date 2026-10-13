@@ -165,32 +165,48 @@ def profile_photo(context, profile, photo_field, css_class='', alt_text='Profile
     }
 
 
-@register.simple_tag(takes_context=True)
-def profile_photo_style(context, profile, photo_field):
-    """``style`` attribute carrying a coach-set focus point, or nothing.
-
-    For raw ``<img>`` tags that load ``{% profile_photo_url %}``; resolves the
-    same file the photo route serves this viewer (live or published), since
-    the focus belongs to a file, not a slot.
-
-    Usage:
-        <img src="{% profile_photo_url p 'photo_1' %}"
-             {% profile_photo_style p 'photo_1' %} class="... object-cover object-face">
-    """
+def _served_photo_position(context, profile, photo_field):
+    """``object-position`` of the coach-set focus for the file the photo
+    route serves this viewer (live or published), or ``""``."""
+    if isinstance(photo_field, int):
+        photo_field = f'photo_{photo_field}'
     photo = getattr(profile, photo_field, None) if profile else None
     if not photo:
         return ''
-    from django.utils.html import format_html
-
-    from crush_lu.services.photo_framing import focus_style
+    from crush_lu.services.photo_framing import get_focus, object_position
     from crush_lu.services.photo_publication import get_public_photo_key
 
     if _viewer_sees_live_photo(context, profile):
         served_key = photo.name
     else:
         served_key = get_public_photo_key(profile, photo_field)
-    style = focus_style(profile, served_key)
-    return format_html('style="{}"', style) if style else ''
+    return object_position(get_focus(profile, served_key))
+
+
+@register.simple_tag(takes_context=True)
+def profile_photo_style(context, profile, photo_field):
+    """``style`` attribute carrying a coach-set focus point, or nothing.
+
+    For raw ``<img>`` tags that load ``{% profile_photo_url %}``; resolves the
+    same file the photo route serves this viewer (live or published), since
+    the focus belongs to a file, not a slot. ``photo_field`` may also be a
+    slot number (``photo_card.html``).
+
+    Usage:
+        <img src="{% profile_photo_url p 'photo_1' %}"
+             {% profile_photo_style p 'photo_1' %} class="... object-cover object-face">
+    """
+    from django.utils.html import format_html
+
+    position = _served_photo_position(context, profile, photo_field)
+    return format_html('style="object-position: {}"', position) if position else ''
+
+
+@register.simple_tag(takes_context=True)
+def profile_photo_position(context, profile, photo_field):
+    """The bare ``object-position`` value (``"40% 30%"``) or ``""``, for
+    scripts that apply it themselves (the profile wizard's previews)."""
+    return _served_photo_position(context, profile, photo_field)
 
 
 @register.simple_tag(takes_context=True)
