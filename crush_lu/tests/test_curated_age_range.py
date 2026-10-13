@@ -150,6 +150,43 @@ class CuratedAgeRangeTests(TestCase):
 
         self.assertContains(response, "You asked to meet people aged 20-30.")
 
+    def test_one_age_range_at_the_event_maximum_stays_on_the_bar(self):
+        user = self._member()
+        registration = EventRegistration.objects.create(
+            event=self.curated, user=user, status="applied"
+        )
+        EventRegistrationPreference.objects.create(
+            registration=registration, preferred_age_min=70, preferred_age_max=70
+        )
+
+        response = self._detail(self.curated)
+
+        self.assertContains(response, "You asked to meet people aged 70-70.")
+        # The 2% minimum sliver is pulled in from x=100% so it stays visible.
+        self.assertContains(response, 'x="98%" y="0" width="2%"')
+
+    def test_range_that_misses_the_evening_says_it_gives_no_dates(self):
+        MeetupEvent.objects.filter(pk=self.curated.pk).update(min_age=20, max_age=40)
+        user = self._member()
+        registration = EventRegistration.objects.create(
+            event=self.curated, user=user, status="applied"
+        )
+        EventRegistrationPreference.objects.create(
+            registration=registration, preferred_age_min=50, preferred_age_max=60
+        )
+
+        response = self._detail(self.curated)
+
+        self.assertContains(response, "data-curated-age-outside")
+        self.assertContains(
+            response,
+            "Your age range (50-60) doesn't overlap with this evening's ages "
+            "(20-40), so it would give you no dates.",
+        )
+        # Neither the viewer's band nor the example band is drawn.
+        self.assertNotContains(response, 'class="fill-crush-purple"')
+        self.assertNotContains(response, "You asked to meet people aged")
+
     def test_member_with_saved_preferences_sees_them_before_applying(self):
         self._member(preferred_age_min=25, preferred_age_max=35)
 

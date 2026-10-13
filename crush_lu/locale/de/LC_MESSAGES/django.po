@@ -45657,3 +45657,12 @@ msgid ""
 msgstr ""
 "Du wählst die Altersspanne, die du treffen möchtest, und jedes Date ist mit "
 "jemandem daraus, der auch jemanden in deinem Alter treffen möchte."
+
+#: templates/crush_lu/components/curated_age_range.html
+#, python-format
+msgid ""
+"Your age range (%(lo)s-%(hi)s) doesn't overlap with this evening's ages "
+"(%(min)s-%(max)s), so it would give you no dates."
+msgstr ""
+"Deine Altersspanne (%(lo)s-%(hi)s) überschneidet sich nicht mit dem Alter an "
+"diesem Abend (%(min)s-%(max)s), sie würde dir also keine Dates bringen."

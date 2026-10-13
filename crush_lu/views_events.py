@@ -1125,7 +1125,7 @@ def _curated_age_range(event, *, user=None, profile=None, registration=None):
     if not event.uses_curated_registration:
         return None
     lo, hi = event.min_age, event.max_age
-    age_range = {"min": lo, "max": hi, "own_source": None}
+    age_range = {"min": lo, "max": hi, "own_source": None, "own_outside": False}
     if user is None or not user.is_authenticated:
         return age_range
 
@@ -1143,17 +1143,27 @@ def _curated_age_range(event, *, user=None, profile=None, registration=None):
         return age_range
 
     own_min, own_max = sorted(own)
-    own_min, own_max = max(own_min, lo), min(own_max, hi)
-    if own_min > own_max or (own_min, own_max) == (lo, hi):
+    if own_max < lo or own_min > hi:
+        # Nobody at this evening is inside the viewer's range, so every age
+        # pairing fails: say so rather than showing the example band.
+        age_range.update(
+            own_source=source, own_min=own_min, own_max=own_max, own_outside=True
+        )
         return age_range
+    own_min, own_max = max(own_min, lo), min(own_max, hi)
+    if (own_min, own_max) == (lo, hi):
+        return age_range
+    # Geometry for the range bar, as whole percentages of the event range. The
+    # minimum width keeps a one-age range visible; the left edge is pulled in
+    # so that sliver still fits when it sits on the event's maximum.
     span = max(hi - lo, 1)
+    width = max(2, round((own_max - own_min) * 100 / span))
     age_range.update(
         own_source=source,
         own_min=own_min,
         own_max=own_max,
-        # Geometry for the range bar, as whole percentages of the event range.
-        own_left_pct=round((own_min - lo) * 100 / span),
-        own_width_pct=max(2, round((own_max - own_min) * 100 / span)),
+        own_left_pct=min(round((own_min - lo) * 100 / span), 100 - width),
+        own_width_pct=width,
     )
     return age_range
 

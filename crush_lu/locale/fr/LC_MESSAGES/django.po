@@ -45782,3 +45782,12 @@ msgstr ""
 "Vous choisissez la tranche d'âge que vous souhaitez rencontrer, et chaque "
 "rendez-vous se fait avec une personne de cette tranche qui souhaite aussi "
 "rencontrer quelqu'un de votre âge."
+
+#: templates/crush_lu/components/curated_age_range.html
+#, python-format
+msgid ""
+"Your age range (%(lo)s-%(hi)s) doesn't overlap with this evening's ages "
+"(%(min)s-%(max)s), so it would give you no dates."
+msgstr ""
+"Votre tranche d'âge (%(lo)s-%(hi)s) ne recoupe pas les âges de cette soirée "
+"(%(min)s-%(max)s) : elle ne vous donnerait aucun rendez-vous."
