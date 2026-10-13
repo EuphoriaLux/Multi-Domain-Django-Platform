@@ -22,7 +22,7 @@
                 {% include "shared/icons/trash.html" with class="w-4 h-4" %}
             </button>
         {% else %}
-            <div class="photo-placeholder" id="preview-photo-{{ slot }}" aria-hidden="true">
+            <div class="photo-placeholder" id="preview-photo-{{ slot }}" data-preview-class="photo-preview object-face" aria-hidden="true">
                 {% include "shared/icons/camera.html" with class="w-10 h-10" %}
             </div>
         {% endif %}
