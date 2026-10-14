@@ -492,7 +492,7 @@ comes next.
                     <div class="flex-shrink-0">
                         {% with profile=reg.user.crushprofile %}
                             {% if profile and profile.photo_1 %}
-                                <img src="{% url 'crush_lu:serve_profile_photo' reg.user.id 'photo_1' %}" alt="" class="w-12 h-12 rounded-full object-cover" loading="lazy">
+                                <img src="{% url 'crush_lu:serve_profile_photo' reg.user.id 'photo_1' %}" alt="" class="w-12 h-12 rounded-full object-cover object-face" loading="lazy">
                             {% else %}
                                 <div class="w-12 h-12 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center">
                                     <span class="text-lg font-semibold text-crush-purple dark:text-crush-pink">{{ reg.user.first_name|first|upper }}</span>
@@ -603,7 +603,7 @@ comes next.
                     <div class="flex-shrink-0">
                         {% with profile=reg.user.crushprofile %}
                             {% if profile and profile.photo_1 %}
-                                <img src="{% url 'crush_lu:serve_profile_photo' reg.user.id 'photo_1' %}" alt="" class="w-12 h-12 rounded-full object-cover" loading="lazy">
+                                <img src="{% url 'crush_lu:serve_profile_photo' reg.user.id 'photo_1' %}" alt="" class="w-12 h-12 rounded-full object-cover object-face" loading="lazy">
                             {% else %}
                                 <div class="w-12 h-12 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center">
                                     <span class="text-lg font-semibold text-crush-purple dark:text-crush-pink">{{ reg.user.first_name|first|upper }}</span>
@@ -714,7 +714,7 @@ size still select by moving rows to Confirmed / Pending Payment in admin.
                     <div class="flex-shrink-0">
                         {% with profile=reg.user.crushprofile %}
                             {% if profile and profile.photo_1 %}
-                                <img src="{% url 'crush_lu:serve_profile_photo' reg.user.id 'photo_1' %}" alt="" class="w-12 h-12 rounded-full object-cover" loading="lazy">
+                                <img src="{% url 'crush_lu:serve_profile_photo' reg.user.id 'photo_1' %}" alt="" class="w-12 h-12 rounded-full object-cover object-face" loading="lazy">
                             {% else %}
                                 <div class="w-12 h-12 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center">
                                     <span class="text-lg font-semibold text-crush-purple dark:text-crush-pink">{{ reg.user.first_name|first|upper }}</span>
@@ -789,7 +789,7 @@ size still select by moving rows to Confirmed / Pending Payment in admin.
                     <div class="flex-shrink-0">
                         {% with profile=reg.user.crushprofile %}
                             {% if profile and profile.photo_1 %}
-                                <img src="{% url 'crush_lu:serve_profile_photo' reg.user.id 'photo_1' %}" alt="" class="w-12 h-12 rounded-full object-cover" loading="lazy">
+                                <img src="{% url 'crush_lu:serve_profile_photo' reg.user.id 'photo_1' %}" alt="" class="w-12 h-12 rounded-full object-cover object-face" loading="lazy">
                             {% else %}
                                 <div class="w-12 h-12 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center">
                                     <span class="text-lg font-semibold text-crush-purple dark:text-crush-pink">{{ reg.user.first_name|first|upper }}</span>

@@ -33,7 +33,7 @@
                 <div class="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
                     {% if profile|has_photo:'photo_1' %}
                         <img src="{% profile_photo_url profile 'photo_1' %}"
-                             alt="" class="w-full h-full object-cover" loading="lazy">
+                             alt="" class="w-full h-full object-cover object-face" loading="lazy">
                     {% else %}
                         <div class="w-full h-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center">
                             <span class="text-lg font-semibold text-crush-purple dark:text-crush-pink">{{ profile.user.first_name|first|upper }}</span>

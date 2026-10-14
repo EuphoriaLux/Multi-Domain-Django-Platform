@@ -78,7 +78,7 @@ and the pager below can replay the whole view from `querystring`.{% endcomment %
             <div class="flex items-start gap-4 flex-1 min-w-0">
                 {% if p.photo_1 %}
                 <div class="flex-shrink-0 w-12 h-12 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
-                    <img src="{% profile_photo_url p 'photo_1' %}" alt="{{ p.display_name }}" class="w-full h-full object-cover" loading="lazy">
+                    <img src="{% profile_photo_url p 'photo_1' %}" alt="{{ p.display_name }}" class="w-full h-full object-cover object-face" loading="lazy">
                 </div>
                 {% else %}
                 <div class="flex-shrink-0 w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center" title="{% trans 'No photo — the door scan cannot verify this profile' %}">

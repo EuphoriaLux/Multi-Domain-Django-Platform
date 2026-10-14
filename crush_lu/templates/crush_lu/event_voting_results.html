@@ -225,7 +225,7 @@
                                     {% if reg.user.crushprofile|has_photo:'photo_1' %}
                                     <img src="{% profile_photo_url reg.user.crushprofile 'photo_1' %}"
                                          alt="{{ reg.user.crushprofile.display_name }}"
-                                         class="w-8 h-8 rounded-full object-cover ring-2 ring-yellow-300 dark:ring-yellow-600 flex-shrink-0"
+                                         class="w-8 h-8 rounded-full object-cover object-face ring-2 ring-yellow-300 dark:ring-yellow-600 flex-shrink-0"
                                          loading="lazy">
                                     {% else %}
                                     <div class="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-500 flex items-center justify-center flex-shrink-0 ring-2 ring-yellow-300 dark:ring-yellow-600">
@@ -251,7 +251,7 @@
                                     {% if reg.user.crushprofile|has_photo:'photo_1' %}
                                     <img src="{% profile_photo_url reg.user.crushprofile 'photo_1' %}"
                                          alt="{{ reg.user.crushprofile.display_name }}"
-                                         class="w-8 h-8 rounded-full object-cover ring-2 ring-orange-300 dark:ring-orange-600 flex-shrink-0"
+                                         class="w-8 h-8 rounded-full object-cover object-face ring-2 ring-orange-300 dark:ring-orange-600 flex-shrink-0"
                                          loading="lazy">
                                     {% else %}
                                     <div class="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center flex-shrink-0 ring-2 ring-orange-300 dark:ring-orange-600">
@@ -286,7 +286,7 @@
                                     {% if reg.user.crushprofile|has_photo:'photo_1' %}
                                     <img src="{% profile_photo_url reg.user.crushprofile 'photo_1' %}"
                                          alt="{{ reg.user.crushprofile.display_name }}"
-                                         class="w-10 h-10 rounded-full object-cover ring-2 ring-green-400 dark:ring-green-600 transition-transform hover:scale-110"
+                                         class="w-10 h-10 rounded-full object-cover object-face ring-2 ring-green-400 dark:ring-green-600 transition-transform hover:scale-110"
                                          title="{{ reg.user.crushprofile.display_name }}"
                                          loading="lazy">
                                     {% else %}

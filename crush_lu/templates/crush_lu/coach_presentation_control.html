@@ -53,7 +53,7 @@
                         {% if profile|has_photo:'photo_1' %}
                         <img src="{% profile_photo_url profile 'photo_1' %}"
                              alt="{{ profile.display_name }}"
-                             class="w-24 h-24 rounded-full object-cover ring-4 ring-crush-purple dark:ring-purple-500 shadow-lg mb-3">
+                             class="w-24 h-24 rounded-full object-cover object-face ring-4 ring-crush-purple dark:ring-purple-500 shadow-lg mb-3">
                         {% else %}
                         <div class="w-24 h-24 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center ring-4 ring-crush-purple dark:ring-purple-500 shadow-lg mb-3">
                             <span class="text-white text-3xl font-bold">{{ profile.display_name|first }}</span>
@@ -103,7 +103,7 @@
                         {% if p|has_photo:'photo_1' %}
                         <img src="{% profile_photo_url p 'photo_1' %}"
                              alt="{{ p.display_name }}"
-                             class="w-14 h-14 rounded-full object-cover ring-2 ring-crush-purple dark:ring-purple-500">
+                             class="w-14 h-14 rounded-full object-cover object-face ring-2 ring-crush-purple dark:ring-purple-500">
                         {% else %}
                         <div class="w-14 h-14 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center ring-2 ring-crush-purple dark:ring-purple-500">
                             <span class="text-white text-xl font-bold">{{ p.display_name|first }}</span>
@@ -150,7 +150,7 @@
                                 {% if p|has_photo:'photo_1' %}
                                 <img src="{% profile_photo_url p 'photo_1' %}"
                                      alt="{{ p.display_name }}"
-                                     class="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                                     class="w-8 h-8 rounded-full object-cover object-face flex-shrink-0"
                                      loading="lazy">
                                 {% else %}
                                 <div class="w-8 h-8 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center flex-shrink-0">

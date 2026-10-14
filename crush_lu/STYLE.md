@@ -251,7 +251,7 @@ Reach for these before composing inline:
 
 | Partial | Purpose |
 | --- | --- |
-| `components/profile_photo.html` | Avatar with `initials` (default) or `icon` fallback. Sizing/shape via `css_class`. Use the `{% profile_photo %}` inclusion_tag from `crush_media` rather than `{% include %}`. |
+| `components/profile_photo.html` | Avatar with `initials` (default) or `icon` fallback. Sizing/shape via `css_class`. Use the `{% profile_photo %}` inclusion_tag from `crush_media` rather than `{% include %}`. It adds `object-face`; a member photo rendered any other way (raw `<img>`, JS) needs `object-cover object-face` too, so a cropped frame keeps the face instead of the centre. |
 | `components/form_field.html` | Form field (label + input + errors + help). `{% include "crush_lu/components/form_field.html" with field=form.x %}`. |
 | `components/status_badge.html` | `.badge` with tone + icon + label + optional suffix. Prefer the convenience tag below over hand-rolling. |
 | `components/htmx_spinner.html` | The shared `<span class="htmx-indicator">` + loading icon. Pair with a sibling `<span class="htmx-hide-on-request">` carrying the resting label. |

@@ -19,7 +19,7 @@ Args (resolved by the {% profile_photo %} inclusion_tag in crush_media):
 {% if has_photo %}
     <img src="{{ photo_url }}"
          alt="{{ alt_text }}"
-         class="{{ css_class }} object-cover"
+         class="{{ css_class }} object-cover object-face"
          loading="lazy">
 {% elif fallback == "icon" %}
     <div class="{{ css_class }} flex items-center justify-center bg-gray-100 dark:bg-gray-700"

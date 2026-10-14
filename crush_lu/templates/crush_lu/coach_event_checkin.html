@@ -244,7 +244,7 @@
                 <div class="relative flex-shrink-0" data-checkin-avatar>
                     {# Profile avatar #}
                     {% if reg.photo_url %}
-                        <img src="{{ reg.photo_url }}" alt="" class="w-10 h-10 rounded-full object-cover">
+                        <img src="{{ reg.photo_url }}" alt="" class="w-10 h-10 rounded-full object-cover object-face">
                     {% else %}
                         {% with display_name=reg.user.crushprofile.display_name|default:reg.user.first_name|default:reg.user.username %}
                         <div class="w-10 h-10 rounded-full bg-crush-purple/20 flex items-center justify-center text-crush-purple font-semibold text-sm">
@@ -473,7 +473,7 @@
             <div class="py-3 flex items-center justify-between gap-3" id="waitlist-reg-{{ reg.id }}">
                 <div class="flex items-center gap-3 min-w-0">
                     {% if reg.photo_url %}
-                        <img src="{{ reg.photo_url }}" alt="" class="w-10 h-10 rounded-full object-cover flex-shrink-0">
+                        <img src="{{ reg.photo_url }}" alt="" class="w-10 h-10 rounded-full object-cover object-face flex-shrink-0">
                     {% else %}
                         {% with display_name=reg.user.crushprofile.display_name|default:reg.user.first_name|default:reg.user.username %}
                         <div class="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-700 dark:text-amber-400 font-semibold text-sm flex-shrink-0">

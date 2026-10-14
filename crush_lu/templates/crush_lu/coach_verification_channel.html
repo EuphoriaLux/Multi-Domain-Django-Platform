@@ -92,7 +92,7 @@
                     {# Avatar disk — primary photo if available, otherwise initial on gradient #}
                     {% if p.photo_1 %}
                     <div class="flex-shrink-0 w-12 h-12 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
-                        <img src="{% profile_photo_url p 'photo_1' %}" alt="{{ p.display_name }}" class="w-full h-full object-cover" loading="lazy">
+                        <img src="{% profile_photo_url p 'photo_1' %}" alt="{{ p.display_name }}" class="w-full h-full object-cover object-face" loading="lazy">
                     </div>
                     {% else %}
                     <div class="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-semibold text-lg">

@@ -24,7 +24,10 @@ function previewImage(input, previewId) {
                 const img = document.createElement("img");
                 img.src = e.target.result;
                 img.alt = "Preview";
-                img.className = "photo-preview";
+                // The placeholder names the framing of the saved photo, so the
+                // preview crops the same way: member photos opt into
+                // object-face, the coach portrait keeps the centre.
+                img.className = preview.dataset.previewClass || "photo-preview";
                 img.id = previewId;
                 container.innerHTML = "";
                 container.appendChild(img);

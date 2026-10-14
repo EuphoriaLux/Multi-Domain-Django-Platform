@@ -275,7 +275,7 @@ document.addEventListener("alpine:init", function () {
                 img.src = entry.photo_url;
                 img.alt = "";
                 img.loading = "lazy";
-                img.className = "w-full h-full object-cover";
+                img.className = "w-full h-full object-cover object-face";
                 tile.appendChild(img);
                 if (entry.already_met) {
                     tile.dataset.alreadyMet = "true";

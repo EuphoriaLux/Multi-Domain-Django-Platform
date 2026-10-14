@@ -263,7 +263,7 @@
                         {% if own_profile|has_photo:'photo_1' %}
                             <img src="{% profile_photo_url own_profile 'photo_1' %}"
                                  alt="{{ own_profile.display_name }}"
-                                 class="w-20 h-20 rounded-full object-cover"
+                                 class="w-20 h-20 rounded-full object-cover object-face"
                                  loading="lazy">
                         {% else %}
                             <div class="w-20 h-20 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center">
@@ -347,7 +347,7 @@
                                 {% if attendee.profile and attendee.profile|has_public_photo:'photo_1' %}
                                     <img src="{% profile_photo_url attendee.profile 'photo_1' %}"
                                          alt="{{ attendee.profile.display_name }}"
-                                         class="w-20 h-20 rounded-full object-cover"
+                                         class="w-20 h-20 rounded-full object-cover object-face"
                                          loading="lazy">
                                 {% else %}
                                     <div class="w-20 h-20 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center">

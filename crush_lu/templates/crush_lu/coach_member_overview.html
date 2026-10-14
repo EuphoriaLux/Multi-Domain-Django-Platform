@@ -69,7 +69,7 @@
             <div class="flex flex-wrap gap-2 flex-shrink-0">
                 {% if profile|has_photo:'photo_1' %}
                     <img src="{% profile_photo_url profile 'photo_1' %}"
-                         class="w-24 h-24 rounded-xl object-cover border-2 border-white dark:border-gray-700 shadow-md dark:shadow-gray-900/20"
+                         class="w-24 h-24 rounded-xl object-cover object-face border-2 border-white dark:border-gray-700 shadow-md dark:shadow-gray-900/20"
                          alt="" loading="lazy">
                 {% else %}
                     <div class="w-24 h-24 rounded-xl bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center border-2 border-white dark:border-gray-700 shadow-md">
@@ -78,12 +78,12 @@
                 {% endif %}
                 {% if profile|has_photo:'photo_2' %}
                     <img src="{% profile_photo_url profile 'photo_2' %}"
-                         class="w-24 h-24 rounded-xl object-cover border-2 border-white dark:border-gray-700 shadow-md dark:shadow-gray-900/20"
+                         class="w-24 h-24 rounded-xl object-cover object-face border-2 border-white dark:border-gray-700 shadow-md dark:shadow-gray-900/20"
                          alt="" loading="lazy">
                 {% endif %}
                 {% if profile|has_photo:'photo_3' %}
                     <img src="{% profile_photo_url profile 'photo_3' %}"
-                         class="w-24 h-24 rounded-xl object-cover border-2 border-white dark:border-gray-700 shadow-md dark:shadow-gray-900/20"
+                         class="w-24 h-24 rounded-xl object-cover object-face border-2 border-white dark:border-gray-700 shadow-md dark:shadow-gray-900/20"
                          alt="" loading="lazy">
                 {% endif %}
             </div>
