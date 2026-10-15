@@ -517,9 +517,8 @@ class SocialProviderSaveTests(TestCase):
         self.profile.save()
 
         with patch.object(CrushProfile, "save") as save:
-            # birthday/gender already set on the profile, so
-            # update_profile_from_facebook_data() reports no change.
-            self._login("facebook", {"id": "fb-1", "birthday": "01/01/1990"})
+            # photo_1 is already set and Facebook feeds no other column.
+            self._login("facebook", {"id": "fb-1"})
         save.assert_not_called()
 
 

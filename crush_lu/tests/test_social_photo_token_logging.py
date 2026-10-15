@@ -80,6 +80,8 @@ class SafeExceptionTextTests(SimpleTestCase):
 class FacebookTokenLogLeakTests(SimpleTestCase):
     def setUp(self):
         cache.clear()
+        # The only database read on the refresh path when a token is passed.
+        self._patch(social_photos, "_is_banned_from_crush", return_value=False)
 
     def _patch(self, target, name, **kwargs):
         patcher = mock.patch.object(target, name, **kwargs)

@@ -1158,6 +1158,7 @@ def delete_crushlu_profile_only(user, finalize=True, full_account=False):
     Deletes:
     - CrushProfile
     - Profile photos (Azure Blob)
+    - Cached social login photos (users/<id>/social_cache/)
     - Event registrations
     - Connections and messages
     - Journey progress
@@ -1166,7 +1167,8 @@ def delete_crushlu_profile_only(user, finalize=True, full_account=False):
     KEEPS:
     - Django User record
     - EmailAddress records
-    - SocialAccount/SocialToken records
+    - SocialAccount/SocialToken records: the account survives and the member
+      may keep signing in with that provider (login use only)
     - PowerUp consent flag
 
     Sets permanent ban preventing future Crush.lu profile creation.
@@ -1217,6 +1219,24 @@ def delete_crushlu_profile_only(user, finalize=True, full_account=False):
         # Delete the profile (cascades to related data via Django's on_delete)
         profile.delete()
         logger.info(f"Deleted CrushProfile for user {user.id}")
+
+    # Persisted Facebook/Google/Microsoft photos (users/<id>/social_cache/).
+    # Written at login whether or not a profile exists, and only kept to offer
+    # the member their provider photo for this profile. The folder sweep below
+    # would find them too, but erasure must not depend on that.
+    from allauth.socialaccount.models import SocialAccount
+    from crush_lu.social_photos import delete_social_photo_cache
+
+    for social_account in SocialAccount.objects.filter(user=user):
+        try:
+            delete_social_photo_cache(social_account)
+        except Exception as e:
+            logger.error(
+                f"Could not delete cached {social_account.provider} photo: {e}"
+            )
+            raise StorageErasureError(
+                f"Could not delete cached {social_account.provider} photo"
+            ) from e
 
     # Clean up blob storage folder (users/{user_id}/)
     success, deleted_count = delete_user_storage(user.id)
@@ -1531,9 +1551,16 @@ def delete_full_account(user):
     # Delete email addresses (allauth)
     EmailAddress.objects.filter(user=user).delete()
 
-    # Delete social accounts and tokens (allauth)
+    # Delete social accounts and tokens (allauth). Their cached provider
+    # photos were erased, fail closed, by delete_crushlu_profile_only above
+    # while the member could still sign in to retry; the pre_delete hook's
+    # storage pass is skipped here so an outage now cannot strand an
+    # anonymised, inactive account half-deleted.
+    from crush_lu.social_photos import already_erased_social_photo_cache
+
     SocialToken.objects.filter(account__user=user).delete()
-    SocialAccount.objects.filter(user=user).delete()
+    with already_erased_social_photo_cache():
+        SocialAccount.objects.filter(user=user).delete()
 
     _anonymize_email_delivery(addresses)
     _finalize_deletion(user)
@@ -1919,12 +1946,25 @@ def disconnect_social_account(request, social_account_id):
         )
         return redirect(account_settings_url("settings"))
 
-    # Log the disconnection
     provider_name = social_account.provider.title()
-    logger.info(f"User {request.user.id} disconnected {provider_name} account")
 
-    # Delete the social account
-    social_account.delete()
+    # The OAuth tokens go with the account (SocialToken.account is CASCADE)
+    # and the persisted provider photo with it (pre_delete hook in signals.py).
+    # If storage fails the delete rolls back, so the member can retry instead
+    # of losing track of the copy. A photo the member already imported into
+    # photo_N stays: it is their own profile photo now, under coach review.
+    try:
+        with transaction.atomic():
+            social_account.delete()
+    except Exception:
+        logger.exception(
+            f"Could not disconnect {provider_name} for user {request.user.id}; "
+            f"account left connected"
+        )
+        messages.error(request, _("An error occurred. Please try again."))
+        return redirect(account_settings_url("settings"))
+
+    logger.info(f"User {request.user.id} disconnected {provider_name} account")
 
     messages.success(
         request,

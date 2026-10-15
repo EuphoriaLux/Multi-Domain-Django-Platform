@@ -1366,23 +1366,6 @@ def get_high_res_facebook_photo_url(facebook_id, access_token=None):
     return None
 
 
-# Centralized gender mapping to avoid duplication
-FACEBOOK_GENDER_MAPPING = {
-    "male": "M",
-    "female": "F",
-    "non-binary": "NB",
-    "nonbinary": "NB",
-    "trans": "NB",
-    "transgender": "NB",
-    "genderqueer": "NB",
-    "genderfluid": "NB",
-    "agender": "NB",
-    "bigender": "NB",
-    "pangender": "NB",
-    "two-spirit": "NB",
-}
-
-
 def download_and_save_facebook_photo(profile, photo_url, user_id):
     """
     Download photo from URL and save to CrushProfile.
@@ -1431,43 +1414,6 @@ def download_and_save_facebook_photo(profile, photo_url, user_id):
         )
 
     return False
-
-
-def update_profile_from_facebook_data(profile, extra_data):
-    """
-    Update CrushProfile fields from Facebook extra_data.
-
-    Args:
-        profile: CrushProfile instance
-        extra_data: Dictionary of Facebook user data
-
-    Returns:
-        bool: True if any fields were updated
-    """
-    updated = False
-
-    # Set birthday if available and not already set
-    if extra_data.get("birthday") and not profile.date_of_birth:
-        try:
-            # Facebook birthday format: "MM/DD/YYYY"
-            birthday = datetime.strptime(extra_data["birthday"], "%m/%d/%Y").date()
-            profile.date_of_birth = birthday
-            updated = True
-            # Log without birthday details (avoid clear-text PII)
-            logger.info(f"Set date_of_birth from Facebook for profile {profile.pk}")
-        except ValueError:
-            # Don't log the error details (could contain PII)
-            logger.error(f"Error parsing Facebook birthday for profile {profile.pk}")
-
-    # Set gender if available and not already set
-    if extra_data.get("gender") and not profile.gender:
-        fb_gender = extra_data["gender"].lower()
-        # Map known genders, default to 'O' (Other) for custom/unknown
-        profile.gender = FACEBOOK_GENDER_MAPPING.get(fb_gender, "O")
-        updated = True
-        logger.info(f"Set gender from Facebook for profile {profile.pk}")
-
-    return updated
 
 
 def _get_facebook_photo_url(extra_data, access_token=None):
@@ -1570,15 +1516,12 @@ def update_facebook_profile_on_login(sender, request, sociallogin, **kwargs):
                                 f"Saved Facebook photo for user {sociallogin.user.email}"
                             )
 
-                # Update profile data from Facebook. This already reports
-                # whether it changed anything; the return value used to be
-                # discarded and the save made unconditionally, so a repeat
-                # login by a member whose birthday and gender were long since
-                # filled in still rewrote the row and fired the full post_save
-                # fan-out (Outlook Graph sync included) on the request thread.
-                fields_changed = update_profile_from_facebook_data(profile, extra_data)
-
-                if photo_saved or fields_changed:
+                # Save only when the photo changed. The photo is the only
+                # profile field Facebook supplies (the app requests just
+                # `email` and `public_profile`), and an unconditional save on
+                # every repeat login fired the full post_save fan-out (Outlook
+                # Graph sync included) on the request thread.
+                if photo_saved:
                     profile.save()
                     logger.info(
                         f"Updated CrushProfile for existing user {sociallogin.user.email}"
@@ -1629,11 +1572,62 @@ def detect_apple_relay_email(sender, request, sociallogin, **kwargs):
         )
 
 
+@receiver(pre_delete, sender=SocialAccount)
+def delete_social_photo_cache_with_account(sender, instance, **kwargs):
+    """
+    Take the persisted provider photo with every SocialAccount deletion.
+
+    Covers each path that removes one: the member's disconnect, allauth's own
+    connections page (mounted on every domain), the admin, account merge and
+    full-account deletion. A storage error propagates, so the delete rolls
+    back and can be retried instead of leaving the photo behind.
+
+    A second pass after commit removes a copy that a login in flight wrote
+    between this hook and the commit (see _persist_social_photo). If storage
+    fails then, the weekly gdpr_retention_cleanup sweep removes the copy.
+
+    Accounts of members who never used Crush.lu (PowerUp, Entreprinder; allauth
+    is mounted on every domain) are deleted without touching Crush storage,
+    and so are accounts whose caller already erased the copies
+    (already_erased_social_photo_cache, used by full-account deletion).
+    """
+    import copy
+
+    from .social_photos import (
+        PHOTO_CACHE_PROVIDERS,
+        _may_hold_social_photo_cache,
+        delete_social_photo_cache,
+        social_photo_cache_already_erased,
+    )
+
+    if instance.provider not in PHOTO_CACHE_PROVIDERS:
+        return
+    if social_photo_cache_already_erased():
+        return
+    if not _may_hold_social_photo_cache(instance.user_id):
+        return
+    # Django clears instance.pk once the delete has run.
+    account = copy.copy(instance)
+    delete_social_photo_cache(account)
+
+    def _second_pass():
+        try:
+            delete_social_photo_cache(account)
+        except Exception:
+            logger.exception(
+                f"Post-commit social photo cleanup failed for user "
+                f"{account.user_id} ({account.provider}); the weekly "
+                f"gdpr_retention_cleanup sweep will remove the copy"
+            )
+
+    transaction.on_commit(_second_pass)
+
+
 @receiver(post_save, sender=SocialAccount)
 def create_crush_profile_from_facebook(sender, instance, created, **kwargs):
     """
     Create CrushProfile when a new Facebook SocialAccount is created.
-    Pre-fill profile data from Facebook information.
+    Pre-fill the profile photo from Facebook (the only profile field it supplies).
 
     This handles NEW users signing up via Facebook - creates profile with Facebook data.
     Only creates profile if the login originated from crush.lu domain.
@@ -1680,9 +1674,6 @@ def create_crush_profile_from_facebook(sender, instance, created, **kwargs):
                     logger.info(
                         f"Saved Facebook photo for new user {instance.user.email}"
                     )
-
-        # Update profile data from Facebook
-        update_profile_from_facebook_data(profile, extra_data)
 
         # Don't set completion_status - let model default handle it
         # The view will detect empty profiles and start at step 1
@@ -2173,7 +2164,7 @@ def update_microsoft_profile_on_login(sender, request, sociallogin, **kwargs):
         )
 
         # Microsoft's extra_data feeds nothing on CrushProfile — unlike Google
-        # and Facebook there is no photo URL and no birthday/gender claim, as
+        # and Facebook there is no photo URL, as
         # get_microsoft_photo_url() above documents by returning None. The
         # bare profile.save() that used to stand here therefore changed no
         # column, and paid for it twice: CrushProfile.save() issues its own
