@@ -159,6 +159,39 @@ def _persist_social_photo(social_account, image_data):
         return False
 
 
+def delete_social_photo_cache(social_account):
+    """
+    Delete the persisted social photo and every cache entry pointing at it.
+
+    Used when the member disconnects the provider and when they delete their
+    Crush.lu profile: the persisted copy only exists to offer the member their
+    own provider photo for their profile, so it must not outlive either.
+
+    A file that is already missing is fine (storage.delete is idempotent); any
+    other storage error propagates so the caller can fail closed instead of
+    reporting the data as gone.
+    """
+    _get_photo_storage().delete(_get_social_cache_path(social_account))
+    cache.delete_many([
+        f"social_photo_persisted_exists_{social_account.id}",
+        f"social_photo_{social_account.provider}_{social_account.id}",
+        f"social_photo_refresh_attempted_{social_account.id}",
+    ])
+
+
+def _is_banned_from_crush(user_id):
+    """True when the member may never hold a Crush.lu profile again.
+
+    Profile deletion sets this ban permanently, so a later login must not
+    re-collect a provider photo that has nowhere to go.
+    """
+    from .models.profiles import UserDataConsent
+
+    return UserDataConsent.objects.filter(
+        user_id=user_id, crushlu_banned=True
+    ).exists()
+
+
 def _get_persisted_social_photo_url(social_account):
     """
     Get a fresh storage URL for the persisted social photo.
@@ -201,6 +234,10 @@ def refresh_social_photo_cache(social_account, token=None, force=False):
     Should be called during social login when we have a fresh token.
     This ensures the persisted copy stays up-to-date.
 
+    Skipped for members banned from Crush.lu (which includes everyone who
+    deleted their Crush.lu profile): profile deletion erased this copy, and a
+    later login must not collect it again.
+
     Throttled to at most once per SOCIAL_PHOTO_REFRESH_INTERVAL per account.
     Every call here is a full image download followed by
     ``process_uploaded_image`` and a blob-storage delete-and-write, and it sat
@@ -237,6 +274,10 @@ def refresh_social_photo_cache(social_account, token=None, force=False):
         except Exception:
             # A cache outage must not stop a login; fall through and refresh.
             pass
+
+    # After the throttle, so a throttled login pays no query for this.
+    if _is_banned_from_crush(social_account.user_id):
+        return False
 
     def _mark_attempted():
         """Record the attempt, successes and failures alike.

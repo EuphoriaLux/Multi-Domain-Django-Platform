@@ -1135,6 +1135,7 @@ def delete_crushlu_profile_only(user, finalize=True, full_account=False):
     Deletes:
     - CrushProfile
     - Profile photos (Azure Blob)
+    - Cached social login photos (users/<id>/social_cache/)
     - Event registrations
     - Connections and messages
     - Journey progress
@@ -1143,7 +1144,8 @@ def delete_crushlu_profile_only(user, finalize=True, full_account=False):
     KEEPS:
     - Django User record
     - EmailAddress records
-    - SocialAccount/SocialToken records
+    - SocialAccount/SocialToken records: the account survives and the member
+      may keep signing in with that provider (login use only)
     - PowerUp consent flag
 
     Sets permanent ban preventing future Crush.lu profile creation.
@@ -1194,6 +1196,24 @@ def delete_crushlu_profile_only(user, finalize=True, full_account=False):
         # Delete the profile (cascades to related data via Django's on_delete)
         profile.delete()
         logger.info(f"Deleted CrushProfile for user {user.id}")
+
+    # Persisted Facebook/Google/Microsoft photos (users/<id>/social_cache/).
+    # Written at login whether or not a profile exists, and only kept to offer
+    # the member their provider photo for this profile. The folder sweep below
+    # would find them too, but erasure must not depend on that.
+    from allauth.socialaccount.models import SocialAccount
+    from crush_lu.social_photos import delete_social_photo_cache
+
+    for social_account in SocialAccount.objects.filter(user=user):
+        try:
+            delete_social_photo_cache(social_account)
+        except Exception as e:
+            logger.error(
+                f"Could not delete cached {social_account.provider} photo: {e}"
+            )
+            raise StorageErasureError(
+                f"Could not delete cached {social_account.provider} photo"
+            ) from e
 
     # Clean up blob storage folder (users/{user_id}/)
     success, deleted_count = delete_user_storage(user.id)
@@ -1896,11 +1916,27 @@ def disconnect_social_account(request, social_account_id):
         )
         return redirect(account_settings_url("settings"))
 
-    # Log the disconnection
     provider_name = social_account.provider.title()
+
+    # The persisted provider photo goes first: if storage fails, keep the
+    # connection so the member can retry instead of losing track of the copy.
+    # A photo the member already imported into photo_N stays: it is their own
+    # profile photo now, under coach review, and they manage it there.
+    from crush_lu.social_photos import delete_social_photo_cache
+
+    try:
+        delete_social_photo_cache(social_account)
+    except Exception:
+        logger.exception(
+            f"Could not delete cached {provider_name} photo for user "
+            f"{request.user.id}; account left connected"
+        )
+        messages.error(request, _("An error occurred. Please try again."))
+        return redirect(account_settings_url("settings"))
+
     logger.info(f"User {request.user.id} disconnected {provider_name} account")
 
-    # Delete the social account
+    # Deletes the stored OAuth tokens too (SocialToken.account is CASCADE).
     social_account.delete()
 
     messages.success(
