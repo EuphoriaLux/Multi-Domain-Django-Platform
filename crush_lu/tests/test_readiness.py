@@ -12,6 +12,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from django.apps import apps as django_apps
 from django.conf import settings
 from django.test import Client, TestCase, override_settings
 
@@ -28,6 +29,13 @@ HERMETIC_STORAGES = {
 
 def _failing_check():
     raise ConnectionError("probe failure")
+
+
+def _write_stamp(directory, commit):
+    (Path(directory) / "build_info.json").write_text(
+        json.dumps({"commit": commit, "built_at": "2026-07-06T00:00:00Z"}),
+        encoding="utf-8",
+    )
 
 
 class HealthzTests(TestCase):
@@ -103,12 +111,18 @@ class ReadyzTests(TestCase):
         for value in payload["checks"].values():
             self.assertTrue(value.startswith("fail:"))
 
+    def _boot_in(self, directory, commit=None):
+        """Simulate a process booting from ``directory`` (with a build stamp
+        for ``commit`` when given), restoring the real boot stamp afterwards."""
+        self.addCleanup(setattr, readiness, "_boot_build", readiness._boot_build)
+        if commit is not None:
+            _write_stamp(directory, commit)
+        with override_settings(BASE_DIR=Path(directory)):
+            django_apps.get_app_config("azureproject").ready()
+
     def test_readyz_includes_build_stamp_when_present(self):
         with tempfile.TemporaryDirectory() as tmp:
-            (Path(tmp) / "build_info.json").write_text(
-                '{"commit": "abc123", "built_at": "2026-07-06T00:00:00Z"}',
-                encoding="utf-8",
-            )
+            self._boot_in(tmp, commit="abc123")
             with override_settings(BASE_DIR=Path(tmp)):
                 response = self.client.get("/readyz/")
         payload = json.loads(response.content)
@@ -116,10 +130,25 @@ class ReadyzTests(TestCase):
 
     def test_readyz_omits_build_stamp_when_absent(self):
         with tempfile.TemporaryDirectory() as tmp:
+            self._boot_in(tmp)
             with override_settings(BASE_DIR=Path(tmp)):
                 response = self.client.get("/readyz/")
         payload = json.loads(response.content)
         self.assertNotIn("build", payload)
+
+    def test_readyz_reports_the_build_the_process_booted_with(self):
+        # A zip deploy rewrites build_info.json under the still-running old
+        # process (shared /home/site/wwwroot). Reporting the file as it is now
+        # let the old process claim the new commit, so the deploy gate passed
+        # and the smoke test ran against old code whose stylesheet the
+        # `--clean` deploy had just deleted.
+        with tempfile.TemporaryDirectory() as tmp:
+            self._boot_in(tmp, commit="old-build")
+            _write_stamp(tmp, "new-build")
+            with override_settings(BASE_DIR=Path(tmp)):
+                response = self.client.get("/readyz/")
+        payload = json.loads(response.content)
+        self.assertEqual(payload["build"]["commit"], "old-build")
 
     def test_storage_check_fails_when_container_missing(self):
         # Azure-style backend: exists() on a blob returns False for a missing
