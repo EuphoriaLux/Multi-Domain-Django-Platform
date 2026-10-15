@@ -157,17 +157,46 @@ def _is_banned_from_crush(user_id):
 def _may_persist_social_photo(social_account):
     """The account is still connected and its member may hold a Crush profile.
 
-    A refresh fetches from the provider for several seconds; a disconnect or a
-    profile deletion can land in between, so this is checked again around the
-    write (an unsaved account, as in a connect flow, never qualifies).
+    A refresh fetches from the provider for several seconds; a disconnect, a
+    profile deletion or an account merge can land in between, so this is
+    checked again around the write. The row must still belong to the user and
+    provider the refresh started with: a merge keeps the pk but moves the
+    account to the keeper, whose folder is not the one being written. An
+    unsaved account, as in a connect flow, never qualifies.
     """
     from allauth.socialaccount.models import SocialAccount
 
     if not social_account.pk:
         return False
-    if not SocialAccount.objects.filter(pk=social_account.pk).exists():
+    still_owned = SocialAccount.objects.filter(
+        pk=social_account.pk,
+        user_id=social_account.user_id,
+        provider=social_account.provider,
+    ).exists()
+    if not still_owned:
         return False
     return not _is_banned_from_crush(social_account.user_id)
+
+
+def _may_hold_social_photo_cache(user_id):
+    """Whether a member can have a persisted photo that cleanup must reach.
+
+    Photos are only persisted on crush.lu logins, so a member with no Crush
+    profile, consent or ban has none in practice: deleting their PowerUp or
+    Entreprinder account must not depend on Crush storage. The rare copy a
+    one-off crush.lu login left for such a member is removed by
+    sweep_orphaned_social_photo_cache() once the account is gone.
+    """
+    from django.db.models import Q
+
+    from .models import CrushProfile
+    from .models.profiles import UserDataConsent
+
+    if CrushProfile.objects.filter(user_id=user_id).exists():
+        return True
+    return UserDataConsent.objects.filter(
+        Q(crushlu_consent_given=True) | Q(crushlu_banned=True), user_id=user_id
+    ).exists()
 
 
 def _persist_social_photo(social_account, image_data):
@@ -263,6 +292,90 @@ def delete_social_photo_cache(social_account):
             f"social_photo_refresh_attempted_{social_account.id}",
         ]
     )
+
+
+def _list_social_cache_files(storage):
+    """Yield the storage name of every persisted social photo.
+
+    Azure lists every blob under users/ by its full name in one call; the
+    filesystem lists one level, so walk each users/<id>/social_cache/.
+    """
+    try:
+        dirs, files = storage.listdir('users/')
+    except FileNotFoundError:
+        return
+    for name in files:
+        if '/social_cache/' in name:
+            yield name
+    for user_dir in dirs:
+        folder = f"users/{user_dir}/social_cache/"
+        try:
+            _subdirs, cached = storage.listdir(folder)
+        except FileNotFoundError:
+            continue
+        for name in cached:
+            yield folder + name
+
+
+def sweep_orphaned_social_photo_cache(apply=False, deadline=None, limit=500):
+    """
+    Find, and with ``apply`` delete, persisted photos nobody may keep.
+
+    A copy is kept only while its member is active, is not banned from
+    Crush.lu and still has a SocialAccount for that provider. Anything else in
+    users/<id>/social_cache/ is orphaned: left by a post-commit cleanup that
+    failed during a storage outage, by a login that raced a deletion, or by an
+    account deleted without Crush storage being touched (see
+    _may_hold_social_photo_cache). Runs from gdpr_retention_cleanup.
+
+    Deletes at most ``limit`` files and stops at ``deadline`` (a
+    time.monotonic() value); the next run picks up the rest. Storage errors
+    propagate.
+
+    Returns:
+        tuple: (orphaned_found, deleted, budget_exhausted)
+    """
+    import time
+
+    from allauth.socialaccount.models import SocialAccount
+
+    storage = _get_photo_storage()
+    entries = []
+    for name in _list_social_cache_files(storage):
+        parts = name.split('/')
+        if len(parts) != 4 or not parts[1].isdigit():
+            continue
+        # <uuid>_<provider>.jpg (production naming) or <provider>.jpg
+        provider = parts[3].rsplit('.', 1)[0].rsplit('_', 1)[-1]
+        entries.append((name, int(parts[1]), provider))
+
+    user_ids = sorted({user_id for _name, user_id, _provider in entries})
+    keep = set()
+    for start in range(0, len(user_ids), 500):
+        keep.update(
+            SocialAccount.objects.filter(
+                user_id__in=user_ids[start:start + 500],
+                user__is_active=True,
+                provider__in=PHOTO_CACHE_PROVIDERS,
+            )
+            .exclude(user__data_consent__crushlu_banned=True)
+            .values_list('user_id', 'provider')
+        )
+    orphaned = [
+        name for name, user_id, provider in entries
+        if (user_id, provider) not in keep
+    ]
+
+    deleted = 0
+    if apply:
+        for name in orphaned:
+            if deleted >= limit or (
+                deadline is not None and time.monotonic() >= deadline
+            ):
+                return len(orphaned), deleted, True
+            storage.delete(name)
+            deleted += 1
+    return len(orphaned), deleted, False
 
 
 def _get_persisted_social_photo_url(social_account):

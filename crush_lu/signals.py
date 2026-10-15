@@ -1583,13 +1583,23 @@ def delete_social_photo_cache_with_account(sender, instance, **kwargs):
     back and can be retried instead of leaving the photo behind.
 
     A second pass after commit removes a copy that a login in flight wrote
-    between this hook and the commit (see _persist_social_photo).
+    between this hook and the commit (see _persist_social_photo). If storage
+    fails then, the weekly gdpr_retention_cleanup sweep removes the copy.
+
+    Accounts of members who never used Crush.lu (PowerUp, Entreprinder; allauth
+    is mounted on every domain) are deleted without touching Crush storage.
     """
     import copy
 
-    from .social_photos import PHOTO_CACHE_PROVIDERS, delete_social_photo_cache
+    from .social_photos import (
+        PHOTO_CACHE_PROVIDERS,
+        _may_hold_social_photo_cache,
+        delete_social_photo_cache,
+    )
 
     if instance.provider not in PHOTO_CACHE_PROVIDERS:
+        return
+    if not _may_hold_social_photo_cache(instance.user_id):
         return
     # Django clears instance.pk once the delete has run.
     account = copy.copy(instance)
@@ -1601,7 +1611,8 @@ def delete_social_photo_cache_with_account(sender, instance, **kwargs):
         except Exception:
             logger.exception(
                 f"Post-commit social photo cleanup failed for user "
-                f"{account.user_id} ({account.provider})"
+                f"{account.user_id} ({account.provider}); the weekly "
+                f"gdpr_retention_cleanup sweep will remove the copy"
             )
 
     transaction.on_commit(_second_pass)

@@ -192,6 +192,28 @@ class SocialAccountDeleteHookTests(_SocialCacheMixin, TestCase):
 
         self.assertTrue(SocialAccount.objects.filter(pk=self.account.pk).exists())
 
+    def test_non_crush_member_disconnects_during_an_outage(self):
+        """A PowerUp/Entreprinder account never reaches Crush storage."""
+        from django.db import transaction
+
+        other = User.objects.create_user(
+            username="powerup@example.com",
+            email="powerup@example.com",
+            password="testpass123",
+        )
+        google = SocialAccount.objects.create(
+            user=other, provider="google", uid="g-powerup", extra_data={}
+        )
+
+        outage = OSError("down")
+        with patch.object(self.storage, "listdir", side_effect=outage), patch.object(
+            self.storage, "delete", side_effect=outage
+        ):
+            with transaction.atomic():
+                google.delete()
+
+        self.assertFalse(SocialAccount.objects.filter(uid="g-powerup").exists())
+
     def test_merge_moving_the_account_leaves_no_photo_behind(self):
         from crush_lu.services.account_merge import merge_accounts
 
@@ -246,6 +268,134 @@ class InFlightRefreshTests(_SocialCacheMixin, TestCase):
             self.assertFalse(_persist_social_photo(self.account, _jpeg()))
 
         self.assertEqual(self._cached("facebook"), [])
+
+    def _keeper(self):
+        return User.objects.create_user(
+            username="keeper@example.com",
+            email="keeper@example.com",
+            password="testpass123",
+        )
+
+    def test_refresh_finishing_after_a_merge_writes_nothing(self):
+        """The merge keeps the pk: the owner must match, not just the row."""
+        from crush_lu.services.account_merge import merge_accounts
+
+        stale = SocialAccount.objects.get(pk=self.account.pk)
+        keeper = self._keeper()
+        merge_accounts(keeper, self.user)
+
+        self.assertFalse(_persist_social_photo(stale, _jpeg()))
+        self.assertEqual(self._cached("facebook"), [])
+        self.assertEqual(self._cached("facebook", user=keeper), [])
+
+    def test_merge_landing_during_the_write_is_undone(self):
+        keeper = self._keeper()
+        real_save = self.storage.save
+
+        def save_while_merge_moves_the_account(name, content, **kwargs):
+            saved = real_save(name, content, **kwargs)
+            SocialAccount.objects.filter(pk=self.account.pk).update(user=keeper)
+            return saved
+
+        with patch.object(
+            self.storage, "save", side_effect=save_while_merge_moves_the_account
+        ):
+            self.assertFalse(_persist_social_photo(self.account, _jpeg()))
+
+        self.assertEqual(self._cached("facebook"), [])
+
+
+class OrphanedSocialCacheSweepTests(_SocialCacheMixin, TestCase):
+    """gdpr_retention_cleanup removes copies nobody may keep any more."""
+
+    def setUp(self):
+        super().setUp()
+        # Google copy without a Google account (cleanup failed after commit).
+        self._write(self.user.id, "google")
+
+        def member(name, **user_fields):
+            user = User.objects.create_user(
+                username=f"{name}@example.com",
+                email=f"{name}@example.com",
+                password="x",
+                **user_fields,
+            )
+            SocialAccount.objects.create(
+                user=user, provider="facebook", uid=f"fb-{name}", extra_data={}
+            )
+            self._write(user.id, "facebook")
+            return user
+
+        # No Crush profile or consent, so deleting the account skips Crush
+        # storage and leaves its copy (plus one a racing login wrote after).
+        disconnected = member("disconnected")
+        SocialAccount.objects.filter(user=disconnected).delete()
+        self._write(disconnected.id, "facebook")
+        banned = member("banned")
+        UserDataConsent.objects.update_or_create(
+            user=banned, defaults={"crushlu_banned": True}
+        )
+        member("erased", is_active=False)
+        self._write(999999, "microsoft")  # no user row at all
+        self.orphans = 6
+
+    def _write(self, user_id, provider):
+        self.storage.save(
+            f"users/{user_id}/social_cache/{provider}.jpg", ContentFile(b"x")
+        )
+
+    def _all_cached(self):
+        from crush_lu.social_photos import _list_social_cache_files
+
+        return sorted(_list_social_cache_files(self.storage))
+
+    def _run(self, *args):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        out = StringIO()
+        call_command("gdpr_retention_cleanup", *args, stdout=out)
+        return out.getvalue()
+
+    def test_dry_run_reports_and_keeps_everything(self):
+        before = self._all_cached()
+
+        output = self._run()
+
+        self.assertIn(f"Orphaned social photo cache: {self.orphans} file(s)", output)
+        self.assertEqual(self._all_cached(), before)
+
+    def test_apply_keeps_only_the_connected_members_copy(self):
+        output = self._run("--apply")
+
+        self.assertIn(
+            f"Orphaned social photo cache: deleted {self.orphans} of "
+            f"{self.orphans} file(s)",
+            output,
+        )
+        remaining = self._all_cached()
+        self.assertEqual(len(remaining), 1)
+        self.assertTrue(remaining[0].startswith(self.folder))
+        self.assertTrue(remaining[0].endswith("_facebook.jpg"))
+
+    def test_each_run_is_bounded(self):
+        with patch(
+            "crush_lu.management.commands.gdpr_retention_cleanup."
+            "SOCIAL_CACHE_SWEEP_LIMIT",
+            2,
+        ):
+            output = self._run("--apply")
+
+        self.assertIn(f"deleted 2 of {self.orphans} file(s)", output)
+        self.assertIn("Time budget reached", output)
+        self.assertEqual(len(self._all_cached()), 1 + self.orphans - 2)
+
+    def test_storage_outage_is_reported_not_raised(self):
+        with patch.object(self.storage, "listdir", side_effect=OSError("down")):
+            output = self._run("--apply")
+
+        self.assertIn("Orphaned social photo cache: storage error, skipped", output)
 
 
 @patch("crush_lu.storage.delete_user_storage", return_value=(True, 0))
