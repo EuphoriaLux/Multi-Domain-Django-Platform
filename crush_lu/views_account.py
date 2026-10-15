@@ -518,6 +518,13 @@ ACCOUNT_ERASURE_PURGE = (
     ("JourneyProgress", ("user",)),
     ("AdventProgress", ("user",)),
     ("QRCodeToken", ("user",)),
+    # Blocks (both directions) and "we met" records shared with another
+    # member: decided 2026-10-15, they go with the account. Encounters that
+    # carry a removal request are kept (moderation record; see the purge loop).
+    ("UserBlock", ("blocker", "blocked")),
+    ("EventMeetSignal", ("sender", "recipient")),
+    ("EventMeetingConfirmation", ("confirmer", "other_user")),
+    ("ConfirmedEncounter", ("user_low", "user_high")),
     # Devices, push endpoints, phone numbers and activity tracking.
     ("PushSubscription", ("user",)),
     ("PWADeviceInstallation", ("user",)),
@@ -713,14 +720,13 @@ ACCOUNT_ERASURE_RETAINED = {
     "PremiumPaymentRecoveryCase": "financial record",
     # Consent / ban record that stops the account being re-created.
     "UserDataConsent": "ban + consent audit record",
-    # Moderation and safety: product decision pending (see PR #1183).
-    "UserBlock": "safety record, product decision pending",
-    "UserReport": "safety record, product decision pending",
-    "ConnectReport": "safety record, product decision pending",
-    # Interaction records shared with another member: product decision pending.
-    "EventMeetSignal": "shared with counterpart, product decision pending",
-    "EventMeetingConfirmation": "shared with counterpart, product decision pending",
-    "ConfirmedEncounter": "shared with counterpart, product decision pending",
+    # Safety records, decided 2026-10-15: reports by or about the member are
+    # kept for safety and legal claims. After full-account deletion they point
+    # only at the anonymised, inactive account; profile-only deletion leaves
+    # the login account itself in place.
+    "UserReport": "safety record (decided 2026-10-15)",
+    "ConnectReport": "safety record (decided 2026-10-15)",
+    # Moderation record; the encounter it is about is kept with it.
     "ConfirmedEncounterRemovalRequest": "PROTECT; moderation record",
     # Send logs are kept for aggregate audit but anonymised in place by
     # _anonymize_send_logs (email snapshot, error text, WhatsApp phone/params).
@@ -1049,6 +1055,15 @@ def _purge_user_keyed_personal_data(user, full_account=False):
                 # be mailed refund notices, so a master opt-out must outlive
                 # it. Full-account deletion removes it with the account.
                 rows = rows.exclude(unsubscribed_all=True)
+            if model_name == "ConfirmedEncounter":
+                # A removal request (open or decided) cascades from its
+                # encounter, so deleting the encounter would delete the
+                # moderation record too. Both stay; the rest go.
+                rows = rows.exclude(
+                    pk__in=apps.get_model(
+                        "crush_lu", "ConfirmedEncounterRemovalRequest"
+                    ).objects.values("encounter_id")
+                )
             _delete_stored_files(rows)
             deleted, _ = rows.delete()
             if deleted:
@@ -2106,7 +2121,9 @@ def gdpr_data_management(request):
                 logout(request)
                 messages.success(
                     request,
-                    _("Your account and all your data have been permanently deleted."),
+                    _(
+                        "Your account has been deleted. We keep only what we need to: payment and credit records, a record of this deletion, and safety reports."
+                    ),
                 )
                 return redirect("crush_lu:home")
             except Exception as e:

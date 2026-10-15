@@ -177,9 +177,135 @@ class AccountErasureCompletenessTests(TestCase):
             IOSAppDevice, ConnectChatMessage, ConnectTemporaryChat,
         ):
             self.assertEqual(model.objects.count(), 0, model.__name__)
-        # Moderation/safety records are retained pending a product decision.
-        self.assertEqual(UserBlock.objects.count(), 1)
+        # Decided 2026-10-15: blocks go with the account, reports stay.
+        self.assertEqual(UserBlock.objects.count(), 0)
         self.assertEqual(UserReport.objects.count(), 1)
+
+    def _seed_shared_records(self, third):
+        """Blocks, reports and "we met" rows on both sides of the member."""
+        from crush_lu.models import (
+            ConfirmedEncounter, ConfirmedEncounterRemovalRequest,
+            EventMeetingConfirmation, EventMeetSignal, MeetupEvent, UserBlock,
+            UserReport,
+        )
+        from crush_lu.models.crush_connect_cycle import ConnectReport
+
+        event = MeetupEvent.objects.create(
+            title='Lobby', description='d', event_type='mixer',
+            date_time=timezone.now() - timedelta(hours=2), location='Lux',
+            address='1 Street', max_participants=20,
+            registration_deadline=timezone.now() - timedelta(days=1),
+            is_published=True,
+        )
+        UserBlock.objects.create(blocker=self.user, blocked=self.other)
+        UserBlock.objects.create(blocker=third, blocked=self.user)
+        UserBlock.objects.create(blocker=third, blocked=self.other)
+        UserReport.objects.create(
+            reporter=self.user, reported_user=self.other, reason='spam',
+        )
+        UserReport.objects.create(
+            reporter=third, reported_user=self.user, reason='spam',
+        )
+        ConnectReport.objects.create(
+            reporter=third, reported_user=self.user, reason='other',
+        )
+        EventMeetSignal.objects.create(
+            event=event, sender=self.user, recipient=self.other,
+        )
+        EventMeetSignal.objects.create(
+            event=event, sender=third, recipient=self.user,
+        )
+        EventMeetSignal.objects.create(
+            event=event, sender=third, recipient=self.other,
+        )
+        EventMeetingConfirmation.objects.create(
+            event=event, confirmer=self.other, other_user=self.user,
+        )
+
+        def encounter(a, b):
+            low, high = sorted((a, b), key=lambda u: u.pk)
+            return ConfirmedEncounter.objects.create(user_low=low, user_high=high)
+
+        encounter(self.user, self.other)
+        under_review = encounter(self.user, third)
+        ConfirmedEncounterRemovalRequest.objects.create(
+            encounter=under_review, requested_by=third, reason='safety',
+        )
+        encounter(self.other, third)
+        return under_review
+
+    def _assert_shared_records_handled(self, third, under_review):
+        from django.db.models import Q
+
+        from crush_lu.models import (
+            ConfirmedEncounter, ConfirmedEncounterRemovalRequest,
+            EventMeetingConfirmation, EventMeetSignal, UserBlock, UserReport,
+        )
+        from crush_lu.models.crush_connect_cycle import ConnectReport
+
+        user = self.user
+        # Blocks go in both directions; blocks between other members stay.
+        self.assertFalse(
+            UserBlock.objects.filter(Q(blocker=user) | Q(blocked=user)).exists()
+        )
+        self.assertTrue(
+            UserBlock.objects.filter(blocker=third, blocked=self.other).exists()
+        )
+        # "We met" rows involving the member go; other members' rows stay.
+        self.assertFalse(
+            EventMeetSignal.objects.filter(Q(sender=user) | Q(recipient=user)).exists()
+        )
+        self.assertEqual(EventMeetSignal.objects.count(), 1)
+        self.assertFalse(EventMeetingConfirmation.objects.exists())
+        # The encounter under a removal request is a moderation record: it and
+        # the request stay. The member's other encounter goes.
+        self.assertEqual(
+            list(
+                ConfirmedEncounter.objects.filter(
+                    Q(user_low=user) | Q(user_high=user)
+                ).values_list('pk', flat=True)
+            ),
+            [under_review.pk],
+        )
+        self.assertEqual(ConfirmedEncounterRemovalRequest.objects.count(), 1)
+        self.assertEqual(ConfirmedEncounter.objects.count(), 2)
+        # Reports by and about the member are kept (safety records).
+        self.assertEqual(UserReport.objects.count(), 2)
+        self.assertEqual(ConnectReport.objects.count(), 1)
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_full_deletion_purges_blocks_and_we_met_records(self, _storage):
+        """Decisions of 2026-10-15 (#1183)."""
+        from django.contrib.auth import get_user_model
+
+        from crush_lu.models import UserReport
+        from crush_lu.views import delete_full_account
+
+        third = get_user_model().objects.create_user(
+            username='t@example.com', email='t@example.com', password='x',
+        )
+        under_review = self._seed_shared_records(third)
+        delete_full_account(self.user)
+        self._assert_shared_records_handled(third, under_review)
+        # Kept reports now point only at the anonymised, inactive account.
+        for report in UserReport.objects.select_related('reporter', 'reported_user'):
+            for party in (report.reporter, report.reported_user):
+                if party.pk == self.user.pk:
+                    self.assertFalse(party.is_active)
+                    self.assertNotIn('del@example.com', party.email)
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_profile_only_deletion_purges_blocks_and_we_met_records(self, _storage):
+        from django.contrib.auth import get_user_model
+
+        from crush_lu.views_account import delete_crushlu_profile_only
+
+        third = get_user_model().objects.create_user(
+            username='t@example.com', email='t@example.com', password='x',
+        )
+        under_review = self._seed_shared_records(third)
+        delete_crushlu_profile_only(self.user)
+        self._assert_shared_records_handled(third, under_review)
 
     @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
     def test_erasure_does_not_touch_other_members_data(self, _storage):
