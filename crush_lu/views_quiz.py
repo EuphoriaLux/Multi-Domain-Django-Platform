@@ -40,6 +40,19 @@ def _photo_url(profile):
     return None
 
 
+def _add_photo_focus(entries):
+    """Set ``photo_focus`` on ``(entry, user_id)`` pairs: the coach-set
+    ``object-position`` of the published main photo ``quiz_display_photo``
+    projects, ``""`` for the default. One batched lookup per payload."""
+    from .services.photo_framing import primary_photo_positions
+
+    positions = primary_photo_positions(
+        None, [user_id for entry, user_id in entries if entry["photo_url"]]
+    )
+    for entry, user_id in entries:
+        entry["photo_focus"] = positions.get(user_id, "") if entry["photo_url"] else ""
+
+
 _AVATAR_COLORS = [
     "#8B5CF6",
     "#EC4899",
@@ -104,6 +117,7 @@ def _get_table_members_json(quiz, round_number=0):
     tables = QuizTable.objects.filter(quiz=quiz).order_by("table_number")
     rotation_exists = _round_has_schedule(quiz, round_number)
     result = []
+    focus_entries = []
     for table in tables:
         members = []
         if rotation_exists:
@@ -113,28 +127,28 @@ def _get_table_members_json(quiz, round_number=0):
             for r in rotations:
                 profile = getattr(r.user, "crushprofile", None)
                 name = (profile.display_name if profile else None) or "Anonymous"
-                members.append(
-                    {
-                        "display_name": name,
-                        "role": r.role,
-                        "initials": _member_initials(name),
-                        "color": _member_color(name),
-                        "photo_url": _photo_url(profile),
-                    }
-                )
+                member = {
+                    "display_name": name,
+                    "role": r.role,
+                    "initials": _member_initials(name),
+                    "color": _member_color(name),
+                    "photo_url": _photo_url(profile),
+                }
+                members.append(member)
+                focus_entries.append((member, r.user_id))
         else:
             for m in table.memberships.select_related("user__crushprofile"):
                 profile = getattr(m.user, "crushprofile", None)
                 name = (profile.display_name if profile else None) or "Anonymous"
-                members.append(
-                    {
-                        "display_name": name,
-                        "role": "",
-                        "initials": _member_initials(name),
-                        "color": _member_color(name),
-                        "photo_url": _photo_url(profile),
-                    }
-                )
+                member = {
+                    "display_name": name,
+                    "role": "",
+                    "initials": _member_initials(name),
+                    "color": _member_color(name),
+                    "photo_url": _photo_url(profile),
+                }
+                members.append(member)
+                focus_entries.append((member, m.user_id))
         result.append(
             {
                 "table_id": table.id,
@@ -143,6 +157,7 @@ def _get_table_members_json(quiz, round_number=0):
                 "total_score": table.get_total_score(),
             }
         )
+    _add_photo_focus(focus_entries)
     return result
 
 
@@ -537,6 +552,7 @@ def quiz_table_display_data(request, event_id):
         .order_by("-total")[:10]
     )
     individual_scores = []
+    focus_entries = []
     for entry in top_individuals:
         try:
             profile = CrushProfile.objects.get(user_id=entry["user_id"])
@@ -545,15 +561,16 @@ def quiz_table_display_data(request, event_id):
         except CrushProfile.DoesNotExist:
             name = "Anonymous"
             photo_url = None
-        individual_scores.append(
-            {
-                "display_name": name,
-                "total_score": entry["total"],
-                "initials": _member_initials(name),
-                "color": _member_color(name),
-                "photo_url": photo_url,
-            }
-        )
+        score = {
+            "display_name": name,
+            "total_score": entry["total"],
+            "initials": _member_initials(name),
+            "color": _member_color(name),
+            "photo_url": photo_url,
+        }
+        individual_scores.append(score)
+        focus_entries.append((score, entry["user_id"]))
+    _add_photo_focus(focus_entries)
     data["leaderboard_individuals"] = individual_scores
 
     return JsonResponse(data)

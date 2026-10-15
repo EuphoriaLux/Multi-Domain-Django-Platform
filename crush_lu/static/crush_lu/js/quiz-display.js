@@ -972,6 +972,8 @@ document.addEventListener("alpine:init", function () {
                     img.className =
                         "shrink-0 rounded-full object-cover object-face ring-2 ring-slate-700 " +
                         imgDim;
+                    // Coach-set focus of the projected photo (photo_framing).
+                    if (member.photo_focus) img.style.objectPosition = member.photo_focus;
                     var fallback = document.createElement("div");
                     fallback.className =
                         "shrink-0 rounded-full items-center justify-center font-bold text-white " +
@@ -1271,6 +1273,7 @@ document.addEventListener("alpine:init", function () {
                             initials: player.initials,
                             color: player.color,
                             photo_url: player.photo_url,
+                            photo_focus: player.photo_focus,
                         }),
                     );
 
@@ -1311,6 +1314,7 @@ document.addEventListener("alpine:init", function () {
                                 initials: player.initials,
                                 color: player.color,
                                 photo_url: player.photo_url,
+                                photo_focus: player.photo_focus,
                             },
                             "lg",
                         ),

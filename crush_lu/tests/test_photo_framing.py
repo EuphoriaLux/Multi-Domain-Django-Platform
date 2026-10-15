@@ -326,6 +326,82 @@ def test_batched_positions_follow_the_photo_route_rule():
     }
 
 
+def test_quiz_avatars_carry_the_focus_of_the_projected_photo():
+    """The projector shows the published photo (``quiz_display_photo``)."""
+    from crush_lu.views_quiz import _add_photo_focus, _photo_url
+
+    framed = _held_replacement(_make_candidate())
+    _frame(framed, KEY, 10, 20)
+    _frame(framed, NEW_KEY, 80, 90)
+    plain = _make_candidate(username="candidate_2", photo_key="users/2/photos/p.jpg")
+    entries = [
+        ({"photo_url": _photo_url(framed)}, framed.user_id),
+        ({"photo_url": _photo_url(plain)}, plain.user_id),
+        ({"photo_url": None}, framed.user_id),  # initials avatar
+    ]
+
+    _add_photo_focus(entries)
+
+    assert [entry["photo_focus"] for entry, _user_id in entries] == ["10% 20%", "", ""]
+
+
+def test_the_coach_connect_pool_reads_framings_once():
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    from crush_lu.models import UserDataConsent
+    from crush_lu.tests.test_crush_connect import _make_user
+
+    member = _make_user(username="member")
+    candidates = [_make_user(username=f"pool_{i}", gender="F") for i in range(4)]
+    for i, candidate in enumerate(candidates):
+        _frame(candidate.crushprofile, candidate.crushprofile.photo_1.name, i, 30)
+    coach_user = member.crushprofile.assigned_coach.user
+    UserDataConsent.objects.update_or_create(
+        user=coach_user, defaults={"crushlu_consent_given": True}
+    )
+    client = Client()
+    client.force_login(coach_user)
+
+    with patch(
+        "crush_lu.services.crush_connect.get_eligible_pool",
+        return_value=User.objects.filter(pk__in=[c.pk for c in candidates]),
+    ), CaptureQueriesContext(connection) as queries:
+        page = client.get(f"/en/coach/connect/member/{member.pk}/")
+
+    assert page.status_code == 200
+    assert 'style="object-position: 3% 30%"' in page.content.decode()
+    framing_reads = [
+        query
+        for query in queries.captured_queries
+        if "profilephotoframing" in query["sql"].lower()
+    ]
+    assert len(framing_reads) == 1
+
+
+def test_the_apple_pass_push_is_bounded_in_the_request(settings):
+    """One serial pushes to every registered device (10s timeout each) from
+    inside the request that changed the pass."""
+    import time
+
+    from crush_lu.signals import _trigger_apple_pass_refresh
+
+    settings.WALLET_APPLE_PASS_TYPE_IDENTIFIER = "pass.lu.crush"
+    settings.PASSKIT_BULK_PUSH_BUDGET_SECONDS = 3.0
+    profile = _make_candidate()
+    profile.apple_pass_serial = "pass-1"
+
+    with patch(
+        "crush_lu.wallet.passkit_apns.send_passkit_push_notifications",
+        return_value={"success": 0, "failed": 0, "total": 0},
+    ) as push, TestCase.captureOnCommitCallbacks(execute=True):
+        before = time.monotonic()
+        _trigger_apple_pass_refresh(profile)
+
+    deadline = push.call_args.kwargs["deadline"]
+    assert before < deadline <= time.monotonic() + 3.0
+
+
 # --- Coach page and endpoint -------------------------------------------------
 
 
