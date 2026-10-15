@@ -42763,18 +42763,22 @@ msgstr "Option 2 : Supprimer tout votre compte"
 
 #: templates/crush_lu/gdpr_data_management.html
 msgid ""
-"Permanently deletes your login account and all your data, including on any "
-"other service run by the same operator where you use it. This cannot be "
-"undone."
+"Permanently deletes your login account and your personal data, including on "
+"any other service run by the same operator where you use it. We keep only "
+"payment and credit records, a record of this deletion, and safety reports. "
+"This cannot be undone."
 msgstr ""
-"Supprime définitivement votre compte de connexion et toutes vos données, y "
-"compris sur les autres services du même exploitant où vous l'utilisez. Cette "
-"action est irréversible."
+"Supprime définitivement votre compte de connexion et vos données "
+"personnelles, y compris sur les autres services du même exploitant où vous "
+"l'utilisez. Nous ne conservons que les données de paiement et de crédit, une "
+"trace de cette suppression et les signalements de sécurité. Cette action est "
+"irréversible."
 
 #: templates/crush_lu/gdpr_data_management.html
-msgid "Delete your entire account and all your data? This cannot be undone."
+msgid ""
+"Delete your entire account and your personal data? This cannot be undone."
 msgstr ""
-"Supprimer tout votre compte et toutes vos données ? Cette action est "
+"Supprimer tout votre compte et vos données personnelles ? Cette action est "
 "irréversible."
 
 #: templates/crush_lu/gdpr_data_management.html
@@ -42824,8 +42828,13 @@ msgstr ""
 "Votre profil Crush.lu a été supprimé. Votre compte de connexion reste actif."
 
 #: views_account.py
-msgid "Your account and all your data have been permanently deleted."
-msgstr "Votre compte et toutes vos données ont été définitivement supprimés."
+msgid ""
+"Your account has been deleted. We keep only what we need to: payment and "
+"credit records, a record of this deletion, and safety reports."
+msgstr ""
+"Votre compte a été supprimé. Nous ne conservons que le strict nécessaire : "
+"les données de paiement et de crédit, une trace de cette suppression et les "
+"signalements de sécurité."
 
 #: templates/crush_lu/moderation/blocked_members.html
 #, python-format
