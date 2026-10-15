@@ -271,16 +271,28 @@ jobs:
         # answers (healthz/readyz pass on it too), so poll until /readyz/
         # reports this run's commit before judging the deployment.
         #
-        # `-f` matters: the commit stamp comes from build_info.json, a FILE in
-        # the deploy package. App Service serves /home/site/wwwroot from shared
-        # storage, so the still-running old gunicorn reports the new SHA the
-        # moment the files land — while `migrate` only runs later, in
-        # startup.sh, when the container actually restarts. Without -f this
-        # loop accepts a 503 body, matches the SHA, and hands a
-        # mid-migration container to the smoke test ("N unapplied
-        # migration(s)"). Failing on non-2xx makes the gate wait for the new
-        # build AND a genuinely ready one; the 60x10s budget already covers
-        # the startup migration window.
+        # The commit is the build_info.json the answering process read AT
+        # BOOT (readiness.build_info). It used to be read per request. App
+        # Service serves /home/site/wwwroot from shared storage, so the old
+        # gunicorn then reported the new SHA as soon as the files landed. Once
+        # the new container's `migrate` had run, or at once if there were no
+        # new migrations, this gate passed on the OLD process. The smoke test
+        # then ran against old code. Its HTML linked the previous build's
+        # hashed stylesheet, which `--clean` had just deleted, so that fetch
+        # 500ed. That turned the deploys of #1261, #1262 and #1266 red, and
+        # the green ones had tested the old code too. App Insights, #1266:
+        # every request from 19:13:25 to 19:14:07 was served by a process
+        # booted at ~17:19, and the new worker took its first request at
+        # 19:14:07.
+        #
+        # `-f` still matters: a new process whose checks fail (Redis,
+        # storage, DB) reports the right SHA in a 503 body. Failing on
+        # non-2xx makes the gate wait for the new build AND a ready one. The
+        # 60x10s budget covers startup.sh's migrate before gunicorn starts.
+        #
+        # The first deploy carrying this change still meets an old process
+        # with the per-request read. smoke.py's bounded stylesheet retry
+        # covers that one.
         run: |
           echo "Waiting for staging to serve ${GITHUB_SHA}..."
           for i in $(seq 1 60); do
