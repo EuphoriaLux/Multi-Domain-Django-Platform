@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.views.decorators.http import require_http_methods
 from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.db import transaction
@@ -503,9 +504,13 @@ def upload_photo_draft(request):
         setattr(profile, photo_field, photo_file)
         profile.save(update_fields=[photo_field])
 
-        # Get the URL of the uploaded photo
-        photo_obj = getattr(profile, photo_field)
-        photo_url = photo_obj.url if photo_obj else None
+        # The access-checked photo endpoint, not the storage URL. On Azure
+        # that is a SAS link that expires within the hour, and the wizard
+        # restores this draft URL as the preview when the member comes back.
+        photo_url = reverse(
+            "crush_lu:serve_profile_photo",
+            kwargs={"user_id": request.user.id, "photo_field": photo_field},
+        )
 
         # Store photo URL in draft for recovery
         if not profile.draft_data:

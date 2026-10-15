@@ -3606,28 +3606,17 @@ document.addEventListener("alpine:init", function () {
                                 }
                                 if (result.success) {
                                     self.photos[index].uploadedUrl = result.photo_url;
-                                    // Replace the native file input's
-                                    // FileList with the resized copy so a
-                                    // final non-JS form submit re-sends the
-                                    // already-uploaded resized file instead
-                                    // of the original (finding 3-16).
+                                    // The photo is saved on the profile now,
+                                    // so empty the native file input. The
+                                    // final form submit would otherwise send
+                                    // it a second time: a second stored file,
+                                    // and a second hit on the slot's daily
+                                    // upload limit. A failed upload keeps the
+                                    // file in the input as the fallback.
                                     var input = document.getElementById(
                                         "photo" + photoNumber,
                                     );
-                                    if (input && typeof DataTransfer !== "undefined") {
-                                        try {
-                                            var dt = new DataTransfer();
-                                            dt.items.add(uploadFile);
-                                            input.files = dt.files;
-                                        } catch (e) {
-                                            // Browser lacks a writable
-                                            // DataTransfer/File constructor
-                                            // pairing — leave the input as
-                                            // the browser set it; the
-                                            // resized copy is still saved
-                                            // server-side via the draft.
-                                        }
-                                    }
+                                    if (input) input.value = "";
                                 } else {
                                     console.error(
                                         "[PHOTO UPLOAD] ❌ Upload failed:",

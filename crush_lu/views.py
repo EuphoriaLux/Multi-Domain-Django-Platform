@@ -1949,6 +1949,12 @@ def edit_profile(request):
         )
         if submission and submission.status == "rejected":
             return redirect("crush_lu:profile_rejected")
+        # Photos stay editable before verification. Coaches review a pending
+        # member's photos like anyone's, and the replace-your-photo email, the
+        # in-app notice and the Connect/lobby photo gates all link here.
+        # Without this the member landed on the status page with no editor.
+        if request.GET.get("section") == "photos":
+            return _edit_section_photos(request, profile)
         if submission and submission.status == "revision":
             messages.warning(
                 request,

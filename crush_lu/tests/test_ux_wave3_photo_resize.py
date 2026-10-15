@@ -129,16 +129,15 @@ class PhotoUploadResizeAndToastTests(SimpleTestCase):
                 template,
             )
 
-    def test_successful_auto_upload_replaces_the_file_input_with_the_resized_copy(
-        self,
-    ):
-        """[Codex review round 2, PR #1070] After the auto-upload succeeds,
-        the native `photo_N` file input still held the original, full-size
-        `File` — the final non-JS `form.submit()` in `handleFormSubmit`
-        therefore re-sent the original (defeating the resize, and able to
-        exceed the form's 10 MB limit even though the resized copy already
-        saved fine). The success branch must swap the input's FileList for
-        the resized file via DataTransfer."""
+    def test_successful_auto_upload_empties_the_file_input(self):
+        """After the auto-upload succeeds, the native `photo_N` file input
+        must not still hold a file. The final `form.submit()` in
+        `handleFormSubmit` would send it again: a full-size original could
+        exceed the form's 10 MB limit [Codex review round 2, PR #1070], and
+        even the resized copy was stored a second time and counted twice
+        against the slot's daily upload limit, so one wizard change used up
+        two of a member's four daily uploads. The saved file is already on
+        the profile, so the success branch empties the input instead."""
         select_start = self.component_src.index("_handleFileSelect: function")
         select_end = self.component_src.index("removePhoto1: function", select_start)
         select_src = self.component_src[select_start:select_end]
@@ -147,8 +146,8 @@ class PhotoUploadResizeAndToastTests(SimpleTestCase):
         success_src = select_src[success_start:success_end]
         self.assertIn(
             'document.getElementById(\n                                        "photo" + photoNumber',
-            select_src,
+            success_src,
         )
-        self.assertIn("new DataTransfer()", success_src)
-        self.assertIn("dt.items.add(uploadFile)", success_src)
-        self.assertIn("input.files = dt.files", success_src)
+        self.assertIn('if (input) input.value = "";', success_src)
+        self.assertNotIn("input.files =", success_src)
+        self.assertNotIn("DataTransfer", select_src)

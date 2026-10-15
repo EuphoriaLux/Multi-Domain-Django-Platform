@@ -119,9 +119,17 @@ class AccountDrillDownAccessTests(TestCase):
             self.assertEqual(response.status_code, 200, sub)
 
     def test_other_sections_keep_the_verified_only_gate(self):
+        # Photos are the one exception for a pending member, who must be able
+        # to replace a photo a coach sent back (test_pending_member_photos).
         self.client.force_login(self.users["pending"])
-        response = self.client.get("/en/profile/edit/?section=photos", HTTP_HOST=HOST)
+        response = self.client.get("/en/profile/edit/?section=privacy", HTTP_HOST=HOST)
         self.assertEqual(response.status_code, 302)
+        for state in ("incomplete", "rejected"):
+            self.client.force_login(self.users[state])
+            response = self.client.get(
+                "/en/profile/edit/?section=photos", HTTP_HOST=HOST
+            )
+            self.assertEqual(response.status_code, 302, state)
         self.client.force_login(self.users["no_profile"])
         response = self.client.get("/en/profile/edit/?section=privacy", HTTP_HOST=HOST)
         self.assertEqual(response.status_code, 302)
