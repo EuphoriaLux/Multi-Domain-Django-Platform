@@ -1404,6 +1404,12 @@ class CrushProfile(models.Model):
                 instance.photo_verification_key,
                 instance.photo_verified_at,
             )
+        photo_fields = ("photo_1", "photo_2", "photo_3")
+        if all(field in field_names for field in photo_fields):
+            instance._loaded_photo_keys = tuple(
+                getattr(getattr(instance, field), "name", "") or ""
+                for field in photo_fields
+            )
         review_fields = (
             "photo_review_status",
             "photo_review_key",
@@ -1427,6 +1433,7 @@ class CrushProfile(models.Model):
         5. Protect an untouched verification decision from stale full-row saves.
         6. Invalidate photo attestation when the primary photo changes.
         7. Omit untouched online photo-review columns from unrelated updates.
+        8. Keep a photo slot's current file when this save left it untouched.
         """
         loaded_verification = getattr(self, "_loaded_verification", None)
         verification_fields = (
@@ -1479,12 +1486,31 @@ class CrushProfile(models.Model):
                     for field in verification_fields:
                         setattr(self, field, getattr(old_instance, field))
 
+                # A coach can reorder photos (services/photo_order.py) while
+                # another request holds this instance. A slot this caller left
+                # untouched since loading keeps the row's file, so a stale copy
+                # never writes an old key back, counts it as an upload or
+                # deletes the file the slot holds now.
+                loaded_photo_keys = getattr(self, "_loaded_photo_keys", None)
+                if loaded_photo_keys is not None:
+                    for field_name, loaded_key in zip(
+                        ("photo_1", "photo_2", "photo_3"), loaded_photo_keys
+                    ):
+                        row_photo = getattr(old_instance, field_name)
+                        row_key = getattr(row_photo, "name", "") or ""
+                        own_key = getattr(getattr(self, field_name), "name", "") or ""
+                        if own_key == loaded_key != row_key:
+                            setattr(self, field_name, row_photo)
+
                 old_photo_key = getattr(old_instance.photo_1, "name", "") or ""
                 new_photo_key = getattr(self.photo_1, "name", "") or ""
                 update_fields = kwargs.get("update_fields")
-                writes_primary_photo = update_fields is None or "photo_1" in set(
-                    update_fields
-                )
+                written_photo_fields = {
+                    field_name
+                    for field_name in ("photo_1", "photo_2", "photo_3")
+                    if update_fields is None or field_name in set(update_fields)
+                }
+                writes_primary_photo = "photo_1" in written_photo_fields
                 primary_photo_changed = (
                     writes_primary_photo and old_photo_key != new_photo_key
                 )
@@ -1492,6 +1518,15 @@ class CrushProfile(models.Model):
                     # Invalidate photo attestation on photo change unless this save
                     # is carrying forward an attestation from an old photo that was
                     # verified in the DB up to this write (e.g. reprocess_photos).
+                    attested_key = old_instance.photo_verification_key
+                    kept_keys = set()
+                    for field_name in ("photo_2", "photo_3"):
+                        source = (
+                            self if field_name in written_photo_fields else old_instance
+                        )
+                        kept_keys.add(
+                            getattr(getattr(source, field_name), "name", "") or ""
+                        )
                     if (
                         old_photo_key
                         and old_instance.photo_verification_key == old_photo_key
@@ -1499,6 +1534,13 @@ class CrushProfile(models.Model):
                         and self.photo_verified_at is not None
                     ):
                         pass
+                    elif attested_key and attested_key in kept_keys:
+                        # A coach moved the attested file out of the main slot
+                        # (services/photo_order.py). The attestation names that
+                        # file, so it stays while the member keeps the file and
+                        # the badge returns if it becomes the main photo again.
+                        self.photo_verification_key = attested_key
+                        self.photo_verified_at = old_instance.photo_verified_at
                     else:
                         self.photo_verification_key = ""
                         self.photo_verified_at = None
@@ -1645,19 +1687,16 @@ class CrushProfile(models.Model):
                     new_photo = getattr(self, field_name)
                     old_key = getattr(old_photo, "name", "") or ""
                     new_key = getattr(new_photo, "name", "") or ""
-                    if old_key == new_key:
+                    if old_key == new_key or field_name not in written_photo_fields:
+                        # An unwritten slot keeps the row's file: never
+                        # delete it for a stale in-memory key.
                         continue
-                    writes_slot = kwargs.get(
-                        "update_fields"
-                    ) is None or field_name in set(kwargs["update_fields"])
-                    if writes_slot and not new_key:
+                    if not new_key:
                         # Removed: its published file goes too, once the
                         # save below has succeeded (the old live file stays
                         # until then if it is the published one).
                         cleared_slots.append(field_name)
-                    elif writes_slot and not getattr(
-                        self, "_skip_photo_upload_record", False
-                    ):
+                    elif not getattr(self, "_skip_photo_upload_record", False):
                         # A reprocessed file keeps its image; anything else
                         # is a member upload counted for the daily limit,
                         # once the save below has succeeded.
@@ -1717,6 +1756,10 @@ class CrushProfile(models.Model):
             getattr(self.photo_1, "name", "") or "",
             self.photo_verification_key,
             self.photo_verified_at,
+        )
+        self._loaded_photo_keys = tuple(
+            getattr(getattr(self, field), "name", "") or ""
+            for field in ("photo_1", "photo_2", "photo_3")
         )
         self._loaded_photo_review = (
             self.photo_review_status,

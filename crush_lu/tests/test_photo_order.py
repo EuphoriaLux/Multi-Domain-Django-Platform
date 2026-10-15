@@ -246,6 +246,76 @@ def test_the_in_person_badge_follows_its_file(side_effects):
     assert _fresh(profile).is_photo_verified
 
 
+def test_the_badge_survives_a_new_main_upload_while_its_file_stays(side_effects):
+    coach, profile = _make_coach(), _member()
+    CrushProfile.objects.filter(pk=profile.pk).update(photo_verification_key=K1)
+    _swap(coach, profile, "photo_2", "photo_1", K2, K1)
+
+    # The member replaces the new main photo; the attested K1 is still photo 2.
+    K4 = "users/1/photos/photo4.jpg"
+    profile = _fresh(profile)
+    profile.photo_1 = K4
+    profile.save()
+    assert _fresh(profile).photo_verification_key == K1
+
+    _swap(coach, _fresh(profile), "photo_2", "photo_1", K1, K4)
+    assert _fresh(profile).is_photo_verified
+
+
+@pytest.mark.parametrize("update_fields", [None, ["bio"]])
+@pytest.mark.parametrize(
+    "swap, expected",
+    [
+        (("photo_2", "photo_1", K2, K1), {"photo_1": K2, "photo_2": K1, "photo_3": K3}),
+        (("photo_3", "photo_2", K3, K2), {"photo_1": K1, "photo_2": K3, "photo_3": K2}),
+    ],
+)
+def test_a_stale_profile_save_keeps_the_swapped_photos(
+    deleted_blobs, side_effects, swap, expected, update_fields
+):
+    coach, profile = _make_coach(), _member()
+    stale = _fresh(profile)  # e.g. a member request in flight during the swap
+    _swap(coach, profile, *swap)
+    states = _slots(ProfilePhotoReviewState, profile)
+
+    stale.bio = "Updated meanwhile"
+    stale.save(update_fields=update_fields)
+
+    profile = _fresh(profile)
+    assert {
+        field: getattr(profile, field).name
+        for field in ("photo_1", "photo_2", "photo_3")
+    } == expected
+    assert profile.bio == "Updated meanwhile"
+    # Neither re-counted as uploads nor deleted (K3 is published nowhere).
+    assert deleted_blobs == []
+    assert not ProfilePhotoUpload.objects.exists()
+    assert _slots(ProfilePhotoReviewState, profile) == states
+    assert profile.get_photo_field_review_status("photo_1") == "approved"
+
+
+def test_a_loaded_profile_still_saves_its_own_new_photo(deleted_blobs, side_effects):
+    coach, profile = _make_coach(), _member()
+    stale = _fresh(profile)
+    _swap(coach, profile, "photo_3", "photo_2", K3, K2)
+
+    K4 = "users/1/photos/photo4.jpg"
+    stale.photo_1 = K4
+    stale.save()
+
+    profile = _fresh(profile)
+    assert (profile.photo_1.name, profile.photo_2.name, profile.photo_3.name) == (
+        K4,
+        K3,
+        K2,
+    )
+    assert list(ProfilePhotoUpload.objects.values_list("photo_field", flat=True)) == [
+        "photo_1"
+    ]
+    # K1 is still published, so other members keep seeing it.
+    assert deleted_blobs == []
+
+
 def test_secondary_photos_can_be_reordered_whatever_their_review(side_effects):
     notify, wallet = side_effects
     coach, profile = _make_coach(), _member()
