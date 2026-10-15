@@ -79,8 +79,11 @@ class ExportMemberActivityTests(TestCase):
         ):
             self.assertEqual(data[key], [])
         self.assertIsNone(data["crush_connect"]["waitlist"])
+        self.assertEqual(data["crush_connect"]["sessions"], [])
         self.assertEqual(data["crush_connect"]["cycle_feedback"], [])
+        self.assertEqual(data["referrals"]["your_codes"], [])
         self.assertEqual(data["referrals"]["you_were_referred"], [])
+        self.assertEqual(data["event_lobby"]["removal_requests_you_made"], [])
         self.assertEqual(data["safety"]["blocks_made"], [])
         self.assertEqual(data["event_lobby"]["meet_signals_sent"], [])
 
@@ -164,6 +167,10 @@ class ExportMemberActivityTests(TestCase):
         self.assertTrue(connect["waitlist"]["payment_confirmed"])
         self.assertNotIn("confirmed_by", connect["waitlist"])
         self.assertEqual(connect["cycle_feedback"][0]["comment"], "my week feedback")
+        # Only the member's own week; the highlighted member never appears.
+        self.assertEqual(len(connect["sessions"]), 1)
+        self.assertIsNotNone(connect["sessions"][0]["started_at"])
+        self.assertNotIn("compatibility_highlight_user", json.dumps(connect))
         self.assertIsNotNone(connect["cycle_feedback"][0]["week_started_at"])
         membership = connect["membership"]
         self.assertEqual(membership["smoking"], "never")
@@ -399,6 +406,10 @@ class ExportMemberActivityTests(TestCase):
         data = self._export()
         arrivals = data["referrals"]["you_were_referred"]
         self.assertEqual([a["landing_path"] for a in arrivals], ["/join", "/second"])
+        self.assertEqual(
+            [c["code"] for c in data["referrals"]["your_codes"]], [my_code.code]
+        )
+        self.assertNotIn(their_code.code, json.dumps(data["referrals"]))
         self.assertEqual(arrivals[0]["ip_address"], "1.2.3.4")
         self.assertEqual(len(data["referrals"]["people_you_referred"]), 1)
         dump = json.dumps(data)
@@ -418,6 +429,8 @@ class ExportMemberActivityTests(TestCase):
             reason="spam",
             details="my report text",
             resolution_notes="staff resolution",
+            status="resolved",
+            handled_at=timezone.now(),
         )
         UserReport.objects.create(
             reporter=self.other,
@@ -431,10 +444,13 @@ class ExportMemberActivityTests(TestCase):
             reason="other",
             details="connect report text",
             admin_notes="admin note",
+            reviewed_at=timezone.now(),
         )
 
         safety = self._export()["safety"]
         self.assertEqual(len(safety["blocks_made"]), 1)
+        self.assertIsNotNone(safety["reports_made"][0]["handled_at"])
+        self.assertIsNotNone(safety["connect_reports_made"][0]["reviewed_at"])
         self.assertEqual(safety["reports_made"][0]["details"], "my report text")
         self.assertEqual(
             safety["connect_reports_made"][0]["details"], "connect report text"
@@ -476,7 +492,27 @@ class ExportMemberActivityTests(TestCase):
             )
 
         encounter(self.user, self.other, "active")
-        encounter(self.user, third, "removal_pending")
+        under_review = encounter(self.user, third, "removal_pending")
+        from crush_lu.models.event_lobby import ConfirmedEncounterRemovalRequest
+
+        ConfirmedEncounterRemovalRequest.objects.create(
+            encounter=under_review,
+            requested_by=self.user,
+            reason="privacy",
+            details="my removal reason",
+            resolution_notes="reviewer-only note",
+        )
+        # Someone else asked to remove their encounter with the member (one
+        # request per encounter, so it needs its own encounter).
+        fourth = User.objects.create_user(
+            "fourth@example.com", "fourth@example.com", "x"
+        )
+        ConfirmedEncounterRemovalRequest.objects.create(
+            encounter=encounter(self.user, fourth, "removal_pending"),
+            requested_by=fourth,
+            reason="safety",
+            details="their removal text",
+        )
 
         lobby = self._export()["event_lobby"]
         self.assertEqual(len(lobby["meet_signals_sent"]), 1)
@@ -485,5 +521,11 @@ class ExportMemberActivityTests(TestCase):
         self.assertEqual(len(lobby["confirmed_encounters"]), 1)
         # created_from_event is internal audit provenance: date only.
         self.assertEqual(list(lobby["confirmed_encounters"][0]), ["created_at"])
+        # The member's own removal request is exported; the other person's and
+        # the reviewer's note are not.
+        requests = lobby["removal_requests_you_made"]
+        self.assertEqual([r["details"] for r in requests], ["my removal reason"])
+        for secret in ("their removal text", "reviewer-only note"):
+            self.assertNotIn(secret, json.dumps(lobby))
         self.assertNotIn("third@example.com", json.dumps(lobby))
         self._assert_other_member_absent(lobby)

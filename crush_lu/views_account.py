@@ -2739,6 +2739,11 @@ def _export_member_activity(user):
         .select_related("chat", "venue_location")
         .order_by("proposed_date", "pk")
     )
+    sessions = (
+        model("ConnectWeekSession")
+        .objects.filter(user=user)
+        .order_by("started_at", "pk")
+    )
     waitlist = model("CrushConnectWaitlist").objects.filter(user=user).first()
     feedback = (
         model("ConnectCycleFeedback")
@@ -2764,6 +2769,20 @@ def _export_member_activity(user):
             if waitlist
             else None
         ),
+        # Each Connect week the member ran, even one that produced no cards.
+        # ``compatibility_highlight_user`` names another member, so it stays out.
+        "sessions": [
+            {
+                "started_at": _iso_or_none(session.started_at),
+                "current_day": session.current_day_number,
+                "status": display(session, "status"),
+                "review_open": session.is_review_open,
+                "review_opened_at": _iso_or_none(session.review_opened_at),
+                "review_expires_at": _iso_or_none(session.review_expires_at),
+                "completed_at": _iso_or_none(session.completed_at),
+            }
+            for session in sessions
+        ],
         # The member's own end-of-week answers, keyed by their week only.
         "cycle_feedback": [
             {
@@ -2935,6 +2954,18 @@ def _export_member_activity(user):
     # Referrals: the member's own arrivals (an account merge can leave
     # several), and people they referred (counts and dates only, never who).
     activity["referrals"] = {
+        # The member's own shareable codes (``referrer`` is their profile).
+        "your_codes": [
+            {
+                "code": code.code,
+                "active": code.is_active,
+                "created_at": _iso_or_none(code.created_at),
+                "last_used_at": _iso_or_none(code.last_used_at),
+            }
+            for code in model("ReferralCode")
+            .objects.filter(referrer__user=user)
+            .order_by("created_at", "pk")
+        ],
         "you_were_referred": [
             {
                 "status": display(arrival, "status"),
@@ -2982,6 +3013,7 @@ def _export_member_activity(user):
                 "source": report.source or None,
                 "status": display(report, "status"),
                 "created_at": _iso_or_none(report.created_at),
+                "handled_at": _iso_or_none(report.handled_at),
             }
             for report in model("UserReport")
             .objects.filter(reporter=user)
@@ -2993,6 +3025,7 @@ def _export_member_activity(user):
                 "details": report.details or None,
                 "status": display(report, "status"),
                 "created_at": _iso_or_none(report.created_at),
+                "reviewed_at": _iso_or_none(report.reviewed_at),
             }
             for report in model("ConnectReport")
             .objects.filter(reporter=user)
@@ -3033,6 +3066,20 @@ def _export_member_activity(user):
             for encounter in model("ConfirmedEncounter")
             .objects.filter(Q(user_low=user) | Q(user_high=user), status="active")
             .order_by("created_at", "pk")
+        ],
+        # Removal requests the member made (their reason and text). Requests
+        # about them, reviewer identities and resolution notes stay out.
+        "removal_requests_you_made": [
+            {
+                "reason": display(request, "reason"),
+                "details": request.details or None,
+                "status": display(request, "status"),
+                "requested_at": _iso_or_none(request.requested_at),
+                "reviewed_at": _iso_or_none(request.reviewed_at),
+            }
+            for request in model("ConfirmedEncounterRemovalRequest")
+            .objects.filter(requested_by=user)
+            .order_by("requested_at", "pk")
         ],
     }
     return activity
