@@ -296,6 +296,8 @@ class ExportMemberActivityTests(TestCase):
             coach_notes="coach-only note",
             is_sender_revealed=True,
             revealed_at=timezone.now(),
+            coach_assigned_at=timezone.now(),
+            journey_created_at=timezone.now(),
         )
         CrushSpark.objects.create(
             event=event,
@@ -320,6 +322,8 @@ class ExportMemberActivityTests(TestCase):
         self.assertEqual(spark["your_message"], "my note")
         self.assertTrue(spark["revealed_to_recipient"])
         self.assertIsNotNone(spark["revealed_at"])
+        self.assertIsNotNone(spark["coach_assigned_at"])
+        self.assertIsNotNone(spark["journey_created_at"])
         gift = data["journey_gifts_sent"][0]
         self.assertEqual(gift["your_message"], "for you")
         self.assertNotIn("gift_code", gift)

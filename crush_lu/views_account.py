@@ -2904,6 +2904,9 @@ def _export_member_activity(user):
             "revealed_to_recipient": spark.is_sender_revealed,
             "revealed_at": _iso_or_none(spark.revealed_at),
             "created_at": _iso_or_none(spark.created_at),
+            # Lifecycle steps only; which coach took it on stays out.
+            "coach_assigned_at": _iso_or_none(spark.coach_assigned_at),
+            "journey_created_at": _iso_or_none(spark.journey_created_at),
             "delivered_at": _iso_or_none(spark.delivered_at),
             "completed_at": _iso_or_none(spark.completed_at),
             "expires_at": _iso_or_none(spark.expires_at),
