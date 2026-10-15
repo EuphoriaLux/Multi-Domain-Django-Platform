@@ -1155,6 +1155,24 @@ def _finalize_deletion(user):
     )
 
 
+def _accounts_to_erase(user):
+    """``user``, then every account merged into it (``AccountMerge``).
+
+    ``merge_accounts`` leaves Premium memberships, payments and the Connect,
+    spark, gift, safety and lobby rows on the deactivated duplicate, and the
+    merge is staff's assertion that both accounts are one person. So the kept
+    account's erasure request covers each duplicate with the same rules, the
+    way ``export_user_data`` includes them. Transitive, oldest merge first.
+    Merges done before the AccountMerge record existed cannot be followed.
+    """
+    from crush_lu.models import AccountMerge
+
+    return [
+        user,
+        *(merge.duplicate for merge in AccountMerge.merged_duplicates(user.pk)),
+    ]
+
+
 def delete_crushlu_profile_only(user, finalize=True, full_account=False):
     """
     Delete ONLY Crush.lu profile data, keeping PowerUp account intact.
@@ -1176,16 +1194,38 @@ def delete_crushlu_profile_only(user, finalize=True, full_account=False):
     - PowerUp consent flag
 
     Sets permanent ban preventing future Crush.lu profile creation.
+
+    Every account merged into ``user`` gets the same erasure (see
+    ``_accounts_to_erase``). No account is finalized until all of them have
+    succeeded, so a failure on a duplicate leaves the member's own ban at
+    ``deletion_in_progress`` and the whole request retryable.
+    """
+    accounts = _accounts_to_erase(user)
+
+    # First make every event checkout non-payable and retire provider state,
+    # on every account. Nothing personal is erased until this succeeds: a late
+    # SumUp capture must always retain its registration long enough to receive
+    # a seat or the automatic full-value group remedy.
+    for account in accounts:
+        _retire_event_checkouts_before_profile_deletion(account)
+
+    for account in accounts:
+        _erase_crushlu_profile(account, full_account=full_account)
+
+    if finalize:
+        for account in accounts:
+            _finalize_deletion(account)
+    logger.info(f"Crush.lu profile deleted for user {user.id} (PowerUp account kept)")
+
+
+def _erase_crushlu_profile(user, full_account=False):
+    """One account's part of ``delete_crushlu_profile_only``.
+
+    Its event checkouts must already be retired. Does not finalize.
     """
     from crush_lu.storage import delete_user_storage
 
     logger.info(f"Starting Crush.lu profile deletion for user {user.id}")
-
-    # First make every event checkout non-payable and retire provider state.
-    # Nothing personal is erased until this succeeds: a late SumUp capture
-    # must always retain its registration long enough to receive a seat or the
-    # automatic full-value group remedy.
-    _retire_event_checkouts_before_profile_deletion(user)
 
     # Fetch from the database instead of the reverse OneToOne cache.  A retry
     # can reuse the same in-memory User after an earlier attempt already
@@ -1382,10 +1422,6 @@ def delete_crushlu_profile_only(user, finalize=True, full_account=False):
 
     CampaignClick.objects.filter(user=user).update(user=None)
 
-    if finalize:
-        _finalize_deletion(user)
-    logger.info(f"Crush.lu profile deleted for user {user.id} (PowerUp account kept)")
-
 
 def _purge_other_apps_personal_data(user):
     """Full-account deletion only: purge profile-type data from other apps."""
@@ -1506,17 +1542,18 @@ def delete_full_account(user):
     - First/last names cleared
     - Password set to unusable
     - is_active = False
-    """
-    from allauth.account.models import EmailAddress
-    from allauth.socialaccount.models import SocialAccount, SocialToken
 
+    Every account merged into ``user`` (see ``_accounts_to_erase``) is
+    deleted and anonymised the same way, each under its own id.
+    """
     logger.info(f"Starting full account deletion for user {user.id}")
+    accounts = _accounts_to_erase(user)
 
     # WhatsApp inbound messages have no User FK; correlate by phone number
     # while the profile still holds it.
-    phone_numbers = _collect_user_phone_numbers(user)
+    phone_numbers = set().union(*map(_collect_user_phone_numbers, accounts))
     # Addresses must be captured before the User row is anonymised.
-    addresses = _collect_user_email_addresses(user)
+    addresses = set().union(*map(_collect_user_email_addresses, accounts))
 
     # Persist the numbers' erasure BEFORE the fallible profile deletion: on a
     # retry the profile (and so the number) is gone, so a failure after it would
@@ -1524,24 +1561,44 @@ def delete_full_account(user):
     # inbound webhook or a Hub send that lands later is stored sanitised.
     from hub.models import ErasedPhoneNumber
 
-    _mark_deletion_in_progress(user)
+    for account in accounts:
+        _mark_deletion_in_progress(account)
     ErasedPhoneNumber.record(phone_numbers)
     _anonymize_whatsapp_inbound(phone_numbers)
     _anonymize_whatsapp_outbound(phone_numbers)
 
-    # First delete Crush.lu profile
+    # First delete Crush.lu profile (it covers the merged accounts itself)
     delete_crushlu_profile_only(user, finalize=False, full_account=True)
     # Pending gifts/invitations may need stored-file deletion, which can fail:
     # do it while the member can still sign in to retry.
     _anonymize_pending_recipient_records(addresses)
 
-    # Then the other platforms' personal data on this account (hub,
-    # entreprinder, delegations): the User row survives, so it never cascades.
-    _purge_other_apps_personal_data(user)
-    _sanitize_identity_consent(user)
-    _erase_oauth_state(user)
-    # Coach record (full-account deletion only; profile-only keeps coaching).
-    _anonymize_coach_record(user)
+    for account in accounts:
+        # Then the other platforms' personal data on this account (hub,
+        # entreprinder, delegations): the User row survives, so it never
+        # cascades. A stored-file delete here can fail, so this runs for every
+        # account before any User row below is tombstoned: a tombstoned member
+        # can no longer sign in to retry.
+        _purge_other_apps_personal_data(account)
+        _sanitize_identity_consent(account)
+        _erase_oauth_state(account)
+        # Coach record (full-account deletion only; profile-only keeps coaching).
+        _anonymize_coach_record(account)
+
+    for account in accounts:
+        _anonymize_login_account(account)
+
+    _anonymize_email_delivery(addresses)
+    for account in accounts:
+        _finalize_deletion(account)
+
+    logger.info(f"Full account deleted for user {user.id} (all platforms)")
+
+
+def _anonymize_login_account(user):
+    """Tombstone the User row and remove its allauth email and social logins."""
+    from allauth.account.models import EmailAddress
+    from allauth.socialaccount.models import SocialAccount, SocialToken
 
     # Anonymize User record (instead of deleting to preserve referential integrity)
     user.email = f"deleted_{user.id}@deleted.crush.lu"
@@ -1565,11 +1622,6 @@ def delete_full_account(user):
     SocialToken.objects.filter(account__user=user).delete()
     with already_erased_social_photo_cache():
         SocialAccount.objects.filter(user=user).delete()
-
-    _anonymize_email_delivery(addresses)
-    _finalize_deletion(user)
-
-    logger.info(f"Full account deleted for user {user.id} (all platforms)")
 
 
 def data_deletion_status(request):
