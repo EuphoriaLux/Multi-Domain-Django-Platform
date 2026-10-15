@@ -2,9 +2,10 @@
 
 A focus point is rendered as ``object-position: X% Y%``. That aligns the
 image's (X%, Y%) point with the frame's (X%, Y%) point, so the chosen point
-stays inside every frame ratio (circle, square, 4:5, 5:4). It does not centre
-that point. A photo without one keeps the ``object-face`` default
-(``DEFAULT_FOCUS``, tailwind-input.css).
+stays inside every frame's box (square, 4:5, 5:4). It does not centre that
+point, and nothing is zoomed, so a round avatar can still clip a point near a
+corner of its square; the coach page previews the circle. A photo without one
+keeps the ``object-face`` default (``DEFAULT_FOCUS``, tailwind-input.css).
 
 The focus belongs to a file, not a slot: whoever renders a photo must look it
 up for the key that viewer is actually served (the owner and coaches see the

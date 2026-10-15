@@ -3741,6 +3741,20 @@ def coach_event_sms_invite(request, event_id):
         event=event, status="cancelled"
     ).count()
 
+    # Each row's photo looks up its coach-set focus (photo_framing): one
+    # query for the page, not one per row.
+    prefetch_related_objects(
+        [
+            row["profile"]
+            for row in (
+                *submitted_profiles,
+                *unsubmitted_profiles,
+                *waitlisted_profiles,
+            )
+        ],
+        "photo_framings",
+    )
+
     context = {
         "event": event,
         "submitted_profiles": submitted_profiles,

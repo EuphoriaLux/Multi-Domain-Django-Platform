@@ -535,3 +535,168 @@ def test_reprocessing_carries_the_focus_to_the_new_file(tmp_path, monkeypatch):
     assert profile.photo_1.name != old_key
     assert get_focus(profile, profile.photo_1.name) == (35, 15)
     assert get_focus(profile, old_key) is None
+
+
+def test_a_discarded_file_takes_its_focus_with_it(monkeypatch):
+    from crush_lu.services.photo_publication import publish_photo
+
+    deleted = []
+    monkeypatch.setattr(
+        CrushProfile._meta.get_field("photo_1").storage, "delete", deleted.append
+    )
+    profile = _held_replacement(_make_candidate())  # KEY published, NEW_KEY live
+    _frame(profile, KEY, 10, 10)
+    _frame(profile, NEW_KEY, 20, 20)
+    third = "users/1/photos/third.jpg"
+
+    # A replaced upload that was never published: file and focus go.
+    profile.photo_1 = third
+    profile.save()
+    assert deleted == [NEW_KEY]
+    assert set(ProfilePhotoFraming.objects.values_list("photo_key", flat=True)) == {
+        KEY  # still what other members see
+    }
+
+    # The held published file goes once its replacement is approved.
+    with TestCase.captureOnCommitCallbacks(execute=True):
+        publish_photo(profile, "photo_1", third)
+    assert deleted == [NEW_KEY, KEY]
+    assert not ProfilePhotoFraming.objects.exists()
+
+
+# --- Lists render one framing query, not one per row --------------------------
+
+
+@pytest.fixture
+def list_photos(settings, tmp_path):
+    settings.AZURE_ACCOUNT_NAME = ""
+    settings.MEDIA_ROOT = str(tmp_path)
+    settings.CRUSH_CONNECT_LAUNCHED = True
+
+
+def _get_counting_framings(client, url, viewer=None):
+    """The page, and how many framing reads it made for other members (the
+    viewer's own avatar reads its framings once on every page)."""
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    with CaptureQueriesContext(connection) as queries:
+        page = client.get(url)
+    assert page.status_code == 200
+    own = f'"profile_id" = {viewer.crushprofile.pk}' if viewer else None
+    reads = [
+        query["sql"]
+        for query in queries.captured_queries
+        if "profilephotoframing" in query["sql"].lower()
+        and not (own and own in query["sql"])
+    ]
+    return page.content.decode(), len(reads)
+
+
+def _framed(user, x):
+    _frame(user.crushprofile, user.crushprofile.photo_1.name, x, 40)
+    return user
+
+
+def test_the_coach_voting_results_read_framings_once(list_photos):
+    from django.utils import timezone
+
+    from crush_lu.models import EventVotingSession
+    from crush_lu.tests.test_photo_access import _attend, _event, _member
+
+    event = _event()
+    EventVotingSession.objects.create(
+        event=event, voting_start_time=timezone.now(), voting_end_time=timezone.now()
+    )
+    coach = _make_coach()
+    event.coaches.add(coach)
+    for i in range(3):
+        _attend(_framed(_member(f"voter_{i}"), i), event)
+    client = Client()
+    client.force_login(coach.user)
+
+    page, reads = _get_counting_framings(
+        client, f"/en/events/{event.pk}/voting/results/"
+    )
+
+    assert 'style="object-position: 2% 40%"' in page
+    assert reads == 1
+
+
+def test_the_chat_list_reads_partner_framings_once(list_photos):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from crush_lu.models.crush_connect_cycle import (
+        ConnectTemporaryChat,
+        ConnectWeeklyRequest,
+        ConnectWeekSession,
+    )
+    from crush_lu.tests.test_photo_access import _member
+
+    alice = _member("alice", photo_consent=True)
+    for i, name in enumerate(("ben", "carl", "dan")):
+        partner = _framed(_member(name, photo_consent=True), i)
+        request = ConnectWeeklyRequest.objects.create(
+            session=ConnectWeekSession.objects.create(user=partner),
+            requester=partner,
+            recipient=alice,
+            status="accepted",
+            expires_at=timezone.now() + timedelta(hours=24),
+        )
+        ConnectTemporaryChat.objects.create(
+            request=request,
+            participant_1=partner,
+            participant_2=alice,
+            expires_at=timezone.now() + timedelta(days=7),
+        )
+    client = Client()
+    client.force_login(alice)
+
+    page, reads = _get_counting_framings(
+        client, "/en/crush-connect/week/chats/", viewer=alice
+    )
+
+    assert 'style="object-position: 2% 40%"' in page
+    assert reads == 1
+
+
+def test_the_sms_invite_pool_reads_framings_once(list_photos):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from crush_lu.models import MeetupEvent
+    from crush_lu.tests.test_photo_access import _member
+
+    coach = _make_coach()
+    event = MeetupEvent.objects.create(
+        title="Invite Pool",
+        description="desc",
+        event_type="speed_dating",
+        date_time=timezone.now() + timedelta(days=7),
+        location="Luxembourg",
+        address="1 Test St",
+        max_participants=20,
+        registration_deadline=timezone.now() + timedelta(days=5),
+        registration_fee=0,
+        is_published=True,
+        profile_requirement="unverified",
+    )
+    event.coaches.add(coach)
+    for i in range(3):
+        # The "unverified" pool invites members not yet approved.
+        user = _framed(_member(f"invitee_{i}", verified=False), i)
+        CrushProfile.objects.filter(user=user).update(
+            phone_number=f"+35269100000{i}", phone_verified=True, event_languages=["en"]
+        )
+    client = Client()
+    client.force_login(coach.user)
+
+    page, reads = _get_counting_framings(
+        client, f"/en/coach/events/{event.pk}/sms-invite/"
+    )
+
+    assert 'style="object-position: 2% 40%"' in page
+    assert reads == 1

@@ -15,7 +15,7 @@ from uuid import UUID
 from django.http import JsonResponse, Http404
 from django.views.decorators.http import require_GET, require_POST
 from django.contrib import messages
-from django.db.models import Q
+from django.db.models import Q, prefetch_related_objects
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -127,6 +127,14 @@ def connect_week_chats(request):
             else 0
         )
         chats.append(chat)
+    # Each partner photo looks up its coach-set focus (photo_framing): one
+    # query for the list, not one per chat.
+    partner_profiles = [
+        chat.partner.crushprofile
+        for chat in chats
+        if hasattr(chat.partner, "crushprofile")
+    ]
+    prefetch_related_objects(partner_profiles, "photo_framings")
     return render(request, "crush_lu/crush_connect/week_chats.html", {"chats": chats})
 
 

@@ -94,7 +94,12 @@ def photo_for_viewer(viewer, profile, photo_field, *, privileged=False):
 
 
 def _delete_blob_on_commit(profile, photo_field, key):
+    from crush_lu.models import ProfilePhotoFraming
+
     storage = profile._meta.get_field(photo_field).storage
+    # Its coach-set focus goes with the file (photo_framing): the row in this
+    # transaction, the file once it commits.
+    ProfilePhotoFraming.objects.filter(profile_id=profile.pk, photo_key=key).delete()
 
     def _delete():
         try:
