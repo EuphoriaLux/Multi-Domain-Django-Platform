@@ -1458,6 +1458,7 @@ class CrushProfile(models.Model):
         omit_review_fields = ()
         uploaded_slots = []
         cleared_slots = []
+        discarded_keys = []
         if self.pk:  # Only on update, not create
             try:
                 old_instance = CrushProfile.objects.get(pk=self.pk)
@@ -1637,10 +1638,7 @@ class CrushProfile(models.Model):
                 # Clean up old photo blobs when replaced or cleared, except a
                 # published one: other members keep seeing it until a coach
                 # approves the replacement (services/photo_publication.py).
-                from crush_lu.models.moderation import (
-                    ProfilePhotoFraming,
-                    PublishedProfilePhoto,
-                )
+                from crush_lu.models.moderation import PublishedProfilePhoto
                 from crush_lu.services import photo_publication
 
                 for field_name in ("photo_1", "photo_2", "photo_3"):
@@ -1677,10 +1675,9 @@ class CrushProfile(models.Model):
                             old_photo.storage.delete(old_key)
                         except Exception:
                             pass  # Don't block save if cleanup fails
-                        # Its coach-set focus goes with it (photo_framing).
-                        ProfilePhotoFraming.objects.filter(
-                            profile_id=self.pk, photo_key=old_key
-                        ).delete()
+                        # Its coach-set focus goes with it (photo_framing),
+                        # in the transaction of the save below.
+                        discarded_keys.append(old_key)
             except CrushProfile.DoesNotExist:
                 pass
         if omit_review_fields:
@@ -1696,9 +1693,10 @@ class CrushProfile(models.Model):
                 and field.attname in self.__dict__
                 and field.attname not in omit_review_fields
             }
-        if uploaded_slots or cleared_slots:
+        if uploaded_slots or cleared_slots or discarded_keys:
             from django.db import transaction
 
+            from crush_lu.models.moderation import ProfilePhotoFraming
             from crush_lu.services import photo_publication
 
             # One transaction: the cleared field and its removed publication
@@ -1709,6 +1707,9 @@ class CrushProfile(models.Model):
                     photo_publication.record_photo_upload(self, field_name)
                 for field_name in cleared_slots:
                     photo_publication.drop_publication(self, field_name)
+                ProfilePhotoFraming.objects.filter(
+                    profile_id=self.pk, photo_key__in=discarded_keys
+                ).delete()
         else:
             super().save(*args, **kwargs)
         # This instance is now in step with the row, so a later save on it

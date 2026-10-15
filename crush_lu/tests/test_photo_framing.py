@@ -564,6 +564,27 @@ def test_a_discarded_file_takes_its_focus_with_it(monkeypatch):
     assert not ProfilePhotoFraming.objects.exists()
 
 
+def test_a_failed_photo_save_keeps_the_focus(monkeypatch):
+    """The focus goes in the save's own transaction: a save that rolls back
+    keeps the photo it kept framed."""
+    monkeypatch.setattr(
+        CrushProfile._meta.get_field("photo_1").storage, "delete", lambda name: None
+    )
+    monkeypatch.setattr(
+        "crush_lu.services.photo_publication.record_photo_upload",
+        MagicMock(side_effect=RuntimeError("receiver failed")),
+    )
+    profile = _held_replacement(_make_candidate())  # NEW_KEY live, unpublished
+    _frame(profile, NEW_KEY, 20, 20)
+
+    profile.photo_1 = "users/1/photos/third.jpg"
+    with pytest.raises(RuntimeError):
+        profile.save()
+
+    assert CrushProfile.objects.get(pk=profile.pk).photo_1.name == NEW_KEY
+    assert ProfilePhotoFraming.objects.filter(photo_key=NEW_KEY).exists()
+
+
 # --- Lists render one framing query, not one per row --------------------------
 
 
