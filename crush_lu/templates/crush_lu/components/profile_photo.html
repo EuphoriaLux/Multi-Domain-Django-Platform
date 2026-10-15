@@ -12,14 +12,18 @@ Sizing and shape are controlled by the caller via `css_class` (e.g.
 "w-14 h-14 rounded-full"). The partial only owns image/fallback rendering
 and the initial-text colour & weight.
 
+Photos keep the upper part of the image when cropped (`object-face`), or the
+focus point a coach set for that file (`focus_style`, services/photo_framing).
+
 Args (resolved by the {% profile_photo %} inclusion_tag in crush_media):
-  has_photo, photo_url, alt_text, css_class, display_name, fallback
+  has_photo, photo_url, alt_text, css_class, display_name, fallback, focus_style
 {% endcomment %}
 {% load i18n %}
 {% if has_photo %}
     <img src="{{ photo_url }}"
          alt="{{ alt_text }}"
          class="{{ css_class }} object-cover object-face"
+         {% if focus_style %}style="{{ focus_style }}"{% endif %}
          loading="lazy">
 {% elif fallback == "icon" %}
     <div class="{{ css_class }} flex items-center justify-center bg-gray-100 dark:bg-gray-700"

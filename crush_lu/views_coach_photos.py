@@ -9,13 +9,24 @@ flag a fake profile).
 import json
 import logging
 from django.http import HttpResponseBadRequest, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
+from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_GET, require_POST
 
 from crush_lu.decorators import coach_required
+from crush_lu.models import CrushProfile
 from crush_lu.photo_review_reasons import PHOTO_REVISION_REASON_CHOICES
+from crush_lu.services.photo_framing import (
+    DEFAULT_FOCUS,
+    PhotoFramingError,
+    clear_focus,
+    get_focus,
+    set_focus,
+)
+from crush_lu.services.photo_publication import PHOTO_FIELDS, get_published_key
 from crush_lu.services.photo_review import (
+    _photo_slot_labels,
     get_photo_review_queue,
     PhotoReviewError,
     submit_member_review,
@@ -166,3 +177,101 @@ def coach_photo_review_more(request):
     except PhotoReviewError as exc:
         return JsonResponse({"error": exc.message}, status=exc.status)
     return JsonResponse({"cards": cards, "total_waiting": total_waiting})
+
+
+@coach_required
+@require_GET
+def coach_member_photos(request, user_id):
+    """Coach page to set the point of each photo that every crop keeps.
+
+    Frames the live upload: the file the coach sees. Any active coach may
+    frame any member, as on the member overview.
+    Spec: ai-memory-hub/specs/2026-10-13-crush-photo-framing.md
+    """
+    profile = get_object_or_404(
+        CrushProfile.objects.select_related("user").prefetch_related(
+            "published_photos", "photo_framings"
+        ),
+        user_id=user_id,
+    )
+    labels = _photo_slot_labels()
+    slots = []
+    for photo_field in PHOTO_FIELDS:
+        photo = getattr(profile, photo_field)
+        if not photo:
+            continue
+        focus = get_focus(profile, photo.name)
+        published = get_published_key(profile, photo_field)
+        slots.append(
+            {
+                "field": photo_field,
+                "label": labels[photo_field],
+                "url": reverse(
+                    "crush_lu:serve_profile_photo",
+                    kwargs={"user_id": profile.user_id, "photo_field": photo_field},
+                ),
+                "photo_key": photo.name,
+                "focus_x": (focus or DEFAULT_FOCUS)[0],
+                "focus_y": (focus or DEFAULT_FOCUS)[1],
+                "has_focus": bool(focus),
+                # Members still see an earlier approved photo in this slot.
+                "is_replacement": bool(published and published != photo.name),
+            }
+        )
+    return render(
+        request,
+        "crush_lu/coach_member_photos.html",
+        {"member": profile.user, "profile": profile, "slots": slots},
+    )
+
+
+@coach_required
+@require_POST
+def coach_member_photo_focus(request, user_id):
+    """Save or reset one photo's focus point: ``{"photo_field", "photo_key",
+    "focus_x", "focus_y"}`` in percent, or ``{"photo_field", "photo_key",
+    "reset": true}``. Refused (409) when the photo changed since the page
+    loaded."""
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+        if not isinstance(data, dict):
+            raise ValueError
+        photo_field = data.get("photo_field", "")
+        photo_key = data.get("photo_key", "")
+        if not isinstance(photo_field, str) or not isinstance(photo_key, str):
+            raise ValueError
+    except (ValueError, UnicodeDecodeError):
+        return JsonResponse(
+            {"success": False, "error": _("Invalid request payload")}, status=400
+        )
+    profile = get_object_or_404(CrushProfile, user_id=user_id)
+    try:
+        if data.get("reset") is True:
+            clear_focus(profile, photo_field, photo_key)
+            focus_x, focus_y = DEFAULT_FOCUS
+        else:
+            focus_x, focus_y = set_focus(
+                request.coach,
+                profile,
+                photo_field,
+                photo_key,
+                data.get("focus_x"),
+                data.get("focus_y"),
+            )
+    except PhotoFramingError as exc:
+        return JsonResponse({"success": False, "error": exc.message}, status=exc.status)
+    logger.info(
+        "Coach %s %s the focus of profile %s %s",
+        request.coach.pk,
+        "reset" if data.get("reset") is True else "set",
+        profile.pk,
+        photo_field,
+    )
+    return JsonResponse(
+        {
+            "success": True,
+            "focus_x": focus_x,
+            "focus_y": focus_y,
+            "has_focus": data.get("reset") is not True,
+        }
+    )

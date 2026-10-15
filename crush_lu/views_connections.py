@@ -121,6 +121,8 @@ def event_attendees(request, event_id):
             # has_public_photo reads both per card (photo_publication).
             "user__crushprofile__photo_review_states",
             "user__crushprofile__published_photos",
+            # profile_photo_style reads the coach-set focus (photo_framing).
+            "user__crushprofile__photo_framings",
         )
     )
 
@@ -974,6 +976,7 @@ def my_connections(request):
         .prefetch_related(
             "recipient__crushprofile__photo_review_states",
             "recipient__crushprofile__published_photos",
+            "recipient__crushprofile__photo_framings",
         )
         .order_by("-requested_at")
     )
@@ -988,6 +991,7 @@ def my_connections(request):
         .prefetch_related(
             "requester__crushprofile__photo_review_states",
             "requester__crushprofile__published_photos",
+            "requester__crushprofile__photo_framings",
         )
         .order_by("-requested_at")
     )
@@ -1012,6 +1016,8 @@ def my_connections(request):
             "requester__crushprofile__published_photos",
             "recipient__crushprofile__photo_review_states",
             "recipient__crushprofile__published_photos",
+            "requester__crushprofile__photo_framings",
+            "recipient__crushprofile__photo_framings",
         )
         .order_by("-requested_at")
     )

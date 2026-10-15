@@ -71,11 +71,15 @@ def generate_pass_thumbnail(profile):
                 with Image.open(BytesIO(raw_bytes)) as img:
                     img = ImageOps.exif_transpose(img)
                     img = img.convert("RGBA")
-                    width, height = img.size
-                    min_dim = min(width, height)
-                    left = (width - min_dim) // 2
-                    top = (height - min_dim) // 2
-                    cropped = img.crop((left, top, left + min_dim, top + min_dim))
+                    # Same square a cover-fit web frame shows: the coach-set
+                    # focus point, else the object-face default.
+                    from crush_lu.services.photo_framing import (
+                        get_focus,
+                        square_crop_box,
+                    )
+
+                    focus = get_focus(profile, getattr(profile.photo_1, "name", ""))
+                    cropped = img.crop(square_crop_box(*img.size, focus))
 
                     thumb_2x = cropped.resize((180, 180), Image.Resampling.LANCZOS)
                     buf_2x = BytesIO()

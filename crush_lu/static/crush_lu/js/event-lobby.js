@@ -30,6 +30,7 @@ document.addEventListener("alpine:init", function () {
             componentRoot: null,
             confirmHandle: null,
             confirmPhotoUrl: "",
+            confirmPhotoFocus: "",
             sending: false,
             banner: "",
             reveal: "",
@@ -113,9 +114,17 @@ document.addEventListener("alpine:init", function () {
                 this.sending = false;
                 this.confirmHandle = null;
                 this.confirmPhotoUrl = "";
+                this.confirmPhotoFocus = "";
                 this.accessRevoked = true;
                 this.stopUpdates();
                 if (this.confirmDialog) this.confirmDialog.destroy();
+            },
+
+            // Coach-set focus of the photo being confirmed (photo_framing).
+            get confirmPhotoStyle() {
+                return this.confirmPhotoFocus
+                    ? "object-position: " + this.confirmPhotoFocus
+                    : "";
             },
 
             get countdownDisplay() {
@@ -190,11 +199,11 @@ document.addEventListener("alpine:init", function () {
                     if (self.readOnly) return;
                     var tile = evt.target.closest("button[data-handle]");
                     if (!tile || tile.disabled) return;
-                    self.openConfirm(tile.dataset.handle, tile.dataset.photoUrl);
+                    self.openConfirm(tile.dataset.handle, tile.dataset.photoUrl, tile.dataset.photoFocus);
                 });
             },
 
-            openConfirm: function (handle, photoUrl) {
+            openConfirm: function (handle, photoUrl, photoFocus) {
                 if (this.ended || this.signalsRemaining <= 0) {
                     if (this.signalsRemaining <= 0) this.showBanner(this.msgs.quota);
                     return;
@@ -209,6 +218,7 @@ document.addEventListener("alpine:init", function () {
                 this.sending = false;
                 this.confirmHandle = handle;
                 this.confirmPhotoUrl = photoUrl || "";
+                this.confirmPhotoFocus = photoFocus || "";
                 this.confirmOpen = true;
                 var self = this;
                 var generation = this.confirmGeneration;
@@ -231,6 +241,7 @@ document.addEventListener("alpine:init", function () {
                 });
                 this.confirmHandle = null;
                 this.confirmPhotoUrl = "";
+                this.confirmPhotoFocus = "";
             },
 
             confirmSignal: function () {
@@ -359,6 +370,7 @@ document.addEventListener("alpine:init", function () {
                 tile.type = "button";
                 tile.dataset.handle = entry.handle;
                 tile.dataset.photoUrl = entry.photo_url;
+                tile.dataset.photoFocus = entry.photo_focus || "";
                 tile.className = "lobby-tile";
                 // §14: generic accessible name pre-reveal — never the first name.
                 tile.setAttribute("aria-label", this.msgs.tileLabel);
@@ -366,6 +378,7 @@ document.addEventListener("alpine:init", function () {
                 img.src = entry.photo_url;
                 img.alt = "";
                 img.loading = "lazy";
+                if (entry.photo_focus) img.style.objectPosition = entry.photo_focus;
                 tile.appendChild(img);
                 if (entry.already_met) {
                     tile.disabled = true;
@@ -422,6 +435,7 @@ document.addEventListener("alpine:init", function () {
                     var img = document.createElement("img");
                     img.src = m.photo_url;
                     img.alt = "";
+                    if (m.photo_focus) img.style.objectPosition = m.photo_focus;
                     var name = document.createElement("p");
                     name.textContent = m.first_name;
                     item.appendChild(img);

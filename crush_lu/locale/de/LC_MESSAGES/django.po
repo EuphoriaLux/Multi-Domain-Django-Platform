@@ -2930,6 +2930,84 @@ msgstr ""
 msgid "Who caught your eye?"
 msgstr "Wer ist dir aufgefallen?"
 
+#: crush_lu/templates/crush_lu/coach_member_photos.html
+msgid "Photo framing"
+msgstr "Bildausschnitt"
+#: crush_lu/templates/crush_lu/coach_member_photos.html
+msgid ""
+"Tap the point of each photo that must stay visible, usually the face. Every "
+"frame on Crush.lu keeps that point in view: round avatars, lobby tiles and "
+"Connect cards. The photo itself is not changed, and the member is not "
+"notified."
+msgstr ""
+"Tippe auf die Stelle jedes Fotos, die sichtbar bleiben muss, meist das "
+"Gesicht. Jeder Rahmen auf Crush.lu behält diese Stelle im Bild: runde "
+"Avatare, Lobby-Kacheln und Connect-Karten. Das Foto selbst wird nicht "
+"verändert, und das Mitglied wird nicht benachrichtigt."
+#: crush_lu/templates/crush_lu/coach_member_photos.html
+msgid "Focus point: {x} across, {y} down"
+msgstr "Fokuspunkt: {x} von links, {y} von oben"
+#: crush_lu/templates/crush_lu/coach_member_photos.html
+msgid "Framing saved."
+msgstr "Bildausschnitt gespeichert."
+#: crush_lu/templates/crush_lu/coach_member_photos.html
+msgid "Back to the default framing."
+msgstr "Zurück zum Standard-Ausschnitt."
+#: crush_lu/templates/crush_lu/coach_member_photos.html
+msgid "Could not save the framing. Please try again."
+msgstr ""
+"Der Bildausschnitt konnte nicht gespeichert werden. Bitte versuche es erneut."
+#: crush_lu/templates/crush_lu/coach_member_photos.html
+msgid ""
+"Members still see the earlier approved photo in this slot. This framing "
+"applies once a coach approves this photo."
+msgstr ""
+"Mitglieder sehen an dieser Stelle noch das zuvor freigegebene Foto. Dieser "
+"Ausschnitt gilt, sobald ein Coach dieses Foto freigibt."
+#: crush_lu/templates/crush_lu/coach_member_photos.html
+msgid "Photo. Click or tap to choose the focus point, or use the arrow keys."
+msgstr ""
+"Foto. Klicke oder tippe, um den Fokuspunkt zu wählen, oder nutze die "
+"Pfeiltasten."
+#: crush_lu/templates/crush_lu/coach_member_photos.html
+msgid "How members see it"
+msgstr "So sehen es Mitglieder"
+#: crush_lu/templates/crush_lu/coach_member_photos.html
+msgid "Avatar"
+msgstr "Avatar"
+#: crush_lu/templates/crush_lu/coach_member_photos.html
+msgid "Event lobby"
+msgstr "Event Lobby"
+#: crush_lu/templates/crush_lu/coach_member_photos.html
+msgid "Connect card, phone"
+msgstr "Connect-Karte, Smartphone"
+#: crush_lu/templates/crush_lu/coach_member_photos.html
+msgid "Connect card, wider screens"
+msgstr "Connect-Karte, größere Bildschirme"
+#: crush_lu/templates/crush_lu/coach_member_photos.html
+msgid "Save framing"
+msgstr "Ausschnitt speichern"
+#: crush_lu/templates/crush_lu/coach_member_photos.html
+msgid "Use the default"
+msgstr "Standard verwenden"
+#: crush_lu/templates/crush_lu/coach_member_photos.html
+msgid "This member has no photos yet."
+msgstr "Dieses Mitglied hat noch keine Fotos."
+#: crush_lu/templates/crush_lu/coach_member_overview.html
+msgid "Adjust photo framing"
+msgstr "Bildausschnitt anpassen"
+#: crush_lu/services/photo_framing.py
+msgid "Invalid focus point."
+msgstr "Ungültiger Fokuspunkt."
+#: crush_lu/services/photo_framing.py
+msgid "Unknown photo."
+msgstr "Unbekanntes Foto."
+#: crush_lu/services/photo_framing.py
+msgid "This photo has changed since the page loaded. Reload and try again."
+msgstr ""
+"Dieses Foto hat sich seit dem Laden der Seite geändert. Lade die Seite neu "
+"und versuche es erneut."
+
 #~ msgid "Write a personal message that will be revealed in Chapter 6..."
 #~ msgstr ""
 #~ "Schreibe eine persönliche Nachricht, die in Kapitel 6 enthüllt wird..."

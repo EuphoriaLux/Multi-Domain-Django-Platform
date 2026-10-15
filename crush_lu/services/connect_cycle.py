@@ -552,7 +552,11 @@ def visible_cycle_cards(cards, viewer):
             .select_related(
                 "target_user__crushprofile", "target_user__crush_connect_membership"
             )
-            .prefetch_related("target_user__crushprofile__photo_review_states")
+            .prefetch_related(
+                "target_user__crushprofile__photo_review_states",
+                # The coach-set focus of each card photo (photo_framing).
+                "target_user__crushprofile__photo_framings",
+            )
         )
     card_ids = [card.pk for card in cards]
     if not card_ids:
@@ -565,7 +569,10 @@ def visible_cycle_cards(cards, viewer):
         .select_related(
             "target_user__crushprofile", "target_user__crush_connect_membership"
         )
-        .prefetch_related("target_user__crushprofile__photo_review_states")
+        .prefetch_related(
+            "target_user__crushprofile__photo_review_states",
+            "target_user__crushprofile__photo_framings",
+        )
     }
     return [visible[pk] for pk in card_ids if pk in visible]
 
@@ -973,7 +980,11 @@ def get_pending_inbox(user):
             "requester__crush_connect_membership",
             "target_card",
         )
-        .prefetch_related("requester__crush_connect_membership__interests")
+        .prefetch_related(
+            "requester__crush_connect_membership__interests",
+            # Each request card shows up to three photos (photo_framing).
+            "requester__crushprofile__photo_framings",
+        )
         .order_by("-sent_at")
     )
     fresh = [sync_request_state(r) for r in candidates]
