@@ -172,11 +172,13 @@ def delete_social_photo_cache(social_account):
     reporting the data as gone.
     """
     _get_photo_storage().delete(_get_social_cache_path(social_account))
-    cache.delete_many([
-        f"social_photo_persisted_exists_{social_account.id}",
-        f"social_photo_{social_account.provider}_{social_account.id}",
-        f"social_photo_refresh_attempted_{social_account.id}",
-    ])
+    cache.delete_many(
+        [
+            f"social_photo_persisted_exists_{social_account.id}",
+            f"social_photo_{social_account.provider}_{social_account.id}",
+            f"social_photo_refresh_attempted_{social_account.id}",
+        ]
+    )
 
 
 def _is_banned_from_crush(user_id):
