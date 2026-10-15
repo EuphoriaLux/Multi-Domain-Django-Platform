@@ -1918,26 +1918,23 @@ def disconnect_social_account(request, social_account_id):
 
     provider_name = social_account.provider.title()
 
-    # The persisted provider photo goes first: if storage fails, keep the
-    # connection so the member can retry instead of losing track of the copy.
-    # A photo the member already imported into photo_N stays: it is their own
-    # profile photo now, under coach review, and they manage it there.
-    from crush_lu.social_photos import delete_social_photo_cache
-
+    # The OAuth tokens go with the account (SocialToken.account is CASCADE)
+    # and the persisted provider photo with it (pre_delete hook in signals.py).
+    # If storage fails the delete rolls back, so the member can retry instead
+    # of losing track of the copy. A photo the member already imported into
+    # photo_N stays: it is their own profile photo now, under coach review.
     try:
-        delete_social_photo_cache(social_account)
+        with transaction.atomic():
+            social_account.delete()
     except Exception:
         logger.exception(
-            f"Could not delete cached {provider_name} photo for user "
-            f"{request.user.id}; account left connected"
+            f"Could not disconnect {provider_name} for user {request.user.id}; "
+            f"account left connected"
         )
         messages.error(request, _("An error occurred. Please try again."))
         return redirect(account_settings_url("settings"))
 
     logger.info(f"User {request.user.id} disconnected {provider_name} account")
-
-    # Deletes the stored OAuth tokens too (SocialToken.account is CASCADE).
-    social_account.delete()
 
     messages.success(
         request,

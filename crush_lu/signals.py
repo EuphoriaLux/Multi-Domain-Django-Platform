@@ -1572,6 +1572,41 @@ def detect_apple_relay_email(sender, request, sociallogin, **kwargs):
         )
 
 
+@receiver(pre_delete, sender=SocialAccount)
+def delete_social_photo_cache_with_account(sender, instance, **kwargs):
+    """
+    Take the persisted provider photo with every SocialAccount deletion.
+
+    Covers each path that removes one: the member's disconnect, allauth's own
+    connections page (mounted on every domain), the admin, account merge and
+    full-account deletion. A storage error propagates, so the delete rolls
+    back and can be retried instead of leaving the photo behind.
+
+    A second pass after commit removes a copy that a login in flight wrote
+    between this hook and the commit (see _persist_social_photo).
+    """
+    import copy
+
+    from .social_photos import PHOTO_CACHE_PROVIDERS, delete_social_photo_cache
+
+    if instance.provider not in PHOTO_CACHE_PROVIDERS:
+        return
+    # Django clears instance.pk once the delete has run.
+    account = copy.copy(instance)
+    delete_social_photo_cache(account)
+
+    def _second_pass():
+        try:
+            delete_social_photo_cache(account)
+        except Exception:
+            logger.exception(
+                f"Post-commit social photo cleanup failed for user "
+                f"{account.user_id} ({account.provider})"
+            )
+
+    transaction.on_commit(_second_pass)
+
+
 @receiver(post_save, sender=SocialAccount)
 def create_crush_profile_from_facebook(sender, instance, created, **kwargs):
     """

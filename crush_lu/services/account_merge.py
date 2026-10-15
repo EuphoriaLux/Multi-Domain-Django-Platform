@@ -30,6 +30,7 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
     """
     from allauth.account.models import EmailAddress
     from allauth.socialaccount.models import SocialAccount
+    from crush_lu.social_photos import delete_social_photo_cache
     from crush_lu.models import (
         CrushProfile,
         CuratedEventGroup,
@@ -213,6 +214,10 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
         if not SocialAccount.objects.filter(
             user=keeper_user, provider=sa.provider, uid=sa.uid
         ).exists():
+            # The persisted photo lives under the duplicate's folder; the
+            # keeper's next login collects it again under its own. (Deleted
+            # accounts below are cleaned by the SocialAccount pre_delete hook.)
+            delete_social_photo_cache(sa)
             sa.user = keeper_user
             sa.save(update_fields=["user"])
             log.append(f"Moved {sa.provider} social account to keeper")
