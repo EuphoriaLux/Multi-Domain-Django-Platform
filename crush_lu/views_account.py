@@ -1543,9 +1543,16 @@ def delete_full_account(user):
     # Delete email addresses (allauth)
     EmailAddress.objects.filter(user=user).delete()
 
-    # Delete social accounts and tokens (allauth)
+    # Delete social accounts and tokens (allauth). Their cached provider
+    # photos were erased, fail closed, by delete_crushlu_profile_only above
+    # while the member could still sign in to retry; the pre_delete hook's
+    # storage pass is skipped here so an outage now cannot strand an
+    # anonymised, inactive account half-deleted.
+    from crush_lu.social_photos import already_erased_social_photo_cache
+
     SocialToken.objects.filter(account__user=user).delete()
-    SocialAccount.objects.filter(user=user).delete()
+    with already_erased_social_photo_cache():
+        SocialAccount.objects.filter(user=user).delete()
 
     _anonymize_email_delivery(addresses)
     _finalize_deletion(user)

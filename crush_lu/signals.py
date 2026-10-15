@@ -1587,7 +1587,9 @@ def delete_social_photo_cache_with_account(sender, instance, **kwargs):
     fails then, the weekly gdpr_retention_cleanup sweep removes the copy.
 
     Accounts of members who never used Crush.lu (PowerUp, Entreprinder; allauth
-    is mounted on every domain) are deleted without touching Crush storage.
+    is mounted on every domain) are deleted without touching Crush storage,
+    and so are accounts whose caller already erased the copies
+    (already_erased_social_photo_cache, used by full-account deletion).
     """
     import copy
 
@@ -1595,9 +1597,12 @@ def delete_social_photo_cache_with_account(sender, instance, **kwargs):
         PHOTO_CACHE_PROVIDERS,
         _may_hold_social_photo_cache,
         delete_social_photo_cache,
+        social_photo_cache_already_erased,
     )
 
     if instance.provider not in PHOTO_CACHE_PROVIDERS:
+        return
+    if social_photo_cache_already_erased():
         return
     if not _may_hold_social_photo_cache(instance.user_id):
         return

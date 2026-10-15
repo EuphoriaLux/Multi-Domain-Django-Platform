@@ -347,7 +347,8 @@ class OrphanedSocialCacheSweepTests(_SocialCacheMixin, TestCase):
     def _all_cached(self):
         from crush_lu.social_photos import _list_social_cache_files
 
-        return sorted(_list_social_cache_files(self.storage))
+        names, _complete = _list_social_cache_files(self.storage)
+        return sorted(names)
 
     def _run(self, *args):
         from io import StringIO
@@ -396,6 +397,77 @@ class OrphanedSocialCacheSweepTests(_SocialCacheMixin, TestCase):
             output = self._run("--apply")
 
         self.assertIn("Orphaned social photo cache: storage error, skipped", output)
+
+    def test_folder_walk_stops_at_the_deadline(self):
+        import time
+
+        from crush_lu.social_photos import (
+            _list_social_cache_files,
+            sweep_orphaned_social_photo_cache,
+        )
+
+        past = time.monotonic() - 1
+        names, complete = _list_social_cache_files(self.storage, deadline=past)
+        self.assertEqual((names, complete), ([], False))
+
+        before = self._all_cached()
+        self.assertEqual(
+            sweep_orphaned_social_photo_cache(apply=True, deadline=past),
+            (0, 0, True),
+        )
+        self.assertEqual(self._all_cached(), before)
+
+    def test_azure_storage_is_listed_in_one_recursive_query(self):
+        """No request per user folder, whatever listdir returns."""
+        from unittest.mock import Mock
+
+        from crush_lu.social_photos import _list_social_cache_files
+
+        azure = Mock(spec=["list_all", "listdir"])
+        azure.list_all.return_value = [
+            "users/1/photos/a.jpg",
+            "users/1/social_cache/0f0f_facebook.jpg",
+            "users/2/social_cache/1e1e_google.jpg",
+        ]
+
+        names, complete = _list_social_cache_files(azure)
+
+        self.assertTrue(complete)
+        self.assertEqual(
+            names,
+            [
+                "users/1/social_cache/0f0f_facebook.jpg",
+                "users/2/social_cache/1e1e_google.jpg",
+            ],
+        )
+        azure.list_all.assert_called_once_with("users/")
+        azure.listdir.assert_not_called()
+
+
+@patch("crush_lu.storage.delete_user_storage", return_value=(True, 0))
+class FullAccountDeletionSocialCacheTests(_SocialCacheMixin, TestCase):
+    def test_storage_outage_after_deactivation_does_not_strand_the_deletion(
+        self, _sweep
+    ):
+        """The copies go while the member can still retry, not afterwards."""
+        from crush_lu.views import delete_full_account
+
+        real_listdir = self.storage.listdir
+
+        def listdir_until_deactivated(path):
+            if User.objects.filter(pk=self.user.pk, is_active=False).exists():
+                raise OSError("storage down")
+            return real_listdir(path)
+
+        with patch.object(
+            self.storage, "listdir", side_effect=listdir_until_deactivated
+        ):
+            delete_full_account(self.user)
+
+        self.assertEqual(self._cached("facebook"), [])
+        self.assertFalse(SocialAccount.objects.filter(user=self.user).exists())
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_active)
 
 
 @patch("crush_lu.storage.delete_user_storage", return_value=(True, 0))

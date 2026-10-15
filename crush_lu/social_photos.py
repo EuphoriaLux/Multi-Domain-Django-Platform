@@ -14,8 +14,11 @@ Key features:
   remain available even after OAuth tokens expire
 """
 
+import contextlib
+import contextvars
 import logging
 import re
+import time
 import requests
 from django.core.cache import cache
 from django.core.files.base import ContentFile
@@ -101,6 +104,32 @@ def _is_token_expired(token):
 
 # Providers whose photo refresh_social_photo_cache() persists to storage.
 PHOTO_CACHE_PROVIDERS = ('facebook', 'google', 'microsoft')
+
+# Set while a caller deletes SocialAccounts whose cached photos it has already
+# erased (see already_erased_social_photo_cache); the pre_delete hook skips.
+_cache_already_erased = contextvars.ContextVar(
+    'social_photo_cache_already_erased', default=False
+)
+
+
+@contextlib.contextmanager
+def already_erased_social_photo_cache():
+    """Delete SocialAccounts without the pre_delete hook touching storage.
+
+    Only for a caller that has just erased every cached copy itself, fail
+    closed: full-account deletion removes the accounts after it has
+    deactivated the member, when a storage error could no longer be retried
+    by the member signing in again.
+    """
+    token = _cache_already_erased.set(True)
+    try:
+        yield
+    finally:
+        _cache_already_erased.reset(token)
+
+
+def social_photo_cache_already_erased():
+    return _cache_already_erased.get()
 
 
 def _get_social_cache_dir(user_id):
@@ -294,27 +323,37 @@ def delete_social_photo_cache(social_account):
     )
 
 
-def _list_social_cache_files(storage):
-    """Yield the storage name of every persisted social photo.
+def _list_social_cache_files(storage, deadline=None):
+    """List the storage name of every persisted social photo.
 
-    Azure lists every blob under users/ by its full name in one call; the
-    filesystem lists one level, so walk each users/<id>/social_cache/.
+    Azure storage (``list_all``) is listed with one recursive prefix query
+    that the SDK pages through: no request per user folder, whatever
+    ``listdir`` returns in a given django-storages version. Other backends
+    (the local filesystem) list one level, so each users/<id>/social_cache/
+    is walked, stopping at ``deadline`` (a time.monotonic() value).
+
+    Returns:
+        tuple: (names, complete) - complete is False when the walk stopped
+        at the deadline.
     """
+    list_all = getattr(storage, 'list_all', None)
+    if list_all is not None:
+        return [name for name in list_all('users/') if '/social_cache/' in name], True
     try:
         dirs, files = storage.listdir('users/')
     except FileNotFoundError:
-        return
-    for name in files:
-        if '/social_cache/' in name:
-            yield name
+        return [], True
+    names = [name for name in files if '/social_cache/' in name]
     for user_dir in dirs:
+        if deadline is not None and time.monotonic() >= deadline:
+            return names, False
         folder = f"users/{user_dir}/social_cache/"
         try:
             _subdirs, cached = storage.listdir(folder)
         except FileNotFoundError:
             continue
-        for name in cached:
-            yield folder + name
+        names.extend(folder + name for name in cached)
+    return names, True
 
 
 def sweep_orphaned_social_photo_cache(apply=False, deadline=None, limit=500):
@@ -329,19 +368,18 @@ def sweep_orphaned_social_photo_cache(apply=False, deadline=None, limit=500):
     _may_hold_social_photo_cache). Runs from gdpr_retention_cleanup.
 
     Deletes at most ``limit`` files and stops at ``deadline`` (a
-    time.monotonic() value); the next run picks up the rest. Storage errors
-    propagate.
+    time.monotonic() value), during the listing as well as the deletes; the
+    next run picks up the rest. Storage errors propagate.
 
     Returns:
         tuple: (orphaned_found, deleted, budget_exhausted)
     """
-    import time
-
     from allauth.socialaccount.models import SocialAccount
 
     storage = _get_photo_storage()
+    names, listed_all = _list_social_cache_files(storage, deadline)
     entries = []
-    for name in _list_social_cache_files(storage):
+    for name in names:
         parts = name.split('/')
         if len(parts) != 4 or not parts[1].isdigit():
             continue
@@ -375,7 +413,7 @@ def sweep_orphaned_social_photo_cache(apply=False, deadline=None, limit=500):
                 return len(orphaned), deleted, True
             storage.delete(name)
             deleted += 1
-    return len(orphaned), deleted, False
+    return len(orphaned), deleted, not listed_all
 
 
 def _get_persisted_social_photo_url(social_account):
