@@ -84,6 +84,8 @@ class ExportMemberActivityTests(TestCase):
         self.assertEqual(data["referrals"]["your_codes"], [])
         self.assertEqual(data["referrals"]["you_were_referred"], [])
         self.assertEqual(data["event_lobby"]["removal_requests_you_made"], [])
+        self.assertEqual(data["event_lobby"]["lobbies_joined"], [])
+        self.assertEqual(data["crush_connect"]["coach_picks"], [])
         self.assertEqual(data["safety"]["blocks_made"], [])
         self.assertEqual(data["event_lobby"]["meet_signals_sent"], [])
 
@@ -161,9 +163,34 @@ class ExportMemberActivityTests(TestCase):
         ConnectCycleFeedback.objects.create(
             session=mine, user=self.user, comment="my week feedback"
         )
+        from crush_lu.models import ConnectCoachPick, CrushCoach
+
+        coach = CrushCoach.objects.create(
+            user=User.objects.create_user(
+                "pickcoach@example.com", "pickcoach@example.com", "x"
+            ),
+            bio="b",
+        )
+        ConnectCoachPick.objects.create(
+            coach=coach,
+            member=self.user,
+            candidate=self.other,
+            note="coach note about the candidate",
+            status="accepted",
+            responded_at=timezone.now(),
+        )
+        # The member as someone else's candidate stays out.
+        ConnectCoachPick.objects.create(
+            coach=coach, member=self.other, candidate=self.user, status="pending"
+        )
 
         data = self._export()
         connect = data["crush_connect"]
+        self.assertEqual(len(connect["coach_picks"]), 1)
+        self.assertIsNotNone(connect["coach_picks"][0]["responded_at"])
+        self.assertNotIn("coach note about the candidate", json.dumps(connect))
+        self.assertNotIn("pickcoach@example.com", json.dumps(connect))
+        self.assertIsNotNone(connect["cards"][0]["generated_at"])
         self.assertTrue(connect["waitlist"]["payment_confirmed"])
         self.assertNotIn("confirmed_by", connect["waitlist"])
         self.assertEqual(connect["cycle_feedback"][0]["comment"], "my week feedback")
@@ -410,6 +437,9 @@ class ExportMemberActivityTests(TestCase):
             [c["code"] for c in data["referrals"]["your_codes"]], [my_code.code]
         )
         self.assertNotIn(their_code.code, json.dumps(data["referrals"]))
+        self.assertIs(
+            data["referrals"]["people_you_referred"][0]["reward_applied"], False
+        )
         self.assertEqual(arrivals[0]["ip_address"], "1.2.3.4")
         self.assertEqual(len(data["referrals"]["people_you_referred"]), 1)
         dump = json.dumps(data)
@@ -514,7 +544,20 @@ class ExportMemberActivityTests(TestCase):
             details="their removal text",
         )
 
+        from crush_lu.models import EventRegistration
+        from crush_lu.models.event_lobby import EventLobbyParticipation
+
+        EventLobbyParticipation.objects.create(
+            event=event,
+            user=self.user,
+            event_registration=EventRegistration.objects.create(
+                event=event, user=self.user, status="confirmed"
+            ),
+        )
+
         lobby = self._export()["event_lobby"]
+        self.assertEqual([j["event"] for j in lobby["lobbies_joined"]], ["Lobby night"])
+        self.assertNotIn("handle", lobby["lobbies_joined"][0])
         self.assertEqual(len(lobby["meet_signals_sent"]), 1)
         self.assertTrue(lobby["meet_signals_sent"][0]["mutual"])
         self.assertEqual(len(lobby["meetings_you_confirmed"]), 1)

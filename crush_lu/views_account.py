@@ -2786,6 +2786,19 @@ def _export_member_activity(user):
             if waitlist
             else None
         ),
+        # Coach picks presented to the member and their own answer. Picks in
+        # which they were someone else's candidate, the candidate, the coach
+        # and the coach's note (it describes the candidate) stay out.
+        "coach_picks": [
+            {
+                "status": display(pick, "status"),
+                "created_at": _iso_or_none(pick.created_at),
+                "responded_at": _iso_or_none(pick.responded_at),
+            }
+            for pick in model("ConnectCoachPick")
+            .objects.filter(member=user)
+            .order_by("created_at", "pk")
+        ],
         # Each Connect week the member ran, even one that produced no cards.
         # ``compatibility_highlight_user`` names another member, so it stays out.
         "sessions": [
@@ -2832,6 +2845,9 @@ def _export_member_activity(user):
                 "day": card.day_number,
                 "card": card.card_index,
                 "generated_date": _iso_or_none(card.generated_date),
+                # Exact presentation time (drives the repeat-candidate
+                # cooldown); null on legacy cards.
+                "generated_at": _iso_or_none(card.generated_at),
                 "completed": card.is_completed,
                 "completed_at": _iso_or_none(card.completed_at),
                 "expired": card.is_expired,
@@ -3002,6 +3018,7 @@ def _export_member_activity(user):
                 "created_at": _iso_or_none(row.created_at),
                 "converted_at": _iso_or_none(row.converted_at),
                 "reward_points": row.reward_points,
+                "reward_applied": row.reward_applied,
                 "reward_applied_at": _iso_or_none(row.reward_applied_at),
             }
             # ``referrer`` is the referrer's CrushProfile, not the User.
@@ -3054,6 +3071,18 @@ def _export_member_activity(user):
     # encounters. Received signals stay secret until mutual; an encounter
     # under review is hidden in the app, so it stays out here too.
     activity["event_lobby"] = {
+        # Lobbies the member entered: event and admission time only (no
+        # lobby handle or internal ids).
+        "lobbies_joined": [
+            {
+                "event": participation.event.title,
+                "joined_at": _iso_or_none(participation.joined_at),
+            }
+            for participation in model("EventLobbyParticipation")
+            .objects.filter(user=user)
+            .select_related("event")
+            .order_by("joined_at", "pk")
+        ],
         "meet_signals_sent": [
             {
                 "event": signal.event.title,
