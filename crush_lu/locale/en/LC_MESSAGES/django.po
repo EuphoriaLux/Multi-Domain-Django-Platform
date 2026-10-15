@@ -28360,13 +28360,15 @@ msgstr ""
 
 #: templates/crush_lu/gdpr_data_management.html
 msgid ""
-"Permanently deletes your login account and all your data, including on any "
-"other service run by the same operator where you use it. This cannot be "
-"undone."
+"Permanently deletes your login account and your personal data, including on "
+"any other service run by the same operator where you use it. We keep only "
+"payment and credit records, a record of this deletion, and safety reports. "
+"This cannot be undone."
 msgstr ""
 
 #: templates/crush_lu/gdpr_data_management.html
-msgid "Delete your entire account and all your data? This cannot be undone."
+msgid ""
+"Delete your entire account and your personal data? This cannot be undone."
 msgstr ""
 
 #: templates/crush_lu/gdpr_data_management.html
@@ -28411,7 +28413,9 @@ msgid ""
 msgstr ""
 
 #: views_account.py
-msgid "Your account and all your data have been permanently deleted."
+msgid ""
+"Your account has been deleted. We keep only what we need to: payment and "
+"credit records, a record of this deletion, and safety reports."
 msgstr ""
 
 #: templates/crush_lu/moderation/blocked_members.html
