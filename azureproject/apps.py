@@ -42,6 +42,13 @@ class AzureprojectConfig(AppConfig):
             os.environ.get("DJANGO_SETTINGS_MODULE", "unknown"),
         )
 
+        # Pin the build stamp /readyz/ reports to the code this process
+        # booted with; see readiness.build_info for why it must not be read
+        # per request.
+        from azureproject import readiness
+
+        readiness.capture_build_info()
+
         # Register the deploy checks and surface a missing erasure key as an
         # ERROR record (App Insights `traces`) on every production boot. It
         # never blocks startup: staging legitimately has no key.

@@ -20,6 +20,7 @@ import json
 import re
 import ssl
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -45,6 +46,10 @@ SITES = [
     {"prod": "delegations.lu", "staging": "test.delegations.lu"},
 ]
 TIMEOUT = 30
+# How long the stylesheet check keeps retrying a failed fetch, and how often
+# (see check_generated_assets).
+STYLESHEET_RETRY_SECONDS = 120
+STYLESHEET_RETRY_INTERVAL = 10
 USER_AGENT = "crush-smoke/1.0 (+scripts/smoke.py)"
 
 failures = []
@@ -122,19 +127,42 @@ def check_generated_assets(base):
             contains=f'lang="{lang}"',
         )
     name = "tailwind.css is served"
-    try:
-        _, _, html = fetch(f"{base}/en/")
-        match = re.search(rb'href="([^"]*crush_lu/css/tailwind[^"]*\.css)"', html)
-        if not match:
-            raise ValueError("home page links no crush_lu tailwind stylesheet")
-        href = match.group(1).decode()
-        url = href if href.startswith("http") else f"{base}{href}"
-        _, _, css = fetch(url)
-        if len(css) < 50_000:
-            raise ValueError(f"{url} is only {len(css)} bytes")
-    except Exception as exc:  # noqa: BLE001
-        failures.append(f"{name}: {base} -> {type(exc).__name__}: {exc}")
-        print(f"  FAIL {name}: {exc}")
+    # A failed fetch is retried for a bounded time, re-reading the page each
+    # attempt. Until the new container takes over, the slot can still answer
+    # from the previous process. Its HTML links the previous build's hashed
+    # stylesheet, which the `--clean` zip deploy has already deleted, so that
+    # fetch 500s (FileNotFoundError in WhiteNoise). The deploy gate now waits
+    # for the new process (readiness.build_info), so this is only a backstop.
+    # A stylesheet still unreachable when the budget runs out fails the run,
+    # and a missing link or a truncated file fails at once: waiting cannot
+    # fix either of those.
+    deadline = time.monotonic() + STYLESHEET_RETRY_SECONDS
+    while True:
+        url = f"{base}/en/"
+        try:
+            _, _, html = fetch(url)
+            match = re.search(rb'href="([^"]*crush_lu/css/tailwind[^"]*\.css)"', html)
+            if not match:
+                raise ValueError("home page links no crush_lu tailwind stylesheet")
+            href = match.group(1).decode()
+            url = href if href.startswith("http") else f"{base}{href}"
+            _, _, css = fetch(url)
+            if len(css) < 50_000:
+                raise ValueError(f"only {len(css)} bytes")
+        except ValueError as exc:
+            error = exc
+        except Exception as exc:  # noqa: BLE001 - retried, then reported
+            error = exc
+            if time.monotonic() + STYLESHEET_RETRY_INTERVAL < deadline:
+                print(f"  wait {name}: {url} -> {exc}; retrying")
+                time.sleep(STYLESHEET_RETRY_INTERVAL)
+                continue
+        else:
+            error = None
+        break
+    if error is not None:
+        failures.append(f"{name}: {url} -> {type(error).__name__}: {error}")
+        print(f"  FAIL {name}: {url} -> {error}")
     else:
         passes += 1
         print(f"  ok   {name}")

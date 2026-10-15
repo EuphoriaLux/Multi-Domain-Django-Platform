@@ -74,16 +74,10 @@ CHECKS = (
 )
 
 
-def build_info():
-    """
-    Return the build stamp written by CI into the deploy package, or None.
+_boot_build = None
 
-    The deploy workflow writes build_info.json (commit sha + timestamp) next
-    to manage.py before zipping. Exposing it in /readyz/ lets the pipeline
-    wait until the *new* build is actually serving (a zip deploy + restart
-    leaves the old container answering for a while), and lets a post-swap
-    check assert production runs the expected commit.
-    """
+
+def _read_build_info():
     import json
 
     from django.conf import settings
@@ -93,6 +87,37 @@ def build_info():
             return json.load(fh)
     except (OSError, ValueError):
         return None
+
+
+def capture_build_info():
+    """Read the build stamp once, at process boot (AzureprojectConfig.ready)."""
+    global _boot_build
+    _boot_build = _read_build_info()
+    return _boot_build
+
+
+def build_info():
+    """
+    Return the build stamp this process booted with, or None.
+
+    The deploy workflow writes build_info.json (commit sha + timestamp) next
+    to manage.py before zipping. Exposing it in /readyz/ lets the pipeline
+    wait until the *new* build is actually serving (a zip deploy + restart
+    leaves the old container answering for a while), and lets a post-swap
+    check assert production runs the expected commit.
+
+    It must be the stamp read at boot, never the file as it is now. App
+    Service serves /home/site/wwwroot from shared storage, so the old process
+    sees the new build_info.json the moment the zip lands, long before the
+    new container starts. Read per request, the stamp made the old process
+    report the new commit: the deploy gate passed on it and the smoke test
+    ran against the old code. Its stylesheet had just been deleted by the
+    `--clean` deploy, so the old HTML linked a file that no longer existed.
+    That made the stylesheet check 500 in the deploys for #1261, #1262 and #1266.
+    The lazy import in HealthCheckMiddleware would make a module-level read
+    happen on the first /readyz/ request, hence the explicit boot hook.
+    """
+    return _boot_build
 
 
 def run_readiness_checks():
