@@ -107,6 +107,8 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
         "transaction_reference",
         "sumup_checkout_id",
         "sumup_customer_id",
+        "buyer__email",
+        "buyer__username",
         "user__email",
         "user__username",
         "event_registration__user__email",
@@ -128,6 +130,7 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
         "currency",
         "status",
         "purpose",
+        "buyer",
         "user",
         "event",
         "event_registration",
@@ -168,6 +171,7 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
             "Who and what",
             {
                 "fields": (
+                    "buyer",
                     "user",
                     "event",
                     "event_registration",
@@ -211,6 +215,7 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
             super()
             .get_queryset(request)
             .select_related(
+                "buyer",
                 "user",
                 "event",
                 "event_registration__user",
@@ -241,12 +246,11 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
         Staff can start a checkout on a member's behalf, and that stamps the
         staff account on ``user`` — the linked registration or membership is the
         authority, exactly as ``_payment_owner_ids`` treats it in the views.
+        Both read ``owner()``: the buyer stamped at creation, which survives
+        the registration being deleted.
         """
-        if obj.event_registration_id:
-            return obj.event_registration.user.email
-        if obj.premium_membership_id:
-            return obj.premium_membership.user.email
-        return obj.user.email if obj.user_id else "—"
+        owner = obj.owner()
+        return owner.email if owner is not None else "—"
 
     @admin.display(description="For")
     def get_bought(self, obj):

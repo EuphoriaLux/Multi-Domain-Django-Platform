@@ -895,13 +895,22 @@ def _receipt_recipient(payment):
     in the staff member's language, and nothing at all to the person whose
     membership was just activated. The linked registration or membership wins
     wherever one exists; ``payment.user`` is the fallback only for unlinked rows
-    (a donation) that name nobody else.
+    (a donation) that name nobody else. Both now read ``payment.owner()``, the
+    stamped buyer, and a buyer merged into another account is mailed at the
+    account that survived: the duplicate is deactivated and its address may
+    be an Apple relay nobody reads any more.
     """
-    if payment.event_registration_id:
-        return payment.event_registration.user
-    if payment.premium_membership_id:
-        return payment.premium_membership.user
-    return payment.user
+    from django.contrib.auth import get_user_model
+
+    from crush_lu.models import AccountMerge
+
+    owner = payment.owner()
+    if owner is None:
+        return None
+    surviving_id = AccountMerge.surviving_user_id(owner.pk)
+    if surviving_id == owner.pk:
+        return owner
+    return get_user_model().objects.get(pk=surviving_id)
 
 
 def _send_payment_receipt(

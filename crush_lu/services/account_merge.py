@@ -58,6 +58,24 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
     if keeper_user.id == duplicate_user.id:
         raise ValueError("Cannot merge a user with themselves.")
 
+    # The AccountMerge row below is how the keeper's export and payment pages
+    # still reach what stays on the duplicate. One duplicate has one keeper
+    # (its export must not land in two people's files), and a keeper that was
+    # itself merged away is a deactivated account: merge into its survivor.
+    from crush_lu.models import AccountMerge
+
+    previous = AccountMerge.objects.filter(duplicate=duplicate_user).first()
+    if previous is not None:
+        raise ValueError(
+            f"This duplicate was already merged into user {previous.keeper_id}."
+        )
+    if AccountMerge.objects.filter(duplicate=keeper_user).exists():
+        raise ValueError(
+            "The account to keep was itself merged into user "
+            f"{AccountMerge.surviving_user_id(keeper_user.pk)}. Merge into that "
+            "account instead."
+        )
+
     logger.info(
         f"[ACCOUNT-MERGE] Starting merge: duplicate {duplicate_user.id} "
         f"({duplicate_user.email}) -> keeper {keeper_user.id} "
@@ -257,11 +275,12 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
     # take the money and confirm nothing. Left on the duplicate it is at least
     # unreachable rather than payable.
     #
-    # A donation points at nothing -- _payment_owner_ids falls back to tx.user
-    # for exactly that shape -- so one left behind is stranded on a deactivated
-    # user: a checkout paid during or after the merge looks up a profile that
-    # has since been moved or deleted and grants no badge, and the keeper
-    # cannot open the widget or return page for a payment they made.
+    # A donation points at nothing, so the badge it pays for is granted to
+    # tx.user's profile: one left behind is stranded on a deactivated user, and
+    # a checkout paid during or after the merge looks up a profile that has
+    # since been moved or deleted and grants no badge. (Opening the widget or
+    # return page no longer depends on this move: ``buyer`` stays on the
+    # duplicate and _payment_owner_ids follows the AccountMerge to the keeper.)
     moved_payments = PaymentTransaction.objects.filter(
         user=duplicate_user, purpose=PaymentTransaction.Purpose.DONATION
     ).update(user=keeper_user)
@@ -632,6 +651,16 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
     duplicate_user.is_active = False
     duplicate_user.save(update_fields=["is_active"])
     log.append(f"Deactivated duplicate user (id={duplicate_user.id})")
+
+    # 15. Record the merge. Memberships, payments and the Connect, spark,
+    # gift, safety and lobby rows stay on the duplicate (above), so this is
+    # what ties them to the keeper: the data export includes the duplicate's
+    # history, and a payment the duplicate bought (``buyer`` never moves)
+    # still opens and is receipted for the keeper.
+    AccountMerge.objects.create(
+        duplicate=duplicate_user, keeper=keeper_user, merged_by=admin_user
+    )
+    log.append("Recorded the merge so the keeper's data export includes it")
 
     logger.info(
         f"[ACCOUNT-MERGE] Completed merge: {duplicate_user.id} -> {keeper_user.id}. "

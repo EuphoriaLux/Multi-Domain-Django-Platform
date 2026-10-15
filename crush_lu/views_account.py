@@ -718,6 +718,10 @@ ACCOUNT_ERASURE_RETAINED = {
     "CrushCredit": "refund rights; voided or kept by delete_crushlu_profile_only",
     "PremiumMembership": "financial record",
     "PremiumPaymentRecoveryCase": "financial record",
+    # Merge alias: what ties a merged duplicate's retained history (and the
+    # payments it bought) to the keeper. Holds no data of its own beyond the
+    # two accounts, the time and the staff actor.
+    "AccountMerge": "merge record linking a deactivated duplicate to its keeper",
     # Consent / ban record that stops the account being re-created.
     "UserDataConsent": "ban + consent audit record",
     # Safety records, decided 2026-10-15: reports by or about the member are
@@ -2933,10 +2937,10 @@ def _export_member_activity(user):
     ]
 
     # Payments and Premium. No card data is stored, so none can be exported.
-    # Ownership follows views_payments._payment_owner_ids: staff-opened
-    # checkouts stamp ``user`` with the staff account, so the linked
-    # registration or membership names the buyer; ``user`` counts only for
-    # rows linked to neither.
+    # Ownership follows views_payments._payment_owner_ids (``bought_by`` is
+    # ``owner_id()`` as a filter): the buyer stamped at checkout creation, not
+    # ``user``, which is the staff account on a staff-opened checkout, and not
+    # the registration alone, whose deletion SET_NULLs the link.
     def payment_event(payment):
         # ``event`` is stamped only once a payment is paid or refunded; until
         # then the registration still names it.
@@ -2959,15 +2963,7 @@ def _export_member_activity(user):
             "paid_at": _iso_or_none(payment.paid_at),
         }
         for payment in model("PaymentTransaction")
-        .objects.filter(
-            Q(event_registration__user=user)
-            | Q(event_registration__isnull=True, premium_membership__user=user)
-            | Q(
-                event_registration__isnull=True,
-                premium_membership__isnull=True,
-                user=user,
-            )
-        )
+        .objects.bought_by(user)
         .select_related("event", "event_registration__event")
         .order_by("created_at", "pk")
     ]
@@ -3139,7 +3135,40 @@ def export_user_data(request):
     """
     GDPR Article 20 - Data Portability.
     Export all user's personal data as a JSON file download.
+
+    Accounts merged into this one (``AccountMerge``, followed through chains)
+    each get their own block under ``merged_accounts``, built by the same
+    ``_export_account`` with the same rules, relative to that account: the
+    merge leaves memberships, payments and the Connect, spark, gift, safety
+    and lobby rows on the deactivated duplicate, which can no longer sign in
+    to download them. A separate block rather than one merged list keeps the
+    one-per-account sections (Connect membership, waitlist, consent) whole and
+    says which account each row was recorded on.
     """
+    from crush_lu.models import AccountMerge
+
+    user = request.user
+    data = {"export_date": timezone.now().isoformat()}
+    data.update(_export_account(user))
+    merged = [
+        {"merged_at": _iso_or_none(merge.merged_at), **_export_account(merge.duplicate)}
+        for merge in AccountMerge.merged_duplicates(user.pk)
+    ]
+    if merged:
+        data["merged_accounts"] = merged
+
+    response = HttpResponse(
+        json.dumps(data, indent=2, ensure_ascii=False),
+        content_type="application/json",
+    )
+    response["Content-Disposition"] = (
+        f'attachment; filename="crush_lu_data_{user.id}.json"'
+    )
+    return response
+
+
+def _export_account(user):
+    """Everything the export holds for one account (see ``export_user_data``)."""
     from crush_lu.models import (
         AndroidAppDevice,
         CrushCoach,
@@ -3156,9 +3185,7 @@ def export_user_data(request):
     from entreprinder.models import EntrepreneurProfile
     from hub.models import HubProfile, HubRequest, HubTimelineEvent
 
-    user = request.user
     data = {
-        "export_date": timezone.now().isoformat(),
         "account": {
             "email": user.email,
             "username": user.username,
@@ -3868,11 +3895,4 @@ def export_user_data(request):
     except UserDataConsent.DoesNotExist:
         pass
 
-    response = HttpResponse(
-        json.dumps(data, indent=2, ensure_ascii=False),
-        content_type="application/json",
-    )
-    response["Content-Disposition"] = (
-        f'attachment; filename="crush_lu_data_{user.id}.json"'
-    )
-    return response
+    return data
