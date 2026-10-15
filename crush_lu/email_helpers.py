@@ -612,6 +612,41 @@ def send_photo_review_retracted_notification(user, request=None):
     )
 
 
+def send_photo_order_changed_notification(user, request=None, *, main_changed):
+    """Tell a member, in their language, that a coach reordered their photos."""
+    from django.utils import translation
+
+    from crush_lu.notification_service import _photo_order_changed_text
+
+    lang = get_user_preferred_language(user=user, request=request, default="en")
+    with translation.override(lang):
+        subject, body = _photo_order_changed_text(main_changed)
+        html_message = render_to_string(
+            "crush_lu/emails/photo_order_changed.html",
+            {
+                "user": user,
+                "LANGUAGE_CODE": lang,
+                "title": subject,
+                "body": body,
+                "photos_url": get_user_language_url(
+                    user, "crush_lu:edit_profile", request
+                )
+                + "?section=photos",
+                "social_links": get_social_links(),
+                **get_email_base_urls(user, request),
+            },
+        )
+    return send_domain_email(
+        subject=subject,
+        message=html_to_plain_text(html_message),
+        html_message=html_message,
+        recipient_list=[user.email],
+        request=request,
+        domain="crush.lu",
+        fail_silently=False,
+    )
+
+
 def send_profile_rejected_notification(profile, request, reason):
     """
     Notify user that their profile has been rejected.

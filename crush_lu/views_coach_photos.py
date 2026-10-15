@@ -8,8 +8,9 @@ flag a fake profile).
 
 import json
 import logging
+from django.contrib import messages
 from django.http import HttpResponseBadRequest, JsonResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_GET, require_POST
@@ -23,6 +24,11 @@ from crush_lu.services.photo_framing import (
     clear_focus,
     get_focus,
     set_focus,
+)
+from crush_lu.services.photo_order import (
+    PhotoOrderError,
+    can_become_main,
+    swap_photo_slots,
 )
 from crush_lu.services.photo_publication import PHOTO_FIELDS, get_published_key
 from crush_lu.services.photo_review import (
@@ -190,18 +196,22 @@ def coach_member_photos(request, user_id):
     """
     profile = get_object_or_404(
         CrushProfile.objects.select_related("user").prefetch_related(
-            "published_photos", "photo_framings"
+            "published_photos", "photo_framings", "photo_review_states"
         ),
         user_id=user_id,
     )
     labels = _photo_slot_labels()
+    keys = {field: getattr(profile, field).name or "" for field in PHOTO_FIELDS}
     slots = []
-    for photo_field in PHOTO_FIELDS:
+    for index, photo_field in enumerate(PHOTO_FIELDS):
         photo = getattr(profile, photo_field)
         if not photo:
             continue
         focus = get_focus(profile, photo.name)
         published = get_published_key(profile, photo_field)
+        # The slot before this one: "Make main photo" for photo 2, "Move up"
+        # for photo 3 (services/photo_order.py).
+        previous = PHOTO_FIELDS[index - 1] if index else ""
         slots.append(
             {
                 "field": photo_field,
@@ -216,13 +226,51 @@ def coach_member_photos(request, user_id):
                 "has_focus": bool(focus),
                 # Members still see an earlier approved photo in this slot.
                 "is_replacement": bool(published and published != photo.name),
+                "can_become_main": can_become_main(profile, photo_field),
+                "previous_field": previous,
+                "previous_key": keys.get(previous, ""),
             }
         )
     return render(
         request,
         "crush_lu/coach_member_photos.html",
-        {"member": profile.user, "profile": profile, "slots": slots},
+        {
+            "member": profile.user,
+            "profile": profile,
+            "slots": slots,
+            "main_key": keys["photo_1"],
+            # A new main photo drops the in-person badge, which names a file.
+            "main_is_verified": profile.is_photo_verified,
+        },
     )
+
+
+@coach_required
+@require_POST
+def coach_member_photo_swap(request, user_id):
+    """Swap two of a member's photo slots (``photo_field``/``photo_key`` with
+    ``target_field``/``target_key``), most often to choose the main photo.
+    The member is told. Plain form post: redirects back to the photo page."""
+    profile = get_object_or_404(CrushProfile, user_id=user_id)
+    try:
+        swap = swap_photo_slots(
+            request.coach,
+            profile,
+            request.POST.get("photo_field", ""),
+            request.POST.get("target_field", ""),
+            request.POST.get("photo_key", ""),
+            request.POST.get("target_key", ""),
+            request=request,
+        )
+    except PhotoOrderError as exc:
+        messages.error(request, exc.message)
+    else:
+        if swap.changed_main_photo:
+            message = _("Main photo changed. %(name)s has been told.")
+        else:
+            message = _("Photo order changed. %(name)s has been told.")
+        messages.success(request, message % {"name": profile.display_name})
+    return redirect("crush_lu:coach_member_photos", user_id=user_id)
 
 
 @coach_required
