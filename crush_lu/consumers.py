@@ -2071,7 +2071,7 @@ def build_leaderboard(quiz_id):
 
     # Individual top scorers (using display_name for privacy)
     from crush_lu.models import CrushProfile
-    from crush_lu.views_quiz import _photo_url
+    from crush_lu.views_quiz import _add_photo_focus, _photo_url
 
     top_individuals = (
         IndividualScore.objects.filter(quiz_id=quiz_id)
@@ -2081,6 +2081,7 @@ def build_leaderboard(quiz_id):
     )
 
     individual_scores = []
+    focus_entries = []
     for entry in top_individuals:
         try:
             profile = CrushProfile.objects.get(user_id=entry["user_id"])
@@ -2091,15 +2092,16 @@ def build_leaderboard(quiz_id):
             photo_url = None
         from crush_lu.views_quiz import _member_color, _member_initials
 
-        individual_scores.append(
-            {
-                "display_name": name,
-                "total_score": entry["total"],
-                "initials": _member_initials(name),
-                "color": _member_color(name),
-                "photo_url": photo_url,
-            }
-        )
+        score = {
+            "display_name": name,
+            "total_score": entry["total"],
+            "initials": _member_initials(name),
+            "color": _member_color(name),
+            "photo_url": photo_url,
+        }
+        individual_scores.append(score)
+        focus_entries.append((score, entry["user_id"]))
+    _add_photo_focus(focus_entries)
 
     return {
         "tables": leaderboard,
