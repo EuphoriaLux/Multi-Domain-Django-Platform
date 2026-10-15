@@ -615,6 +615,14 @@ ACCOUNT_EXPORT_COACH_EXCLUDED = {
     "user": "the account block already exports the account",
     "photo": "binary media; has_photo reports presence",
 }
+ACCOUNT_EXPORT_CONNECT_MEMBERSHIP_EXCLUDED = {
+    "id": "internal key",
+    "user": "the account block already exports the account",
+    "excluded_by_coach": "moderation decision (safety tool, not disclosed)",
+    "excluded_at": "moderation decision (safety tool, not disclosed)",
+    "excluded_by": "staff identity",
+    "exclusion_reason": "staff-written moderation note",
+}
 
 # Erasure of the consent row. The FULL-account path sanitises the
 # identity-layer fields; the Crush-specific ones are revoked on both paths.
@@ -2645,6 +2653,339 @@ def _iso_or_none(value):
     return value.isoformat() if value else None
 
 
+def _export_connect_membership(membership):
+    """Every membership field except ACCOUNT_EXPORT_CONNECT_MEMBERSHIP_EXCLUDED.
+
+    Prompts and selections are exported by their readable text, never by id.
+    """
+    import datetime
+
+    from django.db import models as dj_models
+
+    block = {}
+    for field in membership._meta.concrete_fields:
+        if field.name in ACCOUNT_EXPORT_CONNECT_MEMBERSHIP_EXCLUDED:
+            continue
+        value = getattr(membership, field.name)
+        if isinstance(field, dj_models.ForeignKey):
+            value = getattr(value, "text", None) if value is not None else None
+        elif isinstance(value, (datetime.datetime, datetime.date)):
+            value = value.isoformat()
+        block[field.name] = value
+    for field in membership._meta.many_to_many:
+        block[field.name] = [
+            item.label for item in getattr(membership, field.name).all()
+        ]
+    return block
+
+
+def _export_member_activity(user):
+    """The member's own activity across Connect, sparks, gifts, payments,
+    referrals, safety tools and the event lobby (GDPR Art. 15/20, #1194).
+
+    One rule throughout: the member's own content, dates and status are
+    exported; the other person's identity never is (no name, email, id or
+    pseudonym), because a request, block, report or "we met" signal names
+    someone else. Received sparks and meet signals stay out (the sender is
+    secret until revealed), as do reports made about the member, staff notes
+    and resolutions, payment-provider ids and responses, gift codes (bearer
+    credentials), media files and Connect card guesses (they encode the other
+    person's private answers).
+    """
+    from django.apps import apps
+
+    def model(name):
+        return apps.get_model("crush_lu", name)
+
+    def display(row, field):
+        """Readable label for a choices field, the raw value otherwise."""
+        value = getattr(row, field)
+        if not value:
+            return None
+        label = getattr(row, f"get_{field}_display", None)
+        return str(label()) if label else value
+
+    activity = {}
+
+    # Crush Connect
+    membership = model("CrushConnectMembership").objects.filter(user=user).first()
+    requests = (
+        model("ConnectWeeklyRequest")
+        .objects.filter(Q(requester=user) | Q(recipient=user))
+        .order_by("sent_at", "pk")
+    )
+    cards = (
+        model("ConnectCycleCard")
+        .objects.filter(session__user=user)
+        .order_by("generated_date", "day_number", "card_index", "pk")
+    )
+    chats = list(
+        model("ConnectTemporaryChat")
+        .objects.filter(Q(participant_1=user) | Q(participant_2=user))
+        .order_by("created_at", "pk")
+    )
+    own_messages = {}
+    for message in (
+        model("ConnectChatMessage")
+        .objects.filter(chat__in=chats, sender=user)
+        .order_by("sent_at", "pk")
+    ):
+        own_messages.setdefault(message.chat_id, []).append(
+            {"text": message.message, "sent_at": _iso_or_none(message.sent_at)}
+        )
+    coffee_dates = (
+        model("ConnectCoffeeDate")
+        .objects.filter(chat__in=chats)
+        .select_related("chat", "venue_location")
+        .order_by("proposed_date", "pk")
+    )
+    activity["crush_connect"] = {
+        "membership": _export_connect_membership(membership) if membership else None,
+        "requests": [
+            {
+                "direction": "sent" if r.requester_id == user.id else "received",
+                "status": display(r, "status"),
+                # Only the member's own message: a received one is the
+                # sender's words.
+                "your_message": (
+                    r.message or None if r.requester_id == user.id else None
+                ),
+                "sent_at": _iso_or_none(r.sent_at),
+                "expires_at": _iso_or_none(r.expires_at),
+                "responded_at": _iso_or_none(r.responded_at),
+            }
+            for r in requests
+        ],
+        "cards": [
+            {
+                "day": card.day_number,
+                "card": card.card_index,
+                "generated_date": _iso_or_none(card.generated_date),
+                "completed": card.is_completed,
+                "completed_at": _iso_or_none(card.completed_at),
+                "expired": card.is_expired,
+            }
+            for card in cards
+        ],
+        "chats": [
+            {
+                "status": display(chat, "status"),
+                "created_at": _iso_or_none(chat.created_at),
+                "expires_at": _iso_or_none(chat.expires_at),
+                "closed_at": _iso_or_none(chat.closed_at),
+                "close_reason": chat.close_reason or None,
+                "messages_you_sent": own_messages.get(chat.pk, []),
+            }
+            for chat in chats
+        ],
+        "coffee_dates": [
+            {
+                "proposed_by_you": coffee.proposer_id == user.id,
+                "venue": (
+                    str(coffee.venue_location)
+                    if coffee.venue_location_id
+                    else coffee.custom_venue_name or None
+                ),
+                "venue_address": coffee.custom_venue_address or None,
+                "date": _iso_or_none(coffee.proposed_date),
+                "time_slot": coffee.proposed_time_slot or None,
+                "status": display(coffee, "status"),
+                "you_confirmed_at": _iso_or_none(
+                    coffee.participant_1_confirmed_at
+                    if coffee.chat.participant_1_id == user.id
+                    else coffee.participant_2_confirmed_at
+                ),
+                "meeting_confirmed_at": _iso_or_none(coffee.meeting_confirmed_at),
+            }
+            for coffee in coffee_dates
+        ],
+    }
+
+    # Sparks and journey gifts the member sent (their own text).
+    activity["sparks_sent"] = [
+        {
+            "event": spark.event.title if spark.event_id else None,
+            "status": display(spark, "status"),
+            "your_description": spark.sender_description or None,
+            "your_message": spark.sender_message or None,
+            "revealed_to_recipient": spark.is_sender_revealed,
+            "created_at": _iso_or_none(spark.created_at),
+            "delivered_at": _iso_or_none(spark.delivered_at),
+            "completed_at": _iso_or_none(spark.completed_at),
+            "expires_at": _iso_or_none(spark.expires_at),
+        }
+        for spark in model("CrushSpark")
+        .objects.filter(sender=user)
+        .select_related("event")
+        .order_by("created_at", "pk")
+    ]
+    activity["journey_gifts_sent"] = [
+        {
+            "status": display(gift, "status"),
+            "your_message": gift.sender_message or None,
+            "date_first_met": _iso_or_none(gift.date_first_met),
+            "location_first_met": gift.location_first_met or None,
+            "claimed": gift.claimed_by_id is not None,
+            "created_at": _iso_or_none(gift.created_at),
+            "expires_at": _iso_or_none(gift.expires_at),
+            "claimed_at": _iso_or_none(gift.claimed_at),
+        }
+        for gift in model("JourneyGift")
+        .objects.filter(sender=user)
+        .order_by("created_at", "pk")
+    ]
+
+    # Payments and Premium. No card data is stored, so none can be exported.
+    activity["payments"] = [
+        {
+            "reference": payment.transaction_reference,
+            "provider": display(payment, "provider"),
+            "amount": str(payment.amount),
+            "currency": payment.currency,
+            "status": display(payment, "status"),
+            "purpose": display(payment, "purpose"),
+            "event": payment.event.title if payment.event_id else None,
+            "created_at": _iso_or_none(payment.created_at),
+            "paid_at": _iso_or_none(payment.paid_at),
+        }
+        for payment in model("PaymentTransaction")
+        .objects.filter(user=user)
+        .select_related("event")
+        .order_by("created_at", "pk")
+    ]
+    activity["premium_memberships"] = [
+        {
+            "status": display(premium, "status"),
+            "payment_confirmed": premium.payment_confirmed,
+            "payment_date": _iso_or_none(premium.payment_date),
+            "coach": (
+                premium.coach.user.first_name or None if premium.coach_id else None
+            ),
+            "created_at": _iso_or_none(premium.created_at),
+        }
+        for premium in model("PremiumMembership")
+        .objects.filter(user=user)
+        .select_related("coach__user")
+        .order_by("created_at", "pk")
+    ]
+
+    # Referrals: the member's own arrival, and people they referred (counts
+    # and dates only, never who).
+    arrival = (
+        model("ReferralAttribution")
+        .objects.filter(referred_user=user)
+        .order_by("created_at", "pk")
+        .first()
+    )
+    activity["referrals"] = {
+        "you_were_referred": (
+            {
+                "status": display(arrival, "status"),
+                "landing_path": arrival.landing_path or None,
+                "ip_address": arrival.ip_address or None,
+                "user_agent": arrival.user_agent or None,
+                "created_at": _iso_or_none(arrival.created_at),
+                "converted_at": _iso_or_none(arrival.converted_at),
+            }
+            if arrival
+            else None
+        ),
+        "people_you_referred": [
+            {
+                "status": display(row, "status"),
+                "created_at": _iso_or_none(row.created_at),
+                "converted_at": _iso_or_none(row.converted_at),
+                "reward_points": row.reward_points,
+                "reward_applied_at": _iso_or_none(row.reward_applied_at),
+            }
+            # ``referrer`` is the referrer's CrushProfile, not the User.
+            for row in model("ReferralAttribution")
+            .objects.filter(referrer__user=user)
+            .order_by("created_at", "pk")
+        ],
+    }
+
+    # Safety tools the member used. Who they blocked or reported stays out,
+    # as do staff handling and resolution notes.
+    activity["safety"] = {
+        "blocks_made": [
+            {
+                "reason": display(block, "reason"),
+                "created_at": _iso_or_none(block.created_at),
+            }
+            for block in model("UserBlock")
+            .objects.filter(blocker=user)
+            .order_by("created_at", "pk")
+        ],
+        "reports_made": [
+            {
+                "reason": display(report, "reason"),
+                "details": report.details or None,
+                "source": report.source or None,
+                "status": display(report, "status"),
+                "created_at": _iso_or_none(report.created_at),
+            }
+            for report in model("UserReport")
+            .objects.filter(reporter=user)
+            .order_by("created_at", "pk")
+        ],
+        "connect_reports_made": [
+            {
+                "reason": report.reason or None,
+                "details": report.details or None,
+                "status": display(report, "status"),
+                "created_at": _iso_or_none(report.created_at),
+            }
+            for report in model("ConnectReport")
+            .objects.filter(reporter=user)
+            .order_by("created_at", "pk")
+        ],
+    }
+
+    # Event lobby: signals and confirmations the member sent, and active
+    # encounters. Received signals stay secret until mutual; an encounter
+    # under review is hidden in the app, so it stays out here too.
+    activity["event_lobby"] = {
+        "meet_signals_sent": [
+            {
+                "event": signal.event.title,
+                "created_at": _iso_or_none(signal.created_at),
+                "mutual": signal.mutual_revealed_at is not None,
+                "mutual_revealed_at": _iso_or_none(signal.mutual_revealed_at),
+            }
+            for signal in model("EventMeetSignal")
+            .objects.filter(sender=user)
+            .select_related("event")
+            .order_by("created_at", "pk")
+        ],
+        "meetings_you_confirmed": [
+            {
+                "event": confirmation.event.title,
+                "created_at": _iso_or_none(confirmation.created_at),
+            }
+            for confirmation in model("EventMeetingConfirmation")
+            .objects.filter(confirmer=user)
+            .select_related("event")
+            .order_by("created_at", "pk")
+        ],
+        "confirmed_encounters": [
+            {
+                "event": (
+                    encounter.created_from_event.title
+                    if encounter.created_from_event_id
+                    else None
+                ),
+                "created_at": _iso_or_none(encounter.created_at),
+            }
+            for encounter in model("ConfirmedEncounter")
+            .objects.filter(Q(user_low=user) | Q(user_high=user), status="active")
+            .select_related("created_from_event")
+            .order_by("created_at", "pk")
+        ],
+    }
+    return activity
+
+
 @crush_login_required
 def export_user_data(request):
     """
@@ -3354,6 +3695,8 @@ def export_user_data(request):
             }
             for msg in sent_messages
         ]
+
+    data.update(_export_member_activity(user))
 
     # Consent records
     try:
