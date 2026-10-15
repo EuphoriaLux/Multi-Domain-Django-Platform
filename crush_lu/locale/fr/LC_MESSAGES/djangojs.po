@@ -250,6 +250,10 @@ msgstr "Échec du téléversement de la photo : "
 msgid "Photo upload failed. Please try again."
 msgstr "Échec du téléversement de la photo. Veuillez réessayer."
 
+#. profile wizard: final submit with a photo whose upload failed
+msgid "A photo was not saved. Choose it again or remove it, then continue."
+msgstr "Une photo n'a pas été enregistrée. Choisissez-la à nouveau ou supprimez-la, puis continuez."
+
 #. user-facing string from alpine-components.js (#321)
 msgid "Could not remove the photo: "
 msgstr "Impossible de supprimer la photo : "

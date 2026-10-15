@@ -4456,6 +4456,20 @@ document.addEventListener("alpine:init", function () {
                     // Prevent form submission on non-final steps
                     return;
                 }
+                // A photo still held by its file input was never saved: a
+                // successful auto-save upload empties the input, a failed one
+                // leaves the file there. Sending it with this native multipart
+                // submit is what reached the server with an empty body on iOS
+                // (no CSRF token, 403), so send the member back to Photos to
+                // choose it again or remove it instead.
+                if (this._hasUnsavedPhoto()) {
+                    this.saveError = gettext(
+                        "A photo was not saved. Choose it again or remove it, then continue.",
+                    );
+                    notifyError(this.saveError);
+                    this.goToStep(3);
+                    return;
+                }
                 // Prepare form data (phone number formatting)
                 this.setSubmitting();
                 // Refresh CSRF token before final submit to prevent stale-token errors
@@ -4484,6 +4498,14 @@ document.addEventListener("alpine:init", function () {
                         var form = document.getElementById("profileForm");
                         if (form) form.submit();
                     });
+            },
+
+            _hasUnsavedPhoto: function () {
+                for (var n = 1; n <= 3; n++) {
+                    var input = document.getElementById("photo" + n);
+                    if (input && input.files && input.files.length) return true;
+                }
+                return false;
             },
 
             nextStepAndReview: function () {
