@@ -415,6 +415,9 @@ def _build_card(p, *, as_of, scope, now):
         "scope": scope,
         "pending_fields": [photo["field"] for photo in photos if photo["is_pending"]],
         "user_id": p.user.id,
+        "framing_url": reverse(
+            "crush_lu:coach_member_photos", kwargs={"user_id": p.user_id}
+        ),
         "display_name": p.display_name or p.user.first_name or p.user.username,
         "age": p.age_display or "",
         "date_of_birth": (

@@ -517,6 +517,24 @@ def _photo_url(event, handle) -> str:
     )
 
 
+def _photo_focus(viewer, user_ids) -> dict[int, str]:
+    """``object-position`` of the coach-set focus for each member's primary
+    photo, as the lobby photo routes serve it to ``viewer``. One batch per
+    list: the lobby re-reads its roster while the event runs.
+
+    Remembered on the viewer object for the rest of the request, so the
+    state poll's roster and mutuals (mostly the same people) share one batch.
+    """
+    from crush_lu.services.photo_framing import primary_photo_positions
+
+    known = viewer.__dict__.setdefault("_lobby_photo_focus", {})
+    missing = {user_id for user_id in user_ids if user_id not in known}
+    if missing:
+        found = primary_photo_positions(viewer, missing)
+        known.update({user_id: found.get(user_id, "") for user_id in missing})
+    return {user_id: known[user_id] for user_id in user_ids if known[user_id]}
+
+
 def get_roster(viewer, event) -> list[dict]:
     """The live photo grid (§7.2): everyone eligible except self and blocked
     pairs, newest joiner first, photo-only until the pair is mutual.
@@ -540,13 +558,19 @@ def get_roster(viewer, event) -> list[dict]:
         )
     )
     roster = []
-    qs = eligible_participations(event).exclude(user=viewer).order_by("-joined_at")
+    qs = [
+        participation
+        for participation in eligible_participations(event)
+        .exclude(user=viewer)
+        .order_by("-joined_at")
+        if participation.user_id not in unavailable
+    ]
+    focus = _photo_focus(viewer, [participation.user_id for participation in qs])
     for participation in qs:
-        if participation.user_id in unavailable:
-            continue
         entry = {
             "handle": participation.handle,
             "photo_url": _photo_url(event, participation.handle),
+            "photo_focus": focus.get(participation.user_id, ""),
             "is_mutual": participation.user_id in mutual_ids,
             "already_met": participation.user_id in encounter_ids,
             "signalled": participation.user_id in signalled_ids,
@@ -576,7 +600,9 @@ def get_mutuals(viewer, event) -> list[dict]:
         .select_related("recipient")
         .order_by("-mutual_revealed_at")
     )
-    for signal in signal_qs:
+    signals = list(signal_qs)
+    focus = _photo_focus(viewer, [signal.recipient_id for signal in signals])
+    for signal in signals:
         if signal.recipient_id in unavailable:
             continue
         participation = participations_by_user.get(signal.recipient_id)
@@ -588,6 +614,7 @@ def get_mutuals(viewer, event) -> list[dict]:
                 "handle": participation.handle,
                 "first_name": signal.recipient.first_name,
                 "photo_url": _photo_url(event, participation.handle),
+                "photo_focus": focus.get(signal.recipient_id, ""),
                 "revealed_at": signal.mutual_revealed_at.isoformat(),
             }
         )
@@ -1022,15 +1049,21 @@ def get_recap_roster(viewer, event) -> list[dict]:
         ).values_list("other_user_id", flat=True)
     )
     entries = []
-    qs = eligible_participations(event).exclude(user=viewer).order_by("-joined_at")
+    qs = [
+        participation
+        for participation in eligible_participations(event)
+        .exclude(user=viewer)
+        .order_by("-joined_at")
+        if participation.user_id not in unavailable
+    ]
+    focus = _photo_focus(viewer, [participation.user_id for participation in qs])
     for participation in qs:
-        if participation.user_id in unavailable:
-            continue
         is_live_mutual = participation.user_id in live_mutual_ids
         already_met = participation.user_id in encounter_ids
         entry = {
             "handle": participation.handle,
             "photo_url": _photo_url(event, participation.handle),
+            "photo_focus": focus.get(participation.user_id, ""),
             "is_live_mutual": is_live_mutual,
             "already_met": already_met,
             "confirmed": participation.user_id in confirmed_ids,
@@ -1292,15 +1325,20 @@ def get_people_ive_met(user) -> list[dict]:
         )
         .order_by("-created_at")
     )
+    shown = []
     for encounter in encounters:
         other = encounter.counterpart_of(user)
         if other.pk in blocked or not _can_appear_in_collection(other):
             continue
+        shown.append((encounter, other))
+    focus = _photo_focus(user, [other.pk for _encounter, other in shown])
+    for encounter, other in shown:
         entries.append(
             {
                 "user_id": other.pk,
                 "first_name": other.first_name,
                 "photo_url": _encounter_photo_url(other.pk),
+                "photo_focus": focus.get(other.pk, ""),
                 "profile_url": reverse(
                     "crush_lu:event_lobby_person", kwargs={"user_id": other.pk}
                 ),
@@ -1518,5 +1556,6 @@ def get_people_met_profile(user, handle):
         "user_id": other.pk,
         "first_name": other.first_name,
         "photo_url": _encounter_photo_url(other.pk),
+        "photo_focus": _photo_focus(user, [other.pk]).get(other.pk, ""),
         "handle": handle,
     }

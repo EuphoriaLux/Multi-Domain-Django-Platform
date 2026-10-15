@@ -1,0 +1,8 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+{% block title %}{{ title }} - Crush.lu{% endblock %}
+{% block header_title %}{{ title }}{% endblock %}
+{% block content %}
+<p>{{ body }}</p>
+<a href="{{ photos_url }}" class="button">{% trans "View your photos" %}</a>
+{% endblock %}

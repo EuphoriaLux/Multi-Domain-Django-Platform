@@ -17,6 +17,7 @@ from crush_lu.models import (
     ProfilePhotoReviewState,
     PublishedProfilePhoto,
 )
+from crush_lu.services.photo_framing import move_focus
 from crush_lu.utils.image_processing import process_uploaded_image
 
 logger = logging.getLogger(__name__)
@@ -243,6 +244,10 @@ class Command(BaseCommand):
                                 "photo_review_notes",
                             ]
                         )
+                    # A coach-set focus point belongs to the image, too. Moved
+                    # before the save, which drops the focus of a file it
+                    # discards (photo_framing).
+                    move_focus(obj, old_blob_name, field.name)
                     # Same image under a new key: not a member upload, so it
                     # does not count against the daily upload limit.
                     obj._skip_photo_upload_record = True

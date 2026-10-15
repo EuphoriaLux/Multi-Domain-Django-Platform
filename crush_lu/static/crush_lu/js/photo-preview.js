@@ -38,8 +38,10 @@ function previewImage(input, previewId) {
                 badge.textContent = "New";
                 container.appendChild(badge);
             } else {
-                // Already showing an image, update it
+                // Already showing an image, update it. A coach-set focus
+                // belongs to the saved file, not to the newly picked one.
                 preview.src = e.target.result;
+                preview.style.objectPosition = "";
 
                 // Update or create "New" badge
                 let badge = container.querySelector(".photo-badge");

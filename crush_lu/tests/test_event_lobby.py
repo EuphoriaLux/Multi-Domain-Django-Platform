@@ -549,9 +549,12 @@ class TestRoster:
         assert len(roster) == 2
         for entry in roster:
             # §13: opaque handle + authorized photo URL only before a reveal.
+            # photo_focus is where to crop that same photo (coach framing):
+            # it reveals nothing the photo itself does not.
             assert set(entry.keys()) == {
                 "handle",
                 "photo_url",
+                "photo_focus",
                 "is_mutual",
                 "already_met",
                 "signalled",
@@ -564,6 +567,27 @@ class TestRoster:
                 "crush_lu:event_lobby_photo",
                 kwargs={"event_id": event.pk, "handle": entry["handle"]},
             )
+
+    def test_roster_carries_the_coach_set_photo_focus(self):
+        from crush_lu.models import ProfilePhotoFraming
+
+        event = _make_event()
+        alice = _make_member("alice")
+        ben = _make_member("ben", gender="M")
+        chloe = _make_member("chloe")
+        for member in (alice, ben, chloe):
+            _join(member, event)
+        ProfilePhotoFraming.objects.create(
+            profile=ben.crushprofile,
+            photo_key=ben.crushprofile.photo_1.name,
+            focus_x=40,
+            focus_y=10,
+        )
+        focus = {e["handle"]: e["photo_focus"] for e in lobby.get_roster(alice, event)}
+        assert focus == {
+            _handle_of(ben, event): "40% 10%",
+            _handle_of(chloe, event): "",
+        }
 
     def test_roster_newest_first(self):
         event = _make_event()

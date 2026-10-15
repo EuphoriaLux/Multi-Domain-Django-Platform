@@ -3428,10 +3428,12 @@ document.addEventListener("alpine:init", function () {
         // a later Remove deletes it, and a newer selection follows that delete.
         var slotOperations = [Promise.resolve(), Promise.resolve(), Promise.resolve()];
         return {
+            // focus/focusUrl: the coach-set object-position of the saved
+            // file and its URL; it applies only while that file is shown.
             photos: [
-                { id: 1, hasImage: false, preview: "", uploadGeneration: 0 },
-                { id: 2, hasImage: false, preview: "", uploadGeneration: 0 },
-                { id: 3, hasImage: false, preview: "", uploadGeneration: 0 },
+                { id: 1, hasImage: false, preview: "", uploadGeneration: 0, focus: "", focusUrl: "" },
+                { id: 2, hasImage: false, preview: "", uploadGeneration: 0, focus: "", focusUrl: "" },
+                { id: 3, hasImage: false, preview: "", uploadGeneration: 0, focus: "", focusUrl: "" },
             ],
 
             // Computed getters for CSP compatibility
@@ -3462,6 +3464,21 @@ document.addEventListener("alpine:init", function () {
             get photo3Preview() {
                 return this.photos[2].preview;
             },
+            get photo1PreviewStyle() {
+                return this._previewStyle(0);
+            },
+            get photo2PreviewStyle() {
+                return this._previewStyle(1);
+            },
+            get photo3PreviewStyle() {
+                return this._previewStyle(2);
+            },
+            _previewStyle: function (index) {
+                var photo = this.photos[index];
+                return photo.focus && photo.preview === photo.focusUrl
+                    ? "object-position: " + photo.focus
+                    : "";
+            },
 
             init: function () {
                 var el = this.$el;
@@ -3475,6 +3492,9 @@ document.addEventListener("alpine:init", function () {
                     this.photos[i - 1].hasImage = hasImage;
                     this.photos[i - 1].preview = preview;
                     this.photos[i - 1].uploadedUrl = preview;
+                    this.photos[i - 1].focus =
+                        el.getAttribute("data-photo-" + i + "-focus") || "";
+                    this.photos[i - 1].focusUrl = preview;
                 }
 
                 // Also check draft for any newly uploaded photos not yet in database
@@ -4366,6 +4386,7 @@ document.addEventListener("alpine:init", function () {
                     // Mirror the step-3 photo previews (server photos + any
                     // picked this session; x-show hides empty slots).
                     var srcs = [];
+                    var positions = [];
                     var photoImgs = document.querySelectorAll(
                         '[data-wizard-step="3"] img',
                     );
@@ -4375,6 +4396,7 @@ document.addEventListener("alpine:init", function () {
                         var hidden = wrapper && wrapper.style.display === "none";
                         if (src && !hidden) {
                             srcs.push(src);
+                            positions.push(photoImgs[j].style.objectPosition);
                         }
                     }
                     reviewPhotos.innerHTML = "";
@@ -4384,6 +4406,7 @@ document.addEventListener("alpine:init", function () {
                             img.src = srcs[k];
                             img.alt = "";
                             img.className = "h-14 w-14 rounded-lg object-cover object-face";
+                            if (positions[k]) img.style.objectPosition = positions[k];
                             reviewPhotos.appendChild(img);
                         }
                     } else {

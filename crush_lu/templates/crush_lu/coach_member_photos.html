@@ -1,0 +1,121 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+{% block pre_alpine_js %}{{ block.super }}{% include "crush_lu/partials/alpine_bundle.html" with bundle="coach" %}{% endblock %}
+
+{% block title %}{{ profile.display_name }} - {% trans "Photo framing" %} - Crush.lu{% endblock %}
+{% block mobile_page_title %}{% trans "Photo framing" %}{% endblock %}
+
+{% block content %}
+{# Spec: ai-memory-hub/specs/2026-10-13-crush-photo-framing.md #}
+{% csrf_token %}
+<div class="max-w-4xl mx-auto">
+    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-4">
+        <a href="{% url 'crush_lu:coach_member_overview' member.id %}" class="hover:text-crush-purple transition-colors">{{ profile.display_name }}</a>
+        <span>/</span>
+        <span class="text-gray-700 dark:text-gray-300">{% trans "Photo framing" %}</span>
+    </div>
+
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">{% trans "Photo framing" %}</h1>
+    <p class="text-sm text-gray-600 dark:text-gray-300 mb-6">{% trans "Tap the point of each photo that must stay visible, usually the face. Every frame on Crush.lu keeps that point in view: round avatars, lobby tiles and Connect cards. The photo itself is not changed, and the member is not notified." %}</p>
+
+    {% for slot in slots %}
+    <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 sm:p-6 mb-6"
+             x-data="photoFraming"
+             data-field="{{ slot.field }}"
+             data-photo-key="{{ slot.photo_key }}"
+             data-save-url="{% url 'crush_lu:coach_member_photo_focus' member.id %}"
+             data-focus-x="{{ slot.focus_x }}"
+             data-focus-y="{{ slot.focus_y }}"
+             data-has-focus="{{ slot.has_focus|yesno:'true,false' }}"
+             data-position-text="{% trans 'Focus point: {x} across, {y} down' %}"
+             data-saved-text="{% trans 'Framing saved.' %}"
+             data-reset-text="{% trans 'Back to the default framing.' %}"
+             data-error-text="{% trans 'Could not save the framing. Please try again.' %}"
+             aria-labelledby="framing-title-{{ slot.field }}">
+        <h2 id="framing-title-{{ slot.field }}" class="text-lg font-semibold text-gray-900 dark:text-white mb-1">{{ slot.label }}</h2>
+        {% if slot.is_replacement %}
+        <p class="text-xs text-muted-fg mb-3">{% trans "Members still see the earlier approved photo in this slot. This framing applies once a coach approves this photo." %}</p>
+        {% endif %}
+        <div class="flex flex-col lg:flex-row gap-6">
+            <div class="flex-1 min-w-0">
+                <div class="relative inline-block max-w-full cursor-crosshair select-none rounded-lg focus:outline-none focus:ring-2 focus:ring-crush-purple"
+                     tabindex="0"
+                     role="group"
+                     aria-label="{% trans 'Photo. Click or tap to choose the focus point, or use the arrow keys.' %}"
+                     @click="pickPoint"
+                     @keydown="nudgePoint">
+                    <img src="{{ slot.url }}" alt="" draggable="false"
+                         class="block max-w-full max-h-[60svh] w-auto h-auto rounded-lg pointer-events-none">
+                    <span class="absolute w-6 h-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white ring-2 ring-crush-pink shadow-md pointer-events-none"
+                          :style="markerStyle" aria-hidden="true"></span>
+                </div>
+                <p class="text-xs text-muted-fg mt-2" aria-live="polite" x-text="positionText"></p>
+            </div>
+            <div class="lg:w-72 shrink-0">
+                <p class="text-sm font-medium text-gray-900 dark:text-white mb-3">{% trans "How members see it" %}</p>
+                <div class="flex flex-wrap items-end gap-4">
+                    <figure class="text-center">
+                        <div class="w-16 h-16 mx-auto rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700">
+                            <img src="{{ slot.url }}" alt="" class="w-full h-full object-cover object-face" :style="previewStyle">
+                        </div>
+                        <figcaption class="text-xs text-muted-fg mt-1">{% trans "Avatar" %}</figcaption>
+                    </figure>
+                    <figure class="text-center">
+                        <div class="w-24 h-24 mx-auto rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-700">
+                            <img src="{{ slot.url }}" alt="" class="w-full h-full object-cover object-face" :style="previewStyle">
+                        </div>
+                        <figcaption class="text-xs text-muted-fg mt-1">{% trans "Event lobby" %}</figcaption>
+                    </figure>
+                    <figure class="text-center">
+                        <div class="w-28 aspect-[4/5] mx-auto rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-700">
+                            <img src="{{ slot.url }}" alt="" class="w-full h-full object-cover object-face" :style="previewStyle">
+                        </div>
+                        <figcaption class="text-xs text-muted-fg mt-1">{% trans "Connect card, phone" %}</figcaption>
+                    </figure>
+                    <figure class="text-center">
+                        <div class="w-40 aspect-[5/4] mx-auto rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-700">
+                            <img src="{{ slot.url }}" alt="" class="w-full h-full object-cover object-face" :style="previewStyle">
+                        </div>
+                        <figcaption class="text-xs text-muted-fg mt-1">{% trans "Connect card, wider screens" %}</figcaption>
+                    </figure>
+                </div>
+                <div class="flex flex-wrap gap-3 mt-5">
+                    <button type="button" class="btn-crush-solid btn-sm" @click="save" :disabled="saveDisabled">{% trans "Save framing" %}</button>
+                    <button type="button" class="btn-crush-outline btn-sm" @click="resetFocus" :disabled="resetDisabled">{% trans "Use the default" %}</button>
+                </div>
+                <p role="status" class="text-sm text-green-700 dark:text-green-400 mt-3" x-show="statusMessage" x-text="statusMessage" x-cloak></p>
+                <p role="alert" class="text-sm text-red-700 dark:text-red-300 mt-3" x-show="errorMessage" x-text="errorMessage" x-cloak></p>
+            </div>
+        </div>
+        {% if slot.field != "photo_1" %}
+        {# Photo order (services/photo_order.py): plain posts, the page reloads with the new order. #}
+        <div class="border-t border-gray-200 dark:border-gray-700 mt-6 pt-4">
+            <div class="flex flex-wrap gap-3">
+                <form method="post" action="{% url 'crush_lu:coach_member_photo_swap' member.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="photo_field" value="{{ slot.field }}">
+                    <input type="hidden" name="photo_key" value="{{ slot.photo_key }}">
+                    <input type="hidden" name="target_field" value="photo_1">
+                    <input type="hidden" name="target_key" value="{{ main_key }}">
+                    <button type="submit" class="btn-crush-outline btn-sm"{% if not slot.can_become_main %} disabled{% endif %}>{% trans "Make main photo" %}</button>
+                </form>
+                {% if slot.previous_field and slot.previous_field != "photo_1" %}
+                <form method="post" action="{% url 'crush_lu:coach_member_photo_swap' member.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="photo_field" value="{{ slot.field }}">
+                    <input type="hidden" name="photo_key" value="{{ slot.photo_key }}">
+                    <input type="hidden" name="target_field" value="{{ slot.previous_field }}">
+                    <input type="hidden" name="target_key" value="{{ slot.previous_key }}">
+                    <button type="submit" class="btn-crush-outline btn-sm">{% trans "Move up" %}</button>
+                </form>
+                {% endif %}
+            </div>
+            <p class="text-xs text-muted-fg mt-2">{% trans "The member is told about every change to the order of their photos." %}{% if not slot.can_become_main %} {% trans "Only an approved photo can become the main photo. Approve this photo first." %}{% elif main_is_verified %} {% trans "The current main photo was verified in person: the new main photo has no verified-photo badge until a coach verifies it at an event." %}{% endif %}</p>
+        </div>
+        {% endif %}
+    </section>
+    {% empty %}
+    <p class="text-sm text-muted-fg">{% trans "This member has no photos yet." %}</p>
+    {% endfor %}
+</div>
+{% endblock %}

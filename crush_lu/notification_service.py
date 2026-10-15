@@ -34,6 +34,7 @@ class NotificationType(Enum):
     PROFILE_REVISION = "profile_revision"
     PHOTO_REVISION = "photo_revision"
     PHOTO_REVIEW_RETRACTED = "photo_review_retracted"
+    PHOTO_ORDER_CHANGED = "photo_order_changed"
     PROFILE_REJECTED = "profile_rejected"
     PROFILE_RECONTACT = "profile_recontact"
     NEW_MESSAGE = "new_message"
@@ -63,6 +64,7 @@ class NotificationType(Enum):
             "profile_revision": "profile_updates",
             "photo_revision": "profile_updates",
             "photo_review_retracted": "profile_updates",
+            "photo_order_changed": "profile_updates",
             "profile_rejected": "profile_updates",
             "profile_recontact": "profile_updates",
             "new_message": "new_messages",
@@ -546,6 +548,19 @@ class NotificationService:
                     "metadata": {"photo_review_log_id": context["photo_review_log_id"]},
                 }
 
+            if notification_type == NotificationType.PHOTO_ORDER_CHANGED:
+                # A coach changed someone else's profile: always say so
+                # (services/photo_order.py).
+                title, body = _photo_order_changed_text(context["main_changed"])
+                return {
+                    "title": title,
+                    "body": body,
+                    "link_url": get_user_language_url(
+                        user, "crush_lu:edit_profile_photos", request
+                    ),
+                    "metadata": {"photo_swap_id": context["photo_swap_id"]},
+                }
+
             if notification_type == NotificationType.PROFILE_REJECTED:
                 return {
                     # str() inside the override: a caller may pass a lazy
@@ -754,6 +769,22 @@ class NotificationService:
                     or {}
                 )
 
+            elif notification_type == NotificationType.PHOTO_ORDER_CHANGED:
+                payload = NotificationService._render_inapp_payload(
+                    user, notification_type, context, None
+                )
+                return (
+                    push_notifications.send_push_notification(
+                        user=user,
+                        title=payload["title"],
+                        body=payload["body"],
+                        url=payload["link_url"],
+                        tag=f"photo-order-{context['photo_swap_id']}",
+                        preference_key="profile_updates",
+                    )
+                    or {}
+                )
+
             elif notification_type == NotificationType.PROFILE_REJECTED:
                 reason = context.get("feedback", context.get("coach_notes", ""))
                 return (
@@ -929,6 +960,14 @@ class NotificationService:
                 return (
                     email_helpers.send_photo_review_retracted_notification(
                         user, request
+                    )
+                    == 1
+                )
+
+            elif notification_type == NotificationType.PHOTO_ORDER_CHANGED:
+                return (
+                    email_helpers.send_photo_order_changed_notification(
+                        user, request, main_changed=context["main_changed"]
                     )
                     == 1
                 )
@@ -1166,6 +1205,47 @@ def _photo_revision_photos(context):
             "reason": context.get("photo_review_reason", ""),
         }
     ]
+
+
+def _photo_order_changed_text(main_changed):
+    """Title and body of a PHOTO_ORDER_CHANGED notice, in the active language
+    (bell, push and email share them)."""
+    from django.utils.translation import gettext as _
+
+    if main_changed:
+        return (
+            _("Your coach chose your main photo"),
+            _(
+                "Your coach made another of your photos your main photo, the "
+                "one members see first. You can change your photos at any "
+                "time in your profile."
+            ),
+        )
+    return (
+        _("Your coach changed the order of your photos"),
+        _(
+            "Your coach changed the order of your photos. You can change "
+            "your photos at any time in your profile."
+        ),
+    )
+
+
+def notify_photo_order_changed(
+    user, *, photo_swap_id, main_changed, request=None
+) -> NotificationResult:
+    """Tell a member a coach swapped two of their photos (services/photo_order).
+
+    Deduped per swap, which also writes the bell row before push and email:
+    it is the guaranteed record of a change someone else made to their
+    profile.
+    """
+    return NotificationService.notify(
+        user=user,
+        notification_type=NotificationType.PHOTO_ORDER_CHANGED,
+        context={"photo_swap_id": photo_swap_id, "main_changed": main_changed},
+        request=request,
+        dedupe_key=f"photo-swap:{photo_swap_id}",
+    )
 
 
 def notify_photo_revision(

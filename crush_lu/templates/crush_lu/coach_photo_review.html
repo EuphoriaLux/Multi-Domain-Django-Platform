@@ -103,6 +103,7 @@
                     <span x-text="reviewProgressText"></span>: <span x-text="reviewPhotoLabel"></span>
                 </p>
                 <p x-show="isReplacement" class="text-xs text-muted-fg">{% trans "This photo replaces one a coach already approved. Members keep seeing the approved photo until you approve this one." %}</p>
+                <a :href="cardFramingUrl" target="_blank" rel="noopener" class="inline-block text-sm font-medium text-crush-purple-dark dark:text-crush-purple-light underline">{% trans "Adjust photo framing" %}</a>
                 <div x-show="hasCardDecisions" class="flex flex-wrap items-center gap-2 text-xs text-muted-fg">
                     <span x-text="cardDecisionSummary"></span>
                     <button type="button" class="btn-crush-outline btn-sm" @click="restartCard" :disabled="isSubmitting">{% trans "Start this card over" %}</button>

@@ -353,6 +353,85 @@ class PublishedProfilePhoto(models.Model):
         return f"{self.profile} {self.photo_field}: {self.photo_key}"
 
 
+class ProfilePhotoFraming(models.Model):
+    """The point of one photo file a coach chose to keep visible when cropped.
+
+    Rendered as ``object-position: X% Y%``: the image's (X%, Y%) point lands
+    on the frame's (X%, Y%) point, so that point stays inside every frame
+    ratio (circle, square, 4:5, 5:4). Keyed by file, not slot, so it follows
+    the file into publication and moves with it in a reorder. No file is
+    written, so review, publication and the in-person badge are untouched.
+    Spec: ai-memory-hub/specs/2026-10-13-crush-photo-framing.md
+    """
+
+    profile = models.ForeignKey(
+        "crush_lu.CrushProfile",
+        on_delete=models.CASCADE,
+        related_name="photo_framings",
+    )
+    photo_key = models.CharField(max_length=255)
+    focus_x = models.PositiveSmallIntegerField()
+    focus_y = models.PositiveSmallIntegerField()
+    set_by = models.ForeignKey(
+        "crush_lu.CrushCoach",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="photo_framings_set",
+    )
+    set_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("profile", "photo_key"),
+                name="unique_photo_framing_per_file",
+            ),
+            models.CheckConstraint(
+                condition=Q(focus_x__lte=100) & Q(focus_y__lte=100),
+                name="photo_framing_focus_in_range",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.profile} {self.photo_key}: {self.focus_x}% {self.focus_y}%"
+
+
+class ProfilePhotoSwap(models.Model):
+    """A coach swapped two of a member's photo slots (services/photo_order).
+
+    The audit trail of a change a coach made to someone else's profile; the
+    member is told about every one. ``key_a``/``key_b`` are the files that
+    were in ``field_a``/``field_b`` before the swap (``""`` for an empty
+    slot). Spec: ai-memory-hub/specs/2026-10-13-crush-photo-framing.md
+    """
+
+    profile = models.ForeignKey(
+        "crush_lu.CrushProfile",
+        on_delete=models.CASCADE,
+        related_name="photo_swaps",
+    )
+    coach = models.ForeignKey(
+        "crush_lu.CrushCoach",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="photo_swaps_made",
+    )
+    field_a = models.CharField(max_length=7, choices=PHOTO_SLOT_CHOICES)
+    field_b = models.CharField(max_length=7, choices=PHOTO_SLOT_CHOICES)
+    key_a = models.CharField(max_length=255, blank=True)
+    key_b = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    @property
+    def changed_main_photo(self):
+        return "photo_1" in (self.field_a, self.field_b)
+
+    def __str__(self):
+        return f"{self.profile} {self.field_a} <-> {self.field_b} @ {self.created_at:%Y-%m-%d %H:%M}"
+
+
 class ProfilePhotoUpload(models.Model):
     """One member upload into a photo slot, counted for the daily limit."""
 

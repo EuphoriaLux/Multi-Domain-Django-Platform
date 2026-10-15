@@ -154,9 +154,16 @@ def _trigger_apple_pass_refresh(profile):
         try:
             from .wallet.passkit_apns import send_passkit_push_notifications
 
+            # Runs in the request that changed the pass (a profile save, a
+            # coach framing a photo), and one serial pushes to every device
+            # that registered it, each with a 10s timeout. Bounded like
+            # refresh_ticket_serials: the update tag is advanced first, so a
+            # device skipped for time still updates on Wallet's next poll.
+            budget = getattr(settings, "PASSKIT_BULK_PUSH_BUDGET_SECONDS", 5.0)
             result = send_passkit_push_notifications(
                 pass_type_identifier=pass_type_id,
                 serial_number=profile.apple_pass_serial,
+                deadline=time.monotonic() + budget,
             )
 
             if result["total"] > 0:

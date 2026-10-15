@@ -26,6 +26,7 @@ document.addEventListener("alpine:init", function () {
             componentRoot: null,
             confirmHandle: null,
             confirmPhotoUrl: "",
+            confirmPhotoFocus: "",
             confirmName: "",
             sending: false,
             banner: "",
@@ -87,10 +88,18 @@ document.addEventListener("alpine:init", function () {
                 this.sending = false;
                 this.confirmHandle = null;
                 this.confirmPhotoUrl = "";
+                this.confirmPhotoFocus = "";
                 this.confirmName = "";
                 this.accessRevoked = true;
                 this.stopUpdates();
                 if (this.confirmDialog) this.confirmDialog.destroy();
+            },
+
+            // Coach-set focus of the photo being confirmed (photo_framing).
+            get confirmPhotoStyle() {
+                return this.confirmPhotoFocus
+                    ? "object-position: " + this.confirmPhotoFocus
+                    : "";
             },
 
             get countdownDisplay() {
@@ -130,16 +139,17 @@ document.addEventListener("alpine:init", function () {
                         return;
                     }
                     if (tile.disabled) return;
-                    self.openConfirm(tile.dataset.handle, tile.dataset.photoUrl, tile.dataset.firstName || "");
+                    self.openConfirm(tile.dataset.handle, tile.dataset.photoUrl, tile.dataset.firstName || "", tile.dataset.photoFocus);
                 });
             },
 
-            openConfirm: function (handle, photoUrl, firstName) {
+            openConfirm: function (handle, photoUrl, firstName, photoFocus) {
                 if (this.closed) return;
                 this.confirmGeneration += 1;
                 this.sending = false;
                 this.confirmHandle = handle;
                 this.confirmPhotoUrl = photoUrl || "";
+                this.confirmPhotoFocus = photoFocus || "";
                 this.confirmName = firstName;
                 this.confirmOpen = true;
                 var self = this;
@@ -159,6 +169,7 @@ document.addEventListener("alpine:init", function () {
                 this.confirmDialog.close();
                 this.confirmHandle = null;
                 this.confirmPhotoUrl = "";
+                this.confirmPhotoFocus = "";
                 this.confirmName = "";
             },
 
@@ -269,6 +280,7 @@ document.addEventListener("alpine:init", function () {
                 tile.type = "button";
                 tile.dataset.handle = entry.handle;
                 tile.dataset.photoUrl = entry.photo_url;
+                tile.dataset.photoFocus = entry.photo_focus || "";
                 tile.className =
                     "recap-tile relative aspect-square overflow-hidden rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm focus:outline-none focus:ring-2 focus:ring-crush-purple transition-transform active:scale-[0.97]";
                 var img = document.createElement("img");
@@ -276,6 +288,7 @@ document.addEventListener("alpine:init", function () {
                 img.alt = "";
                 img.loading = "lazy";
                 img.className = "w-full h-full object-cover object-face";
+                if (entry.photo_focus) img.style.objectPosition = entry.photo_focus;
                 tile.appendChild(img);
                 if (entry.already_met) {
                     tile.dataset.alreadyMet = "true";

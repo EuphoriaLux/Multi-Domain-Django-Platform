@@ -123,6 +123,8 @@ def draw_showcase_deck(pool, size=SHOWCASE_DECK_SIZE):
             # Read per photo slot by the card (photo_publication).
             "crushprofile__published_photos",
             "crushprofile__photo_review_states",
+            # The coach-set focus of each photo (photo_framing).
+            "crushprofile__photo_framings",
         )
     }
     return [by_id[pk] for pk in picked_ids if pk in by_id]
