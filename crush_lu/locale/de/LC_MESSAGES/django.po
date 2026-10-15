@@ -42639,19 +42639,22 @@ msgstr "Option 2: Dein gesamtes Konto löschen"
 
 #: templates/crush_lu/gdpr_data_management.html
 msgid ""
-"Permanently deletes your login account and all your data, including on any "
-"other service run by the same operator where you use it. This cannot be "
-"undone."
+"Permanently deletes your login account and your personal data, including on "
+"any other service run by the same operator where you use it. We keep only "
+"payment and credit records, a record of this deletion, and safety reports. "
+"This cannot be undone."
 msgstr ""
-"Löscht dein Login-Konto und alle deine Daten dauerhaft, auch bei anderen "
-"Diensten desselben Betreibers, die du damit nutzt. Dies kann nicht rückgängig"
-" gemacht werden."
+"Löscht dein Login-Konto und deine persönlichen Daten dauerhaft, auch bei "
+"anderen Diensten desselben Betreibers, die du damit nutzt. Wir behalten nur "
+"Zahlungs- und Guthabendaten, einen Nachweis dieser Löschung und "
+"Sicherheitsmeldungen. Dies kann nicht rückgängig gemacht werden."
 
 #: templates/crush_lu/gdpr_data_management.html
-msgid "Delete your entire account and all your data? This cannot be undone."
+msgid ""
+"Delete your entire account and your personal data? This cannot be undone."
 msgstr ""
-"Dein gesamtes Konto und alle deine Daten löschen? Dies kann nicht rückgängig "
-"gemacht werden."
+"Dein gesamtes Konto und deine persönlichen Daten löschen? Dies kann nicht "
+"rückgängig gemacht werden."
 
 #: templates/crush_lu/gdpr_data_management.html
 msgid "Delete account"
@@ -42699,8 +42702,13 @@ msgid ""
 msgstr "Dein Crush.lu-Profil wurde gelöscht. Dein Login-Konto bleibt aktiv."
 
 #: views_account.py
-msgid "Your account and all your data have been permanently deleted."
-msgstr "Dein Konto und alle deine Daten wurden dauerhaft gelöscht."
+msgid ""
+"Your account has been deleted. We keep only what we need to: payment and "
+"credit records, a record of this deletion, and safety reports."
+msgstr ""
+"Dein Konto wurde gelöscht. Wir behalten nur, was wir behalten müssen: "
+"Zahlungs- und Guthabendaten, einen Nachweis dieser Löschung und "
+"Sicherheitsmeldungen."
 
 #: templates/crush_lu/moderation/blocked_members.html
 #, python-format

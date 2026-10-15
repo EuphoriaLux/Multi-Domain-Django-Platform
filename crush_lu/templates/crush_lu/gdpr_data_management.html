@@ -111,11 +111,11 @@
                         {% trans "Option 2: Delete your entire account" %}
                     </h3>
                     <p class="text-sm text-muted-fg dark:text-gray-300 mb-4" data-full-deletion-copy>
-                        {% trans "Permanently deletes your login account and all your data, including on any other service run by the same operator where you use it. This cannot be undone." %}
+                        {% trans "Permanently deletes your login account and your personal data, including on any other service run by the same operator where you use it. We keep only payment and credit records, a record of this deletion, and safety reports. This cannot be undone." %}
                     </p>
 
                     <form method="post" class="space-y-4"
-                          data-confirm="{% trans 'Delete your entire account and all your data? This cannot be undone.' %}"
+                          data-confirm="{% trans 'Delete your entire account and your personal data? This cannot be undone.' %}"
                           data-confirm-label="{% trans 'Delete account' %}">
                         {% csrf_token %}
                         <input type="hidden" name="deletion_type" value="full_account">
