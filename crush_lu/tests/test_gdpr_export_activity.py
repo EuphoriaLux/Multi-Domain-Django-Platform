@@ -78,7 +78,9 @@ class ExportMemberActivityTests(TestCase):
             "premium_memberships",
         ):
             self.assertEqual(data[key], [])
-        self.assertIsNone(data["referrals"]["you_were_referred"])
+        self.assertIsNone(data["crush_connect"]["waitlist"])
+        self.assertEqual(data["crush_connect"]["cycle_feedback"], [])
+        self.assertEqual(data["referrals"]["you_were_referred"], [])
         self.assertEqual(data["safety"]["blocks_made"], [])
         self.assertEqual(data["event_lobby"]["meet_signals_sent"], [])
 
@@ -143,9 +145,26 @@ class ExportMemberActivityTests(TestCase):
             proposed_date=timezone.localdate() + timedelta(days=2),
             proposed_time_slot="18:30",
         )
+        from crush_lu.models import CrushConnectWaitlist
+        from crush_lu.models.crush_connect_cycle import ConnectCycleFeedback
+
+        CrushConnectWaitlist.objects.create(
+            user=self.user,
+            notification_preference=True,
+            payment_confirmed=True,
+            payment_date=timezone.now(),
+            confirmed_by=self.other,
+        )
+        ConnectCycleFeedback.objects.create(
+            session=mine, user=self.user, comment="my week feedback"
+        )
 
         data = self._export()
         connect = data["crush_connect"]
+        self.assertTrue(connect["waitlist"]["payment_confirmed"])
+        self.assertNotIn("confirmed_by", connect["waitlist"])
+        self.assertEqual(connect["cycle_feedback"][0]["comment"], "my week feedback")
+        self.assertIsNotNone(connect["cycle_feedback"][0]["week_started_at"])
         membership = connect["membership"]
         self.assertEqual(membership["smoking"], "never")
         for hidden in ("excluded_by_coach", "exclusion_reason", "excluded_by"):
@@ -161,10 +180,55 @@ class ExportMemberActivityTests(TestCase):
         )
         self.assertEqual(connect["coffee_dates"][0]["venue"], "Café Test")
         self.assertFalse(connect["coffee_dates"][0]["proposed_by_you"])
+        self.assertIsNone(connect["coffee_dates"][0]["venue_address"])
         dump = json.dumps(data, ensure_ascii=False)
         for secret in ("their private words", "their chat text", "staff-only reason"):
             self.assertNotIn(secret, dump)
         self._assert_other_member_absent(data)
+
+    def test_curated_coffee_venue_exports_the_venue_address(self):
+        from hub.models import Location
+
+        from crush_lu.models.crush_connect_cycle import (
+            ConnectCoffeeDate,
+            ConnectTemporaryChat,
+            ConnectWeeklyRequest,
+            ConnectWeekSession,
+        )
+
+        venue = Location.objects.create(
+            name="Café de Paris",
+            address="Place d'Armes 1",
+            city="Luxembourg",
+            max_capacity=50,
+            partnership_stage="Active",
+            notes="internal partner note",
+        )
+        request = ConnectWeeklyRequest.objects.create(
+            session=ConnectWeekSession.objects.create(user=self.user),
+            requester=self.user,
+            recipient=self.other,
+            expires_at=timezone.now() + timedelta(days=1),
+        )
+        chat = ConnectTemporaryChat.objects.create(
+            request=request,
+            participant_1=self.user,
+            participant_2=self.other,
+            expires_at=timezone.now() + timedelta(days=1),
+        )
+        ConnectCoffeeDate.objects.create(
+            chat=chat,
+            proposer=self.user,
+            venue_location=venue,
+            proposed_date=timezone.localdate() + timedelta(days=2),
+            proposed_time_slot="18:30",
+        )
+
+        coffee = self._export()["crush_connect"]["coffee_dates"][0]
+        self.assertEqual(coffee["venue"], "Café de Paris")
+        self.assertEqual(coffee["venue_address"], "Place d'Armes 1")
+        self.assertTrue(coffee["proposed_by_you"])
+        self.assertNotIn("internal partner note", json.dumps(coffee))
 
     def test_membership_registry_covers_every_field(self):
         from crush_lu.models import CrushConnectMembership
@@ -196,6 +260,8 @@ class ExportMemberActivityTests(TestCase):
             sender_description="red scarf",
             sender_message="my note",
             coach_notes="coach-only note",
+            is_sender_revealed=True,
+            revealed_at=timezone.now(),
         )
         CrushSpark.objects.create(
             event=event,
@@ -218,6 +284,8 @@ class ExportMemberActivityTests(TestCase):
         spark = data["sparks_sent"][0]
         self.assertEqual(spark["your_description"], "red scarf")
         self.assertEqual(spark["your_message"], "my note")
+        self.assertTrue(spark["revealed_to_recipient"])
+        self.assertIsNotNone(spark["revealed_at"])
         gift = data["journey_gifts_sent"][0]
         self.assertEqual(gift["your_message"], "for you")
         self.assertNotIn("gift_code", gift)
@@ -264,6 +332,37 @@ class ExportMemberActivityTests(TestCase):
         self.assertNotIn("CHK_PROVIDER_SECRET", dump)
         self.assertNotIn("provider-secret", dump)
 
+    def test_staff_opened_checkout_belongs_to_the_member_not_the_staff(self):
+        """Ownership follows _payment_owner_ids: the linked registration wins."""
+        from crush_lu.models import EventRegistration, PaymentTransaction
+
+        staff = User.objects.create_user(
+            "staff@example.com", "staff@example.com", "x", is_staff=True
+        )
+        registration = EventRegistration.objects.create(
+            event=self._event(), user=self.user, status="pending"
+        )
+        PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-STAFF-OPENED",
+            provider=PaymentTransaction.Provider.SUMUP,
+            amount=Decimal("25.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=staff,
+            event_registration=registration,
+        )
+
+        payments = self._export()["payments"]
+        self.assertEqual([p["reference"] for p in payments], ["CRUSH-STAFF-OPENED"])
+        # Not stamped yet (pending), so the title comes from the registration.
+        self.assertEqual(payments[0]["event"], "Lobby night")
+
+        request = RequestFactory().get("/")
+        request.user = staff
+        staff_export = json.loads(export_user_data(request).content)
+        self.assertEqual(staff_export["payments"], [])
+
     def test_referrals_both_ways_without_the_other_person(self):
         from crush_lu.models import ReferralAttribution, ReferralCode
 
@@ -288,10 +387,19 @@ class ExportMemberActivityTests(TestCase):
             session_key="sk2",
         )
 
+        # A merged duplicate account can leave a second inbound attribution.
+        ReferralAttribution.objects.create(
+            referral_code=their_code,
+            referrer=self.other.crushprofile,
+            referred_user=self.user,
+            landing_path="/second",
+            session_key="sk3",
+        )
+
         data = self._export()
-        arrival = data["referrals"]["you_were_referred"]
-        self.assertEqual(arrival["landing_path"], "/join")
-        self.assertEqual(arrival["ip_address"], "1.2.3.4")
+        arrivals = data["referrals"]["you_were_referred"]
+        self.assertEqual([a["landing_path"] for a in arrivals], ["/join", "/second"])
+        self.assertEqual(arrivals[0]["ip_address"], "1.2.3.4")
         self.assertEqual(len(data["referrals"]["people_you_referred"]), 1)
         dump = json.dumps(data)
         for secret in ("9.9.9.9", "THEIR-UA", "/their-landing"):
@@ -375,5 +483,7 @@ class ExportMemberActivityTests(TestCase):
         self.assertTrue(lobby["meet_signals_sent"][0]["mutual"])
         self.assertEqual(len(lobby["meetings_you_confirmed"]), 1)
         self.assertEqual(len(lobby["confirmed_encounters"]), 1)
+        # created_from_event is internal audit provenance: date only.
+        self.assertEqual(list(lobby["confirmed_encounters"][0]), ["created_at"])
         self.assertNotIn("third@example.com", json.dumps(lobby))
         self._assert_other_member_absent(lobby)

@@ -2739,8 +2739,43 @@ def _export_member_activity(user):
         .select_related("chat", "venue_location")
         .order_by("proposed_date", "pk")
     )
+    waitlist = model("CrushConnectWaitlist").objects.filter(user=user).first()
+    feedback = (
+        model("ConnectCycleFeedback")
+        .objects.filter(user=user)
+        .select_related("session")
+        .order_by("created_at", "pk")
+    )
     activity["crush_connect"] = {
         "membership": _export_connect_membership(membership) if membership else None,
+        # Beta waitlist and its out-of-band payment, which creates no
+        # PaymentTransaction. ``confirmed_by`` (staff identity) stays out.
+        "waitlist": (
+            {
+                "joined_at": _iso_or_none(waitlist.joined_at),
+                "notification_preference": waitlist.notification_preference,
+                "selected_as_tester": waitlist.selected_as_tester,
+                "selected_at": _iso_or_none(waitlist.selected_at),
+                "payment_confirmed": waitlist.payment_confirmed,
+                "payment_date": _iso_or_none(waitlist.payment_date),
+                "beta_invited_at": _iso_or_none(waitlist.beta_invited_at),
+                "beta_invite_wave": waitlist.beta_invite_wave,
+            }
+            if waitlist
+            else None
+        ),
+        # The member's own end-of-week answers, keyed by their week only.
+        "cycle_feedback": [
+            {
+                "week_started_at": _iso_or_none(row.session.started_at),
+                "sentiment": display(row, "sentiment"),
+                "match_quality": display(row, "match_quality"),
+                "comment": row.comment or None,
+                "dismissed": row.dismissed,
+                "created_at": _iso_or_none(row.created_at),
+            }
+            for row in feedback
+        ],
         "requests": [
             {
                 "direction": "sent" if r.requester_id == user.id else "received",
@@ -2781,12 +2816,18 @@ def _export_member_activity(user):
         "coffee_dates": [
             {
                 "proposed_by_you": coffee.proposer_id == user.id,
+                # A curated venue's address lives on the venue (the custom
+                # address is cleared when one is picked), as in the chat UI.
                 "venue": (
-                    str(coffee.venue_location)
+                    coffee.venue_location.name
                     if coffee.venue_location_id
                     else coffee.custom_venue_name or None
                 ),
-                "venue_address": coffee.custom_venue_address or None,
+                "venue_address": (
+                    coffee.venue_location.address or None
+                    if coffee.venue_location_id
+                    else coffee.custom_venue_address or None
+                ),
                 "date": _iso_or_none(coffee.proposed_date),
                 "time_slot": coffee.proposed_time_slot or None,
                 "status": display(coffee, "status"),
@@ -2809,6 +2850,7 @@ def _export_member_activity(user):
             "your_description": spark.sender_description or None,
             "your_message": spark.sender_message or None,
             "revealed_to_recipient": spark.is_sender_revealed,
+            "revealed_at": _iso_or_none(spark.revealed_at),
             "created_at": _iso_or_none(spark.created_at),
             "delivered_at": _iso_or_none(spark.delivered_at),
             "completed_at": _iso_or_none(spark.completed_at),
@@ -2836,6 +2878,19 @@ def _export_member_activity(user):
     ]
 
     # Payments and Premium. No card data is stored, so none can be exported.
+    # Ownership follows views_payments._payment_owner_ids: staff-opened
+    # checkouts stamp ``user`` with the staff account, so the linked
+    # registration or membership names the buyer; ``user`` counts only for
+    # rows linked to neither.
+    def payment_event(payment):
+        # ``event`` is stamped only once a payment is paid or refunded; until
+        # then the registration still names it.
+        if payment.event_id:
+            return payment.event.title
+        if payment.event_registration_id:
+            return payment.event_registration.event.title
+        return None
+
     activity["payments"] = [
         {
             "reference": payment.transaction_reference,
@@ -2844,13 +2899,21 @@ def _export_member_activity(user):
             "currency": payment.currency,
             "status": display(payment, "status"),
             "purpose": display(payment, "purpose"),
-            "event": payment.event.title if payment.event_id else None,
+            "event": payment_event(payment),
             "created_at": _iso_or_none(payment.created_at),
             "paid_at": _iso_or_none(payment.paid_at),
         }
         for payment in model("PaymentTransaction")
-        .objects.filter(user=user)
-        .select_related("event")
+        .objects.filter(
+            Q(event_registration__user=user)
+            | Q(event_registration__isnull=True, premium_membership__user=user)
+            | Q(
+                event_registration__isnull=True,
+                premium_membership__isnull=True,
+                user=user,
+            )
+        )
+        .select_related("event", "event_registration__event")
         .order_by("created_at", "pk")
     ]
     activity["premium_memberships"] = [
@@ -2869,16 +2932,10 @@ def _export_member_activity(user):
         .order_by("created_at", "pk")
     ]
 
-    # Referrals: the member's own arrival, and people they referred (counts
-    # and dates only, never who).
-    arrival = (
-        model("ReferralAttribution")
-        .objects.filter(referred_user=user)
-        .order_by("created_at", "pk")
-        .first()
-    )
+    # Referrals: the member's own arrivals (an account merge can leave
+    # several), and people they referred (counts and dates only, never who).
     activity["referrals"] = {
-        "you_were_referred": (
+        "you_were_referred": [
             {
                 "status": display(arrival, "status"),
                 "landing_path": arrival.landing_path or None,
@@ -2887,9 +2944,10 @@ def _export_member_activity(user):
                 "created_at": _iso_or_none(arrival.created_at),
                 "converted_at": _iso_or_none(arrival.converted_at),
             }
-            if arrival
-            else None
-        ),
+            for arrival in model("ReferralAttribution")
+            .objects.filter(referred_user=user)
+            .order_by("created_at", "pk")
+        ],
         "people_you_referred": [
             {
                 "status": display(row, "status"),
@@ -2968,18 +3026,12 @@ def _export_member_activity(user):
             .select_related("event")
             .order_by("created_at", "pk")
         ],
+        # ``created_from_event`` is internal audit provenance that is never
+        # shown to members, so an encounter exports its date only.
         "confirmed_encounters": [
-            {
-                "event": (
-                    encounter.created_from_event.title
-                    if encounter.created_from_event_id
-                    else None
-                ),
-                "created_at": _iso_or_none(encounter.created_at),
-            }
+            {"created_at": _iso_or_none(encounter.created_at)}
             for encounter in model("ConfirmedEncounter")
             .objects.filter(Q(user_low=user) | Q(user_high=user), status="active")
-            .select_related("created_from_event")
             .order_by("created_at", "pk")
         ],
     }
