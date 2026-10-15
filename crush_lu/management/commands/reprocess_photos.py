@@ -244,6 +244,10 @@ class Command(BaseCommand):
                                 "photo_review_notes",
                             ]
                         )
+                    # A coach-set focus point belongs to the image, too. Moved
+                    # before the save, which drops the focus of a file it
+                    # discards (photo_framing).
+                    move_focus(obj, old_blob_name, field.name)
                     # Same image under a new key: not a member upload, so it
                     # does not count against the daily upload limit.
                     obj._skip_photo_upload_record = True
@@ -260,8 +264,6 @@ class Command(BaseCommand):
                     if current_review_state:
                         current_review_state.photo_key = field.name
                         current_review_state.save(update_fields=["photo_key"])
-                    # A coach-set focus point belongs to the image, too.
-                    move_focus(obj, old_blob_name, field.name)
                     if carries_attestation:
                         self._carry_forward_registration_attestation(
                             obj, old_blob_name, field.name

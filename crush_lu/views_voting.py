@@ -405,6 +405,8 @@ def event_voting_results(request, event_id):
         registrations = (
             EventRegistration.objects.filter(event=event)
             .select_related("user__crushprofile")
+            # Each attendee photo looks up its coach-set focus (photo_framing).
+            .prefetch_related("user__crushprofile__photo_framings")
             .order_by("user__first_name", "user__last_name")
         )
 

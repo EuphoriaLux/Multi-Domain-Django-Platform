@@ -1679,7 +1679,10 @@ class CrushProfile(models.Model):
                 # Clean up old photo blobs when replaced or cleared, except a
                 # published one: other members keep seeing it until a coach
                 # approves the replacement (services/photo_publication.py).
-                from crush_lu.models.moderation import PublishedProfilePhoto
+                from crush_lu.models.moderation import (
+                    ProfilePhotoFraming,
+                    PublishedProfilePhoto,
+                )
                 from crush_lu.services import photo_publication
 
                 for field_name in ("photo_1", "photo_2", "photo_3"):
@@ -1713,6 +1716,10 @@ class CrushProfile(models.Model):
                             old_photo.storage.delete(old_key)
                         except Exception:
                             pass  # Don't block save if cleanup fails
+                        # Its coach-set focus goes with it (photo_framing).
+                        ProfilePhotoFraming.objects.filter(
+                            profile_id=self.pk, photo_key=old_key
+                        ).delete()
             except CrushProfile.DoesNotExist:
                 pass
         if omit_review_fields:
