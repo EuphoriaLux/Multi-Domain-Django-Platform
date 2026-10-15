@@ -14,8 +14,11 @@ Key features:
   remain available even after OAuth tokens expire
 """
 
+import contextlib
+import contextvars
 import logging
 import re
+import time
 import requests
 from django.core.cache import cache
 from django.core.files.base import ContentFile
@@ -99,15 +102,130 @@ def _is_token_expired(token):
 # the live API is unavailable.
 
 
+# Providers whose photo refresh_social_photo_cache() persists to storage.
+PHOTO_CACHE_PROVIDERS = ('facebook', 'google', 'microsoft')
+
+# Set while a caller deletes SocialAccounts whose cached photos it has already
+# erased (see already_erased_social_photo_cache); the pre_delete hook skips.
+_cache_already_erased = contextvars.ContextVar(
+    'social_photo_cache_already_erased', default=False
+)
+
+
+@contextlib.contextmanager
+def already_erased_social_photo_cache():
+    """Delete SocialAccounts without the pre_delete hook touching storage.
+
+    Only for a caller that has just erased every cached copy itself, fail
+    closed: full-account deletion removes the accounts after it has
+    deactivated the member, when a storage error could no longer be retried
+    by the member signing in again.
+    """
+    token = _cache_already_erased.set(True)
+    try:
+        yield
+    finally:
+        _cache_already_erased.reset(token)
+
+
+def social_photo_cache_already_erased():
+    return _cache_already_erased.get()
+
+
+def _get_social_cache_dir(user_id):
+    """Get the storage folder holding a member's cached social photos."""
+    return f"users/{user_id}/social_cache/"
+
+
 def _get_social_cache_path(social_account):
     """Get the storage path for a cached social photo."""
-    return f"users/{social_account.user_id}/social_cache/{social_account.provider}.jpg"
+    folder = _get_social_cache_dir(social_account.user_id)
+    return f"{folder}{social_account.provider}.jpg"
 
 
 def _get_photo_storage():
     """Get the storage backend for social photo cache."""
     from .models.profiles import get_crush_photo_storage
     return get_crush_photo_storage()
+
+
+def _delete_cached_photo_files(storage, user_id, provider):
+    """
+    Delete every stored copy of one provider's persisted photo.
+
+    The production storage (CrushProfilePhotoStorage) gives every save a
+    unique ``<uuid>_<provider>.jpg`` name, so the path passed to save() is not
+    the name that gets stored: list the folder and match on the provider.
+    Azure lists full blob names and the filesystem bare file names, so only
+    the last path segment is compared. Storage errors propagate.
+    """
+    folder = _get_social_cache_dir(user_id)
+    try:
+        _dirs, files = storage.listdir(folder)
+    except FileNotFoundError:
+        return
+    for name in files:
+        name = name.rsplit('/', 1)[-1]
+        if name == f"{provider}.jpg" or name.endswith(f"_{provider}.jpg"):
+            storage.delete(folder + name)
+
+
+def _is_banned_from_crush(user_id):
+    """True when the member may never hold a Crush.lu profile again.
+
+    Profile deletion sets this ban permanently, so a later login must not
+    re-collect a provider photo that has nowhere to go.
+    """
+    from .models.profiles import UserDataConsent
+
+    return UserDataConsent.objects.filter(
+        user_id=user_id, crushlu_banned=True
+    ).exists()
+
+
+def _may_persist_social_photo(social_account):
+    """The account is still connected and its member may hold a Crush profile.
+
+    A refresh fetches from the provider for several seconds; a disconnect, a
+    profile deletion or an account merge can land in between, so this is
+    checked again around the write. The row must still belong to the user and
+    provider the refresh started with: a merge keeps the pk but moves the
+    account to the keeper, whose folder is not the one being written. An
+    unsaved account, as in a connect flow, never qualifies.
+    """
+    from allauth.socialaccount.models import SocialAccount
+
+    if not social_account.pk:
+        return False
+    still_owned = SocialAccount.objects.filter(
+        pk=social_account.pk,
+        user_id=social_account.user_id,
+        provider=social_account.provider,
+    ).exists()
+    if not still_owned:
+        return False
+    return not _is_banned_from_crush(social_account.user_id)
+
+
+def _may_hold_social_photo_cache(user_id):
+    """Whether a member can have a persisted photo that cleanup must reach.
+
+    Photos are only persisted on crush.lu logins, so a member with no Crush
+    profile, consent or ban has none in practice: deleting their PowerUp or
+    Entreprinder account must not depend on Crush storage. The rare copy a
+    one-off crush.lu login left for such a member is removed by
+    sweep_orphaned_social_photo_cache() once the account is gone.
+    """
+    from django.db.models import Q
+
+    from .models import CrushProfile
+    from .models.profiles import UserDataConsent
+
+    if CrushProfile.objects.filter(user_id=user_id).exists():
+        return True
+    return UserDataConsent.objects.filter(
+        Q(crushlu_consent_given=True) | Q(crushlu_banned=True), user_id=user_id
+    ).exists()
 
 
 def _persist_social_photo(social_account, image_data):
@@ -117,6 +235,12 @@ def _persist_social_photo(social_account, image_data):
     Saves the image to: users/{user_id}/social_cache/{provider}.jpg
     This file persists independently of OAuth tokens.
 
+    The write is bracketed by _may_persist_social_photo(): a disconnect or a
+    profile deletion that ran its cleanup while the provider fetch was in
+    flight must not find the photo back afterwards. A deletion that commits
+    after the second check is covered by the SocialAccount pre_delete hook's
+    post-commit pass, and profile deletion commits its ban before erasing.
+
     Args:
         social_account: SocialAccount instance
         image_data: Raw image bytes
@@ -124,6 +248,9 @@ def _persist_social_photo(social_account, image_data):
     Returns:
         bool: True if saved successfully
     """
+    if not _may_persist_social_photo(social_account):
+        return False
+
     storage = _get_photo_storage()
     path = _get_social_cache_path(social_account)
 
@@ -133,14 +260,24 @@ def _persist_social_photo(social_account, image_data):
         raw_file = ContentFile(image_data, name=filename)
         processed = process_uploaded_image(raw_file, filename)
 
-        # Delete existing cached file
+        # Replace the previous copy (whatever name the storage gave it)
         try:
-            if storage.exists(path):
-                storage.delete(path)
+            _delete_cached_photo_files(
+                storage, social_account.user_id, social_account.provider
+            )
         except Exception:
             pass
 
-        storage.save(path, processed)
+        saved_name = storage.save(path, processed)
+
+        if not _may_persist_social_photo(social_account):
+            storage.delete(saved_name)
+            logger.info(
+                f"Discarded {social_account.provider} photo for user "
+                f"{social_account.user_id}: account disconnected or erased "
+                f"during the refresh"
+            )
+            return False
 
         # Mark that persisted photo exists (avoids storage.exists() checks)
         cache.set(
@@ -157,6 +294,126 @@ def _persist_social_photo(social_account, image_data):
     except Exception as e:
         logger.warning(f"Failed to persist social photo: {e}")
         return False
+
+
+def delete_social_photo_cache(social_account):
+    """
+    Delete the persisted social photo and every cache entry pointing at it.
+
+    Runs whenever a SocialAccount is deleted (pre_delete hook in signals.py)
+    and when the member deletes their Crush.lu profile: the persisted copy
+    only exists to offer the member their own provider photo for their
+    profile, so it must not outlive either. Providers that never persist a
+    photo (Apple, LuxID, ...) are skipped without touching storage.
+
+    A file that is already missing is fine; any other storage error propagates
+    so the caller can fail closed instead of reporting the data as gone.
+    """
+    if social_account.provider not in PHOTO_CACHE_PROVIDERS:
+        return
+    _delete_cached_photo_files(
+        _get_photo_storage(), social_account.user_id, social_account.provider
+    )
+    cache.delete_many(
+        [
+            f"social_photo_persisted_exists_{social_account.id}",
+            f"social_photo_{social_account.provider}_{social_account.id}",
+            f"social_photo_refresh_attempted_{social_account.id}",
+        ]
+    )
+
+
+def _list_social_cache_files(storage, deadline=None):
+    """List the storage name of every persisted social photo.
+
+    Azure storage (``list_all``) is listed with one recursive prefix query
+    that the SDK pages through: no request per user folder, whatever
+    ``listdir`` returns in a given django-storages version. Other backends
+    (the local filesystem) list one level, so each users/<id>/social_cache/
+    is walked, stopping at ``deadline`` (a time.monotonic() value).
+
+    Returns:
+        tuple: (names, complete) - complete is False when the walk stopped
+        at the deadline.
+    """
+    list_all = getattr(storage, 'list_all', None)
+    if list_all is not None:
+        return [name for name in list_all('users/') if '/social_cache/' in name], True
+    try:
+        dirs, files = storage.listdir('users/')
+    except FileNotFoundError:
+        return [], True
+    names = [name for name in files if '/social_cache/' in name]
+    for user_dir in dirs:
+        if deadline is not None and time.monotonic() >= deadline:
+            return names, False
+        folder = f"users/{user_dir}/social_cache/"
+        try:
+            _subdirs, cached = storage.listdir(folder)
+        except FileNotFoundError:
+            continue
+        names.extend(folder + name for name in cached)
+    return names, True
+
+
+def sweep_orphaned_social_photo_cache(apply=False, deadline=None, limit=500):
+    """
+    Find, and with ``apply`` delete, persisted photos nobody may keep.
+
+    A copy is kept only while its member is active, is not banned from
+    Crush.lu and still has a SocialAccount for that provider. Anything else in
+    users/<id>/social_cache/ is orphaned: left by a post-commit cleanup that
+    failed during a storage outage, by a login that raced a deletion, or by an
+    account deleted without Crush storage being touched (see
+    _may_hold_social_photo_cache). Runs from gdpr_retention_cleanup.
+
+    Deletes at most ``limit`` files and stops at ``deadline`` (a
+    time.monotonic() value), during the listing as well as the deletes; the
+    next run picks up the rest. Storage errors propagate.
+
+    Returns:
+        tuple: (orphaned_found, deleted, budget_exhausted)
+    """
+    from allauth.socialaccount.models import SocialAccount
+
+    storage = _get_photo_storage()
+    names, listed_all = _list_social_cache_files(storage, deadline)
+    entries = []
+    for name in names:
+        parts = name.split('/')
+        if len(parts) != 4 or not parts[1].isdigit():
+            continue
+        # <uuid>_<provider>.jpg (production naming) or <provider>.jpg
+        provider = parts[3].rsplit('.', 1)[0].rsplit('_', 1)[-1]
+        entries.append((name, int(parts[1]), provider))
+
+    user_ids = sorted({user_id for _name, user_id, _provider in entries})
+    keep = set()
+    for start in range(0, len(user_ids), 500):
+        keep.update(
+            SocialAccount.objects.filter(
+                user_id__in=user_ids[start:start + 500],
+                user__is_active=True,
+                provider__in=PHOTO_CACHE_PROVIDERS,
+            )
+            .exclude(user__data_consent__crushlu_banned=True)
+            .values_list('user_id', 'provider')
+        )
+    orphaned = [
+        name for name, user_id, provider in entries
+        if (user_id, provider) not in keep
+    ]
+
+    deleted = 0
+    if apply:
+        for name in orphaned:
+            if deleted >= limit or (
+                deadline is not None and time.monotonic() >= deadline
+            ):
+                return len(orphaned), deleted, True
+            storage.delete(name)
+            deleted += 1
+    return len(orphaned), deleted, not listed_all
 
 
 def _get_persisted_social_photo_url(social_account):
@@ -201,6 +458,10 @@ def refresh_social_photo_cache(social_account, token=None, force=False):
     Should be called during social login when we have a fresh token.
     This ensures the persisted copy stays up-to-date.
 
+    Skipped for members banned from Crush.lu (which includes everyone who
+    deleted their Crush.lu profile): profile deletion erased this copy, and a
+    later login must not collect it again.
+
     Throttled to at most once per SOCIAL_PHOTO_REFRESH_INTERVAL per account.
     Every call here is a full image download followed by
     ``process_uploaded_image`` and a blob-storage delete-and-write, and it sat
@@ -237,6 +498,10 @@ def refresh_social_photo_cache(social_account, token=None, force=False):
         except Exception:
             # A cache outage must not stop a login; fall through and refresh.
             pass
+
+    # After the throttle, so a throttled login pays no query for this.
+    if _is_banned_from_crush(social_account.user_id):
+        return False
 
     def _mark_attempted():
         """Record the attempt, successes and failures alike.

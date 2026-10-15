@@ -20,6 +20,12 @@ Categories and default windows (override via ``settings.GDPR_RETENTION``)::
 ``DailyUserActivity`` pruning delegates to the existing
 ``cleanup_daily_activity`` command so the window logic lives in one place.
 
+The sweep also deletes orphaned social login photos from storage
+(``users/<id>/social_cache/``): copies whose member no longer has that provider
+connected, was erased or is banned from Crush.lu. Deleting a SocialAccount
+already removes its copy inline; this catches what a storage outage left
+behind (see ``crush_lu.social_photos.sweep_orphaned_social_photo_cache``).
+
 Usage:
     # Preview what would be deleted (safe default)
     python manage.py gdpr_retention_cleanup
@@ -33,6 +39,7 @@ Usage:
 
 from datetime import timedelta
 
+import logging
 from django.conf import settings
 import time
 
@@ -44,7 +51,10 @@ from crush_lu.models.events import CuratedEventGroup, EventRegistrationPreferenc
 from crush_lu.models.oauth_state import OAuthState
 from crush_lu.models.phone_otp import PhoneOTP
 from crush_lu.models.profiles import CallAttempt, DailyUserActivity
+from crush_lu.social_photos import sweep_orphaned_social_photo_cache
 from hub.models import ErasedPhoneNumber
+
+logger = logging.getLogger(__name__)
 
 # The GdprRetention endpoint runs this synchronously under _call_admin_endpoint's
 # 60s HTTP timeout. A single bulk DELETE of a large first-run backlog could
@@ -53,6 +63,8 @@ from hub.models import ErasedPhoneNumber
 # idempotent (re-queries expired rows), so the next weekly run resumes.
 RETENTION_TIME_BUDGET_SECONDS = 45
 RETENTION_CHUNK_SIZE = 2000
+# Orphaned social photo files deleted per run (one storage call each).
+SOCIAL_CACHE_SWEEP_LIMIT = 500
 
 DEFAULT_RETENTION = {
     "phone_otp_days": 30,
@@ -305,6 +317,35 @@ class Command(BaseCommand):
                     f"  ErasedPhoneNumber older than {erased_days}d: "
                     f"{erased_qs.count()} row(s)"
                 )
+
+        # 7. Orphaned social login photos in storage. Last, because listing
+        # the users/ prefix is the slowest step; bounded by count and by the
+        # same deadline. A storage error is logged and reported, not raised:
+        # the database categories above are already committed.
+        if not budget_hit:
+            try:
+                found, deleted, budget_hit = sweep_orphaned_social_photo_cache(
+                    apply=apply_changes,
+                    deadline=deadline,
+                    limit=SOCIAL_CACHE_SWEEP_LIMIT,
+                )
+            except Exception:  # noqa: BLE001 - reported below, next run retries
+                logger.exception("Orphaned social photo cache sweep failed")
+                self.stdout.write(
+                    self.style.WARNING(
+                        "  Orphaned social photo cache: storage error, skipped"
+                    )
+                )
+            else:
+                if apply_changes:
+                    self.stdout.write(
+                        f"  Orphaned social photo cache: deleted {deleted} "
+                        f"of {found} file(s)"
+                    )
+                else:
+                    self.stdout.write(
+                        f"  Orphaned social photo cache: {found} file(s)"
+                    )
 
         if apply_changes and budget_hit:
             self.stdout.write(
