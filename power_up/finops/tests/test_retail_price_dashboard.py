@@ -903,3 +903,67 @@ def test_retail_sync_webhook_pins_the_snapshot_date_it_is_given(
     )
     assert bad.status_code == 400
     command.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_retail_sync_webhook_answers_503_without_an_error_when_throttled(
+    client, settings, mocker, caplog
+):
+    """Upstream throttling is retried by the timer; it must not read as a bug.
+
+    It used to surface as logger.exception plus a 500 (and django.request's
+    own ERROR line) several times a morning, on days that ended complete.
+    """
+    import logging
+
+    from power_up.finops.management.commands.sync_retail_prices import (
+        RetailPriceSyncDeferred,
+    )
+
+    settings.SECRET_SYNC_TOKEN = "expected-token"
+    mocker.patch(
+        "power_up.finops.views_webhook.call_command",
+        side_effect=RetailPriceSyncDeferred("too many 429 error responses"),
+    )
+
+    with caplog.at_level(logging.WARNING):
+        response = client.post(
+            "/finops/api/sync/retail-prices/",
+            data={"region": "westeurope"},
+            content_type="application/json",
+            HTTP_X_SYNC_TOKEN="expected-token",
+        )
+
+    assert response.status_code == 503
+    assert response["Retry-After"] == "1200"
+    assert response.json()["transient"] is True
+    assert response.json()["region"] == "westeurope"
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert "deferred for westeurope" in caplog.text
+
+
+@pytest.mark.django_db
+def test_retail_sync_webhook_still_answers_500_for_a_real_failure(
+    client, settings, mocker, caplog
+):
+    import logging
+
+    from django.core.management.base import CommandError
+
+    settings.SECRET_SYNC_TOKEN = "expected-token"
+    mocker.patch(
+        "power_up.finops.views_webhook.call_command",
+        side_effect=CommandError("database is locked"),
+    )
+
+    with caplog.at_level(logging.WARNING):
+        response = client.post(
+            "/finops/api/sync/retail-prices/",
+            data={"region": "westeurope"},
+            content_type="application/json",
+            HTTP_X_SYNC_TOKEN="expected-token",
+        )
+
+    assert response.status_code == 500
+    assert "transient" not in response.json()
+    assert [r for r in caplog.records if r.levelno >= logging.ERROR]

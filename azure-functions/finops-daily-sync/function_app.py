@@ -278,6 +278,11 @@ def daily_retail_price_sync(timer: func.TimerRequest) -> None:
     # night ends with a logged summary instead of being killed mid-region with
     # no diagnostic at all.
     deadline = time.monotonic() + BUDGET_SECONDS
+    # Most mornings prices.azure.com throttles a few regions in the first
+    # slots and a later slot captures them. Before the last run a failed
+    # region is a retry, not an incident, so it is logged as a warning; the
+    # last run keeps ERROR and still fails the invocation below.
+    log_region_failure = logging.error if last_run else logging.warning
 
     for region in regions:
         remaining = deadline - time.monotonic()
@@ -334,10 +339,10 @@ def daily_retail_price_sync(timer: func.TimerRequest) -> None:
             status = e.response.status_code if e.response is not None else "unknown"
             body = e.response.text[:500] if e.response is not None else ""
             failures.append(f"{region} (HTTP {status})")
-            logging.error(f"[{timestamp}] {region}: HTTP error {e} - {body}")
+            log_region_failure(f"[{timestamp}] {region}: HTTP error {e} - {body}")
         except Exception as e:
             failures.append(f"{region} ({type(e).__name__})")
-            logging.error(f"[{timestamp}] {region}: {type(e).__name__}: {e}")
+            log_region_failure(f"[{timestamp}] {region}: {type(e).__name__}: {e}")
 
     logging.info(
         f"[{timestamp}] Retail price sync run finished: "
