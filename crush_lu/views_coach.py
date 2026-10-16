@@ -2689,8 +2689,21 @@ def _coach_roster_rows(registrations, event):
             "no_show": _("No-show"),
             "waitlist": _("Waitlist"),
         }.get(registration.status, registration.get_status_display())
+        # Cash-at-the-door seat holders are asked ~2 days before whether they
+        # are still coming; show the answer next to the payment label.
+        attendance_check = ""
+        if registration.status == "pending" and not registration.payment_confirmed:
+            if registration.attendance_confirmed_at:
+                attendance_check = _("Coming ✓")
+            elif registration.attendance_check_sent_at:
+                attendance_check = _("Asked, no answer")
         rows.append(
-            {"registration": registration, "payment": payment, "arrival": arrival}
+            {
+                "registration": registration,
+                "payment": payment,
+                "arrival": arrival,
+                "attendance_check": attendance_check,
+            }
         )
     return rows
 

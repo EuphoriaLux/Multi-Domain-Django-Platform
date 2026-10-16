@@ -769,8 +769,19 @@ def reset_reminders_on_reschedule(sender, instance, created, **kwargs):
     # .update() so the wallet-pass receivers don't fire per registration.
     cleared = (
         EventRegistration.objects.filter(event=instance)
-        .exclude(reminder_notified_at__isnull=True, reminder_sent_at__isnull=True)
-        .update(reminder_notified_at=None, reminder_sent_at=None)
+        .exclude(
+            reminder_notified_at__isnull=True,
+            reminder_sent_at__isnull=True,
+            attendance_check_sent_at__isnull=True,
+            attendance_confirmed_at__isnull=True,
+        )
+        .update(
+            reminder_notified_at=None,
+            reminder_sent_at=None,
+            # The "are you still coming?" answer was for the old date.
+            attendance_check_sent_at=None,
+            attendance_confirmed_at=None,
+        )
     )
     if cleared:
         logger.info(
@@ -817,6 +828,11 @@ def reset_cancellation_notifications_on_restore(sender, instance, created, **kwa
         .exclude(organiser_cancellation_notified_at__isnull=True)
         .update(organiser_cancellation_notified_at=None)
     )
+    # The "are you still coming?" question and answer predate the cancellation
+    # the member was told about: a restored event asks afresh.
+    EventRegistration.objects.filter(event=instance).exclude(
+        attendance_check_sent_at__isnull=True, attendance_confirmed_at__isnull=True
+    ).update(attendance_check_sent_at=None, attendance_confirmed_at=None)
     if cleared:
         logger.info(
             "Event %s restored; cleared organiser-cancellation notification "

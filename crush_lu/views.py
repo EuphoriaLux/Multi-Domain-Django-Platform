@@ -125,6 +125,7 @@ from .views_events import (  # noqa: F401
     event_calendar_download,
     event_register,
     event_cancel,
+    event_attendance_confirm,
     my_events,
     event_feedback,
     next_visible_event,

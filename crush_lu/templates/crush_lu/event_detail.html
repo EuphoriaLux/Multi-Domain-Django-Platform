@@ -547,6 +547,18 @@
                           just keeps the member from being offered a payment
                           that is designed to fail (#4-10).
                         {% endcomment %}
+                        {% if awaits_attendance_answer %}
+                        {# Target of the attendance-check email ("#attendance-check"). The answer is only ever given here, signed in (services.attendance_check). #}
+                        <div id="attendance-check" class="mb-4 rounded-lg border border-crush-purple/30 bg-crush-purple/5 dark:bg-purple-900/20 p-3 sm:p-4">
+                            <p class="font-semibold text-sm sm:text-base mb-1 dark:text-white">{% trans "Are you still coming?" %}</p>
+                            <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mb-3">{% trans "If you can't make it, releasing your seat lets someone on the waitlist take your place. Thank you!" %}</p>
+                            <form method="post" action="{% url 'crush_lu:event_attendance_confirm' event.id %}" class="mb-2">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-crush-solid w-full">{% trans "Yes, I'm coming" %}</button>
+                            </form>
+                            <a href="{% url 'crush_lu:event_cancel' event.id %}" class="btn-crush-outline w-full inline-flex justify-center">{% trans "I can't come — release my seat" %}</a>
+                        </div>
+                        {% endif %}
                         {% if reg_tone == 'payment_due' %}
                         {# Anchor target for the ticket page "Pay now" link (#4-09). #}
                         <div id="event-payment-actions">

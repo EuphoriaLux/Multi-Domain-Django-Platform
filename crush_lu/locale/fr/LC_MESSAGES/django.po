@@ -46004,6 +46004,50 @@ msgstr "Votre place est réservée ! Veuillez payer en espèces à l'entrée, à
 msgid "You were on the waitlist and your spot is reserved. Please pay in cash at the door."
 msgstr "Vous étiez sur la liste d'attente et votre place est réservée. Veuillez payer en espèces à l'entrée."
 
+msgid "Are you still coming to {title}?"
+msgstr "Venez-vous toujours à {title} ?"
+
+msgid "Are you still coming?"
+msgstr "Venez-vous toujours ?"
+
+#, python-format
+msgid "Your seat for <strong>%(title)s</strong> is coming up soon. Please let us know if you are still coming."
+msgstr "Votre place pour <strong>%(title)s</strong> approche. Merci de nous dire si vous venez toujours."
+
+msgid "Yes, I'm coming"
+msgstr "Oui, je viens"
+
+msgid "I can't come — release my seat"
+msgstr "Je ne peux pas venir – libérer ma place"
+
+msgid "If you can't make it, releasing your seat lets someone on the waitlist take your place. Thank you!"
+msgstr "Si vous ne pouvez pas venir, libérer votre place permet à une personne de la liste d'attente de la prendre. Merci !"
+
+msgid "Thanks, see you there!"
+msgstr "Merci, à bientôt !"
+
+#, python-format
+msgid "We have noted that you are coming to %(title)s."
+msgstr "Nous avons noté que vous venez à %(title)s."
+
+msgid "This link is no longer valid"
+msgstr "Ce lien n'est plus valide"
+
+msgid "The link has expired, or the event is over or your registration was cancelled."
+msgstr "Le lien a expiré, l'événement est terminé ou votre inscription a été annulée."
+
+msgid "Coming ✓"
+msgstr "Vient ✓"
+
+msgid "Asked, no answer"
+msgstr "Demandé, sans réponse"
+
+msgid "Please confirm in the Crush.lu app or on crush.lu: open the event and tap the confirm button. Releasing your seat works the same way."
+msgstr "Veuillez confirmer dans l'application Crush.lu ou sur crush.lu : ouvrez l'événement et appuyez sur le bouton de confirmation. Vous pouvez libérer votre place de la même façon."
+
+msgid "Confirm in the app"
+msgstr "Confirmer dans l'application"
+
 msgid "This event is cancelled."
 msgstr "Cet événement est annulé."
 

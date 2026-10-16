@@ -27,8 +27,10 @@ Usage:
     python manage.py send_event_reminders -v 2
 """
 
+import time as monotonic_clock
 from datetime import datetime, time, timedelta
 
+from django.core.cache import cache
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
@@ -36,6 +38,16 @@ from crush_lu import email_helpers
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
 from crush_lu.models import EventRegistration, MeetupEvent
 from crush_lu.notification_service import NotificationResult, notify_event_reminder
+
+# Wall-clock budget for starting new attendance-check sends in one run. The
+# EventReminders timer gives the whole command ~110 s, and one Graph send can
+# take up to 30 s, so stopping new sends after 40 s leaves the reminder pass
+# its share. Unsent rows stay unstamped and go out on the next hourly run.
+ATTENDANCE_CHECK_BUDGET_SECONDS = 40
+
+
+def _failed_check_key(registration_id):
+    return f"attendance-check-failed:{registration_id}"
 
 
 class Command(BaseCommand):
@@ -82,6 +94,138 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        # Second pass on the same timer (no new Azure timer/endpoint needed).
+        # Same-day --hours-before runs are a different reminder, skip them.
+        # The attendance check is only due on one calendar day, so a failing
+        # reminder pass must not cost it that day: run it either way, then
+        # let the reminder pass's error fail the command as before.
+        # Only on the plain sweep the timer runs: a manual --days, --event-id
+        # or --hours-before run targets the ordinary reminder, and adding the
+        # check there would send a member two emails back to back.
+        run_check = (
+            options.get("hours_before") is None
+            and options["days"] == 1
+            and not options.get("event_id")
+        )
+        # Validate before anything is sent: an invalid invocation sends nothing.
+        if options["window_minutes"] <= 0:
+            raise CommandError("--window-minutes must be positive")
+        # The check goes first. It is a handful of unpaid seats due on one day
+        # only, while the reminder fan-out can use up the timer's ~110 s budget
+        # on slow sends and would starve it on every hourly run. A failing
+        # check must not cost the reminders their run either.
+        try:
+            if run_check:
+                self._send_attendance_checks(options)
+        finally:
+            self._send_reminders(options)
+
+    def _send_attendance_checks(self, options):
+        """Ask unpaid cash-at-the-door seat holders "are you still coming?".
+
+        Targets paid events whose local calendar day is two days ahead, and
+        registrations that are ``pending`` (seat held, unpaid), not yet asked.
+        No auto-release: an unanswered check changes nothing.
+        """
+        dry_run = options["dry_run"]
+        event_id = options.get("event_id")
+        verbosity = options["verbosity"]
+
+        target_date = timezone.localdate(timezone.now()) + timedelta(days=2)
+        target_start = timezone.make_aware(
+            datetime.combine(target_date, time.min),
+            timezone.get_current_timezone(),
+        )
+        events_query = MeetupEvent.objects.filter(
+            is_published=True,
+            is_cancelled=False,
+            registration_fee__gt=0,
+            date_time__gte=target_start,
+            date_time__lt=target_start + timedelta(days=1),
+        )
+        if event_id:
+            events_query = events_query.filter(id=event_id)
+
+        registrations = EventRegistration.objects.filter(
+            event__in=events_query,
+            status="pending",
+            payment_confirmed=False,
+            attendance_check_sent_at__isnull=True,
+        ).select_related("user", "user__crushprofile", "event")
+
+        # Members whose last attempt failed go to the back, so a few slow or
+        # failing addresses cannot use up every hourly budget and starve the
+        # rest. Remembered in the cache for a day (the check's whole window).
+        registrations = sorted(
+            registrations,
+            key=lambda reg: bool(cache.get(_failed_check_key(reg.pk))),
+        )
+
+        sent = skipped = failed = deferred = 0
+        started = monotonic_clock.monotonic()
+        for registration in registrations:
+            if monotonic_clock.monotonic() - started > ATTENDANCE_CHECK_BUDGET_SECONDS:
+                deferred += 1
+                continue
+            email = registration.user.email
+            if dry_run:
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"  [DRY RUN] Would send attendance check: {email}"
+                    )
+                )
+                sent += 1
+                continue
+            try:
+                delivered = email_helpers.send_event_attendance_check(registration)
+            except Exception as e:
+                failed += 1
+                cache.set(_failed_check_key(registration.pk), True, 24 * 60 * 60)
+                self.stdout.write(
+                    self.style.ERROR(f"  Attendance check failed for {email}: {e}")
+                )
+                continue
+            if not delivered and not email_helpers.can_send_email(
+                registration.user, "event_attendance_check"
+            ):
+                # Master unsubscribe or banned: never asked, so never stamped.
+                # Stamping would show coaches "Asked, no answer" for nothing.
+                skipped += 1
+                continue
+            if not delivered:
+                # 0 from a member who may receive it is a swallowed send
+                # failure, not an opt-out: leave it unstamped for a retry.
+                failed += 1
+                cache.set(_failed_check_key(registration.pk), True, 24 * 60 * 60)
+                self.stdout.write(
+                    self.style.ERROR(f"  Attendance check not sent to {email}")
+                )
+                continue
+            # Stamp only what was delivered; failures retry next sweep. The
+            # filter re-checks the seat at the stamp: a cancel, payment or
+            # reschedule during the (slow) send reset the markers, and this
+            # update must not write the check back over that reset.
+            # .update() not .save(): avoids the synchronous wallet signal.
+            EventRegistration.objects.filter(
+                pk=registration.pk,
+                status="pending",
+                payment_confirmed=False,
+                attendance_check_sent_at__isnull=True,
+                event__is_cancelled=False,
+                event__date_time=registration.event.date_time,
+            ).update(attendance_check_sent_at=timezone.now())
+            sent += 1
+
+        if verbosity >= 1 or sent or skipped or failed or deferred:
+            label = "[DRY RUN] Would send" if dry_run else "Sent"
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"Attendance checks for {target_date} - {label}: {sent}, "
+                    f"Skipped: {skipped}, Failed: {failed}, Deferred: {deferred}"
+                )
+            )
+
+    def _send_reminders(self, options):
         days = options["days"]
         hours_before = options.get("hours_before")
         window_minutes = options["window_minutes"]

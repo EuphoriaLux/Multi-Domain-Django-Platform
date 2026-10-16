@@ -1822,6 +1822,21 @@ class EventRegistration(models.Model):
         help_text=_("Timestamp the day-before reminder email was settled"),
     )
 
+    # "Are you still coming?" check for unpaid cash-at-the-door seats, sent
+    # ~2 days before a paid event by the send_event_reminders sweep. Stamped
+    # via queryset .update() (no wallet signal). There is deliberately no
+    # auto-release when the member never answers.
+    attendance_check_sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("Timestamp the 'are you still coming?' email was settled"),
+    )
+    attendance_confirmed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("Timestamp the member confirmed they are coming"),
+    )
+
     # Post-event feedback email tracking (idempotency for the
     # send_event_feedback_requests mgmt command).
     feedback_request_sent_at = models.DateTimeField(
@@ -2032,6 +2047,13 @@ class EventRegistration(models.Model):
             )
         return None
 
+    @property
+    def awaits_attendance_answer(self):
+        """Asked "are you still coming?" and not answered (templates)."""
+        from crush_lu.services.attendance_check import awaits_attendance_answer
+
+        return awaits_attendance_answer(self)
+
     def save(self, *args, **kwargs):
         """Keep the cancellation policy timestamp aligned with the status."""
         self.__dict__.pop("_curated_group_degraded_event_ids", None)
@@ -2061,6 +2083,42 @@ class EventRegistration(models.Model):
                 kwargs["update_fields"] = set(kwargs["update_fields"]) | {
                     "waitlist_promoted_at",
                     "promotion_notice",
+                }
+        if self.status in ("waitlist", "cancelled") and (
+            self.attendance_check_sent_at or self.attendance_confirmed_at
+        ):
+            # Same reasoning for the "are you still coming?" check: a seat that
+            # is left (member cancel, admin list_editable or change form, shell)
+            # and later restored is asked afresh, never shown an old answer.
+            # The bulk "Move to waitlist" action uses update() and clears it.
+            self.attendance_check_sent_at = None
+            self.attendance_confirmed_at = None
+            if kwargs.get("update_fields") is not None:
+                kwargs["update_fields"] = set(kwargs["update_fields"]) | {
+                    "attendance_check_sent_at",
+                    "attendance_confirmed_at",
+                }
+
+        if (
+            self.pk
+            and (self.attendance_check_sent_at or self.attendance_confirmed_at)
+            and (
+                update_fields is None
+                or {"event", "event_id"}.intersection(update_fields)
+            )
+            and type(self)
+            .objects.filter(pk=self.pk)
+            .exclude(event_id=self.event_id)
+            .exists()
+        ):
+            # Moved to another event (the admin keeps the FK editable): the
+            # "are you still coming?" question and answer were for the old one.
+            self.attendance_check_sent_at = None
+            self.attendance_confirmed_at = None
+            if kwargs.get("update_fields") is not None:
+                kwargs["update_fields"] = set(kwargs["update_fields"]) | {
+                    "attendance_check_sent_at",
+                    "attendance_confirmed_at",
                 }
 
         writes_group_sensitive_fields = update_fields is None or bool(

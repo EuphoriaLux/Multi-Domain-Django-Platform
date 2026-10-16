@@ -4,6 +4,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from django.http import Http404, HttpResponse
+from django.views.decorators.http import require_http_methods
 from django.db import IntegrityError, connection, transaction
 from django.db.models import Q
 from datetime import timedelta
@@ -30,6 +31,7 @@ from .models.payments import PaymentTransaction
 from .models.credits import CrushCredit
 from .forms import EventRegistrationForm, EventPreferenceForm, EventFeedbackForm
 from .decorators import crush_login_required, ratelimit
+from .services.attendance_check import awaits_attendance_answer
 from .services.event_payments import online_payments_paused
 from .services.event_grouping import (
     count_mutual_matches,
@@ -1573,6 +1575,7 @@ def event_detail(request, event_id):
         ),
         "luxid_connect_url": luxid_connect_url_value,
         "event_share_url": _event_share_url(request, user_profile),
+        "awaits_attendance_answer": awaits_attendance_answer(registration),
     }
     return render(request, "crush_lu/event_detail.html", context)
 
@@ -2092,6 +2095,10 @@ def event_register(request, event_id):
                     # this new registration.
                     registration.waitlist_promoted_at = None
                     registration.promotion_notice = ""
+                    # Nor does an attendance check or answer: the new seat is
+                    # asked afresh (and an old link no longer matches it).
+                    registration.attendance_check_sent_at = None
+                    registration.attendance_confirmed_at = None
                 else:
                     registration = form.save(commit=False)
                     registration.event = locked_event
@@ -2451,6 +2458,56 @@ def _event_cancel_refusal(request, event, registration):
         )
         return redirect("crush_lu:event_detail", event_id=event.id)
     return None
+
+
+@crush_login_required
+@require_http_methods(["GET", "POST"])
+def event_attendance_confirm(request, event_id):
+    """The member answers "Yes, I'm coming" from the event page or dashboard.
+
+    GET is the email's button: it records nothing and only lands the member on
+    the event page's prompt, going through login first when the session has
+    expired (crush_login_required), which a direct event-page link would not.
+    The answer is a signed-in POST, so a mail scanner opening links, or a
+    forwarded email, can never answer for anyone. Idempotent; the first
+    answer keeps its timestamp.
+    """
+    if request.method == "GET":
+        return redirect(
+            reverse("crush_lu:event_detail", kwargs={"event_id": event_id})
+            + "#attendance-check"
+        )
+    from django.utils.http import url_has_allowed_host_and_scheme
+
+    registration = (
+        EventRegistration.objects.select_related("event")
+        .filter(event_id=event_id, user=request.user)
+        .first()
+    )
+    if registration is None:
+        raise Http404
+    if awaits_attendance_answer(registration):
+        # .update() rather than .save(): a save fires the wallet-pass signal,
+        # which does synchronous Apple/Google network I/O. The filter re-checks
+        # the seat at the write, so a reschedule, cancel or payment landing
+        # after the check above keeps its reset rather than a stale answer.
+        answered = EventRegistration.objects.filter(
+            pk=registration.pk,
+            status="pending",
+            payment_confirmed=False,
+            attendance_check_sent_at__isnull=False,
+            attendance_confirmed_at__isnull=True,
+            event__is_cancelled=False,
+            event__date_time=registration.event.date_time,
+        ).update(attendance_confirmed_at=timezone.now())
+        if answered:
+            messages.success(request, _("Thanks, see you there!"))
+    target = request.POST.get("next", "")
+    if url_has_allowed_host_and_scheme(
+        target, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return redirect(target)
+    return redirect("crush_lu:event_detail", event_id=event_id)
 
 
 @crush_login_required

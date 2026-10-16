@@ -573,6 +573,7 @@ urlpatterns = [
     path('events/<int:event_id>/', views.event_detail, name='event_detail'),
     path('events/<int:event_id>/register/', views.event_register, name='event_register'),
     path('events/<int:event_id>/cancel/', views.event_cancel, name='event_cancel'),
+    path('events/<int:event_id>/attending/', views.event_attendance_confirm, name='event_attendance_confirm'),
     path('events/<int:event_id>/feedback/', views.event_feedback, name='event_feedback'),
     path('events/<int:event_id>/calendar/', views.event_calendar_download, name='event_calendar_download'),
     path('events/<int:event_id>/ticket/', views_ticket.event_ticket, name='event_ticket'),
