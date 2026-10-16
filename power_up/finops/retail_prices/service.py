@@ -7,6 +7,7 @@ from time import monotonic
 import gzip
 import hashlib
 
+import requests
 from django.db import transaction
 from django.utils import timezone
 
@@ -25,6 +26,33 @@ class SnapshotAlreadyExists(RuntimeError):
 
 class RegionSyncTimedOut(RuntimeError):
     """Raised when one region's walk outlives the budget it was given."""
+
+
+def is_transient_upstream_failure(exc: BaseException) -> bool:
+    """True when a region failed because the price API was busy, not broken.
+
+    ``prices.azure.com`` throttles the first morning slots most days (urllib3
+    gives up with "too many 429 error responses"), and the timer retries the
+    missing regions twenty minutes later. Those failures are expected and
+    self-healing, so they must not read like a bug in the error views. A 4xx
+    other than 429, a malformed payload or a database error is still a real
+    failure.
+    """
+    if isinstance(exc, RegionSyncTimedOut):
+        return True
+    if isinstance(
+        exc,
+        (
+            requests.exceptions.RetryError,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+        ),
+    ):
+        return True
+    if isinstance(exc, requests.exceptions.HTTPError):
+        status = getattr(exc.response, "status_code", None)
+        return status is not None and (status == 429 or status >= 500)
+    return False
 
 
 #: Seconds one region may spend fetching before it gives up.
