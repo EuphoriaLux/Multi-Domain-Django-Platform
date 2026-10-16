@@ -37,7 +37,10 @@
         </form>
         {% endif %}
       </div>
-      {% if pending_premium_state != "manage" and pending_premium_state != "paid" %}
+      {% if online_payments_paused and pending_premium_state != "manage" and pending_premium_state != "paid" %}
+      {# No payment provider: create_sumup_premium_checkout answers 503 while paused. #}
+      <p class="text-sm rounded-xl p-3 text-center bg-gray-50 dark:bg-white/10 text-gray-600 dark:text-purple-200 border border-gray-200 dark:border-white/20">{% trans "Online payment for Premium is paused for now. We'll let you know as soon as it is back." %}</p>
+      {% elif pending_premium_state != "manage" and pending_premium_state != "paid" %}
       <button data-membership-id="{{ pending_membership.id }}" class="js-sumup-premium-checkout w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-xl shadow transition-all duration-200 cursor-pointer">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>

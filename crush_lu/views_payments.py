@@ -3085,6 +3085,20 @@ def _sumup_return_response(request, tx_obj):
             # UX Wave 3 · WP8 follow-up).
             if registration.payment_confirmed:
                 messages.success(request, _("This registration is already paid."))
+            elif (
+                registration.event.is_published
+                and registration_is_payable(registration, registration.event)
+                and online_payments_paused()
+            ):
+                # The card retry is gone while payments are paused; the
+                # verification above still ran, only the advice changes.
+                messages.warning(
+                    request,
+                    _(
+                        "Your card payment was not completed. Your spot is "
+                        "reserved — please pay in cash at the door."
+                    ),
+                )
             elif registration.event.is_published and registration_is_payable(
                 registration, registration.event
             ):
@@ -3265,7 +3279,10 @@ def sumup_widget_view(request, checkout_id):
     # it would land in an account we can no longer use. Send the member back
     # to the pay-at-the-door instructions. Like the gates below, not applied
     # to the return page or the status endpoints, which report on money that
-    # may already have moved.
+    # may already have moved. A settled checkout goes to the return handling
+    # instead, so a paid member is never told to pay again at the door.
+    if online_payments_paused() and tx_obj.status != PaymentTransaction.Status.PENDING:
+        return _sumup_return_response(request, tx_obj)
     if online_payments_paused():
         messages.info(
             request,

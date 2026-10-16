@@ -45906,3 +45906,9 @@ msgstr "Unbezahlt · %(amount)s €"
 
 msgid "Mark paid (cash)"
 msgstr "Als bezahlt markieren (bar)"
+
+msgid "Your card payment was not completed. Your spot is reserved — please pay in cash at the door."
+msgstr "Deine Kartenzahlung wurde nicht abgeschlossen. Dein Platz ist reserviert – bitte bezahle in bar an der Tür."
+
+msgid "Online payment for Premium is paused for now. We'll let you know as soon as it is back."
+msgstr "Die Online-Zahlung für Premium ist vorübergehend ausgesetzt. Wir melden uns, sobald sie wieder verfügbar ist."
