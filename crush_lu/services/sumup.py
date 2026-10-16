@@ -36,6 +36,7 @@ def _closed_locally_while_paused(checkout_id, reason):
 
 # Checkout statuses that can no longer take a card payment.
 CLOSED_CHECKOUT_STATUSES = frozenset({"FAILED", "CANCELLED", "EXPIRED"})
+PAID_CHECKOUT_STATUSES = frozenset({"PAID", "SUCCESSFUL"})
 
 
 class SumUpError(Exception):
@@ -284,7 +285,20 @@ class SumUpClient:
             logger.warning(
                 "SumUp deactivate_checkout failed for ID %s: %s", checkout_id, exc
             )
+            if self._reported_paid(checkout_id):
+                # SumUp refuses to close a checkout because it was already
+                # paid. That is a real card payment our side missed, never
+                # something to "close locally" and then charge again in cash.
+                return False
             return _closed_locally_while_paused(checkout_id, exc)
+
+    def _reported_paid(self, checkout_id: str) -> bool:
+        """True only when SumUp answers that the checkout was paid."""
+        try:
+            checkout = self.get_checkout(checkout_id)
+        except SumUpError:
+            return False
+        return (checkout.get("status") or "").upper() in PAID_CHECKOUT_STATUSES
 
     def ensure_checkout_not_payable(self, checkout_id: str) -> bool:
         """Prove a checkout is closed, including idempotent retry states."""

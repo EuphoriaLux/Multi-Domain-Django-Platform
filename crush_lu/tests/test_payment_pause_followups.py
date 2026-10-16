@@ -44,6 +44,13 @@ class PausedCheckoutClosingTests(TestCase):
             self.assertTrue(SumUpClient().ensure_checkout_not_payable("CHK-OLD"))
         self.assertIn("[PAYMENTS-PAUSED]", "\n".join(logs.output))
 
+    @override_settings(ONLINE_PAYMENTS_ENABLED=False, SUMUP_API_KEY="key")
+    @patch("crush_lu.services.sumup.requests.delete", side_effect=_forbidden)
+    @patch.object(SumUpClient, "get_checkout", return_value={"status": "PAID"})
+    def test_a_checkout_sumup_reports_paid_is_never_closed_locally(self, _get, _delete):
+        self.assertFalse(SumUpClient().deactivate_checkout("CHK-PAID"))
+        self.assertFalse(SumUpClient().ensure_checkout_not_payable("CHK-PAID"))
+
     @override_settings(ONLINE_PAYMENTS_ENABLED=True, SUMUP_API_KEY="key")
     @patch("crush_lu.services.sumup.requests.delete", side_effect=_forbidden)
     def test_a_refused_close_still_blocks_when_payments_are_live(self, _delete):

@@ -1,6 +1,6 @@
 """Record a cash payment taken at the door for one event seat.
 
-Used by the coach "Mark paid (cash)" button (``views_checkin.coach_mark_paid_cash``).
+Used by the coach "Mark paid (cash)" button (``views_coach.coach_mark_paid_cash``).
 It is the door-shaped slice of what ``EventRegistrationAdmin.save_model`` does
 when staff tick ``payment_confirmed``, kept in the same order and with the same
 guards, but only for the case a coach meets at the door: an unpaid seat holder
