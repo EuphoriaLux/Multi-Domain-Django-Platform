@@ -689,10 +689,20 @@ class NotificationService:
                 registration = context.get("registration")
                 if registration is not None and registration.status == "pending":
                     title = _("A spot opened up for {title}").format(title=event.title)
-                    body = _(
-                        "You were on the waitlist and your spot is reserved. "
-                        "Complete payment to confirm it."
+                    from crush_lu.services.event_payments import (
+                        online_payments_paused,
                     )
+
+                    if online_payments_paused():
+                        body = _(
+                            "You were on the waitlist and your spot is reserved. "
+                            "Please pay in cash at the door."
+                        )
+                    else:
+                        body = _(
+                            "You were on the waitlist and your spot is reserved. "
+                            "Complete payment to confirm it."
+                        )
                 else:
                     title = _("A spot opened up: you're in for {title}").format(
                         title=event.title

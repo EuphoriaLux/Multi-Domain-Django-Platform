@@ -45859,3 +45859,20 @@ msgstr "Unser Team bestätigt deine Zahlung beim Check-in"
 
 msgid "If you can no longer come, please cancel your registration so someone on the waitlist can take your place."
 msgstr "Falls du nicht mehr kommen kannst, storniere bitte deine Anmeldung, damit jemand von der Warteliste deinen Platz bekommt."
+
+msgid "Your spot is reserved. Pay in cash at the door when you arrive."
+msgstr "Dein Platz ist reserviert. Bezahle bei deiner Ankunft in bar an der Tür."
+
+#, python-format
+msgid "If someone cancels, we hold the spot for you and email you straight away. You then pay %(fee)s EUR in cash at the door."
+msgstr "Wenn jemand absagt, halten wir den Platz für dich frei und schreiben dir sofort. Du bezahlst dann %(fee)s EUR in bar an der Tür."
+
+#, python-format
+msgid "Pay €%(amount)s in cash at the door when you arrive. We've emailed you the details."
+msgstr "Bezahle %(amount)s € bei deiner Ankunft in bar an der Tür. Wir haben dir die Details per E-Mail geschickt."
+
+msgid "Your spot is reserved! Please pay in cash at the door when you arrive."
+msgstr "Dein Platz ist reserviert! Bitte bezahle bei deiner Ankunft in bar an der Tür."
+
+msgid "You were on the waitlist and your spot is reserved. Please pay in cash at the door."
+msgstr "Du warst auf der Warteliste und dein Platz ist reserviert. Bitte bezahle in bar an der Tür."

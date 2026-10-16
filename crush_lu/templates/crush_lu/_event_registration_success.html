@@ -67,7 +67,7 @@
         </div>
         <h3 class="text-2xl font-bold mb-2">{% trans "Your Spot Is Reserved!" %}</h3>
         <p class="text-gray-600 dark:text-gray-300 mb-6">
-            {% trans "Complete your payment to confirm your registration. We've emailed you the details." %}
+            {% if online_payments_paused %}{% blocktrans with amount=event.registration_fee %}Pay €{{ amount }} in cash at the door when you arrive. We've emailed you the details.{% endblocktrans %}{% else %}{% trans "Complete your payment to confirm your registration. We've emailed you the details." %}{% endif %}
         </p>
     {% else %}
         <div class="mb-4">

@@ -1014,6 +1014,8 @@ def send_event_waitlist_notification(registration, request):
     Returns:
         int: Number of emails sent
     """
+    from crush_lu.services.event_payments import online_payments_paused
+
     from django.utils import translation
     from django.utils.translation import gettext as _
 
@@ -1053,6 +1055,7 @@ def send_event_waitlist_notification(registration, request):
         "display_name": display_name,
         "waitlist_position": waitlist_position,
         "events_url": events_url,
+        "online_payments_paused": online_payments_paused(),
         "LANGUAGE_CODE": lang,
         "social_links": get_social_links(),
         **base_urls,

@@ -139,6 +139,8 @@ class OnlinePaymentsPausedTests(CreditFixture):
         paused = self.client.get(url).content.decode()
         self.assertIn("in cash at the door", paused)
         self.assertNotIn('data-payment-method="card"', paused)
+        self.assertIn("Pay in cash at the door when you arrive", paused)
+        self.assertNotIn("Complete payment below", paused)
 
         with self.settings(ONLINE_PAYMENTS_ENABLED=True):
             live = self.client.get(url).content.decode()

@@ -182,7 +182,7 @@
                         </svg>
                         <div class="flex-1">
                             <p class="font-semibold text-sm sm:text-base mb-1">{% blocktrans with amount=event.registration_fee %}Payment due — €{{ amount }}{% endblocktrans %}</p>
-                            <p class="text-xs sm:text-sm mb-0">{% trans "Your spot is reserved. Complete payment below to confirm it." %}</p>
+                            {% if online_payments_paused %}<p class="text-xs sm:text-sm mb-0">{% trans "Your spot is reserved. Pay in cash at the door when you arrive." %}</p>{% else %}<p class="text-xs sm:text-sm mb-0">{% trans "Your spot is reserved. Complete payment below to confirm it." %}</p>{% endif %}
                         </div>
                     </div>
                 </div>

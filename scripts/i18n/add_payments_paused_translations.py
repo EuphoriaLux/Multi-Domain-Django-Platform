@@ -41,6 +41,26 @@ NEW = {
         "de": "Dein Platz wird für dich freigehalten. Die Online-Kartenzahlung ist vorübergehend ausgesetzt, bitte bezahle die %(amount)s EUR bei deiner Ankunft in bar an der Tür.",
         "fr": "Votre place vous est réservée. Le paiement par carte en ligne est suspendu pour le moment : veuillez régler %(amount)s EUR en espèces à l'entrée, à votre arrivée.",
     },
+    "Your spot is reserved. Pay in cash at the door when you arrive.": {
+        "de": "Dein Platz ist reserviert. Bezahle bei deiner Ankunft in bar an der Tür.",
+        "fr": "Votre place est réservée. Payez en espèces à l'entrée, à votre arrivée.",
+    },
+    "If someone cancels, we hold the spot for you and email you straight away. You then pay %(fee)s EUR in cash at the door.": {
+        "de": "Wenn jemand absagt, halten wir den Platz für dich frei und schreiben dir sofort. Du bezahlst dann %(fee)s EUR in bar an der Tür.",
+        "fr": "Si quelqu'un annule, nous vous réservons la place et vous écrivons aussitôt. Vous payez alors %(fee)s EUR en espèces à l'entrée.",
+    },
+    "Pay €%(amount)s in cash at the door when you arrive. We've emailed you the details.": {
+        "de": "Bezahle %(amount)s € bei deiner Ankunft in bar an der Tür. Wir haben dir die Details per E-Mail geschickt.",
+        "fr": "Payez %(amount)s € en espèces à l'entrée, à votre arrivée. Nous vous avons envoyé les détails par e-mail.",
+    },
+    "Your spot is reserved! Please pay in cash at the door when you arrive.": {
+        "de": "Dein Platz ist reserviert! Bitte bezahle bei deiner Ankunft in bar an der Tür.",
+        "fr": "Votre place est réservée ! Veuillez payer en espèces à l'entrée, à votre arrivée.",
+    },
+    "You were on the waitlist and your spot is reserved. Please pay in cash at the door.": {
+        "de": "Du warst auf der Warteliste und dein Platz ist reserviert. Bitte bezahle in bar an der Tür.",
+        "fr": "Vous étiez sur la liste d'attente et votre place est réservée. Veuillez payer en espèces à l'entrée.",
+    },
     "Bring your ticket (QR code) and the amount in cash": {
         "de": "Bring dein Ticket (QR-Code) und den Betrag in bar mit",
         "fr": "Apportez votre billet (code QR) et le montant en espèces",

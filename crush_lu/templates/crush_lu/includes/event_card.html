@@ -180,7 +180,7 @@
             </a>
             {% else %}
             <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn-crush-solid w-full text-center block py-2 min-h-11">
-                {% if reg_status_chip.tone == "warning" %}{% trans "Complete payment" %}
+                {% if reg_status_chip.tone == "warning" and not online_payments_paused %}{% trans "Complete payment" %}
                 {% else %}{% trans "View Details" %}
                 {% endif %}
             </a>
