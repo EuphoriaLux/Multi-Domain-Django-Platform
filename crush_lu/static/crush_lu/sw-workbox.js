@@ -1,5 +1,9 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
+// Version: v34 - Leave multipart POSTs (file uploads) to the browser instead of
+//                the background-sync route. Its cloned re-send reached the server
+//                with an empty body on iOS WebKit, so the profile form failed its
+//                CSRF check whenever a photo was still attached.
 // Version: v33 - Tell the page when a POST really was stored in the background-
 //                sync queue ({type: "crush-queued", requestId, url} to the one
 //                client that sent it, posted only after the queue write succeeded), so
@@ -681,6 +685,20 @@ if (workbox) {
         );
     }
 
+    // File uploads stay with the browser. The NetworkOnly strategy below
+    // clones every request it sends (Workbox does so whenever a plugin has
+    // fetchDidFail), and on iOS WebKit (Safari and every other iOS browser)
+    // a multipart POST that carries a file then reaches the server with an
+    // EMPTY body: production 2026-09-28 to 2026-10-08 logged
+    // `content_type=multipart/form-data, content_length=0` on the profile
+    // form, so Django saw no CSRF token and answered 403. A file upload cannot
+    // sensibly wait in an IndexedDB queue for a replay anyway.
+    function isMultipartRequest(request) {
+        const headers = request.headers;
+        const type = (headers && headers.get && headers.get("content-type")) || "";
+        return type.toLowerCase().startsWith("multipart/form-data");
+    }
+
     // Replay the queue: the Background Sync handler, the worker-start
     // fallback Workbox uses where the Sync API is missing, and the
     // "crush-drain-queue" message a page sends when it regains connectivity
@@ -788,10 +806,14 @@ if (workbox) {
         },
     };
 
-    // Use background sync for POST requests (event registrations, etc.)
+    // Use background sync for POST requests (event registrations, etc.).
+    // Multipart POSTs (file uploads) are left to the browser: see
+    // isMultipartRequest above.
     workbox.routing.registerRoute(
         ({ url, request }) =>
-            request.method === "POST" && isQueueablePost(url.pathname),
+            request.method === "POST" &&
+            isQueueablePost(url.pathname) &&
+            !isMultipartRequest(request),
         new workbox.strategies.NetworkOnly({
             plugins: [bgSyncPlugin, queuedAckPlugin],
         }),

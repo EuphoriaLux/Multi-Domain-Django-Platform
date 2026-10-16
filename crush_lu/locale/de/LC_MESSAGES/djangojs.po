@@ -248,6 +248,10 @@ msgstr "Foto-Upload fehlgeschlagen: "
 msgid "Photo upload failed. Please try again."
 msgstr "Foto-Upload fehlgeschlagen. Bitte versuche es erneut."
 
+#. profile wizard: final submit with a photo whose upload failed
+msgid "A photo was not saved. Choose it again or remove it, then continue."
+msgstr "Ein Foto wurde nicht gespeichert. Wähle es erneut aus oder entferne es und fahre dann fort."
+
 #. user-facing string from alpine-components.js (#321)
 msgid "Could not remove the photo: "
 msgstr "Foto konnte nicht entfernt werden: "
