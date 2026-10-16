@@ -2454,12 +2454,14 @@ def _event_cancel_refusal(request, event, registration):
 
 
 def event_attendance_confirm(request, token):
-    """One-click "Yes, I'm coming" from the attendance-check email.
+    """ "Yes, I'm coming" from the attendance-check email.
 
     Public (the signed, 7-day token is the credential, like the unsubscribe
-    link). GET only records a timestamp, so a mail scanner prefetching the link
-    is harmless. Never 500s: a bad token or an unusable registration renders a
-    friendly page with a way back to the event list.
+    link). GET only shows the question with a button; the answer is recorded
+    on POST. Mail security scanners (Outlook Safe Links and the like) open
+    every link in an email, so recording on GET would mark members as coming
+    who never clicked, and coaches read that marker. Never 500s: a bad token
+    or an unusable registration renders a friendly page.
     """
     from .services.attendance_check import read_attendance_token
 
@@ -2484,6 +2486,13 @@ def event_attendance_confirm(request, token):
             "crush_lu/event_attendance_confirm.html",
             {"state": "invalid", "event": getattr(registration, "event", None)},
             status=400,
+        )
+
+    if request.method != "POST":
+        return render(
+            request,
+            "crush_lu/event_attendance_confirm.html",
+            {"state": "ask", "event": registration.event},
         )
 
     # .update() rather than .save(): a save fires the wallet-pass signal,

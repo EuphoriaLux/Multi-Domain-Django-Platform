@@ -7,7 +7,15 @@
 <div class="max-w-xl mx-auto py-8 px-4">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
         <div class="text-center py-12 px-6">
-            {% if state == "confirmed" %}
+            {% if state == "ask" %}
+            <h2 class="text-2xl font-bold dark:text-white mb-3">{% trans "Are you still coming?" %}</h2>
+            <p class="text-gray-600 dark:text-gray-300 mb-6">{% blocktrans with title=event.title %}Your seat for <strong>{{ title }}</strong> is coming up soon. Please let us know if you are still coming.{% endblocktrans %}</p>
+            <form method="post" class="mb-3">
+                {% csrf_token %}
+                <button type="submit" class="btn-crush-primary w-full px-6 py-3">{% trans "Yes, I'm coming" %}</button>
+            </form>
+            <a href="{% url 'crush_lu:event_cancel' event.id %}" class="btn-crush-outline w-full inline-flex justify-center px-6 py-3">{% trans "I can't come — release my seat" %}</a>
+            {% elif state == "confirmed" %}
             {% include "shared/icons/check-circle.html" with class="w-16 h-16 text-green-500 mx-auto mb-4" %}
             <h2 class="text-2xl font-bold dark:text-white mb-3">{% trans "Thanks, see you there!" %}</h2>
             <p class="text-gray-600 dark:text-gray-300 mb-4">{% blocktrans with title=event.title %}We have noted that you are coming to {{ title }}.{% endblocktrans %}</p>

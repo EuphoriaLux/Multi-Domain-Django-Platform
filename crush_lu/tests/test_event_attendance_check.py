@@ -174,9 +174,24 @@ class EmailContentTests(AttendanceCheckBase):
 @override_settings(ALLOWED_HOSTS=["*"])
 class ConfirmEndpointTests(AttendanceCheckBase):
     def get(self, token, lang="en"):
-        return self.client.get(
+        # The answer is recorded on POST (the button on the page). Named get
+        # for the existing callers, which all exercise the recording path.
+        return self.client.post(
             f"/{lang}/events/attending/{token}/", HTTP_HOST="crush.lu"
         )
+
+    def test_opening_the_link_only_asks(self):
+        """A mail scanner's GET must not mark the member as coming."""
+        reg = self.make_reg(_event("Target", 2))
+        resp = self.client.get(
+            f"/en/events/attending/{make_attendance_token(reg.pk)}/",
+            HTTP_HOST="crush.lu",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Yes, I")
+        self.assertContains(resp, f"/en/events/{reg.event_id}/cancel/")
+        reg.refresh_from_db()
+        self.assertIsNone(reg.attendance_confirmed_at)
 
     def test_confirm_sets_timestamp_and_is_idempotent(self):
         reg = self.make_reg(_event("Target", 2))
