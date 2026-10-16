@@ -769,8 +769,19 @@ def reset_reminders_on_reschedule(sender, instance, created, **kwargs):
     # .update() so the wallet-pass receivers don't fire per registration.
     cleared = (
         EventRegistration.objects.filter(event=instance)
-        .exclude(reminder_notified_at__isnull=True, reminder_sent_at__isnull=True)
-        .update(reminder_notified_at=None, reminder_sent_at=None)
+        .exclude(
+            reminder_notified_at__isnull=True,
+            reminder_sent_at__isnull=True,
+            attendance_check_sent_at__isnull=True,
+            attendance_confirmed_at__isnull=True,
+        )
+        .update(
+            reminder_notified_at=None,
+            reminder_sent_at=None,
+            # The "are you still coming?" answer was for the old date.
+            attendance_check_sent_at=None,
+            attendance_confirmed_at=None,
+        )
     )
     if cleared:
         logger.info(

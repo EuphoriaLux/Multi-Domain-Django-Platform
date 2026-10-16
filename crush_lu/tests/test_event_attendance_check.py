@@ -126,6 +126,27 @@ class CommandSelectionTests(AttendanceCheckBase):
         reg.refresh_from_db()
         self.assertIsNone(reg.attendance_check_sent_at)
 
+    def test_a_swallowed_send_failure_is_not_stamped(self):
+        reg = self.make_reg(_event("Target", 2))
+        with mock.patch(
+            "crush_lu.email_helpers.send_event_attendance_check", return_value=0
+        ):
+            self.run_command()
+        reg.refresh_from_db()
+        self.assertIsNone(reg.attendance_check_sent_at)
+
+    def test_a_failing_reminder_pass_does_not_skip_the_check(self):
+        from crush_lu.management.commands.send_event_reminders import Command
+
+        reg = self.make_reg(_event("Target", 2))
+        with mock.patch.object(
+            Command, "_send_reminders", side_effect=RuntimeError("boom")
+        ):
+            with self.assertRaises(RuntimeError):
+                self.run_command()
+        reg.refresh_from_db()
+        self.assertIsNotNone(reg.attendance_check_sent_at)
+
     def test_hours_before_mode_skips_the_check(self):
         reg = self.make_reg(_event("Target", 2))
         self.run_command("--hours-before", "2")
@@ -184,7 +205,7 @@ class ConfirmEndpointTests(AttendanceCheckBase):
         """A mail scanner's GET must not mark the member as coming."""
         reg = self.make_reg(_event("Target", 2))
         resp = self.client.get(
-            f"/en/events/attending/{make_attendance_token(reg.pk)}/",
+            f"/en/events/attending/{make_attendance_token(reg)}/",
             HTTP_HOST="crush.lu",
         )
         self.assertEqual(resp.status_code, 200)
@@ -195,19 +216,19 @@ class ConfirmEndpointTests(AttendanceCheckBase):
 
     def test_confirm_sets_timestamp_and_is_idempotent(self):
         reg = self.make_reg(_event("Target", 2))
-        resp = self.get(make_attendance_token(reg.pk))
+        resp = self.get(make_attendance_token(reg))
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "see you there")
         reg.refresh_from_db()
         first = reg.attendance_confirmed_at
         self.assertIsNotNone(first)
-        self.assertEqual(self.get(make_attendance_token(reg.pk)).status_code, 200)
+        self.assertEqual(self.get(make_attendance_token(reg)).status_code, 200)
         reg.refresh_from_db()
         self.assertEqual(reg.attendance_confirmed_at, first)
 
     def test_tampered_token_is_friendly_not_500(self):
         reg = self.make_reg(_event("Target", 2))
-        token = make_attendance_token(reg.pk)
+        token = make_attendance_token(reg)
         for bad in (token[:-3] + "xyz", "garbage", "a:b:c"):
             self.assertEqual(self.get(bad).status_code, 400)
         reg.refresh_from_db()
@@ -220,7 +241,7 @@ class ConfirmEndpointTests(AttendanceCheckBase):
 
     def test_expired_token_rejected(self):
         reg = self.make_reg(_event("Target", 2))
-        token = make_attendance_token(reg.pk)
+        token = make_attendance_token(reg)
         later = timezone.now().timestamp() + 8 * 86400
         with mock.patch("time.time", return_value=later):
             resp = self.get(token)
@@ -230,21 +251,43 @@ class ConfirmEndpointTests(AttendanceCheckBase):
 
     def test_cancelled_registration_refused(self):
         reg = self.make_reg(_event("Target", 2), status="cancelled")
-        self.assertEqual(self.get(make_attendance_token(reg.pk)).status_code, 400)
+        self.assertEqual(self.get(make_attendance_token(reg)).status_code, 400)
         reg.refresh_from_db()
+        self.assertIsNone(reg.attendance_confirmed_at)
+
+    def test_link_from_an_earlier_booking_does_not_answer_for_a_new_one(self):
+        reg = self.make_reg(_event("Target", 2))
+        old_token = make_attendance_token(reg)
+        reg.registered_at = reg.registered_at + timedelta(minutes=5)
+        reg.save(update_fields=["registered_at"])
+        self.assertEqual(self.get(old_token).status_code, 400)
+        reg.refresh_from_db()
+        self.assertIsNone(reg.attendance_confirmed_at)
+
+    def test_rescheduling_clears_the_check(self):
+        event = _event("Target", 2)
+        reg = self.make_reg(event)
+        EventRegistration.objects.filter(pk=reg.pk).update(
+            attendance_check_sent_at=timezone.now(),
+            attendance_confirmed_at=timezone.now(),
+        )
+        event.date_time = event.date_time + timedelta(days=7)
+        event.save()
+        reg.refresh_from_db()
+        self.assertIsNone(reg.attendance_check_sent_at)
         self.assertIsNone(reg.attendance_confirmed_at)
 
     def test_cancelled_event_refused(self):
         reg = self.make_reg(_event("Target", 2, is_cancelled=True))
-        self.assertEqual(self.get(make_attendance_token(reg.pk)).status_code, 400)
+        self.assertEqual(self.get(make_attendance_token(reg)).status_code, 400)
 
     def test_past_event_refused(self):
         reg = self.make_reg(_event("Old", -1))
-        self.assertEqual(self.get(make_attendance_token(reg.pk)).status_code, 400)
+        self.assertEqual(self.get(make_attendance_token(reg)).status_code, 400)
 
     def test_german_page_renders(self):
         reg = self.make_reg(_event("Target", 2))
-        resp = self.get(make_attendance_token(reg.pk), lang="de")
+        resp = self.get(make_attendance_token(reg), lang="de")
         self.assertContains(resp, "Danke, bis dann!")
 
 

@@ -1607,7 +1607,7 @@ def send_event_attendance_check(registration, request=None):
         user,
         "crush_lu:event_attendance_confirm",
         request,
-        kwargs={"token": make_attendance_token(registration.pk)},
+        kwargs={"token": make_attendance_token(registration)},
     )
 
     profile = getattr(user, "crushprofile", None)

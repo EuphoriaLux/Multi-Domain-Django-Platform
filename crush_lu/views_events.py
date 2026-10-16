@@ -2092,6 +2092,10 @@ def event_register(request, event_id):
                     # this new registration.
                     registration.waitlist_promoted_at = None
                     registration.promotion_notice = ""
+                    # Nor does an attendance check or answer: the new seat is
+                    # asked afresh (and an old link no longer matches it).
+                    registration.attendance_check_sent_at = None
+                    registration.attendance_confirmed_at = None
                 else:
                     registration = form.save(commit=False)
                     registration.event = locked_event
@@ -2463,16 +2467,23 @@ def event_attendance_confirm(request, token):
     who never clicked, and coaches read that marker. Never 500s: a bad token
     or an unusable registration renders a friendly page.
     """
-    from .services.attendance_check import read_attendance_token
+    from .services.attendance_check import read_attendance_token, token_matches_seat
 
-    registration_id = read_attendance_token(token)
+    decoded = read_attendance_token(token)
     registration = None
-    if registration_id is not None:
+    if decoded is not None:
+        registration_id, seat_stamp = decoded
         registration = (
             EventRegistration.objects.select_related("event")
             .filter(pk=registration_id)
             .first()
         )
+        if registration is not None and not token_matches_seat(
+            registration, seat_stamp
+        ):
+            # An email sent for an earlier booking of this row (cancelled,
+            # then re-registered) must not answer for the new seat.
+            registration = None
 
     usable = (
         registration is not None

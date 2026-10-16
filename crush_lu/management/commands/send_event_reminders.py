@@ -82,11 +82,16 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        self._send_reminders(options)
         # Second pass on the same timer (no new Azure timer/endpoint needed).
         # Same-day --hours-before runs are a different reminder, skip them.
-        if options.get("hours_before") is None:
-            self._send_attendance_checks(options)
+        # The attendance check is only due on one calendar day, so a failing
+        # reminder pass must not cost it that day: run it either way, then
+        # let the reminder pass's error fail the command as before.
+        try:
+            self._send_reminders(options)
+        finally:
+            if options.get("hours_before") is None:
+                self._send_attendance_checks(options)
 
     def _send_attendance_checks(self, options):
         """Ask unpaid cash-at-the-door seat holders "are you still coming?".
@@ -140,8 +145,18 @@ class Command(BaseCommand):
                     self.style.ERROR(f"  Attendance check failed for {email}: {e}")
                 )
                 continue
-            # Stamp when delivered, or when deliberately not going (opted out,
-            # returns 0); failures raise above and are retried next sweep.
+            if not delivered and email_helpers.can_send_email(
+                registration.user, "event_reminders"
+            ):
+                # 0 from a member who may receive it is a swallowed send
+                # failure, not an opt-out: leave it unstamped for a retry.
+                failed += 1
+                self.stdout.write(
+                    self.style.ERROR(f"  Attendance check not sent to {email}")
+                )
+                continue
+            # Stamp when delivered, or when deliberately not going (opted out);
+            # failures are retried by the next sweep.
             # .update() not .save(): avoids the synchronous wallet signal.
             EventRegistration.objects.filter(pk=registration.pk).update(
                 attendance_check_sent_at=timezone.now()
