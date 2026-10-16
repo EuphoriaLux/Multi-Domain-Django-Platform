@@ -1,0 +1,15 @@
+{% load i18n %}
+{% comment %}
+Shown in place of the card button while online payments are paused
+(ONLINE_PAYMENTS_ENABLED=False, `online_payments_paused` in context). The seat
+is already held by the pending registration and the door admits it; staff
+record the cash in the registration admin. Pass `fee`; `compact` drops the box.
+{% endcomment %}
+{% if compact %}
+<p class="w-full text-xs text-gray-600 dark:text-gray-300 mb-0">{% blocktrans with amount=fee %}Pay €{{ amount }} in cash at the door.{% endblocktrans %}</p>
+{% else %}
+<div class="w-full mb-3 rounded-lg border border-gray-200 dark:border-white/20 bg-gray-50 dark:bg-white/10 text-gray-700 dark:text-gray-200 p-3 text-sm">
+    <p class="font-semibold mb-1">{% blocktrans with amount=fee %}Pay €{{ amount }} in cash at the door{% endblocktrans %}</p>
+    <p class="text-xs mb-0">{% trans "Online card payment is paused for now. Your seat is held: bring your ticket and pay on arrival." %}</p>
+</div>
+{% endif %}

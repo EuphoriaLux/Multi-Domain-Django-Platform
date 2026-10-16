@@ -19,6 +19,7 @@ from .models import (
 )
 
 from crush_lu import onboarding
+from crush_lu.services.event_payments import online_payments_paused
 from crush_lu.services.member_context import member_context_data
 
 logger = logging.getLogger(__name__)
@@ -114,6 +115,8 @@ def crush_user_context(request):
             (is_ios_native_app and not ios_native_commerce_enabled)
             or (is_android_native_app and not android_native_commerce_enabled)
         ),
+        # No payment provider: card buttons give way to "pay at the door".
+        "online_payments_paused": online_payments_paused(),
         # Callable, so only the verification-sent page that reads it pays for
         # the check: a held social account, still inside its rewrite window
         # and not yet consumed (#1059). An expired hold is dropped here.

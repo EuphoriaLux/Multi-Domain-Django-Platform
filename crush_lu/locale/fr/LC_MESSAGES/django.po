@@ -45949,3 +45949,63 @@ msgid ""
 msgstr ""
 "Votre tranche d'âge (%(lo)s-%(hi)s) ne recoupe pas les âges de cette soirée "
 "(%(min)s-%(max)s) : elle ne vous donnerait aucun rendez-vous."
+
+#, python-format
+msgid "Pay €%(amount)s in cash at the door."
+msgstr "Payez %(amount)s € en espèces à l'entrée."
+
+#, python-format
+msgid "Pay €%(amount)s in cash at the door"
+msgstr "Payez %(amount)s € en espèces à l'entrée"
+
+msgid "Online card payment is paused for now. Your seat is held: bring your ticket and pay on arrival."
+msgstr "Le paiement par carte en ligne est suspendu pour le moment. Votre place est réservée : apportez votre billet et payez à votre arrivée."
+
+#, python-format
+msgid "Your seat is held. Pay €%(amount)s in cash at the door."
+msgstr "Votre place est réservée. Payez %(amount)s € en espèces à l'entrée."
+
+msgid "Online contributions are paused for now. Thank you for your support!"
+msgstr "Les contributions en ligne sont suspendues pour le moment. Merci pour votre soutien !"
+
+msgid "Online card payments are paused for now. For events, please pay at the door."
+msgstr "Les paiements par carte en ligne sont suspendus pour le moment. Pour les événements, veuillez payer à l'entrée."
+
+msgid "Your spot is reserved - pay at the door - {title}"
+msgstr "Votre place est réservée – paiement à l'entrée – {title}"
+
+#, python-format
+msgid "Your place is held for you. Online card payment is paused for now, so please pay %(amount)s EUR in cash at the door when you arrive."
+msgstr "Votre place vous est réservée. Le paiement par carte en ligne est suspendu pour le moment : veuillez régler %(amount)s EUR en espèces à l'entrée, à votre arrivée."
+
+msgid "Bring your ticket (QR code) and the amount in cash"
+msgstr "Apportez votre billet (code QR) et le montant en espèces"
+
+msgid "Our team confirms your payment at check-in"
+msgstr "Notre équipe confirme votre paiement lors de l'accueil"
+
+msgid "If you can no longer come, please cancel your registration so someone on the waitlist can take your place."
+msgstr "Si vous ne pouvez plus venir, veuillez annuler votre inscription afin qu'une personne de la liste d'attente puisse prendre votre place."
+
+msgid "Your spot is reserved. Pay in cash at the door when you arrive."
+msgstr "Votre place est réservée. Payez en espèces à l'entrée, à votre arrivée."
+
+#, python-format
+msgid "If someone cancels, we hold the spot for you and email you straight away. You then pay %(fee)s EUR in cash at the door."
+msgstr "Si quelqu'un annule, nous vous réservons la place et vous écrivons aussitôt. Vous payez alors %(fee)s EUR en espèces à l'entrée."
+
+#, python-format
+msgid "Pay €%(amount)s in cash at the door when you arrive. We've emailed you the details."
+msgstr "Payez %(amount)s € en espèces à l'entrée, à votre arrivée. Nous vous avons envoyé les détails par e-mail."
+
+msgid "Your spot is reserved! Please pay in cash at the door when you arrive."
+msgstr "Votre place est réservée ! Veuillez payer en espèces à l'entrée, à votre arrivée."
+
+msgid "You were on the waitlist and your spot is reserved. Please pay in cash at the door."
+msgstr "Vous étiez sur la liste d'attente et votre place est réservée. Veuillez payer en espèces à l'entrée."
+
+msgid "Your card payment was not completed. Your spot is reserved — please pay in cash at the door."
+msgstr "Votre paiement par carte n'a pas abouti. Votre place est réservée – veuillez payer en espèces à l'entrée."
+
+msgid "Online payment for Premium is paused for now. We'll let you know as soon as it is back."
+msgstr "Le paiement en ligne de Premium est suspendu pour le moment. Nous vous préviendrons dès qu'il sera de retour."

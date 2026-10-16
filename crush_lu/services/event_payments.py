@@ -14,6 +14,20 @@ predicate also checks the current curated-group certification so payment
 invitations do not point to a checkout that is known to reject the seat.
 """
 
+from django.conf import settings
+
+
+def online_payments_paused():
+    """True while crush.lu takes no card payments (``ONLINE_PAYMENTS_ENABLED``).
+
+    One predicate for the checkout endpoints, the card form and the templates
+    (as ``online_payments_paused`` from ``crush_user_context``), so a page
+    never offers a card button the endpoint refuses. Crush Credit and
+    staff-recorded cash payments are not affected.
+    """
+    return not getattr(settings, "ONLINE_PAYMENTS_ENABLED", True)
+
+
 # Mirrors the ``registration.status not in (...)`` branch of
 # ``_event_checkout_validation_error`` — the only two statuses the checkout
 # endpoint will still take money for.

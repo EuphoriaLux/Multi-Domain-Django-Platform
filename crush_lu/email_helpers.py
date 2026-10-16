@@ -1014,6 +1014,8 @@ def send_event_waitlist_notification(registration, request):
     Returns:
         int: Number of emails sent
     """
+    from crush_lu.services.event_payments import online_payments_paused
+
     from django.utils import translation
     from django.utils.translation import gettext as _
 
@@ -1053,6 +1055,7 @@ def send_event_waitlist_notification(registration, request):
         "display_name": display_name,
         "waitlist_position": waitlist_position,
         "events_url": events_url,
+        "online_payments_paused": online_payments_paused(),
         "LANGUAGE_CODE": lang,
         "social_links": get_social_links(),
         **base_urls,
@@ -1100,9 +1103,13 @@ def send_event_payment_pending_notification(registration, request=None):
     from django.utils import translation
     from django.utils.translation import gettext as _
 
+    from crush_lu.services.event_payments import online_payments_paused
+
     lang = get_user_preferred_language(
         user=registration.user, request=request, default="en"
     )
+    # Emails do not run context processors, so the pause is passed in here.
+    payments_paused = online_payments_paused()
 
     event_url = get_user_language_url(
         registration.user,
@@ -1123,15 +1130,21 @@ def send_event_payment_pending_notification(registration, request=None):
         "display_name": display_name,
         "amount": registration.event.registration_fee,
         "event_url": event_url,
+        "online_payments_paused": payments_paused,
         "LANGUAGE_CODE": lang,
         "social_links": get_social_links(),
         **base_urls,
     }
 
     with translation.override(lang):
-        subject = _("Payment required to confirm - {title}").format(
-            title=registration.event.title
-        )
+        if payments_paused:
+            subject = _("Your spot is reserved - pay at the door - {title}").format(
+                title=registration.event.title
+            )
+        else:
+            subject = _("Payment required to confirm - {title}").format(
+                title=registration.event.title
+            )
         html_message = render_to_string(
             "crush_lu/emails/event_payment_pending.html", context
         )

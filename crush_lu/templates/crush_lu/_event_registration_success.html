@@ -67,7 +67,7 @@
         </div>
         <h3 class="text-2xl font-bold mb-2">{% trans "Your Spot Is Reserved!" %}</h3>
         <p class="text-gray-600 dark:text-gray-300 mb-6">
-            {% trans "Complete your payment to confirm your registration. We've emailed you the details." %}
+            {% if online_payments_paused %}{% blocktrans with amount=event.registration_fee %}Pay €{{ amount }} in cash at the door when you arrive. We've emailed you the details.{% endblocktrans %}{% else %}{% trans "Complete your payment to confirm your registration. We've emailed you the details." %}{% endif %}
         </p>
     {% else %}
         <div class="mb-4">
@@ -99,6 +99,9 @@
             <span x-text="label">{% trans "Pay with Crush Credit" %}</span>
         </button>
         {% endif %}
+        {% if online_payments_paused %}
+        {% include "crush_lu/components/pay_at_door_note.html" with fee=event.registration_fee %}
+        {% else %}
         <button type="button" x-data="sumupCheckoutButton" @click="start" :disabled="isLoading"
                 data-sumup-reg-id="{{ registration.id }}" data-payment-method="card"
                 data-label="{% trans 'Pay with Card' %} ({{ event.registration_fee }} EUR)"
@@ -111,6 +114,7 @@
             <span x-show="isLoading" x-cloak>{% include "shared/icons/loading.html" with class="w-5 h-5 animate-spin" %}</span>
             <span x-text="label">{% trans "Pay with Card" %} ({{ event.registration_fee }} EUR)</span>
         </button>
+        {% endif %}
         {% endif %}
 
         {% if registration.status == 'confirmed' %}

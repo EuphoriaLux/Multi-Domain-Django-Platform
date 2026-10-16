@@ -104,10 +104,14 @@
             <p class="text-xs sm:text-sm font-semibold text-yellow-900 dark:text-yellow-200 mb-0.5">
                 {% trans "Payment due" %} · <span class="font-normal">{{ registration.event.title }}</span>
             </p>
+            {% if online_payments_paused %}
+            <p class="text-xs text-yellow-800/80 dark:text-yellow-300/80 mb-0">{% blocktrans with amount=registration.event.registration_fee %}Your seat is held. Pay €{{ amount }} in cash at the door.{% endblocktrans %}</p>
+            {% else %}
             <p class="text-xs text-yellow-800/80 dark:text-yellow-300/80 mb-0">{% trans "Your seat is held until payment is settled." %}</p>
+            {% endif %}
         </div>
         <a href="{% url 'crush_lu:my_events' %}" class="btn-crush-solid btn-sm inline-flex items-center justify-center gap-1.5 flex-shrink-0 min-h-[44px]">
-            {% trans "Pay now" %}
+            {% if online_payments_paused %}{% trans "My Events" %}{% else %}{% trans "Pay now" %}{% endif %}
         </a>
     </div>
     {% endfor %}

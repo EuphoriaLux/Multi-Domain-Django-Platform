@@ -510,6 +510,10 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       // Credentials that differ per slot or exist on one slot only
       'SUMUP_API_KEY'
       'SUMUP_MERCHANT_CODE'
+      // Payment pause (#1272). Absent means True (payments on), so an unpinned
+      // False on one slot would swap away and silently reopen card payments.
+      // Pin with: az webapp config appsettings set ... --slot-settings ONLINE_PAYMENTS_ENABLED=False
+      'ONLINE_PAYMENTS_ENABLED'
       'ECHO_LU_API_KEY'
       'SECRET_SYNC_TOKEN'
       'HEALTH_CHECK_SECRET_TOKEN'

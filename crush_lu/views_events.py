@@ -30,6 +30,7 @@ from .models.payments import PaymentTransaction
 from .models.credits import CrushCredit
 from .forms import EventRegistrationForm, EventPreferenceForm, EventFeedbackForm
 from .decorators import crush_login_required, ratelimit
+from .services.event_payments import online_payments_paused
 from .services.event_grouping import (
     count_mutual_matches,
     load_applicants,
@@ -2158,7 +2159,18 @@ def event_register(request, event_id):
                         registration.status = _admitted_status(
                             locked_event, registration
                         )
-                        if registration.status == "pending":
+                        if (
+                            registration.status == "pending"
+                            and online_payments_paused()
+                        ):
+                            registration_message = (
+                                messages.SUCCESS,
+                                _(
+                                    "Your spot is reserved! Please pay in cash "
+                                    "at the door when you arrive."
+                                ),
+                            )
+                        elif registration.status == "pending":
                             registration_message = (
                                 messages.SUCCESS,
                                 _(

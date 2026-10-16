@@ -30,7 +30,10 @@ from crush_lu.models.events import (
 from crush_lu.models.payments import EventCheckoutCreationClaim, PaymentTransaction
 from crush_lu.models.premium_recovery import PremiumPaymentRecoveryCase
 from crush_lu.models.profiles import CrushProfile, PremiumMembership
-from crush_lu.services.event_payments import registration_is_payable
+from crush_lu.services.event_payments import (
+    online_payments_paused,
+    registration_is_payable,
+)
 from crush_lu.services import premium_recovery
 from crush_lu.services.credits import (
     cancellation_policy,
@@ -68,6 +71,24 @@ DONATION_MAX_EUR = Decimal("500.00")
 # that a stuck button or a script cannot mint provider resources in a loop,
 # short enough that someone who genuinely mistyped an amount just retries.
 DONATION_CREATE_COOLDOWN_SECONDS = 10
+
+
+def _online_payments_paused_response():
+    """The 503 every card checkout answers with while payments are paused.
+
+    Refused before ``SumUpClient`` is built, so a revoked key or a provider
+    that forbids new checkouts never turns into a 500 for the member.
+    """
+    return JsonResponse(
+        {
+            "error": _(
+                "Online card payments are paused for now. For events, "
+                "please pay at the door."
+            ),
+            "payments_paused": True,
+        },
+        status=503,
+    )
 
 
 def _native_commerce_suppressed(request):
@@ -305,6 +326,8 @@ def create_sumup_event_checkout(request, registration_id):
     payment_method = payload.get("payment_method", "card")
     if payment_method not in {"card", "credit"}:
         return JsonResponse({"error": _("Invalid payment method.")}, status=400)
+    if payment_method == "card" and online_payments_paused():
+        return _online_payments_paused_response()
 
     claim_state = None
     for _attempt in range(3):
@@ -388,7 +411,12 @@ def create_sumup_event_checkout(request, registration_id):
             status=409,
         )
 
-    client = SumUpClient()
+    # Crush Credit with no earlier card checkout needs no provider at all, so
+    # the client is only built when SumUp has work to do. That keeps credit
+    # payable while online payments are paused, even without an API key.
+    client = (
+        SumUpClient() if payment_method == "card" or claim_state["superseded"] else None
+    )
     deactivated = {
         payment_id: client.deactivate_checkout(checkout_id)
         for payment_id, checkout_id in claim_state["superseded"]
@@ -952,6 +980,9 @@ def create_sumup_premium_checkout(request, membership_id):
             {"error": _("Unauthorized access to this membership.")}, status=403
         )
 
+    if online_payments_paused():
+        return _online_payments_paused_response()
+
     if membership.status != "pending":
         return JsonResponse(
             {"error": _("This membership is not pending payment.")}, status=400
@@ -1246,6 +1277,9 @@ def create_sumup_donation_checkout(request):
         return JsonResponse(
             {"error": _("Available outside the mobile app.")}, status=403
         )
+
+    if online_payments_paused():
+        return _online_payments_paused_response()
 
     # Refuse the money we cannot deliver against. The Community Supporter badge
     # is a CrushProfile field, and this card renders on my_events, which is
@@ -3051,6 +3085,20 @@ def _sumup_return_response(request, tx_obj):
             # UX Wave 3 · WP8 follow-up).
             if registration.payment_confirmed:
                 messages.success(request, _("This registration is already paid."))
+            elif (
+                registration.event.is_published
+                and registration_is_payable(registration, registration.event)
+                and online_payments_paused()
+            ):
+                # The card retry is gone while payments are paused; the
+                # verification above still ran, only the advice changes.
+                messages.warning(
+                    request,
+                    _(
+                        "Your card payment was not completed. Your spot is "
+                        "reserved — please pay in cash at the door."
+                    ),
+                )
             elif registration.event.is_published and registration_is_payable(
                 registration, registration.event
             ):
@@ -3226,6 +3274,31 @@ def sumup_widget_view(request, checkout_id):
     tx_obj = get_object_or_404(PaymentTransaction, sumup_checkout_id=checkout_id)
     if request.user.id not in _payment_owner_ids(tx_obj) and not request.user.is_staff:
         raise Http404("No payment found.")
+
+    # A saved card-form link must not take money while payments are paused:
+    # it would land in an account we can no longer use. Send the member back
+    # to the pay-at-the-door instructions. Like the gates below, not applied
+    # to the return page or the status endpoints, which report on money that
+    # may already have moved. A settled checkout goes to the return handling
+    # instead, so a paid member is never told to pay again at the door.
+    if online_payments_paused() and tx_obj.status != PaymentTransaction.Status.PENDING:
+        return _sumup_return_response(request, tx_obj)
+    if online_payments_paused():
+        messages.info(
+            request,
+            _(
+                "Online card payments are paused for now. For events, "
+                "please pay at the door."
+            ),
+        )
+        event_id = (
+            tx_obj.event_registration.event_id
+            if tx_obj.event_registration_id
+            else tx_obj.event_id
+        )
+        if event_id:
+            return redirect("crush_lu:event_detail", event_id=event_id)
+        return redirect("crush_lu:dashboard")
 
     # Revocation has to reach the card form, not only checkout creation. THIS is
     # the step that prevents the charge; refusing at completion only withholds
