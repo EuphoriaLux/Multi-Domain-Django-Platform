@@ -262,6 +262,43 @@ const probes = [
         mustMatchStrategy: "NetworkOnly",
     },
     {
+        // A file upload must reach the server natively. Routed through the
+        // queue's NetworkOnly strategy it is cloned and re-sent, and on iOS
+        // WebKit the profile form then arrived with an EMPTY body (production
+        // 2026-09-28 to 2026-10-08: multipart, content_length=0, CSRF 403).
+        name: "profile_multipart_post_navigation",
+        url: "https://crush.lu/en/create-profile/",
+        method: "POST",
+        mode: "navigate",
+        destination: "document",
+        headers: {
+            "content-type": "multipart/form-data; boundary=----WebKitFormBoundaryX",
+        },
+        mustBeClaimed: false,
+    },
+    {
+        // Same rule for every other upload form (the content type is checked
+        // case-insensitively, as browsers and proxies vary).
+        name: "gift_multipart_post_navigation",
+        url: "https://crush.lu/fr/journey/gift/create/",
+        method: "POST",
+        mode: "navigate",
+        destination: "document",
+        headers: { "content-type": "Multipart/Form-Data; boundary=x" },
+        mustBeClaimed: false,
+    },
+    {
+        // A plain (urlencoded) form navigation keeps its background-sync
+        // queueing: only file uploads were taken off the route.
+        name: "urlencoded_form_post_navigation",
+        url: "https://crush.lu/en/events/29/register/",
+        method: "POST",
+        mode: "navigate",
+        destination: "document",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        mustBeClaimed: true,
+    },
+    {
         // Guards the method-aware probe: ordinary site POSTs must KEEP their
         // background-sync queueing, which is the whole point of the route.
         name: "ordinary_form_post",
@@ -408,7 +445,10 @@ const results = probes.map((probe) => {
         mode: probe.mode,
         destination: probe.destination,
         method: probe.method || "GET",
-        headers: { get: () => "" },
+        // Header names are case-insensitive, as in the Fetch API.
+        headers: {
+            get: (name) => (probe.headers || {})[String(name).toLowerCase()] || "",
+        },
     };
     deletedCaches.length = 0;
     const early = earlyListenerClaims(request);
