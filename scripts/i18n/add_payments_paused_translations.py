@@ -61,6 +61,14 @@ NEW = {
         "de": "Du warst auf der Warteliste und dein Platz ist reserviert. Bitte bezahle in bar an der Tür.",
         "fr": "Vous étiez sur la liste d'attente et votre place est réservée. Veuillez payer en espèces à l'entrée.",
     },
+    "Your card payment was not completed. Your spot is reserved — please pay in cash at the door.": {
+        "de": "Deine Kartenzahlung wurde nicht abgeschlossen. Dein Platz ist reserviert – bitte bezahle in bar an der Tür.",
+        "fr": "Votre paiement par carte n'a pas abouti. Votre place est réservée – veuillez payer en espèces à l'entrée.",
+    },
+    "Online payment for Premium is paused for now. We'll let you know as soon as it is back.": {
+        "de": "Die Online-Zahlung für Premium ist vorübergehend ausgesetzt. Wir melden uns, sobald sie wieder verfügbar ist.",
+        "fr": "Le paiement en ligne de Premium est suspendu pour le moment. Nous vous préviendrons dès qu'il sera de retour.",
+    },
     "Bring your ticket (QR code) and the amount in cash": {
         "de": "Bring dein Ticket (QR-Code) und den Betrag in bar mit",
         "fr": "Apportez votre billet (code QR) et le montant en espèces",
