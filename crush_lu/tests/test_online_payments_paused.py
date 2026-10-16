@@ -115,6 +115,50 @@ class OnlinePaymentsPausedTests(CreditFixture):
         self.assertEqual(response.status_code, 503)
         self.assertTrue(response.json()["payments_paused"])
 
+    def test_a_settled_card_form_link_is_not_told_to_pay_again(self):
+        self.seat.payment_confirmed = True
+        self.seat.status = "confirmed"
+        self.seat.save(update_fields=["payment_confirmed", "status"])
+        PaymentTransaction.objects.create(
+            transaction_reference=f"CRUSH-EVT-{self.seat.pk}-paid",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK-PAID",
+            amount=self.target.registration_fee,
+            currency="EUR",
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.buyer,
+            event_registration=self.seat,
+        )
+
+        response = self.client.get("/payments/sumup/widget/CHK-PAID/", follow=True)
+
+        page = response.content.decode()
+        self.assertNotIn("pay at the door", page)
+        self.assertNotIn("in cash at the door", page)
+
+    @patch("crush_lu.views_payments._sync_checkout_with_sumup", return_value="")
+    def test_return_page_does_not_offer_a_card_retry(self, _sync):
+        PaymentTransaction.objects.create(
+            transaction_reference=f"CRUSH-EVT-{self.seat.pk}-ret",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK-RET",
+            amount=self.target.registration_fee,
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.buyer,
+            event_registration=self.seat,
+        )
+
+        response = self.client.get(
+            f"/payments/sumup/return/?ref=CRUSH-EVT-{self.seat.pk}-ret", follow=True
+        )
+
+        page = response.content.decode()
+        self.assertNotIn("retry payment below", page)
+        self.assertIn("please pay in cash at the door", page)
+
     def test_saved_card_form_link_goes_back_to_the_event(self):
         PaymentTransaction.objects.create(
             transaction_reference=f"CRUSH-EVT-{self.seat.pk}-saved",

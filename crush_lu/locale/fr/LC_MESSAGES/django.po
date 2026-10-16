@@ -46047,3 +46047,9 @@ msgstr "Veuillez confirmer dans l'application Crush.lu ou sur crush.lu : ouvrez 
 
 msgid "Confirm in the app"
 msgstr "Confirmer dans l'application"
+
+msgid "Your card payment was not completed. Your spot is reserved — please pay in cash at the door."
+msgstr "Votre paiement par carte n'a pas abouti. Votre place est réservée – veuillez payer en espèces à l'entrée."
+
+msgid "Online payment for Premium is paused for now. We'll let you know as soon as it is back."
+msgstr "Le paiement en ligne de Premium est suspendu pour le moment. Nous vous préviendrons dès qu'il sera de retour."
