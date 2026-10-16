@@ -154,6 +154,45 @@ class CommandSelectionTests(AttendanceCheckBase):
         reg.refresh_from_db()
         self.assertIsNotNone(reg.attendance_check_sent_at)
 
+    def test_the_check_runs_before_the_reminder_fan_out(self):
+        from crush_lu.management.commands.send_event_reminders import Command
+
+        order = []
+        with mock.patch.object(
+            Command, "_send_attendance_checks", lambda *a: order.append("check")
+        ), mock.patch.object(
+            Command, "_send_reminders", lambda *a: order.append("reminders")
+        ):
+            self.run_command()
+        self.assertEqual(order, ["check", "reminders"])
+
+    def test_a_failing_check_does_not_cost_the_reminders(self):
+        from crush_lu.management.commands.send_event_reminders import Command
+
+        ran = []
+        with mock.patch.object(
+            Command, "_send_attendance_checks", side_effect=RuntimeError("boom")
+        ), mock.patch.object(Command, "_send_reminders", lambda *a: ran.append(True)):
+            with self.assertRaises(RuntimeError):
+                self.run_command()
+        self.assertEqual(ran, [True])
+
+    def test_leaving_the_seat_clears_the_answer(self):
+        """Admin list_editable / change form / shell all go through save()."""
+        reg = self.make_reg(_event("Target", 2))
+        for status in ("waitlist", "cancelled"):
+            EventRegistration.objects.filter(pk=reg.pk).update(
+                status="pending",
+                attendance_check_sent_at=timezone.now(),
+                attendance_confirmed_at=timezone.now(),
+            )
+            reg.refresh_from_db()
+            reg.status = status
+            reg.save(update_fields=["status"])
+            reg.refresh_from_db()
+            self.assertIsNone(reg.attendance_check_sent_at, status)
+            self.assertIsNone(reg.attendance_confirmed_at, status)
+
     def test_an_opted_out_member_is_not_marked_as_asked(self):
         reg = self.make_reg(_event("Target", 2))
         with mock.patch("crush_lu.email_helpers.can_send_email", return_value=False):

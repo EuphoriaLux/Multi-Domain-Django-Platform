@@ -2084,6 +2084,20 @@ class EventRegistration(models.Model):
                     "waitlist_promoted_at",
                     "promotion_notice",
                 }
+        if self.status in ("waitlist", "cancelled") and (
+            self.attendance_check_sent_at or self.attendance_confirmed_at
+        ):
+            # Same reasoning for the "are you still coming?" check: a seat that
+            # is left (member cancel, admin list_editable or change form, shell)
+            # and later restored is asked afresh, never shown an old answer.
+            # The bulk "Move to waitlist" action uses update() and clears it.
+            self.attendance_check_sent_at = None
+            self.attendance_confirmed_at = None
+            if kwargs.get("update_fields") is not None:
+                kwargs["update_fields"] = set(kwargs["update_fields"]) | {
+                    "attendance_check_sent_at",
+                    "attendance_confirmed_at",
+                }
 
         if (
             self.pk

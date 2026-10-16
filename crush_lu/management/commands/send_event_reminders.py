@@ -95,17 +95,18 @@ class Command(BaseCommand):
             and options["days"] == 1
             and not options.get("event_id")
         )
+        # Validate before anything is sent: an invalid invocation sends nothing.
+        if options["window_minutes"] <= 0:
+            raise CommandError("--window-minutes must be positive")
+        # The check goes first. It is a handful of unpaid seats due on one day
+        # only, while the reminder fan-out can use up the timer's ~110 s budget
+        # on slow sends and would starve it on every hourly run. A failing
+        # check must not cost the reminders their run either.
         try:
-            self._send_reminders(options)
-        except CommandError:
-            # An invalid invocation sends nothing at all.
-            raise
-        except Exception:
             if run_check:
                 self._send_attendance_checks(options)
-            raise
-        if run_check:
-            self._send_attendance_checks(options)
+        finally:
+            self._send_reminders(options)
 
     def _send_attendance_checks(self, options):
         """Ask unpaid cash-at-the-door seat holders "are you still coming?".
