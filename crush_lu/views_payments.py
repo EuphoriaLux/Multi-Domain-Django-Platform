@@ -2788,12 +2788,18 @@ def _payment_owner_ids(tx_obj):
 
     Shared by the widget and the return page so the two cannot drift into
     disagreeing about who may see a payment.
+
+    The answer is ``tx.owner_id()``: the buyer stamped at checkout creation,
+    which outlives the registration (deleting one SET_NULLs the link, and the
+    old link-only derivation then handed the payment to the staff opener).
+    A buyer since merged into another account is followed to the account that
+    survived, which is the only one that can still sign in -- a registration
+    the merge moved still opens for the member who now holds it.
     """
-    if tx_obj.event_registration_id:
-        return {tx_obj.event_registration.user_id}
-    if tx_obj.premium_membership_id:
-        return {tx_obj.premium_membership.user_id}
-    return {tx_obj.user_id}
+    from crush_lu.models import AccountMerge
+
+    owner_id = tx_obj.owner_id()
+    return {owner_id, AccountMerge.surviving_user_id(owner_id)}
 
 
 @csrf_exempt
