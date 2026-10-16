@@ -828,6 +828,11 @@ def reset_cancellation_notifications_on_restore(sender, instance, created, **kwa
         .exclude(organiser_cancellation_notified_at__isnull=True)
         .update(organiser_cancellation_notified_at=None)
     )
+    # The "are you still coming?" question and answer predate the cancellation
+    # the member was told about: a restored event asks afresh.
+    EventRegistration.objects.filter(event=instance).exclude(
+        attendance_check_sent_at__isnull=True, attendance_confirmed_at__isnull=True
+    ).update(attendance_check_sent_at=None, attendance_confirmed_at=None)
     if cleared:
         logger.info(
             "Event %s restored; cleared organiser-cancellation notification "

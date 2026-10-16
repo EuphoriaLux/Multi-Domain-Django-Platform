@@ -251,6 +251,29 @@ class CommandSelectionTests(AttendanceCheckBase):
         self.assertIsNone(reg.attendance_check_sent_at)
         self.assertFalse(_check_mails())
 
+    def test_recently_failed_members_go_to_the_back(self):
+        from django.core.cache import cache as django_cache
+
+        from crush_lu.management.commands.send_event_reminders import (
+            _failed_check_key,
+        )
+
+        event = _event("Target", 2)
+        failing, fresh = self.make_reg(event), self.make_reg(event)
+        django_cache.set(_failed_check_key(failing.pk), True, 60)
+        order = []
+        real_send = email_helpers.send_event_attendance_check
+
+        def record(registration):
+            order.append(registration.pk)
+            return real_send(registration)
+
+        with mock.patch(
+            "crush_lu.email_helpers.send_event_attendance_check", side_effect=record
+        ):
+            self.run_command()
+        self.assertEqual(order, [fresh.pk, failing.pk])
+
     def test_an_opted_out_member_is_not_marked_as_asked(self):
         reg = self.make_reg(_event("Target", 2))
         with mock.patch("crush_lu.email_helpers.can_send_email", return_value=False):
@@ -416,6 +439,39 @@ class SignedInConfirmationTests(AttendanceCheckBase):
         )
         reg.refresh_from_db()
         self.assertFalse(reg.awaits_attendance_answer)
+
+    def test_a_reschedule_before_the_tap_is_not_overwritten(self):
+        reg = self.asked()
+
+        def rescheduled_meanwhile(registration):
+            # The admin moves the event between the view's check and its write;
+            # the reschedule signal resets the seat's markers.
+            event = MeetupEvent.objects.get(pk=registration.event_id)
+            event.date_time = event.date_time + timedelta(days=7)
+            event.save()
+            return True
+
+        with mock.patch(
+            "crush_lu.views_events.awaits_attendance_answer",
+            side_effect=rescheduled_meanwhile,
+        ):
+            self.confirm(reg)
+        reg.refresh_from_db()
+        self.assertIsNone(reg.attendance_confirmed_at)
+
+    def test_restoring_a_cancelled_event_asks_afresh(self):
+        event = _event("Target", 2)
+        reg = self.asked(event=event)
+        EventRegistration.objects.filter(pk=reg.pk).update(
+            attendance_confirmed_at=timezone.now()
+        )
+        event.is_cancelled = True
+        event.save()
+        event.is_cancelled = False
+        event.save()
+        reg.refresh_from_db()
+        self.assertIsNone(reg.attendance_check_sent_at)
+        self.assertIsNone(reg.attendance_confirmed_at)
 
     def test_anonymous_and_get_requests_never_answer(self):
         reg = self.asked()

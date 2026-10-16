@@ -2488,11 +2488,20 @@ def event_attendance_confirm(request, event_id):
         raise Http404
     if awaits_attendance_answer(registration):
         # .update() rather than .save(): a save fires the wallet-pass signal,
-        # which does synchronous Apple/Google network I/O.
-        EventRegistration.objects.filter(
-            pk=registration.pk, attendance_confirmed_at__isnull=True
+        # which does synchronous Apple/Google network I/O. The filter re-checks
+        # the seat at the write, so a reschedule, cancel or payment landing
+        # after the check above keeps its reset rather than a stale answer.
+        answered = EventRegistration.objects.filter(
+            pk=registration.pk,
+            status="pending",
+            payment_confirmed=False,
+            attendance_check_sent_at__isnull=False,
+            attendance_confirmed_at__isnull=True,
+            event__is_cancelled=False,
+            event__date_time=registration.event.date_time,
         ).update(attendance_confirmed_at=timezone.now())
-        messages.success(request, _("Thanks, see you there!"))
+        if answered:
+            messages.success(request, _("Thanks, see you there!"))
     target = request.POST.get("next", "")
     if url_has_allowed_host_and_scheme(
         target, allowed_hosts={request.get_host()}, require_https=request.is_secure()

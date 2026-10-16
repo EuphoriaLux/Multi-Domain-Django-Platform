@@ -30,6 +30,7 @@ Usage:
 import time as monotonic_clock
 from datetime import datetime, time, timedelta
 
+from django.core.cache import cache
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
@@ -43,6 +44,10 @@ from crush_lu.notification_service import NotificationResult, notify_event_remin
 # take up to 30 s, so stopping new sends after 40 s leaves the reminder pass
 # its share. Unsent rows stay unstamped and go out on the next hourly run.
 ATTENDANCE_CHECK_BUDGET_SECONDS = 40
+
+
+def _failed_check_key(registration_id):
+    return f"attendance-check-failed:{registration_id}"
 
 
 class Command(BaseCommand):
@@ -148,6 +153,14 @@ class Command(BaseCommand):
             attendance_check_sent_at__isnull=True,
         ).select_related("user", "user__crushprofile", "event")
 
+        # Members whose last attempt failed go to the back, so a few slow or
+        # failing addresses cannot use up every hourly budget and starve the
+        # rest. Remembered in the cache for a day (the check's whole window).
+        registrations = sorted(
+            registrations,
+            key=lambda reg: bool(cache.get(_failed_check_key(reg.pk))),
+        )
+
         sent = skipped = failed = deferred = 0
         started = monotonic_clock.monotonic()
         for registration in registrations:
@@ -167,6 +180,7 @@ class Command(BaseCommand):
                 delivered = email_helpers.send_event_attendance_check(registration)
             except Exception as e:
                 failed += 1
+                cache.set(_failed_check_key(registration.pk), True, 24 * 60 * 60)
                 self.stdout.write(
                     self.style.ERROR(f"  Attendance check failed for {email}: {e}")
                 )
@@ -182,6 +196,7 @@ class Command(BaseCommand):
                 # 0 from a member who may receive it is a swallowed send
                 # failure, not an opt-out: leave it unstamped for a retry.
                 failed += 1
+                cache.set(_failed_check_key(registration.pk), True, 24 * 60 * 60)
                 self.stdout.write(
                     self.style.ERROR(f"  Attendance check not sent to {email}")
                 )
