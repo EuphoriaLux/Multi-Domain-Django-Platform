@@ -7,12 +7,22 @@ from django.core.management.base import BaseCommand, CommandError
 from power_up.finops.retail_prices import (
     DEFAULT_MAX_SECONDS,
     SnapshotAlreadyExists,
+    is_transient_upstream_failure,
     sync_retail_prices,
 )
 from power_up.finops.retail_prices.connectors.azure import (
     AzureRetailPricesConnector,
     DEFAULT_EUROPEAN_REGIONS,
 )
+
+
+class RetailPriceSyncDeferred(CommandError):
+    """Every failed region failed for a transient upstream reason.
+
+    Still a CommandError, so a manual run exits non-zero; the webhook uses the
+    subclass to answer 503 instead of logging a 500 for throttling that the
+    next timer slot retries.
+    """
 
 
 class Command(BaseCommand):
@@ -66,6 +76,7 @@ class Command(BaseCommand):
         # is reported at the end without discarding the regions that worked.
         captured = skipped = 0
         failures: list[str] = []
+        all_transient = True
         for region in regions:
             try:
                 run = sync_retail_prices(
@@ -80,6 +91,7 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING(str(exc)))
                 continue
             except Exception as exc:
+                all_transient = all_transient and is_transient_upstream_failure(exc)
                 failures.append(f"{region}: {exc}")
                 self.stderr.write(
                     self.style.ERROR(f"Retail price sync failed for {region}: {exc}")
@@ -103,7 +115,8 @@ class Command(BaseCommand):
         )
 
         if failures:
-            raise CommandError(
+            error = RetailPriceSyncDeferred if all_transient else CommandError
+            raise error(
                 "Retail price sync failed for "
                 f"{len(failures)} of {len(regions)} region(s): "
                 + "; ".join(failures)
