@@ -321,3 +321,48 @@ class PauseFollowupTests(_NoSumUpReads, CreditFixture):
 
         self.assertIn(self._cash_url(), page)
         self.assertNotIn(self._cash_url(paid), page)
+
+
+@override_settings(
+    ROOT_URLCONF="azureproject.urls_crush",
+    ONLINE_PAYMENTS_ENABLED=False,
+    SUMUP_API_KEY="key",
+)
+class CaptureOnClosedCheckoutTests(CreditFixture):
+    """A checkout closed on our side only must not take money silently."""
+
+    def _closed_row(self, checkout_id):
+        seat = self._registration(
+            self._event(hours_away=48, max_participants=10),
+            self._user("late@crush.lu"),
+        )
+        return PaymentTransaction.objects.create(
+            transaction_reference=f"CRUSH-EVT-{seat.pk}-late",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id=checkout_id,
+            amount=seat.event.registration_fee,
+            currency="EUR",
+            status=PaymentTransaction.Status.CANCELLED,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=seat.user,
+            event_registration=seat,
+        )
+
+    @patch.object(SumUpClient, "get_checkout", return_value={"status": "PAID"})
+    def test_a_capture_on_a_closed_checkout_is_logged_loudly(self, _get):
+        from crush_lu.views_payments import _sync_or_report_closed_checkout
+
+        row = self._closed_row("CHK-LATE")
+        with self.assertLogs("crush_lu.views_payments", "ERROR") as logs:
+            _sync_or_report_closed_checkout(row)
+        self.assertIn("[PAYMENTS-PAUSED]", "\n".join(logs.output))
+        row.refresh_from_db()
+        self.assertEqual(row.status, PaymentTransaction.Status.CANCELLED)
+
+    @patch.object(SumUpClient, "get_checkout", return_value={"status": "FAILED"})
+    def test_an_unpaid_closed_checkout_stays_quiet(self, _get):
+        from crush_lu.views_payments import _sync_or_report_closed_checkout
+
+        row = self._closed_row("CHK-QUIET")
+        with self.assertNoLogs("crush_lu.views_payments", "ERROR"):
+            _sync_or_report_closed_checkout(row)
