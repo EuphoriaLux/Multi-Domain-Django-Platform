@@ -175,6 +175,30 @@ class CrushCreditAdmin(admin.ModelAdmin):
         "reconcile_sumup_refund_not_sent",
     ]
 
+    def get_fieldsets(self, request, obj=None):
+        """While paused, the cash-refund guidance names the manual path only."""
+        fieldsets = super().get_fieldsets(request, obj)
+        if not online_payments_paused():
+            return fieldsets
+        paused_note = (
+            "Set only when Crush.lu cancelled the event or could not provide "
+            "the certified curated group sold. Those members may ask for their "
+            "money back instead of the credit. Online payments are paused "
+            "(no payment provider), so refund by bank transfer, then select the "
+            "rows on the changelist and use &ldquo;Void selected credits&rdquo;. "
+            "A row already locked as REFUNDING by an earlier SumUp request: "
+            "verify its outcome, then use exactly one of the two RECOVERY "
+            "actions."
+        )
+        return tuple(
+            (
+                (name, {**options, "description": paused_note})
+                if name == "Cash refund"
+                else (name, options)
+            )
+            for name, options in fieldsets
+        )
+
     def get_actions(self, request):
         """Drop the SumUp refund while online payments are paused.
 

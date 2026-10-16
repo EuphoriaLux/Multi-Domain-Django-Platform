@@ -46039,3 +46039,6 @@ msgstr "Votre paiement par carte n'a pas abouti. Votre place est réservée – 
 
 msgid "Online payment for Premium is paused for now. We'll let you know as soon as it is back."
 msgstr "Le paiement en ligne de Premium est suspendu pour le moment. Nous vous préviendrons dès qu'il sera de retour."
+
+msgid "A card checkout was opened for this seat a moment ago. Try again in a few seconds."
+msgstr "Un paiement par carte vient d'être ouvert pour cette place. Réessayez dans quelques secondes."

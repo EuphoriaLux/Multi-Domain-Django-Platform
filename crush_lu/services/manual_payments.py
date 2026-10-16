@@ -21,7 +21,7 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from crush_lu.models.events import EventRegistration, MeetupEvent
-from crush_lu.models.payments import PaymentTransaction
+from crush_lu.models.payments import EventCheckoutCreationClaim, PaymentTransaction
 
 logger = logging.getLogger(__name__)
 
@@ -72,10 +72,13 @@ def record_cash_payment(registration_id, *, actor):
     if reason is not None:
         raise CashPaymentRefused(reason)
 
+    # Phase 1, committed on its own: close every open card checkout. A still
+    # open checkout beside a cash receipt is the double charge. A SumUp close
+    # cannot be rolled back, so the local CANCELLED marks must survive any
+    # later refusal. While online payments are paused, a checkout SumUp will
+    # not close counts as closed (SumUpClient).
+    unclosed = False
     with transaction.atomic():
-        # A still-open card checkout beside a cash receipt is the double
-        # charge, so close every one first. While online payments are paused,
-        # a checkout SumUp will not close counts as closed (SumUpClient).
         open_checkouts = list(
             PaymentTransaction.objects.select_for_update()
             .filter(
@@ -90,19 +93,43 @@ def record_cash_payment(registration_id, *, actor):
             client = SumUpClient()
             for open_tx in open_checkouts:
                 if not client.deactivate_checkout(open_tx.sumup_checkout_id):
-                    raise CashPaymentRefused(
-                        _(
-                            "This member still has an open card checkout that "
-                            "could not be closed. Recording cash now could "
-                            "charge them twice; ask staff to check it."
-                        )
-                    )
+                    unclosed = True
+                    continue
                 open_tx.status = PaymentTransaction.Status.CANCELLED
                 open_tx.failure_reason = (
                     "Superseded by a cash payment recorded at the door, so "
                     "this checkout was closed before any card was charged."
                 )
                 open_tx.save(update_fields=["status", "failure_reason", "updated_at"])
+    if unclosed:
+        raise CashPaymentRefused(
+            _(
+                "This member still has an open card checkout that could not be "
+                "closed. Recording cash now could charge them twice; ask staff "
+                "to check it."
+            )
+        )
+
+    # Phase 2: record the cash. Lock order as everywhere: payments -> event ->
+    # curated group state -> registrations -> checkout claims.
+    late_checkout = _(
+        "A card checkout was opened for this seat a moment ago. Try again in "
+        "a few seconds."
+    )
+    with transaction.atomic():
+        # A checkout created after phase 1 (its row inserted while we waited)
+        # would stay payable beside the cash. Refuse rather than race it.
+        if (
+            PaymentTransaction.objects.select_for_update()
+            .filter(
+                event_registration_id=registration_id,
+                purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+                status=PaymentTransaction.Status.PENDING,
+            )
+            .exclude(sumup_checkout_id="")
+            .exists()
+        ):
+            raise CashPaymentRefused(late_checkout)
 
         event = MeetupEvent.objects.select_for_update().get(pk=preview.event_id)
         if requires_curated_group_certification(event):
@@ -132,6 +159,15 @@ def record_cash_payment(registration_id, *, actor):
                 )
             )
 
+        # A checkout still being created holds a claim before its payment row
+        # exists; the phase-2 recheck above cannot see it yet.
+        if (
+            EventCheckoutCreationClaim.objects.select_for_update()
+            .filter(registration_id=registration_id)
+            .exists()
+        ):
+            raise CashPaymentRefused(late_checkout)
+
         paid_at = timezone.now()
         registration.payment_confirmed = True
         registration.payment_date = paid_at
@@ -140,7 +176,11 @@ def record_cash_payment(registration_id, *, actor):
         registration.save(update_fields=["payment_confirmed", "payment_date", "status"])
 
         PaymentTransaction.objects.create(
-            transaction_reference=f"CRUSH-CASH-{registration.pk}-{uuid.uuid4().hex[:8]}",
+            # The admin's CRUSH-MANUAL-<registration id>- shape: reports recover
+            # the seat from it once the registration FK is gone.
+            transaction_reference=(
+                f"CRUSH-MANUAL-{registration.pk}-{uuid.uuid4().hex[:8]}"
+            ),
             provider=PaymentTransaction.Provider.MANUAL,
             amount=event.registration_fee,
             currency="EUR",

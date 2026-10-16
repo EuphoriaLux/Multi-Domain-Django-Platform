@@ -35,7 +35,17 @@ def _forbidden(*args, **kwargs):
     raise requests.HTTPError("403 Client Error: Forbidden", response=response)
 
 
-class PausedCheckoutClosingTests(TestCase):
+class _NoSumUpReads:
+    """A refused close is followed by a status read; never let it go online."""
+
+    def setUp(self):
+        super().setUp()
+        patcher = patch("crush_lu.services.sumup.requests.get", side_effect=_forbidden)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+
+class PausedCheckoutClosingTests(_NoSumUpReads, TestCase):
     @override_settings(ONLINE_PAYMENTS_ENABLED=False, SUMUP_API_KEY="key")
     @patch("crush_lu.services.sumup.requests.delete", side_effect=_forbidden)
     def test_a_refused_close_counts_as_closed_while_paused(self, _delete):
@@ -71,7 +81,7 @@ class PausedCheckoutClosingTests(TestCase):
     ONLINE_PAYMENTS_ENABLED=False,
     SUMUP_API_KEY="key",
 )
-class PauseFollowupTests(CreditFixture):
+class PauseFollowupTests(_NoSumUpReads, CreditFixture):
     def setUp(self):
         super().setUp()
         cache.clear()
@@ -140,6 +150,60 @@ class PauseFollowupTests(CreditFixture):
         self.assertIn("void_credits", admin_obj.get_actions(request))
         with self.settings(ONLINE_PAYMENTS_ENABLED=True):
             self.assertIn("refund_via_sumup", admin_obj.get_actions(request))
+
+    def test_refund_guidance_names_the_manual_path_while_paused(self):
+        from crush_lu.admin import CrushCreditAdmin
+        from crush_lu.admin.site import crush_admin_site
+
+        admin_obj = CrushCreditAdmin(CrushCredit, crush_admin_site)
+        request = _admin_request(self.coach_user)
+
+        def note():
+            return dict(admin_obj.get_fieldsets(request))["Cash refund"]["description"]
+
+        self.assertNotIn("SumUp dashboard", note())
+        self.assertIn("bank transfer", note())
+        with self.settings(ONLINE_PAYMENTS_ENABLED=True):
+            self.assertIn("Refund via SumUp", note())
+
+    def test_cash_reference_keeps_the_registration_id(self):
+        record_cash_payment(self.seat.pk, actor=self.coach_user)
+        cash = PaymentTransaction.objects.get(
+            event_registration=self.seat, provider=PaymentTransaction.Provider.MANUAL
+        )
+        self.assertTrue(
+            cash.transaction_reference.startswith(f"CRUSH-MANUAL-{self.seat.pk}-")
+        )
+
+    def test_a_checkout_opened_meanwhile_blocks_the_cash(self):
+        from crush_lu.models.payments import EventCheckoutCreationClaim
+
+        EventCheckoutCreationClaim.objects.create(
+            registration=self.seat,
+            registration_id_snapshot=self.seat.pk,
+            event_id_snapshot=self.target.pk,
+            transaction_reference=f"CRUSH-EVT-{self.seat.pk}-claim",
+            payment_method="card",
+        )
+        with self.assertRaises(CashPaymentRefused):
+            record_cash_payment(self.seat.pk, actor=self.coach_user)
+        self.seat.refresh_from_db()
+        self.assertFalse(self.seat.payment_confirmed)
+
+    @patch("crush_lu.services.sumup.requests.delete")
+    def test_a_close_survives_a_later_refusal(self, _delete):
+        old = self._open_card_checkout()
+        self.target.is_cancelled = True
+        self.target.save(update_fields=["is_cancelled"])
+        # Preview passes; the locked re-check refuses after the close.
+        with patch(
+            "crush_lu.services.manual_payments.cash_payment_refusal",
+            side_effect=[None, "This event is cancelled."],
+        ):
+            with self.assertRaises(CashPaymentRefused):
+                record_cash_payment(self.seat.pk, actor=self.coach_user)
+        old.refresh_from_db()
+        self.assertEqual(old.status, PaymentTransaction.Status.CANCELLED)
 
     # -- Coach "Mark paid (cash)" -------------------------------------------
 

@@ -42,6 +42,10 @@ NEW = {
         "de": "Unbezahlt · %(amount)s €",
         "fr": "Non payé · %(amount)s €",
     },
+    "A card checkout was opened for this seat a moment ago. Try again in a few seconds.": {
+        "de": "Für diesen Platz wurde gerade eine Kartenzahlung geöffnet. In ein paar Sekunden erneut versuchen.",
+        "fr": "Un paiement par carte vient d'être ouvert pour cette place. Réessayez dans quelques secondes.",
+    },
     "Mark paid (cash)": {
         "de": "Als bezahlt markieren (bar)",
         "fr": "Marquer payé (espèces)",
