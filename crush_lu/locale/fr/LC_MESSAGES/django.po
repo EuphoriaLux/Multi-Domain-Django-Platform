@@ -46041,3 +46041,9 @@ msgstr "Vient ✓"
 
 msgid "Asked, no answer"
 msgstr "Demandé, sans réponse"
+
+msgid "Please confirm in the Crush.lu app or on crush.lu: open the event and tap the confirm button. Releasing your seat works the same way."
+msgstr "Veuillez confirmer dans l'application Crush.lu ou sur crush.lu : ouvrez l'événement et appuyez sur le bouton de confirmation. Vous pouvez libérer votre place de la même façon."
+
+msgid "Confirm in the app"
+msgstr "Confirmer dans l'application"

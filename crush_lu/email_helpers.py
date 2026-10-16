@@ -1582,7 +1582,6 @@ def send_event_attendance_check(registration, request=None):
     from django.utils import translation
     from django.utils.translation import gettext as _
 
-    from crush_lu.services.attendance_check import make_attendance_token
     from crush_lu.services.event_payments import online_payments_paused
 
     if not can_send_email(registration.user, "event_reminders"):
@@ -1603,12 +1602,9 @@ def send_event_attendance_check(registration, request=None):
     cancel_url = get_user_language_url(
         user, "crush_lu:event_cancel", request, kwargs={"event_id": event.id}
     )
-    confirm_url = get_user_language_url(
-        user,
-        "crush_lu:event_attendance_confirm",
-        request,
-        kwargs={"token": make_attendance_token(registration)},
-    )
+    # The answer is given signed in on the event page (in the app or on the
+    # site), never from the email itself: the button opens the prompt there.
+    confirm_url = f"{event_url}#attendance-check"
 
     profile = getattr(user, "crushprofile", None)
     display_name = profile.display_name if profile else user.first_name

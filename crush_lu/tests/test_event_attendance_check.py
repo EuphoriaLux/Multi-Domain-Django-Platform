@@ -8,7 +8,7 @@ from decimal import Decimal
 from unittest import mock
 
 from django.contrib.auth import get_user_model
-from django.core import mail, signing
+from django.core import mail
 from django.core.cache import cache
 from django.core.management import call_command
 from django.template.loader import render_to_string
@@ -16,10 +16,8 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from crush_lu.models import CrushProfile, EventRegistration, MeetupEvent
-from crush_lu.services.attendance_check import (
-    ATTENDANCE_CONFIRM_SALT,
-    make_attendance_token,
-)
+from crush_lu.models.profiles import UserDataConsent
+from crush_lu.services.attendance_check import awaits_attendance_answer
 from crush_lu.views_coach import _coach_roster_rows
 
 User = get_user_model()
@@ -62,8 +60,17 @@ class AttendanceCheckBase(TestCase):
             password="x",
             first_name="Mem",
         )
+        UserDataConsent.objects.update_or_create(
+            user=user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
         CrushProfile.objects.create(
-            user=user, date_of_birth=date(1995, 1, 1), gender="F", location="Lux"
+            user=user,
+            date_of_birth=date(1995, 1, 1),
+            gender="F",
+            location="Lux",
+            verification_status="verified",
+            completion_status="step4",
         )
         return EventRegistration.objects.create(
             event=event, user=user, status=status, **extra
@@ -159,19 +166,17 @@ class EmailContentTests(AttendanceCheckBase):
         msg = _check_mails()[0]
         return msg.alternatives[0][0] if msg.alternatives else msg.body
 
-    def test_email_has_confirm_and_cancel_links(self):
+    def test_email_invites_to_the_app_and_cannot_answer_itself(self):
         event = _event("Target", 2)
-        reg = self.make_reg(event)
+        self.make_reg(event)
         self.run_command()
         html = self._html()
-        self.assertIn("/events/attending/", html)
+        self.assertIn(f"/events/{event.id}/#attendance-check", html)
         self.assertIn(f"/events/{event.id}/cancel/", html)
-        self.assertIn("coming", html)
+        self.assertIn("Confirm in the app", html)
         self.assertIn("release my seat", html)
-        token = html.split("/events/attending/")[1].split("/")[0].split('"')[0]
-        self.assertEqual(
-            signing.loads(token, salt=ATTENDANCE_CONFIRM_SALT)["r"], reg.pk
-        )
+        # No link in the email records an answer.
+        self.assertNotIn("/attending/", html)
 
     def test_cash_reminder_only_when_paused(self):
         self.make_reg(_event("Target", 2))
@@ -193,76 +198,87 @@ class EmailContentTests(AttendanceCheckBase):
 
 
 @override_settings(ALLOWED_HOSTS=["*"])
-class ConfirmEndpointTests(AttendanceCheckBase):
-    def get(self, token, lang="en"):
-        # The answer is recorded on POST (the button on the page). Named get
-        # for the existing callers, which all exercise the recording path.
-        return self.client.post(
-            f"/{lang}/events/attending/{token}/", HTTP_HOST="crush.lu"
-        )
+class SignedInConfirmationTests(AttendanceCheckBase):
+    """The answer is only ever given signed in, on the event page or dashboard."""
 
-    def test_opening_the_link_only_asks(self):
-        """A mail scanner's GET must not mark the member as coming."""
-        reg = self.make_reg(_event("Target", 2))
-        resp = self.client.get(
-            f"/en/events/attending/{make_attendance_token(reg)}/",
-            HTTP_HOST="crush.lu",
+    def asked(self, event=None, **extra):
+        reg = self.make_reg(event or _event("Target", 2), **extra)
+        EventRegistration.objects.filter(pk=reg.pk).update(
+            attendance_check_sent_at=timezone.now()
         )
-        self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "Yes, I")
-        self.assertContains(resp, f"/en/events/{reg.event_id}/cancel/")
         reg.refresh_from_db()
-        self.assertIsNone(reg.attendance_confirmed_at)
+        return reg
 
-    def test_confirm_sets_timestamp_and_is_idempotent(self):
-        reg = self.make_reg(_event("Target", 2))
-        resp = self.get(make_attendance_token(reg))
-        self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "see you there")
+    def confirm(self, reg, **data):
+        self.client.force_login(reg.user)
+        return self.client.post(
+            f"/en/events/{reg.event_id}/attending/", data, HTTP_HOST="crush.lu"
+        )
+
+    def test_member_confirms_on_the_event_page(self):
+        reg = self.asked()
+        self.client.force_login(reg.user)
+        page = self.client.get(
+            f"/en/events/{reg.event_id}/", HTTP_HOST="crush.lu"
+        ).content.decode()
+        self.assertIn('id="attendance-check"', page)
+        self.assertIn(f"/en/events/{reg.event_id}/attending/", page)
+
+        response = self.confirm(reg)
+        self.assertEqual(response.status_code, 302)
         reg.refresh_from_db()
         first = reg.attendance_confirmed_at
         self.assertIsNotNone(first)
-        self.assertEqual(self.get(make_attendance_token(reg)).status_code, 200)
+        self.confirm(reg)
         reg.refresh_from_db()
         self.assertEqual(reg.attendance_confirmed_at, first)
 
-    def test_tampered_token_is_friendly_not_500(self):
-        reg = self.make_reg(_event("Target", 2))
-        token = make_attendance_token(reg)
-        for bad in (token[:-3] + "xyz", "garbage", "a:b:c"):
-            self.assertEqual(self.get(bad).status_code, 400)
+        page = self.client.get(
+            f"/en/events/{reg.event_id}/", HTTP_HOST="crush.lu"
+        ).content.decode()
+        self.assertNotIn('id="attendance-check"', page)
+
+    def test_dashboard_offers_the_answer(self):
+        reg = self.asked()
+        self.client.force_login(reg.user)
+        page = self.client.get("/en/dashboard/", HTTP_HOST="crush.lu")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn(f"/en/events/{reg.event_id}/attending/", page.content.decode())
+
+    def test_anonymous_and_get_requests_never_answer(self):
+        reg = self.asked()
+        url = f"/en/events/{reg.event_id}/attending/"
+        self.client.post(url, HTTP_HOST="crush.lu")
+        self.client.force_login(reg.user)
+        self.assertNotEqual(self.client.get(url, HTTP_HOST="crush.lu").status_code, 200)
         reg.refresh_from_db()
         self.assertIsNone(reg.attendance_confirmed_at)
 
-    def test_wrong_salt_rejected(self):
-        reg = self.make_reg(_event("Target", 2))
-        token = signing.dumps({"r": reg.pk}, salt="other")
-        self.assertEqual(self.get(token).status_code, 400)
-
-    def test_expired_token_rejected(self):
-        reg = self.make_reg(_event("Target", 2))
-        token = make_attendance_token(reg)
-        later = timezone.now().timestamp() + 8 * 86400
-        with mock.patch("time.time", return_value=later):
-            resp = self.get(token)
-        self.assertEqual(resp.status_code, 400)
+    def test_only_the_members_own_registration(self):
+        reg = self.asked()
+        other = self.make_reg(_event("Other", 3))
+        self.client.force_login(other.user)
+        response = self.client.post(
+            f"/en/events/{reg.event_id}/attending/", HTTP_HOST="crush.lu"
+        )
+        self.assertEqual(response.status_code, 404)
         reg.refresh_from_db()
         self.assertIsNone(reg.attendance_confirmed_at)
 
-    def test_cancelled_registration_refused(self):
-        reg = self.make_reg(_event("Target", 2), status="cancelled")
-        self.assertEqual(self.get(make_attendance_token(reg)).status_code, 400)
-        reg.refresh_from_db()
-        self.assertIsNone(reg.attendance_confirmed_at)
+    def test_not_asked_cancelled_or_past_seats_are_not_marked(self):
+        not_asked = self.make_reg(_event("Target", 2))
+        cancelled = self.asked(status="cancelled")
+        past = self.asked(event=_event("Old", -1))
+        for reg in (not_asked, cancelled, past):
+            self.confirm(reg)
+            reg.refresh_from_db()
+            self.assertIsNone(reg.attendance_confirmed_at)
+            self.assertFalse(awaits_attendance_answer(reg))
 
-    def test_link_from_an_earlier_booking_does_not_answer_for_a_new_one(self):
-        reg = self.make_reg(_event("Target", 2))
-        old_token = make_attendance_token(reg)
-        reg.registered_at = reg.registered_at + timedelta(minutes=5)
-        reg.save(update_fields=["registered_at"])
-        self.assertEqual(self.get(old_token).status_code, 400)
-        reg.refresh_from_db()
-        self.assertIsNone(reg.attendance_confirmed_at)
+    def test_next_only_accepts_a_same_site_path(self):
+        reg = self.asked()
+        response = self.confirm(reg, next="https://evil.example/")
+        self.assertNotIn("evil.example", response["Location"])
 
     def test_rescheduling_clears_the_check(self):
         event = _event("Target", 2)
@@ -276,19 +292,6 @@ class ConfirmEndpointTests(AttendanceCheckBase):
         reg.refresh_from_db()
         self.assertIsNone(reg.attendance_check_sent_at)
         self.assertIsNone(reg.attendance_confirmed_at)
-
-    def test_cancelled_event_refused(self):
-        reg = self.make_reg(_event("Target", 2, is_cancelled=True))
-        self.assertEqual(self.get(make_attendance_token(reg)).status_code, 400)
-
-    def test_past_event_refused(self):
-        reg = self.make_reg(_event("Old", -1))
-        self.assertEqual(self.get(make_attendance_token(reg)).status_code, 400)
-
-    def test_german_page_renders(self):
-        reg = self.make_reg(_event("Target", 2))
-        resp = self.get(make_attendance_token(reg), lang="de")
-        self.assertContains(resp, "Danke, bis dann!")
 
 
 class CoachRosterMarkerTests(AttendanceCheckBase):

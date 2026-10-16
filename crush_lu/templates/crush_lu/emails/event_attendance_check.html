@@ -25,7 +25,9 @@
 <p>{% blocktrans with amount=amount %}Pay €{{ amount }} in cash at the door.{% endblocktrans %}</p>
 {% endif %}
 
-<p><a href="{{ confirm_url }}" class="button">{% trans "Yes, I'm coming" %}</a></p>
+<p>{% trans "Please confirm in the Crush.lu app or on crush.lu: open the event and tap the confirm button. Releasing your seat works the same way." %}</p>
+
+<p><a href="{{ confirm_url }}" class="button">{% trans "Confirm in the app" %}</a></p>
 
 <p><a href="{{ cancel_url }}" class="button" style="background: #6b7280;">{% trans "I can't come — release my seat" %}</a></p>
 

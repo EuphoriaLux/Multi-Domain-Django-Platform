@@ -4,6 +4,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from django.http import Http404, HttpResponse
+from django.views.decorators.http import require_POST
 from django.db import IntegrityError, connection, transaction
 from django.db.models import Q
 from datetime import timedelta
@@ -30,6 +31,7 @@ from .models.payments import PaymentTransaction
 from .models.credits import CrushCredit
 from .forms import EventRegistrationForm, EventPreferenceForm, EventFeedbackForm
 from .decorators import crush_login_required, ratelimit
+from .services.attendance_check import awaits_attendance_answer
 from .services.event_payments import online_payments_paused
 from .services.event_grouping import (
     count_mutual_matches,
@@ -1573,6 +1575,7 @@ def event_detail(request, event_id):
         ),
         "luxid_connect_url": luxid_connect_url_value,
         "event_share_url": _event_share_url(request, user_profile),
+        "awaits_attendance_answer": awaits_attendance_answer(registration),
     }
     return render(request, "crush_lu/event_detail.html", context)
 
@@ -2457,78 +2460,37 @@ def _event_cancel_refusal(request, event, registration):
     return None
 
 
-def event_attendance_confirm(request, token):
-    """ "Yes, I'm coming" from the attendance-check email.
+@crush_login_required
+@require_POST
+def event_attendance_confirm(request, event_id):
+    """The member answers "Yes, I'm coming" from the event page or dashboard.
 
-    Public (the signed, 7-day token is the credential, like the unsubscribe
-    link). GET only shows the question with a button; the answer is recorded
-    on POST. Mail security scanners (Outlook Safe Links and the like) open
-    every link in an email, so recording on GET would mark members as coming
-    who never clicked, and coaches read that marker. Never 500s: a bad token
-    or an unusable registration renders a friendly page.
+    Signed in and POST only: the attendance-check email just invites the member
+    here, so a mail scanner opening links, or a forwarded email, can never
+    answer for them. Idempotent; the first answer keeps its timestamp.
     """
-    from .services.attendance_check import read_attendance_token, token_matches_seat
+    from django.utils.http import url_has_allowed_host_and_scheme
 
-    decoded = read_attendance_token(token)
-    registration = None
-    if decoded is not None:
-        registration_id, seat_stamp = decoded
-        registration = (
-            EventRegistration.objects.select_related("event")
-            .filter(pk=registration_id)
-            .first()
-        )
-        if registration is not None and not token_matches_seat(
-            registration, seat_stamp
-        ):
-            # An email sent for an earlier booking of this row (cancelled,
-            # then re-registered) must not answer for the new seat.
-            registration = None
-
-    usable = (
-        registration is not None
-        and registration.status in SEAT_HOLDING_STATUSES
-        and not registration.event.is_cancelled
-        and registration.event.date_time > timezone.now()
+    registration = (
+        EventRegistration.objects.select_related("event")
+        .filter(event_id=event_id, user=request.user)
+        .first()
     )
-    if not usable:
-        return render(
-            request,
-            "crush_lu/event_attendance_confirm.html",
-            {"state": "invalid", "event": getattr(registration, "event", None)},
-            status=400,
-        )
-
-    if request.method != "POST":
-        return render(
-            request,
-            "crush_lu/event_attendance_confirm.html",
-            {"state": "ask", "event": registration.event},
-        )
-
-    # .update() rather than .save(): a save fires the wallet-pass signal,
-    # which does synchronous Apple/Google network I/O. Idempotent: the first
-    # confirmation keeps its timestamp.
-    EventRegistration.objects.filter(
-        pk=registration.pk, attendance_confirmed_at__isnull=True
-    ).update(attendance_confirmed_at=timezone.now())
-
-    event = registration.event
-    amount_due = (
-        event.registration_fee
-        if event.registration_fee > 0 and not registration.payment_confirmed
-        else None
-    )
-    return render(
-        request,
-        "crush_lu/event_attendance_confirm.html",
-        {
-            "state": "confirmed",
-            "event": event,
-            "amount_due": amount_due,
-            "online_payments_paused": online_payments_paused(),
-        },
-    )
+    if registration is None:
+        raise Http404
+    if awaits_attendance_answer(registration):
+        # .update() rather than .save(): a save fires the wallet-pass signal,
+        # which does synchronous Apple/Google network I/O.
+        EventRegistration.objects.filter(
+            pk=registration.pk, attendance_confirmed_at__isnull=True
+        ).update(attendance_confirmed_at=timezone.now())
+        messages.success(request, _("Thanks, see you there!"))
+    target = request.POST.get("next", "")
+    if url_has_allowed_host_and_scheme(
+        target, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return redirect(target)
+    return redirect("crush_lu:event_detail", event_id=event_id)
 
 
 @crush_login_required

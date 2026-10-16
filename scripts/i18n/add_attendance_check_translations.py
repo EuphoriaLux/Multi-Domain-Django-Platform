@@ -21,6 +21,14 @@ NEW = {
         "de": "Dein Platz für <strong>%(title)s</strong> rückt näher. Bitte sag uns, ob du noch kommst.",
         "fr": "Votre place pour <strong>%(title)s</strong> approche. Merci de nous dire si vous venez toujours.",
     },
+    "Please confirm in the Crush.lu app or on crush.lu: open the event and tap the confirm button. Releasing your seat works the same way.": {
+        "de": "Bitte bestätige in der Crush.lu-App oder auf crush.lu: Öffne das Event und tippe auf den Bestätigungsbutton. Deinen Platz freigeben kannst du dort genauso.",
+        "fr": "Veuillez confirmer dans l'application Crush.lu ou sur crush.lu : ouvrez l'événement et appuyez sur le bouton de confirmation. Vous pouvez libérer votre place de la même façon.",
+    },
+    "Confirm in the app": {
+        "de": "In der App bestätigen",
+        "fr": "Confirmer dans l'application",
+    },
     "Yes, I'm coming": {
         "de": "Ja, ich komme",
         "fr": "Oui, je viens",
