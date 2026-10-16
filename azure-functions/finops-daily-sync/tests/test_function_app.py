@@ -264,6 +264,42 @@ def test_an_earlier_run_leaves_failures_to_the_next_slot(timer_app, transport, c
     assert "later run in the window retries them" in caplog.text
 
 
+def _throttled_northeurope(transport):
+    def post(url, **kwargs):
+        region = kwargs["json"]["region"]
+        transport.posted.append(region)
+        if region == "northeurope":
+            return FakeResponse(503, {"transient": True})
+        return FakeResponse(200, {"message": "ok"})
+
+    transport.set_post(post)
+
+
+def test_an_earlier_run_logs_a_failed_region_as_a_warning(timer_app, transport, caplog):
+    """A region the next slot retries is not an incident in the error views."""
+    _throttled_northeurope(transport)
+
+    with caplog.at_level(logging.INFO):
+        run(timer_app, now=FIRST_RUN)
+
+    northeurope = [r for r in caplog.records if "northeurope: HTTP error" in r.message]
+    assert [r.levelno for r in northeurope] == [logging.WARNING]
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+
+
+def test_the_last_run_still_logs_a_failed_region_as_an_error(
+    timer_app, transport, caplog
+):
+    _throttled_northeurope(transport)
+
+    with caplog.at_level(logging.INFO), pytest.raises(RuntimeError) as excinfo:
+        run(timer_app)
+
+    northeurope = [r for r in caplog.records if "northeurope: HTTP error" in r.message]
+    assert [r.levelno for r in northeurope] == [logging.ERROR]
+    assert "northeurope (HTTP 503)" in str(excinfo.value)
+
+
 def test_only_the_pending_regions_are_posted(timer_app, transport):
     transport.set_get(
         lambda url, **kwargs: FakeResponse(
