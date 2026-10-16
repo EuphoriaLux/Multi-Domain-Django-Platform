@@ -183,6 +183,16 @@ class CommandSelectionTests(AttendanceCheckBase):
         self.assertIsNotNone(entry["attendance_check_sent_at"])
         self.assertIsNotNone(entry["attendance_confirmed_at"])
 
+    def test_an_invalid_invocation_sends_no_check(self):
+        from django.core.management.base import CommandError
+
+        reg = self.make_reg(_event("Target", 2))
+        with self.assertRaises(CommandError):
+            self.run_command("--window-minutes", "0")
+        reg.refresh_from_db()
+        self.assertIsNone(reg.attendance_check_sent_at)
+        self.assertFalse(_check_mails())
+
     def test_hours_before_mode_skips_the_check(self):
         reg = self.make_reg(_event("Target", 2))
         self.run_command("--hours-before", "2")
@@ -200,12 +210,11 @@ class EmailContentTests(AttendanceCheckBase):
         self.make_reg(event)
         self.run_command()
         html = self._html()
-        self.assertIn(f"/events/{event.id}/#attendance-check", html)
         self.assertIn(f"/events/{event.id}/cancel/", html)
         self.assertIn("Confirm in the app", html)
         self.assertIn("release my seat", html)
-        # No link in the email records an answer.
-        self.assertNotIn("/attending/", html)
+        # The button is the login-gated landing, which records nothing on GET.
+        self.assertIn(f"/events/{event.id}/attending/", html)
 
     def test_cash_reminder_only_when_paused(self):
         self.make_reg(_event("Target", 2))
@@ -273,6 +282,43 @@ class SignedInConfirmationTests(AttendanceCheckBase):
         page = self.client.get("/en/dashboard/", HTTP_HOST="crush.lu")
         self.assertEqual(page.status_code, 200)
         self.assertIn(f"/en/events/{reg.event_id}/attending/", page.content.decode())
+
+    def test_email_button_lands_on_the_prompt_through_login(self):
+        reg = self.asked()
+        url = f"/en/events/{reg.event_id}/attending/"
+
+        signed_out = self.client.get(url, HTTP_HOST="crush.lu")
+        self.assertEqual(signed_out.status_code, 302)
+        self.assertIn("login", signed_out["Location"])
+
+        self.client.force_login(reg.user)
+        signed_in = self.client.get(url, HTTP_HOST="crush.lu")
+        self.assertEqual(signed_in.status_code, 302)
+        self.assertTrue(
+            signed_in["Location"].endswith(f"/events/{reg.event_id}/#attendance-check")
+        )
+        reg.refresh_from_db()
+        self.assertIsNone(reg.attendance_confirmed_at)
+
+    def test_moving_a_registration_to_another_event_clears_the_answer(self):
+        reg = self.asked()
+        EventRegistration.objects.filter(pk=reg.pk).update(
+            attendance_confirmed_at=timezone.now()
+        )
+        reg.refresh_from_db()
+        reg.event = _event("Other", 5)
+        reg.save()
+        reg.refresh_from_db()
+        self.assertIsNone(reg.attendance_check_sent_at)
+        self.assertIsNone(reg.attendance_confirmed_at)
+
+    def test_the_prompt_is_gone_once_the_event_has_started(self):
+        reg = self.asked(event=_event("Running", 0))
+        MeetupEvent.objects.filter(pk=reg.event_id).update(
+            date_time=timezone.now() - timedelta(minutes=30)
+        )
+        reg.refresh_from_db()
+        self.assertFalse(reg.awaits_attendance_answer)
 
     def test_anonymous_and_get_requests_never_answer(self):
         reg = self.asked()

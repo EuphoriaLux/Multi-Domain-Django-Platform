@@ -554,7 +554,7 @@
                             <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mb-3">{% trans "If you can't make it, releasing your seat lets someone on the waitlist take your place. Thank you!" %}</p>
                             <form method="post" action="{% url 'crush_lu:event_attendance_confirm' event.id %}" class="mb-2">
                                 {% csrf_token %}
-                                <button type="submit" class="btn-crush-primary w-full">{% trans "Yes, I'm coming" %}</button>
+                                <button type="submit" class="btn-crush-solid w-full">{% trans "Yes, I'm coming" %}</button>
                             </form>
                             <a href="{% url 'crush_lu:event_cancel' event.id %}" class="btn-crush-outline w-full inline-flex justify-center">{% trans "I can't come — release my seat" %}</a>
                         </div>

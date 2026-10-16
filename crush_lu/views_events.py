@@ -4,7 +4,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from django.http import Http404, HttpResponse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_http_methods
 from django.db import IntegrityError, connection, transaction
 from django.db.models import Q
 from datetime import timedelta
@@ -2461,14 +2461,22 @@ def _event_cancel_refusal(request, event, registration):
 
 
 @crush_login_required
-@require_POST
+@require_http_methods(["GET", "POST"])
 def event_attendance_confirm(request, event_id):
     """The member answers "Yes, I'm coming" from the event page or dashboard.
 
-    Signed in and POST only: the attendance-check email just invites the member
-    here, so a mail scanner opening links, or a forwarded email, can never
-    answer for them. Idempotent; the first answer keeps its timestamp.
+    GET is the email's button: it records nothing and only lands the member on
+    the event page's prompt, going through login first when the session has
+    expired (crush_login_required), which a direct event-page link would not.
+    The answer is a signed-in POST, so a mail scanner opening links, or a
+    forwarded email, can never answer for anyone. Idempotent; the first
+    answer keeps its timestamp.
     """
+    if request.method == "GET":
+        return redirect(
+            reverse("crush_lu:event_detail", kwargs={"event_id": event_id})
+            + "#attendance-check"
+        )
     from django.utils.http import url_has_allowed_host_and_scheme
 
     registration = (

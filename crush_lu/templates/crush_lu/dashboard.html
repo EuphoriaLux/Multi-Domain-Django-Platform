@@ -110,7 +110,7 @@
             <p class="text-xs text-yellow-800/80 dark:text-yellow-300/80 mb-0">{% trans "Your seat is held until payment is settled." %}</p>
             {% endif %}
         </div>
-        {% if registration.attendance_check_sent_at and not registration.attendance_confirmed_at %}
+        {% if registration.awaits_attendance_answer %}
         {# The attendance check is answered signed in, here or on the event page (services.attendance_check). #}
         <form method="post" action="{% url 'crush_lu:event_attendance_confirm' registration.event_id %}" class="flex flex-shrink-0 items-center gap-2">
             {% csrf_token %}

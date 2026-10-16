@@ -2047,6 +2047,13 @@ class EventRegistration(models.Model):
             )
         return None
 
+    @property
+    def awaits_attendance_answer(self):
+        """Asked "are you still coming?" and not answered (templates)."""
+        from crush_lu.services.attendance_check import awaits_attendance_answer
+
+        return awaits_attendance_answer(self)
+
     def save(self, *args, **kwargs):
         """Keep the cancellation policy timestamp aligned with the status."""
         self.__dict__.pop("_curated_group_degraded_event_ids", None)
@@ -2076,6 +2083,28 @@ class EventRegistration(models.Model):
                 kwargs["update_fields"] = set(kwargs["update_fields"]) | {
                     "waitlist_promoted_at",
                     "promotion_notice",
+                }
+
+        if (
+            self.pk
+            and (self.attendance_check_sent_at or self.attendance_confirmed_at)
+            and (
+                update_fields is None
+                or {"event", "event_id"}.intersection(update_fields)
+            )
+            and type(self)
+            .objects.filter(pk=self.pk)
+            .exclude(event_id=self.event_id)
+            .exists()
+        ):
+            # Moved to another event (the admin keeps the FK editable): the
+            # "are you still coming?" question and answer were for the old one.
+            self.attendance_check_sent_at = None
+            self.attendance_confirmed_at = None
+            if kwargs.get("update_fields") is not None:
+                kwargs["update_fields"] = set(kwargs["update_fields"]) | {
+                    "attendance_check_sent_at",
+                    "attendance_confirmed_at",
                 }
 
         writes_group_sensitive_fields = update_fields is None or bool(

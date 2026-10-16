@@ -97,9 +97,15 @@ class Command(BaseCommand):
         )
         try:
             self._send_reminders(options)
-        finally:
+        except CommandError:
+            # An invalid invocation sends nothing at all.
+            raise
+        except Exception:
             if run_check:
                 self._send_attendance_checks(options)
+            raise
+        if run_check:
+            self._send_attendance_checks(options)
 
     def _send_attendance_checks(self, options):
         """Ask unpaid cash-at-the-door seat holders "are you still coming?".

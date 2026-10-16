@@ -1603,8 +1603,15 @@ def send_event_attendance_check(registration, request=None):
         user, "crush_lu:event_cancel", request, kwargs={"event_id": event.id}
     )
     # The answer is given signed in on the event page (in the app or on the
-    # site), never from the email itself: the button opens the prompt there.
-    confirm_url = f"{event_url}#attendance-check"
+    # site), never from the email itself. This login-gated address records
+    # nothing on GET: it sends an expired session through login, then on to
+    # the event page's prompt.
+    confirm_url = get_user_language_url(
+        user,
+        "crush_lu:event_attendance_confirm",
+        request,
+        kwargs={"event_id": event.id},
+    )
 
     profile = getattr(user, "crushprofile", None)
     display_name = profile.display_name if profile else user.first_name
