@@ -1011,6 +1011,12 @@ WHATSAPP_CONNECT_REQUEST_TEMPLATE = os.environ.get(
 # cannot import from crush_lu (the service imports django.conf.settings, so it
 # would be circular). Two copies of that logic drifted once already.
 SUMUP_API_KEY = os.environ.get("SUMUP_API_KEY", "")
+# Master switch for taking money online on crush.lu. False closes every card
+# checkout (event seats, Premium, donations) and the card form, hides the pay
+# buttons and tells members to pay at the door. Crush Credit and staff-recorded
+# cash payments keep working. Set False while there is no payment provider
+# (SumUp refused the platform in 2026-10).
+ONLINE_PAYMENTS_ENABLED = _env_bool("ONLINE_PAYMENTS_ENABLED", default=True)
 SUMUP_MERCHANT_CODE = os.environ.get("SUMUP_MERCHANT_CODE", "")
 # Only used when no merchant code is set — SumUp then resolves the payee from
 # the merchant account e-mail instead.

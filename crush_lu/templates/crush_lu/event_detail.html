@@ -560,6 +560,9 @@
                             <span x-text="label">{% trans "Pay with Crush Credit" %}</span>
                         </button>
                         {% endif %}
+                        {% if online_payments_paused %}
+                        {% include "crush_lu/components/pay_at_door_note.html" with fee=event.registration_fee %}
+                        {% else %}
                         <button type="button" x-data="sumupCheckoutButton" @click="start" :disabled="isLoading"
                                 data-sumup-reg-id="{{ user_registration.id }}" data-payment-method="card"
                                 data-label="{% trans 'Pay with Card' %} ({{ event.registration_fee }} EUR)"
@@ -572,6 +575,7 @@
                             <span x-show="isLoading" x-cloak>{% include "shared/icons/loading.html" with class="w-5 h-5 animate-spin" %}</span>
                             <span x-text="label">{% trans "Pay with Card" %} ({{ event.registration_fee }} EUR)</span>
                         </button>
+                        {% endif %}
                         </div>
                         {% endif %}
 

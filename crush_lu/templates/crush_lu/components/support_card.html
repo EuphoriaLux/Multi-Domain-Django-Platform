@@ -48,7 +48,12 @@
         enforces the same condition, because hiding a button does not close an
         endpoint a webview can still reach.
         {% endcomment %}
-        {% if suppress_native_commerce %}
+        {% if online_payments_paused %}
+        {# No payment provider: views_payments refuses donations with a 503. #}
+        <p class="mt-4 text-xs rounded-xl p-3 text-center bg-gray-50 dark:bg-white/10 text-gray-600 dark:text-purple-200 border border-gray-200 dark:border-white/20">
+            {% trans "Online contributions are paused for now. Thank you for your support!" %}
+        </p>
+        {% elif suppress_native_commerce %}
         <p class="mt-4 text-xs rounded-xl p-3 text-center bg-gray-50 dark:bg-white/10 text-gray-600 dark:text-purple-200 border border-gray-200 dark:border-white/20">
             {% trans "Available outside the mobile app" %}
         </p>
