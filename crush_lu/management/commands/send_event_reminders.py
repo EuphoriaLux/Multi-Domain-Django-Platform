@@ -27,6 +27,7 @@ Usage:
     python manage.py send_event_reminders -v 2
 """
 
+import time as monotonic_clock
 from datetime import datetime, time, timedelta
 
 from django.core.management.base import BaseCommand, CommandError
@@ -36,6 +37,12 @@ from crush_lu import email_helpers
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
 from crush_lu.models import EventRegistration, MeetupEvent
 from crush_lu.notification_service import NotificationResult, notify_event_reminder
+
+# Wall-clock budget for starting new attendance-check sends in one run. The
+# EventReminders timer gives the whole command ~110 s, and one Graph send can
+# take up to 30 s, so stopping new sends after 40 s leaves the reminder pass
+# its share. Unsent rows stay unstamped and go out on the next hourly run.
+ATTENDANCE_CHECK_BUDGET_SECONDS = 40
 
 
 class Command(BaseCommand):
@@ -141,8 +148,12 @@ class Command(BaseCommand):
             attendance_check_sent_at__isnull=True,
         ).select_related("user", "user__crushprofile", "event")
 
-        sent = skipped = failed = 0
+        sent = skipped = failed = deferred = 0
+        started = monotonic_clock.monotonic()
         for registration in registrations:
+            if monotonic_clock.monotonic() - started > ATTENDANCE_CHECK_BUDGET_SECONDS:
+                deferred += 1
+                continue
             email = registration.user.email
             if dry_run:
                 self.stdout.write(
@@ -161,10 +172,10 @@ class Command(BaseCommand):
                 )
                 continue
             if not delivered and not email_helpers.can_send_email(
-                registration.user, "event_reminders"
+                registration.user, "event_attendance_check"
             ):
-                # Opted out: never asked, so never stamped. Stamping would
-                # show coaches "Asked, no answer" for a question nobody sent.
+                # Master unsubscribe or banned: never asked, so never stamped.
+                # Stamping would show coaches "Asked, no answer" for nothing.
                 skipped += 1
                 continue
             if not delivered:
@@ -175,19 +186,27 @@ class Command(BaseCommand):
                     self.style.ERROR(f"  Attendance check not sent to {email}")
                 )
                 continue
-            # Stamp only what was delivered; failures retry next sweep.
+            # Stamp only what was delivered; failures retry next sweep. The
+            # filter re-checks the seat at the stamp: a cancel, payment or
+            # reschedule during the (slow) send reset the markers, and this
+            # update must not write the check back over that reset.
             # .update() not .save(): avoids the synchronous wallet signal.
-            EventRegistration.objects.filter(pk=registration.pk).update(
-                attendance_check_sent_at=timezone.now()
-            )
+            EventRegistration.objects.filter(
+                pk=registration.pk,
+                status="pending",
+                payment_confirmed=False,
+                attendance_check_sent_at__isnull=True,
+                event__is_cancelled=False,
+                event__date_time=registration.event.date_time,
+            ).update(attendance_check_sent_at=timezone.now())
             sent += 1
 
-        if verbosity >= 1 or sent or skipped or failed:
+        if verbosity >= 1 or sent or skipped or failed or deferred:
             label = "[DRY RUN] Would send" if dry_run else "Sent"
             self.stdout.write(
                 self.style.SUCCESS(
                     f"Attendance checks for {target_date} - {label}: {sent}, "
-                    f"Skipped: {skipped}, Failed: {failed}"
+                    f"Skipped: {skipped}, Failed: {failed}, Deferred: {deferred}"
                 )
             )
 

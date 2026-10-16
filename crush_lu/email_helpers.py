@@ -187,8 +187,11 @@ FINANCIAL_EMAIL_TYPES = frozenset({"crush_credit_expiry"})
 # Reminders" toggle reads "Reminders about upcoming events you're registered
 # for", and turning it off is not consent to miss being given a seat. They
 # bypass the per-category toggles but, unlike FINANCIAL_EMAIL_TYPES, still
-# honour the ban and the master unsubscribe.
-TRANSACTIONAL_EMAIL_TYPES = frozenset({"event_seat_granted"})
+# honour the ban and the master unsubscribe. The attendance check belongs here
+# too (Tom, 2026-10-16): it is about a seat the member holds and is the only
+# way they are asked to confirm it, so it reaches members who switched off
+# event reminders.
+TRANSACTIONAL_EMAIL_TYPES = frozenset({"event_seat_granted", "event_attendance_check"})
 
 
 def can_send_email(user, email_type):
@@ -1572,9 +1575,9 @@ def send_event_attendance_check(registration, request=None):
     """Ask a member holding an unpaid seat whether they are still coming.
 
     Sent ~2 days before a paid event by the ``send_event_reminders`` sweep.
-    Follows the event reminder's consent tier (``event_reminders``): returns 0
-    without sending when the member opted out, which the caller treats as
-    settled.
+    Transactional (``TRANSACTIONAL_EMAIL_TYPES``): it reaches members who
+    switched off event reminders, and returns 0 without sending only for a
+    banned account or the master unsubscribe.
 
     Returns:
         int: Number of emails sent
@@ -1584,7 +1587,7 @@ def send_event_attendance_check(registration, request=None):
 
     from crush_lu.services.event_payments import online_payments_paused
 
-    if not can_send_email(registration.user, "event_reminders"):
+    if not can_send_email(registration.user, "event_attendance_check"):
         logger.info(
             f"Skipping attendance check to {registration.user.email} - user unsubscribed"
         )

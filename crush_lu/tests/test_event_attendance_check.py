@@ -15,6 +15,7 @@ from django.template.loader import render_to_string
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
+from crush_lu import email_helpers
 from crush_lu.models import CrushProfile, EventRegistration, MeetupEvent
 from crush_lu.models.profiles import UserDataConsent
 from crush_lu.services.attendance_check import awaits_attendance_answer
@@ -192,6 +193,63 @@ class CommandSelectionTests(AttendanceCheckBase):
             reg.refresh_from_db()
             self.assertIsNone(reg.attendance_check_sent_at, status)
             self.assertIsNone(reg.attendance_confirmed_at, status)
+
+    def test_the_check_stops_starting_sends_past_its_budget(self):
+        regs = [self.make_reg(_event("Target", 2)) for _ in range(3)]
+        clock = iter([0, 0, 41, 42, 43, 44, 45])
+        with mock.patch(
+            "crush_lu.management.commands.send_event_reminders."
+            "monotonic_clock.monotonic",
+            side_effect=lambda: next(clock),
+        ):
+            self.run_command()
+        stamped = EventRegistration.objects.filter(
+            pk__in=[r.pk for r in regs], attendance_check_sent_at__isnull=False
+        ).count()
+        self.assertEqual(stamped, 1)
+
+    def test_a_reset_during_the_send_is_not_overwritten(self):
+        reg = self.make_reg(_event("Target", 2))
+        real_send = email_helpers.send_event_attendance_check
+
+        def send_then_cancel(registration):
+            delivered = real_send(registration)
+            EventRegistration.objects.filter(pk=registration.pk).update(
+                status="cancelled"
+            )
+            return delivered
+
+        with mock.patch(
+            "crush_lu.email_helpers.send_event_attendance_check",
+            side_effect=send_then_cancel,
+        ):
+            self.run_command()
+        reg.refresh_from_db()
+        self.assertIsNone(reg.attendance_check_sent_at)
+
+    def test_members_who_switched_off_reminders_are_still_asked(self):
+        from crush_lu.models.profiles import EmailPreference
+
+        reg = self.make_reg(_event("Target", 2))
+        EmailPreference.objects.update_or_create(
+            user=reg.user, defaults={"email_event_reminders": False}
+        )
+        self.run_command()
+        reg.refresh_from_db()
+        self.assertIsNotNone(reg.attendance_check_sent_at)
+        self.assertEqual(len(_check_mails()), 1)
+
+    def test_the_master_unsubscribe_is_respected(self):
+        from crush_lu.models.profiles import EmailPreference
+
+        reg = self.make_reg(_event("Target", 2))
+        EmailPreference.objects.update_or_create(
+            user=reg.user, defaults={"unsubscribed_all": True}
+        )
+        self.run_command()
+        reg.refresh_from_db()
+        self.assertIsNone(reg.attendance_check_sent_at)
+        self.assertFalse(_check_mails())
 
     def test_an_opted_out_member_is_not_marked_as_asked(self):
         reg = self.make_reg(_event("Target", 2))
