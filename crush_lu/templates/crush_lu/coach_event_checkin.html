@@ -331,6 +331,21 @@
                     {% if reg.checked_in_at %}
                     <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5" data-arrival-time>{{ reg.checked_in_at|date:"g:i A" }}</p>
                     {% endif %}
+                    {% comment %}
+                        Door cash. A plain form (full reload), deliberately outside
+                        data-row-actions: the row-state applier rebuilds that area
+                        after a JS check-in, and would drop it. Shown for any unpaid
+                        seat holder on a paid event; services.manual_payments
+                        re-checks everything under lock.
+                    {% endcomment %}
+                    {% if event.registration_fee > 0 and not reg.payment_confirmed and not event.is_cancelled %}
+                    <form method="post" action="{% url 'crush_lu:coach_mark_paid_cash' event.id reg.id %}" class="mt-1 flex items-center gap-2" data-cash-form>
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <span class="text-xs font-medium text-amber-700 dark:text-amber-400">{% blocktrans with amount=event.registration_fee %}Unpaid · €{{ amount }}{% endblocktrans %}</span>
+                        <button type="submit" class="btn-link text-xs font-semibold text-emerald-700 dark:text-emerald-400 decoration-dotted">{% trans "Mark paid (cash)" %}</button>
+                    </form>
+                    {% endif %}
                 </div>
             </div>
 

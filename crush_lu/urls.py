@@ -755,6 +755,7 @@ urlpatterns = [
     path('coach/events/<int:event_id>/', views.coach_event_detail, name='coach_event_detail'),
     path('coach/events/<int:event_id>/checkin/', views_coach_module.coach_event_checkin, name='coach_event_checkin'),
     path('coach/events/<int:event_id>/no-shows/', views_coach_module.coach_mark_event_no_shows, name='coach_mark_event_no_shows'),
+    path('coach/events/<int:event_id>/registrations/<int:registration_id>/mark-paid-cash/', views_coach_module.coach_mark_paid_cash, name='coach_mark_paid_cash'),
     path('coach/events/<int:event_id>/connect-showcase/', views_connect_showcase.coach_connect_showcase, name='coach_connect_showcase'),
     path('coach/events/<int:event_id>/sms-invite/', views_coach_module.coach_event_sms_invite, name='coach_event_sms_invite'),
     path('coach/events/<int:event_id>/sms-invite/<int:submission_id>/log/', views_coach_module.coach_log_event_sms_sent, name='coach_log_event_sms_sent'),

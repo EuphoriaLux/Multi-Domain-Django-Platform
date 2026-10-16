@@ -46048,8 +46048,41 @@ msgstr "Veuillez confirmer dans l'application Crush.lu ou sur crush.lu : ouvrez 
 msgid "Confirm in the app"
 msgstr "Confirmer dans l'application"
 
+msgid "This event is cancelled."
+msgstr "Cet événement est annulé."
+
+msgid "This event is free; there is nothing to pay."
+msgstr "Cet événement est gratuit, il n'y a rien à payer."
+
+msgid "Payment can only be recorded for someone holding a seat."
+msgstr "Un paiement ne peut être enregistré que pour une personne ayant une place."
+
+msgid "This member still has an open card checkout that could not be closed. Recording cash now could charge them twice; ask staff to check it."
+msgstr "Ce membre a encore un paiement par carte ouvert qui n'a pas pu être fermé. Enregistrer les espèces maintenant pourrait le faire payer deux fois ; demandez à l'équipe de vérifier."
+
+msgid "This curated seat no longer belongs to a complete group. Ask staff to repair the group first."
+msgstr "Cette place sélectionnée n'appartient plus à un groupe complet. Demandez d'abord à l'équipe de réparer le groupe."
+
+#, python-format
+msgid "Cash payment not recorded: %(reason)s"
+msgstr "Paiement en espèces non enregistré : %(reason)s"
+
+#, python-format
+msgid "Cash payment recorded for %(name)s."
+msgstr "Paiement en espèces enregistré pour %(name)s."
+
+#, python-format
+msgid "Unpaid · €%(amount)s"
+msgstr "Non payé · %(amount)s €"
+
+msgid "Mark paid (cash)"
+msgstr "Marquer payé (espèces)"
+
 msgid "Your card payment was not completed. Your spot is reserved — please pay in cash at the door."
 msgstr "Votre paiement par carte n'a pas abouti. Votre place est réservée – veuillez payer en espèces à l'entrée."
 
 msgid "Online payment for Premium is paused for now. We'll let you know as soon as it is back."
 msgstr "Le paiement en ligne de Premium est suspendu pour le moment. Nous vous préviendrons dès qu'il sera de retour."
+
+msgid "A card checkout was opened for this seat a moment ago. Try again in a few seconds."
+msgstr "Un paiement par carte vient d'être ouvert pour cette place. Réessayez dans quelques secondes."

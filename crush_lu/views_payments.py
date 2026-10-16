@@ -2614,6 +2614,42 @@ def _append_widget_note(tx_obj, note):
         return True
 
 
+def _report_capture_on_closed_checkout(tx_obj):
+    """Shout when SumUp took money on a checkout we already closed.
+
+    While online payments are paused, a checkout SumUp would not close is
+    closed on our side only (``SumUpClient.deactivate_checkout``). If SumUp
+    still lets that old link be paid, the webhook or return page lands here on
+    a CANCELLED row, which nothing else would look at again. The money is not
+    applied automatically: the seat may already be paid in cash, so a human
+    decides between applying it and refunding. Asks SumUp only for rows a
+    member or SumUp just pointed at, so it costs one read per callback.
+    """
+    if not tx_obj.sumup_checkout_id:
+        return ""
+    try:
+        data = SumUpClient().get_checkout(tx_obj.sumup_checkout_id)
+    except SumUpError:
+        return ""
+    sumup_status = (data.get("status") or "").upper()
+    if sumup_status in ("PAID", "SUCCESSFUL"):
+        logger.error(
+            "[PAYMENTS-PAUSED] SumUp captured checkout %s (%s, %s EUR) after it "
+            "was closed on our side; refund it or record it by hand",
+            tx_obj.sumup_checkout_id,
+            tx_obj.transaction_reference,
+            tx_obj.amount,
+        )
+    return sumup_status
+
+
+def _sync_or_report_closed_checkout(tx_obj):
+    """The webhook's and return page's sync, plus the closed-checkout alarm."""
+    if tx_obj.status == PaymentTransaction.Status.CANCELLED:
+        return _report_capture_on_closed_checkout(tx_obj)
+    return _sync_checkout_with_sumup(tx_obj)
+
+
 def _sync_checkout_with_sumup(tx_obj):
     """Re-read the checkout from SumUp and apply whatever it reports.
 
@@ -2800,7 +2836,7 @@ def sumup_webhook(request):
         )
         return JsonResponse({"status": "ignored", "reason": "transaction not found"})
 
-    _sync_checkout_with_sumup(tx_obj)
+    _sync_or_report_closed_checkout(tx_obj)
     return JsonResponse({"status": "ok"})
 
 
@@ -2867,7 +2903,7 @@ def sumup_payment_return(request):
             return JsonResponse(
                 {"status": "ignored", "reason": "transaction not found"}
             )
-        _sync_checkout_with_sumup(tx_obj)
+        _sync_or_report_closed_checkout(tx_obj)
         return JsonResponse({"status": "ok"})
 
     # Everything below is the human-facing page, so the login gate applies here
@@ -2894,7 +2930,7 @@ def sumup_payment_return(request):
         messages.error(request, _("Payment transaction reference not found."))
         return redirect("crush_lu:home")
 
-    _sync_checkout_with_sumup(tx_obj)
+    _sync_or_report_closed_checkout(tx_obj)
     # The sync writes a separately locked row, so re-read the status the
     # response below reports.
     tx_obj.refresh_from_db()
