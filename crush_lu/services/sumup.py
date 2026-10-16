@@ -11,6 +11,29 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 
+def _closed_locally_while_paused(checkout_id, reason):
+    """Treat a checkout SumUp would not close as closed, while payments are paused.
+
+    Tom's decision (2026-10-16): with SumUp refusing the platform, a checkout
+    it will not close must not keep blocking cash recording, Crush Credit or
+    curated-group repair. The accepted risk is that SumUp still lets an old
+    link be paid, which would show up as a second payment to refund. Every
+    such case is logged with the ``[PAYMENTS-PAUSED]`` marker so it can be
+    reconciled later. Outside a pause the caller's strict behaviour stands.
+    """
+    from crush_lu.services.event_payments import online_payments_paused
+
+    if not online_payments_paused():
+        return False
+    logger.warning(
+        "[PAYMENTS-PAUSED] SumUp did not close checkout %s (%s); treated as "
+        "closed because online payments are paused",
+        checkout_id,
+        reason,
+    )
+    return True
+
+
 # Checkout statuses that can no longer take a card payment.
 CLOSED_CHECKOUT_STATUSES = frozenset({"FAILED", "CANCELLED", "EXPIRED"})
 
@@ -238,7 +261,15 @@ class SumUpClient:
         """
         url = f"{self.BASE_URL}/v0.1/checkouts/{checkout_id}"
         try:
-            response = requests.delete(url, headers=self._get_headers(), timeout=10)
+            headers = self._get_headers()
+        except SumUpConfigurationError as exc:
+            # No key at all: nothing can be closed. Only a pause makes that
+            # acceptable; otherwise this stays the loud configuration error.
+            if _closed_locally_while_paused(checkout_id, exc):
+                return True
+            raise
+        try:
+            response = requests.delete(url, headers=headers, timeout=10)
             response.raise_for_status()
             return True
         except requests.RequestException as exc:
@@ -253,7 +284,7 @@ class SumUpClient:
             logger.warning(
                 "SumUp deactivate_checkout failed for ID %s: %s", checkout_id, exc
             )
-            return False
+            return _closed_locally_while_paused(checkout_id, exc)
 
     def ensure_checkout_not_payable(self, checkout_id: str) -> bool:
         """Prove a checkout is closed, including idempotent retry states."""

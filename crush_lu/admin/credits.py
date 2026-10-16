@@ -44,6 +44,7 @@ from crush_lu.services.credits import (
     restore_cash_refund_lease,
     void_credit,
 )
+from crush_lu.services.event_payments import online_payments_paused
 from crush_lu.services.sumup import (
     SumUpClient,
     SumUpError,
@@ -173,6 +174,19 @@ class CrushCreditAdmin(admin.ModelAdmin):
         "reconcile_sumup_refund_completed",
         "reconcile_sumup_refund_not_sent",
     ]
+
+    def get_actions(self, request):
+        """Drop the SumUp refund while online payments are paused.
+
+        There is no provider to refund through (SumUp refused the platform),
+        so cash refunds are manual bank transfers. Django only runs actions
+        this returns, so removing it here also refuses a hand-crafted POST.
+        The two reconcile actions stay: they only record what already happened.
+        """
+        actions = super().get_actions(request)
+        if online_payments_paused():
+            actions.pop("refund_via_sumup", None)
+        return actions
 
     readonly_fields = (
         "user",
