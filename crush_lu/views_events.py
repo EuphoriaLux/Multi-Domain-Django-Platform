@@ -2453,6 +2453,64 @@ def _event_cancel_refusal(request, event, registration):
     return None
 
 
+def event_attendance_confirm(request, token):
+    """One-click "Yes, I'm coming" from the attendance-check email.
+
+    Public (the signed, 7-day token is the credential, like the unsubscribe
+    link). GET only records a timestamp, so a mail scanner prefetching the link
+    is harmless. Never 500s: a bad token or an unusable registration renders a
+    friendly page with a way back to the event list.
+    """
+    from .services.attendance_check import read_attendance_token
+
+    registration_id = read_attendance_token(token)
+    registration = None
+    if registration_id is not None:
+        registration = (
+            EventRegistration.objects.select_related("event")
+            .filter(pk=registration_id)
+            .first()
+        )
+
+    usable = (
+        registration is not None
+        and registration.status in SEAT_HOLDING_STATUSES
+        and not registration.event.is_cancelled
+        and registration.event.date_time > timezone.now()
+    )
+    if not usable:
+        return render(
+            request,
+            "crush_lu/event_attendance_confirm.html",
+            {"state": "invalid", "event": getattr(registration, "event", None)},
+            status=400,
+        )
+
+    # .update() rather than .save(): a save fires the wallet-pass signal,
+    # which does synchronous Apple/Google network I/O. Idempotent: the first
+    # confirmation keeps its timestamp.
+    EventRegistration.objects.filter(
+        pk=registration.pk, attendance_confirmed_at__isnull=True
+    ).update(attendance_confirmed_at=timezone.now())
+
+    event = registration.event
+    amount_due = (
+        event.registration_fee
+        if event.registration_fee > 0 and not registration.payment_confirmed
+        else None
+    )
+    return render(
+        request,
+        "crush_lu/event_attendance_confirm.html",
+        {
+            "state": "confirmed",
+            "event": event,
+            "amount_due": amount_due,
+            "online_payments_paused": online_payments_paused(),
+        },
+    )
+
+
 @crush_login_required
 def event_cancel(request, event_id):
     """Cancel event registration"""

@@ -1568,6 +1568,82 @@ def send_event_reminder(registration, request=None, days_until_event=1):
     )
 
 
+def send_event_attendance_check(registration, request=None):
+    """Ask a member holding an unpaid seat whether they are still coming.
+
+    Sent ~2 days before a paid event by the ``send_event_reminders`` sweep.
+    Follows the event reminder's consent tier (``event_reminders``): returns 0
+    without sending when the member opted out, which the caller treats as
+    settled.
+
+    Returns:
+        int: Number of emails sent
+    """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    from crush_lu.services.attendance_check import make_attendance_token
+    from crush_lu.services.event_payments import online_payments_paused
+
+    if not can_send_email(registration.user, "event_reminders"):
+        logger.info(
+            f"Skipping attendance check to {registration.user.email} - user unsubscribed"
+        )
+        return 0
+
+    lang = get_user_preferred_language(
+        user=registration.user, request=request, default="en"
+    )
+    user = registration.user
+    event = registration.event
+
+    event_url = get_user_language_url(
+        user, "crush_lu:event_detail", request, kwargs={"event_id": event.id}
+    )
+    cancel_url = get_user_language_url(
+        user, "crush_lu:event_cancel", request, kwargs={"event_id": event.id}
+    )
+    confirm_url = get_user_language_url(
+        user,
+        "crush_lu:event_attendance_confirm",
+        request,
+        kwargs={"token": make_attendance_token(registration.pk)},
+    )
+
+    profile = getattr(user, "crushprofile", None)
+    display_name = profile.display_name if profile else user.first_name
+
+    context = get_email_context_with_unsubscribe(
+        user,
+        request,
+        registration=registration,
+        event=event,
+        display_name=display_name,
+        amount=event.registration_fee,
+        event_url=event_url,
+        cancel_url=cancel_url,
+        confirm_url=confirm_url,
+        online_payments_paused=online_payments_paused(),
+    )
+
+    with translation.override(lang):
+        subject = _("Are you still coming to {title}?").format(title=event.title)
+        html_message = render_to_string(
+            "crush_lu/emails/event_attendance_check.html", context
+        )
+        plain_message = html_to_plain_text(html_message)
+
+    return send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[user.email],
+        request=request,
+        domain="crush.lu",
+        fail_silently=False,
+    )
+
+
 def google_review_url_for(registration):
     """The Google review deep link for an attendee, or "" for anyone else.
 

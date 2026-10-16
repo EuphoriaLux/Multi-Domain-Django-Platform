@@ -82,6 +82,85 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        self._send_reminders(options)
+        # Second pass on the same timer (no new Azure timer/endpoint needed).
+        # Same-day --hours-before runs are a different reminder, skip them.
+        if options.get("hours_before") is None:
+            self._send_attendance_checks(options)
+
+    def _send_attendance_checks(self, options):
+        """Ask unpaid cash-at-the-door seat holders "are you still coming?".
+
+        Targets paid events whose local calendar day is two days ahead, and
+        registrations that are ``pending`` (seat held, unpaid), not yet asked.
+        No auto-release: an unanswered check changes nothing.
+        """
+        dry_run = options["dry_run"]
+        event_id = options.get("event_id")
+        verbosity = options["verbosity"]
+
+        target_date = timezone.localdate(timezone.now()) + timedelta(days=2)
+        target_start = timezone.make_aware(
+            datetime.combine(target_date, time.min),
+            timezone.get_current_timezone(),
+        )
+        events_query = MeetupEvent.objects.filter(
+            is_published=True,
+            is_cancelled=False,
+            registration_fee__gt=0,
+            date_time__gte=target_start,
+            date_time__lt=target_start + timedelta(days=1),
+        )
+        if event_id:
+            events_query = events_query.filter(id=event_id)
+
+        registrations = EventRegistration.objects.filter(
+            event__in=events_query,
+            status="pending",
+            payment_confirmed=False,
+            attendance_check_sent_at__isnull=True,
+        ).select_related("user", "user__crushprofile", "event")
+
+        sent = skipped = failed = 0
+        for registration in registrations:
+            email = registration.user.email
+            if dry_run:
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"  [DRY RUN] Would send attendance check: {email}"
+                    )
+                )
+                sent += 1
+                continue
+            try:
+                delivered = email_helpers.send_event_attendance_check(registration)
+            except Exception as e:
+                failed += 1
+                self.stdout.write(
+                    self.style.ERROR(f"  Attendance check failed for {email}: {e}")
+                )
+                continue
+            # Stamp when delivered, or when deliberately not going (opted out,
+            # returns 0); failures raise above and are retried next sweep.
+            # .update() not .save(): avoids the synchronous wallet signal.
+            EventRegistration.objects.filter(pk=registration.pk).update(
+                attendance_check_sent_at=timezone.now()
+            )
+            if delivered:
+                sent += 1
+            else:
+                skipped += 1
+
+        if verbosity >= 1 or sent or skipped or failed:
+            label = "[DRY RUN] Would send" if dry_run else "Sent"
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"Attendance checks for {target_date} - {label}: {sent}, "
+                    f"Skipped: {skipped}, Failed: {failed}"
+                )
+            )
+
+    def _send_reminders(self, options):
         days = options["days"]
         hours_before = options.get("hours_before")
         window_minutes = options["window_minutes"]

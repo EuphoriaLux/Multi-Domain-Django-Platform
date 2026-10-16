@@ -1,0 +1,38 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Are you still coming?" %} - Crush.lu{% endblock %}
+
+{% block header_title %}{% trans "Are you still coming?" %}{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with name=display_name %}Hey {{ name }}!{% endblocktrans %}</h2>
+
+<p>{% blocktrans with title=event.title %}Your seat for <strong>{{ title }}</strong> is coming up soon. Please let us know if you are still coming.{% endblocktrans %}</p>
+
+<div class="info-box">
+    <strong>{% trans "Event Details:" %}</strong>
+    <ul style="margin: 10px 0;">
+        <li><strong>{% trans "Event:" %}</strong> {{ event.title }}</li>
+        <li><strong>{% trans "Date:" %}</strong> {{ event.date_time|date:"l" }}, {{ event.date_time|date:"DATE_FORMAT" }}</li>
+        <li><strong>{% trans "Time:" %}</strong> {{ event.date_time|date:"TIME_FORMAT" }}</li>
+        <li><strong>{% trans "Location:" %}</strong> {{ event.location }}</li>
+        <li><strong>{% trans "Amount Due:" %}</strong> {{ amount }} EUR</li>
+    </ul>
+</div>
+
+{% if online_payments_paused %}
+<p>{% blocktrans with amount=amount %}Pay €{{ amount }} in cash at the door.{% endblocktrans %}</p>
+{% endif %}
+
+<p><a href="{{ confirm_url }}" class="button">{% trans "Yes, I'm coming" %}</a></p>
+
+<p><a href="{{ cancel_url }}" class="button" style="background: #6b7280;">{% trans "I can't come — release my seat" %}</a></p>
+
+<p>{% trans "If you can't make it, releasing your seat lets someone on the waitlist take your place. Thank you!" %}</p>
+
+<p>
+    {% trans "See you there!" %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
+</p>
+{% endblock %}

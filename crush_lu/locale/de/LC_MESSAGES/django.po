@@ -45876,3 +45876,41 @@ msgstr "Dein Platz ist reserviert! Bitte bezahle bei deiner Ankunft in bar an de
 
 msgid "You were on the waitlist and your spot is reserved. Please pay in cash at the door."
 msgstr "Du warst auf der Warteliste und dein Platz ist reserviert. Bitte bezahle in bar an der Tür."
+
+msgid "Are you still coming to {title}?"
+msgstr "Kommst du noch zu {title}?"
+
+msgid "Are you still coming?"
+msgstr "Kommst du noch?"
+
+#, python-format
+msgid "Your seat for <strong>%(title)s</strong> is coming up soon. Please let us know if you are still coming."
+msgstr "Dein Platz für <strong>%(title)s</strong> rückt näher. Bitte sag uns, ob du noch kommst."
+
+msgid "Yes, I'm coming"
+msgstr "Ja, ich komme"
+
+msgid "I can't come — release my seat"
+msgstr "Ich kann nicht kommen – Platz freigeben"
+
+msgid "If you can't make it, releasing your seat lets someone on the waitlist take your place. Thank you!"
+msgstr "Wenn du nicht kommen kannst, kann jemand von der Warteliste deinen Platz bekommen, sobald du ihn freigibst. Danke!"
+
+msgid "Thanks, see you there!"
+msgstr "Danke, bis dann!"
+
+#, python-format
+msgid "We have noted that you are coming to %(title)s."
+msgstr "Wir haben notiert, dass du zu %(title)s kommst."
+
+msgid "This link is no longer valid"
+msgstr "Dieser Link ist nicht mehr gültig"
+
+msgid "The link has expired, or the event is over or your registration was cancelled."
+msgstr "Der Link ist abgelaufen, das Event ist vorbei oder deine Anmeldung wurde storniert."
+
+msgid "Coming ✓"
+msgstr "Kommt ✓"
+
+msgid "Asked, no answer"
+msgstr "Gefragt, keine Antwort"

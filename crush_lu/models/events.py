@@ -1822,6 +1822,21 @@ class EventRegistration(models.Model):
         help_text=_("Timestamp the day-before reminder email was settled"),
     )
 
+    # "Are you still coming?" check for unpaid cash-at-the-door seats, sent
+    # ~2 days before a paid event by the send_event_reminders sweep. Stamped
+    # via queryset .update() (no wallet signal). There is deliberately no
+    # auto-release when the member never answers.
+    attendance_check_sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("Timestamp the 'are you still coming?' email was settled"),
+    )
+    attendance_confirmed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("Timestamp the member confirmed they are coming"),
+    )
+
     # Post-event feedback email tracking (idempotency for the
     # send_event_feedback_requests mgmt command).
     feedback_request_sent_at = models.DateTimeField(
