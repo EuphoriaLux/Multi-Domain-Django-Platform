@@ -44,6 +44,7 @@ from crush_lu.services.credits import (
     restore_cash_refund_lease,
     void_credit,
 )
+from crush_lu.services.event_payments import online_payments_paused
 from crush_lu.services.sumup import (
     SumUpClient,
     SumUpError,
@@ -173,6 +174,43 @@ class CrushCreditAdmin(admin.ModelAdmin):
         "reconcile_sumup_refund_completed",
         "reconcile_sumup_refund_not_sent",
     ]
+
+    def get_fieldsets(self, request, obj=None):
+        """While paused, the cash-refund guidance names the manual path only."""
+        fieldsets = super().get_fieldsets(request, obj)
+        if not online_payments_paused():
+            return fieldsets
+        paused_note = (
+            "Set only when Crush.lu cancelled the event or could not provide "
+            "the certified curated group sold. Those members may ask for their "
+            "money back instead of the credit. Online payments are paused "
+            "(no payment provider), so refund by bank transfer, then select the "
+            "rows on the changelist and use &ldquo;Void selected credits&rdquo;. "
+            "A row already locked as REFUNDING by an earlier SumUp request: "
+            "verify its outcome, then use exactly one of the two RECOVERY "
+            "actions."
+        )
+        return tuple(
+            (
+                (name, {**options, "description": paused_note})
+                if name == "Cash refund"
+                else (name, options)
+            )
+            for name, options in fieldsets
+        )
+
+    def get_actions(self, request):
+        """Drop the SumUp refund while online payments are paused.
+
+        There is no provider to refund through (SumUp refused the platform),
+        so cash refunds are manual bank transfers. Django only runs actions
+        this returns, so removing it here also refuses a hand-crafted POST.
+        The two reconcile actions stay: they only record what already happened.
+        """
+        actions = super().get_actions(request)
+        if online_payments_paused():
+            actions.pop("refund_via_sumup", None)
+        return actions
 
     readonly_fields = (
         "user",

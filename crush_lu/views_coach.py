@@ -3130,6 +3130,52 @@ def coach_event_detail(request, event_id):
 
 @coach_required
 @require_http_methods(["POST"])
+def coach_mark_paid_cash(request, event_id, registration_id):
+    """Record cash a member paid at the door (``services.manual_payments``).
+
+    Open to every active coach, like the other door actions. Posted from the
+    check-in page and the event roster; ``next`` sends the coach back to the
+    page they used, and only a same-site path is accepted.
+    """
+    from django.utils.http import url_has_allowed_host_and_scheme
+
+    from .services.manual_payments import CashPaymentRefused, record_cash_payment
+
+    registration = get_object_or_404(
+        EventRegistration, pk=registration_id, event_id=event_id
+    )
+    try:
+        record_cash_payment(registration.pk, actor=request.user)
+    except CashPaymentRefused as exc:
+        messages.error(
+            request,
+            _("Cash payment not recorded: %(reason)s") % {"reason": exc},
+        )
+    else:
+        messages.success(
+            request,
+            _("Cash payment recorded for %(name)s.")
+            % {"name": _member_display_name(registration)},
+        )
+    target = request.POST.get("next", "")
+    if not url_has_allowed_host_and_scheme(
+        target, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return redirect("crush_lu:coach_event_checkin", event_id=event_id)
+    return redirect(target)
+
+
+def _member_display_name(registration):
+    profile = getattr(registration.user, "crushprofile", None)
+    return (
+        getattr(profile, "display_name", "")
+        or registration.user.first_name
+        or registration.user.username
+    )
+
+
+@coach_required
+@require_http_methods(["POST"])
 def coach_mark_event_no_shows(request, event_id):
     """Record the event's no-shows: seat holders who were never checked in.
 
