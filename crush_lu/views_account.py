@@ -3719,6 +3719,17 @@ def _export_account(user):
                     if hasattr(reg, "created_at") and reg.created_at
                     else None
                 ),
+                # The "are you still coming?" check and the member's own answer.
+                "attendance_check_sent_at": (
+                    reg.attendance_check_sent_at.isoformat()
+                    if reg.attendance_check_sent_at
+                    else None
+                ),
+                "attendance_confirmed_at": (
+                    reg.attendance_confirmed_at.isoformat()
+                    if reg.attendance_confirmed_at
+                    else None
+                ),
             }
             # Speed-dating applications carry a preference snapshot (preferred
             # genders / age range / languages). It is the member's own answer

@@ -154,6 +154,35 @@ class CommandSelectionTests(AttendanceCheckBase):
         reg.refresh_from_db()
         self.assertIsNotNone(reg.attendance_check_sent_at)
 
+    def test_an_opted_out_member_is_not_marked_as_asked(self):
+        reg = self.make_reg(_event("Target", 2))
+        with mock.patch("crush_lu.email_helpers.can_send_email", return_value=False):
+            self.run_command()
+        reg.refresh_from_db()
+        self.assertIsNone(reg.attendance_check_sent_at)
+        self.assertFalse(_check_mails())
+
+    def test_manual_days_or_event_runs_send_no_check(self):
+        event = _event("Target", 2)
+        reg = self.make_reg(event)
+        self.run_command("--days", "2")
+        self.run_command("--event-id", str(event.pk))
+        reg.refresh_from_db()
+        self.assertIsNone(reg.attendance_check_sent_at)
+        self.assertFalse(_check_mails())
+
+    def test_the_answer_is_in_the_members_data_export(self):
+        from crush_lu.views_account import _export_account
+
+        reg = self.make_reg(_event("Target", 2))
+        EventRegistration.objects.filter(pk=reg.pk).update(
+            attendance_check_sent_at=timezone.now(),
+            attendance_confirmed_at=timezone.now(),
+        )
+        [entry] = _export_account(reg.user)["event_registrations"]
+        self.assertIsNotNone(entry["attendance_check_sent_at"])
+        self.assertIsNotNone(entry["attendance_confirmed_at"])
+
     def test_hours_before_mode_skips_the_check(self):
         reg = self.make_reg(_event("Target", 2))
         self.run_command("--hours-before", "2")

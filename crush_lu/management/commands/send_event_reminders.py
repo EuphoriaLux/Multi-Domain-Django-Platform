@@ -87,10 +87,18 @@ class Command(BaseCommand):
         # The attendance check is only due on one calendar day, so a failing
         # reminder pass must not cost it that day: run it either way, then
         # let the reminder pass's error fail the command as before.
+        # Only on the plain sweep the timer runs: a manual --days, --event-id
+        # or --hours-before run targets the ordinary reminder, and adding the
+        # check there would send a member two emails back to back.
+        run_check = (
+            options.get("hours_before") is None
+            and options["days"] == 1
+            and not options.get("event_id")
+        )
         try:
             self._send_reminders(options)
         finally:
-            if options.get("hours_before") is None:
+            if run_check:
                 self._send_attendance_checks(options)
 
     def _send_attendance_checks(self, options):
@@ -145,9 +153,14 @@ class Command(BaseCommand):
                     self.style.ERROR(f"  Attendance check failed for {email}: {e}")
                 )
                 continue
-            if not delivered and email_helpers.can_send_email(
+            if not delivered and not email_helpers.can_send_email(
                 registration.user, "event_reminders"
             ):
+                # Opted out: never asked, so never stamped. Stamping would
+                # show coaches "Asked, no answer" for a question nobody sent.
+                skipped += 1
+                continue
+            if not delivered:
                 # 0 from a member who may receive it is a swallowed send
                 # failure, not an opt-out: leave it unstamped for a retry.
                 failed += 1
@@ -155,16 +168,12 @@ class Command(BaseCommand):
                     self.style.ERROR(f"  Attendance check not sent to {email}")
                 )
                 continue
-            # Stamp when delivered, or when deliberately not going (opted out);
-            # failures are retried by the next sweep.
+            # Stamp only what was delivered; failures retry next sweep.
             # .update() not .save(): avoids the synchronous wallet signal.
             EventRegistration.objects.filter(pk=registration.pk).update(
                 attendance_check_sent_at=timezone.now()
             )
-            if delivered:
-                sent += 1
-            else:
-                skipped += 1
+            sent += 1
 
         if verbosity >= 1 or sent or skipped or failed:
             label = "[DRY RUN] Would send" if dry_run else "Sent"
