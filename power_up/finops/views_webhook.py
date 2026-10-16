@@ -139,6 +139,7 @@ def trigger_retail_price_sync(request):
     if denied is not None:
         return denied
 
+    from .management.commands.sync_retail_prices import RetailPriceSyncDeferred
     from .retail_prices.connectors.azure import EUROPEAN_AZURE_REGIONS
 
     try:
@@ -205,6 +206,26 @@ def trigger_retail_price_sync(request):
                 "errors": error_stream.getvalue() or None,
             }
         )
+    except RetailPriceSyncDeferred as exc:
+        # prices.azure.com throttled us. The timer retries this region in its
+        # next slot and alerts only if the window's last run still misses it,
+        # so this is a warning, not an exception with a traceback.
+        logger.warning("Retail price sync deferred for %s: %s", region, exc)
+        response = JsonResponse(
+            {
+                "success": False,
+                "transient": True,
+                "region": region,
+                "error": "Upstream price API is throttling; retry later",
+                "message": f"Retail price sync deferred for {region}",
+            },
+            status=503,
+        )
+        response["Retry-After"] = "1200"  # the timer's 20-minute slot
+        # django.request logs every 5xx at ERROR. Marking the response as
+        # already logged keeps the warning above as the only record.
+        response._has_been_logged = True
+        return response
     except Exception:
         logger.exception(
             "Error during retail price sync triggered via webhook for %s", region

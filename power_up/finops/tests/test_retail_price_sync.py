@@ -3,10 +3,14 @@ import gzip
 import json
 
 import pytest
+import requests
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.core.management.base import CommandError
 
+from power_up.finops.management.commands.sync_retail_prices import (
+    RetailPriceSyncDeferred,
+)
 from power_up.finops.models import (
     RetailPriceRawPage,
     RetailPriceSnapshot,
@@ -17,6 +21,7 @@ from power_up.finops.retail_prices.connectors.azure import AzureRetailPricesConn
 from power_up.finops.retail_prices.service import (
     RegionSyncTimedOut,
     SnapshotAlreadyExists,
+    is_transient_upstream_failure,
     sync_retail_prices,
 )
 
@@ -246,7 +251,72 @@ def test_command_fails_loudly_when_a_region_fails(mocker):
         return_value=ExplodingConnector({}),
     )
 
-    with pytest.raises(CommandError):
+    with pytest.raises(CommandError) as excinfo:
+        call_command("sync_retail_prices", regions=["westeurope"], currency="EUR")
+
+    # A real bug must stay a plain CommandError so the webhook answers 500.
+    assert not isinstance(excinfo.value, RetailPriceSyncDeferred)
+    assert RetailPriceSyncRun.objects.get().status == (
+        RetailPriceSyncRun.Status.FAILED
+    )
+
+
+def _http_error(status):
+    response = requests.Response()
+    response.status_code = status
+    return requests.exceptions.HTTPError(f"{status} error", response=response)
+
+
+@pytest.mark.parametrize(
+    "exc, expected",
+    [
+        (
+            requests.exceptions.RetryError("too many 429 error responses"),
+            True,
+        ),
+        (RegionSyncTimedOut("budget"), True),
+        (requests.exceptions.ConnectionError("reset"), True),
+        (requests.exceptions.ReadTimeout("slow"), True),
+        (_http_error(429), True),
+        (_http_error(503), True),
+        (_http_error(400), False),
+        (_http_error(404), False),
+        (ValueError("Azure Retail Prices response has no Items list."), False),
+        (RuntimeError("database is locked"), False),
+    ],
+    ids=[
+        "retry-429",
+        "budget",
+        "connection",
+        "timeout",
+        "http-429",
+        "http-503",
+        "http-400",
+        "http-404",
+        "bad-payload",
+        "other",
+    ],
+)
+def test_only_upstream_throttling_and_outages_count_as_transient(exc, expected):
+    assert is_transient_upstream_failure(exc) is expected
+
+
+@pytest.mark.django_db
+def test_command_defers_when_the_price_api_throttles(mocker):
+    """Throttling is retried by the next timer slot, so it is not a bug."""
+
+    class ThrottledConnector(FakeConnector):
+        def iter_pages(self, *, regions, currency):
+            raise requests.exceptions.RetryError("too many 429 error responses")
+            yield  # pragma: no cover - generator marker
+
+    mocker.patch(
+        "power_up.finops.management.commands.sync_retail_prices"
+        ".AzureRetailPricesConnector",
+        return_value=ThrottledConnector({}),
+    )
+
+    with pytest.raises(RetailPriceSyncDeferred):
         call_command("sync_retail_prices", regions=["westeurope"], currency="EUR")
 
     assert RetailPriceSyncRun.objects.get().status == (
