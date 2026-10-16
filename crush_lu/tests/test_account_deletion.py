@@ -1945,3 +1945,372 @@ class FollowupErasureTests(TestCase):
         send_crush_credit_expiry_reminder(self.user, [credit])
 
         self.assertFalse(EmailPreference.objects.filter(user=self.user).exists())
+
+
+class MergedAccountErasureTests(TestCase):
+    """An erasure request covers every account merged into the member's.
+
+    ``merge_accounts`` leaves the Connect, spark, safety and lobby rows on the
+    deactivated duplicate. Merges are seeded directly (inactive duplicate plus
+    its AccountMerge row) so each test holds only what a merge leaves behind.
+    """
+
+    def setUp(self):
+        from allauth.account.models import EmailAddress
+        from django.contrib.auth import get_user_model
+
+        from crush_lu.models import CrushProfile, MeetupEvent, UserBlock
+        from crush_lu.models.crush_connect_cycle import ConnectWeekSession
+
+        self.User = get_user_model()
+        self.keeper = self.User.objects.create_user(
+            username='keeper@example.com', email='keeper@example.com',
+            password='x', first_name='Kim', last_name='Keeper',
+        )
+        CrushProfile.objects.create(
+            user=self.keeper, date_of_birth=date(1995, 5, 15), gender='M',
+            location='Luxembourg', is_approved=True, is_active=True,
+        )
+        EmailAddress.objects.create(
+            user=self.keeper, email='keeper@example.com', verified=True,
+            primary=True,
+        )
+        self.other = self.User.objects.create_user(
+            username='o@example.com', email='o@example.com', password='x',
+        )
+        self.third = self.User.objects.create_user(
+            username='t@example.com', email='t@example.com', password='x',
+        )
+        UserBlock.objects.create(blocker=self.third, blocked=self.other)
+        ConnectWeekSession.objects.create(user=self.other)
+        self.event = MeetupEvent.objects.create(
+            title='Lobby', description='d', event_type='mixer',
+            date_time=timezone.now() - timedelta(hours=2), location='Lux',
+            address='1 Street', max_participants=20,
+            registration_deadline=timezone.now() - timedelta(days=1),
+            is_published=True,
+        )
+
+    def _duplicate(self, name):
+        """An account with the rows ``merge_accounts`` leaves on a duplicate."""
+        from crush_lu.models import (
+            CrushSpark, EventRegistration, PushSubscription, UserBlock,
+            UserReport,
+        )
+        from crush_lu.models.crush_connect_cycle import (
+            ConnectChatMessage, ConnectTemporaryChat, ConnectWeekSession,
+            ConnectWeeklyRequest,
+        )
+        from crush_lu.models.event_lobby import EventLobbyParticipation
+
+        dup = self.User.objects.create_user(
+            username=f'{name}@example.com', email=f'{name}@example.com',
+            password='x', first_name=name.title(), last_name='Duplicate',
+        )
+        request = ConnectWeeklyRequest.objects.create(
+            session=ConnectWeekSession.objects.create(user=dup),
+            requester=dup, recipient=self.other,
+            expires_at=timezone.now() + timedelta(days=1),
+        )
+        chat = ConnectTemporaryChat.objects.create(
+            request=request, participant_1=dup, participant_2=self.other,
+            expires_at=timezone.now() + timedelta(days=1),
+        )
+        ConnectChatMessage.objects.create(chat=chat, sender=dup, message='mine')
+        ConnectChatMessage.objects.create(
+            chat=chat, sender=self.other, message='their reply',
+        )
+        CrushSpark.objects.create(
+            event=self.event, sender=dup, recipient=self.other,
+            sender_description='blue coat', sender_message='hello',
+        )
+        UserBlock.objects.create(blocker=dup, blocked=self.other)
+        UserBlock.objects.create(blocker=self.third, blocked=dup)
+        UserReport.objects.create(
+            reporter=dup, reported_user=self.other, reason='spam',
+        )
+        UserReport.objects.create(
+            reporter=self.third, reported_user=dup, reason='spam',
+        )
+        EventLobbyParticipation.objects.create(
+            event=self.event, user=dup,
+            event_registration=EventRegistration.objects.create(
+                event=self.event, user=dup, status='confirmed',
+            ),
+        )
+        PushSubscription.objects.create(
+            user=dup, endpoint=f'https://push.example/{name}',
+            p256dh_key='k', auth_key='a',
+        )
+        return dup
+
+    def _merge(self, duplicate, keeper):
+        from crush_lu.models import AccountMerge
+
+        duplicate.is_active = False
+        duplicate.save(update_fields=['is_active'])
+        AccountMerge.objects.create(duplicate=duplicate, keeper=keeper)
+
+    def _chain(self):
+        """``first`` merged into ``second``, then ``second`` into the keeper."""
+        first, second = self._duplicate('first'), self._duplicate('second')
+        self._merge(first, second)
+        self._merge(second, self.keeper)
+        return first, second
+
+    def _assert_erased_like_the_keeper(self, dup):
+        from django.db.models import Q
+
+        from crush_lu.models import (
+            CrushSpark, EventRegistration, PushSubscription, UserBlock,
+            UserReport,
+        )
+        from crush_lu.models.crush_connect_cycle import (
+            ConnectChatMessage, ConnectTemporaryChat, ConnectWeekSession,
+            ConnectWeeklyRequest,
+        )
+        from crush_lu.models.event_lobby import EventLobbyParticipation
+        from crush_lu.models.profiles import UserDataConsent
+
+        for model, condition in (
+            (ConnectWeekSession, Q(user=dup)),
+            (ConnectWeeklyRequest, Q(requester=dup) | Q(recipient=dup)),
+            (ConnectTemporaryChat, Q(participant_1=dup) | Q(participant_2=dup)),
+            (ConnectChatMessage, Q(sender=dup)),
+            (CrushSpark, Q(sender=dup)),
+            (UserBlock, Q(blocker=dup) | Q(blocked=dup)),
+            (EventLobbyParticipation, Q(user=dup)),
+            (EventRegistration, Q(user=dup)),
+            (PushSubscription, Q(user=dup)),
+        ):
+            self.assertFalse(model.objects.filter(condition).exists(), model.__name__)
+        # Reports by and about the member are safety records: kept.
+        self.assertEqual(
+            UserReport.objects.filter(Q(reporter=dup) | Q(reported_user=dup)).count(),
+            2,
+        )
+        self.assertEqual(
+            UserDataConsent.objects.get(user=dup).crushlu_ban_reason,
+            'user_deletion',
+        )
+
+    def _assert_others_untouched(self):
+        from crush_lu.models import UserBlock
+        from crush_lu.models.crush_connect_cycle import (
+            ConnectChatMessage, ConnectWeekSession,
+        )
+
+        # The other person's reply goes with the duplicate's chat, exactly as
+        # it does with the keeper's own; rows between other members stay.
+        self.assertFalse(ConnectChatMessage.objects.exists())
+        self.assertTrue(
+            UserBlock.objects.filter(blocker=self.third, blocked=self.other).exists()
+        )
+        self.assertTrue(ConnectWeekSession.objects.filter(user=self.other).exists())
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_profile_only_deletion_erases_the_merged_duplicate(self, storage):
+        from crush_lu.models import AccountMerge, CrushProfile
+        from crush_lu.views_account import delete_crushlu_profile_only
+
+        dup = self._duplicate('dup')
+        self._merge(dup, self.keeper)
+
+        delete_crushlu_profile_only(self.keeper)
+
+        self._assert_erased_like_the_keeper(dup)
+        self._assert_others_untouched()
+        self.assertFalse(CrushProfile.objects.filter(user=self.keeper).exists())
+        # The duplicate's own storage folder (users/<id>/) is swept too.
+        self.assertEqual(
+            {call.args[0] for call in storage.call_args_list},
+            {self.keeper.pk, dup.pk},
+        )
+        self.assertTrue(
+            AccountMerge.objects.filter(duplicate=dup, keeper=self.keeper).exists()
+        )
+        # Profile-only deletion leaves the login accounts, the duplicate's too.
+        dup.refresh_from_db()
+        self.assertEqual(dup.email, 'dup@example.com')
+        self.assertFalse(dup.is_active)
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_full_deletion_erases_and_anonymises_the_merged_duplicate(self, _s):
+        from allauth.account.models import EmailAddress
+        from allauth.socialaccount.models import SocialAccount
+
+        from crush_lu.models import (
+            AccountMerge, CrushProfile, JourneyGift, UserReport,
+        )
+        from crush_lu.views import delete_full_account
+        from hub.models import ErasedPhoneNumber
+
+        dup = self._duplicate('dup')
+        # A real merge moves these to the keeper. Left on the duplicate here,
+        # they show its own logins go and its verified address and phone are
+        # collected like the keeper's.
+        EmailAddress.objects.create(
+            user=dup, email='dup@example.com', verified=True, primary=True,
+        )
+        SocialAccount.objects.create(user=dup, provider='apple', uid='dup-apple')
+        CrushProfile.objects.create(
+            user=dup, date_of_birth=date(1995, 5, 15), gender='M',
+            location='Luxembourg', phone_number='+352 621 818 818',
+            phone_verified=True,
+        )
+        self._merge(dup, self.keeper)
+        gift = JourneyGift.objects.create(
+            sender=self.other, recipient_name='Dup',
+            recipient_email='dup@example.com', date_first_met=date(2024, 1, 1),
+            location_first_met='Lux',
+        )
+
+        delete_full_account(self.keeper)
+
+        self._assert_erased_like_the_keeper(dup)
+        self._assert_others_untouched()
+        self.assertFalse(CrushProfile.objects.filter(user=dup).exists())
+        self.assertTrue(ErasedPhoneNumber.is_erased('+352621818818'))
+        gift.refresh_from_db()
+        self.assertEqual((gift.recipient_name, gift.recipient_email), ('', ''))
+        for account in (self.keeper, dup):
+            account.refresh_from_db()
+            self.assertEqual(account.email, f'deleted_{account.pk}@deleted.crush.lu')
+            self.assertEqual(account.username, f'deleted_user_{account.pk}')
+            self.assertEqual((account.first_name, account.last_name), ('', ''))
+            self.assertFalse(account.has_usable_password())
+            self.assertFalse(account.is_active)
+            self.assertFalse(EmailAddress.objects.filter(user=account).exists())
+            self.assertFalse(SocialAccount.objects.filter(user=account).exists())
+        # Kept reports now point only at the anonymised account.
+        for report in UserReport.objects.select_related('reporter', 'reported_user'):
+            for party in (report.reporter, report.reported_user):
+                self.assertNotIn('dup@example.com', party.email)
+        self.assertTrue(
+            AccountMerge.objects.filter(duplicate=dup, keeper=self.keeper).exists()
+        )
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_profile_only_deletion_follows_a_merge_chain(self, _s):
+        from crush_lu.models import AccountMerge
+        from crush_lu.views_account import delete_crushlu_profile_only
+
+        first, second = self._chain()
+
+        delete_crushlu_profile_only(self.keeper)
+
+        for dup in (first, second):
+            self._assert_erased_like_the_keeper(dup)
+            dup.refresh_from_db()
+            self.assertEqual(dup.email, f'{dup.first_name.lower()}@example.com')
+        self._assert_others_untouched()
+        self.assertEqual(AccountMerge.objects.count(), 2)
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_full_deletion_follows_a_merge_chain(self, _s):
+        from crush_lu.models import AccountMerge
+        from crush_lu.views import delete_full_account
+
+        first, second = self._chain()
+
+        delete_full_account(self.keeper)
+
+        for dup in (first, second):
+            self._assert_erased_like_the_keeper(dup)
+            dup.refresh_from_db()
+            self.assertEqual(dup.email, f'deleted_{dup.pk}@deleted.crush.lu')
+            self.assertEqual((dup.first_name, dup.last_name), ('', ''))
+            self.assertFalse(dup.has_usable_password())
+        self._assert_others_untouched()
+        self.assertEqual(AccountMerge.objects.count(), 2)
+
+    @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
+    def test_erasing_a_duplicate_does_not_reach_its_keeper(self, _s):
+        from crush_lu.models import CrushProfile
+        from crush_lu.views_account import delete_crushlu_profile_only
+
+        dup = self._duplicate('dup')
+        self._merge(dup, self.keeper)
+
+        delete_crushlu_profile_only(dup)
+
+        self._assert_erased_like_the_keeper(dup)
+        self.assertTrue(CrushProfile.objects.filter(user=self.keeper).exists())
+
+    def test_failure_on_a_duplicate_leaves_the_request_retryable(self):
+        from crush_lu.models.profiles import UserDataConsent
+        from crush_lu.views import delete_full_account
+        from crush_lu.views_account import StorageErasureError
+
+        UserDataConsent.objects.update_or_create(
+            user=self.keeper, defaults={'crushlu_consent_given': True}
+        )
+        dup = self._duplicate('dup')
+        self._merge(dup, self.keeper)
+
+        def sweep_fails_for_the_duplicate(user_id):
+            return (user_id != dup.pk, 0)
+
+        with patch(
+            'crush_lu.storage.delete_user_storage',
+            side_effect=sweep_fails_for_the_duplicate,
+        ):
+            with self.assertRaises(StorageErasureError):
+                delete_full_account(self.keeper)
+
+        # Nothing is finalized and the member can still sign in to retry.
+        self.keeper.refresh_from_db()
+        self.assertTrue(self.keeper.is_active)
+        self.assertEqual(self.keeper.email, 'keeper@example.com')
+        for account in (self.keeper, dup):
+            self.assertEqual(
+                UserDataConsent.objects.get(user=account).crushlu_ban_reason,
+                'deletion_in_progress',
+            )
+
+        with patch('crush_lu.storage.delete_user_storage', return_value=(True, 0)):
+            delete_full_account(self.keeper)
+
+        self._assert_erased_like_the_keeper(dup)
+        self.keeper.refresh_from_db()
+        self.assertFalse(self.keeper.is_active)
+        self.assertEqual(
+            UserDataConsent.objects.get(user=self.keeper).crushlu_ban_reason,
+            'user_deletion',
+        )
+
+    def test_profile_only_failure_on_a_duplicate_finalizes_nothing(self):
+        from crush_lu.models import CrushProfile
+        from crush_lu.models.profiles import UserDataConsent
+        from crush_lu.views_account import (
+            StorageErasureError, delete_crushlu_profile_only,
+        )
+
+        dup = self._duplicate('dup')
+        self._merge(dup, self.keeper)
+
+        def sweep_fails_for_the_duplicate(user_id):
+            return (user_id != dup.pk, 0)
+
+        with patch(
+            'crush_lu.storage.delete_user_storage',
+            side_effect=sweep_fails_for_the_duplicate,
+        ):
+            with self.assertRaises(StorageErasureError):
+                delete_crushlu_profile_only(self.keeper)
+
+        # The keeper's own part ran, but its ban stays retryable.
+        self.assertFalse(CrushProfile.objects.filter(user=self.keeper).exists())
+        self.assertEqual(
+            UserDataConsent.objects.get(user=self.keeper).crushlu_ban_reason,
+            'deletion_in_progress',
+        )
+
+        with patch('crush_lu.storage.delete_user_storage', return_value=(True, 0)):
+            delete_crushlu_profile_only(self.keeper)
+
+        self._assert_erased_like_the_keeper(dup)
+        self.assertEqual(
+            UserDataConsent.objects.get(user=self.keeper).crushlu_ban_reason,
+            'user_deletion',
+        )
