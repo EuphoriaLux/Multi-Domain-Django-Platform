@@ -418,13 +418,13 @@ class MemberNoticeTests(_Base):
         self.assertIn(D1_START, html)
         self.assertIn("REC-PAGE", html)
         self.assertIn("Please do not pay again.", html)
-        self.assertNotIn("Go Premium — first month free", html)
+        self.assertNotIn("Go Premium — one month free", html)
 
     def test_dashboard_hides_notice_once_resolved(self):
         self._resolve()
         html = self.client.get("/en/dashboard/").content.decode()
         self.assertFalse(self._notice_shown(html))
-        self.assertIn("Go Premium — first month free", html)
+        self.assertIn("Go Premium — one month free", html)
 
     def _premium_card(self, html):
         match = re.search(r'id="premium-plan".*?</section>', html, re.S)

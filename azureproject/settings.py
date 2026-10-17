@@ -1021,8 +1021,15 @@ SUMUP_MERCHANT_CODE = os.environ.get("SUMUP_MERCHANT_CODE", "")
 # Only used when no merchant code is set — SumUp then resolves the payee from
 # the merchant account e-mail instead.
 SUMUP_PAY_TO_EMAIL = os.environ.get("SUMUP_PAY_TO_EMAIL", "")
-# Monthly fee for a Crush Connect Premium membership, in EUR.
-SUMUP_PREMIUM_MONTHLY_FEE = os.environ.get("SUMUP_PREMIUM_MONTHLY_FEE", "10.00").strip()
+# Premium pricing, in EUR (Tom, 2026-10-17; ai-memory-hub
+# business-memory-hub/memories/premium-offer-definition.md). A member who has
+# not been verified at an event pays the one-time onboarding fee (it includes a
+# coach review session) and gets month 1 free; an event-verified member skips
+# the fee, pays month 1 and gets month 2 free. The monthly fee is charged from
+# the first paid month on. The SUMUP_ prefix is historical: the amounts are
+# provider-neutral (views_premium.premium_first_charge).
+SUMUP_PREMIUM_MONTHLY_FEE = os.environ.get("SUMUP_PREMIUM_MONTHLY_FEE", "9.99").strip()
+PREMIUM_ONBOARDING_FEE = os.environ.get("PREMIUM_ONBOARDING_FEE", "10.00").strip()
 
 # ============================================================================
 # ARBORIST PREPAYMENT BANK TRANSFER
