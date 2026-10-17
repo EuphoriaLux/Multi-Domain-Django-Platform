@@ -1045,8 +1045,13 @@ def create_sumup_premium_checkout(request, membership_id):
             {"error": _("Premium is invite-only during the beta.")}, status=403
         )
 
-    fee = getattr(settings, "SUMUP_PREMIUM_MONTHLY_FEE", 10.00)
-    amount = Decimal(str(fee))
+    from .views_premium import premium_first_charge, premium_onboarding_fee
+
+    # Read again at payment time: attending an event between the request and
+    # the click waives the onboarding fee, and the reuse check below retires a
+    # checkout opened for the old amount.
+    onboarding_fee = premium_onboarding_fee(membership.user)
+    amount = premium_first_charge(membership.user)
     sumup_customer_id = f"crush-user-{request.user.id}"
     description = f"Crush Connect Premium - Coach {membership.coach}"
     client = SumUpClient()
@@ -1212,7 +1217,10 @@ def create_sumup_premium_checkout(request, membership_id):
                 "A payment checkout is already being prepared. "
                 "Please wait and try again."
             )
-        elif reuse_row is None:
+        if error is None:
+            locked_membership.onboarding_fee = onboarding_fee
+            locked_membership.save(update_fields=["onboarding_fee"])
+        if error is None and reuse_row is None:
             PaymentTransaction.objects.create(
                 transaction_reference=checkout_ref,
                 provider=PaymentTransaction.Provider.SUMUP,
