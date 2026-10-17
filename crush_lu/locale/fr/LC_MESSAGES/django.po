@@ -46104,3 +46104,7 @@ msgstr "Les inscriptions pour <strong>%(title)s</strong> sont closes."
 #: crush_lu/templates/crush_lu/partials/_event_intent_banner.html
 msgid "See other events"
 msgstr "Voir les autres événements"
+
+#: crush_lu/templates/crush_lu/partials/_event_intent_banner.html
+msgid "Continue application"
+msgstr "Continuer la candidature"

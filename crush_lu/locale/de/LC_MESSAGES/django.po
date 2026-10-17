@@ -45977,3 +45977,7 @@ msgstr "Die Anmeldung für <strong>%(title)s</strong> ist geschlossen."
 #: crush_lu/templates/crush_lu/partials/_event_intent_banner.html
 msgid "See other events"
 msgstr "Andere Events ansehen"
+
+#: crush_lu/templates/crush_lu/partials/_event_intent_banner.html
+msgid "Continue application"
+msgstr "Bewerbung fortsetzen"

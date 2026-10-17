@@ -11,7 +11,8 @@ step; hidden on that event's own page.
         {% if event_intent.open %}
         <p class="flex-1 text-sm">{% blocktrans with title=ev.title %}You were signing up for <strong>{{ title }}</strong>. Pick up where you left off.{% endblocktrans %}</p>
         <div class="flex items-center gap-3">
-            <a href="{% url 'crush_lu:event_detail' event_id=ev.id %}" class="btn-crush-primary btn-sm">{% trans "Continue registration" %}</a>
+            {# Solid, not primary: this banner sits on pages that already have their one primary CTA. #}
+            <a href="{% url 'crush_lu:event_detail' event_id=ev.id %}" class="btn-crush-solid btn-sm">{% if ev.uses_curated_registration %}{% trans "Continue application" %}{% else %}{% trans "Continue registration" %}{% endif %}</a>
             <form method="post" action="{% url 'crush_lu:event_intent_dismiss' %}">
                 {% csrf_token %}
                 <button type="submit" class="text-xs font-semibold underline opacity-80 hover:opacity-100">{% trans "Not now" %}</button>

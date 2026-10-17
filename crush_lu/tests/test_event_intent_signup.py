@@ -13,6 +13,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import Client, TestCase
 from django.utils import timezone
+from django.utils.crypto import get_random_string
 
 from crush_lu.models import EventRegistration, MeetupEvent
 from crush_lu.models.profiles import UserDataConsent
@@ -20,6 +21,19 @@ from crush_lu.services import event_intent
 
 User = get_user_model()
 HOST = "crush.lu"
+
+
+def _login_request(host, user):
+    """A login on ``host`` in a fresh browser: the ``user_logged_in`` signal
+    with a real host (``Client.force_login`` sends it with none)."""
+    from django.contrib.auth.signals import user_logged_in
+    from django.contrib.sessions.middleware import SessionMiddleware
+    from django.test import RequestFactory
+
+    request = RequestFactory().get("/", HTTP_HOST=host)
+    SessionMiddleware(lambda r: None).process_request(request)
+    user_logged_in.send(sender=user.__class__, request=request, user=user)
+    return request
 
 
 class EventIntentSignupTests(TestCase):
@@ -95,15 +109,14 @@ class EventIntentSignupTests(TestCase):
                 "first_name": "New",
                 "last_name": "Member",
                 "email": "fresh@example.com",
-                "password1": "a-Strong-pass-9876",
+                "password1": get_random_string(20),
                 "crushlu_consent": "on",
             },
         )
         user = User.objects.get(email="fresh@example.com")
         self.assertIsNotNone(cache.get(f"event_intent:{user.pk}"))
 
-        other_browser = Client(HTTP_HOST=HOST)
-        other_browser.force_login(user)
+        other_browser = _login_request(HOST, user)
         self.assertEqual(
             other_browser.session[event_intent.SESSION_KEY]["event_id"], self.event.pk
         )
@@ -164,3 +177,20 @@ class EventIntentSignupTests(TestCase):
         request = SimpleNamespace(session={}, user=None)
         with self.assertNumQueries(0):
             self.assertIsNone(event_intent.current(request))
+
+    def test_curated_event_banner_says_application(self):
+        self.event.registration_mode = MeetupEvent.REGISTRATION_MODE_CURATED
+        self.event.event_type = "speed_dating"
+        self.event.save()
+        self._member()
+        self._set_intent()
+        html = self.client.get("/en/events/").content.decode()
+        self.assertIn("Continue application", html)
+        self.assertNotIn("Continue registration", html)
+
+    def test_login_on_another_platform_leaves_the_intent_for_crush(self):
+        user = self._member()
+        cache.set(f"event_intent:{user.pk}", {"event_id": self.event.pk, "at": "x"})
+        request = _login_request("powerup.lu", user)
+        self.assertNotIn(event_intent.SESSION_KEY, request.session)
+        self.assertIsNotNone(cache.get(f"event_intent:{user.pk}"))

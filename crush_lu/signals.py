@@ -479,7 +479,11 @@ def create_crush_profile_on_login(sender, request, user, **kwargs):
 def restore_event_intent_on_login(sender, request, user, **kwargs):
     """A11: bring back the event a member picked before signing up, when they
     verify their email and log in from another browser (services/event_intent)."""
+    # Crush logins only: sessions are host-scoped, so restoring into another
+    # platform's session would consume the intent where crush.lu never sees it.
     if request is None or not hasattr(request, "session"):
+        return
+    if not _is_crush_domain(request):
         return
     from crush_lu.services import event_intent
 
