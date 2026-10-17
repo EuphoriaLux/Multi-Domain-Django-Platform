@@ -1233,6 +1233,14 @@ def confirm_meeting(confirmer, event, target_handle, now=None) -> dict:
             # they are not necessarily on the page (and the recap has no live
             # socket, §7.6), so a realtime hint alone would never reach them.
             notify_encounter_created(other, confirmer)
+            from crush_lu.services import funnel_events
+
+            funnel_events.record_mutual_meeting(
+                (confirmer.pk, other.pk),
+                pair_key=f"lobby:{event.pk}:{low.pk}:{high.pk}",
+                source="event_lobby",
+                event_id=event.pk,
+            )
             return {
                 "result": "encounter",
                 "handle": target.handle,
