@@ -1054,6 +1054,11 @@ def create_sumup_premium_checkout(request, membership_id):
     amount = premium_first_charge(membership.user)
     sumup_customer_id = f"crush-user-{request.user.id}"
     description = f"Crush Connect Premium - Coach {membership.coach}"
+    if not onboarding_fee:
+        # The classification travels in the description, which the reuse
+        # check compares: a checkout opened as onboarding is never handed out
+        # again as a first month (or the reverse) even when both cost the same.
+        description += " - first month"
     client = SumUpClient()
 
     # At most one payable checkout per membership (#925 D6): reuse the newest
