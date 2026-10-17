@@ -358,13 +358,16 @@ class ExportMemberActivityTests(TestCase):
             user=self.user,
             raw_response={"token": "provider-secret"},
         )
-        PremiumMembership.objects.create(user=self.user, coach=coach, status="pending")
+        PremiumMembership.objects.create(
+            user=self.user, coach=coach, status="pending", onboarding_fee="10.00"
+        )
 
         data = self._export()
         payment = data["payments"][0]
         self.assertEqual(payment["reference"], "CRUSH-EXPORT-1")
         self.assertEqual(payment["amount"], "10.00")
         self.assertEqual(data["premium_memberships"][0]["coach"], "Cora")
+        self.assertEqual(data["premium_memberships"][0]["onboarding_fee"], "10.00")
         self.assertNotIn("coach@example.com", json.dumps(data))
         dump = json.dumps(data)
         self.assertNotIn("CHK_PROVIDER_SECRET", dump)

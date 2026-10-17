@@ -1045,13 +1045,16 @@ def create_sumup_premium_checkout(request, membership_id):
             {"error": _("Premium is invite-only during the beta.")}, status=403
         )
 
-    from .views_premium import premium_first_charge, premium_onboarding_fee
+    from .views_premium import premium_monthly_fee, premium_onboarding_fee
 
     # Read again at payment time: attending an event between the request and
     # the click waives the onboarding fee, and the reuse check below retires a
     # checkout opened for the old amount.
     onboarding_fee = premium_onboarding_fee(membership.user)
-    amount = premium_first_charge(membership.user)
+    # From the one classification read above, never a second attendance query:
+    # a check-in committing in between must not split the amount from the
+    # recorded fee and description (same rule as premium_first_charge).
+    amount = onboarding_fee if onboarding_fee > 0 else premium_monthly_fee()
     sumup_customer_id = f"crush-user-{request.user.id}"
     description = f"Crush Connect Premium - Coach {membership.coach}"
     if not onboarding_fee:
