@@ -46,6 +46,12 @@ Environment Variables Required:
         az functionapp config appsettings set -g django-app-rg
           -n crush-hybrid-maintenance --settings
           DJANGO_SUMUP_RECONCILIATION_URL=https://crush.lu/api/admin/sumup-reconciliation/)
+    - DJANGO_PREMIUM_LAPSE_SWEEP_URL: e.g. https://crush.lu/api/admin/premium-lapse-sweep/
+      (ships dormant like SumUpReconciliation, and for the same reason: set it
+      BY HAND after the slot swap that puts the route on production:
+        az functionapp config appsettings set -g django-app-rg
+          -n crush-hybrid-maintenance --settings
+          DJANGO_PREMIUM_LAPSE_SWEEP_URL=https://crush.lu/api/admin/premium-lapse-sweep/)
     - ADMIN_API_KEY: Bearer token shared with the Django ADMIN_API_KEY setting
     - HYBRID_MAINTENANCE_ENABLED: Should be 'true' in production; anything
       else skips both triggers (safe-default: functions are deployed disabled
@@ -569,6 +575,35 @@ def sumup_reconciliation(timer: func.TimerRequest) -> None:
         dormant_if_unset=True,
     )
     _check_sumup_reconciliation_counters(response)
+
+
+@app.function_name(name="PremiumLapseSweep")
+@app.timer_trigger(
+    # Hourly at :14. Clear of invites (:x0), and of campaigns (:x2/:x7): the
+    # :12 tick's 110 s tail ends by :13:50 and this call's own 60 s timeout
+    # ends by :15, before the :17 tick. Touches SLA (:15) at most at its start;
+    # both are short, independent HTTP calls.
+    schedule="0 14 * * * *",
+    arg_name="timer",
+    run_on_startup=False,
+    use_monitor=True,
+)
+def premium_lapse_sweep(timer: func.TimerRequest) -> None:
+    """End Premium memberships whose paid period, plus grace, is over.
+
+    Entitlement is already read lazily on the Django side, so this only moves
+    the row to cancelled and releases the coach. Hourly so a lapsed member's
+    coach is freed within the hour; cheap when nothing is due (one query).
+    """
+    ts = datetime.utcnow().isoformat()
+    if timer.past_due:
+        logging.warning("PremiumLapseSweep: timer past due at %s", ts)
+    logging.info("PremiumLapseSweep: starting at %s", ts)
+    _call_admin_endpoint(
+        "PremiumLapseSweep",
+        "DJANGO_PREMIUM_LAPSE_SWEEP_URL",
+        dormant_if_unset=True,
+    )
 
 
 _SUMUP_FLAG = "SUMUP_RECONCILIATION_ENABLED"

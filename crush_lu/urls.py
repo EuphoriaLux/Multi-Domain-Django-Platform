@@ -233,6 +233,8 @@ urlpatterns = [
     path('premium/coaches/', views_premium.premium_choose_coach, name='premium_choose_coach'),
     path('premium/coaches/<int:coach_id>/select/', views_premium.premium_select_coach, name='premium_select_coach'),
     path('premium/cancel/', views_premium.premium_cancel_membership, name='premium_cancel_membership'),
+    path('premium/renewal/cancel/', views_premium.premium_cancel_renewal, name='premium_cancel_renewal'),
+    path('premium/renewal/resume/', views_premium.premium_resume_renewal, name='premium_resume_renewal'),
 
     # Landing and public pages
     path('', views.home, name='home'),

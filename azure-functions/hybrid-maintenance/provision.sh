@@ -100,7 +100,7 @@ SETTINGS=(
   "DJANGO_EVENT_RECAPS_URL=https://crush.lu/api/admin/event-recaps/"
   "DJANGO_EVENT_FEEDBACK_URL=https://crush.lu/api/admin/event-feedback/"
   "DJANGO_ECHO_SYNC_URL=https://crush.lu/api/admin/echo-sync/"
-  # The SumUpReconciliation timer's URL is deliberately NOT set here. The
+  # The SumUpReconciliation and PremiumLapseSweep timers' URLs are deliberately NOT set here. The
   # timer ships dormant while its URL is unset, and the route only exists on
   # production after the slot swap that ships it, so setting it from a re-run
   # before that swap would make the timer 404 nightly. Set it BY HAND after
