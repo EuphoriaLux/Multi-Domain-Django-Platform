@@ -3071,6 +3071,10 @@ def _export_member_activity(user):
                 if premium.onboarding_fee is not None
                 else None
             ),
+            # Billing period: when Premium renews or ends, and whether the
+            # member cancelled the renewal (null: never expires).
+            "current_period_end": _iso_or_none(premium.current_period_end),
+            "cancel_at_period_end": premium.cancel_at_period_end,
             "coach": (
                 premium.coach.user.first_name or None if premium.coach_id else None
             ),
