@@ -1579,14 +1579,16 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
             if not submission:
                 skipped_count += 1
                 continue
+            newly_verified = profile.verification_status != "verified"
             profile.is_approved = True
             profile.approved_at = now
             profile.verification_status = "verified"
             if not profile.verification_method:
                 profile.verification_method = "admin"
-            funnel_events.record_profile_verified(
-                profile.user_id, profile.verification_method
-            )
+            if newly_verified:
+                funnel_events.record_profile_verified(
+                    profile.user_id, profile.verification_method
+                )
             profile.save(
                 update_fields=[
                     "is_approved",
@@ -2242,16 +2244,20 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
                 submission.reviewed_at = now
                 submission.save()
 
+                newly_verified = (
+                    submission.profile.verification_status != "verified"
+                )
                 submission.profile.is_approved = True
                 submission.profile.approved_at = now
                 submission.profile.verification_status = "verified"
                 if not submission.profile.verification_method:
                     submission.profile.verification_method = "admin"
                 submission.profile.save()
-                funnel_events.record_profile_verified(
-                    submission.profile.user_id,
-                    submission.profile.verification_method,
-                )
+                if newly_verified:
+                    funnel_events.record_profile_verified(
+                        submission.profile.user_id,
+                        submission.profile.verification_method,
+                    )
                 approved_count += 1
 
             try:

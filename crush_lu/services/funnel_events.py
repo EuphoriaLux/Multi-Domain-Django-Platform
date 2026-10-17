@@ -26,10 +26,12 @@ profile_verified      ``claim_profile_verification`` winner,       ``CrushProfil
                       admin approve actions
 event_application     ``event_register``, status ``applied``       ``EventRegistration`` status applied
 join_waitlist         ``event_register``, status ``waitlist``      ``EventRegistration`` status waitlist
-event_registration    ``event_register``, pending/confirmed        ``EventRegistration`` pending/confirmed
-purchase              a SumUp or manual payment becoming PAID      ``PaymentTransaction`` PAID, provider != CREDIT,
+event_registration    ``event_register``, pending/confirmed, and   ``EventRegistration`` pending/confirmed
+                      later admission from applied/waitlist
+purchase              a payment becoming PAID (post_save)          ``PaymentTransaction`` PAID, provider != CREDIT,
                       (``transaction_id`` = transaction_reference)  summed by ``transaction_reference``
-event_attended        check-in (status ``attended``)               ``EventRegistration`` status attended
+refund                a PAID payment becoming REFUNDED             ``PaymentTransaction`` REFUNDED, provider != CREDIT
+event_attended        status becomes ``attended`` (post_save)      ``EventRegistration`` status attended
 connect_activated     Connect wizard sets ``onboarded_at``          ``CrushConnectMembership.onboarded_at``
 mutual_meeting        coffee date confirmed by both / lobby         ``ConnectCoffeeDate`` CONFIRMED_BY_BOTH,
                       mutual confirmation (queued for both)         mutual ``EventMeetingConfirmation`` pairs
@@ -47,6 +49,7 @@ page.
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import timedelta
 
 from django.core.cache import cache
@@ -78,7 +81,9 @@ def _enqueue(user_id, name, dedupe_key, params):
         return
     key = _queue_key(user_id)
     queue = cache.get(key) or []
-    queue.append({"name": name, "params": params})
+    # ``eid`` lets the browser refuse a replay of the same script (a page
+    # served again from the service-worker cache).
+    queue.append({"name": name, "params": params, "eid": uuid.uuid4().hex})
     cache.set(key, queue[-MAX_QUEUED:], TTL)
 
 
@@ -109,9 +114,11 @@ def pop(user_id):
     key = _queue_key(user_id)
     try:
         queue = cache.get(key) or []
-        if queue:
-            cache.delete(key)
-        return queue
+        # Only the request whose delete removed the key delivers: two pages
+        # rendering at once both read the queue, one of them wins the delete.
+        if queue and cache.delete(key):
+            return queue
+        return []
     except Exception:  # noqa: BLE001
         logger.warning("Funnel outbox not readable", exc_info=True)
         return []
@@ -127,21 +134,49 @@ def record_purchase(payment):
 
     if payment.provider == PaymentTransaction.Provider.CREDIT:
         return
-    item = {"item_category": "other"}
-    if payment.event_id:
-        item = {"item_id": payment.event_id, "item_category": "event"}
-    elif payment.premium_membership_id:
-        item = {"item_category": "premium"}
     record(
-        # The member the payment is for, not a staff member who recorded it.
-        payment.owner_id(),
+        _payment_member_id(payment),
         "purchase",
         dedupe_key=f"purchase:{payment.transaction_reference}",
         transaction_id=payment.transaction_reference,
         value=float(payment.amount),
         currency=payment.currency or "EUR",
-        items=[item],
+        items=[_payment_item(payment)],
     )
+
+
+def record_refund(payment):
+    """``refund`` for a PAID payment that was refunded (same reference)."""
+    from crush_lu.models import PaymentTransaction
+
+    if payment.provider == PaymentTransaction.Provider.CREDIT:
+        return
+    record(
+        _payment_member_id(payment),
+        "refund",
+        dedupe_key=f"refund:{payment.transaction_reference}",
+        transaction_id=payment.transaction_reference,
+        value=float(payment.amount),
+        currency=payment.currency or "EUR",
+        items=[_payment_item(payment)],
+    )
+
+
+def _payment_member_id(payment):
+    """The member the payment is for (not a staff recorder), followed to the
+    account a merge kept: the duplicate never logs in to drain its outbox."""
+    from crush_lu.models.account_merge import AccountMerge
+
+    return AccountMerge.surviving_user_id(payment.owner_id())
+
+
+def _payment_item(payment):
+    """A GA4 item needs an ``item_id`` or ``item_name``."""
+    if payment.event_id:
+        return {"item_id": f"event-{payment.event_id}", "item_category": "event"}
+    if payment.premium_membership_id:
+        return {"item_id": "premium", "item_category": "premium"}
+    return {"item_id": payment.purpose or "other", "item_category": "other"}
 
 
 def record_profile_verified(user_id, method):

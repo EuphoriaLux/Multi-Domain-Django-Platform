@@ -60,6 +60,7 @@ from .models.journey import JourneyProgress
 from .utils.i18n import is_valid_language
 
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
+from crush_lu.models.payments import PaymentTransaction
 from crush_lu.wallet_pass import PASS_NEXT_EVENT_STATUSES
 
 logger = logging.getLogger(__name__)
@@ -1803,6 +1804,11 @@ def check_special_user_experience(sender, request, user, **kwargs):
                         if not profile.verification_method:
                             profile.verification_method = "admin"
                         profile.save()
+                        from crush_lu.services import funnel_events
+
+                        funnel_events.record_profile_verified(
+                            user.pk, profile.verification_method
+                        )
                         logger.info(
                             f"Auto-approved profile for special user: {user.email}"
                         )
@@ -3702,6 +3708,34 @@ def remember_previous_registration_status(sender, instance, **kwargs):
 
 
 @receiver(post_save, sender=EventRegistration)
+def record_registration_funnel_transitions(sender, instance, created, **kwargs):
+    """A17: the seat and attendance conversions, at the status transition.
+
+    The sign-up itself is captured in ``event_register``; this catches what
+    happens later on any path (curated selection, waitlist promotion, check-in
+    by QR, walk-up or quiz). ``queryset.update()`` bypasses it, like every
+    receiver here.
+    """
+    from crush_lu.services import funnel_events
+
+    previous = getattr(instance, "_previous_status", None)
+    if created or previous == instance.status:
+        return
+    if previous in ("applied", "waitlist") and instance.status in (
+        "pending",
+        "confirmed",
+    ):
+        funnel_events.record(
+            instance.user_id,
+            "event_registration",
+            dedupe_key=f"event_admitted:{instance.pk}:{previous}",
+            event_id=instance.event_id,
+        )
+    elif instance.status == "attended":
+        funnel_events.record_attended(instance)
+
+
+@receiver(post_save, sender=EventRegistration)
 def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
     """Give the freed seat to the waitlist when a registration is cancelled.
 
@@ -4708,6 +4742,8 @@ def stash_confirmed_email_for_login_prefill(sender, request, email_address, **kw
 def record_signup_funnel_event(sender, request, user, **kwargs):
     """A17: GA4 ``sign_up`` for every account, email or social (allauth sends
     this from complete_signup for both). Delivered on the first logged-in page."""
+    if not _is_crush_domain(request):
+        return
     from crush_lu.services import funnel_events
 
     sociallogin = kwargs.get("sociallogin")
@@ -4722,7 +4758,10 @@ def record_signup_funnel_event(sender, request, user, **kwargs):
 
 @receiver(user_logged_in)
 def record_login_funnel_event(sender, request, user, **kwargs):
-    """A17: GA4 ``login`` on a real login, not on every dashboard render."""
+    """A17: GA4 ``login`` on a real login, not on every dashboard render.
+    Crush hosts only: the same accounts log into the other platforms."""
+    if not _is_crush_domain(request):
+        return
     from crush_lu.services import funnel_events
 
     funnel_events.record(user.pk, "login")
@@ -5432,3 +5471,35 @@ def cleanup_indexing_thread_state(**kwargs):
     ctx.session = None
     ctx.in_request = False
     ctx.request_deadline = None
+
+
+@receiver(pre_save, sender=PaymentTransaction)
+def remember_previous_payment_status(sender, instance, **kwargs):
+    """Stash the stored status so the funnel can see a transition (A17)."""
+    instance._previous_payment_status = (
+        PaymentTransaction.objects.filter(pk=instance.pk)
+        .values_list("status", flat=True)
+        .first()
+        if instance.pk
+        else None
+    )
+
+
+@receiver(post_save, sender=PaymentTransaction)
+def record_payment_funnel_transitions(sender, instance, created, **kwargs):
+    """A17: GA4 ``purchase`` when a payment becomes PAID (a SumUp capture, cash
+    at the door, an admin record) and ``refund`` when a PAID one is refunded.
+    One place for every writer that saves the row; ``queryset.update()`` is not
+    seen. Deduplicated by transaction reference."""
+    from crush_lu.services import funnel_events
+
+    previous = getattr(instance, "_previous_payment_status", None)
+    if previous == instance.status:
+        return
+    if instance.status == PaymentTransaction.Status.PAID:
+        funnel_events.record_purchase(instance)
+    elif (
+        instance.status == PaymentTransaction.Status.REFUNDED
+        and previous == PaymentTransaction.Status.PAID
+    ):
+        funnel_events.record_refund(instance)

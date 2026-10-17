@@ -17,7 +17,6 @@ from rest_framework.response import Response
 logger = logging.getLogger(__name__)
 
 
-from crush_lu.services import funnel_events
 from crush_lu.models.quiz import (
     parse_choices as _parse_choices,
     IndividualScore,
@@ -610,7 +609,6 @@ def mark_attended(request, quiz_id):
         registration.save(
             update_fields=["status", "checked_in_at", "updated_at"]
         )
-        funnel_events.record_attended(registration)
 
         # Reuse the QR-path table assignment so manual mark-attended is
         # indistinguishable from a scan downstream.

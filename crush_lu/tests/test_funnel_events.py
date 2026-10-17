@@ -60,14 +60,27 @@ class FunnelEventsTests(TestCase):
 
     # -- login / sign_up ----------------------------------------------------------
 
-    def test_login_is_captured_on_login_and_delivered_once(self):
-        client = Client(HTTP_HOST="crush.lu")
+    def _login(self, host):
+        from django.contrib.auth.signals import user_logged_in
+        from django.contrib.sessions.middleware import SessionMiddleware
+
+        request = RequestFactory().get("/", HTTP_HOST=host)
+        SessionMiddleware(lambda r: None).process_request(request)
         with self.captureOnCommitCallbacks(execute=True):
-            client.force_login(self.user)
+            user_logged_in.send(sender=User, request=request, user=self.user)
+
+    def test_login_is_captured_on_login_and_delivered_once(self):
+        self._login("crush.lu")
         self.assertEqual(_names(self.user), ["login"])
         html = self._render_tag()
-        self.assertIn("gtag('event', \"login\"", html)
+        self.assertIn("gtag('event',\"login\"", html)
+        # A replay of the cached page is refused in the browser by event ID.
+        self.assertIn("localStorage.getItem(k)", html)
         self.assertEqual(self._render_tag(), "")
+
+    def test_login_on_another_platform_is_not_a_crush_conversion(self):
+        self._login("powerup.lu")
+        self.assertEqual(_names(self.user), [])
 
     def test_dashboard_render_no_longer_fires_login(self):
         template = open(
@@ -78,7 +91,7 @@ class FunnelEventsTests(TestCase):
     def test_sign_up_queued_once_with_method(self):
         from allauth.account.signals import user_signed_up
 
-        request = RequestFactory().get("/")
+        request = RequestFactory().get("/", HTTP_HOST="crush.lu")
         with self.captureOnCommitCallbacks(execute=True):
             user_signed_up.send(sender=User, request=request, user=self.user)
             user_signed_up.send(sender=User, request=request, user=self.user)
@@ -129,15 +142,67 @@ class FunnelEventsTests(TestCase):
     def test_credit_redemption_is_not_revenue(self):
         tx = self._payment(PaymentTransaction.Provider.CREDIT, "CRUSH-CREDIT-1")
         with self.captureOnCommitCallbacks(execute=True):
-            funnel_events.record_purchase(tx)
+            tx.status = PaymentTransaction.Status.PAID
+            tx.save()
         self.assertEqual(_names(self.user), [])
 
     def test_cash_payment_is_a_purchase_by_its_manual_reference(self):
-        tx = self._payment(PaymentTransaction.Provider.MANUAL, "CRUSH-MANUAL-9-ab")
         with self.captureOnCommitCallbacks(execute=True):
-            funnel_events.record_purchase(tx)
+            PaymentTransaction.objects.create(
+                transaction_reference="CRUSH-MANUAL-9-ab",
+                provider=PaymentTransaction.Provider.MANUAL,
+                amount=Decimal("15.00"),
+                currency="EUR",
+                status=PaymentTransaction.Status.PAID,
+                purpose=PaymentTransaction.Purpose.DONATION,
+                user=self.user,
+            )
         queue = cache.get(f"funnel_outbox:{self.user.pk}")
         self.assertEqual(queue[0]["params"]["transaction_id"], "CRUSH-MANUAL-9-ab")
+        # GA4 items need an item_id.
+        self.assertEqual(queue[0]["params"]["items"][0]["item_id"], "donation")
+
+    def test_refund_reverses_a_tracked_purchase(self):
+        tx = self._payment(PaymentTransaction.Provider.SUMUP, "CRUSH-DON-REF")
+        with self.captureOnCommitCallbacks(execute=True):
+            tx.status = PaymentTransaction.Status.PAID
+            tx.save()
+            tx.status = PaymentTransaction.Status.REFUNDED
+            tx.save()
+        self.assertEqual(_names(self.user), ["purchase", "refund"])
+
+    def test_purchase_goes_to_the_account_a_merge_kept(self):
+        from crush_lu.models.account_merge import AccountMerge
+
+        keeper = User.objects.create_user(username="keep@example.com", password="x")
+        AccountMerge.objects.create(keeper=keeper, duplicate=self.user)
+        tx = self._payment(PaymentTransaction.Provider.SUMUP, "CRUSH-DON-MRG")
+        with self.captureOnCommitCallbacks(execute=True):
+            tx.status = PaymentTransaction.Status.PAID
+            tx.save()
+        self.assertEqual(_names(keeper), ["purchase"])
+        self.assertEqual(_names(self.user), [])
+
+    def test_admission_from_waitlist_and_attendance_are_captured(self):
+        reg = EventRegistration.objects.create(
+            event=self.event, user=self.user, status="waitlist"
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            reg.status = "confirmed"
+            reg.save()
+            reg.status = "attended"
+            reg.save()
+        self.assertEqual(_names(self.user), ["event_registration", "event_attended"])
+
+    def test_concurrent_drain_delivers_once(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            funnel_events.record(self.user.pk, "login")
+        from unittest.mock import patch
+
+        # The other request deleted the key between this one's read and delete.
+        with patch.object(funnel_events.cache, "delete", return_value=False):
+            self.assertEqual(funnel_events.pop(self.user.pk), [])
+        self.assertEqual(len(funnel_events.pop(self.user.pk)), 1)
 
     # -- transitions the member is not present for ---------------------------------
 
