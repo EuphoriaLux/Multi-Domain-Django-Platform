@@ -2703,5 +2703,16 @@ def event_intent_dismiss(request):
     """Hide the "continue your registration" banner (A11)."""
     from .services import event_intent
 
+    from django.http import HttpResponse
+    from django.utils.http import url_has_allowed_host_and_scheme
+
     event_intent.forget(request)
+    # HTMX dismisses in place, so an unsaved form on the page is kept.
+    if request.headers.get("HX-Request"):
+        return HttpResponse("")
+    target = request.POST.get("next", "")
+    if url_has_allowed_host_and_scheme(
+        target, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return redirect(target)
     return redirect("crush_lu:dashboard")

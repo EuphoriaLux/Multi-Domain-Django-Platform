@@ -47,10 +47,19 @@ def _accepting_event(event_id):
         event_id = int(event_id)
     except (TypeError, ValueError):
         return None
-    event = MeetupEvent.objects.filter(pk=event_id, is_published=True).first()
+    # Never a private invitation event: the banner shows the title, and an ID
+    # typed into /signup/?event= must not reveal one to an uninvited member.
+    event = MeetupEvent.objects.filter(
+        pk=event_id, is_published=True, is_private_invitation=False
+    ).first()
     if event is None or not event.is_registration_accepting:
         return None
     return event
+
+
+def _fresh(intent):
+    at = parse_datetime((intent or {}).get("at") or "")
+    return at is not None and timezone.now() - at <= MAX_AGE
 
 
 def remember_from_request(request):
@@ -79,7 +88,14 @@ def restore_on_login(request, user):
     if intent is None:
         return
     cache.delete(key)
-    if SESSION_KEY not in request.session:
+    # A local intent wins only while it is still usable; a stale one left in
+    # this browser from an earlier visit must not swallow the new signup's.
+    local = request.session.get(SESSION_KEY)
+    if not (
+        local
+        and _fresh(local)
+        and _accepting_event((local or {}).get("event_id")) is not None
+    ):
         request.session[SESSION_KEY] = intent
 
 
@@ -100,12 +116,11 @@ def current(request):
         return None
     from crush_lu.models import EventRegistration, MeetupEvent
 
-    at = parse_datetime(intent.get("at") or "")
-    if at is None or timezone.now() - at > MAX_AGE:
+    if not _fresh(intent):
         forget(request)
         return None
     event = MeetupEvent.objects.filter(
-        pk=intent.get("event_id"), is_published=True
+        pk=intent.get("event_id"), is_published=True, is_private_invitation=False
     ).first()
     if event is None:
         forget(request)

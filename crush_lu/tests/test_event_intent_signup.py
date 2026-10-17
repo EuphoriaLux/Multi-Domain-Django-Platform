@@ -194,3 +194,53 @@ class EventIntentSignupTests(TestCase):
         request = _login_request("powerup.lu", user)
         self.assertNotIn(event_intent.SESSION_KEY, request.session)
         self.assertIsNotNone(cache.get(f"event_intent:{user.pk}"))
+
+    # -- Codex review, second round ---------------------------------------------------
+
+    def test_private_event_is_never_remembered(self):
+        self.event.is_private_invitation = True
+        self.event.save()
+        self.client.get(f"/en/signup/?event={self.event.pk}")
+        self.assertIsNone(self._session_intent())
+
+    def test_stale_local_intent_does_not_swallow_the_new_one(self):
+        user = User.objects.create_user(username="s@example.com", password="x")
+        cache.set(
+            f"event_intent:{user.pk}",
+            {"event_id": self.event.pk, "at": timezone.now().isoformat()},
+        )
+        from django.contrib.auth.signals import user_logged_in
+        from django.contrib.sessions.middleware import SessionMiddleware
+        from django.test import RequestFactory
+
+        request = RequestFactory().get("/", HTTP_HOST=HOST)
+        SessionMiddleware(lambda r: None).process_request(request)
+        request.session[event_intent.SESSION_KEY] = {
+            "event_id": self.event.pk,
+            "at": (timezone.now() - timedelta(days=30)).isoformat(),
+        }
+        user_logged_in.send(sender=User, request=request, user=user)
+        self.assertTrue(event_intent._fresh(request.session[event_intent.SESSION_KEY]))
+
+    def test_htmx_dismiss_stays_on_the_page(self):
+        self._member()
+        self._set_intent()
+        response = self.client.post(
+            "/en/events/continue/dismiss/", HTTP_HX_REQUEST="true"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b"")
+        self.assertIsNone(self._session_intent())
+
+    def test_plain_dismiss_returns_to_a_safe_page_only(self):
+        self._member()
+        self._set_intent()
+        response = self.client.post(
+            "/en/events/continue/dismiss/", {"next": "/en/create-profile/"}
+        )
+        self.assertEqual(response["Location"], "/en/create-profile/")
+        self._set_intent()
+        response = self.client.post(
+            "/en/events/continue/dismiss/", {"next": "https://evil.example/"}
+        )
+        self.assertNotIn("evil", response["Location"])
