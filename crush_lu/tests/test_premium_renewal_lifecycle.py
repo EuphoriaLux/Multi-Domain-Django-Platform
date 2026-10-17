@@ -255,3 +255,32 @@ class PremiumRenewalLifecycleTests(TestCase):
         client.post("/en/premium/renewal/resume/")
         m.refresh_from_db()
         self.assertFalse(m.cancel_at_period_end)
+
+    # -- Codex review on #1277 ------------------------------------------------------
+
+    def test_cancelling_in_the_grace_is_refused(self):
+        m = self._confirmed(onboarding_fee=Decimal("10.00"), at=_at(2027, 1, 10))
+        with patch("django.utils.timezone.now", return_value=_at(2027, 2, 11)):
+            self.assertFalse(premium_billing.schedule_cancellation(m))
+            m.refresh_from_db()
+            self.assertFalse(m.cancel_at_period_end)
+            self.assertTrue(m.renewal_overdue)
+        self.assertTrue(self._entitled(_at(2027, 2, 11)))
+
+    def test_lapse_keeps_the_payment_record(self):
+        m = self._confirmed(onboarding_fee=Decimal("10.00"), at=_at(2027, 1, 10))
+        with patch("django.utils.timezone.now", return_value=_at(2027, 2, 14)):
+            premium_billing.sweep_lapsed()
+        m.refresh_from_db()
+        self.assertEqual(m.status, "cancelled")
+        self.assertTrue(m.payment_confirmed)
+        self.assertEqual(m.payment_date, _at(2027, 1, 10))
+
+    def test_expired_unswept_membership_frees_its_coach_seat(self):
+        self.coach.max_premium_members = 1
+        self.coach.save(update_fields=["max_premium_members"])
+        self._confirmed(onboarding_fee=Decimal("10.00"), at=_at(2027, 1, 10))
+        with patch("django.utils.timezone.now", return_value=_at(2027, 2, 12)):
+            self.assertEqual(self.coach.get_premium_members_count(), 1)  # grace
+        with patch("django.utils.timezone.now", return_value=_at(2027, 2, 14)):
+            self.assertEqual(self.coach.get_premium_members_count(), 0)

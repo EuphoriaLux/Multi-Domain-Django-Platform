@@ -80,7 +80,9 @@
                 {% if pm and pm.current_period_end %}
                 {# services/premium_billing.py: cancel keeps Premium to the period end; undo until then. #}
                 <div class="mt-3 text-sm text-center" data-testid="premium-renewal">
-                    {% if pm.cancel_at_period_end %}
+                    {% if pm.renewal_overdue %}
+                    <p class="text-muted-fg">{% trans "Your renewal payment is due. Premium stays active for a few more days." %}</p>
+                    {% elif pm.cancel_at_period_end %}
                     <p class="text-muted-fg mb-2">{% blocktrans with date=pm.current_period_end|date:"DATE_FORMAT" %}Your Premium ends on {{ date }} and will not renew.{% endblocktrans %}</p>
                     <form method="post" action="{% url 'crush_lu:premium_resume_renewal' %}">
                         {% csrf_token %}

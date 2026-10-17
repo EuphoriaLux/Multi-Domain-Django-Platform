@@ -24,6 +24,7 @@ from .connect_phase import is_event_verified_member, is_selected_beta_tester
 from .models import CrushCoach, CrushProfile, PremiumMembership
 from .ios_app_utils import ios_commerce_suppressed
 from .services import premium_recovery
+from .services.premium_billing import entitled_q
 
 logger = logging.getLogger(__name__)
 
@@ -218,7 +219,7 @@ def _available_coaches():
         .annotate(
             member_count=Count(
                 "premium_memberships",
-                filter=Q(premium_memberships__status="active"),
+                filter=entitled_q("premium_memberships__"),
             )
         )
         .filter(member_count__lt=F("max_premium_members"))

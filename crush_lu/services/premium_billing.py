@@ -164,6 +164,10 @@ def _set_cancel_at_period_end(membership, value):
             or locked.status != "active"
             or locked.current_period_end is None
             or locked.cancel_at_period_end == value
+            # In the grace after an unpaid period end there is nothing left to
+            # cancel: cancelling would switch to the no-grace rule and end
+            # Premium on the spot, with no way back (Codex #1277).
+            or (value and locked.current_period_end <= timezone.now())
             or not PremiumMembership.objects.filter(entitled_q(), pk=locked.pk).exists()
         ):
             return False
@@ -204,7 +208,7 @@ def sweep_lapsed(now=None):
             if locked is None or not lapse_due(now).filter(pk=locked.pk).exists():
                 continue
             reason = CANCELLED_REASON if locked.cancel_at_period_end else LAPSE_REASON
-            if locked.cancel_active(reason=reason):
+            if locked.cancel_active(reason=reason, keep_payment_record=True):
                 ended += 1
                 logger.info(
                     "Premium membership %s (user=%s) ended: %s",

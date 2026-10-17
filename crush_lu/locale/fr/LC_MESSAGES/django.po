@@ -46143,3 +46143,7 @@ msgstr "Renouvelé le %(date)s."
 #: crush_lu/templates/crush_lu/membership.html
 msgid "Cancel renewal"
 msgstr "Annuler le renouvellement"
+
+#: crush_lu/templates/crush_lu/membership.html
+msgid "Your renewal payment is due. Premium stays active for a few more days."
+msgstr "Le paiement de votre renouvellement est dû. Premium reste actif encore quelques jours."

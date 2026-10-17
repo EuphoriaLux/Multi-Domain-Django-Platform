@@ -394,7 +394,11 @@ class CrushCoach(models.Model):
         (0150 backfill, attendance auto-assign), and counting those would
         wrongly exhaust ``max_premium_members`` capacity.
         """
-        return self.premium_memberships.filter(status="active").count()
+        # Memberships that still grant Premium (services/premium_billing): an
+        # expired one stops holding a seat even if the lapse sweep never ran.
+        from crush_lu.services.premium_billing import entitled_q
+
+        return self.premium_memberships.filter(entitled_q()).count()
 
     def can_accept_premium(self):
         """Whether this coach is available to be chosen by a new premium member."""
@@ -3350,6 +3354,15 @@ class PremiumMembership(models.Model):
     def __str__(self):
         return f"{self.user.email} → {self.coach} ({self.get_status_display()})"
 
+    @property
+    def renewal_overdue(self):
+        """The period ended unpaid and the renewal grace is running."""
+        return (
+            self.current_period_end is not None
+            and not self.cancel_at_period_end
+            and self.current_period_end <= timezone.now()
+        )
+
     def confirm(self, by_user=None):
         """Confirm payment and permanently assign the chosen coach.
 
@@ -3436,7 +3449,7 @@ class PremiumMembership(models.Model):
             self.save(update_fields=["status"])
         return True
 
-    def cancel_active(self, reason=""):
+    def cancel_active(self, reason="", keep_payment_record=False):
         """End an ``active`` membership and give back the coach it assigned.
 
         The counterpart to :meth:`confirm`, and the one guarded door for ending a
@@ -3468,9 +3481,14 @@ class PremiumMembership(models.Model):
             if locked.status != "active":
                 return False
             self.status = "cancelled"
-            self.payment_confirmed = False
-            self.payment_date = None
-            self.save(update_fields=["status", "payment_confirmed", "payment_date"])
+            if keep_payment_record:
+                # A membership that simply ran out was still paid for: KPIs
+                # and the data export read these fields (premium_billing sweep).
+                self.save(update_fields=["status"])
+            else:
+                self.payment_confirmed = False
+                self.payment_date = None
+                self.save(update_fields=["status", "payment_confirmed", "payment_date"])
 
             profile = (
                 CrushProfile.objects.select_for_update()

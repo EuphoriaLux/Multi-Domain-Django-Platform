@@ -46017,3 +46017,7 @@ msgstr "Wird am %(date)s verlängert."
 #: crush_lu/templates/crush_lu/membership.html
 msgid "Cancel renewal"
 msgstr "Verlängerung kündigen"
+
+#: crush_lu/templates/crush_lu/membership.html
+msgid "Your renewal payment is due. Premium stays active for a few more days."
+msgstr "Deine Verlängerungszahlung ist fällig. Premium bleibt noch ein paar Tage aktiv."
