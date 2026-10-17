@@ -1292,6 +1292,8 @@
         </div>
     {% endif %}
 
+    {% if event_intent %}{% include "crush_lu/partials/_event_intent_banner.html" %}{% endif %}
+
     <!-- Main Content -->
     <main id="main-content" class="container pt-8 mobile-main {% if user.is_authenticated %}has-bottom-nav{% endif %}" role="main">
         {% block content %}{% endblock %}
