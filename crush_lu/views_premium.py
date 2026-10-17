@@ -15,6 +15,7 @@ from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Count, F, Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
@@ -435,7 +436,11 @@ def premium_cancel_renewal(request):
                 "Your Premium will not renew. You keep it, and your coach, "
                 "until %(date)s."
             )
-            % {"date": date_format(membership.current_period_end, "DATE_FORMAT")},
+            % {
+                "date": date_format(
+                    timezone.localtime(membership.current_period_end), "DATE_FORMAT"
+                )
+            },
         )
     else:
         messages.info(request, _("There is no Premium renewal to cancel."))

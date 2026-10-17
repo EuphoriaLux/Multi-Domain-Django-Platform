@@ -579,10 +579,11 @@ def sumup_reconciliation(timer: func.TimerRequest) -> None:
 
 @app.function_name(name="PremiumLapseSweep")
 @app.timer_trigger(
-    # Hourly at :20. Clear of invites (:x0, 60 s), campaigns (:x2/:x7; the :17
-    # tick's 110 s tail ends by :18:50), SLA :15 and recaps :25; this call's
-    # own 60 s timeout ends by :21, before the :22 campaign tick.
-    schedule="0 20 * * * *",
+    # Hourly at :14. Clear of invites (:x0), and of campaigns (:x2/:x7): the
+    # :12 tick's 110 s tail ends by :13:50 and this call's own 60 s timeout
+    # ends by :15, before the :17 tick. Touches SLA (:15) at most at its start;
+    # both are short, independent HTTP calls.
+    schedule="0 14 * * * *",
     arg_name="timer",
     run_on_startup=False,
     use_monitor=True,

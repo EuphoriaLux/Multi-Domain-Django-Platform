@@ -3477,7 +3477,23 @@ class PremiumMembership(models.Model):
                 .filter(user_id=self.user_id)
                 .first()
             )
-            if profile and profile.assigned_coach_id == self.coach_id:
+            from crush_lu.services.premium_billing import entitled_q
+
+            # Another membership of the same member that still grants Premium
+            # and names this coach owns the assignment now: a lapsed member who
+            # bought again with the same coach before the sweep ended the old row.
+            reassigned = (
+                PremiumMembership.objects.filter(
+                    entitled_q(), user_id=self.user_id, coach_id=self.coach_id
+                )
+                .exclude(pk=self.pk)
+                .exists()
+            )
+            if (
+                profile
+                and profile.assigned_coach_id == self.coach_id
+                and not reassigned
+            ):
                 profile.assigned_coach = None
                 profile.assigned_coach_at = None
                 profile.save(update_fields=["assigned_coach", "assigned_coach_at"])

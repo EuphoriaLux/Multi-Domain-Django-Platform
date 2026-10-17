@@ -204,6 +204,24 @@ class PremiumRenewalLifecycleTests(TestCase):
         self.assertEqual(m.status, "cancelled")
         self.assertIsNone(self.profile.assigned_coach)
 
+    def test_sweep_keeps_coach_reassigned_by_a_newer_membership(self):
+        """Lapsed past grace, not yet swept, bought again with the same coach:
+        ending the stale row must not release the coach the new one assigned."""
+        old = self._confirmed(onboarding_fee=Decimal("10.00"), at=_at(2027, 1, 10))
+        new = PremiumMembership.objects.create(
+            user=self.member, coach=self.coach, status="pending"
+        )
+        with patch("django.utils.timezone.now", return_value=_at(2027, 2, 20)):
+            new.confirm()
+            self.assertEqual(premium_billing.sweep_lapsed(), 1)
+
+        old.refresh_from_db()
+        new.refresh_from_db()
+        self.profile.refresh_from_db()
+        self.assertEqual(old.status, "cancelled")
+        self.assertEqual(new.status, "active")
+        self.assertEqual(self.profile.assigned_coach, self.coach)
+
     def test_admin_endpoint_runs_the_sweep(self):
         self._confirmed(onboarding_fee=Decimal("10.00"), at=_at(2027, 1, 10))
         client = Client(HTTP_HOST="crush.lu")
