@@ -4705,6 +4705,30 @@ def stash_confirmed_email_for_login_prefill(sender, request, email_address, **kw
 
 
 @receiver(user_signed_up)
+def record_signup_funnel_event(sender, request, user, **kwargs):
+    """A17: GA4 ``sign_up`` for every account, email or social (allauth sends
+    this from complete_signup for both). Delivered on the first logged-in page."""
+    from crush_lu.services import funnel_events
+
+    sociallogin = kwargs.get("sociallogin")
+    provider = getattr(getattr(sociallogin, "account", None), "provider", "")
+    funnel_events.record(
+        user.pk,
+        "sign_up",
+        dedupe_key=f"sign_up:{user.pk}",
+        method=provider or "email",
+    )
+
+
+@receiver(user_logged_in)
+def record_login_funnel_event(sender, request, user, **kwargs):
+    """A17: GA4 ``login`` on a real login, not on every dashboard render."""
+    from crush_lu.services import funnel_events
+
+    funnel_events.record(user.pk, "login")
+
+
+@receiver(user_signed_up)
 def record_interactive_social_signup_consent(
     sender, request, user, sociallogin=None, **kwargs
 ):

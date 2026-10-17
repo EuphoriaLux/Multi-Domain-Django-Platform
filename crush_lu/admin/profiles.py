@@ -25,6 +25,7 @@ from modeltranslation.admin import TranslationAdmin
 
 from azureproject.admin_translation_mixin import AutoTranslateMixin
 
+from crush_lu.services import funnel_events
 from crush_lu.models import (
     CrushCoach,
     CrushProfile,
@@ -1583,6 +1584,9 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
             profile.verification_status = "verified"
             if not profile.verification_method:
                 profile.verification_method = "admin"
+            funnel_events.record_profile_verified(
+                profile.user_id, profile.verification_method
+            )
             profile.save(
                 update_fields=[
                     "is_approved",
@@ -2244,6 +2248,10 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
                 if not submission.profile.verification_method:
                     submission.profile.verification_method = "admin"
                 submission.profile.save()
+                funnel_events.record_profile_verified(
+                    submission.profile.user_id,
+                    submission.profile.verification_method,
+                )
                 approved_count += 1
 
             try:

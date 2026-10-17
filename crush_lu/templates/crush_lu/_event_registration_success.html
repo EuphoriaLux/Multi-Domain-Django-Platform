@@ -1,32 +1,22 @@
-{% load i18n analytics %}
+{% load i18n analytics funnel_tags %}
 {% comment %}
-  Conversion tracking — fired on the HTMX swap (gtag/fbq loaded in base.html head).
-  A confirmed RSVP only reserves a spot; for paid events payment is captured later
-  (EventRegistration.payment_confirmed is stamped by the payment flow, not here), so
-  we must NOT report registration_fee as revenue at this point — that would overstate
-  revenue and mis-train paid-campaign optimization on unpaid reservations.
-    - applied (curated)  -> event_application / Lead (no seat, no money owed)
-    - waitlist           -> join_waitlist / Lead
-    - paid + unpaid      -> event_reservation / Schedule (no revenue)
-    - free (or paid-and-already-confirmed) -> purchase with the genuine paid amount
+  Conversion tracking on the HTMX swap. GA4: the view captured the conversion
+  (event_application / join_waitlist / event_registration, never "purchase":
+  revenue is recorded when a payment is PAID, by its transaction reference);
+  {% funnel_events %} delivers it here, once. Meta Pixel events stay inline.
+    - applied (curated)  -> Lead (no seat, no money owed)
+    - waitlist           -> Lead
+    - paid + unpaid      -> Schedule (no revenue)
+    - otherwise          -> Purchase (Meta only)
 {% endcomment %}
+{% funnel_events %}
 {% if registration.status == 'applied' %}
-{% comment %}
-  A curated application is a lead and nothing more: no seat is held and no
-  money is owed yet, so it must fire neither "event_reservation" (there is no
-  reservation) nor "purchase" (which the free-event branch below would
-  otherwise reach, reporting revenue for a place that may never be offered).
-{% endcomment %}
-{% ga4_event "event_application" item_id=event.id item_name=event.title %}
 {% fb_event "Lead" content_name=event.title %}
 {% elif registration.status == 'waitlist' %}
-{% ga4_event "join_waitlist" event_id=event.id item_name=event.title %}
 {% fb_event "Lead" content_name=event.title %}
 {% elif event.registration_fee > 0 and not registration.payment_confirmed %}
-{% ga4_event "event_reservation" item_id=event.id item_name=event.title %}
 {% fb_event "Schedule" content_name=event.title %}
 {% else %}
-{% ga4_event "purchase" transaction_id=registration.id value=event.registration_fee currency="EUR" item_id=event.id item_name=event.title %}
 {% fb_event "Purchase" value=event.registration_fee currency="EUR" content_name=event.title %}
 {% endif %}
 <div id="registration-form-container" class="text-center py-8" role="status" aria-live="polite">

@@ -22,6 +22,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
+from crush_lu.services import funnel_events
 from .decorators import coach_required
 from .models import CrushProfile, EventRegistration, ProfileSubmission
 from .models.events import SEAT_HOLDING_STATUSES
@@ -586,6 +587,7 @@ def event_checkin_api(request, registration_id, token):
             registration.status = "attended"
             registration.checked_in_at = now
             registration.save(update_fields=_CHECKIN_UPDATE_FIELDS)
+            funnel_events.record_attended(registration)
 
             # Attending IS the verification, for the ordinary case. Side effects
             # (referral credit, welcome email) run on commit — never inside the
@@ -1546,6 +1548,7 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
         registration.status = "attended"
         registration.checked_in_at = now
         registration.save(update_fields=_CHECKIN_UPDATE_FIELDS)
+        funnel_events.record_attended(registration)
 
         verified_profile = _auto_verify_on_attendance(request, registration, now)
         auto_verified = verified_profile is not None

@@ -20,6 +20,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
+from crush_lu.services import funnel_events
 from crush_lu.models.events import EventRegistration, MeetupEvent
 from crush_lu.models.payments import EventCheckoutCreationClaim, PaymentTransaction
 
@@ -175,7 +176,7 @@ def record_cash_payment(registration_id, *, actor):
             registration.status = "confirmed"
         registration.save(update_fields=["payment_confirmed", "payment_date", "status"])
 
-        PaymentTransaction.objects.create(
+        cash_payment = PaymentTransaction.objects.create(
             # The admin's CRUSH-MANUAL-<registration id>- shape: reports recover
             # the seat from it once the registration FK is gone.
             transaction_reference=(
@@ -194,6 +195,7 @@ def record_cash_payment(registration_id, *, actor):
                 "method": "cash_at_door",
             },
         )
+        funnel_events.record_purchase(cash_payment)
 
         source = locked.get(registration.resale_source_registration_id)
         resale_credits = settle_pending_resale_credit(

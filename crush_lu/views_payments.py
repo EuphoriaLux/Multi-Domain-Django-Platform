@@ -34,7 +34,7 @@ from crush_lu.services.event_payments import (
     online_payments_paused,
     registration_is_payable,
 )
-from crush_lu.services import premium_recovery
+from crush_lu.services import funnel_events, premium_recovery
 from crush_lu.services.credits import (
     cancellation_policy,
     credit_registration_for_cancelled_event,
@@ -1775,6 +1775,8 @@ def _apply_paid_checkout(tx_obj, data):
         # with the payload that reports the success.
         locked.failure_reason = ""
         locked.save()
+        # A17: once, by reference; after commit (record is on_commit-safe).
+        funnel_events.record_purchase(locked)
 
         # Legacy rows may have lost their registration before the deletion
         # guards in this PR existed. A late provider capture must not become

@@ -33,6 +33,7 @@ from .forms import EventRegistrationForm, EventPreferenceForm, EventFeedbackForm
 from .decorators import crush_login_required, ratelimit
 from .services.attendance_check import awaits_attendance_answer
 from .services.event_payments import online_payments_paused
+from .services import funnel_events
 from .services.event_grouping import (
     count_mutual_matches,
     load_applicants,
@@ -2236,6 +2237,14 @@ def event_register(request, event_id):
                     _attach_unclaimed_resale_claim(registration, locked_event)
 
             messages.add_message(request, *registration_message)
+            funnel_events.record(
+                request.user.id,
+                funnel_events.REGISTRATION_EVENTS.get(
+                    registration.status, "event_registration"
+                ),
+                event_id=event.id,
+                event_type=event.event_type,
+            )
             try:
                 if registration.status == "confirmed":
                     send_event_registration_confirmation(registration, request)

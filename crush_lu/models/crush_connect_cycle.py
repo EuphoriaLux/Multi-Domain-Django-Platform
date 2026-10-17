@@ -406,6 +406,18 @@ class ConnectCoffeeDate(models.Model):
         elif is_p2:
             self.participant_2_confirmed_at = now
 
+        if (
+            self.participant_1_confirmed_at
+            and self.participant_2_confirmed_at
+            and self.status != self.Status.CONFIRMED_BY_BOTH
+        ):
+            from crush_lu.services import funnel_events
+
+            funnel_events.record_mutual_meeting(
+                (self.chat.participant_1_id, self.chat.participant_2_id),
+                pair_key=f"chat:{self.pk}",
+                source="connect_chat",
+            )
         if self.participant_1_confirmed_at and self.participant_2_confirmed_at:
             self.status = self.Status.CONFIRMED_BY_BOTH
             self.meeting_confirmed_at = now

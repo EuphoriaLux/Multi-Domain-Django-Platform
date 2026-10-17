@@ -28,6 +28,7 @@ from modeltranslation.admin import TranslationAdmin
 
 from azureproject.admin_translation_mixin import AutoTranslateMixin
 
+from crush_lu.services import funnel_events
 from crush_lu.models import (
     CuratedEventGroup,
     CuratedEventGroupMembership,
@@ -2988,6 +2989,7 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                             "method": "cash_or_bank_transfer",
                         },
                     )
+                    funnel_events.record_purchase(payment)
 
                 locked_obj = EventRegistration.objects.select_related(
                     "event", "user", "resale_beneficiary"
