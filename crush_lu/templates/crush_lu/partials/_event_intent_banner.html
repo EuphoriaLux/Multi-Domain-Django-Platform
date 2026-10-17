@@ -1,0 +1,27 @@
+{% load i18n %}
+{% comment %}
+A11: the event a member picked before signing up (services/event_intent.py).
+Links to the event page, which re-checks everything and offers the right next
+step; hidden on that event's own page.
+{% endcomment %}
+{% with ev=event_intent.event %}
+{% if event_intent and not request.resolver_match.kwargs.event_id == ev.id %}
+<div class="container mt-4" data-testid="event-intent-banner">
+    <div class="flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-purple-200 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 px-4 py-3 text-purple-900 dark:text-purple-100">
+        {% if event_intent.open %}
+        <p class="flex-1 text-sm">{% blocktrans with title=ev.title %}You were signing up for <strong>{{ title }}</strong>. Pick up where you left off.{% endblocktrans %}</p>
+        <div class="flex items-center gap-3">
+            <a href="{% url 'crush_lu:event_detail' event_id=ev.id %}" class="btn-crush-primary btn-sm">{% trans "Continue registration" %}</a>
+            <form method="post" action="{% url 'crush_lu:event_intent_dismiss' %}">
+                {% csrf_token %}
+                <button type="submit" class="text-xs font-semibold underline opacity-80 hover:opacity-100">{% trans "Not now" %}</button>
+            </form>
+        </div>
+        {% else %}
+        <p class="flex-1 text-sm">{% blocktrans with title=ev.title %}Registration for <strong>{{ title }}</strong> has closed.{% endblocktrans %}</p>
+        <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-outline btn-sm">{% trans "See other events" %}</a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endwith %}

@@ -4,7 +4,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from django.http import Http404, HttpResponse
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 from django.db import IntegrityError, connection, transaction
 from django.db.models import Q
 from datetime import timedelta
@@ -2695,3 +2695,13 @@ def event_feedback(request, event_id):
         "crush_lu/event_feedback.html",
         {"event": event, "submitted": False, "feedback": None, "form": form},
     )
+
+
+@crush_login_required
+@require_POST
+def event_intent_dismiss(request):
+    """Hide the "continue your registration" banner (A11)."""
+    from .services import event_intent
+
+    event_intent.forget(request)
+    return redirect("crush_lu:dashboard")

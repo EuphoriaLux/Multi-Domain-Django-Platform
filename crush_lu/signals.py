@@ -476,6 +476,20 @@ def create_crush_profile_on_login(sender, request, user, **kwargs):
 
 
 @receiver(user_logged_in)
+def restore_event_intent_on_login(sender, request, user, **kwargs):
+    """A11: bring back the event a member picked before signing up, when they
+    verify their email and log in from another browser (services/event_intent)."""
+    if request is None or not hasattr(request, "session"):
+        return
+    from crush_lu.services import event_intent
+
+    try:
+        event_intent.restore_on_login(request, user)
+    except Exception:  # noqa: BLE001 - a cache fault must not break login
+        logger.warning("Could not restore event intent on login", exc_info=True)
+
+
+@receiver(user_logged_in)
 def sync_language_preference_on_login(sender, request, user, **kwargs):
     """
     Sync session language to CrushProfile.preferred_language on login.
