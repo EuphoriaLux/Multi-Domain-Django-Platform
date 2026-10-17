@@ -1040,7 +1040,9 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 ),
                 "description": (
                     "Set all three gender caps to activate gender-aware waitlisting. "
-                    "Leave all blank for total-only cap."
+                    "Leave all blank for total-only cap. Guests (allow plus ones) "
+                    "are switched off site-wide for now: the box is kept but has "
+                    "no effect until EVENT_GUESTS_ENABLED is on."
                 ),
             },
         ),

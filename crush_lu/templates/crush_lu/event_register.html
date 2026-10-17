@@ -104,8 +104,8 @@
         </div>
         {% endif %}
 
-        <!-- Plus-One (Conditional) -->
-        {% if event.allow_plus_ones %}
+        <!-- Plus-One (Conditional; off site-wide, see MeetupEvent.guests_open) -->
+        {% if event.guests_open %}
         <div class="form-group">
             <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">
                 <svg class="w-5 h-5 text-crush-purple" fill="currentColor" viewBox="0 0 20 20">

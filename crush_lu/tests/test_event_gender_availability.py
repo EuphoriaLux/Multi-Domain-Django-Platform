@@ -20,7 +20,7 @@ Run with: pytest crush_lu/tests/test_event_gender_availability.py -v
 from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
 User = get_user_model()
@@ -694,6 +694,9 @@ class GenderPoolPremiumReservedSeatTests(GenderPoolAvailabilityTestBase):
         self.assertNotContains(response, "A seat is reserved for you")
 
 
+# Guests are off site-wide (EVENT_GUESTS_ENABLED); the fixture below needs the
+# guest fields back to reach a validation error.
+@override_settings(EVENT_GUESTS_ENABLED=True)
 class WaitlistCtaSurvivesAValidationErrorTests(GenderPoolAvailabilityTestBase):
     """The HTMX re-render must not undo the corrected button.
 
