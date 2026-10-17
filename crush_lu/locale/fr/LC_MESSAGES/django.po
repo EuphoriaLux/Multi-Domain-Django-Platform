@@ -46108,3 +46108,38 @@ msgstr "Comprend une séance de bilan avec votre coach. Après votre premier moi
 #: crush_lu/templates/crush_lu/premium/choose_coach.html
 msgid "No onboarding fee: you were verified at an event. Your second month is free."
 msgstr "Pas de frais d'accueil : vous avez été vérifié·e lors d'un événement. Votre deuxième mois est offert."
+
+#: crush_lu/views_premium.py
+#, python-format
+msgid "Your Premium will not renew. You keep it, and your coach, until %(date)s."
+msgstr "Votre Premium ne sera pas renouvelé. Vous le gardez, ainsi que votre coach, jusqu'au %(date)s."
+
+#: crush_lu/views_premium.py
+msgid "There is no Premium renewal to cancel."
+msgstr "Il n'y a aucun renouvellement Premium à annuler."
+
+#: crush_lu/views_premium.py
+msgid "Your Premium will renew as before."
+msgstr "Votre Premium sera renouvelé comme avant."
+
+#: crush_lu/views_premium.py
+msgid "There is no cancelled Premium to resume."
+msgstr "Il n'y a aucun Premium annulé à reprendre."
+
+#: crush_lu/templates/crush_lu/membership.html
+#, python-format
+msgid "Your Premium ends on %(date)s and will not renew."
+msgstr "Votre Premium se termine le %(date)s et ne sera pas renouvelé."
+
+#: crush_lu/templates/crush_lu/membership.html
+msgid "Keep Premium"
+msgstr "Garder Premium"
+
+#: crush_lu/templates/crush_lu/membership.html
+#, python-format
+msgid "Renews on %(date)s."
+msgstr "Renouvelé le %(date)s."
+
+#: crush_lu/templates/crush_lu/membership.html
+msgid "Cancel renewal"
+msgstr "Annuler le renouvellement"

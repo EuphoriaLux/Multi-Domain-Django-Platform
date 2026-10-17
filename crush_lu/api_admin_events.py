@@ -162,3 +162,17 @@ def echo_lu_sync_sweep(request):
     and no API calls in the steady state.
     """
     return _run(request, "echo_lu_sync", "sync_events_to_echo")
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def premium_lapse_sweep(request):
+    """POST /api/admin/premium-lapse-sweep/
+
+    End Premium memberships whose paid period, plus the renewal grace, is over
+    (``sweep_premium_lapses``). Not an event job, but the same thin wrapper.
+    Invoked hourly by the ``PremiumLapseSweep`` Azure Function timer, which
+    ships dormant until its URL is set after the swap that ships this route.
+    Idempotent: an ended membership is no longer selected.
+    """
+    return _run(request, "premium_lapse_sweep", "sweep_premium_lapses")

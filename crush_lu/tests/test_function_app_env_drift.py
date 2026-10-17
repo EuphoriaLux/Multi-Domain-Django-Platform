@@ -51,7 +51,10 @@ LOCAL_SETTINGS_EXAMPLE = FUNCTION_APP_DIR / "local.settings.json.example"
 # required in the docstring and local.settings.json.example, and the tests
 # below prove each entry really is dormant-capable and really is absent from
 # both scripts. Every other timer keeps the full check.
-DEFERRED_URLS = {"DJANGO_SUMUP_RECONCILIATION_URL"}
+DEFERRED_URLS = {
+    "DJANGO_SUMUP_RECONCILIATION_URL",
+    "DJANGO_PREMIUM_LAPSE_SWEEP_URL",
+}
 
 
 def _declared_env_vars() -> set[str]:

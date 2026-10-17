@@ -45982,3 +45982,38 @@ msgstr "Inklusive Coach-Review-Session. Nach deinem kostenlosen ersten Monat kos
 #: crush_lu/templates/crush_lu/premium/choose_coach.html
 msgid "No onboarding fee: you were verified at an event. Your second month is free."
 msgstr "Keine Onboarding-Gebühr: Du wurdest bei einem Event verifiziert. Dein zweiter Monat ist gratis."
+
+#: crush_lu/views_premium.py
+#, python-format
+msgid "Your Premium will not renew. You keep it, and your coach, until %(date)s."
+msgstr "Dein Premium wird nicht verlängert. Du behältst es, und deinen Coach, bis zum %(date)s."
+
+#: crush_lu/views_premium.py
+msgid "There is no Premium renewal to cancel."
+msgstr "Es gibt keine Premium-Verlängerung zum Kündigen."
+
+#: crush_lu/views_premium.py
+msgid "Your Premium will renew as before."
+msgstr "Dein Premium wird wie bisher verlängert."
+
+#: crush_lu/views_premium.py
+msgid "There is no cancelled Premium to resume."
+msgstr "Es gibt kein gekündigtes Premium zum Fortsetzen."
+
+#: crush_lu/templates/crush_lu/membership.html
+#, python-format
+msgid "Your Premium ends on %(date)s and will not renew."
+msgstr "Dein Premium endet am %(date)s und wird nicht verlängert."
+
+#: crush_lu/templates/crush_lu/membership.html
+msgid "Keep Premium"
+msgstr "Premium behalten"
+
+#: crush_lu/templates/crush_lu/membership.html
+#, python-format
+msgid "Renews on %(date)s."
+msgstr "Wird am %(date)s verlängert."
+
+#: crush_lu/templates/crush_lu/membership.html
+msgid "Cancel renewal"
+msgstr "Verlängerung kündigen"

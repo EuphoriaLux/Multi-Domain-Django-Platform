@@ -76,6 +76,26 @@
                 </ul>
                 {% if is_premium %}
                 <span class="inline-flex items-center justify-center w-full py-2.5 rounded-xl bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-sm font-semibold">✓ {% trans "Your plan" %}</span>
+                {% with pm=active_premium_membership %}
+                {% if pm and pm.current_period_end %}
+                {# services/premium_billing.py: cancel keeps Premium to the period end; undo until then. #}
+                <div class="mt-3 text-sm text-center" data-testid="premium-renewal">
+                    {% if pm.cancel_at_period_end %}
+                    <p class="text-muted-fg mb-2">{% blocktrans with date=pm.current_period_end|date:"DATE_FORMAT" %}Your Premium ends on {{ date }} and will not renew.{% endblocktrans %}</p>
+                    <form method="post" action="{% url 'crush_lu:premium_resume_renewal' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-crush-outline btn-block">{% trans "Keep Premium" %}</button>
+                    </form>
+                    {% else %}
+                    <p class="text-muted-fg mb-2">{% blocktrans with date=pm.current_period_end|date:"DATE_FORMAT" %}Renews on {{ date }}.{% endblocktrans %}</p>
+                    <form method="post" action="{% url 'crush_lu:premium_cancel_renewal' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="text-xs font-semibold text-muted-fg underline">{% trans "Cancel renewal" %}</button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% endwith %}
                 {% if premium_recovery_case %}<div class="mt-3">{% include "crush_lu/partials/_premium_recovery_notice.html" %}</div>{% endif %}
                 {% elif premium_recovery_case %}
                 {# #925: payment captured, not applied -- D1 notice, never a pay CTA #}

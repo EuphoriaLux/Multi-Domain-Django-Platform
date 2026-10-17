@@ -1350,8 +1350,12 @@ class CrushProfile(models.Model):
         auto-assign signal), so ``assigned_coach`` only expresses the service
         relationship; every Premium entitlement gate must key off this property.
         """
+        from crush_lu.services.premium_billing import entitled_q
+
+        # Lazy expiry: a period that ended (past grace) stops granting Premium
+        # here even before the lapse sweep marks the row cancelled.
         return PremiumMembership.objects.filter(
-            user_id=self.user_id, status="active"
+            entitled_q(), user_id=self.user_id
         ).exists()
 
     @classmethod
@@ -3323,6 +3327,19 @@ class PremiumMembership(models.Model):
             "includes a coach review session"
         ),
     )
+    # Billing period (services/premium_billing.py). NULL never expires: the
+    # testers comped by migration 0184 and memberships confirmed before
+    # renewals existed keep Premium with no data migration stamping them.
+    current_period_end = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=_("End of the paid period; empty means the membership never expires"),
+    )
+    cancel_at_period_end = models.BooleanField(
+        default=False,
+        help_text=_("The member cancelled: Premium ends at the period end, no renewal"),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -3357,7 +3374,23 @@ class PremiumMembership(models.Model):
                     "This coach has reached their premium member capacity."
                 )
 
+            from crush_lu.services.premium_billing import (
+                add_months,
+                first_period_months,
+            )
+            from crush_lu.views_premium import premium_onboarding_fee
+
             now = timezone.now()
+            # A staff/cash confirm never went through checkout, so it has no
+            # recorded onboarding fee yet: the member's current status decides.
+            onboarding_fee = locked.onboarding_fee
+            if onboarding_fee is None:
+                onboarding_fee = premium_onboarding_fee(self.user)
+            self.onboarding_fee = onboarding_fee
+            self.current_period_end = add_months(
+                now, first_period_months(onboarding_fee)
+            )
+            self.cancel_at_period_end = False
             self.status = "active"
             self.payment_confirmed = True
             self.payment_date = now
@@ -3368,6 +3401,9 @@ class PremiumMembership(models.Model):
                     "payment_confirmed",
                     "payment_date",
                     "confirmed_by",
+                    "onboarding_fee",
+                    "current_period_end",
+                    "cancel_at_period_end",
                 ]
             )
 
