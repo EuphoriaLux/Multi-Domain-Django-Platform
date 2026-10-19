@@ -19,7 +19,7 @@ psycopg2-binary==2.9.13  # Updated from 2.9.10 (security & bug fixes)
 django-allauth==65.19.7  # Updated from 65.1.0 (latest stable)
 PyJWT==2.15.1  # Updated from 2.11.0 (CVE-2026-32597: crit header bypass)
 cryptography>=50.0.2  # Required for JWT token verification with RSA keys (CVE-2026-26007, OpenSSL fixes)
-google-auth==2.61.0  # Required for Google Wallet API authentication
+google-auth==2.62.0  # Required for Google Wallet API authentication
 
 # Analytics reporting (GA4 Data API + Search Console) — used by scripts/ga4_report.py,
 # gsc_report.py, seo_funnel_report.py for SEO/traffic reporting.
@@ -35,7 +35,7 @@ azure-identity==1.26.0  # Managed Identity & Azure CLI authentication
 
 # Image processing
 Pillow==12.3.0  # Updated from 11.0.0 (security fixes)
-pillow-heif==1.8.0  # HEIC/HEIF decoding support for iOS uploads
+pillow-heif==1.8.1  # HEIC/HEIF decoding support for iOS uploads
 olefile==0.47
 # MIME type detection - platform-specific packages
 # Linux (Azure): python-magic requires libmagic1 (pre-installed on most Linux distros)
@@ -63,7 +63,7 @@ reportlab==5.0.1  # Printable QR sheets (Advent + Crush Cache)
 
 
 # Push Notifications
-py-vapid==1.9.4
+py-vapid==1.9.6
 pywebpush==2.5.0
 
 # Azure Application Insights - SDK-based for exception filtering
@@ -82,4 +82,4 @@ pytest==9.1.1
 pytest-django==4.14.0
 pytest-playwright==0.10.0
 pytest-mock==3.16.0  # Provides 'mocker' fixture for mocking
-playwright==1.63.0
+playwright==1.64.0

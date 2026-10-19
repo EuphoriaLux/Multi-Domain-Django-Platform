@@ -21,6 +21,7 @@ from crush_lu.connect_phase import (
 from crush_lu.decorators import coach_required, crush_login_required
 from crush_lu.email_helpers import send_crush_connect_catalogue_welcome
 from crush_lu.models import CrushConnectMembership, CrushProfile, EventRegistration
+from crush_lu.services import funnel_events
 from crush_lu.services.premium_billing import entitled_q
 from crush_lu.onboarding_connect import (
     CONNECT_STEPS,
@@ -566,6 +567,11 @@ def crush_connect_onboarding_step(request, step: int):
                         "onboarding_step",
                         "onboarding_started_at",
                     ]
+                )
+                funnel_events.record(
+                    request.user.id,
+                    "connect_activated",
+                    dedupe_key=f"connect_activated:{request.user.id}",
                 )
                 _emit_onboarding_complete(request, done_url)
                 # Member is now in the pool — refresh compatibility highlights.

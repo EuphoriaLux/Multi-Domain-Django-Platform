@@ -10,7 +10,7 @@
 
 {% block content %}
 {% if profile %}{% appinsights_event "dashboard_viewed" profile_approved=profile.is_approved %}{% else %}{% appinsights_event "dashboard_viewed" profile_approved="no_profile" %}{% endif %}
-{% ga4_event "login" %}
+{# GA4 "login" is captured on the real login (services/funnel_events.py), not on every render. #}
 
 {# ─── 1. Header ─── #}
 <div class="flex flex-row justify-between items-start gap-3 mb-4 sm:mb-5">
