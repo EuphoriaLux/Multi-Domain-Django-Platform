@@ -55,6 +55,7 @@ from crush_lu.models import (
 )
 from crush_lu.models.crush_connect_cycle import ConnectWeeklyRequest, ConnectWeekSession
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
+from crush_lu.services.premium_billing import entitled_q
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -153,10 +154,14 @@ GRANTS: dict[str, tuple[str, ...]] = {
         "amount_cents",
         "redeemed_at",
     ),
+    # The billing period decides whether an ``active`` row still grants
+    # Premium (premium_billing.entitled_q). A timestamp and a flag, no amounts.
     "crush_lu_premiummembership": (
         "id",
         "user_id",
         "status",
+        "current_period_end",
+        "cancel_at_period_end",
         "created_at",
     ),
     "crush_lu_crushconnectmembership": (
@@ -1073,10 +1078,10 @@ def _paid_event_user_ids(alias: str, user_ids) -> set[int]:
     )
 
 
-def _flag_user_ids(model, alias: str, user_ids, **filters) -> set[int]:
+def _flag_user_ids(model, alias: str, user_ids, *conditions, **filters) -> set[int]:
     return set(
         model.objects.using(alias)
-        .filter(user_id__in=list(user_ids), **filters)
+        .filter(*conditions, user_id__in=list(user_ids), **filters)
         .order_by()
         .values_list("user_id", flat=True)
     )
@@ -1149,7 +1154,11 @@ def definitions() -> dict:
             ),
             "luxid_linked": "a LuxID social account (native or LuxID OIDC app) is connected",
             "connect_onboarded": "CrushConnectMembership.onboarded_at is set",
-            "premium_active": "a PremiumMembership with status 'active'",
+            "premium_active": (
+                "a PremiumMembership that grants Premium now: status 'active' and "
+                "either no period end (never expires) or before its period end, "
+                "plus the renewal grace unless the member cancelled"
+            ),
             "kpi_weekly": (
                 "Persisted WeeklyMetricsSnapshot payloads from the Monday job; these are "
                 "NOT filtered to real members, so they can differ from the other tools."
@@ -1253,7 +1262,7 @@ def funnel(start: date, end: date, grain: str = "week") -> dict:
     connect = _flag_user_ids(
         CrushConnectMembership, alias, user_ids, onboarded_at__isnull=False
     )
-    premium = _flag_user_ids(PremiumMembership, alias, user_ids, status="active")
+    premium = _flag_user_ids(PremiumMembership, alias, user_ids, entitled_q())
 
     stages = (
         "signups",
@@ -1626,7 +1635,7 @@ def payments(start: date, end: date, grain: str = "month") -> dict:
     )
     premium_active_now = (
         PremiumMembership.objects.using(alias)
-        .filter(status="active")
+        .filter(entitled_q())
         .filter(user_id__in=_with_profile(alias))
         .exclude(user_id__in=excluded)
         .order_by()
@@ -1968,7 +1977,7 @@ def members(
         .annotate(n=Count("id"))
         .values_list("user_id", "n")
     )
-    premium = _flag_user_ids(PremiumMembership, alias, user_ids, status="active")
+    premium = _flag_user_ids(PremiumMembership, alias, user_ids, entitled_q())
     connect_ids = _flag_user_ids(
         CrushConnectMembership, alias, user_ids, onboarded_at__isnull=False
     )

@@ -4,8 +4,9 @@ Tests for the weekly KPI snapshot service, command, and email.
 Run with: pytest crush_lu/tests/test_weekly_kpis.py -v
 """
 
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core import mail
@@ -229,6 +230,45 @@ class ComputeWeeklySnapshotTests(TestCase):
         # And the next-week rows are attributed to no in-week "new" bucket.
         self.assertEqual(m["new_connect_optins"], 1)
         self.assertEqual(m["waitlist_new"], 1)
+
+    def test_premium_total_keeps_a_membership_that_lapsed_after_the_week(self):
+        # Codex #1277: the lapse sweep flips the row to "cancelled", so a total
+        # read from the current status lost the weeks it was entitled.
+        from crush_lu.models import CrushCoach, PremiumMembership
+        from crush_lu.services import premium_billing
+
+        coach = CrushCoach.objects.create(
+            user=self.out_user,
+            is_active=True,
+            accepting_premium=True,
+            max_premium_members=5,
+        )
+        membership = PremiumMembership.objects.create(
+            user=self.in_user,
+            coach=coach,
+            status="pending",
+            onboarding_fee=Decimal("10.00"),
+        )
+        # Paid 16 May: the free month ends 16 June, the grace on 19 June,
+        # inside the week after WEEK_START.
+        with patch("django.utils.timezone.now", return_value=_aware(date(2026, 5, 16))):
+            membership.confirm()
+        # The sweep runs late, after that next week has ended.
+        swept_at = _aware(date(2026, 6, 22), hour=9)
+        with patch("django.utils.timezone.now", return_value=swept_at):
+            self.assertEqual(premium_billing.sweep_lapsed(), 1)
+        membership.refresh_from_db()
+        self.assertEqual(membership.status, "cancelled")
+        self.assertEqual(membership.ended_at, swept_at)
+
+        def total(week_start):
+            revenue = compute_weekly_snapshot(week_start)["revenue"]
+            return revenue["total_active_premium"]
+
+        self.assertEqual(total(WEEK_START), 1)
+        # Its grace ran out on the Friday: no longer Premium that Sunday, even
+        # though the row was only ended the Monday after.
+        self.assertEqual(total(WEEK_START + timedelta(days=7)), 0)
 
     def test_paid_registration_kpi_uses_immutable_cash_capture_time(self):
         event = MeetupEvent.objects.create(

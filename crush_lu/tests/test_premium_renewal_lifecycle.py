@@ -275,6 +275,7 @@ class PremiumRenewalLifecycleTests(TestCase):
         self.assertEqual(m.status, "cancelled")
         self.assertTrue(m.payment_confirmed)
         self.assertEqual(m.payment_date, _at(2027, 1, 10))
+        self.assertEqual(m.ended_at, _at(2027, 2, 14))
 
     def test_expired_unswept_membership_frees_its_coach_seat(self):
         self.coach.max_premium_members = 1

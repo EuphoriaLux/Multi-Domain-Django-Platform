@@ -3344,6 +3344,17 @@ class PremiumMembership(models.Model):
         default=False,
         help_text=_("The member cancelled: Premium ends at the period end, no renewal"),
     )
+    # When cancel_active() took the row out of ``active``; the weekly KPI reads
+    # it to count a membership in the weeks before it ended. A lapse sweep that
+    # runs late stamps its own run time: the period fields above still bound
+    # the entitlement (premium_billing.entitled_as_of_q), so do not backdate it.
+    ended_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_(
+            "When the active membership was ended (lapse, refund, cancellation)"
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -3481,14 +3492,22 @@ class PremiumMembership(models.Model):
             if locked.status != "active":
                 return False
             self.status = "cancelled"
+            self.ended_at = timezone.now()
             if keep_payment_record:
                 # A membership that simply ran out was still paid for: KPIs
                 # and the data export read these fields (premium_billing sweep).
-                self.save(update_fields=["status"])
+                self.save(update_fields=["status", "ended_at"])
             else:
                 self.payment_confirmed = False
                 self.payment_date = None
-                self.save(update_fields=["status", "payment_confirmed", "payment_date"])
+                self.save(
+                    update_fields=[
+                        "status",
+                        "ended_at",
+                        "payment_confirmed",
+                        "payment_date",
+                    ]
+                )
 
             profile = (
                 CrushProfile.objects.select_for_update()

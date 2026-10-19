@@ -498,6 +498,40 @@ class ToolTests(AnalyticsFixture):
         self.assertEqual(data["credits_redeemed"], {"count": 1, "amount_eur": 5.0})
         self.assertEqual(data["premium"]["active_now"], 1)
 
+    def test_premium_active_follows_the_billing_period(self):
+        # Codex #1277: past its grace an unpaid period is no longer Premium,
+        # though the row reads status="active" until the lapse sweep runs.
+        now = timezone.now()
+        for user, period_end, cancelled in (
+            (self.alice, now - timedelta(days=10), False),  # grace over
+            (self.carol, now - timedelta(days=1), False),  # inside the grace
+            (self.dave, now - timedelta(days=1), True),  # cancelled: no grace
+        ):
+            PremiumMembership.objects.create(
+                user=user,
+                coach=self.coach,
+                status="active",
+                current_period_end=period_end,
+                cancel_at_period_end=cancelled,
+            )
+        # bob's membership has no period end and never expires.
+        self.assertEqual(self.data("funnel")["totals"]["premium_active"], 2)
+        self.assertEqual(self.data("payments")["premium"]["active_now"], 2)
+        rows = {r["member"]: r for r in self.data("members")["members"]}
+        premium = {
+            user.email: rows[analytics.pseudonym(user.id)]["premium_active"]
+            for user in (self.alice, self.bob, self.carol, self.dave)
+        }
+        self.assertEqual(
+            premium,
+            {
+                "alice@crush.lu": False,
+                "bob@crush.lu": True,
+                "carol@crush.lu": True,
+                "dave@crush.lu": False,
+            },
+        )
+
     def test_connect_and_retention(self):
         self.assertEqual(self.data("connect")["memberships"]["onboarded_total"], 1)
         retention = self.data("retention")

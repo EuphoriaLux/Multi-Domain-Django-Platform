@@ -77,19 +77,41 @@ def entitled_q(prefix="", now=None):
     every condition applies to the same membership row.
     """
     now = now or timezone.now()
+    return Q(**{f"{prefix}status": "active"}) & _in_period_q(prefix, now)
+
+
+def entitled_as_of_q(moment, prefix=""):
+    """``Q`` for memberships that granted Premium at ``moment``, which may be
+    in the past (the weekly KPI asks as of each Sunday).
+
+    A row ended since then (``ended_at`` later than ``moment``) still counts.
+    The period fields as they are now answer for an earlier moment too: a
+    renewal is only recorded while the row is still entitled, and cancelling
+    is refused once the period end has passed, so the entitlement is a single
+    unbroken stretch up to the current period end (plus the grace when it
+    renews). It does not bound the start: callers filter ``payment_date``.
+    """
+    return (
+        Q(**{f"{prefix}status": "active"}) | Q(**{f"{prefix}ended_at__gt": moment})
+    ) & _in_period_q(prefix, moment)
+
+
+def _in_period_q(prefix, moment):
+    """The period half of entitlement: no period end, or ``moment`` before it
+    (plus the grace unless the member cancelled)."""
     p = prefix
-    return Q(**{f"{p}status": "active"}) & (
+    return (
         Q(**{f"{p}current_period_end__isnull": True})
         | Q(
             **{
                 f"{p}cancel_at_period_end": False,
-                f"{p}current_period_end__gt": now - grace_period(),
+                f"{p}current_period_end__gt": moment - grace_period(),
             }
         )
         | Q(
             **{
                 f"{p}cancel_at_period_end": True,
-                f"{p}current_period_end__gt": now,
+                f"{p}current_period_end__gt": moment,
             }
         )
     )

@@ -3075,6 +3075,8 @@ def _export_member_activity(user):
             # member cancelled the renewal (null: never expires).
             "current_period_end": _iso_or_none(premium.current_period_end),
             "cancel_at_period_end": premium.cancel_at_period_end,
+            # When an active membership was ended (null: never ended).
+            "ended_at": _iso_or_none(premium.ended_at),
             "coach": (
                 premium.coach.user.first_name or None if premium.coach_id else None
             ),

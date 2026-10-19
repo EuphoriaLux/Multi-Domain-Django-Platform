@@ -2840,7 +2840,7 @@ class PremiumMembershipAdmin(admin.ModelAdmin):
         "coach__user__last_name",
     )
     raw_id_fields = ("user", "coach")
-    readonly_fields = ("payment_date", "confirmed_by", "created_at")
+    readonly_fields = ("payment_date", "confirmed_by", "ended_at", "created_at")
     actions = ("confirm_payment",)
 
     @admin.action(description=_("Confirm payment & assign coach"))
