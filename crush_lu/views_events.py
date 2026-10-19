@@ -4,7 +4,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from django.http import Http404, HttpResponse
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 from django.db import IntegrityError, connection, transaction
 from django.db.models import Q
 from datetime import timedelta
@@ -2710,3 +2710,24 @@ def event_feedback(request, event_id):
         "crush_lu/event_feedback.html",
         {"event": event, "submitted": False, "feedback": None, "form": form},
     )
+
+
+@crush_login_required
+@require_POST
+def event_intent_dismiss(request):
+    """Hide the "continue your registration" banner (A11)."""
+    from .services import event_intent
+
+    from django.http import HttpResponse
+    from django.utils.http import url_has_allowed_host_and_scheme
+
+    event_intent.forget(request)
+    # HTMX dismisses in place, so an unsaved form on the page is kept.
+    if request.headers.get("HX-Request"):
+        return HttpResponse("")
+    target = request.POST.get("next", "")
+    if url_has_allowed_host_and_scheme(
+        target, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return redirect(target)
+    return redirect("crush_lu:dashboard")

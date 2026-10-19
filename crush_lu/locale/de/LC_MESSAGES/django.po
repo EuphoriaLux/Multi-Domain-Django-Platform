@@ -45960,6 +45960,28 @@ msgstr "Die Online-Zahlung für Premium ist vorübergehend ausgesetzt. Wir melde
 msgid "A card checkout was opened for this seat a moment ago. Try again in a few seconds."
 msgstr "Für diesen Platz wurde gerade eine Kartenzahlung geöffnet. In ein paar Sekunden erneut versuchen."
 
+#: crush_lu/templates/crush_lu/partials/_event_intent_banner.html
+#, python-format
+msgid "You were signing up for <strong>%(title)s</strong>. Pick up where you left off."
+msgstr "Du wolltest dich für <strong>%(title)s</strong> anmelden. Mach dort weiter, wo du aufgehört hast."
+
+#: crush_lu/templates/crush_lu/partials/_event_intent_banner.html
+msgid "Continue registration"
+msgstr "Anmeldung fortsetzen"
+
+#: crush_lu/templates/crush_lu/partials/_event_intent_banner.html
+#, python-format
+msgid "Registration for <strong>%(title)s</strong> has closed."
+msgstr "Die Anmeldung für <strong>%(title)s</strong> ist geschlossen."
+
+#: crush_lu/templates/crush_lu/partials/_event_intent_banner.html
+msgid "See other events"
+msgstr "Andere Events ansehen"
+
+#: crush_lu/templates/crush_lu/partials/_event_intent_banner.html
+msgid "Continue application"
+msgstr "Bewerbung fortsetzen"
+
 #: crush_lu/templates/crush_lu/membership.html
 #, python-format
 msgid "€%(amount)s one-time onboarding with a coach review session, then your first month is free"

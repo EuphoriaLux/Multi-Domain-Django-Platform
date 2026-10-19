@@ -238,7 +238,7 @@
                                 <p class="text-gray-600 dark:text-gray-300 text-sm sm:text-base">
                                     <strong>{{ event.canton|default:"Luxembourg" }}</strong>
                                 </p>
-                                    <a href="{% url 'crush_lu:signup' %}" class="btn-crush-outline btn-sm mt-2 inline-flex items-center gap-1.5">
+                                    <a href="{% url 'crush_lu:signup' %}?event={{ event.id }}" class="btn-crush-outline btn-sm mt-2 inline-flex items-center gap-1.5">
                                         <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
                                         {% trans "Sign up to reveal the exact location" %}
                                     </a>
@@ -990,7 +990,7 @@
                     <div class="space-y-3">
                         <p class="text-sm text-gray-700 dark:text-gray-200">{% trans "Apply for a place. There is no payment now, and selection is not guaranteed." %}</p>
                         <a href="{% url 'crush_lu:login' %}?next={{ request.path }}" class="btn-crush-primary btn-block text-center">{% trans "Log in to apply" %}</a>
-                        <p class="text-sm text-gray-700 dark:text-gray-200">{% trans "New to Crush.lu?" %} <a href="{% url 'crush_lu:signup' %}" class="font-semibold text-crush-purple dark:text-purple-400 underline">{% trans "Sign up" %}</a></p>
+                        <p class="text-sm text-gray-700 dark:text-gray-200">{% trans "New to Crush.lu?" %} <a href="{% url 'crush_lu:signup' %}?event={{ event.id }}" class="font-semibold text-crush-purple dark:text-purple-400 underline">{% trans "Sign up" %}</a></p>
                     </div>
                     {% else %}
                     <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-3 sm:p-4">
@@ -1001,7 +1001,7 @@
                             <div class="flex-1">
                                 <p class="text-xs sm:text-sm">
                                     <a href="{% url 'crush_lu:login' %}?next={{ request.path }}" class="font-semibold underline text-blue-800 hover:text-blue-900 dark:text-blue-200 dark:hover:text-blue-100">{% trans "Log in" %}</a> {% trans "or" %}
-                                    <a href="{% url 'crush_lu:signup' %}" class="font-semibold underline text-blue-800 hover:text-blue-900 dark:text-blue-200 dark:hover:text-blue-100">{% trans "sign up" %}</a>
+                                    <a href="{% url 'crush_lu:signup' %}?event={{ event.id }}" class="font-semibold underline text-blue-800 hover:text-blue-900 dark:text-blue-200 dark:hover:text-blue-100">{% trans "sign up" %}</a>
                                     {% if event.uses_curated_registration %}{% trans "to apply for this event." %}{% else %}{% trans "to register for this event." %}{% endif %}
                                 </p>
                             </div>
