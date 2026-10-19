@@ -389,12 +389,16 @@ class CrushCoach(models.Model):
     def get_premium_members_count(self):
         """Number of ACTIVE paid/comped premium members with this coach.
 
-        Counts ``PremiumMembership(status='active')`` rows, NOT
+        Counts ``PremiumMembership`` rows that grant Premium, NOT
         ``assigned_members`` — coach assignment also happens without payment
         (0150 backfill, attendance auto-assign), and counting those would
         wrongly exhaust ``max_premium_members`` capacity.
         """
-        return self.premium_memberships.filter(status="active").count()
+        # Memberships that still grant Premium (services/premium_billing): an
+        # expired one stops holding a seat even if the lapse sweep never ran.
+        from crush_lu.services.premium_billing import entitled_q
+
+        return self.premium_memberships.filter(entitled_q()).count()
 
     def can_accept_premium(self):
         """Whether this coach is available to be chosen by a new premium member."""
@@ -1350,8 +1354,12 @@ class CrushProfile(models.Model):
         auto-assign signal), so ``assigned_coach`` only expresses the service
         relationship; every Premium entitlement gate must key off this property.
         """
+        from crush_lu.services.premium_billing import entitled_q
+
+        # Lazy expiry: a period that ended (past grace) stops granting Premium
+        # here even before the lapse sweep marks the row cancelled.
         return PremiumMembership.objects.filter(
-            user_id=self.user_id, status="active"
+            entitled_q(), user_id=self.user_id
         ).exists()
 
     @classmethod
@@ -3323,6 +3331,34 @@ class PremiumMembership(models.Model):
             "includes a coach review session"
         ),
     )
+    # Billing period (services/premium_billing.py). NULL never expires: the
+    # testers comped by migration 0184 and memberships confirmed before
+    # renewals existed keep Premium with no data migration stamping them.
+    current_period_end = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=_("End of the paid period; empty means the membership never expires"),
+    )
+    # db_default too: migrations run on the production database at swap
+    # warm-up, and code from before this column (still serving then, or back
+    # after a rollback re-swap) inserts rows without it.
+    cancel_at_period_end = models.BooleanField(
+        default=False,
+        db_default=False,
+        help_text=_("The member cancelled: Premium ends at the period end, no renewal"),
+    )
+    # When cancel_active() took the row out of ``active``; the weekly KPI reads
+    # it to count a membership in the weeks before it ended. A lapse sweep that
+    # runs late stamps its own run time: the period fields above still bound
+    # the entitlement (premium_billing.entitled_as_of_q), so do not backdate it.
+    ended_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_(
+            "When the active membership was ended (lapse, refund, cancellation)"
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -3332,6 +3368,15 @@ class PremiumMembership(models.Model):
 
     def __str__(self):
         return f"{self.user.email} → {self.coach} ({self.get_status_display()})"
+
+    @property
+    def renewal_overdue(self):
+        """The period ended unpaid and the renewal grace is running."""
+        return (
+            self.current_period_end is not None
+            and not self.cancel_at_period_end
+            and self.current_period_end <= timezone.now()
+        )
 
     def confirm(self, by_user=None):
         """Confirm payment and permanently assign the chosen coach.
@@ -3357,7 +3402,23 @@ class PremiumMembership(models.Model):
                     "This coach has reached their premium member capacity."
                 )
 
+            from crush_lu.services.premium_billing import (
+                add_months,
+                first_period_months,
+            )
+            from crush_lu.views_premium import premium_onboarding_fee
+
             now = timezone.now()
+            # A staff/cash confirm never went through checkout, so it has no
+            # recorded onboarding fee yet: the member's current status decides.
+            onboarding_fee = locked.onboarding_fee
+            if onboarding_fee is None:
+                onboarding_fee = premium_onboarding_fee(self.user)
+            self.onboarding_fee = onboarding_fee
+            self.current_period_end = add_months(
+                now, first_period_months(onboarding_fee)
+            )
+            self.cancel_at_period_end = False
             self.status = "active"
             self.payment_confirmed = True
             self.payment_date = now
@@ -3368,6 +3429,9 @@ class PremiumMembership(models.Model):
                     "payment_confirmed",
                     "payment_date",
                     "confirmed_by",
+                    "onboarding_fee",
+                    "current_period_end",
+                    "cancel_at_period_end",
                 ]
             )
 
@@ -3400,7 +3464,7 @@ class PremiumMembership(models.Model):
             self.save(update_fields=["status"])
         return True
 
-    def cancel_active(self, reason=""):
+    def cancel_active(self, reason="", keep_payment_record=False):
         """End an ``active`` membership and give back the coach it assigned.
 
         The counterpart to :meth:`confirm`, and the one guarded door for ending a
@@ -3432,16 +3496,45 @@ class PremiumMembership(models.Model):
             if locked.status != "active":
                 return False
             self.status = "cancelled"
-            self.payment_confirmed = False
-            self.payment_date = None
-            self.save(update_fields=["status", "payment_confirmed", "payment_date"])
+            self.ended_at = timezone.now()
+            if keep_payment_record:
+                # A membership that simply ran out was still paid for: KPIs
+                # and the data export read these fields (premium_billing sweep).
+                self.save(update_fields=["status", "ended_at"])
+            else:
+                self.payment_confirmed = False
+                self.payment_date = None
+                self.save(
+                    update_fields=[
+                        "status",
+                        "ended_at",
+                        "payment_confirmed",
+                        "payment_date",
+                    ]
+                )
 
             profile = (
                 CrushProfile.objects.select_for_update()
                 .filter(user_id=self.user_id)
                 .first()
             )
-            if profile and profile.assigned_coach_id == self.coach_id:
+            from crush_lu.services.premium_billing import entitled_q
+
+            # Another membership of the same member that still grants Premium
+            # and names this coach owns the assignment now: a lapsed member who
+            # bought again with the same coach before the sweep ended the old row.
+            reassigned = (
+                PremiumMembership.objects.filter(
+                    entitled_q(), user_id=self.user_id, coach_id=self.coach_id
+                )
+                .exclude(pk=self.pk)
+                .exists()
+            )
+            if (
+                profile
+                and profile.assigned_coach_id == self.coach_id
+                and not reassigned
+            ):
                 profile.assigned_coach = None
                 profile.assigned_coach_at = None
                 profile.save(update_fields=["assigned_coach", "assigned_coach_at"])

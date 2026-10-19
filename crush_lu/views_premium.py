@@ -15,6 +15,8 @@ from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Count, F, Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.utils.formats import date_format
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
@@ -22,6 +24,7 @@ from .connect_phase import is_event_verified_member, is_selected_beta_tester
 from .models import CrushCoach, CrushProfile, PremiumMembership
 from .ios_app_utils import ios_commerce_suppressed
 from .services import premium_recovery
+from .services.premium_billing import entitled_q
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +65,19 @@ def premium_first_charge(user):
     """
     onboarding = premium_onboarding_fee(user)
     return onboarding if onboarding > 0 else premium_monthly_fee()
+
+
+def active_premium_membership(user):
+    """The membership currently granting ``user`` Premium, or None."""
+    from .services.premium_billing import entitled_q
+
+    if not getattr(user, "is_authenticated", False):
+        return None
+    return (
+        PremiumMembership.objects.filter(entitled_q(), user=user)
+        .order_by("-created_at")
+        .first()
+    )
 
 
 def premium_pricing_context(user):
@@ -203,7 +219,7 @@ def _available_coaches():
         .annotate(
             member_count=Count(
                 "premium_memberships",
-                filter=Q(premium_memberships__status="active"),
+                filter=entitled_q("premium_memberships__"),
             )
         )
         .filter(member_count__lt=F("max_premium_members"))
@@ -400,3 +416,52 @@ def premium_cancel_membership(request):
     else:
         messages.info(request, _("You have no pending premium request to cancel."))
     return redirect("crush_lu:premium_choose_coach")
+
+
+@login_required
+@require_POST
+def premium_cancel_renewal(request):
+    """Stop renewing: Premium stays until the end of the paid month."""
+    from .services import premium_billing
+
+    membership = active_premium_membership(request.user)
+    if membership and premium_billing.schedule_cancellation(membership):
+        logger.info(
+            "Premium membership %s set to end at its period end by user %s",
+            membership.id,
+            request.user.id,
+        )
+        messages.success(
+            request,
+            _(
+                "Your Premium will not renew. You keep it, and your coach, "
+                "until %(date)s."
+            )
+            % {
+                "date": date_format(
+                    timezone.localtime(membership.current_period_end), "DATE_FORMAT"
+                )
+            },
+        )
+    else:
+        messages.info(request, _("There is no Premium renewal to cancel."))
+    return redirect("crush_lu:membership")
+
+
+@login_required
+@require_POST
+def premium_resume_renewal(request):
+    """Undo a cancellation before the paid month ends."""
+    from .services import premium_billing
+
+    membership = active_premium_membership(request.user)
+    if membership and premium_billing.resume(membership):
+        logger.info(
+            "Premium membership %s renewal resumed by user %s",
+            membership.id,
+            request.user.id,
+        )
+        messages.success(request, _("Your Premium will renew as before."))
+    else:
+        messages.info(request, _("There is no cancelled Premium to resume."))
+    return redirect("crush_lu:membership")

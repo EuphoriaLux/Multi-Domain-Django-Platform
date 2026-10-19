@@ -856,6 +856,11 @@ urlpatterns = (
             api_admin_events.echo_lu_sync_sweep,
             name="api_admin_echo_sync",
         ),
+        path(
+            "api/admin/premium-lapse-sweep/",
+            api_admin_events.premium_lapse_sweep,
+            name="api_admin_premium_lapse_sweep",
+        ),
         # Changelog ingest (called by the Claude Code changelog routine on PR merge).
         # Language-neutral path; auto-publishes to /changelog/. See docs/changelog-routine.md.
         path(

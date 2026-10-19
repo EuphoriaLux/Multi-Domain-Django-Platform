@@ -21,6 +21,7 @@ def membership_concept_preview(request):
     from django.db.models import Exists, OuterRef
     from allauth.socialaccount.models import SocialAccount
     from .models import CrushProfile
+    from .services.premium_billing import entitled_q
 
     active = CrushProfile.objects.filter(is_active=True)
 
@@ -52,9 +53,7 @@ def membership_concept_preview(request):
     # Community + premium unlocks
     n_community = verified.filter(_has_attended=True).count()
     n_premium = (
-        verified.filter(user__premium_memberships__status="active")
-        .distinct()
-        .count()
+        verified.filter(entitled_q("user__premium_memberships__")).distinct().count()
     )
 
     def pct(n):

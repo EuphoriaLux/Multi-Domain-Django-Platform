@@ -8,6 +8,11 @@ Run by Tom on the production slot (Kudu webssh), as the app's own admin login:
 
 Spec: ai-memory-hub/specs/2026-09-25-crush-data-mcp.md
 
+``startup.sh`` runs ``setup_analytics_role --keep-password`` on every
+production-slot container start, swap warm-up included (gated on
+``ANALYTICS_DB_USER``), so the grants follow the deployed ``GRANTS`` without
+a manual step. Run it by hand only to create the role or rotate its password.
+
 The column grants come from ``analytics_readonly.GRANTS`` and nowhere else.
 Every run first revokes whatever the role holds, so the result is always
 exactly the allowlist. The password is read with ``getpass`` (never echoed,

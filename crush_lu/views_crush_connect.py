@@ -22,6 +22,7 @@ from crush_lu.decorators import coach_required, crush_login_required
 from crush_lu.email_helpers import send_crush_connect_catalogue_welcome
 from crush_lu.models import CrushConnectMembership, CrushProfile, EventRegistration
 from crush_lu.services import funnel_events
+from crush_lu.services.premium_billing import entitled_q
 from crush_lu.onboarding_connect import (
     CONNECT_STEPS,
     TOTAL_STEPS,
@@ -1155,8 +1156,8 @@ def coach_connect_members(request):
         # Active premium members only — coach assignment alone (backfill,
         # attendance auto-assign) doesn't put a member in the curation hub.
         User.objects.filter(
+            entitled_q("premium_memberships__"),
             crushprofile__assigned_coach=coach,
-            premium_memberships__status="active",
         )
         .select_related("crushprofile", "crush_connect_membership")
         .order_by("first_name", "pk")
@@ -1212,9 +1213,9 @@ def coach_connect_member(request, user_id: int):
         User.objects.select_related(
             "crushprofile", "crush_connect_membership"
         ).distinct(),
+        entitled_q("premium_memberships__"),
         pk=user_id,
         crushprofile__assigned_coach=coach,
-        premium_memberships__status="active",
     )
 
     if request.method == "POST":

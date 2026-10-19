@@ -34,6 +34,7 @@ from .decorators import crush_login_required, ratelimit
 from .services.attendance_check import awaits_attendance_answer
 from .services.event_payments import online_payments_paused
 from .services import funnel_events
+from .services.premium_billing import entitled_q
 from .services.event_grouping import (
     count_mutual_matches,
     load_applicants,
@@ -295,7 +296,7 @@ def _promote_from_waitlist(event, cancelled_user=None, resale_source_registratio
     # waitlisted row and the property costs a query per call.
     premium_user_ids = set(
         PremiumMembership.objects.filter(
-            user_id__in=user_ids, status="active"
+            entitled_q(), user_id__in=user_ids
         ).values_list("user_id", flat=True)
     )
 

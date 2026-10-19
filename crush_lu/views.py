@@ -2626,7 +2626,11 @@ def membership(request):
 
     from .services.premium_recovery import blocks_new_charge
     from .views_premium import open_recovery_case
-    from .views_premium import pending_premium_state, premium_pricing_context
+    from .views_premium import (
+        active_premium_membership,
+        pending_premium_state,
+        premium_pricing_context,
+    )
 
     context = {
         "profile": profile,
@@ -2644,6 +2648,8 @@ def membership(request):
         "premium_purchase_blocked": request.user.is_authenticated
         and blocks_new_charge(request.user),
         "is_premium": bool(profile and profile.has_active_premium),
+        # The entitled membership, for its renewal date and cancel/resume.
+        "active_premium_membership": active_premium_membership(request.user),
         "referral_url": referral_url,
         "tiers": tiers,
         "current_tier": profile.membership_tier if profile else "basic",

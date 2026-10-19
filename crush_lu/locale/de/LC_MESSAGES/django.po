@@ -1526,6 +1526,15 @@ msgstr "Zahlung bestätigen & Coach zuweisen"
 msgid "Confirmed %(count)s membership(s) and assigned coaches."
 msgstr "%(count)s Mitgliedschaft(en) bestätigt und Coaches zugewiesen."
 
+#: admin/profiles.py
+msgid "End membership & release coach"
+msgstr "Mitgliedschaft beenden & Coach freigeben"
+
+#: admin/profiles.py
+#, python-format
+msgid "Ended %(count)s membership(s)."
+msgstr "%(count)s Mitgliedschaft(en) beendet."
+
 #: admin/quiz.py:108
 #, python-format
 msgid "'%(event)s': %(error)s"
@@ -46004,3 +46013,42 @@ msgstr "Inklusive Coach-Review-Session. Nach deinem kostenlosen ersten Monat kos
 #: crush_lu/templates/crush_lu/premium/choose_coach.html
 msgid "No onboarding fee: you were verified at an event. Your second month is free."
 msgstr "Keine Onboarding-Gebühr: Du wurdest bei einem Event verifiziert. Dein zweiter Monat ist gratis."
+
+#: crush_lu/views_premium.py
+#, python-format
+msgid "Your Premium will not renew. You keep it, and your coach, until %(date)s."
+msgstr "Dein Premium wird nicht verlängert. Du behältst es, und deinen Coach, bis zum %(date)s."
+
+#: crush_lu/views_premium.py
+msgid "There is no Premium renewal to cancel."
+msgstr "Es gibt keine Premium-Verlängerung zum Kündigen."
+
+#: crush_lu/views_premium.py
+msgid "Your Premium will renew as before."
+msgstr "Dein Premium wird wie bisher verlängert."
+
+#: crush_lu/views_premium.py
+msgid "There is no cancelled Premium to resume."
+msgstr "Es gibt kein gekündigtes Premium zum Fortsetzen."
+
+#: crush_lu/templates/crush_lu/membership.html
+#, python-format
+msgid "Your Premium ends on %(date)s and will not renew."
+msgstr "Dein Premium endet am %(date)s und wird nicht verlängert."
+
+#: crush_lu/templates/crush_lu/membership.html
+msgid "Keep Premium"
+msgstr "Premium behalten"
+
+#: crush_lu/templates/crush_lu/membership.html
+#, python-format
+msgid "Renews on %(date)s."
+msgstr "Wird am %(date)s verlängert."
+
+#: crush_lu/templates/crush_lu/membership.html
+msgid "Cancel renewal"
+msgstr "Verlängerung kündigen"
+
+#: crush_lu/templates/crush_lu/membership.html
+msgid "Your renewal payment is due. Premium stays active for a few more days."
+msgstr "Deine Verlängerungszahlung ist fällig. Premium bleibt noch ein paar Tage aktiv."

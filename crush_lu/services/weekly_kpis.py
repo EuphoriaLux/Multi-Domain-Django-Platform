@@ -14,10 +14,11 @@ totals, which is what week-over-week tracking needs.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 
 from django.contrib.auth.models import User
 from django.db.models import Avg, Count, ExpressionWrapper, F, FloatField, Q
+from django.utils import timezone
 
 # ISO weeks run Monday (1) .. Sunday (7).
 _WEEK_LENGTH = timedelta(days=7)
@@ -67,6 +68,7 @@ def compute_weekly_snapshot(week_start: date) -> dict:
         UserActivity,
     )
     from crush_lu.models.referrals import ReferralAttribution
+    from crush_lu.services.premium_billing import entitled_as_of_q
 
     week_end = week_start + timedelta(days=6)  # Sunday, inclusive
 
@@ -162,13 +164,19 @@ def compute_weekly_snapshot(week_start: date) -> dict:
     # time the job fires — and so backfilling an older week yields that week's
     # number rather than today's. Their relevant timestamps: payment_date for
     # premium (always set when status flips to active via confirm()), onboarded_at
-    # for Connect, joined_at for the waitlist.
+    # for Connect, joined_at for the waitlist. Premium is counted as entitled
+    # at the end of Sunday, so a membership that lapsed (and was swept) since
+    # then still counts for the weeks it held Premium; a refund clears
+    # payment_date and so drops the membership from every week, as before.
+    after_week_end = timezone.make_aware(
+        datetime.combine(week_end + timedelta(days=1), time.min)
+    )
     revenue = {
         "new_premium": in_week(
             PremiumMembership.objects.filter(payment_confirmed=True), "payment_date"
         ).count(),
         "total_active_premium": PremiumMembership.objects.filter(
-            status="active", payment_date__date__lte=week_end
+            entitled_as_of_q(after_week_end), payment_date__date__lte=week_end
         ).count(),
         "new_connect_optins": in_week(
             CrushConnectMembership.objects.all(), "onboarded_at"

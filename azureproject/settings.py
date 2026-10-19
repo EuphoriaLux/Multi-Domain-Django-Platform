@@ -1037,6 +1037,9 @@ SUMUP_PAY_TO_EMAIL = os.environ.get("SUMUP_PAY_TO_EMAIL", "")
 # provider-neutral (views_premium.premium_first_charge).
 SUMUP_PREMIUM_MONTHLY_FEE = os.environ.get("SUMUP_PREMIUM_MONTHLY_FEE", "9.99").strip()
 PREMIUM_ONBOARDING_FEE = os.environ.get("PREMIUM_ONBOARDING_FEE", "10.00").strip()
+# Days a membership keeps Premium after its period end while the renewal charge
+# is outstanding (services/premium_billing.py). A member who cancelled gets none.
+PREMIUM_RENEWAL_GRACE_DAYS = int(os.environ.get("PREMIUM_RENEWAL_GRACE_DAYS", "3"))
 
 # ============================================================================
 # ARBORIST PREPAYMENT BANK TRANSFER

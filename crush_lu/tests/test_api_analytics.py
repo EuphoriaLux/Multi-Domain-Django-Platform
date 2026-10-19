@@ -26,7 +26,7 @@ from django.core.cache import cache
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import connection
-from django.test import Client, TestCase, override_settings
+from django.test import Client, SimpleTestCase, TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
@@ -497,6 +497,40 @@ class ToolTests(AnalyticsFixture):
         )
         self.assertEqual(data["credits_redeemed"], {"count": 1, "amount_eur": 5.0})
         self.assertEqual(data["premium"]["active_now"], 1)
+
+    def test_premium_active_follows_the_billing_period(self):
+        # Codex #1277: past its grace an unpaid period is no longer Premium,
+        # though the row reads status="active" until the lapse sweep runs.
+        now = timezone.now()
+        for user, period_end, cancelled in (
+            (self.alice, now - timedelta(days=10), False),  # grace over
+            (self.carol, now - timedelta(days=1), False),  # inside the grace
+            (self.dave, now - timedelta(days=1), True),  # cancelled: no grace
+        ):
+            PremiumMembership.objects.create(
+                user=user,
+                coach=self.coach,
+                status="active",
+                current_period_end=period_end,
+                cancel_at_period_end=cancelled,
+            )
+        # bob's membership has no period end and never expires.
+        self.assertEqual(self.data("funnel")["totals"]["premium_active"], 2)
+        self.assertEqual(self.data("payments")["premium"]["active_now"], 2)
+        rows = {r["member"]: r for r in self.data("members")["members"]}
+        premium = {
+            user.email: rows[analytics.pseudonym(user.id)]["premium_active"]
+            for user in (self.alice, self.bob, self.carol, self.dave)
+        }
+        self.assertEqual(
+            premium,
+            {
+                "alice@crush.lu": False,
+                "bob@crush.lu": True,
+                "carol@crush.lu": True,
+                "dave@crush.lu": False,
+            },
+        )
 
     def test_connect_and_retention(self):
         self.assertEqual(self.data("connect")["memberships"]["onboarded_total"], 1)
@@ -1357,3 +1391,74 @@ class SetupRoleCommandTests(TestCase):
     def test_refuses_to_run_on_sqlite(self):
         with self.assertRaises(CommandError):
             call_command("setup_analytics_role", keep_password=True, stdout=StringIO())
+
+
+class StartupRefreshesGrantsTests(SimpleTestCase):
+    """startup.sh re-applies GRANTS on every production-slot start (Codex
+    #1277): nothing else runs setup_analytics_role on deploy, and the API 503s
+    until the login's grants match the allowlist of the code it runs."""
+
+    def _lines(self):
+        from pathlib import Path
+
+        startup = Path(__file__).resolve().parents[2] / "startup.sh"
+        lines = startup.read_text(encoding="utf-8").splitlines()
+        start = lines.index('if [ -n "${ANALYTICS_DB_USER:-}" ]; then')
+        return lines, start, lines.index("fi", start)
+
+    def test_refresh_runs_after_migrate_and_before_gunicorn(self):
+        lines, start, end = self._lines()
+
+        def first(prefix):
+            return next(i for i, line in enumerate(lines) if line.startswith(prefix))
+
+        self.assertLess(first("$PYTHON manage.py migrate --no-input"), start)
+        self.assertLess(end, first("gunicorn "))
+
+    def test_refresh_is_gated_non_interactive_and_cannot_abort_startup(self):
+        import os
+        import subprocess
+
+        from crush_lu.tests import test_cookie_banner
+
+        bash, rejected = (
+            test_cookie_banner.StartupSeedsCookieGroupsTests._working_bash()
+        )
+        if not bash:
+            self.skipTest(f"no working bash (rejected: {rejected or 'none found'})")
+        lines, start, end = self._lines()
+        # A stand-in for manage.py that reports its arguments and whether it
+        # could read stdin, then fails. The script itself arrives on stdin, so
+        # without the block's `< /dev/null` the read would take its next line.
+        script = "\n".join(
+            [
+                "set -e",
+                'fake_python() { echo "ran: $*"; '
+                'if read -r _; then echo "stdin: open"; else echo "stdin: eof"; fi; '
+                "return 1; }",
+                "PYTHON=fake_python",
+                *lines[start : end + 1],
+                "echo reached-gunicorn",
+                "",
+            ]
+        ).encode("utf-8")
+
+        def run(user):
+            env = {k: v for k, v in os.environ.items() if k != "ANALYTICS_DB_USER"}
+            if user:
+                env["ANALYTICS_DB_USER"] = user
+            result = subprocess.run(
+                [bash], input=script, capture_output=True, env=env, timeout=30
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            return result.stdout.decode("utf-8", errors="replace")
+
+        staging = run(None)
+        self.assertNotIn("ran:", staging)
+        self.assertIn("reached-gunicorn", staging)
+
+        production = run("crush_analytics_ro")
+        self.assertIn("ran: manage.py setup_analytics_role --keep-password", production)
+        self.assertIn("stdin: eof", production)
+        self.assertIn("setup_analytics_role failed", production)
+        self.assertIn("reached-gunicorn", production)
