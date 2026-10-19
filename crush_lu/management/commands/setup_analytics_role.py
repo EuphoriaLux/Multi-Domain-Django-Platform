@@ -8,10 +8,15 @@ Run by Tom on the production slot (Kudu webssh), as the app's own admin login:
 
 Spec: ai-memory-hub/specs/2026-09-25-crush-data-mcp.md
 
-``startup.sh`` runs ``setup_analytics_role --keep-password`` on every
-production-slot container start, swap warm-up included (gated on
-``ANALYTICS_DB_USER``), so the grants follow the deployed ``GRANTS`` without
-a manual step. Run it by hand only to create the role or rotate its password.
+The grants follow the release that is serving, without a manual step: when
+the API's privilege audit finds only release drift (a deploy or a rollback
+re-swap changed ``GRANTS``), the serving process calls
+``reapply_for_serving_release()``, which runs this command's refresh with
+``--keep-password`` semantics. Nothing runs it at startup: a swap warm-up
+starts the new release with the production settings before the swap
+completes, so an aborted swap would leave production's old release with the
+new release's grants (#1285). Run it by hand only to create the role, rotate
+its password, or fix a violation that is not release drift.
 
 The column grants come from ``analytics_readonly.GRANTS`` and nowhere else.
 Every run first revokes whatever the role holds, so the result is always
@@ -27,9 +32,18 @@ import getpass
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connections, transaction
 
-from crush_lu.services.analytics_readonly import CONNECTION_LIMIT, GRANTS, audit_role
+from crush_lu.services.analytics_readonly import (
+    CONNECTION_LIMIT,
+    GRANTS,
+    audit_role,
+    is_release_drift,
+)
 
 ROLE = "crush_analytics_ro"
+# Any fixed key: only this module takes it, so a manual run and the workers'
+# re-applies never revoke and grant at the same time (concurrent GRANTs on one
+# object fail with "tuple concurrently updated").
+LOCK_KEY = 7_165_064_483_209_835_119
 ROLE_SETTINGS = (
     ("default_transaction_read_only", "on"),
     ("statement_timeout", "10s"),
@@ -112,6 +126,67 @@ AUDIT_SQL = {
 }
 
 
+def apply_allowlist(cursor, database: str, verifier: str | None = None) -> None:
+    """Reset the role to exactly GRANTS, inside the caller's transaction.
+
+    Raises CommandError if the result would exceed the allowlist, so the
+    caller's ``transaction.atomic`` rolls everything back.
+    """
+    cursor.execute("SELECT pg_advisory_xact_lock(%s)", [LOCK_KEY])
+    for statement in role_statements(database=database):
+        cursor.execute(statement)
+    if verifier:
+        cursor.execute(f"ALTER ROLE {_qn(ROLE)} PASSWORD %s", [verifier])
+    Command()._revoke_everything(cursor)
+    for statement in grant_statements(database=database):
+        cursor.execute(statement)
+    # What the role can EFFECTIVELY do (PUBLIC grants included) must be
+    # exactly the allowlist; otherwise roll everything back.
+    # Includes other reachable databases, checked against the
+    # durable ANALYTICS_ALLOWED_OTHER_DATABASES setting.
+    violations = audit_role(cursor, ROLE)
+    if violations:
+        details = "\n  ".join(violations)
+        raise CommandError(
+            f"{ROLE} would exceed its allowlist; nothing was changed:\n  {details}"
+        )
+
+
+def reapply_for_serving_release() -> bool:
+    """Re-apply this release's GRANTS from a serving process (no prompts).
+
+    Called by ``analytics_readonly._assert_least_privilege`` when its audit
+    finds only release drift. Runs on the app's owner connection, in one
+    transaction with short lock and statement timeouts, so a request never
+    stalls on it. Returns True when the role matches GRANTS afterwards,
+    False when it refuses (see below). Raises on a database error, or
+    CommandError when the refresh would exceed the allowlist; either way
+    nothing is changed.
+    """
+    connection = connections["default"]
+    if connection.vendor != "postgresql" or connection.in_atomic_block:
+        # Inside an outer transaction the commit would come too late for
+        # the caller's re-audit, which runs on its own connection.
+        return False
+    with transaction.atomic(using="default"), connection.cursor() as cursor:
+        cursor.execute("SET LOCAL lock_timeout = '5s'")
+        cursor.execute("SET LOCAL statement_timeout = '10s'")
+        cursor.execute("SELECT pg_advisory_xact_lock(%s)", [LOCK_KEY])
+        cursor.execute("SELECT current_database()")
+        database = cursor.fetchone()[0]
+        if database != "pythonapp":
+            # A manual run asks before touching another database; this
+            # cannot ask.
+            return False
+        violations = audit_role(cursor, ROLE)
+        if not violations:
+            return True  # another worker got here first
+        if not is_release_drift(violations):
+            return False
+        apply_allowlist(cursor, database)
+    return True
+
+
 class Command(BaseCommand):
     help = "Create/refresh the read-only crush_analytics_ro login from analytics_readonly.GRANTS."
 
@@ -188,23 +263,7 @@ class Command(BaseCommand):
             del password
 
         with transaction.atomic(using="default"), connection.cursor() as cursor:
-            for statement in role_statements(database=database):
-                cursor.execute(statement)
-            if verifier:
-                cursor.execute(f"ALTER ROLE {_qn(ROLE)} PASSWORD %s", [verifier])
-            self._revoke_everything(cursor)
-            for statement in grant_statements(database=database):
-                cursor.execute(statement)
-            # What the role can EFFECTIVELY do (PUBLIC grants included) must be
-            # exactly the allowlist; otherwise roll everything back.
-            # Includes other reachable databases, checked against the
-            # durable ANALYTICS_ALLOWED_OTHER_DATABASES setting.
-            violations = audit_role(cursor, ROLE)
-            if violations:
-                details = "\n  ".join(violations)
-                raise CommandError(
-                    f"{ROLE} would exceed its allowlist; nothing was changed:\n  {details}"
-                )
+            apply_allowlist(cursor, database, verifier)
 
         self.stdout.write(
             self.style.SUCCESS(f"{ROLE} is configured. Current privileges:")

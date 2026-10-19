@@ -98,26 +98,13 @@ $PYTHON manage.py createcachetable 2>&1 || echo "Cache table already exists or c
 echo "🍪 Ensuring cookie consent groups..."
 $PYTHON manage.py setup_cookie_groups 2>&1 || echo "⚠️ setup_cookie_groups failed - the native /cookies/ decline will not clear unregistered cookies"
 
-# Re-apply crush_analytics_ro's column grants from analytics_readonly.GRANTS
-# (Crush Data MCP). The analytics API audits that login against the GRANTS of
-# the code it runs and answers 503 on any missing or excess column, so the
-# grants must follow every deploy. ANALYTICS_DB_USER is slot-sticky on the
-# production slot only: staging skips this, and a swap's warm-up runs it with
-# the production settings against the production database, so a rollback
-# re-swap puts the old allowlist back the same way. The command revokes and
-# re-grants in one transaction that rolls back on any audit violation, so a
-# failed run keeps the previous grants. --keep-password never prompts, and
-# stdin is /dev/null so any other prompt fails instead of hanging; creating
-# the role and rotating its password stay manual. Accepted trade-off: the
-# grants change at warm-up, before the swap completes, so the old instances
-# still serving production fail their next audit re-check (every 10 minutes)
-# and answer 503 on the analytics API until the swap is done; nothing else is
-# affected. The `|| echo` keeps `set -e` from aborting startup over it: after
-# a deploy, grep the container log for "crush_analytics_ro is configured".
-if [ -n "${ANALYTICS_DB_USER:-}" ]; then
-    echo "📊 Refreshing the analytics read-only grants..."
-    $PYTHON manage.py setup_analytics_role --keep-password < /dev/null 2>&1 || echo "⚠️ setup_analytics_role failed - the analytics API answers 503 until crush_analytics_ro's grants match this release"
-fi
+# crush_analytics_ro's column grants (Crush Data MCP) are deliberately NOT
+# refreshed here. A swap's warm-up runs this script with the production
+# settings before the swap completes, so a refresh here would hand the new
+# release's grants to the old release still serving production, and an
+# aborted swap would leave them there (#1285). The serving process re-applies
+# its own analytics_readonly.GRANTS when its privilege audit finds release
+# drift (analytics_readonly._assert_least_privilege).
 
 # Only deploy media/data on initial deployment or when explicitly needed
 # Set INITIAL_DEPLOYMENT=true in Azure portal only for first deployment

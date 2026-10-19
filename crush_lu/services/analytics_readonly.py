@@ -570,6 +570,22 @@ def _is_system_schema(schema: str) -> bool:
     )
 
 
+class ReleaseDrift(str):
+    """A violation that another release's ``GRANTS`` explains, and that
+    re-applying this release's fixes: a column or public table the login holds
+    through its own grant beyond ``GRANTS``, a ``GRANTS`` column it lacks, or a
+    connection limit above ``CONNECTION_LIMIT``. A plain ``str`` otherwise."""
+
+
+def is_release_drift(violations) -> bool:
+    """True when every violation is ``ReleaseDrift`` (and there is one).
+
+    Only then may the serving process re-apply its own ``GRANTS``
+    (``_assert_least_privilege``); anything else needs a human.
+    """
+    return bool(violations) and all(isinstance(v, ReleaseDrift) for v in violations)
+
+
 def privilege_violations(
     elevated,
     relations,
@@ -599,15 +615,25 @@ def privilege_violations(
     Any role membership is a violation: the login is NOINHERIT, so
     has_*_privilege does not see a member role's rights, yet the login could
     SET ROLE to use them.
+
+    Violations that another release's ``GRANTS`` explains are
+    ``ReleaseDrift`` (see ``is_release_drift``).
     """
     violations = []
     if elevated:
         violations.append("role has an elevated attribute")
-    if connection_limit < 0 or connection_limit > CONNECTION_LIMIT:
-        shown = "unlimited" if connection_limit < 0 else connection_limit
+    if connection_limit < 0:
         violations.append(
-            f"connection limit is {shown}, above {CONNECTION_LIMIT} "
+            f"connection limit is unlimited, above {CONNECTION_LIMIT} "
             "(re-run setup_analytics_role)"
+        )
+    elif connection_limit > CONNECTION_LIMIT:
+        # A later release may raise CONNECTION_LIMIT; none sets it unlimited.
+        violations.append(
+            ReleaseDrift(
+                f"connection limit is {connection_limit}, above {CONNECTION_LIMIT} "
+                "(re-run setup_analytics_role)"
+            )
         )
     for group in memberships:
         violations.append(f"member of role {group}")
@@ -688,12 +714,19 @@ def privilege_violations(
         if table_select:
             violations.append(f"table-level SELECT on {name}")
         if any_column_select and (schema != "public" or relation not in GRANTS):
-            violations.append(f"can read {name}")
+            # Every release grants only public tables, and only to the login.
+            drift = schema == "public" and not public_can_read
+            violations.append((ReleaseDrift if drift else str)(f"can read {name}"))
     for row in columns:
         relation, column = row[:2]
+        public_can_read = len(row) > 2 and row[2]
         if column not in GRANTS.get(relation, ()):
-            violations.append(f"can read public.{relation}.{column}")
-        if len(row) > 2 and row[2]:
+            violations.append(
+                (str if public_can_read else ReleaseDrift)(
+                    f"can read public.{relation}.{column}"
+                )
+            )
+        if public_can_read:
             violations.append(
                 f"PUBLIC can read public.{relation}.{column}, so every login can"
             )
@@ -704,8 +737,10 @@ def privilege_violations(
         for column in required:
             if (relation, column) not in readable:
                 violations.append(
-                    f"lacks SELECT on public.{relation}.{column} "
-                    "(re-run setup_analytics_role)"
+                    ReleaseDrift(
+                        f"lacks SELECT on public.{relation}.{column} "
+                        "(re-run setup_analytics_role)"
+                    )
                 )
     for schema in schemas_with_create:
         violations.append(f"can CREATE in schema {schema}")
@@ -763,6 +798,14 @@ def audit_role(cursor, role: str) -> list:
 
 @lru_cache(maxsize=8)
 def _assert_least_privilege(alias: str, _ttl_bucket: int) -> bool:
+    """The login holds exactly this release's GRANTS, or NotConfigured.
+
+    The grants follow the release that is serving: when the login's only
+    violations are release drift (a deploy, a rollback re-swap), this process
+    re-applies its own GRANTS through the app's owner connection, once per
+    audit bucket, and then audits again. Nothing re-applies them before a
+    release serves, so an aborted swap leaves production's grants alone.
+    """
     connection = connections[alias]
     # Tests point the alias at the SQLite test DB ("default"); production pins
     # "analytics", which settings never let be anything else.
@@ -772,12 +815,53 @@ def _assert_least_privilege(alias: str, _ttl_bucket: int) -> bool:
         cursor.execute("SELECT current_user")
         role = cursor.fetchone()[0]
         violations = audit_role(cursor, role)
+    if violations and _reapply_release_grants(role, violations, _ttl_bucket):
+        with connection.cursor() as cursor:
+            violations = audit_role(cursor, role)
     if violations:
         logger.error(
             "Analytics login %s exceeds its allowlist: %s", role, "; ".join(violations)
         )
         raise NotConfigured("analytics database login exceeds its allowlist")
     return True
+
+
+# The audit bucket of this process's last re-apply attempt. lru_cache keeps
+# only successes, so without it a re-apply that keeps failing would re-run its
+# DDL on every request instead of once per bucket.
+_reapply_attempted_bucket = None
+
+
+def _reapply_release_grants(role: str, violations: list, bucket: int) -> bool:
+    """Re-apply this release's GRANTS when release drift is all that is wrong.
+
+    Returns True when the owner connection reports the login now matches
+    them; the caller still re-audits as the login before serving. Any
+    failure keeps the 503: it is logged, never raised.
+    """
+    global _reapply_attempted_bucket
+    if not is_release_drift(violations) or _reapply_attempted_bucket == bucket:
+        return False
+    _reapply_attempted_bucket = bucket
+    # Late import: the command imports this module.
+    from crush_lu.management.commands import setup_analytics_role
+
+    if role != setup_analytics_role.ROLE:
+        return False
+    logger.warning(
+        "Analytics login %s does not match this release's GRANTS; "
+        "re-applying them: %s",
+        role,
+        "; ".join(violations),
+    )
+    try:
+        reapplied = setup_analytics_role.reapply_for_serving_release()
+    except Exception:
+        logger.warning("Re-applying the analytics GRANTS failed", exc_info=True)
+        return False
+    if reapplied:
+        logger.warning("Analytics GRANTS re-applied for the serving release")
+    return reapplied
 
 
 def pseudonym(user_id: int) -> str:
