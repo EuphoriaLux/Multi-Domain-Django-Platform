@@ -21091,8 +21091,8 @@ msgstr "Premium"
 
 #: templates/crush_lu/crush_connect.html:228
 #: templates/crush_lu/partials/_products.html:97
-msgid "First month free"
-msgstr "Premier mois offert"
+msgid "One month free"
+msgstr "Un mois offert"
 
 #: templates/crush_lu/crush_connect.html:229
 msgid ""
@@ -21563,8 +21563,8 @@ msgid "See this week's pick"
 msgstr "Voir le choix de la semaine"
 
 #: templates/crush_lu/crush_connect/experiences/coach-pick.html:60
-msgid "Get your own coach — first month free"
-msgstr "Obtenez votre propre coach — premier mois offert"
+msgid "Get your own coach — one month free"
+msgstr "Obtenez votre propre coach — un mois offert"
 
 #: templates/crush_lu/crush_connect/experiences/coach-pick.html:68
 msgid ""
@@ -21803,8 +21803,8 @@ msgstr "Ouvrir le Drop du jour"
 
 #: templates/crush_lu/crush_connect/experiences/todays-drop.html:60
 #: templates/crush_lu/partials/_products.html:116
-msgid "Go Premium — first month free"
-msgstr "Passez à Premium — premier mois offert"
+msgid "Go Premium — one month free"
+msgstr "Passez à Premium — un mois offert"
 
 #: templates/crush_lu/crush_connect/experiences/todays-drop.html:68
 msgid ""
@@ -30693,14 +30693,13 @@ msgid ""
 "Thanks to LuxID, join Crush Connect in a few clicks. A Crush Coach will "
 "propose a potential match with a member of our Premium list — go Premium to "
 "be part of it. Every week, your Coach suggests a hand-picked match based on "
-"your profile. The first month is free — on the house!"
+"your profile. One month is on the house!"
 msgstr ""
 "Grâce à LuxID, rejoignez Crush Connect en quelques clics. Un Crush Coach "
 "vous soumettra un match potentiel avec un membre de notre liste Premium. "
 "Devenez Premium pour y être intégré. Chaque semaine, votre Coach vous "
 "proposera un match potentiel, sélectionné par ses soins, sur la base des "
-"informations de votre profil. Le premier mois est gratuit, cadeau de la "
-"maison !"
+"informations de votre profil. Un mois est offert, cadeau de la maison !"
 
 #: templates/crush_lu/partials/_verifier_card.html:36
 msgid "Official"
@@ -42607,8 +42606,8 @@ msgstr ""
 "événement ou avec LuxID."
 
 #: templates/crush_lu/partials/_verification_options.html
-msgid "A hand-picked match every week — first month free"
-msgstr "Un match sélectionné chaque semaine — le premier mois offert"
+msgid "A hand-picked match every week — one month free"
+msgstr "Un match sélectionné chaque semaine — un mois offert"
 
 #: templates/crush_lu/profile_rejected.html
 msgid "Delete my profile and data"
@@ -46086,3 +46085,26 @@ msgstr "Le paiement en ligne de Premium est suspendu pour le moment. Nous vous p
 
 msgid "A card checkout was opened for this seat a moment ago. Try again in a few seconds."
 msgstr "Un paiement par carte vient d'être ouvert pour cette place. Réessayez dans quelques secondes."
+
+#: crush_lu/templates/crush_lu/membership.html
+#, python-format
+msgid "€%(amount)s one-time onboarding with a coach review session, then your first month is free"
+msgstr "%(amount)s € de frais d'accueil uniques avec une séance de bilan avec votre coach, puis votre premier mois est offert"
+
+#: crush_lu/templates/crush_lu/membership.html
+msgid "No onboarding fee for event-verified members, and your second month is free"
+msgstr "Pas de frais d'accueil pour les membres vérifiés lors d'un événement, et votre deuxième mois est offert"
+
+#: crush_lu/templates/crush_lu/premium/choose_coach.html
+#, python-format
+msgid "Pay onboarding (€%(amount)s), first month free"
+msgstr "Payer l'accueil (%(amount)s €), premier mois offert"
+
+#: crush_lu/templates/crush_lu/premium/choose_coach.html
+#, python-format
+msgid "Includes a coach review session. After your free first month, Premium is €%(amount)s / month."
+msgstr "Comprend une séance de bilan avec votre coach. Après votre premier mois offert, Premium coûte %(amount)s € / mois."
+
+#: crush_lu/templates/crush_lu/premium/choose_coach.html
+msgid "No onboarding fee: you were verified at an event. Your second month is free."
+msgstr "Pas de frais d'accueil : vous avez été vérifié·e lors d'un événement. Votre deuxième mois est offert."

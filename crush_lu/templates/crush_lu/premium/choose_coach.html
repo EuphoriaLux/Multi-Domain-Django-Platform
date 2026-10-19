@@ -46,13 +46,21 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
         </svg>
         {% comment %}
-          Price comes from SUMUP_PREMIUM_MONTHLY_FEE, the same setting the
-          checkout charges. Kept out of the translatable string so changing the
-          fee cannot leave the label advertising the old price, and so DE/FR can
-          be translated without re-touching the amount.
+          Price comes from views_premium.premium_pricing_context, the same
+          helpers the checkout charges (premium_first_charge). Kept out of the
+          translatable string so changing the fee cannot leave the label
+          advertising the old price, and so DE/FR can be translated without
+          re-touching the amount.
         {% endcomment %}
+        {% if premium_onboarding_fee %}
+        <span>{% blocktrans with amount=premium_onboarding_fee %}Pay onboarding (€{{ amount }}), first month free{% endblocktrans %}</span>
+        {% else %}
         <span>{% blocktrans with amount=premium_monthly_fee %}Pay Premium Subscription (€{{ amount }} / month){% endblocktrans %}</span>
+        {% endif %}
       </button>
+      <p class="mb-0 text-xs text-center text-emerald-700 dark:text-emerald-400" data-testid="premium-pricing-note">
+        {% if premium_onboarding_fee %}{% blocktrans with amount=premium_monthly_fee %}Includes a coach review session. After your free first month, Premium is €{{ amount }} / month.{% endblocktrans %}{% else %}{% trans "No onboarding fee: you were verified at an event. Your second month is free." %}{% endif %}
+      </p>
       {% endif %}
     </div>
     <script nonce="{{ csp_nonce }}">

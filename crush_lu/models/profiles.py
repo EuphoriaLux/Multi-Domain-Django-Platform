@@ -3308,6 +3308,21 @@ class PremiumMembership(models.Model):
         related_name="confirmed_premium_memberships",
         help_text=_("Staff member who confirmed payment"),
     )
+    # The onboarding part of the checkout amount, written when the checkout is
+    # published (views_payments.create_sumup_premium_checkout). Above zero means
+    # the member is owed the coach review session it includes; zero means they
+    # were event-verified and skipped it; NULL predates the fee or was settled
+    # out of band.
+    onboarding_fee = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text=_(
+            "One-time onboarding fee in this membership's checkout; above zero "
+            "includes a coach review session"
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
