@@ -3746,12 +3746,7 @@ def record_registration_funnel_transitions(sender, instance, created, **kwargs):
         "confirmed",
         "attended",
     ):
-        funnel_events.record(
-            instance.user_id,
-            "event_registration",
-            dedupe_key=funnel_events.admission_dedupe_key(instance),
-            event_id=instance.event_id,
-        )
+        funnel_events.record_admission(instance)
     if instance.status == "attended":
         funnel_events.record_attended(instance)
 

@@ -144,10 +144,9 @@ def invitation_accept(request, code):
                 invitation.accepted_at = timezone.now()
                 invitation.save()
 
-                # Log the user in
-                user.backend = "django.contrib.auth.backends.ModelBackend"
-                login(request, user)
                 # A17: this account bypasses allauth's user_signed_up.
+                # Queued before login(), whose user_logged_in queues ``login``:
+                # the same order as an allauth signup.
                 from crush_lu.services import funnel_events
 
                 funnel_events.record(
@@ -156,6 +155,10 @@ def invitation_accept(request, code):
                     dedupe_key=f"sign_up:{user.pk}",
                     method="invitation",
                 )
+
+                # Log the user in
+                user.backend = "django.contrib.auth.backends.ModelBackend"
+                login(request, user)
 
                 logger.info(
                     f"Guest account created with age verification: {user.email} "

@@ -50,6 +50,32 @@ def _cache_set_safe(key, value, ttl):
         logger.debug("activity cache write failed (%s); ignoring", e)
 
 
+class FunnelDeliveryMiddleware:
+    """Settle the funnel events a page claimed (services/funnel_events.py).
+
+    ``{% funnel_events %}`` only claims events while the template renders.
+    They are deleted here once the response exists with a status below 500;
+    a failed page releases them for the member's next page. Django turns a
+    view or template exception into a 500 response before it reaches this
+    layer, so the ``except`` branch only covers an exception that escapes
+    that conversion.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        from crush_lu.services import funnel_events
+
+        try:
+            response = self.get_response(request)
+        except Exception:
+            funnel_events.acknowledge(request, delivered=False)
+            raise
+        funnel_events.acknowledge(request, delivered=response.status_code < 500)
+        return response
+
+
 class UserActivityMiddleware:
     """
     Middleware to track user activity for Crush.lu.

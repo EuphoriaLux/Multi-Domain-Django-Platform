@@ -33,6 +33,16 @@ def _names(user):
     return [e["name"] for e in _queue(user)]
 
 
+def _deliver(user):
+    """One page view that renders and succeeds: claim, then acknowledge."""
+    from django.http import HttpRequest
+
+    request = HttpRequest()
+    events = funnel_events.claim(request, user.pk)
+    funnel_events.acknowledge(request, delivered=True)
+    return [e["name"] for e in events]
+
+
 class FunnelEventsTests(TestCase):
     def setUp(self):
         cache.clear()
@@ -56,9 +66,10 @@ class FunnelEventsTests(TestCase):
             profile_requirement="none",
         )
 
-    def _render_tag(self):
-        request = RequestFactory().get("/en/events/", HTTP_HOST="crush.lu")
-        request.user = self.user
+    def _render_tag(self, request=None):
+        if request is None:
+            request = RequestFactory().get("/en/events/", HTTP_HOST="crush.lu")
+            request.user = self.user
         return Template("{% load funnel_tags %}{% funnel_events %}").render(
             Context({"request": request, "GOOGLE_ANALYTICS_GTAG_PROPERTY_ID": "G-T"})
         )
@@ -77,11 +88,62 @@ class FunnelEventsTests(TestCase):
     def test_login_is_captured_on_login_and_delivered_once(self):
         self._login("crush.lu")
         self.assertEqual(_names(self.user), ["login"])
-        html = self._render_tag()
+        request = RequestFactory().get("/en/events/", HTTP_HOST="crush.lu")
+        request.user = self.user
+        html = self._render_tag(request)
         self.assertIn("gtag('event',\"login\"", html)
         # A replay of the cached page is refused in the browser by event ID.
         self.assertIn("localStorage.getItem(k)", html)
+        # Claimed by this page: another page rendering meanwhile skips it.
         self.assertEqual(self._render_tag(), "")
+        funnel_events.acknowledge(request, delivered=True)
+        self.assertEqual(_names(self.user), [])
+
+    def test_page_view_delivers_and_deletes_queued_events(self):
+        # Wiring: FunnelDeliveryMiddleware settles what base.html's tag claimed.
+        import os
+        from unittest.mock import patch
+
+        with self.captureOnCommitCallbacks(execute=True):
+            funnel_events.record(self.user.pk, "login")
+        client = Client(HTTP_HOST="crush.lu")
+        client.force_login(self.user)
+        with patch.dict(os.environ, {"GA4_CRUSH_LU": "G-T"}):
+            response = client.get("/en/events/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "gtag('event',\"login\"")
+        self.assertEqual(_names(self.user), [])
+
+    def test_failed_page_keeps_claimed_events_for_the_next_page(self):
+        from django.http import HttpResponseServerError
+
+        from crush_lu.middleware import FunnelDeliveryMiddleware
+
+        with self.captureOnCommitCallbacks(execute=True):
+            funnel_events.record(self.user.pk, "login")
+
+        def page(outcome):
+            def view(request):
+                self.assertIn("login", self._render_tag(request))
+                # Something later on the page fails, e.g. a NoReverseMatch.
+                if outcome == "raise":
+                    raise RuntimeError("template error after the tag")
+                return HttpResponseServerError()
+
+            request = RequestFactory().get("/en/events/", HTTP_HOST="crush.lu")
+            request.user = self.user
+            return FunnelDeliveryMiddleware(view), request
+
+        middleware, request = page("raise")
+        with self.assertRaises(RuntimeError):
+            middleware(request)
+        self.assertEqual(_names(self.user), ["login"])
+        middleware, request = page("500")
+        self.assertEqual(middleware(request).status_code, 500)
+        self.assertEqual(_names(self.user), ["login"])
+        # Released, so the next page that renders delivers it, once.
+        self.assertEqual(_deliver(self.user), ["login"])
+        self.assertEqual(_deliver(self.user), [])
 
     def test_login_on_another_platform_is_not_a_crush_conversion(self):
         self._login("powerup.lu")
@@ -92,6 +154,31 @@ class FunnelEventsTests(TestCase):
             "crush_lu/templates/crush_lu/dashboard.html", encoding="utf-8"
         ).read()
         self.assertNotIn('{% ga4_event "login" %}', template)
+
+    def test_invitation_sign_up_is_queued_before_its_login(self):
+        from crush_lu.models import EventInvitation
+
+        self.event.is_private_invitation = True
+        self.event.invitation_code = "vip-funnel"
+        self.event.invitation_expires_at = timezone.now() + timedelta(days=30)
+        self.event.save()
+        invitation = EventInvitation.objects.create(
+            event=self.event,
+            guest_email="guest-funnel@example.com",
+            guest_first_name="Gina",
+            guest_last_name="Guest",
+            status="pending",
+            approval_status="pending_approval",
+        )
+        dob = timezone.localdate() - timedelta(days=365 * 30)
+        with self.captureOnCommitCallbacks(execute=True):
+            Client(HTTP_HOST="crush.lu").post(
+                f"/en/invite/{invitation.invitation_code}/accept/",
+                {"date_of_birth": dob.isoformat(), "agree_to_terms": True},
+            )
+        guest = User.objects.get(email="guest-funnel@example.com")
+        # The order of an allauth signup: the account, then its login.
+        self.assertEqual(_names(guest), ["sign_up", "login"])
 
     def test_sign_up_queued_once_with_method(self):
         from allauth.account.signals import user_signed_up
@@ -220,6 +307,19 @@ class FunnelEventsTests(TestCase):
             reg.save()
         self.assertEqual(_names(self.user), ["event_registration", "event_attended"])
 
+    def test_later_admission_carries_the_event_type(self):
+        # The same parameters as a direct registration in event_register.
+        reg = EventRegistration.objects.create(
+            event=self.event, user=self.user, status="applied"
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            reg.status = "confirmed"
+            reg.save()
+        self.assertEqual(
+            _queue(self.user)[0]["params"],
+            {"event_id": self.event.pk, "event_type": "mixer"},
+        )
+
     def test_walk_up_admitted_from_waitlist_counts_as_registration(self):
         # views_checkin admits a walk-up straight from waitlist to attended.
         reg = EventRegistration.objects.create(
@@ -265,21 +365,23 @@ class FunnelEventsTests(TestCase):
             return found
 
         with patch.object(funnel_events.cache, "get_many", get_many_then_capture):
-            first = funnel_events.pop(self.user.pk)
-        self.assertEqual([e["name"] for e in first], ["login"])
-        second = funnel_events.pop(self.user.pk)
-        self.assertEqual([e["name"] for e in second], ["purchase"])
-        self.assertEqual(funnel_events.pop(self.user.pk), [])
+            first = _deliver(self.user)
+        self.assertEqual(first, ["login"])
+        self.assertEqual(_deliver(self.user), ["purchase"])
+        self.assertEqual(_deliver(self.user), [])
 
-    def test_concurrent_drain_delivers_once(self):
+    def test_concurrent_pages_deliver_once(self):
+        from django.http import HttpRequest
+
         with self.captureOnCommitCallbacks(execute=True):
             funnel_events.record(self.user.pk, "login")
-        from unittest.mock import patch
-
-        # The other request deleted the key between this one's read and delete.
-        with patch.object(funnel_events.cache, "delete", return_value=False):
-            self.assertEqual(funnel_events.pop(self.user.pk), [])
-        self.assertEqual(len(funnel_events.pop(self.user.pk)), 1)
+        first, second = HttpRequest(), HttpRequest()
+        self.assertEqual(len(funnel_events.claim(first, self.user.pk)), 1)
+        # A second page rendering before the first one's response is built.
+        self.assertEqual(funnel_events.claim(second, self.user.pk), [])
+        funnel_events.acknowledge(second, delivered=True)
+        funnel_events.acknowledge(first, delivered=True)
+        self.assertEqual(_deliver(self.user), [])
 
     # -- transitions the member is not present for ---------------------------------
 
