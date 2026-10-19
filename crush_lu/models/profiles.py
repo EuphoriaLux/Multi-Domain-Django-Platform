@@ -389,7 +389,7 @@ class CrushCoach(models.Model):
     def get_premium_members_count(self):
         """Number of ACTIVE paid/comped premium members with this coach.
 
-        Counts ``PremiumMembership(status='active')`` rows, NOT
+        Counts ``PremiumMembership`` rows that grant Premium, NOT
         ``assigned_members`` — coach assignment also happens without payment
         (0150 backfill, attendance auto-assign), and counting those would
         wrongly exhaust ``max_premium_members`` capacity.

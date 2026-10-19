@@ -285,3 +285,88 @@ class PremiumRenewalLifecycleTests(TestCase):
             self.assertEqual(self.coach.get_premium_members_count(), 1)  # grace
         with patch("django.utils.timezone.now", return_value=_at(2027, 2, 14)):
             self.assertEqual(self.coach.get_premium_members_count(), 0)
+
+    # -- admin ----------------------------------------------------------------
+
+    def _admin(self):
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from crush_lu.admin.profiles import PremiumMembershipAdmin
+
+        request = RequestFactory().post("/")
+        request.user = User.objects.create_user(
+            username="staff@example.com",
+            email="staff@example.com",
+            password="x",
+            is_staff=True,
+        )
+        request.session = {}
+        request._messages = FallbackStorage(request)
+        return PremiumMembershipAdmin(PremiumMembership, AdminSite()), request
+
+    def test_admin_cannot_edit_an_existing_membership_status(self):
+        """A plain status edit would skip cancel_active(): no ended_at for the
+        weekly KPI, and the coach kept (Codex #1277)."""
+        m = self._confirmed(onboarding_fee=Decimal("10.00"))
+        model_admin, request = self._admin()
+        self.assertIn("status", model_admin.get_readonly_fields(request, m))
+        self.assertNotIn("status", model_admin.get_form(request, m).base_fields)
+        # Adding a membership by hand still sets its status.
+        self.assertIn("status", model_admin.get_form(request).base_fields)
+
+    def test_admin_end_action_goes_through_cancel_active(self):
+        m = self._confirmed(onboarding_fee=Decimal("10.00"), at=_at(2027, 1, 10))
+        model_admin, request = self._admin()
+        with patch("django.utils.timezone.now", return_value=_at(2027, 1, 20)):
+            model_admin.end_membership(
+                request, PremiumMembership.objects.filter(pk=m.pk)
+            )
+        m.refresh_from_db()
+        self.profile.refresh_from_db()
+        self.assertEqual(m.status, "cancelled")
+        self.assertEqual(m.ended_at, _at(2027, 1, 20))
+        self.assertEqual(m.payment_date, _at(2027, 1, 10))
+        self.assertIsNone(self.profile.assigned_coach)
+
+        def entitled(at):
+            return PremiumMembership.objects.filter(
+                premium_billing.entitled_as_of_q(at), pk=m.pk
+            ).exists()
+
+        # The weekly KPI still counts it before it was ended, not after.
+        self.assertTrue(entitled(_at(2027, 1, 15)))
+        self.assertFalse(entitled(_at(2027, 1, 21)))
+
+    def test_admin_end_action_leaves_a_pending_checkout_to_the_member(self):
+        from crush_lu.models import PaymentTransaction
+
+        plain = PremiumMembership.objects.create(
+            user=self.member, coach=self.coach, status="pending"
+        )
+        other = User.objects.create_user(
+            username="checkout@example.com", email="checkout@example.com", password="x"
+        )
+        with_checkout = PremiumMembership.objects.create(
+            user=other, coach=self.coach, status="pending"
+        )
+        PaymentTransaction.objects.create(
+            provider=PaymentTransaction.Provider.SUMUP,
+            amount=Decimal("10.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+            user=other,
+            premium_membership=with_checkout,
+        )
+        model_admin, request = self._admin()
+        model_admin.end_membership(
+            request,
+            PremiumMembership.objects.filter(pk__in=[plain.pk, with_checkout.pk]),
+        )
+        plain.refresh_from_db()
+        with_checkout.refresh_from_db()
+        self.assertEqual(plain.status, "cancelled")
+        self.assertEqual(with_checkout.status, "pending")
+        self.assertIn("has a checkout", " ".join(str(m) for m in request._messages))

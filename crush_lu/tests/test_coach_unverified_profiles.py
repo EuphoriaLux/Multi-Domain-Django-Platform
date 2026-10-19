@@ -253,6 +253,31 @@ class CoachUnverifiedProfilesListTests(CoachUnverifiedBase):
 
         self.assertEqual(self._names(resp), {"NoPhoto"})
 
+    def test_premium_signal_follows_the_billing_period(self):
+        """A row past its period and grace reads "active" until the lapse sweep
+        runs; it is no longer Premium (Codex #1277)."""
+        from crush_lu.models import PremiumMembership
+
+        now = timezone.now()
+        for email, name, period_end in (
+            ("paid@example.com", "Paid", now + timedelta(days=10)),
+            ("grace@example.com", "Grace", now - timedelta(days=1)),
+            ("lapsed@example.com", "Lapsed", now - timedelta(days=10)),
+            ("comped@example.com", "Comped", None),
+        ):
+            profile = self._profile(email, name=name)
+            PremiumMembership.objects.create(
+                user=profile.user,
+                coach=self.coach,
+                status="active",
+                current_period_end=period_end,
+            )
+
+        self.client.force_login(self.coach_user)
+        resp = self.client.get(self._list_url(), {"signal": "premium"})
+
+        self.assertEqual(self._names(resp), {"Paid", "Grace", "Comped"})
+
     def test_unowned_signal_excludes_profiles_with_an_open_submission(self):
         from crush_lu.models import ProfileSubmission
 

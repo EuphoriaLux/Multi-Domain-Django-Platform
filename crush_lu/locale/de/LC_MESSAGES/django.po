@@ -1526,6 +1526,15 @@ msgstr "Zahlung bestätigen & Coach zuweisen"
 msgid "Confirmed %(count)s membership(s) and assigned coaches."
 msgstr "%(count)s Mitgliedschaft(en) bestätigt und Coaches zugewiesen."
 
+#: admin/profiles.py
+msgid "End membership & release coach"
+msgstr "Mitgliedschaft beenden & Coach freigeben"
+
+#: admin/profiles.py
+#, python-format
+msgid "Ended %(count)s membership(s)."
+msgstr "%(count)s Mitgliedschaft(en) beendet."
+
 #: admin/quiz.py:108
 #, python-format
 msgid "'%(event)s': %(error)s"

@@ -2841,7 +2841,60 @@ class PremiumMembershipAdmin(admin.ModelAdmin):
     )
     raw_id_fields = ("user", "coach")
     readonly_fields = ("payment_date", "confirmed_by", "ended_at", "created_at")
-    actions = ("confirm_payment",)
+    actions = ("confirm_payment", "end_membership")
+
+    def get_readonly_fields(self, request, obj=None):
+        # Once a row exists its status moves only through the actions: a plain
+        # edit would skip what confirm() and cancel_active() do (the billing
+        # period, the coach, and ended_at, which the weekly KPI reads).
+        fields = super().get_readonly_fields(request, obj)
+        return fields if obj is None else (*fields, "status")
+
+    @admin.action(description=_("End membership & release coach"))
+    def end_membership(self, request, queryset):
+        """End active memberships through ``cancel_active`` and cancel pending
+        requests that never published a checkout.
+
+        The payment record stays: the member held Premium until now, so the
+        weekly KPI keeps counting the weeks before ``ended_at``. A refund is
+        recorded by the SumUp reconciliation, which clears it.
+        """
+        from crush_lu.models import PaymentTransaction
+        from crush_lu.views_payments import _lock_premium_checkout_state
+
+        ended = 0
+        errors = []
+        for membership in queryset.select_related("user"):
+            with transaction.atomic():
+                # Lock order as in confirm_payment: payments -> membership,
+                # then cancel_active() takes the profile.
+                locked, _open = _lock_premium_checkout_state(membership.pk, set())
+                if locked is None:
+                    continue
+                if locked.status == "active":
+                    ended += locked.cancel_active(
+                        reason=f"ended by staff ({request.user})",
+                        keep_payment_record=True,
+                    )
+                elif locked.status == "pending":
+                    # A checkout may still be captured; the member's own
+                    # cancel settles it with SumUp first, so leave it to them.
+                    if PaymentTransaction.objects.filter(
+                        premium_membership_id=locked.pk
+                    ).exists():
+                        errors.append(
+                            f"{membership.user}: has a checkout; settle it "
+                            "before cancelling"
+                        )
+                        continue
+                    ended += locked.cancel(by_user=request.user)
+        if ended:
+            django_messages.success(
+                request,
+                _("Ended %(count)s membership(s).") % {"count": ended},
+            )
+        for err in errors:
+            django_messages.error(request, err)
 
     @admin.action(description=_("Confirm payment & assign coach"))
     def confirm_payment(self, request, queryset):

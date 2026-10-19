@@ -50,6 +50,7 @@ from .services.event_doors import (
     DOOR_VISIBLE_REGISTRATION_STATUSES,
     live_or_future_event_ids as _live_or_future_event_ids,
 )
+from .services.premium_billing import entitled_q
 from .matching import (
     get_western_zodiac,
     get_western_element,
@@ -1129,9 +1130,11 @@ def _unverified_signal_annotations(now, live_or_future_event_ids):
         # at filter time so neither subquery has to be re-derived.
         "sig_luxid_native": Exists(native_luxid),
         "sig_luxid_oidc": Exists(oidc_luxid),
+        # Premium as it is granted, not the stored status: a row past its
+        # period and grace reads "active" until the lapse sweep runs.
         "sig_premium": Exists(
             PremiumMembership.objects.filter(
-                user_id=OuterRef("user_id"), status="active"
+                entitled_q(now=now), user_id=OuterRef("user_id")
             )
         ),
         # An ACTIVE coach, not merely an open row. `coach=NULL` is the
