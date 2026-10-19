@@ -662,6 +662,21 @@ class MeetupEvent(models.Model):
     # "Max spots (Men)" without that phrasing leaking onto the event page.
     GENDER_POOL_LABELS = {"m": _("Men"), "f": _("Women"), "nb": _("Other genders")}
 
+    @property
+    def guests_open(self):
+        """Whether sign-ups to this event may bring a guest.
+
+        Off site-wide since 2026-10-17 (Tom): a guest takes a seat the
+        capacity checks do not count, so the feature is dropped until it is
+        rebuilt to count guests. ``allow_plus_ones`` is kept so events keep
+        their setting for when it returns. Decision and the rule for the
+        rebuild: ai-memory-hub/runbooks/crush-task-management.md (Epic 17,
+        Audit A10).
+        """
+        from django.conf import settings
+
+        return self.allow_plus_ones and getattr(settings, "EVENT_GUESTS_ENABLED", False)
+
     def get_gender_pool_availability(self, capacity_remaining=None):
         """Per-pool availability rows for display.
 
