@@ -1040,7 +1040,9 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 ),
                 "description": (
                     "Set all three gender caps to activate gender-aware waitlisting. "
-                    "Leave all blank for total-only cap."
+                    "Leave all blank for total-only cap. Guests (allow plus ones) "
+                    "are switched off site-wide for now: the box is kept but has "
+                    "no effect until EVENT_GUESTS_ENABLED is on."
                 ),
             },
         ),
@@ -2652,6 +2654,15 @@ class EventRegistrationAdmin(admin.ModelAdmin):
             {"fields": ("registered_at", "cancelled_at", "updated_at")},
         ),
     )
+
+    def get_readonly_fields(self, request, obj=None):
+        # Guests are off site-wide (EVENT_GUESTS_ENABLED, see
+        # MeetupEvent.guests_open): staff can see a stored guest but not add
+        # one, or the admin would seat a guest the capacity checks never count.
+        readonly = super().get_readonly_fields(request, obj)
+        if not getattr(settings, "EVENT_GUESTS_ENABLED", False):
+            readonly = (*readonly, "bringing_guest", "guest_name")
+        return readonly
 
     def save_model(self, request, obj, form, change):
         # Stamp payment_date when staff flips payment_confirmed — in the change

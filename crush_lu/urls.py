@@ -6,6 +6,7 @@ from allauth.account.views import LoginView, LogoutView
 from allauth.account.forms import LoginForm
 from . import views
 from . import views_static
+from . import views_events
 from . import views_women_1y
 from . import views_pre_screening
 from . import views_crush_connect
@@ -574,6 +575,7 @@ urlpatterns = [
     path('my-events/', views.my_events, name='my_events'),
     path('events/<int:event_id>/', views.event_detail, name='event_detail'),
     path('events/<int:event_id>/register/', views.event_register, name='event_register'),
+    path('events/continue/dismiss/', views_events.event_intent_dismiss, name='event_intent_dismiss'),
     path('events/<int:event_id>/cancel/', views.event_cancel, name='event_cancel'),
     path('events/<int:event_id>/attending/', views.event_attendance_confirm, name='event_attendance_confirm'),
     path('events/<int:event_id>/feedback/', views.event_feedback, name='event_feedback'),

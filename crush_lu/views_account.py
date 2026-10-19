@@ -36,6 +36,7 @@ from .models import (
 from .forms import CrushSignupForm
 from .decorators import crush_login_required, ratelimit
 from .rate_limit_utils import add_rate_limited_error, humanize_wait_seconds
+from .services import event_intent
 from .referrals import (
     capture_referral,
     capture_referral_from_request,
@@ -2398,6 +2399,9 @@ def signup(request):
     # capture normally.
     if not limited:
         capture_referral_from_request(request)
+        if request.method == "GET":
+            # A11: "Sign up" on an event page; the event is remembered by ID.
+            event_intent.remember_from_request(request)
 
     if limited:
         signup_form = CrushSignupForm(request.POST)
@@ -2418,6 +2422,9 @@ def signup(request):
                 # Allauth's save() method handles EmailAddress creation automatically
                 # This will raise IntegrityError if email/username already exists
                 user = signup_form.save(request)
+                # The verification link may open in another browser: keep the
+                # event for this user until they log in there.
+                event_intent.persist_for_user(request, user)
 
                 messages.success(
                     request,

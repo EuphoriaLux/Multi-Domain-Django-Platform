@@ -304,6 +304,13 @@ def crush_user_context(request):
                 context["journey_progress"] = journey_progress
 
     if request.user.is_authenticated:
+        # A11: the event picked before signing up. No query without one.
+        try:
+            from crush_lu.services import event_intent
+
+            context["event_intent"] = event_intent.current(request)
+        except Exception:  # noqa: BLE001 - never break the page for a banner
+            logger.warning("crush_user_context: event intent failed", exc_info=True)
         try:
             _fill_authenticated_context()
         except Exception:
