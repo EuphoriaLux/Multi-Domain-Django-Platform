@@ -25,6 +25,7 @@ from modeltranslation.admin import TranslationAdmin
 
 from azureproject.admin_translation_mixin import AutoTranslateMixin
 
+from crush_lu.services import funnel_events
 from crush_lu.models import (
     CrushCoach,
     CrushProfile,
@@ -1578,6 +1579,7 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
             if not submission:
                 skipped_count += 1
                 continue
+            newly_verified = profile.verification_status != "verified"
             profile.is_approved = True
             profile.approved_at = now
             profile.verification_status = "verified"
@@ -1591,6 +1593,12 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
                     "verification_method",
                 ]
             )
+            # After the save: admin actions run in autocommit, where on_commit
+            # fires at once, so recording first would count a failed save.
+            if newly_verified:
+                funnel_events.record_profile_verified(
+                    profile.user_id, profile.verification_method
+                )
             approved_count += 1
         if approved_count > 0:
             django_messages.success(
@@ -2238,12 +2246,18 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
                 submission.reviewed_at = now
                 submission.save()
 
+                newly_verified = submission.profile.verification_status != "verified"
                 submission.profile.is_approved = True
                 submission.profile.approved_at = now
                 submission.profile.verification_status = "verified"
                 if not submission.profile.verification_method:
                     submission.profile.verification_method = "admin"
                 submission.profile.save()
+                if newly_verified:
+                    funnel_events.record_profile_verified(
+                        submission.profile.user_id,
+                        submission.profile.verification_method,
+                    )
                 approved_count += 1
 
             try:

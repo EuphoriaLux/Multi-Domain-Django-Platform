@@ -57,6 +57,16 @@ from crush_lu.views_payments import _apply_paid_checkout
 User = get_user_model()
 
 
+def _business_callbacks(callbacks):
+    """on_commit callbacks other than the analytics capture (A17), which every
+    PAID payment now queues and which has no business side effect."""
+    return [
+        cb
+        for cb in callbacks
+        if getattr(cb, "__module__", "") != "crush_lu.services.funnel_events"
+    ]
+
+
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class CuratedGroupWorkflowIntegrationTests(TestCase):
     def setUp(self):
@@ -2084,7 +2094,7 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
 
         payment.refresh_from_db()
         payer.refresh_from_db()
-        self.assertEqual(callbacks, [])
+        self.assertEqual(_business_callbacks(callbacks), [])
         self.assertEqual(payment.status, PaymentTransaction.Status.PAID)
         self.assertEqual(payer.status, "no_show")
         self.assertTrue(payer.payment_confirmed)
@@ -2564,6 +2574,7 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
                 {"id": transaction_row.sumup_checkout_id, "status": "PAID"},
             )
         self.assertEqual(mail.outbox, [])
+        callbacks = _business_callbacks(callbacks)
         self.assertEqual(len(callbacks), 1)
         callbacks[0]()
 

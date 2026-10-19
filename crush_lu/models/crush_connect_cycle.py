@@ -14,7 +14,7 @@ Implements the approved product blueprint (2026-08-17 / Epic 13):
 
 from datetime import timedelta
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Exists, F, OuterRef, Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -406,15 +406,30 @@ class ConnectCoffeeDate(models.Model):
         elif is_p2:
             self.participant_2_confirmed_at = now
 
-        if self.participant_1_confirmed_at and self.participant_2_confirmed_at:
-            self.status = self.Status.CONFIRMED_BY_BOTH
-            self.meeting_confirmed_at = now
-            # Extend chat lifespan to 3 days after meeting confirmation
-            self.chat.status = ConnectTemporaryChat.Status.MEETING_CONFIRMED
-            self.chat.expires_at = now + timedelta(days=3)
-            self.chat.save(update_fields=["status", "expires_at"])
+        both_confirmed = bool(
+            self.participant_1_confirmed_at and self.participant_2_confirmed_at
+        )
+        newly_mutual = both_confirmed and self.status != self.Status.CONFIRMED_BY_BOTH
+        # One transaction, so the chat extension and the confirmation land
+        # together and the funnel's on_commit sees only a durable meeting.
+        with transaction.atomic():
+            if both_confirmed:
+                self.status = self.Status.CONFIRMED_BY_BOTH
+                self.meeting_confirmed_at = now
+                # Extend chat lifespan to 3 days after meeting confirmation
+                self.chat.status = ConnectTemporaryChat.Status.MEETING_CONFIRMED
+                self.chat.expires_at = now + timedelta(days=3)
+                self.chat.save(update_fields=["status", "expires_at"])
 
-        self.save()
+            self.save()
+            if newly_mutual:
+                from crush_lu.services import funnel_events
+
+                funnel_events.record_mutual_meeting(
+                    (self.chat.participant_1_id, self.chat.participant_2_id),
+                    pair_key=f"chat:{self.pk}",
+                    source="connect_chat",
+                )
 
 
 class ConnectPairExclusion(models.Model):
