@@ -18,7 +18,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
-from .connect_phase import is_selected_beta_tester
+from .connect_phase import is_event_verified_member, is_selected_beta_tester
 from .models import CrushCoach, CrushProfile, PremiumMembership
 from .ios_app_utils import ios_commerce_suppressed
 from .services import premium_recovery
@@ -35,7 +35,41 @@ def premium_monthly_fee():
     """
     from django.conf import settings as _settings
 
-    return Decimal(str(getattr(_settings, "SUMUP_PREMIUM_MONTHLY_FEE", "10.00")))
+    return Decimal(str(getattr(_settings, "SUMUP_PREMIUM_MONTHLY_FEE", "9.99")))
+
+
+def premium_onboarding_fee(user):
+    """The one-time onboarding fee ``user`` pays when going Premium.
+
+    Zero for an event-verified member: a coach has already met them in person,
+    which is what the onboarding's coach review session is for. Everyone else
+    (including an anonymous visitor reading the pricing page) sees the full fee.
+    """
+    from django.conf import settings as _settings
+
+    if is_event_verified_member(user):
+        return Decimal("0")
+    return Decimal(str(getattr(_settings, "PREMIUM_ONBOARDING_FEE", "10.00")))
+
+
+def premium_first_charge(user):
+    """What ``user`` is charged at Premium checkout.
+
+    The onboarding fee alone when it applies (month 1 is then free), otherwise
+    the first month (month 2 is then free). Provider-neutral on purpose: SumUp
+    refused the platform, and the next provider's checkout should call this
+    rather than re-derive the price.
+    """
+    onboarding = premium_onboarding_fee(user)
+    return onboarding if onboarding > 0 else premium_monthly_fee()
+
+
+def premium_pricing_context(user):
+    """Template context for every surface that states the Premium price."""
+    return {
+        "premium_monthly_fee": premium_monthly_fee(),
+        "premium_onboarding_fee": premium_onboarding_fee(user),
+    }
 
 
 def pending_premium_membership(user):
@@ -233,11 +267,11 @@ def premium_choose_coach(request):
         # "manage" = the beta allowlist refuses this buyer at checkout (403), so
         # the template must not offer the pay button (same predicate as /membership/).
         "pending_premium_state": pending_premium_state(request.user),
-        # The price shown must come from the same setting the checkout charges
-        # (views_payments.create_sumup_premium_checkout reads it too). The label
+        # The price shown must come from the same helpers the checkout charges
+        # (views_payments.create_sumup_premium_checkout calls them too). The label
         # used to hard-code "€10.00 / month", so changing SUMUP_PREMIUM_MONTHLY_FEE
         # would have advertised one price and billed another.
-        "premium_monthly_fee": premium_monthly_fee(),
+        **premium_pricing_context(request.user),
     }
     return render(request, "crush_lu/premium/choose_coach.html", context)
 

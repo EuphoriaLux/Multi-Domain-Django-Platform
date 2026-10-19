@@ -26,8 +26,10 @@
 
     {% comment %}
     Free vs Premium (Decision A, finding 1-01). Feature lists reuse
-    partials/_products.html; no trial is promised. The price comes from
-    SUMUP_PREMIUM_MONTHLY_FEE via the view, never hardcoded. Native shells
+    partials/_products.html. The prices come from the pricing settings via
+    views_premium.premium_pricing_context, never hardcoded: the onboarding fee
+    (month 1 then free) or, for an event-verified viewer, its waiver (month 2
+    free). Native shells
     that may not sell (suppress_native_commerce) get neither price nor CTA.
     {% endcomment %}
     <section id="pricing" class="mb-12" aria-labelledby="pricing-heading">
@@ -58,6 +60,11 @@
                 <h3 class="text-xl font-bold text-gray-900 dark:text-white mt-3">{% trans "Premium" %}</h3>
                 {% if not suppress_native_commerce %}
                 <p class="text-2xl font-bold text-gray-900 dark:text-white mt-2" data-testid="premium-price">{% blocktrans with amount=premium_monthly_fee %}€{{ amount }} / month{% endblocktrans %}</p>
+                {% if premium_onboarding_fee %}
+                <p class="text-sm text-gray-700 dark:text-gray-300 mt-1" data-testid="premium-onboarding">{% blocktrans with amount=premium_onboarding_fee %}€{{ amount }} one-time onboarding with a coach review session, then your first month is free{% endblocktrans %}</p>
+                {% else %}
+                <p class="text-sm text-gray-700 dark:text-gray-300 mt-1" data-testid="premium-onboarding">{% trans "No onboarding fee for event-verified members, and your second month is free" %}</p>
+                {% endif %}
                 {% endif %}
                 <p class="text-sm text-muted-fg mb-5">{% trans "Premium optional" %}</p>
                 <ul class="space-y-2.5 text-sm mb-6 flex-1">
