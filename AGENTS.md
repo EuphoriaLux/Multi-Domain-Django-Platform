@@ -126,6 +126,24 @@ A **pre-commit design-token linter** (`crush_lu/scripts/lint_design_tokens.py`, 
 
 GitHub Actions (`.github/workflows/`): `test-and-validate.yml` runs on PRs (Django checks + pytest minus Playwright); `deploy-azure-app-service-optimized.yml` builds CSS and deploys to Azure on `main`. Several Azure Functions (`azure-functions/`) deploy via their own workflows. Infra is Bicep under `infra/`. Production env vars (SECRET_KEY, `ERASURE_DIGEST_KEY` (dedicated, never rotated, production slot only; missing logs an ERROR at boot and fails `check --deploy` with a warning, `azureproject.W001`), `AZURE_POSTGRESQL_CONNECTIONSTRING`, Graph email, LuxID, Wallet certs, …) are set in App Service configuration — see README "Production Environment Variables" and `.env.example`.
 
+## Codex review findings
+
+Codex reviews every push and tags each inline finding P0–P3. Every push triggers a fresh review that tends to surface a few more P2s, so fixing each finding in place keeps a PR from ever converging. Handle threads by priority:
+
+- **P0/P1: fix in the PR.** Reply with the fixing commit and resolve the thread.
+- **P2/P3: defer, do not fix in the PR.** Collect them in **one issue per PR**, titled `Codex follow-ups from #<PR>` and labelled `codex-followup`, listing each finding's `file:line`, a one-line summary and a link to its thread. Reply on the thread with the issue link and resolve it. Fix the batch in a follow-up PR once the original has merged.
+- **Resolve every thread either way.** The `Protect main` ruleset requires all review threads to be resolved before merge, so an open P2 blocks it as surely as a P1.
+- Fix a P2 in place only when the maintainer asks for that one, or when it is really a P1 under the rules below — say which in the reply.
+
+## Code Review Rules
+
+For Codex's GitHub review, which reads this exact heading.
+
+### Severity
+
+- Post only P0 and P1 findings. P2 and P3 findings are tracked separately, so leave them out of the review.
+- Rate at least P1: money or payment state that can end up wrong (charges, refunds, Crush Credit, seat holds); data loss or an irreversible write; personal data reaching anyone who should not see it, including logs, analytics and exports; an authentication or permission bypass; a page that 500s or a deploy that fails; a migration that is unsafe to roll back by re-swap.
+
 ## Traps that cost real time
 
 These failures pass every local check and surface only later. Read them before planning any change.
