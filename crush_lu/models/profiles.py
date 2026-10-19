@@ -3340,8 +3340,12 @@ class PremiumMembership(models.Model):
         db_index=True,
         help_text=_("End of the paid period; empty means the membership never expires"),
     )
+    # db_default too: migrations run on the production database at swap
+    # warm-up, and code from before this column (still serving then, or back
+    # after a rollback re-swap) inserts rows without it.
     cancel_at_period_end = models.BooleanField(
         default=False,
+        db_default=False,
         help_text=_("The member cancelled: Premium ends at the period end, no renewal"),
     )
     # When cancel_active() took the row out of ``active``; the weekly KPI reads

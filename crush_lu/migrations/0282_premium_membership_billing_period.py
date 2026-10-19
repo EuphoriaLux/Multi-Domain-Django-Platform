@@ -14,6 +14,7 @@ class Migration(migrations.Migration):
             model_name="premiummembership",
             name="cancel_at_period_end",
             field=models.BooleanField(
+                db_default=False,
                 default=False,
                 help_text="The member cancelled: Premium ends at the period end, no renewal",
             ),

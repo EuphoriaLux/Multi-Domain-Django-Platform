@@ -370,3 +370,42 @@ class PremiumRenewalLifecycleTests(TestCase):
         self.assertEqual(plain.status, "cancelled")
         self.assertEqual(with_checkout.status, "pending")
         self.assertIn("has a checkout", " ".join(str(m) for m in request._messages))
+
+    # -- rollback safety ------------------------------------------------------
+
+    def test_code_from_before_these_columns_can_still_insert(self):
+        """Migrations reach the production database at swap warm-up, while the
+        old code still serves, and stay after a rollback re-swap. That code
+        inserts without the new columns, so each needs a database default or
+        must be nullable."""
+        from django.db import connection
+
+        new = {"current_period_end", "cancel_at_period_end", "ended_at"}
+        old = {
+            "user_id": self.member.pk,
+            "coach_id": self.coach.pk,
+            "status": "pending",
+            "payment_confirmed": False,
+            "payment_date": None,
+            "confirmed_by_id": None,
+            "onboarding_fee": None,
+            "created_at": connection.ops.adapt_datetimefield_value(timezone.now()),
+        }
+        columns = {
+            f.column
+            for f in PremiumMembership._meta.concrete_fields
+            if not f.primary_key
+        }
+        self.assertEqual(columns - new, set(old))
+        table = connection.ops.quote_name(PremiumMembership._meta.db_table)
+        names = ", ".join(connection.ops.quote_name(c) for c in old)
+        placeholders = ", ".join(["%s"] * len(old))
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"INSERT INTO {table} ({names}) VALUES ({placeholders})",
+                list(old.values()),
+            )
+        row = PremiumMembership.objects.get(user=self.member)
+        self.assertFalse(row.cancel_at_period_end)
+        self.assertIsNone(row.current_period_end)
+        self.assertIsNone(row.ended_at)
