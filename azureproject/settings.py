@@ -1019,7 +1019,10 @@ SUMUP_API_KEY = os.environ.get("SUMUP_API_KEY", "")
 ONLINE_PAYMENTS_ENABLED = _env_bool("ONLINE_PAYMENTS_ENABLED", default=True)
 # Event sign-ups may bring a guest only when this is on AND the event allows it
 # (MeetupEvent.guests_open). Off since 2026-10-17: guests took seats the
-# capacity checks never counted (audit A10), so the feature is dropped for now.
+# capacity checks never counted, so the feature is dropped for now. Decision:
+# ai-memory-hub/runbooks/crush-task-management.md (Epic 17, Audit A10).
+# Pin it slot-sticky before setting it on one slot (see slotConfigNames in
+# infra/resources.bicep), or a staging value swaps into production.
 EVENT_GUESTS_ENABLED = _env_bool("EVENT_GUESTS_ENABLED", default=False)
 SUMUP_MERCHANT_CODE = os.environ.get("SUMUP_MERCHANT_CODE", "")
 # Only used when no merchant code is set — SumUp then resolves the payee from

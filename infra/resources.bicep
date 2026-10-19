@@ -514,6 +514,11 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       // False on one slot would swap away and silently reopen card payments.
       // Pin with: az webapp config appsettings set ... --slot-settings ONLINE_PAYMENTS_ENABLED=False
       'ONLINE_PAYMENTS_ENABLED'
+      // Event guests switch (#1278). Absent means False (guests off), so the
+      // risk runs the other way: staging turning it on to verify a rebuilt,
+      // capacity-aware guest feature would swap True into production.
+      // Pin with: az webapp config appsettings set ... --slot-settings EVENT_GUESTS_ENABLED=False
+      'EVENT_GUESTS_ENABLED'
       'ECHO_LU_API_KEY'
       'SECRET_SYNC_TOKEN'
       'HEALTH_CHECK_SECRET_TOKEN'
