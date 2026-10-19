@@ -141,17 +141,52 @@ class PricingPageTests(TestCase):
         cache.clear()
         self.client = Client(HTTP_HOST="crush.lu")
 
-    @override_settings(SUMUP_PREMIUM_MONTHLY_FEE="12.50")
+    @override_settings(SUMUP_PREMIUM_MONTHLY_FEE="12.50", PREMIUM_ONBOARDING_FEE="7.50")
     def test_price_comes_from_setting(self):
         html = self.client.get("/en/membership/").content.decode()
         self.assertIn("Free vs Premium", html)
         self.assertIn("€12.50 / month", _premium_card(html))
+        self.assertNotIn("9.99", _premium_card(html))
         self.assertNotIn("10.00", _premium_card(html))
 
     @override_settings(SUMUP_PREMIUM_MONTHLY_FEE="12.50")
     def test_price_is_localized(self):
         html = self.client.get("/de/membership/").content.decode()
         self.assertIn("12,50 € / Monat", _premium_card(html))
+
+    @override_settings(SUMUP_PREMIUM_MONTHLY_FEE="12.50", PREMIUM_ONBOARDING_FEE="7.50")
+    def test_onboarding_fee_shown_to_visitor(self):
+        """Not event-verified (here anonymous): the one-time onboarding fee and
+        its coach review session, then a free first month."""
+        card = _premium_card(self.client.get("/en/membership/").content.decode())
+        self.assertIn(
+            "€7.50 one-time onboarding with a coach review session, "
+            "then your first month is free",
+            card,
+        )
+
+    @override_settings(PREMIUM_ONBOARDING_FEE="7.50")
+    def test_onboarding_fee_waived_for_event_verified_member(self):
+        user = User.objects.create_user(username="ev@crush.lu", password="x")
+        UserDataConsent.objects.update_or_create(
+            user=user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        CrushProfile.objects.create(
+            user=user,
+            date_of_birth=date(1990, 1, 1),
+            verification_status="verified",
+            verification_method="coach_event",
+            completion_status="step4",
+        )
+        self.client.force_login(user)
+        card = _premium_card(self.client.get("/en/membership/").content.decode())
+        self.assertIn(
+            "No onboarding fee for event-verified members, "
+            "and your second month is free",
+            card,
+        )
+        self.assertNotIn("7.50", card)
 
     def test_feature_columns_and_no_trial(self):
         html = self.client.get("/en/membership/").content.decode()

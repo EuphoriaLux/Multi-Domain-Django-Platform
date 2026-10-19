@@ -2626,13 +2626,13 @@ def membership(request):
 
     from .services.premium_recovery import blocks_new_charge
     from .views_premium import open_recovery_case
-    from .views_premium import pending_premium_state, premium_monthly_fee
+    from .views_premium import pending_premium_state, premium_pricing_context
 
     context = {
         "profile": profile,
         # Free vs Premium comparison (Decision A, finding 1-01): the price is
-        # rendered from SUMUP_PREMIUM_MONTHLY_FEE, never hardcoded.
-        "premium_monthly_fee": premium_monthly_fee(),
+        # rendered from the pricing settings, never hardcoded.
+        **premium_pricing_context(request.user),
         "premium_invite_only": getattr(_settings, "PREMIUM_REDIRECTS_TO_BETA", False),
         # An open request gets a way back in instead of the waitlist (the same
         # pending predicate premium_choose_coach uses). "complete" only when
