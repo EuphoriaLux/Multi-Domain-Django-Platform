@@ -147,6 +147,15 @@ def invitation_accept(request, code):
                 # Log the user in
                 user.backend = "django.contrib.auth.backends.ModelBackend"
                 login(request, user)
+                # A17: this account bypasses allauth's user_signed_up.
+                from crush_lu.services import funnel_events
+
+                funnel_events.record(
+                    user.pk,
+                    "sign_up",
+                    dedupe_key=f"sign_up:{user.pk}",
+                    method="invitation",
+                )
 
                 logger.info(
                     f"Guest account created with age verification: {user.email} "

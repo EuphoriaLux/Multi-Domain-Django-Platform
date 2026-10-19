@@ -138,6 +138,9 @@ def claim_profile_verification(
     profile.approved_at = approved_at
     profile.verification_status = "verified"
     profile.verification_method = method
+    from crush_lu.services import funnel_events
+
+    funnel_events.record_profile_verified(profile.user_id, method)
     return True
 
 
