@@ -856,7 +856,7 @@ class EventRegistrationForm(forms.ModelForm):
             if not event.has_food_component:
                 self.fields.pop("dietary_restrictions", None)
 
-            if not event.allow_plus_ones:
+            if not event.guests_open:
                 self.fields.pop("bringing_guest", None)
                 self.fields.pop("guest_name", None)
 
