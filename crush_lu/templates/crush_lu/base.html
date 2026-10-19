@@ -1,6 +1,7 @@
 {% load static %}
 {% load i18n %}
 {% load analytics %}
+{% load funnel_tags %}
 {% load seo_tags %}
 {% load crush_connect_tags %}
 {% load privacy_tags %}
@@ -10,6 +11,8 @@
 <html lang="{{ LANGUAGE_CODE|default:'en' }}"{% if is_native_app %} data-native-app{% endif %}{% block theme_lock %}{% endblock %}>
 <head>
     {% analytics_head %}
+    {# A17: conversions captured on the server, delivered once (funnel_tags). #}
+    {% funnel_events %}
     {# Consent-gated. Anonymous visitors get it only on login/signup (#1085): page views send the full URL, so token pages (/book/, /invite/) stay off. #}
     {% if user.is_authenticated or request|anonymous_telemetry_allowed %}{% appinsights_head %}{% endif %}
     <meta charset="UTF-8">
