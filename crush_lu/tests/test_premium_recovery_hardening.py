@@ -91,7 +91,7 @@ class BlockedPurchaseCtaTests(_Base):
 
     def test_dashboard_offers_no_go_premium(self):
         html = self.client.get("/en/dashboard/").content.decode()
-        self.assertNotIn("Go Premium — first month free", html)
+        self.assertNotIn("Go Premium — one month free", html)
         self.assertNotIn('data-testid="premium-recovery-notice"', html)
 
     def test_membership_page_offers_support_not_go_premium(self):
@@ -110,7 +110,7 @@ class BlockedPurchaseCtaTests(_Base):
     def test_the_cta_returns_once_nothing_blocks(self):
         Case.objects.update(status=Case.Status.RESOLVED)
         html = self.client.get("/en/dashboard/").content.decode()
-        self.assertIn("Go Premium — first month free", html)
+        self.assertIn("Go Premium — one month free", html)
 
 
 class HandResolutionSerializationTests(_Base):

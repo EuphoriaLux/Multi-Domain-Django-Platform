@@ -153,9 +153,7 @@ class ProfileSubmittedOrderTests(_MemberMixin, TestCase):
         self.assertNotContains(
             response, "One last step to activate your Crush.lu profile"
         )
-        self.assertContains(
-            response, "A hand-picked match every week — first month free"
-        )
+        self.assertContains(response, "A hand-picked match every week — one month free")
         self.assertNotContains(response, "4 weeks, a new hand-picked match")
 
     def test_status_line_names_luxid_only_when_configured(self):

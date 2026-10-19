@@ -530,7 +530,7 @@ class PremiumPriceConsistencyTests(SiteTestMixin, TestCase):
             user=self.user,
             defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
         )
-        CrushProfile.objects.create(
+        self.profile = CrushProfile.objects.create(
             user=self.user, verification_status="verified", completion_status="step4"
         )
         self.coach_user = User.objects.create_user(
@@ -548,14 +548,7 @@ class PremiumPriceConsistencyTests(SiteTestMixin, TestCase):
             user=self.user, coach=self.coach, status="pending"
         )
 
-    @override_settings(
-        SUMUP_PREMIUM_MONTHLY_FEE="15.00", PREMIUM_REDIRECTS_TO_BETA=False
-    )
-    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
-    @patch("crush_lu.views_payments.SumUpClient.create_customer")
-    def test_displayed_price_matches_charged_price(
-        self, mock_create_customer, mock_create_checkout
-    ):
+    def _shown_and_charged(self, mock_create_customer, mock_create_checkout):
         mock_create_customer.return_value = {
             "customer_id": f"crush-user-{self.user.id}"
         }
@@ -565,9 +558,6 @@ class PremiumPriceConsistencyTests(SiteTestMixin, TestCase):
         # What the member is shown.
         page = self.client.get(reverse("crush_lu:premium_choose_coach"))
         self.assertEqual(page.status_code, 200)
-        body = page.content.decode()
-        self.assertIn("15", body)
-        self.assertNotIn("€10.00 / month", body)
 
         # What the card is actually charged.
         response = self.client.post(
@@ -578,7 +568,46 @@ class PremiumPriceConsistencyTests(SiteTestMixin, TestCase):
         )
         self.assertEqual(response.status_code, 200)
         tx = PaymentTransaction.objects.get(sumup_checkout_id="CHK_PRICE_001")
+        self.membership.refresh_from_db()
+        return page.content.decode(), tx
+
+    @override_settings(
+        SUMUP_PREMIUM_MONTHLY_FEE="15.00",
+        PREMIUM_ONBOARDING_FEE="7.50",
+        PREMIUM_REDIRECTS_TO_BETA=False,
+    )
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_customer")
+    def test_displayed_price_matches_charged_price(
+        self, mock_create_customer, mock_create_checkout
+    ):
+        """Not event-verified: the onboarding fee alone, month 1 free."""
+        body, tx = self._shown_and_charged(mock_create_customer, mock_create_checkout)
+        self.assertIn("Pay onboarding (€7.50), first month free", body)
+        self.assertIn("Premium is €15.00 / month", body)
+        self.assertNotIn("€10.00 / month", body)
+        self.assertEqual(tx.amount, Decimal("7.50"))
+        self.assertEqual(self.membership.onboarding_fee, Decimal("7.50"))
+
+    @override_settings(
+        SUMUP_PREMIUM_MONTHLY_FEE="15.00",
+        PREMIUM_ONBOARDING_FEE="7.50",
+        PREMIUM_REDIRECTS_TO_BETA=False,
+    )
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_customer")
+    def test_event_verified_member_skips_onboarding_fee(
+        self, mock_create_customer, mock_create_checkout
+    ):
+        """Event-verified: no onboarding fee, month 1 at the monthly price."""
+        self.profile.verification_method = "coach_event"
+        self.profile.save(update_fields=["verification_method"])
+        body, tx = self._shown_and_charged(mock_create_customer, mock_create_checkout)
+        self.assertIn("Pay Premium Subscription (€15.00 / month)", body)
+        self.assertIn("Your second month is free.", body)
+        self.assertNotIn("7.50", body)
         self.assertEqual(tx.amount, Decimal("15.00"))
+        self.assertEqual(self.membership.onboarding_fee, Decimal("0"))
 
     @override_settings(PREMIUM_REDIRECTS_TO_BETA=False)
     @patch("crush_lu.views_payments.SumUpClient.deactivate_checkout")
