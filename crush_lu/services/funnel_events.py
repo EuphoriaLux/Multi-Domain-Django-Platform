@@ -27,7 +27,8 @@ profile_verified      ``claim_profile_verification`` winner,       ``CrushProfil
 event_application     ``event_register``, status ``applied``       ``EventRegistration`` status applied
 join_waitlist         ``event_register``, status ``waitlist``      ``EventRegistration`` status waitlist
 event_registration    ``event_register``, pending/confirmed, and   ``EventRegistration`` pending/confirmed
-                      later admission from applied/waitlist
+                      later admission from applied/waitlist        (once per registration)
+                      (incl. a walk-up checked in from waitlist)
 purchase              a payment becoming PAID (post_save)          ``PaymentTransaction`` PAID, provider != CREDIT,
                       (``transaction_id`` = transaction_reference)  summed by ``transaction_reference``
 refund                a PAID payment becoming REFUNDED             ``PaymentTransaction`` REFUNDED, provider != CREDIT
@@ -37,13 +38,16 @@ mutual_meeting        coffee date confirmed by both / lobby         ``ConnectCof
                       mutual confirmation (queued for both)         mutual ``EventMeetingConfirmation`` pairs
 ====================  ===========================================  =======================================================
 
+Outbox: one cache key per event, numbered by an atomic per-member counter, so
+neither a concurrent capture nor a concurrent page view can drop an event; a
+page claims each event by deleting its key.
+
 Known limits: the outbox lives in the cache (no migration; the conversions
 themselves are already rows in the tables above), so a Redis fault drops it
-silently, and two captures for one member in the same instant can lose one
-(read-append-write is not atomic). Both undercount, like a refused consent.
-Events wait at most ``TTL`` for the member's next visit. ``sign_up`` for an
-email signup is delivered after the email is confirmed, on the first logged-in
-page.
+silently. That undercounts, like a refused consent. Only the latest
+``MAX_QUEUED`` events are delivered, and they wait at most ``TTL`` for the
+member's next visit. ``sign_up`` for an email signup is delivered after the
+email is confirmed, on the first logged-in page.
 """
 
 from __future__ import annotations
@@ -68,8 +72,12 @@ REGISTRATION_EVENTS = {
 MAX_QUEUED = 20
 
 
-def _queue_key(user_id):
-    return f"funnel_outbox:{user_id}"
+def _seq_key(user_id):
+    return f"funnel_seq:{user_id}"
+
+
+def _event_key(user_id, seq):
+    return f"funnel_outbox:{user_id}:{seq}"
 
 
 def _sent_key(dedupe_key):
@@ -79,12 +87,37 @@ def _sent_key(dedupe_key):
 def _enqueue(user_id, name, dedupe_key, params):
     if dedupe_key and not cache.add(_sent_key(dedupe_key), 1, TTL):
         return
-    key = _queue_key(user_id)
-    queue = cache.get(key) or []
+    seq_key = _seq_key(user_id)
+    cache.add(seq_key, 0, TTL)
+    # INCR is atomic on Redis and LocMem: two captures at once get two keys.
+    seq = cache.incr(seq_key)
+    if not seq:  # Redis down: IGNORE_EXCEPTIONS returns None instead of raising
+        return
+    cache.touch(seq_key, TTL)
     # ``eid`` lets the browser refuse a replay of the same script (a page
     # served again from the service-worker cache).
-    queue.append({"name": name, "params": params, "eid": uuid.uuid4().hex})
-    cache.set(key, queue[-MAX_QUEUED:], TTL)
+    cache.set(
+        _event_key(user_id, seq),
+        {"name": name, "params": params, "eid": uuid.uuid4().hex},
+        TTL,
+    )
+
+
+def _pending(user_id):
+    """``(key, event)`` for the events queued for ``user_id``, oldest first.
+
+    Reads the latest ``MAX_QUEUED`` numbers; delivered ones are gone, and one
+    whose number is taken but not yet written is found by a later read.
+    """
+    last = cache.get(_seq_key(user_id))
+    if not last:
+        return []
+    keys = [
+        _event_key(user_id, seq)
+        for seq in range(max(1, last - MAX_QUEUED + 1), last + 1)
+    ]
+    found = cache.get_many(keys)
+    return [(key, found[key]) for key in keys if key in found]
 
 
 def record(user_id, name, dedupe_key=None, **params):
@@ -111,14 +144,11 @@ def pop(user_id):
     """Take every queued event for ``user_id`` (empties the outbox)."""
     if not user_id:
         return []
-    key = _queue_key(user_id)
     try:
-        queue = cache.get(key) or []
-        # Only the request whose delete removed the key delivers: two pages
-        # rendering at once both read the queue, one of them wins the delete.
-        if queue and cache.delete(key):
-            return queue
-        return []
+        # Each event goes to the request whose delete removed its key: two
+        # pages rendering at once never both deliver it, and an event queued
+        # after this read keeps its key for the next page.
+        return [event for key, event in _pending(user_id) if cache.delete(key)]
     except Exception:  # noqa: BLE001
         logger.warning("Funnel outbox not readable", exc_info=True)
         return []
@@ -130,36 +160,43 @@ def record_purchase(payment):
     Crush Credit redemptions are excluded: that money was already counted
     when it was paid (or never was money).
     """
-    from crush_lu.models import PaymentTransaction
-
-    if payment.provider == PaymentTransaction.Provider.CREDIT:
-        return
-    record(
-        _payment_member_id(payment),
-        "purchase",
-        dedupe_key=f"purchase:{payment.transaction_reference}",
-        transaction_id=payment.transaction_reference,
-        value=float(payment.amount),
-        currency=payment.currency or "EUR",
-        items=[_payment_item(payment)],
-    )
+    _record_payment(payment, "purchase")
 
 
 def record_refund(payment):
     """``refund`` for a PAID payment that was refunded (same reference)."""
-    from crush_lu.models import PaymentTransaction
+    _record_payment(payment, "refund")
 
-    if payment.provider == PaymentTransaction.Provider.CREDIT:
-        return
-    record(
-        _payment_member_id(payment),
-        "refund",
-        dedupe_key=f"refund:{payment.transaction_reference}",
-        transaction_id=payment.transaction_reference,
-        value=float(payment.amount),
-        currency=payment.currency or "EUR",
-        items=[_payment_item(payment)],
-    )
+
+def _record_payment(payment, name):
+    """Called from the payment ``post_save``: the money is already captured, so
+    everything (owner lookup, payload, queue) runs after commit and inside the
+    guard. Nothing here can fail or roll back the payment save."""
+
+    def _capture():
+        try:
+            from crush_lu.models import PaymentTransaction
+
+            if payment.provider == PaymentTransaction.Provider.CREDIT:
+                return
+            user_id = _payment_member_id(payment)
+            if not user_id:
+                return
+            _enqueue(
+                user_id,
+                name,
+                f"{name}:{payment.transaction_reference}",
+                {
+                    "transaction_id": payment.transaction_reference,
+                    "value": float(payment.amount),
+                    "currency": payment.currency or "EUR",
+                    "items": [_payment_item(payment)],
+                },
+            )
+        except Exception:  # noqa: BLE001
+            logger.warning("Funnel event %s not captured", name, exc_info=True)
+
+    transaction.on_commit(_capture)
 
 
 def _payment_member_id(payment):
@@ -187,6 +224,13 @@ def record_profile_verified(user_id, method):
         dedupe_key=f"profile_verified:{user_id}",
         method=method or "unknown",
     )
+
+
+def admission_dedupe_key(registration):
+    """One ``event_registration`` per registration, however often its status
+    moves in and out of a seat (the row is reused on re-registration too),
+    matching the database count of registrations."""
+    return f"event_admitted:{registration.pk}"
 
 
 def record_attended(registration):

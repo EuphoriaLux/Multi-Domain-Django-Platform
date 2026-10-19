@@ -3721,17 +3721,20 @@ def record_registration_funnel_transitions(sender, instance, created, **kwargs):
     previous = getattr(instance, "_previous_status", None)
     if created or previous == instance.status:
         return
+    # A coach admitting a walk-up goes straight from waitlist to attended
+    # (views_checkin), so attended counts as an admission too.
     if previous in ("applied", "waitlist") and instance.status in (
         "pending",
         "confirmed",
+        "attended",
     ):
         funnel_events.record(
             instance.user_id,
             "event_registration",
-            dedupe_key=f"event_admitted:{instance.pk}:{previous}",
+            dedupe_key=funnel_events.admission_dedupe_key(instance),
             event_id=instance.event_id,
         )
-    elif instance.status == "attended":
+    if instance.status == "attended":
         funnel_events.record_attended(instance)
 
 

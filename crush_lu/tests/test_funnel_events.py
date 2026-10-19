@@ -24,8 +24,13 @@ from crush_lu.services import funnel_events
 User = get_user_model()
 
 
+def _queue(user):
+    """The events queued for ``user``, oldest first, without delivering them."""
+    return [event for _key, event in funnel_events._pending(user.pk)]
+
+
 def _names(user):
-    return [e["name"] for e in cache.get(f"funnel_outbox:{user.pk}") or []]
+    return [e["name"] for e in _queue(user)]
 
 
 class FunnelEventsTests(TestCase):
@@ -95,7 +100,7 @@ class FunnelEventsTests(TestCase):
         with self.captureOnCommitCallbacks(execute=True):
             user_signed_up.send(sender=User, request=request, user=self.user)
             user_signed_up.send(sender=User, request=request, user=self.user)
-        queue = cache.get(f"funnel_outbox:{self.user.pk}")
+        queue = _queue(self.user)
         self.assertEqual([e["name"] for e in queue], ["sign_up"])
         self.assertEqual(queue[0]["params"], {"method": "email"})
 
@@ -133,7 +138,7 @@ class FunnelEventsTests(TestCase):
         with self.captureOnCommitCallbacks(execute=True):
             _apply_paid_checkout(tx, {"status": "PAID"})
             _apply_paid_checkout(tx, {"status": "PAID"})
-        queue = cache.get(f"funnel_outbox:{self.user.pk}")
+        queue = _queue(self.user)
         purchases = [e for e in queue if e["name"] == "purchase"]
         self.assertEqual(len(purchases), 1)
         self.assertEqual(purchases[0]["params"]["transaction_id"], "CRUSH-DON-FUNNEL")
@@ -157,7 +162,7 @@ class FunnelEventsTests(TestCase):
                 purpose=PaymentTransaction.Purpose.DONATION,
                 user=self.user,
             )
-        queue = cache.get(f"funnel_outbox:{self.user.pk}")
+        queue = _queue(self.user)
         self.assertEqual(queue[0]["params"]["transaction_id"], "CRUSH-MANUAL-9-ab")
         # GA4 items need an item_id.
         self.assertEqual(queue[0]["params"]["items"][0]["item_id"], "donation")
@@ -183,6 +188,27 @@ class FunnelEventsTests(TestCase):
         self.assertEqual(_names(keeper), ["purchase"])
         self.assertEqual(_names(self.user), [])
 
+    def test_purchase_tracking_cannot_fail_the_payment_save(self):
+        from unittest.mock import patch
+
+        from crush_lu.models.account_merge import AccountMerge
+
+        tx = self._payment(PaymentTransaction.Provider.SUMUP, "CRUSH-DON-ISO")
+        with patch.object(
+            AccountMerge, "surviving_user_id", side_effect=RuntimeError("db down")
+        ) as lookup:
+            with self.captureOnCommitCallbacks(execute=False) as callbacks:
+                tx.status = PaymentTransaction.Status.PAID
+                tx.save()
+            # The payment's post_save only registered a commit callback.
+            lookup.assert_not_called()
+            with self.assertLogs("crush_lu.services.funnel_events", "WARNING"):
+                for callback in callbacks:
+                    callback()
+        tx.refresh_from_db()
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(_names(self.user), [])
+
     def test_admission_from_waitlist_and_attendance_are_captured(self):
         reg = EventRegistration.objects.create(
             event=self.event, user=self.user, status="waitlist"
@@ -193,6 +219,57 @@ class FunnelEventsTests(TestCase):
             reg.status = "attended"
             reg.save()
         self.assertEqual(_names(self.user), ["event_registration", "event_attended"])
+
+    def test_walk_up_admitted_from_waitlist_counts_as_registration(self):
+        # views_checkin admits a walk-up straight from waitlist to attended.
+        reg = EventRegistration.objects.create(
+            event=self.event, user=self.user, status="waitlist"
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            reg.status = "attended"
+            reg.save()
+            # An undo and a re-scan of the same walk-up count nothing new.
+            reg.status = "waitlist"
+            reg.save()
+            reg.status = "attended"
+            reg.save()
+        self.assertEqual(_names(self.user), ["event_registration", "event_attended"])
+
+    def test_one_registration_is_one_event_registration(self):
+        CrushProfile.objects.create(user=self.user, gender="F")
+        client = Client(HTTP_HOST="crush.lu")
+        client.force_login(self.user)
+        cache.clear()
+        with self.captureOnCommitCallbacks(execute=True):
+            client.post(f"/en/events/{self.event.pk}/register/", {})
+        reg = EventRegistration.objects.get(event=self.event, user=self.user)
+        self.assertEqual(reg.status, "confirmed")
+        # An admin moving the seat to the waitlist and back, twice.
+        with self.captureOnCommitCallbacks(execute=True):
+            for status in ("waitlist", "confirmed", "waitlist", "confirmed"):
+                reg.status = status
+                reg.save()
+        self.assertEqual(_names(self.user).count("event_registration"), 1)
+
+    def test_capture_during_a_drain_is_kept_for_the_next_page(self):
+        from unittest.mock import patch
+
+        with self.captureOnCommitCallbacks(execute=True):
+            funnel_events.record(self.user.pk, "login")
+        real_get_many = funnel_events.cache.get_many
+
+        def get_many_then_capture(keys):
+            found = real_get_many(keys)
+            # Another request captures a conversion after this page's read.
+            funnel_events._enqueue(self.user.pk, "purchase", None, {})
+            return found
+
+        with patch.object(funnel_events.cache, "get_many", get_many_then_capture):
+            first = funnel_events.pop(self.user.pk)
+        self.assertEqual([e["name"] for e in first], ["login"])
+        second = funnel_events.pop(self.user.pk)
+        self.assertEqual([e["name"] for e in second], ["purchase"])
+        self.assertEqual(funnel_events.pop(self.user.pk), [])
 
     def test_concurrent_drain_delivers_once(self):
         with self.captureOnCommitCallbacks(execute=True):
@@ -212,6 +289,113 @@ class FunnelEventsTests(TestCase):
             funnel_events.record_profile_verified(self.user.pk, "admin")
         self.assertEqual(_names(self.user), ["profile_verified"])
 
+    def _approve_from_admin(self):
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.messages.storage.fallback import FallbackStorage
+
+        from crush_lu.admin.profiles import CrushProfileAdmin
+        from crush_lu.models import ProfileSubmission
+
+        profile = CrushProfile.objects.create(
+            user=self.user, gender="F", verification_status="pending"
+        )
+        ProfileSubmission.objects.create(
+            profile=profile, status="pending", review_call_completed=True
+        )
+        request = RequestFactory().post("/admin/")
+        request.session = {}
+        request._messages = FallbackStorage(request)
+        CrushProfileAdmin(CrushProfile, AdminSite()).approve_profiles(
+            request, CrushProfile.objects.filter(pk=profile.pk)
+        )
+
+    def test_admin_approval_records_verification(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            self._approve_from_admin()
+        self.assertEqual(_names(self.user), ["profile_verified"])
+
+    def test_failed_admin_approval_records_nothing(self):
+        from unittest.mock import patch
+
+        from django.db import DatabaseError
+
+        real_save = CrushProfile.save
+
+        def save_fails_on_approval(profile, *args, **kwargs):
+            if profile.verification_status == "verified":
+                raise DatabaseError("write failed")
+            return real_save(profile, *args, **kwargs)
+
+        with self.assertRaises(DatabaseError):
+            with self.captureOnCommitCallbacks(execute=True):
+                with patch.object(CrushProfile, "save", save_fails_on_approval):
+                    self._approve_from_admin()
+        self.assertEqual(_names(self.user), [])
+        # No dedupe marker either: a retry that succeeds is still counted.
+        self.assertIsNone(cache.get(f"funnel_sent:profile_verified:{self.user.pk}"))
+
+    def _coffee_date(self, other):
+        from crush_lu.models.crush_connect_cycle import (
+            ConnectCoffeeDate,
+            ConnectTemporaryChat,
+            ConnectWeeklyRequest,
+            ConnectWeekSession,
+        )
+
+        req = ConnectWeeklyRequest.objects.create(
+            session=ConnectWeekSession.objects.create(user=self.user),
+            requester=self.user,
+            recipient=other,
+            status=ConnectWeeklyRequest.Status.ACCEPTED,
+        )
+        chat = ConnectTemporaryChat.objects.create(
+            request=req, participant_1=self.user, participant_2=other
+        )
+        return ConnectCoffeeDate.objects.create(
+            chat=chat,
+            proposer=self.user,
+            custom_venue_name="Cafe",
+            proposed_date=timezone.localdate() + timedelta(days=2),
+            status=ConnectCoffeeDate.Status.ACCEPTED,
+        )
+
+    def test_coffee_date_confirmed_by_both_is_a_mutual_meeting(self):
+        other = User.objects.create_user(username="o@example.com", password="x")
+        coffee_date = self._coffee_date(other)
+        with self.captureOnCommitCallbacks(execute=True):
+            coffee_date.confirm_by_user(self.user)
+        self.assertEqual(_names(self.user), [])
+        with self.captureOnCommitCallbacks(execute=True):
+            coffee_date.confirm_by_user(other)
+        self.assertEqual(_names(self.user), ["mutual_meeting"])
+        self.assertEqual(_names(other), ["mutual_meeting"])
+
+    def test_failed_coffee_date_confirmation_records_nothing(self):
+        from unittest.mock import patch
+
+        from django.db import DatabaseError
+
+        from crush_lu.models.crush_connect_cycle import ConnectCoffeeDate
+
+        other = User.objects.create_user(username="o@example.com", password="x")
+        coffee_date = self._coffee_date(other)
+        coffee_date.confirm_by_user(self.user)
+        with self.assertRaises(DatabaseError):
+            with self.captureOnCommitCallbacks(execute=True):
+                with patch.object(
+                    ConnectCoffeeDate, "save", side_effect=DatabaseError("lost")
+                ):
+                    coffee_date.confirm_by_user(other)
+        coffee_date.refresh_from_db()
+        self.assertNotEqual(
+            coffee_date.status, ConnectCoffeeDate.Status.CONFIRMED_BY_BOTH
+        )
+        self.assertEqual(_names(self.user), [])
+        self.assertEqual(_names(other), [])
+        self.assertIsNone(
+            cache.get(f"funnel_sent:mutual_meeting:chat:{coffee_date.pk}:{other.pk}")
+        )
+
     def test_mutual_meeting_for_both_without_the_partner(self):
         other = User.objects.create_user(username="o@example.com", password="x")
         with self.captureOnCommitCallbacks(execute=True):
@@ -219,7 +403,7 @@ class FunnelEventsTests(TestCase):
                 (self.user.pk, other.pk), pair_key="chat:1", source="connect_chat"
             )
         for user in (self.user, other):
-            queue = cache.get(f"funnel_outbox:{user.pk}")
+            queue = _queue(user)
             self.assertEqual([e["name"] for e in queue], ["mutual_meeting"])
             self.assertEqual(queue[0]["params"], {"source": "connect_chat"})
 
