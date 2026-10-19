@@ -558,6 +558,27 @@ class PremiumCheckoutLockTests(TestCase):
             self._statuses(), {"CHK_OLD_COACH": "cancelled", "CHK_NEW_1": "pending"}
         )
 
+    @override_settings(PREMIUM_ONBOARDING_FEE="10.00")
+    def test_onboarding_checkout_is_not_reused_as_a_first_month(self):
+        """Both fees 10.00: a member verified at an event after opening the
+        onboarding checkout gets a fresh first-month checkout (Codex #1276)."""
+        self._pending_row("CHK_ONBOARDING")
+        self._deactivate_ok()
+        profile = CrushProfile.objects.get(user=self.user)
+        profile.verification_method = "coach_event"
+        profile.save(update_fields=["verification_method"])
+
+        response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["checkout_id"], "CHK_NEW_1")
+        self.assertTrue(self.created[0]["description"].endswith(" - first month"))
+        self.assertEqual(
+            self._statuses(), {"CHK_ONBOARDING": "cancelled", "CHK_NEW_1": "pending"}
+        )
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.onboarding_fee, Decimal("0"))
+
     def test_retiring_stops_when_the_time_budget_runs_out(self):
         for n in range(3):
             self._pending_row(f"CHK_LEGACY_{n}", status="EXPIRED")

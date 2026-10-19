@@ -3071,6 +3071,13 @@ def _export_member_activity(user):
             "status": display(premium, "status"),
             "payment_confirmed": premium.payment_confirmed,
             "payment_date": _iso_or_none(premium.payment_date),
+            # One-time onboarding fee in this membership's checkout; above zero
+            # includes a coach review session (null: none recorded).
+            "onboarding_fee": (
+                str(premium.onboarding_fee)
+                if premium.onboarding_fee is not None
+                else None
+            ),
             "coach": (
                 premium.coach.user.first_name or None if premium.coach_id else None
             ),
