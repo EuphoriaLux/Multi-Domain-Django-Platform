@@ -21027,8 +21027,8 @@ msgstr "Premium"
 
 #: templates/crush_lu/crush_connect.html:228
 #: templates/crush_lu/partials/_products.html:97
-msgid "First month free"
-msgstr "Erster Monat gratis"
+msgid "One month free"
+msgstr "Ein Monat gratis"
 
 #: templates/crush_lu/crush_connect.html:229
 msgid ""
@@ -21498,8 +21498,8 @@ msgid "See this week's pick"
 msgstr "Auswahl dieser Woche ansehen"
 
 #: templates/crush_lu/crush_connect/experiences/coach-pick.html:60
-msgid "Get your own coach — first month free"
-msgstr "Hol dir deinen eigenen Coach — erster Monat gratis"
+msgid "Get your own coach — one month free"
+msgstr "Hol dir deinen eigenen Coach — ein Monat gratis"
 
 #: templates/crush_lu/crush_connect/experiences/coach-pick.html:68
 msgid ""
@@ -21740,8 +21740,8 @@ msgstr "Heutigen Drop öffnen"
 
 #: templates/crush_lu/crush_connect/experiences/todays-drop.html:60
 #: templates/crush_lu/partials/_products.html:116
-msgid "Go Premium — first month free"
-msgstr "Werde Premium — erster Monat gratis"
+msgid "Go Premium — one month free"
+msgstr "Werde Premium — ein Monat gratis"
 
 #: templates/crush_lu/crush_connect/experiences/todays-drop.html:68
 msgid ""
@@ -30591,13 +30591,13 @@ msgid ""
 "Thanks to LuxID, join Crush Connect in a few clicks. A Crush Coach will "
 "propose a potential match with a member of our Premium list — go Premium to "
 "be part of it. Every week, your Coach suggests a hand-picked match based on "
-"your profile. The first month is free — on the house!"
+"your profile. One month is on the house!"
 msgstr ""
 "Dank LuxID trittst du Crush Connect in wenigen Klicks bei. Ein Crush Coach "
 "schlägt dir einen potenziellen Match mit einem Mitglied unserer Premium-"
 "Liste vor. Werde Premium, um dabei zu sein. Jede Woche schlägt dir dein "
-"Coach einen von Hand ausgewählten Match vor — auf Basis deines Profils. Der "
-"erste Monat ist gratis, geht aufs Haus!"
+"Coach einen von Hand ausgewählten Match vor — auf Basis deines Profils. Ein "
+"Monat geht aufs Haus!"
 
 #: templates/crush_lu/partials/_verifier_card.html:36
 msgid "Official"
@@ -42485,8 +42485,8 @@ msgstr ""
 " LuxID verifizieren."
 
 #: templates/crush_lu/partials/_verification_options.html
-msgid "A hand-picked match every week — first month free"
-msgstr "Jede Woche ein handverlesener Match — der erste Monat ist gratis"
+msgid "A hand-picked match every week — one month free"
+msgstr "Jede Woche ein handverlesener Match — ein Monat gratis"
 
 #: templates/crush_lu/profile_rejected.html
 msgid "Delete my profile and data"
@@ -45959,3 +45959,26 @@ msgstr "Die Online-Zahlung für Premium ist vorübergehend ausgesetzt. Wir melde
 
 msgid "A card checkout was opened for this seat a moment ago. Try again in a few seconds."
 msgstr "Für diesen Platz wurde gerade eine Kartenzahlung geöffnet. In ein paar Sekunden erneut versuchen."
+
+#: crush_lu/templates/crush_lu/membership.html
+#, python-format
+msgid "€%(amount)s one-time onboarding with a coach review session, then your first month is free"
+msgstr "%(amount)s € einmalige Onboarding-Gebühr mit Coach-Review-Session, danach ist dein erster Monat gratis"
+
+#: crush_lu/templates/crush_lu/membership.html
+msgid "No onboarding fee for event-verified members, and your second month is free"
+msgstr "Keine Onboarding-Gebühr für bei einem Event verifizierte Mitglieder, und dein zweiter Monat ist gratis"
+
+#: crush_lu/templates/crush_lu/premium/choose_coach.html
+#, python-format
+msgid "Pay onboarding (€%(amount)s), first month free"
+msgstr "Onboarding bezahlen (%(amount)s €), erster Monat gratis"
+
+#: crush_lu/templates/crush_lu/premium/choose_coach.html
+#, python-format
+msgid "Includes a coach review session. After your free first month, Premium is €%(amount)s / month."
+msgstr "Inklusive Coach-Review-Session. Nach deinem kostenlosen ersten Monat kostet Premium %(amount)s € / Monat."
+
+#: crush_lu/templates/crush_lu/premium/choose_coach.html
+msgid "No onboarding fee: you were verified at an event. Your second month is free."
+msgstr "Keine Onboarding-Gebühr: Du wurdest bei einem Event verifiziert. Dein zweiter Monat ist gratis."
