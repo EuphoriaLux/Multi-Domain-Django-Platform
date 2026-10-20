@@ -184,6 +184,13 @@ def _is_delegation_domain(request):
     return _get_mapped_domain(request) == "delegations.lu"
 
 
+def _serves_delegations(request):
+    """True on every host routed to the delegations app, including the
+    test.delegations.lu alias that ``_is_delegation_domain`` does not match."""
+    config = get_domain_config(_get_mapped_domain(request))
+    return config is not None and config["app"] == "delegations"
+
+
 # Domains where a visitor may create their own account.
 #
 # Signup is CLOSED by default. `base_patterns` mounts allauth on all nine
@@ -862,6 +869,20 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
         if response is not None:
             return response
         signal_kwargs = kwargs.get("signal_kwargs") or {}
+        if request is not None and _serves_delegations(request):
+            # delegations.lu is Microsoft-only: access rests on the tenant
+            # checks of a Microsoft login, so a password, code or reset login
+            # by an account that also has a usable password would skip them.
+            sociallogin = signal_kwargs.get("sociallogin")
+            if sociallogin is None or sociallogin.account.provider != "microsoft":
+                logger.warning(
+                    "Refused a non-Microsoft login on %s for user %s",
+                    request.get_host(),
+                    user.pk,
+                )
+                return HttpResponseForbidden(
+                    "Delegations.lu only accepts Microsoft sign-in."
+                )
         if (
             request is not None
             and signal_kwargs.get("sociallogin") is not None
