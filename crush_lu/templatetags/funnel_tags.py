@@ -1,8 +1,10 @@
 """Deliver queued funnel conversions (services/funnel_events.py, audit A17).
 
-Popped here, in a tag on full pages and on the registration success partial,
+Claimed here, in a tag on full pages and on the registration success partial,
 and never in a context processor: those run on every render, including HTMX
-partials that would consume the queue and print nothing.
+partials that would consume the queue and print nothing. The claimed events
+are deleted by ``FunnelDeliveryMiddleware`` once the response is built, so a
+page that fails after this tag rendered keeps them for the next page.
 """
 
 import json
@@ -50,7 +52,7 @@ def funnel_events(context):
     user = getattr(request, "user", None)
     if not getattr(user, "is_authenticated", False):
         return ""
-    entries = funnel.pop(user.pk)
+    entries = funnel.claim(request, user.pk)
     if (
         not entries
         or _tracking_suppressed(context)

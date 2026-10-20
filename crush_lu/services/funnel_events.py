@@ -39,8 +39,11 @@ mutual_meeting        coffee date confirmed by both / lobby         ``ConnectCof
 ====================  ===========================================  =======================================================
 
 Outbox: one cache key per event, numbered by an atomic per-member counter, so
-neither a concurrent capture nor a concurrent page view can drop an event; a
-page claims each event by deleting its key.
+neither a concurrent capture nor a concurrent page view can drop an event. A
+page claims each event while it renders (``claim``) and the event is deleted
+only once the response is built (``acknowledge``, from
+``crush_lu.middleware.FunnelDeliveryMiddleware``); a page that fails with a 500
+releases its claims for the member's next page.
 
 Known limits: the outbox lives in the cache (no migration; the conversions
 themselves are already rows in the tables above), so a Redis fault drops it
@@ -62,6 +65,9 @@ from django.db import transaction
 logger = logging.getLogger(__name__)
 
 TTL = int(timedelta(days=30).total_seconds())
+# Longer than any request can take (gunicorn times out at 120 s): a claim left
+# by a worker that died mid-render frees itself after this.
+CLAIM_TTL = 300
 # EventRegistration status after a successful sign-up -> GA4 event.
 REGISTRATION_EVENTS = {
     "applied": "event_application",
@@ -84,7 +90,13 @@ def _sent_key(dedupe_key):
     return f"funnel_sent:{dedupe_key}"
 
 
+def _claim_key(event_key):
+    return f"funnel_claim:{event_key}"
+
+
 def _enqueue(user_id, name, dedupe_key, params):
+    if not user_id:
+        return
     if dedupe_key and not cache.add(_sent_key(dedupe_key), 1, TTL):
         return
     seq_key = _seq_key(user_id)
@@ -130,28 +142,58 @@ def record(user_id, name, dedupe_key=None, **params):
     """
     if not user_id:
         return
+    _after_commit(name, lambda: _enqueue(user_id, name, dedupe_key, params))
 
-    def _capture():
+
+def _after_commit(name, capture):
+    """Run ``capture`` once the transaction commits; log, never raise."""
+
+    def _run():
         try:
-            _enqueue(user_id, name, dedupe_key, params)
+            capture()
         except Exception:  # noqa: BLE001
             logger.warning("Funnel event %s not captured", name, exc_info=True)
 
-    transaction.on_commit(_capture)
+    transaction.on_commit(_run)
 
 
-def pop(user_id):
-    """Take every queued event for ``user_id`` (empties the outbox)."""
-    if not user_id:
+def claim(request, user_id):
+    """Reserve ``user_id``'s queued events for this response and return them.
+
+    Nothing is deleted here: ``acknowledge`` deletes the events once the
+    response is built, so a template that fails after this tag rendered
+    leaves them for the next page. Of two pages rendering at once, the one
+    whose ``add`` wins delivers each event, and an event queued after this
+    read is left for the next page.
+    """
+    if not user_id or request is None:
         return []
     try:
-        # Each event goes to the request whose delete removed its key: two
-        # pages rendering at once never both deliver it, and an event queued
-        # after this read keeps its key for the next page.
-        return [event for key, event in _pending(user_id) if cache.delete(key)]
+        fresh = [
+            (key, event)
+            for key, event in _pending(user_id)
+            if cache.add(_claim_key(key), 1, CLAIM_TTL)
+        ]
     except Exception:  # noqa: BLE001
         logger.warning("Funnel outbox not readable", exc_info=True)
         return []
+    claimed = getattr(request, "_funnel_claimed", [])
+    request._funnel_claimed = claimed + [key for key, _event in fresh]
+    return [event for _key, event in fresh]
+
+
+def acknowledge(request, delivered):
+    """Settle the claims this response made: delete the events it delivered,
+    or release them for the next page when it failed."""
+    keys = getattr(request, "_funnel_claimed", None)
+    if not keys:
+        return
+    request._funnel_claimed = []
+    claims = [_claim_key(key) for key in keys]
+    try:
+        cache.delete_many(keys + claims if delivered else claims)
+    except Exception:  # noqa: BLE001
+        logger.warning("Funnel claims not settled", exc_info=True)
 
 
 def record_purchase(payment):
@@ -174,29 +216,23 @@ def _record_payment(payment, name):
     guard. Nothing here can fail or roll back the payment save."""
 
     def _capture():
-        try:
-            from crush_lu.models import PaymentTransaction
+        from crush_lu.models import PaymentTransaction
 
-            if payment.provider == PaymentTransaction.Provider.CREDIT:
-                return
-            user_id = _payment_member_id(payment)
-            if not user_id:
-                return
-            _enqueue(
-                user_id,
-                name,
-                f"{name}:{payment.transaction_reference}",
-                {
-                    "transaction_id": payment.transaction_reference,
-                    "value": float(payment.amount),
-                    "currency": payment.currency or "EUR",
-                    "items": [_payment_item(payment)],
-                },
-            )
-        except Exception:  # noqa: BLE001
-            logger.warning("Funnel event %s not captured", name, exc_info=True)
+        if payment.provider == PaymentTransaction.Provider.CREDIT:
+            return
+        _enqueue(
+            _payment_member_id(payment),
+            name,
+            f"{name}:{payment.transaction_reference}",
+            {
+                "transaction_id": payment.transaction_reference,
+                "value": float(payment.amount),
+                "currency": payment.currency or "EUR",
+                "items": [_payment_item(payment)],
+            },
+        )
 
-    transaction.on_commit(_capture)
+    _after_commit(name, _capture)
 
 
 def _payment_member_id(payment):
@@ -231,6 +267,25 @@ def admission_dedupe_key(registration):
     moves in and out of a seat (the row is reused on re-registration too),
     matching the database count of registrations."""
     return f"event_admitted:{registration.pk}"
+
+
+def record_admission(registration):
+    """``event_registration`` for a later admission from applied/waitlist,
+    with the parameters ``event_register`` sends for a direct one. The event
+    type is read after commit, so the status save never waits on it."""
+
+    def _capture():
+        _enqueue(
+            registration.user_id,
+            "event_registration",
+            admission_dedupe_key(registration),
+            {
+                "event_id": registration.event_id,
+                "event_type": registration.event.event_type,
+            },
+        )
+
+    _after_commit("event_registration", _capture)
 
 
 def record_attended(registration):

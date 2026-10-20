@@ -336,6 +336,10 @@ MIDDLEWARE = [
     # short-circuits /healthz/ and /readyz/, so the canary fires on a real
     # request rather than on an Azure liveness ping.
     "azureproject.middleware.RuntimeLoggingCanaryMiddleware",
+    # Response phase only: deletes the funnel events a page claimed once the
+    # response is built, or releases them on a 500. Outermost after the probes,
+    # so a failure in any middleware below still counts as a failed page.
+    "crush_lu.middleware.FunnelDeliveryMiddleware",
     "corsheaders.middleware.CorsMiddleware",  # MUST be before CommonMiddleware; adds CORS headers for api.crush.lu
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.csp.ContentSecurityPolicyMiddleware",  # Django 6.0 native CSP
