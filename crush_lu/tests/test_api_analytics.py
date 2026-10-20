@@ -1137,6 +1137,65 @@ class PrivilegeAuditTests(TestCase):
             ],
         )
 
+    def test_only_another_releases_grants_count_as_release_drift(self):
+        # (#1285) Drift is what re-applying this release's GRANTS fixes; the
+        # serving process may do that on its own, anything else needs a human.
+        clean = self.CLEAN_RELATIONS
+        granted = self.ALL_GRANTED
+        new_table = ("public", "crush_lu_newfeature", False, True, False, False)
+
+        def drift(relations=clean, columns=granted, connection_limit=6, **extra):
+            return analytics.is_release_drift(
+                analytics.privilege_violations(
+                    False,
+                    relations,
+                    columns,
+                    [],
+                    connection_limit=connection_limit,
+                    **extra,
+                )
+            )
+
+        cases = {
+            # An aborted swap: a newer release's column, or whole table.
+            "excess column": (drift(columns=granted + [("auth_user", "email")]), True),
+            "excess public table": (drift(relations=clean + [new_table]), True),
+            # A rollback re-swap: this release needs a column it lacks.
+            "missing column": (drift(columns=granted[1:]), True),
+            "raised connection limit": (drift(connection_limit=8), True),
+            "drift of every kind": (
+                drift(clean + [new_table], granted[1:] + [("auth_user", "email")], 8),
+                True,
+            ),
+            "nothing wrong": (drift(), False),
+            "unlimited connections": (drift(connection_limit=-1), False),
+            "column readable through PUBLIC": (
+                drift(columns=granted + [("auth_user", "email", True)]),
+                False,
+            ),
+            "table readable through PUBLIC": (
+                drift(relations=clean + [new_table[:5] + (True,)]),
+                False,
+            ),
+            "table-level SELECT": (
+                drift(relations=clean + [new_table[:2] + (True,) + new_table[3:]]),
+                False,
+            ),
+            "table outside public": (
+                drift(relations=clean + [("reporting",) + new_table[1:]]),
+                False,
+            ),
+            "drift plus a membership": (
+                drift(columns=granted[1:], memberships=["azure_pg_admin"]),
+                False,
+            ),
+        }
+        for case, (actual, expected) in cases.items():
+            with self.subTest(case):
+                self.assertIs(actual, expected)
+        self.assertFalse(analytics.is_release_drift([]))
+        self.assertFalse(analytics.is_release_drift(["lacks SELECT on public.x.y"]))
+
     def _audit_with(self, version, parameter_rows, member_rows=()):
         class FakeCursor:
             def __init__(self):
@@ -1393,72 +1452,211 @@ class SetupRoleCommandTests(TestCase):
             call_command("setup_analytics_role", keep_password=True, stdout=StringIO())
 
 
-class StartupRefreshesGrantsTests(SimpleTestCase):
-    """startup.sh re-applies GRANTS on every production-slot start (Codex
-    #1277): nothing else runs setup_analytics_role on deploy, and the API 503s
-    until the login's grants match the allowlist of the code it runs."""
+class StartupLeavesAnalyticsGrantsAloneTests(SimpleTestCase):
+    """(#1285) A swap's warm-up runs startup.sh with the production settings
+    before the swap completes; refreshing the grants there would leave the old
+    release with the new release's GRANTS when a swap is aborted."""
 
-    def _lines(self):
+    def test_startup_never_refreshes_the_analytics_grants(self):
         from pathlib import Path
 
         startup = Path(__file__).resolve().parents[2] / "startup.sh"
-        lines = startup.read_text(encoding="utf-8").splitlines()
-        start = lines.index('if [ -n "${ANALYTICS_DB_USER:-}" ]; then')
-        return lines, start, lines.index("fi", start)
+        self.assertNotIn("setup_analytics_role", startup.read_text(encoding="utf-8"))
 
-    def test_refresh_runs_after_migrate_and_before_gunicorn(self):
-        lines, start, end = self._lines()
 
-        def first(prefix):
-            return next(i for i, line in enumerate(lines) if line.startswith(prefix))
+class _FakeConnection:
+    vendor = "postgresql"
 
-        self.assertLess(first("$PYTHON manage.py migrate --no-input"), start)
-        self.assertLess(end, first("gunicorn "))
+    def __init__(self, cursor, in_atomic_block=False):
+        self._cursor = cursor
+        self.in_atomic_block = in_atomic_block
 
-    def test_refresh_is_gated_non_interactive_and_cannot_abort_startup(self):
-        import os
-        import subprocess
+    def cursor(self):
+        from contextlib import nullcontext
 
-        from crush_lu.tests import test_cookie_banner
+        return nullcontext(self._cursor)
 
-        bash, rejected = (
-            test_cookie_banner.StartupSeedsCookieGroupsTests._working_bash()
+
+class _RecordingCursor:
+    def __init__(self, database="pythonapp"):
+        self.database = database
+        self.executed = []
+
+    def execute(self, sql, params=None):
+        self.executed.append(sql)
+
+    def fetchone(self):
+        last = self.executed[-1]
+        if "current_user" in last:
+            return ("crush_analytics_ro",)
+        if "current_database" in last:
+            return (self.database,)
+        if "server_version_num" in last:
+            return ("170011",)
+        return (0,)
+
+    def fetchall(self):
+        return []
+
+
+DRIFT = [
+    analytics.ReleaseDrift(
+        "lacks SELECT on public.auth_user.id (re-run setup_analytics_role)"
+    )
+]
+NOT_DRIFT = ["member of role azure_pg_admin"]
+
+
+class ServingReleaseReappliesGrantsTests(SimpleTestCase):
+    """(#1285) The serving process re-applies its own GRANTS on release drift
+    only, at most once per audit bucket, and never serves before a clean
+    re-audit. SQLite has no grants: this tests the decision, not the ACLs."""
+
+    def setUp(self):
+        from crush_lu.management.commands import setup_analytics_role
+
+        self.cursor = _RecordingCursor()
+        connections = {"analytics": _FakeConnection(self.cursor)}
+        for patcher in (
+            mock.patch.object(analytics, "connections", connections),
+            mock.patch.object(analytics, "_reapply_attempted_bucket", None),
+        ):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        patcher = mock.patch.object(
+            setup_analytics_role, "reapply_for_serving_release", return_value=True
         )
-        if not bash:
-            self.skipTest(f"no working bash (rejected: {rejected or 'none found'})")
-        lines, start, end = self._lines()
-        # A stand-in for manage.py that reports its arguments and whether it
-        # could read stdin, then fails. The script itself arrives on stdin, so
-        # without the block's `< /dev/null` the read would take its next line.
-        script = "\n".join(
-            [
-                "set -e",
-                'fake_python() { echo "ran: $*"; '
-                'if read -r _; then echo "stdin: open"; else echo "stdin: eof"; fi; '
-                "return 1; }",
-                "PYTHON=fake_python",
-                *lines[start : end + 1],
-                "echo reached-gunicorn",
-                "",
-            ]
-        ).encode("utf-8")
+        self.reapply = patcher.start()
+        self.addCleanup(patcher.stop)
 
-        def run(user):
-            env = {k: v for k, v in os.environ.items() if k != "ANALYTICS_DB_USER"}
-            if user:
-                env["ANALYTICS_DB_USER"] = user
-            result = subprocess.run(
-                [bash], input=script, capture_output=True, env=env, timeout=30
-            )
-            self.assertEqual(result.returncode, 0, result.stderr)
-            return result.stdout.decode("utf-8", errors="replace")
+    def check(self, audits, bucket=1):
+        with mock.patch.object(analytics, "audit_role", side_effect=audits) as audit:
+            try:
+                return analytics._assert_least_privilege.__wrapped__(
+                    "analytics", bucket
+                )
+            finally:
+                self.audits = audit.call_count
 
-        staging = run(None)
-        self.assertNotIn("ran:", staging)
-        self.assertIn("reached-gunicorn", staging)
+    def test_release_drift_is_reapplied_and_audited_again_before_serving(self):
+        with self.assertLogs(analytics.logger, "WARNING") as logs:
+            self.assertTrue(self.check([DRIFT, []]))
+        self.reapply.assert_called_once_with()
+        self.assertEqual(self.audits, 2)
+        self.assertIn(
+            "Analytics GRANTS re-applied for the serving release",
+            "\n".join(logs.output),
+        )
 
-        production = run("crush_analytics_ro")
-        self.assertIn("ran: manage.py setup_analytics_role --keep-password", production)
-        self.assertIn("stdin: eof", production)
-        self.assertIn("setup_analytics_role failed", production)
-        self.assertIn("reached-gunicorn", production)
+    def test_other_violations_are_never_reapplied(self):
+        with self.assertLogs(analytics.logger, "ERROR"):
+            with self.assertRaises(analytics.NotConfigured):
+                self.check([NOT_DRIFT + DRIFT])
+        self.reapply.assert_not_called()
+
+    def test_a_failed_reapply_keeps_the_503(self):
+        self.reapply.side_effect = CommandError("would exceed its allowlist")
+        with self.assertLogs(analytics.logger, "WARNING") as logs:
+            with self.assertRaises(analytics.NotConfigured):
+                self.check([DRIFT])
+        self.assertEqual(self.audits, 1)  # no re-audit after a failed re-apply
+        self.assertIn("Re-applying the analytics GRANTS failed", "\n".join(logs.output))
+
+    def test_drift_left_after_the_reapply_is_still_a_503(self):
+        with self.assertLogs(analytics.logger, "ERROR"):
+            with self.assertRaises(analytics.NotConfigured):
+                self.check([DRIFT, DRIFT])
+
+    def test_one_reapply_attempt_per_worker_per_audit_bucket(self):
+        self.reapply.return_value = False
+        with self.assertLogs(analytics.logger, "WARNING"):
+            for bucket in (1, 1, 1, 2):
+                with self.assertRaises(analytics.NotConfigured):
+                    self.check([DRIFT], bucket=bucket)
+        self.assertEqual(self.reapply.call_count, 2)
+
+
+class ReapplyForServingReleaseTests(SimpleTestCase):
+    """The owner-connection transaction behind the serving-release re-apply."""
+
+    class Atomic:
+        def __init__(self):
+            self.exits = []
+
+        def __call__(self, using):
+            self.using = using
+            return self
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, *exc):
+            self.exits.append(exc_type)
+            return False
+
+    def run_reapply(self, audits, database="pythonapp", in_atomic_block=False):
+        from crush_lu.management.commands import setup_analytics_role as command
+
+        self.cursor = _RecordingCursor(database)
+        self.atomic = self.Atomic()
+        self.audited_at = []
+        results = iter(audits)
+
+        def audit(cursor, role):
+            self.assertEqual(role, "crush_analytics_ro")
+            self.audited_at.append(len(cursor.executed))
+            return next(results)
+
+        connection = _FakeConnection(self.cursor, in_atomic_block)
+        with (
+            mock.patch.object(command, "connections", {"default": connection}),
+            mock.patch.object(command, "transaction", mock.Mock(atomic=self.atomic)),
+            mock.patch.object(command, "audit_role", side_effect=audit),
+        ):
+            return command.reapply_for_serving_release()
+
+    def ddl(self):
+        return [
+            i
+            for i, sql in enumerate(self.cursor.executed)
+            if sql.startswith(("GRANT ", "REVOKE ", "ALTER ROLE"))
+        ]
+
+    def test_locks_then_rewrites_then_audits_in_one_transaction(self):
+        self.assertTrue(self.run_reapply([DRIFT, []]))
+        executed = self.cursor.executed
+        self.assertEqual(self.atomic.using, "default")
+        self.assertEqual(self.atomic.exits, [None])
+        self.assertEqual(executed[0], "SET LOCAL lock_timeout = '5s'")
+        self.assertEqual(executed[1], "SET LOCAL statement_timeout = '10s'")
+        self.assertEqual(executed[2], "SELECT pg_advisory_xact_lock(%s)")
+        ddl = self.ddl()
+        # Re-checked under the lock before any change, audited after the last.
+        self.assertLess(self.audited_at[0], ddl[0])
+        self.assertTrue(
+            any('GRANT SELECT ("id"' in executed[i] for i in ddl), "no column GRANT"
+        )
+        self.assertEqual(self.audited_at[1], ddl[-1] + 1)
+
+    def test_rolls_back_when_the_result_would_exceed_the_allowlist(self):
+        with self.assertRaises(CommandError):
+            self.run_reapply([DRIFT, NOT_DRIFT])
+        self.assertEqual(self.atomic.exits, [CommandError])
+
+    def test_does_nothing_when_another_worker_already_reapplied(self):
+        self.assertTrue(self.run_reapply([[]]))
+        self.assertEqual(self.ddl(), [])
+
+    def test_refuses_anything_but_release_drift(self):
+        self.assertFalse(self.run_reapply([NOT_DRIFT + DRIFT]))
+        self.assertEqual(self.ddl(), [])
+
+    def test_refuses_another_database(self):
+        self.assertFalse(self.run_reapply([], database="pythonapp_staging"))
+        self.assertEqual(self.audited_at, [])
+        self.assertEqual(self.ddl(), [])
+
+    def test_refuses_inside_an_outer_transaction(self):
+        self.assertFalse(self.run_reapply([], in_atomic_block=True))
+        self.assertEqual(self.cursor.executed, [])
+        self.assertEqual(self.atomic.exits, [])
