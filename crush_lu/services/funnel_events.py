@@ -40,8 +40,9 @@ mutual_meeting        coffee date confirmed by both / lobby         ``ConnectCof
 
 Outbox: one cache key per event, numbered by an atomic per-member counter, so
 neither a concurrent capture nor a concurrent page view can drop an event. A
-page claims each event while it renders (``claim``) and the event is deleted
-only once the response is built (``acknowledge``, from
+page claims each event while it renders (``claim``), reads it again under the
+claim so an event another page has just delivered is not sent twice, and the
+event is deleted only once the response is built (``acknowledge``, from
 ``crush_lu.middleware.FunnelDeliveryMiddleware``); a page that fails with a 500
 releases its claims for the member's next page.
 
@@ -165,21 +166,31 @@ def claim(request, user_id):
     leaves them for the next page. Of two pages rendering at once, the one
     whose ``add`` wins delivers each event, and an event queued after this
     read is left for the next page.
+
+    The first read only picks the keys to claim; events are read again under
+    the claim. Another page can claim, deliver and delete an event between
+    the two, freeing its claim key, so that event is gone by the second read
+    and this page skips it.
     """
     if not user_id or request is None:
         return []
     try:
-        fresh = [
-            (key, event)
-            for key, event in _pending(user_id)
+        keys = [
+            key
+            for key, _event in _pending(user_id)
             if cache.add(_claim_key(key), 1, CLAIM_TTL)
         ]
+        found = cache.get_many(keys) if keys else {}
+        gone = [_claim_key(key) for key in keys if key not in found]
+        if gone:
+            cache.delete_many(gone)
     except Exception:  # noqa: BLE001
         logger.warning("Funnel outbox not readable", exc_info=True)
         return []
+    fresh = [key for key in keys if key in found]
     claimed = getattr(request, "_funnel_claimed", [])
-    request._funnel_claimed = claimed + [key for key, _event in fresh]
-    return [event for _key, event in fresh]
+    request._funnel_claimed = claimed + fresh
+    return [found[key] for key in fresh]
 
 
 def acknowledge(request, delivered):

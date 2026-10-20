@@ -356,19 +356,44 @@ class FunnelEventsTests(TestCase):
 
         with self.captureOnCommitCallbacks(execute=True):
             funnel_events.record(self.user.pk, "login")
-        real_get_many = funnel_events.cache.get_many
+        real_pending = funnel_events._pending
 
-        def get_many_then_capture(keys):
-            found = real_get_many(keys)
+        def read_then_capture(user_id):
+            found = real_pending(user_id)
             # Another request captures a conversion after this page's read.
             funnel_events._enqueue(self.user.pk, "purchase", None, {})
             return found
 
-        with patch.object(funnel_events.cache, "get_many", get_many_then_capture):
+        with patch.object(funnel_events, "_pending", read_then_capture):
             first = _deliver(self.user)
         self.assertEqual(first, ["login"])
         self.assertEqual(_deliver(self.user), ["purchase"])
         self.assertEqual(_deliver(self.user), [])
+
+    def test_event_delivered_by_another_page_after_this_read_is_not_resent(self):
+        # #1288: page B claims, delivers and deletes an event between page A's
+        # read and A's claim. A's claim then succeeds on the freed key, so A
+        # must not trust what it read before claiming.
+        from unittest.mock import patch
+
+        with self.captureOnCommitCallbacks(execute=True):
+            funnel_events.record(self.user.pk, "login")
+        real_pending = funnel_events._pending
+        other_page = []
+
+        def read_then_other_page_delivers(user_id):
+            found = real_pending(user_id)
+            with patch.object(funnel_events, "_pending", real_pending):
+                other_page.extend(_deliver(self.user))
+            return found
+
+        with patch.object(funnel_events, "_pending", read_then_other_page_delivers):
+            this_page = _deliver(self.user)
+        self.assertEqual(other_page, ["login"])
+        self.assertEqual(this_page, [])
+        self.assertEqual(_deliver(self.user), [])
+        key = funnel_events._event_key(self.user.pk, 1)
+        self.assertIsNone(cache.get(funnel_events._claim_key(key)))
 
     def test_concurrent_pages_deliver_once(self):
         from django.http import HttpRequest
