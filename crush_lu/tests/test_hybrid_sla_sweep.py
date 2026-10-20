@@ -644,3 +644,131 @@ class SlaSweepTests(TestCase):
         locked = _lock_sweep_chunk(now, set(), picked_pks=[picked.pk, untouched.pk])
 
         self.assertEqual(locked, [untouched.pk])
+
+    def test_lock_step_keeps_a_stale_claim_it_picked(self):
+        """The re-check must still let a dead worker's claim through: it looks
+        offered too, and only the lease tells it apart from a fresh claim."""
+        fresh = self._submission("freshclaim")
+        stale = self._submission("staleclaim")
+        now = timezone.now()
+        for sub, claimed_at in ((fresh, now), (stale, now - timedelta(hours=1))):
+            ProfileSubmission.objects.filter(pk=sub.pk).update(
+                fallback_offered_at=claimed_at,
+                booking_token=uuid.uuid4(),
+                booking_token_expires_at=now + timedelta(days=30),
+                fallback_offer_claimed_at=claimed_at,
+                fallback_offer_sent_at=None,
+            )
+
+        locked = _lock_sweep_chunk(now, set(), picked_pks=[fresh.pk, stale.pk])
+
+        self.assertEqual(locked, [stale.pk])
+
+    def test_overlapping_sweeps_send_one_email_per_submission(self):
+        """#1236: sweep A runs whole between sweep B's pick and B's lock.
+
+        Each member gets one email, including the dead worker's claim that A
+        recovers. B must not lock A's claims again and re-send them as recovered
+        claims. SQLite cannot run the two sweeps at once, so the pick is taken
+        eagerly and A runs inside the gap.
+        """
+        import crush_lu.api_admin_hybrid as module
+
+        fresh = [self._submission(f"overlap{i}") for i in range(2)]
+        stale = self._submission("overlapstale")
+        ProfileSubmission.objects.filter(pk=stale.pk).update(
+            fallback_offered_at=timezone.now() - timedelta(hours=2),
+            booking_token=uuid.uuid4(),
+            booking_token_expires_at=timezone.now() + timedelta(days=2),
+            fallback_offer_claimed_at=timezone.now() - timedelta(hours=1),
+            fallback_offer_sent_at=None,
+        )
+        original_lock = module._lock_sweep_chunk
+        picks, results = [], {}
+
+        def other_sweep_claims_between_pick_and_lock(now, attempted, picked_pks=None):
+            if picks:
+                return original_lock(now, attempted, picked_pks)
+            picks.append(
+                list(
+                    module._sweep_candidates(now, attempted)
+                    .order_by("sweep_priority", "sla_deadline", "pk")
+                    .values_list("pk", flat=True)[: module.SLA_SWEEP_CLAIM_CHUNK]
+                )
+            )
+            results["a"] = module.run_sla_sweep("crush.lu", True, actor="system:a")
+            return original_lock(now, attempted, picked_pks=picks[0])
+
+        with (
+            patch.object(
+                module, "_lock_sweep_chunk", other_sweep_claims_between_pick_and_lock
+            ),
+            patch(SEND, return_value=1) as send,
+        ):
+            results["b"] = module.run_sla_sweep("crush.lu", True, actor="system:b")
+
+        everyone = fresh + [stale]
+        self.assertCountEqual(picks[0], [s.pk for s in everyone])
+        self.assertEqual(results["a"]["processed"], 3)
+        self.assertEqual(results["b"]["processed"], 0)
+        sent_to = [c.kwargs["recipient_list"] for c in send.call_args_list]
+        self.assertCountEqual(sent_to, [[s.profile.user.email] for s in everyone])
+        for sub in everyone:
+            sub.refresh_from_db()
+            actors = [a.get("actor") for a in sub.system_actions]
+            self.assertNotIn("system:b", actors, sub.profile.user.email)
+
+    def test_lock_statement_carries_the_candidate_filter(self):
+        """SQLite ignores row locks, so assert the locked statement itself: it
+        must re-check the candidate columns, not only ``pk IN (picked)``."""
+        from django.db.models.lookups import Lookup
+        from django.db.models.sql.compiler import SQLCompiler
+
+        self._submission("structural")
+        original_execute_sql = SQLCompiler.execute_sql
+        locks = []
+
+        def spy_execute_sql(compiler, *args, **kwargs):
+            query = compiler.query
+            if query.select_for_update and query.select_for_update_skip_locked:
+                locks.append(query)
+            return original_execute_sql(compiler, *args, **kwargs)
+
+        def filtered_fields(node):
+            # Fields the statement's own WHERE tests; a subquery's filter (the
+            # unlocked pick, the booked-slot exclude) is not walked.
+            names = set()
+            for child in node.children:
+                if isinstance(child, Lookup):
+                    target = getattr(child.lhs, "target", None)
+                    if target is not None:
+                        names.add(target.name)
+                elif hasattr(child, "children"):
+                    names |= filtered_fields(child)
+            return names
+
+        with (
+            patch.object(SQLCompiler, "execute_sql", spy_execute_sql),
+            patch(SEND, return_value=1),
+        ):
+            body = self._sweep().json()
+
+        self.assertEqual(body["processed"], 1)
+        self.assertTrue(locks)
+        for lock in locks:
+            self.assertIs(lock.model, ProfileSubmission)
+            self.assertEqual(lock.select_for_update_of, ("self",))
+            self.assertLessEqual(
+                {
+                    "status",
+                    "is_paused",
+                    "review_call_completed",
+                    "sla_deadline",
+                    "hybrid_features_enabled",
+                    "fallback_offered_at",
+                    "booking_token",
+                    "fallback_offer_claimed_at",
+                    "fallback_offer_sent_at",
+                },
+                filtered_fields(lock.where),
+            )
