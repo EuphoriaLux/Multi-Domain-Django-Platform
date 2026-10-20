@@ -2,12 +2,18 @@
 {# Routes to appropriate login template based on the request domain #}
 {# NOTE: login_powerup.html extends entreprinder's base.html which uses {% url 'entreprinder:...' %} #}
 {# so it can ONLY be used when the entreprinder namespace is registered (i.e. on entreprinder.lu) #}
+{# Host matching must tolerate the dev port: get_host() returns "localhost:8000", #}
+{# so slice:":9" keeps bare localhost matching while portal./api.localhost fall through. #}
 {% if 'powerup' in request.get_host or 'power-up' in request.get_host %}
 {% include "account/login_power_up.html" %}
 {% elif 'entreprinder' in request.get_host %}
 {% include "account/login_powerup.html" %}
-{% else %}
-{# Default to Crush template - handles crush.lu, powerup.lu, vinsdelux.com, azurewebsites.net, #}
-{# localhost, 127.0.0.1, and any unknown hosts. Uses crush_lu/base.html which has no cross-app dependencies. #}
+{% elif 'crush.lu' in request.get_host or 'crush.localhost' in request.get_host or request.get_host|slice:":9" == 'localhost' or '127.0.0.1' in request.get_host %}
+{# Crush.lu and local dev. login_crush.html extends crush_lu/base.html, which reverses #}
+{# crush-only URL names, so it can ONLY be used on hosts served by urls_crush. #}
 {% include "account/login_crush.html" %}
+{% else %}
+{# Other domains (delegations.lu, arborist.lu, vinsdelux.com, azurewebsites.net, unknown #}
+{# hosts) — self-contained neutral page with no app namespace dependencies. #}
+{% include "account/login_neutral.html" %}
 {% endif %}

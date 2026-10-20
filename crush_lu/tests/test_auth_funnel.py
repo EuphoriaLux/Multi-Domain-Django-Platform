@@ -28,6 +28,7 @@ from django.test import Client, RequestFactory, TestCase
 from django.utils import translation
 
 from azureproject.adapters import MultiDomainAccountAdapter
+from azureproject.domains import DOMAINS
 
 User = get_user_model()
 
@@ -278,3 +279,61 @@ class CrushAllauthLoginPageTests(TestCase):
             "/accounts/login/"
         )
         self.assertIn("Passwort vergessen?", response.content.decode())
+
+
+class AllauthLoginPageEveryHostTests(TestCase):
+    """
+    /accounts/login/ is mounted on every host that includes base_patterns, but
+    crush_lu's account/login.html wins on all of them (INSTALLED_APPS order).
+    Its crush branch extends crush_lu/base.html, which reverses crush-only URL
+    names, so on delegations.lu, arborist.lu and vinsdelux.com it raised
+    NoReverseMatch and the login page 500ed.
+    """
+
+    def setUp(self):
+        cache.clear()
+
+    def test_login_page_never_500s(self):
+        hosts = [
+            host
+            for domain, config in DOMAINS.items()
+            for host in (domain, *config.get("aliases", []))
+        ]
+        client = Client(raise_request_exception=False)
+        for host in hosts:
+            with self.subTest(host=host):
+                response = client.get(
+                    "/accounts/login/?next=/dashboard/", HTTP_HOST=host
+                )
+                self.assertLess(response.status_code, 500)
+
+    def test_other_domains_get_the_neutral_login_page(self):
+        for host in ("delegations.lu", "arborist.lu", "vinsdelux.com"):
+            with self.subTest(host=host):
+                response = Client(HTTP_HOST=host).get(
+                    "/accounts/login/?next=/dashboard/"
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertTemplateUsed(response, "account/login_neutral.html")
+                self.assertTemplateNotUsed(response, "crush_lu/base.html")
+                html = response.content.decode()
+                self.assertIn('name="login"', html)
+                self.assertIn('name="password"', html)
+                self.assertIn('name="next" value="/dashboard/"', html)
+
+    def test_neutral_login_form_signs_in_and_keeps_next(self):
+        _user, address = _unverified_user("staff@delegations.lu")
+        address.verified = True
+        address.save()
+        client = Client(HTTP_HOST="delegations.lu")
+        response = client.post(
+            "/accounts/login/?next=/dashboard/",
+            {
+                "login": "staff@delegations.lu",
+                "password": "Str0ng-pass-2026!",
+                "next": "/dashboard/",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, "/dashboard/")
+        self.assertIn("_auth_user_id", client.session)
