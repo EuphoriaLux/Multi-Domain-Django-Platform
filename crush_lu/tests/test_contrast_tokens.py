@@ -13,6 +13,10 @@
 
 The runtime (theme-manager.js, axe contrast) is covered by
 ``test_contrast_tokens_playwright.py``.
+
+Loops name the case in the assertion message rather than using
+``self.subTest``: pytest 9 reports a test whose only failure is in a subtest
+as PASSED, with the failure on a separate SUBFAILED line (#1153).
 """
 
 import re
@@ -96,14 +100,13 @@ class NavProgressContextTests(TestCase):
             (2, {"phone_verified": False}),
             (3, {"coach_intro_seen_at": None}),
         ):
-            with self.subTest(step=step):
-                user = _onboarding_user(f"step{step}@example.com", **fields)
-                context = self._context(user)
-                self.assertEqual(context["profile_completion_step"], step)
-                # The bar fills with completed steps, like the stepper.
-                self.assertEqual(
-                    context["profile_completion_pct"], (step - 1) * 100 // 5
-                )
+            user = _onboarding_user(f"step{step}@example.com", **fields)
+            context = self._context(user)
+            self.assertEqual(context["profile_completion_step"], step)
+            # The bar fills with completed steps, like the stepper.
+            self.assertEqual(
+                context["profile_completion_pct"], (step - 1) * 100 // 5, step
+            )
 
     def test_bar_is_empty_before_anything_is_done(self):
         user = _onboarding_user(welcome_seen_at=None, phone_verified=False)
@@ -193,17 +196,15 @@ class ThemeLockMarkupTests(TestCase):
             ("de", "Dieses Erlebnis ist immer im Nachtmodus"),
             ("fr", "Cette expérience est toujours en mode nuit"),
         ):
-            with self.subTest(lang=lang):
-                _, html = self._html_tag(f"/{lang}/dashboard/")
-                self.assertIn(f'data-locked-label="{label}"', html)
+            _, html = self._html_tag(f"/{lang}/dashboard/")
+            self.assertIn(f'data-locked-label="{label}"', html, lang)
 
     def test_journey_templates_do_not_lock_the_theme(self):
         base = REPO_ROOT / "crush_lu" / "templates" / "crush_lu" / "journey"
         for name in ("journey_base.html", "gift_base.html", "journey_selector.html"):
-            with self.subTest(template=name):
-                source = (base / name).read_text(encoding="utf-8")
-                self.assertNotIn("theme_lock", source)
-                self.assertIn("journey-bg", source)
+            source = (base / name).read_text(encoding="utf-8")
+            self.assertNotIn("theme_lock", source, name)
+            self.assertIn("journey-bg", source, name)
 
     def test_journey_light_theme_is_light(self):
         css = TAILWIND_INPUT.read_text(encoding="utf-8") + "\n".join(
@@ -227,14 +228,13 @@ class MutedTextMarkupTests(TestCase):
 
     def test_dashboard_and_connections_have_no_gray_500_copy(self):
         for path in ("/en/dashboard/", "/en/connections/"):
-            with self.subTest(path=path):
-                response = self.client.get(path)
-                self.assertEqual(response.status_code, 200)
-                main = response.content.decode()
-                main = main[main.index('id="main-content"') :]
-                main = main[: main.index("<footer")]
-                self.assertIn("text-muted-fg", main)
-                self.assertNotIn("text-gray-500 dark:text-gray-400", main)
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 200, path)
+            main = response.content.decode()
+            main = main[main.index('id="main-content"') :]
+            main = main[: main.index("<footer")]
+            self.assertIn("text-muted-fg", main, path)
+            self.assertNotIn("text-gray-500 dark:text-gray-400", main, path)
 
 
 class ContrastTokenCssTests(SimpleTestCase):
