@@ -537,3 +537,143 @@ class AllauthPasswordResetPagesEveryHostTests(TestCase):
         )
         user.refresh_from_db()
         self.assertTrue(user.check_password("N3w-pass-2026!x"))
+
+
+class AllauthSignedInPagesEveryHostTests(TestCase):
+    """
+    The signed-in account pages had the same bug as the password-reset pages:
+    /accounts/email/, /accounts/password/change/ and the confirmation page of
+    /accounts/logout/ extended crush_lu/base.html, or routed by host string
+    onto a page that did. A signed-in user on arborist.lu, delegations.lu,
+    entreprinder.lu, vinsdelux.com or a Power-Up host got a NoReverseMatch
+    500. They now route on request.urlconf.
+    """
+
+    PAGES = (
+        "/accounts/email/",
+        "/accounts/password/change/",
+        "/accounts/logout/",
+    )
+    NEUTRAL = {
+        "/accounts/email/": "account/email_neutral.html",
+        "/accounts/password/change/": "account/password_change_neutral.html",
+        "/accounts/logout/": "account/logout_neutral.html",
+    }
+    PASSWORD = "Str0ng-pass-2026!"
+
+    def setUp(self):
+        cache.clear()
+        self.user, address = _unverified_user("member@example.com")
+        address.verified = True
+        address.save()
+
+    def _client(self, host, **kwargs):
+        client = Client(HTTP_HOST=host, **kwargs)
+        client.force_login(self.user)
+        return client
+
+    def test_pages_never_500_on_any_host(self):
+        hosts = [
+            host
+            for domain, config in DOMAINS.items()
+            for host in (domain, *config.get("aliases", []))
+        ]
+        # One list, so a single run names every failing host and page.
+        failures = []
+        for host in hosts:
+            client = self._client(host, raise_request_exception=False)
+            for path in self.PAGES:
+                status = client.get(path).status_code
+                if status >= 500:
+                    failures.append(f"{host}{path} -> {status}")
+        self.assertEqual(failures, [])
+
+    def test_each_host_gets_its_own_page(self):
+        expected = {
+            # crush.lu redirects /accounts/email/ to its settings (urls_crush).
+            "crush.lu": {
+                "/accounts/password/change/": "account/password_change_crush.html",
+                "/accounts/logout/": "account/logout_crush.html",
+            },
+            "entreprinder.lu": {
+                **self.NEUTRAL,
+                "/accounts/email/": "account/email_entreprinder.html",
+                "/accounts/logout/": "account/logout_powerup.html",
+            },
+            "delegations.lu": {
+                **self.NEUTRAL,
+                "/accounts/password/change/": (
+                    "account/password_change_delegation.html"
+                ),
+                "/accounts/logout/": "account/logout_delegation.html",
+            },
+            "arborist.lu": self.NEUTRAL,
+            "vinsdelux.com": self.NEUTRAL,
+            "power-up.lu": self.NEUTRAL,
+            "powerup.lu": self.NEUTRAL,
+            "portal.powerup.lu": self.NEUTRAL,
+        }
+        for host, pages in expected.items():
+            client = self._client(host)
+            for path, template in pages.items():
+                with self.subTest(host=host, path=path):
+                    response = client.get(path)
+                    self.assertEqual(response.status_code, 200)
+                    self.assertTemplateUsed(response, template)
+                    if host != "crush.lu":
+                        self.assertTemplateNotUsed(response, "crush_lu/base.html")
+
+    def test_delegations_password_change_offers_no_password_form(self):
+        # delegations.lu is Microsoft-only, like its login and reset pages.
+        for host in ("delegations.lu", "test.delegations.lu"):
+            with self.subTest(host=host):
+                response = self._client(host).get("/accounts/password/change/")
+                self.assertEqual(response.status_code, 200)
+                html = response.content.decode()
+                self.assertNotIn('name="oldpassword"', html)
+                self.assertNotIn('name="password1"', html)
+
+    def test_neutral_email_page_lists_and_adds_addresses(self):
+        client = self._client("arborist.lu")
+        response = client.get("/accounts/email/")
+        self.assertIn('value="member@example.com"', response.content.decode())
+
+        response = client.post(
+            "/accounts/email/",
+            {"action_add": "", "email": "second@example.com"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            EmailAddress.objects.filter(
+                user=self.user, email="second@example.com"
+            ).exists()
+        )
+
+    def test_neutral_password_change_sets_a_new_password(self):
+        client = self._client("arborist.lu")
+        html = client.get("/accounts/password/change/").content.decode()
+        self.assertIn('name="oldpassword"', html)
+
+        response = client.post(
+            "/accounts/password/change/",
+            {
+                "oldpassword": self.PASSWORD,
+                "password1": "N3w-pass-2026!x",
+                "password2": "N3w-pass-2026!x",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("N3w-pass-2026!x"))
+
+    def test_neutral_logout_page_signs_out(self):
+        client = self._client("arborist.lu")
+        response = client.get("/accounts/logout/?next=/dashboard/")
+        html = response.content.decode()
+        self.assertIn('action="/accounts/logout/"', html)
+        self.assertIn('name="next" value="/dashboard/"', html)
+        self.assertIn("_auth_user_id", client.session)
+
+        response = client.post("/accounts/logout/", {"next": "/dashboard/"})
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn("_auth_user_id", client.session)

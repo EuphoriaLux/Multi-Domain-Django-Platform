@@ -1,6 +1,7 @@
 {% load i18n %}
-{# Shared shell for the neutral account pages (password reset, account inactive) #}
-{# on hosts without a branded page of their own. Self-contained on purpose: #}
+{# Shared shell for the neutral account pages (password reset and change, email, #}
+{# logout, account inactive) on hosts without a branded page of their own. #}
+{# Self-contained on purpose: #}
 {# crush_lu/base.html reverses crush-only URL names, so pages built on this may #}
 {# only reverse account_* names, which base_patterns mounts on every host that #}
 {# serves /accounts/. Strings reuse allauth's msgids, so DE/FR come from allauth. #}
@@ -37,6 +38,15 @@
                  background: #1f2937; color: #fff; font-size: 1rem; font-weight: 600;
                  cursor: pointer; }
         button:hover { background: #111827; }
+        button.secondary { background: #fff; color: #1f2937; border: 1px solid #d1d5db; }
+        button.secondary:hover { background: #f9fafb; }
+        h2 { font-size: 1.1rem; margin: 2rem 0 1rem; color: #111827; }
+        .choice { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem;
+                  border: 1px solid #e5e7eb; border-radius: 8px; padding: .75rem;
+                  margin-bottom: .5rem; color: #111827; overflow-wrap: anywhere; }
+        .badge { background: #f3f4f6; color: #4b5563; border-radius: 9999px;
+                 padding: .1rem .5rem; font-size: .75rem; }
+        .actions { display: grid; gap: .5rem; margin-top: 1rem; }
     </style>
 </head>
 <body>
