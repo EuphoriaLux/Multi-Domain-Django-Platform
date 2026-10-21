@@ -1,0 +1,10 @@
+{% extends "account/base_neutral.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Account Inactive" %}{% endblock %}
+
+{% block content %}
+<h1>{% trans "Account Inactive" %}</h1>
+<p>{% trans "This account is inactive." %}</p>
+<p class="footnote"><a href="{% url 'account_login' %}">{% trans "Back to Login" %}</a></p>
+{% endblock %}

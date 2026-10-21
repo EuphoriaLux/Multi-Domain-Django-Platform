@@ -26,6 +26,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.sessions.backends.db import SessionStore
 from django.contrib.sites.models import Site
+from django.core import mail
 from django.core.cache import cache
 from django.test import Client, RequestFactory, TestCase
 from django.utils import translation
@@ -406,3 +407,133 @@ class DelegationsMicrosoftOnlyLoginTests(TestCase):
 
     def test_other_social_login_is_refused(self):
         self.assertEqual(self._pre_login("google").status_code, 403)
+
+
+class AllauthPasswordResetPagesEveryHostTests(TestCase):
+    """
+    The password-reset pages and /accounts/inactive/ had the login page's bug
+    (#1291): crush_lu's account templates win on every host, and theirs
+    extended crush_lu/base.html, which reverses crush-only URL names. Outside
+    the crush urlconf they raised NoReverseMatch, so "forgot password" 500ed on
+    arborist.lu, delegations.lu, entreprinder.lu, vinsdelux.com and every
+    Power-Up host. They now route on request.urlconf.
+    """
+
+    NEUTRAL_PAGES = {
+        "/accounts/password/reset/": "account/password_reset_neutral.html",
+        "/accounts/password/reset/done/": "account/password_reset_done_neutral.html",
+        "/accounts/password/reset/key/1-bad-key/": (
+            "account/password_reset_from_key_neutral.html"
+        ),
+        "/accounts/password/reset/key/done/": (
+            "account/password_reset_from_key_done_neutral.html"
+        ),
+        "/accounts/inactive/": "account/account_inactive_neutral.html",
+    }
+
+    def setUp(self):
+        cache.clear()
+
+    def test_pages_never_500_on_any_host(self):
+        hosts = [
+            host
+            for domain, config in DOMAINS.items()
+            for host in (domain, *config.get("aliases", []))
+        ]
+        user = User.objects.create_user(
+            username="reader@example.com",
+            email="reader@example.com",
+            password="Str0ng-pass-2026!",
+        )
+        anonymous = Client(raise_request_exception=False)
+        signed_in = Client(raise_request_exception=False)
+        signed_in.force_login(user)
+        # One list, so a single run names every failing host and page.
+        failures = []
+        for host in hosts:
+            for path in self.NEUTRAL_PAGES:
+                for client in (anonymous, signed_in):
+                    status = client.get(path, HTTP_HOST=host).status_code
+                    if status >= 500:
+                        failures.append(f"{host}{path} -> {status}")
+        self.assertEqual(failures, [])
+
+    def test_other_hosts_get_the_neutral_pages(self):
+        hosts = (
+            "arborist.lu",
+            "vinsdelux.com",
+            "entreprinder.lu",
+            "powerup.lu",
+            "portal.powerup.lu",
+        )
+        for host in hosts:
+            for path, template in self.NEUTRAL_PAGES.items():
+                with self.subTest(host=host, path=path):
+                    response = Client(HTTP_HOST=host).get(path)
+                    self.assertEqual(response.status_code, 200)
+                    self.assertTemplateUsed(response, template)
+                    self.assertTemplateNotUsed(response, "crush_lu/base.html")
+
+    def test_crush_keeps_its_branded_pages(self):
+        for path, template in self.NEUTRAL_PAGES.items():
+            with self.subTest(path=path):
+                response = Client(HTTP_HOST="crush.lu").get(path)
+                self.assertEqual(response.status_code, 200)
+                self.assertTemplateUsed(
+                    response, template.replace("_neutral", "_crush")
+                )
+                self.assertTemplateUsed(response, "crush_lu/base.html")
+
+    def test_delegations_reset_pages_offer_no_password_form(self):
+        # delegations.lu is Microsoft-only: neither the request page nor a key
+        # link that reaches the host may show a password form.
+        paths = (
+            "/accounts/password/reset/",
+            "/accounts/password/reset/key/1-bad-key/",
+        )
+        for host in ("delegations.lu", "test.delegations.lu"):
+            for path in paths:
+                with self.subTest(host=host, path=path):
+                    response = Client(HTTP_HOST=host).get(path)
+                    self.assertEqual(response.status_code, 200)
+                    self.assertTemplateUsed(
+                        response, "account/password_reset_delegation.html"
+                    )
+                    html = response.content.decode()
+                    self.assertNotIn('name="email"', html)
+                    self.assertNotIn('name="password1"', html)
+
+    def test_neutral_reset_flow_sets_a_new_password(self):
+        user, address = _unverified_user("client@arborist.lu")
+        address.verified = True
+        address.save()
+        client = Client(HTTP_HOST="arborist.lu")
+
+        response = client.post(
+            "/accounts/password/reset/", {"email": "client@arborist.lu"}
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(len(mail.outbox), 1)
+        match = re.search(
+            r"(/accounts/password/reset/key/[^\s\"<>]+)", mail.outbox[0].body
+        )
+        self.assertIsNotNone(match, "reset link missing from the email")
+
+        response = client.get(match.group(1), follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(
+            response, "account/password_reset_from_key_neutral.html"
+        )
+        self.assertIn('name="password1"', response.content.decode())
+
+        response = client.post(
+            response.request["PATH_INFO"],
+            {"password1": "N3w-pass-2026!x", "password2": "N3w-pass-2026!x"},
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(
+            response, "account/password_reset_from_key_done_neutral.html"
+        )
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("N3w-pass-2026!x"))
