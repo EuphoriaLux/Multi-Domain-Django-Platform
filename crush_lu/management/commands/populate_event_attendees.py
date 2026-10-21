@@ -84,7 +84,6 @@ class Command(BaseCommand):
         )
 
         # Prioritize profiles with photos
-        all_profiles = profiles_with_photos + profiles_without_photos
         random.shuffle(profiles_with_photos)
         random.shuffle(profiles_without_photos)
         selected = profiles_with_photos[:count]

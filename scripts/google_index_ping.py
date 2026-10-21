@@ -42,7 +42,7 @@ def publish_notification(url: str, action: str = "URL_UPDATED"):
         "url": url,
         "type": action,
     }
-    print(f"\n🚀 Sending Indexing Ping to Googlebot...")
+    print("\n🚀 Sending Indexing Ping to Googlebot...")
     print(f"   Target URL: {url}")
     print(f"   Action:     {action}")
 
@@ -59,7 +59,7 @@ def publish_notification(url: str, action: str = "URL_UPDATED"):
 def get_notification_status(url: str):
     """Query the latest metadata/status recorded by Google for a given URL."""
     service = get_service()
-    print(f"\n🔍 Querying Indexing Status from Google...")
+    print("\n🔍 Querying Indexing Status from Google...")
     print(f"   Target URL: {url}")
 
     try:

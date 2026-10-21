@@ -16,11 +16,11 @@ sys.path.insert(0, str(project_root))
 
 # Setup Django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "azureproject.settings")
-import django
+import django  # noqa: E402
 
 django.setup()
 
-from azure.storage.blob import BlobServiceClient
+from azure.storage.blob import BlobServiceClient  # noqa: E402
 
 
 def get_billing_period_from_file(file_path):

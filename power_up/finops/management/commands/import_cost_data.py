@@ -339,9 +339,6 @@ class Command(BaseCommand):
             records_failed = 0
             parser = FOCUSParser()
 
-            # Get existing hashes for this export to avoid re-checking database constantly
-            # (only relevant if force_reimport, otherwise hashes should be unique across exports)
-            existing_hashes = set()
             if not is_update and not force_reimport:
                 # Pre-load existing hashes for duplicate detection (memory efficient for large imports)
                 # We check in batches to avoid loading millions of hashes

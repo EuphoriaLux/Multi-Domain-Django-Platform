@@ -112,8 +112,6 @@ class TestCSPHeaders(SiteTestCase):
     def test_csp_header_skipped_for_admin(self):
         """Verify CSP header is skipped for admin pages."""
         response = self.client.get("/admin/login/")
-        # CSP should not be present for admin
-        csp = response.get("Content-Security-Policy-Report-Only")
         # Admin pages might still have CSP from Django, but our middleware skips it
         # Just verify the page loads
         self.assertIn(response.status_code, [200, 302])

@@ -143,7 +143,7 @@ class CoachActionQueueTests(_SiteSetup, TestCase):
 
     def test_blocks_non_coach(self):
 
-        non = _make_user("noncoach")
+        _make_user("noncoach")
         c = Client()
         c.login(username="noncoach", password="pass1234!")
         resp = c.get(reverse("crush_lu:coach_action_queue"))

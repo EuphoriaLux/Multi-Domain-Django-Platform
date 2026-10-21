@@ -1,6 +1,3 @@
-import sys
-import os
-from pathlib import Path
 from datetime import datetime
 import json
 
@@ -136,7 +133,7 @@ class Command(BaseCommand):
         if fmt == "table":
             self.stdout.write("\n" + "=" * 80)
             self.stdout.write(
-                self.style.SUCCESS(f"  CRUSH.LU — WEEKLY LUXID ADOPTION REPORT")
+                self.style.SUCCESS("  CRUSH.LU — WEEKLY LUXID ADOPTION REPORT")
             )
             self.stdout.write(
                 f"  Total Members: {total_users} | Total LuxID: {total_luxid} ({overall_pct:.1f}% Adoption)"

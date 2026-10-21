@@ -57,7 +57,6 @@ def _get_segment_choices():
 
 def _get_event_choices():
     """Build choices for the event dropdown (published current/future events)."""
-    from datetime import timedelta
 
     from django.utils import timezone as tz
 

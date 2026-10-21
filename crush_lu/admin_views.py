@@ -155,7 +155,6 @@ def crush_admin_dashboard(request):
 
         return redirect_to_login(request.get_full_path())
 
-    is_coach = False
     if not request.user.is_superuser:
         try:
             coach = request.user.crushcoach
@@ -165,7 +164,6 @@ def crush_admin_dashboard(request):
                 return HttpResponseForbidden(
                     "You must be an active Crush coach to access this panel."
                 )
-            is_coach = True
         except (CrushCoach.DoesNotExist, AttributeError):
             from django.http import HttpResponseForbidden
 
@@ -1278,8 +1276,8 @@ def signup_trend_api(request):
     return JsonResponse(
         {
             "labels": all_labels,
-            "signups": [signup_map.get(l, 0) for l in all_labels],
-            "approved": [approval_map.get(l, 0) for l in all_labels],
+            "signups": [signup_map.get(label, 0) for label in all_labels],
+            "approved": [approval_map.get(label, 0) for label in all_labels],
             "granularity": gran,
             "summary": {
                 "total_signups": total_signups,
@@ -1418,9 +1416,9 @@ def cumulative_growth_api(request):
     cum_approved = []
     running_total = baseline_total
     running_approved = baseline_approved
-    for l in all_labels:
-        running_total += signup_map.get(l, 0)
-        running_approved += approval_map.get(l, 0)
+    for label in all_labels:
+        running_total += signup_map.get(label, 0)
+        running_approved += approval_map.get(label, 0)
         cum_total.append(running_total)
         cum_approved.append(running_approved)
 

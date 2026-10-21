@@ -32,7 +32,6 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
-        verbosity = options["verbosity"]
 
         if dry_run:
             self.stdout.write(self.style.WARNING("DRY RUN - No changes will be made\n"))

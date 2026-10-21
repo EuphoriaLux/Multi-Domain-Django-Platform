@@ -3,3 +3,11 @@ line-length = 88
 
 [tool.black]
 line-length = 88
+
+[tool.ruff.lint.per-file-ignores]
+# Settings load top to bottom: later sections import what earlier ones set up,
+# and production.py starts from `from .settings import *`.
+"azureproject/settings.py" = ["E402"]
+"azureproject/production.py" = ["E402", "F405"]
+# The models package re-exports every model module with star imports.
+"crush_lu/models/__init__.py" = ["F403"]

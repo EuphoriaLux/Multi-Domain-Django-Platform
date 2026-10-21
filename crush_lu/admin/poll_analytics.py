@@ -8,7 +8,6 @@ percentages, and voter demographics.
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Count
 from django.shortcuts import render, get_object_or_404
-from django.utils import timezone
 
 from crush_lu.models.event_polls import EventPoll, EventPollVote
 
@@ -26,7 +25,6 @@ def poll_analytics_dashboard(request):
         .prefetch_related("options")
     )
 
-    now = timezone.now()
     active_polls = [p for p in polls if p.is_active]
     closed_polls = [p for p in polls if p.is_closed]
     draft_polls = [p for p in polls if not p.is_published]

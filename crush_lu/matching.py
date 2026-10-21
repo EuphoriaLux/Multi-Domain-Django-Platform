@@ -118,7 +118,7 @@ def get_western_zodiac(birth_date):
 
     month, day = birth_date.month, birth_date.day
 
-    for sign, (sm, sd), (em, ed), _ in WESTERN_ZODIAC_SIGNS:
+    for sign, (sm, sd), (em, ed), _element in WESTERN_ZODIAC_SIGNS:
         # Handle Capricorn wrapping around year boundary
         if sm > em:  # e.g. Dec 22 - Jan 19
             if (month == sm and day >= sd) or (month == em and day <= ed):

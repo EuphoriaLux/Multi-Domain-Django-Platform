@@ -24,7 +24,7 @@ Modules:
 - passkit.py: Apple PassKit device registration tracking
 """
 
-from django.contrib import admin
+from django.contrib.auth.models import User
 
 # Import the custom admin site
 from .site import crush_admin_site
@@ -331,7 +331,6 @@ from crush_lu.models import (
     Campaign,
     CampaignRecipient,
     EventPoll,
-    EventPollOption,
     EventPollVote,
     EventPollSuggestion,
     ConnectCoachPick,
@@ -573,8 +572,6 @@ crush_admin_site.register(PatchNote, PatchNoteAdmin)
 
 # Register User model with crush_admin_site for proper navigation
 # This allows coaches to navigate to User records while staying within /crush-admin/
-from django.contrib.auth.models import User
-
 crush_admin_site.register(User, CrushUserAdmin)
 
 

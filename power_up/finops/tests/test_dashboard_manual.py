@@ -70,7 +70,7 @@ def test_finops_dashboard_manually():
                         error_text = page.locator(selector).first.text_content()
                         print(f"   ✗ Found error: {error_text}")
                         has_errors = True
-                except:
+                except Exception:
                     pass
 
             if not has_errors:
@@ -88,7 +88,6 @@ def test_finops_dashboard_manually():
                 ("Summary section", ".grid"),
             ]
 
-            all_present = True
             for name, selector in checks:
                 try:
                     element = page.locator(selector).first
@@ -97,10 +96,8 @@ def test_finops_dashboard_manually():
                         print(f"   ✓ {name}: Present")
                     else:
                         print(f"   ✗ {name}: Not visible")
-                        all_present = False
                 except Exception:
                     print(f"   ✗ {name}: Not found")
-                    all_present = False
 
             # Check filter values
             print("\n4. Checking filter values...")
@@ -110,7 +107,7 @@ def test_finops_dashboard_manually():
                     "select[name='charge_type']"
                 ).input_value()
                 print(f"   ✓ Charge Type: {charge_type_value}")
-            except:
+            except Exception:
                 print("   ✗ Could not read charge_type value")
 
             # Check URL parameters

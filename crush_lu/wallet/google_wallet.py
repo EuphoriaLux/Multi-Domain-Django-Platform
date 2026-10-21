@@ -65,7 +65,7 @@ def build_google_wallet_jwt(profile, request=None):
     Returns:
         str: Signed JWT for Google Wallet save
     """
-    issuer_id = _require_setting("WALLET_GOOGLE_ISSUER_ID")
+    _require_setting("WALLET_GOOGLE_ISSUER_ID")
     class_id = _require_setting("WALLET_GOOGLE_CLASS_ID")
     service_account_email = _require_setting("WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL")
     key_id = getattr(settings, "WALLET_GOOGLE_KEY_ID", "")

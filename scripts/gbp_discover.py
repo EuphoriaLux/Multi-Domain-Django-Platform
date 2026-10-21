@@ -7,7 +7,6 @@ Usage:
     .venv/Scripts/python.exe scripts/gbp_discover.py
 """
 
-import os
 import sys
 from pathlib import Path
 import requests

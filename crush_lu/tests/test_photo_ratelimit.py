@@ -73,7 +73,6 @@ class ServeProfilePhotoRateLimitTests(TestCase):
                 # Http404 (Django converts to HttpResponseNotFound); any other
                 # exception means we got past the ratelimit, which is a pass
                 # for our purpose. Return a sentinel.
-                from django.http import Http404
 
                 class _Ok:
                     status_code = 200

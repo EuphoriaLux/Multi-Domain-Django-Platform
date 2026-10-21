@@ -19,8 +19,6 @@ the in-person/coach-mediated product never required (review finding C2):
 Blocking is silent: the blocked user is never notified (standard practice).
 """
 
-import uuid
-
 from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone

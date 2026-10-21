@@ -291,7 +291,7 @@ class TestReminderSweep:
         coach, lead = self._overdue_lead()
         calls = []
 
-        result = sweep_lead_reminders(notify=lambda c, l: calls.append((c, l)))
+        result = sweep_lead_reminders(notify=lambda c, conn: calls.append((c, conn)))
 
         lead.refresh_from_db()
         assert (result["sent"], result["failed"]) == (1, 0)
@@ -302,7 +302,7 @@ class TestReminderSweep:
         """Two timer deliveries produce exactly one reminder."""
         _, lead = self._overdue_lead()
         calls = []
-        notify = lambda c, l: calls.append(l.pk)  # noqa: E731
+        notify = lambda c, conn: calls.append(conn.pk)  # noqa: E731
 
         sweep_lead_reminders(notify=notify)
         second = sweep_lead_reminders(notify=notify)

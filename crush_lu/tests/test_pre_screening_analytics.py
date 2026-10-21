@@ -144,7 +144,7 @@ class DashboardAnalyticsTests(TestCase):
 
     def test_csv_export_requires_staff(self):
         self.client.logout()
-        regular = _make_profile("regular@example.com", "1234599")
+        _make_profile("regular@example.com", "1234599")
         self.client.login(username="regular@example.com", password="pw")
         resp = self.client.get(reverse("crush_admin_pre_screening_csv"))
         self.assertEqual(resp.status_code, 403)

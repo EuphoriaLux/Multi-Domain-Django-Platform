@@ -19,7 +19,7 @@ from django.db.models.functions import TruncDay, TruncWeek
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.http import require_POST
 
 from crush_lu.admin_views import _check_admin_access
 from crush_lu.admin.user_segments import get_segment_definitions
@@ -733,10 +733,10 @@ def reminders_funnel_api(request):
         {
             "labels": labels,
             "datasets": [
-                {"label": "Sent", "data": [counts.get(l, 0) for l in labels]},
+                {"label": "Sent", "data": [counts.get(label, 0) for label in labels]},
                 {
                     "label": "Verified after reminder",
-                    "data": [converted.get(l, 0) for l in labels],
+                    "data": [converted.get(label, 0) for label in labels],
                 },
             ],
             "summary": {"total_sent": sum(counts.values())},

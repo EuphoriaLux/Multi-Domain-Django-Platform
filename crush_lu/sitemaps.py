@@ -7,8 +7,6 @@ This module provides dynamic sitemap generation for:
 - Published events (with proper priority and changefreq)
 """
 
-from datetime import timedelta
-
 from django.contrib.sitemaps import Sitemap
 from django.db.models import Q
 from django.urls import reverse
@@ -20,8 +18,6 @@ class CrushStaticViewSitemap(Sitemap):
     """Sitemap for static pages."""
 
     protocol = "https"
-    changefreq = "weekly"
-    priority = 0.8
     i18n = True  # Enable i18n for multiple language versions
     alternates = True  # Include xhtml:link elements with hreflang for SEO
 
@@ -82,7 +78,6 @@ class CrushEventSitemap(Sitemap):
 
     protocol = "https"
     changefreq = "weekly"
-    priority = 0.7
 
     def items(self):
         """Return all published, non-cancelled, current/upcoming events."""

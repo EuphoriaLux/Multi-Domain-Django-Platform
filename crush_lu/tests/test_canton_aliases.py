@@ -5,8 +5,6 @@ spellings real data actually holds -- "Luxembourg - City", "Luxembourg-City",
 "Lux" -- never matched and were silently left alone.
 """
 
-import importlib
-
 import pytest
 
 

@@ -240,7 +240,7 @@ class TestGetRoundNumber:
         assert quiz_event.get_round_number(None) == 0
 
     def test_current_round_default(self, quiz_event):
-        r0 = QuizRound.objects.create(quiz=quiz_event, title="R1", sort_order=0)
+        QuizRound.objects.create(quiz=quiz_event, title="R1", sort_order=0)
         r1 = QuizRound.objects.create(quiz=quiz_event, title="R2", sort_order=0)
         quiz_event.current_round = r1
         quiz_event.save()
@@ -780,9 +780,6 @@ class TestQuizQuestionBroadcast:
         assert data["media"]["kind"] == "audio"
         assert data["media"]["source"] == "external"
         assert "embed" in data["media"]["url"]
-
-
-from django.test import override_settings
 
 
 class TestCoachQuestionMedia:

@@ -13,10 +13,10 @@ from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
 import logging
 
-logger = logging.getLogger(__name__)
-
 from .models import SpecialUserExperience
 from .decorators import crush_login_required
+
+logger = logging.getLogger(__name__)
 
 # ============================================================================
 # Special User Experience View
@@ -36,9 +36,6 @@ def special_welcome(request):
         messages.warning(request, _("This page is not available."))
         # Redirect to home instead of dashboard (special users don't need profiles)
         return redirect("crush_lu:home")
-
-    # Get special experience data from session
-    special_experience_data = request.session.get("special_experience_data", {})
 
     # Get the full SpecialUserExperience object for complete data. It must
     # still be linked to this user: sessions activated by the removed name

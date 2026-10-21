@@ -277,7 +277,6 @@ def place_pixel(request):
                     canvas=canvas,
                     defaults={"session_key": None, "pixels_placed_last_minute": 0},
                 )
-                cooldown_seconds = canvas.registered_cooldown_seconds
                 max_pixels_per_minute = canvas.registered_pixels_per_minute
             else:
                 cooldown, created = UserPixelCooldown.objects.get_or_create(
@@ -286,7 +285,6 @@ def place_pixel(request):
                     session_key=session_key,
                     defaults={"pixels_placed_last_minute": 0},
                 )
-                cooldown_seconds = canvas.anonymous_cooldown_seconds
                 max_pixels_per_minute = canvas.anonymous_pixels_per_minute
         except UserPixelCooldown.MultipleObjectsReturned:
             if request.user.is_authenticated:
@@ -296,7 +294,6 @@ def place_pixel(request):
                 cooldown = cooldowns.first()
                 if cooldowns.count() > 1:
                     cooldowns.exclude(id=cooldown.id).delete()
-                cooldown_seconds = canvas.registered_cooldown_seconds
                 max_pixels_per_minute = canvas.registered_pixels_per_minute
             else:
                 cooldowns = UserPixelCooldown.objects.filter(
@@ -305,7 +302,6 @@ def place_pixel(request):
                 cooldown = cooldowns.first()
                 if cooldowns.count() > 1:
                     cooldowns.exclude(id=cooldown.id).delete()
-                cooldown_seconds = canvas.anonymous_cooldown_seconds
                 max_pixels_per_minute = canvas.anonymous_pixels_per_minute
             created = False
 

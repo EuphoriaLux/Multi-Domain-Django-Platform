@@ -464,7 +464,7 @@ class VotingAPITests(SiteTestMixin, TestCase):
     def test_voting_requires_registration(self):
         """Test voting requires event registration."""
         # Create unregistered user
-        unregistered = User.objects.create_user(
+        User.objects.create_user(
             username="unregistered@example.com",
             email="unregistered@example.com",
             password="testpass123",
@@ -593,7 +593,7 @@ class PushNotificationAPITests(SiteTestMixin, TestCase):
         self.client.login(username="push@example.com", password="testpass123")
 
         # Create subscription first
-        subscription = PushSubscription.objects.create(
+        PushSubscription.objects.create(
             user=self.user,
             endpoint="https://fcm.googleapis.com/test/123",
             p256dh_key="test_key",
@@ -884,7 +884,7 @@ class PhotoPuzzleAPITests(SiteTestMixin, TestCase):
         self.progress.save()
 
         # Pre-unlock 15 pieces
-        reward_progress = RewardProgress.objects.create(
+        RewardProgress.objects.create(
             journey_progress=self.progress,
             reward=self.reward,
             unlocked_pieces=list(range(15)),  # 0-14 already unlocked

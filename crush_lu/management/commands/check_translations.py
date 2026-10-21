@@ -168,7 +168,9 @@ class Command(BaseCommand):
                     msgid = msgid[:77] + "..."
                 # Replace non-ASCII chars that may break Windows console encoding
                 msgid = msgid.encode("ascii", "replace").decode("ascii")
-                lines = ", ".join(f"{s}:{l}" for s, l in entry.occurrences[:3])
+                lines = ", ".join(
+                    f"{s}:{lineno}" for s, lineno in entry.occurrences[:3]
+                )
                 if len(entry.occurrences) > 3:
                     lines += f" (+{len(entry.occurrences) - 3} more)"
                 self.stdout.write(f'      "{msgid}"')
