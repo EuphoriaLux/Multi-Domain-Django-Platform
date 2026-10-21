@@ -15,7 +15,7 @@ User = get_user_model()
 def test_phone_input_detailed(page: Page, live_server):
     """Take detailed screenshot of phone input on mobile."""
     # Create test user
-    user = User.objects.create_user(
+    User.objects.create_user(
         username="phonedetal@test.lu",
         email="phonedetail@test.lu",
         password="testpass123",

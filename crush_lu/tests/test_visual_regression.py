@@ -133,11 +133,6 @@ class TestResponsiveLayouts:
         page.goto(live_server.url)
         page.wait_for_load_state("networkidle")
 
-        # Mobile menu button should be visible
-        mobile_menu_btn = page.locator(
-            "[data-mobile-menu-button], button[aria-label*='menu']"
-        )
-
         # Take screenshot
         page.screenshot(path=str(screenshot_dir / "home_mobile.png"))
 
@@ -319,7 +314,7 @@ class TestFormStyling:
     def authenticated_page(self, page, live_server, django_user_model):
         """Login and return authenticated page."""
         # Create test user
-        user = django_user_model.objects.create_user(
+        django_user_model.objects.create_user(
             username="testuser@example.com",
             email="testuser@example.com",
             password="testpass123",

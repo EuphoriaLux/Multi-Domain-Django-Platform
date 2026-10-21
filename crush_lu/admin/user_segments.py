@@ -177,14 +177,14 @@ def get_demographic_stats():
         .annotate(count=Count("id"))
         .order_by("-count")
     )
-    lang_total = sum(l["count"] for l in lang_dist)
-    for l in lang_dist:
-        l["label"] = (
-            language_flags.get(l["preferred_language"], "")
+    lang_total = sum(entry["count"] for entry in lang_dist)
+    for entry in lang_dist:
+        entry["label"] = (
+            language_flags.get(entry["preferred_language"], "")
             + " "
-            + l["preferred_language"].upper()
+            + entry["preferred_language"].upper()
         )
-        l["pct"] = round(l["count"] / lang_total * 100, 1) if lang_total else 0
+        entry["pct"] = round(entry["count"] / lang_total * 100, 1) if lang_total else 0
 
     # Location distribution (top 10 cities)
     location_dist = list(

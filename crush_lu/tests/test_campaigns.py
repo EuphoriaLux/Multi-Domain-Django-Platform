@@ -750,7 +750,7 @@ class CreateAndEstimateTests(TestCase):
         self.assertNotEqual(first.slug, second.slug)
 
     def test_estimate_counts_and_reach(self):
-        other = make_user("estimate@example.com")
+        make_user("estimate@example.com")
         estimate = estimate_campaign(
             audience="all_users",
             channels=["email", "push"],

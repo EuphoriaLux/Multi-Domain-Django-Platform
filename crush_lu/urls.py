@@ -1,4 +1,5 @@
 from django.urls import path
+from django.conf import settings
 from django.views.generic import RedirectView
 from django.shortcuts import redirect
 from django.utils.translation import gettext as _
@@ -13,6 +14,25 @@ from . import views_crush_connect
 from . import views_connect_cycle
 from . import views_connect_chat
 from . import views_moderation
+from . import views_profile
+from . import views_media
+from . import views_oauth_popup
+from . import views_journey
+from . import api_journey
+from . import views_advent
+from . import views_journey_gift
+from . import views_crush_spark
+from . import views_ticket
+from . import views_quiz
+from . import views_coach as views_coach_module
+from . import views_coach_photos
+from . import views_connect_showcase
+from . import views_quiz_config
+from . import views_crush_cache
+from . import views_changelog
+from . import views_premium
+from . import views_event_lobby
+from . import views_payments
 from .forms import CrushSignupForm
 from .throttling import LoginRateThrottle
 from .rate_limit_utils import add_rate_limited_error, humanize_wait_seconds
@@ -152,26 +172,6 @@ class UnifiedAuthView(LoginView):
         response["Expires"] = "0"
         return response
 
-
-from . import views_profile
-from . import views_media
-from . import views_oauth_popup
-from . import views_journey
-from . import api_journey
-from . import views_advent
-from . import views_journey_gift
-from . import views_crush_spark
-from . import views_ticket
-from . import views_quiz
-from . import views_coach as views_coach_module
-from . import views_coach_photos
-from . import views_connect_showcase
-from . import views_quiz_config
-from . import views_crush_cache
-from . import views_changelog
-from . import views_premium
-from . import views_event_lobby
-from . import views_payments
 
 app_name = "crush_lu"
 
@@ -1434,8 +1434,6 @@ urlpatterns = [
     path("payments/sumup/webhook/", views_payments.sumup_webhook, name="sumup_webhook"),
 ]
 
-
-from django.conf import settings
 
 if settings.DEBUG:
     from .views_account import dev_simulate_luxid_connect

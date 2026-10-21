@@ -341,7 +341,7 @@ class TestGetUserLanguageUrl:
         # Mocking reverse since the actual URL patterns may not be configured in tests
         with patch("crush_lu.push_notifications.reverse") as mock_reverse:
             mock_reverse.return_value = "/de/dashboard/"
-            url = get_user_language_url(user_with_german_profile, "crush_lu:dashboard")
+            get_user_language_url(user_with_german_profile, "crush_lu:dashboard")
             mock_reverse.assert_called_once_with("crush_lu:dashboard")
 
     def test_passes_kwargs_to_reverse(self, user_with_profile):

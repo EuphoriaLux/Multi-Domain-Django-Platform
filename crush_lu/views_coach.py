@@ -26,8 +26,6 @@ from django.views.decorators.http import require_http_methods
 import json
 import logging
 
-logger = logging.getLogger(__name__)
-
 from .models import (
     CrushProfile,
     CrushCoach,
@@ -85,6 +83,9 @@ from .services.profile_verification import (
 # reimplemented so a member verified from the coach panel gets exactly what a
 # member verified at an event gets — the two paths cannot drift.
 from .views_checkin import _run_post_verification_side_effects
+from crush_lu.utils.formatting import format_duration as _format_duration
+
+logger = logging.getLogger(__name__)
 
 # A coach's negative photo decision keeps a member out of match
 # recommendations. Applied at display time, so Undo or a new photo heals the
@@ -1992,7 +1993,6 @@ def coach_offer_self_booking(request, submission_id):
     set. Mirrors the eligibility gates of api_admin_hybrid.sla_sweep so a
     direct POST can't bypass the same closed-flow guards.
     """
-    import uuid
     from django.conf import settings as _settings
     from .api_admin_hybrid import (
         mark_fallback_offered,
@@ -2383,7 +2383,7 @@ def coach_edit_profile(request):
 
     # Check if coach also has a dating profile
     try:
-        profile = request.user.crushprofile
+        request.user.crushprofile  # raises DoesNotExist when absent
         has_dating_profile = True
     except CrushProfile.DoesNotExist:
         has_dating_profile = False
@@ -5991,13 +5991,6 @@ def coach_connection_review(request, connection_id):
         "recipient_profile": recipient_profile,
         "connection_messages": connection_messages,
         "is_mutual": reverse_connection is not None,
-        # Same gate as the list preview: an unrouted pool lead stays openable
-        # so it can be triaged and claimed, but its note opens only once a
-        # coach owns it. Routed-to-someone-else already 404'd above.
-        "show_requester_note": (
-            connection.flow != EventConnection.FLOW_CRUSH
-            or connection.assigned_coach_id == coach.id
-        ),
         # A reciprocal crush is flagged so both routed coaches can coordinate
         # the introduction. The other lead stays independent — this exposes
         # only that it exists, never its `requester_note`.
@@ -6171,9 +6164,6 @@ def _compute_reassignment_suggestions(coach_data, unassigned_submissions):
                     )
 
     return suggestions
-
-
-from crush_lu.utils.formatting import format_duration as _format_duration
 
 
 @coach_required

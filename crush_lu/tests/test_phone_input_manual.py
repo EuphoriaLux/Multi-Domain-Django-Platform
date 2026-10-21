@@ -15,7 +15,7 @@ User = get_user_model()
 def test_phone_input_create_profile(page: Page, live_server):
     """Screenshot phone input on create profile page with logged in user."""
     # Create a test user
-    user = User.objects.create_user(
+    User.objects.create_user(
         username="phonetest@test.lu",
         email="phonetest@test.lu",
         password="testpass123",

@@ -14,9 +14,6 @@ from rest_framework.decorators import (
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-logger = logging.getLogger(__name__)
-
-
 from crush_lu.models.quiz import (
     parse_choices as _parse_choices,
     IndividualScore,
@@ -27,6 +24,8 @@ from crush_lu.models.quiz import (
     TableRoundScore,
 )
 from crush_lu.views_quiz import get_table_occupants
+
+logger = logging.getLogger(__name__)
 
 
 def _is_quiz_host(quiz, user):

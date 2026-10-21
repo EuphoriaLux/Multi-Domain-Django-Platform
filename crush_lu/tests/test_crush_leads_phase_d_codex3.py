@@ -733,7 +733,7 @@ class TestSweepFitsTheCallersTimeBudget:
         ticks = iter([0, 0, 10, 20, 30, 40, 50, 60, 70])
 
         sweep_lead_reminders(
-            notify=lambda c, l: {"success": 1, "failed": 0, "total": 1},
+            notify=lambda c, _lead: {"success": 1, "failed": 0, "total": 1},
             time_budget=25,
             clock=lambda: next(ticks),
         )
@@ -749,7 +749,7 @@ class TestSweepFitsTheCallersTimeBudget:
         _, leads = self._due_leads(3)
 
         result = sweep_lead_reminders(
-            notify=lambda c, l: {"success": 1, "failed": 0, "total": 1},
+            notify=lambda c, _lead: {"success": 1, "failed": 0, "total": 1},
             clock=lambda: 0,
         )
 

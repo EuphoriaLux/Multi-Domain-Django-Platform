@@ -284,7 +284,7 @@ def seed_data(apps, schema_editor):
     # -----------------------------------------------------------------------
     # Tenants (14 Azure/Entra tenants)
     # -----------------------------------------------------------------------
-    tenants = {
+    tenants = {  # noqa: F841
         "arcelor_prod": Tenant.objects.update_or_create(
             id=TEN_ARCELOR_PROD,
             defaults={
@@ -828,7 +828,7 @@ def seed_data(apps, schema_editor):
     # -----------------------------------------------------------------------
     # Account Managers (3 Schneider IT Management staff)
     # -----------------------------------------------------------------------
-    managers = {
+    managers = {  # noqa: F841
         "alex": AccountManager.objects.update_or_create(
             id=AM_SCHNEIDER_A,
             defaults={

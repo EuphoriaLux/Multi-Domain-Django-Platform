@@ -507,7 +507,7 @@ class TestClaimThenSend:
         coach, _lead = self._due_lead()
         subscription = self._subscription(coach)
 
-        def notify(c, l):
+        def notify(c, _lead):
             # Exactly what `send_coach_push_notification` does: record the
             # device's failure, then *return* the zero-success result rather
             # than raising.
@@ -526,7 +526,7 @@ class TestClaimThenSend:
         _coach, lead = self._due_lead()
 
         sweep_lead_reminders(
-            notify=lambda c, l: {"success": 0, "failed": 1, "total": 1}
+            notify=lambda c, _lead: {"success": 0, "failed": 1, "total": 1}
         )
 
         lead.refresh_from_db()
@@ -539,7 +539,7 @@ class TestClaimThenSend:
         never be retried."""
         _coach, lead = self._due_lead()
 
-        def notify(c, l):
+        def notify(c, _lead):
             raise RuntimeError("push endpoint exploded")
 
         result = sweep_lead_reminders(notify=notify)
@@ -562,7 +562,7 @@ class TestClaimThenSend:
         _coach, lead = self._due_lead()
         seen = {}
 
-        def notify(c, l):
+        def notify(c, _lead):
             seen["stamp"] = EventConnection.objects.get(pk=lead.pk).reminder_sent_at
             return {"success": 1, "failed": 0, "total": 1}
 
@@ -578,7 +578,7 @@ class TestClaimThenSend:
         _coach, lead = self._due_lead()
         someone_else = timezone.now() + timedelta(minutes=5)
 
-        def notify(c, l):
+        def notify(c, _lead):
             # Stands in for whatever else touched the row between our claim
             # and our release. The value differs from the stamp we wrote, so
             # the guard must not match.
@@ -597,7 +597,7 @@ class TestClaimThenSend:
         _coach, lead = self._due_lead()
 
         result = sweep_lead_reminders(
-            notify=lambda c, l: {"success": 1, "failed": 0, "total": 1}
+            notify=lambda c, _lead: {"success": 1, "failed": 0, "total": 1}
         )
 
         lead.refresh_from_db()
@@ -676,7 +676,7 @@ class TestCoachActionsRacingTheSend:
 
     def test_a_call_scheduled_during_the_send_cancels_the_reminder(self):
         lead, result, sent = self._sweep_with_action_during_send(
-            lambda l: EventConnection.objects.filter(pk=l.pk).update(
+            lambda conn: EventConnection.objects.filter(pk=conn.pk).update(
                 coach_call_scheduled_at=timezone.now()
             )
         )
@@ -689,7 +689,9 @@ class TestCoachActionsRacingTheSend:
 
     def test_a_lead_declined_during_the_send_cancels_the_reminder(self):
         _lead_row, result, sent = self._sweep_with_action_during_send(
-            lambda l: EventConnection.objects.filter(pk=l.pk).update(status="declined")
+            lambda conn: EventConnection.objects.filter(pk=conn.pk).update(
+                status="declined"
+            )
         )
 
         assert sent == []
@@ -708,7 +710,7 @@ class TestCoachActionsRacingTheSend:
 
     def test_an_untouched_lead_is_still_sent(self):
         """Positive control — the re-check must not swallow the normal path."""
-        lead, result, sent = self._sweep_with_action_during_send(lambda l: None)
+        lead, result, sent = self._sweep_with_action_during_send(lambda _conn: None)
 
         assert sent == [lead.pk]
         assert result["sent"] == 1
@@ -720,7 +722,7 @@ class TestCoachActionsRacingTheSend:
         problem. Counting it as `failed` would make a healthy sweep look like a
         push outage in the logs."""
         _row, result, _sent = self._sweep_with_action_during_send(
-            lambda l: EventConnection.objects.filter(pk=l.pk).update(
+            lambda conn: EventConnection.objects.filter(pk=conn.pk).update(
                 coach_call_completed_at=timezone.now()
             )
         )
@@ -923,7 +925,7 @@ class TestAClaimIsNeverStranded:
 
         with mock.patch.object(crush_leads, "_claim_still_owed", boom):
             result = crush_leads.sweep_lead_reminders(
-                notify=lambda c, l: {"success": 1, "failed": 0, "total": 1}
+                notify=lambda c, _lead: {"success": 1, "failed": 0, "total": 1}
             )
 
         lead.refresh_from_db()
@@ -947,7 +949,7 @@ class TestAClaimIsNeverStranded:
             crush_leads, "_claim_still_owed", boom
         ), mock.patch.object(crush_leads, "_release_claim", boom_release):
             result = crush_leads.sweep_lead_reminders(
-                notify=lambda c, l: {"success": 1, "failed": 0, "total": 1}
+                notify=lambda c, _lead: {"success": 1, "failed": 0, "total": 1}
             )
 
         # It gave up on this lead rather than propagating.
@@ -960,7 +962,7 @@ class TestAClaimIsNeverStranded:
         _coach, lead = self._due_lead()
 
         result = crush_leads.sweep_lead_reminders(
-            notify=lambda c, l: {"success": 1, "failed": 0, "total": 1}
+            notify=lambda c, _lead: {"success": 1, "failed": 0, "total": 1}
         )
 
         lead.refresh_from_db()
@@ -999,7 +1001,7 @@ class TestTheReminderGoesToTheCurrentOwner:
             EventConnection.objects.filter(pk=lead_id).update(assigned_coach=new_coach)
             return original(lead_id, stamp, coach_id)
 
-        def notify(coach, l):
+        def notify(coach, _lead):
             notified.append(coach.pk)
             return {"success": 1, "failed": 0, "total": 1}
 
@@ -1024,7 +1026,7 @@ class TestTheReminderGoesToTheCurrentOwner:
         notified = []
 
         crush_leads.sweep_lead_reminders(
-            notify=lambda c, l: (
+            notify=lambda c, _lead: (
                 notified.append(c.pk),
                 {"success": 1, "failed": 0, "total": 1},
             )[1]

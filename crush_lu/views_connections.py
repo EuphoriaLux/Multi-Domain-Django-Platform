@@ -16,9 +16,6 @@ from django.db.models import Q
 from django.views.decorators.http import require_http_methods
 import logging
 
-logger = logging.getLogger(__name__)
-
-
 from django.utils import timezone
 
 from .models import (
@@ -33,6 +30,8 @@ from .notification_service import (
     notify_new_message,
     notify_connection_accepted,
 )
+
+logger = logging.getLogger(__name__)
 
 # Max length for a single connection message. Single source of truth for the
 # server-side cap, the user-facing error, and the textarea maxlength/counter.

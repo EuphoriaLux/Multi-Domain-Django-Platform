@@ -22,8 +22,6 @@ import base64
 import hashlib
 import hmac
 
-logger = logging.getLogger(__name__)
-
 from .models import (
     CrushProfile,
     ProfileSubmission,
@@ -41,6 +39,13 @@ from .referrals import (
     capture_referral,
     capture_referral_from_request,
 )
+
+# LuxID connect-URL resolution lives in crush_lu.luxid so the Crush Connect
+# teaser can share it. Re-exported here under the original private name for the
+# account drill-down (views.py).
+from crush_lu.luxid import luxid_connect_url as _luxid_connect_url  # noqa: F401
+
+logger = logging.getLogger(__name__)
 
 
 def oauth_complete(request):
@@ -1655,12 +1660,6 @@ def data_deletion_status(request):
         "crush_lu/data_deletion_status.html",
         {"confirmation_code": confirmation_code},
     )
-
-
-# LuxID connect-URL resolution lives in crush_lu.luxid so the Crush Connect
-# teaser can share it. Re-exported here under the original private name for the
-# account drill-down (views.py).
-from crush_lu.luxid import luxid_connect_url as _luxid_connect_url  # noqa: F401
 
 
 @login_required

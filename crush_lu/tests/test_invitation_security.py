@@ -171,7 +171,7 @@ class TestInvitationAcceptanceView:
         )
         dob = timezone.now().date() - timedelta(days=365 * 28)
 
-        response = client.post(
+        client.post(
             url,
             data={
                 "date_of_birth": dob.strftime("%Y-%m-%d"),
@@ -200,7 +200,7 @@ class TestInvitationAcceptanceView:
         )
         dob = timezone.now().date() - timedelta(days=365 * 25)
 
-        response = client.post(
+        client.post(
             url,
             data={
                 "date_of_birth": dob.strftime("%Y-%m-%d"),
@@ -247,7 +247,7 @@ class TestInvitationAcceptanceView:
         )
         dob = timezone.now().date() - timedelta(days=365 * 25)
 
-        response = client.post(
+        client.post(
             url,
             data={
                 "date_of_birth": dob.strftime("%Y-%m-%d"),
@@ -268,7 +268,7 @@ class TestInvitationAcceptanceView:
         )
         dob = timezone.now().date() - timedelta(days=365 * 25)
 
-        response = client.post(
+        client.post(
             url,
             data={
                 "date_of_birth": dob.strftime("%Y-%m-%d"),

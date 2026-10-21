@@ -173,7 +173,7 @@ class DashboardConnectStatusStripTests(TestCase):
         self.assertNotContains(response, self.IN_MIX)
 
         # A member without LuxID still sees the (ungated) LuxID banner.
-        other = _make_member("nolux@example.com")
+        _make_member("nolux@example.com")
         self.client.login(username="nolux@example.com", password="testpass123")
         response = self._get()
         self.assertContains(response, self.LUXID_BANNER)

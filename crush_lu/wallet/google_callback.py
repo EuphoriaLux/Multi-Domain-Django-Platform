@@ -267,7 +267,6 @@ def google_wallet_callback(request):
         object_id = callback_data.get("objectId", "")
         event_type = callback_data.get("eventType", "")
         nonce = callback_data.get("nonce", "")
-        exp_time = callback_data.get("expTimeMillis")
 
         # Log the callback
         logger.info(

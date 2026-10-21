@@ -108,7 +108,7 @@ class CrushAccountAdapter(DefaultAccountAdapter):
             from .models import CrushProfile
 
             try:
-                profile = request.user.crushprofile
+                request.user.crushprofile  # raises DoesNotExist when absent
                 return get_i18n_redirect_url(
                     request, "crush_lu:dashboard", request.user
                 )

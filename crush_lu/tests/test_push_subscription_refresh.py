@@ -157,7 +157,7 @@ class TestValidateSubscription:
 
     def test_validate_healthy_subscription(self, client, test_user):
         """Test validation of healthy subscription"""
-        sub = PushSubscription.objects.create(
+        PushSubscription.objects.create(
             user=test_user,
             endpoint="https://fcm.googleapis.com/fcm/send/test-123",
             p256dh_key="test_p256dh",
@@ -211,7 +211,7 @@ class TestValidateSubscription:
 
     def test_validate_failing_subscription(self, client, test_user):
         """Test validation of subscription with high failure count"""
-        sub = PushSubscription.objects.create(
+        PushSubscription.objects.create(
             user=test_user,
             endpoint="https://fcm.googleapis.com/fcm/send/test-123",
             p256dh_key="test_p256dh",
@@ -252,7 +252,7 @@ class TestValidateSubscription:
 
     def test_validate_disabled_subscription(self, client, test_user):
         """Test validation of disabled subscription"""
-        sub = PushSubscription.objects.create(
+        PushSubscription.objects.create(
             user=test_user,
             endpoint="https://fcm.googleapis.com/fcm/send/test-123",
             p256dh_key="test_p256dh",

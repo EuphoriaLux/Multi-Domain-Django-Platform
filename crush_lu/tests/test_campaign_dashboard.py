@@ -184,7 +184,7 @@ class CampaignCreateFlowTests(TestCase):
         self.assertEqual(newsletter.audience, "all_users")
 
     def test_create_send_now_schedules_immediately(self):
-        response = self.client.post(
+        self.client.post(
             reverse("campaign_create"),
             self._base_form(send_mode="now"),
         )

@@ -20,7 +20,7 @@ import django  # noqa: E402
 django.setup()
 
 from django.conf import settings  # noqa: E402
-from django.contrib.auth import (
+from django.contrib.auth import (  # noqa: E402
     SESSION_KEY,
     BACKEND_SESSION_KEY,
     HASH_SESSION_KEY,

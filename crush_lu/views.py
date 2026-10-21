@@ -12,8 +12,6 @@ Split into modules for maintainability:
 - views_pwa.py: PWA, service worker, manifest, special experiences
 """
 
-from datetime import timedelta
-
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.utils import timezone
@@ -26,24 +24,6 @@ import logging
 import json
 
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
-
-logger = logging.getLogger(__name__)
-
-AUTOSAVE_ABOUT_FIELDS = {
-    "bio",
-    "interests",
-    "phone_number",
-    "location",
-    "event_languages",
-    "qualities_ids",
-    "defects_ids",
-    "gender",
-    "date_of_birth",
-}
-AUTOSAVE_PRIVACY_FIELDS = {
-    "show_full_name",
-    "show_exact_age",
-}
 
 from .models import (
     CrushProfile,
@@ -236,6 +216,25 @@ from .views_pwa import (  # noqa: F401
     apple_app_site_association_view,
     pwa_debug_view,
 )
+
+logger = logging.getLogger(__name__)
+
+AUTOSAVE_ABOUT_FIELDS = {
+    "bio",
+    "interests",
+    "phone_number",
+    "location",
+    "event_languages",
+    "qualities_ids",
+    "defects_ids",
+    "gender",
+    "date_of_birth",
+}
+
+AUTOSAVE_PRIVACY_FIELDS = {
+    "show_full_name",
+    "show_exact_age",
+}
 
 # =============================================================================
 # Dashboard, profile management, and remaining core views
@@ -980,7 +979,6 @@ def create_profile(request):
                     submission = None
                     if existing_submission:
                         submission = existing_submission
-                        created = False
                         logger.warning(
                             f"⚠️ Existing pending submission found for {request.user.email}"
                         )
@@ -998,7 +996,6 @@ def create_profile(request):
                         submission.nudge_sent_at = None
                         submission.fallback_offered_at = None
                         submission.save()
-                        created = False
                         is_revision = True
                         logger.info(
                             f"Revision submission updated to pending for {request.user.email}"
@@ -1008,7 +1005,6 @@ def create_profile(request):
                         # The user verifies via LuxId (free) or purchases a
                         # coach review (paid). Neither path needs a submission
                         # at this point.
-                        created = False
                         logger.info(
                             f"Profile submitted (pending LuxId/paid coach) for {request.user.email}"
                         )
@@ -1200,14 +1196,6 @@ def _render_edit_profile_form(request):
         return redirect("crush_lu:create_profile")
 
     section = request.GET.get("section", "")
-    valid_sections = (
-        "photos",
-        "event_identity",
-        "privacy",
-        "account",
-        "about_crushlu",
-        "contact",
-    )
 
     # --- Section: Photos ---
     if section == "photos":
@@ -2110,9 +2098,7 @@ def api_match_list(request):
     from .matching import get_matches_for_user, get_score_display
 
     try:
-        profile = CrushProfile.objects.get(
-            user=request.user, verification_status="verified"
-        )
+        CrushProfile.objects.get(user=request.user, verification_status="verified")
     except CrushProfile.DoesNotExist:
         return JsonResponse({"error": "Profile not found or not approved"}, status=404)
 

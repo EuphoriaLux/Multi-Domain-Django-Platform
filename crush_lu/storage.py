@@ -29,6 +29,8 @@ has no real folders, so there is no up-front initialization step.
 import hashlib
 import os
 import logging
+import uuid
+from functools import partial
 from datetime import datetime, timedelta, timezone
 from django.conf import settings
 from django.core.cache import cache
@@ -303,10 +305,6 @@ def delete_user_storage(user_id):
             # Get the private storage to access its blob service client
             private_storage = CrushProfilePhotoStorage()
 
-            # Get BlobServiceClient from the container client
-            # We need to access both containers
-            account_url = private_storage.client.url.rsplit("/", 1)[0]
-
             from azure.storage.blob import BlobServiceClient
 
             if is_azurite_mode():
@@ -489,9 +487,6 @@ def list_user_storage_folders():
 #     powerup/            -> PowerUP public assets
 #     shared/             -> Cross-domain assets
 # =============================================================================
-
-import uuid
-from functools import partial
 
 # Domain prefixes for blob storage organization
 DOMAIN_PREFIXES = {

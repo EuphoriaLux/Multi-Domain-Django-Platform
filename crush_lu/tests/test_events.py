@@ -105,7 +105,7 @@ class EventRegistrationTests(TestCase):
         )
 
         # Create second user
-        user2 = User.objects.create_user(
+        User.objects.create_user(
             username="user2@example.com",
             email="user2@example.com",
             password="testpass123",
@@ -134,7 +134,7 @@ class EventRegistrationTests(TestCase):
             password="testpass123",
         )
 
-        reg2 = EventRegistration.objects.create(
+        EventRegistration.objects.create(
             event=self.event, user=user2, status="waitlist"
         )
 
@@ -727,7 +727,7 @@ class WaitlistPromotionTests(TestCase):
 
         reg1 = self._register(u1, "confirmed")
         reg2 = self._register(u2, "waitlist")
-        reg3 = self._register(u3, "waitlist")
+        self._register(u3, "waitlist")
 
         # Cancel the confirmed user
         reg1.status = "cancelled"
@@ -759,10 +759,10 @@ class WaitlistPromotionTests(TestCase):
         self.event.save()
 
         reg_m1 = self._register(u_m1, "confirmed")
-        reg_f1 = self._register(u_f1, "confirmed")
-        reg_f2 = self._register(u_f2, "confirmed")
+        self._register(u_f1, "confirmed")
+        self._register(u_f2, "confirmed")
         # f3 on waitlist — female pool full (2/2), total not full (3/4)
-        reg_f3 = self._register(u_f3, "waitlist")
+        self._register(u_f3, "waitlist")
 
         # Cancel the male → male pool now 0/2, total 2/4
         # But only waitlisted candidate is f3 whose pool is full (2/2)
@@ -792,9 +792,9 @@ class WaitlistPromotionTests(TestCase):
         self.event.save()
 
         reg_f1 = self._register(u_f1, "confirmed")
-        reg_m1 = self._register(u_m1, "confirmed")
+        self._register(u_m1, "confirmed")
         # f2 on waitlist (registered after, but female pool has room: 1/2)
-        reg_f2 = self._register(u_f2, "waitlist")
+        self._register(u_f2, "waitlist")
 
         # Cancel f1 → should promote f2 (same pool, has room)
         reg_f1.status = "cancelled"
@@ -823,9 +823,9 @@ class WaitlistPromotionTests(TestCase):
         self.event.save()
 
         reg_m1 = self._register(u_m1, "confirmed")
-        reg_m2 = self._register(u_m2, "confirmed")
+        self._register(u_m2, "confirmed")
         # f1 on waitlist — total was full when she registered
-        reg_f1 = self._register(u_f1, "waitlist")
+        self._register(u_f1, "waitlist")
 
         # Cancel m1 → no males on waitlist, fallback to f1 whose pool has room (0/2)
         reg_m1.status = "cancelled"
@@ -853,7 +853,7 @@ class WaitlistPromotionTests(TestCase):
         # 4 confirmed, 1 waitlisted
         for u in users[:4]:
             self._register(u, "confirmed")
-        reg_wl = self._register(users[4], "waitlist")
+        self._register(users[4], "waitlist")
 
         # Don't cancel anyone — event is full
         with transaction.atomic():
@@ -877,7 +877,7 @@ class WaitlistPromotionTests(TestCase):
         for u in users[:4]:
             self._register(u, "confirmed")
         reg_wl1 = self._register(users[4], "waitlist")
-        reg_wl2 = self._register(users[5], "waitlist")
+        self._register(users[5], "waitlist")
 
         # Waitlisted user cancels — doesn't free a confirmed spot
         reg_wl1.status = "cancelled"

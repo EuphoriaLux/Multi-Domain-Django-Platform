@@ -34,7 +34,7 @@ def create_event_ticket_class(event):
     from .google_wallet import _require_setting
 
     try:
-        issuer_id = _require_setting("WALLET_GOOGLE_ISSUER_ID")
+        _require_setting("WALLET_GOOGLE_ISSUER_ID")
     except Exception as e:
         return {"success": False, "message": str(e), "class_id": None}
 

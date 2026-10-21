@@ -7,4 +7,4 @@ class EntreprinderConfig(AppConfig):
     name = "entreprinder"
 
     def ready(self):
-        import entreprinder.signals  # Make sure signals are connected
+        import entreprinder.signals  # noqa: F401  # Make sure signals are connected

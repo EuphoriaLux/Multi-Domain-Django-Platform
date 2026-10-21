@@ -840,7 +840,6 @@ class ExplicitLanguageChoiceTests(SiteTestMixin, TestCase):
 
     def test_the_settings_autosave_cannot_revert_a_language_choice(self):
         """The specific caller review flagged: form.save() is a full-row save."""
-        import json
 
         from crush_lu.models import CrushProfile
 
@@ -865,7 +864,7 @@ class ExplicitLanguageChoiceTests(SiteTestMixin, TestCase):
         with patch.object(
             crush_views, "_get_profile_form_initial_data", switch_lands_now
         ):
-            response = self._autosave_event_languages()
+            self._autosave_event_languages()
 
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.event_languages, ["en", "fr"])

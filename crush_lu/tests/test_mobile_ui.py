@@ -160,7 +160,7 @@ class TestMobileLanguageSwitcher:
                     mobile_menu_btn = btn
                     print(f"\nFound mobile menu button with selector: {selector}")
                     break
-            except:
+            except Exception:
                 continue
 
         if mobile_menu_btn:
@@ -188,7 +188,7 @@ class TestMobileLanguageSwitcher:
                         language_select = select
                         print(f"Found language selector: {selector}")
                         break
-                except:
+                except Exception:
                     continue
 
             if language_select:

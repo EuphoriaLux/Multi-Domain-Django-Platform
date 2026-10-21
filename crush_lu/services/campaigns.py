@@ -454,7 +454,6 @@ class WhatsAppAdapter:
             # dozens of COUNT queries each time).
             if not self.still_reachable(user):
                 continue
-            profile = getattr(user, "crushprofile", None)
             lang = get_user_preferred_language(user=user, default="en")
             parameters = {}
             for key, value in (campaign.whatsapp_parameters or {}).items():

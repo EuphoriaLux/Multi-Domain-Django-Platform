@@ -362,7 +362,7 @@ class JourneyWalkE2ETests(_SiteMixin, TestCase):
         # We don't need a valid form body — the guard short-circuits before
         # validation. What we're asserting is just that the redirect target
         # is the coach-intro page, not a successful submission.
-        final = self._final_path("/create-profile/", method="post", data={})
+        self._final_path("/create-profile/", method="post", data={})
         # If the form is invalid it re-renders (status 200); if the guard
         # fires we get redirected to /onboarding/coach-intro/. Either way,
         # no submission must be created.

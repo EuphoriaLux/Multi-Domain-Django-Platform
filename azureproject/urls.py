@@ -12,14 +12,13 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 from entreprinder import views as entreprinder_views
+from entreprinder.vibe import views as vibe_views
 
 
 # Simple health check view
 def health_check_view(request):
     return HttpResponse("OK", status=200)
 
-
-from entreprinder.vibe import views as vibe_views
 
 urlpatterns = [
     path("healthz/", health_check_view, name="healthz"),  # Added health check endpoint

@@ -158,7 +158,6 @@ class TestPhotoPuzzleUI:
     ):
         """Test that the photo puzzle page loads correctly."""
         reward = puzzle_user["reward"]
-        chapter = puzzle_user["chapter"]
 
         # Navigate to reward page
         authenticated_puzzle_page.goto(
@@ -176,7 +175,6 @@ class TestPhotoPuzzleUI:
     ):
         """Test that puzzle shows 16 pieces."""
         reward = puzzle_user["reward"]
-        chapter = puzzle_user["chapter"]
 
         authenticated_puzzle_page.goto(
             f"{live_server_url}/en/journey/reward/{reward.id}/"
@@ -193,7 +191,6 @@ class TestPhotoPuzzleUI:
     ):
         """Test that clicking a piece shows loading state and prevents double-clicks."""
         reward = puzzle_user["reward"]
-        chapter = puzzle_user["chapter"]
 
         authenticated_puzzle_page.goto(
             f"{live_server_url}/en/journey/reward/{reward.id}/"
@@ -226,7 +223,6 @@ class TestPhotoPuzzleUI:
     ):
         """Test that points decrease by 50 after unlocking a piece."""
         reward = puzzle_user["reward"]
-        chapter = puzzle_user["chapter"]
 
         authenticated_puzzle_page.goto(
             f"{live_server_url}/en/journey/reward/{reward.id}/"
@@ -268,7 +264,6 @@ class TestPhotoPuzzleUI:
     ):
         """Test that progress bar updates after unlocking pieces."""
         reward = puzzle_user["reward"]
-        chapter = puzzle_user["chapter"]
 
         authenticated_puzzle_page.goto(
             f"{live_server_url}/en/journey/reward/{reward.id}/"
@@ -306,7 +301,6 @@ class TestPhotoPuzzleUI:
     ):
         """Test that success notification appears after unlocking."""
         reward = puzzle_user["reward"]
-        chapter = puzzle_user["chapter"]
 
         authenticated_puzzle_page.goto(
             f"{live_server_url}/en/journey/reward/{reward.id}/"
@@ -332,7 +326,6 @@ class TestPhotoPuzzleUI:
     ):
         """Test that unlocked pieces are not clickable."""
         reward = puzzle_user["reward"]
-        chapter = puzzle_user["chapter"]
 
         authenticated_puzzle_page.goto(
             f"{live_server_url}/en/journey/reward/{reward.id}/"
@@ -385,7 +378,6 @@ class TestPhotoPuzzleLoadingState:
     ):
         """Test that loading class is added while request is in flight."""
         reward = puzzle_user["reward"]
-        chapter = puzzle_user["chapter"]
 
         authenticated_puzzle_page.goto(
             f"{live_server_url}/en/journey/reward/{reward.id}/"
@@ -410,11 +402,10 @@ class TestPhotoPuzzleLoadingState:
             authenticated_puzzle_page.wait_for_selector(
                 ".reveal-puzzle-piece.loading", timeout=1000
             )
-            loading_was_visible = True
         except Exception:
             # Loading state might be too fast to catch, which is OK
             # The important thing is the piece gets unlocked
-            loading_was_visible = False
+            pass
 
         # Ensure piece eventually gets unlocked
         authenticated_puzzle_page.wait_for_selector(

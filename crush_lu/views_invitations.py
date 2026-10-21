@@ -7,14 +7,14 @@ from django.utils.translation import gettext_lazy as _
 import uuid
 import logging
 
-logger = logging.getLogger(__name__)
-
 from .models import (
     CrushProfile,
     MeetupEvent,
     EventInvitation,
 )
 from .decorators import coach_required, ratelimit
+
+logger = logging.getLogger(__name__)
 
 
 def invitation_landing(request, code):

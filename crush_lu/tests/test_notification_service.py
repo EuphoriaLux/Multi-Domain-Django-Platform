@@ -28,7 +28,7 @@ def user_with_profile(db):
         first_name="Test",
         last_name="User",
     )
-    profile = CrushProfile.objects.create(
+    CrushProfile.objects.create(
         user=user,
         date_of_birth="1990-01-01",
         gender="M",
