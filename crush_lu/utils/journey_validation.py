@@ -109,8 +109,9 @@ def validate_answer_format(
                 return False, "Timeline must contain at least one event"
             if len(events) > 20:
                 return False, "Timeline cannot exceed 20 events"
-        except json.JSONDecodeError as e:
-            return False, f"Invalid timeline format: {str(e)}"
+        except json.JSONDecodeError:
+            # The parser's own message goes back to the browser, so keep it out
+            return False, "Invalid timeline format"
 
     elif challenge_type == "choice":
         # Multiple choice: single character or short string

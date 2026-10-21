@@ -392,6 +392,10 @@ class TestChallengeAnswerValidation:
         is_valid, error = validate_answer_format("not json", "timeline_events")
         assert not is_valid
         assert "invalid" in error.lower() or "format" in error.lower()
+        # The JSON parser's message ("Expecting value: line 1 column 1 ...")
+        # is returned to the browser, so it must not leak into the error
+        assert "expecting" not in error.lower()
+        assert "column" not in error.lower()
 
     def test_timeline_not_list_rejected(self):
         """Test that non-list timeline data is rejected."""
