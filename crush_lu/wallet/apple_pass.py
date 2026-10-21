@@ -506,11 +506,9 @@ def _build_pkpass(pass_payload, files=None):
     # The PKPass format requires SHA-1 file hashes in manifest.json. SHA-1 is
     # used only for package compatibility here; the detached signature uses SHA-256.
     manifest = {}
-    manifest["pass.json"] = hashlib.sha1(
-        pass_json_bytes, usedforsecurity=False
-    ).hexdigest()
+    manifest["pass.json"] = hashlib.sha1(pass_json_bytes).hexdigest()  # nosec B324
     for filename, content in files.items():
-        manifest[filename] = hashlib.sha1(content, usedforsecurity=False).hexdigest()
+        manifest[filename] = hashlib.sha1(content).hexdigest()  # nosec B324
 
     manifest_bytes = json.dumps(
         manifest, ensure_ascii=False, separators=(",", ":")
