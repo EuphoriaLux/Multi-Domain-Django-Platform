@@ -8,6 +8,22 @@ Run with: pytest crush_lu/tests/test_journey_gift_e2e.py -v -m playwright
 import pytest
 from playwright.sync_api import Page
 
+from crush_lu.tests.test_visual_regression import block_optional_external_resources
+
+
+@pytest.fixture(autouse=True)
+def _serve_google_fonts_empty(page):
+    """Fulfil base.html's Google Fonts stylesheet locally (#1053, #1153).
+
+    It is the only outbound request these flows make. Behind a proxy that
+    holds connections open (sandboxed runs), that render-blocking link keeps
+    every ``page.goto`` from reaching "load" and every ``networkidle`` wait
+    from settling, so the whole module times out. The server side makes no
+    outbound call: the gift's QR code is generated in-process and saved to
+    local storage under pytest (#1215).
+    """
+    block_optional_external_resources(page)
+
 
 @pytest.fixture(autouse=True)
 def setup_site_for_tests(transactional_db):

@@ -32,19 +32,30 @@ DECLINED = json.dumps({"essential": True, "analytics": False, "marketing": False
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LOCKED_LABEL = "This experience is always in night mode"
 
-# WCAG 2.x contrast of an element's text against the nearest opaque background.
-CONTRAST_JS = """
-(el) => {
-    const parse = (c) => c.match(/[\\d.]+/g).map(Number);
+# Tailwind v4 computes its palette as oklch() and opacity modifiers as oklab(),
+# which a digits regex misreads as rgb() channels (#1088). Painting the computed
+# colour on a canvas resolves any CSS colour to 8-bit sRGBA.
+_SRGB_JS = """
+    const ctx = document.createElement("canvas").getContext("2d", {willReadFrequently: true});
+    const parse = (c) => {
+        ctx.clearRect(0, 0, 1, 1);
+        ctx.fillStyle = c;
+        ctx.fillRect(0, 0, 1, 1);
+        const d = ctx.getImageData(0, 0, 1, 1).data;
+        return [d[0], d[1], d[2], d[3] / 255];
+    };
     const lum = ([r, g, b]) => {
         const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
         return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
     };
+"""
+
+# WCAG 2.x contrast of an element's text against the nearest opaque background.
+CONTRAST_JS = "(el) => {" + _SRGB_JS + """
     let node = el, bg = null;
     while (node) {
-        const c = getComputedStyle(node).backgroundColor;
-        const v = parse(c);
-        if (v.length === 3 || v[3] === 1) { bg = v; break; }
+        const v = parse(getComputedStyle(node).backgroundColor);
+        if (v[3] === 1) { bg = v; break; }
         node = node.parentElement;
     }
     const fg = lum(parse(getComputedStyle(el).color));
@@ -185,11 +196,8 @@ def test_axe_dashboard_touched_elements_are_clean(browser, live_server, theme):
 
 REWARD_TYPES = ["future_letter", "poem", "photo_slideshow", "voice_message"]
 
-LUMINANCE_JS = """
-(el) => {
-    const v = getComputedStyle(el).backgroundColor.match(/[\\d.]+/g).map(Number);
-    const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
-    return 0.2126 * f(v[0]) + 0.7152 * f(v[1]) + 0.0722 * f(v[2]);
+LUMINANCE_JS = "(el) => {" + _SRGB_JS + """
+    return lum(parse(getComputedStyle(el).backgroundColor));
 }
 """
 
@@ -248,3 +256,34 @@ def test_letter_paper_is_white_and_reward_pages_pass_axe(browser, live_server, t
             ".violations.flatMap(v => v.nodes.map(n => n.target.join(' ')))"
         )
         assert nodes == [], (kind, theme, nodes)
+
+
+# Tailwind v4's own gray-600 / purple-900 next to their sRGB equivalents.
+OKLCH_FIXTURE = """
+<p id="black" style="color: oklch(0% 0 0); background: oklch(100% 0 0)">Aa</p>
+<p id="gray" style="color: oklch(44.6% 0.03 256.802)">Aa</p>
+<p id="gray-rgb" style="color: rgb(74, 85, 101)">Aa</p>
+<div style="background: oklch(38.1% 0.176 304.987)">
+  <span id="purple" style="color: oklch(100% 0 0)">Aa</span>
+</div>
+<div style="background: rgb(89, 22, 139)">
+  <span id="purple-rgb" style="color: rgb(255, 255, 255)">Aa</span>
+</div>
+"""
+
+
+def test_contrast_helpers_read_oklch_colours(page):
+    """#1088: an oklch() colour is resolved to sRGB, not read as rgb() channels."""
+    page.set_content(OKLCH_FIXTURE)
+    computed = page.locator("#gray").evaluate("(el) => getComputedStyle(el).color")
+    assert computed.startswith("oklch("), computed
+
+    ratio = {
+        el: page.locator(f"#{el}").evaluate(CONTRAST_JS)
+        for el in ("black", "gray", "gray-rgb", "purple", "purple-rgb")
+    }
+    assert ratio["black"] == pytest.approx(21.0), ratio
+    assert ratio["gray"] == pytest.approx(ratio["gray-rgb"], abs=0.05), ratio
+    # The span is transparent: the walk reaches the parent's oklch background.
+    assert ratio["purple"] == pytest.approx(ratio["purple-rgb"], abs=0.05), ratio
+    assert page.locator("#black").evaluate(LUMINANCE_JS) == pytest.approx(1.0)
