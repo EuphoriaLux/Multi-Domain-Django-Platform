@@ -1,0 +1,61 @@
+{% extends "account/base_neutral.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Email Addresses" %}{% endblock %}
+
+{% block content %}
+<h1>{% trans "Email Addresses" %}</h1>
+{% if emailaddresses %}
+<p>{% trans "The following email addresses are associated with your account:" %}</p>
+<form method="post" action="{% url 'account_email' %}" id="email-list">
+    {% csrf_token %}
+    {% for emailaddress in emailaddresses %}
+    <label class="choice" for="email_radio_{{ forloop.counter }}">
+        <input id="email_radio_{{ forloop.counter }}" type="radio" name="email" value="{{ emailaddress.email }}"{% if emailaddress.primary %} checked{% endif %}>
+        <span>{{ emailaddress.email }}</span>
+        {% if emailaddress.verified %}
+        <span class="badge">{% trans "Verified" %}</span>
+        {% else %}
+        <span class="badge">{% trans "Unverified" %}</span>
+        {% endif %}
+        {% if emailaddress.primary %}<span class="badge">{% trans "Primary" %}</span>{% endif %}
+    </label>
+    {% endfor %}
+    <div class="actions">
+        <button type="submit" name="action_primary">{% trans "Make Primary" %}</button>
+        <button type="submit" name="action_send" class="secondary">{% trans "Re-send Verification" %}</button>
+        <button type="submit" name="action_remove" class="secondary">{% trans "Remove" %}</button>
+    </div>
+</form>
+{% else %}
+<p class="notice">{% trans "You currently do not have any email address set up. You should really add an email address so you can receive notifications, reset your password, etc." %}</p>
+{% endif %}
+
+{% if can_add_email %}
+<h2>{% trans "Add Email Address" %}</h2>
+<form method="post" action="{% url 'account_email' %}" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+        <div class="errors">{{ form.non_field_errors }}</div>
+    {% endif %}
+    <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+    {{ form.email }}
+    {% if form.email.errors %}<p class="error">{{ form.email.errors.0 }}</p>{% endif %}
+    <button type="submit" name="action_add">{% trans "Add Email" %}</button>
+</form>
+{% endif %}
+
+<script nonce="{{ csp_nonce }}">
+(function () {
+    var form = document.getElementById("email-list");
+    if (!form) { return; }
+    {% trans "Do you really want to remove the selected email address?" as remove_message %}
+    var message = "{{ remove_message|escapejs }}";
+    form.addEventListener("submit", function (e) {
+        if (e.submitter && e.submitter.name === "action_remove" && !confirm(message)) {
+            e.preventDefault();
+        }
+    });
+})();
+</script>
+{% endblock %}

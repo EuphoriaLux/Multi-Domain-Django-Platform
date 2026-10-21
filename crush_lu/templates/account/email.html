@@ -1,8 +1,9 @@
-{# Domain-aware email management template router #}
-{# Routes to appropriate template based on the request domain #}
-{% if 'entreprinder' in request.get_host %}
+{# Domain-aware router, see account/password_reset.html. crush.lu itself #}
+{# redirects /accounts/email/ to its settings page (urls_crush.py). #}
+{% if request.urlconf == 'azureproject.urls_entreprinder' %}
 {% include "account/email_entreprinder.html" %}
-{% else %}
-{# Default to Crush template - handles crush.lu, localhost, 127.0.0.1, and any unknown hosts #}
+{% elif request.urlconf == 'azureproject.urls_crush' %}
 {% include "account/email_crush.html" %}
+{% else %}
+{% include "account/email_neutral.html" %}
 {% endif %}
