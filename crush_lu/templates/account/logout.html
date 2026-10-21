@@ -1,13 +1,12 @@
-{# Domain-aware logout template router #}
-{# Routes to appropriate logout template based on the request domain #}
-{# NOTE: logout_powerup.html extends entreprinder's base.html which uses {% url 'entreprinder:...' %} #}
-{# so it can ONLY be used when the entreprinder namespace is registered (i.e. on entreprinder.lu) #}
-{% if 'delegations.lu' in request.get_host %}
+{# Domain-aware router, see account/password_reset.html. #}
+{# logout_powerup.html extends entreprinder's base.html, which reverses #}
+{# entreprinder:* names, so it can ONLY render under the entreprinder urlconf. #}
+{% if request.urlconf == 'azureproject.urls_delegations' %}
 {% include "account/logout_delegation.html" %}
-{% elif 'entreprinder' in request.get_host %}
+{% elif request.urlconf == 'azureproject.urls_entreprinder' %}
 {% include "account/logout_powerup.html" %}
-{% else %}
-{# Default to Crush template - handles crush.lu, powerup.lu, vinsdelux.com, azurewebsites.net, #}
-{# localhost, 127.0.0.1, and any unknown hosts. Uses crush_lu/base.html which has no cross-app dependencies. #}
+{% elif request.urlconf == 'azureproject.urls_crush' %}
 {% include "account/logout_crush.html" %}
+{% else %}
+{% include "account/logout_neutral.html" %}
 {% endif %}
