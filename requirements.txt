@@ -34,7 +34,7 @@ azure-storage-blob==12.31.0
 azure-identity==1.26.0  # Managed Identity & Azure CLI authentication
 
 # Image processing
-Pillow==12.3.0  # Updated from 11.0.0 (security fixes)
+Pillow==13.0.0  # Updated from 12.3.0 (security fixes)
 pillow-heif==1.8.1  # HEIC/HEIF decoding support for iOS uploads
 olefile==0.47
 # MIME type detection - platform-specific packages
