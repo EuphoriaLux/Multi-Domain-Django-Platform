@@ -112,9 +112,7 @@ class RecipientSelectionTests(TestCase):
     def test_requires_recorded_crushlu_consent(self):
         # #1184: a lazily created, never-consented profile is not mailed.
         user = make_member("noprofileconsent")
-        UserDataConsent.objects.filter(user=user).update(
-            crushlu_consent_given=False
-        )
+        UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=False)
         self.assertEqual(self.emails(), set())
 
     def test_unsubscribed_all_vetoes_consent(self):
@@ -948,12 +946,17 @@ class ReceiptConsentTests(TestCase):
             )
             return real(nl, member, defaults)
 
-        with patch.object(cmd, "write_receipt", side_effect=revoke_then_write), patch.object(
-            cmd, "send_women_1y_email", return_value=True
+        with (
+            patch.object(cmd, "write_receipt", side_effect=revoke_then_write),
+            patch.object(cmd, "send_women_1y_email", return_value=True),
         ):
             call_command(
-                "send_women_1y_campaign", "--send", "--limit", "1",
-                stdout=StringIO(), stderr=StringIO(),
+                "send_women_1y_campaign",
+                "--send",
+                "--limit",
+                "1",
+                stdout=StringIO(),
+                stderr=StringIO(),
             )
         self.assertFalse(
             NewsletterRecipient.objects.filter(newsletter=newsletter, user=user)
@@ -981,13 +984,19 @@ class ReceiptConsentTests(TestCase):
 
         with patch.object(cmd, "send_women_1y_email", side_effect=send_then_delete):
             call_command(
-                "send_women_1y_campaign", "--send", "--limit", "1",
-                stdout=StringIO(), stderr=StringIO(),
+                "send_women_1y_campaign",
+                "--send",
+                "--limit",
+                "1",
+                stdout=StringIO(),
+                stderr=StringIO(),
             )
 
         # No DatabaseError, and the deleted row is not recreated.
         self.assertFalse(
-            NewsletterRecipient.objects.filter(newsletter=newsletter, user=user).exists()
+            NewsletterRecipient.objects.filter(
+                newsletter=newsletter, user=user
+            ).exists()
         )
 
     def test_retry_of_a_failed_receipt_does_not_restore_the_address(self):
@@ -1024,17 +1033,24 @@ class ReceiptConsentTests(TestCase):
                 )
             return real(nl, member, defaults)
 
-        with patch.object(cmd, "write_receipt", side_effect=revoke_first), patch.object(
-            cmd, "send_women_1y_email", return_value=True
-        ) as send:
+        with (
+            patch.object(cmd, "write_receipt", side_effect=revoke_first),
+            patch.object(cmd, "send_women_1y_email", return_value=True) as send,
+        ):
             call_command(
-                "send_women_1y_campaign", "--send", "--limit", "1",
-                stdout=StringIO(), stderr=StringIO(),
+                "send_women_1y_campaign",
+                "--send",
+                "--limit",
+                "1",
+                stdout=StringIO(),
+                stderr=StringIO(),
             )
         send.assert_not_called()
         # Consent is gone: no receipt is created at all.
         self.assertFalse(
-            NewsletterRecipient.objects.filter(newsletter=newsletter, user=user).exists()
+            NewsletterRecipient.objects.filter(
+                newsletter=newsletter, user=user
+            ).exists()
         )
 
     def test_failure_text_goes_through_write_receipt_and_is_suppressed(self):
@@ -1055,8 +1071,12 @@ class ReceiptConsentTests(TestCase):
 
         with patch.object(cmd, "send_women_1y_email", side_effect=boom_after_revoke):
             call_command(
-                "send_women_1y_campaign", "--send", "--limit", "1",
-                stdout=StringIO(), stderr=StringIO(),
+                "send_women_1y_campaign",
+                "--send",
+                "--limit",
+                "1",
+                stdout=StringIO(),
+                stderr=StringIO(),
             )
         row = NewsletterRecipient.objects.get(newsletter=newsletter, user=user)
         self.assertEqual(
@@ -1067,7 +1087,10 @@ class ReceiptConsentTests(TestCase):
     def test_four_flag_combinations_use_the_shared_newsletter_predicate(self):
         user = make_member("combos")
         for marketing, newsletter in (
-            (False, False), (False, True), (True, False), (True, True),
+            (False, False),
+            (False, True),
+            (True, False),
+            (True, True),
         ):
             with self.subTest(marketing=marketing, newsletter=newsletter):
                 EmailPreference.objects.filter(user=user).update(

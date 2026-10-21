@@ -40,23 +40,33 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        self.stdout.write(self.style.NOTICE("🔍 Querying Crush.lu member records and LuxID social accounts..."))
+        self.stdout.write(
+            self.style.NOTICE(
+                "🔍 Querying Crush.lu member records and LuxID social accounts..."
+            )
+        )
 
         users = []
         for u in User.objects.all():
             sa = SocialAccount.objects.filter(user=u, provider="luxid").first()
             p = CrushProfile.objects.filter(user=u).first()
-            users.append({
-                "user_id": u.id,
-                "username": u.username,
-                "email": u.email,
-                "user_date_joined": u.date_joined,
-                "has_luxid": bool(sa),
-                "luxid_date_joined": sa.date_joined if sa else None,
-                "verification_status": p.verification_status if p else "unregistered",
-                "verification_method": p.verification_method if p else "none",
-                "is_connect_verified": p.is_connect_identity_verified if p else False,
-            })
+            users.append(
+                {
+                    "user_id": u.id,
+                    "username": u.username,
+                    "email": u.email,
+                    "user_date_joined": u.date_joined,
+                    "has_luxid": bool(sa),
+                    "luxid_date_joined": sa.date_joined if sa else None,
+                    "verification_status": (
+                        p.verification_status if p else "unregistered"
+                    ),
+                    "verification_method": p.verification_method if p else "none",
+                    "is_connect_verified": (
+                        p.is_connect_identity_verified if p else False
+                    ),
+                }
+            )
 
         df = pd.DataFrame(users)
         if df.empty:
@@ -68,19 +78,38 @@ class Command(BaseCommand):
             lambda d: d.strftime("%Y-W%W") if pd.notnull(d) else None
         )
 
-        all_weeks = sorted(list(set(df["user_week"].dropna().tolist() + df["luxid_week"].dropna().tolist())))
+        all_weeks = sorted(
+            list(
+                set(
+                    df["user_week"].dropna().tolist()
+                    + df["luxid_week"].dropna().tolist()
+                )
+            )
+        )
         base_df = pd.DataFrame({"week": all_weeks})
 
-        weekly_signups = df.groupby("user_week").agg(
-            total_signups=("user_id", "count"),
-        ).reset_index().rename(columns={"user_week": "week"})
+        weekly_signups = (
+            df.groupby("user_week")
+            .agg(
+                total_signups=("user_id", "count"),
+            )
+            .reset_index()
+            .rename(columns={"user_week": "week"})
+        )
 
         luxid_df = df[df["has_luxid"]].copy()
-        weekly_luxid = luxid_df.groupby("luxid_week").agg(
-            new_luxid_adoptions=("user_id", "count")
-        ).reset_index().rename(columns={"luxid_week": "week"})
+        weekly_luxid = (
+            luxid_df.groupby("luxid_week")
+            .agg(new_luxid_adoptions=("user_id", "count"))
+            .reset_index()
+            .rename(columns={"luxid_week": "week"})
+        )
 
-        merged = base_df.merge(weekly_signups, on="week", how="left").merge(weekly_luxid, on="week", how="left").fillna(0)
+        merged = (
+            base_df.merge(weekly_signups, on="week", how="left")
+            .merge(weekly_luxid, on="week", how="left")
+            .fillna(0)
+        )
         merged = merged.sort_values("week").reset_index(drop=True)
 
         merged["total_signups"] = merged["total_signups"].astype(int)
@@ -91,12 +120,12 @@ class Command(BaseCommand):
         merged["weekly_adoption_rate_pct"] = np.where(
             merged["total_signups"] > 0,
             (merged["new_luxid_adoptions"] / merged["total_signups"]) * 100,
-            0.0
+            0.0,
         )
         merged["cumulative_penetration_pct"] = np.where(
             merged["cumulative_total_users"] > 0,
             (merged["cumulative_luxid"] / merged["cumulative_total_users"]) * 100,
-            0.0
+            0.0,
         )
 
         total_users = len(df)
@@ -106,8 +135,12 @@ class Command(BaseCommand):
         fmt = options["format"]
         if fmt == "table":
             self.stdout.write("\n" + "=" * 80)
-            self.stdout.write(self.style.SUCCESS(f"  CRUSH.LU — WEEKLY LUXID ADOPTION REPORT"))
-            self.stdout.write(f"  Total Members: {total_users} | Total LuxID: {total_luxid} ({overall_pct:.1f}% Adoption)")
+            self.stdout.write(
+                self.style.SUCCESS(f"  CRUSH.LU — WEEKLY LUXID ADOPTION REPORT")
+            )
+            self.stdout.write(
+                f"  Total Members: {total_users} | Total LuxID: {total_luxid} ({overall_pct:.1f}% Adoption)"
+            )
             self.stdout.write("=" * 80)
             self.stdout.write(merged.to_string(index=False))
             self.stdout.write("=" * 80 + "\n")
@@ -120,6 +153,7 @@ class Command(BaseCommand):
 
         # Save exports
         from django.conf import settings
+
         export_dir = settings.BASE_DIR / "scripts" / "exports"
         export_dir.mkdir(parents=True, exist_ok=True)
         csv_file = export_dir / "crush_luxid_weekly_metrics.csv"
@@ -129,9 +163,12 @@ class Command(BaseCommand):
         if options["save_charts"]:
             try:
                 from scripts.generate_luxid_charts import plot_dashboard
+
                 png_file = export_dir / "crush_luxid_weekly_adoption.png"
                 plot_dashboard(merged, df, str(png_file))
-                self.stdout.write(self.style.SUCCESS(f"✅ Generated chart PNG to: {png_file}"))
+                self.stdout.write(
+                    self.style.SUCCESS(f"✅ Generated chart PNG to: {png_file}")
+                )
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f"Chart generation failed: {e}"))
 
@@ -139,25 +176,39 @@ class Command(BaseCommand):
             try:
                 html_file = export_dir / "luxid_adoption_dashboard.html"
                 self._generate_html(merged, df, html_file)
-                self.stdout.write(self.style.SUCCESS(f"✅ Generated Interactive HTML Dashboard: {html_file}"))
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"✅ Generated Interactive HTML Dashboard: {html_file}"
+                    )
+                )
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f"HTML generation failed: {e}"))
 
     def _generate_html(self, weekly_df, full_df, output_file):
         total_users = len(full_df)
         total_luxid = int(full_df["has_luxid"].sum())
-        luxid_pct = f"{(total_luxid / total_users * 100):.1f}%" if total_users > 0 else "0%"
-        
+        luxid_pct = (
+            f"{(total_luxid / total_users * 100):.1f}%" if total_users > 0 else "0%"
+        )
+
         # Prepare json for Chart.js
         labels = weekly_df["week"].tolist()
         signups = weekly_df["total_signups"].tolist()
         luxid_weekly = weekly_df["new_luxid_adoptions"].tolist()
         cum_users = weekly_df["cumulative_total_users"].tolist()
         cum_luxid = weekly_df["cumulative_luxid"].tolist()
-        pen_rate = [round(x, 1) for x in weekly_df["cumulative_penetration_pct"].tolist()]
-        cohort_rate = [round(x, 1) for x in weekly_df["weekly_adoption_rate_pct"].tolist()]
+        pen_rate = [
+            round(x, 1) for x in weekly_df["cumulative_penetration_pct"].tolist()
+        ]
+        cohort_rate = [
+            round(x, 1) for x in weekly_df["weekly_adoption_rate_pct"].tolist()
+        ]
 
-        v_counts = full_df[full_df["has_luxid"]]["verification_method"].value_counts().to_dict()
+        v_counts = (
+            full_df[full_df["has_luxid"]]["verification_method"]
+            .value_counts()
+            .to_dict()
+        )
         v_labels = list(v_counts.keys())
         v_values = list(v_counts.values())
 

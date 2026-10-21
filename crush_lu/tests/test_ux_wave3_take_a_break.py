@@ -45,12 +45,13 @@ def _make_profile(user, **overrides):
     profile = CrushProfile.objects.create(**defaults)
     # Audiences require Crush.lu consent (#1184); the signal default is False.
     UserDataConsent.objects.update_or_create(
-        user=user, defaults={"crushlu_consent_given": True},
+        user=user,
+        defaults={"crushlu_consent_given": True},
     )
     # Newsletters need explicit opt-in (#1185, Option A).
     EmailPreference.objects.update_or_create(
         user=user,
-        defaults={'email_marketing': True, 'email_newsletter': True},
+        defaults={"email_marketing": True, "email_newsletter": True},
     )
     return profile
 

@@ -14,10 +14,15 @@ urlpatterns = [
     path("cart/", views.cart_detail, name="cart_detail"),
     path("order/place/", views.order_place, name="order_place"),
     path("order/<uuid:pk>/", views.order_status, name="order_status"),
-
     # Staff zone — @staff_member_required (spec §6.2)
     path("staff/", views.staff_home, name="staff_home"),
     path("staff/<slug:venue_slug>/kds/", views.kds, name="kds"),
-    path("staff/order/<uuid:pk>/status/", views.order_set_status, name="order_set_status"),
-    path("staff/order/<uuid:pk>/print/", views.order_print_payload, name="order_print_payload"),
+    path(
+        "staff/order/<uuid:pk>/status/", views.order_set_status, name="order_set_status"
+    ),
+    path(
+        "staff/order/<uuid:pk>/print/",
+        views.order_print_payload,
+        name="order_print_payload",
+    ),
 ]

@@ -35,14 +35,14 @@ class IsCheckoutRefundedTests(TestCase):
         self.assertTrue(is_checkout_refunded({"status": "refunded"}))
 
     def test_top_level_amount_refunded(self):
-        self.assertTrue(is_checkout_refunded({"status": "PAID", "amount_refunded": 15.50}))
+        self.assertTrue(
+            is_checkout_refunded({"status": "PAID", "amount_refunded": 15.50})
+        )
 
     def test_transaction_item_status_refunded(self):
         payload = {
             "status": "PAID",
-            "transactions": [
-                {"id": "txn-1", "status": "REFUNDED", "amount": 15.50}
-            ],
+            "transactions": [{"id": "txn-1", "status": "REFUNDED", "amount": 15.50}],
         }
         self.assertTrue(is_checkout_refunded(payload))
 
@@ -67,9 +67,7 @@ class IsCheckoutRefundedTests(TestCase):
     def test_normal_paid_payload_returns_false(self):
         payload = {
             "status": "PAID",
-            "transactions": [
-                {"id": "txn-1", "status": "SUCCESSFUL", "amount": 15.50}
-            ],
+            "transactions": [{"id": "txn-1", "status": "SUCCESSFUL", "amount": 15.50}],
         }
         self.assertFalse(is_checkout_refunded(payload))
 
@@ -81,9 +79,7 @@ class IsCheckoutRefundedTests(TestCase):
         payload = {
             "status": "PAID",
             "transaction_code": "TX123",
-            "transactions": [
-                {"id": "txn-1", "status": "SUCCESSFUL", "amount": 15.50}
-            ],
+            "transactions": [{"id": "txn-1", "status": "SUCCESSFUL", "amount": 15.50}],
         }
         history_map = {
             "TX123": {
@@ -98,7 +94,12 @@ class IsCheckoutRefundedTests(TestCase):
         payload = {
             "status": "PAID",
             "transactions": [
-                {"id": "txn-1", "transaction_code": "TX456", "status": "SUCCESSFUL", "amount": 15.50}
+                {
+                    "id": "txn-1",
+                    "transaction_code": "TX456",
+                    "status": "SUCCESSFUL",
+                    "amount": 15.50,
+                }
             ],
         }
         history_map = {
@@ -158,7 +159,9 @@ class SumUpReconciliationCommandTests(TestCase):
             raw_response={"status": "PAID"},
         )
 
-    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
     def test_reconcile_external_refund_event_registration(self, mock_get_checkout):
         mock_get_checkout.return_value = {
             "id": "chk_refund_123",
@@ -180,7 +183,9 @@ class SumUpReconciliationCommandTests(TestCase):
         self.assertEqual(self.registration.status, "cancelled")
         self.assertIn("1 external refund(s) reconciled", out.getvalue())
 
-    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
     def test_reconcile_dry_run_makes_no_db_changes(self, mock_get_checkout):
         mock_get_checkout.return_value = {
             "id": "chk_refund_123",
@@ -198,7 +203,9 @@ class SumUpReconciliationCommandTests(TestCase):
         self.assertEqual(self.registration.status, "confirmed")
         self.assertIn("[DRY RUN]", out.getvalue())
 
-    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
     def test_reconcile_voids_unspent_crush_credit(self, mock_get_checkout):
         credit = CrushCredit.objects.create(
             user=self.user,
@@ -222,8 +229,12 @@ class SumUpReconciliationCommandTests(TestCase):
         self.assertEqual(credit.status, CrushCredit.Status.VOID)
         self.assertIn("External SumUp cash refund reconciled", credit.note)
 
-    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
-    def test_reconcile_handles_partially_spent_crush_credit_with_warning(self, mock_get_checkout):
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
+    def test_reconcile_handles_partially_spent_crush_credit_with_warning(
+        self, mock_get_checkout
+    ):
         credit = CrushCredit.objects.create(
             user=self.user,
             amount_cents=2000,
@@ -250,7 +261,9 @@ class SumUpReconciliationCommandTests(TestCase):
         self.assertEqual(credit.status, CrushCredit.Status.VOID)
         self.assertIn("already redeemed", credit.note)
 
-    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
     def test_reconcile_premium_membership_refund(self, mock_get_checkout):
         coach_user = User.objects.create_user(
             username="coach_sam",
@@ -295,7 +308,9 @@ class SumUpReconciliationCommandTests(TestCase):
         self.assertFalse(pm.payment_confirmed)
         self.assertIsNone(pm.payment_date)
 
-    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
     def test_sumup_api_error_does_not_crash_sweep(self, mock_get_checkout):
         mock_get_checkout.side_effect = SumUpError("500 Internal Server Error")
 
@@ -306,8 +321,9 @@ class SumUpReconciliationCommandTests(TestCase):
         self.assertEqual(self.payment.status, PaymentTransaction.Status.PAID)
         self.assertIn("1 error(s)", out.getvalue())
 
-
-    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
     def test_partial_refund_is_not_reconciled(self, mock_get_checkout):
         """A EUR2 goodwill refund on a EUR15.50 seat must not unbook the seat."""
         mock_get_checkout.return_value = {
@@ -326,7 +342,9 @@ class SumUpReconciliationCommandTests(TestCase):
         self.assertTrue(self.registration.payment_confirmed)
         self.assertIn("PARTIAL", out.getvalue())
 
-    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
     def test_partial_refund_reconciles_when_forced(self, mock_get_checkout):
         mock_get_checkout.return_value = {
             "id": "chk_refund_123",
@@ -339,7 +357,9 @@ class SumUpReconciliationCommandTests(TestCase):
         self.payment.refresh_from_db()
         self.assertEqual(self.payment.status, PaymentTransaction.Status.REFUNDED)
 
-    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
     def test_full_refund_still_reconciles(self, mock_get_checkout):
         mock_get_checkout.return_value = {
             "id": "chk_refund_123",
@@ -354,8 +374,9 @@ class SumUpReconciliationCommandTests(TestCase):
         self.assertEqual(self.payment.status, PaymentTransaction.Status.REFUNDED)
         self.assertEqual(self.registration.status, "cancelled")
 
-
-    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
     def test_credit_from_an_earlier_cycle_is_not_voided(self, mock_get_checkout):
         """EventRegistration rows are reused across re-registration cycles.
 
@@ -402,9 +423,12 @@ class SumUpReconciliationCommandTests(TestCase):
             "credit from payment A's cycle must not be voided by a refund on payment B",
         )
 
-
-    @patch("crush_lu.management.commands.reconcile_sumup_payments.Command._reconcile_refunded")
-    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.Command._reconcile_refunded"
+    )
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
     def test_write_failure_does_not_abort_the_sweep(
         self, mock_get_checkout, mock_reconcile
     ):
@@ -439,8 +463,9 @@ class SumUpReconciliationCommandTests(TestCase):
         self.assertIn("1 error(s)", output)
         self.assertTrue(other.pk)
 
-
-    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
     def test_malformed_json_body_does_not_kill_the_sweep(self, mock_get_checkout):
         """A 2xx with a non-JSON body raises JSONDecodeError, not SumUpError.
 
@@ -473,7 +498,6 @@ class SumUpReconciliationCommandTests(TestCase):
         self.assertIn("Sweep complete", output)
         self.assertIn("1 error(s)", output)
 
-
     def _make_coach(self, username):
         coach_user = User.objects.create_user(
             username=username, email=f"{username}@crush.lu", password="password123"
@@ -499,7 +523,9 @@ class SumUpReconciliationCommandTests(TestCase):
             raw_response={"status": "PAID"},
         )
 
-    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
     def test_refund_clears_the_coach_that_membership_assigned(self, mock_get_checkout):
         """The premium reserved-seat gates read assigned_coach_id directly
         (views_events.py:701, :924, :1448), so a stale coach keeps a refunded
@@ -514,14 +540,20 @@ class SumUpReconciliationCommandTests(TestCase):
         self.profile.save(update_fields=["assigned_coach", "assigned_coach_at"])
 
         mock_get_checkout.return_value = {"id": "chk_clear_coach", "status": "REFUNDED"}
-        call_command("reconcile_sumup_payments", checkout_id="chk_clear_coach", quiet=True)
+        call_command(
+            "reconcile_sumup_payments", checkout_id="chk_clear_coach", quiet=True
+        )
 
         self.profile.refresh_from_db()
         self.assertIsNone(self.profile.assigned_coach_id)
         self.assertIsNone(self.profile.assigned_coach_at)
 
-    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
-    def test_refund_leaves_a_coach_this_membership_did_not_assign(self, mock_get_checkout):
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
+    def test_refund_leaves_a_coach_this_membership_did_not_assign(
+        self, mock_get_checkout
+    ):
         """A coach held for another reason (attendance auto-assign, the 0150
         backfill) names a different coach and must survive the refund."""
         membership_coach = self._make_coach("coach_membership")
@@ -535,7 +567,9 @@ class SumUpReconciliationCommandTests(TestCase):
         self.profile.save(update_fields=["assigned_coach", "assigned_coach_at"])
 
         mock_get_checkout.return_value = {"id": "chk_keep_coach", "status": "REFUNDED"}
-        call_command("reconcile_sumup_payments", checkout_id="chk_keep_coach", quiet=True)
+        call_command(
+            "reconcile_sumup_payments", checkout_id="chk_keep_coach", quiet=True
+        )
 
         self.profile.refresh_from_db()
         pm.refresh_from_db()
@@ -552,15 +586,26 @@ class ExternalRefundRegressionTests(TestCase):
         is_checkout_refunded() is called outside the per-row try/except in
         handle(), so an uncaught TypeError here killed the whole sweep.
         """
-        self.assertFalse(is_checkout_refunded({"status": "PAID", "amount_refunded": "0.00"}))
-        self.assertTrue(is_checkout_refunded({"status": "PAID", "amount_refunded": "2.50"}))
+        self.assertFalse(
+            is_checkout_refunded({"status": "PAID", "amount_refunded": "0.00"})
+        )
+        self.assertTrue(
+            is_checkout_refunded({"status": "PAID", "amount_refunded": "2.50"})
+        )
         self.assertFalse(
             is_checkout_refunded(
-                {"status": "PAID", "transactions": [{"status": "SUCCESSFUL", "amount_refunded": "0.00"}]}
+                {
+                    "status": "PAID",
+                    "transactions": [
+                        {"status": "SUCCESSFUL", "amount_refunded": "0.00"}
+                    ],
+                }
             )
         )
         # Garbage must degrade to "not refunded", never explode.
-        self.assertFalse(is_checkout_refunded({"status": "PAID", "amount_refunded": "not-a-number"}))
+        self.assertFalse(
+            is_checkout_refunded({"status": "PAID", "amount_refunded": "not-a-number"})
+        )
 
     def test_nan_and_infinity_do_not_kill_the_sweep(self):
         """json.loads parses NaN/Infinity by default, and Decimal accepts both.
@@ -574,7 +619,9 @@ class ExternalRefundRegressionTests(TestCase):
                 self.assertEqual(
                     refunded_amount({"amount_refunded": token}), Decimal("0")
                 )
-                self.assertFalse(is_checkout_refunded({"status": "PAID", "amount_refunded": token}))
+                self.assertFalse(
+                    is_checkout_refunded({"status": "PAID", "amount_refunded": token})
+                )
 
         # And the real json path, not just the literal strings.
         payload = json.loads('{"status": "PAID", "amount_refunded": NaN}')
@@ -587,7 +634,13 @@ class ExternalRefundRegressionTests(TestCase):
             refunded_amount({"transactions": [{"amount_refunded": 4}]}), Decimal("4")
         )
         self.assertEqual(
-            refunded_amount({"transactions": [{"refunds": [{"amount": "1.25"}, {"amount": "0.75"}]}]}),
+            refunded_amount(
+                {
+                    "transactions": [
+                        {"refunds": [{"amount": "1.25"}, {"amount": "0.75"}]}
+                    ]
+                }
+            ),
             Decimal("2.00"),
         )
         # Status-only refund reports no amount: 0 means "unknown", not "nothing".
@@ -607,10 +660,16 @@ class ExternalRefundRegressionTests(TestCase):
                 "amount_refunded": "15.50",
             }
         }
-        self.assertEqual(refunded_amount(payload, history_map=history_map), Decimal("15.50"))
+        self.assertEqual(
+            refunded_amount(payload, history_map=history_map), Decimal("15.50")
+        )
 
-    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_transactions_history")
-    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_transactions_history"
+    )
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
     def test_reconciles_refund_detected_only_in_transaction_history(
         self, mock_get_checkout, mock_get_history
     ):
@@ -619,7 +678,9 @@ class ExternalRefundRegressionTests(TestCase):
         This test proves that a checkout returning status='PAID' is still reconciled to REFUNDED
         when its transaction_code is marked REFUNDED in get_transactions_history.
         """
-        user = User.objects.create_user(username="dash_refund", email="dash_refund@crush.lu")
+        user = User.objects.create_user(
+            username="dash_refund", email="dash_refund@crush.lu"
+        )
         event = MeetupEvent.objects.create(
             title="Quiz Night #99",
             event_type="quiz_night",
@@ -681,7 +742,9 @@ class ExternalRefundRegressionTests(TestCase):
             ]
         }
 
-        call_command("reconcile_sumup_payments", checkout_id="chk_dash_refund", quiet=True)
+        call_command(
+            "reconcile_sumup_payments", checkout_id="chk_dash_refund", quiet=True
+        )
 
         tx.refresh_from_db()
         reg.refresh_from_db()
@@ -830,8 +893,10 @@ class ExternalDashboardRefundRegressionTests(TestCase):
         refunded total too and is an equally good answer — a better one for
         ``refunded_amount()``, which reads the total straight off it.
         """
-        for order in ([self.REFUND_ROW, self.PAYMENT_ROW],
-                      [self.PAYMENT_ROW, self.REFUND_ROW]):
+        for order in (
+            [self.REFUND_ROW, self.PAYMENT_ROW],
+            [self.PAYMENT_ROW, self.REFUND_ROW],
+        ):
             with self.subTest(first=order[0]["type"]):
                 history_map = index_history({}, order)
                 self.assertTrue(history_row_shows_refund(history_map["TAAA4QQ7M99"]))
@@ -911,9 +976,7 @@ class ExternalDashboardRefundRegressionTests(TestCase):
     ):
         tx, credit = self._make_refunded_seat()
         mock_get_checkout.return_value = self.CHECKOUT_PAYLOAD
-        mock_get_history.return_value = {
-            "items": [self.REFUND_ROW, self.PAYMENT_ROW]
-        }
+        mock_get_history.return_value = {"items": [self.REFUND_ROW, self.PAYMENT_ROW]}
 
         out = io.StringIO()
         call_command(
@@ -1039,8 +1102,10 @@ class ExternalDashboardRefundRegressionTests(TestCase):
         payment_cumulative = dict(self.PAYMENT_ROW, refunded_amount=15.5)
         latest_partial = dict(self.REFUND_ROW, amount=5.0)
 
-        for order in ([latest_partial, payment_cumulative],
-                      [payment_cumulative, latest_partial]):
+        for order in (
+            [latest_partial, payment_cumulative],
+            [payment_cumulative, latest_partial],
+        ):
             with self.subTest(first=order[0]["type"]):
                 history_map = index_history({}, order)
                 self.assertEqual(
@@ -1147,9 +1212,7 @@ class ExternalDashboardRefundRegressionTests(TestCase):
         """
         tx, credit = self._make_refunded_seat()
         mock_get_checkout.return_value = self.CHECKOUT_PAYLOAD
-        mock_get_history.return_value = {
-            "items": [dict(self.REFUND_ROW, amount=5.0)]
-        }
+        mock_get_history.return_value = {"items": [dict(self.REFUND_ROW, amount=5.0)]}
 
         out = io.StringIO()
         call_command(
@@ -1230,8 +1293,9 @@ class ExternalDashboardRefundRegressionTests(TestCase):
         self.assertEqual(credit.status, CrushCredit.Status.ACTIVE)
 
     def test_refund_rank_orders_the_three_kinds_of_row(self):
-        bare_payment = {k: v for k, v in self.PAYMENT_ROW.items()
-                        if k != "refunded_amount"}
+        bare_payment = {
+            k: v for k, v in self.PAYMENT_ROW.items() if k != "refunded_amount"
+        }
         self.assertEqual(_history_refund_rank(self.PAYMENT_ROW), 2)
         self.assertEqual(_history_refund_rank(self.REFUND_ROW), 1)
         self.assertEqual(_history_refund_rank(bare_payment), 0)

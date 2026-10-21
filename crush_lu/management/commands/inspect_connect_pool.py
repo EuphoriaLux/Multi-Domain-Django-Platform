@@ -16,7 +16,6 @@ from django.core.management.base import BaseCommand, CommandError
 
 from crush_lu.services import get_eligible_pool
 
-
 User = get_user_model()
 
 
@@ -59,7 +58,9 @@ class Command(BaseCommand):
                 f"pref_age=[{profile.preferred_age_min}, {profile.preferred_age_max}]"
             )
         if membership is None:
-            self.stdout.write(self.style.WARNING("  no CrushConnectMembership (not onboarded)"))
+            self.stdout.write(
+                self.style.WARNING("  no CrushConnectMembership (not onboarded)")
+            )
         else:
             self.stdout.write(
                 f"  onboarded={'YES' if membership.is_onboarded else 'NO'}  "
@@ -76,7 +77,9 @@ class Command(BaseCommand):
             return
 
         limit = max(0, options["limit"])
-        self.stdout.write(self.style.MIGRATE_HEADING(f"First {min(limit, total)} entries:"))
+        self.stdout.write(
+            self.style.MIGRATE_HEADING(f"First {min(limit, total)} entries:")
+        )
         for u in pool[:limit]:
             p = getattr(u, "crushprofile", None)
             line = f"  #{u.pk}  {u.username}"

@@ -24,38 +24,50 @@ def home(request):
 @require_GET
 def services(request):
     """Custom software and Azure services."""
-    return render(request, "power_up/services.html", {
-        "page_title": _("Custom Software and Azure Services | Power-Up"),
-        "meta_description": _(
-            "Custom applications, business portals, Azure architecture and "
-            "workflow integrations for Luxembourg organizations."
-        ),
-    })
+    return render(
+        request,
+        "power_up/services.html",
+        {
+            "page_title": _("Custom Software and Azure Services | Power-Up"),
+            "meta_description": _(
+                "Custom applications, business portals, Azure architecture and "
+                "workflow integrations for Luxembourg organizations."
+            ),
+        },
+    )
 
 
 @require_GET
 def work(request):
     """Selected work with explicit ownership and maturity labels."""
-    return render(request, "power_up/work.html", {
-        "page_title": _("Selected Software Work | Power-Up"),
-        "meta_description": _(
-            "Explore Power-Up's client delivery, owned products and internal "
-            "Azure tools, with clear project status."
-        ),
-        "platforms": PLATFORMS,
-    })
+    return render(
+        request,
+        "power_up/work.html",
+        {
+            "page_title": _("Selected Software Work | Power-Up"),
+            "meta_description": _(
+                "Explore Power-Up's client delivery, owned products and internal "
+                "Azure tools, with clear project status."
+            ),
+            "platforms": PLATFORMS,
+        },
+    )
 
 
 @require_GET
 def approach(request):
     """How software engagements are scoped and delivered."""
-    return render(request, "power_up/approach.html", {
-        "page_title": _("Our Software Delivery Approach | Power-Up"),
-        "meta_description": _(
-            "See how Power-Up discovers, builds, launches and supports "
-            "custom business software."
-        ),
-    })
+    return render(
+        request,
+        "power_up/approach.html",
+        {
+            "page_title": _("Our Software Delivery Approach | Power-Up"),
+            "meta_description": _(
+                "See how Power-Up discovers, builds, launches and supports "
+                "custom business software."
+            ),
+        },
+    )
 
 
 @require_GET

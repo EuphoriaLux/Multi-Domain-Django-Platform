@@ -191,6 +191,7 @@ class TestDoorVerificationReject:
             username="regular@t.test", email="regular@t.test", password="pw"
         )
         from crush_lu.models.profiles import UserDataConsent
+
         UserDataConsent.objects.update_or_create(
             user=regular_user, defaults={"crushlu_consent_given": True}
         )
@@ -273,7 +274,9 @@ class TestDoorVerificationReject:
         assert client.post(_reject_url(event, reg)).status_code == 200
 
         submission.refresh_from_db()
-        assert submission.status == "expired", "the door reject clobbered a terminal row"
+        assert (
+            submission.status == "expired"
+        ), "the door reject clobbered a terminal row"
         # The audit note is still recorded on it — what happened at the door is
         # worth keeping even on a row nothing will reopen.
         assert "photo mismatch" in submission.coach_notes
@@ -305,9 +308,7 @@ class TestDoorVerificationReject:
         says it needs revision.
         """
         profile, reg, _sig = _attendee(event, "revision_above_rejection")
-        older = ProfileSubmission.objects.filter(profile=profile).latest(
-            "submitted_at"
-        )
+        older = ProfileSubmission.objects.filter(profile=profile).latest("submitted_at")
         older.status = "rejected"
         older.save(update_fields=["status"])
         newer = ProfileSubmission.objects.create(

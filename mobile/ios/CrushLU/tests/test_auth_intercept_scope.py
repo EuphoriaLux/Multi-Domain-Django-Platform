@@ -39,7 +39,7 @@ def normalize_auth_path(raw_path):
         if path == language:
             return "/"
         if path.startswith(language + "/"):
-            path = path[len(language):]
+            path = path[len(language) :]
             break
     return path if path.endswith("/") else path + "/"
 
@@ -158,7 +158,10 @@ class AuthInterceptScopeTests(unittest.TestCase):
             / "MainActivity.java"
         ).read_text(encoding="utf-8")
 
-        for source, name in ((swift, "CrushWebView.swift"), (java, "MainActivity.java")):
+        for source, name in (
+            (swift, "CrushWebView.swift"),
+            (java, "MainActivity.java"),
+        ):
             with self.subTest(source=name):
                 # The prefix match is what over-captured; it must not come back.
                 self.assertNotIn('contains("/accounts/")', source)

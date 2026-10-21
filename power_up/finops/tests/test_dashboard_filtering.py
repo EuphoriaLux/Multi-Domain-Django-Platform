@@ -2,12 +2,18 @@
 Playwright tests for FinOps dashboard filtering functionality
 Tests charge type filtering, period selection, and edge cases
 """
+
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from playwright.sync_api import Page, expect
 from django.conf import settings
-from django.contrib.auth import get_user_model, SESSION_KEY, BACKEND_SESSION_KEY, HASH_SESSION_KEY
+from django.contrib.auth import (
+    get_user_model,
+    SESSION_KEY,
+    BACKEND_SESSION_KEY,
+    HASH_SESSION_KEY,
+)
 from django.contrib.sessions.backends.db import SessionStore
 from power_up.finops.models import CostRecord, CostAggregation
 
@@ -24,11 +30,11 @@ POWERUP_DEV_HOST = "power-up.localhost"
 def staff_user(db):
     """Create staff user for FinOps access"""
     return User.objects.create_user(
-        username='finops_admin',
-        email='admin@powerup.lu',
-        password='testpass123',
+        username="finops_admin",
+        email="admin@powerup.lu",
+        password="testpass123",
         is_staff=True,
-        is_superuser=True
+        is_superuser=True,
     )
 
 
@@ -65,16 +71,20 @@ def staff_page(page: Page, staff_user, powerup_url):
     """
     session = SessionStore()
     session[SESSION_KEY] = str(staff_user.pk)
-    session[BACKEND_SESSION_KEY] = 'django.contrib.auth.backends.ModelBackend'
+    session[BACKEND_SESSION_KEY] = "django.contrib.auth.backends.ModelBackend"
     session[HASH_SESSION_KEY] = staff_user.get_session_auth_hash()
     session.save()
 
-    page.context.add_cookies([{
-        'name': getattr(settings, 'SESSION_COOKIE_NAME', 'sessionid'),
-        'value': session.session_key,
-        'domain': POWERUP_DEV_HOST,
-        'path': '/',
-    }])
+    page.context.add_cookies(
+        [
+            {
+                "name": getattr(settings, "SESSION_COOKIE_NAME", "sessionid"),
+                "value": session.session_key,
+                "domain": POWERUP_DEV_HOST,
+                "path": "/",
+            }
+        ]
+    )
     return page
 
 
@@ -103,7 +113,7 @@ class TestFinOpsDashboardFiltering:
         expect(charge_type_select).to_have_value("payg")
 
         # Check info message is shown for the payg-only default
-        info_message = staff_page.locator('text=Showing Pay-as-you-go costs only')
+        info_message = staff_page.locator("text=Showing Pay-as-you-go costs only")
         expect(info_message).to_be_visible()
 
     def test_charge_type_filter_all_charges(self, staff_page: Page, powerup_url):
@@ -116,11 +126,11 @@ class TestFinOpsDashboardFiltering:
             show_filters_btn.click()
 
         # Select 'All Charges'
-        staff_page.select_option('select[name="charge_type"]', 'all')
+        staff_page.select_option('select[name="charge_type"]', "all")
         staff_page.click('button[type="submit"]:has-text("Apply Filters")')
 
         # Wait for page reload
-        staff_page.wait_for_load_state('networkidle')
+        staff_page.wait_for_load_state("networkidle")
 
         # Check URL has charge_type=all. The Advanced Filters form also
         # submits its hidden days/subscription/service inputs (empty ones
@@ -129,8 +139,9 @@ class TestFinOpsDashboardFiltering:
         # exact string so this doesn't re-break on unrelated form-field
         # ordering/whitespace changes.
         from urllib.parse import urlsplit, parse_qs
+
         query = parse_qs(urlsplit(staff_page.url).query)
-        assert query.get('charge_type') == ['all']
+        assert query.get("charge_type") == ["all"]
 
         # Check the payg-only info banner is NOT shown for the 'all' filter.
         # Assert against a string the template can actually render: dashboard.html
@@ -140,33 +151,37 @@ class TestFinOpsDashboardFiltering:
         # Usage costs only" no longer exists anywhere in the template tree, so
         # asserting on it would hold unconditionally and would keep holding even
         # if the banner logic broke completely.
-        info_message = staff_page.locator('text=Showing Pay-as-you-go costs only')
+        info_message = staff_page.locator("text=Showing Pay-as-you-go costs only")
         expect(info_message).not_to_be_visible()
 
     def test_365_day_period_with_all_charges(self, staff_page: Page, powerup_url):
         """Test the specific URL: /finops/?days=365&charge_type=all&subscription=&service="""
-        staff_page.goto(f"{powerup_url}/finops/?days=365&charge_type=all&subscription=&service=")
+        staff_page.goto(
+            f"{powerup_url}/finops/?days=365&charge_type=all&subscription=&service="
+        )
 
         # Check page loads without errors
         expect(staff_page).to_have_title("FinOps Hub - Cost Dashboard")
 
         # Check no error messages
-        error_messages = staff_page.locator('.error, .alert-danger, .text-red-600')
+        error_messages = staff_page.locator(".error, .alert-danger, .text-red-600")
         expect(error_messages).to_have_count(0)
 
         # Check summary cards are visible
-        total_cost_card = staff_page.locator('text=Usage Cost (365 days)')
+        total_cost_card = staff_page.locator("text=Usage Cost (365 days)")
         expect(total_cost_card).to_be_visible()
 
     def test_edge_case_empty_filters(self, staff_page: Page, powerup_url):
         """Test with empty subscription and service filters"""
-        staff_page.goto(f"{powerup_url}/finops/?days=30&charge_type=payg&subscription=&service=")
+        staff_page.goto(
+            f"{powerup_url}/finops/?days=30&charge_type=payg&subscription=&service="
+        )
 
         # Should load without errors
         expect(staff_page).to_have_title("FinOps Hub - Cost Dashboard")
 
         # Check that no filter badges are shown (empty filters shouldn't show badges)
-        active_filters = staff_page.locator('text=Active filters:')
+        active_filters = staff_page.locator("text=Active filters:")
         expect(active_filters).not_to_be_visible()
 
     def test_edge_case_invalid_charge_type(self, staff_page: Page, powerup_url):
@@ -177,7 +192,7 @@ class TestFinOpsDashboardFiltering:
         expect(staff_page).to_have_title("FinOps Hub - Cost Dashboard")
 
         # Should not crash
-        error_500 = staff_page.locator('text=Server Error')
+        error_500 = staff_page.locator("text=Server Error")
         expect(error_500).not_to_be_visible()
 
     def test_edge_case_negative_days(self, staff_page: Page, powerup_url):
@@ -195,7 +210,7 @@ class TestFinOpsDashboardFiltering:
         expect(staff_page).to_have_title("FinOps Hub - Cost Dashboard")
 
         # Page should still render
-        total_cost_card = staff_page.locator('text=Total Cost')
+        total_cost_card = staff_page.locator("text=Total Cost")
         expect(total_cost_card).to_be_visible()
 
     def test_filter_persistence_after_navigation(self, staff_page: Page, powerup_url):
@@ -211,24 +226,26 @@ class TestFinOpsDashboardFiltering:
         # Change the Period select (auto-submits the top form, which
         # preserves charge_type via its own hidden input)
         month_select = staff_page.locator('select[name="month"]')
-        options = month_select.locator('option').all_text_contents()
+        options = month_select.locator("option").all_text_contents()
         assert len(options) >= 1, "expected at least the default Custom option"
         month_select.select_option(index=0)
-        staff_page.wait_for_load_state('networkidle')
+        staff_page.wait_for_load_state("networkidle")
 
         # Check URL still has charge_type=all (preserved via the hidden
         # input in the Period form)
         # A missing charge_type would silently revert the dashboard to the
         # default 'payg', which is exactly the regression this guards.
         query = parse_qs(urlsplit(staff_page.url).query)
-        assert query.get('charge_type') == ['all'], (
-            f"charge_type=all must persist across the period submit; got {staff_page.url!r}"
-        )
+        assert query.get("charge_type") == [
+            "all"
+        ], f"charge_type=all must persist across the period submit; got {staff_page.url!r}"
 
     def test_clear_filters_button(self, staff_page: Page, powerup_url):
         """Test that Clear button resets all filters"""
         # Navigate with filters
-        staff_page.goto(f"{powerup_url}/finops/?days=60&charge_type=all&subscription=test&service=test")
+        staff_page.goto(
+            f"{powerup_url}/finops/?days=60&charge_type=all&subscription=test&service=test"
+        )
 
         # Open filters if collapsed
         show_filters_btn = staff_page.locator('button:has-text("Show filters")')
@@ -237,13 +254,13 @@ class TestFinOpsDashboardFiltering:
 
         # Click Clear button
         staff_page.click('a:has-text("Clear")')
-        staff_page.wait_for_load_state('networkidle')
+        staff_page.wait_for_load_state("networkidle")
 
         # Check URL is reset (only days parameter should remain)
         current_url = staff_page.url
-        assert 'charge_type=all' not in current_url
-        assert 'subscription=test' not in current_url
-        assert 'service=test' not in current_url
+        assert "charge_type=all" not in current_url
+        assert "subscription=test" not in current_url
+        assert "service=test" not in current_url
 
     def test_multiple_charge_types_available(self, staff_page: Page, powerup_url):
         """Test that all available charge types appear in dropdown"""
@@ -256,12 +273,12 @@ class TestFinOpsDashboardFiltering:
 
         # Check charge type dropdown
         charge_type_select = staff_page.locator('select[name="charge_type"]')
-        options = charge_type_select.locator('option').all_text_contents()
+        options = charge_type_select.locator("option").all_text_contents()
 
         # Should at least have "Pay-as-you-go" and "All Usage" (the two
         # non-reserved options in views.py::dashboard's pricing_categories)
-        assert 'Pay-as-you-go' in ' '.join(options)
-        assert 'All Usage' in ' '.join(options)
+        assert "Pay-as-you-go" in " ".join(options)
+        assert "All Usage" in " ".join(options)
 
     def test_no_data_scenario(self, staff_page: Page, powerup_url, db):
         """Test dashboard with no cost data in database"""
@@ -275,7 +292,7 @@ class TestFinOpsDashboardFiltering:
         expect(staff_page).to_have_title("FinOps Hub - Cost Dashboard")
 
         # Should show €0.00 or similar
-        total_cost_value = staff_page.locator('text=€0.00').first
+        total_cost_value = staff_page.locator("text=€0.00").first
         expect(total_cost_value).to_be_visible()
 
     def test_filter_badge_removal(self, staff_page: Page, powerup_url):
@@ -285,13 +302,13 @@ class TestFinOpsDashboardFiltering:
 
         # Check active filter badge is shown (template renders "Pricing:
         # All Usage" for charge_type=all, not "Charge Type: All")
-        charge_type_badge = staff_page.locator('text=Pricing: All Usage')
+        charge_type_badge = staff_page.locator("text=Pricing: All Usage")
         expect(charge_type_badge).to_be_visible()
 
         # Click the x to remove filter
-        remove_link = charge_type_badge.locator('..').locator('a')
+        remove_link = charge_type_badge.locator("..").locator("a")
         remove_link.click()
-        staff_page.wait_for_load_state('networkidle')
+        staff_page.wait_for_load_state("networkidle")
 
         # Badge should be gone
         expect(charge_type_badge).not_to_be_visible()
@@ -319,10 +336,13 @@ class TestFinOpsDashboardFiltering:
         """Test page performance with all filters applied"""
         # Time the page load with all parameters
         import time
+
         start_time = time.time()
 
-        staff_page.goto(f"{powerup_url}/finops/?days=365&charge_type=all&subscription=PartnerLed-power_up&service=Storage")
-        staff_page.wait_for_load_state('networkidle')
+        staff_page.goto(
+            f"{powerup_url}/finops/?days=365&charge_type=all&subscription=PartnerLed-power_up&service=Storage"
+        )
+        staff_page.wait_for_load_state("networkidle")
 
         load_time = time.time() - start_time
 

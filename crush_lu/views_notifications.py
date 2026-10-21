@@ -1,4 +1,5 @@
 """In-app notification (bell) views and API endpoints."""
+
 import logging
 
 from django.http import JsonResponse, HttpResponseNotAllowed

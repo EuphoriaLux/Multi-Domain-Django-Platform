@@ -41,7 +41,10 @@ def _fold(text):
 _RAW_RULES = [
     # --- single interests (broadest / most common first) ---
     (["hiking", "randonnée", "wandern", "wanderung", "rando"], ["hiking"]),
-    (["travel", "voyage", "reisen", "travelling", "traveling", "reise"], ["city-trips"]),
+    (
+        ["travel", "voyage", "reisen", "travelling", "traveling", "reise"],
+        ["city-trips"],
+    ),
     (["music", "musique", "musik", "concert", "concerts", "konzert"], ["live-music"]),
     (["cooking", "cuisine", "kochen", "gastronomie", "cook"], ["cooking"]),
     (["baking", "backen", "pâtisserie"], ["baking"]),
@@ -76,17 +79,52 @@ _RAW_RULES = [
     (["classical", "klassik", "classique"], ["classical"]),
     # --- O3 additions ---
     (["dancing", "dance", "tanzen", "danse"], ["dancing"]),
-    (["nightlife", "going out", "ausgehen", "nachtleben", "clubbing", "sortir"], ["nightlife"]),
-    (["animals", "pets", "animaux", "tiere", "haustiere", "dogs", "cats"], ["animals-pets"]),
-    (["cars", "motorcycles", "autos", "motorrad", "voitures", "moto"], ["cars-motorcycles"]),
+    (
+        ["nightlife", "going out", "ausgehen", "nachtleben", "clubbing", "sortir"],
+        ["nightlife"],
+    ),
+    (
+        ["animals", "pets", "animaux", "tiere", "haustiere", "dogs", "cats"],
+        ["animals-pets"],
+    ),
+    (
+        ["cars", "motorcycles", "autos", "motorrad", "voitures", "moto"],
+        ["cars-motorcycles"],
+    ),
     (["anime", "manga"], ["anime-manga"]),
     (["winter sports", "ski", "skiing", "snowboard", "wintersport"], ["winter-sports"]),
     (["languages", "sprachen", "langues"], ["languages"]),
-    (["self-development", "personal development", "persönliche entwicklung", "développement personnel"], ["self-development"]),
-    (["diy", "crafts", "bricolage", "heimwerken", "basteln", "knitting", "crochet"], ["diy-crafts"]),
-    (["tech", "technology", "technik", "coding", "programming", "informatique"], ["tech"]),
+    (
+        [
+            "self-development",
+            "personal development",
+            "persönliche entwicklung",
+            "développement personnel",
+        ],
+        ["self-development"],
+    ),
+    (
+        ["diy", "crafts", "bricolage", "heimwerken", "basteln", "knitting", "crochet"],
+        ["diy-crafts"],
+    ),
+    (
+        ["tech", "technology", "technik", "coding", "programming", "informatique"],
+        ["tech"],
+    ),
     (["water sports", "surfing", "kayak", "paddle", "wassersport"], ["water-sports"]),
-    (["badminton", "squash", "padel", "table tennis", "ping pong", "volleyball", "basketball", "tennis"], ["ball-racket-sports"]),
+    (
+        [
+            "badminton",
+            "squash",
+            "padel",
+            "table tennis",
+            "ping pong",
+            "volleyball",
+            "basketball",
+            "tennis",
+        ],
+        ["ball-racket-sports"],
+    ),
     # --- inflections & regional surface forms (from the 2026-07-23 prod
     # dry-run's unmatched sample; each is an unambiguous FR/DE/LU rendering of
     # a concept the taxonomy already has, never a new one) ---
@@ -258,15 +296,25 @@ class Command(BaseCommand):
         mode = "EXECUTE" if execute else "DRY-RUN"
         self.stdout.write("")
         self.stdout.write(f"[{mode}] profiles with legacy interests : {total}")
-        self.stdout.write(f"          with ≥1 taxonomy interest      : {with_interest}  ({rate:.1f}%)")
+        self.stdout.write(
+            f"          with ≥1 taxonomy interest      : {with_interest}  ({rate:.1f}%)"
+        )
         self.stdout.write(f"          newly matched this run         : {matched}")
         self.stdout.write(f"          unmatched (no rule hit)        : {unmatched}")
         self.stdout.write(f"          skipped (already populated)    : {skipped}")
-        self.stdout.write(f"          profiles with overflow (>8)    : {overflow_profiles}")
-        self.stdout.write(f"          taxonomy interests assigned    : {assigned_total}")
+        self.stdout.write(
+            f"          profiles with overflow (>8)    : {overflow_profiles}"
+        )
+        self.stdout.write(
+            f"          taxonomy interests assigned    : {assigned_total}"
+        )
         if not execute:
             self.stdout.write(
-                self.style.WARNING("Dry-run only — no writes. Re-run with --execute to apply.")
+                self.style.WARNING(
+                    "Dry-run only — no writes. Re-run with --execute to apply."
+                )
             )
         else:
-            self.stdout.write(self.style.SUCCESS("Done. Legacy interests text left untouched."))
+            self.stdout.write(
+                self.style.SUCCESS("Done. Legacy interests text left untouched.")
+            )

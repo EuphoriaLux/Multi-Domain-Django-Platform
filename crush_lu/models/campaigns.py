@@ -14,6 +14,7 @@ Channel state:
   links to the WhatsAppMessage it produced so webhook-driven delivered/read
   transitions flow into campaign stats without touching the hub app.
 """
+
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -27,18 +28,18 @@ class Campaign(models.Model):
     """A single outreach campaign fanned out across one or more channels."""
 
     STATUS_CHOICES = [
-        ('draft', _('Draft')),
-        ('scheduled', _('Scheduled')),
-        ('sending', _('Sending')),
-        ('sent', _('Sent')),
-        ('partial', _('Partially sent')),
-        ('failed', _('Failed')),
-        ('cancelled', _('Cancelled')),
+        ("draft", _("Draft")),
+        ("scheduled", _("Scheduled")),
+        ("sending", _("Sending")),
+        ("sent", _("Sent")),
+        ("partial", _("Partially sent")),
+        ("failed", _("Failed")),
+        ("cancelled", _("Cancelled")),
     ]
 
-    CHANNEL_EMAIL = 'email'
-    CHANNEL_WHATSAPP = 'whatsapp'
-    CHANNEL_PUSH = 'push'
+    CHANNEL_EMAIL = "email"
+    CHANNEL_WHATSAPP = "whatsapp"
+    CHANNEL_PUSH = "push"
     CHANNEL_KEYS = (CHANNEL_EMAIL, CHANNEL_WHATSAPP, CHANNEL_PUSH)
 
     name = models.CharField(max_length=200)
@@ -57,7 +58,7 @@ class Campaign(models.Model):
     audience = models.CharField(
         max_length=20,
         choices=Newsletter.AUDIENCE_CHOICES,
-        default='segment',
+        default="segment",
     )
     segment_key = models.CharField(
         max_length=100,
@@ -67,12 +68,12 @@ class Campaign(models.Model):
     language = models.CharField(
         max_length=5,
         choices=[
-            ('all', _('All languages')),
-            ('en', _('English')),
-            ('de', _('German')),
-            ('fr', _('French')),
+            ("all", _("All languages")),
+            ("en", _("English")),
+            ("de", _("German")),
+            ("fr", _("French")),
         ],
-        default='all',
+        default="all",
     )
     audience_snapshot = models.JSONField(
         default=dict,
@@ -88,21 +89,21 @@ class Campaign(models.Model):
         default=dict,
         blank=True,
         help_text=_(
-            'Template body parameters keyed by placeholder index, e.g. '
+            "Template body parameters keyed by placeholder index, e.g. "
             '{"1": "Hi {first_name}"}. Supports {first_name}, {last_name} '
-            'and {email} merge tokens.'
+            "and {email} merge tokens."
         ),
     )
 
     # Push content (title/body are translated via modeltranslation en/de/fr).
     push_title = models.CharField(max_length=120, blank=True)
     push_body = models.CharField(max_length=300, blank=True)
-    push_url = models.CharField(max_length=500, blank=True, default='/')
+    push_url = models.CharField(max_length=500, blank=True, default="/")
 
     status = models.CharField(
         max_length=12,
         choices=STATUS_CHOICES,
-        default='draft',
+        default="draft",
     )
     scheduled_at = models.DateTimeField(null=True, blank=True)
     started_at = models.DateTimeField(null=True, blank=True)
@@ -116,15 +117,15 @@ class Campaign(models.Model):
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name='created_campaigns',
+        related_name="created_campaigns",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=['status', 'scheduled_at']),
+            models.Index(fields=["status", "scheduled_at"]),
         ]
         verbose_name = _("Campaign")
         verbose_name_plural = _("Campaigns")
@@ -139,7 +140,7 @@ class Campaign(models.Model):
 
     @classmethod
     def generate_unique_slug(cls, name):
-        base = slugify(name)[:70] or 'campaign'
+        base = slugify(name)[:70] or "campaign"
         slug = base
         suffix = 2
         while cls.objects.filter(slug=slug).exists():
@@ -149,10 +150,10 @@ class Campaign(models.Model):
 
     @property
     def is_active(self):
-        return self.status in ('scheduled', 'sending')
+        return self.status in ("scheduled", "sending")
 
     def can_cancel(self):
-        return self.status in ('draft', 'scheduled', 'sending')
+        return self.status in ("draft", "scheduled", "sending")
 
     def cancel(self):
         # Conditional update on active statuses only — a concurrent dispatcher
@@ -160,9 +161,9 @@ class Campaign(models.Model):
         # stale unconditional save would overwrite that terminal status.
         updated = Campaign.objects.filter(
             pk=self.pk,
-            status__in=['draft', 'scheduled', 'sending'],
+            status__in=["draft", "scheduled", "sending"],
         ).update(
-            status='cancelled',
+            status="cancelled",
             completed_at=timezone.now(),
             dispatch_heartbeat_at=None,
         )
@@ -181,11 +182,11 @@ class Campaign(models.Model):
         stats = {}
 
         if self.CHANNEL_EMAIL in self.channels:
-            newsletter = getattr(self, 'email_newsletter', None)
-            stats['email'] = {
-                'sent': newsletter.total_sent if newsletter else 0,
-                'failed': newsletter.total_failed if newsletter else 0,
-                'skipped': newsletter.total_skipped if newsletter else 0,
+            newsletter = getattr(self, "email_newsletter", None)
+            stats["email"] = {
+                "sent": newsletter.total_sent if newsletter else 0,
+                "failed": newsletter.total_failed if newsletter else 0,
+                "skipped": newsletter.total_skipped if newsletter else 0,
             }
 
         for channel in (self.CHANNEL_WHATSAPP, self.CHANNEL_PUSH):
@@ -193,51 +194,52 @@ class Campaign(models.Model):
                 continue
             counts = dict(
                 self.recipients.filter(channel=channel)
-                .values_list('status')
-                .annotate(n=models.Count('id'))
-                .values_list('status', 'n')
+                .values_list("status")
+                .annotate(n=models.Count("id"))
+                .values_list("status", "n")
             )
             stats[channel] = {
-                'sent': counts.get('sent', 0),
-                'failed': counts.get('failed', 0),
-                'skipped': counts.get('skipped', 0),
+                "sent": counts.get("sent", 0),
+                "failed": counts.get("failed", 0),
+                "skipped": counts.get("skipped", 0),
             }
 
         if self.CHANNEL_WHATSAPP in stats:
             wa_rows = self.recipients.filter(channel=self.CHANNEL_WHATSAPP)
             delivery = dict(
                 wa_rows.filter(whatsapp_message__isnull=False)
-                .values_list('whatsapp_message__status')
-                .annotate(n=models.Count('id'))
-                .values_list('whatsapp_message__status', 'n')
+                .values_list("whatsapp_message__status")
+                .annotate(n=models.Count("id"))
+                .values_list("whatsapp_message__status", "n")
             )
-            stats[self.CHANNEL_WHATSAPP]['delivered'] = (
-                delivery.get('delivered', 0) + delivery.get('read', 0)
-            )
-            stats[self.CHANNEL_WHATSAPP]['read'] = delivery.get('read', 0)
+            stats[self.CHANNEL_WHATSAPP]["delivered"] = delivery.get(
+                "delivered", 0
+            ) + delivery.get("read", 0)
+            stats[self.CHANNEL_WHATSAPP]["read"] = delivery.get("read", 0)
             # A send Meta accepted but later reported failed via the status
             # webhook is a failure — the recipient row still says 'sent'
             # (recorded at accept time), so reclassify from the message.
             delivery_failed = wa_rows.filter(
-                status='sent', whatsapp_message__status='failed',
+                status="sent",
+                whatsapp_message__status="failed",
             ).count()
-            stats[self.CHANNEL_WHATSAPP]['sent'] -= delivery_failed
-            stats[self.CHANNEL_WHATSAPP]['failed'] += delivery_failed
+            stats[self.CHANNEL_WHATSAPP]["sent"] -= delivery_failed
+            stats[self.CHANNEL_WHATSAPP]["failed"] += delivery_failed
 
         totals = {
-            'sent': sum(s.get('sent', 0) for s in stats.values()),
-            'failed': sum(s.get('failed', 0) for s in stats.values()),
-            'skipped': sum(s.get('skipped', 0) for s in stats.values()),
+            "sent": sum(s.get("sent", 0) for s in stats.values()),
+            "failed": sum(s.get("failed", 0) for s in stats.values()),
+            "skipped": sum(s.get("skipped", 0) for s in stats.values()),
         }
-        stats['totals'] = totals
+        stats["totals"] = totals
 
         click_counts = self.links.aggregate(
-            total=models.Count('clicks'),
-            unique_users=models.Count('clicks__user', distinct=True),
+            total=models.Count("clicks"),
+            unique_users=models.Count("clicks__user", distinct=True),
         )
-        stats['clicks'] = {
-            'total': click_counts['total'] or 0,
-            'unique_users': click_counts['unique_users'] or 0,
+        stats["clicks"] = {
+            "total": click_counts["total"] or 0,
+            "unique_users": click_counts["unique_users"] or 0,
         }
         return stats
 
@@ -251,47 +253,47 @@ class CampaignRecipient(models.Model):
     """
 
     STATUS_CHOICES = [
-        ('pending', _('Pending')),
-        ('sent', _('Sent')),
-        ('failed', _('Failed')),
-        ('skipped', _('Skipped')),
+        ("pending", _("Pending")),
+        ("sent", _("Sent")),
+        ("failed", _("Failed")),
+        ("skipped", _("Skipped")),
     ]
 
     CHANNEL_CHOICES = [
-        ('whatsapp', _('WhatsApp')),
-        ('push', _('Web Push')),
+        ("whatsapp", _("WhatsApp")),
+        ("push", _("Web Push")),
     ]
 
     campaign = models.ForeignKey(
         Campaign,
         on_delete=models.CASCADE,
-        related_name='recipients',
+        related_name="recipients",
     )
     channel = models.CharField(max_length=20, choices=CHANNEL_CHOICES)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='campaign_receipts',
+        related_name="campaign_receipts",
     )
     status = models.CharField(
         max_length=10,
         choices=STATUS_CHOICES,
-        default='pending',
+        default="pending",
     )
     sent_at = models.DateTimeField(null=True, blank=True)
     error_message = models.TextField(blank=True)
     whatsapp_message = models.ForeignKey(
-        'hub.WhatsAppMessage',
+        "hub.WhatsAppMessage",
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name='campaign_recipients',
+        related_name="campaign_recipients",
     )
 
     class Meta:
-        unique_together = [('campaign', 'channel', 'user')]
+        unique_together = [("campaign", "channel", "user")]
         indexes = [
-            models.Index(fields=['campaign', 'channel', 'status']),
+            models.Index(fields=["campaign", "channel", "status"]),
         ]
         verbose_name = _("Campaign Recipient")
         verbose_name_plural = _("Campaign Recipients")
@@ -312,7 +314,7 @@ class CampaignLink(models.Model):
     campaign = models.ForeignKey(
         Campaign,
         on_delete=models.CASCADE,
-        related_name='links',
+        related_name="links",
     )
     channel = models.CharField(max_length=20)
     # CharField (not URLField): push links may be site-relative ('/events/').
@@ -325,7 +327,7 @@ class CampaignLink(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = [('campaign', 'channel', 'original_url')]
+        unique_together = [("campaign", "channel", "original_url")]
         verbose_name = _("Campaign Link")
         verbose_name_plural = _("Campaign Links")
 
@@ -344,20 +346,20 @@ class CampaignClick(models.Model):
     link = models.ForeignKey(
         CampaignLink,
         on_delete=models.CASCADE,
-        related_name='clicks',
+        related_name="clicks",
     )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name='campaign_clicks',
+        related_name="campaign_clicks",
     )
     clicked_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         indexes = [
-            models.Index(fields=['link', 'clicked_at']),
+            models.Index(fields=["link", "clicked_at"]),
         ]
         verbose_name = _("Campaign Click")
         verbose_name_plural = _("Campaign Clicks")

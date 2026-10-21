@@ -281,7 +281,6 @@ def test_sticky_cta_falls_back_to_pay_button_for_unpaid_registration(
     )
 
 
-
 def test_sticky_registration_cta_respects_age_gate(page, live_server, upcoming_event):
     """An age-restricted registration anchor must not become a sticky dead end."""
     from crush_lu.models import CrushProfile
@@ -301,9 +300,12 @@ def test_sticky_registration_cta_respects_age_gate(page, live_server, upcoming_e
         # The regular anchor exists, so the sticky component must apply its own gate.
         expect(panel.locator("a.btn-crush-primary")).to_have_count(1)
         expect(sticky).to_be_hidden()
-        assert page.evaluate(
-            "Alpine.$data(document.getElementById('event-sticky-cta')).ctaHref"
-        ) == ""
+        assert (
+            page.evaluate(
+                "Alpine.$data(document.getElementById('event-sticky-cta')).ctaHref"
+            )
+            == ""
+        )
 
     page.goto(url)
     assert_blocked()  # No profile/DOB.
@@ -324,7 +326,6 @@ def test_sticky_registration_cta_respects_age_gate(page, live_server, upcoming_e
     page.reload()
     expect(panel).to_have_attribute("data-age-blocked", "false")
     expect(sticky.locator("a")).to_have_attribute("href", re.compile(r".+"))
-
 
 
 def test_sticky_cta_hides_when_real_cta_enters_bottom_of_viewport(

@@ -1,4 +1,5 @@
 """Integration tests for the pre-screening questionnaire views."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -122,15 +123,20 @@ class PreScreeningFormTests(TestCase):
 
     def test_save_section_persists_valid_answers(self):
         url = reverse("crush_lu:pre_screening_save_section", args=["logistics"])
-        resp = self.client.post(url, {
-            "residence": "lu_city",
-            "languages": ["en", "fr"],
-            "age_confirm": "yes",
-            "source": "friend",
-        })
+        resp = self.client.post(
+            url,
+            {
+                "residence": "lu_city",
+                "languages": ["en", "fr"],
+                "age_confirm": "yes",
+                "source": "friend",
+            },
+        )
         self.assertEqual(resp.status_code, 200)
         self.submission.refresh_from_db()
-        self.assertEqual(self.submission.pre_screening_responses["residence"], "lu_city")
+        self.assertEqual(
+            self.submission.pre_screening_responses["residence"], "lu_city"
+        )
         self.assertEqual(
             sorted(self.submission.pre_screening_responses["languages"]),
             ["en", "fr"],
@@ -141,12 +147,15 @@ class PreScreeningFormTests(TestCase):
 
     def test_save_section_returns_oob_progress_and_finalize(self):
         url = reverse("crush_lu:pre_screening_save_section", args=["logistics"])
-        resp = self.client.post(url, {
-            "residence": "lu_city",
-            "languages": ["en"],
-            "age_confirm": "yes",
-            "source": "friend",
-        })
+        resp = self.client.post(
+            url,
+            {
+                "residence": "lu_city",
+                "languages": ["en"],
+                "age_confirm": "yes",
+                "source": "friend",
+            },
+        )
         body = resp.content.decode()
         self.assertIn('hx-swap-oob="outerHTML:#prescreening-progress"', body)
         self.assertIn('hx-swap-oob="outerHTML:#prescreening-finalize"', body)
@@ -178,13 +187,13 @@ class PreScreeningFormTests(TestCase):
             },
         }
         for section_id, payload in section_payloads.items():
-            url = reverse(
-                "crush_lu:pre_screening_save_section", args=[section_id]
-            )
+            url = reverse("crush_lu:pre_screening_save_section", args=[section_id])
             resp = self.client.post(url, payload)
             self.assertEqual(resp.status_code, 200, f"{section_id} save failed")
         self.submission.refresh_from_db()
-        self.assertEqual(self.submission.pre_screening_responses["residence"], "lu_city")
+        self.assertEqual(
+            self.submission.pre_screening_responses["residence"], "lu_city"
+        )
         self.assertEqual(
             self.submission.pre_screening_responses["what_is_crush"], "events"
         )
@@ -196,9 +205,7 @@ class PreScreeningFormTests(TestCase):
         self.assertIsNotNone(self.submission.pre_screening_submitted_at)
 
     def test_save_section_unknown_id_404s(self):
-        url = reverse(
-            "crush_lu:pre_screening_save_section", args=["not-a-section"]
-        )
+        url = reverse("crush_lu:pre_screening_save_section", args=["not-a-section"])
         resp = self.client.post(url, {"residence": "lu_city"})
         self.assertEqual(resp.status_code, 404)
 
@@ -206,12 +213,15 @@ class PreScreeningFormTests(TestCase):
         self.submission.pre_screening_responses = {"source": "friend"}
         self.submission.save(update_fields=["pre_screening_responses"])
         url = reverse("crush_lu:pre_screening_save_section", args=["logistics"])
-        self.client.post(url, {
-            "residence": "lu_esch",
-            "languages": ["de"],
-            "age_confirm": "yes",
-            "source": "social",
-        })
+        self.client.post(
+            url,
+            {
+                "residence": "lu_esch",
+                "languages": ["de"],
+                "age_confirm": "yes",
+                "source": "social",
+            },
+        )
         self.submission.refresh_from_db()
         self.assertEqual(self.submission.pre_screening_responses["source"], "social")
 

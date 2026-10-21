@@ -86,8 +86,7 @@ class Command(BaseCommand):
         if not entry.occurrences:
             return False
         return all(
-            "\\admin\\" in src or "/admin/" in src
-            for src, _line in entry.occurrences
+            "\\admin\\" in src or "/admin/" in src for src, _line in entry.occurrences
         )
 
     def _check_file(self, path, lang, filename, options):
@@ -109,9 +108,7 @@ class Command(BaseCommand):
         admin_count = len([e for e in po if not e.obsolete and self._is_admin_only(e)])
 
         self.stdout.write("")
-        self.stdout.write(
-            self.style.HTTP_INFO(f"=== {lang.upper()} / {filename} ===")
-        )
+        self.stdout.write(self.style.HTTP_INFO(f"=== {lang.upper()} / {filename} ==="))
         self.stdout.write(f"  Total customer-facing entries: {total}")
         self.stdout.write(f"  Admin-only entries (excluded): {admin_count}")
         self.stdout.write(
@@ -121,16 +118,16 @@ class Command(BaseCommand):
         )
         if not options["no_fuzzy"]:
             self.stdout.write(
-                self.style.WARNING(f"  Fuzzy: {len(fuzzy)}")
-                if fuzzy
-                else "  Fuzzy: 0"
+                self.style.WARNING(f"  Fuzzy: {len(fuzzy)}") if fuzzy else "  Fuzzy: 0"
             )
         self.stdout.write(
             self.style.WARNING(f"  Emoji not in msgid: {len(emoji)}")
             if emoji
             else "  Emoji not in msgid: 0"
         )
-        translated = total - len(untranslated) - (len(fuzzy) if not options["no_fuzzy"] else 0)
+        translated = (
+            total - len(untranslated) - (len(fuzzy) if not options["no_fuzzy"] else 0)
+        )
         pct = (translated / total * 100) if total else 100
         self.stdout.write(f"  Coverage: {pct:.1f}%")
 

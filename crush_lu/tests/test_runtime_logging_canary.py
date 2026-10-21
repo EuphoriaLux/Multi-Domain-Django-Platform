@@ -80,9 +80,7 @@ def test_a_broken_probe_does_not_take_the_request_down(caplog, monkeypatch):
     def _boom(*args, **kwargs):
         raise RuntimeError("no logger provider")
 
-    monkeypatch.setattr(
-        telemetry_config, "attach_otel_logging_handler_to_root", _boom
-    )
+    monkeypatch.setattr(telemetry_config, "attach_otel_logging_handler_to_root", _boom)
 
     calls = []
     middleware = _build(calls)

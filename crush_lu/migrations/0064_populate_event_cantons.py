@@ -5,8 +5,8 @@ from django.db import migrations
 
 def populate_cantons(apps, schema_editor):
     """Set default canton for existing events"""
-    MeetupEvent = apps.get_model('crush_lu', 'MeetupEvent')
-    MeetupEvent.objects.filter(canton='').update(canton='Luxembourg')
+    MeetupEvent = apps.get_model("crush_lu", "MeetupEvent")
+    MeetupEvent.objects.filter(canton="").update(canton="Luxembourg")
 
 
 def reverse_populate(apps, schema_editor):

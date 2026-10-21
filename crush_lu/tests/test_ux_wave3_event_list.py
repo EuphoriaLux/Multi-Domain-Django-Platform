@@ -347,7 +347,6 @@ class EventCardEligibilityChipLabelTests(TestCase):
 
         self.assertContains(response, "Verified members only")
 
-
     def test_private_approved_event_names_profile_gate_not_verification(self):
         event = _make_event(
             title="Private Approved Event",

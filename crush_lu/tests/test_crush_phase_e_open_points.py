@@ -1,4 +1,4 @@
-""""My Crush!" Phase E — the three open points from §11.
+""" "My Crush!" Phase E — the three open points from §11.
 
 Spec: ai-memory-hub/specs/2026-07-21-crush-my-crush-post-event-flow.md
 
@@ -15,6 +15,7 @@ Spec: ai-memory-hub/specs/2026-07-21-crush-my-crush-post-event-flow.md
 
 Run with: pytest crush_lu/tests/test_crush_phase_e_open_points.py -v
 """
+
 import json
 from datetime import date, timedelta
 from io import StringIO
@@ -236,7 +237,8 @@ class TestPoolInTheInbox:
     def test_an_overdue_pool_lead_is_flagged_breached(self):
         coach, lead = self._setup()
         EventConnection.objects.filter(pk=lead.pk).update(
-            requested_at=timezone.now() - EventConnection.CRUSH_LEAD_CALL_SLA
+            requested_at=timezone.now()
+            - EventConnection.CRUSH_LEAD_CALL_SLA
             - timedelta(hours=1)
         )
 
@@ -523,7 +525,9 @@ class TestClaimThenSend:
         a later sweep rather than the reminder being swallowed."""
         _coach, lead = self._due_lead()
 
-        sweep_lead_reminders(notify=lambda c, l: {"success": 0, "failed": 1, "total": 1})
+        sweep_lead_reminders(
+            notify=lambda c, l: {"success": 0, "failed": 1, "total": 1}
+        )
 
         lead.refresh_from_db()
         assert lead.reminder_sent_at is None
@@ -685,9 +689,7 @@ class TestCoachActionsRacingTheSend:
 
     def test_a_lead_declined_during_the_send_cancels_the_reminder(self):
         _lead_row, result, sent = self._sweep_with_action_during_send(
-            lambda l: EventConnection.objects.filter(pk=l.pk).update(
-                status="declined"
-            )
+            lambda l: EventConnection.objects.filter(pk=l.pk).update(status="declined")
         )
 
         assert sent == []
@@ -864,9 +866,7 @@ class TestMutualCountIsScopedToOwnedCalls:
         coach = _make_coach("pe_mut_coach2@example.com")
         self._mutual_pool_pair(coach)
 
-        items = [
-            i for i in _queue(coach).context["items"] if i["kind"] == "crush_pool"
-        ]
+        items = [i for i in _queue(coach).context["items"] if i["kind"] == "crush_pool"]
 
         assert items
         assert all(i["is_mutual_crush"] for i in items)
@@ -927,9 +927,9 @@ class TestAClaimIsNeverStranded:
             )
 
         lead.refresh_from_db()
-        assert lead.reminder_sent_at is None, (
-            "a stranded stamp excludes this lead from every future sweep"
-        )
+        assert (
+            lead.reminder_sent_at is None
+        ), "a stranded stamp excludes this lead from every future sweep"
         assert result["failed"] == 1
 
     def test_a_raising_release_does_not_abort_the_rest_of_the_batch(self):
@@ -943,8 +943,9 @@ class TestAClaimIsNeverStranded:
         def boom_release(lead_id, stamp):
             raise RuntimeError("still unwell")
 
-        with mock.patch.object(crush_leads, "_claim_still_owed", boom), \
-                mock.patch.object(crush_leads, "_release_claim", boom_release):
+        with mock.patch.object(
+            crush_leads, "_claim_still_owed", boom
+        ), mock.patch.object(crush_leads, "_release_claim", boom_release):
             result = crush_leads.sweep_lead_reminders(
                 notify=lambda c, l: {"success": 1, "failed": 0, "total": 1}
             )
@@ -995,9 +996,7 @@ class TestTheReminderGoesToTheCurrentOwner:
         original = crush_leads._claim_still_owed
 
         def racing_check(lead_id, stamp, coach_id):
-            EventConnection.objects.filter(pk=lead_id).update(
-                assigned_coach=new_coach
-            )
+            EventConnection.objects.filter(pk=lead_id).update(assigned_coach=new_coach)
             return original(lead_id, stamp, coach_id)
 
         def notify(coach, l):
@@ -1026,7 +1025,8 @@ class TestTheReminderGoesToTheCurrentOwner:
 
         crush_leads.sweep_lead_reminders(
             notify=lambda c, l: (
-                notified.append(c.pk), {"success": 1, "failed": 0, "total": 1}
+                notified.append(c.pk),
+                {"success": 1, "failed": 0, "total": 1},
             )[1]
         )
 
@@ -1099,9 +1099,7 @@ class TestBackfillLeavesPoolLeadsAlone:
 
         lead.refresh_from_db()
         assert lead.assigned_coach_id == theirs.pk
-        assert lead.recipient_coach_id is None, (
-            "one coach must not hold both halves"
-        )
+        assert lead.recipient_coach_id is None, "one coach must not hold both halves"
         assert lead.has_active_recipient_coach is False
 
     def test_a_routed_lead_is_still_backfilled(self):
@@ -1297,9 +1295,7 @@ class TestClaimingALeadYouCoCoach:
 
         items = _queue(cocoach).context["items"]
         kinds = [
-            i["kind"]
-            for i in items
-            if i["url_kwargs"].get("connection_id") == lead.pk
+            i["kind"] for i in items if i["url_kwargs"].get("connection_id") == lead.pk
         ]
         assert kinds == ["crush_lead"]
 
@@ -1436,9 +1432,9 @@ class TestTheClaimAuditAppendUsesTheLockedRow:
         lead.refresh_from_db()
         types = [a["type"] for a in lead.system_actions]
         assert "crush_recipient_coach_cleared_on_claim" in types
-        assert "concurrent_entry" in types, (
-            "the append-only trail lost an entry committed before the lock"
-        )
+        assert (
+            "concurrent_entry" in types
+        ), "the append-only trail lost an entry committed before the lock"
 
     def test_the_claim_still_works_without_a_race(self):
         """Positive control."""

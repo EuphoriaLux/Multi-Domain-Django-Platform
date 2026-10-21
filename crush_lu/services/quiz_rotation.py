@@ -563,9 +563,7 @@ def release_table_on_undo(quiz_event, user):
         # door grid counts memberships, so a rotator undone after moving has
         # to decrement the table they checked in at, not the one they had
         # rotated to. Reporting only the current table left both tiles wrong.
-        membership_table_numbers = sorted(
-            m.table.table_number for m in memberships
-        )
+        membership_table_numbers = sorted(m.table.table_number for m in memberships)
         scores_removed = scores.exists()
 
         memberships.delete()
@@ -654,9 +652,7 @@ def generate_rotation_rounds(quiz, from_round=1, preserve_current_round=False):
         # Re-fetch under the row lock so current_round reflects committed
         # state at rebuild time — a concurrent advance_round_and_rotate
         # cannot slip in between this read and the delete below.
-        locked_quiz = (
-            QuizEvent.objects.select_for_update().filter(pk=quiz.pk).first()
-        )
+        locked_quiz = QuizEvent.objects.select_for_update().filter(pk=quiz.pk).first()
         if locked_quiz is None:
             return {
                 "num_tables": 0,
@@ -887,9 +883,7 @@ def get_current_assignment(quiz, user_id):
         }
 
     membership = (
-        QuizTableMembership.objects.filter(
-            table__quiz=quiz, user_id=user_id
-        )
+        QuizTableMembership.objects.filter(table__quiz=quiz, user_id=user_id)
         .select_related("table")
         .first()
     )
@@ -1080,9 +1074,7 @@ def dissolve_table(quiz, table_number):
         raise ValidationError("Invalid table number.")
 
     with transaction.atomic():
-        locked_quiz = (
-            QuizEvent.objects.select_for_update().filter(pk=quiz.pk).first()
-        )
+        locked_quiz = QuizEvent.objects.select_for_update().filter(pk=quiz.pk).first()
         if locked_quiz is None:
             raise ValidationError("Quiz not found.")
         quiz = locked_quiz
@@ -1112,9 +1104,7 @@ def dissolve_table(quiz, table_number):
                 quiz=quiz, table_number=table_number
             )
         except QuizTable.DoesNotExist:
-            raise ValidationError(
-                f"Table {table_number} does not exist on this quiz."
-            )
+            raise ValidationError(f"Table {table_number} does not exist on this quiz.")
 
         # Compute the boundary: keep rounds < current_round_number, drop
         # this table's rows from the current round forward.
@@ -1258,9 +1248,7 @@ def manual_assign_table(quiz, user, table_number):
     with transaction.atomic():
         locked_quiz = QuizEvent.objects.select_for_update().get(pk=quiz.pk)
         if table_number > (locked_quiz.num_tables or 0):
-            raise ValidationError(
-                f"Table {table_number} doesn't exist on this quiz."
-            )
+            raise ValidationError(f"Table {table_number} doesn't exist on this quiz.")
 
         # The target user must be a checked-in attendee for this event.
         # The orphan-list UI already filters to attended, but the endpoint
@@ -1272,18 +1260,14 @@ def manual_assign_table(quiz, user, table_number):
             event=locked_quiz.event, user=user
         ).first()
         if registration is None or registration.status != "attended":
-            raise ValidationError(
-                "User is not a checked-in attendee for this event."
-            )
+            raise ValidationError("User is not a checked-in attendee for this event.")
 
         try:
             table = QuizTable.objects.select_for_update().get(
                 quiz=locked_quiz, table_number=table_number
             )
         except QuizTable.DoesNotExist:
-            raise ValidationError(
-                f"Table {table_number} doesn't exist on this quiz."
-            )
+            raise ValidationError(f"Table {table_number} doesn't exist on this quiz.")
 
         if QuizTableMembership.objects.filter(
             table__quiz=locked_quiz, user=user
@@ -1510,8 +1494,9 @@ def consolidate_tables(quiz, *, apply=False, moves_override=None):
     # Snapshot the round-0 schedule — that's the authoritative seating
     # source used by generate_rotation_rounds to rebuild rounds 1+.
     round_0 = list(
-        QuizRotationSchedule.objects.filter(quiz=quiz, round_number=0)
-        .select_related("table", "user", "user__crushprofile")
+        QuizRotationSchedule.objects.filter(quiz=quiz, round_number=0).select_related(
+            "table", "user", "user__crushprofile"
+        )
     )
     if not round_0:
         raise ValidationError("No attendees to consolidate yet.")
@@ -1525,7 +1510,9 @@ def consolidate_tables(quiz, *, apply=False, moves_override=None):
         2,
         min(
             quiz.num_tables,
-            max(len(anchors), 2),  # need >= 2 even if anchors short — warning will surface
+            max(
+                len(anchors), 2
+            ),  # need >= 2 even if anchors short — warning will surface
             max(len(rotators), 2),
         ),
     )
@@ -1543,10 +1530,7 @@ def consolidate_tables(quiz, *, apply=False, moves_override=None):
 
     excess_round0 = [r for r in round_0 if r.table.table_number > new_num_tables]
 
-    no_change = (
-        new_num_tables == quiz.num_tables
-        and not excess_round0
-    )
+    no_change = new_num_tables == quiz.num_tables and not excess_round0
     if no_change:
         return {
             "changed": False,
@@ -1585,7 +1569,9 @@ def consolidate_tables(quiz, *, apply=False, moves_override=None):
         keeper_role_counts[target][r.role] += 1
         profile = getattr(r.user, "crushprofile", None)
         display_name = (
-            profile.display_name if profile and profile.display_name else r.user.username
+            profile.display_name
+            if profile and profile.display_name
+            else r.user.username
         )
         moves.append(
             {
@@ -1620,13 +1606,9 @@ def consolidate_tables(quiz, *, apply=False, moves_override=None):
             except (KeyError, TypeError, ValueError):
                 raise ValidationError("Invalid moves override format.")
             if uid not in excess_user_ids:
-                raise ValidationError(
-                    f"User {uid} is not on a removed table."
-                )
+                raise ValidationError(f"User {uid} is not on a removed table.")
             if not (1 <= target <= new_num_tables):
-                raise ValidationError(
-                    f"Table {target} is not a valid destination."
-                )
+                raise ValidationError(f"Table {target} is not a valid destination.")
             override_by_user[uid] = target
         missing = excess_user_ids - set(override_by_user)
         if missing:
@@ -1634,9 +1616,7 @@ def consolidate_tables(quiz, *, apply=False, moves_override=None):
                 "Every person on a removed table needs a destination."
             )
         # Rewrite moves + recompute table_sizes_after from the override.
-        new_keeper_role_counts = defaultdict(
-            lambda: {"anchor": 0, "rotator": 0}
-        )
+        new_keeper_role_counts = defaultdict(lambda: {"anchor": 0, "rotator": 0})
         for r in round_0:
             if r.table.table_number <= new_num_tables:
                 new_keeper_role_counts[r.table.table_number][r.role] += 1

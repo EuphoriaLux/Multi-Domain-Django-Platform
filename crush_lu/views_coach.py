@@ -2778,9 +2778,9 @@ def coach_event_detail(request, event_id):
 
     from .services.event_conflicts import event_conflict_pairs
 
-    pairs = event_conflict_pairs(
-        [event], request.coach, viewer=request.user
-    ).get(event.pk, ())
+    pairs = event_conflict_pairs([event], request.coach, viewer=request.user).get(
+        event.pk, ()
+    )
     registrations_by_user = {reg.user_id: reg for reg in all_regs}
 
     # Use the already-loaded roster and its display convention, never contacts.

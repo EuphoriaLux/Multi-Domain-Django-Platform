@@ -35,9 +35,7 @@ def _clean_cache():
 
 @pytest.fixture
 def site():
-    row, _ = Site.objects.update_or_create(
-        domain=HOST, defaults={"name": "Crush.lu"}
-    )
+    row, _ = Site.objects.update_or_create(domain=HOST, defaults={"name": "Crush.lu"})
     return row
 
 

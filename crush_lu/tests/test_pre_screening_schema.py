@@ -1,4 +1,5 @@
 """Unit tests for the pre-screening schema validator and scorer."""
+
 from __future__ import annotations
 
 import pytest
@@ -14,10 +15,10 @@ from crush_lu.pre_screening_schema import (
     validate_pre_screening_responses,
 )
 
-
 # --------------------------------------------------------------------------
 # Fixtures
 # --------------------------------------------------------------------------
+
 
 def _valid_responses(**overrides) -> dict:
     """A complete, valid response set. Override keys to test edge cases."""
@@ -45,6 +46,7 @@ def _valid_responses(**overrides) -> dict:
 # --------------------------------------------------------------------------
 # Schema shape
 # --------------------------------------------------------------------------
+
 
 def test_schema_has_version():
     assert PRE_SCREENING_SCHEMA["version"] >= 1
@@ -75,6 +77,7 @@ def test_get_question_and_section():
 # Validator — happy paths
 # --------------------------------------------------------------------------
 
+
 def test_valid_response_passes():
     validate_pre_screening_responses(_valid_responses(), version=2)
 
@@ -92,6 +95,7 @@ def test_valid_response_without_version():
 # --------------------------------------------------------------------------
 # Validator — error codes
 # --------------------------------------------------------------------------
+
 
 def _error_codes(exc: ValidationError, qid: str) -> list[str]:
     messages = exc.message_dict if hasattr(exc, "message_dict") else {}
@@ -202,6 +206,7 @@ def test_multi_select_wrong_type():
 # Validator — partial / section-scoped saves
 # --------------------------------------------------------------------------
 
+
 def test_partial_mode_skips_required_missing():
     # Only logistics answered; concept/own_words/consents missing.
     resp = {
@@ -243,12 +248,19 @@ def test_non_dict_response_rejected():
 # Scorer
 # --------------------------------------------------------------------------
 
+
 def test_scorer_returns_tuple_and_clips_to_range():
     for resp in [
         _valid_responses(),
-        _valid_responses(coach_attitude="no_intermediary", event_frequency="online_only"),
-        _valid_responses(what_is_crush="tinder", event_frequency="online_only",
-                         coach_attitude="no_intermediary", hoping_to_meet="x"),
+        _valid_responses(
+            coach_attitude="no_intermediary", event_frequency="online_only"
+        ),
+        _valid_responses(
+            what_is_crush="tinder",
+            event_frequency="online_only",
+            coach_attitude="no_intermediary",
+            hoping_to_meet="x",
+        ),
     ]:
         score, flags = compute_readiness_score(resp)
         assert 0 <= score <= 10
@@ -326,6 +338,7 @@ def test_unsure_about_concept_is_positive():
 
 def test_diverse_inputs_always_in_range():
     import random
+
     rng = random.Random(42)
     what_choices = ["events", "tinder", "matchmaking", "unsure"]
     freq_choices = ["weekly", "monthly", "few_per_year", "online_only"]
@@ -348,15 +361,19 @@ def test_diverse_inputs_always_in_range():
 # Score label bucketing
 # --------------------------------------------------------------------------
 
-@pytest.mark.parametrize("score,label", [
-    (None, "pending"),
-    (0, "low"),
-    (4, "low"),
-    (5, "medium"),
-    (7, "medium"),
-    (8, "high"),
-    (10, "high"),
-])
+
+@pytest.mark.parametrize(
+    "score,label",
+    [
+        (None, "pending"),
+        (0, "low"),
+        (4, "low"),
+        (5, "medium"),
+        (7, "medium"),
+        (8, "high"),
+        (10, "high"),
+    ],
+)
 def test_readiness_score_label(score, label):
     assert readiness_score_label(score) == label
 
@@ -365,8 +382,14 @@ def test_readiness_score_label(score, label):
 # Flag descriptions exist for every flag the scorer can emit
 # --------------------------------------------------------------------------
 
+
 def test_every_flag_has_a_description():
     # Enumerate all flag codes the scorer can emit by running it across the
     # canonical worst-case input. Add more here if new flags are introduced.
-    known = {"concept_misalignment", "events_disinterest", "coach_reluctance", "low_effort_text"}
+    known = {
+        "concept_misalignment",
+        "events_disinterest",
+        "coach_reluctance",
+        "low_effort_text",
+    }
     assert set(FLAG_DESCRIPTIONS.keys()) == known

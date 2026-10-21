@@ -8,27 +8,60 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0166_delete_speeddatingpair'),
+        ("crush_lu", "0166_delete_speeddatingpair"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='PhoneOTP',
+            name="PhoneOTP",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('phone_number', models.CharField(max_length=20)),
-                ('code_hash', models.CharField(max_length=128)),
-                ('channel', models.CharField(choices=[('whatsapp', 'WhatsApp'), ('sms', 'SMS')], default='whatsapp', max_length=16)),
-                ('attempts', models.PositiveSmallIntegerField(default=0)),
-                ('consumed', models.BooleanField(default=False, help_text='Set once the code is successfully verified (single-use).')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('expires_at', models.DateTimeField(db_index=True)),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='phone_otps', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("phone_number", models.CharField(max_length=20)),
+                ("code_hash", models.CharField(max_length=128)),
+                (
+                    "channel",
+                    models.CharField(
+                        choices=[("whatsapp", "WhatsApp"), ("sms", "SMS")],
+                        default="whatsapp",
+                        max_length=16,
+                    ),
+                ),
+                ("attempts", models.PositiveSmallIntegerField(default=0)),
+                (
+                    "consumed",
+                    models.BooleanField(
+                        default=False,
+                        help_text="Set once the code is successfully verified (single-use).",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("expires_at", models.DateTimeField(db_index=True)),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="phone_otps",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-created_at'],
-                'indexes': [models.Index(fields=['user', 'channel', 'consumed'], name='crush_lu_ph_user_id_98ea00_idx')],
+                "ordering": ["-created_at"],
+                "indexes": [
+                    models.Index(
+                        fields=["user", "channel", "consumed"],
+                        name="crush_lu_ph_user_id_98ea00_idx",
+                    )
+                ],
             },
         ),
     ]

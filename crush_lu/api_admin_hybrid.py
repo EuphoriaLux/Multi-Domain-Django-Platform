@@ -17,6 +17,7 @@ The work lives *here*, not in the Function, because (a) Python/Django stays
 close to its ORM + model invariants, and (b) the Function layer should be a
 thin scheduler. The contact-sync pattern in production already does this.
 """
+
 from __future__ import annotations
 
 import logging
@@ -30,7 +31,9 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from crush_lu.api_admin_auth import authenticate_admin_request as _authenticate_admin_request
+from crush_lu.api_admin_auth import (
+    authenticate_admin_request as _authenticate_admin_request,
+)
 from crush_lu.api_admin_auth import unauthorized as _unauthorized
 
 logger = logging.getLogger(__name__)
@@ -435,6 +438,7 @@ def _resolve_email_host(request) -> str:
 # Pre-screening invites (reuses existing management command)
 # -------------------------------------------------------------------------
 
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def pre_screening_invites(request):
@@ -468,14 +472,13 @@ def pre_screening_invites(request):
 
     took_ms = int((timezone.now() - started).total_seconds() * 1000)
     logger.info("[pre_screening_invites] took_ms=%d", took_ms)
-    return JsonResponse(
-        {"ok": True, "took_ms": took_ms}, status=202
-    )
+    return JsonResponse({"ok": True, "took_ms": took_ms}, status=202)
 
 
 # -------------------------------------------------------------------------
 # "My Crush!" 24h untouched-lead reminders (spec §6/O8)
 # -------------------------------------------------------------------------
+
 
 @csrf_exempt
 @require_http_methods(["POST"])

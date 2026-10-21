@@ -136,9 +136,7 @@ def send_coach_push_notification(
     # Get the target subscriptions: the caller's pre-filtered set when given,
     # else every enabled device for this coach.
     if subscriptions is None:
-        subscriptions = CoachPushSubscription.objects.filter(
-            coach=coach, enabled=True
-        )
+        subscriptions = CoachPushSubscription.objects.filter(coach=coach, enabled=True)
 
     if not subscriptions.exists():
         logger.info(f"No active push subscriptions for coach {coach.user.username}")

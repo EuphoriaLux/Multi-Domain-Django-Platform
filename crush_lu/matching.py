@@ -124,7 +124,11 @@ def get_western_zodiac(birth_date):
             if (month == sm and day >= sd) or (month == em and day <= ed):
                 return sign
         else:
-            if (month == sm and day >= sd) or (month == em and day <= ed) or (sm < month < em):
+            if (
+                (month == sm and day >= sd)
+                or (month == em and day <= ed)
+                or (sm < month < em)
+            ):
                 return sign
 
     return "capricorn"  # Fallback (shouldn't reach here)
@@ -160,8 +164,18 @@ def compute_western_zodiac_score(dob_a, dob_b):
 # =============================================================================
 
 CHINESE_ANIMALS = [
-    "rat", "ox", "tiger", "rabbit", "dragon", "snake",
-    "horse", "goat", "monkey", "rooster", "dog", "pig",
+    "rat",
+    "ox",
+    "tiger",
+    "rabbit",
+    "dragon",
+    "snake",
+    "horse",
+    "goat",
+    "monkey",
+    "rooster",
+    "dog",
+    "pig",
 ]
 
 CHINESE_ANIMAL_EMOJIS = {
@@ -389,8 +403,12 @@ def compute_age_fit_score(profile_a, profile_b):
     if age_a is None or age_b is None:
         return 0.5
 
-    fit_a = _age_fit_one_direction(age_b, profile_a.preferred_age_min, profile_a.preferred_age_max)
-    fit_b = _age_fit_one_direction(age_a, profile_b.preferred_age_min, profile_b.preferred_age_max)
+    fit_a = _age_fit_one_direction(
+        age_b, profile_a.preferred_age_min, profile_a.preferred_age_max
+    )
+    fit_b = _age_fit_one_direction(
+        age_a, profile_b.preferred_age_min, profile_b.preferred_age_max
+    )
 
     return (fit_a + fit_b) / 2
 
@@ -499,12 +517,22 @@ def passes_hard_filters(profile_a, profile_b):
 
     if age_a is not None and age_b is not None:
         # Check A fits B's range (unless B has default)
-        if not (profile_b.preferred_age_min == 18 and profile_b.preferred_age_max == 99):
-            if age_a < profile_b.preferred_age_min or age_a > profile_b.preferred_age_max:
+        if not (
+            profile_b.preferred_age_min == 18 and profile_b.preferred_age_max == 99
+        ):
+            if (
+                age_a < profile_b.preferred_age_min
+                or age_a > profile_b.preferred_age_max
+            ):
                 return False
         # Check B fits A's range (unless A has default)
-        if not (profile_a.preferred_age_min == 18 and profile_a.preferred_age_max == 99):
-            if age_b < profile_a.preferred_age_min or age_b > profile_a.preferred_age_max:
+        if not (
+            profile_a.preferred_age_min == 18 and profile_a.preferred_age_max == 99
+        ):
+            if (
+                age_b < profile_a.preferred_age_min
+                or age_b > profile_a.preferred_age_max
+            ):
                 return False
 
     return True
@@ -746,9 +774,7 @@ def update_match_scores_for_user(user):
     if deleted:
         logger.info("Deleted %d stale match scores for user %s", deleted, user.pk)
 
-    logger.info(
-        "Updated %d match scores for user %s (pk=%s)", count, user, user.pk
-    )
+    logger.info("Updated %d match scores for user %s (pk=%s)", count, user, user.pk)
     return count
 
 

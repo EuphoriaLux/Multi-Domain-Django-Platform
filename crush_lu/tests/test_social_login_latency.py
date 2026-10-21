@@ -235,9 +235,7 @@ class LuxIDUserinfoSkipTests(TestCase):
             adapter.get_provider.return_value.sociallogin_from_response = (
                 sociallogin_from_response
             )
-            adapter.complete_login(
-                _make_request(), _FakeApp(), token, response={}
-            )
+            adapter.complete_login(_make_request(), _FakeApp(), token, response={})
 
         fetch_userinfo.assert_called_once()
         envelope = sociallogin_from_response.call_args[0][1]
@@ -269,7 +267,9 @@ class LuxIDDiscoveryCacheTests(TestCase):
         with patch.object(
             OpenIDConnectOAuth2Adapter,
             "openid_config",
-            new_callable=lambda: property(lambda self: dict(LuxIDDiscoveryCacheTests.DISCOVERY)),
+            new_callable=lambda: property(
+                lambda self: dict(LuxIDDiscoveryCacheTests.DISCOVERY)
+            ),
         ):
             first = _make_adapter()
             self.assertEqual(first.openid_config["issuer"], "https://login.luxid.lu")
@@ -300,7 +300,9 @@ class LuxIDDiscoveryCacheTests(TestCase):
         with patch.object(
             OpenIDConnectOAuth2Adapter,
             "openid_config",
-            new_callable=lambda: property(lambda self: dict(LuxIDDiscoveryCacheTests.DISCOVERY)),
+            new_callable=lambda: property(
+                lambda self: dict(LuxIDDiscoveryCacheTests.DISCOVERY)
+            ),
         ):
             self.assertEqual(
                 adapter.openid_config["token_endpoint"],
@@ -371,9 +373,7 @@ class LuxIDReloginWriteTests(TestCase):
         sl.token = MagicMock()
         sl.token.token = "fake-token"
         request = _make_request()
-        pre_social_login.send(
-            sender=SocialAccount, request=request, sociallogin=sl
-        )
+        pre_social_login.send(sender=SocialAccount, request=request, sociallogin=sl)
         return request
 
     def test_identical_claims_skip_lock_and_write(self):
@@ -494,9 +494,7 @@ class SocialProviderSaveTests(TestCase):
         with patch(
             "crush_lu.social_photos.refresh_social_photo_cache", return_value=False
         ):
-            pre_social_login.send(
-                sender=SocialAccount, request=request, sociallogin=sl
-            )
+            pre_social_login.send(sender=SocialAccount, request=request, sociallogin=sl)
 
     def test_microsoft_login_does_not_rewrite_profile(self):
         """Microsoft feeds no profile column, so it must not save at all."""
@@ -578,9 +576,7 @@ class SocialPhotoRefreshThrottleTests(TestCase):
 
         account = self._account(provider="microsoft", account_id=101)
 
-        with patch(
-            "crush_lu.social_photos._get_token_for_account", return_value=None
-        ):
+        with patch("crush_lu.social_photos._get_token_for_account", return_value=None):
             self.assertFalse(refresh_social_photo_cache(account))
 
         # Token is back; the refresh must actually run.
@@ -659,9 +655,7 @@ class SocialLoginPreconnectTests(TestCase):
 
     def test_luxid_gets_the_preconnect(self):
         """LuxID is the promoted path and had the slowest callback."""
-        self._add_app(
-            "luxid", settings={"server_url": "https://login-uat.luxid.lu"}
-        )
+        self._add_app("luxid", settings={"server_url": "https://login-uat.luxid.lu"})
         self._add_app("google")
         html = self._render()
 
@@ -677,9 +671,7 @@ class SocialLoginPreconnectTests(TestCase):
 
     def test_luxid_origin_is_read_from_the_socialapp(self):
         """Staging and production must hint different hosts."""
-        self._add_app(
-            "luxid", settings={"server_url": "https://login-uat.luxid.lu"}
-        )
+        self._add_app("luxid", settings={"server_url": "https://login-uat.luxid.lu"})
         html = self._render()
 
         self.assertIn("https://login-uat.luxid.lu", html)
@@ -701,9 +693,7 @@ class SocialLoginPreconnectTests(TestCase):
         """The cheap hint is a harmless belt-and-braces for older browsers."""
         self._add_app("luxid", settings={"server_url": "https://login.luxid.lu"})
         html = self._render()
-        self.assertIn(
-            '<link rel="dns-prefetch" href="https://login.luxid.lu">', html
-        )
+        self.assertIn('<link rel="dns-prefetch" href="https://login.luxid.lu">', html)
 
     def test_broken_app_config_does_not_break_the_page(self):
         """A login page must render even if the hints cannot be computed."""
@@ -817,9 +807,7 @@ class LuxIDDownstreamFanoutTests(TestCase):
             "phone_number": "+352691234567",
             "locale": "fr-FR",
         }
-        with patch(
-            "crush_lu.services.graph_contacts.GraphContactsService"
-        ) as graph:
+        with patch("crush_lu.services.graph_contacts.GraphContactsService") as graph:
             self._login(claims)
         graph.assert_not_called()
 
@@ -837,9 +825,7 @@ class LuxIDDownstreamFanoutTests(TestCase):
     def test_changed_claim_still_reaches_the_profile(self):
         """The fan-out is skipped because nothing changed, not because the
         handler stopped working."""
-        with patch(
-            "crush_lu.services.graph_contacts.GraphContactsService"
-        ):
+        with patch("crush_lu.services.graph_contacts.GraphContactsService"):
             self._login(
                 {
                     "sub": "s",

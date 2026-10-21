@@ -11,7 +11,7 @@ class EventPoll(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     image = models.ImageField(
-        upload_to=crush_upload_path('event-polls'),
+        upload_to=crush_upload_path("event-polls"),
         storage=crush_media_storage,
         blank=True,
         null=True,
@@ -32,7 +32,7 @@ class EventPoll(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['-start_date']
+        ordering = ["-start_date"]
         verbose_name = _("Event Poll")
         verbose_name_plural = _("Event Polls")
 
@@ -60,28 +60,32 @@ class EventPollOption(models.Model):
     """An option within an event poll."""
 
     poll = models.ForeignKey(
-        EventPoll, on_delete=models.CASCADE, related_name='options'
+        EventPoll, on_delete=models.CASCADE, related_name="options"
     )
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     image = models.ImageField(
-        upload_to=crush_upload_path('event-polls/options'),
+        upload_to=crush_upload_path("event-polls/options"),
         storage=crush_media_storage,
         blank=True,
         null=True,
-        help_text=_("Uploaded image (stored in Azure). Use static_image for bundled images."),
+        help_text=_(
+            "Uploaded image (stored in Azure). Use static_image for bundled images."
+        ),
     )
     static_image = models.CharField(
         max_length=100,
         blank=True,
-        help_text=_("Filename in crush_lu/images/event-polls/ (e.g. speeddating.png). Deployed with collectstatic."),
+        help_text=_(
+            "Filename in crush_lu/images/event-polls/ (e.g. speeddating.png). Deployed with collectstatic."
+        ),
     )
     icon = models.CharField(max_length=50, blank=True)
     sort_order = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['sort_order', 'pk']
+        ordering = ["sort_order", "pk"]
         verbose_name = _("Poll Option")
         verbose_name_plural = _("Poll Options")
 
@@ -92,22 +96,20 @@ class EventPollOption(models.Model):
 class EventPollVote(models.Model):
     """A user's vote on a poll option."""
 
-    poll = models.ForeignKey(
-        EventPoll, on_delete=models.CASCADE, related_name='votes'
-    )
+    poll = models.ForeignKey(EventPoll, on_delete=models.CASCADE, related_name="votes")
     option = models.ForeignKey(
-        EventPollOption, on_delete=models.CASCADE, related_name='votes'
+        EventPollOption, on_delete=models.CASCADE, related_name="votes"
     )
     user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='event_poll_votes'
+        User, on_delete=models.CASCADE, related_name="event_poll_votes"
     )
     # Snapshot taken at vote time (profile gender, else the voter's optional
     # answer on the ballot); feeds the public women/men split.
     VOTER_GENDER_CHOICES = [
-        ('F', _("Woman")),
-        ('M', _("Man")),
-        ('O', _("Other")),
-        ('P', _("Prefer not to say")),
+        ("F", _("Woman")),
+        ("M", _("Man")),
+        ("O", _("Other")),
+        ("P", _("Prefer not to say")),
     ]
     voter_gender = models.CharField(
         max_length=1, choices=VOTER_GENDER_CHOICES, blank=True
@@ -115,7 +117,7 @@ class EventPollVote(models.Model):
     voted_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = [('poll', 'user', 'option')]
+        unique_together = [("poll", "user", "option")]
         verbose_name = _("Poll Vote")
         verbose_name_plural = _("Poll Votes")
 
@@ -132,10 +134,10 @@ class EventPollSuggestion(models.Model):
         REJECTED = "rejected", _("Rejected")
 
     poll = models.ForeignKey(
-        EventPoll, on_delete=models.CASCADE, related_name='suggestions'
+        EventPoll, on_delete=models.CASCADE, related_name="suggestions"
     )
     user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='event_poll_suggestions'
+        User, on_delete=models.CASCADE, related_name="event_poll_suggestions"
     )
     text = models.CharField(max_length=200)
     language = models.CharField(max_length=10, blank=True)
@@ -147,12 +149,12 @@ class EventPollSuggestion(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='suggestions',
+        related_name="suggestions",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ["-created_at"]
         verbose_name = _("Poll Suggestion")
         verbose_name_plural = _("Poll Suggestions")
 

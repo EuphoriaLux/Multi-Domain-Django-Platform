@@ -5,17 +5,28 @@ from django.db.models import Q
 from django.contrib.auth.password_validation import validate_password
 from django.utils.translation import gettext_lazy as _
 from allauth.account.forms import SignupForm
-from .models import CrushProfile, CrushCoach, ProfileSubmission, CoachSession, EventRegistration, EventRegistrationPreference, JourneyGift, CallAttempt, EventFeedback, Interest
+from .models import (
+    CrushProfile,
+    CrushCoach,
+    ProfileSubmission,
+    CoachSession,
+    EventRegistration,
+    EventRegistrationPreference,
+    JourneyGift,
+    CallAttempt,
+    EventFeedback,
+    Interest,
+)
 from PIL import Image
 import os
 
 from .utils.image_processing import process_uploaded_image
 
 # Tailwind CSS classes for form inputs (replacing Bootstrap form-control)
-TAILWIND_INPUT = 'form-control'
-TAILWIND_INPUT_LG = 'form-control text-lg'
-TAILWIND_SELECT = 'form-select'
-TAILWIND_TEXTAREA = 'form-control resize-y'
+TAILWIND_INPUT = "form-control"
+TAILWIND_INPUT_LG = "form-control text-lg"
+TAILWIND_SELECT = "form-select"
+TAILWIND_TEXTAREA = "form-control resize-y"
 
 
 class CrushSignupForm(SignupForm):
@@ -23,13 +34,13 @@ class CrushSignupForm(SignupForm):
     Allauth-compatible signup form for Crush.lu
     Extends allauth.account.forms.SignupForm for proper integration with social login
     """
+
     first_name = forms.CharField(
         max_length=30,
         required=True,
-        widget=forms.TextInput(attrs={
-            'placeholder': _('First Name'),
-            'class': TAILWIND_INPUT
-        })
+        widget=forms.TextInput(
+            attrs={"placeholder": _("First Name"), "class": TAILWIND_INPUT}
+        ),
     )
     # Last name stays on the User model for legacy lookups (advent calendar,
     # journey/special-experience matching) but isn't required at signup —
@@ -37,22 +48,21 @@ class CrushSignupForm(SignupForm):
     last_name = forms.CharField(
         max_length=30,
         required=False,
-        widget=forms.TextInput(attrs={
-            'placeholder': _('Last Name (optional)'),
-            'class': TAILWIND_INPUT
-        })
+        widget=forms.TextInput(
+            attrs={"placeholder": _("Last Name (optional)"), "class": TAILWIND_INPUT}
+        ),
     )
 
     # Consent checkboxes
     crushlu_consent = forms.BooleanField(
         required=True,
-        label=_('I agree to the Terms of Service and Privacy Policy'),
-        error_messages={'required': _('You must consent to use Crush.lu services')}
+        label=_("I agree to the Terms of Service and Privacy Policy"),
+        error_messages={"required": _("You must consent to use Crush.lu services")},
     )
 
     marketing_consent = forms.BooleanField(
         required=False,
-        label=_('I consent to receive marketing communications (optional)')
+        label=_("I consent to receive marketing communications (optional)"),
     )
 
     # Set on the form when clean_email() detects a duplicate. The template uses
@@ -74,7 +84,7 @@ class CrushSignupForm(SignupForm):
         Check if email already exists
         This provides better UX than letting it fail during save()
         """
-        email = self.cleaned_data.get('email')
+        email = self.cleaned_data.get("email")
 
         if email:
             # Normalize: strip whitespace and lowercase
@@ -84,8 +94,10 @@ class CrushSignupForm(SignupForm):
         if User.objects.filter(email__iexact=email).exists():
             self.email_taken = True
             raise ValidationError(
-                _('An account with this email already exists. '
-                  'Please login or use a different email address.')
+                _(
+                    "An account with this email already exists. "
+                    "Please login or use a different email address."
+                )
             )
 
         return email
@@ -104,8 +116,8 @@ class CrushSignupForm(SignupForm):
         user = super(CrushSignupForm, self).save(request)
 
         # Update additional fields
-        user.first_name = self.cleaned_data['first_name']
-        user.last_name = self.cleaned_data.get('last_name', '') or ''
+        user.first_name = self.cleaned_data["first_name"]
+        user.last_name = self.cleaned_data.get("last_name", "") or ""
 
         # Note: Don't set username = email after user creation
         # Allauth already handles this via ACCOUNT_USER_MODEL_USERNAME_FIELD setting
@@ -115,11 +127,13 @@ class CrushSignupForm(SignupForm):
 
         # Update consent record (created by signal)
         consent, created = UserDataConsent.objects.get_or_create(user=user)
-        consent.crushlu_consent_given = self.cleaned_data.get('crushlu_consent', False)
+        consent.crushlu_consent_given = self.cleaned_data.get("crushlu_consent", False)
         consent.crushlu_consent_date = timezone.now()
         consent.crushlu_consent_ip = get_client_ip(request)
-        consent.marketing_consent = self.cleaned_data.get('marketing_consent', False)
-        consent.marketing_consent_date = timezone.now() if consent.marketing_consent else None
+        consent.marketing_consent = self.cleaned_data.get("marketing_consent", False)
+        consent.marketing_consent_date = (
+            timezone.now() if consent.marketing_consent else None
+        )
         consent.save()
 
         # Record marketing consent where marketing audiences look for it.
@@ -140,12 +154,14 @@ class CrushProfileForm(forms.ModelForm):
     phone_number = forms.CharField(
         required=True,
         max_length=20,
-        widget=forms.TextInput(attrs={
-            'type': 'tel',
-            'placeholder': '+352 XX XX XX XX',
-            'class': TAILWIND_INPUT_LG
-        }),
-        help_text=_('Required for coach screening and event coordination')
+        widget=forms.TextInput(
+            attrs={
+                "type": "tel",
+                "placeholder": "+352 XX XX XX XX",
+                "class": TAILWIND_INPUT_LG,
+            }
+        ),
+        help_text=_("Required for coach screening and event coordination"),
     )
 
     # Override date_of_birth to ensure correct HTML5 date format. A single
@@ -155,14 +171,10 @@ class CrushProfileForm(forms.ModelForm):
     date_of_birth = forms.DateField(
         required=True,
         widget=forms.DateInput(
-            attrs={
-                'type': 'date',
-                'class': 'input-crush'
-            },
-            format='%Y-%m-%d'
+            attrs={"type": "date", "class": "input-crush"}, format="%Y-%m-%d"
         ),
-        input_formats=['%Y-%m-%d'],
-        help_text=_('Must be 18+ to join')
+        input_formats=["%Y-%m-%d"],
+        help_text=_("Must be 18+ to join"),
     )
 
     # bio/interests DEPRECATED (2026 Event Identity redesign): the free-text
@@ -174,31 +186,31 @@ class CrushProfileForm(forms.ModelForm):
     gender = forms.ChoiceField(
         required=True,
         choices=CrushProfile.GENDER_CHOICES,
-        widget=forms.Select(attrs={'class': TAILWIND_SELECT}),
-        help_text=_('Required')
+        widget=forms.Select(attrs={"class": TAILWIND_SELECT}),
+        help_text=_("Required"),
     )
 
     # Override location with canton-based choices (for interactive map selection)
     # Used with the canton map component - canton_map_svg.html
     LOCATION_CHOICES = [
-        ('', _('Select your region...')),
+        ("", _("Select your region...")),
         # Luxembourg Cantons (12)
-        ('canton-capellen', _('Capellen')),
-        ('canton-clervaux', _('Clervaux')),
-        ('canton-diekirch', _('Diekirch')),
-        ('canton-echternach', _('Echternach')),
-        ('canton-esch', _('Esch-sur-Alzette')),
-        ('canton-grevenmacher', _('Grevenmacher')),
-        ('canton-luxembourg', _('Luxembourg')),
-        ('canton-mersch', _('Mersch')),
-        ('canton-redange', _('Redange')),
-        ('canton-remich', _('Remich')),
-        ('canton-vianden', _('Vianden')),
-        ('canton-wiltz', _('Wiltz')),
+        ("canton-capellen", _("Capellen")),
+        ("canton-clervaux", _("Clervaux")),
+        ("canton-diekirch", _("Diekirch")),
+        ("canton-echternach", _("Echternach")),
+        ("canton-esch", _("Esch-sur-Alzette")),
+        ("canton-grevenmacher", _("Grevenmacher")),
+        ("canton-luxembourg", _("Luxembourg")),
+        ("canton-mersch", _("Mersch")),
+        ("canton-redange", _("Redange")),
+        ("canton-remich", _("Remich")),
+        ("canton-vianden", _("Vianden")),
+        ("canton-wiltz", _("Wiltz")),
         # Border Regions (for cross-border workers)
-        ('border-belgium', _('Belgium (Arlon area)')),
-        ('border-germany', _('Germany (Trier/Saarland area)')),
-        ('border-france', _('France (Thionville/Metz area)')),
+        ("border-belgium", _("Belgium (Arlon area)")),
+        ("border-germany", _("Germany (Trier/Saarland area)")),
+        ("border-france", _("France (Thionville/Metz area)")),
     ]
 
     location = forms.ChoiceField(
@@ -207,45 +219,47 @@ class CrushProfileForm(forms.ModelForm):
         # the users the relaxed model check just let through.
         required=False,
         choices=LOCATION_CHOICES,
-        widget=forms.HiddenInput(attrs={'id': 'id_location'}),
-        help_text=_('Your region in or near Luxembourg')
+        widget=forms.HiddenInput(attrs={"id": "id_location"}),
+        help_text=_("Your region in or near Luxembourg"),
     )
 
     # Trait selection fields (submitted as comma-separated IDs from Alpine.js)
     qualities_ids = forms.CharField(
         required=False,
-        widget=forms.HiddenInput(attrs={'id': 'id_qualities_ids'}),
+        widget=forms.HiddenInput(attrs={"id": "id_qualities_ids"}),
     )
     defects_ids = forms.CharField(
         required=False,
-        widget=forms.HiddenInput(attrs={'id': 'id_defects_ids'}),
+        widget=forms.HiddenInput(attrs={"id": "id_defects_ids"}),
     )
 
     # Event languages (multi-select checkbox field for languages spoken at events)
     event_languages = forms.MultipleChoiceField(
         choices=CrushProfile.EVENT_LANGUAGE_CHOICES,
-        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
         required=True,
-        label=_('Languages for Events'),
-        help_text=_('Select the languages you can speak at events. You will only be able to sign up for events in your selected languages (except Open Format events).'),
+        label=_("Languages for Events"),
+        help_text=_(
+            "Select the languages you can speak at events. You will only be able to sign up for events in your selected languages (except Open Format events)."
+        ),
         error_messages={
-            'required': _('Please select at least one event language.'),
-        }
+            "required": _("Please select at least one event language."),
+        },
     )
 
     class Meta:
         model = CrushProfile
         fields = [
-            'phone_number',  # Move to top - most important
-            'date_of_birth',
-            'gender',
-            'location',
-            'photo_1',
-            'photo_2',
-            'photo_3',
-            'show_full_name',
-            'show_exact_age',
-            'event_languages',
+            "phone_number",  # Move to top - most important
+            "date_of_birth",
+            "gender",
+            "location",
+            "photo_1",
+            "photo_2",
+            "photo_3",
+            "show_full_name",
+            "show_exact_age",
+            "event_languages",
         ]
         # Widgets are defined in field overrides above
 
@@ -255,14 +269,14 @@ class CrushProfileForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # Set initial value for event_languages from JSONField
         if self.instance and self.instance.pk and self.instance.event_languages:
-            self.initial['event_languages'] = self.instance.event_languages
+            self.initial["event_languages"] = self.instance.event_languages
         # Pre-populate trait IDs as comma-separated strings
         if self.instance and self.instance.pk:
-            self.initial['qualities_ids'] = ','.join(
-                str(pk) for pk in self.instance.qualities.values_list('pk', flat=True)
+            self.initial["qualities_ids"] = ",".join(
+                str(pk) for pk in self.instance.qualities.values_list("pk", flat=True)
             )
-            self.initial['defects_ids'] = ','.join(
-                str(pk) for pk in self.instance.defects.values_list('pk', flat=True)
+            self.initial["defects_ids"] = ",".join(
+                str(pk) for pk in self.instance.defects.values_list("pk", flat=True)
             )
         # Native <input type="date"> min/max hints (UX Wave 3 · WP4, finding
         # 3-15): computed per-request, not at class-definition time, so
@@ -271,8 +285,8 @@ class CrushProfileForm(forms.ModelForm):
         self._set_date_of_birth_bounds()
         # Lock gender and date_of_birth for approved profiles
         if self.instance and self.instance.pk and self.instance.is_approved:
-            self.fields['gender'].disabled = True
-            self.fields['date_of_birth'].disabled = True
+            self.fields["gender"].disabled = True
+            self.fields["date_of_birth"].disabled = True
 
     def _set_date_of_birth_bounds(self):
         from datetime import timedelta
@@ -298,26 +312,26 @@ class CrushProfileForm(forms.ModelForm):
         except ValueError:
             # Feb 29 with no leap year 100 years back
             min_dob = today.replace(year=today.year - 100, day=28) + timedelta(days=1)
-        self.fields['date_of_birth'].widget.attrs['max'] = max_dob.isoformat()
-        self.fields['date_of_birth'].widget.attrs['min'] = min_dob.isoformat()
+        self.fields["date_of_birth"].widget.attrs["max"] = max_dob.isoformat()
+        self.fields["date_of_birth"].widget.attrs["min"] = min_dob.isoformat()
 
     def clean_event_languages(self):
         """Ensure event_languages is stored as a list for JSON serialization"""
-        languages = self.cleaned_data.get('event_languages', [])
+        languages = self.cleaned_data.get("event_languages", [])
         # Validate that all selected languages are valid choices
         valid_codes = [code for code, _ in CrushProfile.EVENT_LANGUAGE_CHOICES]
         for lang in languages:
             if lang not in valid_codes:
                 raise forms.ValidationError(
-                    _("Invalid language selection: %(lang)s"),
-                    params={'lang': lang}
+                    _("Invalid language selection: %(lang)s"), params={"lang": lang}
                 )
         return list(languages)
 
     def clean_date_of_birth(self):
-        dob = self.cleaned_data.get('date_of_birth')
+        dob = self.cleaned_data.get("date_of_birth")
         if dob:
             from django.utils import timezone
+
             today = timezone.now().date()
 
             # Prevent future dates
@@ -325,10 +339,16 @@ class CrushProfileForm(forms.ModelForm):
                 raise forms.ValidationError(_("Date of birth cannot be in the future"))
 
             # Calculate age correctly by checking if birthday has occurred this year
-            age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+            age = (
+                today.year
+                - dob.year
+                - ((today.month, today.day) < (dob.month, dob.day))
+            )
 
             if age < 18:
-                raise forms.ValidationError(_("You must be at least 18 years old to join Crush.lu"))
+                raise forms.ValidationError(
+                    _("You must be at least 18 years old to join Crush.lu")
+                )
             if age > 99:
                 raise forms.ValidationError(_("Please enter a valid date of birth"))
         return dob
@@ -337,12 +357,12 @@ class CrushProfileForm(forms.ModelForm):
         """Validate phone number format for Luxembourg and neighboring countries"""
         import re
 
-        phone = self.cleaned_data.get('phone_number')
+        phone = self.cleaned_data.get("phone_number")
         if not phone:
             return phone
 
         # Remove all whitespace and dashes for validation
-        phone_clean = re.sub(r'[\s\-\(\)]', '', phone)
+        phone_clean = re.sub(r"[\s\-\(\)]", "", phone)
 
         # Skip format validation for already-verified phones: the number was
         # validated by Firebase in E.164 format during verification, so we
@@ -351,30 +371,37 @@ class CrushProfileForm(forms.ModelForm):
         # input.value on re-submission.
         if self.instance and self.instance.pk:
             from .models import CrushProfile
+
             try:
                 db_profile = CrushProfile.objects.get(pk=self.instance.pk)
                 if db_profile.phone_verified:
                     # Return the verified phone from DB (normalized E.164)
-                    db_phone_clean = re.sub(r'[\s\-\(\)]', '', db_profile.phone_number)
+                    db_phone_clean = re.sub(r"[\s\-\(\)]", "", db_profile.phone_number)
                     return db_phone_clean
             except CrushProfile.DoesNotExist:
                 pass
 
         # Must start with + for international format
-        if not phone_clean.startswith('+'):
+        if not phone_clean.startswith("+"):
             raise forms.ValidationError(
-                _("Please enter your phone number in international format (e.g., +352 XX XX XX XX)")
+                _(
+                    "Please enter your phone number in international format (e.g., +352 XX XX XX XX)"
+                )
             )
 
         # Valid country codes for Luxembourg and neighboring countries
         # +352 (Luxembourg), +33 (France), +32 (Belgium), +49 (Germany)
-        valid_prefixes = ['+352', '+33', '+32', '+49']
-        has_valid_prefix = any(phone_clean.startswith(prefix) for prefix in valid_prefixes)
+        valid_prefixes = ["+352", "+33", "+32", "+49"]
+        has_valid_prefix = any(
+            phone_clean.startswith(prefix) for prefix in valid_prefixes
+        )
 
         if not has_valid_prefix:
             raise forms.ValidationError(
-                _("Please enter a phone number from Luxembourg (+352), France (+33), "
-                  "Belgium (+32), or Germany (+49)")
+                _(
+                    "Please enter a phone number from Luxembourg (+352), France (+33), "
+                    "Belgium (+32), or Germany (+49)"
+                )
             )
 
         # Check minimum and maximum length (including country code)
@@ -390,7 +417,7 @@ class CrushProfileForm(forms.ModelForm):
             )
 
         # Ensure only digits after the +
-        if not re.match(r'^\+[0-9]+$', phone_clean):
+        if not re.match(r"^\+[0-9]+$", phone_clean):
             raise forms.ValidationError(
                 _("Phone number can only contain digits after the country code.")
             )
@@ -410,6 +437,7 @@ class CrushProfileForm(forms.ModelForm):
             # Existing profile: check phone_verified on the instance
             # Refresh from DB to get latest verification status
             from .models import CrushProfile
+
             try:
                 db_profile = CrushProfile.objects.get(pk=self.instance.pk)
                 phone_verified = db_profile.phone_verified
@@ -419,8 +447,13 @@ class CrushProfileForm(forms.ModelForm):
             # New profile: check if profile was created during phone verification
             # The mark_phone_verified view creates profiles
             # with phone_verified=True before the form is submitted
-            if hasattr(self, 'instance') and hasattr(self.instance, 'user') and self.instance.user:
+            if (
+                hasattr(self, "instance")
+                and hasattr(self.instance, "user")
+                and self.instance.user
+            ):
                 from .models import CrushProfile
+
                 try:
                     db_profile = CrushProfile.objects.get(user=self.instance.user)
                     phone_verified = db_profile.phone_verified
@@ -431,8 +464,10 @@ class CrushProfileForm(forms.ModelForm):
 
         if not phone_verified:
             raise forms.ValidationError(
-                _("You must verify your phone number before submitting your profile. "
-                  "Click the 'Verify' button next to your phone number.")
+                _(
+                    "You must verify your phone number before submitting your profile. "
+                    "Click the 'Verify' button next to your phone number."
+                )
             )
 
         return cleaned_data
@@ -440,22 +475,22 @@ class CrushProfileForm(forms.ModelForm):
     def clean_photo_1(self):
         """Validate photo_1: file size, type, and image content"""
         return self._validate_photo(
-            self._check_photo_upload_limit(self.cleaned_data.get('photo_1'), 'photo_1'),
-            'Photo 1',
+            self._check_photo_upload_limit(self.cleaned_data.get("photo_1"), "photo_1"),
+            "Photo 1",
         )
 
     def clean_photo_2(self):
         """Validate photo_2: file size, type, and image content"""
         return self._validate_photo(
-            self._check_photo_upload_limit(self.cleaned_data.get('photo_2'), 'photo_2'),
-            'Photo 2',
+            self._check_photo_upload_limit(self.cleaned_data.get("photo_2"), "photo_2"),
+            "Photo 2",
         )
 
     def clean_photo_3(self):
         """Validate photo_3: file size, type, and image content"""
         return self._validate_photo(
-            self._check_photo_upload_limit(self.cleaned_data.get('photo_3'), 'photo_3'),
-            'Photo 3',
+            self._check_photo_upload_limit(self.cleaned_data.get("photo_3"), "photo_3"),
+            "Photo 3",
         )
 
     def _check_photo_upload_limit(self, photo, photo_field):
@@ -486,7 +521,11 @@ class CrushProfileForm(forms.ModelForm):
         # Skip validation for existing files (only validate new uploads)
         # This prevents errors when the storage backend can't find existing files
         # (e.g., staging pointing to different container than production)
-        from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
+        from django.core.files.uploadedfile import (
+            InMemoryUploadedFile,
+            TemporaryUploadedFile,
+        )
+
         if not isinstance(photo, (InMemoryUploadedFile, TemporaryUploadedFile)):
             return photo
 
@@ -500,7 +539,7 @@ class CrushProfileForm(forms.ModelForm):
             )
 
         # Check file extension
-        allowed_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif']
+        allowed_extensions = [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"]
         ext = os.path.splitext(photo.name)[1].lower()
         if ext not in allowed_extensions:
             raise ValidationError(
@@ -510,21 +549,30 @@ class CrushProfileForm(forms.ModelForm):
         # Verify MIME type matches actual content (prevents disguised malicious files)
         try:
             import magic
+
             # Read first 2KB for MIME detection
             file_header = photo.read(2048)
             photo.seek(0)  # Reset file pointer
 
             mime = magic.from_buffer(file_header, mime=True)
             allowed_mimes = [
-                'image/jpeg', 'image/png', 'image/webp',
-                'image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence',
-                'image/x-heic', 'image/x-heif',
+                "image/jpeg",
+                "image/png",
+                "image/webp",
+                "image/heic",
+                "image/heif",
+                "image/heic-sequence",
+                "image/heif-sequence",
+                "image/x-heic",
+                "image/x-heif",
             ]
 
             if mime not in allowed_mimes:
                 # Some older libmagic versions detect HEIC/HEIF as generic application/octet-stream.
                 # Allow it if the extension is .heic/.heif; Pillow verify() below strictly validates.
-                if not (mime == 'application/octet-stream' and ext in ('.heic', '.heif')):
+                if not (
+                    mime == "application/octet-stream" and ext in (".heic", ".heif")
+                ):
                     raise ValidationError(
                         f"{field_name} content type ({mime}) does not match allowed image types. "
                         f"Please upload a genuine JPEG, PNG, WebP, or HEIC image."
@@ -581,29 +629,29 @@ class CrushProfileForm(forms.ModelForm):
 
     def _parse_trait_ids(self, field_name):
         """Parse comma-separated IDs into a list of ints."""
-        raw = self.cleaned_data.get(field_name, '')
+        raw = self.cleaned_data.get(field_name, "")
         if not raw or not raw.strip():
             return []
         try:
-            return [int(x.strip()) for x in raw.split(',') if x.strip()]
+            return [int(x.strip()) for x in raw.split(",") if x.strip()]
         except (ValueError, TypeError):
             raise forms.ValidationError(_("Invalid trait selection."))
 
     def clean_qualities_ids(self):
-        ids = self._parse_trait_ids('qualities_ids')
+        ids = self._parse_trait_ids("qualities_ids")
         if ids and len(ids) > self.MAX_TRAITS_PER_CATEGORY:
             raise forms.ValidationError(
                 _("You can select at most %(max)d qualities."),
-                params={'max': self.MAX_TRAITS_PER_CATEGORY},
+                params={"max": self.MAX_TRAITS_PER_CATEGORY},
             )
         return ids
 
     def clean_defects_ids(self):
-        ids = self._parse_trait_ids('defects_ids')
+        ids = self._parse_trait_ids("defects_ids")
         if ids and len(ids) > self.MAX_TRAITS_PER_CATEGORY:
             raise forms.ValidationError(
                 _("You can select at most %(max)d defects."),
-                params={'max': self.MAX_TRAITS_PER_CATEGORY},
+                params={"max": self.MAX_TRAITS_PER_CATEGORY},
             )
         return ids
 
@@ -614,19 +662,19 @@ class CrushProfileForm(forms.ModelForm):
         instance = super().save(commit=commit)
 
         if commit:
-            qualities_ids = self.cleaned_data.get('qualities_ids', [])
-            defects_ids = self.cleaned_data.get('defects_ids', [])
+            qualities_ids = self.cleaned_data.get("qualities_ids", [])
+            defects_ids = self.cleaned_data.get("defects_ids", [])
 
             if qualities_ids:
                 instance.qualities.set(
-                    Trait.objects.filter(pk__in=qualities_ids, trait_type='quality')
+                    Trait.objects.filter(pk__in=qualities_ids, trait_type="quality")
                 )
             else:
                 instance.qualities.clear()
 
             if defects_ids:
                 instance.defects.set(
-                    Trait.objects.filter(pk__in=defects_ids, trait_type='defect')
+                    Trait.objects.filter(pk__in=defects_ids, trait_type="defect")
                 )
             else:
                 instance.defects.clear()
@@ -642,53 +690,52 @@ class CrushProfileForm(forms.ModelForm):
 
 class CrushProfileContactForm(forms.ModelForm):
     """Form to edit profile contact details and location region"""
+
     phone_number = forms.CharField(
         required=True,
         max_length=20,
-        widget=forms.TextInput(attrs={
-            'type': 'tel',
-            'placeholder': '+352 XX XX XX XX',
-            'class': TAILWIND_INPUT_LG
-        }),
-        help_text=_('Required for coach screening and event coordination')
+        widget=forms.TextInput(
+            attrs={
+                "type": "tel",
+                "placeholder": "+352 XX XX XX XX",
+                "class": TAILWIND_INPUT_LG,
+            }
+        ),
+        help_text=_("Required for coach screening and event coordination"),
     )
 
     date_of_birth = forms.DateField(
         required=True,
         widget=forms.DateInput(
-            attrs={
-                'type': 'date',
-                'class': TAILWIND_INPUT
-            },
-            format='%Y-%m-%d'
+            attrs={"type": "date", "class": TAILWIND_INPUT}, format="%Y-%m-%d"
         ),
-        input_formats=['%Y-%m-%d'],
-        help_text=_('Must be 18+ to join')
+        input_formats=["%Y-%m-%d"],
+        help_text=_("Must be 18+ to join"),
     )
 
     gender = forms.ChoiceField(
         required=True,
         choices=CrushProfile.GENDER_CHOICES,
-        widget=forms.Select(attrs={'class': TAILWIND_SELECT}),
-        help_text=_('Required')
+        widget=forms.Select(attrs={"class": TAILWIND_SELECT}),
+        help_text=_("Required"),
     )
 
     location = forms.ChoiceField(
         required=False,
         choices=CrushProfileForm.LOCATION_CHOICES,
-        widget=forms.HiddenInput(attrs={'id': 'id_location'}),
-        help_text=_('Your region in or near Luxembourg')
+        widget=forms.HiddenInput(attrs={"id": "id_location"}),
+        help_text=_("Your region in or near Luxembourg"),
     )
 
     class Meta:
         model = CrushProfile
-        fields = ['phone_number', 'date_of_birth', 'gender', 'location']
+        fields = ["phone_number", "date_of_birth", "gender", "location"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk and self.instance.is_approved:
-            self.fields['gender'].disabled = True
-            self.fields['date_of_birth'].disabled = True
+            self.fields["gender"].disabled = True
+            self.fields["date_of_birth"].disabled = True
 
     # Re-use validations from the main form
     def clean_date_of_birth(self):
@@ -718,34 +765,44 @@ class ProfileReviewForm(forms.ModelForm):
         # "expired" is a system-only terminal state (post-pivot cleanup by the
         # expire_stale_submissions command / admin action) — never a coach
         # decision. Dropping it from the choices also rejects it server-side.
-        self.fields['status'].choices = [
+        self.fields["status"].choices = [
             (value, label)
-            for value, label in self.fields['status'].choices
-            if value != 'expired'
+            for value, label in self.fields["status"].choices
+            if value != "expired"
         ]
 
     class Meta:
         model = ProfileSubmission
-        fields = ['status', 'coach_notes', 'feedback_to_user']
+        fields = ["status", "coach_notes", "feedback_to_user"]
         widgets = {
-            'status': forms.Select(attrs={
-                'class': 'w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 '
-                         'focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors'
-            }),
-            'coach_notes': forms.Textarea(attrs={
-                'rows': 4,
-                'placeholder': _('e.g., Verified identity via video call. Photos match. Genuine interest in dating.'),
-                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 '
-                         'focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors '
-                         'placeholder:text-gray-400'
-            }),
-            'feedback_to_user': forms.Textarea(attrs={
-                'rows': 4,
-                'placeholder': _('e.g., Welcome to Crush.lu! Your profile looks great...'),
-                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 '
-                         'focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors '
-                         'placeholder:text-gray-400'
-            }),
+            "status": forms.Select(
+                attrs={
+                    "class": "w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 "
+                    "focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                }
+            ),
+            "coach_notes": forms.Textarea(
+                attrs={
+                    "rows": 4,
+                    "placeholder": _(
+                        "e.g., Verified identity via video call. Photos match. Genuine interest in dating."
+                    ),
+                    "class": "w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 "
+                    "focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors "
+                    "placeholder:text-gray-400",
+                }
+            ),
+            "feedback_to_user": forms.Textarea(
+                attrs={
+                    "rows": 4,
+                    "placeholder": _(
+                        "e.g., Welcome to Crush.lu! Your profile looks great..."
+                    ),
+                    "class": "w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 "
+                    "focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors "
+                    "placeholder:text-gray-400",
+                }
+            ),
         }
 
 
@@ -754,17 +811,21 @@ class CallAttemptForm(forms.ModelForm):
 
     class Meta:
         model = CallAttempt
-        fields = ['failure_reason', 'notes']
+        fields = ["failure_reason", "notes"]
         widgets = {
-            'failure_reason': forms.Select(attrs={
-                'class': TAILWIND_SELECT,
-                'required': True,
-            }),
-            'notes': forms.Textarea(attrs={
-                'rows': 3,
-                'placeholder': _('e.g., Left voicemail asking to call back...'),
-                'class': TAILWIND_TEXTAREA
-            }),
+            "failure_reason": forms.Select(
+                attrs={
+                    "class": TAILWIND_SELECT,
+                    "required": True,
+                }
+            ),
+            "notes": forms.Textarea(
+                attrs={
+                    "rows": 3,
+                    "placeholder": _("e.g., Left voicemail asking to call back..."),
+                    "class": TAILWIND_TEXTAREA,
+                }
+            ),
         }
 
 
@@ -773,10 +834,12 @@ class CoachSessionForm(forms.ModelForm):
 
     class Meta:
         model = CoachSession
-        fields = ['session_type', 'scheduled_at', 'notes']
+        fields = ["session_type", "scheduled_at", "notes"]
         widgets = {
-            'scheduled_at': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
-            'notes': forms.Textarea(attrs={'rows': 5, 'placeholder': _('Session notes...')}),
+            "scheduled_at": forms.DateTimeInput(attrs={"type": "datetime-local"}),
+            "notes": forms.Textarea(
+                attrs={"rows": 5, "placeholder": _("Session notes...")}
+            ),
         }
 
 
@@ -811,9 +874,7 @@ class EventRegistrationForm(forms.ModelForm):
             "dietary_restrictions": forms.TextInput(
                 attrs={
                     "class": TAILWIND_INPUT,
-                    "placeholder": _(
-                        "e.g., vegetarian, vegan, gluten-free, allergies"
-                    ),
+                    "placeholder": _("e.g., vegetarian, vegan, gluten-free, allergies"),
                 }
             ),
             "bringing_guest": forms.CheckboxInput(
@@ -900,9 +961,7 @@ class EventPreferenceForm(forms.ModelForm):
     # crafted POST carrying preferred_genders=P is rejected server-side instead
     # of surfacing to organisers as a target group.
     TARGET_GENDER_CHOICES = [
-        (code, label)
-        for code, label in CrushProfile.GENDER_CHOICES
-        if code != "P"
+        (code, label) for code, label in CrushProfile.GENDER_CHOICES if code != "P"
     ]
 
     preferred_genders = forms.MultipleChoiceField(
@@ -1045,115 +1104,135 @@ class CrushCoachForm(forms.ModelForm):
     bio_en = forms.CharField(
         required=False,
         max_length=500,
-        widget=forms.Textarea(attrs={
-            'rows': 4,
-            'placeholder': _('Share your coaching philosophy and approach...'),
-            'class': TAILWIND_TEXTAREA
-        }),
-        label=_('Coach Bio (English)'),
-        help_text=_('Tell users about your coaching style and experience (max 500 characters)')
+        widget=forms.Textarea(
+            attrs={
+                "rows": 4,
+                "placeholder": _("Share your coaching philosophy and approach..."),
+                "class": TAILWIND_TEXTAREA,
+            }
+        ),
+        label=_("Coach Bio (English)"),
+        help_text=_(
+            "Tell users about your coaching style and experience (max 500 characters)"
+        ),
     )
 
     specializations_en = forms.CharField(
         required=False,
         max_length=200,
-        widget=forms.TextInput(attrs={
-            'placeholder': _('e.g., Young professionals, Students, 35+, LGBTQ+'),
-            'class': TAILWIND_INPUT
-        }),
-        label=_('Specializations (English)'),
-        help_text=_('What groups or demographics do you specialize in coaching?')
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": _("e.g., Young professionals, Students, 35+, LGBTQ+"),
+                "class": TAILWIND_INPUT,
+            }
+        ),
+        label=_("Specializations (English)"),
+        help_text=_("What groups or demographics do you specialize in coaching?"),
     )
 
     phone_number = forms.CharField(
         required=False,
         max_length=20,
-        widget=forms.TextInput(attrs={
-            'placeholder': _('+352 621 123 456'),
-            'class': TAILWIND_INPUT,
-            'type': 'tel',
-        }),
-        label=_('Phone Number'),
-        help_text=_('Your direct phone number for WhatsApp and calls with users. Leave blank to use the site default.')
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": _("+352 621 123 456"),
+                "class": TAILWIND_INPUT,
+                "type": "tel",
+            }
+        ),
+        label=_("Phone Number"),
+        help_text=_(
+            "Your direct phone number for WhatsApp and calls with users. Leave blank to use the site default."
+        ),
     )
 
     photo = forms.ImageField(
         required=False,
-        widget=forms.FileInput(attrs={
-            'class': TAILWIND_INPUT,
-            'accept': 'image/*'
-        }),
-        help_text=_('Upload a professional photo that users will see')
+        widget=forms.FileInput(attrs={"class": TAILWIND_INPUT, "accept": "image/*"}),
+        help_text=_("Upload a professional photo that users will see"),
     )
 
     spoken_languages = forms.MultipleChoiceField(
         choices=CrushProfile.EVENT_LANGUAGE_CHOICES,
-        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
         required=False,
-        label=_('Spoken Languages'),
-        help_text=_('Which languages can you speak for profile reviews?')
+        label=_("Spoken Languages"),
+        help_text=_("Which languages can you speak for profile reviews?"),
     )
 
     # German translations
     bio_de = forms.CharField(
         required=False,
         max_length=500,
-        widget=forms.Textarea(attrs={
-            'rows': 4,
-            'placeholder': _('Coach bio in German...'),
-            'class': TAILWIND_TEXTAREA
-        }),
-        label=_('Coach Bio (German)'),
-        help_text=_('German translation of your coaching bio')
+        widget=forms.Textarea(
+            attrs={
+                "rows": 4,
+                "placeholder": _("Coach bio in German..."),
+                "class": TAILWIND_TEXTAREA,
+            }
+        ),
+        label=_("Coach Bio (German)"),
+        help_text=_("German translation of your coaching bio"),
     )
 
     specializations_de = forms.CharField(
         required=False,
         max_length=200,
-        widget=forms.TextInput(attrs={
-            'placeholder': _('e.g., Junge Berufstätige, Studenten, 35+'),
-            'class': TAILWIND_INPUT
-        }),
-        label=_('Specializations (German)'),
-        help_text=_('German translation of your specializations')
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": _("e.g., Junge Berufstätige, Studenten, 35+"),
+                "class": TAILWIND_INPUT,
+            }
+        ),
+        label=_("Specializations (German)"),
+        help_text=_("German translation of your specializations"),
     )
 
     # French translations
     bio_fr = forms.CharField(
         required=False,
         max_length=500,
-        widget=forms.Textarea(attrs={
-            'rows': 4,
-            'placeholder': _('Coach bio in French...'),
-            'class': TAILWIND_TEXTAREA
-        }),
-        label=_('Coach Bio (French)'),
-        help_text=_('French translation of your coaching bio')
+        widget=forms.Textarea(
+            attrs={
+                "rows": 4,
+                "placeholder": _("Coach bio in French..."),
+                "class": TAILWIND_TEXTAREA,
+            }
+        ),
+        label=_("Coach Bio (French)"),
+        help_text=_("French translation of your coaching bio"),
     )
 
     specializations_fr = forms.CharField(
         required=False,
         max_length=200,
-        widget=forms.TextInput(attrs={
-            'placeholder': _('e.g., Jeunes professionnels, Étudiants, 35+'),
-            'class': TAILWIND_INPUT
-        }),
-        label=_('Specializations (French)'),
-        help_text=_('French translation of your specializations')
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": _("e.g., Jeunes professionnels, Étudiants, 35+"),
+                "class": TAILWIND_INPUT,
+            }
+        ),
+        label=_("Specializations (French)"),
+        help_text=_("French translation of your specializations"),
     )
 
     class Meta:
         model = CrushCoach
         fields = [
-            'phone_number',
-            'bio_en', 'bio_de', 'bio_fr',
-            'specializations_en', 'specializations_de', 'specializations_fr',
-            'photo', 'spoken_languages',
+            "phone_number",
+            "bio_en",
+            "bio_de",
+            "bio_fr",
+            "specializations_en",
+            "specializations_de",
+            "specializations_fr",
+            "photo",
+            "spoken_languages",
         ]
 
     def clean_spoken_languages(self):
         valid_codes = {code for code, _ in CrushProfile.EVENT_LANGUAGE_CHOICES}
-        languages = self.cleaned_data.get('spoken_languages', [])
+        languages = self.cleaned_data.get("spoken_languages", [])
         return [lang for lang in languages if lang in valid_codes]
 
 
@@ -1226,9 +1305,7 @@ class CoachSettingsForm(forms.ModelForm):
         # mode implies opting into the hybrid pipeline (SLA, self-booking, etc.).
         # Coaches who switch back to spontaneous are taken out of the pipeline.
         instance = super().save(commit=False)
-        instance.hybrid_features_enabled = (
-            instance.working_mode != "spontaneous"
-        )
+        instance.hybrid_features_enabled = instance.working_mode != "spontaneous"
         if commit:
             instance.save()
         return instance
@@ -1285,22 +1362,27 @@ class CrushSetPasswordForm(forms.Form):
     This enables users who signed up with Facebook to also login using
     their email and password, providing a backup login method.
     """
+
     password1 = forms.CharField(
-        label=_('New Password'),
-        widget=forms.PasswordInput(attrs={
-            'class': TAILWIND_INPUT_LG,
-            'placeholder': _('Enter new password'),
-            'autocomplete': 'new-password',
-        }),
-        help_text=_('Your password must be at least 8 characters.')
+        label=_("New Password"),
+        widget=forms.PasswordInput(
+            attrs={
+                "class": TAILWIND_INPUT_LG,
+                "placeholder": _("Enter new password"),
+                "autocomplete": "new-password",
+            }
+        ),
+        help_text=_("Your password must be at least 8 characters."),
     )
     password2 = forms.CharField(
-        label=_('Confirm Password'),
-        widget=forms.PasswordInput(attrs={
-            'class': TAILWIND_INPUT_LG,
-            'placeholder': _('Confirm new password'),
-            'autocomplete': 'new-password',
-        })
+        label=_("Confirm Password"),
+        widget=forms.PasswordInput(
+            attrs={
+                "class": TAILWIND_INPUT_LG,
+                "placeholder": _("Confirm new password"),
+                "autocomplete": "new-password",
+            }
+        ),
     )
 
     def __init__(self, user, *args, **kwargs):
@@ -1309,7 +1391,7 @@ class CrushSetPasswordForm(forms.Form):
 
     def clean_password1(self):
         """Validate password strength using Django's password validators."""
-        password1 = self.cleaned_data.get('password1')
+        password1 = self.cleaned_data.get("password1")
         try:
             validate_password(password1, self.user)
         except ValidationError as e:
@@ -1319,17 +1401,17 @@ class CrushSetPasswordForm(forms.Form):
     def clean(self):
         """Validate that both passwords match."""
         cleaned_data = super().clean()
-        password1 = cleaned_data.get('password1')
-        password2 = cleaned_data.get('password2')
+        password1 = cleaned_data.get("password1")
+        password2 = cleaned_data.get("password2")
 
         if password1 and password2 and password1 != password2:
-            raise forms.ValidationError(_('Passwords do not match.'))
+            raise forms.ValidationError(_("Passwords do not match."))
 
         return cleaned_data
 
     def save(self):
         """Set the user's password."""
-        password = self.cleaned_data['password1']
+        password = self.cleaned_data["password1"]
         self.user.set_password(password)
         self.user.save()
         return self.user
@@ -1341,164 +1423,163 @@ class JourneyGiftForm(forms.ModelForm):
 
     The sender provides personalization details for the Wonderland journey.
     """
+
     recipient_name = forms.CharField(
         max_length=100,
         required=True,
-        widget=forms.TextInput(attrs={
-            'placeholder': _('e.g., Marie, Sunshine'),
-            'class': 'gift-input gift-input-lg'
-        }),
-        label=_('Name/Nickname for the Journey'),
-        help_text=_('This name will be used throughout the journey story. Use any name or nickname you like.')
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": _("e.g., Marie, Sunshine"),
+                "class": "gift-input gift-input-lg",
+            }
+        ),
+        label=_("Name/Nickname for the Journey"),
+        help_text=_(
+            "This name will be used throughout the journey story. Use any name or nickname you like."
+        ),
     )
 
     date_first_met = forms.DateField(
         required=True,
         widget=forms.DateInput(
-            attrs={
-                'type': 'date',
-                'class': 'gift-input gift-input-lg'
-            },
-            format='%Y-%m-%d'
+            attrs={"type": "date", "class": "gift-input gift-input-lg"},
+            format="%Y-%m-%d",
         ),
-        input_formats=['%Y-%m-%d'],
-        label=_('When did you first meet?'),
-        help_text=_('This date will be featured in the journey story.')
+        input_formats=["%Y-%m-%d"],
+        label=_("When did you first meet?"),
+        help_text=_("This date will be featured in the journey story."),
     )
 
     location_first_met = forms.CharField(
         max_length=200,
         required=True,
-        widget=forms.TextInput(attrs={
-            'placeholder': _('e.g., Cafe de Paris, Luxembourg City'),
-            'class': 'gift-input gift-input-lg'
-        }),
-        label=_('Where did you first meet?'),
-        help_text=_('This location will be featured in the journey story.')
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": _("e.g., Cafe de Paris, Luxembourg City"),
+                "class": "gift-input gift-input-lg",
+            }
+        ),
+        label=_("Where did you first meet?"),
+        help_text=_("This location will be featured in the journey story."),
     )
 
     sender_message = forms.CharField(
         required=False,
         max_length=500,
-        widget=forms.Textarea(attrs={
-            'rows': 3,
-            'placeholder': _('Optional: Add a personal note that will be shown when they scan the QR code...'),
-            'class': 'gift-input'
-        }),
-        label=_('Personal Message (Optional)'),
-        help_text=_('This message will be displayed on the gift landing page.')
+        widget=forms.Textarea(
+            attrs={
+                "rows": 3,
+                "placeholder": _(
+                    "Optional: Add a personal note that will be shown when they scan the QR code..."
+                ),
+                "class": "gift-input",
+            }
+        ),
+        label=_("Personal Message (Optional)"),
+        help_text=_("This message will be displayed on the gift landing page."),
     )
 
     recipient_email = forms.EmailField(
         required=False,
-        widget=forms.EmailInput(attrs={
-            'placeholder': _('Optional: their@email.com'),
-            'class': 'gift-input'
-        }),
-        label=_('Recipient Email (Optional)'),
+        widget=forms.EmailInput(
+            attrs={"placeholder": _("Optional: their@email.com"), "class": "gift-input"}
+        ),
+        label=_("Recipient Email (Optional)"),
         help_text=_(
             "We'll email them the gift. Only enter an address if they know "
             "you're sending this."
-        )
+        ),
     )
 
     # Media Upload Fields
     chapter1_image = forms.ImageField(
         required=False,
-        widget=forms.FileInput(attrs={
-            'accept': 'image/*',
-            'class': 'gift-file-input'
-        }),
-        label=_('Photo Puzzle Image'),
-        help_text=_('This image will be revealed as a puzzle in Chapter 1. Recommended: 800x800px square image.')
+        widget=forms.FileInput(attrs={"accept": "image/*", "class": "gift-file-input"}),
+        label=_("Photo Puzzle Image"),
+        help_text=_(
+            "This image will be revealed as a puzzle in Chapter 1. Recommended: 800x800px square image."
+        ),
     )
 
     chapter3_image_1 = forms.ImageField(
         required=False,
-        widget=forms.FileInput(attrs={
-            'accept': 'image/*',
-            'class': 'gift-file-input'
-        }),
-        label=_('Slideshow Photo 1'),
-        help_text=_('First photo for the Chapter 3 slideshow.')
+        widget=forms.FileInput(attrs={"accept": "image/*", "class": "gift-file-input"}),
+        label=_("Slideshow Photo 1"),
+        help_text=_("First photo for the Chapter 3 slideshow."),
     )
 
     chapter3_image_2 = forms.ImageField(
         required=False,
-        widget=forms.FileInput(attrs={
-            'accept': 'image/*',
-            'class': 'gift-file-input'
-        }),
-        label=_('Slideshow Photo 2'),
+        widget=forms.FileInput(attrs={"accept": "image/*", "class": "gift-file-input"}),
+        label=_("Slideshow Photo 2"),
     )
 
     chapter3_image_3 = forms.ImageField(
         required=False,
-        widget=forms.FileInput(attrs={
-            'accept': 'image/*',
-            'class': 'gift-file-input'
-        }),
-        label=_('Slideshow Photo 3'),
+        widget=forms.FileInput(attrs={"accept": "image/*", "class": "gift-file-input"}),
+        label=_("Slideshow Photo 3"),
     )
 
     chapter3_image_4 = forms.ImageField(
         required=False,
-        widget=forms.FileInput(attrs={
-            'accept': 'image/*',
-            'class': 'gift-file-input'
-        }),
-        label=_('Slideshow Photo 4'),
+        widget=forms.FileInput(attrs={"accept": "image/*", "class": "gift-file-input"}),
+        label=_("Slideshow Photo 4"),
     )
 
     chapter3_image_5 = forms.ImageField(
         required=False,
-        widget=forms.FileInput(attrs={
-            'accept': 'image/*',
-            'class': 'gift-file-input'
-        }),
-        label=_('Slideshow Photo 5'),
+        widget=forms.FileInput(attrs={"accept": "image/*", "class": "gift-file-input"}),
+        label=_("Slideshow Photo 5"),
     )
 
     chapter4_video = forms.FileField(
         required=False,
-        widget=forms.FileInput(attrs={
-            'accept': 'video/*',
-            'class': 'gift-file-input'
-        }),
-        label=_('Video Message'),
-        help_text=_('Record a video message for Chapter 4. Formats: MP4, MOV (max 50MB).')
+        widget=forms.FileInput(attrs={"accept": "video/*", "class": "gift-file-input"}),
+        label=_("Video Message"),
+        help_text=_(
+            "Record a video message for Chapter 4. Formats: MP4, MOV (max 50MB)."
+        ),
     )
 
     chapter5_letter_music = forms.FileField(
         required=False,
-        widget=forms.FileInput(attrs={
-            'accept': 'audio/*',
-            'class': 'gift-file-input'
-        }),
-        label=_('Letter Music'),
-        help_text=_('Add background music for the Future Letter (Chapter 5). Formats: MP3, WAV, M4A (max 10MB).')
+        widget=forms.FileInput(attrs={"accept": "audio/*", "class": "gift-file-input"}),
+        label=_("Letter Music"),
+        help_text=_(
+            "Add background music for the Future Letter (Chapter 5). Formats: MP3, WAV, M4A (max 10MB)."
+        ),
     )
 
     class Meta:
         model = JourneyGift
         fields = [
-            'recipient_name', 'date_first_met', 'location_first_met',
-            'sender_message', 'recipient_email',
-            'chapter1_image',
-            'chapter3_image_1', 'chapter3_image_2', 'chapter3_image_3',
-            'chapter3_image_4', 'chapter3_image_5',
-            'chapter4_video', 'chapter5_letter_music'
+            "recipient_name",
+            "date_first_met",
+            "location_first_met",
+            "sender_message",
+            "recipient_email",
+            "chapter1_image",
+            "chapter3_image_1",
+            "chapter3_image_2",
+            "chapter3_image_3",
+            "chapter3_image_4",
+            "chapter3_image_5",
+            "chapter4_video",
+            "chapter5_letter_music",
         ]
 
     def clean_date_first_met(self):
         """Validate that the date is not in the future"""
-        date_met = self.cleaned_data.get('date_first_met')
+        date_met = self.cleaned_data.get("date_first_met")
         if date_met:
             from django.utils import timezone
+
             today = timezone.now().date()
 
             if date_met > today:
-                raise forms.ValidationError(_("The date you first met cannot be in the future"))
+                raise forms.ValidationError(
+                    _("The date you first met cannot be in the future")
+                )
 
         return date_met
 
@@ -1506,44 +1587,64 @@ class JourneyGiftForm(forms.ModelForm):
         """Validate image file size"""
         if image and image.size > max_size_mb * 1024 * 1024:
             raise forms.ValidationError(
-                _("Image file size must be less than %(max_size)s MB.") % {'max_size': max_size_mb}
+                _("Image file size must be less than %(max_size)s MB.")
+                % {"max_size": max_size_mb}
             )
         return image
 
     def clean_chapter1_image(self):
-        return self._validate_image_size(self.cleaned_data.get('chapter1_image'), max_size_mb=5)
+        return self._validate_image_size(
+            self.cleaned_data.get("chapter1_image"), max_size_mb=5
+        )
 
     def clean_chapter3_image_1(self):
-        return self._validate_image_size(self.cleaned_data.get('chapter3_image_1'), max_size_mb=5)
+        return self._validate_image_size(
+            self.cleaned_data.get("chapter3_image_1"), max_size_mb=5
+        )
 
     def clean_chapter3_image_2(self):
-        return self._validate_image_size(self.cleaned_data.get('chapter3_image_2'), max_size_mb=5)
+        return self._validate_image_size(
+            self.cleaned_data.get("chapter3_image_2"), max_size_mb=5
+        )
 
     def clean_chapter3_image_3(self):
-        return self._validate_image_size(self.cleaned_data.get('chapter3_image_3'), max_size_mb=5)
+        return self._validate_image_size(
+            self.cleaned_data.get("chapter3_image_3"), max_size_mb=5
+        )
 
     def clean_chapter3_image_4(self):
-        return self._validate_image_size(self.cleaned_data.get('chapter3_image_4'), max_size_mb=5)
+        return self._validate_image_size(
+            self.cleaned_data.get("chapter3_image_4"), max_size_mb=5
+        )
 
     def clean_chapter3_image_5(self):
-        return self._validate_image_size(self.cleaned_data.get('chapter3_image_5'), max_size_mb=5)
+        return self._validate_image_size(
+            self.cleaned_data.get("chapter3_image_5"), max_size_mb=5
+        )
 
     def clean_chapter5_letter_music(self):
-        audio = self.cleaned_data.get('chapter5_letter_music')
+        audio = self.cleaned_data.get("chapter5_letter_music")
         if audio:
             # Validate file size (10MB max)
             if audio.size > 10 * 1024 * 1024:
-                raise forms.ValidationError(_("Audio file size must be less than 10 MB."))
+                raise forms.ValidationError(
+                    _("Audio file size must be less than 10 MB.")
+                )
 
             # Validate file type by extension, content type, AND magic bytes
-            allowed_extensions = ['.mp3', '.wav', '.m4a', '.aac']
+            allowed_extensions = [".mp3", ".wav", ".m4a", ".aac"]
             allowed_content_types = [
-                'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav',
-                'audio/mp4', 'audio/x-m4a', 'audio/aac'
+                "audio/mpeg",
+                "audio/mp3",
+                "audio/wav",
+                "audio/x-wav",
+                "audio/mp4",
+                "audio/x-m4a",
+                "audio/aac",
             ]
 
-            ext = '.' + audio.name.split('.')[-1].lower() if '.' in audio.name else ''
-            content_type = getattr(audio, 'content_type', '')
+            ext = "." + audio.name.split(".")[-1].lower() if "." in audio.name else ""
+            content_type = getattr(audio, "content_type", "")
 
             # Server-side MIME sniff (Codex P2: filename + content-type are
             # client-controlled; verify actual file contents).
@@ -1551,6 +1652,7 @@ class JourneyGiftForm(forms.ModelForm):
             # validation only rather than 500 on upload.
             try:
                 import magic
+
                 file_header = audio.read(2048)
                 audio.seek(0)
                 sniffed_mime = magic.from_buffer(file_header, mime=True)
@@ -1561,33 +1663,38 @@ class JourneyGiftForm(forms.ModelForm):
                 # magic detection failed — fall back to content-type
                 sniffed_mime = content_type
 
-            if (ext not in allowed_extensions
+            if (
+                ext not in allowed_extensions
                 or content_type not in allowed_content_types
-                or sniffed_mime not in allowed_content_types):
+                or sniffed_mime not in allowed_content_types
+            ):
                 raise forms.ValidationError(
                     _("Invalid audio format. Please use MP3, WAV, or M4A files.")
                 )
         return audio
 
     def clean_chapter4_video(self):
-        video = self.cleaned_data.get('chapter4_video')
+        video = self.cleaned_data.get("chapter4_video")
         if video:
             # Validate file size (50MB max)
             if video.size > 50 * 1024 * 1024:
-                raise forms.ValidationError(_("Video file size must be less than 50 MB."))
+                raise forms.ValidationError(
+                    _("Video file size must be less than 50 MB.")
+                )
 
             # Validate file type by extension, content type, AND magic bytes
-            allowed_extensions = ['.mp4', '.mov', '.m4v']
-            allowed_content_types = ['video/mp4', 'video/quicktime', 'video/x-m4v']
+            allowed_extensions = [".mp4", ".mov", ".m4v"]
+            allowed_content_types = ["video/mp4", "video/quicktime", "video/x-m4v"]
 
-            ext = '.' + video.name.split('.')[-1].lower() if '.' in video.name else ''
-            content_type = getattr(video, 'content_type', '')
+            ext = "." + video.name.split(".")[-1].lower() if "." in video.name else ""
+            content_type = getattr(video, "content_type", "")
 
             # Server-side MIME sniff (Codex P2).
             # Handle missing libmagic gracefully — fall back to extension+content-type
             # validation only rather than 500 on upload.
             try:
                 import magic
+
                 file_header = video.read(2048)
                 video.seek(0)
                 sniffed_mime = magic.from_buffer(file_header, mime=True)
@@ -1598,9 +1705,11 @@ class JourneyGiftForm(forms.ModelForm):
                 # magic detection failed — fall back to content-type
                 sniffed_mime = content_type
 
-            if (ext not in allowed_extensions
+            if (
+                ext not in allowed_extensions
                 or content_type not in allowed_content_types
-                or sniffed_mime not in allowed_content_types):
+                or sniffed_mime not in allowed_content_types
+            ):
                 raise forms.ValidationError(
                     _("Invalid video format. Please use MP4 or MOV files.")
                 )
@@ -1616,27 +1725,30 @@ class InvitationAcceptanceForm(forms.Form):
     - Validates 18+ age requirement
     - Used for external guest invitation acceptance
     """
+
     date_of_birth = forms.DateField(
         required=True,
         widget=forms.DateInput(
             attrs={
-                'type': 'date',
-                'class': TAILWIND_INPUT,
-                'placeholder': 'YYYY-MM-DD',
+                "type": "date",
+                "class": TAILWIND_INPUT,
+                "placeholder": "YYYY-MM-DD",
             },
-            format='%Y-%m-%d'
+            format="%Y-%m-%d",
         ),
-        input_formats=['%Y-%m-%d'],
-        label=_('Date of Birth'),
-        help_text=_('You must be 18+ to join Crush.lu')
+        input_formats=["%Y-%m-%d"],
+        label=_("Date of Birth"),
+        help_text=_("You must be 18+ to join Crush.lu"),
     )
 
     agree_to_terms = forms.BooleanField(
         required=True,
-        label=_('I agree to the Terms of Service and Privacy Policy'),
-        widget=forms.CheckboxInput(attrs={
-            'class': 'w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500'
-        })
+        label=_("I agree to the Terms of Service and Privacy Policy"),
+        widget=forms.CheckboxInput(
+            attrs={
+                "class": "w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500"
+            }
+        ),
     )
 
     def __init__(self, *args, invitation=None, **kwargs):
@@ -1663,7 +1775,7 @@ class InvitationAcceptanceForm(forms.Form):
         """
         from django.utils import timezone
 
-        dob = self.cleaned_data.get('date_of_birth')
+        dob = self.cleaned_data.get("date_of_birth")
         if not dob:
             raise ValidationError(_("Date of birth is required"))
 
@@ -1683,15 +1795,19 @@ class InvitationAcceptanceForm(forms.Form):
 
         # Enforce 18+ requirement
         if age < 18:
-            raise ValidationError(_("You must be at least 18 years old to join Crush.lu"))
+            raise ValidationError(
+                _("You must be at least 18 years old to join Crush.lu")
+            )
 
         return dob
 
     def clean_agree_to_terms(self):
         """Validate that user agreed to terms."""
-        agreed = self.cleaned_data.get('agree_to_terms')
+        agreed = self.cleaned_data.get("agree_to_terms")
         if not agreed:
-            raise ValidationError(_("You must agree to the Terms of Service and Privacy Policy"))
+            raise ValidationError(
+                _("You must agree to the Terms of Service and Privacy Policy")
+            )
         return agreed
 
 
@@ -1831,9 +1947,7 @@ class CrushProfileEventIdentityForm(forms.ModelForm):
         # forms_crush_connect.ConnectLanguagesForm.
         queryset = Interest.objects.filter(is_active=True)
         if self.instance and self.instance.pk:
-            current_ids = list(
-                self.instance.interests_new.values_list("pk", flat=True)
-            )
+            current_ids = list(self.instance.interests_new.values_list("pk", flat=True))
             if current_ids:
                 queryset = Interest.objects.filter(
                     Q(is_active=True) | Q(pk__in=current_ids)

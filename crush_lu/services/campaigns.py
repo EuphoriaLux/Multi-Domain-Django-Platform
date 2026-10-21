@@ -15,6 +15,7 @@ Design constraints (see ai-memory-hub/specs/2026-07-21-crush-campaign-dashboard.
   next tick continues where it stopped.
 - Adding a channel means adding one adapter to ``CHANNEL_ADAPTERS``.
 """
+
 import logging
 import re
 import secrets
@@ -94,9 +95,7 @@ def resolve_campaign_audience(campaign):
     language restriction. Channel-specific consent gates are layered on top
     by each adapter.
     """
-    users = newsletter_service.resolve_audience(
-        campaign.audience, campaign.segment_key
-    )
+    users = newsletter_service.resolve_audience(campaign.audience, campaign.segment_key)
     users = newsletter_service.exclude_banned_users(users)
     users = newsletter_service.exclude_on_break_users(users)
     users = newsletter_service.apply_language_filter(users, campaign.language)
@@ -119,8 +118,8 @@ def _exclude_processed(users, campaign, channel):
     processed_ids = CampaignRecipient.objects.filter(
         campaign=campaign,
         channel=channel,
-        status__in=['pending', 'sent', 'failed', 'skipped'],
-    ).values_list('user_id', flat=True)
+        status__in=["pending", "sent", "failed", "skipped"],
+    ).values_list("user_id", flat=True)
     return users.exclude(id__in=processed_ids)
 
 
@@ -132,7 +131,8 @@ def _is_cancelled(campaign):
     of the click instead of at the end of the batch.
     """
     return Campaign.objects.filter(
-        pk=campaign.pk, status='cancelled',
+        pk=campaign.pk,
+        status="cancelled",
     ).exists()
 
 
@@ -140,27 +140,27 @@ def _substitute_merge_tokens(text, user):
     """Replace supported {token}s in WhatsApp parameter values."""
     return (
         str(text)
-        .replace('{first_name}', user.first_name or '')
-        .replace('{last_name}', user.last_name or '')
-        .replace('{email}', user.email or '')
+        .replace("{first_name}", user.first_name or "")
+        .replace("{last_name}", user.last_name or "")
+        .replace("{email}", user.email or "")
     )
 
 
 # --- Click + UTM tracking ---------------------------------------------------
 
-CLICK_SIGNER_SALT = 'campaign-click'
+CLICK_SIGNER_SALT = "campaign-click"
 
 # The public host the redirect must live on: campaign links land in emails,
 # WhatsApp messages and push payloads, all of which need absolute URLs.
-CLICK_REDIRECT_BASE = 'https://crush.lu'
+CLICK_REDIRECT_BASE = "https://crush.lu"
 
-_HREF_RE = re.compile(r'''href=(["'])(https?://[^"']+)\1''', re.IGNORECASE)
+_HREF_RE = re.compile(r"""href=(["'])(https?://[^"']+)\1""", re.IGNORECASE)
 
 
 # Campaigns sent by their own management command (their audience and email
 # state are not dispatcher-shaped). The timer must never claim them, even while
 # the command holds them in 'sending' so Cancel works.
-MANUAL_ONLY_SLUGS = frozenset({'women_1y'})
+MANUAL_ONLY_SLUGS = frozenset({"women_1y"})
 
 
 def click_signer():
@@ -177,16 +177,21 @@ def _merge_utm_params(url, campaign, channel):
     pairs = parse_qsl(parts.query, keep_blank_values=True)
     present = {key for key, _ in pairs}
     for key, value in (
-        ('utm_source', 'crush.lu'),
-        ('utm_medium', channel),
-        ('utm_campaign', campaign.slug),
+        ("utm_source", "crush.lu"),
+        ("utm_medium", channel),
+        ("utm_campaign", campaign.slug),
     ):
         if key not in present:
             pairs.append((key, value))
-    return urlunsplit((
-        parts.scheme, parts.netloc, parts.path,
-        urlencode(pairs), parts.fragment,
-    ))
+    return urlunsplit(
+        (
+            parts.scheme,
+            parts.netloc,
+            parts.path,
+            urlencode(pairs),
+            parts.fragment,
+        )
+    )
 
 
 def build_tracked_url(url, campaign, channel, user=None):
@@ -202,14 +207,14 @@ def build_tracked_url(url, campaign, channel, user=None):
         channel=channel,
         original_url=url,
         defaults={
-            'token': secrets.token_urlsafe(9),
-            'tracked_url': _merge_utm_params(url, campaign, channel),
+            "token": secrets.token_urlsafe(9),
+            "tracked_url": _merge_utm_params(url, campaign, channel),
         },
     )
     path = reverse(
-        'campaign_click_redirect',
-        urlconf='azureproject.urls_crush',
-        kwargs={'token': link.token},
+        "campaign_click_redirect",
+        urlconf="azureproject.urls_crush",
+        kwargs={"token": link.token},
     )
     redirect_url = f"{CLICK_REDIRECT_BASE}{path}"
     if user is not None:
@@ -227,11 +232,12 @@ def rewrite_html_links(html, campaign, channel, user=None):
     Skips unsubscribe links (they must remain direct and one-click) and URLs
     that are already tracked. ``mailto:`` and same-page anchors never match.
     """
+
     def _replace(match):
         quote_char, url = match.group(1), match.group(2)
         # hrefs are HTML-escaped; work on the real URL and re-escape after.
-        real_url = url.replace('&amp;', '&')
-        if 'unsubscribe' in real_url:
+        real_url = url.replace("&amp;", "&")
+        if "unsubscribe" in real_url:
             return match.group(0)
         if real_url.startswith(f"{CLICK_REDIRECT_BASE}/c/"):
             return match.group(0)
@@ -258,8 +264,8 @@ def _claim_for_send(campaign, channel, user):
             channel=channel,
             user=user,
             defaults={
-                'status': 'pending',
-                'error_message': 'claimed for send',
+                "status": "pending",
+                "error_message": "claimed for send",
             },
         )
 
@@ -270,13 +276,13 @@ class EmailAdapter:
     key = Campaign.CHANNEL_EMAIL
 
     def eligible_users(self, campaign):
-        newsletter = getattr(campaign, 'email_newsletter', None)
+        newsletter = getattr(campaign, "email_newsletter", None)
         if newsletter is None:
             return User.objects.none()
         return newsletter_service.get_newsletter_recipients(newsletter)
 
     def send_batch(self, campaign, limit, deadline=None, stdout=None):
-        newsletter = getattr(campaign, 'email_newsletter', None)
+        newsletter = getattr(campaign, "email_newsletter", None)
         if newsletter is None:
             # Broken invariant (linked newsletter deleted?) — defer rather
             # than report complete, or the campaign would finalize as 'sent'
@@ -284,10 +290,11 @@ class EmailAdapter:
             # campaign the operator can cancel.
             logger.error(
                 "Campaign #%s has the email channel enabled but no linked "
-                "newsletter — deferring the email leg", campaign.pk,
+                "newsletter — deferring the email leg",
+                campaign.pk,
             )
             return BatchResult(interrupted=True, remaining=1)
-        if newsletter.status not in ('draft', 'sending'):
+        if newsletter.status not in ("draft", "sending"):
             # Already finalized (e.g. sent manually) — nothing left to do.
             return BatchResult(remaining=0)
 
@@ -300,39 +307,45 @@ class EmailAdapter:
         ):
             logger.warning(
                 "Campaign #%s: newsletter targeting diverged from the "
-                "campaign — realigning before send", campaign.pk,
+                "campaign — realigning before send",
+                campaign.pk,
             )
             newsletter.audience = campaign.audience
             newsletter.segment_key = campaign.segment_key
             newsletter.language = campaign.language
-            newsletter.save(update_fields=[
-                'audience', 'segment_key', 'language', 'updated_at',
-            ])
+            newsletter.save(
+                update_fields=[
+                    "audience",
+                    "segment_key",
+                    "language",
+                    "updated_at",
+                ]
+            )
 
         result = newsletter_service.send_newsletter(
             newsletter,
             limit=limit,
             stdout=stdout,
             link_rewriter=lambda html, user: rewrite_html_links(
-                html, campaign, self.key, user,
+                html,
+                campaign,
+                self.key,
+                user,
             ),
             # Abort between recipients on cancellation OR when the tick's
             # wall-clock budget is spent — a slow Graph backend (30s/request)
             # could otherwise push 25 sends far past the gunicorn timeout.
             should_abort=lambda: (
                 _is_cancelled(campaign)
-                or (
-                    deadline is not None
-                    and time_module.monotonic() > deadline
-                )
+                or (deadline is not None and time_module.monotonic() > deadline)
             ),
         )
         return BatchResult(
-            sent=result['sent'],
-            failed=result['failed'],
-            skipped=result['skipped'],
-            remaining=result.get('remaining', 0),
-            interrupted=result.get('aborted', False),
+            sent=result["sent"],
+            failed=result["failed"],
+            skipped=result["skipped"],
+            remaining=result.get("remaining", 0),
+            interrupted=result.get("aborted", False),
         )
 
 
@@ -353,14 +366,12 @@ class WhatsAppAdapter:
             return campaign.created_by
         return (
             User.objects.filter(is_superuser=True, is_active=True)
-            .order_by('pk')
+            .order_by("pk")
             .first()
         )
 
     def eligible_users(self, campaign):
-        return _exclude_processed(
-            self.channel_audience(campaign), campaign, self.key
-        )
+        return _exclude_processed(self.channel_audience(campaign), campaign, self.key)
 
     @staticmethod
     def still_reachable(user):
@@ -377,7 +388,7 @@ class WhatsAppAdapter:
             CrushProfile.objects.filter(
                 user_id=user.pk, phone_verified=True, not_on_whatsapp=False
             )
-            .exclude(phone_number='')
+            .exclude(phone_number="")
             .exists()
         )
 
@@ -393,21 +404,21 @@ class WhatsAppAdapter:
         opted_in_ids = EmailPreference.objects.filter(
             whatsapp_opt_in=True,
             unsubscribed_all=False,
-        ).values_list('user_id', flat=True)
+        ).values_list("user_id", flat=True)
         users = users.filter(id__in=opted_in_ids)
         # Sendable number: verified, present, and not flagged off-WhatsApp
         # (queryset form of services.whatsapp.can_send_whatsapp).
         users = users.filter(
             crushprofile__phone_verified=True,
             crushprofile__not_on_whatsapp=False,
-        ).exclude(crushprofile__phone_number='')
+        ).exclude(crushprofile__phone_number="")
         return users
 
     def send_batch(self, campaign, limit, deadline=None, stdout=None):
         from hub.whatsapp_service import send_whatsapp_template
 
         users = self.eligible_users(campaign)
-        user_ids = list(users.values_list('id', flat=True)[:limit])
+        user_ids = list(users.values_list("id", flat=True)[:limit])
 
         result = BatchResult()
         sender = self._resolve_sender(campaign)
@@ -443,12 +454,12 @@ class WhatsAppAdapter:
             # dozens of COUNT queries each time).
             if not self.still_reachable(user):
                 continue
-            profile = getattr(user, 'crushprofile', None)
-            lang = get_user_preferred_language(user=user, default='en')
+            profile = getattr(user, "crushprofile", None)
+            lang = get_user_preferred_language(user=user, default="en")
             parameters = {}
             for key, value in (campaign.whatsapp_parameters or {}).items():
                 value = _substitute_merge_tokens(value, user)
-                if value.startswith(('http://', 'https://')):
+                if value.startswith(("http://", "https://")):
                     value = build_tracked_url(value, campaign, self.key, user)
                 parameters[key] = value
 
@@ -459,7 +470,7 @@ class WhatsAppAdapter:
             if claimed is None:
                 continue  # consent gone: no row may link this user any more
             claim, created = claimed
-            if not created and claim.status != 'pending':
+            if not created and claim.status != "pending":
                 continue  # processed by a concurrent tick
 
             # Final reachability check and fresh number, immediately before the
@@ -471,7 +482,7 @@ class WhatsAppAdapter:
                 continue
             phone = (
                 CrushProfile.objects.filter(user_id=user.pk)
-                .values_list('phone_number', flat=True)
+                .values_list("phone_number", flat=True)
                 .first()
             )
 
@@ -486,28 +497,27 @@ class WhatsAppAdapter:
             except Exception as exc:  # noqa: BLE001 — record and continue
                 logger.exception(
                     "Campaign #%s WhatsApp send crashed for user %s",
-                    campaign.pk, user_id,
+                    campaign.pk,
+                    user_id,
                 )
-                self._record(campaign, user, 'failed', error=str(exc)[:500])
+                self._record(campaign, user, "failed", error=str(exc)[:500])
                 result.failed += 1
                 continue
 
             if message.status == message.Status.SENT:
-                self._record(campaign, user, 'sent', message=message)
+                self._record(campaign, user, "sent", message=message)
                 result.sent += 1
             else:
-                error = ''
+                error = ""
                 if message.status_history:
-                    error = message.status_history[-1].get('error_message', '')
-                self._record(
-                    campaign, user, 'failed', message=message, error=error
-                )
+                    error = message.status_history[-1].get("error_message", "")
+                self._record(campaign, user, "failed", message=message, error=error)
                 result.failed += 1
 
         result.remaining = self.eligible_users(campaign).count()
         return result
 
-    def _record(self, campaign, user, status, message=None, error=''):
+    def _record(self, campaign, user, status, message=None, error=""):
         # One transaction with the consent row lock (as in write_receipt): the
         # lock covers only this DB write after the provider returned, never the
         # provider call. If deletion committed first, the message is sanitised
@@ -515,28 +525,28 @@ class WhatsAppAdapter:
         with transaction.atomic():
             if not newsletter_service.locked_consent_holds(user):
                 if message is not None:
-                    message.recipient = ''
+                    message.recipient = ""
                     message.parameters = {}
                     message.status_history = []
                     message.save(
-                        update_fields=['recipient', 'parameters', 'status_history']
+                        update_fields=["recipient", "parameters", "status_history"]
                     )
                 # Consent is gone: never create a receipt (a profile-only
                 # deletion severs these links and a late writer must not
                 # restore one); blank an existing row's error text only.
                 CampaignRecipient.objects.filter(
                     campaign=campaign, channel=self.key, user=user
-                ).update(error_message='')
+                ).update(error_message="")
                 return
             CampaignRecipient.objects.update_or_create(
                 campaign=campaign,
                 channel=self.key,
                 user=user,
                 defaults={
-                    'status': status,
-                    'sent_at': timezone.now() if status == 'sent' else None,
-                    'error_message': error,
-                    'whatsapp_message': message,
+                    "status": status,
+                    "sent_at": timezone.now() if status == "sent" else None,
+                    "error_message": error,
+                    "whatsapp_message": message,
                 },
             )
 
@@ -547,9 +557,7 @@ class PushAdapter:
     key = Campaign.CHANNEL_PUSH
 
     def eligible_users(self, campaign):
-        return _exclude_processed(
-            self.channel_audience(campaign), campaign, self.key
-        )
+        return _exclude_processed(self.channel_audience(campaign), campaign, self.key)
 
     @staticmethod
     def still_reachable(user):
@@ -557,9 +565,7 @@ class PushAdapter:
         return (
             newsletter_service.has_current_consent(user)
             and not newsletter_service.is_on_break(user)
-            and PushSubscription.objects.filter(
-                user_id=user.pk, enabled=True
-            ).exists()
+            and PushSubscription.objects.filter(user_id=user.pk, enabled=True).exists()
         )
 
     def channel_audience(self, campaign):
@@ -571,20 +577,20 @@ class PushAdapter:
         from crush_lu.push_notifications import send_push_notification
 
         users = self.eligible_users(campaign)
-        user_ids = list(users.values_list('id', flat=True)[:limit])
+        user_ids = list(users.values_list("id", flat=True)[:limit])
 
         result = BatchResult()
         if user_ids and not (
-            getattr(settings, 'VAPID_PRIVATE_KEY', '')
-            and getattr(settings, 'VAPID_PUBLIC_KEY', '')
+            getattr(settings, "VAPID_PRIVATE_KEY", "")
+            and getattr(settings, "VAPID_PUBLIC_KEY", "")
         ):
             # Config failure, not an empty audience: send_push_notification
             # would zero out every user and this batch would record them all
             # as skipped, letting the campaign finalize as 'sent' without a
             # single push attempted. Defer instead so a config fix resumes it.
             logger.error(
-                "Campaign #%s push batch deferred: VAPID keys are not "
-                "configured", campaign.pk,
+                "Campaign #%s push batch deferred: VAPID keys are not " "configured",
+                campaign.pk,
             )
             result.interrupted = True
             result.remaining = users.count()
@@ -607,7 +613,7 @@ class PushAdapter:
             # dozens of COUNT queries each time).
             if not self.still_reachable(user):
                 continue
-            lang = get_user_preferred_language(user=user, default='en')
+            lang = get_user_preferred_language(user=user, default="en")
 
             # Durable pre-send claim (same pattern as WhatsApp): a worker
             # dying after delivery but before the receipt lands must not
@@ -616,7 +622,7 @@ class PushAdapter:
             if claimed is None:
                 continue  # consent gone: no row may link this user any more
             claim, created = claimed
-            if not created and claim.status != 'pending':
+            if not created and claim.status != "pending":
                 continue  # processed by a concurrent tick
 
             try:
@@ -635,30 +641,35 @@ class PushAdapter:
                     title,
                     body,
                     url=self.build_push_url(campaign, user),
-                    tag=f'campaign-{campaign.slug}',
+                    tag=f"campaign-{campaign.slug}",
                 )
             except Exception as exc:  # noqa: BLE001 — record and continue
                 logger.exception(
                     "Campaign #%s push send crashed for user %s",
-                    campaign.pk, user_id,
+                    campaign.pk,
+                    user_id,
                 )
-                self._record(campaign, user, 'failed', error=str(exc)[:500])
+                self._record(campaign, user, "failed", error=str(exc)[:500])
                 result.failed += 1
                 continue
 
-            if outcome.get('success', 0) > 0:
-                self._record(campaign, user, 'sent')
+            if outcome.get("success", 0) > 0:
+                self._record(campaign, user, "sent")
                 result.sent += 1
-            elif outcome.get('total', 0) == 0:
+            elif outcome.get("total", 0) == 0:
                 self._record(
-                    campaign, user, 'skipped',
-                    error='No active push subscriptions',
+                    campaign,
+                    user,
+                    "skipped",
+                    error="No active push subscriptions",
                 )
                 result.skipped += 1
             else:
                 self._record(
-                    campaign, user, 'failed',
-                    error='All push subscriptions failed',
+                    campaign,
+                    user,
+                    "failed",
+                    error="All push subscriptions failed",
                 )
                 result.failed += 1
 
@@ -667,26 +678,29 @@ class PushAdapter:
 
     def build_push_url(self, campaign, user):
         return build_tracked_url(
-            campaign.push_url or '/', campaign, self.key, user,
+            campaign.push_url or "/",
+            campaign,
+            self.key,
+            user,
         )
 
-    def _record(self, campaign, user, status, error=''):
+    def _record(self, campaign, user, status, error=""):
         # Same locked-consent write as the WhatsApp adapter (lock around the DB
         # write only); error text is dropped once consent is gone.
         with transaction.atomic():
             if not newsletter_service.locked_consent_holds(user):
                 CampaignRecipient.objects.filter(
                     campaign=campaign, channel=self.key, user=user
-                ).update(error_message='')
+                ).update(error_message="")
                 return
             CampaignRecipient.objects.update_or_create(
                 campaign=campaign,
                 channel=self.key,
                 user=user,
                 defaults={
-                    'status': status,
-                    'sent_at': timezone.now() if status == 'sent' else None,
-                    'error_message': error,
+                    "status": status,
+                    "sent_at": timezone.now() if status == "sent" else None,
+                    "error_message": error,
                 },
             )
 
@@ -703,7 +717,7 @@ DEFAULT_TICK_LIMITS = {
 }
 
 
-def estimate_campaign(audience, segment_key='', language='all', channels=None):
+def estimate_campaign(audience, segment_key="", language="all", channels=None):
     """Per-channel eligible counts for the composer's live estimate.
 
     Uses transient (unsaved) Campaign/Newsletter instances so the exact
@@ -724,28 +738,41 @@ def estimate_campaign(audience, segment_key='', language='all', channels=None):
     for channel in channels:
         if channel == Campaign.CHANNEL_EMAIL:
             newsletter = Newsletter(
-                audience=audience, segment_key=segment_key, language=language,
+                audience=audience,
+                segment_key=segment_key,
+                language=language,
             )
             ids = set(
-                newsletter_service.get_newsletter_recipients(newsletter)
-                .values_list('id', flat=True)
+                newsletter_service.get_newsletter_recipients(newsletter).values_list(
+                    "id", flat=True
+                )
             )
         else:
             ids = set(
                 CHANNEL_ADAPTERS[channel]
                 .eligible_users(campaign)
-                .values_list('id', flat=True)
+                .values_list("id", flat=True)
             )
         estimate[channel] = len(ids)
         union_ids |= ids
 
-    estimate['reach'] = len(union_ids)
+    estimate["reach"] = len(union_ids)
     return estimate
 
 
-def create_campaign(*, name, channels, audience, segment_key='',
-                    language='all', email_content=None, whatsapp=None,
-                    push=None, created_by=None, scheduled_at=None):
+def create_campaign(
+    *,
+    name,
+    channels,
+    audience,
+    segment_key="",
+    language="all",
+    email_content=None,
+    whatsapp=None,
+    push=None,
+    created_by=None,
+    scheduled_at=None,
+):
     """Create a campaign (and its email-leg Newsletter when email is enabled).
 
     ``email_content`` is a dict of Newsletter field values — plain
@@ -768,16 +795,16 @@ def create_campaign(*, name, channels, audience, segment_key='',
         audience=audience,
         segment_key=segment_key,
         language=language,
-        whatsapp_template_name=(whatsapp or {}).get('template_name', ''),
-        whatsapp_parameters=(whatsapp or {}).get('parameters', {}),
-        push_url=(push or {}).get('url', '/'),
+        whatsapp_template_name=(whatsapp or {}).get("template_name", ""),
+        whatsapp_parameters=(whatsapp or {}).get("parameters", {}),
+        push_url=(push or {}).get("url", "/"),
         created_by=created_by,
-        status='scheduled' if scheduled_at else 'draft',
+        status="scheduled" if scheduled_at else "draft",
         scheduled_at=scheduled_at,
     )
     for field, value in (push or {}).items():
-        if field.startswith(('title', 'body')):
-            setattr(campaign, f'push_{field}', value)
+        if field.startswith(("title", "body")):
+            setattr(campaign, f"push_{field}", value)
     campaign.save()
 
     if Campaign.CHANNEL_EMAIL in channels:
@@ -787,18 +814,21 @@ def create_campaign(*, name, channels, audience, segment_key='',
             segment_key=segment_key,
             language=language,
             created_by=created_by,
-            status='draft',
+            status="draft",
         )
         for field, value in (email_content or {}).items():
             setattr(newsletter, field, value)
         newsletter.save()
 
     snapshot = estimate_campaign(
-        audience, segment_key, language, channels,
+        audience,
+        segment_key,
+        language,
+        channels,
     )
-    snapshot['captured_at'] = timezone.now().isoformat()
+    snapshot["captured_at"] = timezone.now().isoformat()
     campaign.audience_snapshot = snapshot
-    campaign.save(update_fields=['audience_snapshot', 'updated_at'])
+    campaign.save(update_fields=["audience_snapshot", "updated_at"])
     return campaign
 
 
@@ -812,26 +842,28 @@ def _reconcile_unresolved_claims(campaign):
     does the same sweep inside send_newsletter.)
     """
     return CampaignRecipient.objects.filter(
-        campaign=campaign, status='pending',
+        campaign=campaign,
+        status="pending",
     ).update(
-        status='failed',
-        error_message='Unresolved send claim — outcome unknown '
-                      '(worker interrupted mid-send)',
+        status="failed",
+        error_message="Unresolved send claim — outcome unknown "
+        "(worker interrupted mid-send)",
     )
 
 
 def _finalize_status(campaign):
     """Terminal status from persisted per-recipient stats."""
-    totals = campaign.stats['totals']
-    if totals['failed'] == 0:
-        return 'sent'
-    if totals['sent'] > 0:
-        return 'partial'
-    return 'failed'
+    totals = campaign.stats["totals"]
+    if totals["failed"] == 0:
+        return "sent"
+    if totals["sent"] > 0:
+        return "partial"
+    return "failed"
 
 
-def dispatch_campaigns(now=None, limits=None, time_budget=None, stdout=None,
-                       campaign_id=None):
+def dispatch_campaigns(
+    now=None, limits=None, time_budget=None, stdout=None, campaign_id=None
+):
     """Run one bounded dispatch tick. Safe to invoke concurrently.
 
     1. Promote due scheduled campaigns to 'sending'.
@@ -859,10 +891,10 @@ def dispatch_campaigns(now=None, limits=None, time_budget=None, stdout=None,
             stdout.write(msg)
         logger.info(msg)
 
-    due = Campaign.objects.filter(status='scheduled', scheduled_at__lte=now)
+    due = Campaign.objects.filter(status="scheduled", scheduled_at__lte=now)
     if campaign_id is not None:
         due = due.filter(pk=campaign_id)
-    promoted = due.update(status='sending', started_at=now)
+    promoted = due.update(status="sending", started_at=now)
     if promoted:
         log(f"Promoted {promoted} scheduled campaign(s) to sending")
 
@@ -871,16 +903,16 @@ def dispatch_campaigns(now=None, limits=None, time_budget=None, stdout=None,
         dispatch_heartbeat_at__lt=stale_cutoff
     )
     candidate_qs = (
-        Campaign.objects.filter(status='sending')
+        Campaign.objects.filter(status="sending")
         .exclude(slug__in=MANUAL_ONLY_SLUGS)
         .filter(not_claimed)
-        .order_by('started_at', 'created_at')
+        .order_by("started_at", "created_at")
     )
     if campaign_id is not None:
         candidate_qs = candidate_qs.filter(pk=campaign_id)
     candidates = list(candidate_qs)
 
-    summary = {'promoted': promoted, 'campaigns': []}
+    summary = {"promoted": promoted, "campaigns": []}
     for campaign in candidates:
         if time_module.monotonic() > deadline:
             log("Tick budget exhausted; remaining campaigns wait for next tick")
@@ -890,14 +922,14 @@ def dispatch_campaigns(now=None, limits=None, time_budget=None, stdout=None,
 
         # Atomic claim — loses gracefully to a concurrent tick.
         claimed = (
-            Campaign.objects.filter(pk=campaign.pk, status='sending')
+            Campaign.objects.filter(pk=campaign.pk, status="sending")
             .filter(not_claimed)
             .update(dispatch_heartbeat_at=now)
         )
         if not claimed:
             continue
 
-        entry = {'id': campaign.pk, 'name': campaign.name, 'channels': {}}
+        entry = {"id": campaign.pk, "name": campaign.name, "channels": {}}
         all_complete = True
         try:
             for channel in campaign.channels:
@@ -920,11 +952,11 @@ def dispatch_campaigns(now=None, limits=None, time_budget=None, stdout=None,
                     stdout=stdout,
                 )
                 budget[channel] -= result.processed
-                entry['channels'][channel] = {
-                    'sent': result.sent,
-                    'failed': result.failed,
-                    'skipped': result.skipped,
-                    'remaining': result.remaining,
+                entry["channels"][channel] = {
+                    "sent": result.sent,
+                    "failed": result.failed,
+                    "skipped": result.skipped,
+                    "remaining": result.remaining,
                 }
                 if not result.complete:
                     all_complete = False
@@ -946,7 +978,8 @@ def dispatch_campaigns(now=None, limits=None, time_budget=None, stdout=None,
                 # Guarded update: only finalize while still 'sending', so a
                 # cancellation that landed mid-batch is never overwritten.
                 finalized = Campaign.objects.filter(
-                    pk=campaign.pk, status='sending',
+                    pk=campaign.pk,
+                    status="sending",
                 ).update(
                     status=final_status,
                     completed_at=timezone.now(),
@@ -964,7 +997,7 @@ def dispatch_campaigns(now=None, limits=None, time_budget=None, stdout=None,
                 )
             campaign.refresh_from_db()
 
-        entry['status'] = campaign.status
-        summary['campaigns'].append(entry)
+        entry["status"] = campaign.status
+        summary["campaigns"].append(entry)
 
     return summary

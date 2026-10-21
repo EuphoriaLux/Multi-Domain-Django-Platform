@@ -499,33 +499,41 @@ def _build_room_stats_directives(
         top_interests = [
             ("Voyage" if lang == "fr" else ("Reisen" if lang == "de" else "Travel"), 7),
             (
-                "Gastronomie"
-                if lang == "fr"
-                else ("Kochen" if lang == "de" else "Food & Wine"),
+                (
+                    "Gastronomie"
+                    if lang == "fr"
+                    else ("Kochen" if lang == "de" else "Food & Wine")
+                ),
                 5,
             ),
             ("Musique" if lang == "fr" else ("Musik" if lang == "de" else "Music"), 4),
         ]
         top_vibes = [
             (
-                "Détente"
-                if lang == "fr"
-                else ("Entspannt" if lang == "de" else "Chilled"),
+                (
+                    "Détente"
+                    if lang == "fr"
+                    else ("Entspannt" if lang == "de" else "Chilled")
+                ),
                 7,
             ),
             ("Festif" if lang == "fr" else ("Party" if lang == "de" else "Party"), 3),
         ]
         top_defects = [
             (
-                "Retardataire"
-                if lang == "fr"
-                else ("Unpünktlich" if lang == "de" else "Late sleeper"),
+                (
+                    "Retardataire"
+                    if lang == "fr"
+                    else ("Unpünktlich" if lang == "de" else "Late sleeper")
+                ),
                 3,
             ),
             (
-                "Gourmand"
-                if lang == "fr"
-                else ("Naschkatze" if lang == "de" else "Foodie"),
+                (
+                    "Gourmand"
+                    if lang == "fr"
+                    else ("Naschkatze" if lang == "de" else "Foodie")
+                ),
                 4,
             ),
         ]

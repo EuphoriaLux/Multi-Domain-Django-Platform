@@ -422,7 +422,9 @@ def ticket_update(request, pk):
                 ticket.closed_at = now
 
             ticket.save()
-            messages.success(request, _("Ticket %(ref)s updated.") % {"ref": ticket.reference_number})
+            messages.success(
+                request, _("Ticket %(ref)s updated.") % {"ref": ticket.reference_number}
+            )
             return redirect("crm:ticket_detail", pk=ticket.pk)
 
     return redirect("crm:ticket_detail", pk=ticket.pk)

@@ -524,9 +524,11 @@ class TestQuizBlockWarningsFromCheckinAndLowAttendance:
         event = MagicMock(id=7)
         event.quiz.id = 11
 
-        with patch.object(views_checkin, "get_channel_layer", return_value=layer), patch.object(
-            views_checkin, "async_to_sync", side_effect=lambda f: f
-        ), patch("crush_lu.models.quiz.QuizTable") as table_model:
+        with patch.object(
+            views_checkin, "get_channel_layer", return_value=layer
+        ), patch.object(views_checkin, "async_to_sync", side_effect=lambda f: f), patch(
+            "crush_lu.models.quiz.QuizTable"
+        ) as table_model:
             table_model.objects.filter.return_value.first.return_value = None
             views_checkin._broadcast_quiz_table_update(
                 event,
@@ -539,7 +541,10 @@ class TestQuizBlockWarningsFromCheckinAndLowAttendance:
             if call.args[1].get("type") == "quiz.error"
         ]
         assert errors == [
-            ("quiz_11_host", {"type": "quiz.error", "data": {"message": "a blocked pair second"}})
+            (
+                "quiz_11_host",
+                {"type": "quiz.error", "data": {"message": "a blocked pair second"}},
+            )
         ]
 
     def test_start_warnings_reach_the_host_as_one_message(self):
@@ -584,9 +589,9 @@ class TestQuizBlockWarningsFromCheckinAndLowAttendance:
         for man in men:
             for woman in women:
                 UserBlock.objects.create(blocker=man, blocked=woman, reason="other")
-        EventRegistration.objects.filter(
-            event=quiz.event, user=women[-1]
-        ).update(status="confirmed")
+        EventRegistration.objects.filter(event=quiz.event, user=women[-1]).update(
+            status="confirmed"
+        )
 
         released = release_table_on_undo(quiz, women[-1])
 

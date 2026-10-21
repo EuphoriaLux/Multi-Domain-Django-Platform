@@ -10,6 +10,7 @@ Security:
 - Phone number extracted from verified token claims only
 - Firebase UID stored for audit and anti-replay protection
 """
+
 import json
 import logging
 import re
@@ -23,7 +24,11 @@ from django.views.decorators.csrf import csrf_protect
 from django.middleware.csrf import get_token
 
 from django.utils.translation import gettext as _
-from .google_idp_verify import verify_firebase_id_token, get_phone_from_token, get_firebase_uid_from_token
+from .google_idp_verify import (
+    verify_firebase_id_token,
+    get_phone_from_token,
+    get_firebase_uid_from_token,
+)
 from .models import CrushProfile, PhoneOTP
 from .services import whatsapp
 from .decorators import ratelimit
@@ -83,7 +88,7 @@ logger = logging.getLogger(__name__)
 @login_required
 @require_POST
 @csrf_protect
-@ratelimit(key='user', rate='5/15m', method='POST')  # Rate limit phone verification
+@ratelimit(key="user", rate="5/15m", method="POST")  # Rate limit phone verification
 def mark_phone_verified(request):
     """
     Mark phone as verified after verifying Firebase ID token.
@@ -105,17 +110,15 @@ def mark_phone_verified(request):
         payload = json.loads(request.body.decode("utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError) as e:
         logger.warning(f"Invalid JSON in phone verification request: {e}")
-        return JsonResponse({
-            "success": False,
-            "error": _("Invalid JSON format")
-        }, status=400)
+        return JsonResponse(
+            {"success": False, "error": _("Invalid JSON format")}, status=400
+        )
 
     id_token = (payload.get("idToken") or "").strip()
     if not id_token:
-        return JsonResponse({
-            "success": False,
-            "error": _("idToken is required")
-        }, status=400)
+        return JsonResponse(
+            {"success": False, "error": _("idToken is required")}, status=400
+        )
 
     try:
         # Verify token using Google's public keys (no service account needed)
@@ -127,10 +130,13 @@ def mark_phone_verified(request):
             logger.warning(
                 f"Token for user {request.user.id} has no phone_number claim"
             )
-            return JsonResponse({
-                "success": False,
-                "error": _("Token does not contain a verified phone number")
-            }, status=400)
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": _("Token does not contain a verified phone number"),
+                },
+                status=400,
+            )
 
         # Get Firebase UID for audit trail
         firebase_uid = get_firebase_uid_from_token(decoded)
@@ -142,7 +148,7 @@ def mark_phone_verified(request):
             # Create profile if it doesn't exist (shouldn't happen normally)
             # Set preferred language from current request
             preferred_lang = validate_language(
-                getattr(request, 'LANGUAGE_CODE', 'en'), default='en'
+                getattr(request, "LANGUAGE_CODE", "en"), default="en"
             )
             profile = CrushProfile.objects.create(
                 user=request.user,
@@ -158,29 +164,40 @@ def mark_phone_verified(request):
                 f"Phone already verified for user ID: {request.user.id}, "
                 f"returning existing verified status"
             )
-            return JsonResponse({
-                "success": True,
-                "message": _("Your phone number is already verified."),
-                "phone_verified": True,
-                "phone_number": profile.phone_number,
-                "csrfToken": get_token(request),
-            })
+            return JsonResponse(
+                {
+                    "success": True,
+                    "message": _("Your phone number is already verified."),
+                    "phone_verified": True,
+                    "phone_number": profile.phone_number,
+                    "csrfToken": get_token(request),
+                }
+            )
 
         # Check if this phone number is already verified by another profile
-        existing = CrushProfile.objects.filter(
-            phone_number=phone_number,
-            phone_verified=True,
-        ).exclude(pk=profile.pk).exists()
+        existing = (
+            CrushProfile.objects.filter(
+                phone_number=phone_number,
+                phone_verified=True,
+            )
+            .exclude(pk=profile.pk)
+            .exists()
+        )
         if existing:
             logger.warning(
                 "Phone already in use by another profile (user ID: %s)",
                 request.user.id,
             )
-            return JsonResponse({
-                "success": False,
-                "error": _("This phone number is already associated with another account."),
-                "error_code": "phone_already_in_use",
-            }, status=409)
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": _(
+                        "This phone number is already associated with another account."
+                    ),
+                    "error_code": "phone_already_in_use",
+                },
+                status=409,
+            )
 
         # Update profile with verified phone
         profile.phone_number = phone_number
@@ -188,49 +205,63 @@ def mark_phone_verified(request):
         profile.phone_verified_at = timezone.now()
         profile.phone_verification_uid = firebase_uid
         try:
-            profile.save(update_fields=[
-                "phone_number",
-                "phone_verified",
-                "phone_verified_at",
-                "phone_verification_uid"
-            ])
+            profile.save(
+                update_fields=[
+                    "phone_number",
+                    "phone_verified",
+                    "phone_verified_at",
+                    "phone_verification_uid",
+                ]
+            )
         except IntegrityError:
             # Race condition: another request verified this phone between check and save
             logger.warning(
                 "IntegrityError: phone already in use (race condition, user ID: %s)",
                 request.user.id,
             )
-            return JsonResponse({
-                "success": False,
-                "error": _("This phone number is already associated with another account."),
-                "error_code": "phone_already_in_use",
-            }, status=409)
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": _(
+                        "This phone number is already associated with another account."
+                    ),
+                    "error_code": "phone_already_in_use",
+                },
+                status=409,
+            )
 
         # Log without phone number (avoid clear-text PII - even redacted)
-        logger.info(
-            f"Phone verified for user ID: {request.user.id}"
+        logger.info(f"Phone verified for user ID: {request.user.id}")
+
+        return JsonResponse(
+            {
+                "success": True,
+                "message": _("Phone number verified successfully"),
+                "phone_verified": True,
+                "phone_number": phone_number,
+                "csrfToken": get_token(request),
+            }
         )
 
-        return JsonResponse({
-            "success": True,
-            "message": _("Phone number verified successfully"),
-            "phone_verified": True,
-            "phone_number": phone_number,
-            "csrfToken": get_token(request),
-        })
-
     except Exception as e:
-        logger.error("Phone verification failed for user %s: %s", request.user.id, type(e).__name__)
-        return JsonResponse({
-            "success": False,
-            "error": _("Phone verification failed. Please try again.")
-        }, status=500)
+        logger.error(
+            "Phone verification failed for user %s: %s",
+            request.user.id,
+            type(e).__name__,
+        )
+        return JsonResponse(
+            {
+                "success": False,
+                "error": _("Phone verification failed. Please try again."),
+            },
+            status=500,
+        )
 
 
 @login_required
 @require_POST
 @csrf_protect
-@ratelimit(key='user', rate='10/m', method='POST')
+@ratelimit(key="user", rate="10/m", method="POST")
 def check_phone_available(request):
     """
     Check if a phone number is available (not already verified by another user).
@@ -245,28 +276,41 @@ def check_phone_available(request):
     """
     try:
         data = json.loads(request.body)
-        phone_number = data.get('phone_number', '').strip()
+        phone_number = data.get("phone_number", "").strip()
     except (json.JSONDecodeError, AttributeError):
-        return JsonResponse({"available": False, "error": _("Invalid request")}, status=400)
+        return JsonResponse(
+            {"available": False, "error": _("Invalid request")}, status=400
+        )
 
     if not phone_number:
-        return JsonResponse({"available": False, "error": _("Phone number is required")}, status=400)
+        return JsonResponse(
+            {"available": False, "error": _("Phone number is required")}, status=400
+        )
 
     # Normalize: remove spaces/dashes for comparison
     import re
-    phone_clean = re.sub(r'[\s\-\(\)]', '', phone_number)
+
+    phone_clean = re.sub(r"[\s\-\(\)]", "", phone_number)
 
     # Check if this phone is already verified by a different user
-    already_taken = CrushProfile.objects.filter(
-        phone_number=phone_clean,
-        phone_verified=True,
-    ).exclude(user=request.user).exists()
+    already_taken = (
+        CrushProfile.objects.filter(
+            phone_number=phone_clean,
+            phone_verified=True,
+        )
+        .exclude(user=request.user)
+        .exists()
+    )
 
     if already_taken:
-        return JsonResponse({
-            "available": False,
-            "error": _("This phone number is already associated with another account."),
-        })
+        return JsonResponse(
+            {
+                "available": False,
+                "error": _(
+                    "This phone number is already associated with another account."
+                ),
+            }
+        )
 
     return JsonResponse({"available": True})
 
@@ -290,20 +334,21 @@ def phone_verification_status(request):
             # Show partial phone for confirmation
             phone_number = profile.phone_number
 
-        return JsonResponse({
-            "phone_verified": bool(profile.phone_verified),
-            "phone_verified_at": (
-                profile.phone_verified_at.isoformat()
-                if profile.phone_verified_at else None
-            ),
-            "phone_number": phone_number
-        })
+        return JsonResponse(
+            {
+                "phone_verified": bool(profile.phone_verified),
+                "phone_verified_at": (
+                    profile.phone_verified_at.isoformat()
+                    if profile.phone_verified_at
+                    else None
+                ),
+                "phone_number": phone_number,
+            }
+        )
     except CrushProfile.DoesNotExist:
-        return JsonResponse({
-            "phone_verified": False,
-            "phone_verified_at": None,
-            "phone_number": None
-        })
+        return JsonResponse(
+            {"phone_verified": False, "phone_verified_at": None, "phone_number": None}
+        )
 
 
 # ─── WhatsApp OTP (third channel, alongside Firebase SMS and LuxID) ──────────
@@ -316,7 +361,7 @@ def phone_verification_status(request):
 @login_required
 @require_POST
 @csrf_protect
-@ratelimit(key='user', rate='3/15m', method='POST')  # cap WhatsApp sends (cost + abuse)
+@ratelimit(key="user", rate="3/15m", method="POST")  # cap WhatsApp sends (cost + abuse)
 def send_whatsapp_otp(request):
     """Generate a code, store it hashed, and deliver it over WhatsApp.
 
@@ -332,17 +377,21 @@ def send_whatsapp_otp(request):
     except CrushProfile.DoesNotExist:
         existing_profile = None
     if existing_profile is not None and existing_profile.phone_verified:
-        return JsonResponse({
-            "success": True,
-            "already_verified": True,
-            "message": _("Your phone number is already verified."),
-            "phone_number": existing_profile.phone_number,
-        })
+        return JsonResponse(
+            {
+                "success": True,
+                "already_verified": True,
+                "message": _("Your phone number is already verified."),
+                "phone_number": existing_profile.phone_number,
+            }
+        )
 
     try:
         payload = json.loads(request.body.decode("utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError):
-        return JsonResponse({"success": False, "error": _("Invalid JSON format")}, status=400)
+        return JsonResponse(
+            {"success": False, "error": _("Invalid JSON format")}, status=400
+        )
 
     phone_number = _canonicalize_phone(payload.get("phone_number", ""))
     if not phone_number:
@@ -356,17 +405,25 @@ def send_whatsapp_otp(request):
     # never burn a billable send on a number verify_whatsapp_otp() could only
     # fail with an IntegrityError.
     if _phone_taken_by_other(phone_number, exclude_user=request.user):
-        return JsonResponse({
-            "success": False,
-            "error": _("This phone number is already associated with another account."),
-            "error_code": "phone_already_in_use",
-        }, status=409)
+        return JsonResponse(
+            {
+                "success": False,
+                "error": _(
+                    "This phone number is already associated with another account."
+                ),
+                "error_code": "phone_already_in_use",
+            },
+            status=409,
+        )
 
     if not whatsapp.is_configured():
-        return JsonResponse({
-            "success": False,
-            "error": _("WhatsApp verification is currently unavailable."),
-        }, status=503)
+        return JsonResponse(
+            {
+                "success": False,
+                "error": _("WhatsApp verification is currently unavailable."),
+            },
+            status=503,
+        )
 
     lang = validate_language(getattr(request, "LANGUAGE_CODE", "en"), default="en")
     code = PhoneOTP.generate_code()
@@ -374,16 +431,24 @@ def send_whatsapp_otp(request):
 
     if not result.ok:
         if result.not_on_whatsapp:
-            return JsonResponse({
-                "success": False,
-                "error": _("This number isn't on WhatsApp. Try SMS verification instead."),
-                "error_code": "not_on_whatsapp",
-            }, status=422)
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": _(
+                        "This number isn't on WhatsApp. Try SMS verification instead."
+                    ),
+                    "error_code": "not_on_whatsapp",
+                },
+                status=422,
+            )
         logger.warning("WhatsApp OTP send failed for user %s", request.user.id)
-        return JsonResponse({
-            "success": False,
-            "error": _("Could not send the WhatsApp code. Please try again."),
-        }, status=502)
+        return JsonResponse(
+            {
+                "success": False,
+                "error": _("Could not send the WhatsApp code. Please try again."),
+            },
+            status=502,
+        )
 
     ttl = getattr(settings, "WHATSAPP_OTP_TTL_MINUTES", 3)
     PhoneOTP.issue(
@@ -394,17 +459,19 @@ def send_whatsapp_otp(request):
         ttl_minutes=ttl,
     )
     logger.info("WhatsApp OTP sent for user ID: %s", request.user.id)
-    return JsonResponse({
-        "success": True,
-        "message": _("Verification code sent to your WhatsApp."),
-        "ttl_minutes": ttl,
-    })
+    return JsonResponse(
+        {
+            "success": True,
+            "message": _("Verification code sent to your WhatsApp."),
+            "ttl_minutes": ttl,
+        }
+    )
 
 
 @login_required
 @require_POST
 @csrf_protect
-@ratelimit(key='user', rate='10/15m', method='POST')  # cap verify attempts
+@ratelimit(key="user", rate="10/15m", method="POST")  # cap verify attempts
 def verify_whatsapp_otp(request):
     """Check a WhatsApp OTP and, on success, mark the phone verified.
 
@@ -420,18 +487,22 @@ def verify_whatsapp_otp(request):
     except CrushProfile.DoesNotExist:
         verified_profile = None
     if verified_profile is not None and verified_profile.phone_verified:
-        return JsonResponse({
-            "success": True,
-            "message": _("Your phone number is already verified."),
-            "phone_verified": True,
-            "phone_number": verified_profile.phone_number,
-            "csrfToken": get_token(request),
-        })
+        return JsonResponse(
+            {
+                "success": True,
+                "message": _("Your phone number is already verified."),
+                "phone_verified": True,
+                "phone_number": verified_profile.phone_number,
+                "csrfToken": get_token(request),
+            }
+        )
 
     try:
         payload = json.loads(request.body.decode("utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError):
-        return JsonResponse({"success": False, "error": _("Invalid JSON format")}, status=400)
+        return JsonResponse(
+            {"success": False, "error": _("Invalid JSON format")}, status=400
+        )
 
     code = (payload.get("code") or "").strip()
     if not code:
@@ -440,20 +511,27 @@ def verify_whatsapp_otp(request):
         )
 
     def already_verified_response(profile):
-        return JsonResponse({
-            "success": True,
-            "message": _("Your phone number is already verified."),
-            "phone_verified": True,
-            "phone_number": profile.phone_number,
-            "csrfToken": get_token(request),
-        })
+        return JsonResponse(
+            {
+                "success": True,
+                "message": _("Your phone number is already verified."),
+                "phone_verified": True,
+                "phone_number": profile.phone_number,
+                "csrfToken": get_token(request),
+            }
+        )
 
     def phone_in_use_response():
-        return JsonResponse({
-            "success": False,
-            "error": _("This phone number is already associated with another account."),
-            "error_code": "phone_already_in_use",
-        }, status=409)
+        return JsonResponse(
+            {
+                "success": False,
+                "error": _(
+                    "This phone number is already associated with another account."
+                ),
+                "error_code": "phone_already_in_use",
+            },
+            status=409,
+        )
 
     # Consume the OTP and promote the profile in ONE locked transaction. This
     # serializes the attempts counter (no-op on SQLite; enforced on Postgres)
@@ -462,9 +540,10 @@ def verify_whatsapp_otp(request):
     # consumed OTP with an unverified profile.
     with transaction.atomic():
         otp = (
-            PhoneOTP.objects
-            .select_for_update()
-            .filter(user=request.user, channel=PhoneOTP.Channel.WHATSAPP, consumed=False)
+            PhoneOTP.objects.select_for_update()
+            .filter(
+                user=request.user, channel=PhoneOTP.Channel.WHATSAPP, consumed=False
+            )
             .order_by("-created_at")
             .first()
         )
@@ -479,20 +558,26 @@ def verify_whatsapp_otp(request):
             ).first()
             if verified is not None:
                 return already_verified_response(verified)
-            return JsonResponse({
-                "success": False,
-                "error": _("Your code has expired. Please request a new one."),
-                "error_code": "otp_expired",
-            }, status=400)
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": _("Your code has expired. Please request a new one."),
+                    "error_code": "otp_expired",
+                },
+                status=400,
+            )
 
         if not otp.verify(code):
             remaining = max(0, PhoneOTP.MAX_ATTEMPTS - otp.attempts)
-            return JsonResponse({
-                "success": False,
-                "error": _("Incorrect code. Please try again."),
-                "error_code": "otp_invalid",
-                "attempts_remaining": remaining,
-            }, status=400)
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": _("Incorrect code. Please try again."),
+                    "error_code": "otp_invalid",
+                    "attempts_remaining": remaining,
+                },
+                status=400,
+            )
 
         # Code valid — promote to a verified phone (get-or-create profile first).
         # Query fresh rather than via request.user.crushprofile, whose missing
@@ -521,22 +606,24 @@ def verify_whatsapp_otp(request):
             # Savepoint so a unique-constraint race rolls back just this save,
             # not the whole transaction, and we can return a clean 409.
             with transaction.atomic():
-                profile.save(update_fields=[
-                    "phone_number",
-                    "phone_verified",
-                    "phone_verified_at",
-                    "phone_verification_uid",
-                ])
+                profile.save(
+                    update_fields=[
+                        "phone_number",
+                        "phone_verified",
+                        "phone_verified_at",
+                        "phone_verification_uid",
+                    ]
+                )
         except IntegrityError:
             return phone_in_use_response()
 
     logger.info("Phone verified via WhatsApp for user ID: %s", request.user.id)
-    return JsonResponse({
-        "success": True,
-        "message": _("Phone number verified successfully"),
-        "phone_verified": True,
-        "phone_number": otp.phone_number,
-        "csrfToken": get_token(request),
-    })
-
-
+    return JsonResponse(
+        {
+            "success": True,
+            "message": _("Phone number verified successfully"),
+            "phone_verified": True,
+            "phone_number": otp.phone_number,
+            "csrfToken": get_token(request),
+        }
+    )

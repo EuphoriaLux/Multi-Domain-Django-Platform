@@ -1,4 +1,5 @@
 """Manual test to screenshot the phone input on create profile page."""
+
 import pytest
 from playwright.sync_api import Page
 from django.contrib.auth import get_user_model
@@ -6,18 +7,20 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
-@pytest.mark.skip(reason="Screenshot test needs updating - phone field ID changed from #div_id_phone to #phone_number")
+@pytest.mark.skip(
+    reason="Screenshot test needs updating - phone field ID changed from #div_id_phone to #phone_number"
+)
 @pytest.mark.django_db
 @pytest.mark.playwright
 def test_phone_input_create_profile(page: Page, live_server):
     """Screenshot phone input on create profile page with logged in user."""
     # Create a test user
     user = User.objects.create_user(
-        username='phonetest@test.lu',
-        email='phonetest@test.lu',
-        password='testpass123',
-        first_name='Phone',
-        last_name='Test'
+        username="phonetest@test.lu",
+        email="phonetest@test.lu",
+        password="testpass123",
+        first_name="Phone",
+        last_name="Test",
     )
 
     # Set mobile viewport (iPhone 12)
@@ -25,11 +28,11 @@ def test_phone_input_create_profile(page: Page, live_server):
 
     # Navigate to login page
     page.goto(f"{live_server.url}/accounts/login/")
-    page.wait_for_load_state('networkidle')
+    page.wait_for_load_state("networkidle")
 
     # Fill login credentials
-    page.fill('input[name="login"]', 'phonetest@test.lu')
-    page.fill('input[name="password"]', 'testpass123')
+    page.fill('input[name="login"]', "phonetest@test.lu")
+    page.fill('input[name="password"]', "testpass123")
 
     # Click the Sign In button (find by text to avoid language switcher)
     page.locator('button:has-text("Sign In"), button:has-text("Login")').first.click()
@@ -39,11 +42,11 @@ def test_phone_input_create_profile(page: Page, live_server):
 
     # Navigate to create profile
     page.goto(f"{live_server.url}/en/create-profile/")
-    page.wait_for_load_state('networkidle')
+    page.wait_for_load_state("networkidle")
     page.wait_for_timeout(1000)
 
     # Scroll to phone input section
-    phone_section = page.locator('#div_id_phone')
+    phone_section = page.locator("#div_id_phone")
     if phone_section.is_visible():
         phone_section.scroll_into_view_if_needed()
         page.wait_for_timeout(500)
@@ -66,7 +69,7 @@ def test_language_switcher_detailed(page: Page, live_server):
 
     # Navigate to English home page
     page.goto(f"{live_server.url}/en/")
-    page.wait_for_load_state('networkidle')
+    page.wait_for_load_state("networkidle")
     page.wait_for_timeout(1000)
 
     # Screenshot 1: Initial English page
@@ -95,30 +98,34 @@ def test_language_switcher_detailed(page: Page, live_server):
 
         if is_visible:
             # Screenshot 3: Before language change
-            page.screenshot(path="screenshots/lang_test_3_before_change.png", full_page=True)
+            page.screenshot(
+                path="screenshots/lang_test_3_before_change.png", full_page=True
+            )
             print("Screenshot 3: Before language change")
 
             # Get current options
-            options = select.locator('option').all_inner_texts()
+            options = select.locator("option").all_inner_texts()
             print(f"  Available options: {options}")
 
             # Select German
             print("  Selecting German (de)...")
-            select.select_option('de')
+            select.select_option("de")
 
             # Wait for navigation
             page.wait_for_timeout(3000)
-            page.wait_for_load_state('networkidle')
+            page.wait_for_load_state("networkidle")
 
             # Screenshot 4: After language change
-            page.screenshot(path="screenshots/lang_test_4_after_change.png", full_page=True)
+            page.screenshot(
+                path="screenshots/lang_test_4_after_change.png", full_page=True
+            )
             print("Screenshot 4: After language change")
 
             # Check URL
             final_url = page.url
             print(f"Final URL: {final_url}")
 
-            if '/de/' in final_url:
+            if "/de/" in final_url:
                 print("SUCCESS: Language switcher works! URL changed to /de/")
             else:
                 print(f"ISSUE: URL did not change to /de/. Current: {final_url}")

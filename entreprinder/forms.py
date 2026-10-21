@@ -9,19 +9,19 @@ logger = logging.getLogger(__name__)
 class EntrepreneurProfileAdminForm(forms.ModelForm):
     class Meta:
         model = EntrepreneurProfile
-        fields = '__all__'
+        fields = "__all__"
 
 
 class EntrepreneurProfileForm(forms.ModelForm):
     class Meta:
         model = EntrepreneurProfile
-        fields = ['bio', 'company', 'industry', 'looking_for', 'location']
+        fields = ["bio", "company", "industry", "looking_for", "location"]
         widgets = {
-            'bio': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'company': forms.TextInput(attrs={'class': 'form-control'}),
-            'industry': forms.TextInput(attrs={'class': 'form-control'}),
-            'looking_for': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'location': forms.TextInput(attrs={'class': 'form-control'}),
+            "bio": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "company": forms.TextInput(attrs={"class": "form-control"}),
+            "industry": forms.TextInput(attrs={"class": "form-control"}),
+            "looking_for": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "location": forms.TextInput(attrs={"class": "form-control"}),
         }
 
 
@@ -30,9 +30,9 @@ class CustomSignupForm(SignupForm):
 
     def __init__(self, *args, **kwargs):
         super(CustomSignupForm, self).__init__(*args, **kwargs)
-        self.fields['email'].widget.attrs.update({'autofocus': 'autofocus'})
-        if 'username' in self.fields:
-            del self.fields['username']
+        self.fields["email"].widget.attrs.update({"autofocus": "autofocus"})
+        if "username" in self.fields:
+            del self.fields["username"]
 
     def save(self, request):
         logger.info("CustomSignupForm save method called")
@@ -40,11 +40,11 @@ class CustomSignupForm(SignupForm):
         logger.info(f"User created with email: {user.email}")
         try:
             EntrepreneurProfile.objects.create(
-                user=user,
-                company=self.cleaned_data['company']
+                user=user, company=self.cleaned_data["company"]
             )
-            logger.info(f"EntrepreneurProfile created for user with email: {user.email}")
+            logger.info(
+                f"EntrepreneurProfile created for user with email: {user.email}"
+            )
         except Exception as e:
             logger.error(f"Error creating EntrepreneurProfile: {str(e)}")
         return user
-

@@ -1,4 +1,5 @@
 """Tests for Phase 6 — pre-screening analytics dashboard + CSV export."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -53,41 +54,61 @@ class DashboardAnalyticsTests(TestCase):
         # 3 submitted + 1 pending, varied scores/flags
         self.p1 = _make_profile("a@example.com", "1234501")
         self.s1 = ProfileSubmission.objects.create(
-            profile=self.p1, coach=self.coach, status="pending",
+            profile=self.p1,
+            coach=self.coach,
+            status="pending",
             pre_screening_submitted_at=timezone.now(),
             pre_screening_version=1,
             pre_screening_readiness_score=9,
             pre_screening_flags=[],
             pre_screening_responses={
-                "residence": "lu_city", "languages": ["en"], "age_confirm": True,
-                "source": "friend", "what_is_crush": "events",
-                "event_frequency": "monthly", "relationship_goal": "meaningful",
-                "coach_attitude": "loves", "looking_forward_to": ["events"],
+                "residence": "lu_city",
+                "languages": ["en"],
+                "age_confirm": True,
+                "source": "friend",
+                "what_is_crush": "events",
+                "event_frequency": "monthly",
+                "relationship_goal": "meaningful",
+                "coach_attitude": "loves",
+                "looking_forward_to": ["events"],
                 "hoping_to_meet": "Someone who loves walks and asks good questions.",
-                "consent_events": True, "consent_coach": True,
-                "consent_no_show": True, "consent_terms": True,
+                "consent_events": True,
+                "consent_coach": True,
+                "consent_no_show": True,
+                "consent_terms": True,
             },
         )
         self.p2 = _make_profile("b@example.com", "1234502")
         self.s2 = ProfileSubmission.objects.create(
-            profile=self.p2, coach=self.coach, status="pending",
+            profile=self.p2,
+            coach=self.coach,
+            status="pending",
             pre_screening_submitted_at=timezone.now(),
             pre_screening_version=1,
             pre_screening_readiness_score=3,
             pre_screening_flags=["concept_misalignment", "low_effort_text"],
             pre_screening_responses={
-                "residence": "fr_border", "languages": ["fr"], "age_confirm": True,
-                "source": "social", "what_is_crush": "tinder",
-                "event_frequency": "few_per_year", "relationship_goal": "many_people",
-                "coach_attitude": "curious", "looking_forward_to": ["exploring"],
+                "residence": "fr_border",
+                "languages": ["fr"],
+                "age_confirm": True,
+                "source": "social",
+                "what_is_crush": "tinder",
+                "event_frequency": "few_per_year",
+                "relationship_goal": "many_people",
+                "coach_attitude": "curious",
+                "looking_forward_to": ["exploring"],
                 "hoping_to_meet": "idk",
-                "consent_events": True, "consent_coach": True,
-                "consent_no_show": True, "consent_terms": True,
+                "consent_events": True,
+                "consent_coach": True,
+                "consent_no_show": True,
+                "consent_terms": True,
             },
         )
         self.p3 = _make_profile("c@example.com", "1234503")
         self.s3 = ProfileSubmission.objects.create(
-            profile=self.p3, coach=self.coach, status="pending",
+            profile=self.p3,
+            coach=self.coach,
+            status="pending",
             pre_screening_submitted_at=timezone.now(),
             pre_screening_version=1,
             pre_screening_readiness_score=6,

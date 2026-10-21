@@ -7,6 +7,7 @@ Covers:
 
 Run with: python manage.py test crush_lu.tests.test_event_live_state
 """
+
 from datetime import datetime, timedelta, timezone as py_timezone
 from unittest import mock
 
@@ -39,9 +40,7 @@ class EventIsLiveTests(TestCase):
 
     def _at(self, moment):
         """Patch the `now` used inside the model to a fixed instant."""
-        return mock.patch(
-            "crush_lu.models.events.timezone.now", return_value=moment
-        )
+        return mock.patch("crush_lu.models.events.timezone.now", return_value=moment)
 
     def test_before_start_is_not_live(self):
         with self._at(self.start - timedelta(seconds=1)):

@@ -583,7 +583,8 @@ class MeetupEvent(models.Model):
         ordering = ["date_time"]
         constraints = [
             models.CheckConstraint(
-                condition=models.Q(offer__isnull=True) | models.Q(partner__isnull=False),
+                condition=models.Q(offer__isnull=True)
+                | models.Q(partner__isnull=False),
                 name="crush_event_offer_requires_partner",
             ),
             models.CheckConstraint(

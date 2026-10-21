@@ -259,11 +259,17 @@ def coach_manage_invitations(request, event_id):
                         invitation, request
                     )
                     if email_sent:
-                        messages.success(request, _("Invitation sent to %(email)s.") % {"email": email})
+                        messages.success(
+                            request,
+                            _("Invitation sent to %(email)s.") % {"email": email},
+                        )
                     else:
                         messages.warning(
                             request,
-                            _("Invitation created for %(email)s, but email could not be sent. Code: %(code)s") % {"email": email, "code": invitation.invitation_code},
+                            _(
+                                "Invitation created for %(email)s, but email could not be sent. Code: %(code)s"
+                            )
+                            % {"email": email, "code": invitation.invitation_code},
                         )
                     from .services.on_break import warn_if_inviting_on_break
 

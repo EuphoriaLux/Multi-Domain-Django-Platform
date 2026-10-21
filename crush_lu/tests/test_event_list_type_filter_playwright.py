@@ -93,7 +93,6 @@ def test_type_filter_chip_click_shows_and_hides_matching_cards(
     expect(speed_dating_card).to_be_visible()
 
 
-
 def test_time_tabs_use_roving_focus_with_csp_safe_bindings(page, live_server):
     page.goto(f"{live_server.url}/en/events/")
     upcoming = page.locator("#events-tab-upcoming")

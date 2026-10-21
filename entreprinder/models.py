@@ -32,13 +32,21 @@ class EntrepreneurProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     linkedin_photo_url = models.URLField(blank=True, null=True)
     bio = models.TextField(max_length=500, blank=True)
-    tagline = models.CharField(max_length=150, blank=True, help_text="A brief, catchy description of yourself")
+    tagline = models.CharField(
+        max_length=150, blank=True, help_text="A brief, catchy description of yourself"
+    )
     company = models.CharField(max_length=100, blank=True)
-    industry = models.ForeignKey(Industry, on_delete=models.SET_NULL, null=True, blank=True)
+    industry = models.ForeignKey(
+        Industry, on_delete=models.SET_NULL, null=True, blank=True
+    )
     location = models.CharField(max_length=100, blank=True)
-    skills = models.ManyToManyField(Skill, related_name='entrepreneurs')
+    skills = models.ManyToManyField(Skill, related_name="entrepreneurs")
     looking_for = models.TextField(max_length=500, blank=True)
-    offering = models.TextField(max_length=500, blank=True, help_text="What can you offer to other entrepreneurs?")
+    offering = models.TextField(
+        max_length=500,
+        blank=True,
+        help_text="What can you offer to other entrepreneurs?",
+    )
     website = models.URLField(blank=True)
     linkedin_profile = models.URLField(blank=True)
     years_of_experience = models.PositiveIntegerField(default=0)
@@ -53,4 +61,4 @@ class EntrepreneurProfile(models.Model):
         """Return LinkedIn photo URL or default placeholder."""
         if self.linkedin_photo_url:
             return self.linkedin_photo_url
-        return '/static/entreprinder/images/default-avatar.png'
+        return "/static/entreprinder/images/default-avatar.png"

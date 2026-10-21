@@ -25,7 +25,10 @@ class Migration(migrations.Migration):
                         verbose_name="ID",
                     ),
                 ),
-                ("code_hash", models.CharField(db_index=True, max_length=64, unique=True)),
+                (
+                    "code_hash",
+                    models.CharField(db_index=True, max_length=64, unique=True),
+                ),
                 ("redirect_uri", models.URLField(max_length=500)),
                 ("expires_at", models.DateTimeField(db_index=True)),
                 ("consumed_at", models.DateTimeField(blank=True, null=True)),
@@ -101,7 +104,9 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "notify_event_reminders",
-                    models.BooleanField(default=True, help_text="Notify about upcoming events"),
+                    models.BooleanField(
+                        default=True, help_text="Notify about upcoming events"
+                    ),
                 ),
                 (
                     "notify_new_connections",
@@ -137,8 +142,14 @@ class Migration(migrations.Migration):
                 "verbose_name_plural": "iOS App Devices",
                 "ordering": ["-last_seen_at"],
                 "indexes": [
-                    models.Index(fields=["user", "enabled"], name="crush_lu_io_user_id_a52b0a_idx"),
-                    models.Index(fields=["environment", "enabled"], name="crush_lu_io_environ_9b61d5_idx"),
+                    models.Index(
+                        fields=["user", "enabled"],
+                        name="crush_lu_io_user_id_a52b0a_idx",
+                    ),
+                    models.Index(
+                        fields=["environment", "enabled"],
+                        name="crush_lu_io_environ_9b61d5_idx",
+                    ),
                 ],
             },
         ),

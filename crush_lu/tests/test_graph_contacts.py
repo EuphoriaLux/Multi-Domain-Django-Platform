@@ -298,9 +298,7 @@ class TestImmutableIds:
         immutable ID. Without the header Graph can 404 -- and delete_contact
         treats 404 as success, silently leaving the contact and its PII in the
         shared mailbox."""
-        with mock.patch(
-            "requests.request", return_value=_response(204)
-        ) as request:
+        with mock.patch("requests.request", return_value=_response(204)) as request:
             assert service.delete_contact("IMMUTABLE", force=True) is True
 
         assert request.call_args.kwargs["headers"]["Prefer"] == IMMUTABLE_ID_PREFER
@@ -580,7 +578,9 @@ class TestDeleteAllEndpointFlagParsing:
         assert response.status_code == 202
         return service.delete_all_contacts_from_outlook
 
-    @pytest.mark.parametrize("body", [{"include_foreign": "false"}, {"include_foreign": "0"}])
+    @pytest.mark.parametrize(
+        "body", [{"include_foreign": "false"}, {"include_foreign": "0"}]
+    )
     def test_stringy_false_does_not_enable_the_destructive_path(self, client, body):
         called = self._post(client, body)
 
@@ -665,9 +665,7 @@ class TestRetryBudget:
         assert sleep.call_count == 2
 
     def test_non_429_is_returned_without_retrying(self, service):
-        with mock.patch(
-            "requests.request", return_value=_response(404)
-        ) as request:
+        with mock.patch("requests.request", return_value=_response(404)) as request:
             response = service._request_with_retry("get", "https://example.test")
 
         assert response.status_code == 404
@@ -790,11 +788,14 @@ class TestSignalWiring:
         stub = mock.Mock()
         stub.sync_profile.return_value = "EXISTING"
         stub.delete_contact.return_value = True
-        return mock.patch.multiple(
-            graph_contacts,
-            is_sync_enabled=mock.Mock(return_value=True),
-            GraphContactsService=mock.Mock(return_value=stub),
-        ), stub
+        return (
+            mock.patch.multiple(
+                graph_contacts,
+                is_sync_enabled=mock.Mock(return_value=True),
+                GraphContactsService=mock.Mock(return_value=stub),
+            ),
+            stub,
+        )
 
     def test_sync_does_not_fire_when_the_transaction_rolls_back(self, profile):
         """The whole point of the on_commit deferral: no contact is written for
@@ -921,9 +922,7 @@ class TestSignalWiring:
                 self._write_bypassing_save(profile, phone_verified=False)
 
         stub.delete_contact.assert_called_once_with("EXISTING")
-        assert (
-            CrushProfile.objects.get(pk=profile.pk).outlook_contact_id == "EXISTING"
-        )
+        assert CrushProfile.objects.get(pk=profile.pk).outlook_contact_id == "EXISTING"
 
 
 # ---------------------------------------------------------------------------

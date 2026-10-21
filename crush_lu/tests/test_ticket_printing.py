@@ -410,6 +410,7 @@ class TestCheckinPrintingAPI(TestCase):
             password="secretpassword",
         )
         from crush_lu.models.profiles import UserDataConsent
+
         UserDataConsent.objects.update_or_create(
             user=self.coach_user, defaults={"crushlu_consent_given": True}
         )
@@ -423,6 +424,7 @@ class TestCheckinPrintingAPI(TestCase):
             first_name="Alex",
         )
         from crush_lu.models.profiles import UserDataConsent
+
         UserDataConsent.objects.update_or_create(
             user=self.attendee_user, defaults={"crushlu_consent_given": True}
         )

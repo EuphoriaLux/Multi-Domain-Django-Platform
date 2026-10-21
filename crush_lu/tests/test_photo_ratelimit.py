@@ -5,6 +5,7 @@ Covers the dual rate-limit (per-user + per-IP) added in the photo-ratelimit-ip-c
 fix. Verifies that the IP cap closes the "N accounts from one IP each get the
 full user quota" hole, which matters because profile photos are GDPR PII.
 """
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -114,9 +115,7 @@ class ServeProfilePhotoRateLimitTests(TestCase):
         The IP cap (400 min for non-coaches) must trip even if each individual
         user is well under their own 200/min budget. This is the core fix.
         """
-        viewers = [
-            User.objects.create_user(f"v{i}", password="x") for i in range(5)
-        ]
+        viewers = [User.objects.create_user(f"v{i}", password="x") for i in range(5)]
         blocked = False
         total_sent = 0
         for v in viewers:
@@ -150,6 +149,7 @@ class ServeProfilePhotoRateLimitTests(TestCase):
         # without the user cap masking it. In production the user cap is a
         # feature, not a bug — here we isolate the IP-keyed behavior.
         from crush_lu.views_media import cache as _cache_alias  # noqa: F401
+
         cache.delete(f"ratelimit:serve_profile_photo:user_{self.viewer.id}")
 
         # Phase B: a DIFFERENT user (user2) on IP B does 150 req. Both user

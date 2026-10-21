@@ -10,13 +10,17 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 from .decorators import crush_login_required
 from .models import (
-    JourneyChallenge, JourneyProgress, ChapterProgress, ChallengeAttempt,
-    JourneyReward, RewardProgress
+    JourneyChallenge,
+    JourneyProgress,
+    ChapterProgress,
+    ChallengeAttempt,
+    JourneyReward,
+    RewardProgress,
 )
 from .utils.journey_validation import (
     validate_answer_format,
     sanitize_answer_for_storage,
-    compare_answers
+    compare_answers,
 )
 import json
 import logging
@@ -33,29 +37,25 @@ def submit_challenge(request):
     """
     try:
         data = json.loads(request.body)
-        challenge_id = data.get('challenge_id')
-        user_answer = data.get('answer', '')
+        challenge_id = data.get("challenge_id")
+        user_answer = data.get("answer", "")
 
         if not challenge_id:
-            return JsonResponse({
-                'success': False,
-                'message': _('Missing challenge ID')
-            }, status=400)
+            return JsonResponse(
+                {"success": False, "message": _("Missing challenge ID")}, status=400
+            )
 
         accessible = JourneyProgress.accessible_to(request.user)
         if not accessible.exists():
-            return JsonResponse({
-                'success': False,
-                'message': _('No active journey found')
-            }, status=404)
+            return JsonResponse(
+                {"success": False, "message": _("No active journey found")}, status=404
+            )
 
         # Get the challenge - must belong to one of the user's journeys.
         # Resolved before validating the answer so a foreign id answers
         # exactly like a missing one.
         try:
-            challenge = JourneyChallenge.objects.select_related(
-                "chapter__journey"
-            ).get(
+            challenge = JourneyChallenge.objects.select_related("chapter__journey").get(
                 id=challenge_id,
                 chapter__journey__in=accessible.values("journey"),  # SECURITY
             )
@@ -82,24 +82,23 @@ def submit_challenge(request):
         )
 
         chapter_progress, created = ChapterProgress.objects.get_or_create(
-            journey_progress=journey_progress,
-            chapter=challenge.chapter
+            journey_progress=journey_progress, chapter=challenge.chapter
         )
 
         # Check if already completed
         existing_attempt = ChallengeAttempt.objects.filter(
-            chapter_progress=chapter_progress,
-            challenge=challenge,
-            is_correct=True
+            chapter_progress=chapter_progress, challenge=challenge, is_correct=True
         ).first()
 
         if existing_attempt:
-            return JsonResponse({
-                'success': True,
-                'already_completed': True,
-                'message': _('You already completed this challenge!'),
-                'points_earned': existing_attempt.points_earned
-            })
+            return JsonResponse(
+                {
+                    "success": True,
+                    "already_completed": True,
+                    "message": _("You already completed this challenge!"),
+                    "points_earned": existing_attempt.points_earned,
+                }
+            )
 
         # Questionnaire mode: every answer is accepted with full points and
         # saved for later analysis. It applies to open_text/would_you_rather
@@ -122,31 +121,32 @@ def submit_challenge(request):
             hints_used = []  # No hints in questionnaire mode
         else:
             # For word_scramble, use language-specific answer from options if available
-            if challenge.challenge_type == 'word_scramble' and isinstance(challenge.options, dict) and challenge.options.get('answer'):
-                correct = challenge.options['answer']
-                alts = challenge.options.get('alternatives', [])
+            if (
+                challenge.challenge_type == "word_scramble"
+                and isinstance(challenge.options, dict)
+                and challenge.options.get("answer")
+            ):
+                correct = challenge.options["answer"]
+                alts = challenge.options.get("alternatives", [])
             else:
                 correct = challenge.correct_answer
                 alts = challenge.alternative_answers or []
 
             # Regular validation using utility functions
-            is_correct = compare_answers(
-                user_answer,
-                correct,
-                challenge.challenge_type
-            )
+            is_correct = compare_answers(user_answer, correct, challenge.challenge_type)
 
             # Also check alternative answers if provided
             if not is_correct and alts:
                 for alt_answer in alts:
-                    if compare_answers(user_answer, alt_answer, challenge.challenge_type):
+                    if compare_answers(
+                        user_answer, alt_answer, challenge.challenge_type
+                    ):
                         is_correct = True
                         break
 
             # Get hints used from database (tamper-proof)
             existing_attempt = ChallengeAttempt.objects.filter(
-                chapter_progress=chapter_progress,
-                challenge=challenge
+                chapter_progress=chapter_progress, challenge=challenge
             ).first()
             hints_used = existing_attempt.hints_used if existing_attempt else []
 
@@ -184,35 +184,42 @@ def submit_challenge(request):
             journey_progress.save()
 
             # Clear hints from session
-            if f'hints_used_{challenge_id}' in request.session:
-                del request.session[f'hints_used_{challenge_id}']
+            if f"hints_used_{challenge_id}" in request.session:
+                del request.session[f"hints_used_{challenge_id}"]
 
             logger.info(
                 f"✅ {request.user.username} solved challenge {challenge_id} "
                 f"({challenge.get_challenge_type_display()}) - {points_earned} pts"
             )
 
-            return JsonResponse({
-                'success': True,
-                'is_correct': True,
-                'points_earned': points_earned,
-                'total_points': journey_progress.total_points,
-                'success_message': challenge.success_message,
-                'message': _('Correct! Well done! 🎉')
-            })
+            return JsonResponse(
+                {
+                    "success": True,
+                    "is_correct": True,
+                    "points_earned": points_earned,
+                    "total_points": journey_progress.total_points,
+                    "success_message": challenge.success_message,
+                    "message": _("Correct! Well done! 🎉"),
+                }
+            )
         else:
-            return JsonResponse({
-                'success': True,
-                'is_correct': False,
-                'message': _('Not quite right. Try again! 💪')
-            })
+            return JsonResponse(
+                {
+                    "success": True,
+                    "is_correct": False,
+                    "message": _("Not quite right. Try again! 💪"),
+                }
+            )
 
     except Exception as e:
         logger.error(f"❌ Error submitting challenge: {e}", exc_info=True)
-        return JsonResponse({
-            'success': False,
-            'message': _('An error occurred processing your answer')
-        }, status=500)
+        return JsonResponse(
+            {
+                "success": False,
+                "message": _("An error occurred processing your answer"),
+            },
+            status=500,
+        )
 
 
 @crush_login_required
@@ -226,35 +233,31 @@ def unlock_hint(request):
     """
     try:
         data = json.loads(request.body)
-        challenge_id = data.get('challenge_id')
-        hint_number = data.get('hint_number')
+        challenge_id = data.get("challenge_id")
+        hint_number = data.get("hint_number")
 
         if not challenge_id or not hint_number:
-            return JsonResponse({
-                'success': False,
-                'message': _('Missing challenge ID or hint number')
-            }, status=400)
+            return JsonResponse(
+                {"success": False, "message": _("Missing challenge ID or hint number")},
+                status=400,
+            )
 
         accessible = JourneyProgress.accessible_to(request.user)
         if not accessible.exists():
-            return JsonResponse({
-                'success': False,
-                'message': _('No active journey found')
-            }, status=404)
+            return JsonResponse(
+                {"success": False, "message": _("No active journey found")}, status=404
+            )
 
         # Get the challenge - must belong to one of the user's journeys
         try:
-            challenge = JourneyChallenge.objects.select_related(
-                "chapter__journey"
-            ).get(
+            challenge = JourneyChallenge.objects.select_related("chapter__journey").get(
                 id=challenge_id,
                 chapter__journey__in=accessible.values("journey"),  # SECURITY
             )
         except JourneyChallenge.DoesNotExist:
-            return JsonResponse({
-                'success': False,
-                'message': _('Challenge not found')
-            }, status=404)
+            return JsonResponse(
+                {"success": False, "message": _("Challenge not found")}, status=404
+            )
 
         # The progress row of the challenge's own journey, not the oldest row
         journey_progress = accessible.get(journey=challenge.chapter.journey)
@@ -273,37 +276,33 @@ def unlock_hint(request):
             hint_text = challenge.hint_3
             hint_cost = challenge.hint_3_cost
         else:
-            return JsonResponse({
-                'success': False,
-                'message': _('Invalid hint number')
-            }, status=400)
+            return JsonResponse(
+                {"success": False, "message": _("Invalid hint number")}, status=400
+            )
 
         if not hint_text:
-            return JsonResponse({
-                'success': False,
-                'message': _('Hint not available')
-            }, status=404)
+            return JsonResponse(
+                {"success": False, "message": _("Hint not available")}, status=404
+            )
 
         # Track hint usage in database (tamper-proof)
         # Get or create chapter progress
         chapter_progress, created = ChapterProgress.objects.get_or_create(
-            journey_progress=journey_progress,
-            chapter=challenge.chapter
+            journey_progress=journey_progress, chapter=challenge.chapter
         )
 
         # Get or create challenge attempt for this user/challenge
         # Use filter().first() to handle any existing duplicate records gracefully
         attempt = ChallengeAttempt.objects.filter(
-            chapter_progress=chapter_progress,
-            challenge=challenge
+            chapter_progress=chapter_progress, challenge=challenge
         ).first()
 
         if not attempt:
             attempt = ChallengeAttempt.objects.create(
                 chapter_progress=chapter_progress,
                 challenge=challenge,
-                user_answer='',  # Empty until they submit
-                hints_used=[]
+                user_answer="",  # Empty until they submit
+                hints_used=[],
             )
 
         # Add hint to the list if not already used
@@ -311,21 +310,23 @@ def unlock_hint(request):
         if hint_number not in hints_used:
             hints_used.append(hint_number)
             attempt.hints_used = hints_used
-            attempt.save(update_fields=['hints_used'])
+            attempt.save(update_fields=["hints_used"])
 
-        return JsonResponse({
-            'success': True,
-            'hint_text': hint_text,
-            'hint_cost': hint_cost,
-            'total_hints_used': len(hints_used)
-        })
+        return JsonResponse(
+            {
+                "success": True,
+                "hint_text": hint_text,
+                "hint_cost": hint_cost,
+                "total_hints_used": len(hints_used),
+            }
+        )
 
     except Exception as e:
         logger.error(f"❌ Error unlocking hint: {e}", exc_info=True)
-        return JsonResponse({
-            'success': False,
-            'message': _('An error occurred unlocking the hint')
-        }, status=500)
+        return JsonResponse(
+            {"success": False, "message": _("An error occurred unlocking the hint")},
+            status=500,
+        )
 
 
 @crush_login_required
@@ -340,36 +341,37 @@ def get_progress(request):
         journey_progress = JourneyProgress.wonderland_for(request.user)
 
         if not journey_progress:
-            return JsonResponse({
-                'success': False,
-                'message': _('No active journey found')
-            }, status=404)
+            return JsonResponse(
+                {"success": False, "message": _("No active journey found")}, status=404
+            )
 
         # Get completed chapters count
         completed_chapters = journey_progress.chapter_completions.filter(
             is_completed=True
         ).count()
 
-        return JsonResponse({
-            'success': True,
-            'data': {
-                'journey_name': journey_progress.journey.journey_name,
-                'current_chapter': journey_progress.current_chapter,
-                'total_chapters': journey_progress.journey.total_chapters,
-                'completed_chapters': completed_chapters,
-                'completion_percentage': journey_progress.completion_percentage,
-                'total_points': journey_progress.total_points,
-                'time_spent_seconds': journey_progress.total_time_seconds,
-                'is_completed': journey_progress.is_completed,
+        return JsonResponse(
+            {
+                "success": True,
+                "data": {
+                    "journey_name": journey_progress.journey.journey_name,
+                    "current_chapter": journey_progress.current_chapter,
+                    "total_chapters": journey_progress.journey.total_chapters,
+                    "completed_chapters": completed_chapters,
+                    "completion_percentage": journey_progress.completion_percentage,
+                    "total_points": journey_progress.total_points,
+                    "time_spent_seconds": journey_progress.total_time_seconds,
+                    "is_completed": journey_progress.is_completed,
+                },
             }
-        })
+        )
 
     except Exception as e:
         logger.error(f"❌ Error getting progress: {e}", exc_info=True)
-        return JsonResponse({
-            'success': False,
-            'message': _('An error occurred retrieving progress')
-        }, status=500)
+        return JsonResponse(
+            {"success": False, "message": _("An error occurred retrieving progress")},
+            status=500,
+        )
 
 
 @crush_login_required
@@ -381,17 +383,17 @@ def save_state(request):
     """
     try:
         # Use request.POST for form data or json.loads for JSON
-        if request.content_type == 'application/json':
+        if request.content_type == "application/json":
             data = json.loads(request.body)
         else:
             data = request.POST.dict()
 
         # Ensure time_increment is an integer
-        time_increment = int(data.get('time_increment', 0))  # Seconds since last save
+        time_increment = int(data.get("time_increment", 0))  # Seconds since last save
 
         # The journey of the page that is open (journey_base.html sends it);
         # without one, the journey the map shows
-        journey_id = data.get('journey_id')
+        journey_id = data.get("journey_id")
         if journey_id:
             try:
                 journey_progress = (
@@ -405,29 +407,29 @@ def save_state(request):
             journey_progress = JourneyProgress.wonderland_for(request.user)
 
         if not journey_progress:
-            return JsonResponse({
-                'success': False,
-                'message': _('No active journey found')
-            }, status=404)
+            return JsonResponse(
+                {"success": False, "message": _("No active journey found")}, status=404
+            )
 
         # Update time spent
         if time_increment > 0:
             journey_progress.total_time_seconds += time_increment
-            journey_progress.save(update_fields=['total_time_seconds', 'last_activity'])
+            journey_progress.save(update_fields=["total_time_seconds", "last_activity"])
 
-            logger.debug(f"⏱️ Updated time for {request.user.username}: +{time_increment}s")
+            logger.debug(
+                f"⏱️ Updated time for {request.user.username}: +{time_increment}s"
+            )
 
-        return JsonResponse({
-            'success': True,
-            'total_time': journey_progress.total_time_seconds
-        })
+        return JsonResponse(
+            {"success": True, "total_time": journey_progress.total_time_seconds}
+        )
 
     except Exception as e:
         logger.error(f"❌ Error saving state: {e}", exc_info=True)
-        return JsonResponse({
-            'success': False,
-            'message': _('An error occurred saving state')
-        }, status=500)
+        return JsonResponse(
+            {"success": False, "message": _("An error occurred saving state")},
+            status=500,
+        )
 
 
 @crush_login_required
@@ -442,15 +444,14 @@ def record_final_response(request):
     """
     try:
         data = json.loads(request.body)
-        response_choice = data.get('response')  # 'yes' or 'thinking'
+        response_choice = data.get("response")  # 'yes' or 'thinking'
 
-        if response_choice not in ['yes', 'thinking']:
-            return JsonResponse({
-                'success': False,
-                'message': _('Invalid response choice')
-            }, status=400)
+        if response_choice not in ["yes", "thinking"]:
+            return JsonResponse(
+                {"success": False, "message": _("Invalid response choice")}, status=400
+            )
 
-        journey_id = request.GET.get('journey_id')
+        journey_id = request.GET.get("journey_id")
         if journey_id:
             # Same scope as chapter_view: an explicit journey_id only ever
             # names a custom journey; Wonderland is reached without one.
@@ -460,19 +461,19 @@ def record_final_response(request):
                 journey_id = None
             journey_progress = (
                 JourneyProgress.accessible_to(request.user)
-                .filter(journey_id=journey_id, journey__journey_type='custom')
-                .select_related('journey')
+                .filter(journey_id=journey_id, journey__journey_type="custom")
+                .select_related("journey")
                 .first()
-                if journey_id is not None else None
+                if journey_id is not None
+                else None
             )
         else:
             journey_progress = JourneyProgress.wonderland_for(request.user)
 
         if not journey_progress:
-            return JsonResponse({
-                'success': False,
-                'message': _('No active journey found')
-            }, status=404)
+            return JsonResponse(
+                {"success": False, "message": _("No active journey found")}, status=404
+            )
 
         # The final question completes the journey, so it is only answerable
         # once the last chapter is done. chapter_view.html only offers the
@@ -487,12 +488,14 @@ def record_final_response(request):
             chapter__chapter_number=last_chapter,
             is_completed=True,
         ).exists():
-            return JsonResponse({
-                'success': False,
-                'message': _('Please complete Chapter %(chapter)s first.') % {
-                    'chapter': last_chapter
+            return JsonResponse(
+                {
+                    "success": False,
+                    "message": _("Please complete Chapter %(chapter)s first.")
+                    % {"chapter": last_chapter},
                 },
-            }, status=400)
+                status=400,
+            )
 
         # Update final response
         journey_progress.final_response = response_choice
@@ -515,7 +518,11 @@ def record_final_response(request):
             from django.conf import settings
 
             user_name = f"{request.user.first_name} {request.user.last_name}"
-            response_text = "Yes, let's see where this goes 💫" if response_choice == 'yes' else "I need to think about this ✨"
+            response_text = (
+                "Yes, let's see where this goes 💫"
+                if response_choice == "yes"
+                else "I need to think about this ✨"
+            )
 
             subject = f"🎉 {user_name} completed the journey!"
             message = f"""
@@ -539,34 +546,43 @@ def record_final_response(request):
             """
 
             # Send to admin email (configure in settings)
-            recipient_email = getattr(settings, 'JOURNEY_NOTIFICATION_EMAIL', settings.DEFAULT_FROM_EMAIL)
+            recipient_email = getattr(
+                settings, "JOURNEY_NOTIFICATION_EMAIL", settings.DEFAULT_FROM_EMAIL
+            )
 
             send_mail(
                 subject,
                 message,
                 settings.DEFAULT_FROM_EMAIL,
                 [recipient_email],
-                fail_silently=True  # Don't break the response if email fails
+                fail_silently=True,  # Don't break the response if email fails
             )
 
             logger.info(f"📧 Sent journey completion email for {user_name}")
         except Exception as email_error:
-            logger.error(f"❌ Failed to send email notification: {email_error}", exc_info=True)
+            logger.error(
+                f"❌ Failed to send email notification: {email_error}", exc_info=True
+            )
             # Continue anyway - email failure shouldn't break the response
 
-        return JsonResponse({
-            'success': True,
-            'message': _('Response recorded'),
-            'response': response_choice,
-            'completed': True
-        })
+        return JsonResponse(
+            {
+                "success": True,
+                "message": _("Response recorded"),
+                "response": response_choice,
+                "completed": True,
+            }
+        )
 
     except Exception as e:
         logger.error(f"❌ Error recording final response: {e}", exc_info=True)
-        return JsonResponse({
-            'success': False,
-            'message': _('An error occurred recording your response')
-        }, status=500)
+        return JsonResponse(
+            {
+                "success": False,
+                "message": _("An error occurred recording your response"),
+            },
+            status=500,
+        )
 
 
 @crush_login_required
@@ -578,21 +594,20 @@ def unlock_puzzle_piece(request):
     """
     try:
         data = json.loads(request.body)
-        reward_id = data.get('reward_id')
-        piece_index = data.get('piece_index')
+        reward_id = data.get("reward_id")
+        piece_index = data.get("piece_index")
 
         if reward_id is None or piece_index is None:
-            return JsonResponse({
-                'success': False,
-                'message': _('Missing reward ID or piece index')
-            }, status=400)
+            return JsonResponse(
+                {"success": False, "message": _("Missing reward ID or piece index")},
+                status=400,
+            )
 
         accessible = JourneyProgress.accessible_to(request.user)
         if not accessible.exists():
-            return JsonResponse({
-                'success': False,
-                'message': _('No active journey found')
-            }, status=404)
+            return JsonResponse(
+                {"success": False, "message": _("No active journey found")}, status=404
+            )
 
         # Get the reward - must belong to one of the user's journeys
         try:
@@ -601,18 +616,16 @@ def unlock_puzzle_piece(request):
                 chapter__journey__in=accessible.values("journey"),  # SECURITY
             )
         except JourneyReward.DoesNotExist:
-            return JsonResponse({
-                'success': False,
-                'message': _('Reward not found')
-            }, status=404)
+            return JsonResponse(
+                {"success": False, "message": _("Reward not found")}, status=404
+            )
 
         # Points come from the reward's own journey, not the oldest row
         journey_progress = accessible.get(journey=reward.chapter.journey)
 
         # Get or create reward progress
         reward_progress, created = RewardProgress.objects.get_or_create(
-            journey_progress=journey_progress,
-            reward=reward
+            journey_progress=journey_progress, reward=reward
         )
 
         # Define points cost per piece (50 points per piece)
@@ -620,21 +633,28 @@ def unlock_puzzle_piece(request):
 
         # Check if already unlocked
         if piece_index in reward_progress.unlocked_pieces:
-            return JsonResponse({
-                'success': False,
-                'message': _('This piece is already unlocked'),
-                'already_unlocked': True
-            })
+            return JsonResponse(
+                {
+                    "success": False,
+                    "message": _("This piece is already unlocked"),
+                    "already_unlocked": True,
+                }
+            )
 
         # Check if user has enough points
         if journey_progress.total_points < PIECE_COST:
-            return JsonResponse({
-                'success': False,
-                'message': _('Not enough points! You need %(points)s points to unlock this piece.') % {'points': PIECE_COST},
-                'insufficient_points': True,
-                'points_needed': PIECE_COST,
-                'current_points': journey_progress.total_points
-            })
+            return JsonResponse(
+                {
+                    "success": False,
+                    "message": _(
+                        "Not enough points! You need %(points)s points to unlock this piece."
+                    )
+                    % {"points": PIECE_COST},
+                    "insufficient_points": True,
+                    "points_needed": PIECE_COST,
+                    "current_points": journey_progress.total_points,
+                }
+            )
 
         # Deduct points and unlock piece
         journey_progress.total_points -= PIECE_COST
@@ -655,22 +675,25 @@ def unlock_puzzle_piece(request):
             f"({len(reward_progress.unlocked_pieces)}/16 complete)"
         )
 
-        return JsonResponse({
-            'success': True,
-            'unlocked_pieces': reward_progress.unlocked_pieces,
-            'points_remaining': journey_progress.total_points,
-            'points_spent': PIECE_COST,
-            'is_completed': reward_progress.is_completed,
-            'total_unlocked': len(reward_progress.unlocked_pieces),
-            'message': _('Piece unlocked! -%(points)s points') % {'points': PIECE_COST}
-        })
+        return JsonResponse(
+            {
+                "success": True,
+                "unlocked_pieces": reward_progress.unlocked_pieces,
+                "points_remaining": journey_progress.total_points,
+                "points_spent": PIECE_COST,
+                "is_completed": reward_progress.is_completed,
+                "total_unlocked": len(reward_progress.unlocked_pieces),
+                "message": _("Piece unlocked! -%(points)s points")
+                % {"points": PIECE_COST},
+            }
+        )
 
     except Exception as e:
         logger.error(f"❌ Error unlocking puzzle piece: {e}", exc_info=True)
-        return JsonResponse({
-            'success': False,
-            'message': _('An error occurred unlocking the piece')
-        }, status=500)
+        return JsonResponse(
+            {"success": False, "message": _("An error occurred unlocking the piece")},
+            status=500,
+        )
 
 
 @crush_login_required
@@ -682,10 +705,9 @@ def get_reward_progress(request, reward_id):
     try:
         accessible = JourneyProgress.accessible_to(request.user)
         if not accessible.exists():
-            return JsonResponse({
-                'success': False,
-                'message': _('No active journey found')
-            }, status=404)
+            return JsonResponse(
+                {"success": False, "message": _("No active journey found")}, status=404
+            )
 
         # The reward must belong to one of the user's journeys; a foreign id
         # answers exactly like a missing one
@@ -695,10 +717,9 @@ def get_reward_progress(request, reward_id):
                 chapter__journey__in=accessible.values("journey"),  # SECURITY
             )
         except JourneyReward.DoesNotExist:
-            return JsonResponse({
-                'success': False,
-                'message': _('Reward not found')
-            }, status=404)
+            return JsonResponse(
+                {"success": False, "message": _("Reward not found")}, status=404
+            )
 
         # Pieces and points come from the reward's own journey
         journey_progress = accessible.get(journey=reward.chapter.journey)
@@ -706,8 +727,7 @@ def get_reward_progress(request, reward_id):
         # Get reward progress if exists
         try:
             reward_progress = RewardProgress.objects.get(
-                journey_progress=journey_progress,
-                reward=reward
+                journey_progress=journey_progress, reward=reward
             )
             unlocked_pieces = reward_progress.unlocked_pieces
             is_completed = reward_progress.is_completed
@@ -715,17 +735,22 @@ def get_reward_progress(request, reward_id):
             unlocked_pieces = []
             is_completed = False
 
-        return JsonResponse({
-            'success': True,
-            'unlocked_pieces': unlocked_pieces,
-            'is_completed': is_completed,
-            'total_unlocked': len(unlocked_pieces),
-            'current_points': journey_progress.total_points
-        })
+        return JsonResponse(
+            {
+                "success": True,
+                "unlocked_pieces": unlocked_pieces,
+                "is_completed": is_completed,
+                "total_unlocked": len(unlocked_pieces),
+                "current_points": journey_progress.total_points,
+            }
+        )
 
     except Exception as e:
         logger.error(f"❌ Error getting reward progress: {e}", exc_info=True)
-        return JsonResponse({
-            'success': False,
-            'message': _('An error occurred retrieving reward progress')
-        }, status=500)
+        return JsonResponse(
+            {
+                "success": False,
+                "message": _("An error occurred retrieving reward progress"),
+            },
+            status=500,
+        )

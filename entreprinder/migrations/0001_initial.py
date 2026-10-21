@@ -15,39 +15,99 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Industry',
+            name="Industry",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=100, unique=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=100, unique=True)),
             ],
         ),
         migrations.CreateModel(
-            name='Skill',
+            name="Skill",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=50, unique=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=50, unique=True)),
             ],
         ),
         migrations.CreateModel(
-            name='EntrepreneurProfile',
+            name="EntrepreneurProfile",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('profile_picture', models.ImageField(blank=True, null=True, upload_to='profile_pics')),
-                ('bio', models.TextField(blank=True, max_length=500)),
-                ('tagline', models.CharField(blank=True, help_text='A brief, catchy description of yourself', max_length=150)),
-                ('company', models.CharField(blank=True, max_length=100)),
-                ('location', models.CharField(blank=True, max_length=100)),
-                ('looking_for', models.TextField(blank=True, max_length=500)),
-                ('offering', models.TextField(blank=True, help_text='What can you offer to other entrepreneurs?', max_length=500)),
-                ('website', models.URLField(blank=True)),
-                ('linkedin_profile', models.URLField(blank=True)),
-                ('years_of_experience', models.PositiveIntegerField(default=0)),
-                ('is_mentor', models.BooleanField(default=False)),
-                ('is_looking_for_funding', models.BooleanField(default=False)),
-                ('is_investor', models.BooleanField(default=False)),
-                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
-                ('industry', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='entreprinder.industry')),
-                ('skills', models.ManyToManyField(related_name='entrepreneurs', to='entreprinder.skill')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "profile_picture",
+                    models.ImageField(blank=True, null=True, upload_to="profile_pics"),
+                ),
+                ("bio", models.TextField(blank=True, max_length=500)),
+                (
+                    "tagline",
+                    models.CharField(
+                        blank=True,
+                        help_text="A brief, catchy description of yourself",
+                        max_length=150,
+                    ),
+                ),
+                ("company", models.CharField(blank=True, max_length=100)),
+                ("location", models.CharField(blank=True, max_length=100)),
+                ("looking_for", models.TextField(blank=True, max_length=500)),
+                (
+                    "offering",
+                    models.TextField(
+                        blank=True,
+                        help_text="What can you offer to other entrepreneurs?",
+                        max_length=500,
+                    ),
+                ),
+                ("website", models.URLField(blank=True)),
+                ("linkedin_profile", models.URLField(blank=True)),
+                ("years_of_experience", models.PositiveIntegerField(default=0)),
+                ("is_mentor", models.BooleanField(default=False)),
+                ("is_looking_for_funding", models.BooleanField(default=False)),
+                ("is_investor", models.BooleanField(default=False)),
+                (
+                    "user",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "industry",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to="entreprinder.industry",
+                    ),
+                ),
+                (
+                    "skills",
+                    models.ManyToManyField(
+                        related_name="entrepreneurs", to="entreprinder.skill"
+                    ),
+                ),
             ],
         ),
     ]

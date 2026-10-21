@@ -72,7 +72,9 @@ def apple_wallet_pass(request):
 
         profile, _ = CrushProfile.objects.get_or_create(user=request.user)
         pkpass_data = build_apple_pass(profile, request=request)
-        response = HttpResponse(pkpass_data, content_type="application/vnd.apple.pkpass")
+        response = HttpResponse(
+            pkpass_data, content_type="application/vnd.apple.pkpass"
+        )
         response["Content-Disposition"] = "attachment; filename=crushlu.pkpass"
         # pkpass is already a ZIP; gzipping breaks iOS Wallet validation.
         response["Content-Encoding"] = "identity"
@@ -220,9 +222,11 @@ def apple_event_ticket_pass(request, registration_id):
         from .wallet.apple_event_ticket import build_apple_event_ticket
 
         pkpass_data = build_apple_event_ticket(registration, request=request)
-        response = HttpResponse(pkpass_data, content_type="application/vnd.apple.pkpass")
+        response = HttpResponse(
+            pkpass_data, content_type="application/vnd.apple.pkpass"
+        )
         response["Content-Disposition"] = (
-            f'attachment; filename=crush-event-{registration.event_id}.pkpass'
+            f"attachment; filename=crush-event-{registration.event_id}.pkpass"
         )
         # pkpass is already a ZIP; gzipping breaks iOS Wallet validation.
         response["Content-Encoding"] = "identity"

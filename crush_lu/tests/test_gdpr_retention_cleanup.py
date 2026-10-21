@@ -123,7 +123,8 @@ class GdprRetentionCommandTests(TestCase):
         # With the old 89-day-old clock a 1-day window would delete it; the
         # restarted clock keeps it.
         call_command(
-            "gdpr_retention_cleanup", **{"apply": True, "erased_phone_days": 1},
+            "gdpr_retention_cleanup",
+            **{"apply": True, "erased_phone_days": 1},
             stdout=StringIO(),
         )
         self.assertTrue(ErasedPhoneNumber.objects.filter(pk=row.pk).exists())

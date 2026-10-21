@@ -194,19 +194,20 @@ class EventAvailabilityStatusView(APIView):
                 coach_pk = int(parts[2])
                 coach = get_object_or_404(CrushCoach, pk=coach_pk)
                 event = get_object_or_404(MeetupEvent, pk=event_id)
-                avail, _ = (
-                    EventCoachAvailability.objects.select_for_update().get_or_create(
-                        event=event,
-                        user=coach.user,
-                        defaults={
-                            "role": EventCoachAvailability.Role.ANIMATION,
-                            "status": EventCoachAvailability.Status.ASSIGNED,
-                            "coach_name": (
-                                coach.user.get_full_name() or coach.user.username
-                            )[:255],
-                            "assigned_at": timezone.now(),
-                        },
-                    )
+                (
+                    avail,
+                    _,
+                ) = EventCoachAvailability.objects.select_for_update().get_or_create(
+                    event=event,
+                    user=coach.user,
+                    defaults={
+                        "role": EventCoachAvailability.Role.ANIMATION,
+                        "status": EventCoachAvailability.Status.ASSIGNED,
+                        "coach_name": (
+                            coach.user.get_full_name() or coach.user.username
+                        )[:255],
+                        "assigned_at": timezone.now(),
+                    },
                 )
             else:
                 if not avail_id_str.isdigit():

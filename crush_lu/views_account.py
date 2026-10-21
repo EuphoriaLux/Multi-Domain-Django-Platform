@@ -559,19 +559,28 @@ ACCOUNT_ERASURE_SCALAR_USER_IDS = (("crush_lu", "OAuthState", "auth_user_id"),)
 # Identifying payload blanked on the rows whose user link is severed below.
 ACCOUNT_ERASURE_ANONYMIZE_BLANK = {
     "EventInvitation": (
-        "guest_email", "guest_first_name", "guest_last_name",
-        "approval_notes", "coach_notes",
+        "guest_email",
+        "guest_first_name",
+        "guest_last_name",
+        "approval_notes",
+        "coach_notes",
     ),
     # first_name/last_name are tombstoned separately (unique constraint).
     "SpecialUserExperience": (
-        "custom_welcome_title", "custom_welcome_title_en",
-        "custom_welcome_title_de", "custom_welcome_title_fr",
-        "custom_welcome_message", "custom_welcome_message_en",
-        "custom_welcome_message_de", "custom_welcome_message_fr",
+        "custom_welcome_title",
+        "custom_welcome_title_en",
+        "custom_welcome_title_de",
+        "custom_welcome_title_fr",
+        "custom_welcome_message",
+        "custom_welcome_message_en",
+        "custom_welcome_message_de",
+        "custom_welcome_message_fr",
         "custom_landing_url",
     ),
     "JourneyGift": (
-        "recipient_name", "recipient_email", "claim_error_message",
+        "recipient_name",
+        "recipient_email",
+        "claim_error_message",
         "location_first_met",
     ),
     "CacheChallengeAttempt": ("last_answer",),
@@ -659,11 +668,23 @@ ACCOUNT_ERASURE_CONSENT_RETAINED = {
 # CrushCoach erasure: fields reset to defaults/blank vs kept for the
 # protected relationships (reviews, premium memberships, removal requests).
 ACCOUNT_ERASURE_COACH_RESET = (
-    "bio", "bio_en", "bio_de", "bio_fr",
-    "specializations", "specializations_en", "specializations_de",
-    "specializations_fr", "spoken_languages", "phone_number", "photo",
-    "availability_windows", "is_active", "accepting_premium",
-    "working_mode", "is_away", "away_until",
+    "bio",
+    "bio_en",
+    "bio_de",
+    "bio_fr",
+    "specializations",
+    "specializations_en",
+    "specializations_de",
+    "specializations_fr",
+    "spoken_languages",
+    "phone_number",
+    "photo",
+    "availability_windows",
+    "is_active",
+    "accepting_premium",
+    "working_mode",
+    "is_away",
+    "away_until",
 )
 ACCOUNT_ERASURE_COACH_RETAINED = {
     "id": "internal key (referenced by protected relations)",
@@ -999,7 +1020,8 @@ def _delete_stored_files(queryset):
     from django.db import models as dj_models
 
     file_fields = [
-        f for f in queryset.model._meta.concrete_fields
+        f
+        for f in queryset.model._meta.concrete_fields
         if isinstance(f, dj_models.FileField)
     ]
     if not file_fields:
@@ -1017,7 +1039,10 @@ def _delete_stored_files(queryset):
             except Exception as exc:  # noqa: BLE001 - re-raised below
                 logger.error(
                     "Could not delete %s.%s file %r: %s",
-                    queryset.model.__name__, field.name, name, exc,
+                    queryset.model.__name__,
+                    field.name,
+                    name,
+                    exc,
                 )
                 failures.append(f"{queryset.model.__name__}.{field.name}")
     if failures:
@@ -1037,9 +1062,7 @@ def _purge_user_keyed_personal_data(user, full_account=False):
     # revocation (has_current_consent) before EmailPreference disappears and
     # can_send_email() could re-create default-enabled preferences.
     with transaction.atomic():
-        apps.get_model("crush_lu", "UserDataConsent").objects.filter(
-            user=user
-        ).update(
+        apps.get_model("crush_lu", "UserDataConsent").objects.filter(user=user).update(
             crushlu_consent_given=False,
             crushlu_consent_date=None,
             crushlu_consent_ip=None,
@@ -1127,8 +1150,7 @@ def _purge_user_keyed_personal_data(user, full_account=False):
                         first_name="Erased", last_name=f"user-{row.pk}"
                     )
             blank = {
-                name: ""
-                for name in ACCOUNT_ERASURE_ANONYMIZE_BLANK.get(model_name, ())
+                name: "" for name in ACCOUNT_ERASURE_ANONYMIZE_BLANK.get(model_name, ())
             }
             rows.update(**blank, **{field: None})
         for app_label, model_name, field in ACCOUNT_ERASURE_M2M_CRUSH:
@@ -1151,9 +1173,7 @@ def _finalize_deletion(user):
     """
     from crush_lu.models.profiles import UserDataConsent
 
-    UserDataConsent.objects.filter(user=user).update(
-        crushlu_ban_reason="user_deletion"
-    )
+    UserDataConsent.objects.filter(user=user).update(crushlu_ban_reason="user_deletion")
 
 
 def _accounts_to_erase(user):

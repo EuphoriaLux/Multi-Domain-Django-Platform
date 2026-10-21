@@ -287,9 +287,7 @@ class TestManualAssignTable:
         )
         return user
 
-    def test_get_unassigned_lists_attended_without_membership(
-        self, quiz_event_4t
-    ):
+    def test_get_unassigned_lists_attended_without_membership(self, quiz_event_4t):
         quiz = quiz_event_4t
         # One seated (control), one orphan.
         seated = _make_user("seated_m", "M")
@@ -312,9 +310,7 @@ class TestManualAssignTable:
         assert result["table_number"] == 2
         assert result["role"] == "rotator"
 
-        membership = QuizTableMembership.objects.get(
-            table__quiz=quiz, user=orphan
-        )
+        membership = QuizTableMembership.objects.get(table__quiz=quiz, user=orphan)
         assert membership.table.table_number == 2
         schedule = QuizRotationSchedule.objects.get(
             quiz=quiz, round_number=0, user=orphan
@@ -341,9 +337,7 @@ class TestManualAssignTable:
     def test_orphan_disappears_from_list_after_assignment(self, quiz_event_4t):
         quiz = quiz_event_4t
         orphan = self._make_attended_orphan(quiz, "M")
-        assert any(
-            u["user_id"] == orphan.id for u in get_unassigned_attendees(quiz)
-        )
+        assert any(u["user_id"] == orphan.id for u in get_unassigned_attendees(quiz))
         manual_assign_table(quiz, orphan, table_number=1)
         assert not any(
             u["user_id"] == orphan.id for u in get_unassigned_attendees(quiz)
@@ -377,8 +371,6 @@ class TestManualAssignTable:
 
         quiz = quiz_event_4t
         user = _make_user("noshow_m", "M")
-        EventRegistration.objects.create(
-            event=quiz.event, user=user, status="no_show"
-        )
+        EventRegistration.objects.create(event=quiz.event, user=user, status="no_show")
         with pytest.raises(ValidationError):
             manual_assign_table(quiz, user, table_number=1)

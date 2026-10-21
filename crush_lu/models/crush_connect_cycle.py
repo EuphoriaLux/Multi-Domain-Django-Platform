@@ -134,7 +134,9 @@ class ConnectCycleCard(models.Model):
     answers_json = models.JSONField(
         default=dict,
         blank=True,
-        help_text=_("Private responses and compatibility signals recorded for this card"),
+        help_text=_(
+            "Private responses and compatibility signals recorded for this card"
+        ),
     )
     is_completed = models.BooleanField(
         default=False,
@@ -241,13 +243,17 @@ class ConnectTemporaryChat(models.Model):
     class Status(models.TextChoices):
         ACTIVE = "active", _("Active")
         MEETING_SCHEDULED = "meeting_scheduled", _("Meeting Scheduled")
-        MEETING_CONFIRMED = "meeting_confirmed", _("Meeting Confirmed (3-day countdown)")
+        MEETING_CONFIRMED = "meeting_confirmed", _(
+            "Meeting Confirmed (3-day countdown)"
+        )
         CLOSED = "closed", _("Closed")
         BLOCKED = "blocked", _("Blocked")
 
     class CloseReason(models.TextChoices):
         INACTIVITY_TIMEOUT = "inactivity_timeout", _("Inactivity Timeout (7 days)")
-        POST_MEETING_RETENTION = "post_meeting_retention", _("Post-meeting retention finished")
+        POST_MEETING_RETENTION = "post_meeting_retention", _(
+            "Post-meeting retention finished"
+        )
         MEMBER_DECLINED = "member_declined", _("Member closed conversation")
         BLOCKED = "blocked", _("Blocked by participant")
 
@@ -301,7 +307,11 @@ class ConnectTemporaryChat(models.Model):
         super().save(*args, **kwargs)
 
     def get_other_participant(self, user):
-        return self.participant_2 if self.participant_1_id == user.id else self.participant_1
+        return (
+            self.participant_2
+            if self.participant_1_id == user.id
+            else self.participant_1
+        )
 
 
 class ConnectChatMessage(models.Model):
@@ -324,10 +334,12 @@ class ConnectChatMessage(models.Model):
 
     class Meta:
         ordering = ["sent_at"]
-        constraints = [models.UniqueConstraint(
-            fields=["chat", "sender", "client_submission_id"],
-            name="connect_message_submission_unique",
-        )]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["chat", "sender", "client_submission_id"],
+                name="connect_message_submission_unique",
+            )
+        ]
         verbose_name = _("Connect Chat Message")
         verbose_name_plural = _("Connect Chat Messages")
 
@@ -392,7 +404,11 @@ class ConnectCoffeeDate(models.Model):
         verbose_name_plural = _("Connect Coffee Dates")
 
     def __str__(self):
-        venue = self.venue_location.name if self.venue_location else (self.custom_venue_name or "Custom Venue")
+        venue = (
+            self.venue_location.name
+            if self.venue_location
+            else (self.custom_venue_name or "Custom Venue")
+        )
         return f"Coffee Date: {venue} on {self.proposed_date} ({self.status})"
 
     def confirm_by_user(self, user):
@@ -492,9 +508,9 @@ class ConnectPairExclusion(models.Model):
         if not created and reason != cls.Reason.REQUEST_EXPIRED:
             # Conditional UPDATE also protects concurrent writers: a temporary
             # expiry may be promoted, but can never replace a permanent reason.
-            cls.objects.filter(pk=exclusion.pk, reason=cls.Reason.REQUEST_EXPIRED).update(
-                reason=reason
-            )
+            cls.objects.filter(
+                pk=exclusion.pk, reason=cls.Reason.REQUEST_EXPIRED
+            ).update(reason=reason)
             exclusion.refresh_from_db()
         return exclusion, created
 
@@ -671,7 +687,9 @@ class ConnectCycleFeedback(models.Model):
 
     def __str__(self):
         if self.dismissed:
-            return f"Feedback (dismissed): {self.user.username} - Cycle #{self.session_id}"
+            return (
+                f"Feedback (dismissed): {self.user.username} - Cycle #{self.session_id}"
+            )
         return f"Feedback ({self.sentiment or 'blank'}): {self.user.username} - Cycle #{self.session_id}"
 
     @property

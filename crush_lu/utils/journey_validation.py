@@ -4,6 +4,7 @@ Journey challenge answer validation utilities.
 Provides input sanitization and validation for different challenge types
 to ensure consistent answer handling across the Wonderland journey.
 """
+
 import re
 from typing import Optional
 
@@ -32,28 +33,30 @@ def normalize_answer(answer: str, challenge_type: str) -> str:
     normalized = answer.strip()
 
     # Collapse multiple whitespace characters to single space
-    normalized = re.sub(r'\s+', ' ', normalized)
+    normalized = re.sub(r"\s+", " ", normalized)
 
     # Type-specific normalization
-    if challenge_type in ['text_input', 'riddle', 'word_scramble']:
+    if challenge_type in ["text_input", "riddle", "word_scramble"]:
         # Case-insensitive comparison for text inputs and riddles
         normalized = normalized.lower()
         # Remove common punctuation for more forgiving matching
-        normalized = re.sub(r'[.,!?;:\'"()]', '', normalized)
-    elif challenge_type == 'timeline_events':
+        normalized = re.sub(r'[.,!?;:\'"()]', "", normalized)
+    elif challenge_type == "timeline_events":
         # Timeline events: normalize whitespace only (preserve case)
         pass
-    elif challenge_type == 'photo_puzzle':
+    elif challenge_type == "photo_puzzle":
         # Photo puzzle: typically no text answer, but normalize if present
         normalized = normalized.lower()
-    elif challenge_type == 'choice':
+    elif challenge_type == "choice":
         # Multiple choice: case-insensitive, whitespace normalized
         normalized = normalized.lower()
 
     return normalized
 
 
-def validate_answer_format(answer: str, challenge_type: str) -> tuple[bool, Optional[str]]:
+def validate_answer_format(
+    answer: str, challenge_type: str
+) -> tuple[bool, Optional[str]]:
     """
     Validate the format of a challenge answer.
 
@@ -82,21 +85,22 @@ def validate_answer_format(answer: str, challenge_type: str) -> tuple[bool, Opti
         return False, f"Answer must be at least {MIN_LENGTH} character(s)"
 
     # Type-specific validation
-    if challenge_type == 'text_input':
+    if challenge_type == "text_input":
         # Text input: 1-500 characters
         MAX_LENGTH = 500
         if len(answer) > MAX_LENGTH:
             return False, f"Answer too long (max {MAX_LENGTH} characters)"
 
-    elif challenge_type == 'riddle':
+    elif challenge_type == "riddle":
         # Riddle: 1-200 characters
         MAX_LENGTH = 200
         if len(answer) > MAX_LENGTH:
             return False, f"Answer too long (max {MAX_LENGTH} characters)"
 
-    elif challenge_type == 'timeline_events':
+    elif challenge_type == "timeline_events":
         # Timeline events: JSON array format
         import json
+
         try:
             events = json.loads(answer)
             if not isinstance(events, list):
@@ -108,13 +112,13 @@ def validate_answer_format(answer: str, challenge_type: str) -> tuple[bool, Opti
         except json.JSONDecodeError as e:
             return False, f"Invalid timeline format: {str(e)}"
 
-    elif challenge_type == 'choice':
+    elif challenge_type == "choice":
         # Multiple choice: single character or short string
         MAX_LENGTH = 50
         if len(answer) > MAX_LENGTH:
             return False, f"Choice answer too long (max {MAX_LENGTH} characters)"
 
-    elif challenge_type == 'photo_puzzle':
+    elif challenge_type == "photo_puzzle":
         # Photo puzzle: typically auto-completed, but validate if present
         MAX_LENGTH = 100
         if len(answer) > MAX_LENGTH:
@@ -128,7 +132,7 @@ def compare_answers(
     user_answer: str,
     correct_answer: str,
     challenge_type: str,
-    case_sensitive: bool = False
+    case_sensitive: bool = False,
 ) -> bool:
     """
     Compare user answer with correct answer.
@@ -152,12 +156,13 @@ def compare_answers(
         normalized_correct = correct_answer.strip()
 
     # Direct comparison for most types
-    if challenge_type in ['text_input', 'riddle', 'choice']:
+    if challenge_type in ["text_input", "riddle", "choice"]:
         return normalized_user == normalized_correct
 
     # Special handling for timeline events (order matters)
-    elif challenge_type == 'timeline_events':
+    elif challenge_type == "timeline_events":
         import json
+
         try:
             user_events = json.loads(user_answer)
             correct_events = json.loads(correct_answer)
@@ -167,7 +172,7 @@ def compare_answers(
             return False
 
     # Photo puzzle: typically auto-validated by frontend
-    elif challenge_type == 'photo_puzzle':
+    elif challenge_type == "photo_puzzle":
         return True  # Always pass if reached this point
 
     # Default: exact match
@@ -201,11 +206,11 @@ def sanitize_answer_for_storage(answer: str, challenge_type: str) -> str:
 
     # Length limits per type
     max_lengths = {
-        'text_input': 500,
-        'riddle': 200,
-        'timeline_events': 5000,  # JSON can be longer
-        'choice': 50,
-        'photo_puzzle': 100,
+        "text_input": 500,
+        "riddle": 200,
+        "timeline_events": 5000,  # JSON can be longer
+        "choice": 50,
+        "photo_puzzle": 100,
     }
     max_length = max_lengths.get(challenge_type, 500)
     if len(sanitized) > max_length:

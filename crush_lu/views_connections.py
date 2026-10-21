@@ -141,9 +141,7 @@ def event_attendees(request, event_id):
     # coach-facilitated introduction completes.
     received_connections = {
         c.requester_id: c
-        for c in EventConnection.objects.filter(
-            recipient=request.user, event=event
-        )
+        for c in EventConnection.objects.filter(recipient=request.user, event=event)
         .excluding_unshared_crushes()
         .exclude(requester_id__in=blocked_ids)
     }
@@ -237,9 +235,7 @@ def event_attendees(request, event_id):
         and resolve_participation(request.user, event, lobby_now) is not None
     ):
         target_users = [attendee["user"] for attendee in attendee_data]
-        recap_eligible_ids = resolve_participations_bulk(
-            target_users, event, lobby_now
-        )
+        recap_eligible_ids = resolve_participations_bulk(target_users, event, lobby_now)
 
     for attendee in attendee_data:
         # Removal pairs are already absent from the list (block semantics), so
@@ -693,8 +689,7 @@ def connection_actions(request, event_id, user_id):
         "connection_status": connection_status,
         "connection_id": connection_id,
         "recap_cta": (
-            crush_flow_decision(request.user, target_user, event)
-            == CRUSH_FLOW_REDIRECT
+            crush_flow_decision(request.user, target_user, event) == CRUSH_FLOW_REDIRECT
         ),
     }
 
@@ -741,10 +736,7 @@ def respond_connection(request, connection_id, action):
     # consent moves only through the coach. A guessed accept/decline URL
     # no-ops neutrally — no status change, no consent flags, no
     # notification, and the same non-disclosing message as a dead connection.
-    if (
-        connection.flow == EventConnection.FLOW_CRUSH
-        and connection.status != "shared"
-    ):
+    if connection.flow == EventConnection.FLOW_CRUSH and connection.status != "shared":
         if request.headers.get("HX-Request"):
             return render(
                 request,
@@ -898,7 +890,9 @@ def respond_connection(request, connection_id, action):
                     {"connection": connection, "action": "accept"},
                 ),
                 (
-                    _("Connection accepted! You can now see each other's profile details.")
+                    _(
+                        "Connection accepted! You can now see each other's profile details."
+                    )
                     if connection.is_same_gender
                     else _(
                         "Connection accepted! A coach will help facilitate "
@@ -1143,8 +1137,7 @@ def connection_detail(request, connection_id):
     # the recipient must not discover the row from any page, including a
     # bookmarked or guessed detail URL — same 404 as a non-existent id.
     crush_lead_neutral = (
-        connection.flow == EventConnection.FLOW_CRUSH
-        and connection.status != "shared"
+        connection.flow == EventConnection.FLOW_CRUSH and connection.status != "shared"
     )
     if crush_lead_neutral and not is_requester:
         raise Http404
@@ -1167,9 +1160,7 @@ def connection_detail(request, connection_id):
         # recorded coach-side (Phase D); there is no chat before the
         # introduction (§7 messaging lock, enforced server-side).
         if crush_lead_neutral:
-            return redirect(
-                "crush_lu:connection_detail", connection_id=connection_id
-            )
+            return redirect("crush_lu:connection_detail", connection_id=connection_id)
 
         # Contact choices on a shared connection (#1146, Decision D): the
         # coach share and the same-gender auto-share never pass the consent
@@ -1513,8 +1504,7 @@ def connection_messages(request, connection_id):
     # a GET with no rate limit, so the difference is enumerable: walk the ids
     # and every 286 marks a hidden admirer. Same 404 as `connection_detail`.
     crush_lead_neutral = (
-        connection.flow == EventConnection.FLOW_CRUSH
-        and connection.status != "shared"
+        connection.flow == EventConnection.FLOW_CRUSH and connection.status != "shared"
     )
     if crush_lead_neutral and not is_requester:
         raise Http404

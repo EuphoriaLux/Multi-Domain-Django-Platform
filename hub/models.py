@@ -941,9 +941,7 @@ class EventCoachAvailability(models.Model):
         related_name="hub_coach_availabilities",
     )
     coach_name = models.CharField(max_length=255, blank=True)
-    role = models.CharField(
-        max_length=50, choices=Role.choices, default=Role.ANIMATION
-    )
+    role = models.CharField(max_length=50, choices=Role.choices, default=Role.ANIMATION)
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.AVAILABLE
     )

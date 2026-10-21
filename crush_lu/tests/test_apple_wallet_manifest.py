@@ -91,7 +91,10 @@ def test_generate_pass_thumbnail_fallback_when_no_photo():
 
 def test_wallet_status_display_and_badges():
     from unittest.mock import MagicMock
-    from crush_lu.wallet_pass import get_wallet_status_display, get_wallet_verification_badge
+    from crush_lu.wallet_pass import (
+        get_wallet_status_display,
+        get_wallet_verification_badge,
+    )
 
     # Premium member
     p_prem = MagicMock()
@@ -170,4 +173,3 @@ def test_build_pass_payload_personalization_structure(settings, test_user_with_p
     assert "event_entry" in back_keys
     assert "tier_info" in back_keys
     assert "safety_support" in back_keys
-

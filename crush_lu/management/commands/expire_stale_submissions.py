@@ -116,9 +116,7 @@ class Command(BaseCommand):
         # (e.g. its booked call) behind the self-serve flow.
         candidate_pks = list(candidates.values_list("pk", flat=True))
         surviving_profile_ids = (
-            ProfileSubmission.objects.filter(
-                status__in=("pending", "recontact_coach")
-            )
+            ProfileSubmission.objects.filter(status__in=("pending", "recontact_coach"))
             .exclude(pk__in=candidate_pks)
             .values("profile_id")
         )
@@ -160,9 +158,7 @@ class Command(BaseCommand):
             # newly protected sibling while still expiring its profile-mate).
             final_pks = list(candidates.values_list("pk", flat=True))
             locked = list(
-                ProfileSubmission.objects.filter(
-                    pk__in=final_pks
-                ).select_for_update()
+                ProfileSubmission.objects.filter(pk__in=final_pks).select_for_update()
             )
             expirable = []
             for submission in locked:
@@ -204,9 +200,7 @@ class Command(BaseCommand):
                 expired += 1
 
         if skipped_late:
-            self.stdout.write(
-                f"  skipped (state changed during run): {skipped_late}"
-            )
+            self.stdout.write(f"  skipped (state changed during run): {skipped_late}")
         self.stdout.write(
             self.style.SUCCESS(
                 f"Expired {expired} submission(s) — their users now get the "

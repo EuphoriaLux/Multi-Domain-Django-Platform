@@ -219,4 +219,3 @@ def complete_native_auth(request, platform, code):
         )
 
     return _failure_response(request, platform, result.record)
-

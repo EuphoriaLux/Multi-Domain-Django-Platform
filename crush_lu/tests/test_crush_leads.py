@@ -16,6 +16,7 @@ privacy matrix (Phase C), coach UI/notifications/reminder sweep (Phase D).
 
 Run with: pytest crush_lu/tests/test_crush_leads.py -v
 """
+
 from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
@@ -35,17 +36,17 @@ from crush_lu.services.crush_leads import coach_action_queue, reminder_due
 User = get_user_model()
 
 
-def make_user(username, gender='M'):
+def make_user(username, gender="M"):
     user = User.objects.create_user(
         username=username,
         email=username,
-        password='testpass123',
+        password="testpass123",
     )
     profile = CrushProfile.objects.create(
         user=user,
         date_of_birth=date(1995, 5, 15),
         gender=gender,
-        location='Luxembourg',
+        location="Luxembourg",
         is_approved=True,
         is_active=True,
     )
@@ -56,26 +57,26 @@ def make_coach(username, is_active=True):
     user = User.objects.create_user(
         username=username,
         email=username,
-        password='coachpass123',
+        password="coachpass123",
     )
     return CrushCoach.objects.create(
         user=user,
-        bio='Test coach',
+        bio="Test coach",
         is_active=is_active,
     )
 
 
 class CrushLeadBaseTestCase(TestCase):
     def setUp(self):
-        self.requester, self.requester_profile = make_user('requester@example.com', 'M')
-        self.recipient, _ = make_user('recipient@example.com', 'F')
+        self.requester, self.requester_profile = make_user("requester@example.com", "M")
+        self.recipient, _ = make_user("recipient@example.com", "F")
         self.event = MeetupEvent.objects.create(
-            title='Crush Lead Test Event',
-            description='Event for crush lead tests',
-            event_type='mixer',
+            title="Crush Lead Test Event",
+            description="Event for crush lead tests",
+            event_type="mixer",
             date_time=timezone.now() - timedelta(hours=2),
-            location='Luxembourg',
-            address='1 Test Street',
+            location="Luxembourg",
+            address="1 Test Street",
             max_participants=20,
             registration_deadline=timezone.now() - timedelta(days=3),
             is_published=True,
@@ -83,9 +84,9 @@ class CrushLeadBaseTestCase(TestCase):
 
     def make_connection(self, **kwargs):
         defaults = {
-            'event': self.event,
-            'requester': self.requester,
-            'recipient': self.recipient,
+            "event": self.event,
+            "requester": self.requester,
+            "recipient": self.recipient,
         }
         defaults.update(kwargs)
         return EventConnection.objects.create(**defaults)
@@ -107,8 +108,8 @@ class FlowDiscriminatorTests(CrushLeadBaseTestCase):
 
     def test_historical_pending_row_never_in_crush_queue(self):
         """Pre-launch pending rows keep flow=legacy and stay out of the queue."""
-        coach = make_coach('coach-queue@example.com')
-        legacy = self.make_connection(assigned_coach=coach, status='pending')
+        coach = make_coach("coach-queue@example.com")
+        legacy = self.make_connection(assigned_coach=coach, status="pending")
 
         self.assertEqual(legacy.flow, EventConnection.FLOW_LEGACY)
         self.assertFalse(
@@ -122,7 +123,9 @@ class FlowDiscriminatorTests(CrushLeadBaseTestCase):
     def test_no_pending_model_changes_after_migration(self):
         """The Phase B migration captures the full model state (additive)."""
         # Exits non-zero (SystemExit) if makemigrations would create changes.
-        call_command('makemigrations', 'crush_lu', check=True, dry_run=True, verbosity=0)
+        call_command(
+            "makemigrations", "crush_lu", check=True, dry_run=True, verbosity=0
+        )
 
 
 class CallBySlaTests(CrushLeadBaseTestCase):
@@ -131,7 +134,9 @@ class CallBySlaTests(CrushLeadBaseTestCase):
     def test_call_by_is_requested_at_plus_48h(self):
         connection = self.make_connection(flow=EventConnection.FLOW_CRUSH)
         declared_at = timezone.now() - timedelta(hours=3)
-        EventConnection.objects.filter(pk=connection.pk).update(requested_at=declared_at)
+        EventConnection.objects.filter(pk=connection.pk).update(
+            requested_at=declared_at
+        )
         connection.refresh_from_db()
 
         self.assertEqual(connection.call_by, declared_at + timedelta(hours=48))
@@ -161,7 +166,7 @@ class CallBySlaTests(CrushLeadBaseTestCase):
         self.assertFalse(reminder_due(connection))
 
         connection.coach_call_completed_at = None
-        connection.status = 'declined'
+        connection.status = "declined"
         self.assertFalse(reminder_due(connection))
 
     def test_reminder_not_due_when_call_scheduled(self):
@@ -183,15 +188,15 @@ class RoutingTierTests(CrushLeadBaseTestCase):
 
     def setUp(self):
         super().setUp()
-        self.assigned_coach = make_coach('coach-assigned@example.com')
-        self.event_coach_1 = make_coach('coach-event-1@example.com')
-        self.event_coach_2 = make_coach('coach-event-2@example.com')
+        self.assigned_coach = make_coach("coach-assigned@example.com")
+        self.event_coach_1 = make_coach("coach-event-1@example.com")
+        self.event_coach_2 = make_coach("coach-event-2@example.com")
 
     def approve_with_coach(self, coach):
         return ProfileSubmission.objects.create(
             profile=self.requester_profile,
             coach=coach,
-            status='approved',
+            status="approved",
         )
 
     def test_tier1_active_assigned_coach_wins(self):
@@ -247,7 +252,9 @@ class RoutingTierTests(CrushLeadBaseTestCase):
         self.assertEqual(connection.assigned_coach, self.event_coach_1)
 
     def test_tier2_deactivated_event_coach_falls_through_to_active_one(self):
-        inactive_event_coach = make_coach('coach-event-inactive@example.com', is_active=False)
+        inactive_event_coach = make_coach(
+            "coach-event-inactive@example.com", is_active=False
+        )
         self.event.coaches.add(inactive_event_coach, self.event_coach_1)
 
         connection = self.make_connection()
@@ -256,7 +263,9 @@ class RoutingTierTests(CrushLeadBaseTestCase):
         self.assertEqual(connection.assigned_coach, self.event_coach_1)
 
     def test_tier2_all_event_coaches_inactive_falls_to_pool(self):
-        inactive_event_coach = make_coach('coach-event-inactive2@example.com', is_active=False)
+        inactive_event_coach = make_coach(
+            "coach-event-inactive2@example.com", is_active=False
+        )
         self.event.coaches.add(inactive_event_coach)
 
         connection = self.make_connection()
@@ -281,7 +290,7 @@ class RoutingTierTests(CrushLeadBaseTestCase):
         )
 
         connection = self.make_connection(
-            recipient=make_user('recipient-routing@example.com', 'F')[0],
+            recipient=make_user("recipient-routing@example.com", "F")[0],
         )
         connection.assign_coach()
 
@@ -305,11 +314,11 @@ class RoutingTierTests(CrushLeadBaseTestCase):
         )
         self.make_connection(
             assigned_coach=self.event_coach_1,  # legacy row — never counted
-            recipient=make_user('recipient-legacy@example.com', 'F')[0],
+            recipient=make_user("recipient-legacy@example.com", "F")[0],
         )
 
         connection = self.make_connection(
-            recipient=make_user('recipient-fresh@example.com', 'F')[0],
+            recipient=make_user("recipient-fresh@example.com", "F")[0],
         )
         connection.assign_coach()
 
@@ -320,7 +329,7 @@ class RoutingTierTests(CrushLeadBaseTestCase):
         connection = self.make_connection()
         connection.assign_coach()
 
-        expected = CrushCoach.objects.filter(is_active=True).order_by('id').first()
+        expected = CrushCoach.objects.filter(is_active=True).order_by("id").first()
         self.assertEqual(connection.assigned_coach, expected)
 
 
@@ -329,16 +338,18 @@ class CoachActionQueueTests(CrushLeadBaseTestCase):
 
     def setUp(self):
         super().setUp()
-        self.coach = make_coach('coach-action@example.com')
-        self.other_coach = make_coach('coach-other@example.com')
+        self.coach = make_coach("coach-action@example.com")
+        self.other_coach = make_coach("coach-other@example.com")
 
     def test_queue_lists_open_crush_leads_for_coach_oldest_first(self):
         first = self.make_connection(
-            flow=EventConnection.FLOW_CRUSH, assigned_coach=self.coach,
+            flow=EventConnection.FLOW_CRUSH,
+            assigned_coach=self.coach,
         )
         second = self.make_connection(
-            flow=EventConnection.FLOW_CRUSH, assigned_coach=self.coach,
-            recipient=make_user('recipient2@example.com', 'F')[0],
+            flow=EventConnection.FLOW_CRUSH,
+            assigned_coach=self.coach,
+            recipient=make_user("recipient2@example.com", "F")[0],
         )
         self.assertEqual(
             list(coach_action_queue(self.coach)),
@@ -348,16 +359,16 @@ class CoachActionQueueTests(CrushLeadBaseTestCase):
             self.assertEqual(lead.call_by, lead.requested_at + timedelta(hours=48))
 
     def test_queue_excludes_legacy_rows(self):
-        self.make_connection(assigned_coach=self.coach, status='pending')
+        self.make_connection(assigned_coach=self.coach, status="pending")
         self.assertEqual(list(coach_action_queue(self.coach)), [])
 
     def test_queue_excludes_non_actionable_statuses(self):
-        for status in ('declined', 'shared'):
+        for status in ("declined", "shared"):
             self.make_connection(
                 flow=EventConnection.FLOW_CRUSH,
                 assigned_coach=self.coach,
                 status=status,
-                recipient=make_user(f'recipient-{status}@example.com', 'F')[0],
+                recipient=make_user(f"recipient-{status}@example.com", "F")[0],
             )
         self.assertEqual(list(coach_action_queue(self.coach)), [])
 
@@ -371,6 +382,7 @@ class CoachActionQueueTests(CrushLeadBaseTestCase):
 
     def test_queue_excludes_other_coaches_leads(self):
         self.make_connection(
-            flow=EventConnection.FLOW_CRUSH, assigned_coach=self.other_coach,
+            flow=EventConnection.FLOW_CRUSH,
+            assigned_coach=self.other_coach,
         )
         self.assertEqual(list(coach_action_queue(self.coach)), [])

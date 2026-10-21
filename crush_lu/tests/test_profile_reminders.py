@@ -257,9 +257,7 @@ class SendProfileIncompleteReminderTests(TestCase):
         self.assertFalse(result)
         self.assertEqual(len(mail.outbox), 0)
         self.assertEqual(
-            ProfileReminder.objects.filter(
-                user=user, reminder_type="24h"
-            ).count(),
+            ProfileReminder.objects.filter(user=user, reminder_type="24h").count(),
             1,
         )
 
@@ -370,9 +368,7 @@ class SendProfileRemindersCommandTests(TestCase):
 
         call_command("send_profile_reminders", "--limit=2", stdout=StringIO())
 
-        reminded = set(
-            ProfileReminder.objects.values_list("user__username", flat=True)
-        )
+        reminded = set(ProfileReminder.objects.values_list("user__username", flat=True))
         self.assertEqual(reminded, {"oldest@example.com", "middle@example.com"})
         self.assertEqual(len(mail.outbox), 2)
 
@@ -413,9 +409,7 @@ class SendProfileRemindersCommandTests(TestCase):
             1,
         )
         # The 7d backlog is capped at its floor, not eating the whole limit.
-        self.assertEqual(
-            ProfileReminder.objects.filter(reminder_type="7d").count(), 1
-        )
+        self.assertEqual(ProfileReminder.objects.filter(reminder_type="7d").count(), 1)
         self.assertEqual(len(mail.outbox), 3)
 
     def test_panel_does_not_double_send_adjacent_stages(self):

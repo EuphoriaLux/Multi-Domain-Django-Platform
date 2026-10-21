@@ -9,6 +9,7 @@ Recipient attribution comes from the signed ``?r=`` parameter added at send
 time; a missing, tampered, or stale value silently degrades to an anonymous
 click (the redirect must never break for the recipient).
 """
+
 import logging
 
 from django.contrib.auth.models import User
@@ -28,11 +29,11 @@ def campaign_click_redirect(request, token):
     link = get_object_or_404(CampaignLink, token=token)
 
     user = None
-    signed = request.GET.get('r', '')
+    signed = request.GET.get("r", "")
     if signed:
         try:
             value = click_signer().unsign(signed)
-            user_id, _, signed_token = value.partition(':')
+            user_id, _, signed_token = value.partition(":")
             # The signature binds user AND link — a valid ?r= copied onto a
             # different campaign URL degrades to an anonymous click.
             if signed_token == token:

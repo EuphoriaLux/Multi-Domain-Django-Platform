@@ -40,6 +40,7 @@ from .models.crush_cache import (
 )
 
 from .models.events import SEAT_HOLDING_STATUSES
+
 logger = logging.getLogger(__name__)
 
 # Positions with worse reported accuracy than this are ignored outright —
@@ -254,7 +255,10 @@ def cache_lobby(request, event_id):
     registration = _get_registration(hunt, request.user)
     membership = _get_membership(hunt, request.user) if registration else None
 
-    if membership and (hunt.status == "finished" or (hunt.is_live and request.GET.get("view") != "lobby")):
+    if membership and (
+        hunt.status == "finished"
+        or (hunt.is_live and request.GET.get("view") != "lobby")
+    ):
         return redirect("crush_lu:cache_play", event_id=event_id)
 
     teams = hunt.teams.prefetch_related(

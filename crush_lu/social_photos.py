@@ -43,9 +43,9 @@ SOCIAL_PHOTO_REFRESH_INTERVAL = 24 * 3600  # 24 hours
 
 # Provider display names
 PROVIDER_DISPLAY_NAMES = {
-    'facebook': 'Facebook',
-    'google': 'Google',
-    'microsoft': 'Microsoft',
+    "facebook": "Facebook",
+    "google": "Google",
+    "microsoft": "Microsoft",
 }
 
 
@@ -72,13 +72,14 @@ def _get_token_for_account(social_account):
     """Get the SocialToken for a social account, using prefetch if available."""
     try:
         if (
-            hasattr(social_account, '_prefetched_objects_cache')
-            and 'socialtoken_set' in social_account._prefetched_objects_cache
+            hasattr(social_account, "_prefetched_objects_cache")
+            and "socialtoken_set" in social_account._prefetched_objects_cache
         ):
             tokens = list(social_account.socialtoken_set.all())
             return tokens[0] if tokens else None
         else:
             from allauth.socialaccount.models import SocialToken
+
             return SocialToken.objects.filter(account=social_account).first()
     except Exception:
         return None
@@ -103,12 +104,12 @@ def _is_token_expired(token):
 
 
 # Providers whose photo refresh_social_photo_cache() persists to storage.
-PHOTO_CACHE_PROVIDERS = ('facebook', 'google', 'microsoft')
+PHOTO_CACHE_PROVIDERS = ("facebook", "google", "microsoft")
 
 # Set while a caller deletes SocialAccounts whose cached photos it has already
 # erased (see already_erased_social_photo_cache); the pre_delete hook skips.
 _cache_already_erased = contextvars.ContextVar(
-    'social_photo_cache_already_erased', default=False
+    "social_photo_cache_already_erased", default=False
 )
 
 
@@ -146,6 +147,7 @@ def _get_social_cache_path(social_account):
 def _get_photo_storage():
     """Get the storage backend for social photo cache."""
     from .models.profiles import get_crush_photo_storage
+
     return get_crush_photo_storage()
 
 
@@ -165,7 +167,7 @@ def _delete_cached_photo_files(storage, user_id, provider):
     except FileNotFoundError:
         return
     for name in files:
-        name = name.rsplit('/', 1)[-1]
+        name = name.rsplit("/", 1)[-1]
         if name == f"{provider}.jpg" or name.endswith(f"_{provider}.jpg"):
             storage.delete(folder + name)
 
@@ -178,9 +180,7 @@ def _is_banned_from_crush(user_id):
     """
     from .models.profiles import UserDataConsent
 
-    return UserDataConsent.objects.filter(
-        user_id=user_id, crushlu_banned=True
-    ).exists()
+    return UserDataConsent.objects.filter(user_id=user_id, crushlu_banned=True).exists()
 
 
 def _may_persist_social_photo(social_account):
@@ -336,14 +336,14 @@ def _list_social_cache_files(storage, deadline=None):
         tuple: (names, complete) - complete is False when the walk stopped
         at the deadline.
     """
-    list_all = getattr(storage, 'list_all', None)
+    list_all = getattr(storage, "list_all", None)
     if list_all is not None:
-        return [name for name in list_all('users/') if '/social_cache/' in name], True
+        return [name for name in list_all("users/") if "/social_cache/" in name], True
     try:
-        dirs, files = storage.listdir('users/')
+        dirs, files = storage.listdir("users/")
     except FileNotFoundError:
         return [], True
-    names = [name for name in files if '/social_cache/' in name]
+    names = [name for name in files if "/social_cache/" in name]
     for user_dir in dirs:
         if deadline is not None and time.monotonic() >= deadline:
             return names, False
@@ -380,11 +380,11 @@ def sweep_orphaned_social_photo_cache(apply=False, deadline=None, limit=500):
     names, listed_all = _list_social_cache_files(storage, deadline)
     entries = []
     for name in names:
-        parts = name.split('/')
+        parts = name.split("/")
         if len(parts) != 4 or not parts[1].isdigit():
             continue
         # <uuid>_<provider>.jpg (production naming) or <provider>.jpg
-        provider = parts[3].rsplit('.', 1)[0].rsplit('_', 1)[-1]
+        provider = parts[3].rsplit(".", 1)[0].rsplit("_", 1)[-1]
         entries.append((name, int(parts[1]), provider))
 
     user_ids = sorted({user_id for _name, user_id, _provider in entries})
@@ -392,16 +392,15 @@ def sweep_orphaned_social_photo_cache(apply=False, deadline=None, limit=500):
     for start in range(0, len(user_ids), 500):
         keep.update(
             SocialAccount.objects.filter(
-                user_id__in=user_ids[start:start + 500],
+                user_id__in=user_ids[start : start + 500],
                 user__is_active=True,
                 provider__in=PHOTO_CACHE_PROVIDERS,
             )
             .exclude(user__data_consent__crushlu_banned=True)
-            .values_list('user_id', 'provider')
+            .values_list("user_id", "provider")
         )
     orphaned = [
-        name for name, user_id, provider in entries
-        if (user_id, provider) not in keep
+        name for name, user_id, provider in entries if (user_id, provider) not in keep
     ]
 
     deleted = 0
@@ -516,35 +515,35 @@ def refresh_social_photo_cache(social_account, token=None, force=False):
         except Exception:
             pass
 
-    if provider == 'google':
+    if provider == "google":
         # Google photo URLs are public and don't expire, but we persist
         # them too for consistency
         extra_data = social_account.extra_data
-        picture_url = extra_data.get('picture')
+        picture_url = extra_data.get("picture")
         if not picture_url:
             return False
 
         # Get high-res URL
-        if '=s' in picture_url:
-            picture_url = re.sub(r'=s\d+(-c)?', '=s720-c', picture_url)
+        if "=s" in picture_url:
+            picture_url = re.sub(r"=s\d+(-c)?", "=s720-c", picture_url)
 
         _mark_attempted()
         try:
             response = requests.get(picture_url, timeout=10)
             response.raise_for_status()
-            if response.headers.get('Content-Type', '').startswith('image/'):
+            if response.headers.get("Content-Type", "").startswith("image/"):
                 return _persist_social_photo(social_account, response.content)
         except Exception as e:
             logger.warning(f"Failed to refresh Google photo cache: {e}")
         return False
 
-    elif provider == 'facebook':
+    elif provider == "facebook":
         if not token:
             token = _get_token_for_account(social_account)
         if not token or _is_token_expired(token):
             return False
 
-        facebook_id = social_account.extra_data.get('id')
+        facebook_id = social_account.extra_data.get("id")
         if not facebook_id:
             return False
 
@@ -559,14 +558,14 @@ def refresh_social_photo_cache(social_account, token=None, force=False):
             resp = requests.get(url, timeout=5)
             resp.raise_for_status()
             data = resp.json()
-            photo_url = data.get('data', {}).get('url')
+            photo_url = data.get("data", {}).get("url")
             if not photo_url:
                 return False
 
             # Download the actual image
             img_resp = requests.get(photo_url, timeout=10)
             img_resp.raise_for_status()
-            if img_resp.headers.get('Content-Type', '').startswith('image/'):
+            if img_resp.headers.get("Content-Type", "").startswith("image/"):
                 return _persist_social_photo(social_account, img_resp.content)
         except Exception as e:
             logger.warning(
@@ -574,7 +573,7 @@ def refresh_social_photo_cache(social_account, token=None, force=False):
             )
         return False
 
-    elif provider == 'microsoft':
+    elif provider == "microsoft":
         if not token:
             token = _get_token_for_account(social_account)
         if not token or _is_token_expired(token):
@@ -583,8 +582,8 @@ def refresh_social_photo_cache(social_account, token=None, force=False):
         _mark_attempted()
         try:
             response = requests.get(
-                'https://graph.microsoft.com/v1.0/me/photo/$value',
-                headers={'Authorization': f'Bearer {token.token}'},
+                "https://graph.microsoft.com/v1.0/me/photo/$value",
+                headers={"Authorization": f"Bearer {token.token}"},
                 timeout=5,
             )
             if response.status_code == 200:
@@ -614,10 +613,10 @@ def get_facebook_photo_url(social_account):
     cache_key = f"social_photo_facebook_{social_account.id}"
     cached_url = cache.get(cache_key)
     if cached_url is not None:
-        return cached_url if cached_url != '' else None
+        return cached_url if cached_url != "" else None
 
     extra_data = social_account.extra_data
-    facebook_id = extra_data.get('id')
+    facebook_id = extra_data.get("id")
     result_url = None
 
     # Try high-resolution photo first via Graph API
@@ -626,7 +625,9 @@ def get_facebook_photo_url(social_account):
 
         # Skip API call if token is expired - the result will be a broken URL anyway
         if _is_token_expired(token):
-            logger.info(f"Facebook token expired for account {social_account.id}, skipping API call")
+            logger.info(
+                f"Facebook token expired for account {social_account.id}, skipping API call"
+            )
         else:
             # Request 720x720 photo (maximum size for profile pictures)
             url = f"https://graph.facebook.com/v24.0/{facebook_id}/picture?width=720&height=720&redirect=false"
@@ -638,8 +639,8 @@ def get_facebook_photo_url(social_account):
                 response.raise_for_status()
                 data = response.json()
 
-                if data.get('data', {}).get('url'):
-                    result_url = data['data']['url']
+                if data.get("data", {}).get("url"):
+                    result_url = data["data"]["url"]
             except Exception as e:
                 logger.warning(
                     "Could not get high-res Facebook photo: "
@@ -647,23 +648,25 @@ def get_facebook_photo_url(social_account):
                 )
 
     # Fallback to standard picture from extra_data
-    if not result_url and 'picture' in extra_data:
-        if isinstance(extra_data['picture'], dict):
-            result_url = extra_data['picture'].get('data', {}).get('url')
+    if not result_url and "picture" in extra_data:
+        if isinstance(extra_data["picture"], dict):
+            result_url = extra_data["picture"].get("data", {}).get("url")
         else:
-            result_url = extra_data['picture']
+            result_url = extra_data["picture"]
 
     # Fallback to persisted cache (works even when token is expired)
     if not result_url:
         result_url = _get_persisted_social_photo_url(social_account)
         if result_url:
-            logger.info(f"Using persisted cache for Facebook account {social_account.id}")
+            logger.info(
+                f"Using persisted cache for Facebook account {social_account.id}"
+            )
             # Use shorter cache timeout for storage SAS URLs
             cache.set(cache_key, result_url, PERSISTED_PHOTO_CACHE_TIMEOUT)
             return result_url
 
     # Cache the result (use '' for None to distinguish from cache miss)
-    cache.set(cache_key, result_url if result_url else '', SOCIAL_PHOTO_CACHE_TIMEOUT)
+    cache.set(cache_key, result_url if result_url else "", SOCIAL_PHOTO_CACHE_TIMEOUT)
     return result_url
 
 
@@ -680,19 +683,19 @@ def get_google_photo_url(social_account):
         str: Photo URL or None if unavailable
     """
     extra_data = social_account.extra_data
-    picture_url = extra_data.get('picture')
+    picture_url = extra_data.get("picture")
 
     if not picture_url:
         return None
 
     # Google photo URLs end with size parameter like =s96-c
     # We can replace this with =s720-c for higher resolution
-    if '=s' in picture_url:
+    if "=s" in picture_url:
         # Replace size parameter with 720
-        return re.sub(r'=s\d+(-c)?', '=s720-c', picture_url)
-    elif '?sz=' in picture_url:
+        return re.sub(r"=s\d+(-c)?", "=s720-c", picture_url)
+    elif "?sz=" in picture_url:
         # Alternative size parameter format
-        return re.sub(r'\?sz=\d+', '?sz=720', picture_url)
+        return re.sub(r"\?sz=\d+", "?sz=720", picture_url)
 
     # Return original URL if no size parameter found
     return picture_url
@@ -719,7 +722,7 @@ def get_microsoft_photo_url(social_account):
     cache_key = f"social_photo_microsoft_{social_account.id}"
     cached_url = cache.get(cache_key)
     if cached_url is not None:
-        return cached_url if cached_url != '' else None
+        return cached_url if cached_url != "" else None
 
     result_url = None
     try:
@@ -730,31 +733,36 @@ def get_microsoft_photo_url(social_account):
             # Fall back to persisted cache
             result_url = _get_persisted_social_photo_url(social_account)
             if result_url:
-                logger.info(f"Using persisted cache for Microsoft account {social_account.id}")
+                logger.info(
+                    f"Using persisted cache for Microsoft account {social_account.id}"
+                )
                 cache.set(cache_key, result_url, PERSISTED_PHOTO_CACHE_TIMEOUT)
                 return result_url
-            cache.set(cache_key, '', SOCIAL_PHOTO_CACHE_TIMEOUT)
+            cache.set(cache_key, "", SOCIAL_PHOTO_CACHE_TIMEOUT)
             return None
 
         # Fetch photo from Microsoft Graph API with reduced timeout
         response = requests.get(
-            'https://graph.microsoft.com/v1.0/me/photo/$value',
-            headers={'Authorization': f'Bearer {token.token}'},
-            timeout=5  # Reduced timeout
+            "https://graph.microsoft.com/v1.0/me/photo/$value",
+            headers={"Authorization": f"Bearer {token.token}"},
+            timeout=5,  # Reduced timeout
         )
 
         if response.status_code == 200:
             # Microsoft returns binary image data
             # Convert to base64 data URL for display
             import base64
-            content_type = response.headers.get('Content-Type', 'image/jpeg')
-            base64_data = base64.b64encode(response.content).decode('utf-8')
+
+            content_type = response.headers.get("Content-Type", "image/jpeg")
+            base64_data = base64.b64encode(response.content).decode("utf-8")
             result_url = f"data:{content_type};base64,{base64_data}"
         elif response.status_code == 404:
             # User has no profile photo set
             logger.info("Microsoft user has no profile photo set")
         else:
-            logger.warning(f"Microsoft Graph API returned status {response.status_code}")
+            logger.warning(
+                f"Microsoft Graph API returned status {response.status_code}"
+            )
 
     except Exception as e:
         logger.error(f"Error fetching Microsoft photo: {str(e)}")
@@ -763,12 +771,14 @@ def get_microsoft_photo_url(social_account):
     if not result_url:
         result_url = _get_persisted_social_photo_url(social_account)
         if result_url:
-            logger.info(f"Using persisted cache for Microsoft account {social_account.id}")
+            logger.info(
+                f"Using persisted cache for Microsoft account {social_account.id}"
+            )
             cache.set(cache_key, result_url, PERSISTED_PHOTO_CACHE_TIMEOUT)
             return result_url
 
     # Cache the result (use '' for None to distinguish from cache miss)
-    cache.set(cache_key, result_url if result_url else '', SOCIAL_PHOTO_CACHE_TIMEOUT)
+    cache.set(cache_key, result_url if result_url else "", SOCIAL_PHOTO_CACHE_TIMEOUT)
     return result_url
 
 
@@ -786,11 +796,11 @@ def get_social_photo_url(social_account):
     """
     provider = social_account.provider
 
-    if provider == 'facebook':
+    if provider == "facebook":
         return get_facebook_photo_url(social_account)
-    elif provider == 'google':
+    elif provider == "google":
         return get_google_photo_url(social_account)
-    elif provider == 'microsoft':
+    elif provider == "microsoft":
         return get_microsoft_photo_url(social_account)
     else:
         logger.warning(f"Unknown provider: {provider}")
@@ -819,14 +829,13 @@ def get_all_social_photos(user):
     from allauth.socialaccount.models import SocialAccount
 
     # Only get Crush.lu supported providers
-    CRUSH_PROVIDERS = ['facebook', 'google', 'microsoft']
+    CRUSH_PROVIDERS = ["facebook", "google", "microsoft"]
 
     # Use select_related/prefetch_related to avoid N+1 queries when fetching tokens
     # SocialToken has a ForeignKey to SocialAccount, so we prefetch from the reverse relation
     social_accounts = SocialAccount.objects.filter(
-        user=user,
-        provider__in=CRUSH_PROVIDERS
-    ).prefetch_related('socialtoken_set')
+        user=user, provider__in=CRUSH_PROVIDERS
+    ).prefetch_related("socialtoken_set")
 
     photos = []
     for account in social_accounts:
@@ -838,29 +847,35 @@ def get_all_social_photos(user):
 
         # Detect if the photo is from persisted cache (storage URL vs live URL)
         is_cached = False
-        if photo_url and token_expired and account.provider in ('facebook', 'microsoft'):
+        if (
+            photo_url
+            and token_expired
+            and account.provider in ("facebook", "microsoft")
+        ):
             is_cached = True
 
         photo_info = {
-            'provider': account.provider,
-            'provider_display': PROVIDER_DISPLAY_NAMES.get(account.provider, account.provider.title()),
-            'photo_url': photo_url,
-            'available': photo_url is not None,
-            'account_id': account.id,
-            'token_expired': token_expired,
-            'is_cached': is_cached,
+            "provider": account.provider,
+            "provider_display": PROVIDER_DISPLAY_NAMES.get(
+                account.provider, account.provider.title()
+            ),
+            "photo_url": photo_url,
+            "available": photo_url is not None,
+            "account_id": account.id,
+            "token_expired": token_expired,
+            "is_cached": is_cached,
         }
 
         # Add reason if not available
         if not photo_url:
             if token_expired:
-                photo_info['reason'] = 'Token expired - please reconnect'
-            elif account.provider == 'microsoft':
-                photo_info['reason'] = 'No photo set'
+                photo_info["reason"] = "Token expired - please reconnect"
+            elif account.provider == "microsoft":
+                photo_info["reason"] = "No photo set"
             else:
-                photo_info['reason'] = 'No photo available'
+                photo_info["reason"] = "No photo available"
         elif is_cached:
-            photo_info['reason'] = 'Showing saved copy - log in again to refresh'
+            photo_info["reason"] = "Showing saved copy - log in again to refresh"
 
         photos.append(photo_info)
 
@@ -887,80 +902,92 @@ def download_and_save_social_photo(user, social_account, photo_slot):
 
     # Validate photo_slot
     if photo_slot not in [1, 2, 3]:
-        return {'success': False, 'error': 'Invalid photo slot. Must be 1, 2, or 3.'}
+        return {"success": False, "error": "Invalid photo slot. Must be 1, 2, or 3."}
 
     # Get user's profile
     try:
         profile = CrushProfile.objects.get(user=user)
     except CrushProfile.DoesNotExist:
-        return {'success': False, 'error': 'No profile found. Please create a profile first.'}
+        return {
+            "success": False,
+            "error": "No profile found. Please create a profile first.",
+        }
 
     # Get photo URL/data
     photo_url = get_social_photo_url(social_account)
     if not photo_url:
-        return {'success': False, 'error': f'No photo available from {social_account.provider}'}
+        return {
+            "success": False,
+            "error": f"No photo available from {social_account.provider}",
+        }
 
     try:
         # Handle base64 data URLs (Microsoft)
-        if photo_url.startswith('data:'):
+        if photo_url.startswith("data:"):
             import base64
+
             # Parse data URL: data:image/jpeg;base64,/9j/4AAQ...
-            header, data = photo_url.split(',', 1)
-            content_type = header.split(':')[1].split(';')[0]
+            header, data = photo_url.split(",", 1)
+            content_type = header.split(":")[1].split(";")[0]
             image_data = base64.b64decode(data)
 
             # Determine extension
-            ext = 'jpg'
-            if 'png' in content_type:
-                ext = 'png'
-            elif 'gif' in content_type:
-                ext = 'gif'
-            elif 'webp' in content_type:
-                ext = 'webp'
+            ext = "jpg"
+            if "png" in content_type:
+                ext = "png"
+            elif "gif" in content_type:
+                ext = "gif"
+            elif "webp" in content_type:
+                ext = "webp"
         else:
             # Download from URL (Facebook/Google)
             response = requests.get(photo_url, timeout=15)
             response.raise_for_status()
 
             # Validate content type
-            content_type = response.headers.get('Content-Type', '')
-            if not content_type.startswith('image/'):
-                return {'success': False, 'error': 'URL did not return an image'}
+            content_type = response.headers.get("Content-Type", "")
+            if not content_type.startswith("image/"):
+                return {"success": False, "error": "URL did not return an image"}
 
             image_data = response.content
 
             # Determine extension
-            ext = 'jpg'
-            if 'png' in content_type:
-                ext = 'png'
-            elif 'gif' in content_type:
-                ext = 'gif'
-            elif 'webp' in content_type:
-                ext = 'webp'
+            ext = "jpg"
+            if "png" in content_type:
+                ext = "png"
+            elif "gif" in content_type:
+                ext = "gif"
+            elif "webp" in content_type:
+                ext = "webp"
 
         # Process image: fix orientation, strip EXIF metadata, resize
-        filename = f'{social_account.provider}_{user.id}.{ext}'
+        filename = f"{social_account.provider}_{user.id}.{ext}"
         raw_file = ContentFile(image_data, name=filename)
         processed = process_uploaded_image(raw_file, filename)
 
         # Save to appropriate photo field. The replaced file is cleaned up by
         # CrushProfile.save(), which keeps it while other members still see
         # it as the approved photo (services/photo_publication.py).
-        photo_field = getattr(profile, f'photo_{photo_slot}')
+        photo_field = getattr(profile, f"photo_{photo_slot}")
         photo_field.save(filename, processed, save=False)
         profile.save()
 
         # Get the new photo URL for response
         new_photo_url = photo_field.url if photo_field else None
 
-        logger.info(f"Saved {social_account.provider} photo to photo_{photo_slot} for user {user.id}")
-        return {'success': True, 'photo_url': new_photo_url}
+        logger.info(
+            f"Saved {social_account.provider} photo to photo_{photo_slot} for user {user.id}"
+        )
+        return {"success": True, "photo_url": new_photo_url}
 
     except requests.exceptions.Timeout:
-        return {'success': False, 'error': 'Timeout downloading photo. Please try again.'}
+        return {
+            "success": False,
+            "error": "Timeout downloading photo. Please try again.",
+        }
     except requests.exceptions.RequestException as e:
         logger.error(f"Error downloading social photo: {str(e)}")
-        return {'success': False, 'error': 'Error downloading photo. Please try again.'}
+        return {"success": False, "error": "Error downloading photo. Please try again."}
     except Exception as e:
         logger.error(f"Unexpected error saving social photo: {str(e)}", exc_info=True)
-        return {'success': False, 'error': 'Unexpected error. Please try again.'}
+        return {"success": False, "error": "Unexpected error. Please try again."}

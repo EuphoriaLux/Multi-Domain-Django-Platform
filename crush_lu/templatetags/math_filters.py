@@ -7,6 +7,7 @@ Usage:
     {{ value|div:total }}
     {{ value|percentage:total }}
 """
+
 from django import template
 
 register = template.Library()

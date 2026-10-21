@@ -31,7 +31,9 @@ def _pair(settings, *, template="crush_connect_request", opt_in=True):
     settings.META_WHATSAPP_ACCESS_TOKEN = "token"
     settings.META_PHONE_NUMBER_ID = "123"
     settings.META_WABA_ID = "456"
-    User.objects.create_superuser(username="wa_system", email="wa@test.lu", password="x")
+    User.objects.create_superuser(
+        username="wa_system", email="wa@test.lu", password="x"
+    )
     sender = _make_cycle_user("wa_sender")
     recipient = _make_cycle_user("wa_recipient", gender="F")
     profile = recipient.crushprofile

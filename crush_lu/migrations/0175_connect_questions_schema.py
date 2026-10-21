@@ -129,7 +129,9 @@ class Migration(migrations.Migration):
                 ("iso_year", models.PositiveSmallIntegerField()),
                 (
                     "iso_week",
-                    models.PositiveSmallIntegerField(help_text="ISO week number, 1..53"),
+                    models.PositiveSmallIntegerField(
+                        help_text="ISO week number, 1..53"
+                    ),
                 ),
                 (
                     "week_start",

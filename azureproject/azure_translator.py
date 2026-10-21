@@ -81,7 +81,11 @@ def translate_text(text, from_lang, to_langs):
         return translations
 
     except httpx.HTTPStatusError as e:
-        logger.error("Azure Translator API error: %s - %s", e.response.status_code, e.response.text)
+        logger.error(
+            "Azure Translator API error: %s - %s",
+            e.response.status_code,
+            e.response.text,
+        )
         return {}
     except Exception as e:
         logger.error("Azure Translator request failed: %s", e)
@@ -144,7 +148,11 @@ def translate_batch(texts, from_lang, to_langs):
         return results
 
     except httpx.HTTPStatusError as e:
-        logger.error("Azure Translator batch API error: %s - %s", e.response.status_code, e.response.text)
+        logger.error(
+            "Azure Translator batch API error: %s - %s",
+            e.response.status_code,
+            e.response.text,
+        )
         return [{} for _ in texts]
     except Exception as e:
         logger.error("Azure Translator batch request failed: %s", e)

@@ -18,18 +18,40 @@ EUROPEAN_AZURE_REGIONS = {
     "belgiumcentral": {"label": "Belgium Central", "data_residency_scope": "EU"},
     "denmarkeast": {"label": "Denmark East", "data_residency_scope": "EU"},
     "francecentral": {"label": "France Central", "data_residency_scope": "EU"},
-    "francesouth": {"label": "France South", "data_residency_scope": "EU", "restricted_access": True},
-    "germanynorth": {"label": "Germany North", "data_residency_scope": "EU", "restricted_access": True},
-    "germanywestcentral": {"label": "Germany West Central", "data_residency_scope": "EU"},
+    "francesouth": {
+        "label": "France South",
+        "data_residency_scope": "EU",
+        "restricted_access": True,
+    },
+    "germanynorth": {
+        "label": "Germany North",
+        "data_residency_scope": "EU",
+        "restricted_access": True,
+    },
+    "germanywestcentral": {
+        "label": "Germany West Central",
+        "data_residency_scope": "EU",
+    },
     "italynorth": {"label": "Italy North", "data_residency_scope": "EU"},
     "northeurope": {"label": "North Europe", "data_residency_scope": "EU"},
     "norwayeast": {"label": "Norway East", "data_residency_scope": "Europe (non-EU)"},
-    "norwaywest": {"label": "Norway West", "data_residency_scope": "Europe (non-EU)", "restricted_access": True},
+    "norwaywest": {
+        "label": "Norway West",
+        "data_residency_scope": "Europe (non-EU)",
+        "restricted_access": True,
+    },
     "polandcentral": {"label": "Poland Central", "data_residency_scope": "EU"},
     "spaincentral": {"label": "Spain Central", "data_residency_scope": "EU"},
     "swedencentral": {"label": "Sweden Central", "data_residency_scope": "EU"},
-    "switzerlandnorth": {"label": "Switzerland North", "data_residency_scope": "Europe (non-EU)"},
-    "switzerlandwest": {"label": "Switzerland West", "data_residency_scope": "Europe (non-EU)", "restricted_access": True},
+    "switzerlandnorth": {
+        "label": "Switzerland North",
+        "data_residency_scope": "Europe (non-EU)",
+    },
+    "switzerlandwest": {
+        "label": "Switzerland West",
+        "data_residency_scope": "Europe (non-EU)",
+        "restricted_access": True,
+    },
     "uksouth": {"label": "UK South", "data_residency_scope": "Europe (non-EU)"},
     "ukwest": {"label": "UK West", "data_residency_scope": "Europe (non-EU)"},
     "westeurope": {"label": "West Europe", "data_residency_scope": "EU"},
@@ -134,8 +156,7 @@ class AzureRetailPricesConnector(RetailPriceConnector):
             "currencyCode": f"'{currency.upper()}'",
             # MVP scope is deliberately limited to public VM Compute prices.
             "$filter": (
-                f"armRegionName eq '{region}' "
-                "and serviceName eq 'Virtual Machines'"
+                f"armRegionName eq '{region}' " "and serviceName eq 'Virtual Machines'"
             ),
         }
 

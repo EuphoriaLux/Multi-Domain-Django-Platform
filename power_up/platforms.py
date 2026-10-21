@@ -34,7 +34,9 @@ PLATFORMS = [
         "slug": "vinsdelux",
         "name": "VinsDelux",
         "tagline": _("Adopt a vineyard plot in Luxembourg"),
-        "description": _("A concept showcase for vineyard plot adoption in Luxembourg."),
+        "description": _(
+            "A concept showcase for vineyard plot adoption in Luxembourg."
+        ),
         "url": "https://vinsdelux.com",
         "icon": "sparkles",
         "status": "concept",
@@ -49,7 +51,9 @@ PLATFORMS = [
         "slug": "entreprinder",
         "name": "Entreprinder",
         "tagline": _("Entrepreneur networking for Luxembourg"),
-        "description": _("A networking site for Luxembourg entrepreneurs, currently at an early stage."),
+        "description": _(
+            "A networking site for Luxembourg entrepreneurs, currently at an early stage."
+        ),
         "url": "https://entreprinder.lu",
         "icon": "users",
         "status": "prototype",
@@ -64,7 +68,9 @@ PLATFORMS = [
         "slug": "finops-hub",
         "name": "FinOps Hub",
         "tagline": _("Azure cost management & analytics"),
-        "description": _("An internal tool for importing and reviewing Azure cost data."),
+        "description": _(
+            "An internal tool for importing and reviewing Azure cost data."
+        ),
         "url": "/finops/",
         "icon": "chart",
         "status": "internal",
@@ -79,7 +85,9 @@ PLATFORMS = [
         "slug": "tableau-lu",
         "name": "Tableau.lu",
         "tagline": _("AI-generated art e-commerce"),
-        "description": _("An AI art gallery site presenting a collection that is coming soon."),
+        "description": _(
+            "An AI art gallery site presenting a collection that is coming soon."
+        ),
         "url": "https://tableau.lu",
         "icon": "palette",
         "status": "coming-soon",
@@ -94,7 +102,9 @@ PLATFORMS = [
         "slug": "delegations-lu",
         "name": "Delegations.lu",
         "tagline": _("Staff management portal"),
-        "description": _("A restricted staff portal for events, requests and announcements with Microsoft sign-in."),
+        "description": _(
+            "A restricted staff portal for events, requests and announcements with Microsoft sign-in."
+        ),
         "url": "https://delegations.lu",
         "icon": "clipboard",
         "status": "restricted",

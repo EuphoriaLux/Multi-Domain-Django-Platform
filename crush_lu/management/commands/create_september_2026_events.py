@@ -250,9 +250,7 @@ class Command(BaseCommand):
             help="Venue name shown to registered members (e.g. 'ATMOS').",
         )
         parser.add_argument("--address-street", default="", help="Venue street.")
-        parser.add_argument(
-            "--address-number", default="", help="Venue house number."
-        )
+        parser.add_argument("--address-number", default="", help="Venue house number.")
         parser.add_argument(
             "--address-postcode", default="", help="4-digit Luxembourg postcode."
         )
@@ -283,13 +281,20 @@ class Command(BaseCommand):
             "location": options["location"],
             "address_street": options["address_street"],
             "address_number": options["address_number"],
-            "address_postcode": options["address_postcode"].replace("L-", "").replace("l-", ""),
+            "address_postcode": options["address_postcode"]
+            .replace("L-", "")
+            .replace("l-", ""),
             "address_town": options["address_town"],
         }
         if publish:
             missing = [
                 name
-                for name in ("location", "address_street", "address_postcode", "address_town")
+                for name in (
+                    "location",
+                    "address_street",
+                    "address_postcode",
+                    "address_town",
+                )
                 if not address[name].strip()
             ]
             if missing:
@@ -348,9 +353,7 @@ class Command(BaseCommand):
                     event_type=event_type,
                     date_time=_local(YEAR, MONTH, day, 19),
                 )
-                self._seed_quiz_if_missing(
-                    event, pack, quiz_owner, dry_run, quizzes
-                )
+                self._seed_quiz_if_missing(event, pack, quiz_owner, dry_run, quizzes)
                 skipped.append(label)
                 self.stdout.write(f"= {label}: already exists, skipped")
                 continue
@@ -400,9 +403,7 @@ class Command(BaseCommand):
 
             with transaction.atomic():
                 event = MeetupEvent.objects.create(**event_kwargs)
-                self._seed_quiz_if_missing(
-                    event, pack, quiz_owner, dry_run, quizzes
-                )
+                self._seed_quiz_if_missing(event, pack, quiz_owner, dry_run, quizzes)
 
             suffix = ""
             if pack:
@@ -410,16 +411,14 @@ class Command(BaseCommand):
                     q = quizzes[-1]
                     suffix = f" + quiz pack '{q[1]}' ({q[2]} rounds / {q[3]} questions)"
                     if q[4]:
-                        suffix += (
-                            f" — {len(q[4])} image question(s) pending upload"
-                        )
+                        suffix += f" — {len(q[4])} image question(s) pending upload"
                 else:
-                    suffix = (
-                        " — quiz NOT created (no superuser; pass --quiz-owner)"
-                    )
+                    suffix = " — quiz NOT created (no superuser; pass --quiz-owner)"
             self.stdout.write(
-                self.style.SUCCESS(f"+ {label}: created {event.pk} "
-                                   f"({'published' if publish else 'draft'}){suffix}")
+                self.style.SUCCESS(
+                    f"+ {label}: created {event.pk} "
+                    f"({'published' if publish else 'draft'}){suffix}"
+                )
             )
             created.append(label)
 

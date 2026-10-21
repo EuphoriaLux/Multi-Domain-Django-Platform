@@ -10,7 +10,6 @@ historical model classes).
 
 from django.db import migrations
 
-
 # Onboarding has 7 steps; "8" parks finished members one past the end. Kept as
 # a literal (not imported from onboarding_connect) so this historical migration
 # stays stable even if TOTAL_STEPS later changes.

@@ -19,10 +19,10 @@ from django.utils.safestring import mark_safe
 register = template.Library()
 
 # Language prefix pattern (matches /en/, /de/, /fr/, etc.)
-LANGUAGE_PREFIX_PATTERN = re.compile(r'^/([a-z]{2})/')
+LANGUAGE_PREFIX_PATTERN = re.compile(r"^/([a-z]{2})/")
 
 # Domain for arborist.lu
-DOMAIN = 'https://arborist.lu'
+DOMAIN = "https://arborist.lu"
 
 
 def strip_language_prefix(path):
@@ -51,7 +51,7 @@ def get_path_without_language(request):
     Returns the path that can be prefixed with any language code.
     """
     if not request:
-        return '/'
+        return "/"
     return strip_language_prefix(request.path)
 
 
@@ -73,9 +73,9 @@ def hreflang_tags(context):
         <link rel="alternate" hreflang="fr" href="https://arborist.lu/fr/about/">
         <link rel="alternate" hreflang="x-default" href="https://arborist.lu/de/about/">
     """
-    request = context.get('request')
+    request = context.get("request")
     if not request:
-        return ''
+        return ""
 
     # Get path without language prefix
     base_path = get_path_without_language(request)
@@ -91,7 +91,7 @@ def hreflang_tags(context):
     default_url = f"{DOMAIN}/de{base_path}"
     tags.append(f'<link rel="alternate" hreflang="x-default" href="{default_url}">')
 
-    return mark_safe('\n    '.join(tags))
+    return mark_safe("\n    ".join(tags))
 
 
 @register.simple_tag(takes_context=True)
@@ -112,9 +112,9 @@ def canonical_url(context):
     Output for /de/contact/:
         https://arborist.lu/de/contact/
     """
-    request = context.get('request')
+    request = context.get("request")
     if not request:
-        return f'{DOMAIN}/'
+        return f"{DOMAIN}/"
 
     # Self-referencing: canonical points to current URL with language prefix
     return f"{DOMAIN}{request.path}"
@@ -132,9 +132,9 @@ def localized_url(context, lang_code):
         <a href="{% localized_url 'de' %}">Deutsch</a>
         <a href="{% localized_url 'fr' %}">Français</a>
     """
-    request = context.get('request')
+    request = context.get("request")
     if not request:
-        return f'/{lang_code}/'
+        return f"/{lang_code}/"
 
     # Get path without current language prefix
     base_path = get_path_without_language(request)

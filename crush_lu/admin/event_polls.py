@@ -17,14 +17,14 @@ from crush_lu.models.event_polls import EventPollOption, EventPollSuggestion
 class EventPollOptionInline(TranslationTabularInline):
     model = EventPollOption
     extra = 3
-    fields = ('name', 'description', 'static_image', 'image', 'icon', 'sort_order')
+    fields = ("name", "description", "static_image", "image", "icon", "sort_order")
 
 
 class EventPollSuggestionInline(admin.TabularInline):
     model = EventPollSuggestion
     extra = 0
     can_delete = False
-    fields = ('text', 'user', 'language', 'status', 'created_at')
+    fields = ("text", "user", "language", "status", "created_at")
     readonly_fields = fields
     show_change_link = True
 
@@ -34,52 +34,73 @@ class EventPollSuggestionInline(admin.TabularInline):
 
 class EventPollAdmin(AutoTranslateMixin, TranslationAdmin):
     list_display = (
-        'title', 'start_date', 'end_date', 'is_published', 'is_public', 'vote_count'
+        "title",
+        "start_date",
+        "end_date",
+        "is_published",
+        "is_public",
+        "vote_count",
     )
-    list_filter = ('is_published', 'is_public', 'start_date')
-    search_fields = ('title',)
+    list_filter = ("is_published", "is_public", "start_date")
+    search_fields = ("title",)
     inlines = [EventPollOptionInline, EventPollSuggestionInline]
     fieldsets = (
-        (None, {
-            'fields': ('title', 'description', 'image'),
-        }),
-        (_('Schedule'), {
-            'fields': ('start_date', 'end_date', 'is_published'),
-        }),
-        (_('Settings'), {
-            'fields': (
-                'allow_multiple_choices',
-                'show_results_before_close',
-                'is_public',
-            ),
-        }),
+        (
+            None,
+            {
+                "fields": ("title", "description", "image"),
+            },
+        ),
+        (
+            _("Schedule"),
+            {
+                "fields": ("start_date", "end_date", "is_published"),
+            },
+        ),
+        (
+            _("Settings"),
+            {
+                "fields": (
+                    "allow_multiple_choices",
+                    "show_results_before_close",
+                    "is_public",
+                ),
+            },
+        ),
     )
 
     def vote_count(self, obj):
         return obj.votes.count()
+
     vote_count.short_description = _("Votes")
 
 
 class EventPollVoteAdmin(admin.ModelAdmin):
-    list_display = ('user', 'poll', 'option', 'voted_at')
+    list_display = ("user", "poll", "option", "voted_at")
     list_select_related = ["user", "poll", "option"]
-    list_filter = ('poll', 'voted_at')
-    search_fields = ('user__username', 'user__email')
-    readonly_fields = ('poll', 'option', 'user', 'voter_gender', 'voted_at')
+    list_filter = ("poll", "voted_at")
+    search_fields = ("user__username", "user__email")
+    readonly_fields = ("poll", "option", "user", "voter_gender", "voted_at")
 
 
 class EventPollSuggestionAdmin(admin.ModelAdmin):
     """Voter ideas; approving one adds it to its poll as a new option."""
 
-    list_display = ('text', 'poll', 'user', 'language', 'status', 'created_at')
-    list_select_related = ['poll', 'user']
-    list_filter = ('status', 'poll')
-    search_fields = ('text', 'user__email')
+    list_display = ("text", "poll", "user", "language", "status", "created_at")
+    list_select_related = ["poll", "user"]
+    list_filter = ("status", "poll")
+    search_fields = ("text", "user__email")
     # status changes only through the actions, so approval always promotes
     readonly_fields = (
-        'poll', 'user', 'text', 'language', 'status', 'promoted_to', 'created_at'
+        "poll",
+        "user",
+        "text",
+        "language",
+        "status",
+        "promoted_to",
+        "created_at",
     )
-    actions = ['approve_suggestions', 'reject_suggestions']
+    actions = ["approve_suggestions", "reject_suggestions"]
 
     def has_add_permission(self, request):
         return False
@@ -90,7 +111,7 @@ class EventPollSuggestionAdmin(admin.ModelAdmin):
         languages = set(settings.MODELTRANSLATION_LANGUAGES)
         for suggestion in queryset.filter(
             status=EventPollSuggestion.Status.PENDING
-        ).select_related('poll'):
+        ).select_related("poll"):
             with transaction.atomic():
                 # Claim it first: of two concurrent approvals only one flips
                 # the row, so only one creates an option.
@@ -102,11 +123,11 @@ class EventPollSuggestionAdmin(admin.ModelAdmin):
                 # Store the text in the language it was written in. English
                 # is the only fallback language, so it also fills name_en
                 # until a coach translates it.
-                language = (suggestion.language or '')[:2]
-                names = {'name_en': suggestion.text}
+                language = (suggestion.language or "")[:2]
+                names = {"name_en": suggestion.text}
                 if language in languages:
-                    names[f'name_{language}'] = suggestion.text
-                last = suggestion.poll.options.aggregate(m=Max('sort_order'))['m']
+                    names[f"name_{language}"] = suggestion.text
+                last = suggestion.poll.options.aggregate(m=Max("sort_order"))["m"]
                 option = EventPollOption.objects.create(
                     poll=suggestion.poll,
                     sort_order=(last or 0) + 1,
@@ -118,8 +139,11 @@ class EventPollSuggestionAdmin(admin.ModelAdmin):
             approved += 1
         self.message_user(
             request,
-            _("%(count)d suggestion(s) added as poll options. "
-              "Add translations and an image on the poll.") % {'count': approved},
+            _(
+                "%(count)d suggestion(s) added as poll options. "
+                "Add translations and an image on the poll."
+            )
+            % {"count": approved},
             messages.SUCCESS,
         )
 
@@ -129,5 +153,5 @@ class EventPollSuggestionAdmin(admin.ModelAdmin):
             status=EventPollSuggestion.Status.REJECTED
         )
         self.message_user(
-            request, _("%(count)d suggestion(s) rejected.") % {'count': count}
+            request, _("%(count)d suggestion(s) rejected.") % {"count": count}
         )

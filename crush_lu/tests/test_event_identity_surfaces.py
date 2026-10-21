@@ -42,7 +42,9 @@ LEGACY_BLOCK_WHITELIST = {"partials/_legacy_bio_interests.html"}
 # `own_profile`/`other_profile`/`target_profile`/`crushprofile` too (all end in
 # "profile"), but the negative lookahead spares the NEW `interests_new` M2M, and
 # neither pattern touches the legitimate `coach.bio` / `membership.interests`.
-LEGACY_EXPR = re.compile(r"profile\.bio|profile\.interests(?!_new)|\|\s*split_interests")
+LEGACY_EXPR = re.compile(
+    r"profile\.bio|profile\.interests(?!_new)|\|\s*split_interests"
+)
 
 
 def _make_interest(slug, label, category="outdoors", sort_order=0):
@@ -90,8 +92,7 @@ class SurfaceGuardTests(SimpleTestCase):
             violations,
             [],
             "Legacy bio/interests free text must render only in "
-            "partials/_legacy_bio_interests.html. Offenders:\n"
-            + "\n".join(violations),
+            "partials/_legacy_bio_interests.html. Offenders:\n" + "\n".join(violations),
         )
 
     def test_guard_regex_matches_and_spares_the_right_expressions(self):
@@ -129,9 +130,7 @@ class EventIdentityModelHelperTests(TestCase):
     def test_ask_me_about_interests_preserves_declared_order(self):
         self.profile.ask_me_about = [self.food.pk, self.hiking.pk]
         self.profile.save()
-        self.assertEqual(
-            self.profile.ask_me_about_interests, [self.food, self.hiking]
-        )
+        self.assertEqual(self.profile.ask_me_about_interests, [self.food, self.hiking])
 
     def test_ask_me_about_interests_drops_ids_no_longer_selected(self):
         """A retired / de-selected id must never render a dangling chip."""

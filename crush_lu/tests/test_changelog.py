@@ -11,6 +11,7 @@ Covers:
 
 Run with: pytest crush_lu/tests/test_changelog.py -v
 """
+
 from datetime import date
 from unittest.mock import patch
 
@@ -95,6 +96,7 @@ class WriteReleaseIdempotencyTests(TestCase):
 
     def _run_write(self):
         from crush_lu.management.commands.generate_patch_notes import Command
+
         cmd = Command()
         cmd.stdout = type("S", (), {"write": lambda self, *_a, **_k: None})()
         cmd._write_release(self.META, self.COMMITS)
@@ -173,7 +175,9 @@ class WriteReleaseIdempotencyTests(TestCase):
             "Regenerating duplicated notes for a bucket the curator already kept.",
         )
         same_bucket = PatchNote.objects.filter(
-            release=release, category=bucket_category, title=bucket_title,
+            release=release,
+            category=bucket_category,
+            title=bucket_title,
         )
         self.assertEqual(
             same_bucket.count(),
@@ -310,6 +314,7 @@ class GeneratePatchNotesDryRunTests(TestCase):
     @patch("crush_lu.management.commands.generate_patch_notes.git_log")
     def test_dry_run_writes_no_rows(self, mock_git_log):
         from django.core.management import call_command
+
         mock_git_log.return_value = [
             ("sha1", "2026-01-10", "feat(quiz): add thing", ["crush_lu/quiz.py"]),
         ]

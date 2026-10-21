@@ -551,9 +551,7 @@ class GraphContactsService:
 
         photo_key = profile.photo_1.name or ""
         if not force and photo_key and photo_key == profile.outlook_photo_key:
-            logger.debug(
-                f"Profile {profile.pk} photo unchanged, skipping photo upload"
-            )
+            logger.debug(f"Profile {profile.pk} photo unchanged, skipping photo upload")
             return False
 
         try:
@@ -691,9 +689,7 @@ class GraphContactsService:
                 # new contact with no photo on it, even if outlook_photo_key is
                 # still set from a previous contact that was deleted.
                 if profile.photo_1:
-                    self._upload_contact_photo(
-                        contact_id, profile, token, force=True
-                    )
+                    self._upload_contact_photo(contact_id, profile, token, force=True)
 
                 return contact_id
             else:
@@ -1028,11 +1024,15 @@ class GraphContactsService:
 
         # Only sync phone-verified profiles (caller ID requires verified phone)
         # Exclude inactive/deleted users as a safety net
-        profiles = CrushProfile.objects.select_related("user").filter(
-            phone_verified=True,
-            phone_number__isnull=False,
-            user__is_active=True,
-        ).exclude(phone_number='')
+        profiles = (
+            CrushProfile.objects.select_related("user")
+            .filter(
+                phone_verified=True,
+                phone_number__isnull=False,
+                user__is_active=True,
+            )
+            .exclude(phone_number="")
+        )
         stats["total"] = profiles.count()
 
         for profile in profiles:

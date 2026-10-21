@@ -271,4 +271,6 @@ class ReviewUrlSurvivesASlotSwapTests(TestCase):
         source = (
             Path(azureproject.__file__).resolve().parent / "settings.py"
         ).read_text(encoding="utf-8")
-        self.assertIn('CRUSH_GOOGLE_REVIEW_URL = os.getenv("CRUSH_GOOGLE_REVIEW_URL", "")', source)
+        self.assertIn(
+            'CRUSH_GOOGLE_REVIEW_URL = os.getenv("CRUSH_GOOGLE_REVIEW_URL", "")', source
+        )

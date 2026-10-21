@@ -25,12 +25,12 @@ def profile_photo_url(profile, photo_field):
         Secure URL to the photo
     """
     if not profile or not getattr(profile, photo_field, None):
-        return ''
+        return ""
 
-    return reverse('crush_lu:serve_profile_photo', kwargs={
-        'user_id': profile.user.id,
-        'photo_field': photo_field
-    })
+    return reverse(
+        "crush_lu:serve_profile_photo",
+        kwargs={"user_id": profile.user.id, "photo_field": photo_field},
+    )
 
 
 @register.filter
@@ -99,9 +99,17 @@ def split_interests(value):
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-@register.inclusion_tag('crush_lu/components/profile_photo.html', takes_context=True)
-def profile_photo(context, profile, photo_field, css_class='', alt_text='Profile photo',
-                  fallback='initials', hide_photo=False, public_view=False):
+@register.inclusion_tag("crush_lu/components/profile_photo.html", takes_context=True)
+def profile_photo(
+    context,
+    profile,
+    photo_field,
+    css_class="",
+    alt_text="Profile photo",
+    fallback="initials",
+    hide_photo=False,
+    public_view=False,
+):
     """
     Render a profile photo with consistent fallback.
 
@@ -145,23 +153,23 @@ def profile_photo(context, profile, photo_field, css_class='', alt_text='Profile
         focus_style = framing_style(profile, served_key)
 
     if photo:
-        photo_url = reverse('crush_lu:serve_profile_photo', kwargs={
-            'user_id': profile.user.id,
-            'photo_field': photo_field
-        })
+        photo_url = reverse(
+            "crush_lu:serve_profile_photo",
+            kwargs={"user_id": profile.user.id, "photo_field": photo_field},
+        )
         if public_view:
-            photo_url += '?view=public'
+            photo_url += "?view=public"
     else:
         photo_url = None
 
     return {
-        'photo_url': photo_url,
-        'has_photo': bool(photo),
-        'css_class': css_class,
-        'alt_text': alt_text,
-        'display_name': profile.display_name if profile else 'User',
-        'fallback': fallback,
-        'focus_style': focus_style,
+        "photo_url": photo_url,
+        "has_photo": bool(photo),
+        "css_class": css_class,
+        "alt_text": alt_text,
+        "display_name": profile.display_name if profile else "User",
+        "fallback": fallback,
+        "focus_style": focus_style,
     }
 
 
@@ -169,10 +177,10 @@ def _served_photo_position(context, profile, photo_field):
     """``object-position`` of the coach-set focus for the file the photo
     route serves this viewer (live or published), or ``""``."""
     if isinstance(photo_field, int):
-        photo_field = f'photo_{photo_field}'
+        photo_field = f"photo_{photo_field}"
     photo = getattr(profile, photo_field, None) if profile else None
     if not photo:
-        return ''
+        return ""
     from crush_lu.services.photo_framing import get_focus, object_position
     from crush_lu.services.photo_publication import get_public_photo_key
 
@@ -199,7 +207,7 @@ def profile_photo_style(context, profile, photo_field):
     from django.utils.html import format_html
 
     position = _served_photo_position(context, profile, photo_field)
-    return format_html('style="object-position: {}"', position) if position else ''
+    return format_html('style="object-position: {}"', position) if position else ""
 
 
 @register.simple_tag(takes_context=True)

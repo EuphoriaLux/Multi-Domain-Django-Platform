@@ -180,8 +180,12 @@ class Command(BaseCommand):
         self.stdout.write(f"Live lobby:   /en/events/{event.pk}/lobby/")
         self.stdout.write(f"48h recap:    /en/events/{recap_event.pk}/lobby/")
         self.stdout.write("People I've Met: /en/crush-connect/people-ive-met/")
-        self.stdout.write("Hub:          /en/crush-connect/home/ (live-lobby + People I've Met cards)")
-        self.stdout.write("Login at /accounts/login/ with <username>@example.com / password above.")
+        self.stdout.write(
+            "Hub:          /en/crush-connect/home/ (live-lobby + People I've Met cards)"
+        )
+        self.stdout.write(
+            "Login at /accounts/login/ with <username>@example.com / password above."
+        )
         self.stdout.write(
             "  Demo: log in as lobby_alice — confirm lobby_chloe in the recap, "
             "then confirm alice back from lobby_chloe to mint a People-I've-Met entry."
@@ -284,7 +288,9 @@ class Command(BaseCommand):
             user_high=high,
             defaults={"created_from_event": source, "status": "active"},
         )
-        self.stdout.write("People I've Met: seeded 1 encounter (lobby_alice ↔ lobby_ben)")
+        self.stdout.write(
+            "People I've Met: seeded 1 encounter (lobby_alice ↔ lobby_ben)"
+        )
 
     # ------------------------------------------------------------------
 
@@ -337,7 +343,9 @@ class Command(BaseCommand):
             },
         )
         if not profile.photo_1:
-            profile.photo_1.save(f"{user.pk}_lobby_demo.jpg", _demo_photo(color), save=True)
+            profile.photo_1.save(
+                f"{user.pk}_lobby_demo.jpg", _demo_photo(color), save=True
+            )
         if kind != "non_connect":
             SocialAccount.objects.get_or_create(
                 user=user,

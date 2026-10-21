@@ -21,7 +21,9 @@ from power_up.atmos.lore.safety import DATA_CLOSE, DATA_OPEN
 AT = datetime(2026, 8, 16, 21, 47)
 
 
-def event(persona="The Whispering Gambler", table="12", code="T12-04", drink="Old Fashioned"):
+def event(
+    persona="The Whispering Gambler", table="12", code="T12-04", drink="Old Fashioned"
+):
     return ChronicleEvent(
         at=AT,
         table_label=table,

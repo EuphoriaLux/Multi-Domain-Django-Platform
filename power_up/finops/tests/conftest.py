@@ -16,4 +16,4 @@ def client():
     /finops/ request would 404. Sending the real domain is the ONLY thing
     that routes these tests — ROOT_URLCONF overrides have no effect here.
     """
-    return Client(HTTP_HOST='power-up.lu')
+    return Client(HTTP_HOST="power-up.lu")

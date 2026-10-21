@@ -32,7 +32,6 @@ def _alias(pattern_name):
 urlpatterns = [
     # Home
     path("", views.home, name="home"),
-
     # Services Overview & Details
     path("services/", views.services, name="services"),
     path("obstbaumpflege/", views.obstbaumpflege, name="obstbaumpflege"),
@@ -40,25 +39,25 @@ urlpatterns = [
     path("baumkontrolle/", views.baumkontrolle, name="baumkontrolle"),
     path("oekologie/", views.oekologie, name="oekologie"),
     path("technik/", views.technik, name="technik"),
-
     # About (other-language slugs redirect to the canonical route)
     path("ueber-uns/", views.about, name="about"),
     path("about/", _alias("about")),
     path("a-propos/", _alias("about")),
-
     # Contact
     path("kontakt/", views_leads.enquiry, name="contact"),
     path("contact/", _alias("contact")),
     path("enquiry/<uuid:lead_id>/", views_leads.lead_detail, name="lead_detail"),
     path("enquiry-photo/<uuid:photo_id>/", views_leads.lead_photo, name="lead_photo"),
-
     # Booking Flow & API
     path("termin/", views.booking, name="booking"),
     path("booking/", _alias("booking")),
     path("rendez-vous/", _alias("booking")),
-    path("booking/success/<str:reference>/", views.booking_success, name="booking_success"),
+    path(
+        "booking/success/<str:reference>/",
+        views.booking_success,
+        name="booking_success",
+    ),
     path("api/zone-lookup/", views.api_calculate_zone, name="api_calculate_zone"),
-
     # Gallery & FAQ
     path("galerie/", views.gallery, name="gallery"),
     path("gallery/", _alias("gallery")),

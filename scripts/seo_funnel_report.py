@@ -63,15 +63,19 @@ def fetch_gsc_pages(start_date, end_date):
     creds = load_oauth_credentials("gsc_token.json", GSC_SCOPES)
     service = build("searchconsole", "v1", credentials=creds)
 
-    response = service.searchanalytics().query(
-        siteUrl=GSC_SITE_URL,
-        body={
-            "startDate": start_date,
-            "endDate": end_date,
-            "dimensions": ["page"],
-            "rowLimit": 25000,
-        },
-    ).execute()
+    response = (
+        service.searchanalytics()
+        .query(
+            siteUrl=GSC_SITE_URL,
+            body={
+                "startDate": start_date,
+                "endDate": end_date,
+                "dimensions": ["page"],
+                "rowLimit": 25000,
+            },
+        )
+        .execute()
+    )
 
     return response.get("rows", [])
 
@@ -83,15 +87,19 @@ def fetch_gsc_query_page(start_date, end_date):
     creds = load_oauth_credentials("gsc_token.json", GSC_SCOPES)
     service = build("searchconsole", "v1", credentials=creds)
 
-    response = service.searchanalytics().query(
-        siteUrl=GSC_SITE_URL,
-        body={
-            "startDate": start_date,
-            "endDate": end_date,
-            "dimensions": ["query", "page"],
-            "rowLimit": 25000,
-        },
-    ).execute()
+    response = (
+        service.searchanalytics()
+        .query(
+            siteUrl=GSC_SITE_URL,
+            body={
+                "startDate": start_date,
+                "endDate": end_date,
+                "dimensions": ["query", "page"],
+                "rowLimit": 25000,
+            },
+        )
+        .execute()
+    )
 
     return response.get("rows", [])
 
@@ -125,13 +133,15 @@ def fetch_ga4_landing_pages(start_date, end_date):
 
     rows = []
     for row in response.rows:
-        rows.append({
-            "landingPage": row.dimension_values[0].value,
-            "sessions": int(row.metric_values[0].value or 0),
-            "users": int(row.metric_values[1].value or 0),
-            "bounceRate": float(row.metric_values[2].value or 0),
-            "engagementRate": float(row.metric_values[3].value or 0),
-        })
+        rows.append(
+            {
+                "landingPage": row.dimension_values[0].value,
+                "sessions": int(row.metric_values[0].value or 0),
+                "users": int(row.metric_values[1].value or 0),
+                "bounceRate": float(row.metric_values[2].value or 0),
+                "engagementRate": float(row.metric_values[3].value or 0),
+            }
+        )
     return rows
 
 
@@ -151,15 +161,16 @@ def aggregate_by_path(rows, path_extractor, metric_accumulator, collapse_languag
 
 def build_funnel(gsc_rows, ga4_rows, collapse_language):
     """Join GSC page metrics with GA4 landing-page metrics on normalized path."""
+
     def gsc_accum(acc, row):
         acc["impressions"] = acc.get("impressions", 0) + int(row["impressions"])
         acc["clicks"] = acc.get("clicks", 0) + int(row["clicks"])
         # GSC returns pre-aggregated CTR/position per row; for collapsing we
         # re-derive CTR from clicks/impressions and take a click-weighted
         # position so collapsed rows stay meaningful.
-        acc["_position_weighted"] = (
-            acc.get("_position_weighted", 0.0) + row["position"] * int(row["clicks"])
-        )
+        acc["_position_weighted"] = acc.get("_position_weighted", 0.0) + row[
+            "position"
+        ] * int(row["clicks"])
         acc["_position_rows"] = acc.get("_position_rows", 0) + 1
         acc["_position_sum"] = acc.get("_position_sum", 0.0) + row["position"]
 
@@ -204,20 +215,22 @@ def build_funnel(gsc_rows, ga4_rows, collapse_language):
         impressions = g.get("impressions", 0)
         clicks = g.get("clicks", 0)
         sessions = a.get("sessions", 0)
-        funnel.append({
-            "path": path,
-            "impressions": impressions,
-            "clicks": clicks,
-            "ctr": g.get("ctr", 0.0),
-            "position": g.get("position", 0.0),
-            "sessions": sessions,
-            "users": a.get("users", 0),
-            "bounceRate": a.get("bounceRate", 0.0),
-            "engagementRate": a.get("engagementRate", 0.0),
-            "click_to_session": (clicks / sessions) if sessions else None,
-            "_in_gsc": path in gsc_by_path,
-            "_in_ga4": path in ga4_by_path,
-        })
+        funnel.append(
+            {
+                "path": path,
+                "impressions": impressions,
+                "clicks": clicks,
+                "ctr": g.get("ctr", 0.0),
+                "position": g.get("position", 0.0),
+                "sessions": sessions,
+                "users": a.get("users", 0),
+                "bounceRate": a.get("bounceRate", 0.0),
+                "engagementRate": a.get("engagementRate", 0.0),
+                "click_to_session": (clicks / sessions) if sessions else None,
+                "_in_gsc": path in gsc_by_path,
+                "_in_ga4": path in ga4_by_path,
+            }
+        )
 
     funnel.sort(key=lambda r: r["impressions"], reverse=True)
     return funnel
@@ -228,7 +241,8 @@ def derive_views(funnel):
     with_impressions = [r for r in funnel if r["impressions"] >= 50]
     median_ctr = (
         statistics.median([r["ctr"] for r in with_impressions])
-        if with_impressions else 0.0
+        if with_impressions
+        else 0.0
     )
 
     underperformers = []
@@ -240,7 +254,8 @@ def derive_views(funnel):
     underperformers.sort(key=lambda r: r["leverage"], reverse=True)
 
     bounce_leakers = [
-        r for r in funnel
+        r
+        for r in funnel
         if r["clicks"] >= 5 and r["bounceRate"] >= 0.70 and r["_in_ga4"]
     ]
     bounce_leakers.sort(key=lambda r: (r["clicks"], r["bounceRate"]), reverse=True)
@@ -251,7 +266,9 @@ def derive_views(funnel):
     orphans_no_search.sort(key=lambda r: r["sessions"], reverse=True)
 
     orphans_no_analytics = [
-        r for r in funnel if r["_in_gsc"] and not r["_in_ga4"] and r["impressions"] >= 100
+        r
+        for r in funnel
+        if r["_in_gsc"] and not r["_in_ga4"] and r["impressions"] >= 100
     ]
     orphans_no_analytics.sort(key=lambda r: r["impressions"], reverse=True)
 
@@ -270,13 +287,15 @@ def top_queries_per_page(query_page_rows, collapse_language, top_n=3):
     for row in query_page_rows:
         query, page = row["keys"][0], row["keys"][1]
         path = normalize_path(page, collapse_language)
-        by_path.setdefault(path, []).append({
-            "query": query,
-            "clicks": int(row["clicks"]),
-            "impressions": int(row["impressions"]),
-            "ctr": row["ctr"],
-            "position": row["position"],
-        })
+        by_path.setdefault(path, []).append(
+            {
+                "query": query,
+                "clicks": int(row["clicks"]),
+                "impressions": int(row["impressions"]),
+                "ctr": row["ctr"],
+                "position": row["position"],
+            }
+        )
     for path, queries in by_path.items():
         queries.sort(key=lambda q: q["clicks"], reverse=True)
         by_path[path] = queries[:top_n]
@@ -300,7 +319,9 @@ def fmt_row_for_display(row):
         "bounceRate": fmt_pct(row["bounceRate"]),
         "engagementRate": fmt_pct(row["engagementRate"]),
         "clk/sess": (
-            f"{row['click_to_session']:.2f}" if row["click_to_session"] is not None else "-"
+            f"{row['click_to_session']:.2f}"
+            if row["click_to_session"] is not None
+            else "-"
         ),
         "in_gsc": "y" if row["_in_gsc"] else "-",
         "in_ga4": "y" if row["_in_ga4"] else "-",
@@ -310,15 +331,31 @@ def fmt_row_for_display(row):
 def main():
     parser = argparse.ArgumentParser(description="GSC + GA4 funnel report for crush.lu")
     parser.add_argument("--start", help="Start date YYYY-MM-DD")
-    parser.add_argument("--days", type=int, default=90, help="Days to look back (default: 90)")
-    parser.add_argument("--csv", action="store_true", help="Write CSV files to scripts/exports/")
-    parser.add_argument("--json", action="store_true", help="Emit JSON instead of tables")
-    parser.add_argument("--collapse-language", action="store_true",
-                        help="Collapse /en, /de, /fr prefixes into a single path")
-    parser.add_argument("--queries", action="store_true",
-                        help="Include top-queries-per-page section (larger API call)")
-    parser.add_argument("--top", type=int, default=30,
-                        help="Rows to show per table in terminal mode (default: 30)")
+    parser.add_argument(
+        "--days", type=int, default=90, help="Days to look back (default: 90)"
+    )
+    parser.add_argument(
+        "--csv", action="store_true", help="Write CSV files to scripts/exports/"
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="Emit JSON instead of tables"
+    )
+    parser.add_argument(
+        "--collapse-language",
+        action="store_true",
+        help="Collapse /en, /de, /fr prefixes into a single path",
+    )
+    parser.add_argument(
+        "--queries",
+        action="store_true",
+        help="Include top-queries-per-page section (larger API call)",
+    )
+    parser.add_argument(
+        "--top",
+        type=int,
+        default=30,
+        help="Rows to show per table in terminal mode (default: 30)",
+    )
     args = parser.parse_args()
 
     # GSC data lags 2-3 days; pin end date to match for apples-to-apples with GA4.
@@ -366,10 +403,16 @@ def main():
         out = {
             "summary": totals,
             "funnel": [fmt_row_for_display(r) for r in funnel],
-            "underperformers": [fmt_row_for_display(r) for r in views["underperformers"]],
+            "underperformers": [
+                fmt_row_for_display(r) for r in views["underperformers"]
+            ],
             "bounce_leakers": [fmt_row_for_display(r) for r in views["bounce_leakers"]],
-            "orphans_no_search": [fmt_row_for_display(r) for r in views["orphans_no_search"]],
-            "orphans_no_analytics": [fmt_row_for_display(r) for r in views["orphans_no_analytics"]],
+            "orphans_no_search": [
+                fmt_row_for_display(r) for r in views["orphans_no_search"]
+            ],
+            "orphans_no_analytics": [
+                fmt_row_for_display(r) for r in views["orphans_no_analytics"]
+            ],
         }
         if query_pairs:
             out["top_queries_per_page"] = query_pairs
@@ -379,32 +422,60 @@ def main():
     if args.csv:
         print("\nWriting CSV files...")
         funnel_rows = [fmt_row_for_display(r) for r in funnel]
-        headers = ["path", "impressions", "clicks", "ctr", "position", "sessions",
-                   "users", "bounceRate", "engagementRate", "clk/sess", "in_gsc", "in_ga4"]
+        headers = [
+            "path",
+            "impressions",
+            "clicks",
+            "ctr",
+            "position",
+            "sessions",
+            "users",
+            "bounceRate",
+            "engagementRate",
+            "clk/sess",
+            "in_gsc",
+            "in_ga4",
+        ]
         write_csv("seo_funnel.csv", headers, funnel_rows)
-        write_csv("seo_funnel_underperformers.csv", headers,
-                  [fmt_row_for_display(r) for r in views["underperformers"]])
-        write_csv("seo_funnel_bounce_leakers.csv", headers,
-                  [fmt_row_for_display(r) for r in views["bounce_leakers"]])
-        write_csv("seo_funnel_orphans_no_search.csv", headers,
-                  [fmt_row_for_display(r) for r in views["orphans_no_search"]])
-        write_csv("seo_funnel_orphans_no_analytics.csv", headers,
-                  [fmt_row_for_display(r) for r in views["orphans_no_analytics"]])
+        write_csv(
+            "seo_funnel_underperformers.csv",
+            headers,
+            [fmt_row_for_display(r) for r in views["underperformers"]],
+        )
+        write_csv(
+            "seo_funnel_bounce_leakers.csv",
+            headers,
+            [fmt_row_for_display(r) for r in views["bounce_leakers"]],
+        )
+        write_csv(
+            "seo_funnel_orphans_no_search.csv",
+            headers,
+            [fmt_row_for_display(r) for r in views["orphans_no_search"]],
+        )
+        write_csv(
+            "seo_funnel_orphans_no_analytics.csv",
+            headers,
+            [fmt_row_for_display(r) for r in views["orphans_no_analytics"]],
+        )
         if query_pairs:
             qp_flat = []
             for path, queries in query_pairs.items():
                 for q in queries:
-                    qp_flat.append({
-                        "path": path,
-                        "query": q["query"],
-                        "clicks": q["clicks"],
-                        "impressions": q["impressions"],
-                        "ctr": fmt_pct(q["ctr"]),
-                        "position": f"{q['position']:.1f}",
-                    })
-            write_csv("seo_funnel_top_queries.csv",
-                      ["path", "query", "clicks", "impressions", "ctr", "position"],
-                      qp_flat)
+                    qp_flat.append(
+                        {
+                            "path": path,
+                            "query": q["query"],
+                            "clicks": q["clicks"],
+                            "impressions": q["impressions"],
+                            "ctr": fmt_pct(q["ctr"]),
+                            "position": f"{q['position']:.1f}",
+                        }
+                    )
+            write_csv(
+                "seo_funnel_top_queries.csv",
+                ["path", "query", "clicks", "impressions", "ctr", "position"],
+                qp_flat,
+            )
         print("Done.")
         return
 
@@ -413,37 +484,47 @@ def main():
     for k, v in totals.items():
         print(f"  {k}: {v}")
 
-    headers = ["path", "impressions", "clicks", "ctr", "position", "sessions",
-               "bounceRate", "engagementRate", "in_gsc", "in_ga4"]
+    headers = [
+        "path",
+        "impressions",
+        "clicks",
+        "ctr",
+        "position",
+        "sessions",
+        "bounceRate",
+        "engagementRate",
+        "in_gsc",
+        "in_ga4",
+    ]
 
     print_table(
         f"FUNNEL (top {args.top} by impressions)",
         headers,
-        [fmt_row_for_display(r) for r in funnel[:args.top]],
+        [fmt_row_for_display(r) for r in funnel[: args.top]],
     )
 
     print_table(
         f"CTR UNDERPERFORMERS (impressions >= 50, ctr < 2%, median={totals['median_ctr_for_scoring']})",
         headers,
-        [fmt_row_for_display(r) for r in views["underperformers"][:args.top]],
+        [fmt_row_for_display(r) for r in views["underperformers"][: args.top]],
     )
 
     print_table(
         "BOUNCE LEAKERS (clicks >= 5, bounceRate >= 70%)",
         headers,
-        [fmt_row_for_display(r) for r in views["bounce_leakers"][:args.top]],
+        [fmt_row_for_display(r) for r in views["bounce_leakers"][: args.top]],
     )
 
     print_table(
         "ORPHANS - in GA4 but not GSC (sessions >= 5)",
         headers,
-        [fmt_row_for_display(r) for r in views["orphans_no_search"][:args.top]],
+        [fmt_row_for_display(r) for r in views["orphans_no_search"][: args.top]],
     )
 
     print_table(
         "ORPHANS - in GSC but not GA4 (impressions >= 100)",
         headers,
-        [fmt_row_for_display(r) for r in views["orphans_no_analytics"][:args.top]],
+        [fmt_row_for_display(r) for r in views["orphans_no_analytics"][: args.top]],
     )
 
     if query_pairs:
@@ -455,8 +536,10 @@ def main():
                 continue
             print(f"\n  {path}")
             for q in queries:
-                print(f"    {q['clicks']:>4} clicks  {q['impressions']:>6} imp  "
-                      f"{fmt_pct(q['ctr']):>6}  pos {q['position']:.1f}  -  {q['query']}")
+                print(
+                    f"    {q['clicks']:>4} clicks  {q['impressions']:>6} imp  "
+                    f"{fmt_pct(q['ctr']):>6}  pos {q['position']:.1f}  -  {q['query']}"
+                )
 
     print("\n=== DONE ===\n")
 

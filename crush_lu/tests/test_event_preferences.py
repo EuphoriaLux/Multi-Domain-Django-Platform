@@ -126,9 +126,9 @@ class PreferenceSectionRenderingTests(EventPreferenceTestBase):
         self.assertEqual(response.status_code, 200)
         codes = [
             code
-            for code, _label in response.context["pref_form"].fields[
-                "languages"
-            ].choices
+            for code, _label in response.context["pref_form"]
+            .fields["languages"]
+            .choices
         ]
         self.assertEqual(sorted(codes), ["en", "fr"])
 
@@ -217,9 +217,7 @@ class PreferenceSubmissionTests(EventPreferenceTestBase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertTrue(
-            EventRegistration.objects.filter(
-                event=self.mixer, user=self.user
-            ).exists()
+            EventRegistration.objects.filter(event=self.mixer, user=self.user).exists()
         )
         self.assertEqual(EventRegistrationPreference.objects.count(), 0)
 
@@ -259,9 +257,7 @@ class PreferenceSubmissionTests(EventPreferenceTestBase):
             ).count(),
             1,
         )
-        pref = EventRegistrationPreference.objects.get(
-            registration=registration
-        )
+        pref = EventRegistrationPreference.objects.get(registration=registration)
         self.assertEqual(pref.preferred_genders, ["M"])
         self.assertEqual(pref.preferred_age_min, 30)
         self.assertEqual(pref.preferred_age_max, 45)
@@ -599,9 +595,7 @@ class PreferenceAccountMergeTests(EventPreferenceTestBase):
         pref.refresh_from_db()
         self.assertEqual(pref.registration_id, keeper_reg.pk)
         self.assertEqual(pref.preferred_genders, ["F"])
-        self.assertFalse(
-            EventRegistration.objects.filter(pk=duplicate_reg.pk).exists()
-        )
+        self.assertFalse(EventRegistration.objects.filter(pk=duplicate_reg.pk).exists())
 
     def test_keeper_keeps_its_own_preference_when_both_answered(self):
         from crush_lu.models import EventRegistration, EventRegistrationPreference
@@ -697,12 +691,14 @@ class PreferenceRetentionOrderingTests(EventPreferenceTestBase):
         # Registered long ago for a recent-ish event: the youngest data, but
         # the oldest row.
         early_bird = self._preference(
-            event_days_ago=31, created_at=now - timedelta(days=200),
+            event_days_ago=31,
+            created_at=now - timedelta(days=200),
             username="early@example.com",
         )
         # Registered yesterday for a much older event: the oldest data.
         latecomer = self._preference(
-            event_days_ago=400, created_at=now - timedelta(days=1),
+            event_days_ago=400,
+            created_at=now - timedelta(days=1),
             username="late@example.com",
         )
 

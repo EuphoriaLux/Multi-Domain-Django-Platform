@@ -7,13 +7,13 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0005_alter_eventactivityoption_activity_type_and_more'),
+        ("crush_lu", "0005_alter_eventactivityoption_activity_type_and_more"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AlterUniqueTogether(
-            name='eventactivityvote',
-            unique_together={('event', 'user', 'selected_option')},
+            name="eventactivityvote",
+            unique_together={("event", "user", "selected_option")},
         ),
     ]

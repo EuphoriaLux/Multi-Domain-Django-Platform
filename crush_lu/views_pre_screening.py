@@ -5,6 +5,7 @@ consents after a profile has been submitted but before the Coach reviews it.
 All write endpoints are ratelimited. Everything is gated by
 ``settings.PRE_SCREENING_ENABLED``.
 """
+
 from __future__ import annotations
 
 import logging
@@ -35,6 +36,7 @@ logger = logging.getLogger(__name__)
 # --------------------------------------------------------------------------
 # Helpers
 # --------------------------------------------------------------------------
+
 
 def _get_active_submission(user) -> ProfileSubmission | None:
     """Return the user's latest pending ProfileSubmission, or None."""
@@ -122,8 +124,11 @@ def _is_complete(responses: dict) -> bool:
     return True
 
 
-def _build_sections_context(responses: dict, errors_by_qid: dict | None = None,
-                            flash_section_id: str | None = None) -> list[dict]:
+def _build_sections_context(
+    responses: dict,
+    errors_by_qid: dict | None = None,
+    flash_section_id: str | None = None,
+) -> list[dict]:
     errors_by_qid = errors_by_qid or {}
     output = []
     for idx, section in enumerate(PRE_SCREENING_SCHEMA["sections"], start=1):
@@ -132,13 +137,15 @@ def _build_sections_context(responses: dict, errors_by_qid: dict | None = None,
             for q in section["questions"]
             if q["id"] in errors_by_qid
         }
-        output.append({
-            "section": section,
-            "number": idx,
-            "complete": _section_is_complete(section, responses),
-            "errors": section_errors,
-            "flash": _("Saved.") if flash_section_id == section["id"] else "",
-        })
+        output.append(
+            {
+                "section": section,
+                "number": idx,
+                "complete": _section_is_complete(section, responses),
+                "errors": section_errors,
+                "flash": _("Saved.") if flash_section_id == section["id"] else "",
+            }
+        )
     return output
 
 
@@ -179,9 +186,7 @@ def _notify_coach(submission: ProfileSubmission, *, edit: bool) -> None:
             title = str(_("%(name)s updated their answers") % {"name": display_name})
             body = str(_("New readiness: %(score)s/10") % {"score": score})
         else:
-            title = str(
-                _("%(name)s completed pre-screening") % {"name": display_name}
-            )
+            title = str(_("%(name)s completed pre-screening") % {"name": display_name})
             body = str(
                 _("Readiness: %(score)s/10%(flags)s")
                 % {"score": score, "flags": flag_summary}
@@ -210,6 +215,7 @@ def _gate_or_redirect(request):
 # --------------------------------------------------------------------------
 # Views
 # --------------------------------------------------------------------------
+
 
 @crush_login_required
 def pre_screening_form(request):
@@ -316,8 +322,11 @@ def pre_screening_save_section(request, section_id: str):
 
     section_complete = _section_is_complete(section, responses) and not errors_by_qid
     section_number = next(
-        (i + 1 for i, s in enumerate(PRE_SCREENING_SCHEMA["sections"])
-         if s["id"] == section_id),
+        (
+            i + 1
+            for i, s in enumerate(PRE_SCREENING_SCHEMA["sections"])
+            if s["id"] == section_id
+        ),
         1,
     )
 
@@ -400,14 +409,16 @@ def pre_screening_finalize(request):
     # the screening tab if they prefer the full 5-section flow.
     if submission.screening_call_mode == "legacy":
         submission.screening_call_mode = "calibration"
-    submission.save(update_fields=[
-        "pre_screening_responses",
-        "pre_screening_submitted_at",
-        "pre_screening_version",
-        "pre_screening_readiness_score",
-        "pre_screening_flags",
-        "screening_call_mode",
-    ])
+    submission.save(
+        update_fields=[
+            "pre_screening_responses",
+            "pre_screening_submitted_at",
+            "pre_screening_version",
+            "pre_screening_readiness_score",
+            "pre_screening_flags",
+            "screening_call_mode",
+        ]
+    )
 
     logger.info(
         "pre_screening.finalized",

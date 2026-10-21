@@ -8,7 +8,6 @@ is safe.
 
 from django.db import migrations
 
-
 # (slug, category, en, de, fr)
 INTERESTS = [
     # --- sports ---
@@ -20,14 +19,32 @@ INTERESTS = [
     ("fitness", "sports", "Fitness & gym", "Fitness & Gym", "Fitness & musculation"),
     # --- music ---
     ("live-music", "music", "Live music", "Live-Musik", "Concerts"),
-    ("electronic", "music", "Electronic", "Elektronische Musik", "Musique électronique"),
+    (
+        "electronic",
+        "music",
+        "Electronic",
+        "Elektronische Musik",
+        "Musique électronique",
+    ),
     ("classical", "music", "Classical", "Klassik", "Musique classique"),
-    ("instruments", "music", "Playing an instrument", "Instrument spielen", "Jouer d'un instrument"),
+    (
+        "instruments",
+        "music",
+        "Playing an instrument",
+        "Instrument spielen",
+        "Jouer d'un instrument",
+    ),
     ("singing", "music", "Singing", "Singen", "Chant"),
     # --- travel ---
     ("city-trips", "travel", "City trips", "Städtereisen", "City-trips"),
     ("backpacking", "travel", "Backpacking", "Backpacking", "Voyage sac à dos"),
-    ("beach-holidays", "travel", "Beach holidays", "Strandurlaub", "Vacances à la plage"),
+    (
+        "beach-holidays",
+        "travel",
+        "Beach holidays",
+        "Strandurlaub",
+        "Vacances à la plage",
+    ),
     ("road-trips", "travel", "Road trips", "Roadtrips", "Road trips"),
     # --- food ---
     ("cooking", "food", "Cooking", "Kochen", "Cuisine"),

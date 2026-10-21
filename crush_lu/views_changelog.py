@@ -32,8 +32,7 @@ def _filtered_notes_prefetch(category=None, q=None):
 
 def _category_choices():
     return [
-        {"value": value, "label": label}
-        for value, label in PatchNoteCategory.choices
+        {"value": value, "label": label} for value, label in PatchNoteCategory.choices
     ]
 
 

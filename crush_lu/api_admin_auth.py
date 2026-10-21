@@ -10,6 +10,7 @@ This helper was previously duplicated verbatim in ``api_admin_sync`` and
 api_admin_sync"). It now lives here so every admin endpoint shares one
 implementation.
 """
+
 from __future__ import annotations
 
 import logging

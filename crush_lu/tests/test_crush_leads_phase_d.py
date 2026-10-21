@@ -14,6 +14,7 @@ Covers (Phase D scope):
 
 Run with: pytest crush_lu/tests/test_crush_leads_phase_d.py -v
 """
+
 from datetime import date, timedelta
 from unittest import mock
 
@@ -60,9 +61,7 @@ def _make_coach(username, is_active=True):
     user = User.objects.create_user(
         username=username, email=username, password="coachpass123"
     )
-    return CrushCoach.objects.create(
-        user=user, bio="Test coach", is_active=is_active
-    )
+    return CrushCoach.objects.create(user=user, bio="Test coach", is_active=is_active)
 
 
 def _make_event(title="Phase D Event"):
@@ -169,12 +168,20 @@ class TestReciprocalLeadsStayIndependent:
         user_b, _ = _make_user("legacy_ub@example.com", "F")
         event = _make_event()
         fwd = _lead(
-            user_a, user_b, event, coach,
-            status="accepted", flow=EventConnection.FLOW_LEGACY,
+            user_a,
+            user_b,
+            event,
+            coach,
+            status="accepted",
+            flow=EventConnection.FLOW_LEGACY,
         )
         rev = _lead(
-            user_b, user_a, event, coach,
-            status="accepted", flow=EventConnection.FLOW_LEGACY,
+            user_b,
+            user_a,
+            event,
+            coach,
+            status="accepted",
+            flow=EventConnection.FLOW_LEGACY,
         )
         _login(client, coach.user)
 
@@ -333,9 +340,7 @@ class TestReminderSweep:
         transport.assert_not_called()
 
     def test_a_scheduled_or_completed_call_is_never_swept(self):
-        _, scheduled = self._overdue_lead(
-            coach_call_scheduled_at=timezone.now()
-        )
+        _, scheduled = self._overdue_lead(coach_call_scheduled_at=timezone.now())
         assert not reminder_candidates().filter(pk=scheduled.pk).exists()
 
         _, completed = self._overdue_lead(
@@ -477,9 +482,7 @@ class TestCoCoachOutreachTask:
         client.post(self._url(lead), {"action": "record_consent"})
 
         lead.refresh_from_db()
-        assert lead.recipient_response == (
-            EventConnection.RECIPIENT_RESPONSE_CONSENTED
-        )
+        assert lead.recipient_response == (EventConnection.RECIPIENT_RESPONSE_CONSENTED)
         assert lead.recipient_consents_to_share is True
         assert lead.recipient_response_at is not None
         assert lead.status != "declined"
@@ -498,9 +501,7 @@ class TestCoCoachOutreachTask:
         client.post(self._url(lead), {"action": "record_decline"})
 
         lead.refresh_from_db()
-        assert lead.recipient_response == (
-            EventConnection.RECIPIENT_RESPONSE_DECLINED
-        )
+        assert lead.recipient_response == (EventConnection.RECIPIENT_RESPONSE_DECLINED)
         assert lead.recipient_consents_to_share is False
         assert lead.status == "declined"
 
@@ -513,9 +514,7 @@ class TestCoCoachOutreachTask:
         client.post(self._url(lead), {"action": "record_decline"})
 
         lead.refresh_from_db()
-        assert lead.recipient_response == (
-            EventConnection.RECIPIENT_RESPONSE_CONSENTED
-        )
+        assert lead.recipient_response == (EventConnection.RECIPIENT_RESPONSE_CONSENTED)
         assert lead.status != "declined"
         # ...and the rejected second POST adds nothing: only the accepted
         # answer plus its inferred outreach are audited.
@@ -556,9 +555,7 @@ class TestCoCoachOutreachTask:
         # The routed coach sees the lead itself instead.
         assert routed_queue.context["counts"]["crush_lead"] == 1
         entry = next(
-            i
-            for i in cocoach_queue.context["items"]
-            if i["kind"] == "crush_outreach"
+            i for i in cocoach_queue.context["items"] if i["kind"] == "crush_outreach"
         )
         # Links to the constrained surface, never to the lead.
         assert entry["url_name"] == "crush_lu:coach_crush_outreach_task"
@@ -587,9 +584,7 @@ class TestCoCoachOutreachTask:
         lead.refresh_from_db()
         lead.requester_consents_to_share = True
         lead.status = "coach_approved"
-        lead.save(
-            update_fields=["requester_consents_to_share", "status"]
-        )
+        lead.save(update_fields=["requester_consents_to_share", "status"])
         lead.refresh_from_db()
 
         assert lead.recipient_consents_to_share is True
@@ -616,9 +611,7 @@ class TestMemberOverviewRedaction:
         return routed, crusher, target, lead
 
     def _url(self, member):
-        return reverse(
-            "crush_lu:coach_member_overview", kwargs={"user_id": member.pk}
-        )
+        return reverse("crush_lu:coach_member_overview", kwargs={"user_id": member.pk})
 
     def test_unrelated_coach_sees_no_crush_row_on_the_recipient(self, client):
         _, crusher, target, _ = self._lead_for_overview()
@@ -639,9 +632,7 @@ class TestMemberOverviewRedaction:
         assert response.status_code == 200
         assert crusher.username.encode() in response.content
 
-    def test_a_shared_lead_is_a_completed_introduction_and_stays_visible(
-        self, client
-    ):
+    def test_a_shared_lead_is_a_completed_introduction_and_stays_visible(self, client):
         _, crusher, target, lead = self._lead_for_overview()
         lead.status = "shared"
         lead.save(update_fields=["status"])
@@ -657,7 +648,10 @@ class TestMemberOverviewRedaction:
         requester, _ = _make_user("mo_lreq@example.com", "M")
         target, _ = _make_user("mo_ltar@example.com", "F")
         _lead(
-            requester, target, _make_event(), routed,
+            requester,
+            target,
+            _make_event(),
+            routed,
             flow=EventConnection.FLOW_LEGACY,
         )
         stranger = _make_coach("mo_lstranger@example.com")
@@ -718,7 +712,10 @@ class TestCodexRound1Fixes:
         crusher, _ = _make_user("cx_crusher@example.com", "M")
         target, _ = _make_user("cx_target@example.com", "F")
         lead = _lead(
-            crusher, target, _make_event(), routed,
+            crusher,
+            target,
+            _make_event(),
+            routed,
             requester_note="Codex round note.",
         )
         return routed, crusher, lead
@@ -755,9 +752,7 @@ class TestCodexRound1Fixes:
         triager = _make_coach("cx_triager@example.com")
         crusher, _ = _make_user("cx_pa@example.com", "M")
         target, _ = _make_user("cx_pb@example.com", "F")
-        lead = _lead(
-            crusher, target, _make_event(), requester_note="Pool note."
-        )
+        lead = _lead(crusher, target, _make_event(), requester_note="Pool note.")
         assert lead.assigned_coach is None
         client = Client()
         _login(client, triager.user)
@@ -1034,9 +1029,9 @@ class TestCrushLeadWorkspace:
         lead.refresh_from_db()
         assert lead.coach_call_completed_at is not None
         assert lead.call_outcome == "completed"
-        assert not EventConnection.objects.open_crush_leads().filter(
-            pk=lead.pk
-        ).exists()
+        assert (
+            not EventConnection.objects.open_crush_leads().filter(pk=lead.pk).exists()
+        )
 
     def test_an_unreachable_call_keeps_the_lead_open_and_rearms_the_reminder(self):
         coach, lead = self._lead(status="coach_reviewing")
@@ -1178,8 +1173,12 @@ class TestCrushLeadWorkspace:
         requester, _ = _make_user("ws_lreq@example.com", "M")
         recipient, _ = _make_user("ws_lrec@example.com", "F")
         legacy = _lead(
-            requester, recipient, _make_event(), coach,
-            status="pending", flow=EventConnection.FLOW_LEGACY,
+            requester,
+            recipient,
+            _make_event(),
+            coach,
+            status="pending",
+            flow=EventConnection.FLOW_LEGACY,
         )
         client = Client()
         _login(client, coach.user)
@@ -1209,9 +1208,7 @@ class TestStaleCoachRecovery:
         client = Client()
         _login(client, active.user)
 
-        listing = client.get(
-            reverse("crush_lu:coach_connections"), {"status": "all"}
-        )
+        listing = client.get(reverse("crush_lu:coach_connections"), {"status": "all"})
         review = client.get(
             reverse(
                 "crush_lu:coach_connection_review",
@@ -1307,7 +1304,10 @@ class TestCodexRound2Robustness:
 
         result = sweep_lead_reminders(
             notify=lambda c, ln: {
-                "success": 0, "failed": 0, "total": 0, "misconfigured": True
+                "success": 0,
+                "failed": 0,
+                "total": 0,
+                "misconfigured": True,
             }
         )
 
@@ -1348,9 +1348,7 @@ class TestCodexRound2Robustness:
         client = Client()
         _login(client, coach.user)
 
-        response = client.get(
-            reverse("crush_lu:coach_connections"), {"status": "all"}
-        )
+        response = client.get(reverse("crush_lu:coach_connections"), {"status": "all"})
 
         row = next(
             c for c in response.context["page_obj"].object_list if c.pk == lead.pk
@@ -1367,9 +1365,7 @@ class TestCodexRound2Robustness:
         client = Client()
         _login(client, coach.user)
 
-        response = client.get(
-            reverse("crush_lu:coach_connections"), {"status": "all"}
-        )
+        response = client.get(reverse("crush_lu:coach_connections"), {"status": "all"})
 
         row = next(
             c for c in response.context["page_obj"].object_list if c.pk == lead.pk
@@ -1387,8 +1383,12 @@ class TestClaimCannotTakeOverALead:
         requester, _ = _make_user("cl_req@example.com", "M")
         recipient, _ = _make_user("cl_rec@example.com", "F")
         lead = _lead(
-            requester, recipient, _make_event(), routed,
-            status=status, requester_note="Takeover note.",
+            requester,
+            recipient,
+            _make_event(),
+            routed,
+            status=status,
+            requester_note="Takeover note.",
         )
         return routed, lead
 
@@ -1465,8 +1465,12 @@ class TestClaimCannotTakeOverALead:
         requester, _p = _make_user("cl_legacy_req@example.com", "M")
         recipient, _p2 = _make_user("cl_legacy_rec@example.com", "F")
         legacy = _lead(
-            requester, recipient, _make_event(), routed,
-            status="shared", flow=EventConnection.FLOW_LEGACY,
+            requester,
+            recipient,
+            _make_event(),
+            routed,
+            status="shared",
+            flow=EventConnection.FLOW_LEGACY,
         )
         rescuer = _make_coach("cl_legacy_rescuer@example.com")
         client = Client()
@@ -1528,9 +1532,7 @@ class TestOutreachRaceOnAClosingLead:
 
         client = Client()
         _login(client, cocoach.user)
-        with mock.patch(
-            "crush_lu.views_coach.get_object_or_404", return_value=stale
-        ):
+        with mock.patch("crush_lu.views_coach.get_object_or_404", return_value=stale):
             return client.post(self._url(lead), {"action": action}, follow=True)
 
     def test_the_locked_recheck_catches_a_lead_that_closes_mid_request(self):
@@ -1614,15 +1616,13 @@ class TestCodexRound4Fixes:
         lead.refresh_from_db()
         assert lead.status == "declined"
         assert lead.requester_consents_to_share is False
-        assert "crush_requester_decline" in [
-            a["type"] for a in lead.system_actions
-        ]
+        assert "crush_requester_decline" in [a["type"] for a in lead.system_actions]
         # The co-coach's task filters OPEN_LEAD_STATUSES, so it is gone —
         # the recipient is never contacted, and never told why.
         assert not outreach_open.filter(pk=lead.pk).exists()
-        assert not EventConnection.objects.open_crush_leads().filter(
-            pk=lead.pk
-        ).exists()
+        assert (
+            not EventConnection.objects.open_crush_leads().filter(pk=lead.pk).exists()
+        )
 
     def test_a_non_completed_outcome_clears_the_obsolete_schedule(self):
         """A scheduled call that ends as no_answer kept its timestamp, and
@@ -1664,9 +1664,7 @@ class TestCodexRound4Fixes:
         coach = _make_coach("r4_term@example.com")
         requester, _ = _make_user("r4_ta@example.com", "M")
         recipient, _ = _make_user("r4_tb@example.com", "F")
-        lead = _lead(
-            requester, recipient, _make_event(), coach, status="shared"
-        )
+        lead = _lead(requester, recipient, _make_event(), coach, status="shared")
         lead.shared_at = timezone.now()
         lead.save(update_fields=["shared_at"])
 
@@ -1697,9 +1695,7 @@ class TestCodexRound4Fixes:
 
         client = Client()
         _login(client, challenger.user)
-        with mock.patch(
-            "crush_lu.views_coach.get_object_or_404", return_value=stale
-        ):
+        with mock.patch("crush_lu.views_coach.get_object_or_404", return_value=stale):
             response = client.post(
                 self._review_url(lead), {"action": "claim"}, follow=True
             )
@@ -1909,8 +1905,12 @@ class TestCodexRound7Fix:
         requester, _p = _make_user("r7_req@example.com", "M")
         recipient, _p2 = _make_user("r7_rec@example.com", "F")
         lead = _lead(
-            requester, recipient, _make_event(), routed,
-            status=status, requester_note="Cancelled crush note.",
+            requester,
+            recipient,
+            _make_event(),
+            routed,
+            status=status,
+            requester_note="Cancelled crush note.",
         )
         return routed, lead
 
@@ -1973,9 +1973,7 @@ class TestVisibleToCoachMatchesTheViewGuard:
         routed = _make_coach(f"vtc_routed_{status}@example.com", is_active=False)
         requester, _p = _make_user(f"vtc_req_{status}@example.com", "M")
         recipient, _p2 = _make_user(f"vtc_rec_{status}@example.com", "F")
-        return routed, _lead(
-            requester, recipient, _make_event(), routed, status=status
-        )
+        return routed, _lead(requester, recipient, _make_event(), routed, status=status)
 
     def test_a_declined_stale_lead_is_hidden_from_other_coaches(self):
         _routed, lead = self._stale("declined")
@@ -2020,8 +2018,11 @@ class TestCodexRound8UnroutedClosedLead:
         requester, _p = _make_user(f"r8_req_{status}@example.com", "M")
         recipient, _p2 = _make_user(f"r8_rec_{status}@example.com", "F")
         lead = _lead(
-            requester, recipient, _make_event(),
-            status=status, requester_note="Unclaimed crush note.",
+            requester,
+            recipient,
+            _make_event(),
+            status=status,
+            requester_note="Unclaimed crush note.",
         )
         assert lead.assigned_coach is None
         return lead
@@ -2069,7 +2070,11 @@ class TestCodexRound8UnroutedClosedLead:
         requester, _p = _make_user("r8_owner_req@example.com", "M")
         recipient, _p2 = _make_user("r8_owner_rec@example.com", "F")
         lead = _lead(
-            requester, recipient, _make_event(), routed, status="declined",
+            requester,
+            recipient,
+            _make_event(),
+            routed,
+            status="declined",
         )
         client = Client()
         _login(client, routed.user)
@@ -2086,9 +2091,7 @@ class TestAcceptedIsNotClosed:
     def _accepted(self, coach=None):
         requester, _p = _make_user("acc_req@example.com", "M")
         recipient, _p2 = _make_user("acc_rec@example.com", "F")
-        return _lead(
-            requester, recipient, _make_event(), coach, status="accepted"
-        )
+        return _lead(requester, recipient, _make_event(), coach, status="accepted")
 
     def _url(self, lead):
         return reverse(
@@ -2132,9 +2135,7 @@ class TestCodexRound9Fixes:
     def _lead_for(self, coach=None, status="pending"):
         requester, _p = _make_user("r9_req@example.com", "M")
         recipient, _p2 = _make_user("r9_rec@example.com", "F")
-        return _lead(
-            requester, recipient, _make_event(), coach, status=status
-        )
+        return _lead(requester, recipient, _make_event(), coach, status=status)
 
     def _url(self, lead):
         return reverse(
@@ -2150,9 +2151,7 @@ class TestCodexRound9Fixes:
         client = Client()
         _login(client, coach.user)
 
-        client.post(
-            self._url(lead), {"action": "crush_record_consent", **payload}
-        )
+        client.post(self._url(lead), {"action": "crush_record_consent", **payload})
 
         lead.refresh_from_db()
         assert lead.status == "coach_reviewing"

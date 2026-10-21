@@ -129,9 +129,7 @@ def test_assetlinks_web_only_when_fingerprint_unset(client, settings):
     payload = response.json()
     assert len(payload) == 1
     assert payload[0]["target"]["namespace"] == "web"
-    assert all(
-        target["target"]["namespace"] != "android_app" for target in payload
-    )
+    assert all(target["target"]["namespace"] != "android_app" for target in payload)
 
 
 def test_android_native_request_suppresses_commerce(rf, settings):

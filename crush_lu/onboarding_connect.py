@@ -31,20 +31,51 @@ class ConnectStep:
 
 
 CONNECT_STEPS = (
-    ConnectStep(1, "intention", _("Intention"),
-                _STEP_PARTIAL.format(n=1, key="intention"), "intention"),
-    ConnectStep(2, "lifestyle", _("Lifestyle"),
-                _STEP_PARTIAL.format(n=2, key="lifestyle"), "lifestyle"),
-    ConnectStep(3, "languages", _("Languages & interests"),
-                _STEP_PARTIAL.format(n=3, key="languages"), "languages"),
-    ConnectStep(4, "life", _("Life basics"),
-                _STEP_PARTIAL.format(n=4, key="life"), "life"),
-    ConnectStep(5, "family", _("Family & future"),
-                _STEP_PARTIAL.format(n=5, key="family"), "family"),
-    ConnectStep(6, "ideal_match", _("Ideal match"),
-                _STEP_PARTIAL.format(n=6, key="ideal_match"), "ideal_match"),
-    ConnectStep(7, "questions", _("Your 3 questions"),
-                _STEP_PARTIAL.format(n=7, key="questions"), "questions"),
+    ConnectStep(
+        1,
+        "intention",
+        _("Intention"),
+        _STEP_PARTIAL.format(n=1, key="intention"),
+        "intention",
+    ),
+    ConnectStep(
+        2,
+        "lifestyle",
+        _("Lifestyle"),
+        _STEP_PARTIAL.format(n=2, key="lifestyle"),
+        "lifestyle",
+    ),
+    ConnectStep(
+        3,
+        "languages",
+        _("Languages & interests"),
+        _STEP_PARTIAL.format(n=3, key="languages"),
+        "languages",
+    ),
+    ConnectStep(
+        4, "life", _("Life basics"), _STEP_PARTIAL.format(n=4, key="life"), "life"
+    ),
+    ConnectStep(
+        5,
+        "family",
+        _("Family & future"),
+        _STEP_PARTIAL.format(n=5, key="family"),
+        "family",
+    ),
+    ConnectStep(
+        6,
+        "ideal_match",
+        _("Ideal match"),
+        _STEP_PARTIAL.format(n=6, key="ideal_match"),
+        "ideal_match",
+    ),
+    ConnectStep(
+        7,
+        "questions",
+        _("Your 3 questions"),
+        _STEP_PARTIAL.format(n=7, key="questions"),
+        "questions",
+    ),
 )
 
 _BY_N = {s.n: s for s in CONNECT_STEPS}
@@ -84,7 +115,9 @@ def annotate_steps(current):
     current = clamp_step(current)
     out = []
     for s in CONNECT_STEPS:
-        state = "completed" if s.n < current else "active" if s.n == current else "upcoming"
+        state = (
+            "completed" if s.n < current else "active" if s.n == current else "upcoming"
+        )
         out.append({"n": s.n, "key": s.key, "title": s.title, "state": state})
     return out
 

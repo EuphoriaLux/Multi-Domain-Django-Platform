@@ -152,9 +152,7 @@ class CachedChronicle(Chronicle):
             cap = max(1, self.max_events)
             if len(events) > cap:
                 events = events[-cap:]
-            django_cache.set(
-                self.cache_key, tuple(events), timeout=CACHE_TTL_SECONDS
-            )
+            django_cache.set(self.cache_key, tuple(events), timeout=CACHE_TTL_SECONDS)
         except Exception:  # noqa: BLE001 - a ticket must print regardless of
             pass  # whether its own event made it into the shared window.
         finally:

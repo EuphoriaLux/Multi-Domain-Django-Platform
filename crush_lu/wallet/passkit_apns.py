@@ -51,6 +51,7 @@ def mark_passes_updated(pass_type_identifier, serial_number):
         serial_number=serial_number,
     ).update(updated_at=timezone.now())
 
+
 APNS_PRODUCTION_HOST = "https://api.push.apple.com"
 APNS_SANDBOX_HOST = "https://api.sandbox.push.apple.com"
 

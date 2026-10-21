@@ -2425,8 +2425,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 for fs in formsets
                 if fs.model is EventInvitation
                 for f in fs.forms
-                if "guest_email" in f.changed_data
-                and not f.cleaned_data.get("DELETE")
+                if "guest_email" in f.changed_data and not f.cleaned_data.get("DELETE")
             ]
         from crush_lu.services.on_break import warn_if_inviting_on_break
 
@@ -4471,7 +4470,9 @@ class EventFeedbackAdmin(admin.ModelAdmin):
         if obj.is_promoter:
             return format_html('<span style="color: #28a745;">{}</span>', "😍 Promoter")
         if obj.is_detractor:
-            return format_html('<span style="color: #dc3545;">{}</span>', "😞 Detractor")
+            return format_html(
+                '<span style="color: #dc3545;">{}</span>', "😞 Detractor"
+            )
         return format_html('<span style="color: #6c757d;">{}</span>', "😐 Passive")
 
     def has_add_permission(self, request):

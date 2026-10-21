@@ -80,7 +80,7 @@ def declare_crush(*, requester, recipient, event, requester_registration, note="
 
 
 def call_by(connection):
-    """"Call by" deadline for a crush lead, or ``None`` for legacy rows."""
+    """ "Call by" deadline for a crush lead, or ``None`` for legacy rows."""
     return connection.call_by
 
 
@@ -345,7 +345,9 @@ def sweep_lead_reminders(
             # covers every *other* lead.
             with transaction.atomic():
                 lead = (
-                    EventConnection.objects.select_for_update(of=("self",), skip_locked=True)
+                    EventConnection.objects.select_for_update(
+                        of=("self",), skip_locked=True
+                    )
                     .select_related("assigned_coach__user", "requester", "event")
                     .filter(pk=lead_id)
                     .first()

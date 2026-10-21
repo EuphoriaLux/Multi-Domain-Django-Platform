@@ -14,20 +14,55 @@ untouched: its category/labels/sort_order/is_active are never overwritten.
 
 from django.db import migrations
 
-
 # (slug, category, en, de, fr) — ranked by captured occurrences in the dry-run.
 ADDITIONS = [
     ("dancing", "music", "Dancing", "Tanzen", "Danse"),
-    ("ball-racket-sports", "sports", "Ball & racket sports", "Ball- & Schlägersport", "Sports de balle & raquette"),
+    (
+        "ball-racket-sports",
+        "sports",
+        "Ball & racket sports",
+        "Ball- & Schlägersport",
+        "Sports de balle & raquette",
+    ),
     ("water-sports", "sports", "Water sports", "Wassersport", "Sports nautiques"),
-    ("animals-pets", "outdoors", "Animals & pets", "Tiere & Haustiere", "Animaux & compagnie"),
-    ("cars-motorcycles", "sports", "Cars & motorcycles", "Autos & Motorräder", "Voitures & motos"),
+    (
+        "animals-pets",
+        "outdoors",
+        "Animals & pets",
+        "Tiere & Haustiere",
+        "Animaux & compagnie",
+    ),
+    (
+        "cars-motorcycles",
+        "sports",
+        "Cars & motorcycles",
+        "Autos & Motorräder",
+        "Voitures & motos",
+    ),
     ("anime-manga", "arts", "Anime & manga", "Anime & Manga", "Anime & manga"),
-    ("nightlife", "music", "Nightlife & going out", "Nachtleben & Ausgehen", "Vie nocturne & sorties"),
+    (
+        "nightlife",
+        "music",
+        "Nightlife & going out",
+        "Nachtleben & Ausgehen",
+        "Vie nocturne & sorties",
+    ),
     ("winter-sports", "sports", "Winter sports", "Wintersport", "Sports d'hiver"),
     ("languages", "arts", "Languages", "Sprachen", "Langues"),
-    ("self-development", "wellness", "Self-development", "Persönliche Entwicklung", "Développement personnel"),
-    ("diy-crafts", "arts", "DIY & crafts", "Heimwerken & Basteln", "Bricolage & loisirs créatifs"),
+    (
+        "self-development",
+        "wellness",
+        "Self-development",
+        "Persönliche Entwicklung",
+        "Développement personnel",
+    ),
+    (
+        "diy-crafts",
+        "arts",
+        "DIY & crafts",
+        "Heimwerken & Basteln",
+        "Bricolage & loisirs créatifs",
+    ),
     ("tech", "games", "Tech", "Technik", "Tech"),
 ]
 

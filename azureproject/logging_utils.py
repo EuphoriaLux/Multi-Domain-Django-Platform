@@ -4,8 +4,10 @@ Logging utilities for PII protection.
 Provides functions for masking sensitive data (emails, phone numbers) in logs
 while maintaining enough information for debugging.
 """
+
 import re
 import logging
+
 # Builtins since 3.11; imported by name because ruff (no target-version set)
 # reports them as undefined, and CI gates on F82.
 from builtins import BaseExceptionGroup, ExceptionGroup
@@ -21,33 +23,33 @@ def mask_email(email: str) -> str:
         a@b.io -> a***@b***.io
         test@company.co.uk -> t***t@c***.co.uk
     """
-    if not email or '@' not in email:
-        return email or '[empty]'
+    if not email or "@" not in email:
+        return email or "[empty]"
 
     try:
         # The last "@": a quoted local part ("a@b"@example.com) may hold one.
-        local, domain = email.rsplit('@', 1)
+        local, domain = email.rsplit("@", 1)
 
         # Mask local part (keep first and last char if long enough)
         if len(local) <= 2:
-            masked_local = local[0] + '***'
+            masked_local = local[0] + "***"
         else:
-            masked_local = local[0] + '***' + local[-1]
+            masked_local = local[0] + "***" + local[-1]
 
         # Mask domain (keep first char and TLD)
-        domain_parts = domain.rsplit('.', 1)
+        domain_parts = domain.rsplit(".", 1)
         if len(domain_parts) == 2:
             domain_name, tld = domain_parts
             if len(domain_name) <= 1:
-                masked_domain = domain_name + '***.' + tld
+                masked_domain = domain_name + "***." + tld
             else:
-                masked_domain = domain_name[0] + '***.' + tld
+                masked_domain = domain_name[0] + "***." + tld
         else:
-            masked_domain = domain[0] + '***'
+            masked_domain = domain[0] + "***"
 
         return f"{masked_local}@{masked_domain}"
     except Exception:
-        return '[invalid-email]'
+        return "[invalid-email]"
 
 
 def mask_phone(phone: str) -> str:
@@ -61,20 +63,20 @@ def mask_phone(phone: str) -> str:
         +1234567890 -> +1*** ***90
     """
     if not phone:
-        return '[empty]'
+        return "[empty]"
 
     # Remove all non-digit characters except leading +
-    digits = re.sub(r'[^\d+]', '', phone)
+    digits = re.sub(r"[^\d+]", "", phone)
 
     if len(digits) < 4:
-        return '***'
+        return "***"
 
     # Keep first 3-4 chars (country code) and last 2 digits
-    if digits.startswith('+'):
+    if digits.startswith("+"):
         # Keep + and country code (assume 2-3 digits)
-        return digits[:4] + ' *** **' + digits[-2:]
+        return digits[:4] + " *** **" + digits[-2:]
     else:
-        return digits[:2] + '*** **' + digits[-2:]
+        return digits[:2] + "*** **" + digits[-2:]
 
 
 class _MaskedArgument:
@@ -85,7 +87,7 @@ class _MaskedArgument:
     can name an address that ``__str__`` leaves out.
     """
 
-    __slots__ = ('_text', '_shown')
+    __slots__ = ("_text", "_shown")
 
     def __init__(self, text, shown):
         self._text = text
@@ -154,17 +156,17 @@ class PIIMaskingFilter(logging.Filter):
     # characters unless it is non-ASCII. Also the `localhost` allowlist and
     # bracketed IP literals. IDNA dot look-alikes (example。com) are not
     # dots here: Django 6.0 rejects them.
-    _NON_ASCII = f'{chr(0xA1)}-{chr(0x10FFFF)}'
+    _NON_ASCII = f"{chr(0xA1)}-{chr(0x10FFFF)}"
     _LOCAL_ATEXT = r"\w.!#$%&'*+/=?^`{|}~"
     _LEADING_DELIMITERS = "&'/=`{|}"
     # Both run over the reversed text, starting just before the "@".
-    _LOCAL_REVERSED = re.compile(f'[{_LOCAL_ATEXT}-]+')
+    _LOCAL_REVERSED = re.compile(f"[{_LOCAL_ATEXT}-]+")
     _QUOTED_REVERSED = re.compile(r'"(?:.\\|[^"\\\r\n]){0,320}"')
-    _DOMAIN_RUN = re.compile(rf'[\w.\-{_NON_ASCII}]*')
-    _TLD = re.compile(rf'(?:(?![\d_])[\w\-{_NON_ASCII}])+')
-    _IP_LITERAL = re.compile(r'\[[0-9A-Fa-f:.]+\]')
+    _DOMAIN_RUN = re.compile(rf"[\w.\-{_NON_ASCII}]*")
+    _TLD = re.compile(rf"(?:(?![\d_])[\w\-{_NON_ASCII}])+")
+    _IP_LITERAL = re.compile(r"\[[0-9A-Fa-f:.]+\]")
     PHONE_PATTERN = re.compile(
-        r'(\+?\d{1,4}[-.\s]?)?(\(?\d{2,4}\)?[-.\s]?)?\d{3,4}[-.\s]?\d{3,4}'
+        r"(\+?\d{1,4}[-.\s]?)?(\(?\d{2,4}\)?[-.\s]?)?\d{3,4}[-.\s]?\d{3,4}"
     )
 
     # Original exception class -> stand-in class with the same name and module.
@@ -172,23 +174,23 @@ class PIIMaskingFilter(logging.Filter):
 
     def _domain_end(self, text, start):
         """End of the domain that starts at ``text[start]``, or None."""
-        if text.startswith('[', start):
+        if text.startswith("[", start):
             literal = self._IP_LITERAL.match(text, start)
             return literal.end() if literal else None
         run = self._DOMAIN_RUN.match(text, start).group()
-        first_label = len(run) - len(run.lstrip('.'))
+        first_label = len(run) - len(run.lstrip("."))
         # The rightmost dot followed by a valid TLD. Whatever trails the TLD
         # (a full stop, a digit) stays outside the address.
         limit = len(run)
-        dot = run.rfind('.', 0, limit)
+        dot = run.rfind(".", 0, limit)
         while dot > first_label:
             tld = self._TLD.match(run, dot + 1, limit)
             if tld and (len(tld.group()) >= 2 or not tld.group().isascii()):
                 return start + tld.end()
             limit = dot
-            dot = run.rfind('.', 0, limit)
-        if run.rstrip('.') == 'localhost':
-            return start + len('localhost')
+            dot = run.rfind(".", 0, limit)
+        if run.rstrip(".") == "localhost":
+            return start + len("localhost")
         return None
 
     def _local_start(self, text, reversed_text, at):
@@ -213,7 +215,7 @@ class PIIMaskingFilter(logging.Filter):
     def _find_addresses(self, text):
         """(start, end) of every address in ``text``, left to right."""
         spans, reversed_text = [], None
-        at = text.find('@')
+        at = text.find("@")
         while at != -1:
             end = self._domain_end(text, at + 1) if at > 0 else None
             start = None
@@ -222,20 +224,20 @@ class PIIMaskingFilter(logging.Filter):
                     reversed_text = text[::-1]
                 start = self._local_start(text, reversed_text, at)
             if start is None:
-                at = text.find('@', at + 1)
+                at = text.find("@", at + 1)
                 continue
             # A quoted local part can hold "addresses" of its own, any number.
             while spans and start < spans[-1][1]:
                 start = min(start, spans.pop()[0])
             spans.append((start, end))
-            at = text.find('@', end)
+            at = text.find("@", end)
         return spans
 
     def _has_address(self, text):
-        return '@' in text and bool(self._find_addresses(text))
+        return "@" in text and bool(self._find_addresses(text))
 
     def _mask_text(self, text):
-        if '@' not in text:  # most records
+        if "@" not in text:  # most records
             return text
         spans = self._find_addresses(text)
         if not spans:
@@ -246,14 +248,14 @@ class PIIMaskingFilter(logging.Filter):
             parts.append(mask_email(text[start:end]))
             last = end
         parts.append(text[last:])
-        return ''.join(parts)
+        return "".join(parts)
 
     @staticmethod
     def _rendered(render, value):
         try:
             return render(value)
         except Exception:
-            return ''
+            return ""
 
     def _exception_text(self, exc):
         return self._rendered(str, exc)
@@ -279,7 +281,7 @@ class PIIMaskingFilter(logging.Filter):
         # The OTel handler exports str(args[0]) as exception.message, which a
         # custom __str__ need not show.
         texts.extend(self._rendered(str, arg) for arg in exc.args)
-        texts.extend(str(note) for note in getattr(exc, '__notes__', None) or ())
+        texts.extend(str(note) for note in getattr(exc, "__notes__", None) or ())
         return any(self._has_address(text) for text in texts)
 
     def _stand_in(self, exc, memo):
@@ -296,7 +298,7 @@ class PIIMaskingFilter(logging.Filter):
                 cls.__name__,
                 # A group has to stay a group for its children to render.
                 (ExceptionGroup if is_group else Exception,),
-                {'__module__': cls.__module__, '__qualname__': cls.__qualname__},
+                {"__module__": cls.__module__, "__qualname__": cls.__qualname__},
             )
             self._stand_in_classes[cls] = stand_in_cls
         if is_group:
@@ -312,7 +314,7 @@ class PIIMaskingFilter(logging.Filter):
         stand_in.__context__ = self._stand_in(exc.__context__, memo)
         # Assigning __cause__ sets this to True, so copy it last.
         stand_in.__suppress_context__ = exc.__suppress_context__
-        notes = getattr(exc, '__notes__', None)
+        notes = getattr(exc, "__notes__", None)
         if notes:
             stand_in.__notes__ = [self._mask_text(str(note)) for note in notes]
         return stand_in
@@ -383,8 +385,8 @@ class PIIMaskingFilter(logging.Filter):
     # Attributes every LogRecord has. Anything else came from ``extra=`` (or
     # another filter), and the OTel handler exports it as a custom dimension.
     _STANDARD_RECORD_ATTRS = frozenset(
-        vars(logging.LogRecord('', 0, '', 0, '', (), None))
-    ) | {'message', 'asctime'}
+        vars(logging.LogRecord("", 0, "", 0, "", (), None))
+    ) | {"message", "asctime"}
 
     def _custom_attrs(self, record):
         return [key for key in vars(record) if key not in self._STANDARD_RECORD_ATTRS]
@@ -436,7 +438,7 @@ class PIIMaskingFilter(logging.Filter):
                     del attrs[key]
                     base, n = new_key, 2
                     while new_key in attrs:
-                        new_key = f'{base}#{n}'
+                        new_key = f"{base}#{n}"
                         n += 1
                 attrs[new_key] = value
         except Exception:
@@ -453,7 +455,9 @@ class PIIMaskingFilter(logging.Filter):
 
 
 # Convenience function for explicit masking in code
-def log_user_action(logger, level, action, user=None, user_id=None, email=None, **kwargs):
+def log_user_action(
+    logger, level, action, user=None, user_id=None, email=None, **kwargs
+):
     """
     Log a user action with masked PII.
 
@@ -468,14 +472,14 @@ def log_user_action(logger, level, action, user=None, user_id=None, email=None, 
 
     if email:
         user_info.append(f"email={mask_email(email)}")
-    elif user and hasattr(user, 'email'):
+    elif user and hasattr(user, "email"):
         user_info.append(f"email={mask_email(user.email)}")
 
-    if user and hasattr(user, 'id') and not user_id:
+    if user and hasattr(user, "id") and not user_id:
         user_info.append(f"user_id={user.id}")
 
-    user_str = ', '.join(user_info) if user_info else 'unknown'
-    extra_str = ', '.join(f"{k}={v}" for k, v in kwargs.items()) if kwargs else ''
+    user_str = ", ".join(user_info) if user_info else "unknown"
+    extra_str = ", ".join(f"{k}={v}" for k, v in kwargs.items()) if kwargs else ""
 
     message = f"{action} ({user_str})"
     if extra_str:

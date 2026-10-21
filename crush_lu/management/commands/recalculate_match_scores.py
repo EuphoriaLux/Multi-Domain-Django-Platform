@@ -47,7 +47,9 @@ class Command(BaseCommand):
         if dry_run:
             self.stdout.write(self.style.WARNING("DRY RUN - no scores will be written"))
             for profile in profiles:
-                self.stdout.write(f"  Would recalculate for: {profile.user} (pk={profile.user.pk})")
+                self.stdout.write(
+                    f"  Would recalculate for: {profile.user} (pk={profile.user.pk})"
+                )
             return
 
         total_updated = 0

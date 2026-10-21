@@ -117,7 +117,9 @@ def send_native_push_notification(
         return {"success": 0, "failed": 0, "total": 0}
 
     if not _get_apns_config():
-        logger.warning("Skipping iOS push for user ID %s: APNS settings are missing.", user.id)
+        logger.warning(
+            "Skipping iOS push for user ID %s: APNS settings are missing.", user.id
+        )
         return {"success": 0, "failed": 0, "total": total}
 
     # Bounded like the web fan-out in push_notifications.send_push_notification:

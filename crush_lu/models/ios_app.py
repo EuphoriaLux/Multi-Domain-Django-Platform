@@ -184,7 +184,9 @@ class IOSNativeAuthCode(models.Model):
             code_hash=_hash_native_auth_code(code),
             redirect_uri=redirect_uri,
             expires_at=timezone.now() + timedelta(seconds=ttl_seconds),
-            user_agent=(request.META.get("HTTP_USER_AGENT", "") if request else "")[:500],
+            user_agent=(request.META.get("HTTP_USER_AGENT", "") if request else "")[
+                :500
+            ],
             ip_address=(request.META.get("REMOTE_ADDR") if request else None),
         )
         return code

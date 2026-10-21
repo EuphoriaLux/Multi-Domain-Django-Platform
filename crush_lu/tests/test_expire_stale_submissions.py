@@ -70,9 +70,7 @@ def make_submission(profile, status, days_ago=None, **fields):
         if days_ago is not None
         else STALE_SUBMITTED_AT
     )
-    ProfileSubmission.objects.filter(pk=submission.pk).update(
-        submitted_at=submitted_at
-    )
+    ProfileSubmission.objects.filter(pk=submission.pk).update(submitted_at=submitted_at)
     submission.refresh_from_db()
     return submission
 
@@ -991,9 +989,7 @@ class SmsInviteExpiredCohortTests(TestCase):
             reverse("crush_lu:coach_event_sms_invite", args=[self.event.id])
         )
         self.assertEqual(response.status_code, 200)
-        return {
-            row["profile"].id for row in response.context["unsubmitted_profiles"]
-        }
+        return {row["profile"].id for row in response.context["unsubmitted_profiles"]}
 
     def test_expired_only_profile_is_invitable(self):
         _, expired_only = self._make_invitable_profile("smsexpired")
@@ -1070,8 +1066,7 @@ class SmsInviteExpiredCohortTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         rows = {
-            row["profile"].id: row
-            for row in response.context["unsubmitted_profiles"]
+            row["profile"].id: row for row in response.context["unsubmitted_profiles"]
         }
         self.assertIn(invited.id, rows)
         self.assertTrue(rows[invited.id]["already_sent"])

@@ -5,6 +5,7 @@ views_events.event_calendar_download for event tickets. We factor it out
 here so Phase 5 booking confirmations can attach ICS invites without
 pulling in a third-party library.
 """
+
 from datetime import timezone as dt_timezone
 
 from django.utils import timezone

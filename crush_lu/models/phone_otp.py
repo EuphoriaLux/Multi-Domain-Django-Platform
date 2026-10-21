@@ -72,9 +72,9 @@ class PhoneOTP(models.Model):
         Superseding earlier unconsumed codes for the same user+channel means a
         "resend" can't be defeated by entering a stale code.
         """
-        cls.objects.filter(
-            user=user, channel=channel, consumed=False
-        ).update(consumed=True)
+        cls.objects.filter(user=user, channel=channel, consumed=False).update(
+            consumed=True
+        )
         return cls.objects.create(
             user=user,
             phone_number=phone_number,

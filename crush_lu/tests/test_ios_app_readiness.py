@@ -368,7 +368,9 @@ def test_dashboard_hides_pwa_and_filters_wallets(client, user, monkeypatch):
     from datetime import date
     from crush_lu.models import CrushProfile, UserDataConsent
 
-    monkeypatch.setattr("crush_lu.views_wallet._is_apple_wallet_configured", lambda: True)
+    monkeypatch.setattr(
+        "crush_lu.views_wallet._is_apple_wallet_configured", lambda: True
+    )
     UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
     profile, _ = CrushProfile.objects.get_or_create(
         user=user,
@@ -406,4 +408,3 @@ def test_dashboard_hides_pwa_and_filters_wallets(client, user, monkeypatch):
     assert "pwaInstallButton" in content_android
     assert "apple_wallet_badge.svg" not in content_android
     assert '<button type="button" id="save-google-wallet-btn"' in content_android
-

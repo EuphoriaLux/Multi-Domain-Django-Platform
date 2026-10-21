@@ -78,8 +78,7 @@ def test_coach_excluded_member_is_not_an_invite_candidate():
     candidates = candidates_for_wave(1)
 
     assert user.id not in [row.user_id for row in candidates], (
-        "a member excluded by a coach is still selected for the beta invite "
-        "campaign"
+        "a member excluded by a coach is still selected for the beta invite " "campaign"
     )
 
 
@@ -92,9 +91,9 @@ def test_coach_excluded_member_is_not_mailed():
     call_command("send_connect_beta_invites", "--wave", "1")
 
     recipients = [addr for m in mail.outbox for addr in m.to]
-    assert user.email not in recipients, (
-        f"coach-excluded member {user.email} was mailed a Connect beta invite"
-    )
+    assert (
+        user.email not in recipients
+    ), f"coach-excluded member {user.email} was mailed a Connect beta invite"
 
 
 @pytest.mark.django_db
@@ -110,9 +109,9 @@ def test_coach_excluded_member_row_is_not_consumed():
     call_command("send_connect_beta_invites", "--wave", "1")
 
     row = CrushConnectWaitlist.objects.get(user=user)
-    assert row.beta_invited_at is None, (
-        "a skipped coach-excluded member had their invite slot consumed"
-    )
+    assert (
+        row.beta_invited_at is None
+    ), "a skipped coach-excluded member had their invite slot consumed"
 
 
 @pytest.mark.django_db
@@ -126,9 +125,9 @@ def test_member_whose_exclusion_is_lifted_becomes_a_candidate_again():
     membership.excluded_at = None
     membership.save(update_fields=["excluded_by_coach", "excluded_at"])
 
-    assert user.id in [row.user_id for row in candidates_for_wave(1)], (
-        "lifting a coach exclusion did not return the member to the cohort"
-    )
+    assert user.id in [
+        row.user_id for row in candidates_for_wave(1)
+    ], "lifting a coach exclusion did not return the member to the cohort"
 
 
 @pytest.mark.django_db
@@ -139,9 +138,9 @@ def test_a_non_excluded_member_is_still_invited():
     CrushConnectWaitlist.objects.create(user=user, notification_preference=True)
     CrushConnectMembership.objects.get_or_create(user=user)
 
-    assert user.id in [row.user_id for row in candidates_for_wave(1)], (
-        "the exclusion filter dropped a member who was never excluded"
-    )
+    assert user.id in [
+        row.user_id for row in candidates_for_wave(1)
+    ], "the exclusion filter dropped a member who was never excluded"
 
 
 @pytest.mark.django_db
@@ -278,9 +277,9 @@ def test_a_member_who_is_both_paused_and_excluded_is_counted_once():
     membership.excluded_by_coach = True
     membership.excluded_at = timezone.now()
     membership.save(update_fields=["excluded_by_coach", "excluded_at"])
-    assert membership.is_paused and membership.excluded_by_coach, (
-        "fixture must hold both states at once"
-    )
+    assert (
+        membership.is_paused and membership.excluded_by_coach
+    ), "fixture must hold both states at once"
 
     excluded_ids = [row.user_id for row in coach_excluded_candidates_for_wave(1)]
     paused_ids = [row.user_id for row in paused_candidates_for_wave(1)]
@@ -303,6 +302,6 @@ def test_the_excluded_skip_is_reported():
 
     call_command("send_connect_beta_invites", "--wave", "1", "--dry-run", stdout=out)
 
-    assert "excluded by a coach: 1" in out.getvalue(), (
-        "the run did not report that a member was skipped for coach exclusion"
-    )
+    assert (
+        "excluded by a coach: 1" in out.getvalue()
+    ), "the run did not report that a member was skipped for coach exclusion"

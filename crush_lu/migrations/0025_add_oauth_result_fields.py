@@ -6,28 +6,43 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0024_oauth_state_model'),
+        ("crush_lu", "0024_oauth_state_model"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='oauthstate',
-            name='auth_completed',
-            field=models.BooleanField(default=False, help_text='Whether OAuth completed successfully'),
+            model_name="oauthstate",
+            name="auth_completed",
+            field=models.BooleanField(
+                default=False, help_text="Whether OAuth completed successfully"
+            ),
         ),
         migrations.AddField(
-            model_name='oauthstate',
-            name='auth_redirect_url',
-            field=models.CharField(blank=True, default='', help_text='Post-authentication redirect URL', max_length=255),
+            model_name="oauthstate",
+            name="auth_redirect_url",
+            field=models.CharField(
+                blank=True,
+                default="",
+                help_text="Post-authentication redirect URL",
+                max_length=255,
+            ),
         ),
         migrations.AddField(
-            model_name='oauthstate',
-            name='auth_user_id',
-            field=models.IntegerField(blank=True, help_text='Authenticated user ID (for duplicate request handling)', null=True),
+            model_name="oauthstate",
+            name="auth_user_id",
+            field=models.IntegerField(
+                blank=True,
+                help_text="Authenticated user ID (for duplicate request handling)",
+                null=True,
+            ),
         ),
         migrations.AddField(
-            model_name='oauthstate',
-            name='last_callback_at',
-            field=models.DateTimeField(blank=True, help_text='Timestamp of last callback (for duplicate detection diagnostics)', null=True),
+            model_name="oauthstate",
+            name="last_callback_at",
+            field=models.DateTimeField(
+                blank=True,
+                help_text="Timestamp of last callback (for duplicate detection diagnostics)",
+                null=True,
+            ),
         ),
     ]

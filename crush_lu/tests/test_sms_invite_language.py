@@ -3,6 +3,7 @@ Test that SMS invite bodies use the recipient's preferred language,
 not the coach's active language — covers event title (modeltranslation)
 and event URL prefix.
 """
+
 from datetime import date, timedelta
 from urllib.parse import unquote
 
@@ -66,7 +67,7 @@ class SmsInviteLanguageTests(TestCase):
 
         # --- Event with French title set ---
         self.event = MeetupEvent.objects.create(
-            title="Test Speed Dating",        # default / English
+            title="Test Speed Dating",  # default / English
             title_de="Test Speed Dating DE",
             title_fr="Test Speed Dating FR",
             description="desc",
@@ -106,27 +107,32 @@ class SmsInviteLanguageTests(TestCase):
         # Find the sms: URI for the French candidate
         # It appears in href="sms:+352691000001?body=..."
         import re
+
         match = re.search(r'href="(sms:\+352691000001[^"]*)"', content)
-        self.assertIsNotNone(match, "Could not find SMS URI for French candidate in page")
+        self.assertIsNotNone(
+            match, "Could not find SMS URI for French candidate in page"
+        )
 
         sms_uri = unquote(match.group(1))
 
         # Title must be the French title, NOT the German one
         self.assertIn(
-            "Test Speed Dating FR", sms_uri,
-            f"Expected French event title in SMS body, got: {sms_uri}"
+            "Test Speed Dating FR",
+            sms_uri,
+            f"Expected French event title in SMS body, got: {sms_uri}",
         )
         self.assertNotIn(
-            "Test Speed Dating DE", sms_uri,
-            f"German event title must NOT appear in French candidate's SMS: {sms_uri}"
+            "Test Speed Dating DE",
+            sms_uri,
+            f"German event title must NOT appear in French candidate's SMS: {sms_uri}",
         )
 
         # URL must use /fr/ prefix, not /de/
         self.assertIn(
-            "/fr/", sms_uri,
-            f"Expected /fr/ URL prefix in SMS body, got: {sms_uri}"
+            "/fr/", sms_uri, f"Expected /fr/ URL prefix in SMS body, got: {sms_uri}"
         )
         self.assertNotIn(
-            "/de/", sms_uri,
-            f"/de/ URL prefix must NOT appear in French candidate's SMS: {sms_uri}"
+            "/de/",
+            sms_uri,
+            f"/de/ URL prefix must NOT appear in French candidate's SMS: {sms_uri}",
         )

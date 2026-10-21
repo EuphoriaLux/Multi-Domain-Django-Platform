@@ -7,7 +7,6 @@ morning (10:00–12:00) and afternoon (14:00–16:00).
 
 from datetime import date, datetime, time, timedelta
 
-
 # Slot time windows (start hours and half-hours)
 MORNING_SLOTS = [time(10, 0), time(10, 30), time(11, 0), time(11, 30)]
 AFTERNOON_SLOTS = [time(14, 0), time(14, 30), time(15, 0), time(15, 30)]

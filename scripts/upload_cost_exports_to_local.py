@@ -3,6 +3,7 @@ Upload production cost export files to local Azurite blob storage
 Correctly organizes files by their actual billing month
 Usage: python scripts/upload_cost_exports_to_local.py
 """
+
 import os
 import sys
 import gzip
@@ -14,8 +15,9 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 # Setup Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'azureproject.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "azureproject.settings")
 import django
+
 django.setup()
 
 from azure.storage.blob import BlobServiceClient
@@ -24,13 +26,14 @@ from azure.storage.blob import BlobServiceClient
 def get_billing_period_from_file(file_path):
     """Extract billing period from CSV file with correct month-end dates"""
     import calendar
+
     try:
-        with gzip.open(file_path, 'rt', encoding='utf-8') as f:
+        with gzip.open(file_path, "rt", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             first_row = next(reader, None)
-            if first_row and 'BillingPeriodStart' in first_row:
+            if first_row and "BillingPeriodStart" in first_row:
                 # BillingPeriodStart format: 2025-10-01T00:00:00Z
-                billing_start = first_row['BillingPeriodStart'][:10]  # Get YYYY-MM-DD
+                billing_start = first_row["BillingPeriodStart"][:10]  # Get YYYY-MM-DD
                 year = int(billing_start[:4])
                 month = int(billing_start[5:7])
 
@@ -90,18 +93,21 @@ def upload_cost_exports():
         # Extract billing period from file content
         date_range = get_billing_period_from_file(file_path)
         if not date_range:
-            print(f"[ERROR] Could not determine billing period for {source_filename}, skipping")
+            print(
+                f"[ERROR] Could not determine billing period for {source_filename}, skipping"
+            )
             continue
 
         # Create folder structure matching production pattern:
         # Pattern A (PartnerLed): partnerled/{subscription}/{date_range}/{guid}/part_*.csv.gz
         guid = "local-test-guid"
-        blob_name = f"partnerled/PartnerLed-power_up/{date_range}/{guid}/{target_filename}"
+        blob_name = (
+            f"partnerled/PartnerLed-power_up/{date_range}/{guid}/{target_filename}"
+        )
 
         try:
             blob_client = blob_service_client.get_blob_client(
-                container=container_name,
-                blob=blob_name
+                container=container_name, blob=blob_name
             )
 
             with open(file_path, "rb") as data:

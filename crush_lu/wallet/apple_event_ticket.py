@@ -210,9 +210,7 @@ def build_apple_event_ticket(registration, request=None, web_service_url=None):
         forwarded_web_service_url=web_service_url,
         resolved_web_service_url=resolved_web_service_url,
     )
-    checkin_url = _build_checkin_url(
-        registration, request, base_url=checkin_base_url
-    )
+    checkin_url = _build_checkin_url(registration, request, base_url=checkin_base_url)
 
     # Get display name (privacy-aware). Open-event registration allows a user
     # with no CrushProfile, and we must NOT create one here — profile existence
@@ -240,9 +238,7 @@ def build_apple_event_ticket(registration, request=None, web_service_url=None):
         # while the installed ticket keeps presenting the deleted profile's —
         # every registration, update and unregister request 401s from then on.
         _, profile_token = _ensure_pass_identifiers(profile)
-        auth_token = _claim_once(
-            registration, "apple_wallet_auth_token", profile_token
-        )
+        auth_token = _claim_once(registration, "apple_wallet_auth_token", profile_token)
     else:
         auth_token = _ensure_ticket_auth_token(registration)
 

@@ -8,7 +8,7 @@ from power_up.finops.models import CostForecast
 
 
 class Command(BaseCommand):
-    help = 'Generate cost forecasts for next 30/90 days'
+    help = "Generate cost forecasts for next 30/90 days"
 
     # Too little history is reported and returns normally, so this count is
     # the only structured trace that a run produced no forecast at all.
@@ -17,58 +17,55 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--forecast-days',
+            "--forecast-days",
             type=int,
             default=30,
-            help='Number of days to forecast (default: 30)'
+            help="Number of days to forecast (default: 30)",
         )
         parser.add_argument(
-            '--training-days',
+            "--training-days",
             type=int,
             default=90,
-            help='Historical days to use for training (default: 90)'
+            help="Historical days to use for training (default: 90)",
         )
         parser.add_argument(
-            '--dimension',
-            choices=['overall', 'subscription'],
-            default='overall',
-            help='Forecast dimension type (default: overall)'
+            "--dimension",
+            choices=["overall", "subscription"],
+            default="overall",
+            help="Forecast dimension type (default: overall)",
         )
         parser.add_argument(
-            '--currency',
-            type=str,
-            default='EUR',
-            help='Currency code (default: EUR)'
+            "--currency", type=str, default="EUR", help="Currency code (default: EUR)"
         )
         parser.add_argument(
-            '--refresh',
-            action='store_true',
-            help='Delete old forecasts before generating new ones'
+            "--refresh",
+            action="store_true",
+            help="Delete old forecasts before generating new ones",
         )
 
     def handle(self, *args, **options):
-        forecast_days = options['forecast_days']
-        training_days = options['training_days']
-        dimension = options['dimension']
-        currency = options['currency']
-        refresh = options['refresh']
+        forecast_days = options["forecast_days"]
+        training_days = options["training_days"]
+        dimension = options["dimension"]
+        currency = options["currency"]
+        refresh = options["refresh"]
 
-        self.stdout.write(f'Generating {forecast_days}-day forecast for {dimension}...')
-        self.stdout.write(f'Using {training_days} days of historical data')
+        self.stdout.write(f"Generating {forecast_days}-day forecast for {dimension}...")
+        self.stdout.write(f"Using {training_days} days of historical data")
 
         forecasts = CostForecaster.forecast_costs(
             dimension_type=dimension,
-            dimension_value='Total',  # Match aggregation dimension_value
+            dimension_value="Total",  # Match aggregation dimension_value
             forecast_days=forecast_days,
             training_days=training_days,
-            currency=currency
+            currency=currency,
         )
 
         self.forecasts_written = len(forecasts) if forecasts else 0
 
         if not forecasts:
-            self.stdout.write(self.style.WARNING('Insufficient data for forecasting'))
-            self.stdout.write('Need at least 30 days of historical data')
+            self.stdout.write(self.style.WARNING("Insufficient data for forecasting"))
+            self.stdout.write("Need at least 30 days of historical data")
             return
 
         # --refresh clears forecasts the new run won't overwrite (dates that
@@ -78,35 +75,47 @@ class Command(BaseCommand):
         # generated nothing, and still returned normally.
         if refresh:
             deleted = CostForecast.objects.filter(dimension_type=dimension).delete()
-            self.stdout.write(f'Deleted {deleted[0]} old forecasts')
+            self.stdout.write(f"Deleted {deleted[0]} old forecasts")
 
         # Bulk create or update
         CostForecast.objects.bulk_create(
             forecasts,
             update_conflicts=True,
             update_fields=[
-                'forecast_cost', 'lower_bound', 'upper_bound',
-                'confidence', 'metadata', 'generated_at'
+                "forecast_cost",
+                "lower_bound",
+                "upper_bound",
+                "confidence",
+                "metadata",
+                "generated_at",
             ],
-            unique_fields=['forecast_date', 'dimension_type', 'dimension_value']
+            unique_fields=["forecast_date", "dimension_type", "dimension_value"],
         )
 
         # Print summary
         sample = forecasts[0]
-        r_squared = sample.metadata.get('r_squared', 0)
-        rmse = sample.metadata.get('rmse', 0)
-        slope = sample.metadata.get('slope', 0)
+        r_squared = sample.metadata.get("r_squared", 0)
+        rmse = sample.metadata.get("rmse", 0)
+        slope = sample.metadata.get("slope", 0)
 
-        self.stdout.write(self.style.SUCCESS(f'✓ Generated {len(forecasts)} forecasts'))
-        self.stdout.write('')
-        self.stdout.write('Model Performance:')
-        self.stdout.write(f'  R² (goodness of fit): {r_squared:.3f} (0-1, higher is better)')
-        self.stdout.write(f'  RMSE: {rmse:.2f} {currency}')
-        self.stdout.write(f'  Trend: {"increasing" if slope > 0 else "decreasing"} '
-                         f'({abs(slope):.2f} {currency}/day)')
-        self.stdout.write('')
-        self.stdout.write('Forecast Preview:')
-        self.stdout.write(f'  Next 7 days average: '
-                         f'{sum(f.forecast_cost for f in forecasts[:7]) / 7:.2f} {currency}/day')
-        self.stdout.write(f'  Next 30 days total: '
-                         f'{sum(f.forecast_cost for f in forecasts[:30]):.2f} {currency}')
+        self.stdout.write(self.style.SUCCESS(f"✓ Generated {len(forecasts)} forecasts"))
+        self.stdout.write("")
+        self.stdout.write("Model Performance:")
+        self.stdout.write(
+            f"  R² (goodness of fit): {r_squared:.3f} (0-1, higher is better)"
+        )
+        self.stdout.write(f"  RMSE: {rmse:.2f} {currency}")
+        self.stdout.write(
+            f'  Trend: {"increasing" if slope > 0 else "decreasing"} '
+            f"({abs(slope):.2f} {currency}/day)"
+        )
+        self.stdout.write("")
+        self.stdout.write("Forecast Preview:")
+        self.stdout.write(
+            f"  Next 7 days average: "
+            f"{sum(f.forecast_cost for f in forecasts[:7]) / 7:.2f} {currency}/day"
+        )
+        self.stdout.write(
+            f"  Next 30 days total: "
+            f"{sum(f.forecast_cost for f in forecasts[:30]):.2f} {currency}"
+        )

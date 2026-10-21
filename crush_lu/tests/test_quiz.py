@@ -546,12 +546,12 @@ class TestQuizStartRotationFailure:
         assert "error" in result, f"expected an error, got {result}"
 
         quiz_event.refresh_from_db()
-        assert quiz_event.current_round_id == rounds[0].pk, (
-            "a failed rebuild must not leave the quiz on the next round"
-        )
-        assert quiz_event.current_question_index == 1, (
-            "a failed rebuild must not reset the question index"
-        )
+        assert (
+            quiz_event.current_round_id == rounds[0].pk
+        ), "a failed rebuild must not leave the quiz on the next round"
+        assert (
+            quiz_event.current_question_index == 1
+        ), "a failed rebuild must not reset the question index"
         assert not QuizRotationSchedule.objects.filter(
             quiz=quiz_event, round_number__gte=1
         ).exists()
@@ -1860,9 +1860,9 @@ class TestRotationRegistrationFiltering:
             seated = QuizRotationSchedule.objects.filter(
                 quiz=quiz_event, round_number=rn
             )
-            assert seated.count() == 9, (
-                f"round {rn} seats {seated.count()}/9 participants"
-            )
+            assert (
+                seated.count() == 9
+            ), f"round {rn} seats {seated.count()}/9 participants"
 
         for woman in women:
             tables = [
@@ -1871,12 +1871,13 @@ class TestRotationRegistrationFiltering:
                 ).table.table_number
                 for rn in range(3)
             ]
-            assert tables[0] != tables[1] and tables[1] != tables[2], (
-                f"rotator {woman.username} never left table {tables[0]}: {tables}"
-            )
-            assert set(tables) == {1, 2}, (
-                f"rotator {woman.username} did not visit both tables: {tables}"
-            )
+            assert (
+                tables[0] != tables[1] and tables[1] != tables[2]
+            ), f"rotator {woman.username} never left table {tables[0]}: {tables}"
+            assert set(tables) == {
+                1,
+                2,
+            }, f"rotator {woman.username} did not visit both tables: {tables}"
 
         # The two women are never at the same table, so both tables keep a
         # rotator in every round.
@@ -2145,6 +2146,7 @@ class TestQuizAPI:
         them the check-in roster — the rotators who have since moved on,
         and none of the ones who have moved in.
         """
+
         def _player(handle, first_name):
             u = User.objects.create_user(
                 username=f"{handle}@test.com",
@@ -2164,9 +2166,7 @@ class TestQuizAPI:
         # R1 exists only to put R2 at round_number 1 — the quiz has to be
         # past round 0 for the check-in snapshot and the schedule to differ.
         QuizRound.objects.create(quiz=quiz_event, title="R1", sort_order=0)
-        next_round = QuizRound.objects.create(
-            quiz=quiz_event, title="R2", sort_order=1
-        )
+        next_round = QuizRound.objects.create(quiz=quiz_event, title="R2", sort_order=1)
         quiz_event.current_round = next_round  # round_number 1
         quiz_event.status = "active"
         quiz_event.save()
@@ -2209,9 +2209,9 @@ class TestQuizAPI:
         assert data["seated"] is True
         assert data["table_number"] == quiz_table.table_number
         names = {m["display_name"] for m in data["tablemates"]}
-        assert names == {"MovedIn"}, (
-            f"expected the current round's occupants of this table, got {names}"
-        )
+        assert names == {
+            "MovedIn"
+        }, f"expected the current round's occupants of this table, got {names}"
 
     def test_my_assignment_alone_at_a_scheduled_table(self, quiz_event, quiz_table):
         """Being the only person the round seats here means no tablemates —
@@ -2223,6 +2223,7 @@ class TestQuizAPI:
         player sitting alone with everyone who checked in beside them and
         has since rotated away.
         """
+
         def _player(handle, first_name):
             u = User.objects.create_user(
                 username=f"{handle}@test.com",
@@ -2239,9 +2240,7 @@ class TestQuizAPI:
 
         table_two = QuizTable.objects.create(quiz=quiz_event, table_number=2)
         QuizRound.objects.create(quiz=quiz_event, title="R1", sort_order=0)
-        next_round = QuizRound.objects.create(
-            quiz=quiz_event, title="R2", sort_order=1
-        )
+        next_round = QuizRound.objects.create(quiz=quiz_event, title="R2", sort_order=1)
         quiz_event.current_round = next_round  # round_number 1
         quiz_event.status = "active"
         quiz_event.save()
@@ -2271,9 +2270,9 @@ class TestQuizAPI:
         data = response.json()
 
         assert data["seated"] is True
-        assert data["tablemates"] == [], (
-            f"expected nobody at an emptied table, got {data['tablemates']}"
-        )
+        assert (
+            data["tablemates"] == []
+        ), f"expected nobody at an emptied table, got {data['tablemates']}"
 
     def test_my_assignment_not_assigned(self, quiz_event):
         """200 with `seated: false`, not 404.
@@ -2838,17 +2837,14 @@ class TestQuizTableDisplay:
     def test_display_includes_language_aware_join_qr(
         self, client, quiz_event, language
     ):
-        response = client.get(
-            f"/{language}/quiz/{quiz_event.event_id}/display/"
-        )
+        response = client.get(f"/{language}/quiz/{quiz_event.event_id}/display/")
 
         assert response.status_code == 200
-        assert f"/{language}/events/{quiz_event.event_id}/quiz/" in response.context[
-            "join_url"
-        ]
-        assert response.context["join_qr_data_url"].startswith(
-            "data:image/png;base64,"
+        assert (
+            f"/{language}/events/{quiz_event.event_id}/quiz/"
+            in response.context["join_url"]
         )
+        assert response.context["join_qr_data_url"].startswith("data:image/png;base64,")
         assert response.context["join_qr_data_url"].encode() in response.content
 
     def test_display_omits_join_qr_when_generation_fails(
@@ -2915,10 +2911,7 @@ class TestQuizTableDisplay:
 
         assert response.status_code == 200
         data = response.json()
-        assert (
-            data["question"]["text_fr"]
-            == "Quelle est la capitale du Luxembourg ?"
-        )
+        assert data["question"]["text_fr"] == "Quelle est la capitale du Luxembourg ?"
         assert data["question"]["text_de"] == "Was ist die Hauptstadt von Luxemburg?"
         assert data["question"]["choices_fr"][0]["text"] == "Luxembourg-Ville"
         assert data["round_title_fr"] == "Manche 1 : Brise-glace"

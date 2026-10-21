@@ -33,9 +33,9 @@ class PatchNoteCategory(models.TextChoices):
 
 CATEGORY_EMOJI = {
     PatchNoteCategory.FEATURE: "\u2728",
-    PatchNoteCategory.IMPROVEMENT: "\U0001F680",
-    PatchNoteCategory.FIX: "\U0001F41B",
-    PatchNoteCategory.UNDER_HOOD: "\U0001F512",
+    PatchNoteCategory.IMPROVEMENT: "\U0001f680",
+    PatchNoteCategory.FIX: "\U0001f41b",
+    PatchNoteCategory.UNDER_HOOD: "\U0001f512",
 }
 
 

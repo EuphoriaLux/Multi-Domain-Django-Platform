@@ -7,13 +7,19 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0172_backfill_daily_activity'),
+        ("crush_lu", "0172_backfill_daily_activity"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='patchnote',
-            name='published_on',
-            field=models.DateField(blank=True, db_index=True, default=crush_lu.models.changelog._today, help_text="Date this specific note went live. Release windows can stay open for weeks, so this is what the public page shows next to the note itself rather than reusing the release's one released_on date for everything appended to it. Falls back to the release's released_on when unset (older notes).", null=True),
+            model_name="patchnote",
+            name="published_on",
+            field=models.DateField(
+                blank=True,
+                db_index=True,
+                default=crush_lu.models.changelog._today,
+                help_text="Date this specific note went live. Release windows can stay open for weeks, so this is what the public page shows next to the note itself rather than reusing the release's one released_on date for everything appended to it. Falls back to the release's released_on when unset (older notes).",
+                null=True,
+            ),
         ),
     ]

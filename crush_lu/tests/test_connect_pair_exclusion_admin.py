@@ -7,9 +7,7 @@ from crush_lu.models.crush_connect_cycle import ConnectPairExclusion
 
 class ConnectPairExclusionAdminReadonlyTests(SimpleTestCase):
     def setUp(self):
-        self.model_admin = ConnectPairExclusionAdmin(
-            ConnectPairExclusion, AdminSite()
-        )
+        self.model_admin = ConnectPairExclusionAdmin(ConnectPairExclusion, AdminSite())
 
     def test_reason_is_editable_when_adding(self):
         self.assertNotIn("reason", self.model_admin.get_readonly_fields(None, None))

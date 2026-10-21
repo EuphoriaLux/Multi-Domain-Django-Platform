@@ -45,9 +45,7 @@ def membership_concept_preview(request):
 
     # Derived verification-method split
     n_luxid = verified.filter(_has_luxid=True).count()
-    n_coach = verified.filter(
-        _has_luxid=False, assigned_coach__isnull=False
-    ).count()
+    n_coach = verified.filter(_has_luxid=False, assigned_coach__isnull=False).count()
     n_legacy = n_verified - n_luxid - n_coach  # verified, no luxid, no coach
 
     # Community + premium unlocks
@@ -60,52 +58,134 @@ def membership_concept_preview(request):
         return round(n / total_active * 100, 1) if total_active else 0
 
     ladder = [
-        {"key": "incomplete", "label": "Incomplete", "n": n_incomplete, "pct": pct(n_incomplete),
-         "desc": "Browsing only — finishing profile", "tone": "gray"},
-        {"key": "pending", "label": "Pending", "n": n_pending, "pct": pct(n_pending),
-         "desc": "Submitted, awaiting verification", "tone": "amber"},
-        {"key": "verified", "label": "Verified", "n": n_verified, "pct": pct(n_verified),
-         "desc": "Full access — can browse & buy event tickets", "tone": "green"},
-        {"key": "attended", "label": "Attended an event", "n": n_community, "pct": pct(n_community),
-         "desc": "Came to ≥1 event (Standard or Premium) — met people in person", "tone": "teal"},
-        {"key": "premium", "label": "Premium · Crush Connect", "n": n_premium, "pct": pct(n_premium),
-         "desc": "Personal coach assigned → Crush Connect + coach-only events unlocked", "tone": "purple"},
-        {"key": "rejected", "label": "Rejected", "n": n_rejected, "pct": pct(n_rejected),
-         "desc": "Blocked — support path", "tone": "red"},
+        {
+            "key": "incomplete",
+            "label": "Incomplete",
+            "n": n_incomplete,
+            "pct": pct(n_incomplete),
+            "desc": "Browsing only — finishing profile",
+            "tone": "gray",
+        },
+        {
+            "key": "pending",
+            "label": "Pending",
+            "n": n_pending,
+            "pct": pct(n_pending),
+            "desc": "Submitted, awaiting verification",
+            "tone": "amber",
+        },
+        {
+            "key": "verified",
+            "label": "Verified",
+            "n": n_verified,
+            "pct": pct(n_verified),
+            "desc": "Full access — can browse & buy event tickets",
+            "tone": "green",
+        },
+        {
+            "key": "attended",
+            "label": "Attended an event",
+            "n": n_community,
+            "pct": pct(n_community),
+            "desc": "Came to ≥1 event (Standard or Premium) — met people in person",
+            "tone": "teal",
+        },
+        {
+            "key": "premium",
+            "label": "Premium · Crush Connect",
+            "n": n_premium,
+            "pct": pct(n_premium),
+            "desc": "Personal coach assigned → Crush Connect + coach-only events unlocked",
+            "tone": "purple",
+        },
+        {
+            "key": "rejected",
+            "label": "Rejected",
+            "n": n_rejected,
+            "pct": pct(n_rejected),
+            "desc": "Blocked — support path",
+            "tone": "red",
+        },
     ]
 
     methods = [
-        {"key": "luxid", "label": "LuxID-verified", "n": n_luxid, "pct": pct(n_luxid),
-         "eligibility": "ALL event tiers", "icon": "shield"},
-        {"key": "coach", "label": "Coach-verified", "n": n_coach, "pct": pct(n_coach),
-         "eligibility": "Standard + coach events", "icon": "user"},
-        {"key": "legacy", "label": "Legacy-verified", "n": n_legacy, "pct": pct(n_legacy),
-         "eligibility": "Standard + coach events", "icon": "clock"},
+        {
+            "key": "luxid",
+            "label": "LuxID-verified",
+            "n": n_luxid,
+            "pct": pct(n_luxid),
+            "eligibility": "ALL event tiers",
+            "icon": "shield",
+        },
+        {
+            "key": "coach",
+            "label": "Coach-verified",
+            "n": n_coach,
+            "pct": pct(n_coach),
+            "eligibility": "Standard + coach events",
+            "icon": "user",
+        },
+        {
+            "key": "legacy",
+            "label": "Legacy-verified",
+            "n": n_legacy,
+            "pct": pct(n_legacy),
+            "eligibility": "Standard + coach events",
+            "icon": "clock",
+        },
     ]
 
     # Proposed premium perks bundle (concept — iterate freely)
     perks = [
-        {"name": "Reserved event seats", "icon": "shared/icons/star.html",
-         "status": "building", "effort": "medium",
-         "why": "Your coach saves you a seat — join even when an event is sold out."},
-        {"name": "Premium-only events", "icon": "shared/icons/lock-closed.html",
-         "status": "live", "effort": "shipped",
-         "why": "Exclusive events gated to members with a coach (coach_assigned tier)."},
-        {"name": "Early access window", "icon": "shared/icons/clock.html",
-         "status": "planned", "effort": "small",
-         "why": "See & book new events 24–48h before they open to everyone."},
-        {"name": "See who liked you", "icon": "shared/icons/heart.html",
-         "status": "planned", "effort": "medium",
-         "why": "The universal dating-app converter — reveal interest instantly."},
-        {"name": "Premium badge", "icon": "shared/icons/shield-check.html",
-         "status": "planned", "effort": "small",
-         "why": "Status + trust signal; pairs with the planned verification_method badges."},
-        {"name": "Pre-event briefing & debrief", "icon": "shared/icons/chat-bubble-left-right.html",
-         "status": "planned", "effort": "small",
-         "why": "Coach flags who to look for, then gives feedback afterward."},
-        {"name": "+1 guest pass", "icon": "shared/icons/user-plus.html",
-         "status": "planned", "effort": "medium",
-         "why": "Bring a friend — built-in viral growth loop."},
+        {
+            "name": "Reserved event seats",
+            "icon": "shared/icons/star.html",
+            "status": "building",
+            "effort": "medium",
+            "why": "Your coach saves you a seat — join even when an event is sold out.",
+        },
+        {
+            "name": "Premium-only events",
+            "icon": "shared/icons/lock-closed.html",
+            "status": "live",
+            "effort": "shipped",
+            "why": "Exclusive events gated to members with a coach (coach_assigned tier).",
+        },
+        {
+            "name": "Early access window",
+            "icon": "shared/icons/clock.html",
+            "status": "planned",
+            "effort": "small",
+            "why": "See & book new events 24–48h before they open to everyone.",
+        },
+        {
+            "name": "See who liked you",
+            "icon": "shared/icons/heart.html",
+            "status": "planned",
+            "effort": "medium",
+            "why": "The universal dating-app converter — reveal interest instantly.",
+        },
+        {
+            "name": "Premium badge",
+            "icon": "shared/icons/shield-check.html",
+            "status": "planned",
+            "effort": "small",
+            "why": "Status + trust signal; pairs with the planned verification_method badges.",
+        },
+        {
+            "name": "Pre-event briefing & debrief",
+            "icon": "shared/icons/chat-bubble-left-right.html",
+            "status": "planned",
+            "effort": "small",
+            "why": "Coach flags who to look for, then gives feedback afterward.",
+        },
+        {
+            "name": "+1 guest pass",
+            "icon": "shared/icons/user-plus.html",
+            "status": "planned",
+            "effort": "medium",
+            "why": "Bring a friend — built-in viral growth loop.",
+        },
     ]
 
     context = {
@@ -283,12 +363,8 @@ def crush_connect_teaser(request):
         _profile = getattr(request.user, "crushprofile", None)
         context["profile_approved"] = bool(_profile and _profile.is_approved)
         context["is_premium"] = bool(_profile and _profile.has_active_premium)
-        context["has_luxid_connected"] = bool(
-            _profile and _profile.has_luxid_connected
-        )
-        context["has_attended_event"] = bool(
-            _profile and _profile.has_attended_event
-        )
+        context["has_luxid_connected"] = bool(_profile and _profile.has_luxid_connected)
+        context["has_attended_event"] = bool(_profile and _profile.has_attended_event)
         context["is_identity_verified"] = bool(
             _profile and _profile.is_connect_identity_verified
         )

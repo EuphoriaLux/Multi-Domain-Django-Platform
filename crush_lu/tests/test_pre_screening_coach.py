@@ -1,4 +1,5 @@
 """Integration tests for the Coach-facing pre-screening display (Phase 3)."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -112,7 +113,10 @@ class CoachPreScreeningDisplayTests(TestCase):
     def test_flag_chips_render_with_tooltip(self):
         self.submission.pre_screening_responses = _complete_responses()
         self.submission.pre_screening_submitted_at = timezone.now()
-        self.submission.pre_screening_flags = ["concept_misalignment", "low_effort_text"]
+        self.submission.pre_screening_flags = [
+            "concept_misalignment",
+            "low_effort_text",
+        ]
         self.submission.pre_screening_readiness_score = 4
         self.submission.save()
         resp = self.client.get(

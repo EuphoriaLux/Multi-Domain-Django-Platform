@@ -54,7 +54,9 @@ IS_TESTING = "pytest" in sys.modules and "WEBSITE_HOSTNAME" not in os.environ
 
 # SECURITY: require SECRET_KEY in production. Allow an explicit dev fallback
 # only when debug is enabled to avoid accidental leakage in production.
-SECRET_KEY = os.getenv("SECRET_KEY") or ("test-secret-key-for-pytest" if IS_TESTING else None)
+SECRET_KEY = os.getenv("SECRET_KEY") or (
+    "test-secret-key-for-pytest" if IS_TESTING else None
+)
 
 # Dedicated, NEVER-rotated key for the erased-phone-number tombstones
 # (hub.ErasedPhoneNumber). Unlike SECRET_KEY it must not change: the
@@ -1417,9 +1419,7 @@ POWERUP_DEFAULT_PROFILE_URL = os.getenv(
 
 # Azurite (Azure Storage Emulator) for local development (disabled under test harness)
 AZURITE_MODE = (
-    False
-    if IS_TESTING
-    else os.environ.get("USE_AZURITE", "false").lower() == "true"
+    False if IS_TESTING else os.environ.get("USE_AZURITE", "false").lower() == "true"
 )
 
 if AZURITE_MODE:

@@ -93,9 +93,7 @@ def generate_fallback_vignette(
     code is ideal. It defaults to one derived from the event.
     """
     if others is None:
-        others = (
-            chronicle.active_personas(exclude=event.persona) if chronicle else ()
-        )
+        others = chronicle.active_personas(exclude=event.persona) if chronicle else ()
 
     key = seed_key or f"{event.ticket_code}|{event.persona}|{event.table_label}"
     rng = random.Random(_seed_from(key))

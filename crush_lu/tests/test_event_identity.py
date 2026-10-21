@@ -349,9 +349,7 @@ def test_form_ask_me_about_must_be_subset_of_interests():
 @pytest.mark.django_db
 def test_form_rejects_more_than_8_interests():
     p = _make_profile("form3@example.com")
-    ids = list(
-        Interest.objects.filter(is_active=True).values_list("pk", flat=True)[:9]
-    )
+    ids = list(Interest.objects.filter(is_active=True).values_list("pk", flat=True)[:9])
     assert len(ids) == 9
     form = CrushProfileEventIdentityForm(
         data={"interests_new": ids, "ask_me_about": [], "event_vibe": ""}, instance=p
@@ -363,9 +361,7 @@ def test_form_rejects_more_than_8_interests():
 @pytest.mark.django_db
 def test_form_rejects_more_than_3_ask_me_about():
     p = _make_profile("form4@example.com")
-    ids = list(
-        Interest.objects.filter(is_active=True).values_list("pk", flat=True)[:4]
-    )
+    ids = list(Interest.objects.filter(is_active=True).values_list("pk", flat=True)[:4])
     form = CrushProfileEventIdentityForm(
         data={"interests_new": ids, "ask_me_about": ids, "event_vibe": ""}, instance=p
     )
@@ -482,7 +478,11 @@ def test_admin_form_requires_ask_me_about_to_be_a_selected_interest():
 @pytest.mark.django_db
 def test_form_does_not_offer_retired_interests_to_new_members():
     retired = Interest.objects.create(
-        slug="retired-y", category="games", sort_order=901, label="RetiredY", is_active=False
+        slug="retired-y",
+        category="games",
+        sort_order=901,
+        label="RetiredY",
+        is_active=False,
     )
     form = CrushProfileEventIdentityForm()  # no instance → active choices only
     assert retired not in form.fields["interests_new"].queryset
@@ -497,16 +497,24 @@ def test_event_languages_optional_by_default_but_required_when_flagged():
 
     # Default (wizard) context: clearing languages is allowed.
     wizard = CrushProfileEventIdentityForm(
-        data={"interests_new": [], "ask_me_about": [], "event_vibe": "",
-              "event_languages": []},
+        data={
+            "interests_new": [],
+            "ask_me_about": [],
+            "event_vibe": "",
+            "event_languages": [],
+        },
         instance=p,
     )
     assert wizard.is_valid(), wizard.errors
 
     # Approved-card context: an empty language list is rejected…
     card = CrushProfileEventIdentityForm(
-        data={"interests_new": [], "ask_me_about": [], "event_vibe": "",
-              "event_languages": []},
+        data={
+            "interests_new": [],
+            "ask_me_about": [],
+            "event_vibe": "",
+            "event_languages": [],
+        },
         instance=p,
         require_event_languages=True,
     )
@@ -515,8 +523,12 @@ def test_event_languages_optional_by_default_but_required_when_flagged():
 
     # …but a non-empty one still passes.
     ok = CrushProfileEventIdentityForm(
-        data={"interests_new": [], "ask_me_about": [], "event_vibe": "",
-              "event_languages": ["en"]},
+        data={
+            "interests_new": [],
+            "ask_me_about": [],
+            "event_vibe": "",
+            "event_languages": ["en"],
+        },
         instance=p,
         require_event_languages=True,
     )

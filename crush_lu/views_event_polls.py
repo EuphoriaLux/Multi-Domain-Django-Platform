@@ -37,15 +37,15 @@ logger = logging.getLogger(__name__)
 GENDER_SPLIT_MIN_VOTES = 5
 
 # CrushProfile.gender -> EventPollVote.voter_gender
-_PROFILE_TO_VOTER_GENDER = {'F': 'F', 'M': 'M', 'NB': 'O', 'O': 'O', 'P': 'P'}
+_PROFILE_TO_VOTER_GENDER = {"F": "F", "M": "M", "NB": "O", "O": "O", "P": "P"}
 _VOTER_GENDERS = {code for code, _label in EventPollVote.VOTER_GENDER_CHOICES}
 
 
 def _profile_voter_gender(user):
     gender = (
-        CrushProfile.objects.filter(user=user).values_list('gender', flat=True).first()
+        CrushProfile.objects.filter(user=user).values_list("gender", flat=True).first()
     )
-    return _PROFILE_TO_VOTER_GENDER.get(gender or '', '')
+    return _PROFILE_TO_VOTER_GENDER.get(gender or "", "")
 
 
 def _annotate_gender_split(poll, options):
@@ -55,12 +55,12 @@ def _annotate_gender_split(poll, options):
     picked the option, so the uneven women/men turnout doesn't skew it.
     """
     totals = dict(
-        EventPollVote.objects.filter(poll=poll, voter_gender__in=['F', 'M'])
-        .values('voter_gender')
-        .annotate(n=Count('user', distinct=True))
-        .values_list('voter_gender', 'n')
+        EventPollVote.objects.filter(poll=poll, voter_gender__in=["F", "M"])
+        .values("voter_gender")
+        .annotate(n=Count("user", distinct=True))
+        .values_list("voter_gender", "n")
     )
-    women_total, men_total = totals.get('F', 0), totals.get('M', 0)
+    women_total, men_total = totals.get("F", 0), totals.get("M", 0)
     any_split = False
     for option in options:
         option.show_gender_split = (
@@ -84,15 +84,15 @@ def _is_approved_member(user):
 def _member_gate(request):
     """Return a redirect for anyone who may not use members-only polls."""
     if not request.user.is_authenticated:
-        return redirect_to_login(request.get_full_path(), reverse('crush_lu:login'))
+        return redirect_to_login(request.get_full_path(), reverse("crush_lu:login"))
     try:
         profile = CrushProfile.objects.get(user=request.user)
     except CrushProfile.DoesNotExist:
         messages.warning(request, _("You need a profile to view polls."))
-        return redirect('crush_lu:create_profile')
+        return redirect("crush_lu:create_profile")
     if not profile.is_approved:
         messages.info(request, _("Your profile must be approved to view polls."))
-        return redirect('crush_lu:dashboard')
+        return redirect("crush_lu:dashboard")
     return None
 
 
@@ -116,35 +116,39 @@ def poll_list(request):
     active_polls = polls.filter(
         start_date__lte=now,
         end_date__gte=now,
-    ).annotate(total_votes=Count('votes'))
+    ).annotate(total_votes=Count("votes"))
 
     closed_polls = polls.filter(
         end_date__lt=now,
         end_date__gte=thirty_days_ago,
-    ).annotate(total_votes=Count('votes'))
+    ).annotate(total_votes=Count("votes"))
 
     user_voted_poll_ids = set()
     if request.user.is_authenticated:
         user_voted_poll_ids = set(
             EventPollVote.objects.filter(user=request.user).values_list(
-                'poll_id', flat=True
+                "poll_id", flat=True
             )
         )
 
-    return render(request, 'crush_lu/event_polls/poll_list.html', {
-        'active_polls': active_polls,
-        'closed_polls': closed_polls,
-        'user_voted_poll_ids': user_voted_poll_ids,
-    })
+    return render(
+        request,
+        "crush_lu/event_polls/poll_list.html",
+        {
+            "active_polls": active_polls,
+            "closed_polls": closed_polls,
+            "user_voted_poll_ids": user_voted_poll_ids,
+        },
+    )
 
 
 def _results_context(request, poll):
     """What _poll_results_partial.html needs: options with counts, the viewer's votes."""
     options = list(
         poll.options.annotate(
-            vote_count=Count('votes'),
-            women_votes=Count('votes', filter=Q(votes__voter_gender='F')),
-            men_votes=Count('votes', filter=Q(votes__voter_gender='M')),
+            vote_count=Count("votes"),
+            women_votes=Count("votes", filter=Q(votes__voter_gender="F")),
+            men_votes=Count("votes", filter=Q(votes__voter_gender="M")),
         )
     )
     total_votes = sum(o.vote_count for o in options)
@@ -155,48 +159,54 @@ def _results_context(request, poll):
     user_votes = set()
     if authenticated:
         user_votes = set(
-            EventPollVote.objects.filter(
-                poll=poll, user=request.user
-            ).values_list('option_id', flat=True)
+            EventPollVote.objects.filter(poll=poll, user=request.user).values_list(
+                "option_id", flat=True
+            )
         )
     return {
-        'poll': poll,
-        'options': options,
-        'total_votes': total_votes,
-        'user_votes': user_votes,
-        'has_voted': bool(user_votes),
-        'any_gender_split': any_gender_split,
-        'gender_split_min': GENDER_SPLIT_MIN_VOTES,
+        "poll": poll,
+        "options": options,
+        "total_votes": total_votes,
+        "user_votes": user_votes,
+        "has_voted": bool(user_votes),
+        "any_gender_split": any_gender_split,
+        "gender_split_min": GENDER_SPLIT_MIN_VOTES,
     }
 
 
 def _render_poll(request, poll):
     context = _results_context(request, poll)
-    has_voted = context['has_voted']
+    has_voted = context["has_voted"]
     authenticated = request.user.is_authenticated
 
     # Show voting form if poll is active and user hasn't voted
     can_vote = authenticated and poll.is_active and not has_voted
     # Show results if user voted, poll closed, or show_results_before_close is on
-    show_results = has_voted or poll.is_closed or (poll.show_results_before_close and not can_vote)
+    show_results = (
+        has_voted or poll.is_closed or (poll.show_results_before_close and not can_vote)
+    )
 
-    return render(request, 'crush_lu/event_polls/poll_detail.html', {
-        **context,
-        'can_vote': can_vote,
-        'show_results': show_results,
-        # The non-JS vote form posts back to the page that rendered it.
-        'return_to_themes': request.resolver_match.url_name == 'theme_board',
-        # Anonymous visitors of a public poll: show the ballot, ask to log in.
-        'login_to_vote': not authenticated and poll.is_active,
-        'login_url': redirect_to_login(
-            request.get_full_path(), reverse('crush_lu:login')
-        ).url,
-        'can_suggest': authenticated and poll.is_public and poll.is_active,
-        # Voters without a profile gender get an optional "I am..." choice.
-        'ask_gender': can_vote and not _profile_voter_gender(request.user),
-        'voter_gender_choices': EventPollVote.VOTER_GENDER_CHOICES,
-        'suggestion_form': EventPollSuggestionForm(),
-    })
+    return render(
+        request,
+        "crush_lu/event_polls/poll_detail.html",
+        {
+            **context,
+            "can_vote": can_vote,
+            "show_results": show_results,
+            # The non-JS vote form posts back to the page that rendered it.
+            "return_to_themes": request.resolver_match.url_name == "theme_board",
+            # Anonymous visitors of a public poll: show the ballot, ask to log in.
+            "login_to_vote": not authenticated and poll.is_active,
+            "login_url": redirect_to_login(
+                request.get_full_path(), reverse("crush_lu:login")
+            ).url,
+            "can_suggest": authenticated and poll.is_public and poll.is_active,
+            # Voters without a profile gender get an optional "I am..." choice.
+            "ask_gender": can_vote and not _profile_voter_gender(request.user),
+            "voter_gender_choices": EventPollVote.VOTER_GENDER_CHOICES,
+            "suggestion_form": EventPollSuggestionForm(),
+        },
+    )
 
 
 @never_cache
@@ -223,28 +233,26 @@ def theme_board(request):
             start_date__lte=now,
             end_date__gte=now,
         )
-        .order_by('-start_date', '-pk')
+        .order_by("-start_date", "-pk")
         .first()
     )
     if poll is None:
-        return render(request, 'crush_lu/event_polls/theme_board_empty.html')
+        return render(request, "crush_lu/event_polls/theme_board_empty.html")
     return _render_poll(request, poll)
 
 
 @require_POST
 @crush_login_required
-@ratelimit(key='user', rate='5/h')
+@ratelimit(key="user", rate="5/h")
 def poll_suggest(request, poll_id):
     """Store a voter's idea for a new option; a coach reviews it in the admin."""
-    poll = get_object_or_404(
-        EventPoll, pk=poll_id, is_published=True, is_public=True
-    )
+    poll = get_object_or_404(EventPoll, pk=poll_id, is_published=True, is_public=True)
     # Return to whichever of our two pages rendered the form; the URL is
     # always built here, never taken from the request.
-    if request.POST.get('return_to') == 'themes':
-        next_url = reverse('crush_lu:theme_board')
+    if request.POST.get("return_to") == "themes":
+        next_url = reverse("crush_lu:theme_board")
     else:
-        next_url = reverse('crush_lu:poll_detail', args=[poll.pk])
+        next_url = reverse("crush_lu:poll_detail", args=[poll.pk])
 
     if not poll.is_active:
         messages.error(request, _("This poll is closed."))
@@ -255,13 +263,13 @@ def poll_suggest(request, poll_id):
         EventPollSuggestion.objects.create(
             poll=poll,
             user=request.user,
-            text=form.cleaned_data['text'],
-            language=(get_language() or '')[:10],
+            text=form.cleaned_data["text"],
+            language=(get_language() or "")[:10],
         )
         messages.success(
             request, _("Thanks for your idea! A coach will review it soon.")
         )
-    elif 'website' not in form.errors:
+    elif "website" not in form.errors:
         # A filled honeypot is dropped silently; real input errors get a message.
         messages.error(
             request, _("Please describe your idea in 200 characters or fewer.")
@@ -271,9 +279,9 @@ def poll_suggest(request, poll_id):
 
 def _back_to_poll(request, poll):
     """Redirect a no-JS vote to the page that rendered the ballot."""
-    if request.POST.get('return_to') == 'themes':
-        return redirect('crush_lu:theme_board')
-    return redirect('crush_lu:poll_detail', poll.pk)
+    if request.POST.get("return_to") == "themes":
+        return redirect("crush_lu:theme_board")
+    return redirect("crush_lu:poll_detail", poll.pk)
 
 
 def _ballot_language(data):
@@ -282,7 +290,7 @@ def _ballot_language(data):
     The vote URL is language-neutral, so without it LocaleMiddleware would
     answer in the browser's Accept-Language instead of the page's language.
     """
-    lang = data.get('lang') if isinstance(data, dict) else None
+    lang = data.get("lang") if isinstance(data, dict) else None
     # A non-string lang (a list, an object) must not reach the set lookup.
     if isinstance(lang, str) and lang in {code for code, _n in settings.LANGUAGES}:
         return lang
@@ -299,7 +307,7 @@ def poll_vote(request, poll_id):
     poll page with a flash message. Either way the reply is in the ballot
     page's language.
     """
-    is_json = request.content_type == 'application/json'
+    is_json = request.content_type == "application/json"
     if is_json:
         try:
             data = json.loads(request.body)
@@ -313,7 +321,7 @@ def poll_vote(request, poll_id):
         return _rate_limited_poll_vote(request, poll_id, is_json, data)
 
 
-@ratelimit(key='user', rate='10/m', rate_limited_template='crush_lu/rate_limited.html')
+@ratelimit(key="user", rate="10/m", rate_limited_template="crush_lu/rate_limited.html")
 def _rate_limited_poll_vote(request, poll_id, is_json, data):
     poll = get_object_or_404(EventPoll, pk=poll_id, is_published=True)
     return _poll_vote(request, poll, is_json, data)
@@ -322,7 +330,7 @@ def _rate_limited_poll_vote(request, poll_id, is_json, data):
 def _poll_vote(request, poll, is_json, data):
     def reply(error, status=400):
         if is_json:
-            return JsonResponse({'error': error}, status=status)
+            return JsonResponse({"error": error}, status=status)
         # Messages render after this language override ends: translate now.
         messages.error(request, str(error))
         return _back_to_poll(request, poll)
@@ -331,43 +339,43 @@ def _poll_vote(request, poll, is_json, data):
         try:
             profile = CrushProfile.objects.get(user=request.user)
         except CrushProfile.DoesNotExist:
-            return reply(_('Profile required'), 403)
+            return reply(_("Profile required"), 403)
 
         if not profile.is_approved:
-            return reply(_('Profile not approved'), 403)
+            return reply(_("Profile not approved"), 403)
 
     if not poll.is_active:
-        return reply(_('Poll is not active'))
+        return reply(_("Poll is not active"))
 
     if is_json:
         if not isinstance(data, dict):
-            return reply(_('Invalid JSON'))
+            return reply(_("Invalid JSON"))
     else:
         data = {
-            'option_ids': request.POST.getlist('option_ids'),
-            'gender': request.POST.get('voter_gender'),
+            "option_ids": request.POST.getlist("option_ids"),
+            "gender": request.POST.get("voter_gender"),
         }
         try:
-            data['option_ids'] = [int(oid) for oid in data['option_ids']]
+            data["option_ids"] = [int(oid) for oid in data["option_ids"]]
         except ValueError:
-            return reply(_('Invalid option'))
+            return reply(_("Invalid option"))
 
-    option_ids = data.get('option_ids', [])
+    option_ids = data.get("option_ids", [])
     if not isinstance(option_ids, list) or not all(
         type(oid) is int for oid in option_ids
     ):
-        return reply(_('Invalid option'))
+        return reply(_("Invalid option"))
     if not option_ids:
-        return reply(_('No options selected'))
+        return reply(_("No options selected"))
 
     if not poll.allow_multiple_choices and len(option_ids) > 1:
-        return reply(_('Only one choice allowed'))
+        return reply(_("Only one choice allowed"))
 
     # Validate all option IDs belong to this poll
-    valid_options = set(poll.options.values_list('id', flat=True))
+    valid_options = set(poll.options.values_list("id", flat=True))
     for oid in option_ids:
         if oid not in valid_options:
-            return reply(_('Invalid option'))
+            return reply(_("Invalid option"))
 
     # Single-choice: delete existing votes first
     if not poll.allow_multiple_choices:
@@ -377,10 +385,10 @@ def _poll_vote(request, poll, is_json, data):
     # and the men denominators: an earlier vote's gender wins, then the
     # profile's, then the ballot answer.
     earlier_votes = EventPollVote.objects.filter(poll=poll, user=request.user)
-    voter_gender = earlier_votes.values_list('voter_gender', flat=True).first()
+    voter_gender = earlier_votes.values_list("voter_gender", flat=True).first()
     if voter_gender is None:
         voter_gender = _profile_voter_gender(request.user)
-        gender = data.get('gender')
+        gender = data.get("gender")
         if not voter_gender and isinstance(gender, str) and gender in _VOTER_GENDERS:
             voter_gender = gender
 
@@ -391,15 +399,13 @@ def _poll_vote(request, poll, is_json, data):
             poll=poll,
             option_id=oid,
             user=request.user,
-            defaults={'voter_gender': voter_gender},
+            defaults={"voter_gender": voter_gender},
         )
         if was_created:
             created += 1
     # Two first submissions racing (two tabs) could still disagree; settle
     # every row of this voter on one value.
-    earlier_votes.exclude(voter_gender=voter_gender).update(
-        voter_gender=voter_gender
-    )
+    earlier_votes.exclude(voter_gender=voter_gender).update(voter_gender=voter_gender)
 
     if not is_json:
         messages.success(request, str(_("Your vote has been recorded. Thank you!")))
@@ -409,33 +415,36 @@ def _poll_vote(request, poll, is_json, data):
     # header total and the rendered partial, so a concurrent vote cannot
     # make them disagree within one response.
     context = _results_context(request, poll)
-    total_votes = context['total_votes']
+    total_votes = context["total_votes"]
     results = [
         {
-            'id': o.id,
-            'name': str(o.name),
-            'vote_count': o.vote_count,
-            'percentage': round(o.vote_count / total_votes * 100) if total_votes else 0,
+            "id": o.id,
+            "name": str(o.name),
+            "vote_count": o.vote_count,
+            "percentage": round(o.vote_count / total_votes * 100) if total_votes else 0,
         }
-        for o in context['options']
+        for o in context["options"]
     ]
 
-    return JsonResponse({
-        'success': True,
-        'created': created,
-        'total_votes': total_votes,
-        # Server-rendered so the singular/plural form follows the locale's
-        # plural rules (the page renders the same msgid).
-        'total_votes_label': ngettext(
-            '%(counter)s vote', '%(counter)s votes', total_votes
-        ) % {'counter': total_votes},
-        'results': results,
-        'results_html': render_to_string(
-            'crush_lu/event_polls/_poll_results_region.html',
-            context,
-            request=request,
-        ),
-    })
+    return JsonResponse(
+        {
+            "success": True,
+            "created": created,
+            "total_votes": total_votes,
+            # Server-rendered so the singular/plural form follows the locale's
+            # plural rules (the page renders the same msgid).
+            "total_votes_label": ngettext(
+                "%(counter)s vote", "%(counter)s votes", total_votes
+            )
+            % {"counter": total_votes},
+            "results": results,
+            "results_html": render_to_string(
+                "crush_lu/event_polls/_poll_results_region.html",
+                context,
+                request=request,
+            ),
+        }
+    )
 
 
 @crush_login_required
@@ -443,20 +452,22 @@ def poll_results_api(request, poll_id):
     """Return poll results as JSON."""
     poll = get_object_or_404(EventPoll, pk=poll_id, is_published=True)
 
-    options = poll.options.annotate(vote_count=Count('votes'))
+    options = poll.options.annotate(vote_count=Count("votes"))
     total_votes = sum(o.vote_count for o in options)
 
     results = [
         {
-            'id': o.id,
-            'name': str(o.name),
-            'vote_count': o.vote_count,
-            'percentage': round(o.vote_count / total_votes * 100) if total_votes else 0,
+            "id": o.id,
+            "name": str(o.name),
+            "vote_count": o.vote_count,
+            "percentage": round(o.vote_count / total_votes * 100) if total_votes else 0,
         }
         for o in options
     ]
 
-    return JsonResponse({
-        'total_votes': total_votes,
-        'results': results,
-    })
+    return JsonResponse(
+        {
+            "total_votes": total_votes,
+            "results": results,
+        }
+    )

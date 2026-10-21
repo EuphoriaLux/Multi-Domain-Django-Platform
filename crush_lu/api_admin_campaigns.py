@@ -16,6 +16,7 @@ wrapper pattern in ``api_admin_metrics``:
 - Gated by ``settings.CAMPAIGN_DISPATCH_ENABLED`` (default off) so the
   feature stays dormant per environment until explicitly enabled.
 """
+
 from __future__ import annotations
 
 import logging
@@ -27,7 +28,9 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from crush_lu.api_admin_auth import authenticate_admin_request as _authenticate_admin_request
+from crush_lu.api_admin_auth import (
+    authenticate_admin_request as _authenticate_admin_request,
+)
 from crush_lu.api_admin_auth import unauthorized as _unauthorized
 
 logger = logging.getLogger(__name__)

@@ -78,9 +78,9 @@ def test_paused_member_is_not_mailed():
     call_command("send_connect_beta_invites", "--wave", "1")
 
     recipients = [addr for m in mail.outbox for addr in m.to]
-    assert user.email not in recipients, (
-        f"paused member {user.email} was mailed a Connect beta invite"
-    )
+    assert (
+        user.email not in recipients
+    ), f"paused member {user.email} was mailed a Connect beta invite"
 
 
 @pytest.mark.django_db
@@ -97,9 +97,9 @@ def test_paused_member_row_is_not_consumed():
     call_command("send_connect_beta_invites", "--wave", "1")
 
     row = CrushConnectWaitlist.objects.get(user=user)
-    assert row.beta_invited_at is None, (
-        "a skipped paused member had their invite slot consumed"
-    )
+    assert (
+        row.beta_invited_at is None
+    ), "a skipped paused member had their invite slot consumed"
 
 
 @pytest.mark.django_db

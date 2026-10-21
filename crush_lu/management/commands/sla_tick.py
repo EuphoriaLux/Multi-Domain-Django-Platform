@@ -17,6 +17,7 @@ Typical flow:
     5. Check /profile-submitted/ for the fallback banner and console for the
        email.
 """
+
 from django.core.management.base import BaseCommand
 
 

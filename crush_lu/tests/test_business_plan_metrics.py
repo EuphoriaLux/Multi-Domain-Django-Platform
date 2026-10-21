@@ -151,10 +151,7 @@ class BusinessPlanMetricsFixture(TestCase):
             until.isoformat(),
             stdout=out,
         )
-        return {
-            row["month"]: row
-            for row in json.loads(out.getvalue())["monthly"]
-        }
+        return {row["month"]: row for row in json.loads(out.getvalue())["monthly"]}
 
 
 class MainReportPaidSeatsTests(BusinessPlanMetricsFixture):
@@ -233,7 +230,9 @@ class MonthlyPaidSeatsTests(BusinessPlanMetricsFixture):
         first_seat = self._paid_seat(may_event, self.member)
         self._cancel_with_credit(first_seat)
 
-        self._paid_seat(june_event, self.member, provider=PaymentTransaction.Provider.CREDIT)
+        self._paid_seat(
+            june_event, self.member, provider=PaymentTransaction.Provider.CREDIT
+        )
         other = User.objects.create_user(
             username="other@crush.lu", email="other@crush.lu", password="x"
         )
@@ -347,7 +346,9 @@ class DeletedAccountPaidSeatsTests(BusinessPlanMetricsFixture):
         """
         event = self._event(date(2026, 5, 14))
         staff = User.objects.create_user(
-            username="staff@crush.lu", email="staff@crush.lu", password="x",
+            username="staff@crush.lu",
+            email="staff@crush.lu",
+            password="x",
             is_staff=True,
         )
         for i in range(3):
@@ -355,8 +356,11 @@ class DeletedAccountPaidSeatsTests(BusinessPlanMetricsFixture):
                 username=f"buyer{i}@crush.lu", email=f"buyer{i}@crush.lu", password="x"
             )
             registration = EventRegistration.objects.create(
-                event=event, user=buyer, status="confirmed",
-                payment_confirmed=True, payment_date=timezone.now(),
+                event=event,
+                user=buyer,
+                status="confirmed",
+                payment_confirmed=True,
+                payment_date=timezone.now(),
             )
             tx = self._tx(
                 registration,
@@ -382,8 +386,11 @@ class DeletedAccountPaidSeatsTests(BusinessPlanMetricsFixture):
         """
         event = self._event(date(2026, 5, 14))
         registration = EventRegistration.objects.create(
-            event=event, user=self.member, status="confirmed",
-            payment_confirmed=True, payment_date=timezone.now(),
+            event=event,
+            user=self.member,
+            status="confirmed",
+            payment_confirmed=True,
+            payment_date=timezone.now(),
         )
         self._tx(
             registration,
@@ -412,8 +419,11 @@ class DeletedAccountPaidSeatsTests(BusinessPlanMetricsFixture):
         """
         event = self._event(date(2026, 5, 14))
         registration = EventRegistration.objects.create(
-            event=event, user=self.member, status="confirmed",
-            payment_confirmed=True, payment_date=timezone.now(),
+            event=event,
+            user=self.member,
+            status="confirmed",
+            payment_confirmed=True,
+            payment_date=timezone.now(),
         )
         self._tx(registration, reference="legacy-bare-uuid-reference")
         with self.assertLogs(

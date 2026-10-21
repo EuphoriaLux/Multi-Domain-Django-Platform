@@ -86,11 +86,14 @@ def generate_service_tickets(paper: Paper) -> list[tuple[TicketData, list, bytes
 
         directives = render_ticket(ticket, paper)
         payload = encode_ticket(directives, paper)
-        diag = f"[{result.source}, {result.elapsed_ms} ms" + (f", {result.reason}" if result.reason else "") + "]"
+        diag = (
+            f"[{result.source}, {result.elapsed_ms} ms"
+            + (f", {result.reason}" if result.reason else "")
+            + "]"
+        )
         items_out.append((ticket, directives, payload, diag))
 
     return items_out
-
 
 
 def build(paper: Paper, dump_bytes: bool) -> str:
@@ -165,11 +168,12 @@ def main() -> None:
 
         print(f"\n--- Sending {len(service_items)} ticket(s) to {transport} ---")
         for ticket, _directives, payload, _diag in service_items:
-            print(f"Printing ticket {ticket.ticket_code} ({ticket.persona}) -> {len(payload)} bytes...")
+            print(
+                f"Printing ticket {ticket.ticket_code} ({ticket.persona}) -> {len(payload)} bytes..."
+            )
             transport.send(payload)
         print("Done!")
 
 
 if __name__ == "__main__":
     main()
-

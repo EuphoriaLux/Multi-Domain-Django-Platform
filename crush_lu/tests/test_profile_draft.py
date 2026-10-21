@@ -376,6 +376,3 @@ class UploadProfilePhotoHtmxTests(_SiteMixin, TestCase):
         # Verify the partial rendered without error
         self.assertContains(response, "photo-preview")
         self.assertNotContains(response, "Photo validation failed")
-
-
-

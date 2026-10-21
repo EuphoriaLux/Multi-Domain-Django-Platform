@@ -238,9 +238,7 @@ def test_each_send_carries_a_timeout(mock_webpush, member, vapid_settings):
 
 @pytest.mark.django_db
 @patch("crush_lu.push_notifications.webpush")
-def test_send_timeout_never_outlives_the_budget(
-    mock_webpush, member, vapid_settings
-):
+def test_send_timeout_never_outlives_the_budget(mock_webpush, member, vapid_settings):
     """The remaining budget caps the per-send timeout, not the other way round."""
     _subscription(member, 0)
     vapid_settings.CRUSH_PUSH_SEND_TIMEOUT_SECONDS = 30.0
@@ -306,9 +304,12 @@ def test_concurrent_approval_sends_nothing(member):
     second create succeeds and the member is notified twice.
     """
     notify_profile_approved(user=member, profile=member.crushprofile)
-    assert Notification.objects.filter(
-        user=member, notification_type=NotificationType.PROFILE_APPROVED.value
-    ).count() == 1
+    assert (
+        Notification.objects.filter(
+            user=member, notification_type=NotificationType.PROFILE_APPROVED.value
+        ).count()
+        == 1
+    )
 
     # A racer that read "not sent yet" before the row above landed: it skips
     # the read-side guard entirely and goes straight for the claim.
@@ -323,9 +324,12 @@ def test_concurrent_approval_sends_nothing(member):
     assert result.deduped is True
     assert result.inapp_created is False
     mock_email.assert_not_called()
-    assert Notification.objects.filter(
-        user=member, notification_type=NotificationType.PROFILE_APPROVED.value
-    ).count() == 1
+    assert (
+        Notification.objects.filter(
+            user=member, notification_type=NotificationType.PROFILE_APPROVED.value
+        ).count()
+        == 1
+    )
 
 
 @pytest.mark.django_db
@@ -365,6 +369,9 @@ def test_rows_without_a_key_are_unconstrained(member):
             title="a message",
         )
 
-    assert Notification.objects.filter(
-        user=member, notification_type=NotificationType.NEW_MESSAGE.value
-    ).count() == 3
+    assert (
+        Notification.objects.filter(
+            user=member, notification_type=NotificationType.NEW_MESSAGE.value
+        ).count()
+        == 3
+    )

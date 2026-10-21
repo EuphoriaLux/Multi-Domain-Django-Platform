@@ -12,6 +12,7 @@ Windows applied to each submission:
 
 All three are skipped if the user already submitted the pre-screening.
 """
+
 from django.core.management.base import BaseCommand
 from django.conf import settings
 
@@ -48,9 +49,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if not getattr(settings, "PRE_SCREENING_ENABLED", False):
             self.stdout.write(
-                self.style.WARNING(
-                    "PRE_SCREENING_ENABLED is off; nothing to send."
-                )
+                self.style.WARNING("PRE_SCREENING_ENABLED is off; nothing to send.")
             )
             return
 

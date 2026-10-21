@@ -82,21 +82,27 @@ class CrushSiteConfig(models.Model):
         blank=True,
         default="Hi {first_name}! {coach_name} from Crush.lu here. We have an event for you: {event_title} on {event_date}. Sign up & get verified on the spot! {event_url}",
         verbose_name=_("Event invite SMS template (English)"),
-        help_text=_("Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}"),
+        help_text=_(
+            "Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}"
+        ),
     )
     sms_event_invite_template_de = models.CharField(
         max_length=320,
         blank=True,
         default="Hi {first_name}! Hier ist {coach_name} von Crush.lu. Wir haben ein Event fuer dich: {event_title} am {event_date}. Melde dich an und werde vor Ort verifiziert! {event_url}",
         verbose_name=_("Event invite SMS template (German)"),
-        help_text=_("Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}"),
+        help_text=_(
+            "Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}"
+        ),
     )
     sms_event_invite_template_fr = models.CharField(
         max_length=320,
         blank=True,
         default="Salut {first_name} ! C'est {coach_name} de Crush.lu. On a un evenement pour toi : {event_title} le {event_date}. Inscris-toi et fais-toi verifier sur place ! {event_url}",
         verbose_name=_("Event invite SMS template (French)"),
-        help_text=_("Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}"),
+        help_text=_(
+            "Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}"
+        ),
     )
 
     # SMS templates for last-minute event invites (urgent, when spots open due to cancellations)
@@ -105,21 +111,27 @@ class CrushSiteConfig(models.Model):
         blank=True,
         default="Hi {first_name}! A spot just opened up for {event_title} TONIGHT ({event_date})! {coach_name} from Crush.lu here — join us! {event_url}",
         verbose_name=_("Last-minute invite SMS (English)"),
-        help_text=_("Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}"),
+        help_text=_(
+            "Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}"
+        ),
     )
     sms_last_minute_invite_template_de = models.CharField(
         max_length=320,
         blank=True,
         default="Hi {first_name}! Ein Platz ist gerade frei geworden fuer {event_title} HEUTE ({event_date})! Hier ist {coach_name} von Crush.lu — komm dazu! {event_url}",
         verbose_name=_("Last-minute invite SMS (German)"),
-        help_text=_("Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}"),
+        help_text=_(
+            "Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}"
+        ),
     )
     sms_last_minute_invite_template_fr = models.CharField(
         max_length=320,
         blank=True,
         default="Salut {first_name} ! Une place vient de se liberer pour {event_title} CE SOIR ({event_date}) ! C'est {coach_name} de Crush.lu — rejoins-nous ! {event_url}",
         verbose_name=_("Last-minute invite SMS (French)"),
-        help_text=_("Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}"),
+        help_text=_(
+            "Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}"
+        ),
     )
 
     # SMS templates for pre-screening reminders (coach -> candidate, while profile pending)
@@ -218,15 +230,15 @@ class CrushSiteConfig(models.Model):
         help_text=_("Internal path (e.g. /events/) or full URL."),
     )
     BANNER_STYLE_CHOICES = [
-        ('info', _('Info (blue)')),
-        ('warning', _('Warning (amber)')),
-        ('success', _('Success (green)')),
-        ('purple', _('Purple')),
+        ("info", _("Info (blue)")),
+        ("warning", _("Warning (amber)")),
+        ("success", _("Success (green)")),
+        ("purple", _("Purple")),
     ]
     banner_style = models.CharField(
         max_length=10,
         choices=BANNER_STYLE_CHOICES,
-        default='info',
+        default="info",
         verbose_name=_("Banner style"),
     )
     banner_target_statuses = models.JSONField(

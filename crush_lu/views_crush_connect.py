@@ -216,7 +216,9 @@ def _connect_readiness(user):
     profile_approved = bool(profile and profile.is_approved)
     identity_verified = bool(profile and profile.is_connect_identity_verified)
     event_verified = bool(profile and profile.has_attended_event)
-    photo_needs_revision = bool(profile and profile.photo_review_status == "needs_revision")
+    photo_needs_revision = bool(
+        profile and profile.photo_review_status == "needs_revision"
+    )
     # A fake flag also leaves the step open, but never prompts a photo swap.
     photo_moderated = photo_needs_revision or bool(
         profile and profile.photo_review_status == "flagged_fake"
@@ -275,18 +277,24 @@ def _connect_readiness(user):
                 else _("Profile photo")
             ),
             "description": (
-                _("A coach requested an updated photo. Please upload a clear photo of yourself.")
+                _(
+                    "A coach requested an updated photo. Please upload a clear photo of yourself."
+                )
                 if photo_needs_revision
-                else _("A coach is checking your photo. Connect opens for you as soon as it is approved.")
-                if photo_in_review
-                else _("A profile photo is required for your daily Connect suggestions.")
+                else (
+                    _(
+                        "A coach is checking your photo. Connect opens for you as soon as it is approved."
+                    )
+                    if photo_in_review
+                    else _(
+                        "A profile photo is required for your daily Connect suggestions."
+                    )
+                )
             ),
             "cta_label": (
                 _("Update photo")
                 if photo_needs_revision
-                else _("View my photos")
-                if photo_in_review
-                else _("Add a photo")
+                else _("View my photos") if photo_in_review else _("Add a photo")
             ),
             "cta_url": reverse("crush_lu:edit_profile") + "?section=photos",
         },
@@ -379,13 +387,19 @@ def _onboarding_gate(request):
 
     # Check for photo_1 (which is optional for events but required for Connect)
     profile = getattr(user, "crushprofile", None)
-    if not user.is_staff and profile and (not profile.photo_1 or profile.photo_review_status == "needs_revision"):
+    if (
+        not user.is_staff
+        and profile
+        and (not profile.photo_1 or profile.photo_review_status == "needs_revision")
+    ):
         from django.contrib import messages
 
         if profile.photo_review_status == "needs_revision":
             messages.warning(
                 request,
-                _("A coach requested an updated profile photo. Please upload a clear photo showing your face to continue."),
+                _(
+                    "A coach requested an updated profile photo. Please upload a clear photo showing your face to continue."
+                ),
             )
         else:
             messages.warning(

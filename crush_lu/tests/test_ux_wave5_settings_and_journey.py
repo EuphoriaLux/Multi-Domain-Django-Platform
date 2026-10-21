@@ -254,6 +254,7 @@ def _source_css():
     parts += [p.read_text(encoding="utf-8") for p in sorted(FEATURES.glob("*.css"))]
     return "\n".join(parts)
 
+
 LIGHT = "html:not(.dark) body.journey-bg #main-content"
 
 

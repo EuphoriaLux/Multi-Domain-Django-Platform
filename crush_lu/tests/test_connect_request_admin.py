@@ -87,7 +87,9 @@ class ConnectWeeklyRequestAdminTests(TestCase):
         response = self._change_form_post(status=ConnectWeeklyRequest.Status.DECLINED)
         self.assertEqual(response.status_code, 302)
         self.weekly_request.refresh_from_db()
-        self.assertEqual(self.weekly_request.status, ConnectWeeklyRequest.Status.PENDING)
+        self.assertEqual(
+            self.weekly_request.status, ConnectWeeklyRequest.Status.PENDING
+        )
         self.assertIsNone(self.weekly_request.responded_at)
         self.assertFalse(
             ConnectPairExclusion.are_excluded(self.requester, self.recipient)
@@ -100,7 +102,9 @@ class ConnectWeeklyRequestAdminTests(TestCase):
         response = self._run_sync_action()
         self.assertEqual(response.status_code, 302)
         self.weekly_request.refresh_from_db()
-        self.assertEqual(self.weekly_request.status, ConnectWeeklyRequest.Status.EXPIRED)
+        self.assertEqual(
+            self.weekly_request.status, ConnectWeeklyRequest.Status.EXPIRED
+        )
         user_a, user_b = ConnectPairExclusion.get_canonical_pair(
             self.requester, self.recipient
         )
@@ -111,7 +115,9 @@ class ConnectWeeklyRequestAdminTests(TestCase):
         response = self._run_sync_action()
         self.assertEqual(response.status_code, 302)
         self.weekly_request.refresh_from_db()
-        self.assertEqual(self.weekly_request.status, ConnectWeeklyRequest.Status.PENDING)
+        self.assertEqual(
+            self.weekly_request.status, ConnectWeeklyRequest.Status.PENDING
+        )
         self.assertFalse(
             ConnectPairExclusion.are_excluded(self.requester, self.recipient)
         )

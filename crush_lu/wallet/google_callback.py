@@ -105,8 +105,9 @@ def _verify_callback_signature(signed_message):
         # "intermediateSigningKey": "y"} bypasses auth. Reject in production
         # until full Tink signature verification is implemented.
         from django.conf import settings
-        if 'signedMessage' in message_data:
-            if not getattr(settings, 'DEBUG', False):
+
+        if "signedMessage" in message_data:
+            if not getattr(settings, "DEBUG", False):
                 # Production: reject all envelope callbacks until Tink verification
                 # is implemented. Presence of signature fields is not proof of
                 # authenticity — an attacker can supply any non-empty values.
@@ -115,15 +116,16 @@ def _verify_callback_signature(signed_message):
                 )
                 return None
             # DEBUG only: parse envelope for local testing
-            inner_message = json.loads(message_data['signedMessage'])
+            inner_message = json.loads(message_data["signedMessage"])
             return inner_message
 
         # Direct payload format (testing only — reject in production).
         # TODO: implement full Tink signature verification (finding M12).
         # Until then, reject unsigned payloads when DEBUG is False.
         from django.conf import settings
-        if getattr(settings, 'DEBUG', False) and (
-            'classId' in message_data or 'objectId' in message_data
+
+        if getattr(settings, "DEBUG", False) and (
+            "classId" in message_data or "objectId" in message_data
         ):
             return message_data
 
@@ -148,7 +150,9 @@ def _handle_pass_saved(class_id, object_id, nonce):
     """
     logger.info(
         "Google Wallet pass SAVED: class=%s, object=%s, nonce=%s",
-        class_id, object_id, nonce
+        class_id,
+        object_id,
+        nonce,
     )
 
     # Extract user ID from object_id if it follows our format
@@ -160,13 +164,13 @@ def _handle_pass_saved(class_id, object_id, nonce):
 
             # Update the profile to confirm the pass is saved
             from crush_lu.models import CrushProfile
+
             profile = CrushProfile.objects.filter(user_id=user_id).first()
             if profile:
                 # The google_wallet_object_id should already be set when JWT was generated
                 # This confirms the user actually saved it
                 logger.info(
-                    "Pass saved confirmed for user %s (object: %s)",
-                    user_id, object_id
+                    "Pass saved confirmed for user %s (object: %s)", user_id, object_id
                 )
                 # Could add analytics tracking here
                 # Could send a welcome notification
@@ -188,7 +192,9 @@ def _handle_pass_deleted(class_id, object_id, nonce):
     """
     logger.info(
         "Google Wallet pass DELETED: class=%s, object=%s, nonce=%s",
-        class_id, object_id, nonce
+        class_id,
+        object_id,
+        nonce,
     )
 
     # Extract user ID and clear the stored object ID
@@ -198,19 +204,16 @@ def _handle_pass_deleted(class_id, object_id, nonce):
             user_id = parts.split("-")[0]
 
             from crush_lu.models import CrushProfile
+
             profile = CrushProfile.objects.filter(
-                user_id=user_id,
-                google_wallet_object_id=object_id
+                user_id=user_id, google_wallet_object_id=object_id
             ).first()
 
             if profile:
                 # Clear the object ID since the user deleted the pass
                 profile.google_wallet_object_id = ""
                 profile.save(update_fields=["google_wallet_object_id"])
-                logger.info(
-                    "Cleared google_wallet_object_id for user %s",
-                    user_id
-                )
+                logger.info("Cleared google_wallet_object_id for user %s", user_id)
 
     except Exception as e:
         logger.exception("Error processing pass delete: %s", e)
@@ -269,7 +272,9 @@ def google_wallet_callback(request):
         # Log the callback
         logger.info(
             "Google Wallet callback received: event=%s, class=%s, object=%s",
-            event_type, class_id, object_id
+            event_type,
+            class_id,
+            object_id,
         )
 
         # Check for duplicate delivery using nonce
