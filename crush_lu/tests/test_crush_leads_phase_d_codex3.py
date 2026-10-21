@@ -1,4 +1,4 @@
-""""My Crush!" Phase D — Codex round-3 review findings.
+""" "My Crush!" Phase D — Codex round-3 review findings.
 
 Spec: ai-memory-hub/specs/2026-07-21-crush-my-crush-post-event-flow.md
 
@@ -22,6 +22,7 @@ so several of these are the second half of a fix rather than a new one:
 
 Run with: pytest crush_lu/tests/test_crush_leads_phase_d_codex3.py -v
 """
+
 from datetime import date, timedelta
 from unittest import mock
 
@@ -159,9 +160,7 @@ class TestRecipientAnswerHasAWriter:
         client.post(url, {"action": "crush_start_review"})
         client.post(url, {"action": "crush_complete_call", "call_outcome": "completed"})
         client.post(url, {"action": "crush_record_consent", "consent": "yes"})
-        client.post(
-            url, {"action": "crush_record_recipient_consent", "consent": "yes"}
-        )
+        client.post(url, {"action": "crush_record_recipient_consent", "consent": "yes"})
         client.post(url, {"action": "approve"})
         client.post(url, {"action": "crush_share"})
 
@@ -197,9 +196,7 @@ class TestRecipientAnswerHasAWriter:
 
         lead.refresh_from_db()
         assert lead.recipient_outreach_at is not None
-        inferred = [
-            a for a in lead.system_actions if a["type"] == "recipient_outreach"
-        ]
+        inferred = [a for a in lead.system_actions if a["type"] == "recipient_outreach"]
         # Audited as inferred, so the trail still distinguishes a back-fill
         # from a coach explicitly recording that they made contact.
         assert inferred and inferred[0]["details"].get("inferred") is True
@@ -484,9 +481,11 @@ class TestCorrectingACompletedCall:
             {"action": "crush_complete_call", "call_outcome": "unreachable"},
         )
 
-        assert EventConnection.objects.crush_leads_for_coach(coach).filter(
-            pk=lead.pk
-        ).exists()
+        assert (
+            EventConnection.objects.crush_leads_for_coach(coach)
+            .filter(pk=lead.pk)
+            .exists()
+        )
 
     def test_completing_still_closes_the_sla(self):
         coach, lead = self._reviewing_lead()
@@ -513,9 +512,7 @@ class TestNoMessagesBeforeTheIntroduction:
         recipient, _ = _make_user("r3_msg_rec@example.com", "F")
         req_p.assigned_coach = coach
         req_p.save(update_fields=["assigned_coach"])
-        return coach, _lead(
-            requester, recipient, _make_event(), coach, status=status
-        )
+        return coach, _lead(requester, recipient, _make_event(), coach, status=status)
 
     def test_a_pre_shared_crush_lead_refuses_a_coach_message(self):
         coach, lead = self._lead()
@@ -595,9 +592,7 @@ class TestRoutedCoachAuditIsLocked:
 
         client = Client()
         _login(client, routed.user)
-        with mock.patch(
-            "crush_lu.views_coach.get_object_or_404", return_value=stale
-        ):
+        with mock.patch("crush_lu.views_coach.get_object_or_404", return_value=stale):
             client.post(
                 _review_url(lead), {"action": "crush_record_consent", "consent": "yes"}
             )
@@ -678,9 +673,7 @@ class TestSweepRechecksEligibilityUnderTheLock:
         _, lead = self._due_lead()
 
         result, sent = self._sweep_racing(
-            lambda: EventConnection.objects.filter(pk=lead.pk).update(
-                status="declined"
-            )
+            lambda: EventConnection.objects.filter(pk=lead.pk).update(status="declined")
         )
 
         assert sent == []

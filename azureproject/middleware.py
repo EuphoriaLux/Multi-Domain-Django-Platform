@@ -9,6 +9,7 @@ This module contains middleware for:
 - Admin language forcing
 - Custom CSRF failure handling
 """
+
 import logging
 import threading
 
@@ -109,10 +110,10 @@ def _safe_cache_set(key, value, timeout=300):
         error_str = str(e).lower()
 
         is_duplicate_key = (
-            'integrity' in error_name or
-            'unique' in error_name or
-            'duplicate' in error_str or
-            'already exists' in error_str
+            "integrity" in error_name
+            or "unique" in error_name
+            or "duplicate" in error_str
+            or "already exists" in error_str
         )
 
         if is_duplicate_key:
@@ -171,12 +172,12 @@ def _site_from_cache(cache_key):
 # Site.name allows 50 characters while Site.domain allows 100, so a name
 # derived from a long host has to be trimmed. PostgreSQL rejects the oversized
 # value; SQLite silently accepts it, so tests alone would not catch this.
-SITE_NAME_MAX_LENGTH = Site._meta.get_field('name').max_length
+SITE_NAME_MAX_LENGTH = Site._meta.get_field("name").max_length
 
 
 def _expected_site_name(config, fallback_host):
     """The display name a Site should carry, from config or its own domain."""
-    name = (config or {}).get('name') or fallback_host.title()
+    name = (config or {}).get("name") or fallback_host.title()
     return name[:SITE_NAME_MAX_LENGTH]
 
 
@@ -188,7 +189,7 @@ def _ensure_site_name(site, expected_name):
     address on". Returns True when ``site.name`` changed, so callers that hold
     a cached copy know to refresh it.
     """
-    if (site.name or '').strip():
+    if (site.name or "").strip():
         return False
 
     # The instance may have been rebuilt from the cache, which can be up to
@@ -196,18 +197,18 @@ def _ensure_site_name(site, expected_name):
     # or another worker set in the meantime is adopted rather than clobbered
     # by the derived fallback. Only reached when the name in hand is blank, so
     # a healthy Site still costs no query.
-    stored = Site.objects.filter(pk=site.pk).only('name').first() if site.pk else None
+    stored = Site.objects.filter(pk=site.pk).only("name").first() if site.pk else None
     if stored is None:
         # The row is gone; nothing to repair, and save() would fail.
         return False
-    if (stored.name or '').strip():
+    if (stored.name or "").strip():
         site.name = stored.name
         return True
 
     site.name = expected_name
     # _site_from_cache() mirrors Model.from_db(), so a cache-built instance
     # UPDATEs here rather than INSERTing a duplicate.
-    site.save(update_fields=['name'])
+    site.save(update_fields=["name"])
     logger.info(
         f"SafeCurrentSiteMiddleware: Repaired empty Site.name "
         f"for {site.domain} -> {expected_name!r}"
@@ -224,10 +225,12 @@ class LoginPostDebugMiddleware:
 
     SECURITY: Only active in DEBUG mode to prevent information disclosure in production.
     """
+
     def __init__(self, get_response):
         self.get_response = get_response
         # Cache DEBUG setting at init time
         from django.conf import settings
+
         self.debug_enabled = settings.DEBUG
 
     def __call__(self, request):
@@ -236,7 +239,7 @@ class LoginPostDebugMiddleware:
             return self.get_response(request)
 
         # Log ALL POSTs to /login/ before any processing
-        if request.method == 'POST' and request.path == '/login/':
+        if request.method == "POST" and request.path == "/login/":
             logger.warning(
                 f"[PRE-CSRF-DEBUG] POST /login/ ENTERING - "
                 f"has_csrf_cookie={'csrftoken' in request.COOKIES}, "
@@ -247,7 +250,7 @@ class LoginPostDebugMiddleware:
         response = self.get_response(request)
 
         # Log response AFTER processing
-        if request.method == 'POST' and request.path == '/login/':
+        if request.method == "POST" and request.path == "/login/":
             logger.warning(
                 f"[PRE-CSRF-DEBUG] POST /login/ RESPONSE - "
                 f"status={response.status_code}, "
@@ -293,7 +296,7 @@ def csrf_failure_view(request, reason=""):
     return HttpResponseForbidden(
         f"CSRF verification failed. Reason: {reason}. "
         f"Please refresh the page and try again.",
-        content_type="text/plain"
+        content_type="text/plain",
     )
 
 
@@ -309,19 +312,20 @@ class HealthCheckMiddleware:
     readiness checks (DB, migrations, Redis, storage) and is the slot-swap
     warm-up gate via WEBSITE_SWAP_WARMUP_PING_PATH.
     """
+
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        if getattr(settings, 'PRODUCTION_HOST_VALIDATION', False):
+        if getattr(settings, "PRODUCTION_HOST_VALIDATION", False):
             from .host_validation import validate_production_request_host
 
             validate_production_request_host(request)
 
         # Immediately return OK for health checks, bypassing all other middleware
-        if request.path in ['/healthz/', '/healthz']:
+        if request.path in ["/healthz/", "/healthz"]:
             return HttpResponse("OK", status=200, content_type="text/plain")
-        if request.path in ['/readyz/', '/readyz']:
+        if request.path in ["/readyz/", "/readyz"]:
             from azureproject.readiness import build_info, run_readiness_checks
 
             all_passed, results = run_readiness_checks()
@@ -436,13 +440,14 @@ class AuthRateLimitMiddleware:
     This middleware runs early to block abuse before hitting the view.
     Uses DRF throttle classes for consistent rate limiting behavior.
     """
+
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
         # Only apply to POST requests on specific paths
-        if request.method == 'POST':
-            if '/accounts/password/reset/' in request.path:
+        if request.method == "POST":
+            if "/accounts/password/reset/" in request.path:
                 return self._check_password_reset_limit(request)
 
         return self.get_response(request)
@@ -478,8 +483,8 @@ class AuthRateLimitMiddleware:
                 # this 429 into a 500. Only the crush host gets the branded
                 # page; every other host gets a domain-neutral fallback that
                 # references no app-specific URL names.
-                urlconf = getattr(request, 'urlconf', None)
-                if urlconf == DOMAINS['crush.lu']['urlconf']:
+                urlconf = getattr(request, "urlconf", None)
+                if urlconf == DOMAINS["crush.lu"]["urlconf"]:
                     # UX Wave 3 · WP3 (finding 2-04): branded, translated
                     # page instead of a bare English text/plain response -
                     # there's no form here to re-render inline, unlike
@@ -492,7 +497,7 @@ class AuthRateLimitMiddleware:
                     # password-reset request is always anonymous in
                     # practice; stand in the same object
                     # AuthenticationMiddleware would eventually set.
-                    if not hasattr(request, 'user'):
+                    if not hasattr(request, "user"):
                         request.user = AnonymousUser()
                     # Short-circuiting here means the handler's own
                     # resolve_request() (which normally does this) never
@@ -503,18 +508,18 @@ class AuthRateLimitMiddleware:
                     set_urlconf(urlconf)
                     response = render(
                         request,
-                        'crush_lu/rate_limited.html',
-                        {'wait_message': wait_message},
+                        "crush_lu/rate_limited.html",
+                        {"wait_message": wait_message},
                         status=429,
                     )
                 else:
-                    message = _(
-                        'Too many attempts. Please try again in %(wait)s.'
-                    ) % {'wait': wait_message}
+                    message = _("Too many attempts. Please try again in %(wait)s.") % {
+                        "wait": wait_message
+                    }
                     response = HttpResponse(
-                        message, content_type='text/plain; charset=utf-8', status=429
+                        message, content_type="text/plain; charset=utf-8", status=429
                     )
-                response['Retry-After'] = str(int(wait))
+                response["Retry-After"] = str(int(wait))
                 return response
         except ImportError:
             # crush_lu not available, skip rate limiting
@@ -534,6 +539,7 @@ class SafeCurrentSiteMiddleware:
 
     This prevents 500 errors from Azure health checks and unknown hosts.
     """
+
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -541,13 +547,15 @@ class SafeCurrentSiteMiddleware:
         from azureproject.domains import DEV_DOMAIN_MAPPINGS
 
         # Map dev domains for Sites framework (e.g., crush.localhost -> crush.lu)
-        host = request.get_host().split(':')[0].lower()
+        host = request.get_host().split(":")[0].lower()
         if host in DEV_DOMAIN_MAPPINGS:
             mapped_host = DEV_DOMAIN_MAPPINGS[host]
             # Store original host for reference
-            request._original_http_host = request.META.get('HTTP_HOST', '')
+            request._original_http_host = request.META.get("HTTP_HOST", "")
             port = request.get_port()
-            request.META['HTTP_HOST'] = f"{mapped_host}:{port}" if port != '80' else mapped_host
+            request.META["HTTP_HOST"] = (
+                f"{mapped_host}:{port}" if port != "80" else mapped_host
+            )
 
         # Set request.site safely
         request.site = self._get_site(request)
@@ -555,6 +563,7 @@ class SafeCurrentSiteMiddleware:
         # Populate Django's SITE_CACHE so allauth's get_current_site()
         # finds the site without re-querying the DB (which can raise DoesNotExist)
         from django.contrib.sites.models import SITE_CACHE
+
         if request.site:
             SITE_CACHE[host] = request.site
 
@@ -567,25 +576,27 @@ class SafeCurrentSiteMiddleware:
         Cache expires after 5 minutes to pick up any Site changes.
         Note: Dev domain mappings are handled in __call__ before this is called.
         """
-        host = request.get_host().split(':')[0].lower()
+        host = request.get_host().split(":")[0].lower()
 
         # Skip internal Azure IPs - use default site
-        if host.startswith('169.254.'):
+        if host.startswith("169.254."):
             return self._get_default_site()
 
         # Normalize www domains to canonical (non-www) domain
         # This avoids creating duplicate Site objects for www variants
-        canonical_host = host[4:] if host.startswith('www.') else host
+        canonical_host = host[4:] if host.startswith("www.") else host
 
         # Look up the expected display name from the config. Every branch
         # below repairs a blank Site.name with it, so allauth never renders
         # subjects like "Welcome to  — please confirm your email", however
         # the row was created and whether or not it came from the cache.
-        config = get_domain_config(host)  # Use original host for config lookup (aliases)
+        config = get_domain_config(
+            host
+        )  # Use original host for config lookup (aliases)
         expected_name = _expected_site_name(config, canonical_host)
 
         # Check cache first (using canonical host)
-        cache_key = _site_cache_key(f'site_by_domain:{canonical_host}')
+        cache_key = _site_cache_key(f"site_by_domain:{canonical_host}")
         site = _site_from_cache(cache_key)
         if site is not None:
             if _ensure_site_name(site, expected_name):
@@ -607,11 +618,12 @@ class SafeCurrentSiteMiddleware:
         if config:
             # Auto-create Site for canonical domain only
             site, created = Site.objects.get_or_create(
-                domain=canonical_host,
-                defaults={'name': expected_name}
+                domain=canonical_host, defaults={"name": expected_name}
             )
             if created:
-                logger.info(f"SafeCurrentSiteMiddleware: Auto-created Site for {canonical_host}")
+                logger.info(
+                    f"SafeCurrentSiteMiddleware: Auto-created Site for {canonical_host}"
+                )
             else:
                 # get_or_create ignores defaults for a row that already
                 # exists, so a blank name on it still needs repairing.
@@ -643,7 +655,7 @@ class SafeCurrentSiteMiddleware:
         2. Try any existing Site (first by pk)
         3. Create a new Site with a unique domain as last resort
         """
-        cache_key = _site_cache_key('site_default')
+        cache_key = _site_cache_key("site_default")
         site = _site_from_cache(cache_key)
         if site is not None:
             if _ensure_site_name(site, self._default_site_name(site)):
@@ -660,9 +672,11 @@ class SafeCurrentSiteMiddleware:
             pass
 
         # Fallback: get any existing site
-        site = Site.objects.order_by('pk').first()
+        site = Site.objects.order_by("pk").first()
         if site:
-            logger.info(f"SafeCurrentSiteMiddleware: Using existing Site pk={site.pk} as default")
+            logger.info(
+                f"SafeCurrentSiteMiddleware: Using existing Site pk={site.pk} as default"
+            )
             _ensure_site_name(site, self._default_site_name(site))
             _cache_site(cache_key, site)
             return site
@@ -670,10 +684,13 @@ class SafeCurrentSiteMiddleware:
         # Last resort: create a site with a guaranteed-unique domain
         # Using a timestamp-based domain to avoid conflicts
         import time
-        fallback_domain = f'default-{int(time.time())}.local'
+
+        fallback_domain = f"default-{int(time.time())}.local"
         try:
-            site = Site.objects.create(domain=fallback_domain, name='Default Site')
-            logger.warning(f"SafeCurrentSiteMiddleware: Created fallback Site with domain {fallback_domain}")
+            site = Site.objects.create(domain=fallback_domain, name="Default Site")
+            logger.warning(
+                f"SafeCurrentSiteMiddleware: Created fallback Site with domain {fallback_domain}"
+            )
             _cache_site(cache_key, site)
             return site
         except IntegrityError:
@@ -693,12 +710,13 @@ class ForceAdminToEnglishMiddleware:
     language preference settings. Covers standard Django admin and
     all custom platform admin panels.
     """
+
     ADMIN_PATHS = (
-        '/admin/',
-        '/crush-admin/',
-        '/entreprinder-admin/',
-        '/power-admin/',
-        '/delegation-admin/',
+        "/admin/",
+        "/crush-admin/",
+        "/entreprinder-admin/",
+        "/power-admin/",
+        "/delegation-admin/",
     )
 
     def __init__(self, get_response):
@@ -706,8 +724,8 @@ class ForceAdminToEnglishMiddleware:
 
     def __call__(self, request):
         if any(request.path.startswith(p) for p in self.ADMIN_PATHS):
-            translation.activate('en')
-            request.LANGUAGE_CODE = 'en'
+            translation.activate("en")
+            request.LANGUAGE_CODE = "en"
         return self.get_response(request)
 
 
@@ -721,8 +739,15 @@ class AdminLanguagePrefixRedirectMiddleware:
     Admin panels are defined outside i18n_patterns() and must be accessed
     without language prefixes.
     """
-    ADMIN_PATHS = ('admin/', 'crush-admin/', 'entreprinder-admin/', 'power-admin/', 'delegation-admin/')
-    LANG_CODES = ('en', 'de', 'fr')
+
+    ADMIN_PATHS = (
+        "admin/",
+        "crush-admin/",
+        "entreprinder-admin/",
+        "power-admin/",
+        "delegation-admin/",
+    )
+    LANG_CODES = ("en", "de", "fr")
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -734,12 +759,14 @@ class AdminLanguagePrefixRedirectMiddleware:
         # Check for pattern like /fr/admin/ or /de/crush-admin/
         for lang in self.LANG_CODES:
             for admin_path in self.ADMIN_PATHS:
-                prefix = f'/{lang}/{admin_path}'
+                prefix = f"/{lang}/{admin_path}"
                 if path.startswith(prefix):
                     # Redirect to language-neutral path
                     # Strip the language prefix: /fr/admin/... -> /admin/...
-                    new_path = '/' + path[len(f'/{lang}/'):]
-                    logger.debug(f"AdminLanguagePrefixRedirectMiddleware: Redirecting {path} -> {new_path}")
+                    new_path = "/" + path[len(f"/{lang}/") :]
+                    logger.debug(
+                        f"AdminLanguagePrefixRedirectMiddleware: Redirecting {path} -> {new_path}"
+                    )
                     return HttpResponsePermanentRedirect(new_path)
         return self.get_response(request)
 
@@ -762,21 +789,23 @@ class OAuthCallbackProtectionMiddleware:
     IMPORTANT: This uses DATABASE storage instead of session storage because
     Android PWA opens OAuth in system browser (different session context).
     """
+
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
         # Ensure OAuth patch is applied on any OAuth-related request
-        if '/accounts/' in request.path:
+        if "/accounts/" in request.path:
             try:
                 from crush_lu.oauth_statekit import ensure_patched
+
                 ensure_patched()
             except ImportError:
                 pass  # crush_lu not installed
 
         # Only check OAuth callback URLs
-        if '/accounts/' in request.path and '/login/callback' in request.path:
-            state = request.GET.get('state', '')
+        if "/accounts/" in request.path and "/login/callback" in request.path:
+            state = request.GET.get("state", "")
 
             # Diagnostic logging (DEBUG level - enable via Django logging config if needed)
             if state:
@@ -800,9 +829,13 @@ class OAuthCallbackProtectionMiddleware:
 
                     with transaction.atomic():
                         # Lock the row to prevent race conditions
-                        existing_state = OAuthState.objects.select_for_update(
-                            nowait=False  # Wait for lock if another request has it
-                        ).filter(state_id=state).first()
+                        existing_state = (
+                            OAuthState.objects.select_for_update(
+                                nowait=False  # Wait for lock if another request has it
+                            )
+                            .filter(state_id=state)
+                            .first()
+                        )
 
                         if existing_state and existing_state.used:
                             # Duplicate request - state already consumed by first callback
@@ -815,21 +848,31 @@ class OAuthCallbackProtectionMiddleware:
                                 f"redirecting to landing"
                             )
 
-                            return HttpResponseRedirect(f'/oauth/landing/?state={state}')
+                            return HttpResponseRedirect(
+                                f"/oauth/landing/?state={state}"
+                            )
 
                         elif existing_state:
                             # First callback - update timestamp and proceed
                             existing_state.last_callback_at = timezone.now()
-                            existing_state.save(update_fields=['last_callback_at'])
-                            logger.debug(f"[OAUTH] First callback for state {state[:8]}..., proceeding")
+                            existing_state.save(update_fields=["last_callback_at"])
+                            logger.debug(
+                                f"[OAUTH] First callback for state {state[:8]}..., proceeding"
+                            )
                         else:
                             # State not in DB - may be session-based OAuth or expired
-                            logger.debug(f"[OAUTH] State {state[:8]}... not in database")
+                            logger.debug(
+                                f"[OAUTH] State {state[:8]}... not in database"
+                            )
 
                 except ImportError:
-                    logger.debug("[OAUTH-PROTECTION] crush_lu.models not available, skipping DB check")
+                    logger.debug(
+                        "[OAUTH-PROTECTION] crush_lu.models not available, skipping DB check"
+                    )
                 except Exception as e:
-                    logger.error(f"[OAUTH-PROTECTION] Error checking state in database: {e}")
+                    logger.error(
+                        f"[OAUTH-PROTECTION] Error checking state in database: {e}"
+                    )
 
         response = self.get_response(request)
         return response
@@ -848,44 +891,55 @@ class DomainURLRoutingMiddleware:
     3. For Azure hostnames (*.azurewebsites.net), use PRODUCTION_DEFAULT
     4. Fallback to PRODUCTION_DEFAULT for unknown hosts
     """
+
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
         from azureproject.domains import DEV_DOMAIN_MAPPINGS
 
-        host = request.get_host().split(':')[0].lower()
+        host = request.get_host().split(":")[0].lower()
 
         # Try to get domain config (checks both primary domains and aliases)
         config = get_domain_config(host)
 
         if config:
-            request.urlconf = config['urlconf']
-            logger.debug(f"DomainURLRoutingMiddleware: Routing to {config['urlconf']} for host: {host}")
+            request.urlconf = config["urlconf"]
+            logger.debug(
+                f"DomainURLRoutingMiddleware: Routing to {config['urlconf']} for host: {host}"
+            )
 
         elif host in DEV_DOMAIN_MAPPINGS:
             # Dev domain mapping (e.g., crush.localhost -> crush.lu)
             mapped_domain = DEV_DOMAIN_MAPPINGS[host]
             mapped_config = DOMAINS[mapped_domain]
-            request.urlconf = mapped_config['urlconf']
-            logger.debug(f"DomainURLRoutingMiddleware: Dev mapping {host} -> {mapped_config['urlconf']} (mapped to {mapped_domain})")
+            request.urlconf = mapped_config["urlconf"]
+            logger.debug(
+                f"DomainURLRoutingMiddleware: Dev mapping {host} -> {mapped_config['urlconf']} (mapped to {mapped_domain})"
+            )
 
         elif host in DEV_HOSTS:
             # Development: use configurable default
             dev_config = DOMAINS[DEV_DEFAULT]
-            request.urlconf = dev_config['urlconf']
-            logger.debug(f"DomainURLRoutingMiddleware: Dev host {host} -> {dev_config['urlconf']} (DEV_DEFAULT={DEV_DEFAULT})")
+            request.urlconf = dev_config["urlconf"]
+            logger.debug(
+                f"DomainURLRoutingMiddleware: Dev host {host} -> {dev_config['urlconf']} (DEV_DEFAULT={DEV_DEFAULT})"
+            )
 
-        elif host.endswith('.azurewebsites.net') or host.startswith('169.254.'):
+        elif host.endswith(".azurewebsites.net") or host.startswith("169.254."):
             # Azure App Service hostname or Azure internal IP (health probes, load balancer)
             prod_config = DOMAINS[PRODUCTION_DEFAULT]
-            request.urlconf = prod_config['urlconf']
-            logger.debug(f"DomainURLRoutingMiddleware: Azure host {host} -> {prod_config['urlconf']}")
+            request.urlconf = prod_config["urlconf"]
+            logger.debug(
+                f"DomainURLRoutingMiddleware: Azure host {host} -> {prod_config['urlconf']}"
+            )
 
         else:
             # Fallback to production default
             prod_config = DOMAINS[PRODUCTION_DEFAULT]
-            request.urlconf = prod_config['urlconf']
-            logger.warning(f"DomainURLRoutingMiddleware: Unknown host {host} -> {prod_config['urlconf']} (fallback)")
+            request.urlconf = prod_config["urlconf"]
+            logger.warning(
+                f"DomainURLRoutingMiddleware: Unknown host {host} -> {prod_config['urlconf']} (fallback)"
+            )
 
         return self.get_response(request)

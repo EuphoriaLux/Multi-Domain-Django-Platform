@@ -15,9 +15,9 @@ def clamp_durations_over_ceiling(apps, schema_editor):
     the CheckConstraint can be added without failing on existing data.
     """
     MeetupEvent = apps.get_model("crush_lu", "MeetupEvent")
-    MeetupEvent.objects.filter(
-        duration_minutes__gt=DURATION_CEILING_MINUTES
-    ).update(duration_minutes=DURATION_CEILING_MINUTES)
+    MeetupEvent.objects.filter(duration_minutes__gt=DURATION_CEILING_MINUTES).update(
+        duration_minutes=DURATION_CEILING_MINUTES
+    )
 
 
 def noop(apps, schema_editor):

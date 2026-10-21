@@ -6,23 +6,38 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0052_add_outlook_contact_id'),
+        ("crush_lu", "0052_add_outlook_contact_id"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='journeychallenge',
-            name='options_de',
-            field=models.JSONField(blank=True, default=dict, help_text='JSON data for options, choices, etc. ({"A": "option1", "B": "option2"})', null=True),
+            model_name="journeychallenge",
+            name="options_de",
+            field=models.JSONField(
+                blank=True,
+                default=dict,
+                help_text='JSON data for options, choices, etc. ({"A": "option1", "B": "option2"})',
+                null=True,
+            ),
         ),
         migrations.AddField(
-            model_name='journeychallenge',
-            name='options_en',
-            field=models.JSONField(blank=True, default=dict, help_text='JSON data for options, choices, etc. ({"A": "option1", "B": "option2"})', null=True),
+            model_name="journeychallenge",
+            name="options_en",
+            field=models.JSONField(
+                blank=True,
+                default=dict,
+                help_text='JSON data for options, choices, etc. ({"A": "option1", "B": "option2"})',
+                null=True,
+            ),
         ),
         migrations.AddField(
-            model_name='journeychallenge',
-            name='options_fr',
-            field=models.JSONField(blank=True, default=dict, help_text='JSON data for options, choices, etc. ({"A": "option1", "B": "option2"})', null=True),
+            model_name="journeychallenge",
+            name="options_fr",
+            field=models.JSONField(
+                blank=True,
+                default=dict,
+                help_text='JSON data for options, choices, etc. ({"A": "option1", "B": "option2"})',
+                null=True,
+            ),
         ),
     ]

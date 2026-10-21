@@ -6,13 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0115_add_quiz_translations'),
+        ("crush_lu", "0115_add_quiz_translations"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='eventregistration',
-            name='apple_wallet_ticket_serial',
-            field=models.CharField(blank=True, default='', help_text='Apple Wallet event ticket serial number', max_length=64),
+            model_name="eventregistration",
+            name="apple_wallet_ticket_serial",
+            field=models.CharField(
+                blank=True,
+                default="",
+                help_text="Apple Wallet event ticket serial number",
+                max_length=64,
+            ),
         ),
     ]

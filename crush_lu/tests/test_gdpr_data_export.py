@@ -104,28 +104,40 @@ class ExportProfileCompletenessTests(TestCase):
 
     def test_app_devices_export_metadata_without_tokens(self):
         from crush_lu.models import (
-            AndroidAppDevice, IOSAppDevice, PWADeviceInstallation,
+            AndroidAppDevice,
+            IOSAppDevice,
+            PWADeviceInstallation,
         )
 
         PWADeviceInstallation.objects.create(
-            user=self.user, device_fingerprint="FP-SECRET", device_category="mobile",
+            user=self.user,
+            device_fingerprint="FP-SECRET",
+            device_category="mobile",
             browser="Chrome",
         )
         IOSAppDevice.objects.create(
-            user=self.user, device_token="IOS-TOKEN-SECRET", device_id="IOS-ID-SECRET",
-            device_name="iPhone", app_version="1.0",
+            user=self.user,
+            device_token="IOS-TOKEN-SECRET",
+            device_id="IOS-ID-SECRET",
+            device_name="iPhone",
+            app_version="1.0",
         )
         AndroidAppDevice.objects.create(
-            user=self.user, registration_token="AND-TOKEN-SECRET",
-            device_id="AND-ID-SECRET", device_name="Pixel 9",
+            user=self.user,
+            registration_token="AND-TOKEN-SECRET",
+            device_id="AND-ID-SECRET",
+            device_name="Pixel 9",
         )
         data = self._export()
         platforms = sorted(d["platform"] for d in data["app_devices"])
         self.assertEqual(platforms, ["android", "ios", "pwa"])
         body = json.dumps(data)
         for secret in (
-            "FP-SECRET", "IOS-TOKEN-SECRET", "IOS-ID-SECRET",
-            "AND-TOKEN-SECRET", "AND-ID-SECRET",
+            "FP-SECRET",
+            "IOS-TOKEN-SECRET",
+            "IOS-ID-SECRET",
+            "AND-TOKEN-SECRET",
+            "AND-ID-SECRET",
         ):
             self.assertNotIn(secret, body)
         self.assertIn("iPhone", body)
@@ -149,13 +161,19 @@ class ExportProfileCompletenessTests(TestCase):
 
     def test_device_notification_category_flags_are_exported(self):
         PushSubscription.objects.create(
-            user=self.user, endpoint="https://p.example/x", p256dh_key="k",
-            auth_key="a", notify_new_messages=False, notify_event_reminders=True,
+            user=self.user,
+            endpoint="https://p.example/x",
+            p256dh_key="k",
+            auth_key="a",
+            notify_new_messages=False,
+            notify_event_reminders=True,
         )
         device = self._export()["push_devices"][0]
         for key in (
-            "notify_new_messages", "notify_event_reminders",
-            "notify_new_connections", "notify_profile_updates",
+            "notify_new_messages",
+            "notify_event_reminders",
+            "notify_new_connections",
+            "notify_profile_updates",
         ):
             self.assertIn(key, device)
         self.assertFalse(device["notify_new_messages"])
@@ -184,20 +202,26 @@ class ExportProfileCompletenessTests(TestCase):
         from hub.models import HubProfile
 
         HubProfile.objects.create(
-            user=self.user, organization="Acme", primary_contact="Ann",
+            user=self.user,
+            organization="Acme",
+            primary_contact="Ann",
             phone="+352621000111",
         )
         EntrepreneurProfile.objects.create(user=self.user, tagline="Hi")
         DelegationProfile.objects.create(
-            user=self.user, microsoft_id="MS-ID-1", microsoft_tenant_id="TENANT-1",
+            user=self.user,
+            microsoft_id="MS-ID-1",
+            microsoft_tenant_id="TENANT-1",
             job_title="Dev",
         )
         from delegations.models import AccessLog
 
         AccessLog.objects.create(
             profile=DelegationProfile.objects.get(user=self.user),
-            action=AccessLog.ACTION_CHOICES[0][0], details="login ok",
-            ip_address="9.9.9.9", user_agent="UA-1",
+            action=AccessLog.ACTION_CHOICES[0][0],
+            details="login ok",
+            ip_address="9.9.9.9",
+            user_agent="UA-1",
         )
         other = self._export()["other_platforms"]
         log = other["delegations"]["access_log"][0]
@@ -215,11 +239,14 @@ class ExportProfileCompletenessTests(TestCase):
 
     def test_onboarding_choices_are_exported_readably(self):
         CrushProfile.objects.filter(user=self.user).update(
-            intent_probe="events", first_step_preference="i_initiate",
+            intent_probe="events",
+            first_step_preference="i_initiate",
             astro_enabled=False,
         )
         profile = self._export()["profile"]
-        self.assertEqual(profile["intent_probe"], "I want to meet people at real events")
+        self.assertEqual(
+            profile["intent_probe"], "I want to meet people at real events"
+        )
         self.assertEqual(
             profile["first_step_preference"], "I prefer to make the first step"
         )
@@ -237,7 +264,9 @@ class ExportRegistryCompletenessTests(TestCase):
             "reg@example.com", "reg@example.com", "pw12345678"
         )
         CrushProfile.objects.create(
-            user=self.user, date_of_birth=date(1995, 1, 1), gender="F",
+            user=self.user,
+            date_of_birth=date(1995, 1, 1),
+            gender="F",
             location="canton-luxembourg",
         )
         EmailPreference.get_or_create_for_user(self.user)
@@ -258,18 +287,22 @@ class ExportRegistryCompletenessTests(TestCase):
         names = [f.name for f in model._meta.concrete_fields]
         names += [f.name for f in model._meta.many_to_many]
         return sorted(
-            name for name in names
+            name
+            for name in names
             if aliases.get(name, name) not in exported and name not in excluded
         )
 
     def test_profile_fields(self):
         from crush_lu.views_account import (
-            ACCOUNT_EXPORT_KEY_ALIASES, ACCOUNT_EXPORT_PROFILE_EXCLUDED,
+            ACCOUNT_EXPORT_KEY_ALIASES,
+            ACCOUNT_EXPORT_PROFILE_EXCLUDED,
         )
 
         self.assertEqual(
             self._missing(
-                CrushProfile, "profile", ACCOUNT_EXPORT_PROFILE_EXCLUDED,
+                CrushProfile,
+                "profile",
+                ACCOUNT_EXPORT_PROFILE_EXCLUDED,
                 ACCOUNT_EXPORT_KEY_ALIASES,
             ),
             [],
@@ -289,7 +322,8 @@ class ExportRegistryCompletenessTests(TestCase):
 
         self.assertEqual(
             self._missing(
-                EmailPreference, "email_preferences",
+                EmailPreference,
+                "email_preferences",
                 ACCOUNT_EXPORT_EMAIL_PREF_EXCLUDED,
             ),
             [],
@@ -307,8 +341,10 @@ class ExportRegistryCompletenessTests(TestCase):
     def test_excluded_lists_name_real_fields_and_secrets_stay_out(self):
         from crush_lu.models import CrushCoach, UserDataConsent
         from crush_lu.views_account import (
-            ACCOUNT_EXPORT_COACH_EXCLUDED, ACCOUNT_EXPORT_CONSENT_EXCLUDED,
-            ACCOUNT_EXPORT_EMAIL_PREF_EXCLUDED, ACCOUNT_EXPORT_PROFILE_EXCLUDED,
+            ACCOUNT_EXPORT_COACH_EXCLUDED,
+            ACCOUNT_EXPORT_CONSENT_EXCLUDED,
+            ACCOUNT_EXPORT_EMAIL_PREF_EXCLUDED,
+            ACCOUNT_EXPORT_PROFILE_EXCLUDED,
         )
 
         for model, excluded in (
@@ -333,14 +369,18 @@ class ExportRegistryCompletenessTests(TestCase):
         CrushProfile.objects.filter(user=self.user).update(
             draft_data={"bio": "newer bio from autosave"}
         )
-        HubRequest.objects.create(user=self.user, subject="Need help", summary="details")
+        HubRequest.objects.create(
+            user=self.user, subject="Need help", summary="details"
+        )
         HubTimelineEvent.objects.create(
             user=self.user, title="Called", body="we spoke", occurred_at=timezone.now()
         )
         entrepreneur = EntrepreneurProfile.objects.create(user=self.user)
         entrepreneur.skills.add(Skill.objects.create(name="Welding"))
         data = self._export()
-        self.assertEqual(data["profile"]["draft_data"], {"bio": "newer bio from autosave"})
+        self.assertEqual(
+            data["profile"]["draft_data"], {"bio": "newer bio from autosave"}
+        )
         hub = data["other_platforms"]["hub"]
         self.assertEqual(hub["requests"][0]["subject"], "Need help")
         self.assertEqual(hub["timeline"][0]["title"], "Called")
@@ -359,14 +399,18 @@ class ExportPixelActivityTests(TestCase):
         )
 
         cache.clear()
-        user = User.objects.create_user("px@example.com", "px@example.com", "pw12345678")
+        user = User.objects.create_user(
+            "px@example.com", "px@example.com", "pw12345678"
+        )
         canvas = PixelCanvas.objects.create(name="c", width=10, height=10)
         Pixel.objects.create(canvas=canvas, x=1, y=2, color="#FF0000", placed_by=user)
         PixelHistory.objects.create(
             canvas=canvas, x=1, y=2, color="#FF0000", placed_by=user
         )
         UserPixelStats.objects.create(
-            user=user, canvas=canvas, total_pixels_placed=3,
+            user=user,
+            canvas=canvas,
+            total_pixels_placed=3,
             last_pixel_placed=timezone.now(),
         )
         request = RequestFactory().get("/")
@@ -377,4 +421,6 @@ class ExportPixelActivityTests(TestCase):
         pixel = data["other_platforms"]["entreprinder"]["pixel_canvas"]
         self.assertEqual(pixel["stats"][0]["total_pixels_placed"], 3)
         self.assertEqual(pixel["placements"][0]["color"], "#FF0000")
-        self.assertEqual((pixel["current_pixels"][0]["x"], pixel["current_pixels"][0]["y"]), (1, 2))
+        self.assertEqual(
+            (pixel["current_pixels"][0]["x"], pixel["current_pixels"][0]["y"]), (1, 2)
+        )

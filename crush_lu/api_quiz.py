@@ -143,9 +143,7 @@ def quiz_tables(request, quiz_id):
     """
     round_num = request.query_params.get("round")
 
-    quiz = QuizEvent.objects.filter(id=quiz_id).select_related(
-        "current_round"
-    ).first()
+    quiz = QuizEvent.objects.filter(id=quiz_id).select_related("current_round").first()
     if quiz is None:
         return Response({"error": "Quiz not found"}, status=404)
 
@@ -196,9 +194,7 @@ def quiz_tables(request, quiz_id):
             # Legacy non-rotating quiz: no rotation rows for this round
             # anywhere in the quiz. Round-0 ``QuizTableMembership`` is
             # the only signal we have.
-            for membership in table.memberships.select_related(
-                "user__crushprofile"
-            ):
+            for membership in table.memberships.select_related("user__crushprofile"):
                 profile = getattr(membership.user, "crushprofile", None)
                 members.append(
                     {
@@ -413,9 +409,11 @@ def score_table(request, quiz_id):
             .order_by("table_number")
         )
 
-        existing = TableRoundScore.objects.select_for_update().filter(
-            quiz=quiz, table=table, question=question
-        ).first()
+        existing = (
+            TableRoundScore.objects.select_for_update()
+            .filter(quiz=quiz, table=table, question=question)
+            .first()
+        )
 
         if existing is None:
             TableRoundScore.objects.create(
@@ -509,9 +507,7 @@ def score_table(request, quiz_id):
                 )
 
     total_tables = QuizTable.objects.filter(quiz=quiz).count()
-    scored_count = TableRoundScore.objects.filter(
-        quiz=quiz, question=question
-    ).count()
+    scored_count = TableRoundScore.objects.filter(quiz=quiz, question=question).count()
 
     return JsonResponse(
         {
@@ -558,9 +554,7 @@ def mark_attended(request, quiz_id):
 
     registration_id = body.get("registration_id")
     if not isinstance(registration_id, int):
-        return JsonResponse(
-            {"error": "registration_id (int) required"}, status=400
-        )
+        return JsonResponse({"error": "registration_id (int) required"}, status=400)
 
     from django.db import transaction
     from django.utils import timezone
@@ -606,9 +600,7 @@ def mark_attended(request, quiz_id):
 
         registration.status = "attended"
         registration.checked_in_at = timezone.now()
-        registration.save(
-            update_fields=["status", "checked_in_at", "updated_at"]
-        )
+        registration.save(update_fields=["status", "checked_in_at", "updated_at"])
 
         # Reuse the QR-path table assignment so manual mark-attended is
         # indistinguishable from a scan downstream.
@@ -619,9 +611,7 @@ def mark_attended(request, quiz_id):
                     assign_table_on_checkin,
                 )
 
-                table_assignment = assign_table_on_checkin(
-                    quiz, registration.user
-                )
+                table_assignment = assign_table_on_checkin(quiz, registration.user)
             except Exception:
                 logger.exception(
                     "Manual mark-attended: table assignment failed for "
@@ -676,9 +666,7 @@ def mark_attended(request, quiz_id):
         broadcast_payload = {
             "success": True,
             "registration_id": registration.id,
-            "attendee_name": _get_display_name(
-                registration, coach_authenticated=True
-            ),
+            "attendee_name": _get_display_name(registration, coach_authenticated=True),
             "checked_in_at": (
                 registration.checked_in_at.isoformat()
                 if registration.checked_in_at
@@ -710,9 +698,7 @@ def mark_attended(request, quiz_id):
             ),
         }
         if table_assignment:
-            broadcast_payload["table_number"] = table_assignment.get(
-                "table_number"
-            )
+            broadcast_payload["table_number"] = table_assignment.get("table_number")
             broadcast_payload["role"] = table_assignment.get("role")
         _broadcast_checkin(quiz.event_id, broadcast_payload)
         if table_assignment:

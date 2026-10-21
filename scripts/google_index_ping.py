@@ -69,7 +69,9 @@ def get_notification_status(url: str):
         return response
     except Exception as e:
         if "404" in str(e):
-            print("\n⏳ Status: Notification accepted by Googlebot (crawl queued / pending).")
+            print(
+                "\n⏳ Status: Notification accepted by Googlebot (crawl queued / pending)."
+            )
         else:
             print(f"\n❌ Error querying indexing status: {e}")
         return None

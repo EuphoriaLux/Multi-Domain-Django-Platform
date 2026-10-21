@@ -56,7 +56,9 @@ def get_fcm_credentials():
 
     # Fallback to wallet credentials if configured
     if not service_account_email:
-        service_account_email = getattr(settings, "WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL", None)
+        service_account_email = getattr(
+            settings, "WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL", None
+        )
         private_key = getattr(settings, "WALLET_GOOGLE_PRIVATE_KEY", None)
         private_key_path = getattr(settings, "WALLET_GOOGLE_PRIVATE_KEY_PATH", None)
 
@@ -79,7 +81,9 @@ def get_fcm_credentials():
                 )
                 return credentials, project_id
             except Exception as e:
-                logger.error(f"Error building FCM service account credentials from key: {e}")
+                logger.error(
+                    f"Error building FCM service account credentials from key: {e}"
+                )
 
         elif private_key_path:
             try:
@@ -90,11 +94,13 @@ def get_fcm_credentials():
                         return service_account.Credentials.from_service_account_info(
                             full_credentials, scopes=FCM_SCOPES
                         ), full_credentials.get("project_id")
-                    
+
                     credentials_info["private_key"] = content
                     project_id = getattr(settings, "FIREBASE_PROJECT_ID", None)
                     if not project_id:
-                        project_id = _derive_project_id_from_email(service_account_email)
+                        project_id = _derive_project_id_from_email(
+                            service_account_email
+                        )
                     credentials = service_account.Credentials.from_service_account_info(
                         credentials_info, scopes=FCM_SCOPES
                     )
@@ -104,6 +110,7 @@ def get_fcm_credentials():
 
     # 2. Check for default local workspace credentials file
     import os
+
     json_filename = "project-2dcadfa2-93e4-4d72-8a8-bb6bb44150d2.json"
     local_json_path = os.path.join(settings.BASE_DIR, json_filename)
     if os.path.exists(local_json_path):
@@ -247,7 +254,10 @@ def send_native_android_push_notification(
         logger.error(f"Error refreshing Google OAuth2 token for FCM: {e}")
         return {"success": 0, "failed": total, "total": total}
     if not project_id:
-        logger.warning("Skipping Android push for user ID %s: FCM settings/credentials are missing.", user.id)
+        logger.warning(
+            "Skipping Android push for user ID %s: FCM settings/credentials are missing.",
+            user.id,
+        )
         return {"success": 0, "failed": 0, "total": total}
 
     headers = {
@@ -277,7 +287,7 @@ def send_native_android_push_notification(
                 "notification": {
                     "title": title,
                     "body": body,
-                }
+                },
             }
         }
         if data_payload:
@@ -293,7 +303,10 @@ def send_native_android_push_notification(
                     f"FCM send failed for device {device.id}: {response.status_code} - {response.text}"
                 )
                 # If token is invalid or unregistered, mark as failed
-                if response.status_code in [404, 410] or "UNREGISTERED" in response.text:
+                if (
+                    response.status_code in [404, 410]
+                    or "UNREGISTERED" in response.text
+                ):
                     device.mark_failure()
                 elif response.status_code == 401 and not token_rejected:
                     # Our OAuth token, not the device: FCM rejected it before
@@ -326,6 +339,3 @@ def send_native_android_push_notification(
         "total": total,
         "skipped": skipped,
     }
-
-
-

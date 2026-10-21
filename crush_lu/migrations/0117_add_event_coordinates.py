@@ -6,18 +6,30 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0116_add_apple_wallet_ticket_serial'),
+        ("crush_lu", "0116_add_apple_wallet_ticket_serial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='meetupevent',
-            name='latitude',
-            field=models.DecimalField(blank=True, decimal_places=6, help_text='Venue latitude for Apple Wallet location notifications', max_digits=9, null=True),
+            model_name="meetupevent",
+            name="latitude",
+            field=models.DecimalField(
+                blank=True,
+                decimal_places=6,
+                help_text="Venue latitude for Apple Wallet location notifications",
+                max_digits=9,
+                null=True,
+            ),
         ),
         migrations.AddField(
-            model_name='meetupevent',
-            name='longitude',
-            field=models.DecimalField(blank=True, decimal_places=6, help_text='Venue longitude for Apple Wallet location notifications', max_digits=9, null=True),
+            model_name="meetupevent",
+            name="longitude",
+            field=models.DecimalField(
+                blank=True,
+                decimal_places=6,
+                help_text="Venue longitude for Apple Wallet location notifications",
+                max_digits=9,
+                null=True,
+            ),
         ),
     ]

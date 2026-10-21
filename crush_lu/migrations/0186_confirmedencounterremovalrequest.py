@@ -33,7 +33,10 @@ class Migration(migrations.Migration):
                             ("safety", "I feel unsafe or uncomfortable"),
                             ("privacy", "Privacy concern"),
                             ("mistaken_identity", "We did not actually meet"),
-                            ("no_longer_visible", "I no longer want this person visible"),
+                            (
+                                "no_longer_visible",
+                                "I no longer want this person visible",
+                            ),
                             ("other", "Another reason"),
                         ],
                         max_length=32,
@@ -53,7 +56,10 @@ class Migration(migrations.Migration):
                         max_length=20,
                     ),
                 ),
-                ("requested_at", models.DateTimeField(auto_now_add=True, db_index=True)),
+                (
+                    "requested_at",
+                    models.DateTimeField(auto_now_add=True, db_index=True),
+                ),
                 ("reviewed_at", models.DateTimeField(blank=True, null=True)),
                 ("resolution_notes", models.TextField(blank=True, max_length=1000)),
                 (

@@ -119,9 +119,9 @@ class TicketData:
 
     @property
     def total(self) -> Decimal:
-        return sum(
-            (line.line_total for line in self.lines), Decimal("0.00")
-        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return sum((line.line_total for line in self.lines), Decimal("0.00")).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
 
 
 _SYMBOLS = {"EUR": "€", "GBP": "£", "USD": "$"}
@@ -203,7 +203,11 @@ def render_ticket(ticket: TicketData, paper: Paper = Paper.MM80) -> list[Directi
     out.append(Text("bar ticket", Align.CENTER))
     out.append(Rule("="))
 
-    out.append(Text(justify(f"TABLE {ticket.table_label}", ticket.ticket_code, cols), bold=True))
+    out.append(
+        Text(
+            justify(f"TABLE {ticket.table_label}", ticket.ticket_code, cols), bold=True
+        )
+    )
     out.append(Text(f"{ticket.placed_at:%a %d %b %H:%M}"))
     out.append(Rule())
 

@@ -6,13 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0032_add_coach_push_subscription'),
+        ("crush_lu", "0032_add_coach_push_subscription"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='crushprofile',
-            name='preferred_language',
-            field=models.CharField(choices=[('en', 'English'), ('de', 'Deutsch'), ('fr', 'Français')], default='en', help_text='Preferred language for emails and notifications', max_length=5),
+            model_name="crushprofile",
+            name="preferred_language",
+            field=models.CharField(
+                choices=[("en", "English"), ("de", "Deutsch"), ("fr", "Français")],
+                default="en",
+                help_text="Preferred language for emails and notifications",
+                max_length=5,
+            ),
         ),
     ]

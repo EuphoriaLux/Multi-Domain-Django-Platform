@@ -134,7 +134,12 @@ PAGES = [
     # ── Premium coach path (post-submission user; NOT the default flow) ──────
     # Coach review only exists on the paid/Premium path. Grouped on its own so
     # the gallery never presents it as the normal onboarding journey.
-    ("Premium (coach path)", "onboarding-meet-coach", "/onboarding/meet-coach/", REVIEW),
+    (
+        "Premium (coach path)",
+        "onboarding-meet-coach",
+        "/onboarding/meet-coach/",
+        REVIEW,
+    ),
     ("Premium (coach path)", "profile-submitted", "/profile-submitted/", REVIEW),
 ]
 
@@ -266,9 +271,7 @@ class Command(BaseCommand):
         if not pages:
             raise CommandError("No pages to capture after filtering.")
 
-        run_dir = (
-            Path(options["output_dir"]) / timezone.now().strftime("%Y%m%d-%H%M%S")
-        )
+        run_dir = Path(options["output_dir"]) / timezone.now().strftime("%Y%m%d-%H%M%S")
         run_dir.mkdir(parents=True, exist_ok=True)
 
         # results[(viewport, name)] = dict(status, final_url, redirected, error, file)
@@ -337,15 +340,14 @@ class Command(BaseCommand):
         """Approved + consented member used for member-journey pages."""
         user = None
         if override:
-            user = User.objects.filter(
-                Q(username=override) | Q(email=override)
-            ).first()
+            user = User.objects.filter(Q(username=override) | Q(email=override)).first()
             if not user:
                 raise CommandError(f"--member-user '{override}' not found.")
         if user is None:
-            user = User.objects.filter(username="testuser1").first() or User.objects.filter(
-                email="testuser1@crush.lu"
-            ).first()
+            user = (
+                User.objects.filter(username="testuser1").first()
+                or User.objects.filter(email="testuser1@crush.lu").first()
+            )
         if user is None:
             user, _ = User.objects.get_or_create(
                 username="screenshot_member@crush.lu",
@@ -376,7 +378,11 @@ class Command(BaseCommand):
         username = "screenshot_cc@crush.lu"
         user, _ = User.objects.get_or_create(
             username=username,
-            defaults={"email": username, "first_name": "Screenshot", "last_name": "Connect"},
+            defaults={
+                "email": username,
+                "first_name": "Screenshot",
+                "last_name": "Connect",
+            },
         )
         if not user.is_staff:
             user.is_staff = True
@@ -451,7 +457,11 @@ class Command(BaseCommand):
         onboarding step is >= 4 (views.py: get_current_step)."""
         user, _ = User.objects.get_or_create(
             username=username,
-            defaults={"email": username, "first_name": "Screenshot", "last_name": "Onboarding"},
+            defaults={
+                "email": username,
+                "first_name": "Screenshot",
+                "last_name": "Onboarding",
+            },
         )
         now = timezone.now()
         profile, _ = CrushProfile.objects.get_or_create(user=user)
@@ -479,7 +489,11 @@ class Command(BaseCommand):
         username = "screenshot_review@crush.lu"
         user, _ = User.objects.get_or_create(
             username=username,
-            defaults={"email": username, "first_name": "Screenshot", "last_name": "Review"},
+            defaults={
+                "email": username,
+                "first_name": "Screenshot",
+                "last_name": "Review",
+            },
         )
         now = timezone.now()
         profile, _ = CrushProfile.objects.get_or_create(user=user)
@@ -524,7 +538,11 @@ class Command(BaseCommand):
         username = "screenshot_verify@crush.lu"
         user, _ = User.objects.get_or_create(
             username=username,
-            defaults={"email": username, "first_name": "Screenshot", "last_name": "Verify"},
+            defaults={
+                "email": username,
+                "first_name": "Screenshot",
+                "last_name": "Verify",
+            },
         )
         now = timezone.now()
         profile, _ = CrushProfile.objects.get_or_create(user=user)
@@ -591,7 +609,9 @@ class Command(BaseCommand):
             or MeetupEvent.objects.order_by("id").first()
         )
         member = (
-            User.objects.filter(Q(username=member_override) | Q(email=member_override)).first()
+            User.objects.filter(
+                Q(username=member_override) | Q(email=member_override)
+            ).first()
             if member_override
             else User.objects.filter(username="testuser1").first()
         )
@@ -638,8 +658,7 @@ class Command(BaseCommand):
         via CDP so it is not blocked by the site's nonce-based CSP."""
         try:
             page.wait_for_timeout(400)  # initial paint
-            page.evaluate(
-                """() => {
+            page.evaluate("""() => {
                     // IntersectionObserver only adds `.visible` on scroll; in a
                     // static capture it never fires, leaving sections invisible.
                     document.querySelectorAll('.animate-on-scroll')
@@ -663,18 +682,15 @@ class Command(BaseCommand):
                             el.style.display = 'none';
                         }
                     });
-                }"""
-            )
-            page.evaluate(
-                """async () => {
+                }""")
+            page.evaluate("""async () => {
                     const step = Math.max(window.innerHeight, 400);
                     for (let y = 0; y < document.body.scrollHeight; y += step) {
                         window.scrollTo(0, y);
                         await new Promise(r => setTimeout(r, 50));
                     }
                     window.scrollTo(0, 0);
-                }"""
-            )
+                }""")
             page.wait_for_timeout(500)  # let fonts/lazy images settle
         except Exception:
             pass  # best-effort; never abort a capture over preparation
@@ -722,9 +738,7 @@ class Command(BaseCommand):
             if result["redirected"]
             else ("ERROR" if result["error"] else "ok")
         )
-        self.stdout.write(
-            f"  {flag:8s} {str(result['status'] or '-'):4s} {pg['path']}"
-        )
+        self.stdout.write(f"  {flag:8s} {str(result['status'] or '-'):4s} {pg['path']}")
         return result
 
     # ── Gallery + summary ──────────────────────────────────────────────────
@@ -779,7 +793,11 @@ class Command(BaseCommand):
                 badge = "<span class='badge ok'>ok</span>"
 
             sample = next(
-                (results.get((vp, pg["name"])) for vp in viewports if results.get((vp, pg["name"]))),
+                (
+                    results.get((vp, pg["name"]))
+                    for vp in viewports
+                    if results.get((vp, pg["name"]))
+                ),
                 {},
             )
             final = sample.get("final_url", "")
@@ -802,7 +820,9 @@ class Command(BaseCommand):
                     )
                 else:
                     note = html.escape(res.get("error") or "no screenshot")
-                    parts.append(f"<div class='frame {vp}'><div class='missing'>{note}</div></div>")
+                    parts.append(
+                        f"<div class='frame {vp}'><div class='missing'>{note}</div></div>"
+                    )
                 parts.append("</div>")
             parts.append("</div></div>")
 

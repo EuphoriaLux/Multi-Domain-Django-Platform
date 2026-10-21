@@ -6,12 +6,12 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0117_add_event_coordinates'),
+        ("crush_lu", "0117_add_event_coordinates"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='crushprofile',
-            name='blur_photos',
+            model_name="crushprofile",
+            name="blur_photos",
         ),
     ]

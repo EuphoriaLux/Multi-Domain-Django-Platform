@@ -20,7 +20,6 @@ import httpx
 import pytest
 from django.test import RequestFactory
 
-
 # ---------------------------------------------------------------------------
 # webServiceURL resolution
 # ---------------------------------------------------------------------------
@@ -92,7 +91,9 @@ class TestResolveWebServiceUrl:
         settings.WALLET_APPLE_WEB_SERVICE_URL = ""
         # secure=True simulates the https scheme production sees behind the
         # Azure proxy (X-Forwarded-Proto -> request.is_secure()).
-        request = RequestFactory().get("/en/dashboard/", HTTP_HOST="crush.lu", secure=True)
+        request = RequestFactory().get(
+            "/en/dashboard/", HTTP_HOST="crush.lu", secure=True
+        )
         # Must be the ROOT — Apple appends /v1 itself.
         assert resolve_web_service_url(request) == "https://crush.lu/wallet"
 
@@ -172,7 +173,9 @@ class TestNormalizeServiceRoot:
 
         settings.WALLET_APPLE_WEB_SERVICE_URL = ""
         assert (
-            resolve_web_service_url(None, web_service_url="https://test.crush.lu/wallet/v1")
+            resolve_web_service_url(
+                None, web_service_url="https://test.crush.lu/wallet/v1"
+            )
             == "https://test.crush.lu/wallet"
         )
 
@@ -189,9 +192,7 @@ class TestNormalizeServiceRoot:
 
 
 def _authed_request(token):
-    return RequestFactory().get(
-        "/", HTTP_AUTHORIZATION=f"ApplePass {token}"
-    )
+    return RequestFactory().get("/", HTTP_AUTHORIZATION=f"ApplePass {token}")
 
 
 @pytest.mark.django_db
@@ -277,7 +278,9 @@ class TestListDeviceRegistrations:
         self._registration()
         request = RequestFactory().get("/")
         assert (
-            list_device_registrations(request, "device-abc", "pass.lu.crush").status_code
+            list_device_registrations(
+                request, "device-abc", "pass.lu.crush"
+            ).status_code
             == 200
         )
 
@@ -316,7 +319,9 @@ class TestListDeviceRegistrations:
         cursor = reg.updated_at.timestamp() + 1
         request = RequestFactory().get("/", {"passesUpdatedSince": str(cursor)})
         assert (
-            list_device_registrations(request, "device-abc", "pass.lu.crush").status_code
+            list_device_registrations(
+                request, "device-abc", "pass.lu.crush"
+            ).status_code
             == 204
         )
 
@@ -353,7 +358,9 @@ class TestListDeviceRegistrations:
         self._registration()
         request = RequestFactory().get("/", {"passesUpdatedSince": "1"})
         assert (
-            list_device_registrations(request, "device-abc", "pass.lu.crush").status_code
+            list_device_registrations(
+                request, "device-abc", "pass.lu.crush"
+            ).status_code
             == 200
         )
 
@@ -540,7 +547,9 @@ class TestOriginFromUrl:
     def test_extracts_origin(self):
         from crush_lu.wallet.apple_event_ticket import _origin_from_url
 
-        assert _origin_from_url("https://test.crush.lu/wallet") == "https://test.crush.lu"
+        assert (
+            _origin_from_url("https://test.crush.lu/wallet") == "https://test.crush.lu"
+        )
         assert _origin_from_url("https://crush.lu/wallet") == "https://crush.lu"
 
     def test_returns_none_for_empty_or_unparseable(self):
@@ -559,9 +568,7 @@ class TestResolveCheckinBaseUrl:
     def test_live_request_wins_over_configured_service_root(self):
         from crush_lu.wallet.apple_event_ticket import _resolve_checkin_base_url
 
-        request = RequestFactory().get(
-            "/", HTTP_HOST="test.crush.lu", secure=True
-        )
+        request = RequestFactory().get("/", HTTP_HOST="test.crush.lu", secure=True)
         # Returning None hands the decision to _build_checkin_url, which uses
         # the request host. The production-pointing resolved URL must not win.
         assert (
@@ -650,9 +657,7 @@ class TestBuildCheckinUrl:
         _event, registrations = event_with_registrations
         registration = registrations[0]
 
-        url = _build_checkin_url(
-            registration, None, base_url="https://test.crush.lu"
-        )
+        url = _build_checkin_url(registration, None, base_url="https://test.crush.lu")
         assert url.startswith(
             f"https://test.crush.lu/api/events/checkin/{registration.id}/"
         )
@@ -864,7 +869,10 @@ class TestEventLevelTicketRefresh:
         return _event, registration
 
     def test_refresh_event_tickets_pushes_each_serial(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         from crush_lu.wallet.passkit_service import refresh_event_tickets
 
@@ -894,7 +902,10 @@ class TestEventLevelTicketRefresh:
         assert refresh_event_tickets(event) == 0
 
     def test_reschedule_schedules_a_refresh(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         from datetime import timedelta
 
@@ -919,7 +930,10 @@ class TestEventLevelTicketRefresh:
         assert refresh.call_args.kwargs["mark_updated"] is False
 
     def test_event_change_also_refreshes_member_passes(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         # The member card shows the holder's NEXT event, so an event edit makes
         # it stale too — and it carries a different serial from the ticket.
@@ -942,7 +956,9 @@ class TestEventLevelTicketRefresh:
         assert pushed == {"evt-1-reg-1-abcd", "member-serial"}
 
     def test_cancelled_attendees_member_pass_is_not_pushed(
-        self, _apple_identity, event_with_registrations,
+        self,
+        _apple_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         # Same reasoning as the Google half: get_next_event_for_pass ignores a
@@ -956,9 +972,7 @@ class TestEventLevelTicketRefresh:
         profile.apple_pass_serial = "member-serial"
         profile.save(update_fields=["apple_pass_serial"])
         # .update() so the per-registration receiver does not fire during setup.
-        EventRegistration.objects.filter(pk=registration.pk).update(
-            status="cancelled"
-        )
+        EventRegistration.objects.filter(pk=registration.pk).update(status="cancelled")
 
         with mock.patch(
             "crush_lu.wallet.passkit_service.trigger_pass_refresh"
@@ -971,7 +985,10 @@ class TestEventLevelTicketRefresh:
         assert pushed == {"evt-1-reg-1-abcd"}
 
     def test_no_payload_change_does_not_push(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         event, _registration = self._ticketed(event_with_registrations)
 
@@ -986,7 +1003,10 @@ class TestEventLevelTicketRefresh:
         refresh.assert_not_called()
 
     def test_translated_title_change_pushes(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         # title is a modeltranslation field; admin runs in English, so editing
         # only title_fr must still be seen — French holders read that column.
@@ -1048,7 +1068,10 @@ class TestEventLevelTicketRefresh:
         assert refresh.call_args.kwargs["mark_updated"] is False
 
     def test_bulk_fanout_is_capped_but_all_tags_advance(
-        self, _apple_identity, settings, event_with_registrations,
+        self,
+        _apple_identity,
+        settings,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         from crush_lu.models import PasskitDeviceRegistration
@@ -1193,9 +1216,7 @@ class TestEventLevelGoogleRefresh:
             )
             # Registration first, profile second: the registration receiver
             # bails on a profile-less user, so setup stays free of wallet calls.
-            EventRegistration.objects.create(
-                event=event, user=user, status="confirmed"
-            )
+            EventRegistration.objects.create(event=event, user=user, status="confirmed")
             profile = CrushProfile.objects.create(
                 user=user,
                 date_of_birth=date(1995, 5, 15),
@@ -1211,7 +1232,9 @@ class TestEventLevelGoogleRefresh:
         return profiles
 
     def test_event_change_patches_the_member_object(
-        self, _google_identity, event_with_registrations,
+        self,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         event, profile = self._google_holder(event_with_registrations)
@@ -1231,7 +1254,9 @@ class TestEventLevelGoogleRefresh:
         assert token.call_count == 1
 
     def test_one_token_exchange_serves_the_whole_batch(
-        self, _google_identity, event_with_registrations,
+        self,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         # The per-profile entry point mints a token per call, so a fan-out cost
@@ -1252,7 +1277,9 @@ class TestEventLevelGoogleRefresh:
         assert token.call_count == 1
 
     def test_attendee_without_a_google_pass_costs_nothing(
-        self, _google_identity, event_with_registrations,
+        self,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         # Not merely "no PATCH": with nothing to update there must be no token
@@ -1280,7 +1307,11 @@ class TestEventLevelGoogleRefresh:
         ],
     )
     def test_apple_only_field_changes_do_not_patch_google(
-        self, field, value, _google_identity, event_with_registrations,
+        self,
+        field,
+        value,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         # The Google object renders only the next event's title and date, so
@@ -1322,7 +1353,11 @@ class TestEventLevelGoogleRefresh:
         ],
     )
     def test_google_rendered_field_changes_do_patch(
-        self, field, value, _google_identity, event_with_registrations,
+        self,
+        field,
+        value,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         # The other half of the gate: what the card actually prints must still
@@ -1349,7 +1384,9 @@ class TestEventLevelGoogleRefresh:
         assert patch_object.call_count == 1
 
     def test_no_payload_change_does_not_patch(
-        self, _google_identity, event_with_registrations,
+        self,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         event, _profile = self._google_holder(event_with_registrations)
@@ -1370,7 +1407,9 @@ class TestEventLevelGoogleRefresh:
     # test_shortening_a_running_event_off_the_card_patches_google. This is its
     # mirror, which nothing covered.
     def test_extending_a_just_ended_event_patches_the_member_object(
-        self, _google_identity, event_with_registrations,
+        self,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         from datetime import timedelta
@@ -1408,8 +1447,14 @@ class TestEventLevelGoogleRefresh:
         ],
     )
     def test_duration_edits_that_cannot_move_the_card_do_not_patch(
-        self, days_out, old_minutes, new_minutes, label, _google_identity,
-        event_with_registrations, django_capture_on_commit_callbacks,
+        self,
+        days_out,
+        old_minutes,
+        new_minutes,
+        label,
+        _google_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         from datetime import timedelta
 
@@ -1439,7 +1484,9 @@ class TestEventLevelGoogleRefresh:
         patch_object.assert_not_called()
 
     def test_a_past_event_staying_past_still_patches(
-        self, _google_identity, event_with_registrations,
+        self,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         from datetime import timedelta
@@ -1475,7 +1522,10 @@ class TestEventLevelGoogleRefresh:
         assert patch_object.call_count == 1
 
     def test_the_apple_ticket_still_refreshes_on_any_duration_edit(
-        self, _apple_identity, _google_identity, event_with_registrations,
+        self,
+        _apple_identity,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         from datetime import timedelta
@@ -1510,7 +1560,9 @@ class TestEventLevelGoogleRefresh:
         patch_object.assert_not_called()
 
     def test_a_tied_but_lower_id_event_counts_as_nearer(
-        self, _google_identity, event_with_registrations,
+        self,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         from crush_lu.models import EventRegistration
@@ -1567,7 +1619,9 @@ class TestEventLevelGoogleRefresh:
         assert signals._NEXT_EVENT_STATUSES is PASS_NEXT_EVENT_STATUSES
 
     def test_nothing_runs_before_the_event_change_commits(
-        self, _google_identity, event_with_registrations,
+        self,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         # Same reason as the Apple path: a PATCH sent before commit would
@@ -1589,8 +1643,12 @@ class TestEventLevelGoogleRefresh:
             assert patch_object.call_count == 1
 
     def test_fanout_is_capped_and_the_stale_passes_are_named(
-        self, _google_identity, settings, event_with_registrations,
-        django_capture_on_commit_callbacks, caplog,
+        self,
+        _google_identity,
+        settings,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
+        caplog,
     ):
         import logging
 
@@ -1615,8 +1673,7 @@ class TestEventLevelGoogleRefresh:
 
         assert patch_object.call_count == 2
         patched = {
-            call.args[0].google_wallet_object_id
-            for call in patch_object.call_args_list
+            call.args[0].google_wallet_object_id for call in patch_object.call_args_list
         }
         stale = all_ids - patched
         assert len(stale) == 1
@@ -1626,7 +1683,10 @@ class TestEventLevelGoogleRefresh:
         assert stale.pop() in caplog.text
 
     def test_budget_stops_the_batch_mid_way(
-        self, _google_identity, settings, event_with_registrations,
+        self,
+        _google_identity,
+        settings,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         # The count limit is not a bound on the work — each pass is an HTTPS
@@ -1661,7 +1721,10 @@ class TestEventLevelGoogleRefresh:
         assert patch_object.call_count == 1
 
     def test_each_request_is_clamped_to_the_remaining_budget(
-        self, _google_identity, settings, event_with_registrations,
+        self,
+        _google_identity,
+        settings,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         # A 30s per-phase default is no kind of bound inside a 2s batch.
@@ -1774,14 +1837,14 @@ class TestEventLevelGoogleRefresh:
             with mock.patch.object(
                 google_api, "_build_generic_object_payload", side_effect=_capture
             ):
-                google_api._patch_generic_object(
-                    profile, "class-id", "tok", _Client()
-                )
+                google_api._patch_generic_object(profile, "class-id", "tok", _Client())
 
         assert seen["language"] is None
 
     def test_a_cancelled_attendee_does_not_consume_the_budget(
-        self, _google_identity, event_with_registrations,
+        self,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         # get_next_event_for_pass ignores cancelled registrations, so this
@@ -1807,13 +1870,14 @@ class TestEventLevelGoogleRefresh:
                 self._retitle(event)
 
         patched = {
-            call.args[0].google_wallet_object_id
-            for call in patch_object.call_args_list
+            call.args[0].google_wallet_object_id for call in patch_object.call_args_list
         }
         assert patched == {profile.google_wallet_object_id}
 
     def test_one_failing_object_does_not_strand_the_rest(
-        self, _google_identity, event_with_registrations,
+        self,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         event, _profile = self._google_holder(event_with_registrations)
@@ -1832,8 +1896,11 @@ class TestEventLevelGoogleRefresh:
         assert patch_object.call_count == 3
 
     def test_token_failure_is_swallowed_and_reported(
-        self, _google_identity, event_with_registrations,
-        django_capture_on_commit_callbacks, caplog,
+        self,
+        _google_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
+        caplog,
     ):
         import logging
 
@@ -1858,7 +1925,10 @@ class TestEventLevelGoogleRefresh:
         assert profile.google_wallet_object_id in caplog.text
 
     def test_missing_class_id_schedules_nothing(
-        self, _google_identity, settings, event_with_registrations,
+        self,
+        _google_identity,
+        settings,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         event, _profile = self._google_holder(event_with_registrations)
@@ -1876,7 +1946,9 @@ class TestEventLevelGoogleRefresh:
         assert patch_object.call_count == 0
 
     def test_google_still_runs_when_the_apple_half_fails(
-        self, _google_identity, event_with_registrations,
+        self,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         # Two independent APIs: an Apple outage must not skip the Google
@@ -1898,7 +1970,9 @@ class TestEventLevelGoogleRefresh:
         assert patch_object.call_count == 1
 
     def test_returns_the_number_scheduled_and_ignores_passless_profiles(
-        self, _google_identity, event_with_registrations,
+        self,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         from crush_lu.wallet.google_api import refresh_google_wallet_objects
@@ -1920,7 +1994,9 @@ class TestEventLevelGoogleRefresh:
         assert patch_object.call_count == 1
 
     def test_shortening_a_running_event_off_the_card_patches_google(
-        self, _google_identity, event_with_registrations,
+        self,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         # duration_minutes is printed nowhere on the card, which is exactly why
@@ -1973,13 +2049,13 @@ class TestEventLevelGoogleRefresh:
             registration_deadline=when - timedelta(days=1),
             is_published=True,
         )
-        EventRegistration.objects.create(
-            event=other, user=profile.user, status=status
-        )
+        EventRegistration.objects.create(event=other, user=profile.user, status=status)
         return other
 
     def test_holder_with_a_nearer_event_is_not_rebuilt(
-        self, _google_identity, event_with_registrations,
+        self,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         # get_next_event_for_pass renders the EARLIEST upcoming registration,
@@ -2002,7 +2078,9 @@ class TestEventLevelGoogleRefresh:
         patch_object.assert_not_called()
 
     def test_a_reschedule_past_the_nearer_event_still_rebuilds(
-        self, _google_identity, event_with_registrations,
+        self,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         # The direction that must NOT be optimised away: this event was the
@@ -2032,7 +2110,10 @@ class TestEventLevelGoogleRefresh:
 
     @pytest.mark.parametrize("days_ago", [2, 30])
     def test_a_finished_event_does_not_count_as_the_nearer_one(
-        self, days_ago, _google_identity, event_with_registrations,
+        self,
+        days_ago,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         # An event that has ended is not what the card shows, so it must not
@@ -2070,7 +2151,9 @@ class TestEventLevelGoogleRefresh:
         assert patch_object.call_count == 1
 
     def test_a_currently_running_nearer_event_still_refreshes(
-        self, _google_identity, event_with_registrations,
+        self,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         # The accepted cost of the `>= now` bound: an event running RIGHT NOW
@@ -2100,7 +2183,10 @@ class TestEventLevelGoogleRefresh:
         assert patch_object.call_count == 1
 
     def test_nested_class_creation_does_not_swallow_the_refresh(
-        self, _google_identity, settings, event_with_registrations,
+        self,
+        _google_identity,
+        settings,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         # auto_create_event_ticket_class_on_publish runs FIRST and persists the
@@ -2151,7 +2237,9 @@ class TestEventLevelGoogleRefresh:
         assert patch_object.call_count == 1
 
     def test_payload_comes_from_committed_state_not_the_captured_instance(
-        self, _google_identity, event_with_registrations,
+        self,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         # This call ships the payload itself, so PATCHing from the instance
@@ -2180,7 +2268,9 @@ class TestEventLevelGoogleRefresh:
         assert patch_object.call_args.args[0].membership_tier == "gold"
 
     def test_a_profile_that_vanishes_before_commit_is_skipped(
-        self, _google_identity, event_with_registrations,
+        self,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         # Unlinked (or deleted) between scheduling and running: there is
@@ -2268,9 +2358,7 @@ class TestUpdateAllGoogleWalletPasses:
             profiles.append(profile)
         return profiles
 
-    def test_one_token_and_one_client_serve_the_whole_sweep(
-        self, _google_identity
-    ):
+    def test_one_token_and_one_client_serve_the_whole_sweep(self, _google_identity):
         from crush_lu.wallet.google_api import update_all_google_wallet_passes
 
         self._holders(3)
@@ -2460,7 +2548,10 @@ class TestAppleEventTicketRefreshSignal:
         return registration
 
     def test_cancelling_triggers_a_refresh(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         registration = self._prepared(event_with_registrations)
 
@@ -2474,7 +2565,10 @@ class TestAppleEventTicketRefreshSignal:
         refresh.assert_called_once_with("pass.lu.crush", "evt-1-reg-1-abcd")
 
     def test_no_refresh_without_a_ticket_serial(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         _event, registrations = event_with_registrations
         registration = registrations[0]
@@ -2489,7 +2583,10 @@ class TestAppleEventTicketRefreshSignal:
         refresh.assert_not_called()
 
     def test_attendance_does_not_push(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         # The door writes `attended` for every scan, and on_commit runs inside
         # the request/response cycle — with APNs configured this would put a
@@ -2508,7 +2605,10 @@ class TestAppleEventTicketRefreshSignal:
         refresh.assert_not_called()
 
     def test_plain_confirmed_save_does_not_push(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         # Many saves leave a row confirmed with no transition (token/ID writes);
         # each must not fire a push. Gated on _reactivate_ticket, like Google.
@@ -2523,7 +2623,10 @@ class TestAppleEventTicketRefreshSignal:
         refresh.assert_not_called()
 
     def test_restoring_a_cancelled_seat_pushes_without_the_undo_flag(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         from crush_lu.models import EventRegistration
 
@@ -2547,7 +2650,10 @@ class TestAppleEventTicketRefreshSignal:
         refresh.assert_called_once_with("pass.lu.crush", "evt-1-reg-1-abcd")
 
     def test_editing_an_already_cancelled_row_does_not_push(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         from crush_lu.models import EventRegistration
 
@@ -2567,7 +2673,10 @@ class TestAppleEventTicketRefreshSignal:
         refresh.assert_not_called()
 
     def test_multiple_transitions_on_one_instance_still_push(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         # _previous_status is re-read before EVERY save. A snapshot taken once
         # at load would still report "confirmed" on the second save here, so
@@ -2588,7 +2697,10 @@ class TestAppleEventTicketRefreshSignal:
         assert refresh.call_count == 2
 
     def test_undo_from_attended_does_not_push(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         from crush_lu.models import EventRegistration
 
@@ -2634,7 +2746,10 @@ class TestAppleEventTicketRefreshSignal:
         assert refresh.call_count == 1
 
     def test_reassigning_the_owner_pushes(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         from django.contrib.auth import get_user_model
 
@@ -2670,7 +2785,10 @@ class TestProfileRenameRefreshesTickets:
         return registration
 
     def test_rename_refreshes_tickets_without_a_member_pass(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         registration = self._ticketed(event_with_registrations)
         profile = registration.user.crushprofile
@@ -2692,7 +2810,10 @@ class TestProfileRenameRefreshesTickets:
         assert "evt-1-reg-1-abcd" in {c.args[1] for c in refresh.call_args_list}
 
     def test_user_rename_refreshes_member_pass_and_tickets(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         # The name actually lives on User — display_name reads
         # User.first_name/get_full_name() — and the CrushProfile receiver never
@@ -2714,7 +2835,10 @@ class TestProfileRenameRefreshesTickets:
         assert pushed == {"evt-1-reg-1-abcd", "member-serial"}
 
     def test_profile_creation_refreshes_an_existing_ticket(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         from datetime import date
 
@@ -2738,7 +2862,10 @@ class TestProfileRenameRefreshesTickets:
         assert "evt-1-reg-1-abcd" in {c.args[1] for c in refresh.call_args_list}
 
     def test_bare_profile_save_does_not_refresh(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         # The Microsoft sign-in path calls profile.save() with no
         # update_fields on every login. Treating that as an identity change
@@ -2755,7 +2882,10 @@ class TestProfileRenameRefreshesTickets:
         refresh.assert_not_called()
 
     def test_username_change_refreshes(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         # display_name falls back to username in BOTH branches, so a user with
         # no first name has their username printed on the pass and the ticket.
@@ -2772,7 +2902,10 @@ class TestProfileRenameRefreshesTickets:
         assert "evt-1-reg-1-abcd" in {c.args[1] for c in refresh.call_args_list}
 
     def test_password_change_does_not_refresh(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         # CrushSetPasswordForm.save() calls user.save() with no update_fields.
         # Treating every full save as a rename made password changes fan out
@@ -2790,7 +2923,10 @@ class TestProfileRenameRefreshesTickets:
         refresh.assert_not_called()
 
     def test_login_does_not_refresh(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         from django.utils import timezone as dj_timezone
 
@@ -2809,7 +2945,10 @@ class TestProfileRenameRefreshesTickets:
         refresh.assert_not_called()
 
     def test_user_rename_refreshes_the_google_member_object(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         # Google prints display_name too, but refresh_ticket_serials is
         # Apple-only. This used to ride on the next bare profile.save()
@@ -2835,7 +2974,10 @@ class TestProfileRenameRefreshesTickets:
         assert google_patch.call_count == 1
 
     def test_password_change_does_not_refresh_the_google_member_object(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         # The Google half has to sit behind the same rename guard as the Apple
         # half, or CrushSetPasswordForm.save() — a bare user.save() — starts
@@ -2858,7 +3000,10 @@ class TestProfileRenameRefreshesTickets:
         google_patch.assert_not_called()
 
     def test_non_identity_save_does_not_refresh_tickets(
-        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+        self,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
     ):
         registration = self._ticketed(event_with_registrations)
         profile = registration.user.crushprofile
@@ -2928,9 +3073,7 @@ class TestMemberPassUpdateNeedsARealChange:
 
         update.assert_not_called()
 
-    def test_an_existing_photo_does_not_read_as_a_change(
-        self, test_user_with_profile
-    ):
+    def test_an_existing_photo_does_not_read_as_a_change(self, test_user_with_profile):
         from crush_lu.models import CrushProfile
 
         # photo_1 is the one field where the row and the instance hold
@@ -2949,9 +3092,7 @@ class TestMemberPassUpdateNeedsARealChange:
 
         update.assert_not_called()
 
-    def test_a_real_change_in_a_bare_save_still_refreshes(
-        self, test_user_with_profile
-    ):
+    def test_a_real_change_in_a_bare_save_still_refreshes(self, test_user_with_profile):
         # The guard has to be a comparison, not a blanket "full saves don't
         # count": the profile form posts every field, so a genuine tier or
         # privacy edit arrives with update_fields=None too.
@@ -3288,9 +3429,7 @@ class TestReferralCodeChangeRefreshesTheMemberPass:
 
         assert "member-serial" in set(refresh.call_args.args[0])
 
-    def test_editing_the_code_refreshes(
-        self, _apple_identity, test_user_with_profile
-    ):
+    def test_editing_the_code_refreshes(self, _apple_identity, test_user_with_profile):
         profile, code = self._with_code(test_user_with_profile)
 
         with mock.patch(
@@ -3384,9 +3523,7 @@ class TestReferralCodeChangeRefreshesTheMemberPass:
         assert pushed == {"member-serial", "new-holder-serial"}
         assert old_holder.apple_pass_serial == "member-serial"
 
-    def test_deleting_a_code_refreshes(
-        self, _apple_identity, test_user_with_profile
-    ):
+    def test_deleting_a_code_refreshes(self, _apple_identity, test_user_with_profile):
         # capture_referral needs a matching row, so once it is gone the QR
         # attributes nothing — and the next build mints a different code, so
         # the installed pass never converges on its own.
@@ -3690,7 +3827,10 @@ class TestAdminBulkActionsRefreshWallets:
         assert refresh_google.call_count == 1
 
     def test_cancel_events_patches_google_end_to_end(
-        self, _apple_identity, _google_identity, event_with_registrations,
+        self,
+        _apple_identity,
+        _google_identity,
+        event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
         from crush_lu.models import MeetupEvent

@@ -600,5 +600,7 @@ class TestReviewStepRefreshesAfterBackGesture:
 
         # The final form does not include this field. The step-save request
         # must commit it before Review is shown after the history gesture.
-        assert CrushProfile.objects.get(user=review_step_user).event_vibe == selected_vibe
+        assert (
+            CrushProfile.objects.get(user=review_step_user).event_vibe == selected_vibe
+        )
         assert page.url.endswith("#step-4")

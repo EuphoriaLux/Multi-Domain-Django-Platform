@@ -33,8 +33,10 @@ class ErasureKeyCheckTests(SimpleTestCase):
     def test_staging_slot_never_warns(self):
         # The setting is slot-sticky on production only: staging has no key and
         # a warning there would be noise on every deploy.
-        with _env(WEBSITE_HOSTNAME="crush-staging.azurewebsites.net",
-                  WEBSITE_SLOT_NAME="staging"):
+        with _env(
+            WEBSITE_HOSTNAME="crush-staging.azurewebsites.net",
+            WEBSITE_SLOT_NAME="staging",
+        ):
             self.assertEqual(checks.check_erasure_digest_key(None), [])
 
     @override_settings(ERASURE_DIGEST_KEY="")

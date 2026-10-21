@@ -38,7 +38,9 @@ DEFAULT_RETENTION_DAYS = 30
 
 
 class Command(BaseCommand):
-    help = "Hard-delete Event Lobby signal/confirmation/participation rows past retention"
+    help = (
+        "Hard-delete Event Lobby signal/confirmation/participation rows past retention"
+    )
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -72,12 +74,10 @@ class Command(BaseCommand):
         # `days` later. duration_minutes varies per event and SQLite can't do
         # timedelta * F(), so filter generously in SQL then confirm in Python
         # (same idiom as context_processors / get_active_live_lobby).
-        generous_cutoff = now - timedelta(
-            days=days, hours=RECAP_WINDOW_HOURS
+        generous_cutoff = now - timedelta(days=days, hours=RECAP_WINDOW_HOURS)
+        candidates = MeetupEvent.objects.filter(date_time__lt=generous_cutoff).only(
+            "id", "date_time", "duration_minutes"
         )
-        candidates = MeetupEvent.objects.filter(
-            date_time__lt=generous_cutoff
-        ).only("id", "date_time", "duration_minutes")
 
         expired_event_ids = [
             event.pk

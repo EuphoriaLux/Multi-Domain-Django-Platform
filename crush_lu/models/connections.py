@@ -25,8 +25,7 @@ class EventConnectionQuerySet(models.QuerySet):
         renders only as a neutral "with your coach" lead to the requester.
         """
         return self.exclude(
-            models.Q(flow=EventConnection.FLOW_CRUSH)
-            & ~models.Q(status='shared')
+            models.Q(flow=EventConnection.FLOW_CRUSH) & ~models.Q(status="shared")
         )
 
     def open_crush_leads(self):
@@ -49,9 +48,13 @@ class EventConnectionQuerySet(models.QuerySet):
         Ordering by ``requested_at`` is ordering by "call by" — the SLA is a
         fixed offset from the declaration timestamp.
         """
-        return self.open_crush_leads().filter(
-            assigned_coach=coach,
-        ).order_by('requested_at', 'id')
+        return (
+            self.open_crush_leads()
+            .filter(
+                assigned_coach=coach,
+            )
+            .order_by("requested_at", "id")
+        )
 
     def crush_leads_in_pool(self):
         """
@@ -75,25 +78,27 @@ class EventConnectionQuerySet(models.QuerySet):
         lead is just as stranded as an unrouted one. Same rule as
         ``visible_to_coach`` and the review view's claim guard.
         """
-        return self.open_crush_leads().filter(
-            models.Q(assigned_coach__isnull=True)
-            | models.Q(assigned_coach__is_active=False)
-        ).order_by('requested_at', 'id')
+        return (
+            self.open_crush_leads()
+            .filter(
+                models.Q(assigned_coach__isnull=True)
+                | models.Q(assigned_coach__is_active=False)
+            )
+            .order_by("requested_at", "id")
+        )
 
     def for_user(self, user):
         """Connections where user is requester or recipient."""
-        return self.filter(
-            models.Q(requester=user) | models.Q(recipient=user)
-        )
+        return self.filter(models.Q(requester=user) | models.Q(recipient=user))
 
     def pending_for_user(self, user):
         """Pending connection requests received by user."""
-        return self.filter(recipient=user, status='pending')
+        return self.filter(recipient=user, status="pending")
 
     def active_for_user(self, user):
         """Active connections (accepted through shared) for user."""
         return self.for_user(user).filter(
-            status__in=['accepted', 'coach_reviewing', 'coach_approved', 'shared']
+            status__in=["accepted", "coach_reviewing", "coach_approved", "shared"]
         )
 
     def for_event(self, event, user):
@@ -121,14 +126,12 @@ class EventConnectionQuerySet(models.QuerySet):
         from django.db.models import Exists, OuterRef
 
         mutual_subquery = EventConnection.objects.filter(
-            requester=OuterRef('recipient'),
-            recipient=OuterRef('requester'),
-            event=OuterRef('event')
+            requester=OuterRef("recipient"),
+            recipient=OuterRef("requester"),
+            event=OuterRef("event"),
         )
 
-        return self.annotate(
-            is_mutual_annotated=Exists(mutual_subquery)
-        )
+        return self.annotate(is_mutual_annotated=Exists(mutual_subquery))
 
     def visible_to_coach(self, coach):
         """
@@ -160,7 +163,7 @@ class EventConnectionQuerySet(models.QuerySet):
         """
         return self.exclude(
             models.Q(flow=EventConnection.FLOW_CRUSH)
-            & ~models.Q(status='shared')
+            & ~models.Q(status="shared")
             # Explicit, because the OR below no longer implies it: an
             # unrouted pool lead must stay visible so it can be claimed.
             & models.Q(assigned_coach__isnull=False)
@@ -188,11 +191,11 @@ class EventConnectionQuerySet(models.QuerySet):
         from django.db.models import Exists, OuterRef
 
         reciprocal = EventConnection.objects.filter(
-            requester=OuterRef('recipient'),
-            recipient=OuterRef('requester'),
-            event=OuterRef('event'),
+            requester=OuterRef("recipient"),
+            recipient=OuterRef("requester"),
+            event=OuterRef("event"),
             flow=EventConnection.FLOW_CRUSH,
-        ).exclude(status='declined')
+        ).exclude(status="declined")
 
         return self.annotate(is_mutual_crush_annotated=Exists(reciprocal))
 
@@ -205,21 +208,15 @@ class EventConnectionQuerySet(models.QuerySet):
         """
         from django.db.models import Exists, OuterRef
 
-        mutual_subquery = (
-            EventConnection.objects.filter(
-                requester=OuterRef('recipient'),
-                recipient=OuterRef('requester'),
-                event=OuterRef('event')
-            )
-            .exclude(
-                models.Q(flow=EventConnection.FLOW_CRUSH)
-                & ~models.Q(status='shared')
-            )
+        mutual_subquery = EventConnection.objects.filter(
+            requester=OuterRef("recipient"),
+            recipient=OuterRef("requester"),
+            event=OuterRef("event"),
+        ).exclude(
+            models.Q(flow=EventConnection.FLOW_CRUSH) & ~models.Q(status="shared")
         )
 
-        return self.annotate(
-            is_mutual_annotated=Exists(mutual_subquery)
-        )
+        return self.annotate(is_mutual_annotated=Exists(mutual_subquery))
 
 
 class EventConnectionManager(models.Manager):
@@ -272,27 +269,27 @@ class EventConnection(models.Model):
     """Post-event connection requests between attendees"""
 
     STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('accepted', 'Accepted'),
-        ('declined', 'Declined'),
-        ('coach_reviewing', 'Coach Reviewing'),
-        ('coach_approved', 'Coach Approved - Ready to Share'),
-        ('shared', 'Contact Info Shared'),
+        ("pending", "Pending"),
+        ("accepted", "Accepted"),
+        ("declined", "Declined"),
+        ("coach_reviewing", "Coach Reviewing"),
+        ("coach_approved", "Coach Approved - Ready to Share"),
+        ("shared", "Contact Info Shared"),
     ]
 
     # "My Crush!" post-event flow (spec 2026-07-21-crush-my-crush-post-event-flow §7)
-    FLOW_LEGACY = 'legacy'
-    FLOW_CRUSH = 'crush'
+    FLOW_LEGACY = "legacy"
+    FLOW_CRUSH = "crush"
     FLOW_CHOICES = [
-        (FLOW_LEGACY, 'Legacy connection request'),
-        (FLOW_CRUSH, 'My Crush! coach lead'),
+        (FLOW_LEGACY, "Legacy connection request"),
+        (FLOW_CRUSH, "My Crush! coach lead"),
     ]
 
     # Recipient's answer, recorded by their own coach through the constrained
     # co-coach task actions — never by the recipient directly (they are never
     # shown the lead).
-    RECIPIENT_RESPONSE_CONSENTED = 'consented'
-    RECIPIENT_RESPONSE_DECLINED = 'declined'
+    RECIPIENT_RESPONSE_CONSENTED = "consented"
+    RECIPIENT_RESPONSE_DECLINED = "declined"
     # Wrapped so ``makemessages`` can see them. Nothing calls
     # ``get_recipient_response_display()`` today — these labels currently
     # surface only in the Django admin — so this changes no rendered string
@@ -301,15 +298,15 @@ class EventConnection(models.Model):
     # lists above are left unwrapped: same latent trap, but they predate this
     # phase and rewrapping them is a separate, wider change.
     RECIPIENT_RESPONSE_CHOICES = [
-        (RECIPIENT_RESPONSE_CONSENTED, _('Recipient consented to the introduction')),
-        (RECIPIENT_RESPONSE_DECLINED, _('Recipient declined the introduction')),
+        (RECIPIENT_RESPONSE_CONSENTED, _("Recipient consented to the introduction")),
+        (RECIPIENT_RESPONSE_DECLINED, _("Recipient declined the introduction")),
     ]
 
     # Statuses in which a crush lead still requires coach action. A member
     # block or coach-recorded decline flips a lead to ``declined`` without
     # touching call/reminder fields, so queue and reminder machinery must
     # key off this list, not only off the call fields.
-    OPEN_LEAD_STATUSES = ('pending', 'coach_reviewing', 'coach_approved')
+    OPEN_LEAD_STATUSES = ("pending", "coach_reviewing", "coach_approved")
 
     # Statuses in which a crush lead is *finished* — the introduction happened
     # or the lead was cancelled — so no coach work remains to recover.
@@ -319,7 +316,7 @@ class EventConnection(models.Model):
     # it to ``coach_reviewing``) that simply does not carry queue/reminder
     # obligations, so treating "not open" as "closed" would strand those rows —
     # unclaimable and 404 to everyone.
-    CLOSED_LEAD_STATUSES = ('declined', 'shared')
+    CLOSED_LEAD_STATUSES = ("declined", "shared")
 
     # Coach-call SLA for crush leads (spec §6/O8: call within 48h).
     CRUSH_LEAD_CALL_SLA = timedelta(hours=48)
@@ -331,21 +328,25 @@ class EventConnection(models.Model):
     MAX_CRUSHES_PER_EVENT = 1
 
     CALL_OUTCOME_CHOICES = [
-        ('completed', _('Call completed')),
-        ('no_answer', _('No answer')),
-        ('rescheduled', _('Rescheduled')),
-        ('unreachable', _('Unreachable')),
+        ("completed", _("Call completed")),
+        ("no_answer", _("No answer")),
+        ("rescheduled", _("Rescheduled")),
+        ("unreachable", _("Unreachable")),
     ]
 
     # Who wants to connect
-    requester = models.ForeignKey(User, on_delete=models.CASCADE, related_name='connection_requests_sent')
+    requester = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="connection_requests_sent"
+    )
     # Who they want to connect with
-    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='connection_requests_received')
+    recipient = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="connection_requests_received"
+    )
     # Which event brought them together
     event = models.ForeignKey(MeetupEvent, on_delete=models.CASCADE)
 
     # Connection details
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
     flow = models.CharField(
         max_length=10,
         choices=FLOW_CHOICES,
@@ -360,7 +361,7 @@ class EventConnection(models.Model):
     requester_note = models.TextField(
         max_length=300,
         blank=True,
-        help_text=_("Optional note: What did you talk about? What interested you?")
+        help_text=_("Optional note: What did you talk about? What interested you?"),
     )
 
     # Coach facilitation
@@ -369,22 +370,21 @@ class EventConnection(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        help_text=_("Coach who will facilitate this connection")
+        help_text=_("Coach who will facilitate this connection"),
     )
-    coach_notes = models.TextField(blank=True, help_text=_("Coach's guidance for the introduction"))
+    coach_notes = models.TextField(
+        blank=True, help_text=_("Coach's guidance for the introduction")
+    )
     coach_introduction = models.TextField(
-        blank=True,
-        help_text=_("Personalized introduction message from coach")
+        blank=True, help_text=_("Personalized introduction message from coach")
     )
 
     # Mutual consent tracking
     requester_consents_to_share = models.BooleanField(
-        default=False,
-        help_text=_("Requester agrees to share contact info")
+        default=False, help_text=_("Requester agrees to share contact info")
     )
     recipient_consents_to_share = models.BooleanField(
-        default=False,
-        help_text=_("Recipient agrees to share contact info")
+        default=False, help_text=_("Recipient agrees to share contact info")
     )
 
     # Per-channel consent (UX Wave 3, finding 5-10): profile details and
@@ -395,11 +395,11 @@ class EventConnection(models.Model):
     # 0255) to keep their historical behaviour; new rows default False.
     requester_shares_email = models.BooleanField(
         default=False,
-        help_text=_("Requester chose to include their email in what is shared")
+        help_text=_("Requester chose to include their email in what is shared"),
     )
     recipient_shares_email = models.BooleanField(
         default=False,
-        help_text=_("Recipient chose to include their email in what is shared")
+        help_text=_("Recipient chose to include their email in what is shared"),
     )
     # Phone is opt-in exactly like email (UX Wave 5 WP4, finding R2). Existing
     # rows are NOT backfilled: phone was never asked about before, so no one
@@ -423,11 +423,13 @@ class EventConnection(models.Model):
     # "My Crush!" coach-call tracking (spec §7 — additive, nullable; only
     # meaningful for flow='crush' rows)
     coach_call_scheduled_at = models.DateTimeField(
-        null=True, blank=True,
+        null=True,
+        blank=True,
         help_text=_("When the coach call with the requester is scheduled"),
     )
     coach_call_completed_at = models.DateTimeField(
-        null=True, blank=True,
+        null=True,
+        blank=True,
         help_text=_("When the coach call with the requester was completed"),
     )
     call_outcome = models.CharField(
@@ -438,7 +440,8 @@ class EventConnection(models.Model):
         help_text=_("Outcome of the coach call"),
     )
     reminder_sent_at = models.DateTimeField(
-        null=True, blank=True,
+        null=True,
+        blank=True,
         help_text=_(
             "Idempotency record for the 24h untouched-lead reminder — "
             "repeated timer delivery must never double-remind."
@@ -455,14 +458,15 @@ class EventConnection(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='crush_cocoach_leads',
+        related_name="crush_cocoach_leads",
         help_text=_(
             "The recipient's own coach, when different from the routed "
             "coach — owns the recipient-side outreach task."
         ),
     )
     recipient_outreach_at = models.DateTimeField(
-        null=True, blank=True,
+        null=True,
+        blank=True,
         help_text=_("When the co-coach recorded reaching out to the recipient"),
     )
     recipient_response = models.CharField(
@@ -473,7 +477,8 @@ class EventConnection(models.Model):
         help_text=_("Recipient's answer, as recorded by their own coach"),
     )
     recipient_response_at = models.DateTimeField(
-        null=True, blank=True,
+        null=True,
+        blank=True,
         help_text=_("When the recipient's answer was recorded"),
     )
     system_actions = models.JSONField(
@@ -488,12 +493,18 @@ class EventConnection(models.Model):
     objects = EventConnectionManager()
 
     class Meta:
-        unique_together = ('requester', 'recipient', 'event')
-        ordering = ['-requested_at']
+        unique_together = ("requester", "recipient", "event")
+        ordering = ["-requested_at"]
         indexes = [
-            models.Index(fields=['event', 'status'], name='crush_lu_conn_event_status_idx'),
-            models.Index(fields=['requester', 'status'], name='crush_lu_conn_req_status_idx'),
-            models.Index(fields=['recipient', 'status'], name='crush_lu_conn_recip_status_idx'),
+            models.Index(
+                fields=["event", "status"], name="crush_lu_conn_event_status_idx"
+            ),
+            models.Index(
+                fields=["requester", "status"], name="crush_lu_conn_req_status_idx"
+            ),
+            models.Index(
+                fields=["recipient", "status"], name="crush_lu_conn_recip_status_idx"
+            ),
         ]
 
     def __str__(self):
@@ -534,15 +545,19 @@ class EventConnection(models.Model):
         if self.flow != self.FLOW_CRUSH:
             return None
 
-        recipient_profile = CrushProfile.objects.select_related(
-            'assigned_coach'
-        ).filter(user=self.recipient).first()
+        recipient_profile = (
+            CrushProfile.objects.select_related("assigned_coach")
+            .filter(user=self.recipient)
+            .first()
+        )
         if recipient_profile is None:
             return None
 
-        submission = ProfileSubmission.objects.select_related('coach').filter(
-            profile=recipient_profile, status='approved'
-        ).first()
+        submission = (
+            ProfileSubmission.objects.select_related("coach")
+            .filter(profile=recipient_profile, status="approved")
+            .first()
+        )
 
         coach = None
         if submission and submission.coach and submission.coach.is_active:
@@ -559,7 +574,7 @@ class EventConnection(models.Model):
             return None
 
         self.recipient_coach = coach
-        self.save(update_fields=['recipient_coach'])
+        self.save(update_fields=["recipient_coach"])
         return coach
 
     @property
@@ -584,22 +599,20 @@ class EventConnection(models.Model):
                     print("Mutual")
         """
         return EventConnection.objects.filter(
-            requester=self.recipient,
-            recipient=self.requester,
-            event=self.event
+            requester=self.recipient, recipient=self.requester, event=self.event
         ).exists()
 
     @classmethod
     def cross_gender_connection_count(cls, user, event):
         """Count cross-gender connection requests sent by user for this event."""
-        user_gender = getattr(getattr(user, 'crushprofile', None), 'gender', '')
-        connections = cls.objects.filter(
-            requester=user, event=event
-        ).select_related('recipient__crushprofile')
+        user_gender = getattr(getattr(user, "crushprofile", None), "gender", "")
+        connections = cls.objects.filter(requester=user, event=event).select_related(
+            "recipient__crushprofile"
+        )
         count = 0
         for conn in connections:
             rec_gender = getattr(
-                getattr(conn.recipient, 'crushprofile', None), 'gender', ''
+                getattr(conn.recipient, "crushprofile", None), "gender", ""
             )
             if user_gender != rec_gender or not user_gender or not rec_gender:
                 count += 1
@@ -623,8 +636,8 @@ class EventConnection(models.Model):
     @property
     def is_same_gender(self):
         """Check if both parties have the same gender (and it's specified)."""
-        req_profile = getattr(self.requester, 'crushprofile', None)
-        rec_profile = getattr(self.recipient, 'crushprofile', None)
+        req_profile = getattr(self.requester, "crushprofile", None)
+        rec_profile = getattr(self.recipient, "crushprofile", None)
         if not req_profile or not rec_profile:
             return False
         req_gender = req_profile.gender
@@ -639,7 +652,7 @@ class EventConnection(models.Model):
         return (
             self.requester_consents_to_share
             and self.recipient_consents_to_share
-            and self.status == 'coach_approved'
+            and self.status == "coach_approved"
         )
 
     @property
@@ -681,16 +694,21 @@ class EventConnection(models.Model):
         Deactivated event coaches are never selected. Returns ``None`` when
         the event has no active coach so routing falls through to the pool.
         """
-        return event.coaches.filter(is_active=True).annotate(
-            open_leads=models.Count(
-                'eventconnection',
-                filter=models.Q(
-                    eventconnection__flow=cls.FLOW_CRUSH,
-                    eventconnection__status__in=cls.OPEN_LEAD_STATUSES,
-                    eventconnection__coach_call_completed_at__isnull=True,
-                ),
+        return (
+            event.coaches.filter(is_active=True)
+            .annotate(
+                open_leads=models.Count(
+                    "eventconnection",
+                    filter=models.Q(
+                        eventconnection__flow=cls.FLOW_CRUSH,
+                        eventconnection__status__in=cls.OPEN_LEAD_STATUSES,
+                        eventconnection__coach_call_completed_at__isnull=True,
+                    ),
+                )
             )
-        ).order_by('open_leads', 'id').first()  # None when no active coach
+            .order_by("open_leads", "id")
+            .first()
+        )  # None when no active coach
 
     def assign_coach(self):
         """
@@ -710,14 +728,15 @@ class EventConnection(models.Model):
         4. the active coach pool (first by id).
         """
         requester_profile = CrushProfile.objects.select_related(
-            'user', 'assigned_coach'
+            "user", "assigned_coach"
         ).get(user=self.requester)
 
         # Get the approved submission for the requester with coach pre-fetched
-        requester_submission = ProfileSubmission.objects.select_related('coach').filter(
-            profile=requester_profile,
-            status='approved'
-        ).first()
+        requester_submission = (
+            ProfileSubmission.objects.select_related("coach")
+            .filter(profile=requester_profile, status="approved")
+            .first()
+        )
 
         coach = None
         if (
@@ -737,7 +756,7 @@ class EventConnection(models.Model):
 
         if coach is None:
             # Fall back to the active coach pool (deterministic order)
-            coach = CrushCoach.objects.filter(is_active=True).order_by('id').first()
+            coach = CrushCoach.objects.filter(is_active=True).order_by("id").first()
 
         self.assigned_coach = coach
         self.save()
@@ -752,25 +771,25 @@ class EventConnection(models.Model):
 class ConnectionMessage(models.Model):
     """Coach-facilitated messages between connections"""
 
-    connection = models.ForeignKey(EventConnection, on_delete=models.CASCADE, related_name='messages')
+    connection = models.ForeignKey(
+        EventConnection, on_delete=models.CASCADE, related_name="messages"
+    )
     sender = models.ForeignKey(User, on_delete=models.CASCADE)
     message = models.TextField(max_length=500)
 
     # Coach moderation
     is_coach_message = models.BooleanField(
-        default=False,
-        help_text=_("True if sent by the coach")
+        default=False, help_text=_("True if sent by the coach")
     )
     coach_approved = models.BooleanField(
-        default=True,
-        help_text=_("Coach can moderate messages if needed")
+        default=True, help_text=_("Coach can moderate messages if needed")
     )
 
     sent_at = models.DateTimeField(auto_now_add=True)
     read_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        ordering = ['sent_at']
+        ordering = ["sent_at"]
 
     def __str__(self):
         return f"Message from {self.sender.username} at {self.sent_at}"

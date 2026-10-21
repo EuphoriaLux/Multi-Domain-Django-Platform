@@ -172,9 +172,7 @@ class PhoneStepViewTests(_SiteMixin, TestCase):
         from allauth.socialaccount.models import SocialAccount
 
         CrushProfile.objects.create(user=self.user, welcome_seen_at=timezone.now())
-        SocialAccount.objects.create(
-            user=self.user, provider="luxid", uid="lux-123"
-        )
+        SocialAccount.objects.create(user=self.user, provider="luxid", uid="lux-123")
         response = self.client.get("/onboarding/phone/", follow=True)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Your LuxID is connected")
@@ -191,9 +189,7 @@ class PhoneStepViewTests(_SiteMixin, TestCase):
             phone_verified=True,
             phone_number="+352621000000",
         )
-        SocialAccount.objects.create(
-            user=self.user, provider="luxid", uid="lux-123"
-        )
+        SocialAccount.objects.create(user=self.user, provider="luxid", uid="lux-123")
         response = self.client.get("/onboarding/phone/", follow=True)
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Your LuxID is connected")

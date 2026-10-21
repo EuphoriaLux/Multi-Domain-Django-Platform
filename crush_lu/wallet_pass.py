@@ -24,7 +24,9 @@ def build_wallet_pass_barcode_value(profile, request=None, base_url=None):
     Uses language-neutral URL so users get the site in their browser's preferred language.
     """
     referral_code = ReferralCode.get_or_create_for_profile(profile)
-    return build_referral_url(referral_code.code, base_url=base_url, language_neutral=True)
+    return build_referral_url(
+        referral_code.code, base_url=base_url, language_neutral=True
+    )
 
 
 def _next_event_candidates(user_ids, now):
@@ -46,8 +48,7 @@ def _next_event_candidates(user_ids, now):
         # member card kept advertising it — and worse, cancelling an event
         # rebuilt a byte-identical pass, so the refresh that cancellation
         # triggers accomplished nothing.
-        .exclude(event__is_cancelled=True)
-        .select_related("event")
+        .exclude(event__is_cancelled=True).select_related("event")
         # Tie-broken, not just sorted by start. Two eligible registrations
         # sharing a `date_time` would otherwise be returned in whatever order
         # the database felt like, and the choice has to be REPRODUCIBLE across
@@ -218,7 +219,9 @@ def build_wallet_pass_data(profile, request=None, base_url=None):
     Returns:
         Dictionary with all pass data
     """
-    referral_url = build_wallet_pass_barcode_value(profile, request=request, base_url=base_url)
+    referral_url = build_wallet_pass_barcode_value(
+        profile, request=request, base_url=base_url
+    )
     referral_code_obj = ReferralCode.get_or_create_for_profile(profile)
     referral_code = referral_code_obj.code if referral_code_obj else ""
     next_event = get_next_event_for_pass(profile)

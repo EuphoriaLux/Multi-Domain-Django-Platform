@@ -5,12 +5,12 @@ Read-only trend table: one row per ISO week with the headline KPIs pulled from
 the persisted ``metrics`` JSON, plus a CSV export of the full flattened payload
 so the numbers can be charted in a spreadsheet.
 """
+
 import csv
 
 from django.contrib import admin
 from django.http import HttpResponse
 from django.utils import timezone
-
 
 
 def _flatten(metrics, prefix=""):

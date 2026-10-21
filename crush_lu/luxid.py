@@ -41,7 +41,9 @@ def luxid_connect_url(available_providers, oidc_app=None):
             pass
     if "openid_connect" in available_providers and oidc_app is not None:
         try:
-            pid = getattr(oidc_app, "provider_id", None) or getattr(oidc_app, "slug", None)
+            pid = getattr(oidc_app, "provider_id", None) or getattr(
+                oidc_app, "slug", None
+            )
             if pid:
                 return (
                     reverse("openid_connect_login", kwargs={"provider_id": pid})

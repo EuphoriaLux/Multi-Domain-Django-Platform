@@ -41,7 +41,9 @@ def fix_revision_completion_status(apps, schema_editor):
             ).update(completion_status="step4")
             fixed += updated
 
-    print(f"  Fixed {fixed} profiles: completion_status submitted -> step4 (revision pending)")
+    print(
+        f"  Fixed {fixed} profiles: completion_status submitted -> step4 (revision pending)"
+    )
 
 
 def reverse_fix(apps, schema_editor):

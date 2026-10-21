@@ -42,22 +42,40 @@ _PERSONA_PUNCT = set(" -'.")
 # injected via `extra_blocklist` — see the spec: an innocuous word in one
 # language is an insult in another, and that is not visible from either side.
 DEFAULT_BLOCKLIST: tuple[str, ...] = (
-    "fuck", "shit", "bitch", "cunt", "nazi", "hitler", "rape",
+    "fuck",
+    "shit",
+    "bitch",
+    "cunt",
+    "nazi",
+    "hitler",
+    "rape",
 )
 
 # Instruction-shaped fragments. Mostly unreachable inside 28 characters, kept
 # because the cost is a substring scan and the failure mode is a printed ticket.
 _INJECTION_MARKERS: tuple[str, ...] = (
-    "ignore previous", "ignore all", "disregard", "system prompt",
-    "you are now", "new instruction", "override",
+    "ignore previous",
+    "ignore all",
+    "disregard",
+    "system prompt",
+    "you are now",
+    "new instruction",
+    "override",
 )
 
 # The model is told not to celebrate volume (see `chronicle.SYSTEM_PROMPT`).
 # This catches it having done so anyway. Atmos runs in a bar; a ticket that
 # congratulates someone for drinking fast is not a joke the venue wants to own.
 _DISCOURAGED: tuple[str, ...] = (
-    "get drunk", "getting drunk", "hammered", "wasted", "blackout",
-    "chug", "down it", "keep them coming", "drink it all",
+    "get drunk",
+    "getting drunk",
+    "hammered",
+    "wasted",
+    "blackout",
+    "chug",
+    "down it",
+    "keep them coming",
+    "drink it all",
 )
 
 _URL_RE = re.compile(r"(https?://|www\.|\S+@\S+\.\w)", re.IGNORECASE)

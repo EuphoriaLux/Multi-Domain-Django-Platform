@@ -10,6 +10,7 @@ Covers:
 
 Run with: pytest crush_lu/tests/test_phase_post_event.py -v
 """
+
 from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
@@ -120,9 +121,7 @@ class MyEventsViewTests(_SiteSetup, TestCase):
         EventRegistration.objects.create(
             event=upcoming, user=self.user, status="confirmed"
         )
-        EventRegistration.objects.create(
-            event=past, user=self.user, status="attended"
-        )
+        EventRegistration.objects.create(event=past, user=self.user, status="attended")
 
         resp = self.client.get(reverse("crush_lu:my_events"))
         self.assertEqual(resp.status_code, 200)
@@ -272,9 +271,7 @@ class NotificationAPITests(_SiteSetup, TestCase):
         )
         # JSON request gets JSON back
         resp = self.client.post(
-            reverse(
-                "api_notification_mark_read", kwargs={"notification_id": n.id}
-            ),
+            reverse("api_notification_mark_read", kwargs={"notification_id": n.id}),
             HTTP_ACCEPT="application/json",
         )
         self.assertEqual(resp.status_code, 200)

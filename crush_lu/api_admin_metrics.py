@@ -12,6 +12,7 @@ wrapper pattern in ``api_admin_hybrid.pre_screening_invites``:
 - Delegates to the ``send_weekly_kpis`` management command so all logic stays in
   one place and remains runnable from a dev shell.
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,7 +24,9 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from crush_lu.api_admin_auth import authenticate_admin_request as _authenticate_admin_request
+from crush_lu.api_admin_auth import (
+    authenticate_admin_request as _authenticate_admin_request,
+)
 from crush_lu.api_admin_auth import unauthorized as _unauthorized
 
 logger = logging.getLogger(__name__)
@@ -85,9 +88,7 @@ def rotate_connect_questions_sweep(request):
         logger.exception("[rotate_connect_questions] Unhandled error")
         return JsonResponse({"error": "internal_error"}, status=500)
 
-    logger.info(
-        "[rotate_connect_questions] completed: %s", buffer.getvalue().strip()
-    )
+    logger.info("[rotate_connect_questions] completed: %s", buffer.getvalue().strip())
     return JsonResponse(
         {"status": "ok", "timestamp": started.isoformat()},
         status=202,

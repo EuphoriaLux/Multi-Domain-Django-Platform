@@ -256,7 +256,8 @@ class Command(BaseCommand):
                 # Via write_receipt: error text may contain the address, and
                 # is suppressed if consent has since been revoked.
                 write_receipt(
-                    newsletter, user,
+                    newsletter,
+                    user,
                     {"status": "failed", "error_message": str(exc)[:500]},
                 )
                 sync_newsletter_counters(newsletter)

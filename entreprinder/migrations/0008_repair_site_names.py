@@ -11,24 +11,24 @@ from django.db import migrations
 
 
 def repair_site_names(apps, schema_editor):
-    Site = apps.get_model('sites', 'Site')
+    Site = apps.get_model("sites", "Site")
 
     from azureproject.domains import DOMAINS
 
-    expected_by_domain = {domain: cfg.get('name') for domain, cfg in DOMAINS.items()}
+    expected_by_domain = {domain: cfg.get("name") for domain, cfg in DOMAINS.items()}
     # Aliases (e.g. www.crush.lu -> Crush.lu) share the primary domain's name.
     for domain, cfg in DOMAINS.items():
-        for alias in cfg.get('aliases', []):
-            expected_by_domain.setdefault(alias, cfg.get('name'))
+        for alias in cfg.get("aliases", []):
+            expected_by_domain.setdefault(alias, cfg.get("name"))
 
     for site in Site.objects.all():
-        if (site.name or '').strip():
+        if (site.name or "").strip():
             continue
         expected = expected_by_domain.get(site.domain)
         if not expected:
             continue
         site.name = expected
-        site.save(update_fields=['name'])
+        site.save(update_fields=["name"])
 
 
 def noop_reverse(apps, schema_editor):
@@ -39,8 +39,8 @@ def noop_reverse(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('entreprinder', '0007_delete_matching_models'),
-        ('sites', '0002_alter_domain_unique'),
+        ("entreprinder", "0007_delete_matching_models"),
+        ("sites", "0002_alter_domain_unique"),
     ]
 
     operations = [

@@ -511,7 +511,9 @@ class PublicFormAbuseTests(ArboristClientTestCase):
 
     def test_honeypot_is_rendered_hidden(self):
         content = self.client.get("/en/termin/").content.decode()
-        self.assertIn('<div hidden aria-hidden="true"><input type="text" name="website"', content)
+        self.assertIn(
+            '<div hidden aria-hidden="true"><input type="text" name="website"', content
+        )
 
     def test_empty_honeypot_books_normally(self):
         booking = self.book(website="")

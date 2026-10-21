@@ -24,34 +24,36 @@ class PermissionsPolicyMiddleware:
     Deprecated/non-standard features cause console warnings.
     """
 
-    PERMISSIONS_POLICY = ", ".join([
-        "accelerometer=(self)",  # Required for Crush Cache compass orientation
-        "autoplay=(self)",  # Same-origin Crush Cache arrival audio
-        "camera=(self)",  # Needed for QR check-in scanner
-        "display-capture=()",
-        "encrypted-media=()",
-        "fullscreen=(self)",  # Allow fullscreen on same origin
-        "gamepad=()",
-        "geolocation=(self)",  # Required for Crush Cache scavenger hunts
-        "gyroscope=(self)",  # Required for Crush Cache compass orientation
-        "hid=()",
-        "identity-credentials-get=()",
-        "idle-detection=()",
-        "local-fonts=()",
-        "magnetometer=(self)",
-        "microphone=()",  # Not used - disable for privacy
-        "midi=()",
-        "otp-credentials=()",
-        "payment=()",
-        "picture-in-picture=()",
-        "publickey-credentials-create=()",
-        "publickey-credentials-get=()",
-        "screen-wake-lock=()",
-        "serial=()",
-        "usb=()",
-        "web-share=(self)",  # Allow Web Share API on same origin
-        "xr-spatial-tracking=()",
-    ])
+    PERMISSIONS_POLICY = ", ".join(
+        [
+            "accelerometer=(self)",  # Required for Crush Cache compass orientation
+            "autoplay=(self)",  # Same-origin Crush Cache arrival audio
+            "camera=(self)",  # Needed for QR check-in scanner
+            "display-capture=()",
+            "encrypted-media=()",
+            "fullscreen=(self)",  # Allow fullscreen on same origin
+            "gamepad=()",
+            "geolocation=(self)",  # Required for Crush Cache scavenger hunts
+            "gyroscope=(self)",  # Required for Crush Cache compass orientation
+            "hid=()",
+            "identity-credentials-get=()",
+            "idle-detection=()",
+            "local-fonts=()",
+            "magnetometer=(self)",
+            "microphone=()",  # Not used - disable for privacy
+            "midi=()",
+            "otp-credentials=()",
+            "payment=()",
+            "picture-in-picture=()",
+            "publickey-credentials-create=()",
+            "publickey-credentials-get=()",
+            "screen-wake-lock=()",
+            "serial=()",
+            "usb=()",
+            "web-share=(self)",  # Allow Web Share API on same origin
+            "xr-spatial-tracking=()",
+        ]
+    )
 
     def __init__(self, get_response):
         self.get_response = get_response

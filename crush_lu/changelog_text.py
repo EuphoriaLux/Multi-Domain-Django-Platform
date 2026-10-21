@@ -11,15 +11,16 @@ command. They live here so the command *and* the
 the endpoint can auto-publish notes with no human review, so the server must
 scrub incoming text rather than trust the caller.
 """
+
 from __future__ import annotations
 
 import re
 
 # Red-line filter patterns — we never surface these in public copy.
 SECRET_PATTERNS = [
-    re.compile(r"[\w\.-]+@[\w\.-]+\.\w+"),                          # emails
+    re.compile(r"[\w\.-]+@[\w\.-]+\.\w+"),  # emails
     re.compile(r"https?://[\w\.-]+\.(azurewebsites|azure)\.net"),  # internal hosts
-    re.compile(r"https?://claude\.ai/code/\S+"),                   # co-author session urls
+    re.compile(r"https?://claude\.ai/code/\S+"),  # co-author session urls
     re.compile(r"co-authored-by:?[^\n]*", re.IGNORECASE),
     re.compile(r"signed-off-by:?[^\n]*", re.IGNORECASE),
 ]

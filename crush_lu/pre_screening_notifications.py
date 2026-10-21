@@ -9,6 +9,7 @@ beat. The intended deployment pattern is a dedicated Azure Function timer
 that POSTs to an admin endpoint or invokes the
 ``send_pre_screening_invites`` management command on a cron schedule.
 """
+
 from __future__ import annotations
 
 import logging
@@ -90,6 +91,7 @@ class _FakeRequest:
     (management command / background task). Mirrors the ``FakeRequest``
     pattern in ``crush_lu.tasks``.
     """
+
     def __init__(self, host=None, secure=True):
         if host is None:
             host = _default_email_host()
@@ -111,9 +113,9 @@ class _FakeRequest:
         return f"{proto}://{self._host}{path}"
 
 
-def send_pre_screening_invite_email(submission: ProfileSubmission,
-                                    *, reminder: bool = False,
-                                    request=None) -> bool:
+def send_pre_screening_invite_email(
+    submission: ProfileSubmission, *, reminder: bool = False, request=None
+) -> bool:
     """Send the invite (or reminder) email for a single submission.
 
     Returns True on send, False on skip (already submitted, unsubscribed, etc.).
@@ -205,7 +207,10 @@ def send_pre_screening_user_push(submission: ProfileSubmission) -> bool:
             body = str(_("Answer 13 quick questions before your call"))
             url = reverse("crush_lu:pre_screening")
         result = push_notifications.send_push_notification(
-            user=user, title=title, body=body, url=url,
+            user=user,
+            title=title,
+            body=body,
+            url=url,
             tag=f"pre-screening-invite-{submission.id}",
         )
         success = bool((result or {}).get("success"))
@@ -233,8 +238,7 @@ def candidates_for_invite(now=None) -> list[ProfileSubmission]:
             status="pending",
             pre_screening_submitted_at__isnull=True,
             submitted_at__lte=cutoff,
-        )
-        .select_related("profile__user")
+        ).select_related("profile__user")
     )
 
 
@@ -247,8 +251,7 @@ def candidates_for_reminder(now=None) -> list[ProfileSubmission]:
             status="pending",
             pre_screening_submitted_at__isnull=True,
             submitted_at__lte=cutoff,
-        )
-        .select_related("profile__user")
+        ).select_related("profile__user")
     )
 
 
@@ -261,6 +264,5 @@ def candidates_for_push(now=None) -> list[ProfileSubmission]:
             status="pending",
             pre_screening_submitted_at__isnull=True,
             submitted_at__lte=cutoff,
-        )
-        .select_related("profile__user")
+        ).select_related("profile__user")
     )

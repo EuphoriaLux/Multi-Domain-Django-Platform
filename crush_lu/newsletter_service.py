@@ -4,6 +4,7 @@ Newsletter send service for Crush.lu.
 Handles audience resolution, rate-limited sending via Microsoft Graph API,
 and per-recipient tracking for resumability.
 """
+
 import logging
 import time
 
@@ -20,6 +21,7 @@ from .models.newsletter import NewsletterRecipient
 from .utils.i18n import build_absolute_url, get_user_preferred_language
 
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
+
 logger = logging.getLogger(__name__)
 
 # Rate limiting: 25 emails per batch, 62s pause (Graph API limit is 30/min)
@@ -27,7 +29,7 @@ BATCH_SIZE = 25
 BATCH_PAUSE_SECONDS = 62
 
 
-def resolve_audience(audience, segment_key=''):
+def resolve_audience(audience, segment_key=""):
     """
     Resolve an audience choice (Newsletter.AUDIENCE_CHOICES) to a User queryset.
 
@@ -44,22 +46,23 @@ def resolve_audience(audience, segment_key=''):
     return users.filter(data_consent__crushlu_consent_given=True)
 
 
-def _resolve_audience_unfiltered(audience, segment_key=''):
-    if audience == 'all_users':
+def _resolve_audience_unfiltered(audience, segment_key=""):
+    if audience == "all_users":
         return User.objects.filter(is_active=True, crushprofile__isnull=False)
-    elif audience == 'all_profiles':
+    elif audience == "all_profiles":
         return User.objects.filter(is_active=True, crushprofile__isnull=False)
-    elif audience == 'approved_profiles':
+    elif audience == "approved_profiles":
         return User.objects.filter(
             is_active=True, crushprofile__verification_status="verified"
         )
-    elif audience == 'pending_review':
+    elif audience == "pending_review":
         from .models.profiles import ProfileSubmission
+
         pending_user_ids = ProfileSubmission.objects.filter(
-            status='pending',
-        ).values_list('profile__user_id', flat=True)
+            status="pending",
+        ).values_list("profile__user_id", flat=True)
         return User.objects.filter(is_active=True, id__in=pending_user_ids)
-    elif audience == 'segment':
+    elif audience == "segment":
         return _get_segment_users(segment_key)
 
     logger.error(f"Unknown audience type: {audience}")
@@ -95,9 +98,9 @@ def is_on_break(user):
 # (get_newsletter_recipients), EmailPreference.can_send('newsletter'), the
 # final pre-send check (final_send_address) and the women_1y bespoke command.
 NEWSLETTER_OPT_IN = {
-    'email_marketing': True,
-    'email_newsletter': True,
-    'unsubscribed_all': False,
+    "email_marketing": True,
+    "email_newsletter": True,
+    "unsubscribed_all": False,
 }
 
 
@@ -106,7 +109,7 @@ def newsletter_opted_in_user_ids():
     from .models import EmailPreference
 
     return EmailPreference.objects.filter(**NEWSLETTER_OPT_IN).values_list(
-        'user_id', flat=True
+        "user_id", flat=True
     )
 
 
@@ -148,9 +151,7 @@ def final_send_address(user):
     # message was being rendered must not receive it.
     if not email_send_conditions_hold(user):
         raise ConsentRevokedBeforeSend()
-    address = (
-        User.objects.filter(pk=user.pk).values_list('email', flat=True).first()
-    )
+    address = User.objects.filter(pk=user.pk).values_list("email", flat=True).first()
     if not address:
         raise ConsentRevokedBeforeSend()
     return address
@@ -165,7 +166,7 @@ def anonymize_newsletter_receipts(user):
     after it is stored blank. Rows and statuses are kept for send counts.
     """
     return NewsletterRecipient.objects.filter(user=user).update(
-        email='', error_message=''
+        email="", error_message=""
     )
 
 
@@ -184,7 +185,7 @@ def locked_consent_holds(user):
     )
 
 
-SUPPRESSED_CONSENT_REVOKED = 'suppressed: consent revoked'
+SUPPRESSED_CONSENT_REVOKED = "suppressed: consent revoked"
 
 
 class ReceiptResult(tuple):
@@ -216,19 +217,17 @@ def write_receipt(newsletter, user, defaults):
         allowed = locked_consent_holds(user)
         values = dict(defaults)
         if allowed:
-            values['email'] = (
-                User.objects.filter(pk=user.pk)
-                .values_list('email', flat=True)
-                .first()
-                or ''
+            values["email"] = (
+                User.objects.filter(pk=user.pk).values_list("email", flat=True).first()
+                or ""
             )
         else:
             # Never CREATE a receipt once consent is gone: a profile-only
             # deletion severs these rows' user link, and a late writer must not
             # restore it. An existing row is just blanked.
-            values['email'] = ''
-            if 'error_message' in values or values.get('status') == 'failed':
-                values['error_message'] = SUPPRESSED_CONSENT_REVOKED
+            values["email"] = ""
+            if "error_message" in values or values.get("status") == "failed":
+                values["error_message"] = SUPPRESSED_CONSENT_REVOKED
             # One UPDATE decides: a deletion sweep may remove the row at any
             # moment (it takes no consent lock), so a zero-row update just means
             # there is nothing to blank, and no stale instance is refreshed.
@@ -237,7 +236,9 @@ def write_receipt(newsletter, user, defaults):
                 return ReceiptResult(None, False, False)
             return ReceiptResult(rows.first(), False, False)
         row, created = NewsletterRecipient.objects.update_or_create(
-            newsletter=newsletter, user=user, defaults=values,
+            newsletter=newsletter,
+            user=user,
+            defaults=values,
         )
         return ReceiptResult(row, created, allowed)
 
@@ -246,9 +247,9 @@ def exclude_banned_users(users):
     """Exclude users who deleted their profile or are banned from Crush.lu."""
     from .models.profiles import UserDataConsent
 
-    banned_user_ids = UserDataConsent.objects.filter(
-        crushlu_banned=True
-    ).values_list('user_id', flat=True)
+    banned_user_ids = UserDataConsent.objects.filter(crushlu_banned=True).values_list(
+        "user_id", flat=True
+    )
     return users.exclude(id__in=banned_user_ids)
 
 
@@ -271,13 +272,12 @@ def exclude_on_break_users(users):
 
 def apply_language_filter(users, language):
     """Restrict a User queryset to a preferred language ('all' = no filter)."""
-    if not language or language == 'all':
+    if not language or language == "all":
         return users
-    if language == 'en':
+    if language == "en":
         # English includes users without a profile (they default to English)
         return users.filter(
-            Q(crushprofile__preferred_language='en')
-            | Q(crushprofile__isnull=True)
+            Q(crushprofile__preferred_language="en") | Q(crushprofile__isnull=True)
         )
     return users.filter(crushprofile__preferred_language=language)
 
@@ -313,10 +313,11 @@ def get_newsletter_recipients(newsletter):
     # For event announcements, exclude users already registered for the event
     if newsletter.event_id:
         from .models.events import EventRegistration
+
         registered_user_ids = EventRegistration.objects.filter(
             event=newsletter.event,
-            status__in=[*SEAT_HOLDING_STATUSES, 'waitlist'],
-        ).values_list('user_id', flat=True)
+            status__in=[*SEAT_HOLDING_STATUSES, "waitlist"],
+        ).values_list("user_id", flat=True)
         users = users.exclude(id__in=registered_user_ids)
 
     # Exclude users already processed for this newsletter (resumability)
@@ -324,8 +325,8 @@ def get_newsletter_recipients(newsletter):
     if newsletter.pk:
         already_processed_ids = NewsletterRecipient.objects.filter(
             newsletter=newsletter,
-            status__in=['sent', 'skipped'],
-        ).values_list('user_id', flat=True)
+            status__in=["sent", "skipped"],
+        ).values_list("user_id", flat=True)
         users = users.exclude(id__in=already_processed_ids)
 
     return users.distinct()
@@ -360,21 +361,21 @@ def _get_segment_users(segment_key):
 
     # Search through all segment groups for matching key
     for group in segments.values():
-        for segment in group.get('segments', []):
-            if segment['key'] == segment_key:
-                qs = segment['queryset']
+        for segment in group.get("segments", []):
+            if segment["key"] == segment_key:
+                qs = segment["queryset"]
                 # The queryset may be CrushProfile, UserActivity, etc.
                 # We need to map it to User objects.
                 model_name = qs.model.__name__
-                if model_name == 'User':
+                if model_name == "User":
                     return qs.filter(is_active=True)
-                elif hasattr(qs.model, 'user'):
+                elif hasattr(qs.model, "user"):
                     # CrushProfile, UserActivity, etc. have a user FK
                     return User.objects.filter(
                         is_active=True,
-                        id__in=qs.values_list('user_id', flat=True),
+                        id__in=qs.values_list("user_id", flat=True),
                     )
-                elif hasattr(qs.model, 'profile'):
+                elif hasattr(qs.model, "profile"):
                     # ProfileSubmission has profile -> user
                     return User.objects.filter(
                         is_active=True,
@@ -398,8 +399,14 @@ def _get_segment_users(segment_key):
     return User.objects.none()
 
 
-def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
-                    link_rewriter=None, should_abort=None):
+def send_newsletter(
+    newsletter,
+    dry_run=False,
+    limit=None,
+    stdout=None,
+    link_rewriter=None,
+    should_abort=None,
+):
     """
     Send a newsletter to its audience with rate limiting and resumability.
 
@@ -418,6 +425,7 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
     Returns:
         dict: {'sent': int, 'failed': int, 'skipped': int}
     """
+
     def log(msg, style=None):
         if stdout:
             if style:
@@ -426,7 +434,7 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
                 stdout.write(msg)
         logger.info(msg)
 
-    if newsletter.status not in ('draft', 'sending'):
+    if newsletter.status not in ("draft", "sending"):
         raise ValueError(
             f"Newsletter {newsletter.pk} has status '{newsletter.status}', "
             f"expected 'draft' or 'sending'"
@@ -439,9 +447,7 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
         # could never converge) nor unresolved pre-send claims (a crashed
         # worker may already have delivered — at-most-once wins). Unlimited
         # manual runs keep retrying both.
-        recipients = recipients.exclude(
-            id__in=_unresumable_recipient_ids(newsletter)
-        )
+        recipients = recipients.exclude(id__in=_unresumable_recipient_ids(newsletter))
     total_eligible = recipients.count()
 
     if limit:
@@ -462,12 +468,12 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
                 log(f"  {user.email} ({user.first_name} {user.last_name})")
             except UnicodeEncodeError:
                 log(f"  {user.email}")
-        return {'sent': 0, 'failed': 0, 'skipped': 0}
+        return {"sent": 0, "failed": 0, "skipped": 0}
 
     # Set status to sending
-    newsletter.status = 'sending'
+    newsletter.status = "sending"
     newsletter.total_recipients = total_eligible
-    newsletter.save(update_fields=['status', 'total_recipients', 'updated_at'])
+    newsletter.save(update_fields=["status", "total_recipients", "updated_at"])
 
     sent = 0
     failed = 0
@@ -475,7 +481,7 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
     batch_count = 0
 
     # Materialize the queryset to avoid issues with batching
-    user_ids = list(recipients.values_list('id', flat=True))
+    user_ids = list(recipients.values_list("id", flat=True))
 
     aborted = False
     for i, user_id in enumerate(user_ids):
@@ -498,12 +504,14 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
         # Double-check consent and preference (may have changed since the
         # queryset was evaluated, e.g. account deletion during a batch pause)
         if not email_send_conditions_hold(user) or not can_send_email(
-            user, 'newsletter'
+            user, "newsletter"
         ):
             write_receipt(
-                newsletter, user, defaults={
-                    'status': 'skipped',
-                    'error_message': 'User opted out of newsletters',
+                newsletter,
+                user,
+                defaults={
+                    "status": "skipped",
+                    "error_message": "User opted out of newsletters",
                 },
             )
             skipped += 1
@@ -513,39 +521,44 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
         # receipt write must not cause a duplicate email on the next bounded
         # run (stale claims are swept to 'failed' below).
         claim = write_receipt(
-            newsletter, user, defaults={'status': 'pending'},
+            newsletter,
+            user,
+            defaults={"status": "pending"},
         )
         if not claim.allowed:
             # Consent was revoked between the early check and the locked
             # write: a privacy skip. Never send, never retry.
             write_receipt(
-                newsletter, user,
+                newsletter,
+                user,
                 defaults={
-                    'status': 'skipped',
-                    'error_message': SUPPRESSED_CONSENT_REVOKED,
+                    "status": "skipped",
+                    "error_message": SUPPRESSED_CONSENT_REVOKED,
                 },
             )
             skipped += 1
             continue
 
         try:
-            delivery_count = _send_newsletter_to_user(
-                newsletter, user, link_rewriter
-            )
+            delivery_count = _send_newsletter_to_user(newsletter, user, link_rewriter)
             if delivery_count == 0:
                 write_receipt(
-                    newsletter, user, defaults={
-                        'status': 'skipped',
-                        'sent_at': None,
-                        'error_message': 'Active hard-bounce suppression',
+                    newsletter,
+                    user,
+                    defaults={
+                        "status": "skipped",
+                        "sent_at": None,
+                        "error_message": "Active hard-bounce suppression",
                     },
                 )
                 skipped += 1
                 continue
             write_receipt(
-                newsletter, user, defaults={
-                    'status': 'sent',
-                    'sent_at': timezone.now(),
+                newsletter,
+                user,
+                defaults={
+                    "status": "sent",
+                    "sent_at": timezone.now(),
                 },
             )
             sent += 1
@@ -555,10 +568,11 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
 
         except ConsentRevokedBeforeSend:
             write_receipt(
-                newsletter, user,
+                newsletter,
+                user,
                 defaults={
-                    'status': 'skipped',
-                    'error_message': SUPPRESSED_CONSENT_REVOKED,
+                    "status": "skipped",
+                    "error_message": SUPPRESSED_CONSENT_REVOKED,
                 },
             )
             skipped += 1
@@ -566,9 +580,11 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
         except Exception as e:
             error_msg = str(e)[:500]
             write_receipt(
-                newsletter, user, defaults={
-                    'status': 'failed',
-                    'error_message': error_msg,
+                newsletter,
+                user,
+                defaults={
+                    "status": "failed",
+                    "error_message": error_msg,
                 },
             )
             failed += 1
@@ -580,32 +596,31 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
     # Any recipient still 'pending' now is a stale claim from an interrupted
     # earlier run — the outcome is unknown, so count it as failed instead of
     # letting the newsletter (and its campaign) finalize as a clean 'sent'.
-    unresolved = NewsletterRecipient.objects.filter(
-        newsletter=newsletter, status='pending',
-    ).exclude(user_id__in=user_ids).update(
-        status='failed',
-        error_message='Unresolved send claim — outcome unknown '
-                      '(worker interrupted mid-send)',
+    unresolved = (
+        NewsletterRecipient.objects.filter(
+            newsletter=newsletter,
+            status="pending",
+        )
+        .exclude(user_id__in=user_ids)
+        .update(
+            status="failed",
+            error_message="Unresolved send claim — outcome unknown "
+            "(worker interrupted mid-send)",
+        )
     )
     if unresolved:
         log(f"  Marked {unresolved} unresolved send claim(s) as failed")
 
     # Update newsletter stats
-    newsletter.total_sent = (
-        NewsletterRecipient.objects.filter(
-            newsletter=newsletter, status='sent'
-        ).count()
-    )
-    newsletter.total_failed = (
-        NewsletterRecipient.objects.filter(
-            newsletter=newsletter, status='failed'
-        ).count()
-    )
-    newsletter.total_skipped = (
-        NewsletterRecipient.objects.filter(
-            newsletter=newsletter, status='skipped'
-        ).count()
-    )
+    newsletter.total_sent = NewsletterRecipient.objects.filter(
+        newsletter=newsletter, status="sent"
+    ).count()
+    newsletter.total_failed = NewsletterRecipient.objects.filter(
+        newsletter=newsletter, status="failed"
+    ).count()
+    newsletter.total_skipped = NewsletterRecipient.objects.filter(
+        newsletter=newsletter, status="skipped"
+    ).count()
 
     if limit is not None or aborted:
         remaining = (
@@ -617,20 +632,25 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
             # Bounded batch with recipients still eligible (or an aborted
             # run): stay 'sending' so a later run continues where this one
             # stopped instead of prematurely finalizing the newsletter.
-            newsletter.save(update_fields=[
-                'total_sent', 'total_failed', 'total_skipped', 'updated_at',
-            ])
+            newsletter.save(
+                update_fields=[
+                    "total_sent",
+                    "total_failed",
+                    "total_skipped",
+                    "updated_at",
+                ]
+            )
             log(
                 f"\nBatch done. Sent: {sent}, Failed: {failed}, "
                 f"Skipped: {skipped} ({remaining} eligible remaining)"
             )
             return {
-                'sent': sent,
-                'failed': failed,
-                'skipped': skipped,
-                'complete': False,
-                'remaining': remaining,
-                'aborted': aborted,
+                "sent": sent,
+                "failed": failed,
+                "skipped": skipped,
+                "complete": False,
+                "remaining": remaining,
+                "aborted": aborted,
             }
 
     # Bounded runs must finalize from the persisted per-recipient failures:
@@ -638,20 +658,26 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
     # run's local counter can be 0 while total_failed is not. Unlimited runs
     # keep the historical this-run semantics.
     terminal_failed = newsletter.total_failed if limit is not None else failed
-    newsletter.status = 'sent' if terminal_failed == 0 else 'failed'
+    newsletter.status = "sent" if terminal_failed == 0 else "failed"
     newsletter.sent_at = timezone.now()
-    newsletter.save(update_fields=[
-        'total_sent', 'total_failed', 'total_skipped',
-        'status', 'sent_at', 'updated_at',
-    ])
+    newsletter.save(
+        update_fields=[
+            "total_sent",
+            "total_failed",
+            "total_skipped",
+            "status",
+            "sent_at",
+            "updated_at",
+        ]
+    )
 
     log(f"\nDone! Sent: {sent}, Failed: {failed}, Skipped: {skipped}")
     return {
-        'sent': sent,
-        'failed': failed,
-        'skipped': skipped,
-        'complete': True,
-        'remaining': 0,
+        "sent": sent,
+        "failed": failed,
+        "skipped": skipped,
+        "complete": True,
+        "remaining": 0,
     }
 
 
@@ -662,8 +688,9 @@ def _unresumable_recipient_ids(newsletter):
     crashed worker whose outcome is unknown (possibly delivered).
     """
     return NewsletterRecipient.objects.filter(
-        newsletter=newsletter, status__in=['failed', 'pending'],
-    ).values_list('user_id', flat=True)
+        newsletter=newsletter,
+        status__in=["failed", "pending"],
+    ).values_list("user_id", flat=True)
 
 
 def render_event_announcement(event, user, lang):
@@ -680,14 +707,14 @@ def render_event_announcement(event, user, lang):
 
     email_prefs = EmailPreference.get_or_create_for_user(user)
     unsubscribe_url = build_absolute_url(
-        'crush_lu:email_unsubscribe',
+        "crush_lu:email_unsubscribe",
         lang=lang,
-        kwargs={'token': email_prefs.unsubscribe_token},
+        kwargs={"token": email_prefs.unsubscribe_token},
     )
     event_url = build_absolute_url(
-        'crush_lu:event_detail',
+        "crush_lu:event_detail",
         lang=lang,
-        kwargs={'event_id': event.pk},
+        kwargs={"event_id": event.pk},
     )
 
     # Get event image URL if available
@@ -700,39 +727,38 @@ def render_event_announcement(event, user, lang):
 
     with translation.override(lang):
         subject = translation.gettext("New Event: %(title)s") % {
-            'title': event.title,
+            "title": event.title,
         }
 
         context = {
-            'user': user,
-            'first_name': user.first_name,
-            'event': event,
-            'event_title': event.title,
-            'event_description': event.description,
-            'event_image_url': event_image_url,
-            'event_url': event_url,
-            'spots_remaining': event.spots_remaining,
-            'unsubscribe_url': unsubscribe_url,
-            'home_url': build_absolute_url('crush_lu:home', lang=lang),
-            'about_url': build_absolute_url('crush_lu:about', lang=lang),
-            'events_url': build_absolute_url('crush_lu:event_list', lang=lang),
-            'settings_url': build_absolute_url(
-                'crush_lu:edit_profile', lang=lang
-            ) + '?section=account&sub=notifications',
-            'social_links': get_social_links(),
-            'LANGUAGE_CODE': lang,
+            "user": user,
+            "first_name": user.first_name,
+            "event": event,
+            "event_title": event.title,
+            "event_description": event.description,
+            "event_image_url": event_image_url,
+            "event_url": event_url,
+            "spots_remaining": event.spots_remaining,
+            "unsubscribe_url": unsubscribe_url,
+            "home_url": build_absolute_url("crush_lu:home", lang=lang),
+            "about_url": build_absolute_url("crush_lu:about", lang=lang),
+            "events_url": build_absolute_url("crush_lu:event_list", lang=lang),
+            "settings_url": build_absolute_url("crush_lu:edit_profile", lang=lang)
+            + "?section=account&sub=notifications",
+            "social_links": get_social_links(),
+            "LANGUAGE_CODE": lang,
         }
 
         html_message = render_to_string(
-            'crush_lu/emails/event_announcement.html', context
+            "crush_lu/emails/event_announcement.html", context
         )
 
     return subject, html_message
 
 
 NEWSLETTER_TEMPLATE_MAP = {
-    'standard': 'crush_lu/emails/newsletter.html',
-    'patch_notes': 'crush_lu/emails/patch_notes.html',
+    "standard": "crush_lu/emails/newsletter.html",
+    "patch_notes": "crush_lu/emails/patch_notes.html",
 }
 
 
@@ -748,25 +774,23 @@ def _send_newsletter_to_user(newsletter, user, link_rewriter=None):
     """
     from .models import EmailPreference
 
-    lang = get_user_preferred_language(user=user, default='en')
+    lang = get_user_preferred_language(user=user, default="en")
 
     if newsletter.event_id:
         # Event announcement: auto-generate content per-user in their language
-        subject, html_message = render_event_announcement(
-            newsletter.event, user, lang
-        )
+        subject, html_message = render_event_announcement(newsletter.event, user, lang)
         plain_message = html_to_plain_text(html_message)
     else:
         email_prefs = EmailPreference.get_or_create_for_user(user)
         unsubscribe_url = build_absolute_url(
-            'crush_lu:email_unsubscribe',
+            "crush_lu:email_unsubscribe",
             lang=lang,
-            kwargs={'token': email_prefs.unsubscribe_token},
+            kwargs={"token": email_prefs.unsubscribe_token},
         )
 
         # Select template based on newsletter type
         template_name = NEWSLETTER_TEMPLATE_MAP.get(
-            newsletter.newsletter_type, 'crush_lu/emails/newsletter.html'
+            newsletter.newsletter_type, "crush_lu/emails/newsletter.html"
         )
 
         # Read translated fields and render template inside translation.override()
@@ -777,20 +801,17 @@ def _send_newsletter_to_user(newsletter, user, link_rewriter=None):
             body_text = newsletter.body_text
 
             context = {
-                'user': user,
-                'first_name': user.first_name,
-                'body_html': body_html,
-                'unsubscribe_url': unsubscribe_url,
-                'home_url': build_absolute_url('crush_lu:home', lang=lang),
-                'about_url': build_absolute_url('crush_lu:about', lang=lang),
-                'events_url': build_absolute_url(
-                    'crush_lu:event_list', lang=lang
-                ),
-                'settings_url': build_absolute_url(
-                    'crush_lu:edit_profile', lang=lang
-                ) + '?section=account&sub=notifications',
-                'social_links': get_social_links(),
-                'LANGUAGE_CODE': lang,
+                "user": user,
+                "first_name": user.first_name,
+                "body_html": body_html,
+                "unsubscribe_url": unsubscribe_url,
+                "home_url": build_absolute_url("crush_lu:home", lang=lang),
+                "about_url": build_absolute_url("crush_lu:about", lang=lang),
+                "events_url": build_absolute_url("crush_lu:event_list", lang=lang),
+                "settings_url": build_absolute_url("crush_lu:edit_profile", lang=lang)
+                + "?section=account&sub=notifications",
+                "social_links": get_social_links(),
+                "LANGUAGE_CODE": lang,
             }
 
             html_message = render_to_string(template_name, context)
@@ -812,7 +833,7 @@ def _send_newsletter_to_user(newsletter, user, link_rewriter=None):
         html_message=html_message,
         recipient_list=[address],
         from_email=settings.CRUSH_NEWSLETTER_FROM_EMAIL,
-        domain='crush.lu',
+        domain="crush.lu",
         fail_silently=False,
         email_purpose="campaign",
     )

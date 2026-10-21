@@ -13,6 +13,7 @@ Usage:
     {# pass the assigned-coach suffix in too: #}
     {% connection_status_badge connection show_coach=True %}
 """
+
 from django import template
 from django.utils.translation import gettext_lazy as _
 
@@ -46,9 +47,7 @@ def connection_status_badge(connection, show_coach=False):
         Context dict for status_badge.html.
     """
     status = getattr(connection, "status", None)
-    label, tone, icon = _STATUS_BADGE_MAP.get(
-        status, (_("Unknown"), "info", None)
-    )
+    label, tone, icon = _STATUS_BADGE_MAP.get(status, (_("Unknown"), "info", None))
     suffix = ""
     if show_coach and getattr(connection, "assigned_coach", None):
         coach_user = getattr(connection.assigned_coach, "user", None)

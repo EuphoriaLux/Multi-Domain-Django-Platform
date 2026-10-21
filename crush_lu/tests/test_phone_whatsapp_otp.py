@@ -44,6 +44,7 @@ class WhatsAppOTPTests(SiteTestMixin, TestCase):
             username="otp@example.com", email="otp@example.com", password="pw"
         )
         from crush_lu.models.profiles import UserDataConsent
+
         UserDataConsent.objects.update_or_create(
             user=self.user, defaults={"crushlu_consent_given": True}
         )
@@ -57,9 +58,7 @@ class WhatsAppOTPTests(SiteTestMixin, TestCase):
         )
 
     def _has_verified_profile(self):
-        return CrushProfile.objects.filter(
-            user=self.user, phone_verified=True
-        ).exists()
+        return CrushProfile.objects.filter(user=self.user, phone_verified=True).exists()
 
     # --- send ---------------------------------------------------------------
 
@@ -107,10 +106,10 @@ class WhatsAppOTPTests(SiteTestMixin, TestCase):
     @patch("crush_lu.services.whatsapp.is_configured", return_value=True)
     @patch("crush_lu.services.whatsapp.send_otp")
     def test_send_rejects_number_verified_elsewhere(self, mock_send, _cfg):
-        other = User.objects.create_user(username="o@e.com", email="o@e.com", password="pw")
-        CrushProfile.objects.create(
-            user=other, phone_number=PHONE, phone_verified=True
+        other = User.objects.create_user(
+            username="o@e.com", email="o@e.com", password="pw"
         )
+        CrushProfile.objects.create(user=other, phone_number=PHONE, phone_verified=True)
         resp = self._post(self.send_url, {"phone_number": PHONE})
         self.assertEqual(resp.status_code, 409)
         self.assertEqual(resp.json()["error_code"], "phone_already_in_use")
@@ -120,7 +119,9 @@ class WhatsAppOTPTests(SiteTestMixin, TestCase):
     @patch("crush_lu.services.whatsapp.send_otp")
     def test_send_rejects_same_number_different_spelling(self, mock_send, _cfg):
         # Existing verified profile stored in canonical "+" form.
-        other = User.objects.create_user(username="o2@e.com", email="o2@e.com", password="pw")
+        other = User.objects.create_user(
+            username="o2@e.com", email="o2@e.com", password="pw"
+        )
         CrushProfile.objects.create(
             user=other, phone_number="+352621123456", phone_verified=True
         )
@@ -177,7 +178,9 @@ class WhatsAppOTPTests(SiteTestMixin, TestCase):
     def test_send_rejects_number_in_another_unverified_profile(self, mock_send, _cfg):
         # The unique_non_empty_phone_number constraint covers unverified drafts
         # too, so we must reject (not burn a send) before Meta is called.
-        other = User.objects.create_user(username="o3@e.com", email="o3@e.com", password="pw")
+        other = User.objects.create_user(
+            username="o3@e.com", email="o3@e.com", password="pw"
+        )
         CrushProfile.objects.create(
             user=other, phone_number=PHONE, phone_verified=False
         )
@@ -191,7 +194,9 @@ class WhatsAppOTPTests(SiteTestMixin, TestCase):
     def test_send_rejects_number_stored_with_formatting(self, mock_send, _cfg):
         # Existing row saved non-canonically (spaces) must still match the
         # canonical input, or the same real number verifies on two accounts.
-        other = User.objects.create_user(username="o4@e.com", email="o4@e.com", password="pw")
+        other = User.objects.create_user(
+            username="o4@e.com", email="o4@e.com", password="pw"
+        )
         CrushProfile.objects.create(
             user=other, phone_number="+352 621 123 456", phone_verified=True
         )
@@ -280,7 +285,9 @@ class WhatsAppOTPTests(SiteTestMixin, TestCase):
             captured.__setitem__("code", code)
             or WhatsAppSendResult(ok=True, wa_message_id="wamid.Y")
         )
-        self.assertEqual(self._post(self.send_url, {"phone_number": PHONE}).status_code, 200)
+        self.assertEqual(
+            self._post(self.send_url, {"phone_number": PHONE}).status_code, 200
+        )
         resp = self._post(self.verify_url, {"code": captured["code"]})
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(self.user.crushprofile.phone_verified)
@@ -300,12 +307,18 @@ class PhoneOTPModelTests(TestCase):
 
     def test_issue_supersedes_prior_open_codes(self):
         first = PhoneOTP.issue(
-            user=self.user, phone_number=PHONE, code="111111",
-            channel=PhoneOTP.Channel.WHATSAPP, ttl_minutes=3,
+            user=self.user,
+            phone_number=PHONE,
+            code="111111",
+            channel=PhoneOTP.Channel.WHATSAPP,
+            ttl_minutes=3,
         )
         PhoneOTP.issue(
-            user=self.user, phone_number=PHONE, code="222222",
-            channel=PhoneOTP.Channel.WHATSAPP, ttl_minutes=3,
+            user=self.user,
+            phone_number=PHONE,
+            code="222222",
+            channel=PhoneOTP.Channel.WHATSAPP,
+            ttl_minutes=3,
         )
         first.refresh_from_db()
         self.assertTrue(first.consumed)  # old code invalidated
@@ -313,8 +326,11 @@ class PhoneOTPModelTests(TestCase):
 
     def test_verify_consumes_on_success(self):
         otp = PhoneOTP.issue(
-            user=self.user, phone_number=PHONE, code="555555",
-            channel=PhoneOTP.Channel.WHATSAPP, ttl_minutes=3,
+            user=self.user,
+            phone_number=PHONE,
+            code="555555",
+            channel=PhoneOTP.Channel.WHATSAPP,
+            ttl_minutes=3,
         )
         self.assertTrue(otp.verify("555555"))
         self.assertTrue(otp.consumed)

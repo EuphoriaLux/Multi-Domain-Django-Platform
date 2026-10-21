@@ -32,7 +32,7 @@ def get_user_language(user):
     Returns:
         Language code ('en', 'de', 'fr') - defaults to 'en'
     """
-    return get_user_preferred_language(user=user, default='en')
+    return get_user_preferred_language(user=user, default="en")
 
 
 @contextmanager
@@ -78,8 +78,8 @@ def send_push_notification(
     user,
     title,
     body,
-    url='/',
-    tag='crush-notification',
+    url="/",
+    tag="crush-notification",
     icon=None,
     badge=None,
     preference_key=None,
@@ -114,33 +114,33 @@ def send_push_notification(
     """
 
     # Validate VAPID configuration
-    if not hasattr(settings, 'VAPID_PRIVATE_KEY') or not settings.VAPID_PRIVATE_KEY:
+    if not hasattr(settings, "VAPID_PRIVATE_KEY") or not settings.VAPID_PRIVATE_KEY:
         logger.error("VAPID_PRIVATE_KEY not configured in settings")
-        return {'success': 0, 'failed': 0, 'total': 0}
+        return {"success": 0, "failed": 0, "total": 0}
 
-    if not hasattr(settings, 'VAPID_PUBLIC_KEY') or not settings.VAPID_PUBLIC_KEY:
+    if not hasattr(settings, "VAPID_PUBLIC_KEY") or not settings.VAPID_PUBLIC_KEY:
         logger.error("VAPID_PUBLIC_KEY not configured in settings")
-        return {'success': 0, 'failed': 0, 'total': 0}
+        return {"success": 0, "failed": 0, "total": 0}
 
     # Active subscriptions for this user, narrowed to the ones that opted in to
     # this kind of notification when the caller named a preference.
     subscriptions = PushSubscription.objects.filter(user=user, enabled=True)
     if preference_key:
-        subscriptions = subscriptions.filter(**{f'notify_{preference_key}': True})
+        subscriptions = subscriptions.filter(**{f"notify_{preference_key}": True})
 
     total = subscriptions.count()
     if not total:
         logger.info(f"No active push subscriptions for user {user.username}")
-        return {'success': 0, 'failed': 0, 'total': 0}
+        return {"success": 0, "failed": 0, "total": 0}
 
     # Prepare notification payload
     payload = {
-        'title': title,
-        'body': body,
-        'url': url,
-        'tag': tag,
-        'icon': icon or '/static/crush_lu/icons/icon-192x192.png',
-        'badge': badge or '/static/crush_lu/icons/icon-72x72.png',
+        "title": title,
+        "body": body,
+        "url": url,
+        "tag": tag,
+        "icon": icon or "/static/crush_lu/icons/icon-192x192.png",
+        "badge": badge or "/static/crush_lu/icons/icon-72x72.png",
     }
 
     # Track results
@@ -154,9 +154,9 @@ def send_push_notification(
     # call to a third-party service that can hang, so the count is not itself a
     # bound: the deadline is. Checked before each send, so a slow provider
     # costs at most one in-flight call past the budget.
-    limit = getattr(settings, 'CRUSH_PUSH_FANOUT_LIMIT', 10)
-    budget = getattr(settings, 'CRUSH_PUSH_FANOUT_BUDGET_SECONDS', 10.0)
-    send_timeout = getattr(settings, 'CRUSH_PUSH_SEND_TIMEOUT_SECONDS', 10.0)
+    limit = getattr(settings, "CRUSH_PUSH_FANOUT_LIMIT", 10)
+    budget = getattr(settings, "CRUSH_PUSH_FANOUT_BUDGET_SECONDS", 10.0)
+    send_timeout = getattr(settings, "CRUSH_PUSH_SEND_TIMEOUT_SECONDS", 10.0)
     deadline = time.monotonic() + budget
     attempted = 0
 
@@ -179,8 +179,8 @@ def send_push_notification(
                 "endpoint": subscription.endpoint,
                 "keys": {
                     "p256dh": subscription.p256dh_key,
-                    "auth": subscription.auth_key
-                }
+                    "auth": subscription.auth_key,
+                },
             }
 
             # Send the push notification
@@ -190,19 +190,21 @@ def send_push_notification(
                     subscription_info=subscription_info,
                     data=json.dumps(payload),
                     vapid_private_key=settings.VAPID_PRIVATE_KEY,
-                    vapid_claims={
-                        "sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"
-                    },
+                    vapid_claims={"sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"},
                     timeout=call_timeout,
                 )
 
             # Mark success
             subscription.mark_success()
             success_count += 1
-            logger.info(f"Push notification sent to {user.username} ({subscription.device_name})")
+            logger.info(
+                f"Push notification sent to {user.username} ({subscription.device_name})"
+            )
 
         except InvalidPushEndpoint:
-            logger.warning("Rejected endpoint for push subscription %s", subscription.pk)
+            logger.warning(
+                "Rejected endpoint for push subscription %s", subscription.pk
+            )
             retire_invalid_subscription(subscription)
             failed_count += 1
 
@@ -211,7 +213,9 @@ def send_push_notification(
             logger.warning(f"WebPush failed for {user.username}: {e}")
             # 410 Gone = subscription permanently invalid, delete immediately
             if e.response is not None and e.response.status_code == 410:
-                logger.info(f"Deleting expired subscription for {user.username} ({subscription.device_name})")
+                logger.info(
+                    f"Deleting expired subscription for {user.username} ({subscription.device_name})"
+                )
                 subscription.delete()
             else:
                 subscription.mark_failure()  # Auto-deletes after 5 failures
@@ -240,14 +244,16 @@ def send_push_notification(
         )
 
     return {
-        'success': success_count,
-        'failed': failed_count,
-        'total': total,
-        'skipped': skipped,
+        "success": success_count,
+        "failed": failed_count,
+        "total": total,
+        "skipped": skipped,
     }
 
 
-def send_push_to_subscription(subscription, title, body, url='/', tag='crush-notification', icon=None, badge=None):
+def send_push_to_subscription(
+    subscription, title, body, url="/", tag="crush-notification", icon=None, badge=None
+):
     """
     Send a push notification to a specific subscription (single device).
 
@@ -267,36 +273,33 @@ def send_push_to_subscription(subscription, title, body, url='/', tag='crush-not
         }
     """
     # Validate VAPID configuration
-    if not hasattr(settings, 'VAPID_PRIVATE_KEY') or not settings.VAPID_PRIVATE_KEY:
+    if not hasattr(settings, "VAPID_PRIVATE_KEY") or not settings.VAPID_PRIVATE_KEY:
         logger.error("VAPID_PRIVATE_KEY not configured in settings")
-        return {'success': False, 'error': 'VAPID not configured'}
+        return {"success": False, "error": "VAPID not configured"}
 
-    if not hasattr(settings, 'VAPID_PUBLIC_KEY') or not settings.VAPID_PUBLIC_KEY:
+    if not hasattr(settings, "VAPID_PUBLIC_KEY") or not settings.VAPID_PUBLIC_KEY:
         logger.error("VAPID_PUBLIC_KEY not configured in settings")
-        return {'success': False, 'error': 'VAPID not configured'}
+        return {"success": False, "error": "VAPID not configured"}
 
     # Check if subscription is enabled
     if not subscription.enabled:
-        return {'success': False, 'error': 'Subscription is disabled'}
+        return {"success": False, "error": "Subscription is disabled"}
 
     # Prepare notification payload
     payload = {
-        'title': title,
-        'body': body,
-        'url': url,
-        'tag': tag,
-        'icon': icon or '/static/crush_lu/icons/icon-192x192.png',
-        'badge': badge or '/static/crush_lu/icons/icon-72x72.png',
+        "title": title,
+        "body": body,
+        "url": url,
+        "tag": tag,
+        "icon": icon or "/static/crush_lu/icons/icon-192x192.png",
+        "badge": badge or "/static/crush_lu/icons/icon-72x72.png",
     }
 
     try:
         # Prepare subscription info for pywebpush
         subscription_info = {
             "endpoint": subscription.endpoint,
-            "keys": {
-                "p256dh": subscription.p256dh_key,
-                "auth": subscription.auth_key
-            }
+            "keys": {"p256dh": subscription.p256dh_key, "auth": subscription.auth_key},
         }
 
         # Send the push notification. One device, so there is no fan-out to
@@ -308,32 +311,34 @@ def send_push_to_subscription(subscription, title, body, url='/', tag='crush-not
                 subscription_info=subscription_info,
                 data=json.dumps(payload),
                 vapid_private_key=settings.VAPID_PRIVATE_KEY,
-                vapid_claims={
-                    "sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"
-                },
-                timeout=getattr(settings, 'CRUSH_PUSH_SEND_TIMEOUT_SECONDS', 10.0),
+                vapid_claims={"sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"},
+                timeout=getattr(settings, "CRUSH_PUSH_SEND_TIMEOUT_SECONDS", 10.0),
             )
 
         # Mark success
         subscription.mark_success()
-        logger.info(f"Push notification sent to {subscription.user.username} ({subscription.device_name})")
-        return {'success': True, 'error': None}
+        logger.info(
+            f"Push notification sent to {subscription.user.username} ({subscription.device_name})"
+        )
+        return {"success": True, "error": None}
 
     except InvalidPushEndpoint as e:
         logger.warning("Rejected endpoint for push subscription %s", subscription.pk)
         retire_invalid_subscription(subscription)
-        return {'success': False, 'error': str(e)}
+        return {"success": False, "error": str(e)}
 
     except WebPushException as e:
         # Handle push errors (expired subscription, etc.)
         logger.warning(f"WebPush failed for {subscription.user.username}: {e}")
         subscription.mark_failure()
-        return {'success': False, 'error': str(e)}
+        return {"success": False, "error": str(e)}
 
     except Exception as e:
         # Catch-all for unexpected errors
-        logger.error(f"Unexpected error sending push to {subscription.user.username}: {e}")
-        return {'success': False, 'error': str(e)}
+        logger.error(
+            f"Unexpected error sending push to {subscription.user.username}: {e}"
+        )
+        return {"success": False, "error": str(e)}
 
 
 def send_event_reminder(user, event):
@@ -345,28 +350,32 @@ def send_event_reminder(user, event):
         event: MeetupEvent object
     """
     # Check if user wants event reminders
-    subscriptions = user.push_subscriptions.filter(enabled=True, notify_event_reminders=True)
+    subscriptions = user.push_subscriptions.filter(
+        enabled=True, notify_event_reminders=True
+    )
     if not subscriptions.exists():
         return
 
     # Use context manager for thread-safe language activation
     with user_language_context(user):
-        title = _("Event Tomorrow: %(event_title)s") % {'event_title': event.title}
+        title = _("Event Tomorrow: %(event_title)s") % {"event_title": event.title}
         body = _("Don't forget! %(event_title)s starts at %(time)s. See you there!") % {
-            'event_title': event.title,
-            'time': event.date_time.strftime('%H:%M')
+            "event_title": event.title,
+            "time": event.date_time.strftime("%H:%M"),
         }
 
     # Use helper for language-prefixed URL
-    url = get_user_language_url(user, 'crush_lu:event_detail', kwargs={'event_id': event.id})
+    url = get_user_language_url(
+        user, "crush_lu:event_detail", kwargs={"event_id": event.id}
+    )
 
     return send_push_notification(
         user=user,
         title=title,
         body=body,
         url=url,
-        tag=f'event-reminder-{event.id}',
-        preference_key='event_reminders',
+        tag=f"event-reminder-{event.id}",
+        preference_key="event_reminders",
     )
 
 
@@ -379,29 +388,37 @@ def send_new_connection_notification(user, connection):
         connection: EventConnection object
     """
     # Check if user wants connection notifications
-    subscriptions = user.push_subscriptions.filter(enabled=True, notify_new_connections=True)
+    subscriptions = user.push_subscriptions.filter(
+        enabled=True, notify_new_connections=True
+    )
     if not subscriptions.exists():
         return
 
     # Get the other user's display name
-    other_user = connection.requester if connection.recipient == user else connection.recipient
-    display_name = other_user.crushprofile.display_name if hasattr(other_user, 'crushprofile') else other_user.first_name
+    other_user = (
+        connection.requester if connection.recipient == user else connection.recipient
+    )
+    display_name = (
+        other_user.crushprofile.display_name
+        if hasattr(other_user, "crushprofile")
+        else other_user.first_name
+    )
 
     # Use context manager for thread-safe language activation
     with user_language_context(user):
         title = _("New Connection Request!")
-        body = _("%(name)s wants to connect with you!") % {'name': display_name}
+        body = _("%(name)s wants to connect with you!") % {"name": display_name}
 
     # Use helper for language-prefixed URL
-    url = get_user_language_url(user, 'crush_lu:my_connections')
+    url = get_user_language_url(user, "crush_lu:my_connections")
 
     return send_push_notification(
         user=user,
         title=title,
         body=body,
         url=url,
-        tag=f'connection-{connection.id}',
-        preference_key='new_connections',
+        tag=f"connection-{connection.id}",
+        preference_key="new_connections",
     )
 
 
@@ -420,7 +437,7 @@ def send_connect_week_request_notification(user, weekly_request):
     requester = weekly_request.requester
     display_name = (
         requester.crushprofile.display_name
-        if hasattr(requester, 'crushprofile')
+        if hasattr(requester, "crushprofile")
         else requester.first_name
     )
 
@@ -428,17 +445,17 @@ def send_connect_week_request_notification(user, weekly_request):
         title = _("Someone wants to get to know you")
         body = _(
             "%(name)s chose you after their Connect Week. Take a look and decide."
-        ) % {'name': display_name}
+        ) % {"name": display_name}
 
-    url = get_user_language_url(user, 'crush_lu:connect_week_inbox')
+    url = get_user_language_url(user, "crush_lu:connect_week_inbox")
 
     return send_push_notification(
         user=user,
         title=title,
         body=body,
         url=url,
-        tag=f'connect-week-request-{weekly_request.id}',
-        preference_key='new_connections',
+        tag=f"connect-week-request-{weekly_request.id}",
+        preference_key="new_connections",
     )
 
 
@@ -451,31 +468,43 @@ def send_new_message_notification(user, message):
         message: ConnectionMessage object
     """
     # Check if user wants message notifications
-    subscriptions = user.push_subscriptions.filter(enabled=True, notify_new_messages=True)
+    subscriptions = user.push_subscriptions.filter(
+        enabled=True, notify_new_messages=True
+    )
     if not subscriptions.exists():
         return
 
     sender = message.sender
-    display_name = sender.crushprofile.display_name if hasattr(sender, 'crushprofile') else sender.first_name
+    display_name = (
+        sender.crushprofile.display_name
+        if hasattr(sender, "crushprofile")
+        else sender.first_name
+    )
 
     # Truncate message for notification
-    preview = message.message[:50] + "..." if len(message.message) > 50 else message.message
+    preview = (
+        message.message[:50] + "..." if len(message.message) > 50 else message.message
+    )
 
     # Use context manager for thread-safe language activation
     with user_language_context(user):
-        title = _("New message from %(name)s") % {'name': display_name}
+        title = _("New message from %(name)s") % {"name": display_name}
         body = preview
 
     # Use helper for language-prefixed URL
-    url = get_user_language_url(user, 'crush_lu:connection_detail', kwargs={'connection_id': message.connection.id})
+    url = get_user_language_url(
+        user,
+        "crush_lu:connection_detail",
+        kwargs={"connection_id": message.connection.id},
+    )
 
     return send_push_notification(
         user=user,
         title=title,
         body=body,
         url=url,
-        tag=f'message-{message.connection.id}',
-        preference_key='new_messages',
+        tag=f"message-{message.connection.id}",
+        preference_key="new_messages",
     )
 
 
@@ -487,25 +516,29 @@ def send_profile_approved_notification(user):
         user: Django User object
     """
     # Check if user wants profile update notifications
-    subscriptions = user.push_subscriptions.filter(enabled=True, notify_profile_updates=True)
+    subscriptions = user.push_subscriptions.filter(
+        enabled=True, notify_profile_updates=True
+    )
     if not subscriptions.exists():
         return
 
     # Use context manager for thread-safe language activation
     with user_language_context(user):
         title = _("Profile Approved!")
-        body = _("Your Crush.lu profile has been approved! You can now register for events.")
+        body = _(
+            "Your Crush.lu profile has been approved! You can now register for events."
+        )
 
     # Use helper for language-prefixed URL
-    url = get_user_language_url(user, 'crush_lu:dashboard')
+    url = get_user_language_url(user, "crush_lu:dashboard")
 
     return send_push_notification(
         user=user,
         title=title,
         body=body,
         url=url,
-        tag='profile-approved',
-        preference_key='profile_updates',
+        tag="profile-approved",
+        preference_key="profile_updates",
     )
 
 
@@ -518,25 +551,29 @@ def send_profile_revision_notification(user, feedback):
         feedback: Coach feedback text
     """
     # Check if user wants profile update notifications
-    subscriptions = user.push_subscriptions.filter(enabled=True, notify_profile_updates=True)
+    subscriptions = user.push_subscriptions.filter(
+        enabled=True, notify_profile_updates=True
+    )
     if not subscriptions.exists():
         return
 
     # Use context manager for thread-safe language activation
     with user_language_context(user):
         title = _("Profile Update Needed")
-        body = _("Your Crush Coach has some feedback: %(feedback)s...") % {'feedback': feedback[:80]}
+        body = _("Your Crush Coach has some feedback: %(feedback)s...") % {
+            "feedback": feedback[:80]
+        }
 
     # Use helper for language-prefixed URL
-    url = get_user_language_url(user, 'crush_lu:edit_profile')
+    url = get_user_language_url(user, "crush_lu:edit_profile")
 
     return send_push_notification(
         user=user,
         title=title,
         body=body,
         url=url,
-        tag='profile-revision',
-        preference_key='profile_updates',
+        tag="profile-revision",
+        preference_key="profile_updates",
     )
 
 
@@ -560,17 +597,17 @@ def send_profile_rejected_notification(user, reason):
 
     with user_language_context(user):
         title = _("Verification Not Approved")
-        body = _("%(reason)s") % {'reason': str(reason)[:120]}
+        body = _("%(reason)s") % {"reason": str(reason)[:120]}
 
-    url = get_user_language_url(user, 'crush_lu:dashboard')
+    url = get_user_language_url(user, "crush_lu:dashboard")
 
     return send_push_notification(
         user=user,
         title=title,
         body=body,
         url=url,
-        tag='profile-rejected',
-        preference_key='profile_updates',
+        tag="profile-rejected",
+        preference_key="profile_updates",
     )
 
 
@@ -582,25 +619,29 @@ def send_profile_recontact_notification(user):
         user: Django User object
     """
     # Check if user wants profile update notifications
-    subscriptions = user.push_subscriptions.filter(enabled=True, notify_profile_updates=True)
+    subscriptions = user.push_subscriptions.filter(
+        enabled=True, notify_profile_updates=True
+    )
     if not subscriptions.exists():
         return
 
     # Use context manager for thread-safe language activation
     with user_language_context(user):
         title = _("Coach Needs to Speak With You")
-        body = _("Your coach tried to reach you. Please contact them to complete your screening call.")
+        body = _(
+            "Your coach tried to reach you. Please contact them to complete your screening call."
+        )
 
     # Use helper for language-prefixed URL
-    url = get_user_language_url(user, 'crush_lu:profile_submitted')
+    url = get_user_language_url(user, "crush_lu:profile_submitted")
 
     return send_push_notification(
         user=user,
         title=title,
         body=body,
         url=url,
-        tag='profile-recontact',
-        preference_key='profile_updates',
+        tag="profile-recontact",
+        preference_key="profile_updates",
     )
 
 
@@ -614,10 +655,12 @@ def send_test_notification(user):
     # Use context manager for thread-safe language activation
     with user_language_context(user):
         title = _("Test Notification")
-        body = _("Push notifications are working! You'll receive updates about events, messages, and connections.")
+        body = _(
+            "Push notifications are working! You'll receive updates about events, messages, and connections."
+        )
 
     # Use helper for language-prefixed URL
-    url = get_user_language_url(user, 'crush_lu:dashboard')
+    url = get_user_language_url(user, "crush_lu:dashboard")
 
     return send_push_notification(
         user=user,
@@ -627,5 +670,5 @@ def send_test_notification(user):
         # No preference_key on purpose: "send me a test" means every device
         # the member has enabled, including ones muted for a given category.
         # Answering "did push reach this phone?" is the whole point.
-        tag='user-test-notification',
+        tag="user-test-notification",
     )

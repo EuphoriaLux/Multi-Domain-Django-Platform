@@ -412,9 +412,7 @@ class WhatsAppAdapterSendTests(TestCase):
             phone_number="+352621444555",
             phone_verified=True,
         )
-        UserDataConsent.objects.filter(user=second).update(
-            crushlu_consent_given=True
-        )
+        UserDataConsent.objects.filter(user=second).update(crushlu_consent_given=True)
         EmailPreference.objects.update_or_create(
             user=second,
             defaults={

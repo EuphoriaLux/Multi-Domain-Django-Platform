@@ -590,9 +590,7 @@ def event_checkin_api(request, registration_id, token):
             # Attending IS the verification, for the ordinary case. Side effects
             # (referral credit, welcome email) run on commit — never inside the
             # transaction, or a rollback would leave the email already sent.
-            verified_profile = _auto_verify_on_attendance(
-                request, registration, now
-            )
+            verified_profile = _auto_verify_on_attendance(request, registration, now)
             auto_verified = verified_profile is not None
             if auto_verified:
                 transaction.on_commit(
@@ -833,7 +831,9 @@ def coach_mark_verified(request, event_id, registration_id):
                     "success": True,
                     "already_verified": True,
                     "registration_id": registration.id,
-                    "attendee_name": _get_display_name(registration, coach_authenticated=True),
+                    "attendee_name": _get_display_name(
+                        registration, coach_authenticated=True
+                    ),
                     "verification_method": profile.verification_method,
                     "message": str(_("Already verified.")),
                     "row": _row_state(registration, coach_authenticated=True),
@@ -962,9 +962,7 @@ def coach_reject_verification(request, event_id, registration_id):
             return JsonResponse(
                 {
                     "success": False,
-                    "error": str(
-                        _("This verification has already been rejected.")
-                    ),
+                    "error": str(_("This verification has already been rejected.")),
                 },
                 status=409,
             )
@@ -998,11 +996,15 @@ def coach_reject_verification(request, event_id, registration_id):
             submission.coach_notes = (
                 (submission.coach_notes + "\n" if submission.coach_notes else "") + note
             ).strip()
-            fields = ["coach", "coach_notes"] if expired else [
-                "status",
-                "coach",
-                "coach_notes",
-            ]
+            fields = (
+                ["coach", "coach_notes"]
+                if expired
+                else [
+                    "status",
+                    "coach",
+                    "coach_notes",
+                ]
+            )
             submission.save(update_fields=fields)
 
         # The atomic QuerySet.update() above bypasses post_save, so re-run the
@@ -2197,4 +2199,3 @@ def debug_print_test_page(request):
             "event_title": event_title,
         },
     )
-

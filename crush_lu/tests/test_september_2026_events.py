@@ -46,9 +46,7 @@ class SeptemberProgrammeShapeTest(TestCase):
         self.assertEqual(MeetupEvent.objects.count(), 8)
 
     def test_four_wednesdays_and_four_thursdays(self):
-        days = sorted(
-            e.date_time.astimezone(TZ).day for e in MeetupEvent.objects.all()
-        )
+        days = sorted(e.date_time.astimezone(TZ).day for e in MeetupEvent.objects.all())
         # Sep 2026: Wednesdays are 2, 9, 16, 23; Thursdays are 3, 10, 17, 24.
         self.assertEqual(days, [2, 3, 9, 10, 16, 17, 23, 24])
 
@@ -78,9 +76,7 @@ class SeptemberProgrammeShapeTest(TestCase):
 
     def test_language_alternation_matches_august(self):
         def langs(day):
-            return list(
-                MeetupEvent.objects.get(date_time=_sep(day, 19)).languages
-            )
+            return list(MeetupEvent.objects.get(date_time=_sep(day, 19)).languages)
 
         self.assertEqual(langs(2), ["de", "lu"])
         self.assertEqual(langs(3), ["de", "lu"])
@@ -98,21 +94,13 @@ class SeptemberProgrammeShapeTest(TestCase):
         self.assertEqual((fr.min_age, fr.max_age), (25, 38))
 
     def test_events_are_drafts_by_default(self):
-        self.assertFalse(
-            MeetupEvent.objects.filter(is_published=True).exists()
-        )
+        self.assertFalse(MeetupEvent.objects.filter(is_published=True).exists())
 
     def test_trilingual_copy_on_every_event(self):
         for e in MeetupEvent.objects.all():
             self.assertTrue(e.title_en and e.title_de and e.title_fr)
-            self.assertTrue(
-                e.description_en and e.description_de and e.description_fr
-            )
-            marker = (
-                "Speed Dating"
-                if e.event_type == "speed_dating"
-                else "Quiz Night"
-            )
+            self.assertTrue(e.description_en and e.description_de and e.description_fr)
+            marker = "Speed Dating" if e.event_type == "speed_dating" else "Quiz Night"
             self.assertIn(marker, e.title_en)
             self.assertIn(marker, e.title_de)
             self.assertIn(marker, e.title_fr)
@@ -148,9 +136,7 @@ class QuizSeedingTest(TestCase):
 
         for quiz in QuizEvent.objects.all():
             self.assertEqual(quiz.num_tables, 6)
-            self.assertEqual(
-                QuizTable.objects.filter(quiz=quiz).count(), 6
-            )
+            self.assertEqual(QuizTable.objects.filter(quiz=quiz).count(), 6)
 
     def test_consecutive_evenings_use_different_questions(self):
         def texts(day):
@@ -254,31 +240,29 @@ class IdempotencyAndFlagsTest(TestCase):
 
     def test_unknown_quiz_owner_raises(self):
         with self.assertRaises(CommandError):
-            call_command(
-                "create_september_2026_events", "--quiz-owner", "ghost-user"
-            )
+            call_command("create_september_2026_events", "--quiz-owner", "ghost-user")
 
     def test_banner_from_missing_event_raises(self):
         with self.assertRaises(CommandError):
-            call_command(
-                "create_september_2026_events", "--banner-from", "99999"
-            )
+            call_command("create_september_2026_events", "--banner-from", "99999")
 
     def test_premium_seats_above_capacity_rejected(self):
         with self.assertRaises(CommandError):
-            call_command(
-                "create_september_2026_events", "--premium-seats", "15"
-            )
+            call_command("create_september_2026_events", "--premium-seats", "15")
 
     def test_publish_rejects_invalid_postcode(self):
         with self.assertRaises(CommandError):
             call_command(
                 "create_september_2026_events",
                 "--publish",
-                "--location", "ATMOS",
-                "--address-street", "place de la Gare",
-                "--address-postcode", "foo",
-                "--address-town", "Luxembourg",
+                "--location",
+                "ATMOS",
+                "--address-street",
+                "place de la Gare",
+                "--address-postcode",
+                "foo",
+                "--address-town",
+                "Luxembourg",
             )
 
     def test_publish_rejects_missing_location(self):
@@ -286,9 +270,12 @@ class IdempotencyAndFlagsTest(TestCase):
             call_command(
                 "create_september_2026_events",
                 "--publish",
-                "--address-street", "place de la Gare",
-                "--address-postcode", "1616",
-                "--address-town", "Luxembourg",
+                "--address-street",
+                "place de la Gare",
+                "--address-postcode",
+                "1616",
+                "--address-town",
+                "Luxembourg",
             )
 
     def test_banner_only_applies_to_matching_event_type(self):
@@ -310,8 +297,10 @@ class IdempotencyAndFlagsTest(TestCase):
         august_sd.refresh_from_db()
         call_command(
             "create_september_2026_events",
-            "--quiz-owner", "quiz-owner",
-            "--banner-from", str(august_sd.pk),
+            "--quiz-owner",
+            "quiz-owner",
+            "--banner-from",
+            str(august_sd.pk),
         )
         # Speed datings carry the reused banner, quiz nights do not.
         for day in (2, 9, 16, 23):

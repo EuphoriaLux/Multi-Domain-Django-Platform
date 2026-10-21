@@ -12,83 +12,89 @@ To test a different site locally, change DEV_DEFAULT:
 """
 
 DOMAINS = {
-    'arborist.lu': {
-        'urlconf': 'azureproject.urls_arborist',
-        'name': 'Arborist',
-        'app': 'arborist',
-        'aliases': ['www.arborist.lu', 'test.arborist.lu'],
+    "arborist.lu": {
+        "urlconf": "azureproject.urls_arborist",
+        "name": "Arborist",
+        "app": "arborist",
+        "aliases": ["www.arborist.lu", "test.arborist.lu"],
     },
-    'delegations.lu': {
-        'urlconf': 'azureproject.urls_delegations',
-        'name': 'Delegations.lu',
-        'app': 'delegations',
-        'aliases': ['www.delegations.lu', 'test.delegations.lu'],
+    "delegations.lu": {
+        "urlconf": "azureproject.urls_delegations",
+        "name": "Delegations.lu",
+        "app": "delegations",
+        "aliases": ["www.delegations.lu", "test.delegations.lu"],
     },
-    'crush.lu': {
-        'urlconf': 'azureproject.urls_crush',
-        'name': 'Crush.lu',
-        'app': 'crush_lu',
-        'aliases': ['www.crush.lu', 'test.crush.lu'],
+    "crush.lu": {
+        "urlconf": "azureproject.urls_crush",
+        "name": "Crush.lu",
+        "app": "crush_lu",
+        "aliases": ["www.crush.lu", "test.crush.lu"],
     },
-    'api.crush.lu': {
-        'urlconf': 'azureproject.urls_api',
-        'name': 'Crush.lu API',
-        'app': 'hub',
-        'aliases': ['test.api.crush.lu'],
+    "api.crush.lu": {
+        "urlconf": "azureproject.urls_api",
+        "name": "Crush.lu API",
+        "app": "hub",
+        "aliases": ["test.api.crush.lu"],
     },
-    'vinsdelux.com': {
-        'urlconf': 'azureproject.urls_vinsdelux',
-        'name': 'VinsDelux',
-        'app': 'vinsdelux',
-        'aliases': ['www.vinsdelux.com', 'test.vinsdelux.com'],
+    "vinsdelux.com": {
+        "urlconf": "azureproject.urls_vinsdelux",
+        "name": "VinsDelux",
+        "app": "vinsdelux",
+        "aliases": ["www.vinsdelux.com", "test.vinsdelux.com"],
     },
-    'entreprinder.lu': {
-        'urlconf': 'azureproject.urls_entreprinder',
-        'name': 'Entreprinder',
-        'app': 'entreprinder',
-        'aliases': ['www.entreprinder.lu', 'test.entreprinder.lu'],
+    "entreprinder.lu": {
+        "urlconf": "azureproject.urls_entreprinder",
+        "name": "Entreprinder",
+        "app": "entreprinder",
+        "aliases": ["www.entreprinder.lu", "test.entreprinder.lu"],
     },
-    'power-up.lu': {
-        'urlconf': 'azureproject.urls_power_up',
-        'name': 'Power-Up',
-        'app': 'power_up',
-        'aliases': ['www.power-up.lu', 'powerup.lu', 'www.powerup.lu', 'test.power-up.lu', 'test.powerup.lu'],
+    "power-up.lu": {
+        "urlconf": "azureproject.urls_power_up",
+        "name": "Power-Up",
+        "app": "power_up",
+        "aliases": [
+            "www.power-up.lu",
+            "powerup.lu",
+            "www.powerup.lu",
+            "test.power-up.lu",
+            "test.powerup.lu",
+        ],
     },
-    'portal.powerup.lu': {
-        'urlconf': 'azureproject.urls_portal',
-        'name': 'Power-Up Portal',
-        'app': 'power_up',
-        'aliases': ['test-portal.powerup.lu'],
+    "portal.powerup.lu": {
+        "urlconf": "azureproject.urls_portal",
+        "name": "Power-Up Portal",
+        "app": "power_up",
+        "aliases": ["test-portal.powerup.lu"],
     },
-    'tableau.lu': {
-        'urlconf': 'azureproject.urls_tableau',
-        'name': 'Tableau',
-        'app': 'tableau',
-        'aliases': ['www.tableau.lu', 'test.tableau.lu'],
+    "tableau.lu": {
+        "urlconf": "azureproject.urls_tableau",
+        "name": "Tableau",
+        "app": "tableau",
+        "aliases": ["www.tableau.lu", "test.tableau.lu"],
     },
 }
 
 # Development configuration
 # Note: 'testserver' is added for pytest-django live_server fixture
-DEV_HOSTS = ['localhost', '127.0.0.1', '192.168.178.184', 'testserver', '10.0.2.2']
-DEV_DEFAULT = 'crush.lu'  # Change this to test different sites locally
+DEV_HOSTS = ["localhost", "127.0.0.1", "192.168.178.184", "testserver", "10.0.2.2"]
+DEV_DEFAULT = "crush.lu"  # Change this to test different sites locally
 
 # Local development domain mappings (avoids HSTS issues with real domains)
 DEV_DOMAIN_MAPPINGS = {
-    'arborist.localhost': 'arborist.lu',
-    'crush.localhost': 'crush.lu',
-    'power-up.localhost': 'power-up.lu',
-    'powerup.localhost': 'power-up.lu',
-    'vinsdelux.localhost': 'vinsdelux.com',
-    'entreprinder.localhost': 'entreprinder.lu',
-    'tableau.localhost': 'tableau.lu',
-    'delegation.localhost': 'delegations.lu',
-    'portal.localhost': 'portal.powerup.lu',
-    'api.localhost': 'api.crush.lu',
+    "arborist.localhost": "arborist.lu",
+    "crush.localhost": "crush.lu",
+    "power-up.localhost": "power-up.lu",
+    "powerup.localhost": "power-up.lu",
+    "vinsdelux.localhost": "vinsdelux.com",
+    "entreprinder.localhost": "entreprinder.lu",
+    "tableau.localhost": "tableau.lu",
+    "delegation.localhost": "delegations.lu",
+    "portal.localhost": "portal.powerup.lu",
+    "api.localhost": "api.crush.lu",
 }
 
 # Production fallback (used for unknown domains and Azure hostnames)
-PRODUCTION_DEFAULT = 'entreprinder.lu'
+PRODUCTION_DEFAULT = "entreprinder.lu"
 
 # Domains that exist only to send visitors somewhere else. They are never
 # routed to a urlconf and serve no content of their own -- the request is
@@ -118,8 +124,8 @@ PRODUCTION_DEFAULT = 'entreprinder.lu'
 # so these hosts do nothing under the dev settings module -- same as the
 # existing www. redirects.
 REDIRECT_DOMAINS = {
-    'moonlightdating.lu': 'https://power-up.lu/solutions/',
-    'www.moonlightdating.lu': 'https://power-up.lu/solutions/',
+    "moonlightdating.lu": "https://power-up.lu/solutions/",
+    "www.moonlightdating.lu": "https://power-up.lu/solutions/",
 }
 
 
@@ -133,7 +139,7 @@ def get_domain_config(host):
     Returns:
         Domain config dict if found, None otherwise
     """
-    host = host.split(':')[0].lower().rstrip('.')
+    host = host.split(":")[0].lower().rstrip(".")
 
     # Direct match
     if host in DOMAINS:
@@ -141,7 +147,7 @@ def get_domain_config(host):
 
     # Check aliases (e.g., www.crush.lu)
     for domain, config in DOMAINS.items():
-        if host in config.get('aliases', []):
+        if host in config.get("aliases", []):
             return config
 
     return None
@@ -154,11 +160,11 @@ def get_canonical_domain(host):
     ``*.localhost`` dev aliases in DEV_DOMAIN_MAPPINGS, so callers that gate
     on "which site is this" do not have to compare raw hosts.
     """
-    host = host.split(':')[0].lower().rstrip('.')
+    host = host.split(":")[0].lower().rstrip(".")
     if host in DOMAINS:
         return host
     for domain, config in DOMAINS.items():
-        if host in config.get('aliases', []):
+        if host in config.get("aliases", []):
             return domain
     return DEV_DOMAIN_MAPPINGS.get(host)
 
@@ -173,28 +179,28 @@ def get_urlconf_for_host(host):
     Returns:
         URL configuration module path string
     """
-    host = host.split(':')[0].lower()
+    host = host.split(":")[0].lower()
 
     # Try to get domain config
     config = get_domain_config(host)
     if config:
-        return config['urlconf']
+        return config["urlconf"]
 
     # Check dev domain mappings (e.g., crush.localhost -> crush.lu)
     if host in DEV_DOMAIN_MAPPINGS:
         mapped_domain = DEV_DOMAIN_MAPPINGS[host]
-        return DOMAINS[mapped_domain]['urlconf']
+        return DOMAINS[mapped_domain]["urlconf"]
 
     # Development hosts
     if host in DEV_HOSTS:
-        return DOMAINS[DEV_DEFAULT]['urlconf']
+        return DOMAINS[DEV_DEFAULT]["urlconf"]
 
     # Azure App Service hostname
-    if host.endswith('.azurewebsites.net'):
-        return DOMAINS[PRODUCTION_DEFAULT]['urlconf']
+    if host.endswith(".azurewebsites.net"):
+        return DOMAINS[PRODUCTION_DEFAULT]["urlconf"]
 
     # Fallback to production default
-    return DOMAINS[PRODUCTION_DEFAULT]['urlconf']
+    return DOMAINS[PRODUCTION_DEFAULT]["urlconf"]
 
 
 def get_all_hosts():
@@ -206,7 +212,7 @@ def get_all_hosts():
     """
     hosts = list(DOMAINS.keys())
     for config in DOMAINS.values():
-        hosts.extend(config.get('aliases', []))
+        hosts.extend(config.get("aliases", []))
     hosts.extend(REDIRECT_DOMAINS)
     hosts.extend(DEV_HOSTS)
     # Add dev domain mappings (*.localhost)
@@ -237,5 +243,5 @@ def get_redirect_target(host):
     Returns:
         Absolute target URL string, or None if the host serves its own content
     """
-    host = host.split(':')[0].lower().rstrip('.')
+    host = host.split(":")[0].lower().rstrip(".")
     return REDIRECT_DOMAINS.get(host)

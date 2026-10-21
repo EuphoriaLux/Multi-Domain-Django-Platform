@@ -8,6 +8,7 @@ Comprehensive tests for all API endpoints including:
 
 Run with: pytest crush_lu/tests/test_api.py -v
 """
+
 import json
 from datetime import date, timedelta
 from django.test import TestCase, Client, override_settings
@@ -19,7 +20,7 @@ from django.utils import timezone
 User = get_user_model()
 
 CRUSH_LU_URL_SETTINGS = {
-    'ROOT_URLCONF': 'azureproject.urls_crush',
+    "ROOT_URLCONF": "azureproject.urls_crush",
 }
 
 
@@ -30,8 +31,7 @@ class SiteTestMixin:
     def setUpClass(cls):
         super().setUpClass()
         Site.objects.get_or_create(
-            id=1,
-            defaults={'domain': 'testserver', 'name': 'Test Server'}
+            id=1, defaults={"domain": "testserver", "name": "Test Server"}
         )
 
 
@@ -42,20 +42,25 @@ class JourneyAPITests(SiteTestMixin, TestCase):
     def setUp(self):
         """Set up test data for journey tests."""
         from crush_lu.models import (
-            CrushProfile, JourneyConfiguration, JourneyChapter,
-            JourneyChallenge, JourneyProgress, SpecialUserExperience
+            CrushProfile,
+            JourneyConfiguration,
+            JourneyChapter,
+            JourneyChallenge,
+            JourneyProgress,
+            SpecialUserExperience,
         )
 
         self.client = Client()
 
         self.user = User.objects.create_user(
-            username='journey@example.com',
-            email='journey@example.com',
-            password='testpass123',
-            first_name='Journey',
-            last_name='User'
+            username="journey@example.com",
+            email="journey@example.com",
+            password="testpass123",
+            first_name="Journey",
+            last_name="User",
         )
         from crush_lu.models.profiles import UserDataConsent
+
         UserDataConsent.objects.update_or_create(
             user=self.user, defaults={"crushlu_consent_given": True}
         )
@@ -63,117 +68,105 @@ class JourneyAPITests(SiteTestMixin, TestCase):
         CrushProfile.objects.create(
             user=self.user,
             date_of_birth=date(1995, 5, 15),
-            gender='M',
-            location='Luxembourg',
-            is_approved=True
+            gender="M",
+            location="Luxembourg",
+            is_approved=True,
         )
 
         # Create special experience and journey
         # Access is granted by linked_user only (finding 7-02), never by name
         self.experience = SpecialUserExperience.objects.create(
-            first_name='Journey',
-            last_name='User',
+            first_name="Journey",
+            last_name="User",
             linked_user=self.user,
-            custom_welcome_message='Welcome to your journey!',
-            is_active=True
+            custom_welcome_message="Welcome to your journey!",
+            is_active=True,
         )
 
         self.journey = JourneyConfiguration.objects.create(
             special_experience=self.experience,
-            journey_name='Test Journey',
+            journey_name="Test Journey",
             total_chapters=3,
-            is_active=True
+            is_active=True,
         )
 
         self.chapter = JourneyChapter.objects.create(
             journey=self.journey,
             chapter_number=1,
-            title='Chapter One',
-            theme='Mystery',
-            story_introduction='Test story introduction',
-            completion_message='Great job!'
+            title="Chapter One",
+            theme="Mystery",
+            story_introduction="Test story introduction",
+            completion_message="Great job!",
         )
 
         self.challenge = JourneyChallenge.objects.create(
             chapter=self.chapter,
             challenge_order=1,
-            challenge_type='riddle',
-            question='What is 2+2?',
-            correct_answer='4',
-            alternative_answers=['four'],
+            challenge_type="riddle",
+            question="What is 2+2?",
+            correct_answer="4",
+            alternative_answers=["four"],
             points_awarded=100,
-            hint_1='It is a number',
-            hint_1_cost=10
+            hint_1="It is a number",
+            hint_1_cost=10,
         )
 
         # Create journey progress
         self.progress = JourneyProgress.objects.create(
-            user=self.user,
-            journey=self.journey,
-            current_chapter=1,
-            total_points=0
+            user=self.user, journey=self.journey, current_chapter=1, total_points=0
         )
 
     def test_submit_challenge_correct_answer(self):
         """Test submitting correct challenge answer."""
-        self.client.login(username='journey@example.com', password='testpass123')
+        self.client.login(username="journey@example.com", password="testpass123")
 
         response = self.client.post(
-            reverse('crush_lu:api_submit_challenge'),
-            data=json.dumps({
-                'challenge_id': self.challenge.id,
-                'answer': '4'
-            }),
-            content_type='application/json'
+            reverse("crush_lu:api_submit_challenge"),
+            data=json.dumps({"challenge_id": self.challenge.id, "answer": "4"}),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertTrue(data['success'])
-        self.assertTrue(data['is_correct'])
-        self.assertEqual(data['points_earned'], 100)
+        self.assertTrue(data["success"])
+        self.assertTrue(data["is_correct"])
+        self.assertEqual(data["points_earned"], 100)
 
     def test_submit_challenge_wrong_answer(self):
         """Test submitting wrong challenge answer."""
-        self.client.login(username='journey@example.com', password='testpass123')
+        self.client.login(username="journey@example.com", password="testpass123")
 
         response = self.client.post(
-            reverse('crush_lu:api_submit_challenge'),
-            data=json.dumps({
-                'challenge_id': self.challenge.id,
-                'answer': 'wrong'
-            }),
-            content_type='application/json'
+            reverse("crush_lu:api_submit_challenge"),
+            data=json.dumps({"challenge_id": self.challenge.id, "answer": "wrong"}),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertTrue(data['success'])
-        self.assertFalse(data['is_correct'])
+        self.assertTrue(data["success"])
+        self.assertFalse(data["is_correct"])
 
     def test_submit_challenge_missing_data(self):
         """Test submitting challenge with missing data."""
-        self.client.login(username='journey@example.com', password='testpass123')
+        self.client.login(username="journey@example.com", password="testpass123")
 
         response = self.client.post(
-            reverse('crush_lu:api_submit_challenge'),
+            reverse("crush_lu:api_submit_challenge"),
             data=json.dumps({}),
-            content_type='application/json'
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 400)
         data = response.json()
-        self.assertFalse(data['success'])
+        self.assertFalse(data["success"])
 
     def test_submit_challenge_unauthorized(self):
         """Test submitting challenge without authentication."""
         response = self.client.post(
-            reverse('crush_lu:api_submit_challenge'),
-            data=json.dumps({
-                'challenge_id': self.challenge.id,
-                'answer': '4'
-            }),
-            content_type='application/json'
+            reverse("crush_lu:api_submit_challenge"),
+            data=json.dumps({"challenge_id": self.challenge.id, "answer": "4"}),
+            content_type="application/json",
         )
 
         # Should redirect to login
@@ -181,49 +174,43 @@ class JourneyAPITests(SiteTestMixin, TestCase):
 
     def test_unlock_hint(self):
         """Test unlocking a hint."""
-        self.client.login(username='journey@example.com', password='testpass123')
+        self.client.login(username="journey@example.com", password="testpass123")
 
         response = self.client.post(
-            reverse('crush_lu:api_unlock_hint'),
-            data=json.dumps({
-                'challenge_id': self.challenge.id,
-                'hint_number': 1
-            }),
-            content_type='application/json'
+            reverse("crush_lu:api_unlock_hint"),
+            data=json.dumps({"challenge_id": self.challenge.id, "hint_number": 1}),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertTrue(data['success'])
-        self.assertEqual(data['hint_text'], 'It is a number')
-        self.assertEqual(data['hint_cost'], 10)
+        self.assertTrue(data["success"])
+        self.assertEqual(data["hint_text"], "It is a number")
+        self.assertEqual(data["hint_cost"], 10)
 
     def test_unlock_hint_invalid_number(self):
         """Test unlocking hint with invalid number."""
-        self.client.login(username='journey@example.com', password='testpass123')
+        self.client.login(username="journey@example.com", password="testpass123")
 
         response = self.client.post(
-            reverse('crush_lu:api_unlock_hint'),
-            data=json.dumps({
-                'challenge_id': self.challenge.id,
-                'hint_number': 99
-            }),
-            content_type='application/json'
+            reverse("crush_lu:api_unlock_hint"),
+            data=json.dumps({"challenge_id": self.challenge.id, "hint_number": 99}),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 400)
 
     def test_get_progress(self):
         """Test getting journey progress."""
-        self.client.login(username='journey@example.com', password='testpass123')
+        self.client.login(username="journey@example.com", password="testpass123")
 
-        response = self.client.get(reverse('crush_lu:api_get_progress'))
+        response = self.client.get(reverse("crush_lu:api_get_progress"))
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertTrue(data['success'])
-        self.assertEqual(data['data']['journey_name'], 'Test Journey')
-        self.assertEqual(data['data']['current_chapter'], 1)
+        self.assertTrue(data["success"])
+        self.assertEqual(data["data"]["journey_name"], "Test Journey")
+        self.assertEqual(data["data"]["current_chapter"], 1)
 
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
@@ -233,20 +220,24 @@ class VotingAPITests(SiteTestMixin, TestCase):
     def setUp(self):
         """Set up test data for voting tests."""
         from crush_lu.models import (
-            MeetupEvent, EventRegistration, EventVotingSession,
-            GlobalActivityOption, CrushProfile
+            MeetupEvent,
+            EventRegistration,
+            EventVotingSession,
+            GlobalActivityOption,
+            CrushProfile,
         )
 
         self.client = Client()
 
         self.user = User.objects.create_user(
-            username='voter@example.com',
-            email='voter@example.com',
-            password='testpass123',
-            first_name='Voter',
-            last_name='User'
+            username="voter@example.com",
+            email="voter@example.com",
+            password="testpass123",
+            first_name="Voter",
+            last_name="User",
         )
         from crush_lu.models.profiles import UserDataConsent
+
         UserDataConsent.objects.update_or_create(
             user=self.user, defaults={"crushlu_consent_given": True}
         )
@@ -254,28 +245,26 @@ class VotingAPITests(SiteTestMixin, TestCase):
         CrushProfile.objects.create(
             user=self.user,
             date_of_birth=date(1995, 5, 15),
-            gender='M',
-            location='Luxembourg',
-            is_approved=True
+            gender="M",
+            location="Luxembourg",
+            is_approved=True,
         )
 
         self.event = MeetupEvent.objects.create(
-            title='Voting API Test Event',
-            description='Testing voting API',
-            event_type='speed_dating',
+            title="Voting API Test Event",
+            description="Testing voting API",
+            event_type="speed_dating",
             date_time=timezone.now() + timedelta(hours=1),
-            location='Luxembourg',
-            address='123 Test Street',
+            location="Luxembourg",
+            address="123 Test Street",
             max_participants=20,
             registration_deadline=timezone.now() - timedelta(hours=1),
-            is_published=True
+            is_published=True,
         )
 
         # Register user (attended = checked in, required to vote)
         EventRegistration.objects.create(
-            event=self.event,
-            user=self.user,
-            status='attended'
+            event=self.event, user=self.user, status="attended"
         )
 
         # Create voting session
@@ -283,127 +272,125 @@ class VotingAPITests(SiteTestMixin, TestCase):
             event=self.event,
             is_active=True,
             voting_start_time=timezone.now() - timedelta(minutes=5),
-            voting_end_time=timezone.now() + timedelta(minutes=25)
+            voting_end_time=timezone.now() + timedelta(minutes=25),
         )
 
         # Create GlobalActivityOption instances (used for voting)
         self.option1, _ = GlobalActivityOption.objects.get_or_create(
-            activity_variant='spicy_questions',
+            activity_variant="spicy_questions",
             defaults={
-                'activity_type': 'speed_dating_twist',
-                'display_name': 'Spicy Questions First',
-                'description': 'Break the ice with bold, fun questions right away',
-            }
+                "activity_type": "speed_dating_twist",
+                "display_name": "Spicy Questions First",
+                "description": "Break the ice with bold, fun questions right away",
+            },
         )
 
         self.option2, _ = GlobalActivityOption.objects.get_or_create(
-            activity_variant='music',
+            activity_variant="music",
             defaults={
-                'activity_type': 'presentation_style',
-                'display_name': 'With Favorite Music',
-                'description': 'Introduce yourself while your favorite song plays',
-            }
+                "activity_type": "presentation_style",
+                "display_name": "With Favorite Music",
+                "description": "Introduce yourself while your favorite song plays",
+            },
         )
 
         # Same-category alternative for testing within-category vote changes
         self.option1b, _ = GlobalActivityOption.objects.get_or_create(
-            activity_variant='deep_questions',
+            activity_variant="deep_questions",
             defaults={
-                'activity_type': 'speed_dating_twist',
-                'display_name': 'Deep Questions',
-                'description': 'Skip small talk and go straight to meaningful topics',
-            }
+                "activity_type": "speed_dating_twist",
+                "display_name": "Deep Questions",
+                "description": "Skip small talk and go straight to meaningful topics",
+            },
         )
 
     def test_voting_status_api(self):
         """Test getting voting status."""
-        self.client.login(username='voter@example.com', password='testpass123')
+        self.client.login(username="voter@example.com", password="testpass123")
 
         # Note: voting_status_api is defined in urls_crush.py at root level (language-neutral),
         # not in crush_lu/urls.py namespace
-        response = self.client.get(
-            reverse('voting_status_api', args=[self.event.id])
-        )
+        response = self.client.get(reverse("voting_status_api", args=[self.event.id]))
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertTrue(data['success'])
-        self.assertTrue(data['data']['is_voting_open'])
-        self.assertFalse(data['data']['has_voted'])
+        self.assertTrue(data["success"])
+        self.assertTrue(data["data"]["is_voting_open"])
+        self.assertFalse(data["data"]["has_voted"])
 
     def test_submit_vote_api(self):
         """Test submitting a vote."""
-        self.client.login(username='voter@example.com', password='testpass123')
+        self.client.login(username="voter@example.com", password="testpass123")
 
         response = self.client.post(
-            reverse('submit_vote_api', args=[self.event.id]),
-            data='{"option_id": ' + str(self.option1.id) + '}',
-            content_type='application/json',
+            reverse("submit_vote_api", args=[self.event.id]),
+            data='{"option_id": ' + str(self.option1.id) + "}",
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertTrue(data['success'])
-        self.assertEqual(data['data']['action'], 'created')
+        self.assertTrue(data["success"])
+        self.assertEqual(data["data"]["action"], "created")
 
     def test_submit_vote_change(self):
         """Test changing a vote within the same activity_type updates the existing row."""
-        self.client.login(username='voter@example.com', password='testpass123')
+        self.client.login(username="voter@example.com", password="testpass123")
 
         # Submit initial vote (speed_dating_twist category)
         self.client.post(
-            reverse('submit_vote_api', args=[self.event.id]),
-            data='{"option_id": ' + str(self.option1.id) + '}',
-            content_type='application/json',
+            reverse("submit_vote_api", args=[self.event.id]),
+            data='{"option_id": ' + str(self.option1.id) + "}",
+            content_type="application/json",
         )
 
         # Change vote within the same category
         response = self.client.post(
-            reverse('submit_vote_api', args=[self.event.id]),
-            data='{"option_id": ' + str(self.option1b.id) + '}',
-            content_type='application/json',
+            reverse("submit_vote_api", args=[self.event.id]),
+            data='{"option_id": ' + str(self.option1b.id) + "}",
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertTrue(data['success'])
-        self.assertEqual(data['data']['action'], 'updated')
+        self.assertTrue(data["success"])
+        self.assertEqual(data["data"]["action"], "updated")
 
     def test_submit_vote_separate_categories(self):
         """A user can hold one vote per activity_type; voting in a second category creates."""
-        self.client.login(username='voter@example.com', password='testpass123')
+        self.client.login(username="voter@example.com", password="testpass123")
 
         # Vote in speed_dating_twist
         r1 = self.client.post(
-            reverse('submit_vote_api', args=[self.event.id]),
-            data='{"option_id": ' + str(self.option1.id) + '}',
-            content_type='application/json',
+            reverse("submit_vote_api", args=[self.event.id]),
+            data='{"option_id": ' + str(self.option1.id) + "}",
+            content_type="application/json",
         )
-        self.assertEqual(r1.json()['data']['action'], 'created')
+        self.assertEqual(r1.json()["data"]["action"], "created")
 
         # Vote in presentation_style (different category) -- should also create
         r2 = self.client.post(
-            reverse('submit_vote_api', args=[self.event.id]),
-            data='{"option_id": ' + str(self.option2.id) + '}',
-            content_type='application/json',
+            reverse("submit_vote_api", args=[self.event.id]),
+            data='{"option_id": ' + str(self.option2.id) + "}",
+            content_type="application/json",
         )
         self.assertEqual(r2.status_code, 200)
-        self.assertEqual(r2.json()['data']['action'], 'created')
+        self.assertEqual(r2.json()["data"]["action"], "created")
 
     def test_total_votes_counts_unique_voters_not_categories(self):
         """total_votes is the unique-voter count (percentage denominator);
         a single user voting in both categories must only bump it by 1."""
-        self.client.login(username='voter@example.com', password='testpass123')
+        self.client.login(username="voter@example.com", password="testpass123")
 
         self.client.post(
-            reverse('submit_vote_api', args=[self.event.id]),
-            data='{"option_id": ' + str(self.option1.id) + '}',
-            content_type='application/json',
+            reverse("submit_vote_api", args=[self.event.id]),
+            data='{"option_id": ' + str(self.option1.id) + "}",
+            content_type="application/json",
         )
         self.client.post(
-            reverse('submit_vote_api', args=[self.event.id]),
-            data='{"option_id": ' + str(self.option2.id) + '}',
-            content_type='application/json',
+            reverse("submit_vote_api", args=[self.event.id]),
+            data='{"option_id": ' + str(self.option2.id) + "}",
+            content_type="application/json",
         )
 
         self.voting_session.refresh_from_db()
@@ -417,10 +404,14 @@ class VotingAPITests(SiteTestMixin, TestCase):
         # Simulate a legacy duplicate: older vote for option1, newer for option1b
         # (both in speed_dating_twist).
         older = EventActivityVote.objects.create(
-            event=self.event, user=self.user, selected_option=self.option1,
+            event=self.event,
+            user=self.user,
+            selected_option=self.option1,
         )
         newer = EventActivityVote.objects.create(
-            event=self.event, user=self.user, selected_option=self.option1b,
+            event=self.event,
+            user=self.user,
+            selected_option=self.option1b,
         )
         # voted_at is auto_now_add, but with get_or_create/create ordering the
         # actual DB ordering by -voted_at may be identical-timestamped; force
@@ -429,13 +420,11 @@ class VotingAPITests(SiteTestMixin, TestCase):
             voted_at=older.voted_at - timedelta(seconds=30)
         )
 
-        self.client.login(username='voter@example.com', password='testpass123')
-        response = self.client.get(
-            reverse('voting_status_api', args=[self.event.id])
-        )
-        data = response.json()['data']
+        self.client.login(username="voter@example.com", password="testpass123")
+        response = self.client.get(reverse("voting_status_api", args=[self.event.id]))
+        data = response.json()["data"]
         self.assertEqual(
-            data['user_votes'].get('speed_dating_twist'),
+            data["user_votes"].get("speed_dating_twist"),
             newer.selected_option.id,
             "user_votes must reflect the newest vote per category, not a stale row",
         )
@@ -443,56 +432,48 @@ class VotingAPITests(SiteTestMixin, TestCase):
     def test_voting_status_returns_per_category_votes(self):
         """voting_status_api must expose per-category vote state so clients
         can tell which categories the user has completed."""
-        self.client.login(username='voter@example.com', password='testpass123')
+        self.client.login(username="voter@example.com", password="testpass123")
 
         # Vote in speed_dating_twist only
         self.client.post(
-            reverse('submit_vote_api', args=[self.event.id]),
-            data='{"option_id": ' + str(self.option1.id) + '}',
-            content_type='application/json',
+            reverse("submit_vote_api", args=[self.event.id]),
+            data='{"option_id": ' + str(self.option1.id) + "}",
+            content_type="application/json",
         )
 
-        response = self.client.get(
-            reverse('voting_status_api', args=[self.event.id])
-        )
+        response = self.client.get(reverse("voting_status_api", args=[self.event.id]))
         self.assertEqual(response.status_code, 200)
-        data = response.json()['data']
-        self.assertTrue(data['has_voted'])
-        self.assertTrue(data['has_voted_speed_dating_twist'])
-        self.assertFalse(data['has_voted_presentation_style'])
-        self.assertEqual(
-            data['user_votes'].get('speed_dating_twist'), self.option1.id
-        )
-        self.assertNotIn('presentation_style', data['user_votes'])
+        data = response.json()["data"]
+        self.assertTrue(data["has_voted"])
+        self.assertTrue(data["has_voted_speed_dating_twist"])
+        self.assertFalse(data["has_voted_presentation_style"])
+        self.assertEqual(data["user_votes"].get("speed_dating_twist"), self.option1.id)
+        self.assertNotIn("presentation_style", data["user_votes"])
 
     def test_voting_results_api(self):
         """Test getting voting results."""
-        self.client.login(username='voter@example.com', password='testpass123')
+        self.client.login(username="voter@example.com", password="testpass123")
 
-        response = self.client.get(
-            reverse('voting_results_api', args=[self.event.id])
-        )
+        response = self.client.get(reverse("voting_results_api", args=[self.event.id]))
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertTrue(data['success'])
-        self.assertIn('total_votes', data['data'])
+        self.assertTrue(data["success"])
+        self.assertIn("total_votes", data["data"])
 
     def test_voting_requires_registration(self):
         """Test voting requires event registration."""
         # Create unregistered user
         unregistered = User.objects.create_user(
-            username='unregistered@example.com',
-            email='unregistered@example.com',
-            password='testpass123'
+            username="unregistered@example.com",
+            email="unregistered@example.com",
+            password="testpass123",
         )
 
-        self.client.login(username='unregistered@example.com', password='testpass123')
+        self.client.login(username="unregistered@example.com", password="testpass123")
 
         # Note: voting_status_api is defined in urls_crush.py at root level (language-neutral)
-        response = self.client.get(
-            reverse('voting_status_api', args=[self.event.id])
-        )
+        response = self.client.get(reverse("voting_status_api", args=[self.event.id]))
 
         self.assertEqual(response.status_code, 403)
 
@@ -502,24 +483,24 @@ class VotingAPITests(SiteTestMixin, TestCase):
         straight to 'presentations')."""
         from crush_lu.models import PresentationQueue
 
-        self.client.login(username='voter@example.com', password='testpass123')
+        self.client.login(username="voter@example.com", password="testpass123")
         PresentationQueue.objects.create(
             event=self.event, user=self.user, presentation_order=1, status="waiting"
         )
 
         response = self.client.get(
-            reverse('speed_dating_tv_display_data', args=[self.event.id])
+            reverse("speed_dating_tv_display_data", args=[self.event.id])
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()['phase'], 'voting')
+        self.assertEqual(response.json()["phase"], "voting")
 
     def test_tv_display_shows_presentations_once_voting_closed(self):
         """When voting is no longer open, an existing queue drives the
         'presentations' phase."""
         from crush_lu.models import PresentationQueue
 
-        self.client.login(username='voter@example.com', password='testpass123')
+        self.client.login(username="voter@example.com", password="testpass123")
         PresentationQueue.objects.create(
             event=self.event, user=self.user, presentation_order=1, status="presenting"
         )
@@ -527,11 +508,11 @@ class VotingAPITests(SiteTestMixin, TestCase):
         self.voting_session.save()
 
         response = self.client.get(
-            reverse('speed_dating_tv_display_data', args=[self.event.id])
+            reverse("speed_dating_tv_display_data", args=[self.event.id])
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()['phase'], 'presentations')
+        self.assertEqual(response.json()["phase"], "presentations")
 
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
@@ -545,13 +526,14 @@ class PushNotificationAPITests(SiteTestMixin, TestCase):
         self.client = Client()
 
         self.user = User.objects.create_user(
-            username='push@example.com',
-            email='push@example.com',
-            password='testpass123',
-            first_name='Push',
-            last_name='User'
+            username="push@example.com",
+            email="push@example.com",
+            password="testpass123",
+            first_name="Push",
+            last_name="User",
         )
         from crush_lu.models.profiles import UserDataConsent
+
         UserDataConsent.objects.update_or_create(
             user=self.user, defaults={"crushlu_consent_given": True}
         )
@@ -559,46 +541,47 @@ class PushNotificationAPITests(SiteTestMixin, TestCase):
         CrushProfile.objects.create(
             user=self.user,
             date_of_birth=date(1995, 5, 15),
-            gender='M',
-            location='Luxembourg',
-            is_approved=True
+            gender="M",
+            location="Luxembourg",
+            is_approved=True,
         )
 
     def test_subscribe_push(self):
         """Test subscribing to push notifications."""
-        self.client.login(username='push@example.com', password='testpass123')
+        self.client.login(username="push@example.com", password="testpass123")
 
         # Note: Push APIs are defined in urls_crush.py at root level (language-neutral)
         response = self.client.post(
-            reverse('api_subscribe_push'),
-            data=json.dumps({
-                'endpoint': 'https://fcm.googleapis.com/test/123',
-                'keys': {
-                    'p256dh': 'test_p256dh_key',
-                    'auth': 'test_auth_key'
-                },
-                'userAgent': 'Mozilla/5.0',
-                'deviceName': 'Test Device'
-            }),
-            content_type='application/json'
+            reverse("api_subscribe_push"),
+            data=json.dumps(
+                {
+                    "endpoint": "https://fcm.googleapis.com/test/123",
+                    "keys": {"p256dh": "test_p256dh_key", "auth": "test_auth_key"},
+                    "userAgent": "Mozilla/5.0",
+                    "deviceName": "Test Device",
+                }
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertTrue(data['success'])
-        self.assertIn('subscriptionId', data)
+        self.assertTrue(data["success"])
+        self.assertIn("subscriptionId", data)
 
     def test_subscribe_push_missing_data(self):
         """Test subscribing with missing data."""
-        self.client.login(username='push@example.com', password='testpass123')
+        self.client.login(username="push@example.com", password="testpass123")
 
         response = self.client.post(
-            reverse('api_subscribe_push'),
-            data=json.dumps({
-                'endpoint': 'https://test.com'
-                # Missing keys
-            }),
-            content_type='application/json'
+            reverse("api_subscribe_push"),
+            data=json.dumps(
+                {
+                    "endpoint": "https://test.com"
+                    # Missing keys
+                }
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 400)
@@ -607,88 +590,88 @@ class PushNotificationAPITests(SiteTestMixin, TestCase):
         """Test unsubscribing from push notifications."""
         from crush_lu.models import PushSubscription
 
-        self.client.login(username='push@example.com', password='testpass123')
+        self.client.login(username="push@example.com", password="testpass123")
 
         # Create subscription first
         subscription = PushSubscription.objects.create(
             user=self.user,
-            endpoint='https://fcm.googleapis.com/test/123',
-            p256dh_key='test_key',
-            auth_key='test_auth'
+            endpoint="https://fcm.googleapis.com/test/123",
+            p256dh_key="test_key",
+            auth_key="test_auth",
         )
 
         response = self.client.post(
-            reverse('api_unsubscribe_push'),
-            data=json.dumps({
-                'endpoint': 'https://fcm.googleapis.com/test/123'
-            }),
-            content_type='application/json'
+            reverse("api_unsubscribe_push"),
+            data=json.dumps({"endpoint": "https://fcm.googleapis.com/test/123"}),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertTrue(data['success'])
+        self.assertTrue(data["success"])
 
     def test_list_subscriptions(self):
         """Test listing push subscriptions."""
         from crush_lu.models import PushSubscription
 
-        self.client.login(username='push@example.com', password='testpass123')
+        self.client.login(username="push@example.com", password="testpass123")
 
         # Create subscriptions
         PushSubscription.objects.create(
             user=self.user,
-            endpoint='https://test1.com',
-            p256dh_key='key1',
-            auth_key='auth1',
-            device_name='Device 1'
+            endpoint="https://test1.com",
+            p256dh_key="key1",
+            auth_key="auth1",
+            device_name="Device 1",
         )
 
         PushSubscription.objects.create(
             user=self.user,
-            endpoint='https://test2.com',
-            p256dh_key='key2',
-            auth_key='auth2',
-            device_name='Device 2'
+            endpoint="https://test2.com",
+            p256dh_key="key2",
+            auth_key="auth2",
+            device_name="Device 2",
         )
 
-        response = self.client.get(reverse('api_list_subscriptions'))
+        response = self.client.get(reverse("api_list_subscriptions"))
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertTrue(data['success'])
-        self.assertEqual(len(data['subscriptions']), 2)
+        self.assertTrue(data["success"])
+        self.assertEqual(len(data["subscriptions"]), 2)
 
     def test_update_subscription_preferences(self):
         """Test updating subscription preferences."""
         from crush_lu.models import PushSubscription
 
-        self.client.login(username='push@example.com', password='testpass123')
+        self.client.login(username="push@example.com", password="testpass123")
 
         subscription = PushSubscription.objects.create(
             user=self.user,
-            endpoint='https://test.com',
-            p256dh_key='key',
-            auth_key='auth'
+            endpoint="https://test.com",
+            p256dh_key="key",
+            auth_key="auth",
         )
 
         response = self.client.post(
-            reverse('api_update_push_preferences'),
-            data=json.dumps({
-                'subscriptionId': subscription.id,
-                'preferences': {
-                    'newMessages': True,
-                    'eventReminders': True,
-                    'newConnections': False,
-                    'profileUpdates': True
+            reverse("api_update_push_preferences"),
+            data=json.dumps(
+                {
+                    "subscriptionId": subscription.id,
+                    "preferences": {
+                        "newMessages": True,
+                        "eventReminders": True,
+                        "newConnections": False,
+                        "profileUpdates": True,
+                    },
                 }
-            }),
-            content_type='application/json'
+            ),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertTrue(data['success'])
+        self.assertTrue(data["success"])
 
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
@@ -702,9 +685,9 @@ class APIAuthenticationTests(SiteTestMixin, TestCase):
     def test_journey_api_requires_auth(self):
         """Test journey API requires authentication."""
         response = self.client.post(
-            reverse('crush_lu:api_submit_challenge'),
-            data=json.dumps({'challenge_id': 1, 'answer': 'test'}),
-            content_type='application/json'
+            reverse("crush_lu:api_submit_challenge"),
+            data=json.dumps({"challenge_id": 1, "answer": "test"}),
+            content_type="application/json",
         )
 
         # Should redirect to login
@@ -713,14 +696,14 @@ class APIAuthenticationTests(SiteTestMixin, TestCase):
     def test_push_api_requires_auth(self):
         """Test push API requires authentication."""
         # Note: Push APIs are defined in urls_crush.py at root level (language-neutral)
-        response = self.client.get(reverse('api_list_subscriptions'))
+        response = self.client.get(reverse("api_list_subscriptions"))
 
         # Should redirect to login
         self.assertEqual(response.status_code, 302)
 
     def test_progress_api_requires_auth(self):
         """Test progress API requires authentication."""
-        response = self.client.get(reverse('crush_lu:api_get_progress'))
+        response = self.client.get(reverse("crush_lu:api_get_progress"))
 
         # Should redirect to login
         self.assertEqual(response.status_code, 302)
@@ -733,20 +716,25 @@ class PhotoPuzzleAPITests(SiteTestMixin, TestCase):
     def setUp(self):
         """Set up test data for photo puzzle tests."""
         from crush_lu.models import (
-            CrushProfile, JourneyConfiguration, JourneyChapter,
-            JourneyReward, JourneyProgress, SpecialUserExperience
+            CrushProfile,
+            JourneyConfiguration,
+            JourneyChapter,
+            JourneyReward,
+            JourneyProgress,
+            SpecialUserExperience,
         )
 
         self.client = Client()
 
         self.user = User.objects.create_user(
-            username='puzzle@example.com',
-            email='puzzle@example.com',
-            password='testpass123',
-            first_name='Puzzle',
-            last_name='User'
+            username="puzzle@example.com",
+            email="puzzle@example.com",
+            password="testpass123",
+            first_name="Puzzle",
+            last_name="User",
         )
         from crush_lu.models.profiles import UserDataConsent
+
         UserDataConsent.objects.update_or_create(
             user=self.user, defaults={"crushlu_consent_given": True}
         )
@@ -754,43 +742,43 @@ class PhotoPuzzleAPITests(SiteTestMixin, TestCase):
         CrushProfile.objects.create(
             user=self.user,
             date_of_birth=date(1995, 5, 15),
-            gender='M',
-            location='Luxembourg',
-            is_approved=True
+            gender="M",
+            location="Luxembourg",
+            is_approved=True,
         )
 
         # Create special experience and journey
         # Access is granted by linked_user only (finding 7-02), never by name
         self.experience = SpecialUserExperience.objects.create(
-            first_name='Puzzle',
-            last_name='User',
+            first_name="Puzzle",
+            last_name="User",
             linked_user=self.user,
-            custom_welcome_message='Welcome to your puzzle journey!',
-            is_active=True
+            custom_welcome_message="Welcome to your puzzle journey!",
+            is_active=True,
         )
 
         self.journey = JourneyConfiguration.objects.create(
             special_experience=self.experience,
-            journey_name='Puzzle Test Journey',
+            journey_name="Puzzle Test Journey",
             total_chapters=1,
-            is_active=True
+            is_active=True,
         )
 
         self.chapter = JourneyChapter.objects.create(
             journey=self.journey,
             chapter_number=1,
-            title='Puzzle Chapter',
-            theme='Mystery',
-            story_introduction='A puzzle awaits...',
-            completion_message='Great job!'
+            title="Puzzle Chapter",
+            theme="Mystery",
+            story_introduction="A puzzle awaits...",
+            completion_message="Great job!",
         )
 
         # Create photo reveal reward
         self.reward = JourneyReward.objects.create(
             chapter=self.chapter,
-            reward_type='photo_reveal',
-            title='Mystery Photo',
-            message='Unlock pieces to reveal the photo!'
+            reward_type="photo_reveal",
+            title="Mystery Photo",
+            message="Unlock pieces to reveal the photo!",
         )
 
         # Create journey progress with enough points for testing
@@ -798,28 +786,25 @@ class PhotoPuzzleAPITests(SiteTestMixin, TestCase):
             user=self.user,
             journey=self.journey,
             current_chapter=1,
-            total_points=500  # Enough for 10 pieces
+            total_points=500,  # Enough for 10 pieces
         )
 
     def test_unlock_puzzle_piece_success(self):
         """Test successfully unlocking a puzzle piece."""
-        self.client.login(username='puzzle@example.com', password='testpass123')
+        self.client.login(username="puzzle@example.com", password="testpass123")
 
         response = self.client.post(
-            '/api/journey/unlock-puzzle-piece/',
-            data=json.dumps({
-                'reward_id': self.reward.id,
-                'piece_index': 0
-            }),
-            content_type='application/json'
+            "/api/journey/unlock-puzzle-piece/",
+            data=json.dumps({"reward_id": self.reward.id, "piece_index": 0}),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertTrue(data['success'])
-        self.assertEqual(data['points_remaining'], 450)  # 500 - 50
-        self.assertIn(0, data['unlocked_pieces'])
-        self.assertEqual(data['total_unlocked'], 1)
+        self.assertTrue(data["success"])
+        self.assertEqual(data["points_remaining"], 450)  # 500 - 50
+        self.assertIn(0, data["unlocked_pieces"])
+        self.assertEqual(data["total_unlocked"], 1)
 
     def test_unlock_puzzle_piece_insufficient_points(self):
         """Test unlocking piece with insufficient points."""
@@ -827,22 +812,19 @@ class PhotoPuzzleAPITests(SiteTestMixin, TestCase):
         self.progress.total_points = 30
         self.progress.save()
 
-        self.client.login(username='puzzle@example.com', password='testpass123')
+        self.client.login(username="puzzle@example.com", password="testpass123")
 
         response = self.client.post(
-            '/api/journey/unlock-puzzle-piece/',
-            data=json.dumps({
-                'reward_id': self.reward.id,
-                'piece_index': 0
-            }),
-            content_type='application/json'
+            "/api/journey/unlock-puzzle-piece/",
+            data=json.dumps({"reward_id": self.reward.id, "piece_index": 0}),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertFalse(data['success'])
-        self.assertTrue(data['insufficient_points'])
-        self.assertEqual(data['points_needed'], 50)
+        self.assertFalse(data["success"])
+        self.assertTrue(data["insufficient_points"])
+        self.assertEqual(data["points_needed"], 50)
 
     def test_unlock_puzzle_piece_already_unlocked(self):
         """Test unlocking an already unlocked piece."""
@@ -850,59 +832,48 @@ class PhotoPuzzleAPITests(SiteTestMixin, TestCase):
 
         # Create reward progress with piece 0 already unlocked
         RewardProgress.objects.create(
-            journey_progress=self.progress,
-            reward=self.reward,
-            unlocked_pieces=[0]
+            journey_progress=self.progress, reward=self.reward, unlocked_pieces=[0]
         )
 
-        self.client.login(username='puzzle@example.com', password='testpass123')
+        self.client.login(username="puzzle@example.com", password="testpass123")
 
         response = self.client.post(
-            '/api/journey/unlock-puzzle-piece/',
-            data=json.dumps({
-                'reward_id': self.reward.id,
-                'piece_index': 0
-            }),
-            content_type='application/json'
+            "/api/journey/unlock-puzzle-piece/",
+            data=json.dumps({"reward_id": self.reward.id, "piece_index": 0}),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertFalse(data['success'])
-        self.assertTrue(data['already_unlocked'])
+        self.assertFalse(data["success"])
+        self.assertTrue(data["already_unlocked"])
 
     def test_unlock_multiple_pieces(self):
         """Test unlocking multiple pieces sequentially."""
-        self.client.login(username='puzzle@example.com', password='testpass123')
+        self.client.login(username="puzzle@example.com", password="testpass123")
 
         # Unlock piece 0
         response1 = self.client.post(
-            '/api/journey/unlock-puzzle-piece/',
-            data=json.dumps({
-                'reward_id': self.reward.id,
-                'piece_index': 0
-            }),
-            content_type='application/json'
+            "/api/journey/unlock-puzzle-piece/",
+            data=json.dumps({"reward_id": self.reward.id, "piece_index": 0}),
+            content_type="application/json",
         )
         self.assertEqual(response1.status_code, 200)
-        self.assertTrue(response1.json()['success'])
+        self.assertTrue(response1.json()["success"])
 
         # Unlock piece 5
         response2 = self.client.post(
-            '/api/journey/unlock-puzzle-piece/',
-            data=json.dumps({
-                'reward_id': self.reward.id,
-                'piece_index': 5
-            }),
-            content_type='application/json'
+            "/api/journey/unlock-puzzle-piece/",
+            data=json.dumps({"reward_id": self.reward.id, "piece_index": 5}),
+            content_type="application/json",
         )
         self.assertEqual(response2.status_code, 200)
         data2 = response2.json()
-        self.assertTrue(data2['success'])
-        self.assertEqual(data2['points_remaining'], 400)  # 500 - 100
-        self.assertEqual(data2['total_unlocked'], 2)
-        self.assertIn(0, data2['unlocked_pieces'])
-        self.assertIn(5, data2['unlocked_pieces'])
+        self.assertTrue(data2["success"])
+        self.assertEqual(data2["points_remaining"], 400)  # 500 - 100
+        self.assertEqual(data2["total_unlocked"], 2)
+        self.assertIn(0, data2["unlocked_pieces"])
+        self.assertIn(5, data2["unlocked_pieces"])
 
     def test_unlock_all_pieces_completes_puzzle(self):
         """Test that unlocking all 16 pieces marks reward as completed."""
@@ -917,26 +888,23 @@ class PhotoPuzzleAPITests(SiteTestMixin, TestCase):
             journey_progress=self.progress,
             reward=self.reward,
             unlocked_pieces=list(range(15)),  # 0-14 already unlocked
-            points_spent=750  # 15 * 50
+            points_spent=750,  # 15 * 50
         )
 
-        self.client.login(username='puzzle@example.com', password='testpass123')
+        self.client.login(username="puzzle@example.com", password="testpass123")
 
         # Unlock the final piece (15)
         response = self.client.post(
-            '/api/journey/unlock-puzzle-piece/',
-            data=json.dumps({
-                'reward_id': self.reward.id,
-                'piece_index': 15
-            }),
-            content_type='application/json'
+            "/api/journey/unlock-puzzle-piece/",
+            data=json.dumps({"reward_id": self.reward.id, "piece_index": 15}),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertTrue(data['success'])
-        self.assertTrue(data['is_completed'])
-        self.assertEqual(data['total_unlocked'], 16)
+        self.assertTrue(data["success"])
+        self.assertTrue(data["is_completed"])
+        self.assertEqual(data["total_unlocked"], 16)
 
     def test_get_reward_progress(self):
         """Test getting reward progress."""
@@ -947,47 +915,40 @@ class PhotoPuzzleAPITests(SiteTestMixin, TestCase):
             journey_progress=self.progress,
             reward=self.reward,
             unlocked_pieces=[0, 3, 7],
-            points_spent=150
+            points_spent=150,
         )
 
-        self.client.login(username='puzzle@example.com', password='testpass123')
+        self.client.login(username="puzzle@example.com", password="testpass123")
 
-        response = self.client.get(
-            f'/api/journey/reward-progress/{self.reward.id}/'
-        )
+        response = self.client.get(f"/api/journey/reward-progress/{self.reward.id}/")
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertTrue(data['success'])
-        self.assertEqual(data['unlocked_pieces'], [0, 3, 7])
-        self.assertEqual(data['total_unlocked'], 3)
-        self.assertFalse(data['is_completed'])
-        self.assertEqual(data['current_points'], 500)
+        self.assertTrue(data["success"])
+        self.assertEqual(data["unlocked_pieces"], [0, 3, 7])
+        self.assertEqual(data["total_unlocked"], 3)
+        self.assertFalse(data["is_completed"])
+        self.assertEqual(data["current_points"], 500)
 
     def test_get_reward_progress_no_progress(self):
         """Test getting reward progress when none exists."""
-        self.client.login(username='puzzle@example.com', password='testpass123')
+        self.client.login(username="puzzle@example.com", password="testpass123")
 
-        response = self.client.get(
-            f'/api/journey/reward-progress/{self.reward.id}/'
-        )
+        response = self.client.get(f"/api/journey/reward-progress/{self.reward.id}/")
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertTrue(data['success'])
-        self.assertEqual(data['unlocked_pieces'], [])
-        self.assertEqual(data['total_unlocked'], 0)
-        self.assertFalse(data['is_completed'])
+        self.assertTrue(data["success"])
+        self.assertEqual(data["unlocked_pieces"], [])
+        self.assertEqual(data["total_unlocked"], 0)
+        self.assertFalse(data["is_completed"])
 
     def test_unlock_puzzle_piece_requires_auth(self):
         """Test that puzzle unlock requires authentication."""
         response = self.client.post(
-            '/api/journey/unlock-puzzle-piece/',
-            data=json.dumps({
-                'reward_id': self.reward.id,
-                'piece_index': 0
-            }),
-            content_type='application/json'
+            "/api/journey/unlock-puzzle-piece/",
+            data=json.dumps({"reward_id": self.reward.id, "piece_index": 0}),
+            content_type="application/json",
         )
 
         # Should redirect to login
@@ -995,27 +956,24 @@ class PhotoPuzzleAPITests(SiteTestMixin, TestCase):
 
     def test_unlock_puzzle_piece_missing_data(self):
         """Test unlocking piece with missing data."""
-        self.client.login(username='puzzle@example.com', password='testpass123')
+        self.client.login(username="puzzle@example.com", password="testpass123")
 
         response = self.client.post(
-            '/api/journey/unlock-puzzle-piece/',
+            "/api/journey/unlock-puzzle-piece/",
             data=json.dumps({}),
-            content_type='application/json'
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 400)
 
     def test_unlock_puzzle_piece_invalid_reward(self):
         """Test unlocking piece for nonexistent reward."""
-        self.client.login(username='puzzle@example.com', password='testpass123')
+        self.client.login(username="puzzle@example.com", password="testpass123")
 
         response = self.client.post(
-            '/api/journey/unlock-puzzle-piece/',
-            data=json.dumps({
-                'reward_id': 99999,
-                'piece_index': 0
-            }),
-            content_type='application/json'
+            "/api/journey/unlock-puzzle-piece/",
+            data=json.dumps({"reward_id": 99999, "piece_index": 0}),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 404)
@@ -1032,13 +990,14 @@ class APIErrorHandlingTests(SiteTestMixin, TestCase):
         self.client = Client()
 
         self.user = User.objects.create_user(
-            username='error@example.com',
-            email='error@example.com',
-            password='testpass123',
-            first_name='Error',
-            last_name='Test'
+            username="error@example.com",
+            email="error@example.com",
+            password="testpass123",
+            first_name="Error",
+            last_name="Test",
         )
         from crush_lu.models.profiles import UserDataConsent
+
         UserDataConsent.objects.update_or_create(
             user=self.user, defaults={"crushlu_consent_given": True}
         )
@@ -1046,49 +1005,43 @@ class APIErrorHandlingTests(SiteTestMixin, TestCase):
         CrushProfile.objects.create(
             user=self.user,
             date_of_birth=date(1995, 5, 15),
-            gender='M',
-            location='Luxembourg',
-            is_approved=True
+            gender="M",
+            location="Luxembourg",
+            is_approved=True,
         )
 
     def test_submit_challenge_nonexistent(self):
         """Test submitting answer for nonexistent challenge."""
-        self.client.login(username='error@example.com', password='testpass123')
+        self.client.login(username="error@example.com", password="testpass123")
 
         response = self.client.post(
-            reverse('crush_lu:api_submit_challenge'),
-            data=json.dumps({
-                'challenge_id': 99999,
-                'answer': 'test'
-            }),
-            content_type='application/json'
+            reverse("crush_lu:api_submit_challenge"),
+            data=json.dumps({"challenge_id": 99999, "answer": "test"}),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 404)
 
     def test_unlock_hint_nonexistent_challenge(self):
         """Test unlocking hint for nonexistent challenge."""
-        self.client.login(username='error@example.com', password='testpass123')
+        self.client.login(username="error@example.com", password="testpass123")
 
         response = self.client.post(
-            reverse('crush_lu:api_unlock_hint'),
-            data=json.dumps({
-                'challenge_id': 99999,
-                'hint_number': 1
-            }),
-            content_type='application/json'
+            reverse("crush_lu:api_unlock_hint"),
+            data=json.dumps({"challenge_id": 99999, "hint_number": 1}),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 404)
 
     def test_invalid_json_request(self):
         """Test API handles invalid JSON gracefully."""
-        self.client.login(username='error@example.com', password='testpass123')
+        self.client.login(username="error@example.com", password="testpass123")
 
         response = self.client.post(
-            reverse('crush_lu:api_submit_challenge'),
-            data='not valid json',
-            content_type='application/json'
+            reverse("crush_lu:api_submit_challenge"),
+            data="not valid json",
+            content_type="application/json",
         )
 
         # Should return 400 or 500 depending on error handling

@@ -1,4 +1,5 @@
 """Tests for AzureCostBlobReader streaming decompression."""
+
 import gzip
 import io
 from unittest.mock import MagicMock

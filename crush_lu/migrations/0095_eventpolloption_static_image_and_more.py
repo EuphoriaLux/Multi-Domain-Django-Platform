@@ -8,18 +8,30 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0094_eventpoll_eventpolloption_eventpollvote'),
+        ("crush_lu", "0094_eventpoll_eventpolloption_eventpollvote"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='eventpolloption',
-            name='static_image',
-            field=models.CharField(blank=True, help_text='Filename in crush_lu/images/event-polls/ (e.g. speeddating.png). Deployed with collectstatic.', max_length=100),
+            model_name="eventpolloption",
+            name="static_image",
+            field=models.CharField(
+                blank=True,
+                help_text="Filename in crush_lu/images/event-polls/ (e.g. speeddating.png). Deployed with collectstatic.",
+                max_length=100,
+            ),
         ),
         migrations.AlterField(
-            model_name='eventpolloption',
-            name='image',
-            field=models.ImageField(blank=True, help_text='Uploaded image (stored in Azure). Use static_image for bundled images.', null=True, storage=crush_lu.storage.get_crush_media_storage, upload_to=functools.partial(crush_lu.storage._domain_upload_path, '', 'event-polls/options')),
+            model_name="eventpolloption",
+            name="image",
+            field=models.ImageField(
+                blank=True,
+                help_text="Uploaded image (stored in Azure). Use static_image for bundled images.",
+                null=True,
+                storage=crush_lu.storage.get_crush_media_storage,
+                upload_to=functools.partial(
+                    crush_lu.storage._domain_upload_path, "", "event-polls/options"
+                ),
+            ),
         ),
     ]

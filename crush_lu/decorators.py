@@ -18,15 +18,18 @@ def crush_login_required(function):
     Custom login_required decorator that redirects to Crush.lu's login page
     instead of the default Django/Allauth login page.
     """
+
     @wraps(function)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             # Redirect to Crush.lu login with validated next parameter
             from django.contrib.auth.views import redirect_to_login
-            login_url = reverse('crush_lu:login')
+
+            login_url = reverse("crush_lu:login")
             # Use Django's redirect_to_login which safely handles the next parameter
             return redirect_to_login(request.get_full_path(), login_url)
         return function(request, *args, **kwargs)
+
     return wrapper
 
 
@@ -37,33 +40,41 @@ def coach_required(function):
 
     Redirects non-coaches to the dashboard with an error message.
     """
+
     @wraps(function)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             from django.contrib.auth.views import redirect_to_login
-            login_url = reverse('crush_lu:login')
+
+            login_url = reverse("crush_lu:login")
             return redirect_to_login(request.get_full_path(), login_url)
 
         from crush_lu.models import CrushCoach
+
         try:
             coach = CrushCoach.objects.get(user=request.user)
             if not coach.is_active:
                 messages.error(
                     request,
-                    'Your coach account has been deactivated. Please contact an administrator.',
+                    "Your coach account has been deactivated. Please contact an administrator.",
                 )
-                return redirect('crush_lu:dashboard')
+                return redirect("crush_lu:dashboard")
         except CrushCoach.DoesNotExist:
-            messages.error(request, 'You do not have coach access.')
-            return redirect('crush_lu:dashboard')
+            messages.error(request, "You do not have coach access.")
+            return redirect("crush_lu:dashboard")
 
         request.coach = coach
         return function(request, *args, **kwargs)
+
     return wrapper
 
 
 def ratelimit(
-    key='ip', rate='5/15m', method='POST', block=True, rate_limited_template=None,
+    key="ip",
+    rate="5/15m",
+    method="POST",
+    block=True,
+    rate_limited_template=None,
     count_if=None,
 ):
     """
@@ -94,16 +105,17 @@ def ratelimit(
             # This view will be rate limited to 5 POST requests per 15 minutes per IP
             ...
     """
+
     def decorator(func):
         @wraps(func)
         def wrapper(request, *args, **kwargs):
             # Check if method matches
-            if method != 'ALL' and request.method != method:
+            if method != "ALL" and request.method != method:
                 return func(request, *args, **kwargs)
 
             # Parse rate limit
             try:
-                limit, period = rate.split('/')
+                limit, period = rate.split("/")
                 limit = int(limit)
             except (ValueError, AttributeError):
                 # Invalid rate format, skip rate limiting
@@ -152,7 +164,12 @@ def ratelimit(
                         or request.content_type == "application/json"
                     ):
                         return JsonResponse(
-                            {"error": _("Too many attempts. Please try again later."), "error_code": "rate_limited"},
+                            {
+                                "error": _(
+                                    "Too many attempts. Please try again later."
+                                ),
+                                "error_code": "rate_limited",
+                            },
                             status=429,
                         )
                     if rate_limited_template:
@@ -160,21 +177,19 @@ def ratelimit(
                             request,
                             rate_limited_template,
                             {
-                                'wait_message': humanize_wait_seconds(
+                                "wait_message": humanize_wait_seconds(
                                     request.limited_retry_after
                                 )
                             },
                             status=429,
                         )
-                        response['Retry-After'] = str(request.limited_retry_after)
+                        response["Retry-After"] = str(request.limited_retry_after)
                         return response
                     messages.error(
-                        request,
-                        _('Too many attempts. Please try again later.')
+                        request, _("Too many attempts. Please try again later.")
                     )
                     return HttpResponse(
-                        _('Rate limit exceeded. Please try again later.'),
-                        status=429
+                        _("Rate limit exceeded. Please try again later."), status=429
                     )
 
             if count_if is None:
@@ -189,6 +204,7 @@ def ratelimit(
             return response
 
         return wrapper
+
     return decorator
 
 
@@ -392,20 +408,20 @@ def _client_ip(request):
     the port changes with every TCP connection, so keying on the raw header
     gave each new connection a fresh counter.
     """
-    return get_client_ip(request) or 'unknown'
+    return get_client_ip(request) or "unknown"
 
 
-def _get_cache_key(request, key, view_name=''):
+def _get_cache_key(request, key, view_name=""):
     """
     Generate cache key based on key type.
     """
     if callable(key):
         key_value = key(request)
-    elif key == 'ip':
+    elif key == "ip":
         key_value = _client_ip(request)
-    elif key == 'user':
+    elif key == "user":
         if request.user.is_authenticated:
-            key_value = f'user_{request.user.id}'
+            key_value = f"user_{request.user.id}"
         else:
             # Fall back to IP for anonymous users
             key_value = _client_ip(request)
@@ -413,6 +429,6 @@ def _get_cache_key(request, key, view_name=''):
         key_value = str(key)
 
     # Sanitize key (cache keys can't have spaces or dots)
-    key_value = key_value.replace(' ', '_').replace('.', '_').replace(':', '_')
+    key_value = key_value.replace(" ", "_").replace(".", "_").replace(":", "_")
 
-    return f'ratelimit:{view_name}:{key_value}'
+    return f"ratelimit:{view_name}:{key_value}"

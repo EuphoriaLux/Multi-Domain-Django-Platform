@@ -6,6 +6,7 @@ One row per ISO week persists the full KPI dict computed by
 week-over-week tracking (and the deltas shown in the weekly email) possible,
 and gives a future dashboard a ready-made time series to read.
 """
+
 from django.db import models
 
 

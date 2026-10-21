@@ -15,11 +15,13 @@ class AzureTranslatorConfigTest(TestCase):
     @override_settings(AZURE_TRANSLATOR_KEY="")
     def test_not_configured_when_key_empty(self):
         from azureproject.azure_translator import is_configured
+
         self.assertFalse(is_configured())
 
     @override_settings(AZURE_TRANSLATOR_KEY="test-key-123")
     def test_configured_when_key_set(self):
         from azureproject.azure_translator import is_configured
+
         self.assertTrue(is_configured())
 
 
@@ -29,18 +31,21 @@ class TranslateTextTest(TestCase):
     @override_settings(AZURE_TRANSLATOR_KEY="")
     def test_returns_empty_when_not_configured(self):
         from azureproject.azure_translator import translate_text
+
         result = translate_text("Hello", "en", ["de", "fr"])
         self.assertEqual(result, {})
 
     @override_settings(AZURE_TRANSLATOR_KEY="test-key")
     def test_returns_empty_for_empty_text(self):
         from azureproject.azure_translator import translate_text
+
         result = translate_text("", "en", ["de", "fr"])
         self.assertEqual(result, {"de": "", "fr": ""})
 
     @override_settings(AZURE_TRANSLATOR_KEY="test-key")
     def test_returns_empty_for_whitespace_text(self):
         from azureproject.azure_translator import translate_text
+
         result = translate_text("   ", "en", ["de", "fr"])
         self.assertEqual(result, {"de": "", "fr": ""})
 
@@ -63,6 +68,7 @@ class TranslateTextTest(TestCase):
         mock_post.return_value = mock_response
 
         from azureproject.azure_translator import translate_text
+
         result = translate_text("Hello world", "en", ["de", "fr"])
 
         self.assertEqual(result, {"de": "Hallo Welt", "fr": "Bonjour le monde"})
@@ -71,7 +77,9 @@ class TranslateTextTest(TestCase):
         mock_post.assert_called_once()
         call_kwargs = mock_post.call_args
         self.assertIn("Ocp-Apim-Subscription-Key", call_kwargs.kwargs["headers"])
-        self.assertEqual(call_kwargs.kwargs["headers"]["Ocp-Apim-Subscription-Key"], "test-key")
+        self.assertEqual(
+            call_kwargs.kwargs["headers"]["Ocp-Apim-Subscription-Key"], "test-key"
+        )
         self.assertEqual(call_kwargs.kwargs["params"]["from"], "en")
         self.assertEqual(call_kwargs.kwargs["params"]["to"], ["de", "fr"])
 
@@ -79,6 +87,7 @@ class TranslateTextTest(TestCase):
     @patch("azureproject.azure_translator.httpx.post")
     def test_handles_api_error_gracefully(self, mock_post):
         import httpx
+
         mock_response = MagicMock()
         mock_response.status_code = 401
         mock_response.text = "Unauthorized"
@@ -88,6 +97,7 @@ class TranslateTextTest(TestCase):
         mock_post.return_value = mock_response
 
         from azureproject.azure_translator import translate_text
+
         result = translate_text("Hello", "en", ["de"])
 
         self.assertEqual(result, {})
@@ -98,6 +108,7 @@ class TranslateTextTest(TestCase):
         mock_post.side_effect = Exception("Connection timeout")
 
         from azureproject.azure_translator import translate_text
+
         result = translate_text("Hello", "en", ["de"])
 
         self.assertEqual(result, {})
@@ -109,12 +120,14 @@ class TranslateBatchTest(TestCase):
     @override_settings(AZURE_TRANSLATOR_KEY="")
     def test_returns_empty_when_not_configured(self):
         from azureproject.azure_translator import translate_batch
+
         result = translate_batch(["Hello", "World"], "en", ["de"])
         self.assertEqual(result, [{}, {}])
 
     @override_settings(AZURE_TRANSLATOR_KEY="test-key")
     def test_returns_empty_list_for_empty_input(self):
         from azureproject.azure_translator import translate_batch
+
         result = translate_batch([], "en", ["de"])
         self.assertEqual(result, [])
 
@@ -130,6 +143,7 @@ class TranslateBatchTest(TestCase):
         mock_post.return_value = mock_response
 
         from azureproject.azure_translator import translate_batch
+
         result = translate_batch(["Hello", "World"], "en", ["de"])
 
         self.assertEqual(result, [{"de": "Hallo"}, {"de": "Welt"}])
@@ -138,7 +152,9 @@ class TranslateBatchTest(TestCase):
 class AutoTranslateMixinTest(TestCase):
     """Test the admin auto-translate mixin helper functions."""
 
-    @override_settings(LANGUAGES=[("en", "English"), ("de", "German"), ("fr", "French")])
+    @override_settings(
+        LANGUAGES=[("en", "English"), ("de", "German"), ("fr", "French")]
+    )
     def test_detect_source_lang_prefers_english(self):
         from azureproject.admin_translation_mixin import _detect_source_lang
 
@@ -151,7 +167,9 @@ class AutoTranslateMixinTest(TestCase):
         self.assertEqual(lang, "en")
         self.assertEqual(text, "Hello")
 
-    @override_settings(LANGUAGES=[("en", "English"), ("de", "German"), ("fr", "French")])
+    @override_settings(
+        LANGUAGES=[("en", "English"), ("de", "German"), ("fr", "French")]
+    )
     def test_detect_source_lang_falls_back_to_german(self):
         from azureproject.admin_translation_mixin import _detect_source_lang
 
@@ -164,7 +182,9 @@ class AutoTranslateMixinTest(TestCase):
         self.assertEqual(lang, "de")
         self.assertEqual(text, "Hallo")
 
-    @override_settings(LANGUAGES=[("en", "English"), ("de", "German"), ("fr", "French")])
+    @override_settings(
+        LANGUAGES=[("en", "English"), ("de", "German"), ("fr", "French")]
+    )
     def test_detect_source_lang_returns_none_when_empty(self):
         from azureproject.admin_translation_mixin import _detect_source_lang
 
@@ -177,7 +197,9 @@ class AutoTranslateMixinTest(TestCase):
         self.assertIsNone(lang)
         self.assertIsNone(text)
 
-    @override_settings(LANGUAGES=[("en", "English"), ("de", "German"), ("fr", "French")])
+    @override_settings(
+        LANGUAGES=[("en", "English"), ("de", "German"), ("fr", "French")]
+    )
     def test_get_empty_langs(self):
         from azureproject.admin_translation_mixin import _get_empty_langs
 
@@ -189,7 +211,9 @@ class AutoTranslateMixinTest(TestCase):
         empty = _get_empty_langs(obj, "title", "en")
         self.assertEqual(empty, ["de"])
 
-    @override_settings(LANGUAGES=[("en", "English"), ("de", "German"), ("fr", "French")])
+    @override_settings(
+        LANGUAGES=[("en", "English"), ("de", "German"), ("fr", "French")]
+    )
     def test_get_empty_langs_all_empty(self):
         from azureproject.admin_translation_mixin import _get_empty_langs
 

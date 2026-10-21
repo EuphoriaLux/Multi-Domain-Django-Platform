@@ -33,13 +33,26 @@ class PatchReleaseAdmin(AutoTranslateMixin, TranslationAdmin):
     date_hierarchy = "released_on"
     ordering = ("-released_on", "-version")
     fieldsets = (
-        (None, {
-            "fields": ("version", "slug", "title", "hero_summary", "released_on", "is_published"),
-        }),
-        ("Provenance", {
-            "classes": ("collapse",),
-            "fields": ("commit_range_start", "commit_range_end"),
-        }),
+        (
+            None,
+            {
+                "fields": (
+                    "version",
+                    "slug",
+                    "title",
+                    "hero_summary",
+                    "released_on",
+                    "is_published",
+                ),
+            },
+        ),
+        (
+            "Provenance",
+            {
+                "classes": ("collapse",),
+                "fields": ("commit_range_start", "commit_range_end"),
+            },
+        ),
     )
     inlines = []  # populated below
 
@@ -50,6 +63,7 @@ class PatchReleaseAdmin(AutoTranslateMixin, TranslationAdmin):
 
     def note_count(self, obj):
         return obj._note_count
+
     note_count.short_description = "Notes"
     note_count.admin_order_field = "_note_count"
 
@@ -68,7 +82,14 @@ class PatchReleaseAdmin(AutoTranslateMixin, TranslationAdmin):
 class PatchNoteAdmin(AutoTranslateMixin, TranslationAdmin):
     """Admin for individual patch notes (usually edited inline via release)."""
 
-    list_display = ("release", "category", "title", "published_on", "order", "auto_generated")
+    list_display = (
+        "release",
+        "category",
+        "title",
+        "published_on",
+        "order",
+        "auto_generated",
+    )
     list_select_related = ["release"]
     list_filter = ("category", "auto_generated", "release__is_published", "release")
     list_editable = ("order",)

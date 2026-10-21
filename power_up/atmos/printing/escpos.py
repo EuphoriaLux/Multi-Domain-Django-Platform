@@ -55,14 +55,14 @@ def _qr_commands(data: str, size: int = 6) -> bytes:
 
     return b"".join(
         [
-            GS + b"(k" + bytes([4, 0, 49, 65, 50, 0]),            # model 2
+            GS + b"(k" + bytes([4, 0, 49, 65, 50, 0]),  # model 2
             GS + b"(k" + bytes([3, 0, 49, 67, max(1, min(16, size))]),
-            GS + b"(k" + bytes([3, 0, 49, 69, 49]),               # ECC level M
+            GS + b"(k" + bytes([3, 0, 49, 69, 49]),  # ECC level M
             GS
             + b"(k"
             + bytes([store_len & 0xFF, (store_len >> 8) & 0xFF, 49, 80, 48])
             + payload,
-            GS + b"(k" + bytes([3, 0, 49, 81, 48]),               # print
+            GS + b"(k" + bytes([3, 0, 49, 81, 48]),  # print
         ]
     )
 
@@ -161,23 +161,35 @@ def encode_directive(directive: Directive, paper: Paper) -> bytes:
 
     if isinstance(directive, QrCode):
         return (
-            ESC + b"a" + bytes([1])
+            ESC
+            + b"a"
+            + bytes([1])
             + _qr_commands(directive.data, directive.size)
-            + ESC + b"a" + bytes([0])
+            + ESC
+            + b"a"
+            + bytes([0])
         )
 
     if isinstance(directive, Barcode):
         return (
-            ESC + b"a" + bytes([1])
+            ESC
+            + b"a"
+            + bytes([1])
             + _barcode_commands(directive.data, directive.height)
-            + ESC + b"a" + bytes([0])
+            + ESC
+            + b"a"
+            + bytes([0])
         )
 
     if isinstance(directive, Image):
         return (
-            ESC + b"a" + bytes([_ALIGN[directive.align]])
+            ESC
+            + b"a"
+            + bytes([_ALIGN[directive.align]])
             + _image_commands(directive.source, directive.width, directive.invert)
-            + ESC + b"a" + bytes([0])
+            + ESC
+            + b"a"
+            + bytes([0])
         )
 
     if isinstance(directive, Text):

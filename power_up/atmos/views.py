@@ -833,7 +833,9 @@ def _create_order_atomic(
         or currency_changed
     ):
         return PlacementResult(
-            PlacementOutcome.PRICE_CHANGED, expected_total=expected_total, actual_total=total
+            PlacementOutcome.PRICE_CHANGED,
+            expected_total=expected_total,
+            actual_total=total,
         )
 
     # `short_code` has no uniqueness constraint. A `count()`-derived number

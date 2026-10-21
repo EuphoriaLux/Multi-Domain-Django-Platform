@@ -11,13 +11,13 @@ Design notes:
   their original version number for display/migration.
 - The scorer is deterministic. No LLM, no heuristics beyond the rules below.
 """
+
 from __future__ import annotations
 
 from typing import Any
 
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
-
 
 PRE_SCREENING_SCHEMA: dict[str, Any] = {
     # Version 2: Section A rebuilt as "Confirm your details" — residence,
@@ -47,8 +47,14 @@ PRE_SCREENING_SCHEMA: dict[str, Any] = {
                     "profile_field": "location",
                     "edit_section": "account",
                     "choices": [
-                        {"value": "lu_city", "label": _("Luxembourg – Luxembourg City")},
-                        {"value": "lu_esch", "label": _("Luxembourg – Esch-sur-Alzette")},
+                        {
+                            "value": "lu_city",
+                            "label": _("Luxembourg – Luxembourg City"),
+                        },
+                        {
+                            "value": "lu_esch",
+                            "label": _("Luxembourg – Esch-sur-Alzette"),
+                        },
                         {"value": "lu_other", "label": _("Luxembourg – other canton")},
                         {"value": "fr_border", "label": _("France (border region)")},
                         {"value": "de_border", "label": _("Germany (border region)")},
@@ -94,9 +100,18 @@ PRE_SCREENING_SCHEMA: dict[str, Any] = {
                     "label": _("How did you hear about Crush.lu?"),
                     "choices": [
                         {"value": "friend", "label": _("A friend or family member")},
-                        {"value": "social", "label": _("Social media (Instagram, Facebook, TikTok)")},
-                        {"value": "search", "label": _("Google or other search engine")},
-                        {"value": "news", "label": _("RTL, Luxemburger Wort, or other news")},
+                        {
+                            "value": "social",
+                            "label": _("Social media (Instagram, Facebook, TikTok)"),
+                        },
+                        {
+                            "value": "search",
+                            "label": _("Google or other search engine"),
+                        },
+                        {
+                            "value": "news",
+                            "label": _("RTL, Luxemburger Wort, or other news"),
+                        },
                         {"value": "event", "label": _("At an event")},
                         {"value": "ai", "label": _("ChatGPT or another AI assistant")},
                         {"value": "other", "label": _("Somewhere else")},
@@ -117,9 +132,20 @@ PRE_SCREENING_SCHEMA: dict[str, Any] = {
                     "required": True,
                     "label": _("What is Crush.lu to you?"),
                     "choices": [
-                        {"value": "events", "label": _("A way to meet people in real life through events")},
-                        {"value": "tinder", "label": _("An online dating app like Tinder or Bumble")},
-                        {"value": "matchmaking", "label": _("A matchmaking service that finds dates for me")},
+                        {
+                            "value": "events",
+                            "label": _(
+                                "A way to meet people in real life through events"
+                            ),
+                        },
+                        {
+                            "value": "tinder",
+                            "label": _("An online dating app like Tinder or Bumble"),
+                        },
+                        {
+                            "value": "matchmaking",
+                            "label": _("A matchmaking service that finds dates for me"),
+                        },
                         {"value": "unsure", "label": _("I'm still figuring it out")},
                     ],
                 },
@@ -131,10 +157,18 @@ PRE_SCREENING_SCHEMA: dict[str, Any] = {
                         "Our events are small (15–25 people) and in person. How often would you realistically attend?"
                     ),
                     "choices": [
-                        {"value": "weekly", "label": _("Once a week if there's a good one")},
+                        {
+                            "value": "weekly",
+                            "label": _("Once a week if there's a good one"),
+                        },
                         {"value": "monthly", "label": _("Once or twice a month")},
                         {"value": "few_per_year", "label": _("A few times a year")},
-                        {"value": "online_only", "label": _("I mostly want online dating, events not so much")},
+                        {
+                            "value": "online_only",
+                            "label": _(
+                                "I mostly want online dating, events not so much"
+                            ),
+                        },
                     ],
                 },
                 {
@@ -143,10 +177,26 @@ PRE_SCREENING_SCHEMA: dict[str, Any] = {
                     "required": True,
                     "label": _("Which of these sounds most like what you want?"),
                     "choices": [
-                        {"value": "many_people", "label": _("Meet many people quickly, figure it out from there")},
-                        {"value": "meaningful", "label": _("A few meaningful encounters over several months")},
-                        {"value": "friendship_first", "label": _("Friendship first, see if something develops")},
-                        {"value": "committed", "label": _("A committed relationship as soon as possible")},
+                        {
+                            "value": "many_people",
+                            "label": _(
+                                "Meet many people quickly, figure it out from there"
+                            ),
+                        },
+                        {
+                            "value": "meaningful",
+                            "label": _(
+                                "A few meaningful encounters over several months"
+                            ),
+                        },
+                        {
+                            "value": "friendship_first",
+                            "label": _("Friendship first, see if something develops"),
+                        },
+                        {
+                            "value": "committed",
+                            "label": _("A committed relationship as soon as possible"),
+                        },
                     ],
                 },
                 {
@@ -158,10 +208,24 @@ PRE_SCREENING_SCHEMA: dict[str, Any] = {
                         "How do you feel about that?"
                     ),
                     "choices": [
-                        {"value": "loves", "label": _("Love it — human help makes this feel safer")},
-                        {"value": "fine", "label": _("Fine with it as long as I stay in control")},
-                        {"value": "curious", "label": _("Curious but unsure what the Coach actually does")},
-                        {"value": "no_intermediary", "label": _("Would prefer no intermediary")},
+                        {
+                            "value": "loves",
+                            "label": _("Love it — human help makes this feel safer"),
+                        },
+                        {
+                            "value": "fine",
+                            "label": _("Fine with it as long as I stay in control"),
+                        },
+                        {
+                            "value": "curious",
+                            "label": _(
+                                "Curious but unsure what the Coach actually does"
+                            ),
+                        },
+                        {
+                            "value": "no_intermediary",
+                            "label": _("Would prefer no intermediary"),
+                        },
                     ],
                 },
                 {
@@ -173,11 +237,26 @@ PRE_SCREENING_SCHEMA: dict[str, Any] = {
                     "label": _("What are you most looking forward to? (pick up to 3)"),
                     "choices": [
                         {"value": "events", "label": _("Meeting new people at events")},
-                        {"value": "discovery", "label": _("Discovering who's nearby in my canton")},
-                        {"value": "coach_match", "label": _("Being matched one-on-one by a Coach")},
-                        {"value": "offline_quickly", "label": _("Taking things offline quickly")},
-                        {"value": "organized_dates", "label": _("Having someone organize dates for me")},
-                        {"value": "exploring", "label": _("Just exploring, no pressure")},
+                        {
+                            "value": "discovery",
+                            "label": _("Discovering who's nearby in my canton"),
+                        },
+                        {
+                            "value": "coach_match",
+                            "label": _("Being matched one-on-one by a Coach"),
+                        },
+                        {
+                            "value": "offline_quickly",
+                            "label": _("Taking things offline quickly"),
+                        },
+                        {
+                            "value": "organized_dates",
+                            "label": _("Having someone organize dates for me"),
+                        },
+                        {
+                            "value": "exploring",
+                            "label": _("Just exploring, no pressure"),
+                        },
                     ],
                 },
             ],
@@ -194,15 +273,21 @@ PRE_SCREENING_SCHEMA: dict[str, Any] = {
                     "type": "text",
                     "required": True,
                     "max_length": 200,
-                    "label": _("In one sentence, what kind of person are you hoping to meet?"),
-                    "placeholder": _("Someone curious, who likes walking and asking questions…"),
+                    "label": _(
+                        "In one sentence, what kind of person are you hoping to meet?"
+                    ),
+                    "placeholder": _(
+                        "Someone curious, who likes walking and asking questions…"
+                    ),
                 },
                 {
                     "id": "note_to_coach",
                     "type": "text",
                     "required": False,
                     "max_length": 300,
-                    "label": _("Is there anything you'd like your Coach to know before the call? (optional)"),
+                    "label": _(
+                        "Is there anything you'd like your Coach to know before the call? (optional)"
+                    ),
                     "placeholder": _("I'm a bit shy at first — hope that's okay."),
                 },
             ],
@@ -244,9 +329,7 @@ PRE_SCREENING_SCHEMA: dict[str, Any] = {
                     "required": True,
                     # NOTE: Template renders the bracketed phrases as links to the
                     # Code of Conduct and Privacy Policy pages.
-                    "label": _(
-                        "I accept the [Code of Conduct] and [Privacy Policy]."
-                    ),
+                    "label": _("I accept the [Code of Conduct] and [Privacy Policy]."),
                 },
             ],
         },
@@ -258,6 +341,7 @@ PRE_SCREENING_SCHEMA: dict[str, Any] = {
 # Helpers
 # --------------------------------------------------------------------------
 
+
 def iter_questions(schema: dict[str, Any] | None = None):
     """Yield (section, question) tuples across the entire schema."""
     schema = schema or PRE_SCREENING_SCHEMA
@@ -266,14 +350,18 @@ def iter_questions(schema: dict[str, Any] | None = None):
             yield section, question
 
 
-def get_question(question_id: str, schema: dict[str, Any] | None = None) -> dict[str, Any] | None:
+def get_question(
+    question_id: str, schema: dict[str, Any] | None = None
+) -> dict[str, Any] | None:
     for _section, question in iter_questions(schema):
         if question["id"] == question_id:
             return question
     return None
 
 
-def get_section(section_id: str, schema: dict[str, Any] | None = None) -> dict[str, Any] | None:
+def get_section(
+    section_id: str, schema: dict[str, Any] | None = None
+) -> dict[str, Any] | None:
     schema = schema or PRE_SCREENING_SCHEMA
     for section in schema["sections"]:
         if section["id"] == section_id:
@@ -345,9 +433,7 @@ def derive_readonly_value(question: dict[str, Any], profile) -> object:
         from django.utils import timezone
 
         today = timezone.now().date()
-        age = today.year - dob.year - (
-            (today.month, today.day) < (dob.month, dob.day)
-        )
+        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
         return age >= 18
     return None
 
@@ -382,6 +468,7 @@ def merge_readonly_from_profile(
 # --------------------------------------------------------------------------
 # Validation
 # --------------------------------------------------------------------------
+
 
 def validate_pre_screening_responses(
     responses: dict[str, Any],
@@ -444,7 +531,9 @@ def validate_pre_screening_responses(
         if not present:
             if required and not partial:
                 errors.setdefault(qid, []).append(
-                    ValidationError(_("This question is required."), code="required_missing")
+                    ValidationError(
+                        _("This question is required."), code="required_missing"
+                    )
                 )
             continue
 
@@ -459,9 +548,13 @@ def validate_pre_screening_responses(
                     ValidationError(_("Invalid choice."), code="invalid_choice")
                 )
         elif qtype == "multi_select":
-            if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+            if not isinstance(value, list) or not all(
+                isinstance(v, str) for v in value
+            ):
                 errors.setdefault(qid, []).append(
-                    ValidationError(_("Must be a list of choices."), code="invalid_type")
+                    ValidationError(
+                        _("Must be a list of choices."), code="invalid_type"
+                    )
                 )
                 continue
             allowed = _allowed_values(question)
@@ -473,13 +566,19 @@ def validate_pre_screening_responses(
             max_choices = question.get("max_choices")
             if min_choices is not None and len(value) < min_choices:
                 errors.setdefault(qid, []).append(
-                    ValidationError(_("Pick at least %(n)d."), code="min_choices_not_met",
-                                    params={"n": min_choices})
+                    ValidationError(
+                        _("Pick at least %(n)d."),
+                        code="min_choices_not_met",
+                        params={"n": min_choices},
+                    )
                 )
             if max_choices is not None and len(value) > max_choices:
                 errors.setdefault(qid, []).append(
-                    ValidationError(_("Pick at most %(n)d."), code="max_choices_exceeded",
-                                    params={"n": max_choices})
+                    ValidationError(
+                        _("Pick at most %(n)d."),
+                        code="max_choices_exceeded",
+                        params={"n": max_choices},
+                    )
                 )
         elif qtype == "text":
             if not isinstance(value, str):
@@ -514,6 +613,7 @@ def validate_pre_screening_responses(
 # --------------------------------------------------------------------------
 # Scoring
 # --------------------------------------------------------------------------
+
 
 def _is_low_effort(text: str) -> bool:
     """Detect obviously throwaway free-text answers."""

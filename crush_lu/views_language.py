@@ -8,6 +8,7 @@ This module provides a custom set_language view that:
 This ensures email notifications and push notifications use the user's
 preferred language, not just the browsing language.
 """
+
 import logging
 from django.http import Http404
 from django.utils import translation
@@ -54,7 +55,7 @@ def set_language_with_profile(request):
     The view reads the 'language' POST parameter (same as Django's view).
     """
     # Get the language being set
-    new_language = request.POST.get('language', '')
+    new_language = request.POST.get("language", "")
 
     # Validate language is supported
     valid_languages = [code for code, name in settings.LANGUAGES]
@@ -63,7 +64,7 @@ def set_language_with_profile(request):
         # Update user's profile if authenticated and has a CrushProfile
         if request.user.is_authenticated:
             try:
-                profile = getattr(request.user, 'crushprofile', None)
+                profile = getattr(request.user, "crushprofile", None)
                 if profile:
                     old_language = profile.preferred_language
                     # Both halves, every time, even when one already looks
@@ -90,8 +91,8 @@ def set_language_with_profile(request):
                     profile.language_explicitly_set = True
                     profile.save(
                         update_fields=[
-                            'preferred_language',
-                            'language_explicitly_set',
+                            "preferred_language",
+                            "language_explicitly_set",
                         ]
                     )
                     logger.info(

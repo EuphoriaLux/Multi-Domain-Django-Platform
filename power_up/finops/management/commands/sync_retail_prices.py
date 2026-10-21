@@ -118,6 +118,5 @@ class Command(BaseCommand):
             error = RetailPriceSyncDeferred if all_transient else CommandError
             raise error(
                 "Retail price sync failed for "
-                f"{len(failures)} of {len(regions)} region(s): "
-                + "; ".join(failures)
+                f"{len(failures)} of {len(regions)} region(s): " + "; ".join(failures)
             )

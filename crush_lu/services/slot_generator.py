@@ -12,10 +12,10 @@ slots have `id=None` until the user actually books — at that moment
 the booking view creates a real ScreeningSlot row inside the claim
 transaction.
 """
+
 from datetime import date, datetime, time, timedelta
 
 from django.utils import timezone
-
 
 WEEKDAY_BY_NAME = {
     "monday": 0,

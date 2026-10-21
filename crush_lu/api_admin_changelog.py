@@ -15,6 +15,7 @@ credentials never have to leave the server.
   is passed through :func:`crush_lu.changelog_text.scrub` server-side — the
   caller is never trusted to have removed emails / internal hosts / session URLs.
 """
+
 from __future__ import annotations
 
 import json
@@ -87,7 +88,7 @@ def ingest_changelog(request):
     if "notes" not in payload and "note" in payload:
         return _bad_request(
             "'notes' must be a list — did you mean \"notes\": [...] "
-            "instead of \"note\": {...}?"
+            'instead of "note": {...}?'
         )
 
     # --- validate + scrub the release -----------------------------------
@@ -102,17 +103,25 @@ def ingest_changelog(request):
         return _bad_request("'release.version' is required.")
     if not title:
         return _bad_request("'release.title' is required.")
-    for field, value in (("version", version), ("slug", slug),
-                         ("title", title), ("hero_summary", hero_summary)):
+    for field, value in (
+        ("version", version),
+        ("slug", slug),
+        ("title", title),
+        ("hero_summary", hero_summary),
+    ):
         if len(value) > _RELEASE_MAXLEN[field]:
-            return _bad_request(f"'release.{field}' exceeds {_RELEASE_MAXLEN[field]} characters.")
+            return _bad_request(
+                f"'release.{field}' exceeds {_RELEASE_MAXLEN[field]} characters."
+            )
 
     released_on_raw = release_in.get("released_on")
     if released_on_raw:
         try:
             released_on = date.fromisoformat(released_on_raw)
         except (ValueError, TypeError):
-            return _bad_request("'release.released_on' must be an ISO date (YYYY-MM-DD).")
+            return _bad_request(
+                "'release.released_on' must be an ISO date (YYYY-MM-DD)."
+            )
     else:
         # Sentinel: a release window can stay open for weeks, with many notes
         # appended after the card was first created. Omitting released_on
@@ -138,10 +147,16 @@ def ingest_changelog(request):
         if not n_title:
             return _bad_request(f"notes[{i}].title is required.")
         if len(n_title) > _NOTE_TITLE_MAXLEN:
-            return _bad_request(f"notes[{i}].title exceeds {_NOTE_TITLE_MAXLEN} characters.")
+            return _bad_request(
+                f"notes[{i}].title exceeds {_NOTE_TITLE_MAXLEN} characters."
+            )
         related = note.get("related_commits", [])
-        if not isinstance(related, list) or not all(isinstance(s, str) for s in related):
-            return _bad_request(f"notes[{i}].related_commits must be a list of strings.")
+        if not isinstance(related, list) or not all(
+            isinstance(s, str) for s in related
+        ):
+            return _bad_request(
+                f"notes[{i}].related_commits must be a list of strings."
+            )
         # At least one SHA is required: idempotency is keyed on related_commits,
         # so a note with none could never be deduped and every webhook
         # re-delivery would publish a duplicate. Reject rather than accept a
@@ -165,14 +180,16 @@ def ingest_changelog(request):
             # with USE_TZ=True, so now().date() would take the UTC date and
             # be a day behind local evenings.
             published_on = timezone.localdate()
-        clean_notes.append({
-            "category": category,
-            "title": n_title,
-            "body": scrub(note.get("body") or ""),
-            "related_commits": related,
-            "order": int(note.get("order", i)),
-            "published_on": published_on,
-        })
+        clean_notes.append(
+            {
+                "category": category,
+                "title": n_title,
+                "body": scrub(note.get("body") or ""),
+                "related_commits": related,
+                "order": int(note.get("order", i)),
+                "published_on": published_on,
+            }
+        )
 
     # --- write -----------------------------------------------------------
     def _apply_release_fields(rel):
@@ -239,21 +256,29 @@ def ingest_changelog(request):
 
         notes_added = 0
         for nd in clean_notes:
-            if nd["related_commits"] and any(s in preexisting_shas for s in nd["related_commits"]):
+            if nd["related_commits"] and any(
+                s in preexisting_shas for s in nd["related_commits"]
+            ):
                 continue
             PatchNote.objects.create(release=release, auto_generated=True, **nd)
             notes_added += 1
 
     logger.info(
         "changelog ingest: slug=%s created=%s notes_added=%s published=%s",
-        slug, created, notes_added, is_published,
+        slug,
+        created,
+        notes_added,
+        is_published,
     )
-    return JsonResponse({
-        "success": True,
-        "created": created,
-        "notes_added": notes_added,
-        "version": release.version,
-        "slug": release.slug,
-        "url": release.get_absolute_url(),
-        "is_published": release.is_published,
-    }, status=201)
+    return JsonResponse(
+        {
+            "success": True,
+            "created": created,
+            "notes_added": notes_added,
+            "version": release.version,
+            "slug": release.slug,
+            "url": release.get_absolute_url(),
+            "is_published": release.is_published,
+        },
+        status=201,
+    )

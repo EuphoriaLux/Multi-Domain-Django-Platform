@@ -121,9 +121,7 @@ class Command(BaseCommand):
                 if not dry_run:
                     # update() rather than save() so this cannot re-enter the
                     # post_save Outlook sync signal.
-                    CrushProfile.objects.filter(pk=pk).update(
-                        outlook_contact_id=new_id
-                    )
+                    CrushProfile.objects.filter(pk=pk).update(outlook_contact_id=new_id)
 
         verb = "Would convert" if dry_run else "Converted"
         self.stdout.write(

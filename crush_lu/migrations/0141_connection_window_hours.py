@@ -9,6 +9,7 @@ matching action, and the window during which they're allowed shrinks from
 7 days to 24 hours. The model field that historically powered both flows
 is renamed to reflect its new single purpose.
 """
+
 from django.db import migrations, models
 
 

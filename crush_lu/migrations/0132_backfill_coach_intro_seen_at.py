@@ -4,12 +4,14 @@ Without this, existing production users (welcome_seen_at set, phone_verified
 True, or already submitted) would be yanked back to the step-3 coach-intro
 page on the next /onboarding/ hit because the new field defaults to NULL.
 """
+
 from django.db import migrations
 
 
 def backfill(apps, schema_editor):
     CrushProfile = apps.get_model("crush_lu", "CrushProfile")
     from django.utils import timezone
+
     now = timezone.now()
     CrushProfile.objects.filter(
         coach_intro_seen_at__isnull=True,

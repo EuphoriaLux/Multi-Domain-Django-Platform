@@ -199,7 +199,9 @@ STORAGES["arborist_private"] = {
     "OPTIONS": {
         "account_name": os.getenv("AZURE_ACCOUNT_NAME"),
         "account_key": os.getenv("AZURE_ACCOUNT_KEY"),
-        "azure_container": os.getenv("AZURE_ARBORIST_PRIVATE_CONTAINER", "arborist-private"),
+        "azure_container": os.getenv(
+            "AZURE_ARBORIST_PRIVATE_CONTAINER", "arborist-private"
+        ),
         "custom_domain": None,
         "cache_control": "private, no-store",
     },

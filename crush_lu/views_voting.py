@@ -87,11 +87,16 @@ def event_voting_lobby(request, event_id):
     ).count()
 
     # Determine voting phase
-    voting_ended = not voting_session.is_voting_open and voting_session.time_until_start <= 0
+    voting_ended = (
+        not voting_session.is_voting_open and voting_session.time_until_start <= 0
+    )
 
     # Compute voting window length in minutes for display
     voting_window_minutes = int(
-        (voting_session.voting_end_time - voting_session.voting_start_time).total_seconds() // 60
+        (
+            voting_session.voting_end_time - voting_session.voting_start_time
+        ).total_seconds()
+        // 60
     )
 
     context = {
@@ -133,7 +138,9 @@ def event_activity_vote(request, event_id):
     if user_registration.status == "confirmed":
         messages.warning(
             request,
-            _("You need to check in at the event before you can vote. Please find your coach to get checked in!"),
+            _(
+                "You need to check in at the event before you can vote. Please find your coach to get checked in!"
+            ),
         )
         return redirect("crush_lu:event_voting_lobby", event_id=event_id)
 
@@ -283,7 +290,9 @@ def event_voting_results(request, event_id):
         if user_registration.status == "confirmed":
             messages.warning(
                 request,
-                _("You need to check in at the event before you can view results. Please find your coach to get checked in!"),
+                _(
+                    "You need to check in at the event before you can view results. Please find your coach to get checked in!"
+                ),
             )
             return redirect("crush_lu:event_detail", event_id=event_id)
 
@@ -381,10 +390,14 @@ def event_voting_results(request, event_id):
                 "voting_session": voting_session,
                 "activity_options": activity_options_with_votes,
                 "presentation_options": [
-                    o for o in activity_options_with_votes if o.activity_type == "presentation_style"
+                    o
+                    for o in activity_options_with_votes
+                    if o.activity_type == "presentation_style"
                 ],
                 "twist_options": [
-                    o for o in activity_options_with_votes if o.activity_type == "speed_dating_twist"
+                    o
+                    for o in activity_options_with_votes
+                    if o.activity_type == "speed_dating_twist"
                 ],
                 "presentation_winner": voting_session.winning_presentation_style,
                 "twist_winner": voting_session.winning_speed_dating_twist,
@@ -415,8 +428,9 @@ def event_voting_results(request, event_id):
 
         # Get user IDs who have voted (at least one vote)
         voted_user_ids = set(
-            EventActivityVote.objects.filter(event=event)
-            .values_list("user_id", flat=True)
+            EventActivityVote.objects.filter(event=event).values_list(
+                "user_id", flat=True
+            )
         )
 
         # Build list of attended users who haven't voted yet
@@ -440,10 +454,14 @@ def event_voting_results(request, event_id):
         "voting_session": voting_session,
         "activity_options": activity_options_with_votes,
         "presentation_options": [
-            o for o in activity_options_with_votes if o.activity_type == "presentation_style"
+            o
+            for o in activity_options_with_votes
+            if o.activity_type == "presentation_style"
         ],
         "twist_options": [
-            o for o in activity_options_with_votes if o.activity_type == "speed_dating_twist"
+            o
+            for o in activity_options_with_votes
+            if o.activity_type == "speed_dating_twist"
         ],
         "presentation_winner": voting_session.winning_presentation_style,
         "twist_winner": voting_session.winning_speed_dating_twist,
@@ -482,7 +500,9 @@ def event_presentations(request, event_id):
     if user_registration.status == "confirmed":
         messages.warning(
             request,
-            _("You need to check in at the event before you can view presentations. Please find your coach to get checked in!"),
+            _(
+                "You need to check in at the event before you can view presentations. Please find your coach to get checked in!"
+            ),
         )
         return redirect("crush_lu:event_detail", event_id=event_id)
 
@@ -566,7 +586,10 @@ def submit_presentation_rating(request, event_id, presenter_id):
 
     if user_registration.status == "confirmed":
         return JsonResponse(
-            {"success": False, "error": "You must check in at the event before you can rate."},
+            {
+                "success": False,
+                "error": "You must check in at the event before you can rate.",
+            },
             status=403,
         )
 
@@ -580,7 +603,8 @@ def submit_presentation_rating(request, event_id, presenter_id):
     impression = request.POST.get("is_positive", "").lower()
     if impression not in ("true", "false"):
         return JsonResponse(
-            {"success": False, "error": "is_positive must be true or false."}, status=400
+            {"success": False, "error": "is_positive must be true or false."},
+            status=400,
         )
     is_positive = impression == "true"
 
@@ -596,7 +620,9 @@ def submit_presentation_rating(request, event_id, presenter_id):
         {
             "success": True,
             "message": (
-                _("Response submitted anonymously!") if created else _("Response updated!")
+                _("Response submitted anonymously!")
+                if created
+                else _("Response updated!")
             ),
             "is_positive": is_positive,
         }
@@ -695,7 +721,9 @@ def coach_advance_presentation(request, event_id):
 def my_presentation_scores(request, event_id):
     """Phase 2 complete page — first impressions are kept private; matches revealed in Phase 3."""
     event = get_object_or_404(MeetupEvent, id=event_id)
-    get_object_or_404(EventRegistration, event=event, user=request.user, status="attended")
+    get_object_or_404(
+        EventRegistration, event=event, user=request.user, status="attended"
+    )
     return render(request, "crush_lu/my_presentation_scores.html", {"event": event})
 
 
@@ -785,6 +813,7 @@ def voting_demo(request):
 
 # ── Speed Dating TV Display ──────────────────────────────────────────────────
 
+
 def _check_tv_display_access(request, event):
     """Return a redirect/403 response if the user cannot access a private-invitation event's TV display, else None."""
     if not event.is_private_invitation:
@@ -793,17 +822,20 @@ def _check_tv_display_access(request, event):
         if (
             request.user.is_staff
             or event.coaches.filter(user=request.user).exists()
-            or EventRegistration.objects.filter(
-                event=event, user=request.user
-            ).exclude(status="cancelled").exists()
+            or EventRegistration.objects.filter(event=event, user=request.user)
+            .exclude(status="cancelled")
+            .exists()
             or event.invited_users.filter(id=request.user.id).exists()
             or EventInvitation.objects.filter(
                 event=event, created_user=request.user, approval_status="approved"
             ).exists()
         ):
             return None
-        return HttpResponseForbidden("You are not authorised to view this event's display.")
+        return HttpResponseForbidden(
+            "You are not authorised to view this event's display."
+        )
     from django.contrib.auth.views import redirect_to_login
+
     return redirect_to_login(request.get_full_path())
 
 
@@ -850,10 +882,9 @@ def speed_dating_tv_display_data(request, event_id):
 
     # Gender breakdown (exclude "Prefer not to say")
     gender_counts: dict[str, int] = {}
-    for reg in (
-        EventRegistration.objects.filter(event=event, status__in=["confirmed", "attended"])
-        .select_related("user__crushprofile")
-    ):
+    for reg in EventRegistration.objects.filter(
+        event=event, status__in=["confirmed", "attended"]
+    ).select_related("user__crushprofile"):
         profile = getattr(reg.user, "crushprofile", None)
         gender = getattr(profile, "gender", "") or ""
         if gender and gender not in ("P",):
@@ -883,7 +914,9 @@ def speed_dating_tv_display_data(request, event_id):
                 event=event,
                 selected_option__activity_type="presentation_style",
             )
-            .values("selected_option__display_name", "selected_option__activity_variant")
+            .values(
+                "selected_option__display_name", "selected_option__activity_variant"
+            )
             .annotate(count=Count("id"))
             .order_by("-count")
         )
@@ -892,7 +925,9 @@ def speed_dating_tv_display_data(request, event_id):
                 event=event,
                 selected_option__activity_type="speed_dating_twist",
             )
-            .values("selected_option__display_name", "selected_option__activity_variant")
+            .values(
+                "selected_option__display_name", "selected_option__activity_variant"
+            )
             .annotate(count=Count("id"))
             .order_by("-count")
         )
@@ -935,8 +970,14 @@ def speed_dating_tv_display_data(request, event_id):
             .order_by("presentation_order")
             .first()
         )
-        completed = PresentationQueue.objects.filter(event=event, status="completed").count()
-        total = PresentationQueue.objects.filter(event=event).exclude(status="skipped").count()
+        completed = PresentationQueue.objects.filter(
+            event=event, status="completed"
+        ).count()
+        total = (
+            PresentationQueue.objects.filter(event=event)
+            .exclude(status="skipped")
+            .count()
+        )
         presenter_name = ""
         if current_presenter:
             profile = getattr(current_presenter.user, "crushprofile", None)

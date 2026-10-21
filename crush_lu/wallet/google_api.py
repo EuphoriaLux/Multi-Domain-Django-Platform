@@ -5,6 +5,7 @@ This module provides functions to update Google Wallet passes when user data cha
 (points, tier, event registrations, etc.) and to send push notifications via
 the messages array on pass objects.
 """
+
 import json
 import logging
 import time
@@ -88,7 +89,9 @@ def _get_access_token(client=None, timeout=None):
             wall-clock budget is not held for the full default by a hanging
             OAuth endpoint.
     """
-    service_account_email = getattr(settings, "WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL", None)
+    service_account_email = getattr(
+        settings, "WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL", None
+    )
     if not service_account_email:
         raise ValueError("WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL not configured")
 
@@ -108,14 +111,22 @@ def _get_access_token(client=None, timeout=None):
     header = {"alg": "RS256", "typ": "JWT"}
 
     # Sign the JWT
-    signing_input = b".".join([
-        _base64url_encode(json.dumps(header, separators=(",", ":")).encode("utf-8")),
-        _base64url_encode(json.dumps(claims, separators=(",", ":")).encode("utf-8")),
-    ])
+    signing_input = b".".join(
+        [
+            _base64url_encode(
+                json.dumps(header, separators=(",", ":")).encode("utf-8")
+            ),
+            _base64url_encode(
+                json.dumps(claims, separators=(",", ":")).encode("utf-8")
+            ),
+        ]
+    )
 
     private_key = _load_private_key()
     signature = private_key.sign(signing_input, padding.PKCS1v15(), hashes.SHA256())
-    signed_jwt = b".".join([signing_input, _base64url_encode(signature)]).decode("utf-8")
+    signed_jwt = b".".join([signing_input, _base64url_encode(signature)]).decode(
+        "utf-8"
+    )
 
     # Exchange JWT for access token
     owned_client = None
@@ -166,7 +177,9 @@ def _build_generic_object_payload(profile, object_id, class_id, social_links=Non
     # Get logo URL
     logo_url = getattr(settings, "WALLET_GOOGLE_LOGO_URL", None)
     if not logo_url:
-        logo_url = "https://crush.lu/static/crush_lu/icons/android-launchericon-192-192.png"
+        logo_url = (
+            "https://crush.lu/static/crush_lu/icons/android-launchericon-192-192.png"
+        )
 
     # Get hero/promo image URL
     hero_url = getattr(settings, "WALLET_GOOGLE_HERO_URL", None)
@@ -174,7 +187,9 @@ def _build_generic_object_payload(profile, object_id, class_id, social_links=Non
         hero_url = "https://crush.lu/static/crush_lu/images/wallet-promo-banner.png"
 
     # Extract referral code
-    referral_code = pass_data["referral_url"].split("/")[-2] if pass_data["referral_url"] else ""
+    referral_code = (
+        pass_data["referral_url"].split("/")[-2] if pass_data["referral_url"] else ""
+    )
 
     # Build text modules - Buffalo Grill style
     text_modules = [
@@ -191,17 +206,21 @@ def _build_generic_object_payload(profile, object_id, class_id, social_links=Non
     ]
 
     if pass_data["next_event"]:
-        text_modules.append({
-            "id": "next_event",
-            "header": "📅 Next Event",
-            "body": f"{pass_data['next_event']['title']}\n{pass_data['next_event']['date']}",
-        })
+        text_modules.append(
+            {
+                "id": "next_event",
+                "header": "📅 Next Event",
+                "body": f"{pass_data['next_event']['title']}\n{pass_data['next_event']['date']}",
+            }
+        )
     else:
-        text_modules.append({
-            "id": "next_event",
-            "header": "📅 Upcoming Events",
-            "body": "Browse events on crush.lu 💜",
-        })
+        text_modules.append(
+            {
+                "id": "next_event",
+                "header": "📅 Upcoming Events",
+                "body": "Browse events on crush.lu 💜",
+            }
+        )
 
     # Build the object
     generic_object = {
@@ -232,9 +251,7 @@ def _build_generic_object_payload(profile, object_id, class_id, social_links=Non
             "value": pass_data["referral_url"],
             "alternateText": "Share me to earn points! 🤳",
         },
-        "cardTitle": {
-            "defaultValue": {"language": "en-US", "value": "Crush.lu"}
-        },
+        "cardTitle": {"defaultValue": {"language": "en-US", "value": "Crush.lu"}},
         "hexBackgroundColor": "#9B59B6",
     }
 
@@ -250,7 +267,10 @@ def _build_generic_object_payload(profile, object_id, class_id, social_links=Non
         generic_object["heroImage"] = {
             "sourceUri": {"uri": hero_url},
             "contentDescription": {
-                "defaultValue": {"language": "en-US", "value": "Invite friends, earn rewards!"}
+                "defaultValue": {
+                    "language": "en-US",
+                    "value": "Invite friends, earn rewards!",
+                }
             },
         }
 
@@ -259,10 +279,38 @@ def _build_generic_object_payload(profile, object_id, class_id, social_links=Non
         "showLastUpdateTime": True,
         "labelValueRows": [
             {"columns": [{"label": "🔗 Your Referral Code", "value": referral_code}]},
-            {"columns": [{"label": "🎁 How to Earn", "value": "Invite friends → +100 pts per signup!"}]},
-            {"columns": [{"label": "🏆 Tier Levels", "value": "🥉 200 | 🥈 500 | 🥇 1000 pts"}]},
-            {"columns": [{"label": "💰 Redeem Points", "value": "Event discounts & exclusive perks!"}]},
-            {"columns": [{"label": "🗓️ Member Since", "value": pass_data["member_since"] or "Welcome!"}]},
+            {
+                "columns": [
+                    {
+                        "label": "🎁 How to Earn",
+                        "value": "Invite friends → +100 pts per signup!",
+                    }
+                ]
+            },
+            {
+                "columns": [
+                    {
+                        "label": "🏆 Tier Levels",
+                        "value": "🥉 200 | 🥈 500 | 🥇 1000 pts",
+                    }
+                ]
+            },
+            {
+                "columns": [
+                    {
+                        "label": "💰 Redeem Points",
+                        "value": "Event discounts & exclusive perks!",
+                    }
+                ]
+            },
+            {
+                "columns": [
+                    {
+                        "label": "🗓️ Member Since",
+                        "value": pass_data["member_since"] or "Welcome!",
+                    }
+                ]
+            },
         ],
     }
 
@@ -387,7 +435,9 @@ def update_google_wallet_pass(profile):
             return _patch_generic_object(profile, class_id, access_token, client)
 
     except Exception as e:
-        logger.exception("Error updating Google Wallet pass for user %s: %s", profile.user_id, e)
+        logger.exception(
+            "Error updating Google Wallet pass for user %s: %s", profile.user_id, e
+        )
         return {"success": False, "message": str(e)}
 
 
@@ -433,9 +483,7 @@ def refresh_google_wallet_objects(profiles, context=""):
     Returns the number of profiles scheduled; the work itself runs on commit,
     by which point some of them may legitimately no longer need it.
     """
-    profile_ids = [
-        p.pk for p in profiles if getattr(p, "google_wallet_object_id", "")
-    ]
+    profile_ids = [p.pk for p in profiles if getattr(p, "google_wallet_object_id", "")]
     if not profile_ids:
         return 0
 
@@ -450,9 +498,7 @@ def refresh_google_wallet_objects(profiles, context=""):
         return 0
 
     update_limit = getattr(settings, "WALLET_GOOGLE_BULK_UPDATE_LIMIT", 50)
-    update_budget = getattr(
-        settings, "WALLET_GOOGLE_BULK_UPDATE_BUDGET_SECONDS", 10.0
-    )
+    update_budget = getattr(settings, "WALLET_GOOGLE_BULK_UPDATE_BUDGET_SECONDS", 10.0)
 
     def _after_commit():
         from ..models import CrushProfile
@@ -742,7 +788,10 @@ def send_wallet_notification_to_user(profile, header, body):
                     profile.user_id,
                     profile.google_wallet_object_id,
                 )
-                return {"success": False, "message": "Pass not found (may have been deleted)"}
+                return {
+                    "success": False,
+                    "message": "Pass not found (may have been deleted)",
+                }
 
             else:
                 logger.error(
@@ -750,7 +799,10 @@ def send_wallet_notification_to_user(profile, header, body):
                     response.status_code,
                     response.text,
                 )
-                return {"success": False, "message": f"API error: {response.status_code}"}
+                return {
+                    "success": False,
+                    "message": f"API error: {response.status_code}",
+                }
 
     except Exception as e:
         logger.exception(
@@ -776,9 +828,7 @@ def send_wallet_notification(header, body, tier_filter=None):
 
     profiles = CrushProfile.objects.exclude(
         google_wallet_object_id__isnull=True
-    ).exclude(
-        google_wallet_object_id=""
-    )
+    ).exclude(google_wallet_object_id="")
 
     if tier_filter:
         profiles = profiles.filter(membership_tier=tier_filter)

@@ -184,7 +184,6 @@ class EventIdentityCatalogTests(SimpleTestCase):
                 self.assertEqual(catalog.gettext(msgid), msgstr)
 
 
-
 @override_settings(**CRUSH_LU_URL_SETTINGS)
 class EventIdentityGermanRenderTests(_SiteMixin, TestCase):
     """The merged edit section renders in German under an active de locale."""

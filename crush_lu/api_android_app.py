@@ -38,7 +38,14 @@ class AndroidAppRedirect(HttpResponseRedirect):
     # (build.gradle.kts authScheme). Listing a scheme here only lets Django
     # EMIT the redirect — the actual gate stays ANDROID_AUTH_REDIRECT_URIS,
     # which production does not extend beyond crushlu://auth.
-    allowed_schemes = ["http", "https", "ftp", "crushlu", "crushlustaging", "crushlulocal"]
+    allowed_schemes = [
+        "http",
+        "https",
+        "ftp",
+        "crushlu",
+        "crushlustaging",
+        "crushlulocal",
+    ]
 
 
 def _allowed_redirect_uri(uri):

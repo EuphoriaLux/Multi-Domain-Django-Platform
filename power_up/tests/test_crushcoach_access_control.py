@@ -128,9 +128,7 @@ class CrushCoachCannotReachPowerUpInternalsTests(TestCase):
         # Sanity: the signal actually granted is_staff, or this whole test
         # class would be exercising the wrong precondition.
         self.assertTrue(self.coach.is_staff)
-        self.assertFalse(
-            self.coach.groups.filter(name=POWER_UP_STAFF_GROUP).exists()
-        )
+        self.assertFalse(self.coach.groups.filter(name=POWER_UP_STAFF_GROUP).exists())
         self.client.force_login(self.coach)
 
     def _assert_refused(self, url):
@@ -180,9 +178,7 @@ class CrushCoachCannotReachPowerUpInternalsTests(TestCase):
     def test_power_admin_refuses_crushcoach(self):
         self._assert_refused(POWER_ADMIN_URL)
         self.assertFalse(
-            power_up_admin_site.has_permission(
-                type("Req", (), {"user": self.coach})()
-            )
+            power_up_admin_site.has_permission(type("Req", (), {"user": self.coach})())
         )
 
     def test_inactive_crushcoach_is_also_refused(self):
@@ -246,9 +242,7 @@ class PowerUpStaffCanReachEverySurfaceTests(TestCase):
         response = self.client.get(POWER_ADMIN_URL)
         self.assertEqual(response.status_code, 200)
         self.assertTrue(
-            power_up_admin_site.has_permission(
-                type("Req", (), {"user": self.staff})()
-            )
+            power_up_admin_site.has_permission(type("Req", (), {"user": self.staff})())
         )
 
     def test_superuser_also_retains_access(self):

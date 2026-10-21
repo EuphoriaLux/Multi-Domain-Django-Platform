@@ -1,4 +1,5 @@
 """Template tags for rendering pre-screening questionnaire inputs."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -28,8 +29,9 @@ _INPUT_TEMPLATES: dict[str, str] = {
 
 
 @register.simple_tag(takes_context=True)
-def render_prescreening_question(context, question: dict, responses: dict,
-                                 errors: dict | None = None):
+def render_prescreening_question(
+    context, question: dict, responses: dict, errors: dict | None = None
+):
     """Render a single pre-screening question with its current response.
 
     Args:

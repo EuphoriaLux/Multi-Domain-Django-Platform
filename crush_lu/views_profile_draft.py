@@ -58,8 +58,8 @@ def save_draft(request):
     """
     try:
         data = json.loads(request.body)
-        step = data.get('step')
-        step_data = _sanitize_step_data(data.get('data', {}))
+        step = data.get("step")
+        step_data = _sanitize_step_data(data.get("data", {}))
 
         logger.info(f"[DRAFT SAVE] User {request.user.id} saving step {step}")
         logger.debug(f"[DRAFT SAVE] Step data: {step_data}")
@@ -67,14 +67,16 @@ def save_draft(request):
         # Validate step number
         if not step or not isinstance(step, int) or step < 1 or step > 5:
             logger.warning(f"[DRAFT SAVE] Invalid step number: {step}")
-            return JsonResponse({
-                'success': False,
-                'error': 'Invalid step number. Must be 1-5.'
-            }, status=400)
+            return JsonResponse(
+                {"success": False, "error": "Invalid step number. Must be 1-5."},
+                status=400,
+            )
 
         # Get or create profile
         profile, created = CrushProfile.objects.get_or_create(user=request.user)
-        logger.info(f"[DRAFT SAVE] Profile {'created' if created else 'found'} for user {request.user.id}")
+        logger.info(
+            f"[DRAFT SAVE] Profile {'created' if created else 'found'} for user {request.user.id}"
+        )
 
         # Initialize draft_data if needed
         if not profile.draft_data:
@@ -82,47 +84,59 @@ def save_draft(request):
             logger.debug("[DRAFT SAVE] Initialized empty draft_data")
 
         # Merge step data into draft
-        step_key = f'step{step}'
+        step_key = f"step{step}"
         if step_key not in profile.draft_data:
             profile.draft_data[step_key] = {}
             logger.debug(f"[DRAFT SAVE] Initialized empty {step_key}")
 
         # Log before merge
-        logger.debug(f"[DRAFT SAVE] Before merge - {step_key}: {profile.draft_data[step_key]}")
+        logger.debug(
+            f"[DRAFT SAVE] Before merge - {step_key}: {profile.draft_data[step_key]}"
+        )
 
         profile.draft_data[step_key].update(step_data)
 
         # Log after merge
-        logger.debug(f"[DRAFT SAVE] After merge - {step_key}: {profile.draft_data[step_key]}")
+        logger.debug(
+            f"[DRAFT SAVE] After merge - {step_key}: {profile.draft_data[step_key]}"
+        )
 
         # Update timestamps
         profile.last_draft_saved = timezone.now()
         profile.draft_expires_at = timezone.now() + timedelta(days=30)
 
         # Save without validation (using update_fields to skip model validation)
-        profile.save(update_fields=['draft_data', 'last_draft_saved', 'draft_expires_at'])
+        profile.save(
+            update_fields=["draft_data", "last_draft_saved", "draft_expires_at"]
+        )
 
-        logger.info(f"[DRAFT SAVE] ✅ Successfully saved draft for user {request.user.id}, step {step}")
+        logger.info(
+            f"[DRAFT SAVE] ✅ Successfully saved draft for user {request.user.id}, step {step}"
+        )
         logger.debug(f"[DRAFT SAVE] Full draft_data: {profile.draft_data}")
 
-        return JsonResponse({
-            'success': True,
-            'saved_at': profile.last_draft_saved.isoformat(),
-            'message': 'Draft saved'
-        })
+        return JsonResponse(
+            {
+                "success": True,
+                "saved_at": profile.last_draft_saved.isoformat(),
+                "message": "Draft saved",
+            }
+        )
 
     except json.JSONDecodeError:
-        return JsonResponse({
-            'success': False,
-            'error': 'Invalid JSON in request body'
-        }, status=400)
+        return JsonResponse(
+            {"success": False, "error": "Invalid JSON in request body"}, status=400
+        )
     except Exception as e:
         logger.error(f"Error in profile draft operation: {e}")
         logger.error(traceback.format_exc())
-        return JsonResponse({
-            'success': False,
-            'error': 'An error occurred while processing your request'
-        }, status=500)
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "An error occurred while processing your request",
+            },
+            status=500,
+        )
 
 
 @crush_login_required
@@ -154,29 +168,43 @@ def get_draft(request):
             profile = CrushProfile.objects.get(user=request.user)
             logger.info(f"[DRAFT GET] Profile found for user {request.user.id}")
             logger.debug(f"[DRAFT GET] Raw draft_data: {profile.draft_data}")
-            logger.debug(f"[DRAFT GET] Profile event_languages: {profile.event_languages}")
-            logger.debug(f"[DRAFT GET] Profile show_full_name: {profile.show_full_name}")
-            logger.debug(f"[DRAFT GET] Profile show_exact_age: {profile.show_exact_age}")
+            logger.debug(
+                f"[DRAFT GET] Profile event_languages: {profile.event_languages}"
+            )
+            logger.debug(
+                f"[DRAFT GET] Profile show_full_name: {profile.show_full_name}"
+            )
+            logger.debug(
+                f"[DRAFT GET] Profile show_exact_age: {profile.show_exact_age}"
+            )
 
         except CrushProfile.DoesNotExist:
             # No profile yet - return empty data
             logger.warning(f"[DRAFT GET] No profile found for user {request.user.id}")
-            return JsonResponse({
-                'success': True,
-                'data': {
-                    'profile': {},
-                    'draft': {},
-                    'merged': {},
-                    'last_saved': None
+            return JsonResponse(
+                {
+                    "success": True,
+                    "data": {
+                        "profile": {},
+                        "draft": {},
+                        "merged": {},
+                        "last_saved": None,
+                    },
                 }
-            })
+            )
 
         # Start with saved profile fields
         merged = {}
         profile_fields = [
-            'phone_number', 'date_of_birth', 'gender', 'location',
-            'bio', 'interests', 'event_languages',
-            'show_full_name', 'show_exact_age'
+            "phone_number",
+            "date_of_birth",
+            "gender",
+            "location",
+            "bio",
+            "interests",
+            "event_languages",
+            "show_full_name",
+            "show_exact_age",
         ]
 
         logger.debug("[DRAFT GET] Building merged data from profile fields...")
@@ -191,11 +219,11 @@ def get_draft(request):
                 elif isinstance(value, (list, dict)):
                     merged[field] = value
                     logger.debug(f"[DRAFT GET] Field '{field}' (array/dict): {value}")
-                elif hasattr(value, 'isoformat'):  # Date/DateTime
+                elif hasattr(value, "isoformat"):  # Date/DateTime
                     merged[field] = value.isoformat()
                     logger.debug(f"[DRAFT GET] Field '{field}' (date): {value}")
                 else:
-                    merged[field] = str(value) if value else ''
+                    merged[field] = str(value) if value else ""
                     logger.debug(f"[DRAFT GET] Field '{field}' (string): {value}")
 
         logger.debug(f"[DRAFT GET] Merged data BEFORE draft override: {merged}")
@@ -213,19 +241,25 @@ def get_draft(request):
                     logger.debug(f"[DRAFT GET] Merging {step_key}: {step_data}")
                     merged.update(step_data)
         else:
-            logger.warning(f"[DRAFT GET] No draft_data found for user {request.user.id}")
+            logger.warning(
+                f"[DRAFT GET] No draft_data found for user {request.user.id}"
+            )
 
         logger.debug(f"[DRAFT GET] Merged data AFTER draft override: {merged}")
         logger.info(f"[DRAFT GET] ✅ Returning merged data with {len(merged)} fields")
 
         response_data = {
-            'success': True,
-            'data': {
-                'profile': merged,  # For backward compatibility
-                'draft': sanitized_draft,
-                'merged': merged,
-                'last_saved': profile.last_draft_saved.isoformat() if profile.last_draft_saved else None
-            }
+            "success": True,
+            "data": {
+                "profile": merged,  # For backward compatibility
+                "draft": sanitized_draft,
+                "merged": merged,
+                "last_saved": (
+                    profile.last_draft_saved.isoformat()
+                    if profile.last_draft_saved
+                    else None
+                ),
+            },
         }
 
         logger.debug(f"[DRAFT GET] Response data: {response_data}")
@@ -235,10 +269,13 @@ def get_draft(request):
     except Exception as e:
         logger.error(f"Error in profile draft operation: {e}")
         logger.error(traceback.format_exc())
-        return JsonResponse({
-            'success': False,
-            'error': 'An error occurred while processing your request'
-        }, status=500)
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "An error occurred while processing your request",
+            },
+            status=500,
+        )
 
 
 @crush_login_required
@@ -262,17 +299,22 @@ def clear_draft(request):
             profile.draft_data = {}
             profile.last_draft_saved = None
             profile.draft_expires_at = None
-            profile.save(update_fields=['draft_data', 'last_draft_saved', 'draft_expires_at'])
+            profile.save(
+                update_fields=["draft_data", "last_draft_saved", "draft_expires_at"]
+            )
         except CrushProfile.DoesNotExist:
             # No profile exists - nothing to clear
             pass
 
-        return JsonResponse({'success': True})
+        return JsonResponse({"success": True})
 
     except Exception as e:
         logger.error(f"Error in profile draft operation: {e}")
         logger.error(traceback.format_exc())
-        return JsonResponse({
-            'success': False,
-            'error': 'An error occurred while processing your request'
-        }, status=500)
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "An error occurred while processing your request",
+            },
+            status=500,
+        )

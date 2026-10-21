@@ -1,7 +1,6 @@
 from django.contrib import admin
 
 
-
 class IOSAppDeviceAdmin(admin.ModelAdmin):
     list_display = (
         "user",
@@ -14,8 +13,20 @@ class IOSAppDeviceAdmin(admin.ModelAdmin):
         "last_push_at",
         "failure_count",
     )
-    list_filter = ("enabled", "environment", "app_version", "created_at", "last_seen_at")
-    search_fields = ("user__username", "user__email", "device_id", "device_token", "device_name")
+    list_filter = (
+        "enabled",
+        "environment",
+        "app_version",
+        "created_at",
+        "last_seen_at",
+    )
+    search_fields = (
+        "user__username",
+        "user__email",
+        "device_id",
+        "device_token",
+        "device_name",
+    )
     readonly_fields = ("created_at", "updated_at", "last_seen_at", "last_push_at")
 
 

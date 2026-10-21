@@ -6,6 +6,7 @@ pattern).
 
 Run with: pytest crush_lu/tests/test_api_admin_metrics.py -v
 """
+
 from unittest import mock
 
 from django.test import Client, TestCase, override_settings
@@ -28,22 +29,23 @@ class ProfileRemindersEndpointTests(TestCase):
 
     def test_wrong_bearer_unauthorized(self):
         resp = self.client.post(
-            REMINDERS_URL, HTTP_AUTHORIZATION="Bearer not-the-key",
+            REMINDERS_URL,
+            HTTP_AUTHORIZATION="Bearer not-the-key",
         )
         self.assertEqual(resp.status_code, 401)
 
     def test_get_method_not_allowed(self):
         resp = self.client.get(
-            REMINDERS_URL, HTTP_AUTHORIZATION=f"Bearer {API_KEY}",
+            REMINDERS_URL,
+            HTTP_AUTHORIZATION=f"Bearer {API_KEY}",
         )
         self.assertEqual(resp.status_code, 405)
 
     def test_valid_post_runs_command(self):
-        with mock.patch(
-            "crush_lu.api_admin_metrics.call_command"
-        ) as mock_call:
+        with mock.patch("crush_lu.api_admin_metrics.call_command") as mock_call:
             resp = self.client.post(
-                REMINDERS_URL, HTTP_AUTHORIZATION=f"Bearer {API_KEY}",
+                REMINDERS_URL,
+                HTTP_AUTHORIZATION=f"Bearer {API_KEY}",
             )
         self.assertEqual(resp.status_code, 202)
         self.assertEqual(resp.json()["status"], "ok")
@@ -62,22 +64,23 @@ class GdprRetentionEndpointTests(TestCase):
 
     def test_wrong_bearer_unauthorized(self):
         resp = self.client.post(
-            GDPR_URL, HTTP_AUTHORIZATION="Bearer not-the-key",
+            GDPR_URL,
+            HTTP_AUTHORIZATION="Bearer not-the-key",
         )
         self.assertEqual(resp.status_code, 401)
 
     def test_get_method_not_allowed(self):
         resp = self.client.get(
-            GDPR_URL, HTTP_AUTHORIZATION=f"Bearer {API_KEY}",
+            GDPR_URL,
+            HTTP_AUTHORIZATION=f"Bearer {API_KEY}",
         )
         self.assertEqual(resp.status_code, 405)
 
     def test_valid_post_applies_retention(self):
-        with mock.patch(
-            "crush_lu.api_admin_metrics.call_command"
-        ) as mock_call:
+        with mock.patch("crush_lu.api_admin_metrics.call_command") as mock_call:
             resp = self.client.post(
-                GDPR_URL, HTTP_AUTHORIZATION=f"Bearer {API_KEY}",
+                GDPR_URL,
+                HTTP_AUTHORIZATION=f"Bearer {API_KEY}",
             )
         self.assertEqual(resp.status_code, 202)
         self.assertEqual(resp.json()["status"], "ok")
@@ -95,7 +98,8 @@ class GdprRetentionEndpointTests(TestCase):
             side_effect=CommandError("boom"),
         ):
             resp = self.client.post(
-                GDPR_URL, HTTP_AUTHORIZATION=f"Bearer {API_KEY}",
+                GDPR_URL,
+                HTTP_AUTHORIZATION=f"Bearer {API_KEY}",
             )
         self.assertEqual(resp.status_code, 500)
         self.assertEqual(resp.json()["error"], "command_error")

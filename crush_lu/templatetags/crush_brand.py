@@ -15,6 +15,7 @@ Usage:
     {% brand_colors as brand %}
     <a style="background:{{ brand.purple }};color:{{ brand.on_brand }};">Confirm</a>
 """
+
 from django import template
 
 register = template.Library()

@@ -177,9 +177,7 @@ def test_comment_is_capped_at_the_field_length():
     me = _make_cycle_user("fb_long")
     session = _completed_session(me, days_ago=1)
 
-    row, _created = record_cycle_feedback(
-        session, sentiment="good", comment="x" * 2000
-    )
+    row, _created = record_cycle_feedback(session, sentiment="good", comment="x" * 2000)
 
     assert len(row.comment) == 1000
 

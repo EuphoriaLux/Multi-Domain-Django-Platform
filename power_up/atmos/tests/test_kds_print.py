@@ -80,9 +80,7 @@ def printable_order(db):
 def _staff_with_view_order(username="kds_staff"):
     user = get_user_model().objects.create_user(username=username, is_staff=True)
     user.user_permissions.add(
-        Permission.objects.get(
-            codename="view_order", content_type__app_label="atmos"
-        )
+        Permission.objects.get(codename="view_order", content_type__app_label="atmos")
     )
     return user
 

@@ -3,21 +3,30 @@ from django.utils.html import format_html
 from .models import EntrepreneurProfile, Skill, Industry
 
 # Import Vibe models and admin classes
-from .vibe.models import PixelCanvas, Pixel, PixelHistory, UserPixelCooldown, UserPixelStats
-from .vibe.admin import (
-    PixelCanvasAdmin, PixelAdmin, PixelHistoryAdmin,
-    UserPixelCooldownAdmin, UserPixelStatsAdmin
+from .vibe.models import (
+    PixelCanvas,
+    Pixel,
+    PixelHistory,
+    UserPixelCooldown,
+    UserPixelStats,
 )
-
+from .vibe.admin import (
+    PixelCanvasAdmin,
+    PixelAdmin,
+    PixelHistoryAdmin,
+    UserPixelCooldownAdmin,
+    UserPixelStatsAdmin,
+)
 
 # ============================================================================
 # CUSTOM ADMIN SITE - Entreprinder Administration
 # ============================================================================
 
+
 class EntreprinderAdminSite(admin.AdminSite):
-    site_header = 'Entreprinder Administration'
-    site_title = 'Entreprinder Admin'
-    index_title = 'Entrepreneur Network Management'
+    site_header = "Entreprinder Administration"
+    site_title = "Entreprinder Admin"
+    index_title = "Entrepreneur Network Management"
 
     def get_app_list(self, request, app_label=None):
         """
@@ -29,72 +38,72 @@ class EntreprinderAdminSite(admin.AdminSite):
         # Custom ordering and grouping for Entreprinder models
         custom_order = {
             # 1. Profiles
-            'entrepreneurprofile': {'order': 1, 'icon': '👤', 'group': 'Profiles'},
-
+            "entrepreneurprofile": {"order": 1, "icon": "👤", "group": "Profiles"},
             # 2. Categories
-            'industry': {'order': 20, 'icon': '🏭', 'group': 'Categories'},
-            'skill': {'order': 21, 'icon': '⚡', 'group': 'Categories'},
-
+            "industry": {"order": 20, "icon": "🏭", "group": "Categories"},
+            "skill": {"order": 21, "icon": "⚡", "group": "Categories"},
             # 3. Vibe Coding
-            'pixelcanvas': {'order': 40, 'icon': '🎨', 'group': 'Vibe Coding'},
-            'pixel': {'order': 41, 'icon': '🔲', 'group': 'Vibe Coding'},
-            'pixelhistory': {'order': 42, 'icon': '📜', 'group': 'Vibe Coding'},
-            'userpixelcooldown': {'order': 43, 'icon': '⏱️', 'group': 'Vibe Coding'},
-            'userpixelstats': {'order': 44, 'icon': '📊', 'group': 'Vibe Coding'},
+            "pixelcanvas": {"order": 40, "icon": "🎨", "group": "Vibe Coding"},
+            "pixel": {"order": 41, "icon": "🔲", "group": "Vibe Coding"},
+            "pixelhistory": {"order": 42, "icon": "📜", "group": "Vibe Coding"},
+            "userpixelcooldown": {"order": 43, "icon": "⏱️", "group": "Vibe Coding"},
+            "userpixelstats": {"order": 44, "icon": "📊", "group": "Vibe Coding"},
         }
 
         # Create grouped app list
         new_app_list = []
 
         for app in app_list:
-            if app['app_label'] == 'entreprinder':
+            if app["app_label"] == "entreprinder":
                 # Group models by category
                 groups = {}
 
-                for model in app['models']:
-                    model_name = model['object_name'].lower()
+                for model in app["models"]:
+                    model_name = model["object_name"].lower()
 
                     if model_name in custom_order:
                         config = custom_order[model_name]
-                        model['_order'] = config['order']
-                        group_name = config['group']
+                        model["_order"] = config["order"]
+                        group_name = config["group"]
 
                         # Add icon to model name
-                        icon = config['icon']
-                        if not model['name'].startswith(icon):
-                            model['name'] = f"{icon} {model['name']}"
+                        icon = config["icon"]
+                        if not model["name"].startswith(icon):
+                            model["name"] = f"{icon} {model['name']}"
 
                         if group_name not in groups:
                             groups[group_name] = []
                         groups[group_name].append(model)
                     else:
                         # Models not in custom order go to "Other"
-                        if 'Other' not in groups:
-                            groups['Other'] = []
-                        groups['Other'].append(model)
+                        if "Other" not in groups:
+                            groups["Other"] = []
+                        groups["Other"].append(model)
 
                 # Sort models within each group
                 for group_name in groups:
-                    groups[group_name].sort(key=lambda x: x.get('_order', 999))
+                    groups[group_name].sort(key=lambda x: x.get("_order", 999))
 
                 # Create new apps for each group
-                group_order = ['Profiles', 'Categories', 'Vibe Coding', 'Other']
+                group_order = ["Profiles", "Categories", "Vibe Coding", "Other"]
                 group_icons = {
-                    'Profiles': '👤',
-                    'Categories': '🏷️',
-                    'Vibe Coding': '🎮',
-                    'Other': '📋',
+                    "Profiles": "👤",
+                    "Categories": "🏷️",
+                    "Vibe Coding": "🎮",
+                    "Other": "📋",
                 }
 
                 for group_key in group_order:
                     if group_key in groups and groups[group_key]:
-                        new_app_list.append({
-                            'name': f"{group_icons.get(group_key, '')} {group_key}",
-                            'app_label': f'entreprinder_{group_key.lower().replace(" ", "_")}',
-                            'app_url': app['app_url'],
-                            'has_module_perms': app['has_module_perms'],
-                            'models': groups[group_key],
-                        })
+                        new_app_list.append(
+                            {
+                                "name": f"{group_icons.get(group_key, '')} {group_key}",
+                                "app_label": f'entreprinder_{group_key.lower().replace(" ", "_")}',
+                                "app_url": app["app_url"],
+                                "has_module_perms": app["has_module_perms"],
+                                "models": groups[group_key],
+                            }
+                        )
             else:
                 new_app_list.append(app)
 
@@ -102,32 +111,39 @@ class EntreprinderAdminSite(admin.AdminSite):
 
 
 # Instantiate the custom admin site
-entreprinder_admin_site = EntreprinderAdminSite(name='entreprinder_admin')
+entreprinder_admin_site = EntreprinderAdminSite(name="entreprinder_admin")
 
 
 # ============================================================================
 # MODEL ADMIN CLASSES
 # ============================================================================
 
+
 class IndustryAdmin(admin.ModelAdmin):
-    list_display = ('name',)
-    search_fields = ('name',)
+    list_display = ("name",)
+    search_fields = ("name",)
 
 
 class EntrepreneurProfileAdmin(admin.ModelAdmin):
     list_display = (
-        'user',
-        'company',
-        'industry',
-        'location',
-        'is_mentor',
-        'is_investor',
-        'photo_preview',
+        "user",
+        "company",
+        "industry",
+        "location",
+        "is_mentor",
+        "is_investor",
+        "photo_preview",
     )
-    list_filter = ('industry', 'location', 'is_mentor', 'is_investor')
-    search_fields = ('user__username', 'user__email', 'company', 'industry__name', 'location')
-    autocomplete_fields = ['skills', 'industry']
-    change_form_template = 'entreprinder/admin/entrepreneurprofile_change_form.html'
+    list_filter = ("industry", "location", "is_mentor", "is_investor")
+    search_fields = (
+        "user__username",
+        "user__email",
+        "company",
+        "industry__name",
+        "location",
+    )
+    autocomplete_fields = ["skills", "industry"]
+    change_form_template = "entreprinder/admin/entrepreneurprofile_change_form.html"
 
     def photo_preview(self, obj):
         """
@@ -137,16 +153,16 @@ class EntrepreneurProfileAdmin(admin.ModelAdmin):
         if obj.linkedin_photo_url:
             return format_html(
                 '<img src="{}" width="50" height="50" style="border-radius: 50%;" />',
-                obj.linkedin_photo_url
+                obj.linkedin_photo_url,
             )
         return "No LinkedIn Photo"
 
-    photo_preview.short_description = 'LinkedIn Photo'
+    photo_preview.short_description = "LinkedIn Photo"
 
 
 class SkillAdmin(admin.ModelAdmin):
-    list_display = ('name',)
-    search_fields = ('name',)
+    list_display = ("name",)
+    search_fields = ("name",)
 
 
 # Customize the default admin site header and title

@@ -1008,9 +1008,7 @@ class TestAutoApproveExpiredLatestInvariant(TestCase):
 
     def setUp(self):
         crush_signals._thread_local.is_crush_luxid_login = True
-        self.user, self.profile, self.older_pending = (
-            _make_user_with_pending_profile()
-        )
+        self.user, self.profile, self.older_pending = _make_user_with_pending_profile()
         self.expired = ProfileSubmission.objects.create(
             profile=self.profile, status="expired"
         )

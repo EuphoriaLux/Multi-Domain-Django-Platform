@@ -23,6 +23,7 @@ Usage:
     # Target a specific segment
     python manage.py send_newsletter --subject "Hey!" --body-file msg.html --audience segment --segment inactive_7d
 """
+
 from django.core.management.base import BaseCommand, CommandError
 
 from crush_lu.models.newsletter import Newsletter
@@ -30,71 +31,71 @@ from crush_lu.newsletter_service import send_newsletter
 
 
 class Command(BaseCommand):
-    help = 'Send a Crush.lu newsletter to members'
+    help = "Send a Crush.lu newsletter to members"
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--newsletter-id',
+            "--newsletter-id",
             type=int,
-            help='Send an existing draft newsletter by PK',
+            help="Send an existing draft newsletter by PK",
         )
         parser.add_argument(
-            '--subject',
+            "--subject",
             type=str,
-            help='Subject line (creates a new newsletter)',
+            help="Subject line (creates a new newsletter)",
         )
         parser.add_argument(
-            '--body-file',
+            "--body-file",
             type=str,
-            help='Path to HTML body file (creates a new newsletter)',
+            help="Path to HTML body file (creates a new newsletter)",
         )
         parser.add_argument(
-            '--audience',
+            "--audience",
             type=str,
-            choices=['all_users', 'all_profiles', 'approved_profiles', 'segment'],
-            default='all_users',
-            help='Audience for new newsletter (default: all_users)',
+            choices=["all_users", "all_profiles", "approved_profiles", "segment"],
+            default="all_users",
+            help="Audience for new newsletter (default: all_users)",
         )
         parser.add_argument(
-            '--segment',
+            "--segment",
             type=str,
-            default='',
+            default="",
             help='Segment key (when audience is "segment")',
         )
         parser.add_argument(
-            '--dry-run',
-            action='store_true',
-            help='Preview recipients without sending',
+            "--dry-run",
+            action="store_true",
+            help="Preview recipients without sending",
         )
         parser.add_argument(
-            '--limit',
+            "--limit",
             type=int,
             default=None,
-            help='Maximum number of emails to send',
+            help="Maximum number of emails to send",
         )
         parser.add_argument(
-            '--type',
+            "--type",
             type=str,
-            choices=['standard', 'patch_notes'],
-            default='standard',
-            help='Newsletter type/template (default: standard)',
+            choices=["standard", "patch_notes"],
+            default="standard",
+            help="Newsletter type/template (default: standard)",
         )
         parser.add_argument(
-            '--list-segments',
-            action='store_true',
-            help='Show available segments with user counts',
+            "--list-segments",
+            action="store_true",
+            help="Show available segments with user counts",
         )
 
     def handle(self, *args, **options):
-        if options['list_segments']:
+        if options["list_segments"]:
             return self._list_segments()
 
         newsletter = self._resolve_newsletter(options)
 
         results = send_newsletter(
             newsletter=newsletter,
-            dry_run=options['dry_run'],
-            limit=options['limit'],
+            dry_run=options["dry_run"],
+            limit=options["limit"],
             stdout=self.stdout,
         )
 
@@ -102,9 +103,9 @@ class Command(BaseCommand):
 
     def _resolve_newsletter(self, options):
         """Get or create the newsletter to send."""
-        newsletter_id = options['newsletter_id']
-        subject = options['subject']
-        body_file = options['body_file']
+        newsletter_id = options["newsletter_id"]
+        subject = options["subject"]
+        body_file = options["body_file"]
 
         if newsletter_id:
             try:
@@ -120,7 +121,7 @@ class Command(BaseCommand):
                     f"so click tracking and campaign state stay correct."
                 )
 
-            if newsletter.status not in ('draft', 'sending'):
+            if newsletter.status not in ("draft", "sending"):
                 raise CommandError(
                     f"Newsletter #{newsletter_id} has status '{newsletter.status}'. "
                     f"Only 'draft' or 'sending' newsletters can be sent."
@@ -129,7 +130,7 @@ class Command(BaseCommand):
 
         if subject and body_file:
             try:
-                with open(body_file, 'r', encoding='utf-8') as f:
+                with open(body_file, "r", encoding="utf-8") as f:
                     body_html = f.read()
             except FileNotFoundError:
                 raise CommandError(f"Body file not found: {body_file}")
@@ -137,10 +138,10 @@ class Command(BaseCommand):
             newsletter = Newsletter.objects.create(
                 subject=subject,
                 body_html=body_html,
-                audience=options['audience'],
-                segment_key=options['segment'],
-                newsletter_type=options['type'],
-                status='draft',
+                audience=options["audience"],
+                segment_key=options["segment"],
+                newsletter_type=options["type"],
+                status="draft",
             )
             self.stdout.write(
                 self.style.SUCCESS(f"Created newsletter #{newsletter.pk}")
@@ -166,17 +167,13 @@ class Command(BaseCommand):
                     )
                 )
             except UnicodeEncodeError:
-                self.stdout.write(
-                    self.style.MIGRATE_HEADING(f"\n{group['title']}")
-                )
-            for seg in group.get('segments', []):
+                self.stdout.write(self.style.MIGRATE_HEADING(f"\n{group['title']}"))
+            for seg in group.get("segments", []):
                 try:
                     self.stdout.write(
                         f"  {seg['key']:30s}  {seg['count']:>5d} users  "
                         f"- {seg['description']}"
                     )
                 except UnicodeEncodeError:
-                    self.stdout.write(
-                        f"  {seg['key']:30s}  {seg['count']:>5d} users"
-                    )
+                    self.stdout.write(f"  {seg['key']:30s}  {seg['count']:>5d} users")
         self.stdout.write("")

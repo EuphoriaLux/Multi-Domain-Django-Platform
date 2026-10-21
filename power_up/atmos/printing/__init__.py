@@ -42,4 +42,3 @@ __all__ = [
     "render_plain_text",
     "render_ticket",
 ]
-

@@ -55,7 +55,9 @@ def test_derive_project_id_from_email(email, expected):
 def user(db):
     from crush_lu.models.profiles import UserDataConsent
 
-    user = User.objects.create_user(username="testuser", email="test@example.com", password="password")
+    user = User.objects.create_user(
+        username="testuser", email="test@example.com", password="password"
+    )
     # Device list/register/preferences are behind the consent gate (#1217).
     UserDataConsent.objects.update_or_create(
         user=user, defaults={"crushlu_consent_given": True}
@@ -66,6 +68,7 @@ def user(db):
 @pytest.fixture
 def client(user):
     from django.test import Client
+
     client = Client()
     client.force_login(user)
     return client
@@ -179,13 +182,17 @@ def test_android_push_success_and_failure(mock_post, user):
     mock_credentials = MagicMock()
     mock_credentials.token = "mock-token"
 
-    with patch("crush_lu.android_push.get_fcm_credentials", return_value=(mock_credentials, "test-project")):
+    with patch(
+        "crush_lu.android_push.get_fcm_credentials",
+        return_value=(mock_credentials, "test-project"),
+    ):
         # Case A: Success (200 OK)
         mock_response_ok = MagicMock()
         mock_response_ok.status_code = 200
         mock_post.return_value = mock_response_ok
 
         from crush_lu.android_push import send_native_android_push_notification
+
         res = send_native_android_push_notification(
             user, "Test Title", "Test Body", preference_key="profile_updates"
         )

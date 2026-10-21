@@ -517,6 +517,7 @@ class TestProfilePhotoRefused:
         alice = _member("alice")
         staff = User.objects.create_user("staff", "st@example.com", "x", is_staff=True)
         from crush_lu.models.profiles import UserDataConsent
+
         UserDataConsent.objects.update_or_create(
             user=staff, defaults={"crushlu_consent_given": True}
         )
@@ -746,6 +747,7 @@ class TestQuizPhoto:
         _quiz(created_by=host, owner=alice, status="confirmed")
         staff = User.objects.create_user("staff", "st@example.com", "x", is_staff=True)
         from crush_lu.models.profiles import UserDataConsent
+
         UserDataConsent.objects.update_or_create(
             user=staff, defaults={"crushlu_consent_given": True}
         )

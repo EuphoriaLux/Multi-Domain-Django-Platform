@@ -20,7 +20,15 @@ import unittest
 
 ANDROID = Path(__file__).parents[1]
 MAIN_ACTIVITY = (
-    ANDROID / "app" / "src" / "main" / "java" / "lu" / "crush" / "app" / "MainActivity.java"
+    ANDROID
+    / "app"
+    / "src"
+    / "main"
+    / "java"
+    / "lu"
+    / "crush"
+    / "app"
+    / "MainActivity.java"
 )
 MANIFEST = ANDROID / "app" / "src" / "main" / "AndroidManifest.xml"
 BUILD_GRADLE = ANDROID / "app" / "build.gradle.kts"
@@ -84,7 +92,9 @@ class AuthHandoffLaunchTests(unittest.TestCase):
         self.assertIn('<data android:scheme="https" />', manifest)
 
     def test_androidx_browser_is_a_dependency(self):
-        self.assertIn("androidx.browser:browser", BUILD_GRADLE.read_text(encoding="utf-8"))
+        self.assertIn(
+            "androidx.browser:browser", BUILD_GRADLE.read_text(encoding="utf-8")
+        )
 
 
 if __name__ == "__main__":

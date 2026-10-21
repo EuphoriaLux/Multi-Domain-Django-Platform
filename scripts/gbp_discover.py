@@ -83,14 +83,20 @@ def main():
         print(f"❌ Error fetching accounts (HTTP {resp.status_code}):", flush=True)
         print(resp.text, flush=True)
         if resp.status_code == 403:
-            print("\n💡 Tip: Make sure 'My Business Account Management API' is enabled in Google Cloud Console.", flush=True)
+            print(
+                "\n💡 Tip: Make sure 'My Business Account Management API' is enabled in Google Cloud Console.",
+                flush=True,
+            )
         return
 
     accounts_data = resp.json()
     accounts = accounts_data.get("accounts", [])
 
     if not accounts:
-        print("⚠️ No Google Business Profile accounts found for this Google user.", flush=True)
+        print(
+            "⚠️ No Google Business Profile accounts found for this Google user.",
+            flush=True,
+        )
         return
 
     print(f"✅ Found {len(accounts)} account(s):\n", flush=True)
@@ -112,10 +118,16 @@ def main():
         loc_resp = requests.get(locations_url, headers=headers, params=params)
 
         if loc_resp.status_code != 200:
-            print(f"   ❌ Error fetching locations (HTTP {loc_resp.status_code}):", flush=True)
+            print(
+                f"   ❌ Error fetching locations (HTTP {loc_resp.status_code}):",
+                flush=True,
+            )
             print(f"   {loc_resp.text}", flush=True)
             if loc_resp.status_code == 403:
-                print("   💡 Tip: Make sure 'My Business Business Information API' is enabled in Google Cloud Console.", flush=True)
+                print(
+                    "   💡 Tip: Make sure 'My Business Business Information API' is enabled in Google Cloud Console.",
+                    flush=True,
+                )
             continue
 
         loc_data = loc_resp.json()
@@ -136,7 +148,9 @@ def main():
             postal_code = addr.get("postalCode", "")
             country = addr.get("regionCode", "")
 
-            full_addr = f"{address_lines}, {postal_code} {locality} ({country})".strip(", ")
+            full_addr = f"{address_lines}, {postal_code} {locality} ({country})".strip(
+                ", "
+            )
 
             print(f"      📍 Name:        {loc_title}", flush=True)
             print(f"         Location ID: {loc_name}", flush=True)

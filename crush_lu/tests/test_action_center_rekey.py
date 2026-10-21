@@ -283,9 +283,7 @@ class ActionCenterIndexTests(AdminClientMixin, VerificationFixturesMixin, TestCa
 
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
-class DashboardActionCenterTests(
-    AdminClientMixin, VerificationFixturesMixin, TestCase
-):
+class DashboardActionCenterTests(AdminClientMixin, VerificationFixturesMixin, TestCase):
     def setUp(self):
         self.booked, self.unbooked = self._door_cohort()
         self._login_superuser()

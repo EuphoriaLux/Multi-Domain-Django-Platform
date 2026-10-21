@@ -343,9 +343,7 @@ class Command(BaseCommand):
                         f"of {found} file(s)"
                     )
                 else:
-                    self.stdout.write(
-                        f"  Orphaned social photo cache: {found} file(s)"
-                    )
+                    self.stdout.write(f"  Orphaned social photo cache: {found} file(s)")
 
         if apply_changes and budget_hit:
             self.stdout.write(

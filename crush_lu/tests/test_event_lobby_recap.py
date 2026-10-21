@@ -727,9 +727,7 @@ class TestPeopleIveMetPages:
         html = client.get(
             reverse("crush_lu:event_lobby_person", args=[ben.pk])
         ).content.decode()
-        assert (
-            reverse("crush_lu:event_lobby_person_photo", args=[ben.pk]) in html
-        )
+        assert reverse("crush_lu:event_lobby_person_photo", args=[ben.pk]) in html
         assert f"/media/profile/{ben.pk}/" not in html
 
     def test_person_profile_denied_after_block(self, client):

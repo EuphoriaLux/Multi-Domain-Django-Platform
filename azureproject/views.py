@@ -4,6 +4,7 @@ Views for azureproject (shared across all domains).
 Contains:
 - CSP violation report endpoint
 """
+
 import json
 import logging
 from django.http import HttpResponse
@@ -11,7 +12,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 # Separate logger for CSP reports to allow independent logging level
-logger = logging.getLogger('csp_reports')
+logger = logging.getLogger("csp_reports")
 
 
 @csrf_exempt  # CSP reports are sent by the browser without CSRF tokens
@@ -39,15 +40,15 @@ def csp_report(request):
     """
     try:
         # Parse the CSP report JSON
-        report = json.loads(request.body.decode('utf-8'))
-        csp_report_data = report.get('csp-report', {})
+        report = json.loads(request.body.decode("utf-8"))
+        csp_report_data = report.get("csp-report", {})
 
         # Extract key fields for logging
-        blocked_uri = csp_report_data.get('blocked-uri', 'unknown')
-        violated_directive = csp_report_data.get('violated-directive', 'unknown')
-        document_uri = csp_report_data.get('document-uri', 'unknown')
-        source_file = csp_report_data.get('source-file', 'unknown')
-        line_number = csp_report_data.get('line-number', 'unknown')
+        blocked_uri = csp_report_data.get("blocked-uri", "unknown")
+        violated_directive = csp_report_data.get("violated-directive", "unknown")
+        document_uri = csp_report_data.get("document-uri", "unknown")
+        source_file = csp_report_data.get("source-file", "unknown")
+        line_number = csp_report_data.get("line-number", "unknown")
 
         # Log the violation with key details
         logger.warning(

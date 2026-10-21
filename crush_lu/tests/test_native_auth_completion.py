@@ -250,13 +250,15 @@ def test_failure_copy_does_not_reveal_whether_a_code_existed(client, settings, u
     IOSNativeAuthCode.redeem(spent_code)
 
     bodies = [
-        client.get(_complete_path("android", c), headers={"accept": "text/html"}).content
+        client.get(
+            _complete_path("android", c), headers={"accept": "text/html"}
+        ).content
         for c in (expired_code, spent_code, "no-such-code")
     ]
 
-    assert bodies[0] == bodies[1] == bodies[2], (
-        "expired, already-used and unknown codes must render the same page"
-    )
+    assert (
+        bodies[0] == bodies[1] == bodies[2]
+    ), "expired, already-used and unknown codes must render the same page"
 
 
 @pytest.mark.parametrize("platform,setting_name,landing", PLATFORMS)
@@ -292,7 +294,7 @@ def test_failure_renders_html_with_a_retry_link_for_a_browser(
     # re-requesting it is exactly what pull-to-refresh on the old JSON page did.
     assert (
         f'href="/api/mobile/{platform}/auth/handoff/'
-        "?redirect_uri=crushlu%3A%2F%2Fauth\"" in body
+        '?redirect_uri=crushlu%3A%2F%2Fauth"' in body
     )
     # And the code must not be echoed back into the markup at all: base.html
     # would otherwise put the request path in rel=canonical and hreflang.

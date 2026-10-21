@@ -1,4 +1,5 @@
 """Tests for Phase 5 — email + push invite/reminder/push flows."""
+
 from __future__ import annotations
 
 from datetime import date, timedelta
@@ -78,7 +79,9 @@ class PreScreeningInviteEmailTests(TestCase):
         self.assertEqual(len(mail.outbox), 0)
 
     def test_reminder_email_is_separate_from_invite(self):
-        self.assertTrue(send_pre_screening_invite_email(self.submission, reminder=False))
+        self.assertTrue(
+            send_pre_screening_invite_email(self.submission, reminder=False)
+        )
         self.assertTrue(send_pre_screening_invite_email(self.submission, reminder=True))
         self.assertEqual(len(mail.outbox), 2)
         subjects = {m.subject for m in mail.outbox}
@@ -88,7 +91,9 @@ class PreScreeningInviteEmailTests(TestCase):
         send_pre_screening_invite_email(self.submission, reminder=True)
         self.assertEqual(len(mail.outbox), 1)
         # Second reminder is idempotent-no-op
-        self.assertFalse(send_pre_screening_invite_email(self.submission, reminder=True))
+        self.assertFalse(
+            send_pre_screening_invite_email(self.submission, reminder=True)
+        )
         self.assertEqual(len(mail.outbox), 1)
 
 
@@ -119,11 +124,10 @@ class PreScreeningCandidateQueryTests(TestCase):
             is_approved=False,
         )
 
-    def _make_submission(self, *, hours_ago: float, submitted: bool = False,
-                        status: str = "pending") -> ProfileSubmission:
-        sub = ProfileSubmission.objects.create(
-            profile=self.profile, status=status
-        )
+    def _make_submission(
+        self, *, hours_ago: float, submitted: bool = False, status: str = "pending"
+    ) -> ProfileSubmission:
+        sub = ProfileSubmission.objects.create(profile=self.profile, status=status)
         ProfileSubmission.objects.filter(pk=sub.pk).update(
             submitted_at=timezone.now() - timedelta(hours=hours_ago)
         )
@@ -166,7 +170,9 @@ class PreScreeningCommandTests(TestCase):
         cache.clear()
         mail.outbox = []
         self.user = User.objects.create_user(
-            username="cmd@example.com", email="cmd@example.com", password="pw",
+            username="cmd@example.com",
+            email="cmd@example.com",
+            password="pw",
             first_name="Sam",
         )
         UserDataConsent.objects.filter(user=self.user).update(

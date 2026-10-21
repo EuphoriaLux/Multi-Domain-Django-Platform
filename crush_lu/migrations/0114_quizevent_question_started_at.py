@@ -6,13 +6,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0113_merge_20260401_1050'),
+        ("crush_lu", "0113_merge_20260401_1050"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='quizevent',
-            name='question_started_at',
-            field=models.DateTimeField(blank=True, help_text='When the current question was first displayed.', null=True),
+            model_name="quizevent",
+            name="question_started_at",
+            field=models.DateTimeField(
+                blank=True,
+                help_text="When the current question was first displayed.",
+                null=True,
+            ),
         ),
     ]

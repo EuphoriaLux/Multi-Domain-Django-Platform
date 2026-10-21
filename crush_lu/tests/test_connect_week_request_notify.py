@@ -72,7 +72,10 @@ def test_email_honours_new_connections_opt_out_but_bell_stays(settings):
     send_weekly_request(session, sender, recipient)
 
     assert mail.outbox == []
-    assert Notification.objects.filter(user=recipient, notification_type=BELL_TYPE).count() == 1
+    assert (
+        Notification.objects.filter(user=recipient, notification_type=BELL_TYPE).count()
+        == 1
+    )
 
 
 @pytest.mark.django_db

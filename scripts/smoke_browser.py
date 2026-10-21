@@ -6,6 +6,7 @@ screenshots of every new page so the human reviewer can do a visual pass.
 Run: .venv-1/Scripts/python.exe scripts/smoke_browser.py
 Screenshots land in /tmp/crush_screenshots/.
 """
+
 import os
 import sys
 from pathlib import Path
@@ -19,7 +20,11 @@ import django  # noqa: E402
 django.setup()
 
 from django.conf import settings  # noqa: E402
-from django.contrib.auth import SESSION_KEY, BACKEND_SESSION_KEY, HASH_SESSION_KEY  # noqa: E402
+from django.contrib.auth import (
+    SESSION_KEY,
+    BACKEND_SESSION_KEY,
+    HASH_SESSION_KEY,
+)  # noqa: E402
 from django.contrib.auth.models import User  # noqa: E402
 from importlib import import_module  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
@@ -58,19 +63,21 @@ def main():
             viewport={"width": 1280, "height": 900},
             ignore_https_errors=True,
         )
-        ctx.add_cookies([
-            {
-                "name": settings.SESSION_COOKIE_NAME,
-                "value": session_key,
-                "url": BASE,
-                "httpOnly": True,
-            },
-            {
-                "name": "crushlu_consent_given",
-                "value": "true",
-                "url": BASE,
-            },
-        ])
+        ctx.add_cookies(
+            [
+                {
+                    "name": settings.SESSION_COOKIE_NAME,
+                    "value": session_key,
+                    "url": BASE,
+                    "httpOnly": True,
+                },
+                {
+                    "name": "crushlu_consent_given",
+                    "value": "true",
+                    "url": BASE,
+                },
+            ]
+        )
         page = ctx.new_page()
 
         results = []
@@ -94,7 +101,9 @@ def main():
         browser.close()
 
     print()
-    print("LABEL                                PATH                              STATUS  FILE")
+    print(
+        "LABEL                                PATH                              STATUS  FILE"
+    )
     print("-" * 100)
     for label, path, status, info in results:
         print(f"{label:36s} {path:32s} {str(status):6s}  {info}")

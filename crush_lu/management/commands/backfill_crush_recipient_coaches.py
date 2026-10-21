@@ -52,9 +52,7 @@ from crush_lu.models.connections import EventConnection
 
 
 class Command(BaseCommand):
-    help = (
-        "Backfill recipient_coach on My Crush! leads declared before Phase D"
-    )
+    help = "Backfill recipient_coach on My Crush! leads declared before Phase D"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -102,9 +100,7 @@ class Command(BaseCommand):
 
         if not candidates:
             self.stdout.write(
-                self.style.SUCCESS(
-                    "No crush leads are missing a recipient coach."
-                )
+                self.style.SUCCESS("No crush leads are missing a recipient coach.")
             )
             return
 
@@ -164,8 +160,7 @@ class Command(BaseCommand):
 
             assigned += 1
             self.stdout.write(
-                f"  lead #{lead.pk} — recipient coach "
-                f"{coach.user.username}"
+                f"  lead #{lead.pk} — recipient coach " f"{coach.user.username}"
             )
 
         summary = (

@@ -9,7 +9,9 @@ from .profiles import CrushProfile
 
 
 def _generate_referral_code(length=8):
-    return get_random_string(length=length, allowed_chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
+    return get_random_string(
+        length=length, allowed_chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    )
 
 
 class ReferralCode(models.Model):
@@ -17,9 +19,7 @@ class ReferralCode(models.Model):
 
     code = models.CharField(max_length=32, unique=True, db_index=True)
     referrer = models.ForeignKey(
-        CrushProfile,
-        on_delete=models.CASCADE,
-        related_name='referral_codes'
+        CrushProfile, on_delete=models.CASCADE, related_name="referral_codes"
     )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -46,13 +46,17 @@ class ReferralCode(models.Model):
 
     @classmethod
     def get_or_create_for_profile(cls, profile):
-        code = cls.objects.filter(referrer=profile, is_active=True).order_by('-created_at').first()
+        code = (
+            cls.objects.filter(referrer=profile, is_active=True)
+            .order_by("-created_at")
+            .first()
+        )
         if code:
             return code
         return cls.objects.create(referrer=profile)
 
     def get_absolute_url(self):
-        return reverse('crush_lu:referral_redirect', kwargs={'code': self.code})
+        return reverse("crush_lu:referral_redirect", kwargs={"code": self.code})
 
     def get_referral_url(self, base_url="https://crush.lu"):
         return f"{base_url.rstrip('/')}{self.get_absolute_url()}"
@@ -62,30 +66,24 @@ class ReferralAttribution(models.Model):
     """Track referral attributions from link click to signup."""
 
     class Status(models.TextChoices):
-        PENDING = 'pending', 'Pending'
-        CONVERTED = 'converted', 'Converted'
+        PENDING = "pending", "Pending"
+        CONVERTED = "converted", "Converted"
 
     referral_code = models.ForeignKey(
-        ReferralCode,
-        on_delete=models.CASCADE,
-        related_name='attributions'
+        ReferralCode, on_delete=models.CASCADE, related_name="attributions"
     )
     referrer = models.ForeignKey(
-        CrushProfile,
-        on_delete=models.CASCADE,
-        related_name='referral_attributions'
+        CrushProfile, on_delete=models.CASCADE, related_name="referral_attributions"
     )
     referred_user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='referral_attributions'
+        related_name="referral_attributions",
     )
     status = models.CharField(
-        max_length=20,
-        choices=Status.choices,
-        default=Status.PENDING
+        max_length=20, choices=Status.choices, default=Status.PENDING
     )
     session_key = models.CharField(max_length=40, blank=True)
     ip_address = models.CharField(max_length=64, blank=True)
@@ -97,24 +95,21 @@ class ReferralAttribution(models.Model):
     # Reward tracking
     reward_applied = models.BooleanField(
         default=False,
-        help_text=_("Whether the referral reward has been applied to the referrer")
+        help_text=_("Whether the referral reward has been applied to the referrer"),
     )
     reward_applied_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text=_("When the reward was applied")
+        null=True, blank=True, help_text=_("When the reward was applied")
     )
     reward_points = models.PositiveIntegerField(
-        default=0,
-        help_text=_("Points awarded for this referral")
+        default=0, help_text=_("Points awarded for this referral")
     )
 
     class Meta:
         verbose_name = _("Referral Attribution")
         verbose_name_plural = _("Referral Attributions")
         indexes = [
-            models.Index(fields=['status', 'created_at']),
-            models.Index(fields=['session_key']),
+            models.Index(fields=["status", "created_at"]),
+            models.Index(fields=["session_key"]),
         ]
 
     def __str__(self):
@@ -124,4 +119,4 @@ class ReferralAttribution(models.Model):
         self.referred_user = user
         self.status = self.Status.CONVERTED
         self.converted_at = timezone.now()
-        self.save(update_fields=['referred_user', 'status', 'converted_at'])
+        self.save(update_fields=["referred_user", "status", "converted_at"])

@@ -80,7 +80,9 @@ class AutoTranslateMixin:
         if not is_configured():
             self.message_user(
                 request,
-                _("Azure Translator is not configured. Set AZURE_TRANSLATOR_KEY in environment variables."),
+                _(
+                    "Azure Translator is not configured. Set AZURE_TRANSLATOR_KEY in environment variables."
+                ),
                 messages.ERROR,
             )
             return
@@ -125,7 +127,9 @@ class AutoTranslateMixin:
                             for target_lang in empty_langs:
                                 translated_items = []
                                 texts_to_translate = [
-                                    str(item) for item in parsed if isinstance(item, str)
+                                    str(item)
+                                    for item in parsed
+                                    if isinstance(item, str)
                                 ]
                                 if texts_to_translate:
                                     results = translate_batch(
@@ -138,7 +142,9 @@ class AutoTranslateMixin:
                                     setattr(
                                         obj,
                                         f"{field_name}_{target_lang}",
-                                        json.dumps(translated_items, ensure_ascii=False),
+                                        json.dumps(
+                                            translated_items, ensure_ascii=False
+                                        ),
                                     )
                                     obj_translated += 1
                             continue
@@ -172,7 +178,8 @@ class AutoTranslateMixin:
         if total_translated > 0:
             self.message_user(
                 request,
-                _("Translated %(fields)d field(s) across %(objects)d object(s).") % {
+                _("Translated %(fields)d field(s) across %(objects)d object(s).")
+                % {
                     "fields": total_translated,
                     "objects": total_objects,
                 },
@@ -187,7 +194,9 @@ class AutoTranslateMixin:
         else:
             self.message_user(
                 request,
-                _("No empty translation fields found. All languages are already filled."),
+                _(
+                    "No empty translation fields found. All languages are already filled."
+                ),
                 messages.INFO,
             )
 

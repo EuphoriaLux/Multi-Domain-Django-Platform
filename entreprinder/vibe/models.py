@@ -13,19 +13,31 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 
 class PixelCanvas(models.Model):
     name = models.CharField(max_length=100, default="Lux Pixel War")
-    width = models.IntegerField(default=100, validators=[MinValueValidator(10), MaxValueValidator(500)])
-    height = models.IntegerField(default=100, validators=[MinValueValidator(10), MaxValueValidator(500)])
+    width = models.IntegerField(
+        default=100, validators=[MinValueValidator(10), MaxValueValidator(500)]
+    )
+    height = models.IntegerField(
+        default=100, validators=[MinValueValidator(10), MaxValueValidator(500)]
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
 
     # Cooldown settings for different user types
-    anonymous_cooldown_seconds = models.IntegerField(default=30, help_text="Cooldown for anonymous users (seconds)")
-    registered_cooldown_seconds = models.IntegerField(default=12, help_text="Cooldown for registered users (seconds)")
-    registered_pixels_per_minute = models.IntegerField(default=5, help_text="Max pixels per minute for registered users")
-    anonymous_pixels_per_minute = models.IntegerField(default=2, help_text="Max pixels per minute for anonymous users")
+    anonymous_cooldown_seconds = models.IntegerField(
+        default=30, help_text="Cooldown for anonymous users (seconds)"
+    )
+    registered_cooldown_seconds = models.IntegerField(
+        default=12, help_text="Cooldown for registered users (seconds)"
+    )
+    registered_pixels_per_minute = models.IntegerField(
+        default=5, help_text="Max pixels per minute for registered users"
+    )
+    anonymous_pixels_per_minute = models.IntegerField(
+        default=2, help_text="Max pixels per minute for anonymous users"
+    )
 
     class Meta:
-        db_table = 'vibe_coding_pixelcanvas'
+        db_table = "vibe_coding_pixelcanvas"
         verbose_name_plural = "Pixel Canvases"
 
     def __str__(self):
@@ -33,33 +45,41 @@ class PixelCanvas(models.Model):
 
 
 class Pixel(models.Model):
-    canvas = models.ForeignKey(PixelCanvas, on_delete=models.CASCADE, related_name='pixels')
+    canvas = models.ForeignKey(
+        PixelCanvas, on_delete=models.CASCADE, related_name="pixels"
+    )
     x = models.IntegerField(validators=[MinValueValidator(0)])
     y = models.IntegerField(validators=[MinValueValidator(0)])
     color = models.CharField(max_length=7, default="#FFFFFF")
-    placed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    placed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True
+    )
     placed_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'vibe_coding_pixel'
-        unique_together = ('canvas', 'x', 'y')
-        ordering = ['y', 'x']
+        db_table = "vibe_coding_pixel"
+        unique_together = ("canvas", "x", "y")
+        ordering = ["y", "x"]
 
     def __str__(self):
         return f"Pixel ({self.x}, {self.y}) - {self.color}"
 
 
 class PixelHistory(models.Model):
-    canvas = models.ForeignKey(PixelCanvas, on_delete=models.CASCADE, related_name='history')
+    canvas = models.ForeignKey(
+        PixelCanvas, on_delete=models.CASCADE, related_name="history"
+    )
     x = models.IntegerField()
     y = models.IntegerField()
     color = models.CharField(max_length=7)
-    placed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    placed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True
+    )
     placed_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'vibe_coding_pixelhistory'
-        ordering = ['-placed_at']
+        db_table = "vibe_coding_pixelhistory"
+        ordering = ["-placed_at"]
 
     def __str__(self):
         return f"History ({self.x}, {self.y}) - {self.color} at {self.placed_at}"
@@ -74,21 +94,21 @@ class UserPixelCooldown(models.Model):
     last_minute_reset = models.DateTimeField(auto_now_add=True, null=True)
 
     class Meta:
-        db_table = 'vibe_coding_userpixelcooldown'
+        db_table = "vibe_coding_userpixelcooldown"
         constraints = [
             models.UniqueConstraint(
-                fields=['user', 'canvas'],
+                fields=["user", "canvas"],
                 condition=models.Q(user__isnull=False),
-                name='entreprinder_unique_user_canvas'
+                name="entreprinder_unique_user_canvas",
             ),
             models.UniqueConstraint(
-                fields=['session_key', 'canvas'],
+                fields=["session_key", "canvas"],
                 condition=models.Q(session_key__isnull=False),
-                name='entreprinder_unique_session_canvas'
-            )
+                name="entreprinder_unique_session_canvas",
+            ),
         ]
         indexes = [
-            models.Index(fields=['canvas', 'last_placed']),
+            models.Index(fields=["canvas", "last_placed"]),
         ]
 
     def get_cooldown_seconds(self):
@@ -110,8 +130,8 @@ class UserPixelStats(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'vibe_coding_userpixelstats'
-        unique_together = ('user', 'canvas')
+        db_table = "vibe_coding_userpixelstats"
+        unique_together = ("user", "canvas")
 
     def __str__(self):
         return f"{self.user.username} - {self.total_pixels_placed} pixels"

@@ -88,7 +88,9 @@ def _resolve_auth_token_from_profile(pass_type_identifier, serial_number):
 
 def _get_expected_auth_token(pass_type_identifier, serial_number):
     # First, try to resolve from CrushProfile (per-pass tokens)
-    profile_token = _resolve_auth_token_from_profile(pass_type_identifier, serial_number)
+    profile_token = _resolve_auth_token_from_profile(
+        pass_type_identifier, serial_number
+    )
     if profile_token:
         return profile_token
 
@@ -276,7 +278,9 @@ def _load_pass_package_builder():
     return _load_callable(builder_path)
 
 
-def _register_device(request, device_library_identifier, pass_type_identifier, serial_number):
+def _register_device(
+    request, device_library_identifier, pass_type_identifier, serial_number
+):
     auth_response = _require_authorization(request, pass_type_identifier, serial_number)
     if auth_response:
         return auth_response
@@ -303,7 +307,9 @@ def _register_device(request, device_library_identifier, pass_type_identifier, s
     return HttpResponse(status=status_code)
 
 
-def _unregister_device(request, device_library_identifier, pass_type_identifier, serial_number):
+def _unregister_device(
+    request, device_library_identifier, pass_type_identifier, serial_number
+):
     auth_response = _require_authorization(request, pass_type_identifier, serial_number)
     if auth_response:
         return auth_response
@@ -322,7 +328,9 @@ def _unregister_device(request, device_library_identifier, pass_type_identifier,
 
 @csrf_exempt
 @require_http_methods(["POST", "DELETE"])
-def device_registration(request, device_library_identifier, pass_type_identifier, serial_number):
+def device_registration(
+    request, device_library_identifier, pass_type_identifier, serial_number
+):
     if request.method == "POST":
         return _register_device(
             request,
@@ -580,6 +588,4 @@ def refresh_event_tickets(event):
         .exclude(apple_wallet_ticket_serial="")
         .values_list("apple_wallet_ticket_serial", flat=True)
     )
-    return refresh_ticket_serials(
-        serials, context=f"Event {getattr(event, 'pk', '?')}"
-    )
+    return refresh_ticket_serials(serials, context=f"Event {getattr(event, 'pk', '?')}")

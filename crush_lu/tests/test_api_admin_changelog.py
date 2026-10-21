@@ -13,6 +13,7 @@ ROOT_URLCONF the same way the rest of the crush_lu suite does.
 
 Run with: pytest crush_lu/tests/test_api_admin_changelog.py -v
 """
+
 import json
 from datetime import date
 from unittest import mock
@@ -56,7 +57,8 @@ class ChangelogIngestAuthTests(TestCase):
 
     def test_missing_token_is_401(self):
         resp = self.client.post(
-            INGEST_URL, data=json.dumps(_valid_payload()),
+            INGEST_URL,
+            data=json.dumps(_valid_payload()),
             content_type="application/json",
         )
         self.assertEqual(resp.status_code, 401)
@@ -64,7 +66,8 @@ class ChangelogIngestAuthTests(TestCase):
 
     def test_wrong_token_is_401(self):
         resp = self.client.post(
-            INGEST_URL, data=json.dumps(_valid_payload()),
+            INGEST_URL,
+            data=json.dumps(_valid_payload()),
             content_type="application/json",
             HTTP_AUTHORIZATION="Bearer not-the-key",
         )
@@ -83,7 +86,8 @@ class ChangelogIngestWriteTests(TestCase):
 
     def _post(self, payload):
         return self.client.post(
-            INGEST_URL, data=json.dumps(payload),
+            INGEST_URL,
+            data=json.dumps(payload),
             content_type="application/json",
             HTTP_AUTHORIZATION=f"Bearer {API_KEY}",
         )
@@ -115,28 +119,36 @@ class ChangelogIngestWriteTests(TestCase):
         second = self._post(_valid_payload(sha="dup-sha"))
         self.assertEqual(second.status_code, 201)
         self.assertEqual(second.json()["notes_added"], 0)
-        self.assertEqual(PatchRelease.objects.get(slug="catchup-2026-06").notes.count(), 1)
+        self.assertEqual(
+            PatchRelease.objects.get(slug="catchup-2026-06").notes.count(), 1
+        )
 
     def test_multiple_notes_sharing_merge_sha_are_all_kept(self):
         # A single PR (one merge SHA) may yield several user-facing notes; the
         # within-request dedupe must not drop notes 2..N just because they share
         # the SHA. A re-delivery of the same payload must then add nothing.
         payload = _valid_payload(sha="multi-sha")
-        payload["notes"].append({
-            "category": "feature",
-            "title": "Quiz Night",
-            "body": "A second user-facing item from the same merge.",
-            "related_commits": ["multi-sha"],
-            "order": 1,
-        })
+        payload["notes"].append(
+            {
+                "category": "feature",
+                "title": "Quiz Night",
+                "body": "A second user-facing item from the same merge.",
+                "related_commits": ["multi-sha"],
+                "order": 1,
+            }
+        )
         first = self._post(payload)
         self.assertEqual(first.status_code, 201)
         self.assertEqual(first.json()["notes_added"], 2)
-        self.assertEqual(PatchRelease.objects.get(slug="catchup-2026-06").notes.count(), 2)
+        self.assertEqual(
+            PatchRelease.objects.get(slug="catchup-2026-06").notes.count(), 2
+        )
 
         second = self._post(payload)
         self.assertEqual(second.json()["notes_added"], 0)
-        self.assertEqual(PatchRelease.objects.get(slug="catchup-2026-06").notes.count(), 2)
+        self.assertEqual(
+            PatchRelease.objects.get(slug="catchup-2026-06").notes.count(), 2
+        )
 
     def test_release_fields_update_on_repost(self):
         self._post(_valid_payload())
@@ -181,7 +193,9 @@ class ChangelogIngestWriteTests(TestCase):
             if kwargs.get("slug") and not state["raced"]:
                 state["raced"] = True
                 PatchRelease.objects.create(
-                    slug=kwargs["slug"], version="v0.0", title="Racer",
+                    slug=kwargs["slug"],
+                    version="v0.0",
+                    title="Racer",
                     released_on=date(2026, 1, 1),
                 )
 
@@ -256,7 +270,9 @@ class ChangelogIngestValidationTests(TestCase):
     def _post(self, payload_or_raw, raw=False):
         data = payload_or_raw if raw else json.dumps(payload_or_raw)
         return self.client.post(
-            INGEST_URL, data=data, content_type="application/json",
+            INGEST_URL,
+            data=data,
+            content_type="application/json",
             HTTP_AUTHORIZATION=f"Bearer {API_KEY}",
         )
 
@@ -325,7 +341,8 @@ class ChangelogIngestScrubTests(TestCase):
             "https://claude.ai/code/session_0123 Co-Authored-By: Claude"
         )
         resp = self.client.post(
-            INGEST_URL, data=json.dumps(payload),
+            INGEST_URL,
+            data=json.dumps(payload),
             content_type="application/json",
             HTTP_AUTHORIZATION=f"Bearer {API_KEY}",
         )

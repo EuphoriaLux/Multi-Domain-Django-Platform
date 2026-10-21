@@ -8,23 +8,44 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0099_add_unverified_profile_requirement_choice'),
+        ("crush_lu", "0099_add_unverified_profile_requirement_choice"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='CrushConnectWaitlist',
+            name="CrushConnectWaitlist",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('joined_at', models.DateTimeField(auto_now_add=True)),
-                ('notification_preference', models.BooleanField(default=True, help_text='Wants to be notified when Crush Connect launches')),
-                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='crush_connect_waitlist', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("joined_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "notification_preference",
+                    models.BooleanField(
+                        default=True,
+                        help_text="Wants to be notified when Crush Connect launches",
+                    ),
+                ),
+                (
+                    "user",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="crush_connect_waitlist",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Crush Connect Waitlist Entry',
-                'verbose_name_plural': 'Crush Connect Waitlist',
-                'ordering': ['joined_at'],
+                "verbose_name": "Crush Connect Waitlist Entry",
+                "verbose_name_plural": "Crush Connect Waitlist",
+                "ordering": ["joined_at"],
             },
         ),
     ]

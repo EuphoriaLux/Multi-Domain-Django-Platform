@@ -30,7 +30,10 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 from crush_lu.models import (
     JourneyConfiguration,
-    AdventCalendar, AdventDoor, AdventDoorContent, QRCodeToken
+    AdventCalendar,
+    AdventDoor,
+    AdventDoorContent,
+    QRCodeToken,
 )
 import uuid
 from crush_lu.management.commands._special_experience import (
@@ -38,118 +41,120 @@ from crush_lu.management.commands._special_experience import (
     resolve_experience,
 )
 
-
 # Default door configuration for 24 days
 DEFAULT_DOOR_CONFIG = [
     # Day 1: Welcome poem
-    {'day': 1, 'type': 'poem', 'qr': 'none', 'teaser': 'Your journey begins...'},
+    {"day": 1, "type": "poem", "qr": "none", "teaser": "Your journey begins..."},
     # Day 2: First memory
-    {'day': 2, 'type': 'memory', 'qr': 'none', 'teaser': 'Remember when...'},
+    {"day": 2, "type": "memory", "qr": "none", "teaser": "Remember when..."},
     # Day 3: Photo reveal
-    {'day': 3, 'type': 'photo', 'qr': 'bonus', 'teaser': 'A captured moment'},
+    {"day": 3, "type": "photo", "qr": "bonus", "teaser": "A captured moment"},
     # Day 4: Small challenge
-    {'day': 4, 'type': 'challenge', 'qr': 'none', 'teaser': 'Can you solve this?'},
+    {"day": 4, "type": "challenge", "qr": "none", "teaser": "Can you solve this?"},
     # Day 5: Audio message
-    {'day': 5, 'type': 'audio', 'qr': 'none', 'teaser': 'Listen closely...'},
+    {"day": 5, "type": "audio", "qr": "none", "teaser": "Listen closely..."},
     # Day 6: Physical gift (QR required)
-    {'day': 6, 'type': 'gift_teaser', 'qr': 'required', 'teaser': 'Something special awaits...'},
+    {
+        "day": 6,
+        "type": "gift_teaser",
+        "qr": "required",
+        "teaser": "Something special awaits...",
+    },
     # Day 7: Memory
-    {'day': 7, 'type': 'memory', 'qr': 'none', 'teaser': 'A favorite moment'},
+    {"day": 7, "type": "memory", "qr": "none", "teaser": "A favorite moment"},
     # Day 8: Quiz
-    {'day': 8, 'type': 'quiz', 'qr': 'none', 'teaser': 'Test your knowledge'},
+    {"day": 8, "type": "quiz", "qr": "none", "teaser": "Test your knowledge"},
     # Day 9: Poem
-    {'day': 9, 'type': 'poem', 'qr': 'none', 'teaser': 'Words from the heart'},
+    {"day": 9, "type": "poem", "qr": "none", "teaser": "Words from the heart"},
     # Day 10: Photo
-    {'day': 10, 'type': 'photo', 'qr': 'bonus', 'teaser': 'Through my eyes'},
+    {"day": 10, "type": "photo", "qr": "bonus", "teaser": "Through my eyes"},
     # Day 11: Challenge
-    {'day': 11, 'type': 'challenge', 'qr': 'none', 'teaser': 'A festive puzzle'},
+    {"day": 11, "type": "challenge", "qr": "none", "teaser": "A festive puzzle"},
     # Day 12: Memory
-    {'day': 12, 'type': 'memory', 'qr': 'none', 'teaser': 'Halfway there...'},
+    {"day": 12, "type": "memory", "qr": "none", "teaser": "Halfway there..."},
     # Day 13: Physical gift
-    {'day': 13, 'type': 'gift_teaser', 'qr': 'required', 'teaser': 'Unwrap with care'},
+    {"day": 13, "type": "gift_teaser", "qr": "required", "teaser": "Unwrap with care"},
     # Day 14: Video message
-    {'day': 14, 'type': 'video', 'qr': 'none', 'teaser': 'A message for you'},
+    {"day": 14, "type": "video", "qr": "none", "teaser": "A message for you"},
     # Day 15: Poem
-    {'day': 15, 'type': 'poem', 'qr': 'none', 'teaser': 'Verses of affection'},
+    {"day": 15, "type": "poem", "qr": "none", "teaser": "Verses of affection"},
     # Day 16: Challenge
-    {'day': 16, 'type': 'challenge', 'qr': 'none', 'teaser': 'Think carefully...'},
+    {"day": 16, "type": "challenge", "qr": "none", "teaser": "Think carefully..."},
     # Day 17: Photo
-    {'day': 17, 'type': 'photo', 'qr': 'bonus', 'teaser': 'Captured magic'},
+    {"day": 17, "type": "photo", "qr": "bonus", "teaser": "Captured magic"},
     # Day 18: Memory
-    {'day': 18, 'type': 'memory', 'qr': 'none', 'teaser': 'A shared moment'},
+    {"day": 18, "type": "memory", "qr": "none", "teaser": "A shared moment"},
     # Day 19: Quiz
-    {'day': 19, 'type': 'quiz', 'qr': 'none', 'teaser': 'How well do you know...'},
+    {"day": 19, "type": "quiz", "qr": "none", "teaser": "How well do you know..."},
     # Day 20: Physical gift
-    {'day': 20, 'type': 'gift_teaser', 'qr': 'required', 'teaser': 'The countdown continues'},
+    {
+        "day": 20,
+        "type": "gift_teaser",
+        "qr": "required",
+        "teaser": "The countdown continues",
+    },
     # Day 21: Audio
-    {'day': 21, 'type': 'audio', 'qr': 'none', 'teaser': 'Hear my heart'},
+    {"day": 21, "type": "audio", "qr": "none", "teaser": "Hear my heart"},
     # Day 22: Challenge
-    {'day': 22, 'type': 'challenge', 'qr': 'none', 'teaser': 'Almost there...'},
+    {"day": 22, "type": "challenge", "qr": "none", "teaser": "Almost there..."},
     # Day 23: Photo
-    {'day': 23, 'type': 'photo', 'qr': 'bonus', 'teaser': 'One more sleep'},
+    {"day": 23, "type": "photo", "qr": "bonus", "teaser": "One more sleep"},
     # Day 24: Grand finale
-    {'day': 24, 'type': 'countdown', 'qr': 'required', 'teaser': 'The final door...'},
+    {"day": 24, "type": "countdown", "qr": "required", "teaser": "The final door..."},
 ]
 
 
 class Command(BaseCommand):
-    help = 'Creates an Advent Calendar experience for a special user'
+    help = "Creates an Advent Calendar experience for a special user"
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--first-name',
+            "--first-name",
             type=str,
             required=True,
-            help='First name of the special user'
+            help="First name of the special user",
         )
         parser.add_argument(
-            '--last-name',
-            type=str,
-            required=True,
-            help='Last name of the special user'
+            "--last-name", type=str, required=True, help="Last name of the special user"
         )
         add_experience_id_argument(parser)
         parser.add_argument(
-            '--year',
+            "--year",
             type=int,
             default=None,
-            help='Year for the calendar (default: current year)'
+            help="Year for the calendar (default: current year)",
         )
         parser.add_argument(
-            '--title',
-            type=str,
-            default=None,
-            help='Custom calendar title'
+            "--title", type=str, default=None, help="Custom calendar title"
         )
         parser.add_argument(
-            '--welcome',
-            type=str,
-            default=None,
-            help='Custom welcome message'
+            "--welcome", type=str, default=None, help="Custom welcome message"
         )
         parser.add_argument(
-            '--generate-qr',
-            action='store_true',
-            help='Generate QR tokens for physical gifts'
+            "--generate-qr",
+            action="store_true",
+            help="Generate QR tokens for physical gifts",
         )
         parser.add_argument(
-            '--force',
-            action='store_true',
-            help='Overwrite existing calendar if it exists'
+            "--force",
+            action="store_true",
+            help="Overwrite existing calendar if it exists",
         )
 
     def handle(self, *args, **options):
-        first_name = options['first_name']
-        last_name = options['last_name']
-        year = options['year'] or timezone.now().year
-        custom_title = options['title']
-        custom_welcome = options['welcome']
-        generate_qr = options['generate_qr']
-        force = options['force']
+        first_name = options["first_name"]
+        last_name = options["last_name"]
+        year = options["year"] or timezone.now().year
+        custom_title = options["title"]
+        custom_welcome = options["welcome"]
+        generate_qr = options["generate_qr"]
+        force = options["force"]
 
-        self.stdout.write(self.style.SUCCESS(
-            f'\nCreating Advent Calendar for {first_name} {last_name} ({year})...\n'
-        ))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"\nCreating Advent Calendar for {first_name} {last_name} ({year})...\n"
+            )
+        )
 
         # 1. Get or create Special User Experience. Never a namesake's LINKED
         # row by name (pass --experience-id to target one on purpose).
@@ -157,50 +162,53 @@ class Command(BaseCommand):
             self,
             first_name=first_name,
             last_name=last_name,
-            experience_id=options.get('experience_id'),
+            experience_id=options.get("experience_id"),
             update_existing=False,
             defaults={
-                'is_active': True,
-                'custom_welcome_title': f'Welcome, {first_name}!',
-                'custom_welcome_message': 'Your December adventure awaits...',
-                'custom_theme_color': '#c41e3a',  # Christmas red
-                'animation_style': 'stars',
-                'vip_badge': True,
-                'auto_approve_profile': True,
-                'skip_waitlist': True,
-            }
+                "is_active": True,
+                "custom_welcome_title": f"Welcome, {first_name}!",
+                "custom_welcome_message": "Your December adventure awaits...",
+                "custom_theme_color": "#c41e3a",  # Christmas red
+                "animation_style": "stars",
+                "vip_badge": True,
+                "auto_approve_profile": True,
+                "skip_waitlist": True,
+            },
         )
 
         if created:
-            self.stdout.write(f'[+] Created Special User Experience for {first_name}')
+            self.stdout.write(f"[+] Created Special User Experience for {first_name}")
         else:
-            self.stdout.write(f'[=] Found existing Special User Experience for {first_name}')
+            self.stdout.write(
+                f"[=] Found existing Special User Experience for {first_name}"
+            )
 
         unlinked = self._warn_if_unlinked(special_exp)
 
         # 2. Check for existing advent calendar journey
         existing_journey = JourneyConfiguration.objects.filter(
-            special_experience=special_exp,
-            journey_type='advent_calendar'
+            special_experience=special_exp, journey_type="advent_calendar"
         ).first()
 
         if existing_journey:
             if force:
-                self.stdout.write(self.style.WARNING(
-                    '[!] Deleting existing advent calendar journey...'
-                ))
+                self.stdout.write(
+                    self.style.WARNING(
+                        "[!] Deleting existing advent calendar journey..."
+                    )
+                )
                 # Delete cascade will remove calendar, doors, content, progress, tokens
                 existing_journey.delete()
             else:
                 raise CommandError(
-                    f'Advent calendar already exists for {first_name} {last_name}. '
-                    f'Use --force to overwrite.'
+                    f"Advent calendar already exists for {first_name} {last_name}. "
+                    f"Use --force to overwrite."
                 )
 
         # 3. Create Journey Configuration for Advent Calendar
         journey = JourneyConfiguration.objects.create(
             special_experience=special_exp,
-            journey_type='advent_calendar',
+            journey_type="advent_calendar",
             is_active=True,
             journey_name=custom_title or f"{first_name}'s Advent Calendar {year}",
             total_chapters=24,  # 24 doors as "chapters"
@@ -208,7 +216,7 @@ class Command(BaseCommand):
             certificate_enabled=False,  # No certificate for advent
             final_message=f"Merry Christmas, {first_name}! You've discovered all 24 surprises.",
         )
-        self.stdout.write('[+] Created Journey Configuration (advent_calendar type)')
+        self.stdout.write("[+] Created Journey Configuration (advent_calendar type)")
 
         # 4. Create Advent Calendar
         calendar = AdventCalendar.objects.create(
@@ -217,13 +225,14 @@ class Command(BaseCommand):
             year=year,
             start_date=date(year, 12, 1),
             end_date=date(year, 12, 24),
-            calendar_description=custom_welcome or (
+            calendar_description=custom_welcome
+            or (
                 f"Welcome to your personal Advent Calendar, {first_name}! "
                 f"Each day in December unlocks a new surprise, just for you. "
                 f"Some doors hide poems, some hide memories, and some hide "
                 f"clues to physical gifts waiting to be discovered..."
             ),
-            timezone_name='Europe/Luxembourg',  # Doors unlock at local midnight
+            timezone_name="Europe/Luxembourg",  # Doors unlock at local midnight
         )
         self.stdout.write(f'[+] Created Advent Calendar: "{calendar.calendar_title}"')
 
@@ -232,12 +241,12 @@ class Command(BaseCommand):
         for config in DEFAULT_DOOR_CONFIG:
             door = AdventDoor.objects.create(
                 calendar=calendar,
-                door_number=config['day'],
-                content_type=config['type'],
-                qr_mode=config['qr'],
-                teaser_text=config['teaser'],
-                door_color=self._get_door_color(config['day']),
-                door_icon=self._get_door_icon(config['type']),
+                door_number=config["day"],
+                content_type=config["type"],
+                qr_mode=config["qr"],
+                teaser_text=config["teaser"],
+                door_color=self._get_door_color(config["day"]),
+                door_icon=self._get_door_icon(config["type"]),
             )
             doors_created += 1
 
@@ -247,55 +256,61 @@ class Command(BaseCommand):
                 title=f"Content for Day {config['day']} - {config['type'].title()}",
             )
 
-        self.stdout.write(f'[+] Created {doors_created} doors with content placeholders')
+        self.stdout.write(
+            f"[+] Created {doors_created} doors with content placeholders"
+        )
 
         # 6. Generate QR tokens if requested
         if generate_qr:
             self._generate_qr_tokens(calendar, special_exp)
 
         # Summary
-        self.stdout.write('\n' + '=' * 50)
-        self.stdout.write(self.style.SUCCESS('Advent Calendar created successfully!'))
-        self.stdout.write('=' * 50)
-        self.stdout.write(f'Calendar: {calendar.calendar_title}')
-        self.stdout.write(f'Year: {year}')
-        self.stdout.write('Doors: 24')
-        self.stdout.write(f'QR Required Doors: {sum(1 for c in DEFAULT_DOOR_CONFIG if c["qr"] == "required")}')
-        self.stdout.write(f'QR Bonus Doors: {sum(1 for c in DEFAULT_DOOR_CONFIG if c["qr"] == "bonus")}')
-        self.stdout.write('')
-        self.stdout.write('Next steps:')
+        self.stdout.write("\n" + "=" * 50)
+        self.stdout.write(self.style.SUCCESS("Advent Calendar created successfully!"))
+        self.stdout.write("=" * 50)
+        self.stdout.write(f"Calendar: {calendar.calendar_title}")
+        self.stdout.write(f"Year: {year}")
+        self.stdout.write("Doors: 24")
+        self.stdout.write(
+            f'QR Required Doors: {sum(1 for c in DEFAULT_DOOR_CONFIG if c["qr"] == "required")}'
+        )
+        self.stdout.write(
+            f'QR Bonus Doors: {sum(1 for c in DEFAULT_DOOR_CONFIG if c["qr"] == "bonus")}'
+        )
+        self.stdout.write("")
+        self.stdout.write("Next steps:")
         for number, step in enumerate(self._next_steps(unlinked, generate_qr), 1):
-            self.stdout.write(f'{number}. {step}')
-        self.stdout.write('')
+            self.stdout.write(f"{number}. {step}")
+        self.stdout.write("")
 
     def _get_door_color(self, day: int) -> str:
         """Assign colors to doors based on day number."""
         colors = [
-            '#c41e3a',  # Christmas red
-            '#165b33',  # Christmas green
-            '#bb2528',  # Darker red
-            '#146b3a',  # Forest green
-            '#ea4630',  # Bright red
-            '#0c4827',  # Dark green
-            '#f8b229',  # Gold
-            '#1e5945',  # Teal green
+            "#c41e3a",  # Christmas red
+            "#165b33",  # Christmas green
+            "#bb2528",  # Darker red
+            "#146b3a",  # Forest green
+            "#ea4630",  # Bright red
+            "#0c4827",  # Dark green
+            "#f8b229",  # Gold
+            "#1e5945",  # Teal green
         ]
         return colors[day % len(colors)]
 
     def _get_door_icon(self, content_type: str) -> str:
         """Assign icons based on content type."""
         icons = {
-            'poem': 'bi-journal-text',
-            'memory': 'bi-heart',
-            'photo': 'bi-camera',
-            'challenge': 'bi-puzzle',
-            'quiz': 'bi-question-circle',
-            'gift_teaser': 'bi-gift',
-            'audio': 'bi-music-note-beamed',
-            'video': 'bi-camera-video',
-            'countdown': 'bi-stars',
+            "poem": "bi-journal-text",
+            "memory": "bi-heart",
+            "photo": "bi-camera",
+            "challenge": "bi-puzzle",
+            "quiz": "bi-question-circle",
+            "gift_teaser": "bi-gift",
+            "audio": "bi-music-note-beamed",
+            "video": "bi-camera-video",
+            "countdown": "bi-stars",
         }
-        return icons.get(content_type, 'bi-star')
+        return icons.get(content_type, "bi-star")
 
     def _warn_if_unlinked(self, special_exp):
         """Warn when nobody can open the calendar; return True if so.
@@ -305,12 +320,14 @@ class Command(BaseCommand):
         """
         if special_exp.linked_user_id is not None:
             return False
-        self.stdout.write(self.style.WARNING(
-            '[!] No user account is linked to the Special User Experience'
-            f' for {special_exp.first_name} {special_exp.last_name}:'
-            " nobody can open this calendar until 'Linked user' is set in"
-            ' the admin (Special User Experience -> Linked account).'
-        ))
+        self.stdout.write(
+            self.style.WARNING(
+                "[!] No user account is linked to the Special User Experience"
+                f" for {special_exp.first_name} {special_exp.last_name}:"
+                " nobody can open this calendar until 'Linked user' is set in"
+                " the admin (Special User Experience -> Linked account)."
+            )
+        )
         return True
 
     def _next_steps(self, unlinked, generate_qr):
@@ -318,14 +335,17 @@ class Command(BaseCommand):
         if unlinked:
             steps.append(
                 "Set 'Linked user' on the Special User Experience in the admin"
-                ' - nobody can open the calendar until then'
+                " - nobody can open the calendar until then"
             )
         steps += [
-            'Add personalized content via Django Admin',
-            'Upload photos, audio, video files',
-            'Configure challenge questions',
-            'Print QR codes for physical gifts' if generate_qr
-            else 'Run with --generate-qr to create QR codes',
+            "Add personalized content via Django Admin",
+            "Upload photos, audio, video files",
+            "Configure challenge questions",
+            (
+                "Print QR codes for physical gifts"
+                if generate_qr
+                else "Run with --generate-qr to create QR codes"
+            ),
         ]
         return steps
 
@@ -350,7 +370,7 @@ class Command(BaseCommand):
 
         # Create tokens for doors with QR requirements
         tokens_created = 0
-        for door in calendar.doors.filter(qr_mode__in=['required', 'bonus']):
+        for door in calendar.doors.filter(qr_mode__in=["required", "bonus"]):
             QRCodeToken.objects.create(
                 door=door,
                 user=user,
@@ -358,8 +378,12 @@ class Command(BaseCommand):
             )
             tokens_created += 1
 
-        self.stdout.write(f'[+] Generated {tokens_created} QR tokens for {user.username}')
+        self.stdout.write(
+            f"[+] Generated {tokens_created} QR tokens for {user.username}"
+        )
 
-        self.stdout.write(self.style.SUCCESS(
-            '\nQR code URLs for printing are listed in the admin under QR Code Tokens.'
-        ))
+        self.stdout.write(
+            self.style.SUCCESS(
+                "\nQR code URLs for printing are listed in the admin under QR Code Tokens."
+            )
+        )

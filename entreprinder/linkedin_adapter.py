@@ -2,14 +2,15 @@
 from allauth.socialaccount.providers.oauth2.views import OAuth2Adapter
 import requests
 
+
 class LinkedInOAuth2Adapter(OAuth2Adapter):
-    provider_id = 'linkedin_oauth2'
-    access_token_url = 'https://www.linkedin.com/oauth/v2/accessToken'
-    authorize_url = 'https://www.linkedin.com/oauth/v2/authorization'
-    profile_url = 'https://api.linkedin.com/v2/userinfo'
-    
+    provider_id = "linkedin_oauth2"
+    access_token_url = "https://www.linkedin.com/oauth/v2/accessToken"
+    authorize_url = "https://www.linkedin.com/oauth/v2/authorization"
+    profile_url = "https://api.linkedin.com/v2/userinfo"
+
     def complete_login(self, request, app, token, **kwargs):
-        headers = {'Authorization': f'Bearer {token.token}'}
+        headers = {"Authorization": f"Bearer {token.token}"}
         resp = requests.get(self.profile_url, headers=headers, timeout=30)
         resp.raise_for_status()
         extra_data = resp.json()

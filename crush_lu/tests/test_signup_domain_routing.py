@@ -101,7 +101,6 @@ class SignupDomainRoutingTest(TestCase):
     ]
 )
 class SignupAllowlistTest(TestCase):
-
     """Unit-level coverage of the domain allowlist in azureproject.adapters."""
 
     def setUp(self):
@@ -113,12 +112,16 @@ class SignupAllowlistTest(TestCase):
         return self.factory.get("/accounts/signup/", HTTP_HOST=host)
 
     def test_form_signup_open_on_crush_and_its_subdomains(self):
-        for host in ("crush.lu", "www.crush.lu", "test.crush.lu", "crush-staging.azurewebsites.net"):
+        for host in (
+            "crush.lu",
+            "www.crush.lu",
+            "test.crush.lu",
+            "crush-staging.azurewebsites.net",
+        ):
             with self.subTest(host=host):
                 self.assertTrue(
                     self.account_adapter.is_open_for_signup(self._request(host))
                 )
-
 
     def test_form_signup_closed_on_every_other_domain(self):
         closed = (

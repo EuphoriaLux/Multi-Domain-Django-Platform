@@ -187,9 +187,7 @@ class TestPermissionClasses:
         from power_up.finops.permissions import IsAdminOrStaff
 
         request = self._request()
-        request.user = User.objects.create_user(
-            username="regular", is_staff=False
-        )
+        request.user = User.objects.create_user(username="regular", is_staff=False)
         assert IsAdminOrStaff().has_permission(request, None) is False
 
     def test_denies_staff_without_group(self):

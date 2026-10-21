@@ -6,4 +6,4 @@ from django.shortcuts import render
 
 def home(request):
     """Concept-explainer homepage for the VinsDelux wine adoption idea."""
-    return render(request, 'vinsdelux/index.html')
+    return render(request, "vinsdelux/index.html")

@@ -18,6 +18,7 @@ Usage:
     python manage.py simulate_luxid_verify user@example.com --setup-only
     python manage.py simulate_luxid_verify --list-pending
 """
+
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.core.management.base import BaseCommand, CommandError
@@ -96,7 +97,9 @@ class Command(BaseCommand):
         if site not in app.sites.all():
             app.sites.add(site)
         label = "created" if created else "already exists"
-        self.stdout.write(f"  LuxID SocialApp ({label}) — id={app.pk}, site={site.domain}")
+        self.stdout.write(
+            f"  LuxID SocialApp ({label}) — id={app.pk}, site={site.domain}"
+        )
         return app
 
     def _list_pending(self):
@@ -139,12 +142,16 @@ class Command(BaseCommand):
             raise CommandError(f"User '{email}' has no CrushProfile.")
 
         if profile.is_approved:
-            self.stdout.write(self.style.WARNING(
-                f"  Profile for '{email}' is already approved — nothing to do."
-            ))
+            self.stdout.write(
+                self.style.WARNING(
+                    f"  Profile for '{email}' is already approved — nothing to do."
+                )
+            )
             return
 
-        if not ProfileSubmission.objects.filter(profile=profile, status="pending").exists():
+        if not ProfileSubmission.objects.filter(
+            profile=profile, status="pending"
+        ).exists():
             raise CommandError(
                 f"No pending ProfileSubmission for '{email}'. "
                 "Submit the profile first (via the /create-profile/ flow), "
@@ -160,14 +167,17 @@ class Command(BaseCommand):
             defaults={"uid": f"dev-luxid-{user.pk}"},
         )
         if not sa_created:
-            self.stdout.write(self.style.WARNING(
-                "  SocialAccount already exists for this user — reusing it."
-            ))
+            self.stdout.write(
+                self.style.WARNING(
+                    "  SocialAccount already exists for this user — reusing it."
+                )
+            )
         else:
             self.stdout.write(f"  Created SocialAccount uid={sa.uid}")
 
         # --- build a minimal request (crush.lu domain + session) ---
         from django.test import RequestFactory
+
         request = RequestFactory().get("/", HTTP_HOST="localhost")
         request.session = SessionStore()
 
@@ -176,6 +186,7 @@ class Command(BaseCommand):
 
         # --- build a minimal sociallogin object the signal reads ---
         from unittest.mock import MagicMock
+
         account_mock = MagicMock()
         account_mock.provider = "openid_connect"
         sociallogin = MagicMock()
@@ -193,21 +204,27 @@ class Command(BaseCommand):
 
         # --- report result ---
         profile.refresh_from_db()
-        submission = ProfileSubmission.objects.filter(profile=profile).latest("submitted_at")
+        submission = ProfileSubmission.objects.filter(profile=profile).latest(
+            "submitted_at"
+        )
 
         if profile.is_approved and submission.status == "approved":
-            self.stdout.write(self.style.SUCCESS(
-                f"\n  Profile approved!\n"
-                f"  submission.status  = {submission.status}\n"
-                f"  submission.coach_notes = {submission.coach_notes!r}\n"
-                f"  profile.is_approved = {profile.is_approved}\n"
-                f"  profile.approved_at = {profile.approved_at}\n"
-                f"\n  Now visit /en/profile-submitted/ as this user to see the approved state."
-            ))
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"\n  Profile approved!\n"
+                    f"  submission.status  = {submission.status}\n"
+                    f"  submission.coach_notes = {submission.coach_notes!r}\n"
+                    f"  profile.is_approved = {profile.is_approved}\n"
+                    f"  profile.approved_at = {profile.approved_at}\n"
+                    f"\n  Now visit /en/profile-submitted/ as this user to see the approved state."
+                )
+            )
         else:
-            self.stdout.write(self.style.ERROR(
-                f"  Approval did NOT happen. "
-                f"submission.status={submission.status}, "
-                f"profile.is_approved={profile.is_approved}. "
-                f"Check server logs for [LUXID-AUTO-APPROVE] entries."
-            ))
+            self.stdout.write(
+                self.style.ERROR(
+                    f"  Approval did NOT happen. "
+                    f"submission.status={submission.status}, "
+                    f"profile.is_approved={profile.is_approved}. "
+                    f"Check server logs for [LUXID-AUTO-APPROVE] entries."
+                )
+            )

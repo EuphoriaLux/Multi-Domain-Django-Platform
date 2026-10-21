@@ -340,9 +340,7 @@ class TestAppleEventTicketView:
         client = Client()
         client.force_login(registration.user)
 
-        response = client.get(
-            f"/wallet/apple/event-ticket/{registration.id}/pass/"
-        )
+        response = client.get(f"/wallet/apple/event-ticket/{registration.id}/pass/")
 
         assert response.status_code == 200
         assert response["Content-Type"] == "application/vnd.apple.pkpass"
@@ -362,9 +360,7 @@ class TestAppleEventTicketView:
         client = Client()
         client.force_login(other_user)
 
-        response = client.get(
-            f"/wallet/apple/event-ticket/{registration.id}/pass/"
-        )
+        response = client.get(f"/wallet/apple/event-ticket/{registration.id}/pass/")
 
         assert response.status_code == 404
 
@@ -380,8 +376,6 @@ class TestAppleEventTicketView:
         client = Client()
         client.force_login(registration.user)
 
-        response = client.get(
-            f"/wallet/apple/event-ticket/{registration.id}/pass/"
-        )
+        response = client.get(f"/wallet/apple/event-ticket/{registration.id}/pass/")
 
         assert response.status_code == 400

@@ -4,6 +4,7 @@ URL configuration for VinsDelux concept-explainer site.
 
 This is the URL config used when requests come from vinsdelux.com domain.
 """
+
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
@@ -15,19 +16,15 @@ from entreprinder.vibe import views as vibe_views
 
 urlpatterns = base_patterns + [
     # SEO - robots.txt
-    path('robots.txt', robots_txt_vinsdelux, name='robots_txt'),
-
+    path("robots.txt", robots_txt_vinsdelux, name="robots_txt"),
     # Standard Django Admin (user management)
-    path('admin/', admin.site.urls),
-
+    path("admin/", admin.site.urls),
     # Crush.lu URLs (for local development convenience)
-    path('crush/', include('crush_lu.urls', namespace='crush_lu')),
-
+    path("crush/", include("crush_lu.urls", namespace="crush_lu")),
     # VinsDelux app URLs (root)
-    path('', include('vinsdelux.urls', namespace='vinsdelux')),
-
+    path("", include("vinsdelux.urls", namespace="vinsdelux")),
     # Vibe Coding game (merged into entreprinder)
-    path('vibe/', vibe_views.index, name='vinsdelux_vibe'),
+    path("vibe/", vibe_views.index, name="vinsdelux_vibe"),
 ]
 
 if settings.DEBUG:

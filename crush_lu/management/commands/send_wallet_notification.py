@@ -64,7 +64,9 @@ class Command(BaseCommand):
         count = profiles.count()
 
         if count == 0:
-            self.stdout.write(self.style.WARNING("No Google Wallet pass holders found."))
+            self.stdout.write(
+                self.style.WARNING("No Google Wallet pass holders found.")
+            )
             return
 
         # Show summary
@@ -78,7 +80,11 @@ class Command(BaseCommand):
         self.stdout.write("")
 
         if dry_run:
-            self.stdout.write(self.style.SUCCESS(f"[DRY RUN] Would send to {count} pass holder(s). No notifications sent."))
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"[DRY RUN] Would send to {count} pass holder(s). No notifications sent."
+                )
+            )
             return
 
         # Confirm before sending

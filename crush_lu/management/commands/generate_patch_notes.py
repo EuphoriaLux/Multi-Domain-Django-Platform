@@ -30,7 +30,6 @@ from django.db import transaction
 from crush_lu.changelog_text import scrub  # noqa: F401  (re-exported for callers/tests)
 from crush_lu.models import PatchNote, PatchNoteCategory, PatchRelease
 
-
 # ---------------------------------------------------------------------------
 # Filters & classification
 # ---------------------------------------------------------------------------
@@ -171,7 +170,14 @@ def humanize_subject(subject: str) -> str:
 def git_log(since: str, until: str | None = None):
     """Return a list of (sha, iso_date, subject, paths_csv) tuples."""
     fmt = "%H%x1f%ad%x1f%s"
-    cmd = ["git", "log", f"--since={since}", f"--pretty=format:{fmt}", "--date=short", "--name-only"]
+    cmd = [
+        "git",
+        "log",
+        f"--since={since}",
+        f"--pretty=format:{fmt}",
+        "--date=short",
+        "--name-only",
+    ]
     if until:
         cmd.append(f"--until={until}")
     try:
@@ -219,31 +225,53 @@ class Command(BaseCommand):
     help = "Generate draft PatchRelease + PatchNote rows from the Git history."
 
     def add_arguments(self, parser):
-        parser.add_argument("--since", default="2025-10-01",
-                            help="Earliest commit date to include (YYYY-MM-DD).")
-        parser.add_argument("--until", default=None,
-                            help="Latest commit date to include (YYYY-MM-DD).")
-        parser.add_argument("--dry-run", action="store_true",
-                            help="Print the proposed output without writing to the database.")
-        parser.add_argument("--purge-drafts", action="store_true",
-                            help="Delete existing drafts (is_published=False) before generating.")
-        parser.add_argument("--milestones-only", action="store_true",
-                            help="Skip commits that do not fall inside a milestone window.")
-        parser.add_argument("--milestones-file", default=None,
-                            help="Path to release_milestones.json (defaults to crush_lu/data/).")
+        parser.add_argument(
+            "--since",
+            default="2025-10-01",
+            help="Earliest commit date to include (YYYY-MM-DD).",
+        )
+        parser.add_argument(
+            "--until", default=None, help="Latest commit date to include (YYYY-MM-DD)."
+        )
+        parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="Print the proposed output without writing to the database.",
+        )
+        parser.add_argument(
+            "--purge-drafts",
+            action="store_true",
+            help="Delete existing drafts (is_published=False) before generating.",
+        )
+        parser.add_argument(
+            "--milestones-only",
+            action="store_true",
+            help="Skip commits that do not fall inside a milestone window.",
+        )
+        parser.add_argument(
+            "--milestones-file",
+            default=None,
+            help="Path to release_milestones.json (defaults to crush_lu/data/).",
+        )
 
     def handle(self, *args, **opts):
         milestones = self._load_milestones(opts["milestones_file"])
         commits = git_log(opts["since"], opts["until"])
-        self.stdout.write(self.style.NOTICE(
-            f"Scanned {len(commits)} commits between {opts['since']} and "
-            f"{opts['until'] or 'today'}."
-        ))
+        self.stdout.write(
+            self.style.NOTICE(
+                f"Scanned {len(commits)} commits between {opts['since']} and "
+                f"{opts['until'] or 'today'}."
+            )
+        )
 
-        relevant = [c for c in commits if touches_crush(c[3], c[2]) and not is_noise(c[2])]
-        self.stdout.write(self.style.NOTICE(
-            f"Kept {len(relevant)} crush.lu-relevant non-noise commits."
-        ))
+        relevant = [
+            c for c in commits if touches_crush(c[3], c[2]) and not is_noise(c[2])
+        ]
+        self.stdout.write(
+            self.style.NOTICE(
+                f"Kept {len(relevant)} crush.lu-relevant non-noise commits."
+            )
+        )
 
         buckets = self._bucket_commits(relevant, milestones, opts["milestones_only"])
 
@@ -256,7 +284,9 @@ class Command(BaseCommand):
                         self._write_release(meta, commits_, quiet=True)
                     transaction.set_rollback(True)
             except Exception as exc:
-                raise CommandError(f"Dry run failed during write simulation: {exc}") from exc
+                raise CommandError(
+                    f"Dry run failed during write simulation: {exc}"
+                ) from exc
             self._print_plan(buckets)
             return
 
@@ -272,8 +302,14 @@ class Command(BaseCommand):
     # ----- helpers --------------------------------------------------------
 
     def _load_milestones(self, path_override):
-        base = Path(path_override) if path_override else (
-            Path(__file__).resolve().parent.parent.parent / "data" / "release_milestones.json"
+        base = (
+            Path(path_override)
+            if path_override
+            else (
+                Path(__file__).resolve().parent.parent.parent
+                / "data"
+                / "release_milestones.json"
+            )
         )
         if not base.exists():
             raise CommandError(f"Milestones file not found: {base}")
@@ -290,7 +326,8 @@ class Command(BaseCommand):
         used = set()
         for m in milestones:
             window = [
-                c for c in commits
+                c
+                for c in commits
                 if m["since"] <= date.fromisoformat(c[1]) < m["until"]
             ]
             if window:
@@ -351,16 +388,20 @@ class Command(BaseCommand):
                 else:
                     bullets = [f"\u2022 {humanize_subject(s)}" for s in subjects[:8]]
                     if len(subjects) > 8:
-                        bullets.append(f"\u2022 \u2026and {len(subjects) - 8} more small improvements.")
+                        bullets.append(
+                            f"\u2022 \u2026and {len(subjects) - 8} more small improvements."
+                        )
                     body = "\n".join(bullets)
-                notes.append({
-                    "category": category,
-                    "title": title,
-                    "body": body,
-                    "related_commits": shas,
-                    "order": order,
-                    "published_on": published_on,
-                })
+                notes.append(
+                    {
+                        "category": category,
+                        "title": title,
+                        "body": body,
+                        "related_commits": shas,
+                        "order": order,
+                        "published_on": published_on,
+                    }
+                )
                 order += 1
         return notes
 
@@ -396,15 +437,19 @@ class Command(BaseCommand):
                 continue
             PatchNote.objects.create(release=release, auto_generated=True, **note_data)
         if not quiet:
-            self.stdout.write(f"  {release.version} \u2014 {release.title} "
-                          f"({release.notes.count()} notes, {len(commits)} commits)")
+            self.stdout.write(
+                f"  {release.version} \u2014 {release.title} "
+                f"({release.notes.count()} notes, {len(commits)} commits)"
+            )
 
     def _print_plan(self, buckets):
         for meta, commits in buckets:
-            self.stdout.write(self.style.MIGRATE_HEADING(
-                f"\n{meta['version']} \u2014 {meta['title']} ({meta['released_on']}) "
-                f"[{len(commits)} commits]"
-            ))
+            self.stdout.write(
+                self.style.MIGRATE_HEADING(
+                    f"\n{meta['version']} \u2014 {meta['title']} ({meta['released_on']}) "
+                    f"[{len(commits)} commits]"
+                )
+            )
             if meta.get("hero_summary"):
                 self.stdout.write(f"  {meta['hero_summary']}")
             for note in self._aggregate_into_notes(commits):

@@ -191,9 +191,7 @@ class EventCancellationTimeGateTests(TestCase):
             status="pending",
         )
 
-        response = self.client.get(
-            reverse("crush_lu:my_events"), HTTP_HOST="crush.lu"
-        )
+        response = self.client.get(reverse("crush_lu:my_events"), HTTP_HOST="crush.lu")
 
         self.assertEqual(response.status_code, 200)
         entry = next(
@@ -354,13 +352,12 @@ class LiveEventDiscoveryTests(TestCase):
             )
         older_past = _make_event("Older past event", now - timedelta(days=8))
 
-        response = self.client.get(
-            reverse("crush_lu:event_list"), HTTP_HOST="crush.lu"
-        )
+        response = self.client.get(reverse("crush_lu:event_list"), HTTP_HOST="crush.lu")
 
         self.assertEqual(response.status_code, 200)
         visible_past = [
-            event for event, _attended in response.context["past_events_with_attendance"]
+            event
+            for event, _attended in response.context["past_events_with_attendance"]
         ]
         self.assertIn(older_past, visible_past)
 

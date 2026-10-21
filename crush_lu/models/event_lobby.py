@@ -64,7 +64,9 @@ class EventLobbyParticipation(models.Model):
         EventRegistration,
         on_delete=models.CASCADE,
         related_name="lobby_participation",
-        help_text=_("Authoritative attendance link — participation never exists without it"),
+        help_text=_(
+            "Authoritative attendance link — participation never exists without it"
+        ),
     )
     # Denormalized for safe, indexed roster queries; must always match the
     # registration (enforced in the service layer, asserted in tests).
@@ -79,12 +81,16 @@ class EventLobbyParticipation(models.Model):
         unique=True,
         default=_new_lobby_handle,
         editable=False,
-        help_text=_("Opaque event-scoped participant handle used on all pre-mutual surfaces"),
+        help_text=_(
+            "Opaque event-scoped participant handle used on all pre-mutual surfaces"
+        ),
     )
     joined_at = models.DateTimeField(
         default=timezone.now,
         editable=False,
-        help_text=_("First eligible lobby time — immutable, orders the roster newest-first"),
+        help_text=_(
+            "First eligible lobby time — immutable, orders the roster newest-first"
+        ),
     )
     eligibility_source = models.CharField(
         max_length=24,
@@ -104,9 +110,7 @@ class EventLobbyParticipation(models.Model):
             ),
         ]
         indexes = [
-            models.Index(
-                fields=["event", "-joined_at"], name="eventlobby_roster_idx"
-            ),
+            models.Index(fields=["event", "-joined_at"], name="eventlobby_roster_idx"),
         ]
 
     def __str__(self):
@@ -137,7 +141,9 @@ class EventMeetSignal(models.Model):
     mutual_revealed_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text=_("Set on both rows of a pair when the reverse signal arrives (audit + idempotent UX)"),
+        help_text=_(
+            "Set on both rows of a pair when the reverse signal arrives (audit + idempotent UX)"
+        ),
     )
 
     class Meta:
@@ -163,7 +169,9 @@ class EventMeetSignal(models.Model):
 
     def __str__(self):
         state = "mutual" if self.mutual_revealed_at else "one-sided"
-        return f"signal:{self.event_id} {self.sender_id} → {self.recipient_id} ({state})"
+        return (
+            f"signal:{self.event_id} {self.sender_id} → {self.recipient_id} ({state})"
+        )
 
     @property
     def is_mutual(self) -> bool:
@@ -179,7 +187,9 @@ class EventMeetingConfirmation(models.Model):
     """
 
     event = models.ForeignKey(
-        MeetupEvent, on_delete=models.CASCADE, related_name="lobby_meeting_confirmations"
+        MeetupEvent,
+        on_delete=models.CASCADE,
+        related_name="lobby_meeting_confirmations",
     )
     confirmer = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="lobby_confirmations_made"
@@ -356,6 +366,7 @@ class ConfirmedEncounterRemovalRequest(models.Model):
 
     def clean(self):
         from django.core.exceptions import ValidationError
+
         if self.encounter_id and self.requested_by_id not in {
             self.encounter.user_low_id,
             self.encounter.user_high_id,

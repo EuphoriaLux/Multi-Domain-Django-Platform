@@ -92,9 +92,7 @@ def spa_session_callback(request):
     # repeated key — they'd consume the stale code and fail.
     parts = urlparse(return_url)
     preserved = [
-        (k, v)
-        for k, v in parse_qsl(parts.query, keep_blank_values=True)
-        if k != "code"
+        (k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if k != "code"
     ]
     redirect_url = urlunparse(
         parts._replace(query=urlencode(preserved + [("code", code)]))

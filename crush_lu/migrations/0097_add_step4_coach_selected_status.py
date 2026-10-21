@@ -6,13 +6,26 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0096_meetupevent_profile_requirement'),
+        ("crush_lu", "0096_meetupevent_profile_requirement"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='crushprofile',
-            name='completion_status',
-            field=models.CharField(choices=[('not_started', 'Not Started'), ('step1', 'Step 1: Basic Info Saved'), ('step2', 'Step 2: About You Saved'), ('step3', 'Step 3: Photos Saved'), ('step4', 'Step 4: Coach Selected'), ('completed', 'Profile Completed'), ('submitted', 'Submitted for Review')], default='not_started', help_text='Track which step user completed', max_length=20),
+            model_name="crushprofile",
+            name="completion_status",
+            field=models.CharField(
+                choices=[
+                    ("not_started", "Not Started"),
+                    ("step1", "Step 1: Basic Info Saved"),
+                    ("step2", "Step 2: About You Saved"),
+                    ("step3", "Step 3: Photos Saved"),
+                    ("step4", "Step 4: Coach Selected"),
+                    ("completed", "Profile Completed"),
+                    ("submitted", "Submitted for Review"),
+                ],
+                default="not_started",
+                help_text="Track which step user completed",
+                max_length=20,
+            ),
         ),
     ]

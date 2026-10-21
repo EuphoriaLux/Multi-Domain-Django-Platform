@@ -8,6 +8,7 @@ module fail to reach Azure Application Insights (observed in production:
 `traces` and `exceptions` tables empty for 7+ days while `requests` kept
 flowing — the configure-time handler was being dropped by dictConfig).
 """
+
 from django.apps import AppConfig
 
 

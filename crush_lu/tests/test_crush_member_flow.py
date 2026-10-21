@@ -17,6 +17,7 @@ Covers (Phase C scope):
 
 Run with: pytest crush_lu/tests/test_crush_member_flow.py -v
 """
+
 import json
 import threading
 
@@ -290,7 +291,9 @@ class TestCrushLimit:
         response = client.post(_declare_url(event, target2), {"note": ""})
 
         assert response.status_code == 302
-        assert EventConnection.objects.filter(requester=crusher, event=event).count() == 1
+        assert (
+            EventConnection.objects.filter(requester=crusher, event=event).count() == 1
+        )
 
     def test_second_crush_blocked_for_connect_member(self, client):
         """No unlimited tier — Connect members get exactly 1 crush too (O9)."""
@@ -308,7 +311,9 @@ class TestCrushLimit:
         r2 = client.post(_inline_url(event, target2), {"note": ""})
 
         assert b"already declared your crush for this event" in r2.content
-        assert EventConnection.objects.filter(requester=crusher, event=event).count() == 1
+        assert (
+            EventConnection.objects.filter(requester=crusher, event=event).count() == 1
+        )
 
     def test_same_gender_crush_counts_against_limit(self, client):
         """The legacy cross-gender counter is NOT reused: a same-gender crush
@@ -325,7 +330,9 @@ class TestCrushLimit:
         client.post(_declare_url(event, target1), {"note": ""})
         client.post(_declare_url(event, target2), {"note": ""})
 
-        assert EventConnection.objects.filter(requester=crusher, event=event).count() == 1
+        assert (
+            EventConnection.objects.filter(requester=crusher, event=event).count() == 1
+        )
 
     def test_limit_is_per_event(self, client):
         _make_coach()
@@ -431,7 +438,10 @@ class TestOnePairOneFlow:
         assert response.status_code == 200
         assert b"Find them in your event recap" in response.content
         # No My Crush! button for this pair (one pair, one flow).
-        assert f"/events/{event.pk}/connect-inline/{user_b.pk}/".encode() not in response.content
+        assert (
+            f"/events/{event.pk}/connect-inline/{user_b.pk}/".encode()
+            not in response.content
+        )
 
     def test_fallback_when_target_lost_eligibility(self, client):
         """Participation rows outlive eligibility: a target who dropped out of
@@ -544,9 +554,7 @@ class TestOnePairOneFlow:
         assert "HX-Redirect" not in response
         assert not EventConnection.objects.filter(event=event).exists()
 
-    def test_removal_pair_gets_neither_flow_when_lobby_flag_off(
-        self, client, settings
-    ):
+    def test_removal_pair_gets_neither_flow_when_lobby_flag_off(self, client, settings):
         """A flag-off must not fall back to My Crush for a removal pair."""
         settings.CRUSH_EVENT_LOBBY_ENABLED = False
         user_a = _make_member("pf_i", gender="M")
@@ -813,7 +821,7 @@ class TestCoachNavRename:
 
         assert response.status_code == 200
         assert response.content.count(b"My Dating Profile") >= 2
-        assert b'<span>Connect</span>' in response.content
+        assert b"<span>Connect</span>" in response.content
         assert b'aria-label="Crush Connect"' in response.content
         assert b"<span>My Crush</span>" not in response.content
 
@@ -845,9 +853,7 @@ class TestCoachLeadPrivacy:
         lead = self._routed_lead(routed)
         _login(client, other.user)
 
-        response = client.get(
-            reverse("crush_lu:coach_connections"), {"status": "all"}
-        )
+        response = client.get(reverse("crush_lu:coach_connections"), {"status": "all"})
 
         assert response.status_code == 200
         assert b"I could not stop smiling." not in response.content
@@ -875,9 +881,7 @@ class TestCoachLeadPrivacy:
         lead = self._routed_lead(routed)
         _login(client, routed.user)
 
-        listing = client.get(
-            reverse("crush_lu:coach_connections"), {"status": "all"}
-        )
+        listing = client.get(reverse("crush_lu:coach_connections"), {"status": "all"})
         review = client.get(
             reverse(
                 "crush_lu:coach_connection_review",
@@ -902,9 +906,7 @@ class TestCoachLeadPrivacy:
 
         assert response.status_code == 200
         assert response.context["counts"]["crush_lead"] == 1
-        entries = [
-            i for i in response.context["items"] if i["kind"] == "crush_lead"
-        ]
+        entries = [i for i in response.context["items"] if i["kind"] == "crush_lead"]
         assert len(entries) == 1
         assert entries[0]["deadline"] == lead.call_by
         assert entries[0]["url_kwargs"] == {"connection_id": lead.pk}
@@ -942,9 +944,7 @@ class TestCoachLeadPrivacy:
         lead = self._routed_lead(routed)
         lead.status = "shared"
         lead.save(update_fields=["status"])
-        url = reverse(
-            "crush_lu:connection_detail", kwargs={"connection_id": lead.pk}
-        )
+        url = reverse("crush_lu:connection_detail", kwargs={"connection_id": lead.pk})
 
         for member in (lead.requester, lead.recipient):
             member_client = Client()
@@ -973,9 +973,7 @@ class TestCoachLeadPrivacy:
         assert lead.assigned_coach is None
         _login(client, triager.user)
 
-        listing = client.get(
-            reverse("crush_lu:coach_connections"), {"status": "all"}
-        )
+        listing = client.get(reverse("crush_lu:coach_connections"), {"status": "all"})
         review = client.get(
             reverse(
                 "crush_lu:coach_connection_review",
@@ -1048,9 +1046,7 @@ class TestCodexRound2:
         )
         _login(client, stranger.user)
 
-        listing = client.get(
-            reverse("crush_lu:coach_connections"), {"status": "all"}
-        )
+        listing = client.get(reverse("crush_lu:coach_connections"), {"status": "all"})
         review = client.get(
             reverse(
                 "crush_lu:coach_connection_review",
@@ -1073,15 +1069,17 @@ class TestCodexRound2:
         _attend(crusher, event)
         _attend(target, event)
         EventConnection.objects.create(
-            requester=crusher, recipient=target, event=event,
-            flow=EventConnection.FLOW_CRUSH, requester_note="Shared-state note.",
-            assigned_coach=routed, status="shared",
+            requester=crusher,
+            recipient=target,
+            event=event,
+            flow=EventConnection.FLOW_CRUSH,
+            requester_note="Shared-state note.",
+            assigned_coach=routed,
+            status="shared",
         )
         _login(client, routed.user)
 
-        listing = client.get(
-            reverse("crush_lu:coach_connections"), {"status": "all"}
-        )
+        listing = client.get(reverse("crush_lu:coach_connections"), {"status": "all"})
 
         assert b"Shared-state note." in listing.content
 
@@ -1096,8 +1094,11 @@ class TestCodexRound2:
         _attend(crusher, event)
         _attend(target, event)
         EventConnection.objects.create(
-            requester=crusher, recipient=target, event=event,
-            flow=EventConnection.FLOW_CRUSH, assigned_coach=routed,
+            requester=crusher,
+            recipient=target,
+            event=event,
+            flow=EventConnection.FLOW_CRUSH,
+            assigned_coach=routed,
         )
         _login(client, stranger.user)
 
@@ -1119,13 +1120,19 @@ class TestCodexRound2:
         _attend(user_a, event)
         _attend(user_b, event)
         lead_ab = EventConnection.objects.create(
-            requester=user_a, recipient=user_b, event=event,
-            flow=EventConnection.FLOW_CRUSH, assigned_coach=coach_a,
+            requester=user_a,
+            recipient=user_b,
+            event=event,
+            flow=EventConnection.FLOW_CRUSH,
+            assigned_coach=coach_a,
             status="accepted",
         )
         lead_ba = EventConnection.objects.create(
-            requester=user_b, recipient=user_a, event=event,
-            flow=EventConnection.FLOW_CRUSH, assigned_coach=coach_b,
+            requester=user_b,
+            recipient=user_a,
+            event=event,
+            flow=EventConnection.FLOW_CRUSH,
+            assigned_coach=coach_b,
             status="accepted",
         )
         _login(client, coach_a.user)
@@ -1156,7 +1163,9 @@ class TestCodexRound2:
         _attend(crusher, event)
         _attend(target, event)
         lead = EventConnection.objects.create(
-            requester=crusher, recipient=target, event=event,
+            requester=crusher,
+            recipient=target,
+            event=event,
             flow=EventConnection.FLOW_CRUSH,
         )
         _login(client, target)
@@ -1178,7 +1187,9 @@ class TestCodexRound2:
         _attend(crusher, event)
         _attend(target, event)
         lead = EventConnection.objects.create(
-            requester=crusher, recipient=target, event=event,
+            requester=crusher,
+            recipient=target,
+            event=event,
             flow=EventConnection.FLOW_CRUSH,
         )
         _login(client, crusher)
@@ -1205,7 +1216,9 @@ class TestCodexRound2:
         _attend(crusher, event)
         _attend(target, event)
         EventConnection.objects.create(
-            requester=crusher, recipient=target, event=event,
+            requester=crusher,
+            recipient=target,
+            event=event,
             flow=EventConnection.FLOW_CRUSH,
         )
         _login(client, target)
@@ -1222,8 +1235,11 @@ class TestCodexRound2:
         _attend(requester, event)
         _attend(target, event)
         EventConnection.objects.create(
-            requester=requester, recipient=target, event=event,
-            flow=EventConnection.FLOW_LEGACY, status="accepted",
+            requester=requester,
+            recipient=target,
+            event=event,
+            flow=EventConnection.FLOW_LEGACY,
+            status="accepted",
         )
         _login(client, target)
 
@@ -1242,12 +1258,17 @@ class TestCodexRound2:
         _attend(user_a, event)
         _attend(user_b, event)
         EventConnection.objects.create(
-            requester=user_a, recipient=user_b, event=event,
+            requester=user_a,
+            recipient=user_b,
+            event=event,
             flow=EventConnection.FLOW_CRUSH,
         )
         EventConnection.objects.create(
-            requester=user_b, recipient=user_a, event=event,
-            flow=EventConnection.FLOW_LEGACY, status="accepted",
+            requester=user_b,
+            recipient=user_a,
+            event=event,
+            flow=EventConnection.FLOW_LEGACY,
+            status="accepted",
         )
         _login(client, user_a)
 
@@ -1269,8 +1290,11 @@ class TestCodexRound2:
         _attend(viewer, event)
         _attend(admirer, event)
         EventConnection.objects.create(
-            requester=admirer, recipient=viewer, event=event,
-            flow=EventConnection.FLOW_LEGACY, status="pending",
+            requester=admirer,
+            recipient=viewer,
+            event=event,
+            flow=EventConnection.FLOW_LEGACY,
+            status="pending",
         )
         _login(client, viewer)
 
@@ -1293,9 +1317,7 @@ class TestCodexRound2:
         _end_event(event)
         _login(client, user_a)
 
-        response = client.get(
-            _inline_url(event, user_b), HTTP_HX_REQUEST="true"
-        )
+        response = client.get(_inline_url(event, user_b), HTTP_HX_REQUEST="true")
 
         assert "HX-Redirect" in response
         assert response.status_code != 302
@@ -1358,7 +1380,9 @@ class TestClaimCannotTakeOverALead:
         _attend(crusher, event)
         _attend(target, event)
         lead = EventConnection.objects.create(
-            requester=crusher, recipient=target, event=event,
+            requester=crusher,
+            recipient=target,
+            event=event,
             flow=EventConnection.FLOW_CRUSH,
         )
         _login(client, taker.user)
@@ -1379,8 +1403,11 @@ class TestClaimCannotTakeOverALead:
         _attend(requester, event)
         _attend(target, event)
         legacy = EventConnection.objects.create(
-            requester=requester, recipient=target, event=event,
-            flow=EventConnection.FLOW_LEGACY, status="accepted",
+            requester=requester,
+            recipient=target,
+            event=event,
+            flow=EventConnection.FLOW_LEGACY,
+            status="accepted",
             assigned_coach=routed,
         )
         _login(client, thief.user)

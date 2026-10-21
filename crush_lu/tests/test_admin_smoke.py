@@ -293,12 +293,22 @@ class AdminMenuOrganizationTests(SiteTestMixin, TestCase):
         # Operational groups (incl. Crush Connect) are visible to coaches.
         self.assertIn("💞 Crush Connect", names)
         # Dev/analytics/audit groups are not.
-        for hidden in ("🧬 Matching", "📊 Analytics", "🗒️ Changelog", "🔧 Technical & Debug"):
+        for hidden in (
+            "🧬 Matching",
+            "📊 Analytics",
+            "🗒️ Changelog",
+            "🔧 Technical & Debug",
+        ):
             self.assertNotIn(hidden, names, f"{hidden} should be superuser-only")
 
     def test_superuser_sees_the_gated_groups(self):
         names = self._group_names(self._app_list_for(self.superuser))
-        for shown in ("🧬 Matching", "📊 Analytics", "🗒️ Changelog", "🔧 Technical & Debug"):
+        for shown in (
+            "🧬 Matching",
+            "📊 Analytics",
+            "🗒️ Changelog",
+            "🔧 Technical & Debug",
+        ):
             self.assertIn(shown, names)
 
     def test_app_index_returns_flat_single_app(self):
@@ -317,8 +327,12 @@ class AdminMenuOrganizationTests(SiteTestMixin, TestCase):
         self.assertEqual(app_list[0]["app_label"], "crush_lu")
         names = {m["object_name"] for m in app_list[0]["models"]}
         # Models from several would-be groups all live in the one flat app.
-        for obj in ("CrushProfile", "MeetupEvent", "EventConnection",
-                    "CrushConnectMembership"):
+        for obj in (
+            "CrushProfile",
+            "MeetupEvent",
+            "EventConnection",
+            "CrushConnectMembership",
+        ):
             self.assertIn(obj, names)
 
     # -- Redesign: tiered sidebar (see ai-memory-hub/reviews/2026-09-13-crush-admin-redesign-audit.md) ----------
@@ -372,9 +386,7 @@ class AdminMenuOrganizationTests(SiteTestMixin, TestCase):
     def test_coach_sees_no_superuser_tier_groups(self):
         coach = User.objects.get(pk=self.coach_pk)
         superuser_tier = [
-            a["name"]
-            for a in self._app_list_for(coach)
-            if a.get("tier") == "superuser"
+            a["name"] for a in self._app_list_for(coach) if a.get("tier") == "superuser"
         ]
         self.assertEqual(superuser_tier, [])
 
@@ -580,9 +592,7 @@ class EventFeedbackChangelistWithRowsTests(SiteTestMixin, TestCase):
 
     def test_changelist_renders_every_nps_band(self):
         self.client.force_login(self.superuser)
-        url = reverse(
-            f"{crush_admin_site.name}:crush_lu_eventfeedback_changelist"
-        )
+        url = reverse(f"{crush_admin_site.name}:crush_lu_eventfeedback_changelist")
         response = self.client.get(url)
         self.assertEqual(
             response.status_code,

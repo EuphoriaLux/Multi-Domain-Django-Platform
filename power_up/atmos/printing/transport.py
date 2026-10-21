@@ -161,4 +161,3 @@ class WindowsRawTransport:
 
     def __repr__(self) -> str:
         return f"WindowsRawTransport({self.printer_name!r})"
-

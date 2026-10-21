@@ -8,18 +8,36 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('delegations', '0003_update_upload_paths'),
+        ("delegations", "0003_update_upload_paths"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='company',
-            name='logo',
-            field=models.ImageField(blank=True, null=True, storage=power_up.storage.get_powerup_media_storage, upload_to=functools.partial(power_up.storage._powerup_upload_path, *('delegation/companies',), **{})),
+            model_name="company",
+            name="logo",
+            field=models.ImageField(
+                blank=True,
+                null=True,
+                storage=power_up.storage.get_powerup_media_storage,
+                upload_to=functools.partial(
+                    power_up.storage._powerup_upload_path,
+                    *("delegation/companies",),
+                    **{}
+                ),
+            ),
         ),
         migrations.AlterField(
-            model_name='delegationprofile',
-            name='profile_photo',
-            field=models.ImageField(blank=True, null=True, storage=power_up.storage.get_powerup_media_storage, upload_to=functools.partial(power_up.storage._powerup_upload_path, *('delegation/profiles',), **{})),
+            model_name="delegationprofile",
+            name="profile_photo",
+            field=models.ImageField(
+                blank=True,
+                null=True,
+                storage=power_up.storage.get_powerup_media_storage,
+                upload_to=functools.partial(
+                    power_up.storage._powerup_upload_path,
+                    *("delegation/profiles",),
+                    **{}
+                ),
+            ),
         ),
     ]

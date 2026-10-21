@@ -1766,9 +1766,12 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
                     PublishedProfilePhoto.objects.filter(profile_id=pk).delete()
                 else:
                     # Every slot's revision request, current file or not.
-                    if not ProfilePhotoReviewState.objects.filter(
-                        profile_id=pk, status="needs_revision"
-                    ).delete()[0] and old_status not in moderated:
+                    if (
+                        not ProfilePhotoReviewState.objects.filter(
+                            profile_id=pk, status="needs_revision"
+                        ).delete()[0]
+                        and old_status not in moderated
+                    ):
                         continue
                 self.log_change(
                     request,

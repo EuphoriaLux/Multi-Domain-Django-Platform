@@ -38,7 +38,9 @@ _BRAND_ASSETS = {
 def _load_brand_assets():
     """Load Crush.lu icon and logo PNGs for wallet passes."""
     files = {}
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    base_dir = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    )
     for pkpass_name, static_path in _BRAND_ASSETS.items():
         full_path = os.path.join(base_dir, static_path)
         try:
@@ -62,7 +64,9 @@ def generate_pass_thumbnail(profile):
     from PIL import Image, ImageOps
 
     # 1. Try user photo first
-    if getattr(profile, "show_photo_on_wallet", True) and getattr(profile, "photo_1", None):
+    if getattr(profile, "show_photo_on_wallet", True) and getattr(
+        profile, "photo_1", None
+    ):
         try:
             profile.photo_1.seek(0)
             raw_bytes = profile.photo_1.read()
@@ -102,8 +106,12 @@ def generate_pass_thumbnail(profile):
 
     # 2. Fallback to branded Crush icon (180.png)
     try:
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        fallback_path = os.path.join(base_dir, "crush_lu", "static", "crush_lu", "icons", "ios", "180.png")
+        base_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+        fallback_path = os.path.join(
+            base_dir, "crush_lu", "static", "crush_lu", "icons", "ios", "180.png"
+        )
         if os.path.exists(fallback_path):
             with open(fallback_path, "rb") as f:
                 content_2x = f.read()
@@ -206,9 +214,11 @@ def claim_field_once(instance, field, value):
     Shared by the member pass (CrushProfile) and event tickets
     (EventRegistration).
     """
-    claimed = type(instance)._default_manager.filter(
-        pk=instance.pk, **{field: ""}
-    ).update(**{field: value})
+    claimed = (
+        type(instance)
+        ._default_manager.filter(pk=instance.pk, **{field: ""})
+        .update(**{field: value})
+    )
     if not claimed:
         value = (
             type(instance)
@@ -267,7 +277,8 @@ def _build_pass_payload(
         {
             "key": "tier",
             "label": "STATUS",
-            "value": pass_data.get("status_display") or pass_data.get("tier_display", "Member"),
+            "value": pass_data.get("status_display")
+            or pass_data.get("tier_display", "Member"),
         }
     ]
 
@@ -404,7 +415,9 @@ def _build_pass_payload(
     )
 
     ref_code = pass_data.get("referral_code", "")
-    alt_text = f"Scan to Connect • Ref: {ref_code}" if ref_code else "Scan to join Crush.lu"
+    alt_text = (
+        f"Scan to Connect • Ref: {ref_code}" if ref_code else "Scan to join Crush.lu"
+    )
 
     payload = {
         "formatVersion": 1,

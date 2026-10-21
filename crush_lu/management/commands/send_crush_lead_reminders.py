@@ -81,6 +81,4 @@ class Command(BaseCommand):
                 )
             )
         else:
-            self.stdout.write(
-                self.style.SUCCESS(f"Sent {result['sent']} reminder(s).")
-            )
+            self.stdout.write(self.style.SUCCESS(f"Sent {result['sent']} reminder(s)."))

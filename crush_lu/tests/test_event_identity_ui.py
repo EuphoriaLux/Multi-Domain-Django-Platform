@@ -99,7 +99,6 @@ class WizardStep2Tests(_SiteMixin, TestCase):
         self.assertEqual(profile.bio, "")
         self.assertEqual(profile.interests, "")
 
-
     def test_invalid_submit_keeps_the_event_identity_selections(self):
         """A validation error on the final wizard POST must re-render with the
         member's Event Identity intact.

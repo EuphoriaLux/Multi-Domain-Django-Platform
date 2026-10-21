@@ -265,7 +265,9 @@ class RegistrationIsPayableTests(PayConfirmTestBase):
         self.event.registration_mode = "curated"
         self.event.group_size = 6
         self.event.planned_groups = 1
-        self.event.save(update_fields=["registration_mode", "group_size", "planned_groups"])
+        self.event.save(
+            update_fields=["registration_mode", "group_size", "planned_groups"]
+        )
         self.registration.status = "confirmed"
         self.registration.save(update_fields=["status"])
         self.assertFalse(registration_is_payable(self.registration, self.event))
@@ -288,7 +290,9 @@ class RegistrationIsPayableTests(PayConfirmTestBase):
         self.registration.save(update_fields=["status"])
         my_events = self.client.get("/en/my-events/")
         self.assertEqual(my_events.status_code, 200)
-        self.assertTrue(my_events.context["upcoming_registrations"][0]["is_pending_payment"])
+        self.assertTrue(
+            my_events.context["upcoming_registrations"][0]["is_pending_payment"]
+        )
         self.assertFalse(my_events.context["upcoming_registrations"][0]["can_pay"])
         self.assertContains(my_events, "Pending")
         self.assertNotContains(my_events, "Payment due")

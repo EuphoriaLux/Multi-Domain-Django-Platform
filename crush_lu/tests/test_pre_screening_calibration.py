@@ -1,4 +1,5 @@
 """Tests for Phase 4 — calibration (3-section) screening call checklist."""
+
 from __future__ import annotations
 
 import json
@@ -122,9 +123,7 @@ class CalibrationModeTests(TestCase):
         self.submission.save()
         self.client.login(username="coach_calib@example.com", password="pw")
         resp = self.client.post(
-            reverse(
-                "crush_lu:coach_set_screening_mode", args=[self.submission.id]
-            ),
+            reverse("crush_lu:coach_set_screening_mode", args=[self.submission.id]),
             {"mode": "calibration"},
         )
         self.assertEqual(resp.status_code, 200)
@@ -137,9 +136,7 @@ class CalibrationModeTests(TestCase):
         self.submission.save()
         self.client.login(username="coach_calib@example.com", password="pw")
         resp = self.client.post(
-            reverse(
-                "crush_lu:coach_set_screening_mode", args=[self.submission.id]
-            ),
+            reverse("crush_lu:coach_set_screening_mode", args=[self.submission.id]),
             {"mode": "legacy"},
         )
         self.assertEqual(resp.status_code, 200)
@@ -149,9 +146,7 @@ class CalibrationModeTests(TestCase):
     def test_cannot_set_calibration_without_prescreening(self):
         self.client.login(username="coach_calib@example.com", password="pw")
         resp = self.client.post(
-            reverse(
-                "crush_lu:coach_set_screening_mode", args=[self.submission.id]
-            ),
+            reverse("crush_lu:coach_set_screening_mode", args=[self.submission.id]),
             {"mode": "calibration"},
         )
         self.assertEqual(resp.status_code, 400)
@@ -164,9 +159,7 @@ class CalibrationModeTests(TestCase):
         self.submission.save()
         self.client.login(username="coach_calib@example.com", password="pw")
         resp = self.client.post(
-            reverse(
-                "crush_lu:coach_set_screening_mode", args=[self.submission.id]
-            ),
+            reverse("crush_lu:coach_set_screening_mode", args=[self.submission.id]),
             {"mode": "calibration"},
         )
         self.assertEqual(resp.status_code, 410)
@@ -199,9 +192,5 @@ class CalibrationModeTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.submission.refresh_from_db()
         self.assertTrue(self.submission.review_call_completed)
-        self.assertEqual(
-            self.submission.review_call_checklist["mode"], "calibration"
-        )
-        self.assertTrue(
-            self.submission.review_call_checklist["warm_intro_complete"]
-        )
+        self.assertEqual(self.submission.review_call_checklist["mode"], "calibration")
+        self.assertTrue(self.submission.review_call_checklist["warm_intro_complete"])

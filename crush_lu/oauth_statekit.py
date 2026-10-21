@@ -15,6 +15,7 @@ How it works:
 3. If session lookup fails, we fall back to database lookup
 4. This allows OAuth to work even when sessions don't persist across browser contexts
 """
+
 import ipaddress
 import json
 import logging
@@ -43,24 +44,24 @@ def ensure_patched():
 
 def get_client_ip(request) -> Optional[str]:
     """Extract client IP address from request (without port)."""
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
     if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0].strip()
+        ip = x_forwarded_for.split(",")[0].strip()
     else:
-        ip = request.META.get('REMOTE_ADDR')
+        ip = request.META.get("REMOTE_ADDR")
 
     if not ip:
         return ip
 
     # Bracketed IPv6, optionally with port:
     # "[2001:db8:1::1]:443" -> "2001:db8:1::1"
-    if ip.startswith('['):
-        host, _, _rest = ip[1:].partition(']')
+    if ip.startswith("["):
+        host, _, _rest = ip[1:].partition("]")
         ip = host
     # IPv4 with port: "203.0.113.10:1234" -> "203.0.113.10".
     # Plain IPv6 contains multiple colons and must not be split.
-    elif ip.count(':') == 1:
-        host, port = ip.rsplit(':', 1)
+    elif ip.count(":") == 1:
+        host, port = ip.rsplit(":", 1)
         if port.isdigit():
             ip = host
 
@@ -93,7 +94,9 @@ def patch_allauth_statekit():
     _original_unstash_state = statekit.unstash_state
     _original_unstash_last_state = statekit.unstash_last_state
 
-    def db_stash_state(request, state: Dict[str, Any], state_id: Optional[str] = None) -> str:
+    def db_stash_state(
+        request, state: Dict[str, Any], state_id: Optional[str] = None
+    ) -> str:
         """
         Enhanced stash_state that stores in both session AND database.
 
@@ -107,9 +110,9 @@ def patch_allauth_statekit():
         """
         # Check for popup mode parameter and store in session
         # This happens BEFORE the redirect to the OAuth provider
-        is_popup = request.GET.get('popup') == '1'
+        is_popup = request.GET.get("popup") == "1"
         if is_popup:
-            request.session['oauth_popup_mode'] = True
+            request.session["oauth_popup_mode"] = True
             logger.debug("[OAUTH] Popup mode detected and stored in session")
 
         # Native-app auth sheet: if this provider login starts inside an
@@ -119,12 +122,12 @@ def patch_allauth_statekit():
         # cross-browser and replayed-callback paths below - and it is bound to
         # this one OAuth flow rather than to the whole browser session.
         try:
-            if not state.get('next'):
+            if not state.get("next"):
                 from crush_lu.mobile_auth import peek_mobile_handoff_url
 
                 handoff_url = peek_mobile_handoff_url(request)
                 if handoff_url:
-                    state['next'] = handoff_url
+                    state["next"] = handoff_url
                     logger.info("[OAUTH] Pinned native-app handoff into OAuth state")
         except Exception as e:
             # Never block the login over this - the session flag still applies.
@@ -145,16 +148,16 @@ def patch_allauth_statekit():
             from crush_lu.oauth_recovery import bind_browser_state
 
             # Get request metadata for security tracking
-            user_agent = request.META.get('HTTP_USER_AGENT', '')
+            user_agent = request.META.get("HTTP_USER_AGENT", "")
             ip_address = get_client_ip(request)
 
             # Determine provider from state or request
-            provider = state.get('provider', '')
+            provider = state.get("provider", "")
             if not provider:
                 # Try to get from request path (e.g., /accounts/facebook/login/)
                 path = request.path
-                if '/accounts/' in path:
-                    parts = path.strip('/').split('/')
+                if "/accounts/" in path:
+                    parts = path.strip("/").split("/")
                     if len(parts) >= 2:
                         provider = parts[1]  # e.g., 'facebook'
 
@@ -167,11 +170,13 @@ def patch_allauth_statekit():
                 auth_origin_hash=bind_browser_state(request),
                 expires_at=timezone.now() + timezone.timedelta(minutes=15),
                 provider=provider,
-                user_agent=user_agent[:500] if user_agent else '',
+                user_agent=user_agent[:500] if user_agent else "",
                 ip_address=ip_address,
                 is_popup=is_popup,
             )
-            logger.debug(f"[OAUTH] State {state_id[:8]}... stored in DB (provider={provider})")
+            logger.debug(
+                f"[OAUTH] State {state_id[:8]}... stored in DB (provider={provider})"
+            )
 
         except Exception as e:
             # Log error but don't fail - session storage is the primary mechanism
@@ -223,7 +228,9 @@ def patch_allauth_statekit():
             return state
 
         # Session lookup failed - try database (cross-browser case, e.g., Android PWA)
-        logger.info(f"[OAUTH] State {state_id[:8]}... not in session, trying database fallback")
+        logger.info(
+            f"[OAUTH] State {state_id[:8]}... not in session, trying database fallback"
+        )
         try:
             from crush_lu.models import OAuthState
 
@@ -231,11 +238,17 @@ def patch_allauth_statekit():
 
             browser_hash = callback_browser_hash(request)
             if not browser_hash:
-                logger.warning("[OAUTH] Missing callback browser proof; restart sign-in")
+                logger.warning(
+                    "[OAUTH] Missing callback browser proof; restart sign-in"
+                )
                 return None
-            state = OAuthState.get_and_consume_state(state_id, browser_hash=browser_hash)
+            state = OAuthState.get_and_consume_state(
+                state_id, browser_hash=browser_hash
+            )
             if state:
-                logger.info(f"[OAUTH] State {state_id[:8]}... retrieved from database (cross-browser)")
+                logger.info(
+                    f"[OAUTH] State {state_id[:8]}... retrieved from database (cross-browser)"
+                )
                 _restore_handoff(request, state)
                 request._oauth_callback_state_id = state_id
                 return state
@@ -243,9 +256,13 @@ def patch_allauth_statekit():
                 # State not found - this is an error condition
                 existing = OAuthState.objects.filter(state_id=state_id).first()
                 if existing:
-                    logger.warning(f"[OAUTH] State {state_id[:8]}... in DB but invalid (used={existing.used}, expired={timezone.now() > existing.expires_at})")
+                    logger.warning(
+                        f"[OAUTH] State {state_id[:8]}... in DB but invalid (used={existing.used}, expired={timezone.now() > existing.expires_at})"
+                    )
                 else:
-                    logger.warning(f"[OAUTH] State {state_id[:8]}... not found in session or database")
+                    logger.warning(
+                        f"[OAUTH] State {state_id[:8]}... not found in session or database"
+                    )
         except Exception as e:
             logger.error(f"[OAUTH] Database state lookup failed: {e}")
 
@@ -291,9 +308,12 @@ def cleanup_expired_states():
     """
     try:
         from crush_lu.models import OAuthState
+
         expired_count = OAuthState.cleanup_expired()
         used_count = OAuthState.cleanup_old_used(hours=24)
         if expired_count or used_count:
-            logger.info(f"Cleaned up {expired_count} expired and {used_count} old used OAuth states")
+            logger.info(
+                f"Cleaned up {expired_count} expired and {used_count} old used OAuth states"
+            )
     except Exception as e:
         logger.error(f"Failed to cleanup OAuth states: {e}")

@@ -8,18 +8,34 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('delegations', '0002_add_default_to_profile_fields'),
+        ("delegations", "0002_add_default_to_profile_fields"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='company',
-            name='logo',
-            field=models.ImageField(blank=True, null=True, upload_to=functools.partial(crush_lu.storage._domain_upload_path, *('powerup', 'delegation/companies'), **{})),
+            model_name="company",
+            name="logo",
+            field=models.ImageField(
+                blank=True,
+                null=True,
+                upload_to=functools.partial(
+                    crush_lu.storage._domain_upload_path,
+                    *("powerup", "delegation/companies"),
+                    **{}
+                ),
+            ),
         ),
         migrations.AlterField(
-            model_name='delegationprofile',
-            name='profile_photo',
-            field=models.ImageField(blank=True, null=True, upload_to=functools.partial(crush_lu.storage._domain_upload_path, *('powerup', 'delegation/profiles'), **{})),
+            model_name="delegationprofile",
+            name="profile_photo",
+            field=models.ImageField(
+                blank=True,
+                null=True,
+                upload_to=functools.partial(
+                    crush_lu.storage._domain_upload_path,
+                    *("powerup", "delegation/profiles"),
+                    **{}
+                ),
+            ),
         ),
     ]

@@ -256,9 +256,7 @@ def test_command_fails_loudly_when_a_region_fails(mocker):
 
     # A real bug must stay a plain CommandError so the webhook answers 500.
     assert not isinstance(excinfo.value, RetailPriceSyncDeferred)
-    assert RetailPriceSyncRun.objects.get().status == (
-        RetailPriceSyncRun.Status.FAILED
-    )
+    assert RetailPriceSyncRun.objects.get().status == (RetailPriceSyncRun.Status.FAILED)
 
 
 def _http_error(status):
@@ -319,9 +317,7 @@ def test_command_defers_when_the_price_api_throttles(mocker):
     with pytest.raises(RetailPriceSyncDeferred):
         call_command("sync_retail_prices", regions=["westeurope"], currency="EUR")
 
-    assert RetailPriceSyncRun.objects.get().status == (
-        RetailPriceSyncRun.Status.FAILED
-    )
+    assert RetailPriceSyncRun.objects.get().status == (RetailPriceSyncRun.Status.FAILED)
 
 
 @pytest.mark.django_db
@@ -429,8 +425,7 @@ def test_pre_change_code_can_still_insert_without_the_region_column():
 
     table = RetailPriceSyncRun._meta.db_table
     with connection.cursor() as cursor:
-        cursor.execute(
-            f"""
+        cursor.execute(f"""
             INSERT INTO {table}
                 (id, provider, snapshot_date, currency, regions, status,
                  connector_name, source_endpoint, page_count, raw_item_count,
@@ -439,9 +434,7 @@ def test_pre_change_code_can_still_insert_without_the_region_column():
             VALUES ('%s', 'azure', '2026-08-25', 'EUR', '[]', 'running',
                     'legacy', 'https://example.test', 0, 0, 0, 0, 0, '',
                     '2026-08-25 00:00:00')
-            """
-            % ("0" * 32)
-        )
+            """ % ("0" * 32))
 
     assert RetailPriceSyncRun.objects.get(snapshot_date=date(2026, 8, 25)).region == ""
 

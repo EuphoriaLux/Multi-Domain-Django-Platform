@@ -6,13 +6,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0056_add_chapter5_letter_music_field'),
+        ("crush_lu", "0056_add_chapter5_letter_music_field"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='profilesubmission',
-            name='review_call_checklist',
-            field=models.JSONField(blank=True, default=dict, help_text='Structured checklist data from screening call'),
+            model_name="profilesubmission",
+            name="review_call_checklist",
+            field=models.JSONField(
+                blank=True,
+                default=dict,
+                help_text="Structured checklist data from screening call",
+            ),
         ),
     ]

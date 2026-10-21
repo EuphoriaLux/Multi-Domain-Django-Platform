@@ -10,6 +10,7 @@ Usage:
         # Domain-specific patterns here
     ]
 """
+
 from django.urls import path, include
 from django.http import HttpResponse
 from rest_framework_simplejwt.views import (
@@ -36,13 +37,13 @@ def health_check(request):
 # Base patterns - included by ALL domains
 # These provide essential functionality that every domain needs
 base_patterns = [
-    path('healthz/', health_check, name='health_check'),
-    path('csp-report/', csp_report, name='csp_report'),  # CSP violation reports
+    path("healthz/", health_check, name="health_check"),
+    path("csp-report/", csp_report, name="csp_report"),  # CSP violation reports
     # Custom set_language view that also updates CrushProfile.preferred_language
     # This replaces Django's default i18n/setlang/ with our extended version
-    path('i18n/setlang/', set_language_with_profile, name='set_language'),
-    path('accounts/', include('allauth.urls')),
-    path('cookies/', include('cookie_consent.urls')),  # GDPR cookie consent
+    path("i18n/setlang/", set_language_with_profile, name="set_language"),
+    path("accounts/", include("allauth.urls")),
+    path("cookies/", include("cookie_consent.urls")),  # GDPR cookie consent
 ]
 
 # JWT API patterns - included by domains that need API authentication
@@ -53,8 +54,12 @@ base_patterns = [
 # urls_crush.py, and the cache backing it is shared (Redis in production),
 # so the exchange would 401 from any domain that doesn't own the code anyway.
 api_patterns = [
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('api/token/logout/', TokenBlacklistView.as_view(), name='token_logout'),
-    path('api/token/exchange-code/', ExchangeCodeView.as_view(), name='token_exchange_code'),
+    path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("api/token/logout/", TokenBlacklistView.as_view(), name="token_logout"),
+    path(
+        "api/token/exchange-code/",
+        ExchangeCodeView.as_view(),
+        name="token_exchange_code",
+    ),
 ]

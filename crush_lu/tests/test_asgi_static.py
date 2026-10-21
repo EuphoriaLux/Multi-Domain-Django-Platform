@@ -43,7 +43,10 @@ def test_static_asgi_retries_uncompressed_when_precompressed_file_missing():
     assert static_file.calls[0]["HTTP_ACCEPT_ENCODING"] == "gzip, br"
     assert "HTTP_ACCEPT_ENCODING" not in static_file.calls[1]
     assert sent[0]["status"] == 200
-    assert b"".join(message.get("body", b"") for message in sent[1:]) == b"console.log('ok');"
+    assert (
+        b"".join(message.get("body", b"") for message in sent[1:])
+        == b"console.log('ok');"
+    )
 
 
 def _cache_control(url):
@@ -55,7 +58,7 @@ def _cache_control(url):
     bogus value would silently mask that.
     """
     headers = Headers([])
-    path = os.path.join(settings.STATIC_ROOT, url[len(settings.STATIC_URL):])
+    path = os.path.join(settings.STATIC_ROOT, url[len(settings.STATIC_URL) :])
     whitenoise_app.add_cache_headers(headers, path, url)
     return headers["Cache-Control"]
 

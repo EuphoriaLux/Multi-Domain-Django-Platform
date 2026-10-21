@@ -7,6 +7,7 @@ Covers:
   - Intent-probe API persistence + validation
   - Signup post-redirect now lands on /welcome/ instead of /create-profile/
 """
+
 from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 from django.contrib.auth import get_user_model
@@ -15,7 +16,6 @@ from django.core import mail
 
 from crush_lu.models import CrushProfile
 from crush_lu.models.profiles import UserDataConsent
-
 
 User = get_user_model()
 
@@ -45,7 +45,9 @@ class WelcomeViewTests(_SiteMixin, TestCase):
             password="pass-pass-pass",
             first_name="Alex",
         )
-        UserDataConsent.objects.filter(user=self.user).update(crushlu_consent_given=True)
+        UserDataConsent.objects.filter(user=self.user).update(
+            crushlu_consent_given=True
+        )
 
     def test_welcome_requires_login(self):
         response = self.client.get(reverse("crush_lu:welcome"))
@@ -98,6 +100,7 @@ class WelcomeIntentApiTests(_SiteMixin, TestCase):
             password="pass-pass-pass",
         )
         from crush_lu.models.profiles import UserDataConsent
+
         UserDataConsent.objects.update_or_create(
             user=self.user, defaults={"crushlu_consent_given": True}
         )
