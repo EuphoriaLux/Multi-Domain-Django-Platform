@@ -15,19 +15,23 @@ Auth funnel regressions (UX review Wave 1, findings 2-01 and 2-02).
 """
 
 import re
+from types import SimpleNamespace
 
 import pytest
 from allauth.account.models import EmailAddress, EmailConfirmationHMAC
 from allauth.core import context as allauth_context
+from allauth.socialaccount.models import SocialApp
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.sessions.backends.db import SessionStore
+from django.contrib.sites.models import Site
 from django.core.cache import cache
 from django.test import Client, RequestFactory, TestCase
 from django.utils import translation
 
 from azureproject.adapters import MultiDomainAccountAdapter
+from azureproject.domains import DOMAINS
 
 User = get_user_model()
 
@@ -278,3 +282,127 @@ class CrushAllauthLoginPageTests(TestCase):
             "/accounts/login/"
         )
         self.assertIn("Passwort vergessen?", response.content.decode())
+
+
+class AllauthLoginPageEveryHostTests(TestCase):
+    """
+    /accounts/login/ is mounted on every host that includes base_patterns, but
+    crush_lu's account/login.html wins on all of them (INSTALLED_APPS order).
+    Its crush branch extends crush_lu/base.html, which reverses crush-only URL
+    names, so on delegations.lu, arborist.lu and vinsdelux.com it raised
+    NoReverseMatch and the login page 500ed. Hosts without a page of their own
+    now get the self-contained login_neutral.html.
+    """
+
+    def setUp(self):
+        cache.clear()
+
+    def test_login_page_never_500s(self):
+        hosts = [
+            host
+            for domain, config in DOMAINS.items()
+            for host in (domain, *config.get("aliases", []))
+        ]
+        client = Client(raise_request_exception=False)
+        for host in hosts:
+            with self.subTest(host=host):
+                response = client.get(
+                    "/accounts/login/?next=/dashboard/", HTTP_HOST=host
+                )
+                self.assertLess(response.status_code, 500)
+
+    def test_other_domains_get_the_neutral_login_page(self):
+        for host in ("arborist.lu", "vinsdelux.com"):
+            with self.subTest(host=host):
+                response = Client(HTTP_HOST=host).get(
+                    "/accounts/login/?next=/dashboard/"
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertTemplateUsed(response, "account/login_neutral.html")
+                self.assertTemplateNotUsed(response, "crush_lu/base.html")
+                html = response.content.decode()
+                self.assertIn('name="login"', html)
+                self.assertIn('name="password"', html)
+                self.assertIn('name="next" value="/dashboard/"', html)
+
+    def test_neutral_login_form_signs_in_and_keeps_next(self):
+        _user, address = _unverified_user("client@arborist.lu")
+        address.verified = True
+        address.save()
+        client = Client(HTTP_HOST="arborist.lu")
+        response = client.post(
+            "/accounts/login/?next=/dashboard/",
+            {
+                "login": "client@arborist.lu",
+                "password": "Str0ng-pass-2026!",
+                "next": "/dashboard/",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, "/dashboard/")
+        self.assertIn("_auth_user_id", client.session)
+
+
+class DelegationsMicrosoftOnlyLoginTests(TestCase):
+    """
+    delegations.lu grants access through the tenant checks of a Microsoft
+    login. Its login page offers only Microsoft, and the account adapter
+    refuses any other login there, so an account that also has a password
+    cannot sign in around a revoked Microsoft access.
+    """
+
+    def setUp(self):
+        cache.clear()
+
+    def test_login_page_offers_microsoft_and_no_password_form(self):
+        # conftest pins SITE_ID, so attach the app to whatever Site this
+        # request resolves to rather than to a delegations.lu row.
+        site = Site.objects.get_current(
+            RequestFactory().get("/", HTTP_HOST="delegations.lu")
+        )
+        app = SocialApp.objects.create(
+            provider="microsoft", name="Microsoft", client_id="id", secret="s"
+        )
+        app.sites.add(site)
+        response = Client(HTTP_HOST="delegations.lu").get(
+            "/accounts/login/?next=/dashboard/"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "account/login_delegation.html")
+        html = response.content.decode()
+        self.assertNotIn('name="password"', html)
+        self.assertIn('href="/accounts/microsoft/login/?next=%2Fdashboard%2F"', html)
+
+    def test_password_login_is_refused_on_every_delegations_host(self):
+        _user, address = _unverified_user("staff@delegations.lu")
+        address.verified = True
+        address.save()
+        for host in ("delegations.lu", "test.delegations.lu", "delegation.localhost"):
+            with self.subTest(host=host):
+                client = Client(HTTP_HOST=host)
+                response = client.post(
+                    "/accounts/login/",
+                    {"login": "staff@delegations.lu", "password": "Str0ng-pass-2026!"},
+                )
+                self.assertEqual(response.status_code, 403)
+                self.assertNotIn("_auth_user_id", client.session)
+
+    def _pre_login(self, provider):
+        user, _address = _unverified_user(f"{provider}@delegations.lu")
+        request = RequestFactory().get("/", HTTP_HOST="delegations.lu")
+        sociallogin = SimpleNamespace(account=SimpleNamespace(provider=provider))
+        return MultiDomainAccountAdapter(request).pre_login(
+            request,
+            user,
+            email_verification="none",
+            signal_kwargs={"sociallogin": sociallogin},
+            email=None,
+            signup=False,
+            redirect_url=None,
+        )
+
+    def test_microsoft_login_is_allowed(self):
+        self.assertIsNone(self._pre_login("microsoft"))
+
+    def test_other_social_login_is_refused(self):
+        self.assertEqual(self._pre_login("google").status_code, 403)
