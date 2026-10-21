@@ -8,6 +8,13 @@
 @source "../../crush_lu/**/*.py";
 @source "../../crush_lu/static/crush_lu/js/**/*.js";
 
+/* Never scan built CSS. A committed output still holds the theme variables
+   its last build emitted, so scanning it kept them alive and building twice
+   gave different output. */
+@source not "../../*/static/*/css/tailwind.css";
+@source not "../../crush_lu/static/crush_lu/css/journey.css";
+@source not "../../crush_lu/static/crush_lu/css/marketing.css";
+
 /* Tailwind v4 plugins */
 @plugin "@tailwindcss/forms";
 @plugin "@tailwindcss/typography";

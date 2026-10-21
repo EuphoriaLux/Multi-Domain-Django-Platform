@@ -4,6 +4,13 @@
 @source "../../arborist/templates/**/*.html";
 @source "../../arborist/**/*.py";
 
+/* Never scan built CSS. A committed output still holds the theme variables
+   its last build emitted, so scanning it kept them alive and building twice
+   gave different output. */
+@source not "../../*/static/*/css/tailwind.css";
+@source not "../../crush_lu/static/crush_lu/css/journey.css";
+@source not "../../crush_lu/static/crush_lu/css/marketing.css";
+
 /* Tailwind v4 theme - Arborist brand colors (from brand-colors/colors.json) */
 @theme {
     --font-sans:
