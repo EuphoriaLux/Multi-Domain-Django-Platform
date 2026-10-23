@@ -46,6 +46,12 @@ SITES = [
     {"prod": "delegations.lu", "staging": "test.delegations.lu"},
 ]
 TIMEOUT = 30
+# How long the readyz check keeps retrying a request that got no answer, and
+# how often (see check_readyz). Each attempt can itself use the full TIMEOUT,
+# so 120/10 means attempts at about 0, 40 and 80 seconds: three tries, and a
+# host that never answers costs ~110 s here instead of 30.
+READYZ_RETRY_SECONDS = 120
+READYZ_RETRY_INTERVAL = 10
 # How long the stylesheet check keeps retrying a failed fetch, and how often
 # (see check_generated_assets).
 STYLESHEET_RETRY_SECONDS = 120
@@ -94,14 +100,29 @@ def check_readyz(base):
     global passes
     name = "readyz"
     url = f"{base}/readyz/"
-    try:
-        status, _, body = fetch(url)
-    except urllib.error.HTTPError as exc:
-        status, body = exc.code, exc.read()
-    except Exception as exc:  # noqa: BLE001
-        failures.append(f"{name}: {url} -> {type(exc).__name__}: {exc}")
-        print(f"  FAIL {name}: {type(exc).__name__}")
-        return
+    # A request that gets no answer is retried for a bounded time. The deploy
+    # gate has already seen this build report ready, so a timeout here is one
+    # stalled request, not a missing process: the staging deploys on
+    # 2026-10-21 (test.power-up.lu) and 2026-10-23 (test.crush.lu) each went
+    # red on a single /readyz/ TimeoutError while every other host passed,
+    # and the host answered in under a second minutes later. An answer is
+    # never retried: after the gate, a 503 or a failed check means a
+    # dependency went away, and waiting would only hide that.
+    deadline = time.monotonic() + READYZ_RETRY_SECONDS
+    while True:
+        try:
+            status, _, body = fetch(url)
+        except urllib.error.HTTPError as exc:
+            status, body = exc.code, exc.read()
+        except Exception as exc:  # noqa: BLE001 - retried, then reported
+            if time.monotonic() + READYZ_RETRY_INTERVAL < deadline:
+                print(f"  wait {name}: {url} -> {type(exc).__name__}; retrying")
+                time.sleep(READYZ_RETRY_INTERVAL)
+                continue
+            failures.append(f"{name}: {url} -> {type(exc).__name__}: {exc}")
+            print(f"  FAIL {name}: {type(exc).__name__}")
+            return
+        break
     try:
         payload = json.loads(body)
     except ValueError:
