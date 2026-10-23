@@ -567,9 +567,10 @@ struct CrushWebView: UIViewRepresentable {
             type: WKMediaCaptureType,
             decisionHandler: @escaping (WKPermissionDecision) -> Void
         ) {
-            // Only the check-in scanner needs capture, and only our own pages may
-            // ask. Granting here skips WebKit's redundant in-page prompt; iOS still
-            // shows the system alert on first use (NSCameraUsageDescription).
+            // Only the QR scanners need capture (coach check-in, Crush Cache
+            // stations), and only our own pages may ask. Granting here skips
+            // WebKit's redundant in-page prompt; iOS still shows the system alert
+            // on first use (NSCameraUsageDescription).
             guard type == .camera, isInternalHost(origin.host) else {
                 decisionHandler(.deny)
                 return

@@ -15,7 +15,13 @@ final class AppState: ObservableObject {
         Self.baseURL
     }
 
-    @Published var selectedDestination: AppDestination = .dashboard
+    /// The screen a cold start opens. Events, not the member dashboard: App
+    /// Review read build 4's dashboard of connection cards as "primarily
+    /// dating" (4.3(b), 2026-09-30), and the app is the companion for our events.
+    /// See ai-memory-hub/reviews/2026-10-23-crush-ios-app-review-4-3b-resubmission.md
+    static let startDestination: AppDestination = .events
+
+    @Published var selectedDestination: AppDestination = AppState.startDestination
     /// The navigation the shell has most recently been *asked* to perform.
     ///
     /// Identity, not equality: two taps on the same push notification are two
@@ -31,7 +37,7 @@ final class AppState: ObservableObject {
 
     init() {
         navigation = NavigationRequest(
-            url: URL(string: AppDestination.dashboard.path, relativeTo: Self.baseURL)!.absoluteURL
+            url: URL(string: Self.startDestination.path, relativeTo: Self.baseURL)!.absoluteURL
         )
         monitor.pathUpdateHandler = { [weak self] path in
             DispatchQueue.main.async {
