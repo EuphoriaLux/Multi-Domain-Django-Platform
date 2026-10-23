@@ -70,6 +70,9 @@ document.addEventListener("alpine:init", function () {
             consolidateMove: "{name}: Table {from} → Table {to} ({role})",
             consolidateFailed: "Consolidation failed.",
             consolidateSuccess: "Tables consolidated.",
+            correct: "Correct!",
+            wrong: "Wrong!",
+            correctAnswer: "Correct answer: {answer}",
         };
         if (!raw) return defaults;
         try {
@@ -228,14 +231,19 @@ document.addEventListener("alpine:init", function () {
             },
             get feedbackText() {
                 if (!this.lastResult) return "";
-                return this.lastResult.is_correct ? "Correct!" : "Wrong!";
+                return this.lastResult.is_correct
+                    ? this._i18n.correct
+                    : this._i18n.wrong;
             },
             get pointsFeedback() {
                 if (!this.lastResult) return "";
                 if (this.lastResult.is_correct) {
-                    return "+" + this.lastResult.points_earned + " points";
+                    return "+" + this.lastResult.points_earned + " " + this._i18n.pts;
                 }
-                return "Correct answer: " + (this.lastResult.correct_answer || "");
+                return this._i18n.correctAnswer.replace(
+                    "{answer}",
+                    this.lastResult.correct_answer || "",
+                );
             },
             get tableLabel() {
                 return "T" + this.tableNumber;

@@ -78,7 +78,7 @@ EMAIL_SECTIONS = [
             ("no_show", "No-shows"),
             ("avg_fill_rate_pct", "Avg fill rate"),
             ("connections_requested", "Connections requested"),
-            ("connections_shared", "Contacts shared"),
+            ("connections_shared", "Introductions made"),
             ("referrals_converted", "Referrals converted"),
         ],
     ),

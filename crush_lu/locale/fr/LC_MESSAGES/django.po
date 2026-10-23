@@ -23496,7 +23496,7 @@ msgstr "Bonjour %(name)s !"
 
 #: templates/crush_lu/email_unsubscribe.html:78
 msgid "Hi!"
-msgstr "Salut !"
+msgstr "Bonjour !"
 
 #: templates/crush_lu/email_unsubscribe.html:78
 msgid "Choose how you'd like to manage your email preferences:"
@@ -23586,7 +23586,7 @@ msgstr "Nouvelle affectation de profil à examiner"
 #: templates/crush_lu/emails/profile_submission_confirmation.html:9
 #, python-format
 msgid "Hey %(first_name)s!"
-msgstr "Salut %(first_name)s !"
+msgstr "Bonjour %(first_name)s !"
 
 #: templates/crush_lu/emails/coach_assignment.html:11
 msgid "You've been assigned a new profile to review:"
@@ -23847,7 +23847,7 @@ msgstr "Quelqu'un vous a bien lu"
 #: templates/crush_lu/emails/welcome.html:79
 #, python-format
 msgid "Hi %(first_name)s,"
-msgstr "Salut %(first_name)s,"
+msgstr "Bonjour %(first_name)s,"
 
 #: templates/crush_lu/emails/crush_connect_spark_received.html:11
 #, python-format
@@ -23882,7 +23882,7 @@ msgstr "Nouvel événement"
 #: templates/crush_lu/emails/patch_notes.html:10
 #, python-format
 msgid "Hey %(name)s!"
-msgstr "Salut %(name)s !"
+msgstr "Bonjour %(name)s !"
 
 #: templates/crush_lu/emails/event_announcement.html:10
 #: templates/crush_lu/emails/newsletter.html:8
@@ -24602,7 +24602,7 @@ msgstr "Un cadeau rien que pour vous"
 
 #: templates/crush_lu/emails/journey_gift_notification.html:14
 msgid "Hi"
-msgstr "Salut"
+msgstr "Bonjour"
 
 #: templates/crush_lu/emails/journey_gift_notification.html:18
 msgid "has created a magical"
@@ -24757,7 +24757,7 @@ msgstr "Quelqu'un veut se connecter avec vous !"
 #: templates/crush_lu/emails/new_message.html:9
 #, python-format
 msgid "Hi %(first_name)s!"
-msgstr "Salut %(first_name)s !"
+msgstr "Bonjour %(first_name)s !"
 
 #: templates/crush_lu/emails/new_connection_request.html:11
 #, python-format
@@ -25015,7 +25015,7 @@ msgstr "Complétez votre profil"
 #: templates/crush_lu/emails/profile_incomplete_72h.html:11
 #: templates/crush_lu/emails/profile_incomplete_final.html:11
 msgid "Hey"
-msgstr "Salut"
+msgstr "Bonjour"
 
 #: templates/crush_lu/emails/profile_incomplete_24h.html:9
 msgid "Your profile is waiting for you"
@@ -36335,7 +36335,7 @@ msgstr ""
 #: templates/crush_lu/welcome.html:21
 #, python-format
 msgid "Hi %(name)s,<br>welcome to Crush.lu."
-msgstr "Salut %(name)s,<br>bienvenue sur Crush.lu."
+msgstr "Bonjour %(name)s,<br>bienvenue sur Crush.lu."
 
 #: templates/crush_lu/welcome.html:24
 msgid "Before we start, one quick question to help us guide you."
@@ -36555,7 +36555,7 @@ msgstr "Bonsoir, %(name)s"
 #: views.py:477
 #, python-format
 msgid "Hey, %(name)s"
-msgstr "Salut %(name)s !"
+msgstr "Bonjour %(name)s !"
 
 #: views.py:517 views_profile.py:814
 msgid "Please complete your profile first."
@@ -46313,3 +46313,45 @@ msgstr "Envoyé depuis votre numéro WhatsApp Crush."
 
 msgid "More than 24 hours have passed since this member's last message, so WhatsApp doesn't allow a free reply. You can answer as soon as they write again."
 msgstr "Plus de 24 heures se sont écoulées depuis le dernier message de ce membre : WhatsApp n'autorise donc pas de réponse libre. Vous pourrez répondre dès qu'il vous écrira à nouveau."
+
+# UX Wave 6 follow-ups: #1154 plurals, #1167 quiz feedback, #1164
+#: crush_lu/templates/crush_lu/coach_edit_challenge.html
+#: crush_lu/templates/crush_lu/journey/chapter_view.html
+#, python-format
+msgid "%(points)s point"
+msgid_plural "%(points)s points"
+msgstr[0] "%(points)s point"
+msgstr[1] "%(points)s points"
+
+#: crush_lu/templates/crush_lu/journey/journey_map.html
+#, python-format
+msgid "%(points)s point earned"
+msgid_plural "%(points)s points earned"
+msgstr[0] "%(points)s point gagné"
+msgstr[1] "%(points)s points gagnés"
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+#, python-format
+msgid "%(total)s point in total"
+msgid_plural "%(total)s points in total"
+msgstr[0] "%(total)s point au total"
+msgstr[1] "%(total)s points au total"
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+#, python-format
+msgid "Your team finished with %(points)s point."
+msgid_plural "Your team finished with %(points)s points."
+msgstr[0] "Votre équipe a terminé avec %(points)s point."
+msgstr[1] "Votre équipe a terminé avec %(points)s points."
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Wrong!"
+msgstr "Faux !"
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Correct answer: {answer}"
+msgstr "Bonne réponse : {answer}"
+
+#: crush_lu/views_payments.py
+msgid "This membership is not pending payment."
+msgstr "Cette adhésion n’est pas en attente de paiement."

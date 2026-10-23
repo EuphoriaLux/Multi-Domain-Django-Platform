@@ -235,7 +235,7 @@
                         {{ attempt.user_answer }}
                     </div>
                     <div class="mt-2 flex flex-wrap gap-2">
-                        <span class="inline-block px-2 py-0.5 bg-purple-500 text-white text-xs rounded">{% blocktrans with points=attempt.points_earned %}{{ points }} points{% endblocktrans %}</span>
+                        <span class="inline-block px-2 py-0.5 bg-purple-500 text-white text-xs rounded">{% blocktrans count points=attempt.points_earned %}{{ points }} point{% plural %}{{ points }} points{% endblocktrans %}</span>
                         {% if attempt.is_correct %}
                             <span class="inline-block px-2 py-0.5 bg-green-500 text-white text-xs rounded">{% trans "Correct" %}</span>
                         {% else %}

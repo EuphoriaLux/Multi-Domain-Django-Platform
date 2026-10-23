@@ -16964,10 +16964,8 @@ msgid "Schedule the call"
 msgstr "Rückruf vereinbart"
 
 #: templates/crush_lu/coach_connection_review.html:281
-#, fuzzy
-#| msgid "Saved"
 msgid "Save"
-msgstr "Gespeichert"
+msgstr "Speichern"
 
 #: templates/crush_lu/coach_connection_review.html:289
 #, fuzzy
@@ -46187,3 +46185,45 @@ msgstr "Wird von deiner Crush-WhatsApp-Nummer gesendet."
 
 msgid "More than 24 hours have passed since this member's last message, so WhatsApp doesn't allow a free reply. You can answer as soon as they write again."
 msgstr "Die letzte Nachricht dieses Mitglieds ist mehr als 24 Stunden her, deshalb erlaubt WhatsApp keine freie Antwort. Du kannst antworten, sobald es wieder schreibt."
+
+# UX Wave 6 follow-ups: #1154 plurals, #1167 quiz feedback, #1164
+#: crush_lu/templates/crush_lu/coach_edit_challenge.html
+#: crush_lu/templates/crush_lu/journey/chapter_view.html
+#, python-format
+msgid "%(points)s point"
+msgid_plural "%(points)s points"
+msgstr[0] "%(points)s Punkt"
+msgstr[1] "%(points)s Punkte"
+
+#: crush_lu/templates/crush_lu/journey/journey_map.html
+#, python-format
+msgid "%(points)s point earned"
+msgid_plural "%(points)s points earned"
+msgstr[0] "%(points)s Punkt verdient"
+msgstr[1] "%(points)s Punkte verdient"
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+#, python-format
+msgid "%(total)s point in total"
+msgid_plural "%(total)s points in total"
+msgstr[0] "%(total)s Punkt insgesamt"
+msgstr[1] "%(total)s Punkte insgesamt"
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+#, python-format
+msgid "Your team finished with %(points)s point."
+msgid_plural "Your team finished with %(points)s points."
+msgstr[0] "Euer Team hat mit %(points)s Punkt abgeschlossen."
+msgstr[1] "Euer Team hat mit %(points)s Punkten abgeschlossen."
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Wrong!"
+msgstr "Falsch"
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Correct answer: {answer}"
+msgstr "Richtige Antwort: {answer}"
+
+#: crush_lu/views_payments.py
+msgid "This membership is not pending payment."
+msgstr "Diese Mitgliedschaft wartet nicht auf eine Zahlung."
