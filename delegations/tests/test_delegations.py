@@ -386,6 +386,84 @@ class DelegationsOnboardingAndSecurityTests(TestCase):
         self.assertTrue(bool(profile.profile_photo))
         mock_get.assert_called_once()
 
+    @patch("delegations.signals.requests.get")
+    def test_stale_thread_local_sociallogin_never_leaks_across_accounts_or_requests(
+        self, mock_get
+    ):
+        """
+        If _thread_local.sociallogin holds User A's Microsoft login (e.g. from
+        an earlier request on a reused worker), creating or onboarding User B's
+        SocialAccount must never consume User A's token for tenant extraction
+        or photo download, and request boundaries clear _thread_local.
+        """
+        from django.core.signals import request_finished
+
+        user_a = User.objects.create_user(username="user_a", email="a@acme.lu")
+        account_a = SocialAccount(
+            user=user_a,
+            provider="microsoft",
+            uid="ms-uid-user-a",
+            extra_data={
+                "id": "ms-uid-user-a",
+                "mail": "a@acme.lu",
+                "userPrincipalName": "a@acme.lu",
+            },
+        )
+        sociallogin_a = SimpleNamespace(
+            account=account_a,
+            user=user_a,
+            is_existing=False,
+            token=SimpleNamespace(
+                token=_jwt_with_claims({"tid": "11111111-2222-3333-4444-555555555555"}),
+                app=None,
+            ),
+        )
+        req_a = self.factory.get(
+            "/accounts/microsoft/login/callback/", HTTP_HOST="delegations.lu"
+        )
+        pre_social_login.send(
+            sender=SocialAccount, request=req_a, sociallogin=sociallogin_a
+        )
+
+        # User B is created while _thread_local still points to sociallogin_a
+        user_b = User.objects.create_user(
+            username="user_b", email="b@unmatched-domain.example"
+        )
+        account_b = SocialAccount.objects.create(
+            user=user_b,
+            provider="microsoft",
+            uid="ms-uid-user-b",
+            extra_data={
+                "id": "ms-uid-user-b",
+                "mail": "b@unmatched-domain.example",
+                "userPrincipalName": "b@unmatched-domain.example",
+                "jobTitle": "Worker",
+            },
+        )
+        # Stale post_save was ignored and cleared _thread_local
+        self.assertFalse(DelegationProfile.objects.filter(user=user_b).exists())
+        self.assertFalse(_thread_local.is_delegation_login)
+        self.assertIsNone(_thread_local.sociallogin)
+
+        # Even if ensure_delegation_profile_for_user is called directly with
+        # sociallogin_a for user_b, user_a's token/tenant/photo must be ignored.
+        profile_b, created = ensure_delegation_profile_for_user(
+            user_b, social_account=account_b, sociallogin=sociallogin_a
+        )
+        self.assertTrue(created)
+        self.assertIsNone(profile_b.company)
+        self.assertEqual(profile_b.microsoft_tenant_id, "")
+        self.assertEqual(profile_b.status, "no_company")
+        self.assertFalse(bool(profile_b.profile_photo))
+        mock_get.assert_not_called()
+
+        # Verify request_finished also resets _thread_local
+        _thread_local.is_delegation_login = True
+        _thread_local.sociallogin = sociallogin_a
+        request_finished.send(sender=self.__class__)
+        self.assertFalse(_thread_local.is_delegation_login)
+        self.assertIsNone(_thread_local.sociallogin)
+
 
 @override_settings(
     ALLOWED_HOSTS=[

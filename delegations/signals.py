@@ -14,6 +14,7 @@ from allauth.socialaccount.models import SocialAccount, SocialToken
 from allauth.socialaccount.signals import pre_social_login, social_account_updated
 from django.contrib.auth.signals import user_logged_in
 from django.core.files.base import ContentFile
+from django.core.signals import request_finished, request_started
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
@@ -24,6 +25,58 @@ logger = logging.getLogger(__name__)
 
 # Thread-local storage to pass domain and login context between signals
 _thread_local = threading.local()
+
+
+@receiver(request_started)
+@receiver(request_finished)
+def _reset_delegation_login_context(sender, **kwargs):
+    """Ensure OAuth login context never leaks across requests on reused WSGI workers."""
+    _thread_local.is_delegation_login = False
+    _thread_local.sociallogin = None
+
+
+def _sociallogin_matches_account(sociallogin, social_account=None, user=None):
+    """
+    Verify that ``sociallogin`` belongs to ``social_account`` / ``user`` before
+    consuming its token or account metadata.
+    """
+    if sociallogin is None:
+        return False
+    sl_account = getattr(sociallogin, "account", None)
+    if sl_account is None or getattr(sl_account, "provider", None) != "microsoft":
+        return False
+
+    if social_account is not None:
+        if sl_account is social_account:
+            return True
+        if (
+            getattr(sl_account, "pk", None)
+            and getattr(social_account, "pk", None)
+            and sl_account.pk != social_account.pk
+        ):
+            return False
+        sl_uid = getattr(sl_account, "uid", None)
+        acc_uid = getattr(social_account, "uid", None)
+        if not sl_uid or not acc_uid or sl_uid != acc_uid:
+            return False
+        sl_user_id = getattr(sl_account, "user_id", None) or getattr(
+            getattr(sociallogin, "user", None), "pk", None
+        )
+        acc_user_id = getattr(social_account, "user_id", None) or getattr(
+            user, "pk", None
+        )
+        if sl_user_id and acc_user_id and sl_user_id != acc_user_id:
+            return False
+        return True
+
+    if user is not None and getattr(user, "pk", None) is not None:
+        sl_user = getattr(sociallogin, "user", None) or getattr(
+            sl_account, "user", None
+        )
+        return getattr(sl_user, "pk", None) == user.pk
+
+    return False
+
 
 # Management keywords that trigger auto-rejection
 MANAGEMENT_KEYWORDS = [
@@ -136,7 +189,11 @@ def _extract_microsoft_tenant_id(social_account, sociallogin=None, extra_data=No
     """
     from azureproject.adapters import _microsoft_tenant_id
 
-    if sociallogin is not None and getattr(sociallogin, "token", None) is not None:
+    if (
+        sociallogin is not None
+        and getattr(sociallogin, "token", None) is not None
+        and _sociallogin_matches_account(sociallogin, social_account=social_account)
+    ):
         tid = _microsoft_tenant_id(sociallogin)
         if tid:
             return tid
@@ -305,8 +362,10 @@ def ensure_delegation_profile_for_user(user, social_account=None, sociallogin=No
         pass
 
     if social_account is None and sociallogin is not None:
-        if getattr(sociallogin.account, "provider", None) == "microsoft":
+        if _sociallogin_matches_account(sociallogin, user=user):
             social_account = sociallogin.account
+        else:
+            sociallogin = None
 
     if social_account is None:
         social_account = SocialAccount.objects.filter(
@@ -315,6 +374,11 @@ def ensure_delegation_profile_for_user(user, social_account=None, sociallogin=No
 
     if social_account is None:
         return None, False
+
+    if sociallogin is not None and not _sociallogin_matches_account(
+        sociallogin, social_account=social_account, user=user
+    ):
+        sociallogin = None
 
     extra_data = social_account.extra_data or {}
 
@@ -469,13 +533,24 @@ def create_delegation_profile_from_microsoft(sender, instance, created, **kwargs
         )
         return
 
+    sociallogin = getattr(_thread_local, "sociallogin", None)
+    if sociallogin is not None and not _sociallogin_matches_account(
+        sociallogin, social_account=instance, user=instance.user
+    ):
+        logger.warning(
+            "Ignoring stale thread-local sociallogin during SocialAccount post_save for user %s",
+            instance.user_id,
+        )
+        _reset_delegation_login_context(sender=SocialAccount)
+        return
+
     logger.info(f"Creating DelegationProfile for Microsoft user: {instance.user.email}")
 
     try:
         ensure_delegation_profile_for_user(
             instance.user,
             social_account=instance,
-            sociallogin=getattr(_thread_local, "sociallogin", None),
+            sociallogin=sociallogin,
         )
     except Exception as e:
         logger.error(f"Error creating DelegationProfile: {str(e)}", exc_info=True)
@@ -550,9 +625,12 @@ def update_delegation_last_login(sender, request, user, **kwargs):
         return
 
     try:
+        sociallogin = getattr(_thread_local, "sociallogin", None)
+        if not _sociallogin_matches_account(sociallogin, user=user):
+            sociallogin = None
         profile, _ = ensure_delegation_profile_for_user(
             user,
-            sociallogin=getattr(_thread_local, "sociallogin", None),
+            sociallogin=sociallogin,
         )
         if not profile:
             return
