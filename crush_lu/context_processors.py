@@ -286,6 +286,14 @@ def crush_user_context(request):
             ).count()
             context["pending_screening_count"] = pending_screening_count
 
+            # WhatsApp inbox entry: only once the coach's number is connected.
+            coach = request.user.crushcoach
+            if coach.whatsapp_phone_number_id:
+                from crush_lu.services.coach_whatsapp import unread_count
+
+                context["coach_whatsapp_enabled"] = True
+                context["coach_whatsapp_unread"] = unread_count(coach)
+
             # Count pending invitations to review (future feature)
             context["pending_invitations_count"] = 0
 

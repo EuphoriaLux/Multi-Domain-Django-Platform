@@ -46051,6 +46051,141 @@ msgstr "Verlängerung kündigen"
 msgid "Your renewal payment is due. Premium stays active for a few more days."
 msgstr "Deine Verlängerungszahlung ist fällig. Premium bleibt noch ein paar Tage aktiv."
 
+msgid "Meta phone number ID of this coach's WhatsApp Cloud API number. Set it once the number is registered in WhatsApp Manager; leave blank while the coach still uses the WhatsApp app."
+msgstr "Meta-Telefonnummer-ID der WhatsApp-Cloud-API-Nummer dieses Coaches. Trage sie ein, sobald die Nummer im WhatsApp Manager registriert ist; lass das Feld leer, solange der Coach noch die WhatsApp-App nutzt."
+
+msgctxt "whatsapp message"
+msgid "Photo"
+msgstr "Foto"
+
+msgid "Voice message"
+msgstr "Sprachnachricht"
+
+msgctxt "whatsapp message"
+msgid "Audio"
+msgstr "Audio"
+
+msgctxt "whatsapp message"
+msgid "Video"
+msgstr "Video"
+
+msgctxt "whatsapp message"
+msgid "Document"
+msgstr "Dokument"
+
+msgctxt "whatsapp message"
+msgid "Sticker"
+msgstr "Sticker"
+
+msgctxt "whatsapp message"
+msgid "Location"
+msgstr "Standort"
+
+msgid "Contact card"
+msgstr "Kontaktkarte"
+
+#, python-format
+msgid "Reacted %(emoji)s"
+msgstr "Reagiert mit %(emoji)s"
+
+msgid "Unsupported message"
+msgstr "Nicht unterstützte Nachricht"
+
+msgid "Write a message first."
+msgstr "Schreib zuerst eine Nachricht."
+
+#, python-format
+msgid "Messages can be at most %(max)s characters."
+msgstr "Nachrichten dürfen höchstens %(max)s Zeichen lang sein."
+
+msgid "More than 24 hours have passed since this member's last message. WhatsApp only lets you reply once they write again."
+msgstr "Die letzte Nachricht dieses Mitglieds ist mehr als 24 Stunden her. WhatsApp lässt dich erst antworten, wenn es wieder schreibt."
+
+msgid "WhatsApp isn't configured on the server."
+msgstr "WhatsApp ist auf dem Server nicht eingerichtet."
+
+msgid "New WhatsApp message"
+msgstr "Neue WhatsApp-Nachricht"
+
+#, python-format
+msgid "%(name)s wrote to you on WhatsApp."
+msgstr "%(name)s hat dir auf WhatsApp geschrieben."
+
+msgid "WhatsApp refused the reply: more than 24 hours have passed since this member's last message."
+msgstr "WhatsApp hat die Antwort abgelehnt: Die letzte Nachricht dieses Mitglieds ist mehr als 24 Stunden her."
+
+msgid "WhatsApp didn't accept the message. Please try again."
+msgstr "WhatsApp hat die Nachricht nicht angenommen. Bitte versuch es noch einmal."
+
+msgid "This file is no longer available on WhatsApp."
+msgstr "Diese Datei ist auf WhatsApp nicht mehr verfügbar."
+
+#, python-format
+msgid "Messages members sent to %(name)s's WhatsApp number. You can read them here; only the coach can reply."
+msgstr "Nachrichten, die Mitglieder an die WhatsApp-Nummer von %(name)s geschickt haben. Du kannst sie hier lesen; antworten kann nur der Coach."
+
+msgid "Messages members sent to your WhatsApp number. You can reply for 24 hours after a member's last message."
+msgstr "Nachrichten, die Mitglieder an deine WhatsApp-Nummer geschickt haben. Du kannst bis 24 Stunden nach der letzten Nachricht eines Mitglieds antworten."
+
+msgctxt "coach whatsapp inbox"
+msgid "Show"
+msgstr "Anzeigen"
+
+msgid "Your WhatsApp number isn't connected to crush.lu yet."
+msgstr "Deine WhatsApp-Nummer ist noch nicht mit crush.lu verbunden."
+
+msgid "Members' messages keep arriving in the WhatsApp app on your phone until an administrator connects your number."
+msgstr "Nachrichten von Mitgliedern kommen weiter in der WhatsApp-App auf deinem Handy an, bis ein Administrator deine Nummer verbindet."
+
+msgid "No WhatsApp messages yet."
+msgstr "Noch keine WhatsApp-Nachrichten."
+
+msgid "Not a member"
+msgstr "Kein Mitglied"
+
+msgid "Reply window closed"
+msgstr "Antwortfenster geschlossen"
+
+msgid "Photo from the member"
+msgstr "Foto des Mitglieds"
+
+msgid "Download file"
+msgstr "Datei herunterladen"
+
+msgctxt "whatsapp status"
+msgid "Read"
+msgstr "Gelesen"
+
+msgctxt "whatsapp status"
+msgid "Delivered"
+msgstr "Zugestellt"
+
+msgctxt "whatsapp status"
+msgid "Not delivered"
+msgstr "Nicht zugestellt"
+
+msgctxt "whatsapp status"
+msgid "Sent"
+msgstr "Gesendet"
+
+msgid "Back to WhatsApp"
+msgstr "Zurück zu WhatsApp"
+
+msgid "Read-only: only the coach can reply from this number."
+msgstr "Nur lesen: Nur der Coach kann von dieser Nummer antworten."
+
+msgid "Reply on WhatsApp"
+msgstr "Auf WhatsApp antworten"
+
+msgid "Reply on WhatsApp..."
+msgstr "Auf WhatsApp antworten …"
+
+msgid "Sent from your Crush WhatsApp number."
+msgstr "Wird von deiner Crush-WhatsApp-Nummer gesendet."
+
+msgid "More than 24 hours have passed since this member's last message, so WhatsApp doesn't allow a free reply. You can answer as soon as they write again."
+msgstr "Die letzte Nachricht dieses Mitglieds ist mehr als 24 Stunden her, deshalb erlaubt WhatsApp keine freie Antwort. Du kannst antworten, sobald es wieder schreibt."
+
 # UX Wave 6 follow-ups: #1154 plurals, #1167 quiz feedback, #1164
 #: crush_lu/templates/crush_lu/coach_edit_challenge.html
 #: crush_lu/templates/crush_lu/journey/chapter_view.html

@@ -1,13 +1,10 @@
-# Translations for delegations app.
-# Copyright (C) 2024-2025 Entreprinder
-# This file is distributed under the same license as the project.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: delegations 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-23 01:24+0200\n"
-"PO-Revision-Date: 2026-01-21 20:29\n"
+"POT-Creation-Date: 2026-10-23 13:45+0200\n"
+"PO-Revision-Date: 2026-10-23 13:45+0200\n"
 "Last-Translator: \n"
 "Language-Team: FR\n"
 "Language: fr\n"
@@ -16,23 +13,988 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-#: .\delegations\templates\account\logout_delegation.html:4
-#: .\delegations\templates\account\logout_delegation.html:13
-#: .\delegations\templates\account\logout_delegation.html:23
+msgid "Sign In"
+msgstr "Connexion"
+
+msgid ""
+"Sign in with your Microsoft work account to access the delegation portal."
+msgstr ""
+"Connectez-vous avec votre compte professionnel Microsoft pour accéder au "
+"portail de la délégation."
+
+msgid "Sign in with Microsoft"
+msgstr "Se connecter avec Microsoft"
+
+msgid ""
+"Microsoft authentication is not configured. Please contact the "
+"administrator."
+msgstr ""
+"L'authentification Microsoft n'est pas configurée. Veuillez contacter "
+"l'administrateur."
+
 msgid "Sign Out"
 msgstr "Se déconnecter"
 
-#: .\delegations\templates\account\logout_delegation.html:14
 msgid "Are you sure you want to sign out?"
 msgstr "Êtes-vous sûr de vouloir vous déconnecter ?"
 
-#: .\delegations\templates\account\logout_delegation.html:24
 msgid "Cancel"
 msgstr "Annuler"
 
-#: .\delegations\templates\admin\base_site.html:4
-#: .\delegations\templates\admin\base_site.html:29
-#, fuzzy
-#| msgid "Crush Delegation Management"
+msgid "Change Password"
+msgstr "Changer le mot de passe"
+
+msgid ""
+"Delegations.lu uses Microsoft sign-in, so there is no password to change "
+"here. To change your password, use your organisation's Microsoft account."
+msgstr ""
+"Delegations.lu utilise la connexion Microsoft, il n'y a donc aucun mot de "
+"passe à modifier ici. Pour modifier votre mot de passe, utilisez le compte "
+"Microsoft de votre organisation."
+
+msgid "Back"
+msgstr "Retour"
+
+msgid "Password Reset"
+msgstr "Réinitialisation du mot de passe"
+
+msgid ""
+"Delegations.lu uses Microsoft sign-in, so there is no password to reset "
+"here. If you cannot sign in, reset your password through your organisation's"
+" Microsoft account."
+msgstr ""
+"Delegations.lu utilise la connexion Microsoft, il n'y a donc aucun mot de "
+"passe à réinitialiser ici. Si vous ne parvenez pas à vous connecter, "
+"réinitialisez votre mot de passe via le compte Microsoft de votre "
+"organisation."
+
 msgid "Delegations.lu Management"
-msgstr "Gestion de la délégation Crush"
+msgstr "Gestion Delegations.lu"
+
+msgid "Cookie Settings"
+msgstr "Paramètres des cookies"
+
+msgid ""
+"Employment Issue Help & Staff Delegation in Luxembourg | Delegations.lu"
+msgstr ""
+"Aide Droit du Travail & Délégation du Personnel au Luxembourg | "
+"Delegations.lu"
+
+msgid ""
+"Facing an employment issue in Luxembourg? Confidential guidance on "
+"dismissal, workplace harassment (mobbing), contract changes, overtime, sick "
+"leave protection, and Staff Delegation rights (Délégation du personnel) in "
+"FR, DE & EN."
+msgstr ""
+"Un problème au travail au Luxembourg ? Orientation confidentielle sur le "
+"licenciement, le harcèlement moral (mobbing), la modification du contrat, "
+"les heures supplémentaires, l'arrêt maladie et la Délégation du personnel en"
+" FR, DE et EN."
+
+msgid ""
+"employment issue Luxembourg, unfair dismissal Luxembourg, licenciement "
+"abusif Luxembourg, délégation du personnel Luxembourg, harcèlement moral "
+"travail Luxembourg, Arbeitsrecht Luxemburg Hilfe, Kündigung Luxemburg, "
+"Personaldelegation Luxemburg, ITM Luxembourg"
+msgstr ""
+"problème au travail Luxembourg, licenciement abusif Luxembourg, délégation "
+"du personnel Luxembourg, harcèlement moral travail Luxembourg, droit du "
+"travail Luxembourg aide, préavis licenciement Luxembourg, ITM Luxembourg"
+
+msgid ""
+"Confidential orientation for employees in Luxembourg facing dismissal, "
+"workplace harassment, contract changes, or needing Staff Delegation support."
+msgstr ""
+"Orientation confidentielle pour les salariés au Luxembourg confrontés à un "
+"licenciement, au harcèlement moral, à une modification de contrat ou ayant "
+"besoin d'une Délégation du personnel."
+
+msgid ""
+"Confidential employment issue orientation and Staff Delegation platform in "
+"Luxembourg."
+msgstr ""
+"Plateforme confidentielle d'orientation en droit du travail et de Délégation"
+" du personnel au Luxembourg."
+
+msgid "Toggle navigation"
+msgstr "Basculer la navigation"
+
+msgid "Workplace Issues"
+msgstr "Situations au travail"
+
+msgid "Free Assessment"
+msgstr "Évaluation gratuite"
+
+msgid "Your Rights"
+msgstr "Vos droits"
+
+msgid "FAQ"
+msgstr "FAQ"
+
+msgid "Company Portal"
+msgstr "Portail Entreprise"
+
+msgid "Language selector"
+msgstr "Sélecteur de langue"
+
+msgid "Get Help Now"
+msgstr "Obtenir de l'aide"
+
+msgid "Confidential Employment Support in Luxembourg · FR / DE / EN"
+msgstr "Aide confidentielle aux salariés au Luxembourg · FR / DE / EN"
+
+msgid "Facing an Employment Issue in Luxembourg? Don't Navigate It Alone."
+msgstr ""
+"Un problème au travail au Luxembourg ? Ne restez pas seul face à votre "
+"employeur."
+
+msgid ""
+"Whether you are dealing with an unfair dismissal, workplace harassment "
+"(mobbing), a forced contract change, unpaid overtime, or need your Staff "
+"Delegation (Délégation du personnel), get a clear, confidential orientation "
+"under Luxembourg labour law."
+msgstr ""
+"Que vous soyez confronté à un licenciement abusif, au harcèlement moral "
+"(mobbing), à une modification imposée de votre contrat, à des heures "
+"supplémentaires impayées ou que vous cherchiez votre Délégation du "
+"personnel, obtenez une orientation claire et confidentielle selon le Code du"
+" travail luxembourgeois."
+
+msgid "Describe My Situation — Free & Confidential"
+msgstr "Décrire ma situation — Gratuit & Confidentiel"
+
+msgid "Explore Common Issues"
+msgstr "Voir les problèmes fréquents"
+
+msgid "100% Confidential — Employer Never Notified"
+msgstr "100 % Confidentiel — Employeur jamais informé"
+
+msgid "Aligned with Luxembourg Code du Travail"
+msgstr "Basé sur le Code du travail luxembourgeois"
+
+msgid "Support in French, German & English"
+msgstr "Accompagnement en français, allemand et anglais"
+
+msgid "Interactive Prototype · 60-Second Triage"
+msgstr "Prototype interactif · Diagnostic en 60 secondes"
+
+msgid "What are you experiencing at work?"
+msgstr "Quelle situation rencontrez-vous au travail ?"
+
+msgid ""
+"Select your situation below to pre-fill your confidential Luxembourg rights "
+"check:"
+msgstr ""
+"Sélectionnez votre situation ci-dessous pour pré-remplir votre bilan "
+"confidentiel :"
+
+msgid "Dismissal, Warning Letter or Notice Period"
+msgstr "Licenciement, avertissement ou préavis"
+
+msgid "Workplace Harassment, Mobbing or Burnout"
+msgstr "Harcèlement moral, mobbing ou burnout"
+
+msgid "Unpaid Salary, Overtime, Index or Leave"
+msgstr "Salaire impayé, heures supplémentaires, index ou congés"
+
+msgid "Contract Modification or Demotion"
+msgstr "Modification du contrat ou rétrogradation"
+
+msgid "Sick Leave, Maternity or Dismissal Protection"
+msgstr "Arrêt maladie, maternité ou protection contre le licenciement"
+
+msgid "Staff Delegation Rights (15+ Employees)"
+msgstr "Droits de la Délégation du personnel (15+ salariés)"
+
+msgid "Luxembourg Labour Law & Workplace Protection"
+msgstr "Droit du travail luxembourgeois & protection des salariés"
+
+msgid "Most Common Employment Issues We Help Identify"
+msgstr "Les problèmes au travail les plus fréquents au Luxembourg"
+
+msgid ""
+"Luxembourg's Labour Code (Code du travail) provides strong protections for "
+"employees—but strict deadlines and procedural rules apply. Identify where "
+"your situation fits."
+msgstr ""
+"Le Code du travail luxembourgeois protège fortement les salariés, mais "
+"impose des délais et des procédures stricts. Identifiez la catégorie "
+"correspondant à votre situation."
+
+msgid "Art. L.124-5 & L.124-11 · Code du travail"
+msgstr "Art. L.124-5 & L.124-11 · Code du travail"
+
+msgid "Dismissal & Termination Disputes"
+msgstr "Licenciement, préavis & contestation"
+
+msgid ""
+"Dismissed with notice (licenciement avec préavis) or for serious misconduct "
+"(faute grave)? In Luxembourg, you have 1 month to request the written "
+"reasons by registered letter and 3 months to contest an abusive dismissal."
+msgstr ""
+"Licencié avec préavis ou pour faute grave ? Au Luxembourg, vous disposez "
+"d'un délai strict d'un mois pour demander les motifs par lettre recommandée "
+"et de 3 mois pour agir contre un licenciement abusif."
+
+msgid "Assess a dismissal issue"
+msgstr "Évaluer un licenciement"
+
+msgid "Art. L.246-1 to L.246-7 · Law of 29 March 2023"
+msgstr "Art. L.246-1 à L.246-7 · Loi du 29 mars 2023"
+
+msgid "Moral Harassment (Mobbing) & Burnout"
+msgstr "Harcèlement moral (Mobbing) & épuisement professionnel"
+
+msgid ""
+"Facing repeated hostility, isolation, or toxic management pressure? "
+"Luxembourg law obliges employers to stop moral harassment, protects victims "
+"and witnesses from retaliation, and empowers the Staff Delegation and ITM to"
+" intervene."
+msgstr ""
+"Pressions répétées, isolement ou management toxique ? La loi luxembourgeoise"
+" oblige l'employeur à faire cesser le harcèlement moral, protège les "
+"victimes et témoins contre les représailles, et habilite la Délégation du "
+"personnel et l'ITM à intervenir."
+
+msgid "Assess a harassment issue"
+msgstr "Évaluer un cas de harcèlement"
+
+msgid "Art. L.211-27 & L.221-1 · Wages & Hours"
+msgstr "Art. L.211-27 & L.221-1 · Salaires & horaires"
+
+msgid "Unpaid Overtime, Salary & Indexation"
+msgstr "Heures supplémentaires, salaire & indexation"
+
+msgid ""
+"Missing wage indexation (tranche indiciaire), uncompensated overtime, "
+"withheld bonuses, or refused statutory leave? Wage claims in Luxembourg "
+"remain enforceable for 3 years with strong documentary evidence."
+msgstr ""
+"Tranche indiciaire non appliquée, heures supplémentaires non rémunérées, "
+"primes retenues ou congés refusés ? Au Luxembourg, les arriérés de salaire "
+"peuvent être réclamés pendant 3 ans."
+
+msgid "Assess a salary or overtime issue"
+msgstr "Évaluer un litige salarial"
+
+msgid "Art. L.121-6 · Incapacity & Maternity"
+msgstr "Art. L.121-6 · Incapacité de travail & maternité"
+
+msgid "Sick Leave & Protected Employees"
+msgstr "Arrêt maladie & protection contre le licenciement"
+
+msgid ""
+"Notified your employer on day 1 and submitted your medical certificate by "
+"day 3? You are legally shielded from dismissal for up to 26 weeks of sick "
+"leave, as well as during pregnancy, parental leave, or staff delegate "
+"mandates."
+msgstr ""
+"Vous avez prévenu votre employeur le 1er jour et remis votre certificat "
+"médical au plus tard le 3e jour ? Vous êtes protégé contre le licenciement "
+"pendant 26 semaines d'incapacité, ainsi que durant la grossesse, le congé "
+"parental ou un mandat de délégué."
+
+msgid "Assess sick leave protection"
+msgstr "Vérifier ma protection maladie"
+
+msgid "Art. L.121-7 · Contract Clauses"
+msgstr "Art. L.121-7 · Clauses essentielles du contrat"
+
+msgid "Unilateral Contract Modification"
+msgstr "Modification unilatérale du contrat de travail"
+
+msgid ""
+"Pressured to sign an addendum (avenant) reducing your pay, changing your "
+"workplace, or stripping responsibilities? Unfavorable changes to essential "
+"contract terms must follow strict notice and pre-interview rules."
+msgstr ""
+"Pression pour signer un avenant réduisant votre rémunération, changeant "
+"votre lieu de travail ou vos responsabilités ? Toute modification "
+"substantielle défavorable doit respecter la procédure stricte de l'article "
+"L.121-7."
+
+msgid "Assess a contract change"
+msgstr "Évaluer une modification de contrat"
+
+msgid "Art. L.411-1 · 15+ Employees Threshold"
+msgstr "Art. L.411-1 · Seuil de 15 salariés"
+
+msgid "Staff Delegation (Délégation du personnel)"
+msgstr "Délégation du personnel & représentation"
+
+msgid ""
+"Every company in Luxembourg with 15+ employees must have a Staff Delegation."
+" Need to contact a delegate confidentially, prepare for a pre-dismissal "
+"interview (entretien préalable), or set up a delegation?"
+msgstr ""
+"Toute entreprise employant au moins 15 salariés au Luxembourg doit disposer "
+"d'une Délégation du personnel. Besoin de contacter un délégué en toute "
+"confidentialité, de préparer un entretien préalable ou de créer une "
+"délégation ?"
+
+msgid "Assess delegation support"
+msgstr "Obtenir l'appui d'une délégation"
+
+msgid "Confidential Orientation Prototype"
+msgstr "Prototype d'orientation confidentielle"
+
+msgid "Takes 2 minutes · Immediate Luxembourg legal checkpoints"
+msgstr "Durée 2 minutes · Points de repère immédiats en droit luxembourgeois"
+
+msgid "Identify Your Employment Situation & Get Tailored Next Steps"
+msgstr ""
+"Identifiez votre situation au travail et recevez vos prochaines étapes"
+
+msgid ""
+"Tell us what is happening at your workplace in Luxembourg. You will "
+"immediately receive a structured orientation summary with the applicable "
+"Labour Code rules, statutory deadlines, and Staff Delegation options."
+msgstr ""
+"Décrivez ce qui se passe sur votre lieu de travail au Luxembourg. Vous "
+"recevrez immédiatement une synthèse structurée avec les règles applicables "
+"du Code du travail, les délais légaux et vos options auprès de la Délégation"
+" du personnel."
+
+msgid "Your Confidential Luxembourg Orientation Summary"
+msgstr "Votre synthèse d'orientation confidentielle (Luxembourg)"
+
+msgid "Ref:"
+msgstr "Réf. :"
+
+msgid "Selected Issue:"
+msgstr "Problème sélectionné :"
+
+msgid "Key Luxembourg Labour Code Principle:"
+msgstr "Principe clé du Code du travail luxembourgeois :"
+
+msgid "Recommended Immediate Steps:"
+msgstr "Étapes immédiates recommandées :"
+
+msgid "Staff Delegation Context:"
+msgstr "Contexte Délégation du personnel :"
+
+msgid "Please review the highlighted fields below:"
+msgstr "Veuillez vérifier les champs indiqués ci-dessous :"
+
+msgid "1. What is your primary employment issue?"
+msgstr "1. Quel est votre problème principal au travail ?"
+
+msgid "Select your workplace issue..."
+msgstr "Sélectionnez votre situation..."
+
+msgid "Unfavorable Contract Change or Demotion"
+msgstr "Modification défavorable du contrat ou rétrogradation"
+
+msgid "Staff Delegation Rights & Representation"
+msgstr "Droits de la Délégation du personnel & représentation"
+
+msgid "Please select the employment issue that best matches your situation."
+msgstr ""
+"Veuillez sélectionner le problème au travail qui correspond le mieux à votre"
+" situation."
+
+msgid "2. How urgent is your situation?"
+msgstr "2. Quel est le degré d'urgence de votre situation ?"
+
+msgid "Urgent — I received a letter or have an HR meeting within days"
+msgstr ""
+"Urgent — J'ai reçu un courrier ou j'ai un entretien RH dans quelques jours"
+
+msgid "Active — Ongoing workplace conflict or pressure"
+msgstr "Situation active — Conflit ou pression en cours au travail"
+
+msgid "Preventive — I want to verify my rights before acting"
+msgstr "Préventif — Je souhaite vérifier mes droits avant d'agir"
+
+msgid "Please indicate how urgent your situation is."
+msgstr "Veuillez indiquer le degré d'urgence de votre situation."
+
+msgid "3. Approximate company size in Luxembourg"
+msgstr "3. Taille approximative de l'entreprise au Luxembourg"
+
+msgid "15 or more employees (Staff Delegation mandatory by law)"
+msgstr "15 salariés ou plus (Délégation du personnel obligatoire par la loi)"
+
+msgid "Fewer than 15 employees"
+msgstr "Moins de 15 salariés"
+
+msgid "I am not sure"
+msgstr "Je ne suis pas sûr(e)"
+
+msgid "Please select your approximate company size in Luxembourg."
+msgstr ""
+"Veuillez sélectionner la taille approximative de votre entreprise au "
+"Luxembourg."
+
+msgid "4. Does your employer have a Staff Delegation?"
+msgstr "4. Votre employeur dispose-t-il d'une Délégation du personnel ?"
+
+msgid "Not sure / Prefer external guidance first"
+msgstr "Je ne sais pas / Je préfère un avis externe d'abord"
+
+msgid "Yes, there is an elected Staff Delegation"
+msgstr "Oui, il existe une Délégation du personnel élue"
+
+msgid "No Staff Delegation exists in my company"
+msgstr "Aucune Délégation du personnel n'existe dans mon entreprise"
+
+msgid "5. Briefly describe what happened"
+msgstr "5. Décrivez brièvement votre situation"
+
+msgid ""
+"Include key dates (e.g., when you received a letter or started sick leave) "
+"without sharing sensitive passwords or trade secrets. Minimum 15 characters."
+msgstr ""
+"Mentionnez les dates clés (ex. réception d'un courrier, début d'arrêt "
+"maladie) sans partager de mots de passe ni de secrets d'affaires. Minimum 15"
+" caractères."
+
+msgid ""
+"Example: Last Tuesday I received a dismissal letter with 2 months notice "
+"after returning from sick leave..."
+msgstr ""
+"Exemple : Mardi dernier, j'ai reçu une lettre de licenciement avec 2 mois de"
+" préavis à mon retour d'arrêt maladie..."
+
+msgid ""
+"Please share a short summary (at least 15 characters) so we can tailor your "
+"orientation."
+msgstr ""
+"Veuillez décrire brièvement votre situation (au moins 15 caractères) afin de"
+" personnaliser votre orientation."
+
+msgid "6. Your personal email address"
+msgstr "6. Votre adresse e-mail personnelle"
+
+msgid ""
+"Use a private email address (not your work email) so your employer cannot "
+"see your orientation summary."
+msgstr ""
+"Utilisez une adresse e-mail privée (et non professionnelle) afin que votre "
+"employeur n'ait aucun accès à votre synthèse."
+
+msgid ""
+"Please enter a personal email address where we can send your orientation "
+"summary."
+msgstr ""
+"Veuillez indiquer une adresse e-mail personnelle pour recevoir votre "
+"synthèse d'orientation."
+
+msgid "Please enter a valid email address (for example: name@example.com)."
+msgstr ""
+"Veuillez saisir une adresse e-mail valide (par exemple : nom@exemple.lu)."
+
+msgid "7. Preferred language for support"
+msgstr "7. Langue souhaitée pour l'accompagnement"
+
+msgid "Choose French, German, or English."
+msgstr "Choisissez le français, l'allemand ou l'anglais."
+
+msgid ""
+"I understand that this prototype assessment is confidential, provides "
+"general Luxembourg employment orientation, and does not constitute formal "
+"legal representation."
+msgstr ""
+"Je comprends que cette évaluation prototype est confidentielle, fournit une "
+"orientation générale en droit du travail luxembourgeois et ne constitue pas "
+"une représentation juridique formelle."
+
+msgid ""
+"Please confirm that you understand this confidential prototype orientation."
+msgstr ""
+"Veuillez confirmer que vous comprenez le cadre de cette orientation "
+"confidentielle."
+
+msgid "Get My Luxembourg Employment Orientation"
+msgstr "Obtenir mon orientation droit du travail (Luxembourg)"
+
+msgid "Encrypted & strictly confidential"
+msgstr "Chiffré & strictement confidentiel"
+
+msgid "Why Timing Matters in Luxembourg"
+msgstr "Pourquoi les délais sont décisifs au Luxembourg"
+
+msgid "Critical Deadlines Under the Luxembourg Labour Code"
+msgstr "Les délais légaux impératifs du Code du travail luxembourgeois"
+
+msgid ""
+"Many employees in Luxembourg lose strong legal claims simply because a "
+"statutory deadline expired or a procedural step was missed. Knowing these "
+"rules early changes everything."
+msgstr ""
+"De nombreux salariés au Luxembourg perdent leurs droits simplement parce "
+"qu'un délai légal a expiré ou qu'une formalité a été omise. Connaître ces "
+"règles à temps change tout."
+
+msgid "1 Month to Request Dismissal Reasons"
+msgstr "1 mois pour demander les motifs du licenciement"
+
+msgid ""
+"After receiving a dismissal with notice, you have 1 month to send a "
+"registered letter (lettre recommandée) requesting the exact reasons."
+msgstr ""
+"Après réception d'un licenciement avec préavis, vous disposez d'un mois pour"
+" envoyer une lettre recommandée demandant les motifs précis."
+
+msgid "Day 1 Notification & Day 3 Medical Certificate"
+msgstr "Jour 1 : avertir l'employeur · Jour 3 : certificat médical"
+
+msgid ""
+"Your 26-week protection against dismissal during sick leave requires "
+"notifying your employer on Day 1 and delivering the medical certificate by "
+"Day 3."
+msgstr ""
+"Votre protection de 26 semaines contre le licenciement en arrêt maladie "
+"exige d'informer l'employeur dès le 1er jour et de remettre le certificat "
+"médical au plus tard le 3e jour."
+
+msgid "15+ Employees: Mandatory Staff Delegation"
+msgstr "15+ salariés : Délégation du personnel obligatoire"
+
+msgid ""
+"Any company with at least 15 workers in Luxembourg must have a Staff "
+"Delegation (Délégation du personnel) that can advise and accompany you."
+msgstr ""
+"Toute entreprise comptant au moins 15 salariés au Luxembourg doit avoir une "
+"Délégation du personnel pouvant vous conseiller et vous accompagner."
+
+msgid "How Delegations.lu Supports You"
+msgstr "Comment Delegations.lu vous accompagne"
+
+msgid "Identify Your Issue in FR, DE, or EN"
+msgstr "Identifiez votre problème en FR, DE ou EN"
+
+msgid ""
+"Describe your workplace situation in your preferred language without legal "
+"jargon."
+msgstr ""
+"Décrivez votre situation professionnelle dans votre langue, sans jargon "
+"juridique."
+
+msgid "Check Your Statutory Protections & Deadlines"
+msgstr "Vérifiez vos protections légales et vos délais"
+
+msgid ""
+"Understand which articles of the Luxembourg Code du travail and ITM "
+"procedures apply to your case."
+msgstr ""
+"Comprenez quels articles du Code du travail luxembourgeois et quelles "
+"démarches auprès de l'ITM s'appliquent à votre cas."
+
+msgid "Connect with Staff Delegates or Specialists"
+msgstr "Mobilisez la Délégation du personnel ou un spécialiste"
+
+msgid ""
+"Prepare your documentation for your Staff Delegation, trade union, the ITM, "
+"or a Luxembourg employment lawyer."
+msgstr ""
+"Préparez votre dossier pour votre Délégation du personnel, un syndicat, "
+"l'ITM ou un avocat en droit du travail au Luxembourg."
+
+msgid "Frequently Asked Questions"
+msgstr "Questions fréquentes (FAQ)"
+
+msgid "Employment Rights & Staff Delegations in Luxembourg"
+msgstr "Droits des salariés & Délégations du personnel au Luxembourg"
+
+msgid "What should I do first if I receive a dismissal letter in Luxembourg?"
+msgstr ""
+"Que faire en priorité si je reçois une lettre de licenciement au Luxembourg "
+"?"
+
+msgid ""
+"If you are dismissed with notice (licenciement avec préavis) in Luxembourg, "
+"you have strictly 1 month from notification to request the precise reasons "
+"by registered letter (lettre recommandée). Once the employer replies (or for"
+" immediate dismissal), a 3-month deadline applies to contest unfair "
+"dismissal."
+msgstr ""
+"En cas de licenciement avec préavis au Luxembourg, vous disposez d'un délai "
+"strict d'un mois à compter de la notification pour demander les motifs "
+"précis par lettre recommandée. Dès réception de la réponse de l'employeur "
+"(ou en cas de licenciement avec effet immédiat), vous avez 3 mois pour agir "
+"en justice contre un licenciement abusif."
+
+msgid ""
+"When is a Staff Delegation (Délégation du personnel) mandatory in "
+"Luxembourg?"
+msgstr ""
+"Quand une Délégation du personnel est-elle obligatoire au Luxembourg ?"
+
+msgid ""
+"Under Article L.411-1 of the Luxembourg Labour Code, every private-sector "
+"company employing at least 15 workers in Luxembourg is legally required to "
+"have an elected Staff Delegation to represent and defend employees."
+msgstr ""
+"Selon l'article L.411-1 du Code du travail luxembourgeois, toute entreprise "
+"employant au moins 15 salariés au Luxembourg a l'obligation légale de mettre"
+" en place une Délégation du personnel élue pour représenter et défendre le "
+"personnel."
+
+msgid "Am I protected against dismissal during sick leave in Luxembourg?"
+msgstr ""
+"Suis-je protégé contre le licenciement pendant un arrêt maladie au "
+"Luxembourg ?"
+
+msgid ""
+"Yes, under Article L.121-6 of the Labour Code, you are protected against "
+"dismissal for up to 26 consecutive weeks, provided you inform your employer "
+"on the 1st day of absence and submit your medical certificate no later than "
+"the 3rd day."
+msgstr ""
+"Oui, en vertu de l'article L.121-6 du Code du travail, vous êtes protégé "
+"contre le licenciement pendant 26 semaines consécutives, à condition "
+"d'informer votre employeur dès le 1er jour d'absence et de lui transmettre "
+"votre certificat médical au plus tard le 3e jour."
+
+msgid "How can I report workplace harassment (mobbing) in Luxembourg?"
+msgstr ""
+"Comment signaler un harcèlement moral (mobbing) au travail au Luxembourg ?"
+
+msgid ""
+"Since the Luxembourg Law of 29 March 2023 on moral harassment, employers "
+"must stop harassment immediately and protect victims and witnesses from "
+"retaliation. You can seek assistance from your Staff Delegation and escalate"
+" to the Inspection du travail et des mines (ITM)."
+msgstr ""
+"Depuis la loi luxembourgeoise du 29 mars 2023 sur le harcèlement moral, "
+"l'employeur doit faire cesser immédiatement tout harcèlement et protéger les"
+" victimes ainsi que les témoins contre toute représaille. Vous pouvez saisir"
+" votre Délégation du personnel et l'Inspection du travail et des mines "
+"(ITM)."
+
+msgid ""
+"Can my employer change my salary, working hours, or role without my consent?"
+msgstr ""
+"Mon employeur peut-il modifier mon salaire, mes horaires ou mon poste sans "
+"mon accord ?"
+
+msgid ""
+"No. Under Article L.121-7 of the Luxembourg Labour Code, any substantial "
+"modification of an essential clause to the employee's detriment must follow "
+"the same strict procedure and notice period as a dismissal."
+msgstr ""
+"Non. Selon l'article L.121-7 du Code du travail luxembourgeois, toute "
+"modification substantielle d'une clause essentielle en défaveur du salarié "
+"doit respecter la même procédure stricte et le même préavis qu'un "
+"licenciement."
+
+msgid "Is my request on Delegations.lu confidential from my employer?"
+msgstr ""
+"Ma demande sur Delegations.lu est-elle confidentielle vis-à-vis de mon "
+"employeur ?"
+
+msgid ""
+"Yes. Submitting an employment issue assessment on Delegations.lu is strictly"
+" confidential. Your employer is never notified, and we recommend using a "
+"personal email address for complete peace of mind."
+msgstr ""
+"Oui. L'évaluation de votre situation sur Delegations.lu est strictement "
+"confidentielle. Votre employeur n'est jamais prévenu, et nous vous "
+"recommandons d'utiliser votre adresse e-mail personnelle pour une "
+"tranquillité d'esprit totale."
+
+msgid "Company Staff & Delegate Portal"
+msgstr "Portail Salariés & Délégation d'Entreprise"
+
+msgid ""
+"Does your company already use the Delegations.lu workspace for Staff "
+"Delegation announcements, events, and internal requests?"
+msgstr ""
+"Votre entreprise utilise déjà l'espace Delegations.lu pour les annonces de "
+"la Délégation du personnel, les événements et les demandes internes ?"
+
+msgid "Event Management"
+msgstr "Gestion des événements"
+
+msgid "Plan and coordinate staff events"
+msgstr "Planifier et coordonner les événements du personnel"
+
+msgid "Request System"
+msgstr "Système de demandes"
+
+msgid "Submit and track requests"
+msgstr "Soumettre et suivre vos demandes"
+
+msgid "Announcements"
+msgstr "Annonces"
+
+msgid "Stay informed with updates"
+msgstr "Restez informé des actualités"
+
+msgid "Secure authentication via Microsoft Entra ID"
+msgstr "Authentification sécurisée via Microsoft Entra ID"
+
+msgid ""
+"Confidential employment issue orientation & Staff Delegation platform in "
+"French, German, and English."
+msgstr ""
+"Plateforme confidentielle d'orientation en droit du travail et de Délégation"
+" du personnel en français, allemand et anglais."
+
+msgid "Dismissal, Warning Letter & Notice Period"
+msgstr "Licenciement, lettre d'avertissement & préavis"
+
+msgid ""
+"Luxembourg Labour Code (Art. L.124-5 & L.124-11): After a dismissal with "
+"notice, you have 1 month from notification to request the precise reasons by"
+" registered letter (lettre recommandée)."
+msgstr ""
+"Code du travail luxembourgeois (Art. L.124-5 & L.124-11) : Après un "
+"licenciement avec préavis, vous disposez d'un mois à compter de la "
+"notification pour demander les motifs précis par lettre recommandée."
+
+msgid ""
+"Send a registered letter (lettre recommandée avec accusé de réception) "
+"within 1 month to request the formal grounds for dismissal if you were "
+"dismissed with notice."
+msgstr ""
+"Envoyez une lettre recommandée avec accusé de réception dans un délai d'un "
+"mois pour demander les motifs formels si vous avez été licencié avec "
+"préavis."
+
+msgid ""
+"Keep the original envelope, postal receipt, employment contract, and any "
+"warning letters or performance emails."
+msgstr ""
+"Conservez l'enveloppe originale, le récépissé postal, votre contrat de "
+"travail ainsi que tout avertissement ou e-mail d'évaluation."
+
+msgid ""
+"If your company has 150+ employees (or a collective agreement), verify "
+"whether the mandatory pre-dismissal interview (entretien préalable) and "
+"right to assistance by a staff delegate were respected."
+msgstr ""
+"Si votre entreprise compte 150 salariés ou plus (ou applique une convention "
+"collective), vérifiez si l'entretien préalable obligatoire et le droit "
+"d'être assisté par un délégué du personnel ont été respectés."
+
+msgid "Workplace Harassment, Mobbing & Burnout"
+msgstr "Harcèlement moral, mobbing & épuisement professionnel"
+
+msgid ""
+"Luxembourg Law of 29 March 2023 (Art. L.246-1 to L.246-7): Employers must "
+"prevent and stop moral harassment immediately, and victims/witnesses are "
+"legally protected against retaliation."
+msgstr ""
+"Loi luxembourgeoise du 29 mars 2023 (Art. L.246-1 à L.246-7) : L'employeur "
+"doit prévenir et faire cesser immédiatement le harcèlement moral, et les "
+"victimes/témoins sont protégés par la loi contre les représailles."
+
+msgid ""
+"Keep a dated factual log of incidents, messages, witnesses, and medical "
+"consultations without removing confidential employer data."
+msgstr ""
+"Tenez un journal factuel et daté des incidents, messages, témoins et "
+"consultations médicales, sans soustraire de données confidentielles de "
+"l'entreprise."
+
+msgid ""
+"Alert your Staff Delegation (Délégation du personnel) or Equality/Safety "
+"Delegate, who holds a statutory mandate to assist and accompany you."
+msgstr ""
+"Alertez votre Délégation du personnel ou le Délégué à l'égalité/sécurité, "
+"qui dispose d'un mandat légal pour vous assister et vous accompagner."
+
+msgid ""
+"If internal measures fail, the Inspection du travail et des mines (ITM) can "
+"be seized to investigate and order the employer to cease harassment."
+msgstr ""
+"Si les mesures internes échouent, l'Inspection du travail et des mines (ITM)"
+" peut être saisie pour enquêter et enjoindre à l'employeur de faire cesser "
+"le harcèlement."
+
+msgid "Unpaid Salary, Overtime, Indexation & Leave"
+msgstr "Salaire impayé, heures supplémentaires, indexation & congés"
+
+msgid ""
+"Luxembourg Labour Code (Art. L.221-1 & L.211-27): Wages, statutory "
+"indexation (index), and approved overtime compensation are strictly "
+"regulated; salary claims remain actionable for 3 years."
+msgstr ""
+"Code du travail luxembourgeois (Art. L.221-1 & L.211-27) : Les salaires, "
+"l'indexation légale (index) et les heures supplémentaires sont strictement "
+"encadrés ; les créances salariales se prescrivent par 3 ans."
+
+msgid ""
+"Collect your payslips, time-tracking records, shift schedules, and written "
+"requests for overtime or paid leave."
+msgstr ""
+"Rassemblez vos fiches de paie, relevés d'heures, plannings et demandes "
+"écrites d'heures supplémentaires ou de congés payés."
+
+msgid ""
+"Verify whether your sector is covered by a Luxembourg Collective Bargaining "
+"Agreement (Convention collective) with higher overtime or bonus rates."
+msgstr ""
+"Vérifiez si votre secteur est couvert par une Convention collective "
+"luxembourgeoise prévoyant des majorations ou primes supplémentaires."
+
+msgid ""
+"Request a written clarification from HR or escalate through your Staff "
+"Delegation or the ITM helpdesk."
+msgstr ""
+"Demandez une clarification écrite aux RH ou faites intervenir votre "
+"Délégation du personnel ou le guichet d'aide de l'ITM."
+
+msgid "Contract Modification, Demotion & Reassignment"
+msgstr "Modification du contrat, rétrogradation & changement de poste"
+
+msgid ""
+"Luxembourg Labour Code (Art. L.121-7): Any substantial modification of an "
+"essential clause (salary, hours, role, workplace) to the employee's "
+"detriment must follow strict dismissal-notice formalities."
+msgstr ""
+"Code du travail luxembourgeois (Art. L.121-7) : Toute modification "
+"substantielle d'une clause essentielle (salaire, horaires, fonction, lieu) "
+"en défaveur du salarié doit respecter les formalités strictes de préavis."
+
+msgid ""
+"Do not sign an unfavorable contract addendum (avenant) under pressure; ask "
+"for reasonable time to review the document in writing."
+msgstr ""
+"Ne signez pas un avenant défavorable sous la pression ; demandez par écrit "
+"un délai raisonnable pour examiner le document."
+
+msgid ""
+"Check whether the change affects an essential element of your contract and "
+"whether the statutory notice period or pre-interview rules apply."
+msgstr ""
+"Vérifiez si le changement touche un élément essentiel de votre contrat et si"
+" le préavis légal ou l'entretien préalable s'applique."
+
+msgid ""
+"If an immediate unfavorable change is imposed without following Art. "
+"L.121-7, consult a Staff Delegate or union/legal specialist promptly."
+msgstr ""
+"Si une modification défavorable immédiate vous est imposée sans respecter "
+"l'article L.121-7, consultez rapidement un délégué du personnel, un syndicat"
+" ou un juriste."
+
+msgid "Sick Leave, Maternity & Dismissal Protection"
+msgstr "Arrêt maladie, maternité & protection contre le licenciement"
+
+msgid ""
+"Luxembourg Labour Code (Art. L.121-6): Employees are protected against "
+"dismissal for up to 26 consecutive weeks of incapacity, provided they notify"
+" the employer on day 1 and submit the medical certificate by day 3."
+msgstr ""
+"Code du travail luxembourgeois (Art. L.121-6) : Le salarié est protégé "
+"contre le licenciement pendant 26 semaines consécutives d'incapacité, à "
+"condition d'avertir l'employeur le 1er jour et de remettre le certificat "
+"médical au plus tard le 3e jour."
+
+msgid ""
+"Always notify your employer (or their representative) on the very first day "
+"of absence — keep written proof (email, SMS, or witness)."
+msgstr ""
+"Prévenez toujours votre employeur (ou son représentant) dès le tout premier "
+"jour d'absence et conservez une preuve écrite (e-mail, SMS ou témoin)."
+
+msgid ""
+"Ensure your employer receives the medical certificate (certificat médical) "
+"no later than the 3rd day of incapacity and send the CNS copy."
+msgstr ""
+"Assurez-vous que votre employeur reçoive le certificat médical au plus tard "
+"le 3e jour d'incapacité et envoyez le volet destiné à la CNS."
+
+msgid ""
+"If you receive a dismissal letter after fulfilling both obligations, contest"
+" it rapidly with the support of your Staff Delegation or legal advisor."
+msgstr ""
+"Si vous recevez une lettre de licenciement alors que ces deux obligations "
+"ont été respectées, contestez-la rapidement avec l'aide de votre Délégation "
+"du personnel ou d'un conseiller juridique."
+
+msgid "Staff Delegation Rights & Collective Representation"
+msgstr "Droits de la Délégation du personnel & représentation collective"
+
+msgid ""
+"Luxembourg Labour Code (Art. L.411-1 & L.414-1): Every company in Luxembourg"
+" employing at least 15 workers must establish a Staff Delegation (Délégation"
+" du personnel) to safeguard and defend employee interests."
+msgstr ""
+"Code du travail luxembourgeois (Art. L.411-1 & L.414-1) : Toute entreprise "
+"au Luxembourg employant au moins 15 salariés doit instituer une Délégation "
+"du personnel chargée de sauvegarder et de défendre les intérêts du "
+"personnel."
+
+msgid ""
+"You have the statutory right to contact your Staff Delegation confidentially"
+" during working hours to raise individual or collective concerns."
+msgstr ""
+"Vous avez le droit légal de contacter votre Délégation du personnel en toute"
+" confidentialité pendant les heures de travail pour exposer une difficulté "
+"individuelle ou collective."
+
+msgid ""
+"If your company has 15+ employees in Luxembourg but no elected delegation, "
+"the employer and ITM can be called upon to organize social elections."
+msgstr ""
+"Si votre entreprise compte 15 salariés ou plus au Luxembourg sans délégation"
+" élue, l'employeur et l'ITM peuvent être sollicités pour organiser des "
+"élections sociales."
+
+msgid ""
+"Staff delegates can accompany you to formal HR meetings, mediate workplace "
+"disputes, and refer safety or legal breaches to the ITM."
+msgstr ""
+"Les délégués du personnel peuvent vous accompagner lors d'entretiens RH "
+"formels, assurer une médiation et saisir l'ITM en cas de manquement légal ou"
+" de sécurité."
+
+msgid "High Priority — Time-sensitive statutory deadlines may apply"
+msgstr "Priorité élevée — Des délais légaux stricts peuvent s'appliquer"
+
+msgid "Active Workplace Situation — Document facts before your next HR step"
+msgstr ""
+"Situation active — Documentez les faits avant votre prochaine démarche RH"
+
+msgid "Preventive Orientation — Understanding your rights early"
+msgstr "Orientation préventive — Comprendre vos droits en amont"
+
+msgid ""
+"Your company has 15+ employees and an active Staff Delegation: under "
+"Luxembourg law, your delegates can confidentially advise you and accompany "
+"you in discussions with management."
+msgstr ""
+"Votre entreprise compte 15+ salariés et dispose d'une Délégation du "
+"personnel active : selon la loi luxembourgeoise, vos délégués peuvent vous "
+"conseiller confidentiellement et vous accompagner face à la direction."
+
+msgid ""
+"In Luxembourg, companies with 15 or more employees are legally required to "
+"have a Staff Delegation (Art. L.411-1). Its absence is an important point to"
+" raise with the ITM or a trade union."
+msgstr ""
+"Au Luxembourg, les entreprises de 15 salariés ou plus ont l'obligation "
+"légale d'avoir une Délégation du personnel (Art. L.411-1). Son absence est "
+"un élément important à signaler à l'ITM ou à un syndicat."
+
+msgid ""
+"Because your employer has 15+ staff in Luxembourg, a Staff Delegation is "
+"mandatory by law. We will help you identify your representation options "
+"safely."
+msgstr ""
+"Votre employeur comptant 15 salariés ou plus au Luxembourg, une Délégation "
+"du personnel est légalement obligatoire. Nous vous aiderons à identifier vos"
+" options de représentation en toute sécurité."
+
+msgid ""
+"In companies with fewer than 15 employees, there is no mandatory Staff "
+"Delegation, but you remain fully protected by the Luxembourg Labour Code and"
+" can rely on the ITM, trade unions, or legal counsel."
+msgstr ""
+"Dans les entreprises de moins de 15 salariés, il n'y a pas de Délégation du "
+"personnel obligatoire, mais vous restez pleinement protégé par le Code du "
+"travail luxembourgeois et pouvez faire appel à l'ITM, aux syndicats ou à un "
+"avocat."
+
+msgid ""
+"Whether your company has a Staff Delegation (mandatory from 15 employees) or"
+" not, every employee in Luxembourg is protected by the Code du travail and "
+"the ITM."
+msgstr ""
+"Que votre entreprise dispose d'une Délégation du personnel (obligatoire dès "
+"15 salariés) ou non, chaque salarié au Luxembourg est protégé par le Code du"
+" travail et l'ITM."

@@ -1,0 +1,87 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+{% block pre_alpine_js %}{{ block.super }}{% include "crush_lu/partials/alpine_bundle.html" with bundle="coach" %}{% endblock %}
+
+{% block title %}{% trans "WhatsApp" %} - {% trans "Coach" %} - Crush.lu{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="mb-6">
+        <a href="{% url 'crush_lu:coach_dashboard' %}" class="text-purple-600 dark:text-purple-400 hover:underline text-sm">
+            &larr; {% trans "Back to Dashboard" %}
+        </a>
+    </div>
+
+    <div class="mb-6">
+        <h2 class="text-2xl font-bold dark:text-white flex items-center gap-2">
+            {% include "shared/icons/whatsapp.html" with class="w-6 h-6 text-green-600 dark:text-green-400" %}
+            {% trans "WhatsApp" %}
+        </h2>
+        <p class="text-gray-500 dark:text-gray-400">
+            {% if read_only %}
+                {% blocktrans with name=inbox_coach.user.get_full_name %}Messages members sent to {{ name }}'s WhatsApp number. You can read them here; only the coach can reply.{% endblocktrans %}
+            {% else %}
+                {% trans "Messages members sent to your WhatsApp number. You can reply for 24 hours after a member's last message." %}
+            {% endif %}
+        </p>
+    </div>
+
+    {% if coaches_with_numbers %}
+        <form method="get" class="mb-6 flex items-center gap-2">
+            <label for="wa-coach" class="text-sm text-gray-700 dark:text-gray-200">{% trans "Coach" %}</label>
+            <select id="wa-coach" name="coach" class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm p-2">
+                {% for c in coaches_with_numbers %}
+                    <option value="{{ c.pk }}"{% if c.pk == inbox_coach.pk %} selected{% endif %}>{{ c.user.get_full_name|default:c.user.username }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn-crush-outline btn-sm">{% trans "Show" context "coach whatsapp inbox" %}</button>
+        </form>
+    {% endif %}
+
+    {% if not has_inbox %}
+        <div class="card-bordered p-6 text-center">
+            <p class="text-gray-700 dark:text-gray-200 mb-1">{% trans "Your WhatsApp number isn't connected to crush.lu yet." %}</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Members' messages keep arriving in the WhatsApp app on your phone until an administrator connects your number." %}</p>
+        </div>
+    {% elif not conversations %}
+        <div class="card-bordered p-6 text-center">
+            <div class="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mx-auto mb-3">
+                {% include "shared/icons/chat-bubble-left-ellipsis.html" with class="w-6 h-6 text-gray-400 dark:text-gray-500" %}
+            </div>
+            <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "No WhatsApp messages yet." %}</p>
+        </div>
+    {% else %}
+        <ul class="card-bordered divide-y divide-gray-100 dark:divide-gray-700 overflow-hidden">
+            {% for conv in conversations %}
+                <li>
+                    <a href="{% url 'crush_lu:coach_whatsapp_thread' conv.id %}" class="flex items-start gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="font-semibold text-gray-900 dark:text-white truncate">{{ conv.display_name }}</span>
+                                <small class="text-gray-500 dark:text-gray-400 shrink-0">{{ conv.last_at|date:"SHORT_DATETIME_FORMAT" }}</small>
+                            </div>
+                            <div class="flex items-center justify-between gap-2 mt-1">
+                                <p class="text-sm text-gray-600 dark:text-gray-300 truncate m-0">
+                                    {% if conv.last_is_outbound %}<span class="text-gray-400 dark:text-gray-500">{% trans "You:" %}</span> {% endif %}{{ conv.last_text }}
+                                </p>
+                                {% if conv.unread %}
+                                    <span class="min-w-5 h-5 px-1.5 inline-flex items-center justify-center text-xs font-bold bg-green-600 text-white rounded-full shrink-0">{{ conv.unread }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="mt-1 flex flex-wrap gap-2 text-xs">
+                                {% if not conv.profile %}
+                                    <span class="text-gray-500 dark:text-gray-400">{% trans "Not a member" %}</span>
+                                {% endif %}
+                                {% if not conv.window_open %}
+                                    <span class="text-amber-700 dark:text-amber-400">{% trans "Reply window closed" %}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</div>
+{% endblock %}

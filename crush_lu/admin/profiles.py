@@ -154,6 +154,7 @@ class CrushCoachAdmin(AutoTranslateMixin, TranslationAdmin):
                     "specializations",
                     "spoken_languages",
                     "phone_number",
+                    "whatsapp_phone_number_id",
                 )
             },
         ),

@@ -31,8 +31,12 @@ from crush_lu.models import (
 )
 from crush_lu.models.newsletter import Newsletter, NewsletterRecipient
 from crush_lu.services import campaigns as campaign_service
-from hub.models import WhatsAppInboundMessage, WhatsAppMessage
-from hub.whatsapp_service import TemplatesFetchError, fetch_approved_templates
+from hub.whatsapp_service import (
+    TemplatesFetchError,
+    fetch_approved_templates,
+    main_number_messages,
+    shared_inbox_messages,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -107,16 +111,18 @@ def campaign_dashboard(request):
     click_rate = round(total_clicks / messages_sent * 100, 1) if messages_sent else 0
 
     # WhatsApp tab — all outreach (campaign and CRM), matching the hub inbox.
+    # Coach conversations on a coach's own number are that coach's inbox, not
+    # outreach: their replies and members' messages to them stay out of it.
+    outreach = main_number_messages()
     whatsapp_funnel = dict(
-        WhatsAppMessage.objects.values_list("status")
+        outreach.values_list("status")
         .annotate(n=Count("id"))
         .values_list("status", "n")
     )
-    whatsapp_outbound = WhatsAppMessage.objects.select_related("user").order_by(
-        "-created_at"
-    )[:20]
-    whatsapp_inbound = WhatsAppInboundMessage.objects.order_by("-received_at")[:10]
-    whatsapp_unread = WhatsAppInboundMessage.objects.filter(is_read=False).count()
+    whatsapp_outbound = outreach.select_related("user").order_by("-created_at")[:20]
+    shared_inbound = shared_inbox_messages()
+    whatsapp_inbound = shared_inbound.order_by("-received_at")[:10]
+    whatsapp_unread = shared_inbound.filter(is_read=False).count()
 
     # Reminders tab
     reminder_counts = dict(

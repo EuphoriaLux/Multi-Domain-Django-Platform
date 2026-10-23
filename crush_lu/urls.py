@@ -26,6 +26,7 @@ from . import views_ticket
 from . import views_quiz
 from . import views_coach as views_coach_module
 from . import views_coach_photos
+from . import views_coach_whatsapp
 from . import views_connect_showcase
 from . import views_quiz_config
 from . import views_crush_cache
@@ -988,6 +989,27 @@ urlpatterns = [
         "coach/photo-review/more/",
         views_coach_photos.coach_photo_review_more,
         name="coach_photo_review_more",
+    ),
+    # Coach WhatsApp inbox (members' messages to the coach's own number)
+    path(
+        "coach/whatsapp/",
+        views_coach_whatsapp.coach_whatsapp_inbox,
+        name="coach_whatsapp_inbox",
+    ),
+    path(
+        "coach/whatsapp/<int:conversation_id>/",
+        views_coach_whatsapp.coach_whatsapp_thread,
+        name="coach_whatsapp_thread",
+    ),
+    path(
+        "coach/whatsapp/<int:conversation_id>/messages/",
+        views_coach_whatsapp.coach_whatsapp_messages,
+        name="coach_whatsapp_messages",
+    ),
+    path(
+        "coach/whatsapp/media/<int:inbound_id>/",
+        views_coach_whatsapp.coach_whatsapp_media,
+        name="coach_whatsapp_media",
     ),
     path("coach/members/", views.coach_members, name="coach_members"),
     path("coach/profile/edit/", views.coach_edit_profile, name="coach_edit_profile"),
