@@ -38,7 +38,7 @@
             +{{ celebrated_points }} {% trans "pts" %}
         </p>
         <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
-            {% blocktrans with total=progress.total_points %}{{ total }} points in total{% endblocktrans %}
+            {% blocktrans count total=progress.total_points %}{{ total }} point in total{% plural %}{{ total }} points in total{% endblocktrans %}
         </p>
         {% if celebrated_station.completion_message %}
         <p class="mt-4 text-gray-700 dark:text-gray-200">{{ celebrated_station.completion_message }}</p>
@@ -61,7 +61,7 @@
         </div>
         <h2 class="mt-4 font-display text-2xl font-bold">🏁 {% trans "You made it!" %}</h2>
         <p class="mt-2 text-gray-600 dark:text-gray-300">
-            {% blocktrans with points=progress.total_points %}Your team finished with {{ points }} points.{% endblocktrans %}
+            {% blocktrans count points=progress.total_points %}Your team finished with {{ points }} point.{% plural %}Your team finished with {{ points }} points.{% endblocktrans %}
         </p>
         <a href="{% url 'crush_lu:cache_play' event.id %}" class="btn-crush-primary mt-5 inline-block w-full py-4">
             {% trans "See results" %}
