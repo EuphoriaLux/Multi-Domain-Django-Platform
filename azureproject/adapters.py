@@ -16,7 +16,11 @@ import json
 import os
 import logging
 
-from azureproject.domains import DEV_DOMAIN_MAPPINGS, get_domain_config
+from azureproject.domains import (
+    DEV_DOMAIN_MAPPINGS,
+    get_canonical_domain,
+    get_domain_config,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -178,17 +182,20 @@ def _is_crush_domain(request):
     )
 
 
-def _is_delegation_domain(request):
-    """Check if request is from delegations.lu (or its delegation.localhost
-    dev alias, #1116)."""
-    return _get_mapped_domain(request) == "delegations.lu"
-
-
 def _serves_delegations(request):
     """True on every host routed to the delegations app, including the
-    test.delegations.lu alias that ``_is_delegation_domain`` does not match."""
-    config = get_domain_config(_get_mapped_domain(request))
+    test.delegations.lu alias and delegation.localhost."""
+    mapped = _get_mapped_domain(request)
+    if not mapped:
+        return False
+    config = get_domain_config(mapped)
     return config is not None and config["app"] == "delegations"
+
+
+def _is_delegation_domain(request):
+    """Check if request is from delegations.lu (or its test.delegations.lu /
+    delegation.localhost aliases, #1116)."""
+    return _serves_delegations(request)
 
 
 # Domains where a visitor may create their own account.
@@ -212,14 +219,16 @@ def _domain_allows_signup(request, allowed_domains):
 
     Unknown/missing hosts are refused: requests that don't resolve to a
     configured domain fall back to PRODUCTION_DEFAULT's urlconf, and that
-    fallback must not be a way to register. A dev alias is gated as the
-    domain it stands for.
+    fallback must not be a way to register. A dev or staging alias is gated
+    as the canonical domain it stands for.
     """
     domain = _get_mapped_domain(request)
     if not domain:
         return False
+    canonical = get_canonical_domain(domain) or domain
     return (
-        domain in allowed_domains
+        canonical in allowed_domains
+        or domain in allowed_domains
         or domain.endswith(".crush.lu")
         or domain.endswith(".azurewebsites.net")
     )
@@ -660,7 +669,7 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
                     pass
             return "/profile/edit/?section=account&sub=settings"
         elif _is_delegation_domain(request):
-            return "/account/settings/"
+            return "/profile/"
         else:
             # Default to Allauth's connections page for other domains
             from django.urls import reverse
@@ -1006,12 +1015,12 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
                 profile = request.user.delegation_profile
                 if profile.is_approved:
                     return "/dashboard/"
+                elif profile.manually_blocked or profile.status == "rejected":
+                    return "/access-denied/"
                 elif profile.status == "pending":
                     return "/pending-approval/"
                 elif profile.status == "no_company":
                     return "/no-company/"
-                elif profile.status == "rejected":
-                    return "/access-denied/"
             except DelegationProfile.DoesNotExist:
                 pass
             return "/dashboard/"
@@ -1081,9 +1090,8 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
         """
         if _is_crush_domain(request):
             return "/login/"
-        elif _is_delegation_domain(request):
-            return "/login/"
-        # Default Allauth login URL for other domains
+        # Default Allauth login URL for other domains (including delegations.lu,
+        # which mounts /accounts/login/ with account/login_delegation.html).
         return "/accounts/login/"
 
     def get_email_verification_redirect_url(self, email_address):

@@ -5,7 +5,6 @@ Provides admin interfaces for managing companies, user profiles, and access logs
 """
 
 from django.contrib import admin
-from django.utils import timezone
 from django.utils.html import format_html
 
 from .models import Company, DelegationProfile, AccessLog
@@ -263,12 +262,8 @@ class DelegationProfileAdmin(admin.ModelAdmin):
         count = 0
         for profile in queryset:
             if not profile.is_approved:
-                profile.status = "approved"
-                profile.role = "worker"
-                profile.approved_at = timezone.now()
-                profile.save(
-                    update_fields=["status", "role", "approved_at", "updated_at"]
-                )
+                role = profile.role if profile.role != "pending" else "worker"
+                profile.approve(role=role)
                 AccessLog.objects.create(
                     profile=profile,
                     action="manual_approved",
