@@ -28,7 +28,7 @@
 		</dict>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>Crush.lu uses the camera so coaches can scan attendee QR codes at event check-in.</string>
+	<string>Crush.lu uses the camera to scan QR codes: coaches check guests in at events, and Crush Cache teams scan station codes to unlock clues.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Crush.lu uses your location during Crush Cache hunts to guide your team to stations and unlock clues.</string>
 	<key>NSLocationTemporaryUsageDescriptionDictionary</key>

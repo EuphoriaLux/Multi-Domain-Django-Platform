@@ -424,6 +424,30 @@ class IOSNavigationSourceTests(unittest.TestCase):
         self.assertIn("CacheNavigation", info)
         self.assertIn("NSMotionUsageDescription", info)
 
+    def test_camera_usage_description_covers_cache_station_scans(self):
+        info = _source("Info.plist")
+        camera = re.search(
+            r"<key>NSCameraUsageDescription</key>\s*<string>([^<]*)</string>", info
+        )
+
+        self.assertIsNotNone(camera)
+        self.assertIn("check", camera.group(1))
+        self.assertIn("Crush Cache", camera.group(1))
+
+    def test_cold_start_opens_events_not_the_dashboard(self):
+        # App Review read the dashboard as "primarily dating" (4.3(b)).
+        content_view = _source("ContentView.swift")
+
+        self.assertIn(
+            "static let startDestination: AppDestination = .events", content_view
+        )
+        self.assertIn(
+            "selectedDestination: AppDestination = AppState.startDestination",
+            content_view,
+        )
+        self.assertIn("URL(string: Self.startDestination.path", content_view)
+        self.assertNotIn("AppDestination.dashboard.path", content_view)
+
 
 if __name__ == "__main__":
     unittest.main()

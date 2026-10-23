@@ -429,6 +429,22 @@ class PastTabHidesEventTypeFilterBarTests(TestCase):
         self.assertGreaterEqual(upcoming_panel_start, 0)
 
 
+class EventFormatGuideOrderTests(TestCase):
+    """The iOS app opens on this page, and App Review rejected build 4 as a
+    dating app (4.3(b)), so the first format guide is Quiz Night."""
+
+    def setUp(self):
+        cache.clear()
+        self.client = Client(HTTP_HOST="crush.lu")
+
+    def test_quiz_night_guide_comes_before_speed_dating(self):
+        content = self.client.get("/en/events/").content.decode()
+        self.assertLess(
+            content.index("Discover Quiz Night"),
+            content.index("Discover Speed Dating"),
+        )
+
+
 class LightEligibilityTests(TestCase):
     """Finding 4-08: the "Verified members only" chip logic."""
 
