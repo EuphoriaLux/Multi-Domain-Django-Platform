@@ -33,10 +33,12 @@ from .serializers import (
 from .whatsapp_service import (
     TemplatesFetchError,
     fetch_approved_templates,
+    main_number_messages,
     maybe_flag_not_on_whatsapp as _maybe_flag_not_on_whatsapp,
     meta_settings_ok as _meta_settings_ok,
     now_iso as _now_iso,
     send_whatsapp_template,
+    shared_inbox_messages,
 )
 
 logger = logging.getLogger(__name__)
@@ -105,7 +107,8 @@ class WhatsAppMessagesView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request):
-        qs = WhatsAppMessage.objects.filter(user=request.user)
+        # The CRM's own sends only: a staff coach's inbox replies are not CRM.
+        qs = main_number_messages().filter(user=request.user)
         since = request.query_params.get("since")
         if since:
             try:
@@ -123,14 +126,16 @@ class WhatsAppInboxView(APIView):
     """List inbound (user→us) WhatsApp messages for the hub support inbox.
 
     Shared across admins (not scoped to ``request.user`` like the outbound
-    list) — inbound replies belong to no single sender. Supports ``?since=``
-    (ISO timestamp) for polling and ``?unread=1`` to show only unread.
+    list) — inbound replies belong to no single sender. Messages to a coach's
+    own number are left out: they are that coach's crush.lu inbox
+    (``shared_inbox_messages``). Supports ``?since=`` (ISO timestamp) for
+    polling and ``?unread=1`` to show only unread.
     """
 
     permission_classes = [IsAdminUser]
 
     def get(self, request):
-        qs = WhatsAppInboundMessage.objects.all()
+        qs = shared_inbox_messages()
         since = request.query_params.get("since")
         if since:
             try:
@@ -144,9 +149,7 @@ class WhatsAppInboxView(APIView):
         return Response(
             {
                 "items": serializer.data,
-                "unread_count": WhatsAppInboundMessage.objects.filter(
-                    is_read=False
-                ).count(),
+                "unread_count": shared_inbox_messages().filter(is_read=False).count(),
             }
         )
 
@@ -155,7 +158,8 @@ class WhatsAppInboxReadView(APIView):
     """Mark inbound messages as read.
 
     Body: ``{"ids": [1, 2, ...]}`` to mark specific rows, or ``{"all": true}``
-    to clear the whole unread queue.
+    to clear the whole unread queue. Only the shared inbox's rows: a coach's
+    unread state is the coach's.
     """
 
     permission_classes = [IsAdminUser]
@@ -170,7 +174,7 @@ class WhatsAppInboxReadView(APIView):
                 status=http_status.HTTP_400_BAD_REQUEST,
             )
 
-        qs = WhatsAppInboundMessage.objects.filter(is_read=False)
+        qs = shared_inbox_messages().filter(is_read=False)
         if not mark_all:
             if not isinstance(ids, list):
                 return Response(
@@ -248,10 +252,15 @@ class WhatsAppWebhookView(View):
                 value = change.get("value") or {}
                 # wa_id → profile name, attached to each inbound message below.
                 contacts = self._index_contacts(value.get("contacts", []) or [])
+                # Which of our business numbers this change is about: the main
+                # number or a coach's (every number in the WABA posts here).
+                phone_number_id = str(
+                    (value.get("metadata") or {}).get("phone_number_id") or ""
+                )
                 for status_event in value.get("statuses", []) or []:
                     self._apply_status(status_event)
                 for inbound in value.get("messages", []) or []:
-                    self._store_inbound(inbound, contacts)
+                    self._store_inbound(inbound, contacts, phone_number_id)
 
         # Always 200 — Meta retries non-200 for hours.
         return JsonResponse({"ok": True})
@@ -266,8 +275,15 @@ class WhatsAppWebhookView(View):
                 out[wa_id] = (contact.get("profile") or {}).get("name") or ""
         return out
 
-    def _store_inbound(self, msg: dict, contacts: dict) -> None:
-        """Persist one inbound (user→us) message; idempotent on wa_message_id."""
+    def _store_inbound(
+        self, msg: dict, contacts: dict, phone_number_id: str = ""
+    ) -> None:
+        """Persist one inbound (user→us) message; idempotent on wa_message_id.
+
+        A newly stored message to a coach's number also alerts that coach
+        (``crush_lu.services.coach_whatsapp.on_inbound``); a Meta retry of the
+        same message stores and alerts nothing.
+        """
         wa_id = msg.get("id")
         from_number = msg.get("from")
         if not wa_id or not from_number:
@@ -303,14 +319,24 @@ class WhatsAppWebhookView(View):
                 "text": text,
                 "payload": msg,
                 "received_at": received_at,
+                "business_phone_number_id": phone_number_id,
                 **(sanitised if erased else {}),
             },
         )
+        if not created or erased:
+            return
         # Erasure records the number BEFORE its sweep, so re-checking after the
         # insert closes the window where the check preceded the erasure and
         # the insert followed its sweep.
-        if created and not erased and ErasedPhoneNumber.is_erased(from_number):
+        if ErasedPhoneNumber.is_erased(from_number):
             WhatsAppInboundMessage.objects.filter(pk=row.pk).update(**sanitised)
+            return
+        try:
+            from crush_lu.services.coach_whatsapp import on_inbound
+
+            on_inbound(row)
+        except Exception:  # noqa: BLE001 — the webhook must still answer 200
+            logger.exception("Coach WhatsApp alert failed for inbound %s", row.pk)
 
     def _apply_status(self, event: dict) -> None:
         wa_id = event.get("id")

@@ -116,6 +116,17 @@
                         {% include "shared/icons/inbox.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
                         <span>{% trans "Inbox" %}</span>
                     </a>
+                    {% if coach_whatsapp_enabled %}
+                        <a href="{% url 'crush_lu:coach_whatsapp_inbox' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm justify-between">
+                            <div class="flex items-center gap-3">
+                                {% include "shared/icons/whatsapp.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
+                                <span>{% trans "WhatsApp" %}</span>
+                            </div>
+                            {% if coach_whatsapp_unread > 0 %}
+                                <span class="min-w-5 h-5 px-1.5 inline-flex items-center justify-center text-xs font-bold bg-green-600 text-white rounded-full">{{ coach_whatsapp_unread }}</span>
+                            {% endif %}
+                        </a>
+                    {% endif %}
                     <a href="{% url 'crush_lu:coach_profiles' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm justify-between">
                         <div class="flex items-center gap-3">
                             {% include "shared/icons/clipboard.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}

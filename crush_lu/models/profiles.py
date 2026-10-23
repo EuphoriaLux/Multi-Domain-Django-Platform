@@ -289,6 +289,23 @@ class CrushCoach(models.Model):
         ],
         help_text=_("Coach's direct phone number for WhatsApp and calls"),
     )
+    # Meta Cloud API phone number ID of the coach's WhatsApp number, once it
+    # has moved off the phone app into the Crush Luxembourg WABA. Inbound
+    # messages to that number land in the coach's crush.lu inbox instead of a
+    # phone. Admin-only: a coach repointing it would read someone else's chats.
+    # db_default: code from before this column (rollback re-swap) inserts
+    # coaches without it.
+    whatsapp_phone_number_id = models.CharField(
+        max_length=32,
+        blank=True,
+        default="",
+        db_default="",
+        help_text=_(
+            "Meta phone number ID of this coach's WhatsApp Cloud API number. "
+            "Set it once the number is registered in WhatsApp Manager; leave "
+            "blank while the coach still uses the WhatsApp app."
+        ),
+    )
     is_active = models.BooleanField(default=True)
     max_active_reviews = models.PositiveIntegerField(
         default=10,
@@ -343,6 +360,15 @@ class CrushCoach(models.Model):
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["whatsapp_phone_number_id"],
+                condition=~models.Q(whatsapp_phone_number_id=""),
+                name="crushcoach_unique_whatsapp_phone_number_id",
+            )
+        ]
 
     LANGUAGE_DISPLAY = {
         "en": {"name": _("English"), "flag": "\U0001f1ec\U0001f1e7"},

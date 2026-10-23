@@ -1,0 +1,13 @@
+{% load i18n %}
+{% comment %}
+Message list of a coach WhatsApp thread — the innerHTML of #messages-container.
+Rendered inline by coach_whatsapp_thread.html and re-rendered by the
+coach_whatsapp_messages polling endpoint (HTMX innerHTML swap).
+{% endcomment %}
+{% for item in items %}
+    {% include "crush_lu/_coach_whatsapp_message.html" with item=item %}
+{% empty %}
+    <div class="text-center py-8">
+        <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "No WhatsApp messages yet." %}</p>
+    </div>
+{% endfor %}

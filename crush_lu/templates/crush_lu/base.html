@@ -336,6 +336,15 @@
                                         {% include "shared/icons/inbox.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "Inbox" %}
                                     </a>
+                                    {% if coach_whatsapp_enabled %}
+                                        <a class="dropdown-item" href="{% url 'crush_lu:coach_whatsapp_inbox' %}">
+                                            {% include "shared/icons/whatsapp.html" with class="w-4 h-4 inline mr-2" %}
+                                            {% trans "WhatsApp" %}
+                                            {% if coach_whatsapp_unread > 0 %}
+                                                <span class="badge badge-success ml-2">{{ coach_whatsapp_unread }}</span>
+                                            {% endif %}
+                                        </a>
+                                    {% endif %}
                                     <a class="dropdown-item" href="{% url 'crush_lu:coach_profiles' %}">
                                         {% include "shared/icons/clipboard.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "Profile Queue" %}
@@ -884,6 +893,15 @@
                                 {% include "shared/icons/inbox.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "Inbox" %}
                             </a>
+                            {% if coach_whatsapp_enabled %}
+                                <a class="nav-link block" href="{% url 'crush_lu:coach_whatsapp_inbox' %}">
+                                    {% include "shared/icons/whatsapp.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "WhatsApp" %}
+                                    {% if coach_whatsapp_unread > 0 %}
+                                        <span class="badge badge-success ml-1">{{ coach_whatsapp_unread }}</span>
+                                    {% endif %}
+                                </a>
+                            {% endif %}
                             <a class="nav-link block" href="{% url 'crush_lu:coach_profiles' %}">
                                 {% include "shared/icons/clipboard.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "Profile Queue" %}

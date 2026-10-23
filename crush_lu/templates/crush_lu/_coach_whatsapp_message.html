@@ -1,0 +1,38 @@
+{% load i18n %}
+{% comment %}One message in a coach WhatsApp thread. `item` is a
+coach_whatsapp.ThreadItem: outbound = the coach's reply, else the member's
+message (text, or media streamed through coach_whatsapp_media).{% endcomment %}
+<div class="{% if item.outbound %}msg-bubble msg-bubble-sent{% else %}msg-bubble msg-bubble-received{% endif %}">
+    {% if item.media %}
+        {% url 'crush_lu:coach_whatsapp_media' item.inbound_id as media_url %}
+        {% if item.media.kind == "image" or item.media.kind == "sticker" %}
+            {% if item.media.inline %}
+                <a href="{{ media_url }}" target="_blank" rel="noopener">
+                    <img src="{{ media_url }}" alt="{% trans 'Photo from the member' %}" loading="lazy" class="max-h-64 rounded-lg mb-2">
+                </a>
+            {% endif %}
+        {% elif item.media.kind == "audio" and item.media.inline %}
+            <audio controls preload="none" src="{{ media_url }}" class="w-full mb-2"></audio>
+        {% elif item.media.kind == "video" and item.media.inline %}
+            <video controls preload="none" src="{{ media_url }}" class="max-h-64 rounded-lg mb-2"></video>
+        {% endif %}
+        {% if not item.media.inline or item.media.kind == "document" %}
+            {% trans "Download file" as download_label %}
+            <a href="{{ media_url }}" class="inline-flex items-center gap-1 text-sm underline mb-2">
+                {% include "shared/icons/arrow-down-tray.html" with class="w-4 h-4" %}
+                {{ item.media.filename|default:download_label }}
+            </a>
+        {% endif %}
+    {% endif %}
+    {% if item.text %}<p class="mb-0 text-gray-700 dark:text-gray-200 whitespace-pre-line">{{ item.text }}</p>{% endif %}
+    <small class="block mt-1 text-gray-500 dark:text-gray-400">
+        {{ item.at|date:"SHORT_DATETIME_FORMAT" }}
+        {% if item.outbound %}
+            ·
+            {% if item.status == "read" %}{% trans "Read" context "whatsapp status" %}
+            {% elif item.status == "delivered" %}{% trans "Delivered" context "whatsapp status" %}
+            {% elif item.status == "failed" %}<span class="text-red-600 dark:text-red-400">{% trans "Not delivered" context "whatsapp status" %}</span>
+            {% else %}{% trans "Sent" context "whatsapp status" %}{% endif %}
+        {% endif %}
+    </small>
+</div>

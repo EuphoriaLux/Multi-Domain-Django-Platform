@@ -683,6 +683,8 @@ ACCOUNT_ERASURE_COACH_RESET = (
     "specializations_fr",
     "spoken_languages",
     "phone_number",
+    # Unmapping the number sends its chats back to the shared admin inbox.
+    "whatsapp_phone_number_id",
     "photo",
     "availability_windows",
     "is_active",
@@ -939,6 +941,7 @@ def _anonymize_coach_record(user):
         **blank_text,
         **resets,
         phone_number="",
+        whatsapp_phone_number_id="",
         photo="",
         spoken_languages=[],
         availability_windows=[],
@@ -1503,7 +1506,7 @@ def _anonymize_whatsapp_inbound(phone_digits):
 
 
 def _anonymize_whatsapp_outbound(phone_digits):
-    """Blank recipient payload on WhatsApp messages sent TO the member's number.
+    """Blank recipient payload and text on WhatsApp messages sent TO the member.
 
     ``WhatsAppMessage.user`` is the sending admin and the recipient is only a
     phone string, so rows sent directly from the Hub CRM (no CampaignRecipient)
@@ -1530,7 +1533,7 @@ def _anonymize_whatsapp_outbound(phone_digits):
     for start in range(0, len(matching), 500):
         total += WhatsAppMessage.objects.filter(
             pk__in=matching[start : start + 500]
-        ).update(recipient="", parameters={}, status_history=[])
+        ).update(recipient="", parameters={}, text="", status_history=[])
     return total
 
 
@@ -3547,6 +3550,7 @@ def _export_account(user):
             "specializations_fr": coach.specializations_fr,
             "spoken_languages": coach.spoken_languages,
             "phone_number": coach.phone_number or None,
+            "whatsapp_phone_number_id": coach.whatsapp_phone_number_id or None,
             "has_photo": bool(coach.photo),
             "is_active": coach.is_active,
             "max_active_reviews": coach.max_active_reviews,
