@@ -4,12 +4,11 @@ Views for Delegations.lu app.
 Handles user dashboard, profile management, and access control pages.
 """
 
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.utils import timezone
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import redirect, render
 
-from .models import DelegationProfile, Company
+from .signals import ensure_delegation_profile_for_user
 
 
 def _get_or_create_profile(user):
@@ -17,99 +16,7 @@ def _get_or_create_profile(user):
     Get existing DelegationProfile or create one from Microsoft SocialAccount.
     Returns (profile, created) tuple.
     """
-    try:
-        return user.delegation_profile, False
-    except DelegationProfile.DoesNotExist:
-        pass
-
-    # Try to create from Microsoft SocialAccount
-    from allauth.socialaccount.models import SocialAccount
-
-    try:
-        social_account = SocialAccount.objects.get(user=user, provider="microsoft")
-    except SocialAccount.DoesNotExist:
-        return None, False
-
-    extra_data = social_account.extra_data
-    email = (
-        user.email or extra_data.get("mail") or extra_data.get("userPrincipalName", "")
-    )
-    microsoft_id = extra_data.get("id") or ""
-    microsoft_tenant_id = extra_data.get("tid") or ""
-    job_title = extra_data.get("jobTitle") or ""
-    department = extra_data.get("department") or ""
-    office_location = extra_data.get("officeLocation") or ""
-
-    # Match to company
-    company = None
-    if email and "@" in email:
-        email_domain = email.split("@")[1].lower()
-        consumer_domains = [
-            "outlook.com",
-            "hotmail.com",
-            "live.com",
-            "gmail.com",
-            "yahoo.com",
-        ]
-        if email_domain not in consumer_domains:
-            # Try tenant ID first
-            if microsoft_tenant_id:
-                company = Company.objects.filter(
-                    microsoft_tenant_id=microsoft_tenant_id, is_active=True
-                ).first()
-            # Then email domain
-            if not company:
-                company = Company.objects.filter(
-                    is_active=True, email_domains__icontains=email_domain
-                ).first()
-
-    # Determine status
-    management_keywords = [
-        "ceo",
-        "cto",
-        "cfo",
-        "director",
-        "owner",
-        "founder",
-        "president",
-        "chief",
-    ]
-    is_consumer = (
-        email
-        and "@" in email
-        and email.split("@")[1].lower()
-        in ["outlook.com", "hotmail.com", "live.com", "gmail.com"]
-    )
-    is_management = job_title and any(
-        kw in job_title.lower() for kw in management_keywords
-    )
-
-    if is_consumer:
-        status, role = "pending", "pending"
-    elif not company:
-        status, role = "no_company", "pending"
-    elif is_management:
-        status, role = "rejected", "pending"
-    elif company and company.auto_approve_workers:
-        status, role = "approved", "worker"
-    else:
-        status, role = "pending", "pending"
-
-    # Create profile
-    profile = DelegationProfile.objects.create(
-        user=user,
-        company=company,
-        microsoft_id=microsoft_id,
-        microsoft_tenant_id=microsoft_tenant_id,
-        job_title=job_title,
-        department=department,
-        office_location=office_location,
-        status=status,
-        role=role,
-        approved_at=timezone.now() if status == "approved" else None,
-    )
-
-    return profile, True
+    return ensure_delegation_profile_for_user(user)
 
 
 def home(request):
@@ -119,16 +26,16 @@ def home(request):
     Redirects authenticated users to appropriate page based on status.
     """
     if request.user.is_authenticated:
-        profile, created = _get_or_create_profile(request.user)
+        profile, _created = _get_or_create_profile(request.user)
         if profile:
             if profile.is_approved:
                 return redirect("delegations:dashboard")
+            elif profile.manually_blocked or profile.status == "rejected":
+                return redirect("delegations:access_denied")
             elif profile.status == "pending":
                 return redirect("delegations:pending_approval")
             elif profile.status == "no_company":
                 return redirect("delegations:no_company")
-            elif profile.status == "rejected":
-                return redirect("delegations:access_denied")
 
     return render(request, "delegations/home.html")
 
@@ -152,12 +59,12 @@ def dashboard(request):
 
     # Check access
     if not profile.is_approved:
-        if profile.status == "pending":
+        if profile.manually_blocked or profile.status == "rejected":
+            return redirect("delegations:access_denied")
+        elif profile.status == "pending":
             return redirect("delegations:pending_approval")
         elif profile.status == "no_company":
             return redirect("delegations:no_company")
-        elif profile.status == "rejected" or profile.manually_blocked:
-            return redirect("delegations:access_denied")
 
     context = {
         "profile": profile,
@@ -202,7 +109,7 @@ def pending_approval(request):
     if profile.is_approved:
         return redirect("delegations:dashboard")
 
-    # If rejected, show access denied
+    # If rejected or blocked, show access denied
     if profile.status == "rejected" or profile.manually_blocked:
         return redirect("delegations:access_denied")
 
@@ -226,12 +133,12 @@ def no_company(request):
     if profile.is_approved:
         return redirect("delegations:dashboard")
 
+    if profile.manually_blocked or profile.status == "rejected":
+        return redirect("delegations:access_denied")
+
     # If they have a company now, check other status
-    if profile.company:
-        if profile.status == "pending":
-            return redirect("delegations:pending_approval")
-        elif profile.status == "rejected":
-            return redirect("delegations:access_denied")
+    if profile.company and profile.status == "pending":
+        return redirect("delegations:pending_approval")
 
     context = {
         "profile": profile,
@@ -243,7 +150,7 @@ def no_company(request):
 @login_required
 def access_denied(request):
     """
-    Page shown to rejected users (e.g., management roles).
+    Page shown to rejected or manually blocked users (e.g., management roles).
     """
     profile, _ = _get_or_create_profile(request.user)
 
@@ -254,9 +161,12 @@ def access_denied(request):
     if profile.is_approved:
         return redirect("delegations:dashboard")
 
+    reason = profile.rejection_reason
+    if not reason and profile.manually_blocked:
+        reason = "Your account has been blocked by an administrator."
+
     context = {
         "profile": profile,
-        "reason": profile.rejection_reason
-        or "Your account does not have access to this platform.",
+        "reason": reason or "Your account does not have access to this platform.",
     }
     return render(request, "delegations/access_denied.html", context)

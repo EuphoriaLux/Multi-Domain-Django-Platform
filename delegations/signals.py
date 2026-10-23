@@ -1,25 +1,28 @@
 """
-Signal handlers for Delegations.lu app.
+Signal handlers and onboarding helpers for Delegations.lu app.
 
-Handles Microsoft OAuth profile creation, company matching, and photo download.
+Handles Microsoft OAuth profile creation, company matching, tenant ID
+extraction, nOAuth spoof-resistance, and profile photo download.
 """
 
 import logging
-import requests
 import threading
-from django.db.models.signals import post_save
-from django.dispatch import receiver
+from types import SimpleNamespace
+
+import requests
+from allauth.socialaccount.models import SocialAccount, SocialToken
+from allauth.socialaccount.signals import pre_social_login, social_account_updated
 from django.contrib.auth.signals import user_logged_in
 from django.core.files.base import ContentFile
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from django.utils import timezone
-from allauth.socialaccount.signals import pre_social_login, social_account_updated
-from allauth.socialaccount.models import SocialAccount, SocialToken
 
-from .models import Company, DelegationProfile, AccessLog
+from .models import AccessLog, Company, DelegationProfile
 
 logger = logging.getLogger(__name__)
 
-# Thread-local storage to pass domain context between signals
+# Thread-local storage to pass domain and login context between signals
 _thread_local = threading.local()
 
 # Management keywords that trigger auto-rejection
@@ -94,13 +97,78 @@ def _is_management_title(job_title):
     return any(keyword in title_lower for keyword in MANAGEMENT_KEYWORDS)
 
 
-def _match_user_to_company(email, microsoft_tenant_id=None):
+def _is_external_guest_upn(extra_data):
+    """True when Microsoft Graph reports a B2B guest UPN (``#EXT#``)."""
+    upn = ((extra_data or {}).get("userPrincipalName") or "").strip().lower()
+    return "#ext#" in upn
+
+
+def _email_trusted_for_domain_match(extra_data, email):
     """
-    Match user to company by email domain or Microsoft tenant ID.
+    Guard against the nOAuth pattern (spoofed writable ``mail`` attribute on
+    an external Entra tenant).
+
+    When ``userPrincipalName`` is present in ``extra_data``, only trust
+    ``email`` for email-domain company matching if the UPN proves the tenant
+    owns that domain (and is not a ``#EXT#`` B2B guest).
+    """
+    if not email or "@" not in email:
+        return False
+    data = extra_data or {}
+    if _is_external_guest_upn(data):
+        return False
+    if data.get("userPrincipalName"):
+        from azureproject.adapters import _microsoft_email_is_tenant_owned
+
+        return _microsoft_email_is_tenant_owned(data, email)
+    return True
+
+
+def _extract_microsoft_tenant_id(social_account, sociallogin=None, extra_data=None):
+    """
+    Extract the Microsoft Entra tenant ID for a user's Microsoft account.
+
+    allauth's Microsoft provider stores the Graph ``/me`` payload in
+    ``extra_data``, which does not carry ``tid``. We resolve the tenant via
+    ``azureproject.adapters._microsoft_tenant_id`` (from a pinned SocialApp or
+    the JWT access token's ``tid`` claim), falling back to ``extra_data["tid"]``
+    when provided directly.
+    """
+    from azureproject.adapters import _microsoft_tenant_id
+
+    if sociallogin is not None and getattr(sociallogin, "token", None) is not None:
+        tid = _microsoft_tenant_id(sociallogin)
+        if tid:
+            return tid
+
+    if social_account is not None and social_account.pk:
+        token = (
+            SocialToken.objects.filter(
+                account=social_account, account__provider="microsoft"
+            )
+            .select_related("app")
+            .first()
+        )
+        if token is not None:
+            tid = _microsoft_tenant_id(SimpleNamespace(token=token))
+            if tid:
+                return tid
+
+    data = (
+        extra_data
+        if extra_data is not None
+        else (getattr(social_account, "extra_data", None) or {})
+    )
+    return (data.get("tid") or "").strip()
+
+
+def _match_user_to_company(email, microsoft_tenant_id=None, extra_data=None):
+    """
+    Match user to company by Microsoft tenant ID or verified email domain.
 
     Priority:
     1. Microsoft tenant ID (most accurate)
-    2. Email domain match
+    2. Exact email domain match (when tenant-owned)
 
     Returns Company instance or None
     """
@@ -113,6 +181,11 @@ def _match_user_to_company(email, microsoft_tenant_id=None):
     if email_domain in CONSUMER_DOMAINS:
         return None
 
+    # External B2B guest UPNs never auto-match to a company
+    if _is_external_guest_upn(extra_data):
+        logger.warning("Refusing automatic company match for B2B guest UPN")
+        return None
+
     # 1. Try matching by Microsoft tenant ID (most accurate)
     if microsoft_tenant_id:
         company = Company.objects.filter(
@@ -122,10 +195,18 @@ def _match_user_to_company(email, microsoft_tenant_id=None):
             logger.info(f"Matched user {email} to company {company.name} by tenant ID")
             return company
 
-    # 2. Try matching by email domain
+    # Guard against spoofed Graph `mail` on an external tenant (nOAuth)
+    if not _email_trusted_for_domain_match(extra_data, email):
+        logger.warning(
+            "Refusing email-domain company match for unverified Microsoft mail %s",
+            email_domain,
+        )
+        return None
+
+    # 2. Try matching by exact email domain
     for company in Company.objects.filter(is_active=True):
         if company.email_domains:
-            domains_lower = [d.lower() for d in company.email_domains]
+            domains_lower = [d.strip().lower() for d in company.email_domains if d]
             if email_domain in domains_lower:
                 logger.info(
                     f"Matched user {email} to company {company.name} by email domain"
@@ -136,12 +217,26 @@ def _match_user_to_company(email, microsoft_tenant_id=None):
     return None
 
 
-def _determine_profile_status(email, job_title, company):
+def _determine_profile_status(email, job_title, company, extra_data=None):
     """
     Determine initial profile status based on user data.
 
     Returns tuple: (status, role, reason)
     """
+    if _is_external_guest_upn(extra_data):
+        return (
+            "pending",
+            "pending",
+            "External guest Microsoft account - pending admin approval",
+        )
+
+    if extra_data and not _email_trusted_for_domain_match(extra_data, email):
+        return (
+            "pending",
+            "pending",
+            "Unverified Microsoft email domain - pending admin approval",
+        )
+
     # Personal account - pending approval
     if _is_consumer_email(email):
         return (
@@ -195,18 +290,124 @@ def _download_microsoft_photo(access_token):
         return None, None
 
 
+def ensure_delegation_profile_for_user(user, social_account=None, sociallogin=None):
+    """
+    Get existing DelegationProfile or create one from the user's Microsoft
+    SocialAccount, recording the initial AccessLog and downloading the profile
+    photo when available.
+
+    Returns (profile, created) tuple, or (None, False) if the user has no
+    Microsoft SocialAccount.
+    """
+    try:
+        return user.delegation_profile, False
+    except DelegationProfile.DoesNotExist:
+        pass
+
+    if social_account is None and sociallogin is not None:
+        if getattr(sociallogin.account, "provider", None) == "microsoft":
+            social_account = sociallogin.account
+
+    if social_account is None:
+        social_account = SocialAccount.objects.filter(
+            user=user, provider="microsoft"
+        ).first()
+
+    if social_account is None:
+        return None, False
+
+    extra_data = social_account.extra_data or {}
+
+    email = (
+        user.email
+        or extra_data.get("mail")
+        or extra_data.get("userPrincipalName")
+        or ""
+    ).strip()
+    microsoft_id = (extra_data.get("id") or "").strip() or None
+    microsoft_tenant_id = _extract_microsoft_tenant_id(
+        social_account, sociallogin=sociallogin, extra_data=extra_data
+    )
+    job_title = (extra_data.get("jobTitle") or "").strip()
+    department = (extra_data.get("department") or "").strip()
+    office_location = (extra_data.get("officeLocation") or "").strip()
+
+    company = _match_user_to_company(
+        email, microsoft_tenant_id=microsoft_tenant_id, extra_data=extra_data
+    )
+    status, role, reason = _determine_profile_status(
+        email, job_title, company, extra_data=extra_data
+    )
+
+    profile, profile_created = DelegationProfile.objects.get_or_create(
+        user=user,
+        defaults={
+            "company": company,
+            "microsoft_id": microsoft_id,
+            "microsoft_tenant_id": microsoft_tenant_id,
+            "job_title": job_title,
+            "department": department,
+            "office_location": office_location,
+            "status": status,
+            "role": role,
+            "rejection_reason": reason if status == "rejected" else "",
+            "approved_at": timezone.now() if status == "approved" else None,
+        },
+    )
+
+    if profile_created:
+        action_map = {
+            "approved": "auto_approved",
+            "rejected": "auto_rejected",
+            "pending": "login_pending",
+            "no_company": "no_company_match",
+        }
+        AccessLog.objects.create(
+            profile=profile,
+            action=action_map.get(status, "login_pending"),
+            details=reason,
+        )
+
+        # Try to download profile photo (prefer token on sociallogin when
+        # called from post_save before SocialToken is saved to DB).
+        try:
+            access_token = None
+            if sociallogin is not None and getattr(sociallogin, "token", None):
+                access_token = sociallogin.token.token
+            if not access_token and social_account.pk:
+                token_obj = SocialToken.objects.filter(
+                    account=social_account, account__provider="microsoft"
+                ).first()
+                if token_obj:
+                    access_token = token_obj.token
+
+            if access_token:
+                photo_content, extension = _download_microsoft_photo(access_token)
+                if photo_content:
+                    filename = f"microsoft_{user.id}.{extension}"
+                    profile.profile_photo.save(filename, photo_content, save=True)
+                    logger.info(f"Saved Microsoft photo for {email}")
+        except Exception as e:
+            logger.error(f"Error saving profile photo: {str(e)}")
+
+        logger.info(f"Created DelegationProfile for {email} with status: {status}")
+
+    return profile, profile_created
+
+
 @receiver(pre_social_login)
 def check_microsoft_access_on_login(sender, request, sociallogin, **kwargs):
     """
     Check access before allowing Microsoft login on delegation domain.
     This runs BEFORE the user is logged in.
 
-    Sets a thread-local flag to indicate this is a delegations.lu login,
+    Sets thread-local context to indicate this is a delegations.lu login,
     which is used by create_delegation_profile_from_microsoft to decide
     whether to create a DelegationProfile.
     """
-    # Reset the flag at the start of each login attempt
+    # Reset the flags at the start of each login attempt
     _thread_local.is_delegation_login = False
+    _thread_local.sociallogin = None
 
     if sociallogin.account.provider != "microsoft":
         return
@@ -214,10 +415,11 @@ def check_microsoft_access_on_login(sender, request, sociallogin, **kwargs):
     if not _is_delegation_domain(request):
         return
 
-    # Set flag to indicate this is a delegations.lu login
+    # Set flag and sociallogin reference for downstream signal handlers
     _thread_local.is_delegation_login = True
+    _thread_local.sociallogin = sociallogin
 
-    extra_data = sociallogin.account.extra_data
+    extra_data = sociallogin.account.extra_data or {}
     email = extra_data.get("mail") or extra_data.get("userPrincipalName", "")
 
     logger.info(f"Microsoft pre_social_login for delegations.lu: {email}")
@@ -229,6 +431,15 @@ def check_microsoft_access_on_login(sender, request, sociallogin, **kwargs):
             if profile.manually_blocked:
                 from django.core.exceptions import PermissionDenied
 
+                AccessLog.objects.create(
+                    profile=profile,
+                    action="login_blocked",
+                    details="Blocked user attempted Microsoft login",
+                    ip_address=request.META.get("REMOTE_ADDR") if request else None,
+                    user_agent=(
+                        request.META.get("HTTP_USER_AGENT", "")[:500] if request else ""
+                    ),
+                )
                 logger.warning(f"Blocked user attempted login: {email}")
                 raise PermissionDenied(
                     "Your account has been blocked from this platform."
@@ -252,7 +463,6 @@ def create_delegation_profile_from_microsoft(sender, instance, created, **kwargs
         return
 
     # Only create DelegationProfile if login was from delegations.lu
-    # This flag is set by check_microsoft_access_on_login in pre_social_login
     if not getattr(_thread_local, "is_delegation_login", False):
         logger.info(
             f"Skipping DelegationProfile creation for {instance.user.email} - not a delegations.lu login"
@@ -262,76 +472,11 @@ def create_delegation_profile_from_microsoft(sender, instance, created, **kwargs
     logger.info(f"Creating DelegationProfile for Microsoft user: {instance.user.email}")
 
     try:
-        extra_data = instance.extra_data
-
-        # Extract user data from Microsoft
-        # Use 'or' to convert None values to empty strings (Microsoft may return null for optional fields)
-        email = (
-            instance.user.email
-            or extra_data.get("mail")
-            or extra_data.get("userPrincipalName")
-            or ""
+        ensure_delegation_profile_for_user(
+            instance.user,
+            social_account=instance,
+            sociallogin=getattr(_thread_local, "sociallogin", None),
         )
-        microsoft_id = extra_data.get("id") or ""
-        microsoft_tenant_id = extra_data.get("tid") or ""  # Tenant ID from token claims
-        job_title = extra_data.get("jobTitle") or ""
-        department = extra_data.get("department") or ""
-        office_location = extra_data.get("officeLocation") or ""
-
-        # Match user to company
-        company = _match_user_to_company(email, microsoft_tenant_id)
-
-        # Determine initial status
-        status, role, reason = _determine_profile_status(email, job_title, company)
-
-        # Create profile
-        profile, profile_created = DelegationProfile.objects.get_or_create(
-            user=instance.user,
-            defaults={
-                "company": company,
-                "microsoft_id": microsoft_id,
-                "microsoft_tenant_id": microsoft_tenant_id,
-                "job_title": job_title,
-                "department": department,
-                "office_location": office_location,
-                "status": status,
-                "role": role,
-                "rejection_reason": reason if status == "rejected" else "",
-                "approved_at": timezone.now() if status == "approved" else None,
-            },
-        )
-
-        if profile_created:
-            # Log the access decision
-            action_map = {
-                "approved": "auto_approved",
-                "rejected": "auto_rejected",
-                "pending": "login_pending",
-                "no_company": "no_company_match",
-            }
-            AccessLog.objects.create(
-                profile=profile,
-                action=action_map.get(status, "login_pending"),
-                details=reason,
-            )
-
-            # Try to download profile photo
-            try:
-                token = SocialToken.objects.filter(
-                    account=instance, account__provider="microsoft"
-                ).first()
-
-                if token:
-                    photo_content, extension = _download_microsoft_photo(token.token)
-                    if photo_content:
-                        filename = f"microsoft_{instance.user.id}.{extension}"
-                        profile.profile_photo.save(filename, photo_content, save=True)
-                        logger.info(f"Saved Microsoft photo for {email}")
-            except Exception as e:
-                logger.error(f"Error saving profile photo: {str(e)}")
-
-            logger.info(f"Created DelegationProfile for {email} with status: {status}")
-
     except Exception as e:
         logger.error(f"Error creating DelegationProfile: {str(e)}", exc_info=True)
 
@@ -349,7 +494,7 @@ def update_delegation_profile_from_microsoft(sender, request, sociallogin, **kwa
 
     try:
         profile = DelegationProfile.objects.get(user=sociallogin.user)
-        extra_data = sociallogin.account.extra_data
+        extra_data = sociallogin.account.extra_data or {}
 
         # Update fields that might change
         profile.department = extra_data.get("department", "") or profile.department
@@ -357,10 +502,37 @@ def update_delegation_profile_from_microsoft(sender, request, sociallogin, **kwa
         profile.office_location = (
             extra_data.get("officeLocation", "") or profile.office_location
         )
-        profile.save(
-            update_fields=["department", "job_title", "office_location", "updated_at"]
+        tid = _extract_microsoft_tenant_id(
+            sociallogin.account, sociallogin=sociallogin, extra_data=extra_data
         )
+        if tid and not profile.microsoft_tenant_id:
+            profile.microsoft_tenant_id = tid
 
+        update_fields = [
+            "department",
+            "job_title",
+            "office_location",
+            "microsoft_tenant_id",
+            "updated_at",
+        ]
+
+        # If a worker's title updated to a management role and they were not
+        # manually approved as an exception, revoke access automatically.
+        if (
+            _is_management_title(profile.job_title)
+            and not profile.manually_approved
+            and profile.status != "rejected"
+        ):
+            profile.status = "rejected"
+            profile.rejection_reason = f"Management role detected: {profile.job_title}"
+            update_fields.extend(["status", "rejection_reason"])
+            AccessLog.objects.create(
+                profile=profile,
+                action="auto_rejected",
+                details=profile.rejection_reason,
+            )
+
+        profile.save(update_fields=update_fields)
         logger.info(f"Updated DelegationProfile for {sociallogin.user.email}")
 
     except DelegationProfile.DoesNotExist:
@@ -370,13 +542,20 @@ def update_delegation_profile_from_microsoft(sender, request, sociallogin, **kwa
 @receiver(user_logged_in)
 def update_delegation_last_login(sender, request, user, **kwargs):
     """
-    Update last login timestamp and log successful login for delegation users.
+    Ensure DelegationProfile exists (e.g. when a user with a pre-existing
+    Microsoft SocialAccount from another domain logs into delegations.lu for
+    the first time), update last login timestamp, and log successful login.
     """
     if not _is_delegation_domain(request):
         return
 
     try:
-        profile = DelegationProfile.objects.get(user=user)
+        profile, _ = ensure_delegation_profile_for_user(
+            user,
+            sociallogin=getattr(_thread_local, "sociallogin", None),
+        )
+        if not profile:
+            return
         profile.last_login_at = timezone.now()
         profile.save(update_fields=["last_login_at"])
 
@@ -388,5 +567,5 @@ def update_delegation_last_login(sender, request, user, **kwargs):
                 ip_address=request.META.get("REMOTE_ADDR"),
                 user_agent=request.META.get("HTTP_USER_AGENT", "")[:500],
             )
-    except DelegationProfile.DoesNotExist:
-        pass
+    except Exception as e:
+        logger.error(f"Error in update_delegation_last_login: {str(e)}", exc_info=True)
