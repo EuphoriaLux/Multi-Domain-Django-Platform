@@ -1,10 +1,11 @@
-"""Run scripts/smoke.py's stylesheet check against a local stub server.
+"""Run scripts/smoke.py's readyz and stylesheet checks against local stub servers.
 
 Run without Django: python -m unittest discover -s .github/tests -v
 """
 
 import importlib.util
 import threading
+import time
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -17,6 +18,44 @@ _spec.loader.exec_module(smoke)
 
 PAGE = '<html lang="{lang}"><link href="/static/crush_lu/css/{css}"></html>'
 FULL_CSS = b"a{}" * 20_000
+READY = b'{"status": "ok", "checks": {"database": "ok", "cache": "ok"}}'
+NOT_READY = b'{"status": "fail", "checks": {"database": "ok", "cache": "fail: X"}}'
+# A stalled request outlasts the patched smoke.TIMEOUT, then ends without a
+# reply (writing after the client gave up would log a BrokenPipe traceback).
+# Kept short: server_close() joins the handler threads.
+STALL_SECONDS = 0.3
+PATCHED_TIMEOUT = 0.1
+
+
+class ReadyzStub:
+    """A slot whose /readyz/ stalls for its first ``stalls`` requests (or
+    every request when ``stalls`` is None), then answers ``status``/``body``."""
+
+    def __init__(self, stalls, status=200, body=READY):
+        self.hits = 0
+        site = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                site.hits += 1
+                if stalls is None or site.hits <= stalls:
+                    time.sleep(STALL_SECONDS)
+                    return
+                self.send_response(status)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *args):
+                pass
+
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def close(self):
+        self.server.shutdown()
+        self.server.server_close()
 
 
 class StubSite:
@@ -65,6 +104,57 @@ class StubSite:
     def close(self):
         self.server.shutdown()
         self.server.server_close()
+
+
+class ReadyzCheckTests(unittest.TestCase):
+    def setUp(self):
+        smoke.failures.clear()
+        smoke.passes = 0
+        self._saved = (
+            smoke.TIMEOUT,
+            smoke.READYZ_RETRY_SECONDS,
+            smoke.READYZ_RETRY_INTERVAL,
+        )
+        smoke.TIMEOUT = PATCHED_TIMEOUT
+        smoke.READYZ_RETRY_SECONDS = 1.0
+        smoke.READYZ_RETRY_INTERVAL = 0.05
+
+    def tearDown(self):
+        (
+            smoke.TIMEOUT,
+            smoke.READYZ_RETRY_SECONDS,
+            smoke.READYZ_RETRY_INTERVAL,
+        ) = self._saved
+        smoke.failures.clear()
+
+    def run_check(self, stalls, status=200, body=READY):
+        site = ReadyzStub(stalls, status, body)
+        self.addCleanup(site.close)
+        smoke.check_readyz(site.base)
+        return site
+
+    def test_passes_after_one_stalled_request(self):
+        # The 2026-10-21 and 2026-10-23 deploys: one request timed out on a
+        # slot the gate had just seen ready, and the next one answered.
+        site = self.run_check(stalls=1)
+        self.assertEqual(smoke.failures, [])
+        self.assertEqual(smoke.passes, 1)
+        self.assertEqual(site.hits, 2)
+
+    def test_a_host_that_never_answers_still_fails(self):
+        site = self.run_check(stalls=None)
+        [failure] = smoke.failures
+        self.assertIn("readyz:", failure)
+        self.assertIn("TimeoutError", failure)
+        self.assertGreater(site.hits, 1)
+
+    def test_a_failed_check_fails_without_waiting(self):
+        # An answer is a diagnosis, not a stall: report it on the first hit.
+        site = self.run_check(stalls=0, status=503, body=NOT_READY)
+        [failure] = smoke.failures
+        self.assertIn("status 503", failure)
+        self.assertIn("fail: X", failure)
+        self.assertEqual(site.hits, 1)
 
 
 class StylesheetCheckTests(unittest.TestCase):
