@@ -28791,3 +28791,45 @@ msgstr ""
 #: crush_lu/templates/crush_lu/emails/photo_revision_request.html
 msgid "Upload a replacement photo in that slot. You do not need to change anything else."
 msgstr ""
+
+# UX Wave 6 follow-ups: #1154 plurals, #1167 quiz feedback, #1164
+#: crush_lu/templates/crush_lu/coach_edit_challenge.html
+#: crush_lu/templates/crush_lu/journey/chapter_view.html
+#, python-format
+msgid "%(points)s point"
+msgid_plural "%(points)s points"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crush_lu/templates/crush_lu/journey/journey_map.html
+#, python-format
+msgid "%(points)s point earned"
+msgid_plural "%(points)s points earned"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+#, python-format
+msgid "%(total)s point in total"
+msgid_plural "%(total)s points in total"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+#, python-format
+msgid "Your team finished with %(points)s point."
+msgid_plural "Your team finished with %(points)s points."
+msgstr[0] ""
+msgstr[1] ""
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Wrong!"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Correct answer: {answer}"
+msgstr ""
+
+#: crush_lu/views_payments.py
+msgid "This membership is not pending payment."
+msgstr ""

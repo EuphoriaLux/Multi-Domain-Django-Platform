@@ -100,7 +100,7 @@
             {% if chapter_item.is_completed %}
                 <p class="mt-4 text-journey-success font-semibold flex items-center gap-2">
                     {% include "shared/icons/trophy.html" with class="w-5 h-5" %}
-                    {% blocktrans with points=chapter_item.points_earned %}{{ points }} points earned{% endblocktrans %}
+                    {% blocktrans count points=chapter_item.points_earned %}{{ points }} point earned{% plural %}{{ points }} points earned{% endblocktrans %}
                 </p>
                 <a href="{% url 'crush_lu:chapter_view' chapter_item.chapter.chapter_number %}"
                    class="journey-btn-primary mt-5">
