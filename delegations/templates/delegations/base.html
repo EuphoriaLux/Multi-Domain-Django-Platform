@@ -1,7 +1,8 @@
 {% load i18n %}
 {% load analytics %}
+{% get_current_language as LANGUAGE_CODE %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ LANGUAGE_CODE|default:'en' }}">
 <head>
     {% analytics_head %}
     {% appinsights_head %}

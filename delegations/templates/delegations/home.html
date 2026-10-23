@@ -1,138 +1,1274 @@
+{% load i18n %}
+{% load analytics %}
 {% load delegation_tags %}
+{% get_current_language as LANGUAGE_CODE %}
 {% get_microsoft_login_url as microsoft_url %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ LANGUAGE_CODE|default:'en' }}">
 <head>
+    {% analytics_head %}
+    {% appinsights_head %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Delegations.lu - Staff Portal</title>
+    <title>{% trans "Employment Issue Help & Staff Delegation in Luxembourg | Delegations.lu" %}</title>
+    <meta name="description" content="{% trans "Facing an employment issue in Luxembourg? Confidential guidance on dismissal, workplace harassment (mobbing), contract changes, overtime, sick leave protection, and Staff Delegation rights (Délégation du personnel) in FR, DE & EN." %}">
+    <meta name="keywords" content="{% trans "employment issue Luxembourg, unfair dismissal Luxembourg, licenciement abusif Luxembourg, délégation du personnel Luxembourg, harcèlement moral travail Luxembourg, Arbeitsrecht Luxemburg Hilfe, Kündigung Luxemburg, Personaldelegation Luxemburg, ITM Luxembourg" %}">
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
+
+    {% hreflang_tags %}
+    <link rel="canonical" href="{% canonical_url %}">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Delegations.lu">
+    <meta property="og:title" content="{% trans "Employment Issue Help & Staff Delegation in Luxembourg | Delegations.lu" %}">
+    <meta property="og:description" content="{% trans "Confidential orientation for employees in Luxembourg facing dismissal, workplace harassment, contract changes, or needing Staff Delegation support." %}">
+    <meta property="og:url" content="{% canonical_url %}">
+    <meta property="og:locale" content="{% if LANGUAGE_CODE == 'fr' %}fr_LU{% elif LANGUAGE_CODE == 'de' %}de_LU{% else %}en_LU{% endif %}">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{% trans "Employment Issue Help & Staff Delegation in Luxembourg | Delegations.lu" %}">
+    <meta name="twitter:description" content="{% trans "Confidential orientation for employees in Luxembourg facing dismissal, workplace harassment, contract changes, or needing Staff Delegation support." %}">
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Structured Data: Organization / Legal & Employment Information Service + FAQPage -->
+    <script type="application/ld+json" nonce="{{ csp_nonce }}">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://delegations.lu/#website",
+          "url": "https://delegations.lu/",
+          "name": "Delegations.lu",
+          "description": "{% trans "Confidential employment issue orientation and Staff Delegation platform in Luxembourg." %}",
+          "inLanguage": ["fr", "de", "en"]
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://delegations.lu/#organization",
+          "name": "Delegations.lu",
+          "url": "https://delegations.lu/",
+          "areaServed": {
+            "@type": "Country",
+            "name": "Luxembourg"
+          },
+          "knowsLanguage": ["fr", "de", "en"]
+        },
+        {
+          "@type": "FAQPage",
+          "@id": "{% canonical_url %}#faqpage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "{% trans "What should I do first if I receive a dismissal letter in Luxembourg?" %}",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "{% trans "If you are dismissed with notice (licenciement avec préavis) in Luxembourg, you have strictly 1 month from notification to request the precise reasons by registered letter (lettre recommandée). Once the employer replies (or for immediate dismissal), a 3-month deadline applies to contest unfair dismissal." %}"
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "{% trans "When is a Staff Delegation (Délégation du personnel) mandatory in Luxembourg?" %}",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "{% trans "Under Article L.411-1 of the Luxembourg Labour Code, every private-sector company employing at least 15 workers in Luxembourg is legally required to have an elected Staff Delegation to represent and defend employees." %}"
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "{% trans "Am I protected against dismissal during sick leave in Luxembourg?" %}",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "{% trans "Yes, under Article L.121-6 of the Labour Code, you are protected against dismissal for up to 26 consecutive weeks, provided you inform your employer on the 1st day of absence and submit your medical certificate no later than the 3rd day." %}"
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "{% trans "How can I report workplace harassment (mobbing) in Luxembourg?" %}",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "{% trans "Since the Luxembourg Law of 29 March 2023 on moral harassment, employers must stop harassment immediately and protect victims and witnesses from retaliation. You can seek assistance from your Staff Delegation and escalate to the Inspection du travail et des mines (ITM)." %}"
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "{% trans "Can my employer change my salary, working hours, or role without my consent?" %}",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "{% trans "No. Under Article L.121-7 of the Luxembourg Labour Code, any substantial modification of an essential clause to the employee's detriment must follow the same strict procedure and notice period as a dismissal." %}"
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "{% trans "Is my request on Delegations.lu confidential from my employer?" %}",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "{% trans "Yes. Submitting an employment issue assessment on Delegations.lu is strictly confidential. Your employer is never notified, and we recommend using a personal email address for complete peace of mind." %}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
+
     <style>
+        :root {
+            --dlg-primary: #6D28D9;
+            --dlg-primary-dark: #4C1D95;
+            --dlg-accent: #DB2777;
+            --dlg-gradient: linear-gradient(135deg, #1E1B4B 0%, #4C1D95 55%, #831843 100%);
+            --dlg-soft-bg: #F8FAFC;
+            --dlg-card-border: #E2E8F0;
+            --dlg-text-main: #0F172A;
+            --dlg-text-muted: #475569;
+            --dlg-danger: #DC2626;
+            --dlg-success: #15803D;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
         body {
-            background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            color: var(--dlg-text-main);
+            background-color: var(--dlg-soft-bg);
             min-height: 100vh;
             display: flex;
-            align-items: center;
-            justify-content: center;
+            flex-direction: column;
         }
-        .card {
-            border: none;
-            border-radius: 1rem;
-            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+
+        .navbar-marketing {
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--dlg-card-border);
         }
-        h1 {
-            color: #9B59B6;
-        }
-        .btn-microsoft {
-            background: #2f2f2f;
-            color: white;
-            border: none;
-            padding: 14px 28px;
-            border-radius: 8px;
+
+        .brand-mark {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--dlg-primary) 0%, var(--dlg-accent) 100%);
+            color: #fff;
             display: inline-flex;
             align-items: center;
-            gap: 12px;
-            font-weight: 500;
-            font-size: 16px;
-            transition: background 0.2s, transform 0.2s;
+            justify-content: center;
+            font-size: 1.15rem;
         }
+
+        .lang-switcher .lang-pill {
+            display: inline-block;
+            padding: 0.3rem 0.65rem;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-decoration: none;
+            color: var(--dlg-text-muted);
+            border: 1px solid transparent;
+            transition: all 0.15s ease;
+        }
+
+        .lang-switcher .lang-pill:hover {
+            color: var(--dlg-primary);
+            background: #F1F5F9;
+        }
+
+        .lang-switcher .lang-pill.active {
+            background: #EDE9FE;
+            color: var(--dlg-primary-dark);
+            border-color: #C4B5FD;
+        }
+
+        .hero-section {
+            background: var(--dlg-gradient);
+            color: #fff;
+            padding: 4.5rem 0 4rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.45rem 0.95rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(255, 255, 255, 0.24);
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+        }
+
+        .btn-cta-primary {
+            background: linear-gradient(135deg, #EC4899 0%, #8B5CF6 100%);
+            border: none;
+            color: #fff;
+            font-weight: 600;
+            padding: 0.85rem 1.6rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 24px rgba(236, 72, 153, 0.32);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .btn-cta-primary:hover {
+            color: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 14px 28px rgba(236, 72, 153, 0.42);
+        }
+
+        .btn-cta-outline {
+            border: 1px solid rgba(255, 255, 255, 0.45);
+            color: #fff;
+            font-weight: 600;
+            padding: 0.85rem 1.4rem;
+            border-radius: 0.75rem;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .btn-cta-outline:hover {
+            background: rgba(255, 255, 255, 0.18);
+            color: #fff;
+        }
+
+        .hero-quick-card {
+            background: rgba(255, 255, 255, 0.98);
+            color: var(--dlg-text-main);
+            border-radius: 1.25rem;
+            padding: 1.75rem;
+            box-shadow: 0 20px 45px rgba(15, 23, 42, 0.35);
+        }
+
+        .quick-topic-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            width: 100%;
+            text-align: left;
+            padding: 0.75rem 0.95rem;
+            border-radius: 0.75rem;
+            border: 1px solid var(--dlg-card-border);
+            background: #fff;
+            color: var(--dlg-text-main);
+            font-weight: 500;
+            font-size: 0.92rem;
+            transition: all 0.15s ease;
+        }
+
+        .quick-topic-btn:hover,
+        .quick-topic-btn.active {
+            border-color: var(--dlg-primary);
+            background: #F5F3FF;
+            color: var(--dlg-primary-dark);
+            transform: translateX(3px);
+        }
+
+        .issue-card {
+            background: #fff;
+            border: 1px solid var(--dlg-card-border);
+            border-radius: 1rem;
+            padding: 1.6rem;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+
+        .issue-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+            border-color: #C4B5FD;
+        }
+
+        .issue-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: #F3E8FF;
+            color: var(--dlg-primary);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.35rem;
+            margin-bottom: 1rem;
+        }
+
+        .law-pill {
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--dlg-primary-dark);
+            background: #EDE9FE;
+            padding: 0.25rem 0.65rem;
+            border-radius: 999px;
+            margin-bottom: 0.75rem;
+        }
+
+        .intake-card {
+            background: #fff;
+            border: 1px solid #DDD6FE;
+            border-radius: 1.25rem;
+            box-shadow: 0 16px 40px rgba(109, 40, 217, 0.08);
+        }
+
+        /* Modern Web Guidance: validate-input-after-interaction
+           Format hints live above inputs so autocomplete popovers never cover them,
+           and error states only trigger on :user-invalid (or JS fallback after blur). */
+        .field-hint {
+            display: block;
+            font-size: 0.83rem;
+            color: var(--dlg-text-muted);
+            margin-bottom: 0.4rem;
+        }
+
+        .error-message {
+            display: none;
+            color: var(--dlg-danger);
+            font-size: 0.84rem;
+            font-weight: 500;
+            margin-top: 0.35rem;
+        }
+
+        .server-error-message {
+            display: block;
+            color: var(--dlg-danger);
+            font-size: 0.84rem;
+            font-weight: 500;
+            margin-top: 0.35rem;
+        }
+
+        .interactive-field:user-invalid {
+            border-color: var(--dlg-danger);
+            background-color: #FEF2F2;
+        }
+
+        .interactive-field:user-invalid ~ .error-message {
+            display: block;
+        }
+
+        .interactive-field:user-valid {
+            border-color: var(--dlg-success);
+        }
+
+        .interactive-field.user-invalid-fallback {
+            border-color: var(--dlg-danger);
+            background-color: #FEF2F2;
+        }
+
+        .interactive-field.user-invalid-fallback ~ .error-message {
+            display: block;
+        }
+
+        .interactive-field.user-valid-fallback {
+            border-color: var(--dlg-success);
+        }
+
+        /* Modern Web Guidance: search-hidden-content
+           Native <details> with shared name attribute keeps collapsed FAQ text
+           searchable via browser Find-in-Page and indexable by search engines. */
+        details.faq-item {
+            background: #fff;
+            border: 1px solid var(--dlg-card-border);
+            border-radius: 0.85rem;
+            margin-bottom: 0.85rem;
+            overflow: hidden;
+            transition: border-color 0.15s ease;
+        }
+
+        details.faq-item[open] {
+            border-color: var(--dlg-primary);
+            box-shadow: 0 6px 20px rgba(109, 40, 217, 0.07);
+        }
+
+        details.faq-item summary {
+            padding: 1.15rem 1.35rem;
+            font-weight: 600;
+            font-size: 1.02rem;
+            cursor: pointer;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        details.faq-item summary::-webkit-details-marker {
+            display: none;
+        }
+
+        details.faq-item summary::after {
+            content: "+";
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--dlg-primary);
+            line-height: 1;
+        }
+
+        details.faq-item[open] summary::after {
+            content: "−";
+        }
+
+        details.faq-item .faq-answer {
+            padding: 0 1.35rem 1.25rem;
+            color: var(--dlg-text-muted);
+            line-height: 1.65;
+        }
+
+        .btn-microsoft {
+            background: #2f2f2f;
+            color: #fff;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 0.6rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.65rem;
+            font-weight: 500;
+            text-decoration: none;
+            transition: background 0.2s ease, transform 0.2s ease;
+        }
+
         .btn-microsoft:hover {
             background: #404040;
-            color: white;
-            transform: translateY(-2px);
+            color: #fff;
+            transform: translateY(-1px);
         }
+
         .microsoft-logo {
             width: 20px;
             height: 20px;
         }
-        .feature-icon {
-            width: 48px;
-            height: 48px;
-            background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 20px;
-            margin-bottom: 12px;
-        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-10 col-lg-8">
-                <div class="card p-5">
-                    <div class="text-center mb-4">
-                        <i class="bi bi-people-fill text-primary" style="font-size: 48px; color: #9B59B6 !important;"></i>
-                        <h1 class="mt-3 mb-2">Delegations.lu</h1>
-                        <p class="lead text-muted">Staff Management Portal</p>
-                    </div>
+    {% include "includes/staging_banner.html" %}
+    {% analytics_body %}
 
-                    <hr class="my-4">
+    <!-- Sticky Navigation -->
+    <header class="navbar navbar-expand-lg navbar-marketing sticky-top py-2">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold text-dark text-decoration-none" href="{% localized_url LANGUAGE_CODE %}">
+                <span class="brand-mark"><i class="bi bi-shield-check"></i></span>
+                <span>
+                    Delegations.lu
+                    <span class="badge bg-light text-secondary border ms-1 fw-normal" style="font-size: 0.7rem;">Luxembourg</span>
+                </span>
+            </a>
 
-                    <div class="row mb-4">
-                        <div class="col-md-4 text-center mb-3 mb-md-0">
-                            <div class="feature-icon mx-auto">
-                                <i class="bi bi-calendar-event"></i>
-                            </div>
-                            <h6>Event Management</h6>
-                            <small class="text-muted">Plan and coordinate staff events</small>
-                        </div>
-                        <div class="col-md-4 text-center mb-3 mb-md-0">
-                            <div class="feature-icon mx-auto">
-                                <i class="bi bi-chat-dots"></i>
-                            </div>
-                            <h6>Request System</h6>
-                            <small class="text-muted">Submit and track requests</small>
-                        </div>
-                        <div class="col-md-4 text-center">
-                            <div class="feature-icon mx-auto">
-                                <i class="bi bi-megaphone"></i>
-                            </div>
-                            <h6>Announcements</h6>
-                            <small class="text-muted">Stay informed with updates</small>
-                        </div>
-                    </div>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#delegationsNavbar" aria-controls="delegationsNavbar" aria-expanded="false" aria-label="{% trans "Toggle navigation" %}">
+                <span class="navbar-toggler-icon"></span>
+            </button>
 
-                    <hr class="my-4">
+            <div class="collapse navbar-collapse" id="delegationsNavbar">
+                <ul class="navbar-nav mx-auto mb-2 mb-lg-0 gap-lg-2">
+                    <li class="nav-item">
+                        <a class="nav-link fw-medium" href="#issues">{% trans "Workplace Issues" %}</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link fw-medium" href="#help-finder">{% trans "Free Assessment" %}</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link fw-medium" href="#how-it-works">{% trans "Your Rights" %}</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link fw-medium" href="#faq">{% trans "FAQ" %}</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link fw-medium" href="#portal-login">{% trans "Company Portal" %}</a>
+                    </li>
+                </ul>
 
-                    <div class="text-center">
-                        <p class="text-muted mb-4">Sign in with your Microsoft work account to access the delegation portal.</p>
-                        {% if microsoft_url %}
-                        <a href="{{ microsoft_url }}" class="btn-microsoft">
-                            <svg class="microsoft-logo" viewBox="0 0 21 21">
-                                <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-                                <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-                                <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-                                <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-                            </svg>
-                            Sign in with Microsoft
-                        </a>
-                        {% else %}
-                        <div class="alert alert-warning">
-                            <i class="bi bi-exclamation-triangle me-2"></i>
-                            Microsoft authentication is not configured. Please contact the administrator.
-                        </div>
-                        {% endif %}
-                    </div>
-
-                    <div class="text-center mt-4">
-                        <small class="text-muted">
-                            <i class="bi bi-shield-check me-1"></i>
-                            Secure authentication via Microsoft Entra ID
-                        </small>
-                    </div>
-                </div>
-
-                <div class="text-center mt-4">
-                    <small class="text-white-50">delegations.lu</small>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <nav class="lang-switcher d-flex align-items-center bg-light p-1 rounded-pill border" aria-label="{% trans "Language selector" %}">
+                        <a href="{% localized_url 'fr' %}" hreflang="fr" lang="fr" class="lang-pill {% if LANGUAGE_CODE == 'fr' %}active{% endif %}" {% if LANGUAGE_CODE == 'fr' %}aria-current="page"{% endif %}>FR</a>
+                        <a href="{% localized_url 'de' %}" hreflang="de" lang="de" class="lang-pill {% if LANGUAGE_CODE == 'de' %}active{% endif %}" {% if LANGUAGE_CODE == 'de' %}aria-current="page"{% endif %}>DE</a>
+                        <a href="{% localized_url 'en' %}" hreflang="en" lang="en" class="lang-pill {% if LANGUAGE_CODE == 'en' %}active{% endif %}" {% if LANGUAGE_CODE == 'en' %}aria-current="page"{% endif %}>EN</a>
+                    </nav>
+                    <a href="#help-finder" class="btn btn-sm btn-cta-primary py-2 px-3">
+                        <i class="bi bi-chat-heart me-1"></i>{% trans "Get Help Now" %}
+                    </a>
                 </div>
             </div>
         </div>
-    </div>
+    </header>
+
+    <main>
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="container">
+                <div class="row align-items-center g-5">
+                    <div class="col-lg-7">
+                        <div class="hero-badge mb-3">
+                            <i class="bi bi-lock-fill text-warning"></i>
+                            <span>{% trans "Confidential Employment Support in Luxembourg · FR / DE / EN" %}</span>
+                        </div>
+                        <h1 class="display-5 fw-bold mb-3">
+                            {% trans "Facing an Employment Issue in Luxembourg? Don't Navigate It Alone." %}
+                        </h1>
+                        <p class="lead mb-4" style="color: rgba(255, 255, 255, 0.9);">
+                            {% trans "Whether you are dealing with an unfair dismissal, workplace harassment (mobbing), a forced contract change, unpaid overtime, or need your Staff Delegation (Délégation du personnel), get a clear, confidential orientation under Luxembourg labour law." %}
+                        </p>
+
+                        <div class="d-flex flex-wrap gap-3 mb-4">
+                            <a href="#help-finder" class="btn btn-cta-primary">
+                                <i class="bi bi-clipboard2-check me-2"></i>{% trans "Describe My Situation — Free & Confidential" %}
+                            </a>
+                            <a href="#issues" class="btn btn-cta-outline">
+                                {% trans "Explore Common Issues" %}
+                            </a>
+                        </div>
+
+                        <div class="row g-3 pt-2 text-white-50 small">
+                            <div class="col-sm-4 d-flex align-items-center gap-2">
+                                <i class="bi bi-shield-lock-fill text-info fs-5"></i>
+                                <span class="text-white">{% trans "100% Confidential — Employer Never Notified" %}</span>
+                            </div>
+                            <div class="col-sm-4 d-flex align-items-center gap-2">
+                                <i class="bi bi-journal-bookmark-fill text-warning fs-5"></i>
+                                <span class="text-white">{% trans "Aligned with Luxembourg Code du Travail" %}</span>
+                            </div>
+                            <div class="col-sm-4 d-flex align-items-center gap-2">
+                                <i class="bi bi-translate text-light fs-5"></i>
+                                <span class="text-white">{% trans "Support in French, German & English" %}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Quick-Triage Card -->
+                    <div class="col-lg-5">
+                        <div class="hero-quick-card">
+                            <span class="badge bg-purple-subtle text-primary-emphasis mb-2 px-2 py-1" style="background:#EDE9FE; color:#4C1D95;">
+                                {% trans "Interactive Prototype · 60-Second Triage" %}
+                            </span>
+                            <h2 class="h5 fw-bold mb-2">{% trans "What are you experiencing at work?" %}</h2>
+                            <p class="text-muted small mb-3">
+                                {% trans "Select your situation below to pre-fill your confidential Luxembourg rights check:" %}
+                            </p>
+
+                            <div class="d-grid gap-2">
+                                <button type="button" class="quick-topic-btn" data-select-issue="dismissal">
+                                    <i class="bi bi-file-earmark-excel text-danger fs-5"></i>
+                                    <span>{% trans "Dismissal, Warning Letter or Notice Period" %}</span>
+                                </button>
+                                <button type="button" class="quick-topic-btn" data-select-issue="harassment">
+                                    <i class="bi bi-shield-exclamation text-warning fs-5"></i>
+                                    <span>{% trans "Workplace Harassment, Mobbing or Burnout" %}</span>
+                                </button>
+                                <button type="button" class="quick-topic-btn" data-select-issue="salary">
+                                    <i class="bi bi-cash-stack text-success fs-5"></i>
+                                    <span>{% trans "Unpaid Salary, Overtime, Index or Leave" %}</span>
+                                </button>
+                                <button type="button" class="quick-topic-btn" data-select-issue="contract">
+                                    <i class="bi bi-file-earmark-diff text-primary fs-5"></i>
+                                    <span>{% trans "Contract Modification or Demotion" %}</span>
+                                </button>
+                                <button type="button" class="quick-topic-btn" data-select-issue="sick_leave">
+                                    <i class="bi bi-heart-pulse text-danger fs-5"></i>
+                                    <span>{% trans "Sick Leave, Maternity or Dismissal Protection" %}</span>
+                                </button>
+                                <button type="button" class="quick-topic-btn" data-select-issue="delegation">
+                                    <i class="bi bi-people-fill text-info fs-5"></i>
+                                    <span>{% trans "Staff Delegation Rights (15+ Employees)" %}</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Key Luxembourg Employment Scenarios Section (SEO Pillar Content) -->
+        <section id="issues" class="py-5">
+            <div class="container py-2">
+                <div class="text-center max-w-3xl mx-auto mb-5" style="max-width: 760px;">
+                    <span class="text-uppercase fw-bold small" style="color: var(--dlg-primary); letter-spacing: 0.06em;">
+                        {% trans "Luxembourg Labour Law & Workplace Protection" %}
+                    </span>
+                    <h2 class="fw-bold mt-2 mb-3">{% trans "Most Common Employment Issues We Help Identify" %}</h2>
+                    <p class="text-muted mb-0">
+                        {% trans "Luxembourg's Labour Code (Code du travail) provides strong protections for employees—but strict deadlines and procedural rules apply. Identify where your situation fits." %}
+                    </p>
+                </div>
+
+                <div class="row g-4">
+                    <div class="col-md-6 col-lg-4">
+                        <article class="issue-card">
+                            <div class="issue-icon"><i class="bi bi-file-earmark-x"></i></div>
+                            <div><span class="law-pill">{% trans "Art. L.124-5 & L.124-11 · Code du travail" %}</span></div>
+                            <h3 class="h5 fw-bold">{% trans "Dismissal & Termination Disputes" %}</h3>
+                            <p class="text-muted small flex-grow-1">
+                                {% trans "Dismissed with notice (licenciement avec préavis) or for serious misconduct (faute grave)? In Luxembourg, you have 1 month to request the written reasons by registered letter and 3 months to contest an abusive dismissal." %}
+                            </p>
+                            <button type="button" class="btn btn-outline-primary btn-sm mt-2 align-self-start" data-select-issue="dismissal">
+                                {% trans "Assess a dismissal issue" %} <i class="bi bi-arrow-right ms-1"></i>
+                            </button>
+                        </article>
+                    </div>
+
+                    <div class="col-md-6 col-lg-4">
+                        <article class="issue-card">
+                            <div class="issue-icon"><i class="bi bi-person-exclamation"></i></div>
+                            <div><span class="law-pill">{% trans "Art. L.246-1 to L.246-7 · Law of 29 March 2023" %}</span></div>
+                            <h3 class="h5 fw-bold">{% trans "Moral Harassment (Mobbing) & Burnout" %}</h3>
+                            <p class="text-muted small flex-grow-1">
+                                {% trans "Facing repeated hostility, isolation, or toxic management pressure? Luxembourg law obliges employers to stop moral harassment, protects victims and witnesses from retaliation, and empowers the Staff Delegation and ITM to intervene." %}
+                            </p>
+                            <button type="button" class="btn btn-outline-primary btn-sm mt-2 align-self-start" data-select-issue="harassment">
+                                {% trans "Assess a harassment issue" %} <i class="bi bi-arrow-right ms-1"></i>
+                            </button>
+                        </article>
+                    </div>
+
+                    <div class="col-md-6 col-lg-4">
+                        <article class="issue-card">
+                            <div class="issue-icon"><i class="bi bi-cash-coin"></i></div>
+                            <div><span class="law-pill">{% trans "Art. L.211-27 & L.221-1 · Wages & Hours" %}</span></div>
+                            <h3 class="h5 fw-bold">{% trans "Unpaid Overtime, Salary & Indexation" %}</h3>
+                            <p class="text-muted small flex-grow-1">
+                                {% trans "Missing wage indexation (tranche indiciaire), uncompensated overtime, withheld bonuses, or refused statutory leave? Wage claims in Luxembourg remain enforceable for 3 years with strong documentary evidence." %}
+                            </p>
+                            <button type="button" class="btn btn-outline-primary btn-sm mt-2 align-self-start" data-select-issue="salary">
+                                {% trans "Assess a salary or overtime issue" %} <i class="bi bi-arrow-right ms-1"></i>
+                            </button>
+                        </article>
+                    </div>
+
+                    <div class="col-md-6 col-lg-4">
+                        <article class="issue-card">
+                            <div class="issue-icon"><i class="bi bi-file-earmark-medical"></i></div>
+                            <div><span class="law-pill">{% trans "Art. L.121-6 · Incapacity & Maternity" %}</span></div>
+                            <h3 class="h5 fw-bold">{% trans "Sick Leave & Protected Employees" %}</h3>
+                            <p class="text-muted small flex-grow-1">
+                                {% trans "Notified your employer on day 1 and submitted your medical certificate by day 3? You are legally shielded from dismissal for up to 26 weeks of sick leave, as well as during pregnancy, parental leave, or staff delegate mandates." %}
+                            </p>
+                            <button type="button" class="btn btn-outline-primary btn-sm mt-2 align-self-start" data-select-issue="sick_leave">
+                                {% trans "Assess sick leave protection" %} <i class="bi bi-arrow-right ms-1"></i>
+                            </button>
+                        </article>
+                    </div>
+
+                    <div class="col-md-6 col-lg-4">
+                        <article class="issue-card">
+                            <div class="issue-icon"><i class="bi bi-sliders"></i></div>
+                            <div><span class="law-pill">{% trans "Art. L.121-7 · Contract Clauses" %}</span></div>
+                            <h3 class="h5 fw-bold">{% trans "Unilateral Contract Modification" %}</h3>
+                            <p class="text-muted small flex-grow-1">
+                                {% trans "Pressured to sign an addendum (avenant) reducing your pay, changing your workplace, or stripping responsibilities? Unfavorable changes to essential contract terms must follow strict notice and pre-interview rules." %}
+                            </p>
+                            <button type="button" class="btn btn-outline-primary btn-sm mt-2 align-self-start" data-select-issue="contract">
+                                {% trans "Assess a contract change" %} <i class="bi bi-arrow-right ms-1"></i>
+                            </button>
+                        </article>
+                    </div>
+
+                    <div class="col-md-6 col-lg-4">
+                        <article class="issue-card">
+                            <div class="issue-icon"><i class="bi bi-people"></i></div>
+                            <div><span class="law-pill">{% trans "Art. L.411-1 · 15+ Employees Threshold" %}</span></div>
+                            <h3 class="h5 fw-bold">{% trans "Staff Delegation (Délégation du personnel)" %}</h3>
+                            <p class="text-muted small flex-grow-1">
+                                {% trans "Every company in Luxembourg with 15+ employees must have a Staff Delegation. Need to contact a delegate confidentially, prepare for a pre-dismissal interview (entretien préalable), or set up a delegation?" %}
+                            </p>
+                            <button type="button" class="btn btn-outline-primary btn-sm mt-2 align-self-start" data-select-issue="delegation">
+                                {% trans "Assess delegation support" %} <i class="bi bi-arrow-right ms-1"></i>
+                            </button>
+                        </article>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Interactive Employment-Issue Assessment Prototype (#help-finder) -->
+        <section id="help-finder" class="py-5 bg-white border-top border-bottom">
+            <div class="container py-2">
+                <div class="row justify-content-center">
+                    <div class="col-lg-10">
+                        <div class="intake-card p-4 p-md-5">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                                <span class="badge rounded-pill px-3 py-2" style="background:#EDE9FE; color:#4C1D95;">
+                                    <i class="bi bi-shield-check me-1"></i>{% trans "Confidential Orientation Prototype" %}
+                                </span>
+                                <span class="text-muted small">
+                                    <i class="bi bi-clock-history me-1"></i>{% trans "Takes 2 minutes · Immediate Luxembourg legal checkpoints" %}
+                                </span>
+                            </div>
+
+                            <h2 class="fw-bold mb-2">{% trans "Identify Your Employment Situation & Get Tailored Next Steps" %}</h2>
+                            <p class="text-muted mb-4">
+                                {% trans "Tell us what is happening at your workplace in Luxembourg. You will immediately receive a structured orientation summary with the applicable Labour Code rules, statutory deadlines, and Staff Delegation options." %}
+                            </p>
+
+                            {% if intake_result %}
+                            <!-- Tailored Prototype Assessment Result -->
+                            <div class="alert alert-success border-success-subtle rounded-4 p-4 mb-4" role="status" aria-live="polite" id="intake-result-panel">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                                    <h3 class="h5 fw-bold text-success-emphasis mb-0">
+                                        <i class="bi bi-check-circle-fill me-2"></i>{% trans "Your Confidential Luxembourg Orientation Summary" %}
+                                    </h3>
+                                    <span class="badge bg-success text-white font-monospace">
+                                        {% trans "Ref:" %} {{ intake_result.reference_code }}
+                                    </span>
+                                </div>
+
+                                <p class="mb-2">
+                                    <strong>{% trans "Selected Issue:" %}</strong> {{ intake_result.category_label }}
+                                    <span class="badge bg-warning-subtle text-warning-emphasis ms-2">{{ intake_result.urgency_label }}</span>
+                                </p>
+
+                                <div class="p-3 bg-white rounded-3 border mb-3">
+                                    <div class="fw-semibold text-dark mb-1">
+                                        <i class="bi bi-scales me-1 text-primary"></i>{% trans "Key Luxembourg Labour Code Principle:" %}
+                                    </div>
+                                    <p class="small text-muted mb-0">{{ intake_result.legal_reference }}</p>
+                                </div>
+
+                                <div class="mb-3">
+                                    <div class="fw-semibold text-dark mb-2">
+                                        <i class="bi bi-list-check me-1 text-primary"></i>{% trans "Recommended Immediate Steps:" %}
+                                    </div>
+                                    <ol class="small text-dark mb-0 ps-3">
+                                        {% for step in intake_result.steps %}
+                                        <li class="mb-1">{{ step }}</li>
+                                        {% endfor %}
+                                    </ol>
+                                </div>
+
+                                <div class="p-3 bg-light rounded-3 border small text-muted">
+                                    <strong><i class="bi bi-people-fill me-1 text-primary"></i>{% trans "Staff Delegation Context:" %}</strong>
+                                    {{ intake_result.delegation_note }}
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            {% if form_errors %}
+                            <div class="alert alert-danger rounded-3" role="alert">
+                                <div class="fw-semibold mb-1">
+                                    <i class="bi bi-exclamation-octagon me-1"></i>{% trans "Please review the highlighted fields below:" %}
+                                </div>
+                                <ul class="small mb-0">
+                                    {% for field, err in form_errors.items %}
+                                    <li>{{ err }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            {% endif %}
+
+                            <form method="post" action="{{ request.path }}#help-finder" id="employment-intake-form" novalidate>
+                                {% csrf_token %}
+                                <div class="row g-4">
+                                    <!-- 1. Issue Category -->
+                                    <div class="col-md-6">
+                                        <label for="id_issue_category" class="form-label fw-semibold">
+                                            {% trans "1. What is your primary employment issue?" %} <span class="text-danger">*</span>
+                                        </label>
+                                        <select
+                                            id="id_issue_category"
+                                            name="issue_category"
+                                            class="form-select interactive-field"
+                                            required
+                                            aria-describedby="issue_category_error"
+                                            {% if form_errors.issue_category %}aria-invalid="true"{% endif %}
+                                        >
+                                            <option value="" {% if not form_data.issue_category %}selected{% endif %} disabled>
+                                                {% trans "Select your workplace issue..." %}
+                                            </option>
+                                            <option value="dismissal" {% if form_data.issue_category == 'dismissal' %}selected{% endif %}>
+                                                {% trans "Dismissal, Warning Letter or Notice Period" %}
+                                            </option>
+                                            <option value="harassment" {% if form_data.issue_category == 'harassment' %}selected{% endif %}>
+                                                {% trans "Workplace Harassment, Mobbing or Burnout" %}
+                                            </option>
+                                            <option value="salary" {% if form_data.issue_category == 'salary' %}selected{% endif %}>
+                                                {% trans "Unpaid Salary, Overtime, Index or Leave" %}
+                                            </option>
+                                            <option value="contract" {% if form_data.issue_category == 'contract' %}selected{% endif %}>
+                                                {% trans "Unfavorable Contract Change or Demotion" %}
+                                            </option>
+                                            <option value="sick_leave" {% if form_data.issue_category == 'sick_leave' %}selected{% endif %}>
+                                                {% trans "Sick Leave, Maternity or Dismissal Protection" %}
+                                            </option>
+                                            <option value="delegation" {% if form_data.issue_category == 'delegation' %}selected{% endif %}>
+                                                {% trans "Staff Delegation Rights & Representation" %}
+                                            </option>
+                                        </select>
+                                        <span id="issue_category_error" class="{% if form_errors.issue_category %}server-error-message{% else %}error-message{% endif %}" role="alert">
+                                            {{ form_errors.issue_category|default:_("Please select the employment issue that best matches your situation.") }}
+                                        </span>
+                                    </div>
+
+                                    <!-- 2. Urgency -->
+                                    <div class="col-md-6">
+                                        <label for="id_urgency" class="form-label fw-semibold">
+                                            {% trans "2. How urgent is your situation?" %} <span class="text-danger">*</span>
+                                        </label>
+                                        <select
+                                            id="id_urgency"
+                                            name="urgency"
+                                            class="form-select interactive-field"
+                                            required
+                                        >
+                                            <option value="urgent" {% if form_data.urgency == 'urgent' %}selected{% endif %}>
+                                                {% trans "Urgent — I received a letter or have an HR meeting within days" %}
+                                            </option>
+                                            <option value="active" {% if form_data.urgency == 'active' %}selected{% endif %}>
+                                                {% trans "Active — Ongoing workplace conflict or pressure" %}
+                                            </option>
+                                            <option value="preventive" {% if form_data.urgency == 'preventive' %}selected{% endif %}>
+                                                {% trans "Preventive — I want to verify my rights before acting" %}
+                                            </option>
+                                        </select>
+                                    </div>
+
+                                    <!-- 3. Company Size in Luxembourg -->
+                                    <div class="col-md-6">
+                                        <label for="id_company_size" class="form-label fw-semibold">
+                                            {% trans "3. Approximate company size in Luxembourg" %} <span class="text-danger">*</span>
+                                        </label>
+                                        <select
+                                            id="id_company_size"
+                                            name="company_size"
+                                            class="form-select interactive-field"
+                                            required
+                                        >
+                                            <option value="15_plus" {% if form_data.company_size == '15_plus' %}selected{% endif %}>
+                                                {% trans "15 or more employees (Staff Delegation mandatory by law)" %}
+                                            </option>
+                                            <option value="under_15" {% if form_data.company_size == 'under_15' %}selected{% endif %}>
+                                                {% trans "Fewer than 15 employees" %}
+                                            </option>
+                                            <option value="unsure" {% if form_data.company_size == 'unsure' %}selected{% endif %}>
+                                                {% trans "I am not sure" %}
+                                            </option>
+                                        </select>
+                                    </div>
+
+                                    <!-- 4. Staff Delegation Presence -->
+                                    <div class="col-md-6">
+                                        <label for="id_has_delegation" class="form-label fw-semibold">
+                                            {% trans "4. Does your employer have a Staff Delegation?" %}
+                                        </label>
+                                        <select
+                                            id="id_has_delegation"
+                                            name="has_delegation"
+                                            class="form-select"
+                                        >
+                                            <option value="unsure" {% if form_data.has_delegation == 'unsure' %}selected{% endif %}>
+                                                {% trans "Not sure / Prefer external guidance first" %}
+                                            </option>
+                                            <option value="yes" {% if form_data.has_delegation == 'yes' %}selected{% endif %}>
+                                                {% trans "Yes, there is an elected Staff Delegation" %}
+                                            </option>
+                                            <option value="no" {% if form_data.has_delegation == 'no' %}selected{% endif %}>
+                                                {% trans "No Staff Delegation exists in my company" %}
+                                            </option>
+                                        </select>
+                                    </div>
+
+                                    <!-- 5. Situation Summary (Hint placed ABOVE input per validate-input-after-interaction) -->
+                                    <div class="col-12">
+                                        <label for="id_situation_summary" class="form-label fw-semibold mb-1">
+                                            {% trans "5. Briefly describe what happened" %} <span class="text-danger">*</span>
+                                        </label>
+                                        <span id="situation_summary_hint" class="field-hint">
+                                            {% trans "Include key dates (e.g., when you received a letter or started sick leave) without sharing sensitive passwords or trade secrets. Minimum 15 characters." %}
+                                        </span>
+                                        <textarea
+                                            id="id_situation_summary"
+                                            name="situation_summary"
+                                            rows="4"
+                                            minlength="15"
+                                            required
+                                            class="form-control interactive-field"
+                                            placeholder="{% trans "Example: Last Tuesday I received a dismissal letter with 2 months notice after returning from sick leave..." %}"
+                                            aria-describedby="situation_summary_hint situation_summary_error"
+                                            {% if form_errors.situation_summary %}aria-invalid="true"{% endif %}
+                                        >{{ form_data.situation_summary }}</textarea>
+                                        <span id="situation_summary_error" class="{% if form_errors.situation_summary %}server-error-message{% else %}error-message{% endif %}" role="alert">
+                                            {{ form_errors.situation_summary|default:_("Please share a short summary (at least 15 characters) so we can tailor your orientation.") }}
+                                        </span>
+                                    </div>
+
+                                    <!-- 6. Personal Contact Email (Hint placed ABOVE input so autocomplete popovers don't cover it) -->
+                                    <div class="col-md-7">
+                                        <label for="id_contact_email" class="form-label fw-semibold mb-1">
+                                            {% trans "6. Your personal email address" %} <span class="text-danger">*</span>
+                                        </label>
+                                        <span id="contact_email_hint" class="field-hint">
+                                            {% trans "Use a private email address (not your work email) so your employer cannot see your orientation summary." %}
+                                        </span>
+                                        <input
+                                            type="email"
+                                            id="id_contact_email"
+                                            name="contact_email"
+                                            value="{{ form_data.contact_email }}"
+                                            required
+                                            autocomplete="email"
+                                            class="form-control interactive-field"
+                                            placeholder="name@example.com"
+                                            aria-describedby="contact_email_hint contact_email_error"
+                                            {% if form_errors.contact_email %}aria-invalid="true"{% endif %}
+                                        >
+                                        <span id="contact_email_error" class="{% if form_errors.contact_email %}server-error-message{% else %}error-message{% endif %}" role="alert">
+                                            {{ form_errors.contact_email|default:_("Please enter a valid email address (for example: name@example.com).") }}
+                                        </span>
+                                    </div>
+
+                                    <!-- 7. Preferred Follow-up Language -->
+                                    <div class="col-md-5">
+                                        <label for="id_preferred_language" class="form-label fw-semibold mb-1">
+                                            {% trans "7. Preferred language for support" %}
+                                        </label>
+                                        <span id="preferred_language_hint" class="field-hint">
+                                            {% trans "Choose French, German, or English." %}
+                                        </span>
+                                        <select
+                                            id="id_preferred_language"
+                                            name="preferred_language"
+                                            class="form-select"
+                                            aria-describedby="preferred_language_hint"
+                                        >
+                                            <option value="fr" {% if form_data.preferred_language == 'fr' %}selected{% endif %}>Français (FR)</option>
+                                            <option value="de" {% if form_data.preferred_language == 'de' %}selected{% endif %}>Deutsch (DE)</option>
+                                            <option value="en" {% if form_data.preferred_language == 'en' %}selected{% endif %}>English (EN)</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Consent -->
+                                    <div class="col-12">
+                                        <div class="form-check">
+                                            <input
+                                                class="form-check-input interactive-field"
+                                                type="checkbox"
+                                                id="id_consent"
+                                                name="consent"
+                                                value="yes"
+                                                required
+                                                {% if form_data.consent %}checked{% endif %}
+                                                aria-describedby="consent_error"
+                                                {% if form_errors.consent %}aria-invalid="true"{% endif %}
+                                            >
+                                            <label class="form-check-label small text-muted" for="id_consent">
+                                                {% trans "I understand that this prototype assessment is confidential, provides general Luxembourg employment orientation, and does not constitute formal legal representation." %} <span class="text-danger">*</span>
+                                            </label>
+                                            <span id="consent_error" class="{% if form_errors.consent %}server-error-message{% else %}error-message{% endif %}" role="alert">
+                                                {{ form_errors.consent|default:_("Please confirm that you understand this confidential prototype orientation.") }}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-12 d-flex flex-wrap align-items-center justify-content-between gap-3 pt-2">
+                                        <button type="submit" class="btn btn-cta-primary">
+                                            <i class="bi bi-send-check me-2"></i>{% trans "Get My Luxembourg Employment Orientation" %}
+                                        </button>
+                                        <span class="text-muted small">
+                                            <i class="bi bi-lock me-1"></i>{% trans "Encrypted & strictly confidential" %}
+                                        </span>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- How It Works & Critical Luxembourg Deadlines (#how-it-works) -->
+        <section id="how-it-works" class="py-5">
+            <div class="container py-2">
+                <div class="row g-4 align-items-center">
+                    <div class="col-lg-6">
+                        <span class="text-uppercase fw-bold small" style="color: var(--dlg-primary); letter-spacing: 0.06em;">
+                            {% trans "Why Timing Matters in Luxembourg" %}
+                        </span>
+                        <h2 class="fw-bold mt-2 mb-3">{% trans "Critical Deadlines Under the Luxembourg Labour Code" %}</h2>
+                        <p class="text-muted mb-4">
+                            {% trans "Many employees in Luxembourg lose strong legal claims simply because a statutory deadline expired or a procedural step was missed. Knowing these rules early changes everything." %}
+                        </p>
+
+                        <div class="d-flex gap-3 mb-3">
+                            <div class="badge rounded-3 p-3 bg-danger-subtle text-danger-emphasis fs-6 align-self-start">1M</div>
+                            <div>
+                                <h3 class="h6 fw-bold mb-1">{% trans "1 Month to Request Dismissal Reasons" %}</h3>
+                                <p class="text-muted small mb-0">
+                                    {% trans "After receiving a dismissal with notice, you have 1 month to send a registered letter (lettre recommandée) requesting the exact reasons." %}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-3 mb-3">
+                            <div class="badge rounded-3 p-3 bg-warning-subtle text-warning-emphasis fs-6 align-self-start">D1/D3</div>
+                            <div>
+                                <h3 class="h6 fw-bold mb-1">{% trans "Day 1 Notification & Day 3 Medical Certificate" %}</h3>
+                                <p class="text-muted small mb-0">
+                                    {% trans "Your 26-week protection against dismissal during sick leave requires notifying your employer on Day 1 and delivering the medical certificate by Day 3." %}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-3">
+                            <div class="badge rounded-3 p-3 bg-primary-subtle text-primary-emphasis fs-6 align-self-start">15+</div>
+                            <div>
+                                <h3 class="h6 fw-bold mb-1">{% trans "15+ Employees: Mandatory Staff Delegation" %}</h3>
+                                <p class="text-muted small mb-0">
+                                    {% trans "Any company with at least 15 workers in Luxembourg must have a Staff Delegation (Délégation du personnel) that can advise and accompany you." %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-6">
+                        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+                            <h3 class="h5 fw-bold mb-3">{% trans "How Delegations.lu Supports You" %}</h3>
+                            <div class="d-flex gap-3 mb-3">
+                                <span class="badge rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center" style="width:32px; height:32px;">1</span>
+                                <div>
+                                    <h4 class="h6 fw-bold mb-1">{% trans "Identify Your Issue in FR, DE, or EN" %}</h4>
+                                    <p class="text-muted small mb-0">{% trans "Describe your workplace situation in your preferred language without legal jargon." %}</p>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-3 mb-3">
+                                <span class="badge rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center" style="width:32px; height:32px;">2</span>
+                                <div>
+                                    <h4 class="h6 fw-bold mb-1">{% trans "Check Your Statutory Protections & Deadlines" %}</h4>
+                                    <p class="text-muted small mb-0">{% trans "Understand which articles of the Luxembourg Code du travail and ITM procedures apply to your case." %}</p>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-3">
+                                <span class="badge rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center" style="width:32px; height:32px;">3</span>
+                                <div>
+                                    <h4 class="h6 fw-bold mb-1">{% trans "Connect with Staff Delegates or Specialists" %}</h4>
+                                    <p class="text-muted small mb-0">{% trans "Prepare your documentation for your Staff Delegation, trade union, the ITM, or a Luxembourg employment lawyer." %}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Searchable & Accessible FAQ Accordion (#faq) -->
+        <section id="faq" class="py-5 bg-white border-top">
+            <div class="container py-2">
+                <div class="row justify-content-center">
+                    <div class="col-lg-9">
+                        <div class="text-center mb-4">
+                            <span class="text-uppercase fw-bold small" style="color: var(--dlg-primary); letter-spacing: 0.06em;">
+                                {% trans "Frequently Asked Questions" %}
+                            </span>
+                            <h2 class="fw-bold mt-2">{% trans "Employment Rights & Staff Delegations in Luxembourg" %}</h2>
+                        </div>
+
+                        <details class="faq-item" name="delegations-faq" open>
+                            <summary>{% trans "What should I do first if I receive a dismissal letter in Luxembourg?" %}</summary>
+                            <div class="faq-answer">
+                                {% trans "If you are dismissed with notice (licenciement avec préavis) in Luxembourg, you have strictly 1 month from notification to request the precise reasons by registered letter (lettre recommandée). Once the employer replies (or for immediate dismissal), a 3-month deadline applies to contest unfair dismissal." %}
+                            </div>
+                        </details>
+
+                        <details class="faq-item" name="delegations-faq">
+                            <summary>{% trans "When is a Staff Delegation (Délégation du personnel) mandatory in Luxembourg?" %}</summary>
+                            <div class="faq-answer">
+                                {% trans "Under Article L.411-1 of the Luxembourg Labour Code, every private-sector company employing at least 15 workers in Luxembourg is legally required to have an elected Staff Delegation to represent and defend employees." %}
+                            </div>
+                        </details>
+
+                        <details class="faq-item" name="delegations-faq">
+                            <summary>{% trans "Am I protected against dismissal during sick leave in Luxembourg?" %}</summary>
+                            <div class="faq-answer">
+                                {% trans "Yes, under Article L.121-6 of the Labour Code, you are protected against dismissal for up to 26 consecutive weeks, provided you inform your employer on the 1st day of absence and submit your medical certificate no later than the 3rd day." %}
+                            </div>
+                        </details>
+
+                        <details class="faq-item" name="delegations-faq">
+                            <summary>{% trans "How can I report workplace harassment (mobbing) in Luxembourg?" %}</summary>
+                            <div class="faq-answer">
+                                {% trans "Since the Luxembourg Law of 29 March 2023 on moral harassment, employers must stop harassment immediately and protect victims and witnesses from retaliation. You can seek assistance from your Staff Delegation and escalate to the Inspection du travail et des mines (ITM)." %}
+                            </div>
+                        </details>
+
+                        <details class="faq-item" name="delegations-faq">
+                            <summary>{% trans "Can my employer change my salary, working hours, or role without my consent?" %}</summary>
+                            <div class="faq-answer">
+                                {% trans "No. Under Article L.121-7 of the Luxembourg Labour Code, any substantial modification of an essential clause to the employee's detriment must follow the same strict procedure and notice period as a dismissal." %}
+                            </div>
+                        </details>
+
+                        <details class="faq-item" name="delegations-faq">
+                            <summary>{% trans "Is my request on Delegations.lu confidential from my employer?" %}</summary>
+                            <div class="faq-answer">
+                                {% trans "Yes. Submitting an employment issue assessment on Delegations.lu is strictly confidential. Your employer is never notified, and we recommend using a personal email address for complete peace of mind." %}
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Company Staff & Delegate Portal Login Section (#portal-login) -->
+        <section id="portal-login" class="py-5 border-top" style="background: #F1F5F9;">
+            <div class="container py-2">
+                <div class="row justify-content-center">
+                    <div class="col-lg-8">
+                        <div class="card border-0 shadow-sm rounded-4 p-4 p-md-5 text-center">
+                            <div class="mb-3">
+                                <span class="brand-mark mx-auto mb-2"><i class="bi bi-people-fill"></i></span>
+                                <h2 class="h4 fw-bold mb-1">{% trans "Company Staff & Delegate Portal" %}</h2>
+                                <p class="text-muted small mb-0">
+                                    {% trans "Does your company already use the Delegations.lu workspace for Staff Delegation announcements, events, and internal requests?" %}
+                                </p>
+                            </div>
+
+                            <div class="row g-3 my-3 text-start">
+                                <div class="col-md-4">
+                                    <div class="p-3 rounded-3 bg-light h-100">
+                                        <i class="bi bi-calendar-event text-primary fs-5"></i>
+                                        <h3 class="h6 fw-semibold mt-2 mb-1">{% trans "Event Management" %}</h3>
+                                        <p class="text-muted small mb-0">{% trans "Plan and coordinate staff events" %}</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="p-3 rounded-3 bg-light h-100">
+                                        <i class="bi bi-chat-dots text-primary fs-5"></i>
+                                        <h3 class="h6 fw-semibold mt-2 mb-1">{% trans "Request System" %}</h3>
+                                        <p class="text-muted small mb-0">{% trans "Submit and track requests" %}</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="p-3 rounded-3 bg-light h-100">
+                                        <i class="bi bi-megaphone text-primary fs-5"></i>
+                                        <h3 class="h6 fw-semibold mt-2 mb-1">{% trans "Announcements" %}</h3>
+                                        <p class="text-muted small mb-0">{% trans "Stay informed with updates" %}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <p class="text-muted small mb-3">
+                                {% trans "Sign in with your Microsoft work account to access the delegation portal." %}
+                            </p>
+
+                            <div>
+                                {% if microsoft_url %}
+                                <a href="{{ microsoft_url }}" class="btn-microsoft">
+                                    <svg class="microsoft-logo" viewBox="0 0 21 21" aria-hidden="true">
+                                        <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                                        <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+                                        <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+                                        <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                                    </svg>
+                                    {% trans "Sign in with Microsoft" %}
+                                </a>
+                                {% else %}
+                                <div class="alert alert-warning d-inline-block mb-0 small">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    {% trans "Microsoft authentication is not configured. Please contact the administrator." %}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="mt-3">
+                                <small class="text-muted">
+                                    <i class="bi bi-shield-check me-1"></i>
+                                    {% trans "Secure authentication via Microsoft Entra ID" %}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-dark text-white-50 py-4 mt-auto">
+        <div class="container">
+            <div class="row align-items-center g-3">
+                <div class="col-md-6 text-center text-md-start">
+                    <div class="fw-semibold text-white">Delegations.lu · Luxembourg</div>
+                    <small>
+                        {% trans "Confidential employment issue orientation & Staff Delegation platform in French, German, and English." %}
+                    </small>
+                </div>
+                <div class="col-md-6 text-center text-md-end">
+                    <small>
+                        <a href="{% localized_url 'fr' %}" class="text-white-50 text-decoration-none me-2">Français</a> &middot;
+                        <a href="{% localized_url 'de' %}" class="text-white-50 text-decoration-none mx-2">Deutsch</a> &middot;
+                        <a href="{% localized_url 'en' %}" class="text-white-50 text-decoration-none mx-2">English</a> &middot;
+                        <a href="#" class="text-white-50 text-decoration-none ms-2" data-cookie-settings>{% trans "Cookie Settings" %}</a>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </footer>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script nonce="{{ csp_nonce }}">
+        (function () {
+            const topicSelect = document.getElementById("id_issue_category");
+            const intakeForm = document.getElementById("employment-intake-form");
+            const topicButtons = document.querySelectorAll("[data-select-issue]");
+
+            topicButtons.forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const topic = btn.getAttribute("data-select-issue");
+                    if (topicSelect && topic) {
+                        topicSelect.value = topic;
+                        topicSelect.dispatchEvent(new Event("change", { bubbles: true }));
+                    }
+                    topicButtons.forEach((b) => b.classList.toggle("active", b === btn));
+                    const target = document.getElementById("help-finder");
+                    if (target) {
+                        target.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }
+                });
+            });
+
+            // Modern Web Guidance: validate-input-after-interaction
+            // Defer error styling until blur or submit, and update live once dirty.
+            const dirtyState = new WeakMap();
+            const fields = document.querySelectorAll(".interactive-field");
+
+            function syncFieldValidity(field) {
+                const isValid = field.checkValidity();
+                field.classList.toggle("user-invalid-fallback", !isValid);
+                field.classList.toggle("user-valid-fallback", isValid);
+                field.setAttribute("aria-invalid", String(!isValid));
+            }
+
+            fields.forEach((field) => {
+                field.addEventListener("blur", () => {
+                    if (field.value || field.type === "checkbox") {
+                        dirtyState.set(field, true);
+                        syncFieldValidity(field);
+                    }
+                });
+                field.addEventListener("input", () => {
+                    if (dirtyState.get(field)) {
+                        syncFieldValidity(field);
+                    }
+                });
+                field.addEventListener("change", () => {
+                    if (dirtyState.get(field) || field.tagName === "SELECT") {
+                        dirtyState.set(field, true);
+                        syncFieldValidity(field);
+                    }
+                });
+            });
+
+            if (intakeForm) {
+                intakeForm.addEventListener("submit", () => {
+                    fields.forEach((field) => {
+                        dirtyState.set(field, true);
+                        syncFieldValidity(field);
+                    });
+                });
+            }
+        })();
+    </script>
+
+    {% include "includes/cookie_banner.html" %}
 </body>
 </html>

@@ -1,6 +1,6 @@
 # azureproject/views_seo.py
 """
-SEO-related views for all domains (VinsDelux, Entreprinder, Power-Up, Tableau).
+SEO-related views for all domains (VinsDelux, Entreprinder, Power-Up, Tableau, Arborist, Delegations).
 
 This module provides domain-specific robots.txt generation.
 Crush.lu has its own views_seo.py in the crush_lu app.
@@ -203,6 +203,51 @@ def robots_txt_arborist(request):
         "",
         "# Sitemap location",
         "Sitemap: https://arborist.lu/sitemap.xml",
+        "",
+    ]
+
+    return HttpResponse("\n".join(lines), content_type="text/plain")
+
+
+@require_GET
+@cache_page(60 * 60 * 24)  # Cache for 24 hours
+def robots_txt_delegations(request):
+    """
+    Generate robots.txt for Delegations.lu employment help & staff delegation platform.
+
+    Allows crawling of public marketing pages (/en/, /fr/, /de/) while blocking
+    admin panels, authentication routes, and private company portal pages.
+    """
+    lines = [
+        "# Robots.txt for Delegations.lu",
+        "# https://delegations.lu/robots.txt",
+        "",
+        "User-agent: *",
+        "",
+        "# Allow public marketing and employment-help pages",
+        "Allow: /",
+        "Allow: /en/",
+        "Allow: /fr/",
+        "Allow: /de/",
+        "",
+        "# Block admin and authenticated portal areas",
+        "Disallow: /admin/",
+        "Disallow: /delegation-admin/",
+        "Disallow: /accounts/",
+        "Disallow: /api/",
+        "Disallow: /dashboard/",
+        "Disallow: /profile/",
+        "Disallow: /pending-approval/",
+        "Disallow: /no-company/",
+        "Disallow: /access-denied/",
+        "Disallow: /healthz/",
+        "Disallow: /readyz/",
+        "",
+        "# Crawl delay (be nice to our server)",
+        "Crawl-delay: 1",
+        "",
+        "# Sitemap location",
+        "Sitemap: https://delegations.lu/sitemap.xml",
         "",
     ]
 

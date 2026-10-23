@@ -599,3 +599,137 @@ class DelegationsRoutingAndAdminTests(TestCase):
                 self.assertTrue(
                     social_adapter.is_open_for_signup(req, sociallogin=None)
                 )
+
+
+@override_settings(
+    ALLOWED_HOSTS=[
+        "delegations.lu",
+        "www.delegations.lu",
+        "test.delegations.lu",
+        "delegation.localhost",
+    ]
+)
+class DelegationsMarketingAndSEOTests(TestCase):
+    """
+    Tests for the multilingual SEO marketing frontpage (/en/, /fr/, /de/),
+    robots.txt, sitemap.xml, and the employment-issue triage prototype.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.client = Client(HTTP_HOST="delegations.lu")
+
+    def test_multilingual_frontpage_renders_with_seo_tags_and_translations(self):
+        cases = [
+            (
+                "/en/",
+                "en",
+                "Facing an Employment Issue in Luxembourg?",
+                "https://delegations.lu/en/",
+            ),
+            (
+                "/fr/",
+                "fr",
+                "Un problème au travail au Luxembourg ?",
+                "https://delegations.lu/fr/",
+            ),
+            (
+                "/de/",
+                "de",
+                "Probleme am Arbeitsplatz in Luxemburg?",
+                "https://delegations.lu/de/",
+            ),
+        ]
+        for path, lang, expected_heading, expected_canonical in cases:
+            with self.subTest(path=path, lang=lang):
+                resp = self.client.get(path)
+                self.assertEqual(resp.status_code, 200)
+                html = resp.content.decode("utf-8")
+                self.assertIn(f'<html lang="{lang}">', html)
+                self.assertIn(expected_heading, html)
+                self.assertIn(
+                    f'<link rel="canonical" href="{expected_canonical}">', html
+                )
+                self.assertIn(
+                    '<link rel="alternate" hreflang="en" href="https://delegations.lu/en/">',
+                    html,
+                )
+                self.assertIn(
+                    '<link rel="alternate" hreflang="de" href="https://delegations.lu/de/">',
+                    html,
+                )
+                self.assertIn(
+                    '<link rel="alternate" hreflang="fr" href="https://delegations.lu/fr/">',
+                    html,
+                )
+                self.assertIn(
+                    '<link rel="alternate" hreflang="x-default" href="https://delegations.lu/fr/">',
+                    html,
+                )
+                self.assertIn('"@type": "FAQPage"', html)
+                self.assertIn('details class="faq-item" name="delegations-faq"', html)
+
+    def test_robots_txt_and_sitemap_xml_on_delegations_domain(self):
+        robots_resp = self.client.get("/robots.txt")
+        self.assertEqual(robots_resp.status_code, 200)
+        robots_body = robots_resp.content.decode("utf-8")
+        self.assertIn("Allow: /en/", robots_body)
+        self.assertIn("Allow: /fr/", robots_body)
+        self.assertIn("Allow: /de/", robots_body)
+        self.assertIn("Disallow: /dashboard/", robots_body)
+        self.assertIn("Sitemap: https://delegations.lu/sitemap.xml", robots_body)
+
+        sitemap_resp = self.client.get("/sitemap.xml")
+        self.assertEqual(sitemap_resp.status_code, 200)
+        sitemap_body = sitemap_resp.content.decode("utf-8")
+        self.assertIn("/en/", sitemap_body)
+        self.assertIn("/fr/", sitemap_body)
+        self.assertIn("/de/", sitemap_body)
+
+    def test_employment_issue_prototype_intake_valid_submission_across_languages(self):
+        payload = {
+            "issue_category": "dismissal",
+            "urgency": "urgent",
+            "company_size": "15_plus",
+            "has_delegation": "yes",
+            "situation_summary": "I received a dismissal letter with notice yesterday after 4 years in the company.",
+            "contact_email": "employee@example.lu",
+            "preferred_language": "fr",
+            "consent": "yes",
+        }
+
+        for path, expected_snippet in (
+            ("/en/", "DLG-LU-"),
+            ("/fr/", "Code du travail luxembourgeois (Art. L.124-5"),
+            ("/de/", "Luxemburgisches Arbeitsgesetzbuch (Art. L.124-5"),
+        ):
+            with self.subTest(path=path):
+                resp = self.client.post(path, data=payload)
+                self.assertEqual(resp.status_code, 200)
+                self.assertIsNotNone(resp.context["intake_result"])
+                self.assertEqual(resp.context["form_errors"], {})
+                html = resp.content.decode("utf-8")
+                self.assertIn(expected_snippet, html)
+                self.assertIn("DLG-LU-", html)
+
+    def test_employment_issue_prototype_intake_invalid_submission_returns_errors(self):
+        resp = self.client.post(
+            "/fr/",
+            data={
+                "issue_category": "",
+                "urgency": "urgent",
+                "company_size": "15_plus",
+                "situation_summary": "Trop court",
+                "contact_email": "not-an-email",
+                "preferred_language": "fr",
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertIsNone(resp.context["intake_result"])
+        errors = resp.context["form_errors"]
+        self.assertIn("issue_category", errors)
+        self.assertIn("situation_summary", errors)
+        self.assertIn("contact_email", errors)
+        self.assertIn("consent", errors)
+        html = resp.content.decode("utf-8")
+        self.assertIn('aria-invalid="true"', html)
