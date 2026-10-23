@@ -1,0 +1,84 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n static %}
+{% block pre_alpine_js %}{{ block.super }}{% include "crush_lu/partials/alpine_bundle.html" with bundle="coach" %}{% endblock %}
+
+{% block title %}{{ conv.display_name }} - {% trans "WhatsApp" %} - Crush.lu{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="mb-6">
+        <a href="{% url 'crush_lu:coach_whatsapp_inbox' %}{% if read_only %}?coach={{ inbox_coach.pk }}{% endif %}" class="text-purple-600 dark:text-purple-400 hover:underline text-sm">
+            &larr; {% trans "Back to WhatsApp" %}
+        </a>
+    </div>
+
+    <div class="card-bordered p-6">
+        <div class="mb-4">
+            <h2 class="text-xl font-bold dark:text-white flex items-center gap-2 m-0">
+                {% include "shared/icons/whatsapp.html" with class="w-5 h-5 text-green-600 dark:text-green-400" %}
+                {{ conv.display_name }}
+            </h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400 m-0">
+                +{{ conv.from_number }}
+                {% if not conv.profile %} · {% trans "Not a member" %}{% endif %}
+            </p>
+        </div>
+
+        {% comment %}
+           Polls for the member's new messages. connection-chat.js (shared with
+           member chats) pauses the poll while the tab is hidden, keeps the
+           scroll pinned to the newest message and resets the compose form on
+           the `connection-message-sent` event; it relies on these element ids.
+        {% endcomment %}
+        <div id="messages-container" class="space-y-3 mb-6 max-h-[60vh] overflow-y-auto"
+             hx-get="{% url 'crush_lu:coach_whatsapp_messages' conv.id %}"
+             hx-trigger="every 20s, chat:refresh"
+             hx-swap="innerHTML"
+             data-htmx-error-toast="off">
+            {% include "crush_lu/_coach_whatsapp_messages_list.html" %}
+        </div>
+
+        {% if read_only %}
+            <p class="text-sm text-gray-500 dark:text-gray-400 m-0">{% trans "Read-only: only the coach can reply from this number." %}</p>
+        {% elif conv.window_open %}
+            <form id="connection-compose-form" method="post"
+                  hx-post="{% url 'crush_lu:coach_whatsapp_thread' conv.id %}"
+                  hx-target="#messages-container"
+                  hx-swap="beforeend">
+                {% csrf_token %}
+                <div class="space-y-2">
+                    <label for="wa-reply" class="sr-only">{% trans "Reply on WhatsApp" %}</label>
+                    <textarea id="wa-reply" name="message"
+                              rows="3"
+                              maxlength="{{ message_max_length }}"
+                              required
+                              placeholder="{% trans 'Reply on WhatsApp...' %}"
+                              class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 p-3 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors"></textarea>
+                    <div id="chat-compose-error" class="text-sm text-red-600 dark:text-red-400" aria-live="polite"></div>
+                    <div class="flex items-center justify-between gap-3">
+                        <small class="text-gray-500 dark:text-gray-400">{% trans "Sent from your Crush WhatsApp number." %}</small>
+                        <button type="submit" class="btn-crush-solid btn-sm inline-flex items-center gap-2">
+                            {% include "shared/icons/paper-airplane.html" with class="w-4 h-4" %}
+                            {% trans "Send" %}
+                        </button>
+                    </div>
+                </div>
+            </form>
+        {% else %}
+            <div class="rounded-lg bg-amber-50 dark:bg-amber-900/20 p-4 text-sm text-amber-800 dark:text-amber-200">
+                {% trans "More than 24 hours have passed since this member's last message, so WhatsApp doesn't allow a free reply. You can answer as soon as they write again." %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if assets_dev %}
+    {% now "U" as ts %}
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/connection-chat.js' %}?v={{ ts }}"></script>
+{% else %}
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/connection-chat.js' %}"></script>
+{% endif %}
+{% endblock %}

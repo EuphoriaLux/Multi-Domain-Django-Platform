@@ -790,9 +790,18 @@ class WhatsAppMessage(models.Model):
         max_length=255, blank=True, default="", db_index=True
     )
     recipient = models.CharField(max_length=32)
-    template_name = models.CharField(max_length=255)
-    language = models.CharField(max_length=16)
+    # Blank for a free-form text reply (``text`` holds the body instead).
+    template_name = models.CharField(max_length=255, blank=True, default="")
+    language = models.CharField(max_length=16, blank=True, default="")
     parameters = models.JSONField(default=dict, blank=True)
+    # db_default on the new columns: code from before them (still serving at
+    # swap warm-up, or back after a rollback re-swap) inserts without them.
+    text = models.TextField(blank=True, default="", db_default="")
+    # Meta phone number ID the message was sent FROM. Blank = the main
+    # number (``settings.META_PHONE_NUMBER_ID``); a coach number otherwise.
+    business_phone_number_id = models.CharField(
+        max_length=32, blank=True, default="", db_default="", db_index=True
+    )
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.QUEUED
     )
@@ -804,7 +813,8 @@ class WhatsAppMessage(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.template_name} → {self.recipient} [{self.status}]"
+        label = self.template_name or "text"
+        return f"{label} → {self.recipient} [{self.status}]"
 
 
 class WhatsAppInboundMessage(models.Model):
@@ -827,6 +837,13 @@ class WhatsAppInboundMessage(models.Model):
     text = models.TextField(blank=True, default="")
     payload = models.JSONField(default=dict, blank=True)
     received_at = models.DateTimeField()
+    # Meta phone number ID the message was sent TO (webhook
+    # ``value.metadata.phone_number_id``). Blank on rows stored before
+    # multi-number routing; those all reached the main number. db_default:
+    # the webhook of a rolled-back release inserts without it.
+    business_phone_number_id = models.CharField(
+        max_length=32, blank=True, default="", db_default="", db_index=True
+    )
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
