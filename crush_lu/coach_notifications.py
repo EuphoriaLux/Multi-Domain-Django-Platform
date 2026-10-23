@@ -546,6 +546,37 @@ def notify_coach_user_revision(coach, submission):
     )
 
 
+def notify_coach_whatsapp_message(coach, title, body, url, tag, deadline=None):
+    """
+    Tell a coach a member wrote to their WhatsApp number (coach inbox).
+
+    Rides ``notify_user_responses``: a member writing in is a member response,
+    and a coach who muted those meant this too. The caller builds the text
+    (in the coach's language) and keeps the message body out of it — push
+    payloads surface on a lock screen.
+
+    Args:
+        coach: CrushCoach who owns the receiving number
+        deadline: optional monotonic timestamp bounding the device loop; the
+            webhook passes one so a stalled device can't delay Meta's ack.
+    """
+    subscriptions = CoachPushSubscription.objects.filter(
+        coach=coach, enabled=True, notify_user_responses=True
+    )
+    if not subscriptions.exists():
+        return {"success": 0, "failed": 0, "total": 0}
+
+    return send_coach_push_notification(
+        coach=coach,
+        title=title,
+        body=body,
+        url=url,
+        tag=tag,
+        subscriptions=subscriptions,
+        deadline=deadline,
+    )
+
+
 def notify_coach_screening_reminder(coach, submission):
     """
     Remind a coach about a pending screening call.

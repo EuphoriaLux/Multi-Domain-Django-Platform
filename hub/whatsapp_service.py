@@ -7,6 +7,12 @@ row, POST to the Graph API, record SENT/FAILED plus status history, and flag
 not-on-WhatsApp recipients. Delivery/read transitions keep arriving through
 the webhook in ``views_whatsapp.py`` — they key on ``wa_message_id`` and are
 independent of who initiated the send.
+
+Every send goes out from one business number: the main number
+(``settings.META_PHONE_NUMBER_ID``) unless the caller passes a coach's
+``phone_number_id``. A free-form text send (``send_whatsapp_text``) is only
+accepted by Meta inside the 24-hour customer-service window the recipient
+opened by writing to that same number.
 """
 
 from __future__ import annotations
@@ -20,13 +26,18 @@ from django.core.cache import cache
 
 from crush_lu.services.whatsapp import ERROR_NOT_ON_WHATSAPP, mark_not_on_whatsapp
 
-from .models import ErasedPhoneNumber, WhatsAppMessage
+from .models import ErasedPhoneNumber, WhatsAppInboundMessage, WhatsAppMessage
 
 logger = logging.getLogger(__name__)
 
 GRAPH_API_VERSION = "v25.0"
 GRAPH_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
 META_TIMEOUT = 15
+
+# Meta: free-form message sent outside the 24-hour customer-service window.
+ERROR_OUTSIDE_SERVICE_WINDOW = 131047
+# Meta's limit on a text message body.
+TEXT_MAX_LENGTH = 4096
 
 TEMPLATES_CACHE_KEY = "hub:whatsapp:approved-templates"
 TEMPLATES_CACHE_SECONDS = 600
@@ -86,38 +97,44 @@ def build_components(parameters: dict) -> list[dict]:
     ]
 
 
-def _send_whatsapp_template(
-    *, sender, recipient, template_name, language, parameters
-) -> WhatsAppMessage:
-    """Send one approved Meta template message and record its lifecycle.
+def shared_inbox_messages():
+    """Inbound rows for the shared admin inbox (hub CRM, campaign dashboard).
 
-    Always returns the persisted ``WhatsAppMessage`` — callers read
-    ``message.status`` (SENT/FAILED) and ``message.status_history`` for the
-    outcome; nothing is raised for transport or Meta-side errors.
-    ``sender`` is the admin User initiating the send (the model's ``user``
-    field is the sender, not the recipient).
+    Everything except messages to an active coach's mapped number: those
+    belong to that coach's crush.lu inbox. A number not (yet) mapped, or
+    mapped to a deactivated coach (who can no longer open the inbox or get its
+    alerts), stays here, so no member message ends up where nobody reads it.
     """
-    message = WhatsAppMessage.objects.create(
-        user=sender,
-        recipient=recipient,
-        template_name=template_name,
-        language=language,
-        parameters=parameters,
-        status=WhatsAppMessage.Status.QUEUED,
-        status_history=[{"status": "queued", "timestamp": now_iso()}],
-    )
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": normalize_recipient(recipient),
-        "type": "template",
-        "template": {
-            "name": template_name,
-            "language": {"code": language},
-            "components": build_components(parameters),
-        },
-    }
+    from crush_lu.models import CrushCoach
 
-    url = f"{GRAPH_BASE}/{settings.META_PHONE_NUMBER_ID}/messages"
+    coach_numbers = (
+        CrushCoach.objects.filter(is_active=True)
+        .exclude(whatsapp_phone_number_id="")
+        .values("whatsapp_phone_number_id")
+    )
+    return WhatsAppInboundMessage.objects.exclude(
+        business_phone_number_id__in=coach_numbers
+    )
+
+
+def main_number_messages():
+    """Outbound rows sent from the main number (campaigns, CRM, alerts).
+
+    Coach replies go out from the coach's own number and are that coach's
+    conversation, not campaign or CRM outreach.
+    """
+    return WhatsAppMessage.objects.filter(business_phone_number_id="")
+
+
+def _post_and_record(message: WhatsAppMessage, payload: dict) -> WhatsAppMessage:
+    """POST ``payload`` from the message's business number; record the outcome.
+
+    Always returns ``message`` with status SENT or FAILED and the step appended
+    to ``status_history``; nothing is raised for transport or Meta-side errors.
+    A blank ``business_phone_number_id`` sends from the main number.
+    """
+    phone_number_id = message.business_phone_number_id or settings.META_PHONE_NUMBER_ID
+    url = f"{GRAPH_BASE}/{phone_number_id}/messages"
     headers = {
         "Authorization": f"Bearer {settings.META_WHATSAPP_ACCESS_TOKEN}",
         "Content-Type": "application/json",
@@ -181,16 +198,68 @@ def _send_whatsapp_template(
     return message
 
 
+def _blank_if_erased(message: WhatsAppMessage, recipient: str) -> WhatsAppMessage:
+    """Strip an erased (GDPR) recipient's number and content from the row.
+
+    The send itself is the sender's call but the stored row must not keep the
+    number, merged parameters, text or any status text that could echo it.
+    Checked AFTER the whole send, on every return path, and after the insert:
+    erasure records the number before it sweeps, so a row inserted after that
+    sweep is still caught here.
+    """
+    if ErasedPhoneNumber.is_erased(recipient):
+        WhatsAppMessage.objects.filter(pk=message.pk).update(
+            recipient="", parameters={}, text="", status_history=[]
+        )
+        message.recipient = ""
+        message.parameters = {}
+        message.text = ""
+        message.status_history = []
+    return message
+
+
+def _send_whatsapp_template(
+    *, sender, recipient, template_name, language, parameters, phone_number_id=""
+) -> WhatsAppMessage:
+    """Send one approved Meta template message and record its lifecycle.
+
+    Always returns the persisted ``WhatsAppMessage`` — callers read
+    ``message.status`` (SENT/FAILED) and ``message.status_history`` for the
+    outcome; nothing is raised for transport or Meta-side errors.
+    ``sender`` is the admin User initiating the send (the model's ``user``
+    field is the sender, not the recipient).
+    """
+    message = WhatsAppMessage.objects.create(
+        user=sender,
+        recipient=recipient,
+        template_name=template_name,
+        language=language,
+        parameters=parameters,
+        business_phone_number_id=phone_number_id or "",
+        status=WhatsAppMessage.Status.QUEUED,
+        status_history=[{"status": "queued", "timestamp": now_iso()}],
+    )
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": normalize_recipient(recipient),
+        "type": "template",
+        "template": {
+            "name": template_name,
+            "language": {"code": language},
+            "components": build_components(parameters),
+        },
+    }
+    return _post_and_record(message, payload)
+
+
 def send_whatsapp_template(
-    *, sender, recipient, template_name, language, parameters
+    *, sender, recipient, template_name, language, parameters, phone_number_id=""
 ) -> WhatsAppMessage:
     """Send a template message; see ``_send_whatsapp_template``.
 
-    If the recipient's number was erased (GDPR), the send itself is the admin's
-    call but the stored row must not keep the number, merged parameters or any
-    status text that could echo it. Checked AFTER the whole send, on every
-    return path, and after the insert: erasure records the number before it
-    sweeps, so a row inserted after that sweep is still caught here.
+    ``phone_number_id`` picks the business number it goes out from; blank
+    means the main number. The row is blanked afterwards if the recipient's
+    number was erased (``_blank_if_erased``).
     """
     message = _send_whatsapp_template(
         sender=sender,
@@ -198,15 +267,37 @@ def send_whatsapp_template(
         template_name=template_name,
         language=language,
         parameters=parameters,
+        phone_number_id=phone_number_id,
     )
-    if ErasedPhoneNumber.is_erased(recipient):
-        WhatsAppMessage.objects.filter(pk=message.pk).update(
-            recipient="", parameters={}, status_history=[]
-        )
-        message.recipient = ""
-        message.parameters = {}
-        message.status_history = []
-    return message
+    return _blank_if_erased(message, recipient)
+
+
+def send_whatsapp_text(*, sender, recipient, text, phone_number_id) -> WhatsAppMessage:
+    """Send a free-form text message from ``phone_number_id`` to ``recipient``.
+
+    Meta only delivers it inside the 24-hour window opened by the recipient's
+    last message to that number; outside it the send fails with
+    ``ERROR_OUTSIDE_SERVICE_WINDOW``. Callers check the window first so that
+    failure stays a rare race, not the normal path. Same return contract as
+    ``send_whatsapp_template``.
+    """
+    message = WhatsAppMessage.objects.create(
+        user=sender,
+        recipient=recipient,
+        text=text,
+        business_phone_number_id=phone_number_id,
+        status=WhatsAppMessage.Status.QUEUED,
+        status_history=[{"status": "queued", "timestamp": now_iso()}],
+    )
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": normalize_recipient(recipient),
+        "type": "text",
+        "text": {"body": text, "preview_url": False},
+    }
+    message = _post_and_record(message, payload)
+    return _blank_if_erased(message, recipient)
 
 
 def fetch_approved_templates(use_cache: bool = True) -> list[dict]:
