@@ -58,7 +58,7 @@
             </span>
             <span class="text-lg font-bold text-crush-pink flex items-center gap-1">
                 {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
-                {% blocktrans with points=challenge.points_awarded %}{{ points }} points{% endblocktrans %}
+                {% blocktrans count points=challenge.points_awarded %}{{ points }} point{% plural %}{{ points }} points{% endblocktrans %}
             </span>
         </div>
 
