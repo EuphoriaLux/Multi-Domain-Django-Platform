@@ -178,8 +178,17 @@ class DelegationProfile(models.Model):
         """Approve the user with given role"""
         self.status = "approved"
         self.role = role
+        self.manually_blocked = False
         self.approved_at = timezone.now()
-        self.save(update_fields=["status", "role", "approved_at", "updated_at"])
+        self.save(
+            update_fields=[
+                "status",
+                "role",
+                "manually_blocked",
+                "approved_at",
+                "updated_at",
+            ]
+        )
 
     def reject(self, reason=""):
         """Reject the user"""

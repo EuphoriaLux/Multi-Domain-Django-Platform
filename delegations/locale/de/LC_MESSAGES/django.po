@@ -1,13 +1,13 @@
 # Translations for delegations app.
-# Copyright (C) 2024-2025 Entreprinder
+# Copyright (C) 2024-2026 Entreprinder
 # This file is distributed under the same license as the project.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: delegations 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-23 01:24+0200\n"
-"PO-Revision-Date: 2026-01-21 20:29\n"
+"POT-Creation-Date: 2026-10-23 12:45+0200\n"
+"PO-Revision-Date: 2026-10-23 12:45+0200\n"
 "Last-Translator: \n"
 "Language-Team: DE\n"
 "Language: de\n"
@@ -16,23 +16,62 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: .\delegations\templates\account\logout_delegation.html:4
-#: .\delegations\templates\account\logout_delegation.html:13
-#: .\delegations\templates\account\logout_delegation.html:23
+#: delegations/templates/account/login_delegation.html:6
+#: delegations/templates/account/login_delegation.html:15
+msgid "Sign In"
+msgstr "Anmelden"
+
+#: delegations/templates/account/login_delegation.html:16
+msgid "Sign in with your Microsoft work account to access the delegation portal."
+msgstr "Melden Sie sich mit Ihrem Microsoft-Geschäftskonto an, um auf das Delegationsportal zuzugreifen."
+
+#: delegations/templates/account/login_delegation.html:25
+#: delegations/templates/account/password_reset_delegation.html:26
+msgid "Sign in with Microsoft"
+msgstr "Mit Microsoft anmelden"
+
+#: delegations/templates/account/login_delegation.html:30
+#: delegations/templates/account/password_reset_delegation.html:31
+msgid "Microsoft authentication is not configured. Please contact the administrator."
+msgstr "Die Microsoft-Authentifizierung ist nicht konfiguriert. Bitte wenden Sie sich an den Administrator."
+
+#: delegations/templates/account/logout_delegation.html:4
+#: delegations/templates/account/logout_delegation.html:13
+#: delegations/templates/account/logout_delegation.html:23
 msgid "Sign Out"
 msgstr "Abmelden"
 
-#: .\delegations\templates\account\logout_delegation.html:14
+#: delegations/templates/account/logout_delegation.html:14
 msgid "Are you sure you want to sign out?"
 msgstr "Möchten Sie sich wirklich abmelden?"
 
-#: .\delegations\templates\account\logout_delegation.html:24
+#: delegations/templates/account/logout_delegation.html:24
 msgid "Cancel"
 msgstr "Abbrechen"
 
-#: .\delegations\templates\admin\base_site.html:4
-#: .\delegations\templates\admin\base_site.html:29
-#, fuzzy
-#| msgid "Crush Delegation Management"
+#: delegations/templates/account/password_change_delegation.html:6
+#: delegations/templates/account/password_change_delegation.html:14
+msgid "Change Password"
+msgstr "Passwort ändern"
+
+#: delegations/templates/account/password_change_delegation.html:15
+msgid "Delegations.lu uses Microsoft sign-in, so there is no password to change here. To change your password, use your organisation's Microsoft account."
+msgstr "Delegations.lu verwendet die Microsoft-Anmeldung, daher gibt es hier kein Passwort zu ändern. Um Ihr Passwort zu ändern, verwenden Sie das Microsoft-Konto Ihrer Organisation."
+
+#: delegations/templates/account/password_change_delegation.html:16
+msgid "Back"
+msgstr "Zurück"
+
+#: delegations/templates/account/password_reset_delegation.html:7
+#: delegations/templates/account/password_reset_delegation.html:16
+msgid "Password Reset"
+msgstr "Passwort zurücksetzen"
+
+#: delegations/templates/account/password_reset_delegation.html:17
+msgid "Delegations.lu uses Microsoft sign-in, so there is no password to reset here. If you cannot sign in, reset your password through your organisation's Microsoft account."
+msgstr "Delegations.lu verwendet die Microsoft-Anmeldung, daher gibt es hier kein Passwort zum Zurücksetzen. Wenn Sie sich nicht anmelden können, setzen Sie Ihr Passwort über das Microsoft-Konto Ihrer Organisation zurück."
+
+#: delegations/templates/admin/base_site.html:4
+#: delegations/templates/admin/base_site.html:29
 msgid "Delegations.lu Management"
-msgstr "Crush Delegationsverwaltung"
+msgstr "Delegations.lu Verwaltung"

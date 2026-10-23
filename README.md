@@ -18,7 +18,7 @@ Multi-domain Django application serving 9 distinct platforms from a single codeb
 | [power-up.lu](https://power-up.lu) | Corporate/investor information site | Static |
 | [portal.powerup.lu](https://portal.powerup.lu) | Power-Up CRM & customer portal | Full-featured |
 | [tableau.lu](https://tableau.lu) | AI Art e-commerce platform | Static |
-| [delegations.lu](https://delegations.lu) | Crush.lu delegation features | Full-featured |
+| [delegations.lu](https://delegations.lu) | Staff delegation & employee representation portal | Full-featured |
 | [arborist.lu](https://arborist.lu) | Tree services informational site (i18n: EN/DE/FR) | Static |
 
 ## Tech Stack
