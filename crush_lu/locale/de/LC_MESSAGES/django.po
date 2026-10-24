@@ -46779,3 +46779,9 @@ msgstr "Dieser Videoanruf ist gerade nicht geöffnet"
 
 msgid "Your coach may have finished, or the link may have expired. Joining was optional, so nothing changes for you. If your coach would like to try again, they will get in touch."
 msgstr "Dein Coach ist vielleicht schon fertig, oder der Link ist abgelaufen. Die Teilnahme war freiwillig, für dich ändert sich also nichts. Wenn dein Coach es noch einmal versuchen möchte, meldet er oder sie sich bei dir."
+
+msgid "Preview"
+msgstr "Vorschau"
+
+msgid "Preview: the groups the projector would form if you generated them now. Nothing is saved until “Generate fair curated groups” runs."
+msgstr "Vorschau: Diese Gruppen würde der Projektor bilden, wenn du sie jetzt erstellst. Gespeichert wird erst, wenn „Generate fair curated groups“ ausgeführt wird."
