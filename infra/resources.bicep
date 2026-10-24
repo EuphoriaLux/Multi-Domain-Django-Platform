@@ -540,6 +540,8 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       'META_WHATSAPP_ACCESS_TOKEN'
       'META_WHATSAPP_APP_SECRET'
       'META_WHATSAPP_VERIFY_TOKEN'
+      // Coach follow-up template: exists only in the production WABA
+      'WHATSAPP_COACH_FOLLOWUP_TEMPLATE'
       // Apple Wallet - per-slot certs and PassKit service root
       'WALLET_APPLE_CERT_BASE64'
       'WALLET_APPLE_KEY_BASE64'

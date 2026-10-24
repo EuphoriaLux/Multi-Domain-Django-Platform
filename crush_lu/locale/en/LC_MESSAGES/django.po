@@ -28833,3 +28833,44 @@ msgstr ""
 #: crush_lu/views_payments.py
 msgid "This membership is not pending payment."
 msgstr ""
+
+#: crush_lu/services/coach_whatsapp.py
+msgid "Messages from your Crush number aren't switched on yet."
+msgstr ""
+
+#: crush_lu/services/coach_whatsapp.py
+msgid "This member's number can't receive WhatsApp messages."
+msgstr ""
+
+#: crush_lu/services/coach_whatsapp.py
+msgid ""
+"This member hasn't turned on WhatsApp messages, so you can't write to them "
+"first on WhatsApp. Call or send an SMS instead."
+msgstr ""
+
+#: crush_lu/services/coach_whatsapp.py
+msgid ""
+"You sent them a WhatsApp message in the last 24 hours. Their reply will show "
+"in your WhatsApp inbox."
+msgstr ""
+
+#: crush_lu/services/coach_whatsapp.py
+msgid "You don't have a Crush WhatsApp number."
+msgstr ""
+
+#: crush_lu/views_coach_whatsapp.py
+msgid "WhatsApp template sent from the coach's Crush number"
+msgstr ""
+
+#: crush_lu/views_coach_whatsapp.py
+msgid ""
+"Sent from your Crush number. Their reply will show in your WhatsApp inbox."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/_screening_tab.html
+msgid "Send from your Crush WhatsApp"
+msgstr ""
+
+#: crush_lu/services/coach_whatsapp.py
+msgid "Follow-up message (template)"
+msgstr ""
