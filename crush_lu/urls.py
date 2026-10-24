@@ -27,6 +27,7 @@ from . import views_quiz
 from . import views_coach as views_coach_module
 from . import views_coach_photos
 from . import views_coach_whatsapp
+from . import views_video_call
 from . import views_connect_showcase
 from . import views_quiz_config
 from . import views_crush_cache
@@ -1010,6 +1011,12 @@ urlpatterns = [
         "coach/whatsapp/media/<int:inbound_id>/",
         views_coach_whatsapp.coach_whatsapp_media,
         name="coach_whatsapp_media",
+    ),
+    # Superuser test room for in-app video calls (real-person check, D12)
+    path(
+        "coach/video-call-test/<str:room>/",
+        views_video_call.video_call_test,
+        name="video_call_test",
     ),
     path("coach/members/", views.coach_members, name="coach_members"),
     path("coach/profile/edit/", views.coach_edit_profile, name="coach_edit_profile"),

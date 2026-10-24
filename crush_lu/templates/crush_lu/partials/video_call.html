@@ -1,0 +1,51 @@
+{% load i18n %}{% comment %}
+In-app two-person video call. Context from crush_lu.services.video_call.video_call_context();
+the view must call allow_microphone(response) and must not be cached (the
+config holds freshly minted relay credentials). The page loads the connect
+bundle in pre_alpine_js. The native apps cannot use the microphone yet, so
+inside them the partial points to the phone's browser instead.
+Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md (D12)
+{% endcomment %}
+{% if is_native_app %}
+<div class="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 text-sm text-gray-700 dark:text-gray-200">
+    <p>{% trans "Video calls work in your phone's browser, not yet in the Crush.lu app. Open this page in your browser:" %}</p>
+    <p class="mt-2 font-mono text-xs break-all select-all text-gray-900 dark:text-white">{{ request.build_absolute_uri }}</p>
+</div>
+{% elif video_call.available %}
+{{ video_call.config|json_script:"video-call-config" }}
+<div x-data="videoCall"
+     data-config-id="video-call-config"
+     data-label-idle="{% trans 'Not started' %}"
+     data-label-starting="{% trans 'Starting your camera…' %}"
+     data-label-waiting="{% trans 'Waiting for the other person…' %}"
+     data-label-connecting="{% trans 'Connecting…' %}"
+     data-label-connected="{% trans 'Connected' %}"
+     data-label-reconnecting="{% trans 'Reconnecting…' %}"
+     data-label-ended="{% trans 'Call ended' %}"
+     data-label-failed="{% trans 'The call could not connect. Try again, or switch to a phone call.' %}"
+     data-label-denied="{% trans 'Camera or microphone access was refused. Allow it in your browser settings, then try again.' %}"
+     data-label-mute="{% trans 'Mute' %}"
+     data-label-unmute="{% trans 'Unmute' %}"
+     data-label-camera-off="{% trans 'Camera off' %}"
+     data-label-camera-on="{% trans 'Camera on' %}">
+    <div class="relative overflow-hidden rounded-2xl bg-gray-900 aspect-[3/4] sm:aspect-video">
+        <video x-ref="remote" autoplay playsinline class="h-full w-full object-cover"></video>
+        <video x-ref="local" autoplay playsinline muted
+               class="absolute bottom-3 right-3 w-24 sm:w-36 rounded-xl border-2 border-white/70 object-cover"></video>
+        <p class="absolute left-3 top-3 right-3 text-sm font-medium text-white drop-shadow"
+           :class="statusClass"
+           role="status" aria-live="polite" x-text="statusLabel"></p>
+    </div>
+    <div class="mt-4 flex flex-wrap justify-center gap-2">
+        <button type="button" class="btn-crush-solid" x-show="canStart" @click="start">{% trans "Start video" %}</button>
+        <button type="button" class="btn-crush-outline btn-sm" x-show="inCall" @click="toggleMicrophone" x-text="microphoneLabel"></button>
+        <button type="button" class="btn-crush-outline btn-sm" x-show="inCall" @click="toggleCamera" x-text="cameraLabel"></button>
+        <button type="button" class="btn-crush-outline btn-sm" x-show="showSwitchCamera" @click="switchCamera">{% trans "Switch camera" %}</button>
+        <button type="button" class="btn-danger btn-sm" x-show="inCall" @click="hangUp">{% trans "Hang up" %}</button>
+    </div>
+</div>
+{% else %}
+<div class="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 text-sm text-gray-700 dark:text-gray-200">
+    {% trans "Video calls are not available right now. Use a phone call instead." %}
+</div>
+{% endif %}

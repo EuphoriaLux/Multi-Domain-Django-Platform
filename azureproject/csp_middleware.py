@@ -40,7 +40,7 @@ class PermissionsPolicyMiddleware:
             "idle-detection=()",
             "local-fonts=()",
             "magnetometer=(self)",
-            "microphone=()",  # Not used - disable for privacy
+            "microphone=()",  # Off except where a view calls allow_microphone()
             "midi=()",
             "otp-credentials=()",
             "payment=()",
@@ -55,6 +55,11 @@ class PermissionsPolicyMiddleware:
         ]
     )
 
+    # In-app video calls need the microphone, on their own pages only.
+    PERMISSIONS_POLICY_WITH_MICROPHONE = PERMISSIONS_POLICY.replace(
+        "microphone=()", "microphone=(self)"
+    )
+
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -62,5 +67,18 @@ class PermissionsPolicyMiddleware:
         response = self.get_response(request)
         # Skip for admin and health check endpoints
         if not request.path.startswith(("/admin/", "/healthz", "/readyz")):
-            response["Permissions-Policy"] = self.PERMISSIONS_POLICY
+            if getattr(response, "allows_microphone", False):
+                response["Permissions-Policy"] = self.PERMISSIONS_POLICY_WITH_MICROPHONE
+            else:
+                response["Permissions-Policy"] = self.PERMISSIONS_POLICY
         return response
+
+
+def allow_microphone(response):
+    """Let this one response's page use the microphone (same origin only).
+
+    Every other page keeps ``microphone=()``. Spec:
+    ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md (D12)
+    """
+    response.allows_microphone = True
+    return response
