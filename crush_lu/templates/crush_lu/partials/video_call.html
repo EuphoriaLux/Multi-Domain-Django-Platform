@@ -1,9 +1,10 @@
 {% load i18n %}{% comment %}
 In-app two-person video call. Context from crush_lu.services.video_call.video_call_context();
-the view must call allow_microphone(response) and must not be cached (the
-config holds freshly minted relay credentials). The page loads the connect
-bundle in pre_alpine_js. The native apps cannot use the microphone yet, so
-inside them the partial points to the phone's browser instead.
+the view must return allow_microphone(response), and the page loads the
+connect bundle in pre_alpine_js. Relay credentials are fetched from
+video_call_ice_servers when the person presses Start, never rendered here.
+The native apps cannot use the microphone yet, so inside them the partial
+points to the phone's browser instead.
 Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md (D12)
 {% endcomment %}
 {% if is_native_app %}
@@ -15,6 +16,7 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md (D12)
 {{ video_call.config|json_script:"video-call-config" }}
 <div x-data="videoCall"
      data-config-id="video-call-config"
+     data-ice-url="{% url 'crush_lu:video_call_ice_servers' video_call.kind video_call.object_id %}"
      data-label-idle="{% trans 'Not started' %}"
      data-label-starting="{% trans 'Starting your camera…' %}"
      data-label-waiting="{% trans 'Waiting for the other person…' %}"
@@ -24,6 +26,7 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md (D12)
      data-label-ended="{% trans 'Call ended' %}"
      data-label-failed="{% trans 'The call could not connect. Try again, or switch to a phone call.' %}"
      data-label-denied="{% trans 'Camera or microphone access was refused. Allow it in your browser settings, then try again.' %}"
+     data-label-replaced="{% trans 'This call continued in another window.' %}"
      data-label-mute="{% trans 'Mute' %}"
      data-label-unmute="{% trans 'Unmute' %}"
      data-label-camera-off="{% trans 'Camera off' %}"

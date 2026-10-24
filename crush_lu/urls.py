@@ -1012,7 +1012,13 @@ urlpatterns = [
         views_coach_whatsapp.coach_whatsapp_media,
         name="coach_whatsapp_media",
     ),
-    # Superuser test room for in-app video calls (real-person check, D12)
+    # In-app video calls (real-person check, D12): relay credentials minted
+    # when a call starts, and the superuser test room.
+    path(
+        "video-call/<str:kind>/<str:object_id>/ice-servers/",
+        views_video_call.video_call_ice_servers,
+        name="video_call_ice_servers",
+    ),
     path(
         "coach/video-call-test/<str:room>/",
         views_video_call.video_call_test,

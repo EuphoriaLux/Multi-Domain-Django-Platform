@@ -17,12 +17,17 @@ from django.test import override_settings
 from django.utils.module_loading import import_string
 
 from azureproject.csp_middleware import PermissionsPolicyMiddleware, allow_microphone
-from crush_lu.consumers_video_call import MAX_MESSAGES_PER_MINUTE, VideoCallConsumer
+from crush_lu.consumers_video_call import (
+    CLOSE_REPLACED,
+    MAX_MESSAGES_PER_MINUTE,
+    VideoCallConsumer,
+)
 from crush_lu.routing import websocket_urlpatterns
 from crush_lu.services import turn_credentials
 from crush_lu.services.video_call import (
     VIDEO_CALL_KINDS,
-    can_join_call,
+    call_role,
+    ice_servers_payload,
     video_call_context,
 )
 
@@ -121,25 +126,59 @@ class TurnCredentialTests(SimpleTestCase):
                 self.assertIsNone(turn_credentials.generate_ice_servers())
 
 
+def _deny_call(user, object_id):
+    return None
+
+
+def _bad_role_call(user, object_id):
+    return "Not A Role!"
+
+
+TEST_KINDS = {
+    **VIDEO_CALL_KINDS,
+    "deny-test": "crush_lu.tests.test_video_call._deny_call",
+    "bad-role-test": "crush_lu.tests.test_video_call._bad_role_call",
+}
+
+
 class VideoCallContextTests(SimpleTestCase):
-    @override_settings(DEBUG=False)
+    @override_settings(DEBUG=False, CLOUDFLARE_TURN_KEY_ID="")
     def test_without_turn_video_is_unavailable_outside_debug(self):
-        with patch(
-            "crush_lu.services.video_call.generate_ice_servers", return_value=None
-        ):
-            self.assertEqual(
-                video_call_context("staff-test", "room1"),
-                {"video_call": {"available": False}},
-            )
+        self.assertEqual(
+            video_call_context("staff-test", "room1"),
+            {"video_call": {"available": False}},
+        )
+
+    @override_settings(DEBUG=False, **TURN)
+    def test_the_page_holds_the_socket_path_but_no_credentials(self):
+        with patch("crush_lu.services.video_call.generate_ice_servers") as mint:
+            call = video_call_context("staff-test", "room1")["video_call"]
+        mint.assert_not_called()
+        self.assertEqual(
+            call,
+            {
+                "available": True,
+                "kind": "staff-test",
+                "object_id": "room1",
+                "config": {"socketPath": "/ws/video-call/staff-test/room1/"},
+            },
+        )
 
     @override_settings(DEBUG=True)
     def test_debug_without_turn_connects_directly(self):
         with patch(
             "crush_lu.services.video_call.generate_ice_servers", return_value=None
         ):
-            config = video_call_context("staff-test", "room1")["video_call"]["config"]
-        self.assertEqual(config["iceServers"], [])
-        self.assertEqual(config["iceTransportPolicy"], "all")
+            self.assertEqual(
+                ice_servers_payload(), {"iceServers": [], "iceTransportPolicy": "all"}
+            )
+
+    @override_settings(DEBUG=False)
+    def test_without_relay_credentials_there_is_no_payload(self):
+        with patch(
+            "crush_lu.services.video_call.generate_ice_servers", return_value=None
+        ):
+            self.assertIsNone(ice_servers_payload())
 
     def test_policy_follows_the_setting_and_defaults_to_relay(self):
         for setting, expected in (
@@ -153,15 +192,9 @@ class VideoCallContextTests(SimpleTestCase):
                         "crush_lu.services.video_call.generate_ice_servers",
                         return_value=[RELAY],
                     ):
-                        call = video_call_context("staff-test", "room1")["video_call"]
-                self.assertTrue(call["available"])
+                        payload = ice_servers_payload()
                 self.assertEqual(
-                    call["config"],
-                    {
-                        "socketPath": "/ws/video-call/staff-test/room1/",
-                        "iceServers": [RELAY],
-                        "iceTransportPolicy": expected,
-                    },
+                    payload, {"iceServers": [RELAY], "iceTransportPolicy": expected}
                 )
 
     def test_every_kind_resolves_to_an_authorizer(self):
@@ -182,36 +215,47 @@ class VideoCallContextTests(SimpleTestCase):
                 self.assertIsNone(route.pattern.match(bad))
 
 
-class CanJoinCallTests(TestCase):
+@patch.dict("crush_lu.services.video_call.VIDEO_CALL_KINDS", TEST_KINDS)
+class CallRoleTests(TestCase):
     def setUp(self):
         self.superuser = User.objects.create_superuser("root", "root@example.com", "pw")
         self.member = User.objects.create_user("member", "member@example.com", "pw")
 
-    def test_staff_test_room_admits_superusers_only(self):
-        self.assertTrue(can_join_call(self.superuser, "staff-test", "room1"))
-        self.assertFalse(can_join_call(self.member, "staff-test", "room1"))
+    def test_staff_test_room_gives_each_superuser_a_role(self):
+        self.assertEqual(
+            call_role(self.superuser, "staff-test", "room1"),
+            f"user-{self.superuser.pk}",
+        )
+        self.assertIsNone(call_role(self.member, "staff-test", "room1"))
+
+    def test_an_authorizer_refusal_or_bad_role_refuses(self):
+        self.assertIsNone(call_role(self.superuser, "deny-test", "room1"))
+        self.assertIsNone(call_role(self.superuser, "bad-role-test", "room1"))
 
     def test_refuses_inactive_unknown_and_malformed(self):
         inactive = User.objects.create_superuser("gone", "gone@example.com", "pw")
         inactive.is_active = False
         inactive.save()
-        self.assertFalse(can_join_call(inactive, "staff-test", "room1"))
-        self.assertFalse(can_join_call(self.superuser, "no-such-kind", "room1"))
-        self.assertFalse(can_join_call(self.superuser, "staff-test", "room 1"))
-        self.assertFalse(can_join_call(self.superuser, "Staff", "room1"))
-        self.assertFalse(can_join_call(None, "staff-test", "room1"))
+        self.assertIsNone(call_role(inactive, "staff-test", "room1"))
+        self.assertIsNone(call_role(self.superuser, "no-such-kind", "room1"))
+        self.assertIsNone(call_role(self.superuser, "staff-test", "room 1"))
+        self.assertIsNone(call_role(self.superuser, "Staff", "room1"))
+        self.assertIsNone(call_role(None, "staff-test", "room1"))
 
 
+@patch.dict("crush_lu.services.video_call.VIDEO_CALL_KINDS", TEST_KINDS)
 class VideoCallConsumerTests(TestCase):
     """Drives the consumer directly (WebsocketCommunicator pulls in daphne),
     as the quiz consumer tests do."""
 
     def setUp(self):
+        cache.clear()
         # database_sync_to_async would close the test transaction's connection.
         patcher = patch("channels.db.close_old_connections", lambda *a, **kw: None)
         patcher.start()
         self.addCleanup(patcher.stop)
         self.superuser = User.objects.create_superuser("root", "root@example.com", "pw")
+        self.slot = f"video_call.staff-test.room1.user-{self.superuser.pk}"
 
     def _consumer(self, user, kind="staff-test", object_id="room1", name="chan-a"):
         consumer = VideoCallConsumer()
@@ -226,30 +270,51 @@ class VideoCallConsumerTests(TestCase):
         consumer.send_json = AsyncMock()
         return consumer
 
-    def _connected(self, **kwargs):
-        consumer = self._consumer(self.superuser, **kwargs)
+    def _connected(self, name="chan-a"):
+        consumer = self._consumer(self.superuser, name=name)
         async_to_sync(consumer.connect)()
         consumer.accept.assert_awaited_once()
         consumer.channel_layer.group_send.reset_mock()
         return consumer
 
-    def test_refuses_anonymous_and_unauthorized_users(self):
+    def test_refuses_anonymous_unauthorized_and_refused_users(self):
         from django.contrib.auth.models import AnonymousUser
 
         member = User.objects.create_user("member", "member@example.com", "pw")
-        for user in (AnonymousUser(), member):
-            with self.subTest(user=user):
-                consumer = self._consumer(user)
+        for user, kind in (
+            (AnonymousUser(), "staff-test"),
+            (member, "staff-test"),
+            (self.superuser, "deny-test"),
+        ):
+            with self.subTest(user=user, kind=kind):
+                consumer = self._consumer(user, kind=kind)
                 async_to_sync(consumer.connect)()
                 consumer.close.assert_awaited_once()
                 consumer.accept.assert_not_awaited()
                 consumer.channel_layer.group_add.assert_not_awaited()
 
-    def test_joins_the_call_group(self):
+    def test_joins_the_call_group_and_takes_its_role_slot(self):
         consumer = self._connected()
         consumer.channel_layer.group_add.assert_awaited_once_with(
             "video_call.staff-test.room1", "chan-a"
         )
+        self.assertEqual(cache.get(self.slot), "chan-a")
+        consumer.channel_layer.send.assert_not_awaited()
+
+    def test_a_newer_socket_for_the_same_role_replaces_the_older(self):
+        older = self._connected("chan-a")
+        newer = self._connected("chan-b")
+        self.assertEqual(cache.get(self.slot), "chan-b")
+        newer.channel_layer.send.assert_awaited_once_with(
+            "chan-a", {"type": "video.replaced"}
+        )
+        async_to_sync(older.video_replaced)({"type": "video.replaced"})
+        older.close.assert_awaited_once_with(code=CLOSE_REPLACED)
+        # The replaced socket's disconnect must not free the newer one's slot.
+        async_to_sync(older.disconnect)(CLOSE_REPLACED)
+        self.assertEqual(cache.get(self.slot), "chan-b")
+        async_to_sync(newer.disconnect)(1000)
+        self.assertIsNone(cache.get(self.slot))
 
     def test_relays_allowlisted_fields_only(self):
         consumer = self._connected()
@@ -275,6 +340,7 @@ class VideoCallConsumerTests(TestCase):
             json.dumps(["offer"]),
             "not json",
             "",
+            # Over MAX_MESSAGE_CHARS (characters; SDP and ICE are ASCII).
             json.dumps({"type": "candidate", "candidate": "x" * 40000}),
         ):
             with self.subTest(text=text[:20]):
@@ -298,13 +364,14 @@ class VideoCallConsumerTests(TestCase):
         async_to_sync(consumer.video_signal)({"sender": "chan-b", "message": message})
         consumer.send_json.assert_awaited_once_with(message)
 
-    def test_disconnect_leaves_the_group_without_speaking_for_the_person(self):
+    def test_disconnect_leaves_without_speaking_for_the_person(self):
         consumer = self._connected()
         async_to_sync(consumer.disconnect)(1006)
         consumer.channel_layer.group_discard.assert_awaited_once_with(
             "video_call.staff-test.room1", "chan-a"
         )
         consumer.channel_layer.group_send.assert_not_awaited()
+        self.assertIsNone(cache.get(self.slot))
 
 
 class MicrophonePermissionTests(SimpleTestCase):
@@ -328,17 +395,21 @@ class MicrophonePermissionTests(SimpleTestCase):
         )
 
 
-@override_settings(DEBUG=False)
+def _logged_in_superuser(test):
+    from crush_lu.tests.test_ux_wave3_profile_wizard import _grant_consent
+
+    cache.clear()
+    test.client = Client(HTTP_HOST="crush.lu")
+    test.superuser = User.objects.create_superuser("root", "root@example.com", "pw")
+    _grant_consent(test.superuser)
+
+
+@override_settings(DEBUG=False, **TURN)
 class VideoCallTestPageTests(TestCase):
     path = "/en/coach/video-call-test/room1/"
 
     def setUp(self):
-        from crush_lu.tests.test_ux_wave3_profile_wizard import _grant_consent
-
-        cache.clear()
-        self.client = Client(HTTP_HOST="crush.lu")
-        self.superuser = User.objects.create_superuser("root", "root@example.com", "pw")
-        _grant_consent(self.superuser)
+        _logged_in_superuser(self)
 
     def test_requires_login(self):
         response = self.client.get(self.path)
@@ -357,35 +428,73 @@ class VideoCallTestPageTests(TestCase):
         response = self.client.get("/en/coach/video-call-test/room_1/")
         self.assertEqual(response.status_code, 404)
 
-    def test_renders_the_call_with_fresh_credentials(self):
+    def test_renders_the_call_without_credentials(self):
         self.client.force_login(self.superuser)
-        with patch(
-            "crush_lu.services.video_call.generate_ice_servers", return_value=[RELAY]
-        ):
+        with patch("crush_lu.services.video_call.generate_ice_servers") as mint:
             response = self.client.get(self.path)
+        mint.assert_not_called()
         self.assertEqual(response.status_code, 200)
         html = response.content.decode()
         self.assertIn('x-data="videoCall"', html)
-        self.assertIn('id="video-call-config"', html)
         self.assertIn("/ws/video-call/staff-test/room1/", html)
+        self.assertIn(
+            'data-ice-url="/en/video-call/staff-test/room1/ice-servers/"', html
+        )
         self.assertIn("microphone=(self)", response["Permissions-Policy"])
-        self.assertIn("no-store", response["Cache-Control"])
 
+    @override_settings(CLOUDFLARE_TURN_KEY_ID="")
     def test_without_turn_it_says_video_is_unavailable(self):
         self.client.force_login(self.superuser)
-        with patch(
-            "crush_lu.services.video_call.generate_ice_servers", return_value=None
-        ):
-            response = self.client.get(self.path)
+        response = self.client.get(self.path)
         self.assertEqual(response.status_code, 200)
         self.assertNotIn('x-data="videoCall"', response.content.decode())
         self.assertContains(response, "Video calls are not available right now.")
 
     def test_inside_the_app_it_points_to_the_browser(self):
         self.client.force_login(self.superuser)
+        response = self.client.get(self.path, HTTP_X_CRUSH_CLIENT="ios-app")
+        self.assertNotIn('x-data="videoCall"', response.content.decode())
+        self.assertContains(response, "Open this page in your browser")
+
+
+@override_settings(DEBUG=False, **TURN)
+class IceServersEndpointTests(TestCase):
+    path = "/en/video-call/staff-test/room1/ice-servers/"
+
+    def setUp(self):
+        _logged_in_superuser(self)
+
+    def test_requires_login_and_post(self):
+        self.assertEqual(self.client.post(self.path).status_code, 302)
+        self.client.force_login(self.superuser)
+        self.assertEqual(self.client.get(self.path).status_code, 405)
+
+    def test_refuses_people_who_are_not_in_the_call(self):
+        from crush_lu.tests.test_ux_wave3_profile_wizard import _grant_consent
+
+        member = User.objects.create_user("member", "member@example.com", "pw")
+        _grant_consent(member)
+        self.client.force_login(member)
+        with patch("crush_lu.services.video_call.generate_ice_servers") as mint:
+            self.assertEqual(self.client.post(self.path).status_code, 404)
+        mint.assert_not_called()
+
+    def test_mints_fresh_credentials_for_the_call(self):
+        self.client.force_login(self.superuser)
         with patch(
             "crush_lu.services.video_call.generate_ice_servers", return_value=[RELAY]
         ):
-            response = self.client.get(self.path, HTTP_X_CRUSH_CLIENT="ios-app")
-        self.assertNotIn('x-data="videoCall"', response.content.decode())
-        self.assertContains(response, "Open this page in your browser")
+            response = self.client.post(self.path)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(), {"iceServers": [RELAY], "iceTransportPolicy": "relay"}
+        )
+        self.assertIn("no-store", response["Cache-Control"])
+
+    def test_reports_the_relay_unavailable(self):
+        self.client.force_login(self.superuser)
+        with patch(
+            "crush_lu.services.video_call.generate_ice_servers", return_value=None
+        ):
+            response = self.client.post(self.path)
+        self.assertEqual(response.status_code, 503)

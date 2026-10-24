@@ -22,6 +22,8 @@ const RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 15000];
 // network paths), and is reported as failed at the timeout.
 const ICE_RESTART_AFTER_MS = 10000;
 const CONNECT_TIMEOUT_MS = 30000;
+// consumers_video_call.CLOSE_REPLACED: a newer socket took this person's role.
+const CLOSE_REPLACED = 4000;
 const ACTIVE = ["waiting", "connecting", "connected", "reconnecting"];
 
 function randomId() {
@@ -33,6 +35,7 @@ function randomId() {
 function makeVideoCall() {
     const call = {
         config: null,
+        iceUrl: "",
         labels: {},
         myId: randomId(),
         peerId: null,
@@ -43,12 +46,15 @@ function makeVideoCall() {
         facingMode: "user",
         makingOffer: false,
         ignoreOffer: false,
+        tracksAdded: false,
         // Signals are applied strictly in arrival order, and candidates that
         // arrive before the description they belong to wait here for it.
         signalQueue: Promise.resolve(),
         pendingCandidates: [],
         ended: true,
         reconnectAttempt: 0,
+        iceServers: [],
+        iceTransportPolicy: "relay",
         reconnectTimer: null,
         connectTimer: null,
         restartTimer: null,
@@ -64,6 +70,8 @@ function makeVideoCall() {
             const configEl = document.getElementById(this.$el.dataset.configId);
             call.config = JSON.parse(configEl.textContent);
             const data = this.$el.dataset;
+            // Read here: in a click handler $el is the button, not this root.
+            call.iceUrl = data.iceUrl;
             call.labels = {
                 idle: data.labelIdle,
                 starting: data.labelStarting,
@@ -74,6 +82,7 @@ function makeVideoCall() {
                 ended: data.labelEnded,
                 failed: data.labelFailed,
                 denied: data.labelDenied,
+                replaced: data.labelReplaced,
                 mute: data.labelMute,
                 unmute: data.labelUnmute,
                 cameraOff: data.labelCameraOff,
@@ -113,6 +122,14 @@ function makeVideoCall() {
 
         async start() {
             this.status = "starting";
+            // Fresh relay credentials for this call, before the camera turns on.
+            const ice = await this._fetchIceServers();
+            if (!ice) {
+                this.status = "failed";
+                return;
+            }
+            call.iceServers = ice.iceServers;
+            call.iceTransportPolicy = ice.iceTransportPolicy;
             try {
                 call.stream = await navigator.mediaDevices.getUserMedia({
                     audio: true,
@@ -179,8 +196,12 @@ function makeVideoCall() {
             if (call.ended) {
                 return;
             }
-            call.ended = true;
             this._send({ type: "bye", id: call.myId });
+            this._stop("ended");
+        },
+
+        _stop(status) {
+            call.ended = true;
             this._closePeer();
             clearTimeout(call.reconnectTimer);
             if (call.socket) {
@@ -193,7 +214,7 @@ function makeVideoCall() {
                 call.stream = null;
             }
             this.$refs.local.srcObject = null;
-            this.status = "ended";
+            this.status = status;
         },
 
         // ---- signalling socket ----
@@ -219,8 +240,13 @@ function makeVideoCall() {
                     this._handleSignal(message)
                 );
             };
-            socket.onclose = () => {
+            socket.onclose = (event) => {
                 if (call.ended) {
+                    return;
+                }
+                if (event.code === CLOSE_REPLACED) {
+                    // Another tab or a reload of this person took the call.
+                    this._stop("replaced");
                     return;
                 }
                 // The media keeps flowing without the socket; only the call
@@ -272,11 +298,8 @@ function makeVideoCall() {
             if (peerId === call.peerId && call.pc) {
                 return;
             }
-            const connected = call.pc && call.pc.connectionState === "connected";
-            if (call.peerId && peerId !== call.peerId && connected) {
-                // A second tab of the other person: stay with the live call.
-                return;
-            }
+            // The server keeps one socket per person, so a new id means the
+            // other person reloaded or moved to another tab: follow them.
             const isNew = peerId !== call.peerId;
             this._closePeer();
             call.peerId = peerId;
@@ -290,8 +313,8 @@ function makeVideoCall() {
 
         _createPeer() {
             const pc = new RTCPeerConnection({
-                iceServers: call.config.iceServers,
-                iceTransportPolicy: call.config.iceTransportPolicy,
+                iceServers: call.iceServers,
+                iceTransportPolicy: call.iceTransportPolicy,
             });
             call.pc = pc;
             call.makingOffer = false;
@@ -323,7 +346,13 @@ function makeVideoCall() {
                 }
             };
             pc.onconnectionstatechange = () => this._onConnectionState(pc);
-            call.stream.getTracks().forEach((track) => pc.addTrack(track, call.stream));
+            // Only the impolite side offers: the polite side adds its tracks
+            // when it answers. Two simultaneous offers would make one side
+            // roll back and re-gather its network paths, which can stall.
+            call.tracksAdded = false;
+            if (!call.polite) {
+                this._addTracks(pc);
+            }
             this.status = "connecting";
             clearTimeout(call.connectTimer);
             clearTimeout(call.restartTimer);
@@ -351,6 +380,8 @@ function makeVideoCall() {
             }
             await pc.setRemoteDescription(description);
             if (description.type === "offer") {
+                // Attached to the offer's transceivers, so the answer sends.
+                this._addTracks(pc);
                 await pc.setLocalDescription();
                 this._send({ type: "answer", id: call.myId, description: pc.localDescription });
             }
@@ -359,6 +390,14 @@ function makeVideoCall() {
             for (const candidate of pending) {
                 await this._addCandidate(candidate);
             }
+        },
+
+        _addTracks(pc) {
+            if (call.tracksAdded) {
+                return;
+            }
+            call.tracksAdded = true;
+            call.stream.getTracks().forEach((track) => pc.addTrack(track, call.stream));
         },
 
         async _onCandidate(candidate) {
@@ -393,9 +432,8 @@ function makeVideoCall() {
                 this.status = "connected";
             } else if (state === "disconnected" || state === "failed") {
                 this.status = "reconnecting";
-                // If the other person reloaded, their new tab announced itself
-                // while this call still looked alive; announcing again lets
-                // it pair with us.
+                // In case the other side announced itself while our socket
+                // was reconnecting, announce again so it can pair with us.
                 this._send({ type: "hello", id: call.myId });
                 if (state === "failed") {
                     // Usually a network switch (Wi-Fi to mobile data).
@@ -437,6 +475,30 @@ function makeVideoCall() {
                     track.enabled = enabled;
                 }
             });
+        },
+
+        async _fetchIceServers() {
+            const token = document.querySelector("[name=csrfmiddlewaretoken]");
+            const meta = document.querySelector('meta[name="csrf-token"]');
+            try {
+                const response = await fetch(call.iceUrl, {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: {
+                        "X-CSRFToken": token
+                            ? token.value
+                            : meta
+                              ? meta.getAttribute("content")
+                              : "",
+                    },
+                });
+                if (!response.ok) {
+                    return null;
+                }
+                return await response.json();
+            } catch (error) {
+                return null;
+            }
         },
 
         async _hasSeveralCameras() {
