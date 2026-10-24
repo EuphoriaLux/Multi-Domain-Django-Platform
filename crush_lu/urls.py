@@ -28,6 +28,7 @@ from . import views_coach as views_coach_module
 from . import views_coach_photos
 from . import views_coach_real_person
 from . import views_coach_whatsapp
+from . import views_video_call
 from . import views_connect_showcase
 from . import views_quiz_config
 from . import views_crush_cache
@@ -1044,6 +1045,18 @@ urlpatterns = [
         views_coach_whatsapp.coach_whatsapp_media,
         name="coach_whatsapp_media",
     ),
+    # In-app video calls (real-person check, D12): relay credentials minted
+    # when a call starts, and the superuser test room.
+    path(
+        "video-call/<str:kind>/<str:object_id>/ice-servers/",
+        views_video_call.video_call_ice_servers,
+        name="video_call_ice_servers",
+    ),
+    path(
+        "coach/video-call-test/<str:room>/",
+        views_video_call.video_call_test,
+        name="video_call_test",
+    ),
     path("coach/members/", views.coach_members, name="coach_members"),
     path("coach/profile/edit/", views.coach_edit_profile, name="coach_edit_profile"),
     path(
@@ -1075,6 +1088,11 @@ urlpatterns = [
         "coach/review/<int:submission_id>/whatsapp-sent/",
         views.coach_log_whatsapp_sent,
         name="coach_log_whatsapp_sent",
+    ),
+    path(
+        "coach/review/<int:submission_id>/whatsapp-followup/",
+        views_coach_whatsapp.coach_whatsapp_followup,
+        name="coach_whatsapp_followup",
     ),
     path(
         "coach/review/<int:submission_id>/pre-screening-reminder/",

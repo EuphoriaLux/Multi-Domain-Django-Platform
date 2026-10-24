@@ -227,7 +227,23 @@
                                 {% trans "Log WhatsApp Sent" %}
                             </button>
                             {% endif %}
+                            {# A coach with a Crush number writes first via the approved template, never wa.me (services/coach_whatsapp.followup_status). #}
+                            {% if crush_number_followup.ready %}
+                            <button hx-post="{% url 'crush_lu:coach_whatsapp_followup' submission.id %}"
+                                    hx-target="#screening-call-section-content"
+                                    hx-swap="innerHTML"
+                                    hx-disabled-elt="this"
+                                    class="inline-flex items-center gap-2 px-4 py-2 bg-[#25D366] hover:bg-[#1ebe57] text-white text-sm font-medium rounded-lg transition-colors">
+                                {% include "shared/icons/whatsapp.html" with class="w-4 h-4" %}
+                                {% trans "Send from your Crush WhatsApp" %}
+                            </button>
+                            {% endif %}
                         </div>
+                        {% if followup_feedback %}
+                            <p role="status" class="mt-2 text-sm {% if followup_feedback.ok %}text-green-700 dark:text-green-300{% else %}text-red-700 dark:text-red-300{% endif %}">{{ followup_feedback.text }}</p>
+                        {% elif crush_number_followup.reason %}
+                            <p class="mt-2 text-xs text-gray-600 dark:text-gray-400">{{ crush_number_followup.reason }}</p>
+                        {% endif %}
                     </div>
                 {% endif %}
             </div>

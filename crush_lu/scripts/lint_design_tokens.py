@@ -72,6 +72,8 @@ BUTTON_EXEMPT_PARTS = (
     "gift",
     "wonderland",
     "pre_screening",
+    # Coach review page tabs (_screening_tab*.html): coach-only, like coach_*.
+    "_screening_tab",
     "create_profile",
     "edit_profile",
     "onboarding",

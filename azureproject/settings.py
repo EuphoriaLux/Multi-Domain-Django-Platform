@@ -1019,6 +1019,34 @@ WHATSAPP_OTP_TTL_MINUTES = int(os.environ.get("WHATSAPP_OTP_TTL_MINUTES", "3"))
 WHATSAPP_CONNECT_REQUEST_TEMPLATE = os.environ.get(
     "WHATSAPP_CONNECT_REQUEST_TEMPLATE", ""
 )
+# Name of an APPROVED Meta *Utility* template (en/de/fr variants) a coach with
+# a Crush number sends from the screening tab to a member they can't reach.
+# Empty = button off. Body params: {{1}} member first name, {{2}} coach first
+# name. The template exists only in the production WABA: pin the name
+# slot-sticky (infra/resources.bicep slotConfigNames) before setting it.
+# Runbook: ai-memory-hub/runbooks/crush-coach-whatsapp-numbers.md
+WHATSAPP_COACH_FOLLOWUP_TEMPLATE = os.environ.get(
+    "WHATSAPP_COACH_FOLLOWUP_TEMPLATE", ""
+)
+
+# ============================================================================
+# IN-APP VIDEO CALLS (WebRTC)
+# ============================================================================
+# Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md (D12)
+# A Cloudflare Realtime TURN key relays calls whose browsers cannot connect
+# directly. crush_lu/services/turn_credentials.py mints short-lived relay
+# credentials with it, so the API token never reaches a browser. Without both
+# values video is unavailable outside DEBUG. Set them slot-sticky
+# (--slot-settings) with a separate key per slot: staging must not hold prod's.
+CLOUDFLARE_TURN_KEY_ID = os.environ.get("CLOUDFLARE_TURN_KEY_ID", "")
+CLOUDFLARE_TURN_KEY_API_TOKEN = os.environ.get("CLOUDFLARE_TURN_KEY_API_TOKEN", "")
+# Lifetime of minted relay credentials: longer than the longest expected call.
+VIDEO_CALL_TURN_TTL_SECONDS = int(os.environ.get("VIDEO_CALL_TURN_TTL_SECONDS", "7200"))
+# "relay" sends every call through TURN so neither person learns the other's
+# IP address; "all" lets the browsers connect directly when they can.
+VIDEO_CALL_ICE_TRANSPORT_POLICY = os.environ.get(
+    "VIDEO_CALL_ICE_TRANSPORT_POLICY", "relay"
+)
 
 # ============================================================================
 # SUMUP ONLINE PAYMENTS

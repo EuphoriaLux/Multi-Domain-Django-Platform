@@ -46226,6 +46226,54 @@ msgstr "Richtige Antwort: {answer}"
 msgid "This membership is not pending payment."
 msgstr "Diese Mitgliedschaft wartet nicht auf eine Zahlung."
 
+#: crush_lu/services/coach_whatsapp.py
+msgid "Messages from your Crush number aren't switched on yet."
+msgstr "Nachrichten von deiner Crush-Nummer sind noch nicht eingeschaltet."
+
+#: crush_lu/services/coach_whatsapp.py
+msgid "This member's number can't receive WhatsApp messages."
+msgstr "Die Nummer dieses Mitglieds kann keine WhatsApp-Nachrichten empfangen."
+
+#: crush_lu/services/coach_whatsapp.py
+msgid ""
+"This member hasn't turned on WhatsApp messages, so you can't write to them "
+"first on WhatsApp. Call or send an SMS instead."
+msgstr ""
+"Dieses Mitglied hat WhatsApp-Nachrichten nicht eingeschaltet, du kannst es "
+"also nicht zuerst auf WhatsApp anschreiben. Ruf stattdessen an oder schick "
+"eine SMS."
+
+#: crush_lu/services/coach_whatsapp.py
+msgid ""
+"You sent them a WhatsApp message in the last 24 hours. Their reply will show "
+"in your WhatsApp inbox."
+msgstr ""
+"Du hast diesem Mitglied in den letzten 24 Stunden eine WhatsApp-Nachricht "
+"geschickt. Die Antwort erscheint in deinem WhatsApp-Posteingang."
+
+#: crush_lu/services/coach_whatsapp.py
+msgid "You don't have a Crush WhatsApp number."
+msgstr "Du hast keine Crush-WhatsApp-Nummer."
+
+#: crush_lu/views_coach_whatsapp.py
+msgid "WhatsApp template sent from the coach's Crush number"
+msgstr "WhatsApp-Vorlage von der Crush-Nummer des Coaches gesendet"
+
+#: crush_lu/views_coach_whatsapp.py
+msgid ""
+"Sent from your Crush number. Their reply will show in your WhatsApp inbox."
+msgstr ""
+"Von deiner Crush-Nummer gesendet. Die Antwort erscheint in deinem WhatsApp-"
+"Posteingang."
+
+#: crush_lu/templates/crush_lu/_screening_tab.html
+msgid "Send from your Crush WhatsApp"
+msgstr "Von deinem Crush-WhatsApp senden"
+
+#: crush_lu/services/coach_whatsapp.py
+msgid "Follow-up message (template)"
+msgstr "Nachfass-Nachricht (Vorlage)"
+
 msgid "Real-person checks"
 msgstr "Echtheitsprüfungen"
 

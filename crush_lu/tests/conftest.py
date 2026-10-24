@@ -7,6 +7,31 @@ scoping guard in ``pytest_collection_modifyitems`` below.
 import pytest
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _import_lobby_views_before_any_patch():
+    """Import the Event Lobby views once per worker, before any test patches.
+
+    ``crush_lu.views_event_lobby`` binds its ``services.event_lobby`` helpers
+    by name (``from .services.event_lobby import handle_checkin, …``). Left to
+    load lazily, it is first imported by whichever test first loads a URLconf
+    that includes ``crush_lu.urls``. When that test is inside
+    ``mocker.patch("crush_lu.services.event_lobby.handle_checkin", …)``, the
+    views keep the mock for the rest of the worker, and every later lobby
+    page test on it fails with the patched ``RuntimeError("lobby exploded")``
+    (``test_event_lobby.py::TestCheckinNeverDependsOnLobby``). Which test that
+    is depends on xdist scheduling and ``pytest-randomly``, so it flaked.
+
+    It is the only module that binds ``services.event_lobby`` functions at
+    import time; the others import them inside the function, so a patch at
+    the definition site reaches them. A fixture, not a top-level import, so
+    the import still runs after the root ``conftest.py``'s
+    ``pytest_configure`` has adjusted the settings. It only imports: no DB
+    access, so it does not pull ``django_db_setup`` into pure-unit modules
+    (see the hook below).
+    """
+    import crush_lu.views_event_lobby  # noqa: F401
+
+
 def pytest_collection_modifyitems(session, config, items):
     """Attach the migration-catalogue restore fixture to any crush_lu module
     that flushes the DB.
