@@ -45,6 +45,11 @@ from crush_lu.services.event_grouping import (
     project_event_groups,
 )
 
+# The fairness evidence Generate stores on each group. A preview card reads it
+# from the same builder, so its "why" sentences are the ones the stored draft
+# will show.
+from crush_lu.services.curated_group_workflow import _projection_audit
+
 # The workflow's ``_current_active_groups`` deliberately excludes ``degraded``
 # because a degraded group is never approved, locked or started. For display
 # it is the most important state of all: a repair that could not retire a
@@ -63,6 +68,9 @@ STAGE_PROVISIONAL = "provisional"
 STAGE_LOCKED = "locked"
 STAGE_STARTED = "started"
 STAGE_DEGRADED = "degraded"
+
+# Card status of a group the projector would form but nobody has generated.
+PREVIEW_GROUP_STATUS = "preview"
 
 NEXT_WAIT_FOR_DEADLINE = "wait_for_deadline"
 NEXT_GENERATE = "generate"
@@ -252,6 +260,15 @@ def coach_group_panel(event, registrations=None, *, blocked_user_pairs=()):
     else:
         placed_ids = set()
 
+    # Before anything is stored, the people the projector would seat are on
+    # no list at all: they are not left out, and there is no stored group to
+    # show them in. A preview card per projected group closes that gap. A
+    # draft gets none: its stored cards are the roster approval works on, and
+    # a fresh projection beside them would be a second, competing roster.
+    preview_groups = []
+    if not groups and projection is not None:
+        preview_groups = _projected_group_cards(projection, candidates)
+
     left_out_blocked = []
     left_out_eligible = []
     for registration in candidates:
@@ -286,6 +303,7 @@ def coach_group_panel(event, registrations=None, *, blocked_user_pairs=()):
             memberships, blocked_user_pairs
         ),
         "groups": [_group_card(group, memberships, participants) for group in groups],
+        "preview_groups": preview_groups,
         "left_out": {
             "preview": not groups,
             "blocked": left_out_blocked,
@@ -511,33 +529,7 @@ def _group_card(group, memberships, participants):
         membership.registration_id: _display_name(membership.registration.user)
         for membership in own_memberships
     }
-
-    # A round may seat fewer tables than another (someone sits out), so pad
-    # every round to the widest one and the template's grid stays aligned.
-    max_tables = max((len(tables) for tables in tables_by_round.values()), default=0)
-    schedule = []
-    for round_number in sorted(tables_by_round):
-        by_table = tables_by_round[round_number]
-        tables = [
-            by_table.get(
-                table_number,
-                {"table": table_number, "a": "", "b": "", "a_id": None, "b_id": None},
-            )
-            for table_number in range(1, max_tables + 1)
-        ]
-        seated_ids = {table["a_id"] for table in tables} | {
-            table["b_id"] for table in tables
-        }
-        schedule.append(
-            {
-                "round": round_number,
-                "tables": tables,
-                "sitting_out": sorted(
-                    names_by_id[registration_id]
-                    for registration_id in active_ids - seated_ids
-                ),
-            }
-        )
+    schedule = _schedule_rows(tables_by_round, active_ids, names_by_id)
 
     summary = group.viability_summary or {}
     fairness = (group.audit_data or {}).get("fairness_decision") or {}
@@ -567,20 +559,7 @@ def _group_card(group, memberships, participants):
         "status_display": group.get_status_display(),
         "degraded_from": degradation.get("from_status") or "",
         "members": members,
-        "active_count": len(active_ids),
-        "payment_complete_count": sum(
-            member["payment_confirmed"] for member in members if not member["released"]
-        ),
-        "payment_due_count": sum(
-            member["status"] == "pending" and not member["payment_confirmed"]
-            for member in members
-            if not member["released"]
-        ),
-        "checked_in_count": sum(
-            member["status"] == "attended"
-            for member in members
-            if not member["released"]
-        ),
+        **_roster_counts(members),
         "projected_size": projected_size,
         "rounds": rounds,
         "minimum_dates": minimum_dates,
@@ -591,6 +570,132 @@ def _group_card(group, memberships, participants):
         "why": _why_sentences(fairness, projected_size=projected_size),
         "schedule": schedule,
     }
+
+
+def _projected_group_cards(projection, candidates):
+    """One card per group the projector would form, shaped like ``_group_card``.
+
+    Built from the projection the preflight already ran, with the seed
+    Generate uses, so while the pool stays as it is these are the groups
+    Generate will store. The projector loads its own pool: a registration it
+    seats that the page's list does not hold yet is fetched here, never a
+    KeyError that would 500 the coach page.
+    """
+
+    registrations_by_id = {registration.pk: registration for registration in candidates}
+    missing_ids = {
+        registration_id
+        for projected_group in projection.viable_groups
+        for registration_id in projected_group.registration_ids
+        if registration_id not in registrations_by_id
+    }
+    if missing_ids:
+        registrations_by_id.update(
+            (registration.pk, registration)
+            for registration in EventRegistration.objects.filter(
+                pk__in=missing_ids
+            ).select_related("user__crushprofile")
+        )
+    return [
+        _projected_group_card(number, projected_group, registrations_by_id)
+        for number, projected_group in enumerate(projection.viable_groups, start=1)
+    ]
+
+
+def _projected_group_card(number, projected_group, registrations_by_id):
+    registrations = [
+        registrations_by_id[registration_id]
+        for registration_id in projected_group.registration_ids
+        if registration_id in registrations_by_id
+    ]
+    names_by_id = {
+        registration.pk: _display_name(registration.user)
+        for registration in registrations
+    }
+    # Tables numbered the way Generate stores them: per round, in pair order.
+    tables_by_round = {
+        scheduled_round.number: {
+            table_number: {
+                "table": table_number,
+                "a": names_by_id.get(pair.registration_a_id, ""),
+                "b": names_by_id.get(pair.registration_b_id, ""),
+                "a_id": pair.registration_a_id,
+                "b_id": pair.registration_b_id,
+            }
+            for table_number, pair in enumerate(scheduled_round.pairs, start=1)
+        }
+        for scheduled_round in projected_group.rounds
+        if scheduled_round.pairs
+    }
+    dates_by_registration = dict(projected_group.date_counts)
+    members = [
+        _person(registration, dates=dates_by_registration.get(registration.pk, 0))
+        for registration in registrations
+    ]
+    fairness = _projection_audit(projected_group)["fairness_decision"]
+    projected_size = len(projected_group.registration_ids)
+    return {
+        "id": None,
+        "number": number,
+        "generation": None,
+        "status": PREVIEW_GROUP_STATUS,
+        "status_display": _("Preview"),
+        "degraded_from": "",
+        "members": members,
+        **_roster_counts(members),
+        "projected_size": projected_size,
+        "rounds": len(tables_by_round),
+        "minimum_dates": projected_group.minimum_dates_achieved,
+        "target_dates": projected_group.target_dates_requested,
+        "members_meeting_target": projected_group.members_meeting_target,
+        "target_achieved": projected_group.target_achieved,
+        "one_drop_resilient": projected_group.one_drop_resilient,
+        "why": _why_sentences(fairness, projected_size=projected_size),
+        "schedule": _schedule_rows(tables_by_round, set(names_by_id), names_by_id),
+    }
+
+
+def _roster_counts(members):
+    active = [member for member in members if not member["released"]]
+    return {
+        "active_count": len(active),
+        "payment_complete_count": sum(member["payment_confirmed"] for member in active),
+        "payment_due_count": sum(
+            member["status"] == "pending" and not member["payment_confirmed"]
+            for member in active
+        ),
+        "checked_in_count": sum(member["status"] == "attended" for member in active),
+    }
+
+
+def _schedule_rows(tables_by_round, active_ids, names_by_id):
+    # A round may seat fewer tables than another (someone sits out), so pad
+    # every round to the widest one and the template's grid stays aligned.
+    max_tables = max((len(tables) for tables in tables_by_round.values()), default=0)
+    schedule = []
+    for round_number in sorted(tables_by_round):
+        by_table = tables_by_round[round_number]
+        tables = [
+            by_table.get(
+                table_number,
+                {"table": table_number, "a": "", "b": "", "a_id": None, "b_id": None},
+            )
+            for table_number in range(1, max_tables + 1)
+        ]
+        seated_ids = {table["a_id"] for table in tables} | {
+            table["b_id"] for table in tables
+        }
+        schedule.append(
+            {
+                "round": round_number,
+                "tables": tables,
+                "sitting_out": sorted(
+                    names_by_id[registration_id]
+                    for registration_id in active_ids - seated_ids
+                ),
+            }
+        )
+    return schedule
 
 
 def _why_sentences(fairness, *, projected_size):
