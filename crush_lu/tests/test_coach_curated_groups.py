@@ -228,7 +228,9 @@ class CoachCuratedGroupsPanelTests(TestCase):
         self.assertEqual(response.context["status_filter"], "groups")
         self.assertContains(response, "data-curated-groups-panel")
         self.assertContains(response, "data-curated-groups-tab")
-        self.assertNotContains(response, "awaiting selection")
+        # The Applications section's heading. Its members' "Applied —
+        # awaiting selection" status does render, on the preview card.
+        self.assertNotContains(response, "awaiting selection — no seat held")
 
         roster = self.page(event, status="all")
         self.assertContains(roster, "data-coach-event-roster")
@@ -454,7 +456,11 @@ class CoachCuratedGroupsPanelTests(TestCase):
         self.assertContains(
             response, "/crush-admin/crush_lu/meetupevent/?q=Elastic+evening"
         )
+        # Nothing is stored yet: the only card is the projector's preview.
         self.assertNotContains(response, "data-curated-group=")
+        self.assertContains(response, 'data-curated-preview-group="1"')
+        self.assertContains(response, "data-curated-preview-note")
+        self.assertEqual(len(panel["preview_groups"]), 1)
 
     def test_stage_none_after_deadline_explains_who_would_be_left_out(self):
         event = self.make_event(min_age=25, max_age=45)
@@ -521,6 +527,71 @@ class CoachCuratedGroupsPanelTests(TestCase):
             expected,
         )
         self.assertEqual(len(expected), 3)
+
+    def test_stage_none_previews_the_group_generate_will_store(self):
+        """Before Generate, the people the projector would seat are on no list
+        but the preview card. Everyone must show up exactly once, and the
+        preview must be the card Generate then stores (same default seed)."""
+        event = self.make_event()
+        self.make_applicants(event, 7)
+        blocked = self.make_applicant(event, 7, with_preference=False)
+        candidates = set(
+            EventRegistration.objects.filter(event=event).values_list("pk", flat=True)
+        )
+
+        response = self.page(event)
+        panel = response.context["curated_groups_panel"]
+
+        self.assertEqual(panel["groups"], [])
+        [preview] = panel["preview_groups"]
+        self.assertEqual(preview["status"], "preview")
+        previewed = {m["registration_id"] for m in preview["members"]}
+        left_out = {
+            p["registration_id"]
+            for p in panel["left_out"]["blocked"] + panel["left_out"]["eligible"]
+        }
+        self.assertEqual(len(previewed), 6)
+        self.assertEqual(previewed | left_out, candidates)
+        self.assertFalse(previewed & left_out)
+        self.assertNotIn(blocked.pk, previewed)
+        self.assertContains(response, 'data-curated-preview-group="1"')
+        self.assertContains(response, "5 mini-dates")
+        # A preview has nobody to charge or check in yet.
+        self.assertNotContains(response, "Checked in: 0 / 6")
+        self.assertNotContains(response, "Payment not recorded")
+
+        generate_group_projection(event)
+        stored = coach_group_panel(event)
+
+        self.assertEqual(stored["preview_groups"], [])
+        [card] = stored["groups"]
+        for key in (
+            "members",
+            "projected_size",
+            "rounds",
+            "minimum_dates",
+            "target_dates",
+            "members_meeting_target",
+            "target_achieved",
+            "one_drop_resilient",
+            "why",
+            "schedule",
+        ):
+            self.assertEqual(preview[key], card[key], key)
+
+    def test_preview_fetches_a_member_the_page_list_does_not_hold(self):
+        """The projector loads its own pool; a member it seats who is missing
+        from the page's list must be fetched, not 500 the coach page."""
+        event = self.make_event()
+        registrations = self.make_applicants(event)
+
+        panel = coach_group_panel(event, registrations=registrations[:-1])
+
+        [preview] = panel["preview_groups"]
+        self.assertEqual(
+            {m["registration_id"] for m in preview["members"]},
+            {r.pk for r in registrations},
+        )
 
     def test_draft_stage_mirrors_the_stored_generation(self):
         event = self.make_event()
