@@ -519,6 +519,12 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       // capacity-aware guest feature would swap True into production.
       // Pin with: az webapp config appsettings set ... --slot-settings EVENT_GUESTS_ENABLED=False
       'EVENT_GUESTS_ENABLED'
+      // Connect real-person check (coach call -> badge). Both absent means off,
+      // so the risk is staging turning one on to verify the flow and swapping
+      // True into production before the cohort was reviewed.
+      // Pin with: az webapp config appsettings set ... --slot-settings CONNECT_REAL_PERSON_CHECK_ENABLED=False CONNECT_REAL_PERSON_BADGE_VISIBLE=False
+      'CONNECT_REAL_PERSON_CHECK_ENABLED'
+      'CONNECT_REAL_PERSON_BADGE_VISIBLE'
       'ECHO_LU_API_KEY'
       'SECRET_SYNC_TOKEN'
       'HEALTH_CHECK_SECRET_TOKEN'

@@ -15,7 +15,14 @@ Categories and default windows (override via ``settings.GDPR_RETENTION``)::
         "custom_sms_batch_days": 365, # Custom SMS batches (message + member ids)
         "event_preference_days": 30, # preferences + named group schedule
         "erased_phone_days": 90,     # ErasedPhoneNumber erasure tombstones
+        "real_person_check_notes_days": 365,  # coach notes + checklist, blanked
     }
+
+Real-person check rows (``ConnectRealPersonCheck``) are not deleted: the sweep
+blanks the coach's ``notes`` and ``checklist`` once the check is older than its
+window (measured from ``coalesce(decided_at, lease_expires_at, claimed_at)``),
+and closes open claims whose lease has lapsed as ``released``. The outcome rows
+stay as the audit trail of who was checked and how.
 
 ``DailyUserActivity`` pruning delegates to the existing
 ``cleanup_daily_activity`` command so the window logic lives in one place.
@@ -44,6 +51,8 @@ from django.conf import settings
 import time
 
 from django.core.management.base import BaseCommand, CommandError
+from django.db.models import Q
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from crush_lu.models.custom_sms import CustomSmsBatch
@@ -51,6 +60,7 @@ from crush_lu.models.events import CuratedEventGroup, EventRegistrationPreferenc
 from crush_lu.models.oauth_state import OAuthState
 from crush_lu.models.phone_otp import PhoneOTP
 from crush_lu.models.profiles import CallAttempt, DailyUserActivity
+from crush_lu.models.real_person_check import ConnectRealPersonCheck
 from crush_lu.social_photos import sweep_orphaned_social_photo_cache
 from hub.models import ErasedPhoneNumber
 
@@ -82,6 +92,9 @@ DEFAULT_RETENTION = {
     # arrive within minutes or days, so the suppression record is not kept
     # beyond this window (it also bounds retention if a number is reassigned).
     "erased_phone_days": 90,
+    # Connect real-person check: the coach's notes and checklist about a member
+    # are blanked once the check is this old. The outcome row itself stays.
+    "real_person_check_notes_days": 365,
 }
 
 
@@ -103,6 +116,7 @@ class Command(BaseCommand):
         parser.add_argument("--custom-sms-batch-days", type=int, default=None)
         parser.add_argument("--event-preference-days", type=int, default=None)
         parser.add_argument("--erased-phone-days", type=int, default=None)
+        parser.add_argument("--real-person-check-notes-days", type=int, default=None)
 
     def handle(self, *args, **options):
         apply_changes = options["apply"]
@@ -122,6 +136,9 @@ class Command(BaseCommand):
         batch_days = _window(options["custom_sms_batch_days"], "custom_sms_batch_days")
         pref_days = _window(options["event_preference_days"], "event_preference_days")
         erased_days = _window(options["erased_phone_days"], "erased_phone_days")
+        rpc_days = _window(
+            options["real_person_check_notes_days"], "real_person_check_notes_days"
+        )
 
         # A negative window (CLI or GDPR_RETENTION) produces a cutoff in the
         # future, so `created_at < cutoff` would match — and delete — every
@@ -136,6 +153,7 @@ class Command(BaseCommand):
             ("custom_sms_batch_days", batch_days),
             ("event_preference_days", pref_days),
             ("erased_phone_days", erased_days),
+            ("real_person_check_notes_days", rpc_days),
         ):
             if value < 0:
                 raise CommandError(
@@ -318,7 +336,14 @@ class Command(BaseCommand):
                     f"{erased_qs.count()} row(s)"
                 )
 
-        # 7. Orphaned social login photos in storage. Last, because listing
+        # 7. Connect real-person checks: close lapsed claims, blank old notes.
+        # Updates, not deletes: the outcome rows stay as the audit trail.
+        if not budget_hit:
+            budget_hit = self._sweep_real_person_checks(
+                now, rpc_days, deadline, apply_changes
+            )
+
+        # 8. Orphaned social login photos in storage. Last, because listing
         # the users/ prefix is the slowest step; bounded by count and by the
         # same deadline. A storage error is logged and reported, not raised:
         # the database categories above are already committed.
@@ -360,6 +385,60 @@ class Command(BaseCommand):
             )
         else:
             self.stdout.write("Dry-run only — re-run with --apply to delete.")
+
+    def _sweep_real_person_checks(self, now, notes_days, deadline, apply_changes):
+        """Close lapsed open claims and blank notes/checklist of old checks.
+
+        Returns True when the time budget ran out. Blanking is an UPDATE, so it
+        does not fit ``_delete_in_chunks``; it walks the oldest rows first in
+        pk-bounded batches under the same deadline, and only touches rows that
+        still hold something, so a re-run is idempotent and the dry-run count
+        is the real work.
+        """
+        lapsed_qs = ConnectRealPersonCheck.objects.filter(
+            status=ConnectRealPersonCheck.STATUS_OPEN
+        ).filter(Q(lease_expires_at__lte=now) | Q(lease_expires_at__isnull=True))
+        if apply_changes:
+            closed = lapsed_qs.update(status=ConnectRealPersonCheck.STATUS_RELEASED)
+            self.stdout.write(f"  Lapsed real-person claims: closed {closed}")
+        else:
+            self.stdout.write(
+                f"  Lapsed real-person claims: {lapsed_qs.count()} row(s)"
+            )
+
+        cutoff = now - timedelta(days=notes_days)
+        stale_qs = (
+            ConnectRealPersonCheck.objects.annotate(
+                _last_touched=Coalesce("decided_at", "lease_expires_at", "claimed_at")
+            )
+            .filter(_last_touched__lt=cutoff)
+            .filter(~Q(notes="") | ~Q(checklist={}))
+        )
+        if not apply_changes:
+            self.stdout.write(
+                f"  Real-person check notes older than {notes_days}d: "
+                f"{stale_qs.count()} row(s)"
+            )
+            return False
+        blanked = 0
+        ordered = stale_qs.order_by("_last_touched", "pk")
+        while True:
+            pks = list(ordered.values_list("pk", flat=True)[:RETENTION_CHUNK_SIZE])
+            if not pks:
+                break
+            # Re-apply the filter to the write: a row refreshed since selection
+            # must survive.
+            blanked += stale_qs.filter(pk__in=pks).update(notes="", checklist={})
+            if time.monotonic() >= deadline:
+                self.stdout.write(
+                    f"  Real-person check notes older than {notes_days}d: "
+                    f"blanked {blanked}"
+                )
+                return True
+        self.stdout.write(
+            f"  Real-person check notes older than {notes_days}d: blanked {blanked}"
+        )
+        return False
 
     def _delete_in_chunks(
         self, queryset, deadline, order_by, chunk_size=RETENTION_CHUNK_SIZE

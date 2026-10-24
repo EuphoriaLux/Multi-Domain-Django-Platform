@@ -1,0 +1,120 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n crush_media %}
+
+{% block title %}{% trans "Real-person checks" %} | Crush.lu{% endblock %}
+{% block mobile_page_title %}{% trans "Real-person checks" %}{% endblock %}
+
+{% block content %}
+{% comment %}
+Connect real-person check queue. The coach's own live claims come first; the
+list below holds everyone else they may claim (real_person_check_queue).
+Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
+{% endcomment %}
+<div class="flex items-start justify-between mb-6 gap-3 flex-wrap">
+    <div class="min-w-0">
+        <h2 class="text-2xl font-bold dark:text-white">{% trans "Real-person checks" %}</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-0">
+            {% trans "Crush Connect members no coach has met. A short video or voice call confirms they are a real person and adds a badge to their card." %}
+        </p>
+    </div>
+    <a href="{% url 'crush_lu:coach_dashboard' %}" class="btn-crush-outline btn-sm inline-flex items-center gap-2">
+        {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
+        {% trans "Dashboard" %}
+    </a>
+</div>
+
+{# ===== My open checks ===== #}
+<section class="mb-8" aria-labelledby="rpc-mine-heading">
+    <div class="flex items-baseline justify-between gap-2 mb-3">
+        <h3 id="rpc-mine-heading" class="text-lg font-semibold dark:text-white mb-0">{% trans "My open checks" %}</h3>
+        <span class="text-sm text-gray-500 dark:text-gray-400">{% blocktrans with current=open_count max=max_open %}{{ current }} of {{ max }}{% endblocktrans %}</span>
+    </div>
+    {% if my_checks %}
+    <ul class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 divide-y divide-gray-100 dark:divide-gray-700 overflow-hidden">
+        {% for check in my_checks %}
+        <li class="px-4 py-3 flex items-center gap-3">
+            {% profile_photo check.profile 'photo_1' css_class='w-12 h-12 rounded-full flex-shrink-0' alt_text='' %}
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-0 truncate">{{ check.profile.user.first_name|default:check.profile.user.username }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">
+                    {% blocktrans with d=check.lease_expires_at|timeuntil %}Your claim ends in {{ d }}{% endblocktrans %}
+                </p>
+            </div>
+            <a href="{% url 'crush_lu:coach_real_person_check' check_id=check.pk %}" class="btn-crush-solid btn-sm flex-shrink-0">{% trans "Continue" %}</a>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 px-4 py-4 mb-0">
+        {% trans "You have no open checks. Claim a member below to start." %}
+    </p>
+    {% endif %}
+</section>
+
+{# ===== Waiting for a call ===== #}
+<section aria-labelledby="rpc-waiting-heading">
+    <div class="flex items-baseline justify-between gap-2 mb-3 flex-wrap">
+        <h3 id="rpc-waiting-heading" class="text-lg font-semibold dark:text-white mb-0">{% trans "Waiting for a call" %}</h3>
+        {% if total_waiting %}
+        <span class="text-sm text-gray-500 dark:text-gray-400">
+            {% blocktrans with first=page.start_index last=page.end_index total=total_waiting %}Showing {{ first }}–{{ last }} of {{ total }}{% endblocktrans %}
+        </span>
+        {% endif %}
+    </div>
+
+    {% if at_capacity %}
+    <div class="alert alert-warning mb-4">
+        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
+        <span class="text-sm">{% blocktrans with max=max_open %}You hold {{ max }} open checks. Release or finish one before claiming another.{% endblocktrans %}</span>
+    </div>
+    {% endif %}
+
+    {% if page.object_list %}
+    <ul class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 divide-y divide-gray-100 dark:divide-gray-700 overflow-hidden">
+        {% for member in page.object_list %}
+        <li class="px-4 py-3 flex items-center gap-3">
+            {% profile_photo member.crushprofile 'photo_1' css_class='w-12 h-12 rounded-full flex-shrink-0' alt_text='' %}
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-0 truncate">{{ member.first_name|default:member.username }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">
+                    {{ member.crushprofile.age_range }}
+                    · {{ member.crushprofile.get_preferred_language_display }}
+                    ·
+                    {% if member.last_login %}
+                        {% blocktrans with d=member.last_login|timesince %}last login {{ d }} ago{% endblocktrans %}
+                    {% else %}
+                        {% trans "never logged in" %}
+                    {% endif %}
+                </p>
+            </div>
+            <form method="post" action="{% url 'crush_lu:coach_real_person_claim' user_id=member.pk %}" class="flex-shrink-0 m-0">
+                {% csrf_token %}
+                <button type="submit" class="btn-crush-outline btn-sm"{% if at_capacity %} disabled{% endif %}>{% trans "Claim" %}</button>
+            </form>
+        </li>
+        {% endfor %}
+    </ul>
+
+    {% if page.has_other_pages %}
+    <nav class="flex items-center justify-between gap-3 mt-4" aria-label="{% trans 'Pages' %}">
+        {% if page.has_previous %}
+        <a href="?page={{ page.previous_page_number }}" class="btn-crush-outline btn-sm">{% trans "Previous" %}</a>
+        {% else %}
+        <span></span>
+        {% endif %}
+        <span class="text-sm text-gray-500 dark:text-gray-400">{% blocktrans with number=page.number total=page.paginator.num_pages %}Page {{ number }} of {{ total }}{% endblocktrans %}</span>
+        {% if page.has_next %}
+        <a href="?page={{ page.next_page_number }}" class="btn-crush-outline btn-sm">{% trans "Next" %}</a>
+        {% else %}
+        <span></span>
+        {% endif %}
+    </nav>
+    {% endif %}
+    {% else %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 text-center py-10 px-6">
+        <h4 class="text-lg font-semibold mb-2 dark:text-white">{% trans "Nobody is waiting" %}</h4>
+        <p class="text-gray-500 dark:text-gray-400 mb-0">{% trans "No Connect members are waiting for a real-person check right now." %}</p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

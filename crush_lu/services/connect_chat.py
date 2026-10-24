@@ -65,9 +65,14 @@ REPORT_DETAILS_MAX_LENGTH = 2000
 
 
 @transaction.atomic
-def sync_chat_state(chat):
+def sync_chat_state(chat, *, with_badges=False):
     """Advance a chat's lifecycle to "now" — sync-on-read, mirrors
     ``connect_cycle.sync_session_state`` / ``sync_request_state``.
+
+    ``with_badges`` also loads both participants' coach-verified badge in the
+    row refresh below (which replaces whatever participants the caller had
+    fetched), for the one view that renders the partner's badge; the send and
+    poll endpoints skip the extra joins.
 
     Three ways a chat closes automatically:
     - A block exists between the pair (either direction, placed from ANY
@@ -84,15 +89,21 @@ def sync_chat_state(chat):
 
     # Polling may hold an object read before a concurrent send extended expiry.
     # Use the same row lock as sends before deciding any terminal transition.
+    related = [
+        "participant_1__crushprofile",
+        "participant_2__crushprofile",
+        "participant_1__crush_connect_membership",
+        "participant_2__crush_connect_membership",
+    ]
+    if with_badges:
+        related += [
+            "participant_1__crushprofile__connect_real_person_badge",
+            "participant_2__crushprofile__connect_real_person_badge",
+        ]
     chat.refresh_from_db(
         from_queryset=ConnectTemporaryChat.objects.select_for_update(
             of=("self",)
-        ).select_related(
-            "participant_1__crushprofile",
-            "participant_2__crushprofile",
-            "participant_1__crush_connect_membership",
-            "participant_2__crush_connect_membership",
-        )
+        ).select_related(*related)
     )
     Status = ConnectTemporaryChat.Status
     if chat.status in (Status.CLOSED, Status.BLOCKED):

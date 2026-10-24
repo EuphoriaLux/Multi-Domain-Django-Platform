@@ -143,7 +143,9 @@ def connect_week_chat_detail(request, chat_id: int):
     """One chat: message thread, venue picker / coffee-date plan, post-meeting
     confirmation loop, and the 1-click block form."""
     user = request.user
-    chat = sync_chat_state(_get_participant_chat(user, chat_id))
+    # The partner's header may show their coach-verified badge. Loaded by
+    # ``sync_chat_state``: its row refresh replaces the participants fetched above.
+    chat = sync_chat_state(_get_participant_chat(user, chat_id), with_badges=True)
     partner = chat.get_other_participant(user)
     partner_photo_hidden = not _may_view_partner_photo(user, partner)
     coffee_date = getattr(chat, "coffee_date", None)

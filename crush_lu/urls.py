@@ -26,6 +26,7 @@ from . import views_ticket
 from . import views_quiz
 from . import views_coach as views_coach_module
 from . import views_coach_photos
+from . import views_coach_real_person
 from . import views_coach_whatsapp
 from . import views_connect_showcase
 from . import views_quiz_config
@@ -989,6 +990,38 @@ urlpatterns = [
         "coach/photo-review/more/",
         views_coach_photos.coach_photo_review_more,
         name="coach_photo_review_more",
+    ),
+    # Connect real-person check: a coach calls a Connect member no coach has
+    # met. 404 while CONNECT_REAL_PERSON_CHECK_ENABLED is off.
+    path(
+        "coach/real-person-checks/",
+        views_coach_real_person.coach_real_person_queue,
+        name="coach_real_person_queue",
+    ),
+    path(
+        "coach/real-person-checks/claim/<int:user_id>/",
+        views_coach_real_person.coach_real_person_claim,
+        name="coach_real_person_claim",
+    ),
+    path(
+        "coach/real-person-checks/<int:check_id>/",
+        views_coach_real_person.coach_real_person_check,
+        name="coach_real_person_check",
+    ),
+    path(
+        "coach/real-person-checks/<int:check_id>/log/",
+        views_coach_real_person.coach_real_person_log,
+        name="coach_real_person_log",
+    ),
+    path(
+        "coach/real-person-checks/<int:check_id>/decide/",
+        views_coach_real_person.coach_real_person_decide,
+        name="coach_real_person_decide",
+    ),
+    path(
+        "coach/real-person-checks/<int:check_id>/release/",
+        views_coach_real_person.coach_real_person_release,
+        name="coach_real_person_release",
     ),
     # Coach WhatsApp inbox (members' messages to the coach's own number)
     path(

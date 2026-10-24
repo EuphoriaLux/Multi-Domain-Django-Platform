@@ -1,0 +1,201 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n crush_media %}
+
+{% block title %}{% trans "Real-person check" %} | Crush.lu{% endblock %}
+{% block mobile_page_title %}{% trans "Real-person check" %}{% endblock %}
+{% block pre_alpine_js %}{{ block.super }}{% include "crush_lu/partials/alpine_bundle.html" with bundle="coach" %}{% endblock %}
+
+{% block content %}
+{% comment %}
+One Connect real-person check: photos, outreach, and the decision form.
+The decision is a plain POST (coach_real_person_decide); the checklist
+component (static/crush_lu/js/alpine/coach.js) fills three hidden inputs
+right before it submits. The required keys render from the server constant.
+Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
+{% endcomment %}
+<div class="max-w-3xl mx-auto">
+    <a href="{{ urls.queue }}" class="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-crush-purple mb-4">
+        {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
+        {% trans "All real-person checks" %}
+    </a>
+
+    <div class="mb-4">
+        <h2 class="text-2xl font-bold dark:text-white mb-1">{{ member.get_full_name|default:member.username }}</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-0">
+            {% if profile.age %}{% blocktrans with age=profile.age %}{{ age }} years old{% endblocktrans %} · {% endif %}{{ profile.get_preferred_language_display }}
+        </p>
+    </div>
+
+    {% if not is_live %}
+    <div class="alert alert-info mb-4" role="status">
+        {% include "shared/icons/info.html" with class="w-5 h-5" %}
+        <div class="text-sm">
+            {% if check.status == 'open' %}
+                <p class="mb-0">{% trans "Your claim on this member has lapsed. Claim them again from the list to continue." %}</p>
+            {% else %}
+                <p class="font-semibold mb-1">{% blocktrans with status=check.get_status_display %}This check is closed: {{ status }}.{% endblocktrans %}</p>
+                {% if check.medium %}<p class="mb-0">{{ check.get_medium_display }}{% if check.decided_at %} · {{ check.decided_at|date:"M d, Y g:i A" }}{% endif %}</p>{% endif %}
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# ===== Photos: what the coach sees vs what other members see ===== #}
+    <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 mb-6" aria-labelledby="rpc-photos-heading">
+        <h3 id="rpc-photos-heading" class="text-lg font-semibold dark:text-white mb-3">{% trans "Photo 1" %}</h3>
+        <div class="grid grid-cols-2 gap-3">
+            <figure class="m-0">
+                {% profile_photo profile 'photo_1' css_class='w-full aspect-[3/4] rounded-xl' alt_text=_("The member's current main photo") %}
+                <figcaption class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Current upload (what you see)" %}</figcaption>
+            </figure>
+            <figure class="m-0">
+                {% profile_photo profile 'photo_1' css_class='w-full aspect-[3/4] rounded-xl' alt_text=_("The main photo other members see") public_view=True %}
+                <figcaption class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "What other members see" %}</figcaption>
+            </figure>
+        </div>
+        {% if public_photo_missing %}
+        <p class="text-xs text-amber-700 dark:text-amber-300 mt-3 mb-0">{% trans "No coach has approved this photo yet, so other members see no photo. Only a voice check is possible until it is approved." %}</p>
+        {% elif photo_key and not photo_is_public %}
+        <p class="text-xs text-amber-700 dark:text-amber-300 mt-3 mb-0">{% trans "Other members still see an earlier photo. Only a voice check is possible until the new one is approved." %}</p>
+        {% endif %}
+    </section>
+
+    {# ===== Outreach links and contact history ===== #}
+    {% include "crush_lu/coach_real_person_outreach.html" %}
+
+    {% if is_live %}
+    {# ===== Decision ===== #}
+    <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 mb-6"
+             aria-labelledby="rpc-decision-heading"
+             x-data="realPersonCheckChecklist"
+             data-required-voice="{{ required_voice }}"
+             data-required-video="{{ required_video }}"
+             data-video-available="{{ video_available|yesno:'true,false' }}"
+             @pageshow.window="resetSubmit">
+        <h3 id="rpc-decision-heading" class="text-lg font-semibold dark:text-white mb-3">{% trans "Decision" %}</h3>
+
+        {% if error_messages %}
+        <div class="alert alert-danger mb-4" role="alert">
+            {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
+            <ul class="list-none p-0 m-0 text-sm">
+                {% for message in error_messages %}<li>{{ message }}</li>{% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <form method="post" action="{{ urls.decide }}" x-ref="form">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="" x-ref="outcomeInput">
+            <input type="hidden" name="checklist" value="" x-ref="checklistInput">
+            <input type="hidden" name="confirm" value="" x-ref="confirmInput">
+            <input type="hidden" name="photo_key" value="{{ photo_key }}">
+
+            <p class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">{% trans "How did you speak with them?" %}</p>
+            <div class="grid grid-cols-2 gap-2 mb-2" role="group" aria-label="{% trans 'How did you speak with them?' %}">
+                <button type="button" @click="selectVideo" x-bind:aria-pressed="isVideo"
+                        class="px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 aria-pressed:bg-crush-purple-dark aria-pressed:border-crush-purple-dark aria-pressed:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                        {% if not video_available %}disabled{% endif %}>
+                    {% trans "Video call" %}
+                </button>
+                <button type="button" @click="selectVoice" x-bind:aria-pressed="isVoice"
+                        class="px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 aria-pressed:bg-crush-purple-dark aria-pressed:border-crush-purple-dark aria-pressed:text-white">
+                    {% trans "Voice call" %}
+                </button>
+            </div>
+            {% if not video_available %}
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">{% trans "Video is unavailable until a coach approves the member's current main photo." %}</p>
+            {% endif %}
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3" x-show="noMedium">{% trans "Choose video or voice to open the checklist. The badge says which one you used." %}</p>
+
+            <div x-show="hasMedium" x-cloak>
+                <div class="mb-3">
+                    <div class="flex justify-between items-center text-xs text-gray-600 dark:text-gray-300 mb-1">
+                        <span class="font-semibold">{% trans "Checklist" %}</span>
+                        <span><span x-text="completedCount"></span>/<span x-text="requiredCount"></span></span>
+                    </div>
+                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div class="bg-crush-purple h-2 rounded-full transition-all duration-300" x-bind:style="progressWidth"></div>
+                    </div>
+                </div>
+                <div class="space-y-2 mb-4">
+                    {% for key, label in checklist_common %}
+                    <label class="flex items-start gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                        <input type="checkbox" class="mt-0.5 h-5 w-5 rounded border-gray-300 dark:border-gray-600 text-crush-purple focus:ring-crush-purple" data-key="{{ key }}" @change="toggleItem">
+                        <span class="text-sm text-gray-900 dark:text-gray-100">{{ label }}</span>
+                    </label>
+                    {% endfor %}
+                    <div class="space-y-2" x-show="isVideo" x-cloak>
+                        {% for key, label in checklist_video_only %}
+                        <label class="flex items-start gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                            <input type="checkbox" class="mt-0.5 h-5 w-5 rounded border-gray-300 dark:border-gray-600 text-crush-purple focus:ring-crush-purple" data-key="{{ key }}" @change="toggleItem">
+                            <span class="text-sm text-gray-900 dark:text-gray-100">{{ label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label for="rpc-notes" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">{% trans "Notes (only coaches see them)" %}</label>
+                <textarea id="rpc-notes" name="notes" rows="3" maxlength="{{ notes_max }}" class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">{{ notes_value }}</textarea>
+            </div>
+
+            <div class="space-y-2 mb-4">
+                <button type="button" @click="choosePass" x-bind:disabled="passDisabled" x-show="isVideo" x-cloak
+                        class="btn-crush-solid btn-block disabled:opacity-50 disabled:cursor-not-allowed">
+                    {% trans "Grant the video badge" %}
+                </button>
+                <button type="button" @click="choosePass" x-bind:disabled="passDisabled" x-show="isVoice" x-cloak
+                        class="btn-crush-solid btn-block disabled:opacity-50 disabled:cursor-not-allowed">
+                    {% trans "Grant the voice badge" %}
+                </button>
+            </div>
+
+            <div class="pt-4 border-t border-gray-100 dark:border-gray-700">
+                <p class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">{% trans "Not a pass?" %}</p>
+                <div class="mb-3">
+                    <label for="rpc-failure-reason-decide" class="block text-xs text-gray-600 dark:text-gray-300 mb-1">{% trans "If you could not reach them, why?" %}</label>
+                    <select id="rpc-failure-reason-decide" name="failure_reason" class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+                        {% for code, label in failure_reasons %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <button type="button" @click="chooseUnreachable" x-bind:disabled="actionDisabled" class="btn-crush-outline btn-block">{% trans "Could not reach them" %}</button>
+                    <button type="button" @click="chooseDeclined" x-bind:disabled="actionDisabled" class="btn-crush-outline btn-block">{% trans "They declined" %}</button>
+                    <button type="button" @click="chooseFake" x-bind:disabled="actionDisabled" class="btn-danger btn-block">{% trans "Looks fake" %}</button>
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 mb-0">{% trans "Unreachable keeps them on the list. Declined leaves them alone for a while. Looks fake opens a report for an administrator; you exclude nobody yourself." %}</p>
+            </div>
+
+            <div x-ref="confirmPanel" x-show="isConfirming" x-cloak x-bind:aria-labelledby="confirmLabelId" class="mt-4 rounded-xl border-2 border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/20 p-4" role="alertdialog" aria-live="polite">
+                <p id="rpc-confirm-pass" class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3" x-show="isPassOutcome">
+                    {% if connect_real_person_badge_visible %}
+                    {% blocktrans with name=member_label %}Confirm that you spoke with {{ name }} live and ticked every item truthfully. Other members will see the badge.{% endblocktrans %}
+                    {% else %}
+                    {% blocktrans with name=member_label %}Confirm that you spoke with {{ name }} live and ticked every item truthfully. The badge is saved now, and other members will see it once badges are switched on.{% endblocktrans %}
+                    {% endif %}
+                </p>
+                <p id="rpc-confirm-fake" class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3" x-show="isFakeOutcome">
+                    {% blocktrans with name=member_label %}Report {{ name }} as a suspected fake? An administrator reviews it, and {{ name }} is left alone until then.{% endblocktrans %}
+                </p>
+                <div class="grid grid-cols-2 gap-2">
+                    <button type="button" x-ref="confirmButton" @click="confirmDecision" x-bind:disabled="actionDisabled" class="btn-crush-solid btn-block">{% trans "Yes, confirm" %}</button>
+                    <button type="button" @click="cancelDecision" class="btn-crush-outline btn-block">{% trans "Cancel" %}</button>
+                </div>
+            </div>
+        </form>
+    </section>
+
+    <form method="post" action="{{ urls.release }}" class="mb-10">
+        {% csrf_token %}
+        <button type="submit" class="btn-crush-outline btn-block">{% trans "Release this member" %}</button>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 mb-0">{% trans "They go back on the list for any coach to claim." %}</p>
+    </form>
+    {% elif check.notes %}
+    <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 mb-10">
+        <h3 class="text-lg font-semibold dark:text-white mb-2">{% trans "Your notes" %}</h3>
+        <p class="text-sm text-gray-700 dark:text-gray-200 mb-0 whitespace-pre-line">{{ check.notes }}</p>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

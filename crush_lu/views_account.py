@@ -645,6 +645,40 @@ ACCOUNT_EXPORT_CONNECT_MEMBERSHIP_EXCLUDED = {
     "excluded_by": "staff identity",
     "exclusion_reason": "staff-written moderation note",
 }
+# Connect real-person check (spec 2026-10-24). The export shows the member
+# their own part of it: the passed check (medium, date), their own declines, an
+# open check (claim date) and the current badge. Everything a coach or staff
+# member wrote or decided stays out, as does every storage key.
+# test_real_person_check_gdpr fails when a field or status is in neither the
+# export nor here.
+ACCOUNT_EXPORT_REAL_PERSON_CHECK_EXCLUDED = {
+    "check_fields": {
+        "id": "internal key",
+        "profile": "the account block already exports the account",
+        "coach": "staff identity",
+        "status": "expressed by the list a check appears in; see statuses",
+        "lease_expires_at": "coach claim bookkeeping",
+        "photo_key": "internal storage key",
+        "checklist": "staff-written assessment",
+        "notes": "staff-written note",
+        "revoked_at": "staff moderation decision",
+        "revoked_by": "staff identity",
+        "revoke_reason": "staff-written moderation note",
+    },
+    "badge_fields": {
+        "profile": "the account block already exports the account",
+        "source_check": "internal link to the staff-side check",
+        "photo_key": "internal storage key",
+        "profile_approved_at": "internal validity snapshot",
+    },
+    # Check statuses that are not exported as a list, and why.
+    "statuses": {
+        "released": "a claim a coach gave back or let lapse; no outcome",
+        "unreachable": "a coach could not reach the member; staff bookkeeping",
+        "suspected_fake": "staff safety assessment (not disclosed)",
+        "revoked": "staff moderation decision (not disclosed)",
+    },
+}
 
 # Erasure of the consent row. The FULL-account path sanitises the
 # identity-layer fields; the Crush-specific ones are revoked on both paths.
@@ -767,6 +801,9 @@ ACCOUNT_ERASURE_RETAINED = {
     "CampaignRecipient": "send log, anonymised in place",
     # Staff-actor references (the member is the staff user, not data subject).
     "CallAttempt": "staff actor reference",
+    # revoked_by names the superuser who revoked a pass (staff actor). The
+    # member's own checks and badge go with the profile (CASCADE).
+    "ConnectRealPersonCheck": "staff actor reference (revoked_by)",
     "MeetupEvent": "staff actor reference",
     "CuratedEventGroup": "staff actor reference",
     "CuratedEventGroupMembership": "staff actor reference",
@@ -3260,6 +3297,45 @@ def _export_member_activity(user):
             .objects.filter(requested_by=user)
             .order_by("requested_at", "pk")
         ],
+    }
+
+    # Connect real-person check: what the member took part in. The coach's
+    # checklist and notes, who the coach was, and any staff decision stay out
+    # (ACCOUNT_EXPORT_REAL_PERSON_CHECK_EXCLUDED).
+    checks = model("ConnectRealPersonCheck").objects.filter(profile__user=user)
+    badge = (
+        model("ConnectRealPersonBadge")
+        .objects.select_related("profile__user")
+        .filter(profile__user=user)
+        .first()
+    )
+    activity["real_person_check"] = {
+        "passed_checks": [
+            {
+                "medium": display(check, "medium"),
+                "decided_at": _iso_or_none(check.decided_at),
+            }
+            for check in checks.filter(status="passed").order_by("decided_at", "pk")
+        ],
+        "declined_checks": [
+            {"decided_at": _iso_or_none(check.decided_at)}
+            for check in checks.filter(status="declined").order_by("decided_at", "pk")
+        ],
+        "open_checks": [
+            {"claimed_at": _iso_or_none(check.claimed_at)}
+            for check in checks.filter(status="open").order_by("claimed_at", "pk")
+        ],
+        "badge": (
+            {
+                "medium": display(badge, "medium"),
+                "granted_at": _iso_or_none(badge.granted_at),
+                # Whether other members see it right now (flags, validity and
+                # an in-person badge taking precedence all apply).
+                "shown_now": badge.profile.real_person_badge in ("video", "voice"),
+            }
+            if badge
+            else None
+        ),
     }
     return activity
 

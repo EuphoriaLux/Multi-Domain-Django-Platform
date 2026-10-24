@@ -900,8 +900,11 @@ class Command(BaseCommand):
 
         # Custom SMS outreach (Crush-Admin "Custom SMS" page) is logged as
         # CallAttempt rows too; it is not a screening call, so it must not
-        # inflate total attempts or depress the success rate.
-        call_qs = CallAttempt.objects.exclude(result="custom_sms")
+        # inflate total attempts or depress the success rate. Neither are the
+        # contact attempts and passes of the Connect real-person check.
+        call_qs = CallAttempt.objects.exclude(result="custom_sms").filter(
+            real_person_check__isnull=True
+        )
         if since:
             call_qs = call_qs.filter(attempt_date__date__gte=since)
         if until:
@@ -1189,6 +1192,7 @@ class Command(BaseCommand):
             calls_count = (
                 CallAttempt.objects.exclude(result="custom_sms")
                 .filter(
+                    real_person_check__isnull=True,
                     attempt_date__date__gte=month_start,
                     attempt_date__date__lt=month_end,
                 )

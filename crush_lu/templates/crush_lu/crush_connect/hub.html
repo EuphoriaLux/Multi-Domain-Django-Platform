@@ -96,6 +96,10 @@
     {% if not connect_readiness.is_complete %}
     {% include "crush_lu/crush_connect/_readiness_checklist.html" with readiness=connect_readiness %}
     {% endif %}
+    {# Outside the readiness block: it applies whether or not the checklist is complete. #}
+    {% if real_person_check_note %}
+    {% include "crush_lu/crush_connect/_real_person_check_note.html" with note=real_person_check_note %}
+    {% endif %}
     {% comment %}
     Pre-onboarding members may use this personal hub as preparation, but no
     Connect feature surface is exposed until the existing opt-in gate is met.

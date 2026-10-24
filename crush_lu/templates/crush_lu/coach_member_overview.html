@@ -391,6 +391,42 @@
     </div>
 </div>
 
+{% if real_person_card %}
+<!-- ===================== -->
+<!-- REAL-PERSON CHECK     -->
+<!-- ===================== -->
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6 p-6" id="real-person-check-card">
+    <h3 class="font-semibold dark:text-white flex items-center gap-2 mb-3">
+        {% include "shared/icons/video-camera.html" with class="w-5 h-5 text-crush-purple" %}
+        {% trans "Real-person check" %}
+    </h3>
+    {% if real_person_card.check %}
+        <p class="text-sm text-gray-700 dark:text-gray-200 mb-1">
+            <span class="font-medium">{{ real_person_card.check.status_label }}</span>
+            {% if real_person_card.check.medium_label %}· {{ real_person_card.check.medium_label }}{% endif %}
+            · {{ real_person_card.check.at|date:"M d, Y" }}
+        </p>
+    {% else %}
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">{% trans "No check yet." %}</p>
+    {% endif %}
+    <p class="text-sm text-gray-700 dark:text-gray-200 mb-0">
+        {% if real_person_card.badge_medium == 'video' %}
+            {% trans "Badge: video-verified by a coach" %}
+        {% elif real_person_card.badge_medium == 'voice' %}
+            {% trans "Badge: spoke with a coach" %}
+        {% else %}
+            {% trans "No badge" %}
+        {% endif %}
+        {% if real_person_card.badge_medium and not real_person_card.badge_visible %}
+            <span class="text-xs text-gray-500 dark:text-gray-400">({% trans "not shown to members yet" %})</span>
+        {% endif %}
+    </p>
+    {% if real_person_card.check.open_id %}
+        <a href="{% url 'crush_lu:coach_real_person_check' check_id=real_person_card.check.open_id %}" class="btn-crush-solid btn-sm inline-flex mt-3">{% trans "Continue the check" %}</a>
+    {% endif %}
+</div>
+{% endif %}
+
 {% else %}
 <!-- No profile - minimal header -->
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6 p-6">

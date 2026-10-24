@@ -356,6 +356,12 @@
                                         {% include "shared/icons/user-check.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "Unverified Profiles" %}
                                     </a>
+                                    {% if connect_real_person_check_enabled %}
+                                        <a class="dropdown-item" href="{% url 'crush_lu:coach_real_person_queue' %}">
+                                            {% include "shared/icons/video-camera.html" with class="w-4 h-4 inline mr-2" %}
+                                            {% trans "Real-person checks" %}
+                                        </a>
+                                    {% endif %}
                                     <a class="dropdown-item" href="{% url 'crush_lu:coach_connections' %}">
                                         {% include "shared/icons/heart.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "Connections" %}
@@ -913,6 +919,12 @@
                                 {% include "shared/icons/user-check.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "Unverified Profiles" %}
                             </a>
+                            {% if connect_real_person_check_enabled %}
+                                <a class="nav-link block" href="{% url 'crush_lu:coach_real_person_queue' %}">
+                                    {% include "shared/icons/video-camera.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Real-person checks" %}
+                                </a>
+                            {% endif %}
                             <a class="nav-link block" href="{% url 'crush_lu:coach_connections' %}">
                                 {% include "shared/icons/heart.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "Connections" %}

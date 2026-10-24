@@ -1,0 +1,16 @@
+{% comment %}
+Hub note for a Connect member whom a coach may invite to a short call
+(the real-person check). The copy lives in the view
+(``views_crush_connect._real_person_check_note``), which also decides when to
+show it.
+
+Context:
+    note — the translated sentence
+
+Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
+{% endcomment %}
+<div class="mb-4 flex items-start gap-2.5 rounded-xl bg-crush-purple/5 dark:bg-crush-purple/10 ring-1 ring-crush-purple/20 px-3.5 py-3"
+     data-real-person-check-note>
+    {% include "shared/icons/shield-check.html" with class="w-4 h-4 text-crush-purple shrink-0 mt-0.5" %}
+    <p class="text-xs leading-relaxed text-gray-600 dark:text-gray-300 mb-0">{{ note }}</p>
+</div>

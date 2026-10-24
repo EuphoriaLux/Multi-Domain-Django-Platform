@@ -31,5 +31,6 @@ from .echo_lu import *
 from .crush_connect_cycle import *
 from .custom_sms import *
 from .email_delivery import *
+from .real_person_check import *
 from .premium_recovery import PremiumPaymentRecoveryCase  # noqa: F401
 from .account_merge import AccountMerge  # noqa: F401

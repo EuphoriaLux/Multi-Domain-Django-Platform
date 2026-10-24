@@ -26,6 +26,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Exists, F, OuterRef, Q, QuerySet
 from django.utils import timezone
+from crush_lu.real_person_check_rules import COACH_ATTESTED_VERIFICATION_METHODS
 from crush_lu.services.photo_publication import primary_photo_in_review
 
 if TYPE_CHECKING:
@@ -45,22 +46,11 @@ GATE_QUESTION_COUNT = 3  # each member picks exactly 3 gate questions
 WEEKLY_CATALOGUE_SIZE = 12  # active questions surfaced in a week's set
 
 
-def filter_connect_identity_verified(qs: QuerySet) -> QuerySet:
-    """Keep users whose current Connect identity gate is still satisfied.
+def annotate_connect_identity_arms(qs: QuerySet) -> QuerySet:
+    """Annotate a User queryset with each arm of the Connect identity gate.
 
-    This is shared by new-pool selection and persisted Connect Week card
-    rendering. A card is an immutable audit snapshot, but it must not expose someone who
-    has since unlinked LuxID or had their only attendance check-in undone.
-
-    The attendance arm deliberately requires **coach-authenticated** attendance
-    — a door grant, or an event whose coaches include the member's assigned
-    coach — and not merely ``status="attended"``. Connect's identity gate is a
-    claim that somebody looked at this person, and a bare ``attended`` row can
-    be written by a self-scan (the attendee holds their own QR code), which
-    attests nothing. This mirrors ``CrushProfile.has_attended_event``, which
-    applies the same coach-provenance requirement. The narrowing excludes an
-    admin/legacy-verified member whose only attendance was self-scanned; see
-    ``test_self_scanned_attendance_alone_does_not_satisfy_the_identity_gate``.
+    ``filter_connect_identity_verified`` and the real-person check cohort both
+    read these annotations, so the coach-provenance rules exist once.
     """
     from crush_lu.models import CrushProfile, EventRegistration
 
@@ -89,29 +79,54 @@ def filter_connect_identity_verified(qs: QuerySet) -> QuerySet:
     attended_with_attested_photo_subq = attended_event_subq.exclude(
         checkin_attested_photo_key="",
     )
+    return qs.annotate(
+        _has_luxid_native=Exists(luxid_native_subq),
+        _has_luxid_oidc=Exists(luxid_oidc_subq),
+        _has_attended_with_grant=Exists(attended_with_grant_subq),
+        _has_attended_with_assigned_coach=Exists(attended_with_assigned_coach_subq),
+        _has_attended_with_attested_photo=Exists(attended_with_attested_photo_subq),
+    )
+
+
+def coach_attested_attendance_q() -> Q:
+    """The arms that mean a coach saw the member in person.
+
+    Requires the annotations from ``annotate_connect_identity_arms``.
+    """
     return (
-        qs.annotate(
-            _has_luxid_native=Exists(luxid_native_subq),
-            _has_luxid_oidc=Exists(luxid_oidc_subq),
-            _has_attended_with_grant=Exists(attended_with_grant_subq),
-            _has_attended_with_assigned_coach=Exists(attended_with_assigned_coach_subq),
-            _has_attended_with_attested_photo=Exists(attended_with_attested_photo_subq),
-        )
+        Q(crushprofile__verification_method__in=COACH_ATTESTED_VERIFICATION_METHODS)
+        | Q(_has_attended_with_grant=True)
+        | Q(_has_attended_with_assigned_coach=True)
+        | Q(_has_attended_with_attested_photo=True)
+    )
+
+
+def filter_connect_identity_verified(qs: QuerySet) -> QuerySet:
+    """Keep users whose current Connect identity gate is still satisfied.
+
+    This is shared by new-pool selection and persisted Connect Week card
+    rendering. A card is an immutable audit snapshot, but it must not expose someone who
+    has since unlinked LuxID or had their only attendance check-in undone.
+
+    The attendance arm deliberately requires **coach-authenticated** attendance
+    — a door grant, or an event whose coaches include the member's assigned
+    coach — and not merely ``status="attended"``. Connect's identity gate is a
+    claim that somebody looked at this person, and a bare ``attended`` row can
+    be written by a self-scan (the attendee holds their own QR code), which
+    attests nothing. This mirrors ``CrushProfile.has_attended_event``, which
+    applies the same coach-provenance requirement. The narrowing excludes an
+    admin/legacy-verified member whose only attendance was self-scanned; see
+    ``test_self_scanned_attendance_alone_does_not_satisfy_the_identity_gate``.
+    """
+    return (
+        annotate_connect_identity_arms(qs)
         .filter(
             crushprofile__verification_status="verified",
         )
         .filter(
             Q(_has_luxid_native=True)
             | Q(_has_luxid_oidc=True)
-            | Q(
-                crushprofile__verification_method__in=(
-                    "coach_event",
-                    "premium_coach",
-                )
-            )
-            | Q(_has_attended_with_grant=True)
-            | Q(_has_attended_with_assigned_coach=True)
-            | Q(_has_attended_with_attested_photo=True)
+            | coach_attested_attendance_q()
         )
     )
 
@@ -515,8 +530,18 @@ def active_week_questions(today: date | None = None):
 # ---------------------------------------------------------------------------
 
 
-def filter_catalogue_eligible(qs):
-    """Queryset equivalent of is_catalogue_eligible for stored-card read paths."""
+def filter_catalogue_eligible(qs, *, require_recent_login=True):
+    """Queryset equivalent of is_catalogue_eligible for stored-card read paths.
+
+    ``require_recent_login=False`` drops only the 30-day ``last_login``
+    window. The real-person check uses it so a member who has not logged in
+    lately keeps their place in the coach queue.
+    """
+    if require_recent_login:
+        qs = qs.filter(
+            last_login__gte=timezone.now()
+            - timedelta(days=CONNECT_INACTIVITY_WINDOW_DAYS),
+        )
     return filter_primary_photo_review_approved(
         filter_connect_identity_verified(
             qs.filter(
@@ -526,8 +551,6 @@ def filter_catalogue_eligible(qs):
                 crush_connect_membership__excluded_by_coach=False,
                 crush_connect_membership__paused_at__isnull=True,
                 crush_connect_membership__photo_share_consent=True,
-                last_login__gte=timezone.now()
-                - timedelta(days=CONNECT_INACTIVITY_WINDOW_DAYS),
             )
             .exclude(
                 Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True)
@@ -655,6 +678,8 @@ def get_active_coach_pick(member, *, include_accepted=False):
             "candidate__crushprofile",
             "candidate__crush_connect_membership",
             "coach__user",
+            # The coach-verified badge on the candidate's card.
+            "candidate__crushprofile__connect_real_person_badge",
         )
         .order_by("-created_at")
         .first()

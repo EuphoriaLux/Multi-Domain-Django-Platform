@@ -7,6 +7,7 @@ Provides admin dashboard for viewing and managing user segments:
 - Pending verification (not booked, booked on an event)
 - Unverified profiles (never submitted, pending, revision, rejected, recontact)
 - Main photo sent back by a coach
+- Connect members not yet checked as real people (flag-gated)
 - Approved but never registered for event
 - No push subscription
 - Unsubscribed from emails
@@ -227,10 +228,14 @@ def get_segment_definitions(include_counts=True):
     queries) and leaves ``count`` as ``None`` — for callers that only need a
     segment's queryset, e.g. resolving one audience by key.
 
-    Categories (18 total):
+    Categories (18 total, 19 while the Connect real-person check is on):
     1-8: Operational (profile, verification, activity, engagement, email, reminders, unverified, photo review)
     9-13: Demographics (gender, age, gender x age, looking-for, language)
     14-18: Behavioral (events, connections, membership, lifecycle, device)
+    Flag-gated: ``connect_trust`` (operational), only while
+    ``CONNECT_REAL_PERSON_CHECK_ENABLED`` is on. With the flag off the key does
+    not exist, so a saved newsletter, campaign or SMS batch naming one of its
+    segments resolves to nobody, as for any retired key.
     """
     now = timezone.now()
     seven_days_ago = now - timedelta(days=7)
@@ -476,6 +481,62 @@ def get_segment_definitions(include_counts=True):
     device_desktop = approved.filter(
         user__pwa_installations__form_factor="desktop",
     ).distinct()
+
+    # Crush Connect trust: the audience for inviting members to a coach's
+    # real-person call (custom SMS, newsletter, campaign). Same cohort the coach
+    # queue starts from, minus members whose badge is still valid, mapped back
+    # onto profiles like every other segment so the drill-down and CSV export
+    # work. Consent is not decided here: each channel resolver applies its own
+    # (verified phone / banned for SMS, newsletter opt-in, WhatsApp opt-in).
+    # Absent, not empty, while the flag is off, so nothing offers or resolves it.
+    # Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
+    from crush_lu.services.real_person_check import (
+        real_person_check_enabled,
+        real_person_unchecked,
+    )
+
+    connect_trust_category = {}
+    if real_person_check_enabled():
+        unchecked_users = real_person_unchecked()
+        connect_real_person_unchecked = CrushProfile.objects.filter(
+            user_id__in=unchecked_users.values("pk")
+        )
+        connect_real_person_unchecked_active30 = CrushProfile.objects.filter(
+            user_id__in=unchecked_users.filter(last_login__gte=thirty_days_ago).values(
+                "pk"
+            )
+        )
+        connect_trust_category = {
+            "connect_trust": {
+                "title": "Crush Connect trust",
+                "icon": "🛡️",
+                "group": "operational",
+                "segments": [
+                    {
+                        "name": "Real-person check: not yet checked",
+                        "key": "connect_real_person_unchecked",
+                        "description": (
+                            "Connect members no coach has met in person and "
+                            "who hold no valid real-person badge, at any "
+                            "login age"
+                        ),
+                        "queryset": connect_real_person_unchecked,
+                        "count": _count(connect_real_person_unchecked),
+                        "color": "blue",
+                    },
+                    {
+                        "name": "Real-person check: not yet checked, active",
+                        "key": "connect_real_person_unchecked_active30",
+                        "description": (
+                            "The same members, logged in within the last 30 days"
+                        ),
+                        "queryset": connect_real_person_unchecked_active30,
+                        "count": _count(connect_real_person_unchecked_active30),
+                        "color": "green",
+                    },
+                ],
+            }
+        }
 
     return {
         # ── Operational segments ──────────────────────────────────────
@@ -951,6 +1012,9 @@ def get_segment_definitions(include_counts=True):
                 },
             ],
         },
+        # Operational like its neighbours, so the dashboard's regroup keeps one
+        # contiguous run (no extra "Operational Segments" divider).
+        **connect_trust_category,
         # ── Behavioral segments ───────────────────────────────────────
         "event_engagement": {
             "title": "Event Engagement",

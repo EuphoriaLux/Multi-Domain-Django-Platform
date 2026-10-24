@@ -466,6 +466,10 @@ def coach_action_queue(request):
     used for sorting, and a `priority` bucket for visual treatment.
     """
     from .models import ScreeningSlot
+    from .services.real_person_check import (
+        open_checks_for_coach,
+        real_person_check_enabled,
+    )
 
     coach = request.coach
     now = timezone.now()
@@ -719,6 +723,33 @@ def coach_action_queue(request):
             }
         )
 
+    # --- Connect real-person checks this coach holds (live claims only) ---
+    # Behind the flag: with it off the inbox is exactly what it was. The claim
+    # lapses on its lease, which is what the SLA colour counts down to.
+    if real_person_check_enabled():
+        for check in open_checks_for_coach(coach, now):
+            member = check.profile.user
+            hours_left = (check.lease_expires_at - now).total_seconds() / 3600
+            if hours_left <= 6:
+                state = "urgent"
+            elif hours_left <= 24:
+                state = "warning"
+            else:
+                state = "ok"
+            items.append(
+                {
+                    "kind": "real_person_check",
+                    "title": member.get_full_name() or member.username,
+                    "subtitle": _("Real-person check"),
+                    "deadline": check.lease_expires_at,
+                    "sla_state": state,
+                    "priority": state_priority.get(state, 5),
+                    "url_name": "crush_lu:coach_real_person_check",
+                    "url_kwargs": {"check_id": check.pk},
+                    "submitted_at": check.claimed_at,
+                }
+            )
+
     # Most urgent first; tie-break by oldest submission
     items.sort(key=lambda i: (i["priority"], i["submitted_at"]))
 
@@ -729,6 +760,7 @@ def coach_action_queue(request):
         "crush_lead": sum(1 for i in items if i["kind"] == "crush_lead"),
         "crush_outreach": sum(1 for i in items if i["kind"] == "crush_outreach"),
         "crush_pool": sum(1 for i in items if i["kind"] == "crush_pool"),
+        "real_person_check": sum(1 for i in items if i["kind"] == "real_person_check"),
         # Scoped to owned calls because the template renders this *under* the
         # `crush_lead` total. Counting pool mutuals here produced the
         # contradictory strip "0 Crush calls / 1 mutual / 1 unclaimed" for a
@@ -3955,10 +3987,80 @@ def coach_log_event_sms_sent_by_profile(request, event_id, profile_id):
     )
 
 
+def _real_person_overview_card(coach, member, profile):
+    """Status card for the member page: the latest Connect real-person check.
+
+    Status only: never notes, checklist or the checking coach. This page is
+    open to every coach, and to the member too when they are a coach, so two
+    kinds of outcome are held back:
+
+    * what the member is never told (unreachable, released, suspected fake,
+      revoked), when they read their own page, in line with what the GDPR
+      export holds back;
+    * integrity outcomes (suspected fake, revoked) from a coach who is neither
+      a superuser nor the coach who made that check. A suspected fake is "a
+      superuser-only fact" (``ConnectRealPersonCheck.__str__``), and the claim
+      page keeps a pending report just as vague; they read "Closed" here.
+    """
+    from .models import ConnectRealPersonCheck
+    from .services.real_person_check import (
+        granted_badge_medium,
+        real_person_badge_visible,
+    )
+
+    now = timezone.now()
+    is_self = member.pk == coach.user_id
+    latest = (
+        ConnectRealPersonCheck.objects.filter(profile=profile)
+        .order_by("-claimed_at", "-pk")
+        .first()
+    )
+    check = None
+    if latest is not None:
+        live = latest.is_live(now)
+        # A lapsed claim is a released one; the row is only closed lazily.
+        status = (
+            latest.status
+            if latest.status != ConnectRealPersonCheck.STATUS_OPEN or live
+            else ConnectRealPersonCheck.STATUS_RELEASED
+        )
+        if not is_self or status in (
+            ConnectRealPersonCheck.STATUS_OPEN,
+            ConnectRealPersonCheck.STATUS_PASSED,
+            ConnectRealPersonCheck.STATUS_DECLINED,
+        ):
+            label = dict(ConnectRealPersonCheck.STATUS_CHOICES)[status]
+            if status in (
+                ConnectRealPersonCheck.STATUS_SUSPECTED_FAKE,
+                ConnectRealPersonCheck.STATUS_REVOKED,
+            ) and not (coach.user.is_superuser or latest.coach_id == coach.pk):
+                # Not even the context carries the verdict.
+                status, label = "closed", _("Closed")
+            check = {
+                "status": status,
+                "status_label": label,
+                "medium_label": latest.get_medium_display() if latest.medium else "",
+                "at": latest.decided_at or latest.claimed_at,
+                # Only the claiming coach gets a way back in, never the member.
+                "open_id": (
+                    latest.pk
+                    if live and latest.coach_id == coach.pk and not is_self
+                    else None
+                ),
+            }
+    return {
+        "is_self": is_self,
+        "check": check,
+        "badge_medium": granted_badge_medium(profile),
+        "badge_visible": real_person_badge_visible(),
+    }
+
+
 @coach_required
 def coach_member_overview(request, user_id):
     """Coach view of a member's profile, event history, and connections"""
     from django.contrib.auth.models import User
+    from .services.real_person_check import real_person_check_enabled
 
     member = get_object_or_404(User, id=user_id)
 
@@ -4032,9 +4134,13 @@ def coach_member_overview(request, user_id):
             "chinese_emoji": CHINESE_ANIMAL_EMOJIS.get(chinese_animal, ""),
         }
 
-    # Call attempts
+    # Call attempts. Contact attempts of a Connect real-person check are left
+    # out: their notes are the checking coach's, and this page is open to every
+    # coach, including the member themself when they are a coach too. The
+    # check's own page shows them (spec: ai-memory-hub/specs/
+    # 2026-10-24-crush-connect-real-person-check.md).
     call_attempts = (
-        CallAttempt.objects.filter(profile=profile)
+        CallAttempt.objects.filter(profile=profile, real_person_check__isnull=True)
         .select_related("coach", "event")
         .order_by("-attempt_date")[:20]
         if profile
@@ -4079,6 +4185,12 @@ def coach_member_overview(request, user_id):
         "coach_sessions": coach_sessions,
         "user_activity": user_activity,
         "crush_sparks": crush_sparks,
+        # Behind the flag, and only for a member who has a profile.
+        "real_person_card": (
+            _real_person_overview_card(request.coach, member, profile)
+            if profile is not None and real_person_check_enabled()
+            else None
+        ),
     }
     return render(request, "crush_lu/coach_member_overview.html", context)
 
@@ -6295,8 +6407,6 @@ def _build_outreach_context(coach, profile):
     if not (profile.phone_number and profile.phone_verified):
         return {"sms_template_encoded": "", "whatsapp_url": ""}
 
-    from urllib.parse import quote
-    import re
     from .models.site_config import CrushSiteConfig
 
     config = CrushSiteConfig.get_config()
@@ -6309,13 +6419,24 @@ def _build_outreach_context(coach, profile):
     coach_name = coach.user.first_name or "Your coach"
     first_name = profile.user.first_name or ""
     sms_body = template.format(first_name=first_name, coach_name=coach_name)
-    sms_template_encoded = quote(sms_body, safe="")
+    return _outreach_links(profile.phone_number, sms_body)
 
-    digits = re.sub(r"[^\d]", "", profile.phone_number)
+
+def _outreach_links(phone_number, body):
+    """Percent-encode ``body`` and build the ``wa.me`` URL for ``phone_number``.
+
+    The formatting half of ``_build_outreach_context``, shared with the
+    Connect real-person check (``views_coach_real_person``), which writes its
+    own gettext body. ``whatsapp_url`` is empty when the number has no digits.
+    """
+    from urllib.parse import quote
+    import re
+
+    sms_template_encoded = quote(body, safe="")
+    digits = re.sub(r"[^\d]", "", phone_number or "")
     whatsapp_url = (
         f"https://wa.me/{digits}?text={sms_template_encoded}" if digits else ""
     )
-
     return {
         "sms_template_encoded": sms_template_encoded,
         "whatsapp_url": whatsapp_url,
