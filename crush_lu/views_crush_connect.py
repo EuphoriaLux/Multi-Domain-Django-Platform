@@ -256,6 +256,29 @@ def _real_person_check_note(user, profile):
     )
 
 
+def _real_person_call_card(user):
+    """The hub card that sends a member to their coach's video call, or ``None``.
+
+    Shown only while the member holds a live real-person check whose call they
+    may join (``member_call_check``: tooling flag on, video calls available,
+    claim not lapsed, every coach-side guard clear). It does not wait for the
+    badge flag: the call is a conversation with a coach, not a promise about
+    other members seeing something. A switched-off feature costs the hub no
+    query.
+
+    Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md (D12)
+    """
+    from crush_lu.services.real_person_check import member_call_check
+
+    check = member_call_check(user)
+    if check is None:
+        return None
+    return {
+        "url": reverse("crush_lu:crush_connect_real_person_call", args=[check.pk]),
+        "coach_name": check.coach.user.first_name,
+    }
+
+
 def _active_assigned_coach(profile):
     """The member's assigned coach, only while that coach is active."""
     coach = getattr(profile, "assigned_coach", None)
@@ -1065,6 +1088,10 @@ def crush_connect_hub(request):
     event_lobby_enabled = lobby_feature_enabled()
     people_ive_met_count = len(get_people_ive_met(user)) if event_lobby_enabled else 0
 
+    # The call card and the "a coach may text you" note never show together:
+    # once a coach holds a live check and the call is open, the card says it.
+    real_person_call = _real_person_call_card(user)
+
     readiness = _connect_readiness(user)
     # The full checklist is guidance, not a second entitlement system (see
     # ``_connect_readiness``'s docstring) — most of its steps are informational
@@ -1111,7 +1138,10 @@ def crush_connect_hub(request):
         "connect_readiness": readiness,
         "blocking_step": blocking_step,
         "has_non_closed_chat": user_has_non_closed_chat(user),
-        "real_person_check_note": _real_person_check_note(user, profile),
+        "real_person_call": real_person_call,
+        "real_person_check_note": (
+            None if real_person_call else _real_person_check_note(user, profile)
+        ),
     }
     return render(request, "crush_lu/crush_connect/hub.html", context)
 

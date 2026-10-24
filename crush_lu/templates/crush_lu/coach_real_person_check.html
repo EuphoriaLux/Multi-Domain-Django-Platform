@@ -3,7 +3,8 @@
 
 {% block title %}{% trans "Real-person check" %} | Crush.lu{% endblock %}
 {% block mobile_page_title %}{% trans "Real-person check" %}{% endblock %}
-{% block pre_alpine_js %}{{ block.super }}{% include "crush_lu/partials/alpine_bundle.html" with bundle="coach" %}{% endblock %}
+{# coach: the checklist. connect: the in-app video call (the videoCall component). Two literal includes, so the bundle-coverage test can follow them. #}
+{% block pre_alpine_js %}{{ block.super }}{% include "crush_lu/partials/alpine_bundle.html" with bundle="coach" %}{% include "crush_lu/partials/alpine_bundle.html" with bundle="connect" %}{% endblock %}
 
 {% block content %}
 {% comment %}
@@ -11,6 +12,11 @@ One Connect real-person check: photos, outreach, and the decision form.
 The decision is a plain POST (coach_real_person_decide); the checklist
 component (static/crush_lu/js/alpine/coach.js) fills three hidden inputs
 right before it submits. The required keys render from the server constant.
+The in-app video call sits in its own section, outside #rpc-outreach: that
+block is swapped by HTMX whenever a contact attempt is logged, which would
+tear down a running call. It renders only when the context carries video_call
+(a live claim, no blocking guard, video calls set up); the view then returns
+allow_microphone(response).
 Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
 {% endcomment %}
 <div class="max-w-3xl mx-auto">
@@ -62,6 +68,20 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
 
     {# ===== Outreach links and contact history ===== #}
     {% include "crush_lu/coach_real_person_outreach.html" %}
+
+    {% if video_call %}
+    {# ===== In-app video call (a crush.lu page, not the coach's phone apps) ===== #}
+    <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 mb-6" aria-labelledby="rpc-call-heading">
+        <h3 id="rpc-call-heading" class="text-lg font-semibold dark:text-white mb-1">{% trans "Video call in Crush.lu" %}</h3>
+        {# Inside the apps the partial has no Start button (it points to the browser), so the instruction would contradict it. #}
+        {% if not is_native_app %}
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            {% blocktrans with name=member_label %}{{ name }} joins from the link in your message. Press Start video when they are on the call page. Nothing is recorded or stored. If the video fails, phone them and choose Voice call in the decision below.{% endblocktrans %}
+        </p>
+        {% endif %}
+        {% include "crush_lu/partials/video_call.html" %}
+    </section>
+    {% endif %}
 
     {% if is_live %}
     {# ===== Decision ===== #}

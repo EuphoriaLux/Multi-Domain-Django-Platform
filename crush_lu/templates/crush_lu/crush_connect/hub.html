@@ -52,6 +52,9 @@
         </p>
         {% endif %}
     </header>
+    {% if real_person_call %}
+    {% include "crush_lu/crush_connect/_real_person_call_card.html" with call=real_person_call %}
+    {% endif %}
     {% if connect_summary.pending_requests %}
     <section class="rounded-2xl bg-white dark:bg-slate-800 p-4 mb-4 ring-1 ring-crush-purple">
         <h2 class="card-title">{% trans "Your response needed" %}</h2>

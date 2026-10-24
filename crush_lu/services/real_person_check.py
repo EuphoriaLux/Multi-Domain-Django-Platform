@@ -11,6 +11,10 @@ sends nothing: no email, no push, no SMS. A coach opens the ``sms:`` /
 ``tel:`` / ``wa.me`` links on their own phone, and ``log_outreach`` only
 records that they did.
 
+The in-app video call is the one other way in: ``authorize_video_call`` decides
+who may join the call of a live check (registered in
+``services.video_call.VIDEO_CALL_KINDS``), and writes nothing either.
+
 Lock order, always: ``CrushProfile`` first, then the check row (the order
 ``services.photo_review.submit_member_review`` uses). ``claim_check`` alone
 takes one lock before those, the claiming coach's ``CrushCoach`` row, because
@@ -27,6 +31,7 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
 from __future__ import annotations
 
 import logging
+import re
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -447,6 +452,121 @@ def check_guards(coach, profile, *, photo_key=None, medium=None, confirmed=None)
     ).exists():
         failures.append(GUARD_NOT_IN_COHORT)
     return failures
+
+
+# ---------------------------------------------------------------------------
+# In-app video call
+# ---------------------------------------------------------------------------
+
+# The call kind this feature registers in ``services.video_call.VIDEO_CALL_KINDS``
+# (by dotted path to ``authorize_video_call``, so nothing here imports the call
+# layer at module load). The call address is ``(CALL_KIND, str(check.pk))``.
+CALL_KIND = "real-person-check"
+CALL_ROLE_COACH = "coach"
+CALL_ROLE_MEMBER = "member"
+
+# A check's primary key in its canonical decimal form: no sign, no leading
+# zero, no unicode digits. The call address becomes a channel group name and a
+# cache slot key, so "7" and "007" must not be two different rooms for one
+# check. At most 18 digits keeps the lookup inside a 64-bit integer. Matched
+# with ``fullmatch``: ``$`` also matches before a trailing newline, which would
+# let the digits plus a newline through as one more name for the same check
+# (``int()`` ignores the whitespace).
+_CALL_OBJECT_ID_RE = re.compile(r"[1-9][0-9]{0,17}")
+
+
+def _call_role(user, check, now=None):
+    """``user``'s role in ``check``'s call (``"coach"`` / ``"member"``) or None.
+
+    ``check`` must come with ``select_related("coach__user", "profile__user")``.
+    Pure read: no writes, no logging.
+
+    The call is open while the check is a live claim (open, lease not
+    lapsed) and every guard of ``check_guards`` clears for the pair. Called
+    without ``photo_key``, ``medium`` and ``confirmed``, ``check_guards`` skips
+    the three rules that are about *granting a badge*: a stale photo key, a main
+    photo other members cannot see yet (video badge only) and the unticked
+    confirmation. Those decide what the coach may record afterwards, not
+    whether the two of them may talk: a coach may video-call a member whose new
+    photo is still waiting for approval and then record a voice pass. This is
+    the same set the coach page uses to switch its contact links off
+    (``views_coach_real_person._check_context``), so the page and the call
+    agree.
+    """
+    if user is None or not getattr(user, "is_authenticated", False):
+        return None
+    if check.coach is None or not check.is_live(now):
+        return None
+    if user.pk == check.coach.user_id:
+        role = CALL_ROLE_COACH
+    elif user.pk == check.profile.user_id:
+        role = CALL_ROLE_MEMBER
+    else:
+        return None
+    if check_guards(check.coach, check.profile):
+        return None
+    return role
+
+
+def authorize_video_call(user, object_id):
+    """The authorizer behind ``VIDEO_CALL_KINDS["real-person-check"]``.
+
+    ``object_id`` is the ``str`` primary key of a ``ConnectRealPersonCheck``.
+    Returns ``"coach"`` for the check's coach, ``"member"`` for the member the
+    check is about, and None for everyone else (another coach or member, a
+    superuser, an anonymous or inactive user), and for every case the call
+    must not exist: the tooling flag is off, the address is malformed or
+    names no check, the check is closed or its lease has lapsed, the coach was
+    removed, or a guard now fails for the pair (blocked, banned, fake report
+    pending, member left the cohort, ...). See ``_call_role``.
+
+    The video layer calls this on every socket connect and every relay
+    credentials request, so it stays a read-only function and it does not log
+    anything: a refused call is silent, like the 404 a view would give.
+    """
+    from crush_lu.models import ConnectRealPersonCheck
+
+    if not real_person_check_enabled():
+        return None
+    if not isinstance(object_id, str) or not _CALL_OBJECT_ID_RE.fullmatch(object_id):
+        return None
+    check = (
+        ConnectRealPersonCheck.objects.select_related("coach__user", "profile__user")
+        .filter(pk=int(object_id))
+        .first()
+    )
+    if check is None:
+        return None
+    return _call_role(user, check)
+
+
+def member_call_check(user, now=None):
+    """The member's live check when they may join its video call now, else None.
+
+    What the hub card asks (the member's call page and the coach's text message
+    have their own checks): the tooling flag is on, video calls are available
+    (TURN configured, or DEBUG), and ``user`` holds an open, live
+    check on their own profile whose coach-side guards still clear. The flag
+    and availability are tested first, so a switched-off feature costs no query.
+    """
+    from crush_lu.models import ConnectRealPersonCheck
+    from crush_lu.services.video_call import video_calls_available
+
+    if not real_person_check_enabled() or not video_calls_available():
+        return None
+    now = now or timezone.now()
+    check = (
+        ConnectRealPersonCheck.objects.select_related("coach__user", "profile__user")
+        .filter(
+            profile__user_id=user.pk,
+            status=ConnectRealPersonCheck.STATUS_OPEN,
+            lease_expires_at__gt=now,
+        )
+        .first()
+    )
+    if check is None or _call_role(user, check, now) != CALL_ROLE_MEMBER:
+        return None
+    return check
 
 
 # ---------------------------------------------------------------------------

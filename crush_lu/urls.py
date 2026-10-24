@@ -28,6 +28,7 @@ from . import views_coach as views_coach_module
 from . import views_coach_photos
 from . import views_coach_real_person
 from . import views_coach_whatsapp
+from . import views_real_person_call
 from . import views_video_call
 from . import views_connect_showcase
 from . import views_quiz_config
@@ -324,6 +325,13 @@ urlpatterns = [
         "crush-connect/home/",
         views_crush_connect.crush_connect_hub,
         name="crush_connect_hub",
+    ),
+    # Where a member joins their coach's in-app video call (real-person
+    # check). 404 for everyone but that member, while the check is live.
+    path(
+        "crush-connect/real-person-call/<int:check_id>/",
+        views_real_person_call.crush_connect_real_person_call,
+        name="crush_connect_real_person_call",
     ),
     path(
         "crush-connect/pause/",

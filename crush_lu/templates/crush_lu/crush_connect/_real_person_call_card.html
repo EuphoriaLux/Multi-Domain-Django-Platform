@@ -1,0 +1,17 @@
+{% load i18n %}{% comment %}
+Hub card for a Connect member whose coach has a live real-person check and
+the in-app video call is available. It replaces the "a coach may text you"
+note while it shows (views_crush_connect._real_person_call_card decides both).
+
+Context:
+    call — dict with url (the call page) and coach_name (may be empty)
+
+Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md (D12)
+{% endcomment %}
+<section class="rounded-2xl bg-white dark:bg-slate-800 p-4 mb-4 ring-1 ring-crush-purple" data-real-person-call-card>
+    <h2 class="card-title">{% trans "A short video call with your coach" %}</h2>
+    <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">
+        {% if call.coach_name %}{% blocktrans with name=call.coach_name %}{{ name }} would like to meet you on video for about 5 minutes. Once they have been in touch, you can join here. It is optional, and nothing is recorded.{% endblocktrans %}{% else %}{% trans "A Crush coach would like to meet you on video for about 5 minutes. Once they have been in touch, you can join here. It is optional, and nothing is recorded." %}{% endif %}
+    </p>
+    <a class="btn-crush-solid btn-block" href="{{ call.url }}">{% trans "Join" %}</a>
+</section>

@@ -14,6 +14,10 @@ codes into messages.
 * Every view that takes a ``check_id`` looks the check up with
   ``coach=request.coach``: another coach's check id is a 404, never a 403.
 * Logs carry ids only: no phone number, message body, note or posted payload.
+* The check page also hosts the in-app video call (``services.video_call``,
+  kind ``real-person-check``) while the check is live and no guard blocks it;
+  such a response opens the microphone for its own page only
+  (``allow_microphone``).
 
 Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
 """
@@ -34,6 +38,7 @@ from django.utils.translation import gettext_lazy as _l
 from django.utils.translation import pgettext
 from django.views.decorators.http import require_GET, require_POST
 
+from azureproject.csp_middleware import allow_microphone
 from crush_lu.decorators import coach_required
 from crush_lu.forms import CallAttemptForm
 from crush_lu.models import (
@@ -52,6 +57,7 @@ from crush_lu.real_person_check_rules import (
 )
 from crush_lu.services.photo_publication import get_public_photo_key
 from crush_lu.services.real_person_check import (
+    CALL_KIND,
     GUARD_ALREADY_VERIFIED,
     GUARD_BANNED,
     GUARD_BLOCKED,
@@ -81,6 +87,7 @@ from crush_lu.services.real_person_check import (
     real_person_check_queue,
     release_check,
 )
+from crush_lu.services.video_call import video_call_context, video_calls_available
 from crush_lu.services.whatsapp import can_send_whatsapp
 from crush_lu.views_coach import _outreach_links
 
@@ -231,7 +238,28 @@ def _dial_number(phone):
     return ("+" if phone.startswith("+") else "") + digits
 
 
-def real_person_outreach_body(coach, profile, *, video_available=True):
+def _member_language(profile):
+    """The language the coach's text to this member is written in."""
+    return (
+        profile.preferred_language
+        if profile.preferred_language in ("en", "de", "fr")
+        else "en"
+    )
+
+
+def _member_call_url(request, check):
+    """The absolute address of the member's call page, in their language.
+
+    Built under the member's language so the ``/en/`` / ``/de/`` / ``/fr/``
+    prefix matches the text it ends. The host is the one the coach is on.
+    """
+    with translation.override(_member_language(check.profile)):
+        return request.build_absolute_uri(
+            reverse("crush_lu:crush_connect_real_person_call", args=[check.pk])
+        )
+
+
+def real_person_outreach_body(coach, profile, *, video_available=True, call_url=""):
     """The SMS / WhatsApp text, in the member's language.
 
     A gettext msgid (not a ``CrushSiteConfig`` template) rendered under the
@@ -239,27 +267,50 @@ def real_person_outreach_body(coach, profile, *, video_available=True):
     own phone. While a video pass is not possible (no coach-approved main
     photo yet) the invitation proposes a call without promising video: the
     only badge the coach could grant is the voice one.
+
+    ``call_url`` is the address of the member's in-app call page. With one, the
+    text ends with it (a separate msgid per variant); without one, the text is
+    exactly what it was before the in-app call existed. The caller passes it
+    only while the call is available (``_check_context``).
     """
-    language = (
-        profile.preferred_language
-        if profile.preferred_language in ("en", "de", "fr")
-        else "en"
-    )
-    with translation.override(language):
+    with translation.override(_member_language(profile)):
         coach_name = coach.user.first_name or pgettext(
             "real-person check text message: no coach first name", "a coach"
         )
         params = {
             "first_name": profile.user.first_name or "",
             "coach_name": coach_name,
+            "call_url": call_url,
         }
         if not video_available:
+            if call_url:
+                return (
+                    _(
+                        "Hi %(first_name)s, this is %(coach_name)s from Crush.lu. To "
+                        "confirm every Crush Connect member is a real person, could we "
+                        "have a quick 5-minute call? It's optional and adds a badge to "
+                        "your card. If you prefer video, you can join from your "
+                        "browser here: %(call_url)s"
+                    )
+                    % params
+                )
             return (
                 _(
                     "Hi %(first_name)s, this is %(coach_name)s from Crush.lu. To "
                     "confirm every Crush Connect member is a real person, could we "
                     "have a quick 5-minute call? It's optional and adds a badge to "
                     "your card."
+                )
+                % params
+            )
+        if call_url:
+            return (
+                _(
+                    "Hi %(first_name)s, this is %(coach_name)s from Crush.lu. To "
+                    "confirm every Crush Connect member is a real person, could we "
+                    "do a quick 5-minute video call? It's optional and adds a "
+                    "'verified by a coach' badge to your card. When you are ready, "
+                    "join from your browser here: %(call_url)s"
                 )
                 % params
             )
@@ -290,18 +341,21 @@ def whatsapp_link_allowed(profile):
     )
 
 
-def _outreach_context(coach, profile, *, blocked, video_available=True):
+def _outreach_context(coach, profile, *, blocked, video_available=True, call_url=""):
     """``tel:`` / ``sms:`` / ``wa.me`` links, or none while a guard fails.
 
     Links exist only for a verified phone number, and never while any guard
     fails: a banned or blocked member must not be one tap away. The WhatsApp
     link also needs the member's WhatsApp opt-in (``whatsapp_link_allowed``).
+    ``call_url`` (the member's in-app call page) goes into the text of both.
     """
     empty = {"tel_href": "", "sms_href": "", "whatsapp_url": "", "phone_display": ""}
     phone = (profile.phone_number or "").strip()
     if blocked or not phone or not profile.phone_verified:
         return empty
-    body = real_person_outreach_body(coach, profile, video_available=video_available)
+    body = real_person_outreach_body(
+        coach, profile, video_available=video_available, call_url=call_url
+    )
     links = _outreach_links(phone, body)
     dial = _dial_number(phone)
     return {
@@ -327,6 +381,14 @@ def _check_context(request, check, *, now=None, **extra):
     # other members see; a voice pass does not).
     guards = check_guards(coach, profile, medium=MEDIUM_VIDEO) if live else []
     blocking = [code for code in guards if code != GUARD_PHOTO_NOT_PUBLIC]
+    # The in-app call is possible under the same condition as the contact
+    # links (a live claim, no blocking guard; a main photo other members
+    # cannot see yet only rules out the *video badge*, not the conversation),
+    # and only where video calls are set up at all. This is exactly what
+    # ``authorize_video_call`` decides, so the page never offers a call the
+    # socket would refuse.
+    call_possible = bool(live and not blocking and video_calls_available())
+    call_url = _member_call_url(request, check) if call_possible else ""
     current_key = getattr(profile.photo_1, "name", "") or ""
     public_key = get_public_photo_key(profile, "photo_1") if current_key else ""
     attempts = list(
@@ -373,10 +435,32 @@ def _check_context(request, check, *, now=None, **extra):
             profile,
             blocked=bool(blocking) or not live,
             video_available=context["video_available"],
+            call_url=call_url,
         )
     )
+    if call_possible:
+        # ``video_call`` (a call can take place) is not ``video_available``
+        # (a video *badge* can be granted): a coach may video-call a member
+        # and still record only a voice pass.
+        context.update(video_call_context(CALL_KIND, str(check.pk)))
     context.update(extra)
     return context
+
+
+def _render_check_page(request, check, *, status=200, **extra):
+    """The check page; it may host the call, so it may use the microphone.
+
+    Used by the page itself and by the decide form when it answers an error,
+    which renders the same page. The microphone opens only on a response that
+    really carries the call, never on the closed or blocked states.
+    """
+    context = _check_context(request, check, **extra)
+    response = render(
+        request, "crush_lu/coach_real_person_check.html", context, status=status
+    )
+    if context.get("video_call", {}).get("available"):
+        allow_microphone(response)
+    return response
 
 
 def _redirect_stale(request, exc):
@@ -457,11 +541,7 @@ def coach_real_person_claim(request, user_id):
 @require_GET
 def coach_real_person_check(request, check_id):
     check = _owned_check(request, check_id)
-    return render(
-        request,
-        "crush_lu/coach_real_person_check.html",
-        _check_context(request, check),
-    )
+    return _render_check_page(request, check)
 
 
 @coach_required
@@ -595,16 +675,12 @@ def coach_real_person_decide(request, check_id):
             return _redirect_stale(request, exc)
         # Fresh rows: a stale photo key means the photo moved on.
         check = _owned_check(request, check_id)
-        return render(
+        return _render_check_page(
             request,
-            "crush_lu/coach_real_person_check.html",
-            _check_context(
-                request,
-                check,
-                error_messages=_error_messages(exc),
-                notes_value=notes,
-            ),
+            check,
             status=_decide_status(exc),
+            error_messages=_error_messages(exc),
+            notes_value=notes,
         )
     messages.success(request, _decided_message(outcome, name))
     return redirect("crush_lu:coach_real_person_queue")

@@ -1,5 +1,6 @@
-"""One-off: DE/FR for the Connect real-person check coach UI (PR 3) and
-member surfaces (PR 4).
+"""One-off: DE/FR for the Connect real-person check coach UI (PR 3), member
+surfaces (PR 4) and the in-app video call (PR 3b, including the call screen
+partial that the generic layer shipped English-only).
 
 Run with: .venv/Scripts/python.exe scripts/i18n/add_real_person_check_translations.py
 Appends missing entries to the crush_lu django.po catalogs; the .mo files are
@@ -15,6 +16,10 @@ Registers (spec ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.m
 * checklist labels and model status labels address nobody;
 * member surfaces (badge labels and tooltips, trust labels, hub note): DE "du",
   FR "vous".
+* the in-app video call: the coach page's call section is coach register
+  (DE "du", FR "tu"); the member's call page, the hub card, the call screen
+  partial (shared by both pages) and the text message with the call address
+  are member register (DE "du", FR "vous").
 Entries already in a catalog are left alone, so the script can run twice.
 """
 
@@ -468,6 +473,136 @@ NEW = {
     "To confirm every Connect member is a real person, a Crush coach may text you and suggest a short video or voice call. It's optional: it adds a badge to your card and changes nothing else.": {
         "de": "Damit wir sicher sind, dass jedes Connect-Mitglied eine echte Person ist, kann dir ein Crush Coach schreiben und einen kurzen Video- oder Sprachanruf vorschlagen. Das ist freiwillig: Deine Karte bekommt ein Abzeichen, sonst ändert sich nichts.",
         "fr": "Pour confirmer que chaque membre de Connect est une personne réelle, un coach Crush peut vous envoyer un message et vous proposer un court appel vidéo ou vocal. C'est facultatif : cela ajoute un badge à votre carte et ne change rien d'autre.",
+    },
+    # ---- PR 3b: in-app video call (D12) ----
+    # coach_real_person_check.html: the call section (coach register: DE du, FR tu).
+    "Video call in Crush.lu": {
+        "de": "Videoanruf in Crush.lu",
+        "fr": "Appel vidéo dans Crush.lu",
+    },
+    "%(name)s joins from the link in your message. Press Start video when they are on the call page. Nothing is recorded or stored. If the video fails, phone them and choose Voice call in the decision below.": {
+        "de": "%(name)s tritt über den Link in deiner Nachricht bei. Tippe auf „Video starten“, sobald die Person auf der Anrufseite ist. Nichts wird aufgezeichnet oder gespeichert. Falls das Video nicht klappt, ruf die Person an und wähle unten bei der Entscheidung „Sprachanruf“.",
+        "fr": "%(name)s te rejoint via le lien de ton message. Appuie sur « Démarrer la vidéo » dès que la personne est sur la page d'appel. Rien n'est enregistré ni conservé. Si la vidéo échoue, appelle la personne et choisis « Appel vocal » dans la décision ci-dessous.",
+    },
+    # The text message a coach sends, with the call page address (DE du / FR vous).
+    "Hi %(first_name)s, this is %(coach_name)s from Crush.lu. To confirm every Crush Connect member is a real person, could we do a quick 5-minute video call? It's optional and adds a 'verified by a coach' badge to your card. When you are ready, join from your browser here: %(call_url)s": {
+        "de": "Hallo %(first_name)s, hier ist %(coach_name)s von Crush.lu. Um zu bestätigen, dass jedes Crush-Connect-Mitglied eine echte Person ist: Hast du Lust auf einen kurzen Videoanruf (5 Minuten)? Er ist freiwillig und gibt deiner Karte das Abzeichen „von einem Coach verifiziert“. Wenn du bereit bist, tritt hier im Browser bei: %(call_url)s",
+        "fr": "Bonjour %(first_name)s, ici %(coach_name)s de Crush.lu. Pour confirmer que chaque membre de Crush Connect est une personne réelle, pourrions-nous faire un rapide appel vidéo de 5 minutes ? C'est facultatif et cela ajoute à votre carte un badge « vérifié par un coach ». Quand vous le souhaitez, rejoignez l'appel depuis votre navigateur ici : %(call_url)s",
+    },
+    "Hi %(first_name)s, this is %(coach_name)s from Crush.lu. To confirm every Crush Connect member is a real person, could we have a quick 5-minute call? It's optional and adds a badge to your card. If you prefer video, you can join from your browser here: %(call_url)s": {
+        "de": "Hallo %(first_name)s, hier ist %(coach_name)s von Crush.lu. Um zu bestätigen, dass jedes Crush-Connect-Mitglied eine echte Person ist: Hast du Lust auf einen kurzen Anruf (5 Minuten)? Er ist freiwillig und gibt deiner Karte ein Abzeichen. Wenn du lieber per Video sprichst, kannst du hier im Browser beitreten: %(call_url)s",
+        "fr": "Bonjour %(first_name)s, ici %(coach_name)s de Crush.lu. Pour confirmer que chaque membre de Crush Connect est une personne réelle, pourrions-nous faire un rapide appel de 5 minutes ? C'est facultatif et cela ajoute un badge à votre carte. Si vous préférez la vidéo, vous pouvez rejoindre l'appel depuis votre navigateur ici : %(call_url)s",
+    },
+    # crush_connect/real_person_call.html: the member's call page (member register).
+    "Video call with your coach": {
+        "de": "Videoanruf mit deinem Coach",
+        "fr": "Appel vidéo avec votre coach",
+    },
+    "A short video call with %(name)s": {
+        "de": "Ein kurzer Videoanruf mit %(name)s",
+        "fr": "Un court appel vidéo avec %(name)s",
+    },
+    "A short video call with your coach": {
+        "de": "Ein kurzer Videoanruf mit deinem Coach",
+        "fr": "Un court appel vidéo avec votre coach",
+    },
+    "A Crush coach would like to meet you on video for about 5 minutes, to confirm that you are a real person.": {
+        "de": "Ein Crush Coach möchte dich etwa 5 Minuten per Video treffen, um zu bestätigen, dass du eine echte Person bist.",
+        "fr": "Un coach Crush aimerait vous rencontrer en vidéo pendant environ 5 minutes, afin de confirmer que vous êtes une personne réelle.",
+    },
+    "Before you join": {
+        "de": "Bevor du beitrittst",
+        "fr": "Avant de rejoindre l'appel",
+    },
+    "It is optional. You can say no, and nothing else changes.": {
+        "de": "Das ist freiwillig. Du kannst Nein sagen, und sonst ändert sich nichts.",
+        "fr": "C'est facultatif. Vous pouvez dire non, et rien d'autre ne change.",
+    },
+    "Nothing is recorded or saved.": {
+        "de": "Nichts wird aufgezeichnet oder gespeichert.",
+        "fr": "Rien n'est enregistré ni conservé.",
+    },
+    "If it goes well, your Connect card gets a badge that tells other members a coach confirmed you are a real person.": {
+        "de": "Wenn alles gut läuft, bekommt deine Connect-Karte ein Abzeichen, das anderen Mitgliedern zeigt, dass ein Coach bestätigt hat, dass du eine echte Person bist.",
+        "fr": "Si tout se passe bien, votre carte Connect reçoit un badge qui indique aux autres membres qu'un coach a confirmé que vous êtes une personne réelle.",
+    },
+    "If it goes well, your Connect card gets a badge as soon as badges are shown to other members: it tells them a coach confirmed you are a real person.": {
+        "de": "Wenn alles gut läuft, bekommt deine Connect-Karte ein Abzeichen, sobald Abzeichen für andere Mitglieder sichtbar sind. Es zeigt ihnen, dass ein Coach bestätigt hat, dass du eine echte Person bist.",
+        "fr": "Si tout se passe bien, votre carte Connect reçoit un badge dès que les badges sont visibles pour les autres membres : il leur indique qu'un coach a confirmé que vous êtes une personne réelle.",
+    },
+    "When your coach has been in touch and you are ready, press Start video and allow your camera and microphone. Your coach joins the same call.": {
+        "de": "Wenn sich dein Coach gemeldet hat und du bereit bist, tippe auf „Video starten“ und erlaube Kamera und Mikrofon. Dein Coach tritt demselben Anruf bei.",
+        "fr": "Une fois que votre coach vous a contacté, appuyez sur « Démarrer la vidéo » quand vous le souhaitez et autorisez votre caméra et votre microphone. Votre coach rejoint le même appel.",
+    },
+    "Video calls are not available right now, so your coach will phone you instead.": {
+        "de": "Videoanrufe sind gerade nicht verfügbar, deshalb ruft dich dein Coach stattdessen an.",
+        "fr": "Les appels vidéo ne sont pas disponibles pour le moment, votre coach vous appellera donc par téléphone.",
+    },
+    # crush_connect/_real_person_call_card.html: the hub card (member register;
+    # its heading reuses "A short video call with your coach" from the call page).
+    "%(name)s would like to meet you on video for about 5 minutes. Once they have been in touch, you can join here. It is optional, and nothing is recorded.": {
+        "de": "%(name)s möchte dich etwa 5 Minuten per Video treffen. Sobald sich dein Coach gemeldet hat, kannst du hier beitreten. Das ist freiwillig, und nichts wird aufgezeichnet.",
+        "fr": "%(name)s aimerait vous rencontrer en vidéo pendant environ 5 minutes. Dès que votre coach vous aura contacté, vous pourrez rejoindre l'appel ici. C'est facultatif, et rien n'est enregistré.",
+    },
+    "A Crush coach would like to meet you on video for about 5 minutes. Once they have been in touch, you can join here. It is optional, and nothing is recorded.": {
+        "de": "Ein Crush Coach möchte dich etwa 5 Minuten per Video treffen. Sobald sich der Coach gemeldet hat, kannst du hier beitreten. Das ist freiwillig, und nichts wird aufgezeichnet.",
+        "fr": "Un coach Crush aimerait vous rencontrer en vidéo pendant environ 5 minutes. Dès que le coach vous aura contacté, vous pourrez rejoindre l'appel ici. C'est facultatif, et rien n'est enregistré.",
+    },
+    # crush_connect/real_person_call_ended.html: what the member sees at their
+    # check's call address once the call cannot be joined (member register).
+    "This video call is not open right now": {
+        "de": "Dieser Videoanruf ist gerade nicht geöffnet",
+        "fr": "Cet appel vidéo n'est pas ouvert pour le moment",
+    },
+    "Your coach may have finished, or the link may have expired. Joining was optional, so nothing changes for you. If your coach would like to try again, they will get in touch.": {
+        "de": "Dein Coach ist vielleicht schon fertig, oder der Link ist abgelaufen. Die Teilnahme war freiwillig, für dich ändert sich also nichts. Wenn dein Coach es noch einmal versuchen möchte, meldet er oder sie sich bei dir.",
+        "fr": "Votre coach a peut-être terminé, ou le lien a expiré. La participation était facultative, rien ne change donc pour vous. Si votre coach souhaite réessayer, il vous contactera.",
+    },
+    # crush_lu/partials/video_call.html: the call screen, shared by the coach and
+    # the member page (generic layer, PR #1309, shipped English-only). Member
+    # register: DE du, FR vous; imperatives address the person on the call.
+    # "Connected" already has DE/FR entries and is left alone.
+    "Video calls work in your phone's browser, not yet in the Crush.lu app. Open this page in your browser:": {
+        "de": "Videoanrufe funktionieren im Browser deines Handys, noch nicht in der Crush.lu-App. Öffne diese Seite in deinem Browser:",
+        "fr": "Les appels vidéo fonctionnent dans le navigateur de votre téléphone, pas encore dans l'application Crush.lu. Ouvrez cette page dans votre navigateur :",
+    },
+    "Not started": {"de": "Nicht gestartet", "fr": "Pas encore démarré"},
+    "Starting your camera…": {
+        "de": "Deine Kamera wird gestartet…",
+        "fr": "Démarrage de votre caméra…",
+    },
+    "Waiting for the other person…": {
+        "de": "Warten auf die andere Person…",
+        "fr": "En attente de l'autre personne…",
+    },
+    "Connecting…": {"de": "Verbindung wird aufgebaut…", "fr": "Connexion en cours…"},
+    "Reconnecting…": {
+        "de": "Verbindung wird wiederhergestellt…",
+        "fr": "Reconnexion en cours…",
+    },
+    "Call ended": {"de": "Anruf beendet", "fr": "Appel terminé"},
+    "The call could not connect. Try again, or switch to a phone call.": {
+        "de": "Der Anruf konnte nicht verbunden werden. Versuche es noch einmal oder wechsle zu einem Telefonanruf.",
+        "fr": "L'appel n'a pas pu se connecter. Réessayez ou passez à un appel téléphonique.",
+    },
+    "Camera or microphone access was refused. Allow it in your browser settings, then try again.": {
+        "de": "Der Zugriff auf Kamera oder Mikrofon wurde verweigert. Erlaube ihn in den Browser-Einstellungen und versuche es dann erneut.",
+        "fr": "L'accès à la caméra ou au microphone a été refusé. Autorisez-le dans les paramètres de votre navigateur, puis réessayez.",
+    },
+    "This call continued in another window.": {
+        "de": "Dieser Anruf wird in einem anderen Fenster fortgesetzt.",
+        "fr": "Cet appel se poursuit dans une autre fenêtre.",
+    },
+    "Mute": {"de": "Stummschalten", "fr": "Couper le micro"},
+    "Unmute": {"de": "Stummschaltung aufheben", "fr": "Réactiver le micro"},
+    "Camera off": {"de": "Kamera aus", "fr": "Couper la caméra"},
+    "Camera on": {"de": "Kamera an", "fr": "Activer la caméra"},
+    "Start video": {"de": "Video starten", "fr": "Démarrer la vidéo"},
+    "Switch camera": {"de": "Kamera wechseln", "fr": "Changer de caméra"},
+    "Hang up": {"de": "Auflegen", "fr": "Raccrocher"},
+    "Video calls are not available right now. Use a phone call instead.": {
+        "de": "Videoanrufe sind gerade nicht verfügbar. Nutze stattdessen einen Telefonanruf.",
+        "fr": "Les appels vidéo ne sont pas disponibles pour le moment. Utilisez plutôt un appel téléphonique.",
     },
 }
 

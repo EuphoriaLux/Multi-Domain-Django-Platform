@@ -348,10 +348,17 @@ def apple_app_site_association_view(request):
     # and the catch-all would claim them again. Generated from settings.LANGUAGES
     # so adding a language cannot silently reopen the hole.
     auth_globs = ["/accounts/*", "/oauth/*", "/login*", "/signup*", "/logout*"]
+    # Pages that must open in the phone's browser, not in the app. The app's
+    # WebViews have no microphone yet, so the video call page of the Connect
+    # real-person check only shows "open this in your browser" there; the link
+    # in the coach's text message says "join from your browser", and as a
+    # universal link it would open the app instead. Same language prefixes as
+    # above, because the route sits inside i18n_patterns.
+    browser_only_globs = ["/crush-connect/real-person-call/*"]
     language_codes = [code for code, _name in getattr(settings, "LANGUAGES", [])]
 
     excluded = ["/admin/*", "/crush-admin/*", "/api/*"]
-    for glob in auth_globs:
+    for glob in auth_globs + browser_only_globs:
         excluded.append(glob)
         excluded.extend(f"/{code}{glob}" for code in language_codes)
     excluded += ["/static/*", "/media/*", "/sw-workbox.js", "/manifest.json"]

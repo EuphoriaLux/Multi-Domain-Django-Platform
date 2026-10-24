@@ -84,6 +84,19 @@ def test_apple_app_site_association_exposes_universal_links(client, settings):
             f"of loading it, hanging the native sign-in"
         )
 
+    # The Connect real-person check's video call opens in the phone's browser
+    # (the app WebViews have no microphone yet, and the coach's text message
+    # says "join from your browser"), so its link is not a universal link.
+    for url_path in [
+        "/en/crush-connect/real-person-call/12/",
+        "/fr/crush-connect/real-person-call/12/",
+        "/de/crush-connect/real-person-call/12/",
+    ]:
+        assert is_excluded(url_path), (
+            f"{url_path} is claimed as a universal link — a member who taps the "
+            f"coach's text message lands in the app, which cannot run the call"
+        )
+
     # ...while ordinary deep links stay claimable.
     for url_path in ["/en/dashboard/", "/en/events/", "/fr/crush-connect/"]:
         assert not is_excluded(url_path), f"{url_path} should remain a universal link"

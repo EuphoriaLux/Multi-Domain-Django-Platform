@@ -46663,3 +46663,119 @@ msgstr "LuxID bestätigt deine Identität, und ein Crush Coach hat mit dir gespr
 
 msgid "To confirm every Connect member is a real person, a Crush coach may text you and suggest a short video or voice call. It's optional: it adds a badge to your card and changes nothing else."
 msgstr "Damit wir sicher sind, dass jedes Connect-Mitglied eine echte Person ist, kann dir ein Crush Coach schreiben und einen kurzen Video- oder Sprachanruf vorschlagen. Das ist freiwillig: Deine Karte bekommt ein Abzeichen, sonst ändert sich nichts."
+
+msgid "Video call in Crush.lu"
+msgstr "Videoanruf in Crush.lu"
+
+#, python-format
+msgid "%(name)s joins from the link in your message. Press Start video when they are on the call page. Nothing is recorded or stored. If the video fails, phone them and choose Voice call in the decision below."
+msgstr "%(name)s tritt über den Link in deiner Nachricht bei. Tippe auf „Video starten“, sobald die Person auf der Anrufseite ist. Nichts wird aufgezeichnet oder gespeichert. Falls das Video nicht klappt, ruf die Person an und wähle unten bei der Entscheidung „Sprachanruf“."
+
+#, python-format
+msgid "Hi %(first_name)s, this is %(coach_name)s from Crush.lu. To confirm every Crush Connect member is a real person, could we do a quick 5-minute video call? It's optional and adds a 'verified by a coach' badge to your card. When you are ready, join from your browser here: %(call_url)s"
+msgstr "Hallo %(first_name)s, hier ist %(coach_name)s von Crush.lu. Um zu bestätigen, dass jedes Crush-Connect-Mitglied eine echte Person ist: Hast du Lust auf einen kurzen Videoanruf (5 Minuten)? Er ist freiwillig und gibt deiner Karte das Abzeichen „von einem Coach verifiziert“. Wenn du bereit bist, tritt hier im Browser bei: %(call_url)s"
+
+#, python-format
+msgid "Hi %(first_name)s, this is %(coach_name)s from Crush.lu. To confirm every Crush Connect member is a real person, could we have a quick 5-minute call? It's optional and adds a badge to your card. If you prefer video, you can join from your browser here: %(call_url)s"
+msgstr "Hallo %(first_name)s, hier ist %(coach_name)s von Crush.lu. Um zu bestätigen, dass jedes Crush-Connect-Mitglied eine echte Person ist: Hast du Lust auf einen kurzen Anruf (5 Minuten)? Er ist freiwillig und gibt deiner Karte ein Abzeichen. Wenn du lieber per Video sprichst, kannst du hier im Browser beitreten: %(call_url)s"
+
+msgid "Video call with your coach"
+msgstr "Videoanruf mit deinem Coach"
+
+#, python-format
+msgid "A short video call with %(name)s"
+msgstr "Ein kurzer Videoanruf mit %(name)s"
+
+msgid "A short video call with your coach"
+msgstr "Ein kurzer Videoanruf mit deinem Coach"
+
+msgid "A Crush coach would like to meet you on video for about 5 minutes, to confirm that you are a real person."
+msgstr "Ein Crush Coach möchte dich etwa 5 Minuten per Video treffen, um zu bestätigen, dass du eine echte Person bist."
+
+msgid "Before you join"
+msgstr "Bevor du beitrittst"
+
+msgid "It is optional. You can say no, and nothing else changes."
+msgstr "Das ist freiwillig. Du kannst Nein sagen, und sonst ändert sich nichts."
+
+msgid "Nothing is recorded or saved."
+msgstr "Nichts wird aufgezeichnet oder gespeichert."
+
+msgid "If it goes well, your Connect card gets a badge that tells other members a coach confirmed you are a real person."
+msgstr "Wenn alles gut läuft, bekommt deine Connect-Karte ein Abzeichen, das anderen Mitgliedern zeigt, dass ein Coach bestätigt hat, dass du eine echte Person bist."
+
+msgid "Video calls are not available right now, so your coach will phone you instead."
+msgstr "Videoanrufe sind gerade nicht verfügbar, deshalb ruft dich dein Coach stattdessen an."
+
+msgid "Video calls work in your phone's browser, not yet in the Crush.lu app. Open this page in your browser:"
+msgstr "Videoanrufe funktionieren im Browser deines Handys, noch nicht in der Crush.lu-App. Öffne diese Seite in deinem Browser:"
+
+msgid "Not started"
+msgstr "Nicht gestartet"
+
+msgid "Starting your camera…"
+msgstr "Deine Kamera wird gestartet…"
+
+msgid "Waiting for the other person…"
+msgstr "Warten auf die andere Person…"
+
+msgid "Connecting…"
+msgstr "Verbindung wird aufgebaut…"
+
+msgid "Reconnecting…"
+msgstr "Verbindung wird wiederhergestellt…"
+
+msgid "Call ended"
+msgstr "Anruf beendet"
+
+msgid "The call could not connect. Try again, or switch to a phone call."
+msgstr "Der Anruf konnte nicht verbunden werden. Versuche es noch einmal oder wechsle zu einem Telefonanruf."
+
+msgid "Camera or microphone access was refused. Allow it in your browser settings, then try again."
+msgstr "Der Zugriff auf Kamera oder Mikrofon wurde verweigert. Erlaube ihn in den Browser-Einstellungen und versuche es dann erneut."
+
+msgid "This call continued in another window."
+msgstr "Dieser Anruf wird in einem anderen Fenster fortgesetzt."
+
+msgid "Mute"
+msgstr "Stummschalten"
+
+msgid "Unmute"
+msgstr "Stummschaltung aufheben"
+
+msgid "Camera off"
+msgstr "Kamera aus"
+
+msgid "Camera on"
+msgstr "Kamera an"
+
+msgid "Start video"
+msgstr "Video starten"
+
+msgid "Switch camera"
+msgstr "Kamera wechseln"
+
+msgid "Hang up"
+msgstr "Auflegen"
+
+msgid "Video calls are not available right now. Use a phone call instead."
+msgstr "Videoanrufe sind gerade nicht verfügbar. Nutze stattdessen einen Telefonanruf."
+
+msgid "If it goes well, your Connect card gets a badge as soon as badges are shown to other members: it tells them a coach confirmed you are a real person."
+msgstr "Wenn alles gut läuft, bekommt deine Connect-Karte ein Abzeichen, sobald Abzeichen für andere Mitglieder sichtbar sind. Es zeigt ihnen, dass ein Coach bestätigt hat, dass du eine echte Person bist."
+
+msgid "When your coach has been in touch and you are ready, press Start video and allow your camera and microphone. Your coach joins the same call."
+msgstr "Wenn sich dein Coach gemeldet hat und du bereit bist, tippe auf „Video starten“ und erlaube Kamera und Mikrofon. Dein Coach tritt demselben Anruf bei."
+
+#, python-format
+msgid "%(name)s would like to meet you on video for about 5 minutes. Once they have been in touch, you can join here. It is optional, and nothing is recorded."
+msgstr "%(name)s möchte dich etwa 5 Minuten per Video treffen. Sobald sich dein Coach gemeldet hat, kannst du hier beitreten. Das ist freiwillig, und nichts wird aufgezeichnet."
+
+msgid "A Crush coach would like to meet you on video for about 5 minutes. Once they have been in touch, you can join here. It is optional, and nothing is recorded."
+msgstr "Ein Crush Coach möchte dich etwa 5 Minuten per Video treffen. Sobald sich der Coach gemeldet hat, kannst du hier beitreten. Das ist freiwillig, und nichts wird aufgezeichnet."
+
+msgid "This video call is not open right now"
+msgstr "Dieser Videoanruf ist gerade nicht geöffnet"
+
+msgid "Your coach may have finished, or the link may have expired. Joining was optional, so nothing changes for you. If your coach would like to try again, they will get in touch."
+msgstr "Dein Coach ist vielleicht schon fertig, oder der Link ist abgelaufen. Die Teilnahme war freiwillig, für dich ändert sich also nichts. Wenn dein Coach es noch einmal versuchen möchte, meldet er oder sie sich bei dir."
