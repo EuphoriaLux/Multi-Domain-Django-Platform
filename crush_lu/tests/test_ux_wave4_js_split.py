@@ -232,7 +232,10 @@ class BundleRegistryTests(SimpleTestCase):
                 source = _code_lines(ALPINE_DIR / f"{bundle}.js")
                 self.assertNotIn(f"function {helper}(", source, bundle)
         coach = (ALPINE_DIR / "coach.js").read_text(encoding="utf-8")
-        self.assertIn('import { makeModal, mixin } from "./shared.js";', coach)
+        # realPersonCheckChecklist composes makeConfirm as well.
+        self.assertIn(
+            'import { makeConfirm, makeModal, mixin } from "./shared.js";', coach
+        )
 
 
 class TemplateBundleCoverageTests(SimpleTestCase):

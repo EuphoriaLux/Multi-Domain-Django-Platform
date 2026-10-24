@@ -52,6 +52,9 @@
         </p>
         {% endif %}
     </header>
+    {% if real_person_call %}
+    {% include "crush_lu/crush_connect/_real_person_call_card.html" with call=real_person_call %}
+    {% endif %}
     {% if connect_summary.pending_requests %}
     <section class="rounded-2xl bg-white dark:bg-slate-800 p-4 mb-4 ring-1 ring-crush-purple">
         <h2 class="card-title">{% trans "Your response needed" %}</h2>
@@ -95,6 +98,10 @@
     {% if connect_summary.chat_count %}<a class="btn-crush-outline btn-block mb-4" href="{% url 'crush_lu:connect_week_chats' %}">{% trans "Continue your conversations" %} ({{ connect_summary.chat_count }})</a>{% endif %}
     {% if not connect_readiness.is_complete %}
     {% include "crush_lu/crush_connect/_readiness_checklist.html" with readiness=connect_readiness %}
+    {% endif %}
+    {# Outside the readiness block: it applies whether or not the checklist is complete. #}
+    {% if real_person_check_note %}
+    {% include "crush_lu/crush_connect/_real_person_check_note.html" with note=real_person_check_note %}
     {% endif %}
     {% comment %}
     Pre-onboarding members may use this personal hub as preparation, but no

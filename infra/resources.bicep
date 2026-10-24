@@ -519,6 +519,24 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       // capacity-aware guest feature would swap True into production.
       // Pin with: az webapp config appsettings set ... --slot-settings EVENT_GUESTS_ENABLED=False
       'EVENT_GUESTS_ENABLED'
+      // Connect real-person check (coach call -> badge). Both absent means off,
+      // so the risk is staging turning one on to verify the flow and swapping
+      // True into production before the cohort was reviewed.
+      // Pin with: az webapp config appsettings set ... --slot-settings CONNECT_REAL_PERSON_CHECK_ENABLED=False CONNECT_REAL_PERSON_BADGE_VISIBLE=False
+      'CONNECT_REAL_PERSON_CHECK_ENABLED'
+      'CONNECT_REAL_PERSON_BADGE_VISIBLE'
+      // In-app video calls (crush_lu/services/turn_credentials.py): the
+      // Cloudflare Realtime TURN key id and its API token. A separate key per
+      // slot, so staging must never hold production's and a swap must never
+      // move one slot's key to the other. Absent means video calls are off.
+      // Pin with: az webapp config appsettings set ... --slot-settings CLOUDFLARE_TURN_KEY_ID=<id> CLOUDFLARE_TURN_KEY_API_TOKEN=<token>
+      'CLOUDFLARE_TURN_KEY_ID'
+      'CLOUDFLARE_TURN_KEY_API_TOKEN'
+      // Absent means 'relay' (every call goes through TURN, so neither person
+      // learns the other's IP address). Staging may set 'all' to debug a
+      // connection; unpinned, a swap would carry that into production.
+      // Pin with: az webapp config appsettings set ... --slot-settings VIDEO_CALL_ICE_TRANSPORT_POLICY=relay
+      'VIDEO_CALL_ICE_TRANSPORT_POLICY'
       'ECHO_LU_API_KEY'
       'SECRET_SYNC_TOKEN'
       'HEALTH_CHECK_SECRET_TOKEN'

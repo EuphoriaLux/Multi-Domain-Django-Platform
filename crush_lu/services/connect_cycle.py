@@ -552,6 +552,8 @@ def visible_cycle_cards(cards, viewer):
             .select_related(
                 "target_user__crushprofile", "target_user__crush_connect_membership"
             )
+            # The coach-verified badge each card may show (real_person_badge).
+            .select_related("target_user__crushprofile__connect_real_person_badge")
             .prefetch_related(
                 "target_user__crushprofile__photo_review_states",
                 # The coach-set focus of each card photo (photo_framing).
@@ -569,6 +571,7 @@ def visible_cycle_cards(cards, viewer):
         .select_related(
             "target_user__crushprofile", "target_user__crush_connect_membership"
         )
+        .select_related("target_user__crushprofile__connect_real_person_badge")
         .prefetch_related(
             "target_user__crushprofile__photo_review_states",
             "target_user__crushprofile__photo_framings",
@@ -979,6 +982,8 @@ def get_pending_inbox(user):
             "requester__crushprofile",
             "requester__crush_connect_membership",
             "target_card",
+            # The coach-verified badge each request card may show.
+            "requester__crushprofile__connect_real_person_badge",
         )
         .prefetch_related(
             "requester__crush_connect_membership__interests",

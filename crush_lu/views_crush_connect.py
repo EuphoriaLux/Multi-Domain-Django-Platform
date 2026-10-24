@@ -159,8 +159,12 @@ def _connect_trust_status(profile):
     """Return the member-facing verification label, and nothing sensitive.
 
     LuxID claims and event/check-in provenance deliberately stay server-side.
-    The hub receives only the three approved labels and the LuxID-only product
-    explanation.
+    The hub receives only the approved labels and the LuxID-only product
+    explanation. A LuxID-only member a coach has also spoken to (a Connect
+    real-person check, and only while the badge flag is on) gets
+    ``luxid_video`` / ``luxid_voice`` instead of ``luxid``. The check is
+    badge-only and does not unlock Connect Week, so both explanations keep
+    saying that taking part in an event does.
     """
     if profile is None:
         return None
@@ -184,6 +188,32 @@ def _connect_trust_status(profile):
             ),
         }
     if has_luxid:
+        from crush_lu.services.real_person_check import (
+            granted_badge_medium,
+            real_person_badge_visible,
+        )
+
+        # Same gate as the badge other members see: flags first, so this costs
+        # nothing while the feature is off.
+        coach_call = (
+            granted_badge_medium(profile) if real_person_badge_visible() else ""
+        )
+        if coach_call == "video":
+            return {
+                "kind": "luxid_video",
+                "label": _("Identity confirmed by LuxID and a coach video call"),
+                "explanation": _(
+                    "LuxID confirms your identity, and a Crush coach confirmed on a video call that you are a real person. Taking part in a Crush event unlocks the active Connect journey and up to two new profiles a day, once the other steps are complete."
+                ),
+            }
+        if coach_call == "voice":
+            return {
+                "kind": "luxid_voice",
+                "label": _("Identity confirmed by LuxID and a coach call"),
+                "explanation": _(
+                    "LuxID confirms your identity, and a Crush coach spoke with you and confirmed that you are a real person. Taking part in a Crush event unlocks the active Connect journey and up to two new profiles a day, once the other steps are complete."
+                ),
+            }
         return {
             "kind": "luxid",
             "label": _("Identity confirmed by LuxID"),
@@ -192,6 +222,61 @@ def _connect_trust_status(profile):
             ),
         }
     return None
+
+
+def _real_person_check_note(user, profile):
+    """The hub note that tells a member a coach may reach out, or ``None``.
+
+    Shown only to members of the real-person check cohort who have no badge
+    yet, and only while the badge flag is on (which includes the tooling
+    flag): the note promises a badge on their card, so it must not appear
+    while nobody can see one. Flags are checked first, so a switched-off
+    feature costs the hub no query. A member the queue keeps from every coach
+    (said no within the cooldown, or has an unresolved fake-profile report)
+    does not get it either (``member_awaits_outreach``).
+
+    Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
+    (copy approved as D10)
+    """
+    from crush_lu.services.real_person_check import (
+        member_awaits_outreach,
+        real_person_badge_visible,
+    )
+
+    if profile is None or not real_person_badge_visible():
+        return None
+    # A badge already earned (a door badge cannot be here: the cohort excludes
+    # coach-attested photos), so the invitation no longer applies.
+    if profile.real_person_badge:
+        return None
+    if not member_awaits_outreach(user):
+        return None
+    return _(
+        "To confirm every Connect member is a real person, a Crush coach may text you and suggest a short video or voice call. It's optional: it adds a badge to your card and changes nothing else."
+    )
+
+
+def _real_person_call_card(user):
+    """The hub card that sends a member to their coach's video call, or ``None``.
+
+    Shown only while the member holds a live real-person check whose call they
+    may join (``member_call_check``: tooling flag on, video calls available,
+    claim not lapsed, every coach-side guard clear). It does not wait for the
+    badge flag: the call is a conversation with a coach, not a promise about
+    other members seeing something. A switched-off feature costs the hub no
+    query.
+
+    Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md (D12)
+    """
+    from crush_lu.services.real_person_check import member_call_check
+
+    check = member_call_check(user)
+    if check is None:
+        return None
+    return {
+        "url": reverse("crush_lu:crush_connect_real_person_call", args=[check.pk]),
+        "coach_name": check.coach.user.first_name,
+    }
 
 
 def _active_assigned_coach(profile):
@@ -1003,6 +1088,10 @@ def crush_connect_hub(request):
     event_lobby_enabled = lobby_feature_enabled()
     people_ive_met_count = len(get_people_ive_met(user)) if event_lobby_enabled else 0
 
+    # The call card and the "a coach may text you" note never show together:
+    # once a coach holds a live check and the call is open, the card says it.
+    real_person_call = _real_person_call_card(user)
+
     readiness = _connect_readiness(user)
     # The full checklist is guidance, not a second entitlement system (see
     # ``_connect_readiness``'s docstring) — most of its steps are informational
@@ -1049,6 +1138,10 @@ def crush_connect_hub(request):
         "connect_readiness": readiness,
         "blocking_step": blocking_step,
         "has_non_closed_chat": user_has_non_closed_chat(user),
+        "real_person_call": real_person_call,
+        "real_person_check_note": (
+            None if real_person_call else _real_person_check_note(user, profile)
+        ),
     }
     return render(request, "crush_lu/crush_connect/hub.html", context)
 

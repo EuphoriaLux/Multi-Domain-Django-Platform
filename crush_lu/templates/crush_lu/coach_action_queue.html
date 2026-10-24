@@ -37,6 +37,14 @@
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
         <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{% trans "Calls" %}</p>
         <p class="text-2xl font-bold dark:text-white">{{ counts.screening }}</p>
+        {% comment %}
+        The Connect real-person checks this coach holds are part of Total, like
+        the unclaimed crush calls below: a call of the same kind, so a line under
+        Calls rather than a seventh tile. Zero (and absent) while the flag is off.
+        {% endcomment %}
+        {% if counts.real_person_check %}
+            <p class="text-xs font-medium text-purple-700 dark:text-purple-300 mt-1">{% trans "Real-person checks" %}: {{ counts.real_person_check }}</p>
+        {% endif %}
     </div>
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
         <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{% trans "Connections" %}</p>
@@ -95,6 +103,7 @@
             <span class="flex-shrink-0 w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 text-crush-purple flex items-center justify-center" aria-hidden="true">
                 {% if item.kind == 'profile' %}{% include "shared/icons/identification.html" with class="w-4 h-4" %}
                 {% elif item.kind == 'screening' %}{% include "shared/icons/phone.html" with class="w-4 h-4" %}
+                {% elif item.kind == 'real_person_check' %}{% include "shared/icons/video-camera.html" with class="w-4 h-4" %}
                 {% else %}{% include "shared/icons/heart.html" with class="w-4 h-4" %}{% endif %}
             </span>
 
@@ -108,6 +117,8 @@
                     {% elif item.kind == 'crush_outreach' %}
                         {# Co-coach: its own constrained surface, never the lead #}
                         <a href="{% url 'crush_lu:coach_crush_outreach_task' connection_id=item.url_kwargs.connection_id %}" class="text-crush-purple hover:underline">{{ item.title }}</a>
+                    {% elif item.kind == 'real_person_check' %}
+                        <a href="{% url 'crush_lu:coach_real_person_check' check_id=item.url_kwargs.check_id %}" class="text-crush-purple hover:underline">{{ item.title }}</a>
                     {% else %}
                         <a href="{% url 'crush_lu:coach_connection_review' connection_id=item.url_kwargs.connection_id %}" class="text-crush-purple hover:underline">{{ item.title }}</a>
                     {% endif %}
@@ -129,6 +140,8 @@
                         ·
                         {% if item.kind == 'screening' %}
                             {% blocktrans with d=item.deadline|timeuntil %}in {{ d }}{% endblocktrans %}
+                        {% elif item.kind == 'real_person_check' %}
+                            {% blocktrans with d=item.deadline|timeuntil %}claim ends in {{ d }}{% endblocktrans %}
                         {% elif item.sla_state == 'breach' or item.sla_state == 'escalated' %}
                             {% blocktrans with d=item.deadline|timesince %}{{ d }} overdue{% endblocktrans %}
                         {% else %}
@@ -145,6 +158,10 @@
             </a>
             {% elif item.kind == 'crush_outreach' %}
             <a href="{% url 'crush_lu:coach_crush_outreach_task' connection_id=item.url_kwargs.connection_id %}" class="flex-shrink-0 inline-flex items-center justify-center gap-1 px-3 py-1.5 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                {% trans "Open" %}
+            </a>
+            {% elif item.kind == 'real_person_check' %}
+            <a href="{% url 'crush_lu:coach_real_person_check' check_id=item.url_kwargs.check_id %}" class="flex-shrink-0 inline-flex items-center justify-center gap-1 px-3 py-1.5 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
                 {% trans "Open" %}
             </a>
             {% else %}

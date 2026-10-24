@@ -1,0 +1,151 @@
+{% load i18n %}
+{% comment %}
+Outreach links and contact history for one Connect real-person check.
+
+Rendered inside coach_real_person_check.html and returned on its own by the
+HTMX log endpoint, so everything that depends on the guards (the links) is
+recomputed with every swap. The check URLs come in as context ("urls"), not
+hard-coded, unlike the screening-call partial this is modelled on.
+
+Links open on the coach's own phone; nothing is sent from the server. They are
+blank whenever a guard fails or the number is not verified.
+{% endcomment %}
+<div id="rpc-outreach" class="mb-6">
+    {% for message in log_errors %}
+    <div class="alert alert-danger mb-3" role="alert">
+        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
+        <span class="text-sm">{{ message }}</span>
+    </div>
+    {% endfor %}
+    {% if notice %}
+    <div class="alert alert-success mb-3" role="status">
+        {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
+        <span class="text-sm">{{ notice }}</span>
+    </div>
+    {% endif %}
+
+    <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
+        <h3 class="text-lg font-semibold dark:text-white mb-1">{% trans "Reach out" %}</h3>
+        {% if is_live %}
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            {% blocktrans with d=check.lease_expires_at|timeuntil:now %}Your claim ends in {{ d }}. Logging a contact attempt renews it.{% endblocktrans %}
+        </p>
+        {% endif %}
+
+        {% if links_blocked %}
+        <div class="alert alert-warning mb-3" role="alert">
+            {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
+            <div class="text-sm">
+                <p class="font-semibold mb-1">{% trans "Contact links are switched off for this member." %}</p>
+                <ul class="list-disc ml-5 mb-0">
+                    {% for message in guard_messages %}<li>{{ message }}</li>{% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% elif not is_live %}
+        <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{% trans "This check is closed, so the contact links are switched off." %}</p>
+        {% elif not tel_href %}
+        <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{% trans "This member has no verified phone number, so there is nothing to call or text." %}</p>
+        {% else %}
+        <p class="text-sm mb-3 flex items-center gap-2">
+            {% include "shared/icons/phone.html" with class="w-5 h-5 text-crush-purple" %}
+            <span class="font-mono text-gray-900 dark:text-gray-100">{{ phone_display }}</span>
+        </p>
+        {# WhatsApp only for members who opted in to it (spec D11): no whatsapp_url, no link. #}
+        <div class="grid grid-cols-1 {% if whatsapp_url %}sm:grid-cols-3{% else %}sm:grid-cols-2{% endif %} gap-2 mb-1">
+            <a href="{{ sms_href }}" class="btn-crush-solid btn-block inline-flex items-center justify-center gap-2">
+                {% include "shared/icons/chat-bubble-left-ellipsis.html" with class="w-4 h-4" %}
+                {% trans "Open SMS app" %}
+            </a>
+            {% if whatsapp_url %}
+            <a href="{{ whatsapp_url }}" target="_blank" rel="noopener" class="btn-crush-outline btn-block inline-flex items-center justify-center gap-2">
+                {% include "shared/icons/whatsapp.html" with class="w-4 h-4" %}
+                {% trans "Open WhatsApp" %}
+            </a>
+            {% endif %}
+            <a href="{{ tel_href }}" class="btn-crush-outline btn-block inline-flex items-center justify-center gap-2">
+                {% include "shared/icons/phone.html" with class="w-4 h-4" %}
+                {% trans "Call" %}
+            </a>
+        </div>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{% trans "The message is written in the member's language. Open it on your own phone, then log it below." %}</p>
+        {% endif %}
+
+        {% if is_live and not links_blocked %}
+        <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+            <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">{% trans "Log a contact attempt" %}</p>
+            <div class="grid grid-cols-1 {% if whatsapp_url %}sm:grid-cols-2{% endif %} gap-2">
+                <form method="post" action="{{ urls.log }}" hx-post="{{ urls.log }}" hx-target="#rpc-outreach" hx-swap="outerHTML" class="m-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="result" value="sms_sent">
+                    <button type="submit" class="btn-crush-outline btn-block">{% trans "I sent an SMS" %}</button>
+                </form>
+                {% if whatsapp_url %}
+                <form method="post" action="{{ urls.log }}" hx-post="{{ urls.log }}" hx-target="#rpc-outreach" hx-swap="outerHTML" class="m-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="result" value="whatsapp_sent">
+                    <button type="submit" class="btn-crush-outline btn-block">{% trans "I sent a WhatsApp message" %}</button>
+                </form>
+                {% endif %}
+            </div>
+            <details class="mt-3">
+                <summary class="text-sm font-medium text-crush-purple cursor-pointer">{% trans "I could not reach them" %}</summary>
+                <form method="post" action="{{ urls.log }}" hx-post="{{ urls.log }}" hx-target="#rpc-outreach" hx-swap="outerHTML" class="mt-3 space-y-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="result" value="failed">
+                    <div>
+                        <label for="rpc-failure-reason" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">{% trans "What happened?" %}</label>
+                        <select id="rpc-failure-reason" name="failure_reason" required class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+                            <option value="">{% trans "Choose a reason" %}</option>
+                            {% for code, label in failure_reasons %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="rpc-attempt-notes" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">{% trans "Notes (optional)" %}</label>
+                        <textarea id="rpc-attempt-notes" name="notes" rows="2" maxlength="{{ notes_max }}" class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"></textarea>
+                    </div>
+                    <button type="submit" class="btn-crush-outline btn-block">{% trans "Log failed attempt" %}</button>
+                </form>
+            </details>
+        </div>
+        {% endif %}
+
+        <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+            <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">{% trans "Contact attempts" %}</p>
+            {% if attempts %}
+            <ul class="space-y-2 mb-0 list-none p-0">
+                {% for attempt in attempts %}
+                <li class="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 p-3 rounded-lg border border-gray-100 dark:border-gray-700">
+                    {% if attempt.result == 'failed' %}
+                        <span class="text-red-500">{% include "shared/icons/x-circle.html" with class="w-4 h-4 flex-shrink-0" %}</span>
+                    {% elif attempt.result == 'sms_sent' %}
+                        <span class="text-blue-500">{% include "shared/icons/chat-bubble-left-ellipsis.html" with class="w-4 h-4 flex-shrink-0" %}</span>
+                    {% elif attempt.result == 'whatsapp_sent' %}
+                        <span class="text-green-600">{% include "shared/icons/whatsapp.html" with class="w-4 h-4 flex-shrink-0" %}</span>
+                    {% else %}
+                        <span class="text-green-500">{% include "shared/icons/check-circle.html" with class="w-4 h-4 flex-shrink-0" %}</span>
+                    {% endif %}
+                    <div class="flex-1 min-w-0">
+                        <p class="font-medium text-gray-900 dark:text-gray-100 mb-0">{{ attempt.attempt_date|date:"M d, Y g:i A" }}</p>
+                        {% if attempt.result == 'failed' %}
+                            <p class="mb-0">{% trans "Failed:" %} {{ attempt.get_failure_reason_display }}</p>
+                        {% elif attempt.result == 'sms_sent' %}
+                            <p class="mb-0">{% trans "SMS template sent" %}</p>
+                        {% elif attempt.result == 'whatsapp_sent' %}
+                            <p class="mb-0">{% trans "WhatsApp template sent" %}</p>
+                        {% else %}
+                            <p class="mb-0">{% trans "Call completed successfully" %}</p>
+                        {% endif %}
+                        {% if attempt.notes %}
+                            <p class="text-gray-500 dark:text-gray-400 italic mt-1 mb-0">{{ attempt.notes|truncatewords:15 }}</p>
+                        {% endif %}
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-0">{% trans "No contact attempts yet." %}</p>
+            {% endif %}
+        </div>
+    </section>
+</div>

@@ -111,7 +111,12 @@ def draw_showcase_deck(pool, size=SHOWCASE_DECK_SIZE):
     by_id = {
         user.pk: user
         for user in User.objects.filter(pk__in=picked_ids)
-        .select_related("crushprofile", "crush_connect_membership")
+        .select_related(
+            "crushprofile",
+            "crush_connect_membership",
+            # The coach-verified badge each card may show (real_person_badge).
+            "crushprofile__connect_real_person_badge",
+        )
         .prefetch_related(
             "crush_connect_membership__interests",
             Prefetch(

@@ -224,6 +224,11 @@ from .event_lobby import (
     EventMeetSignalAdmin,
 )
 
+from .real_person_check import (
+    ConnectRealPersonBadgeAdmin,
+    ConnectRealPersonCheckAdmin,
+)
+
 from .metrics import WeeklyMetricsSnapshotAdmin
 
 from .payments import (
@@ -378,6 +383,8 @@ from crush_lu.models import (
     EventMeetingConfirmation,
     ConfirmedEncounter,
     ConfirmedEncounterRemovalRequest,
+    ConnectRealPersonBadge,
+    ConnectRealPersonCheck,
 )
 
 # ============================================================================
@@ -531,6 +538,10 @@ crush_admin_site.register(ConnectCycleFeedback, ConnectCycleFeedbackAdmin)
 crush_admin_site.register(UserReport, UserReportAdmin)
 crush_admin_site.register(UserBlock, UserBlockAdmin)
 crush_admin_site.register(ProfilePhotoReviewLog, ProfilePhotoReviewLogAdmin)
+
+# Connect real-person check (superuser-only oversight + revoke)
+crush_admin_site.register(ConnectRealPersonCheck, ConnectRealPersonCheckAdmin)
+crush_admin_site.register(ConnectRealPersonBadge, ConnectRealPersonBadgeAdmin)
 
 # Event Lobby (read-only oversight)
 crush_admin_site.register(EventLobbyParticipation, EventLobbyParticipationAdmin)

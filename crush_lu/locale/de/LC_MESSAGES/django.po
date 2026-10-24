@@ -3780,10 +3780,8 @@ msgid "Rescheduled"
 msgstr "Geplant"
 
 #: models/connections.py:337
-#, fuzzy
-#| msgid "Breached"
 msgid "Unreachable"
-msgstr "Überschritten"
+msgstr "Nicht erreichbar"
 
 #: models/connections.py:355
 msgid ""
@@ -12644,7 +12642,7 @@ msgstr "Nur für Coaches"
 
 #: templates/crush_lu/_decision_tab.html:43
 msgid "Decision"
-msgstr "Version:"
+msgstr "Entscheidung"
 
 #: templates/crush_lu/_decision_tab.html:47
 msgid "Select the appropriate review outcome"
@@ -46275,3 +46273,509 @@ msgstr "Von deinem Crush-WhatsApp senden"
 #: crush_lu/services/coach_whatsapp.py
 msgid "Follow-up message (template)"
 msgstr "Nachfass-Nachricht (Vorlage)"
+
+msgid "Real-person checks"
+msgstr "Echtheitsprüfungen"
+
+msgid "Crush Connect members no coach has met. A short video or voice call confirms they are a real person and adds a badge to their card."
+msgstr "Crush-Connect-Mitglieder, denen noch kein Coach begegnet ist. Ein kurzer Video- oder Sprachanruf bestätigt, dass sie echte Personen sind, und fügt ihrer Karte ein Abzeichen hinzu."
+
+msgid "My open checks"
+msgstr "Meine offenen Prüfungen"
+
+#, python-format
+msgid "%(current)s of %(max)s"
+msgstr "%(current)s von %(max)s"
+
+#, python-format
+msgid "Your claim ends in %(d)s"
+msgstr "Deine Übernahme endet in %(d)s"
+
+msgid "You have no open checks. Claim a member below to start."
+msgstr "Du hast keine offenen Prüfungen. Übernimm unten ein Mitglied, um zu beginnen."
+
+msgid "Waiting for a call"
+msgstr "Warten auf einen Anruf"
+
+#, python-format
+msgid "Showing %(first)s–%(last)s of %(total)s"
+msgstr "%(first)s–%(last)s von %(total)s angezeigt"
+
+#, python-format
+msgid "You hold %(max)s open checks. Release or finish one before claiming another."
+msgstr "Du hast %(max)s offene Prüfungen. Gib eine frei oder schließe sie ab, bevor du eine weitere übernimmst."
+
+#, python-format
+msgid "last login %(d)s ago"
+msgstr "letzter Login vor %(d)s"
+
+msgid "never logged in"
+msgstr "nie eingeloggt"
+
+msgid "Pages"
+msgstr "Seiten"
+
+#, python-format
+msgid "Page %(number)s of %(total)s"
+msgstr "Seite %(number)s von %(total)s"
+
+msgid "Nobody is waiting"
+msgstr "Niemand wartet"
+
+msgid "No Connect members are waiting for a real-person check right now."
+msgstr "Zurzeit wartet kein Connect-Mitglied auf eine Echtheitsprüfung."
+
+msgid "All real-person checks"
+msgstr "Alle Echtheitsprüfungen"
+
+msgid "Real-person check"
+msgstr "Echtheitsprüfung"
+
+#, python-format
+msgid "This check is closed: %(status)s."
+msgstr "Diese Prüfung ist abgeschlossen: %(status)s."
+
+msgid "Your claim on this member has lapsed. Claim them again from the list to continue."
+msgstr "Deine Übernahme dieses Mitglieds ist abgelaufen. Übernimm es erneut aus der Liste, um fortzufahren."
+
+msgid "Photo 1"
+msgstr "Foto 1"
+
+msgid "The member's current main photo"
+msgstr "Das aktuelle Hauptfoto des Mitglieds"
+
+msgid "Current upload (what you see)"
+msgstr "Aktueller Upload (was du siehst)"
+
+msgid "The main photo other members see"
+msgstr "Das Hauptfoto, das andere Mitglieder sehen"
+
+msgid "What other members see"
+msgstr "Was andere Mitglieder sehen"
+
+msgid "No coach has approved this photo yet, so other members see no photo. Only a voice check is possible until it is approved."
+msgstr "Noch kein Coach hat dieses Foto freigegeben, deshalb sehen andere Mitglieder kein Foto. Bis zur Freigabe ist nur eine Sprachprüfung möglich."
+
+msgid "Other members still see an earlier photo. Only a voice check is possible until the new one is approved."
+msgstr "Andere Mitglieder sehen noch ein früheres Foto. Bis das neue freigegeben ist, ist nur eine Sprachprüfung möglich."
+
+msgid "How did you speak with them?"
+msgstr "Wie hast du mit der Person gesprochen?"
+
+msgid "Video call"
+msgstr "Videoanruf"
+
+msgid "Voice call"
+msgstr "Sprachanruf"
+
+msgid "Video is unavailable until a coach approves the member's current main photo."
+msgstr "Video ist nicht verfügbar, bis ein Coach das aktuelle Hauptfoto des Mitglieds freigibt."
+
+msgid "Choose video or voice to open the checklist. The badge says which one you used."
+msgstr "Wähle Video oder Sprache, um die Checkliste zu öffnen. Das Abzeichen zeigt, welche Variante du genutzt hast."
+
+msgid "Checklist"
+msgstr "Checkliste"
+
+msgid "Notes (only coaches see them)"
+msgstr "Notizen (nur Coaches sehen sie)"
+
+msgid "Grant the video badge"
+msgstr "Video-Abzeichen vergeben"
+
+msgid "Grant the voice badge"
+msgstr "Sprach-Abzeichen vergeben"
+
+msgid "Not a pass?"
+msgstr "Nicht bestanden?"
+
+msgid "If you could not reach them, why?"
+msgstr "Falls du die Person nicht erreicht hast: warum?"
+
+msgid "Could not reach them"
+msgstr "Nicht erreicht"
+
+msgid "They declined"
+msgstr "Hat abgelehnt"
+
+msgid "Looks fake"
+msgstr "Wirkt gefälscht"
+
+msgid "Unreachable keeps them on the list. Declined leaves them alone for a while. Looks fake opens a report for an administrator; you exclude nobody yourself."
+msgstr "„Nicht erreicht“ lässt das Mitglied auf der Liste. „Hat abgelehnt“ lässt es eine Weile in Ruhe. „Wirkt gefälscht“ öffnet eine Meldung für einen Administrator; du schließt selbst niemanden aus."
+
+#, python-format
+msgid "Confirm that you spoke with %(name)s live and ticked every item truthfully. Other members will see the badge."
+msgstr "Bestätige, dass du live mit %(name)s gesprochen und jeden Punkt wahrheitsgemäß abgehakt hast. Andere Mitglieder sehen das Abzeichen."
+
+#, python-format
+msgid "Report %(name)s as a suspected fake? An administrator reviews it, and %(name)s is left alone until then."
+msgstr "%(name)s als vermutliche Fälschung melden? Ein Administrator prüft die Meldung, und %(name)s wird bis dahin nicht weiter kontaktiert."
+
+msgid "Yes, confirm"
+msgstr "Ja, bestätigen"
+
+msgid "Release this member"
+msgstr "Mitglied freigeben"
+
+msgid "They go back on the list for any coach to claim."
+msgstr "Das Mitglied kommt zurück auf die Liste, und jeder Coach kann es übernehmen."
+
+msgid "Your notes"
+msgstr "Deine Notizen"
+
+msgid "Reach out"
+msgstr "Kontakt aufnehmen"
+
+#, python-format
+msgid "Your claim ends in %(d)s. Logging a contact attempt renews it."
+msgstr "Deine Übernahme endet in %(d)s. Ein erfasster Kontaktversuch verlängert sie."
+
+msgid "Contact links are switched off for this member."
+msgstr "Die Kontakt-Links sind für dieses Mitglied deaktiviert."
+
+msgid "This check is closed, so the contact links are switched off."
+msgstr "Diese Prüfung ist abgeschlossen, daher sind die Kontakt-Links deaktiviert."
+
+msgid "This member has no verified phone number, so there is nothing to call or text."
+msgstr "Dieses Mitglied hat keine verifizierte Telefonnummer, daher gibt es nichts zum Anrufen oder Anschreiben."
+
+msgid "Open SMS app"
+msgstr "SMS-App öffnen"
+
+msgid "The message is written in the member's language. Open it on your own phone, then log it below."
+msgstr "Die Nachricht ist in der Sprache des Mitglieds verfasst. Öffne sie auf deinem eigenen Handy und erfasse sie dann unten."
+
+msgid "Log a contact attempt"
+msgstr "Kontaktversuch erfassen"
+
+msgid "I sent an SMS"
+msgstr "Ich habe eine SMS gesendet"
+
+msgid "I sent a WhatsApp message"
+msgstr "Ich habe eine WhatsApp-Nachricht gesendet"
+
+msgid "I could not reach them"
+msgstr "Ich konnte die Person nicht erreichen"
+
+msgid "What happened?"
+msgstr "Was ist passiert?"
+
+msgid "Choose a reason"
+msgstr "Grund wählen"
+
+msgid "Log failed attempt"
+msgstr "Gescheiterten Versuch erfassen"
+
+msgid "Contact attempts"
+msgstr "Kontaktversuche"
+
+msgid "No contact attempts yet."
+msgstr "Noch keine Kontaktversuche."
+
+#, python-format
+msgid "claim ends in %(d)s"
+msgstr "Übernahme endet in %(d)s"
+
+msgid "No check yet."
+msgstr "Noch keine Prüfung."
+
+msgid "Badge: video-verified by a coach"
+msgstr "Abzeichen: per Video von einem Coach verifiziert"
+
+msgid "Badge: spoke with a coach"
+msgstr "Abzeichen: hat mit einem Coach gesprochen"
+
+msgid "No badge"
+msgstr "Kein Abzeichen"
+
+msgid "not shown to members yet"
+msgstr "für Mitglieder noch nicht sichtbar"
+
+msgid "Continue the check"
+msgstr "Prüfung fortsetzen"
+
+msgid "I spoke with them live"
+msgstr "Ich habe live mit der Person gesprochen"
+
+msgid "Name matches the profile"
+msgstr "Der Name passt zum Profil"
+
+msgid "Age looks consistent with the profile"
+msgstr "Das Alter passt zum Profil"
+
+msgid "I explained the badge and they agreed"
+msgstr "Ich habe das Abzeichen erklärt und die Person war einverstanden"
+
+msgid "Their face matches photo 1"
+msgstr "Das Gesicht passt zu Foto 1"
+
+msgid "Live camera, not a recording"
+msgstr "Live-Kamera, keine Aufnahme"
+
+msgid "Passed"
+msgstr "Bestanden"
+
+msgid "Suspected fake"
+msgstr "Vermutliche Fälschung"
+
+msgid "Revoked"
+msgstr "Widerrufen"
+
+msgid "Not decided"
+msgstr "Nicht entschieden"
+
+msgid "You cannot check your own profile."
+msgstr "Sie können Ihr eigenes Profil nicht prüfen."
+
+msgid "Your coach account is not active."
+msgstr "Ihr Coach-Konto ist nicht aktiv."
+
+msgid "No coach has approved this member's current main photo yet, so a video pass cannot be granted. Review the photo first, or do a voice check."
+msgstr "Noch kein Coach hat das aktuelle Hauptfoto dieses Mitglieds freigegeben, daher kann kein Video-Abzeichen vergeben werden. Prüfen Sie zuerst das Foto oder führen Sie eine Sprachprüfung durch."
+
+msgid "This member is not available for a check right now."
+msgstr "Dieses Mitglied steht derzeit nicht für eine Prüfung zur Verfügung."
+
+msgid "Confirm your decision before saving it."
+msgstr "Bestätigen Sie Ihre Entscheidung, bevor Sie sie speichern."
+
+msgid "This member already has a real-person badge."
+msgstr "Dieses Mitglied hat bereits ein Echtheits-Abzeichen."
+
+msgid "This member is not on the real-person check list."
+msgstr "Dieses Mitglied steht nicht auf der Liste der Echtheitsprüfungen."
+
+msgid "Another coach has already claimed this member."
+msgstr "Ein anderer Coach hat dieses Mitglied bereits übernommen."
+
+msgid "This member declined a check recently and is left alone for now."
+msgstr "Dieses Mitglied hat kürzlich eine Prüfung abgelehnt und wird vorerst in Ruhe gelassen."
+
+msgid "This check is already closed."
+msgstr "Diese Prüfung ist bereits abgeschlossen."
+
+msgid "Your claim on this member has lapsed. Claim them again from the list."
+msgstr "Ihre Übernahme dieses Mitglieds ist abgelaufen. Übernehmen Sie es erneut aus der Liste."
+
+msgid "Choose what you did to reach this member."
+msgstr "Wählen Sie, wie Sie dieses Mitglied kontaktiert haben."
+
+msgid "Choose why the attempt failed."
+msgstr "Wählen Sie, warum der Versuch gescheitert ist."
+
+msgid "Choose video or voice."
+msgstr "Wählen Sie Video oder Sprache."
+
+msgid "The checklist could not be read. Reload the page and try again."
+msgstr "Die Checkliste konnte nicht gelesen werden. Laden Sie die Seite neu und versuchen Sie es erneut."
+
+msgid "Tick every item on the checklist before granting the badge."
+msgstr "Haken Sie jeden Punkt der Checkliste ab, bevor Sie das Abzeichen vergeben."
+
+msgid "Choose what to do with this check."
+msgstr "Wählen Sie, wie diese Prüfung abgeschlossen werden soll."
+
+msgid "You do not have access to do that."
+msgstr "Dafür haben Sie keine Berechtigung."
+
+#, python-format
+msgid "You already hold %(max)s open checks. Release one before claiming another."
+msgstr "Sie haben bereits %(max)s offene Prüfungen. Geben Sie eine frei, bevor Sie eine weitere übernehmen."
+
+#, python-format
+msgid "Notes can be at most %(max)s characters."
+msgstr "Notizen dürfen höchstens %(max)s Zeichen lang sein."
+
+msgid "This check could not be saved."
+msgstr "Diese Prüfung konnte nicht gespeichert werden."
+
+#, python-format
+msgid "Contact attempt logged. Your claim now runs for another %(hours)s hours."
+msgstr "Kontaktversuch erfasst. Ihre Übernahme läuft jetzt weitere %(hours)s Stunden."
+
+#, python-format
+msgid "Video check passed for %(name)s."
+msgstr "Videoprüfung für %(name)s bestanden."
+
+#, python-format
+msgid "Voice check passed for %(name)s."
+msgstr "Sprachprüfung für %(name)s bestanden."
+
+#, python-format
+msgid "%(name)s is marked as unreachable and stays on the list."
+msgstr "%(name)s ist als nicht erreichbar markiert und bleibt auf der Liste."
+
+#, python-format
+msgid "%(name)s declined. They are left alone for a while."
+msgstr "%(name)s hat abgelehnt. Das Mitglied wird eine Weile in Ruhe gelassen."
+
+#, python-format
+msgid "%(name)s was reported as a suspected fake. An administrator will review it."
+msgstr "%(name)s wurde als vermutliche Fälschung gemeldet. Ein Administrator prüft die Meldung."
+
+#, python-format
+msgid "You released %(name)s. They are back on the list."
+msgstr "Sie haben %(name)s freigegeben. Das Mitglied ist wieder auf der Liste."
+
+#, python-format
+msgid "Hi %(first_name)s, this is %(coach_name)s from Crush.lu. To confirm every Crush Connect member is a real person, could we do a quick 5-minute video call? It's optional and adds a 'verified by a coach' badge to your card."
+msgstr "Hallo %(first_name)s, hier ist %(coach_name)s von Crush.lu. Um zu bestätigen, dass jedes Crush-Connect-Mitglied eine echte Person ist: Hast du Lust auf einen kurzen Videoanruf (5 Minuten)? Er ist freiwillig und gibt deiner Karte das Abzeichen „von einem Coach verifiziert“."
+
+msgctxt "real-person check text message: no coach first name"
+msgid "a coach"
+msgstr "ein Coach"
+
+#, python-format
+msgid "Hi %(first_name)s, this is %(coach_name)s from Crush.lu. To confirm every Crush Connect member is a real person, could we have a quick 5-minute call? It's optional and adds a badge to your card."
+msgstr "Hallo %(first_name)s, hier ist %(coach_name)s von Crush.lu. Um zu bestätigen, dass jedes Crush-Connect-Mitglied eine echte Person ist: Hast du Lust auf einen kurzen Anruf (5 Minuten)? Er ist freiwillig und gibt deiner Karte ein Abzeichen."
+
+#, python-format
+msgid "Confirm that you spoke with %(name)s live and ticked every item truthfully. The badge is saved now, and other members will see it once badges are switched on."
+msgstr "Bestätige, dass du live mit %(name)s gesprochen und jeden Punkt wahrheitsgemäß abgehakt hast. Das Abzeichen wird jetzt gespeichert; andere Mitglieder sehen es, sobald Abzeichen freigeschaltet sind."
+
+msgid "In-person photo verified"
+msgstr "Foto persönlich verifiziert"
+
+msgid "Video-verified by a coach"
+msgstr "Per Video von einem Coach verifiziert"
+
+msgid "Spoke with a Crush coach"
+msgstr "Hat mit einem Crush Coach gesprochen"
+
+msgid "A Crush coach compared this member with their photo on a live video call"
+msgstr "Ein Crush Coach hat dieses Mitglied in einem Live-Videoanruf mit seinem Foto abgeglichen"
+
+msgid "A Crush coach spoke with this member on a call"
+msgstr "Ein Crush Coach hat in einem Anruf mit diesem Mitglied gesprochen"
+
+msgid "Identity confirmed by LuxID and a coach video call"
+msgstr "Identität durch LuxID und einen Videoanruf mit einem Coach bestätigt"
+
+msgid "Identity confirmed by LuxID and a coach call"
+msgstr "Identität durch LuxID und einen Anruf mit einem Coach bestätigt"
+
+msgid "LuxID confirms your identity, and a Crush coach confirmed on a video call that you are a real person. Taking part in a Crush event unlocks the active Connect journey and up to two new profiles a day, once the other steps are complete."
+msgstr "LuxID bestätigt deine Identität, und ein Crush Coach hat in einem Videoanruf bestätigt, dass du eine echte Person bist. Die Teilnahme an einem Crush-Event schaltet den aktiven Connect-Weg und bis zu zwei neue Profile pro Tag frei, sobald die übrigen Schritte abgeschlossen sind."
+
+msgid "LuxID confirms your identity, and a Crush coach spoke with you and confirmed that you are a real person. Taking part in a Crush event unlocks the active Connect journey and up to two new profiles a day, once the other steps are complete."
+msgstr "LuxID bestätigt deine Identität, und ein Crush Coach hat mit dir gesprochen und bestätigt, dass du eine echte Person bist. Die Teilnahme an einem Crush-Event schaltet den aktiven Connect-Weg und bis zu zwei neue Profile pro Tag frei, sobald die übrigen Schritte abgeschlossen sind."
+
+msgid "To confirm every Connect member is a real person, a Crush coach may text you and suggest a short video or voice call. It's optional: it adds a badge to your card and changes nothing else."
+msgstr "Damit wir sicher sind, dass jedes Connect-Mitglied eine echte Person ist, kann dir ein Crush Coach schreiben und einen kurzen Video- oder Sprachanruf vorschlagen. Das ist freiwillig: Deine Karte bekommt ein Abzeichen, sonst ändert sich nichts."
+
+msgid "Video call in Crush.lu"
+msgstr "Videoanruf in Crush.lu"
+
+#, python-format
+msgid "%(name)s joins from the link in your message. Press Start video when they are on the call page. Nothing is recorded or stored. If the video fails, phone them and choose Voice call in the decision below."
+msgstr "%(name)s tritt über den Link in deiner Nachricht bei. Tippe auf „Video starten“, sobald die Person auf der Anrufseite ist. Nichts wird aufgezeichnet oder gespeichert. Falls das Video nicht klappt, ruf die Person an und wähle unten bei der Entscheidung „Sprachanruf“."
+
+#, python-format
+msgid "Hi %(first_name)s, this is %(coach_name)s from Crush.lu. To confirm every Crush Connect member is a real person, could we do a quick 5-minute video call? It's optional and adds a 'verified by a coach' badge to your card. When you are ready, join from your browser here: %(call_url)s"
+msgstr "Hallo %(first_name)s, hier ist %(coach_name)s von Crush.lu. Um zu bestätigen, dass jedes Crush-Connect-Mitglied eine echte Person ist: Hast du Lust auf einen kurzen Videoanruf (5 Minuten)? Er ist freiwillig und gibt deiner Karte das Abzeichen „von einem Coach verifiziert“. Wenn du bereit bist, tritt hier im Browser bei: %(call_url)s"
+
+#, python-format
+msgid "Hi %(first_name)s, this is %(coach_name)s from Crush.lu. To confirm every Crush Connect member is a real person, could we have a quick 5-minute call? It's optional and adds a badge to your card. If you prefer video, you can join from your browser here: %(call_url)s"
+msgstr "Hallo %(first_name)s, hier ist %(coach_name)s von Crush.lu. Um zu bestätigen, dass jedes Crush-Connect-Mitglied eine echte Person ist: Hast du Lust auf einen kurzen Anruf (5 Minuten)? Er ist freiwillig und gibt deiner Karte ein Abzeichen. Wenn du lieber per Video sprichst, kannst du hier im Browser beitreten: %(call_url)s"
+
+msgid "Video call with your coach"
+msgstr "Videoanruf mit deinem Coach"
+
+#, python-format
+msgid "A short video call with %(name)s"
+msgstr "Ein kurzer Videoanruf mit %(name)s"
+
+msgid "A short video call with your coach"
+msgstr "Ein kurzer Videoanruf mit deinem Coach"
+
+msgid "A Crush coach would like to meet you on video for about 5 minutes, to confirm that you are a real person."
+msgstr "Ein Crush Coach möchte dich etwa 5 Minuten per Video treffen, um zu bestätigen, dass du eine echte Person bist."
+
+msgid "Before you join"
+msgstr "Bevor du beitrittst"
+
+msgid "It is optional. You can say no, and nothing else changes."
+msgstr "Das ist freiwillig. Du kannst Nein sagen, und sonst ändert sich nichts."
+
+msgid "Nothing is recorded or saved."
+msgstr "Nichts wird aufgezeichnet oder gespeichert."
+
+msgid "If it goes well, your Connect card gets a badge that tells other members a coach confirmed you are a real person."
+msgstr "Wenn alles gut läuft, bekommt deine Connect-Karte ein Abzeichen, das anderen Mitgliedern zeigt, dass ein Coach bestätigt hat, dass du eine echte Person bist."
+
+msgid "Video calls are not available right now, so your coach will phone you instead."
+msgstr "Videoanrufe sind gerade nicht verfügbar, deshalb ruft dich dein Coach stattdessen an."
+
+msgid "Video calls work in your phone's browser, not yet in the Crush.lu app. Open this page in your browser:"
+msgstr "Videoanrufe funktionieren im Browser deines Handys, noch nicht in der Crush.lu-App. Öffne diese Seite in deinem Browser:"
+
+msgid "Not started"
+msgstr "Nicht gestartet"
+
+msgid "Starting your camera…"
+msgstr "Deine Kamera wird gestartet…"
+
+msgid "Waiting for the other person…"
+msgstr "Warten auf die andere Person…"
+
+msgid "Connecting…"
+msgstr "Verbindung wird aufgebaut…"
+
+msgid "Reconnecting…"
+msgstr "Verbindung wird wiederhergestellt…"
+
+msgid "Call ended"
+msgstr "Anruf beendet"
+
+msgid "The call could not connect. Try again, or switch to a phone call."
+msgstr "Der Anruf konnte nicht verbunden werden. Versuche es noch einmal oder wechsle zu einem Telefonanruf."
+
+msgid "Camera or microphone access was refused. Allow it in your browser settings, then try again."
+msgstr "Der Zugriff auf Kamera oder Mikrofon wurde verweigert. Erlaube ihn in den Browser-Einstellungen und versuche es dann erneut."
+
+msgid "This call continued in another window."
+msgstr "Dieser Anruf wird in einem anderen Fenster fortgesetzt."
+
+msgid "Mute"
+msgstr "Stummschalten"
+
+msgid "Unmute"
+msgstr "Stummschaltung aufheben"
+
+msgid "Camera off"
+msgstr "Kamera aus"
+
+msgid "Camera on"
+msgstr "Kamera an"
+
+msgid "Start video"
+msgstr "Video starten"
+
+msgid "Switch camera"
+msgstr "Kamera wechseln"
+
+msgid "Hang up"
+msgstr "Auflegen"
+
+msgid "Video calls are not available right now. Use a phone call instead."
+msgstr "Videoanrufe sind gerade nicht verfügbar. Nutze stattdessen einen Telefonanruf."
+
+msgid "If it goes well, your Connect card gets a badge as soon as badges are shown to other members: it tells them a coach confirmed you are a real person."
+msgstr "Wenn alles gut läuft, bekommt deine Connect-Karte ein Abzeichen, sobald Abzeichen für andere Mitglieder sichtbar sind. Es zeigt ihnen, dass ein Coach bestätigt hat, dass du eine echte Person bist."
+
+msgid "When your coach has been in touch and you are ready, press Start video and allow your camera and microphone. Your coach joins the same call."
+msgstr "Wenn sich dein Coach gemeldet hat und du bereit bist, tippe auf „Video starten“ und erlaube Kamera und Mikrofon. Dein Coach tritt demselben Anruf bei."
+
+#, python-format
+msgid "%(name)s would like to meet you on video for about 5 minutes. Once they have been in touch, you can join here. It is optional, and nothing is recorded."
+msgstr "%(name)s möchte dich etwa 5 Minuten per Video treffen. Sobald sich dein Coach gemeldet hat, kannst du hier beitreten. Das ist freiwillig, und nichts wird aufgezeichnet."
+
+msgid "A Crush coach would like to meet you on video for about 5 minutes. Once they have been in touch, you can join here. It is optional, and nothing is recorded."
+msgstr "Ein Crush Coach möchte dich etwa 5 Minuten per Video treffen. Sobald sich der Coach gemeldet hat, kannst du hier beitreten. Das ist freiwillig, und nichts wird aufgezeichnet."
+
+msgid "This video call is not open right now"
+msgstr "Dieser Videoanruf ist gerade nicht geöffnet"
+
+msgid "Your coach may have finished, or the link may have expired. Joining was optional, so nothing changes for you. If your coach would like to try again, they will get in touch."
+msgstr "Dein Coach ist vielleicht schon fertig, oder der Link ist abgelaufen. Die Teilnahme war freiwillig, für dich ändert sich also nichts. Wenn dein Coach es noch einmal versuchen möchte, meldet er oder sie sich bei dir."

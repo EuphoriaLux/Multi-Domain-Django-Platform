@@ -520,6 +520,13 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
                     name for name in form.changed_data if name in concrete_fields
                 ]
                 super(CrushProfile, obj).save(update_fields=safe_update_fields)
+                # This path skips CrushProfile.save(), so a de-verification
+                # made in the same submit has to end the Connect real-person
+                # badge here (see end_real_person_badge_if_deverified).
+                if "verification_status" in safe_update_fields:
+                    obj.end_real_person_badge_if_deverified(
+                        old_instance.verification_status == "verified"
+                    )
                 return
 
         # Normal save for all other cases
@@ -3003,9 +3010,21 @@ class CallAttemptAdmin(admin.ModelAdmin):
         "coach",
         "logged_by",
         "event",
+        "real_person_check",
     )
     date_hierarchy = "attempt_date"
     list_per_page = 50
+
+    def get_queryset(self, request):
+        # Real-person check attempts carry the checking coach's private notes,
+        # which coach_member_overview hides too; only superusers, who oversee
+        # the checks themselves, see them here. Filtering the queryset also
+        # hides them from search and 404s their change page.
+        # Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
+        qs = super().get_queryset(request)
+        if not request.user.is_superuser:
+            qs = qs.filter(real_person_check__isnull=True)
+        return qs
 
     @admin.display(description=_("User"))
     def get_target_user(self, obj):

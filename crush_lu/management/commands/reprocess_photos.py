@@ -12,6 +12,8 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from crush_lu.models import (
+    ConnectRealPersonBadge,
+    ConnectRealPersonCheck,
     CrushCoach,
     CrushProfile,
     ProfilePhotoReviewState,
@@ -260,6 +262,17 @@ class Command(BaseCommand):
                         profile_id=obj.pk,
                         photo_field=field_name,
                         photo_key=old_blob_name,
+                    ).update(photo_key=field.name)
+                    # A video real-person badge is tied to the exact photo_1 key
+                    # the coach compared. This is the same image, so the badge
+                    # follows it to the new key instead of dropping to "voice".
+                    # Every slot, no condition: the old key names one file, and
+                    # the profile row is locked above (profile before check).
+                    ConnectRealPersonBadge.objects.filter(
+                        profile_id=obj.pk, photo_key=old_blob_name
+                    ).update(photo_key=field.name)
+                    ConnectRealPersonCheck.objects.filter(
+                        profile_id=obj.pk, photo_key=old_blob_name
                     ).update(photo_key=field.name)
                     if current_review_state:
                         current_review_state.photo_key = field.name

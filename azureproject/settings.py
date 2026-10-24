@@ -745,6 +745,21 @@ CRUSH_CACHE_ENABLED = _env_bool("CRUSH_CACHE_ENABLED", default=False)
 # lobby additionally requires the Connect launch phase (candidate_access_open).
 CRUSH_EVENT_LOBBY_ENABLED = _env_bool("CRUSH_EVENT_LOBBY_ENABLED", default=False)
 
+# Crush Connect real-person check (Crush.lu): a coach calls a Connect member no
+# coach has met and, if it goes well, grants a badge. Two switches, both off:
+# TOOLING opens the coach queue and call tooling; BADGE_VISIBLE shows the
+# granted badge to other members, and only takes effect while TOOLING is also on
+# (services.real_person_check.real_person_badge_visible). Spec:
+# ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
+# Pin both slot-sticky before setting either on one slot (see slotConfigNames in
+# infra/resources.bicep), or a staging value swaps into production.
+CONNECT_REAL_PERSON_CHECK_ENABLED = _env_bool(
+    "CONNECT_REAL_PERSON_CHECK_ENABLED", default=False
+)
+CONNECT_REAL_PERSON_BADGE_VISIBLE = _env_bool(
+    "CONNECT_REAL_PERSON_BADGE_VISIBLE", default=False
+)
+
 # Event Check-In Configuration
 EVENT_CHECKIN_WINDOW_HOURS = int(os.getenv("EVENT_CHECKIN_WINDOW_HOURS", "12"))
 

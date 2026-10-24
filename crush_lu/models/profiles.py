@@ -1184,12 +1184,16 @@ class CrushProfile(models.Model):
         verification, serving as an alternative verification path to LuxID for
         members without a Luxembourgish digital ID (Issue #539 / Task 4.2).
         """
+        from crush_lu.real_person_check_rules import (
+            COACH_ATTESTED_VERIFICATION_METHODS,
+        )
+
         from .events import EventRegistration
 
         if self.verification_status != "verified":
             return False
 
-        if self.verification_method in ("coach_event", "premium_coach"):
+        if self.verification_method in COACH_ATTESTED_VERIFICATION_METHODS:
             return True
 
         attended = EventRegistration.objects.filter(
@@ -1234,6 +1238,57 @@ class CrushProfile(models.Model):
             and self.photo_verification_key
             and self.photo_verification_key == current_key
         )
+
+    @property
+    def real_person_badge(self) -> str:
+        """The badge other members see on this member's Connect card.
+
+        ``"in_person"`` when a coach attested the current photo at the door;
+        otherwise ``"video"`` or ``"voice"`` from a Connect real-person check;
+        otherwise ``""``. Precedence matters: the door badge is the stronger
+        claim and costs no query, and with the badge flag off nothing but the
+        door badge is ever shown, without touching the database.
+
+        A check badge is valid only while the profile is still verified and
+        active and ``approved_at`` still equals the value it was granted
+        against, so a de-verification or re-verification ends it. A save that
+        takes the profile out of ``verified`` also deletes the badge row
+        (``end_real_person_badge_if_deverified``), for the one writer that
+        leaves ``approved_at`` alone: the admin change form. A video
+        badge is also tied to the photo the coach compared: if ``photo_1`` was
+        replaced since, the badge becomes ``"voice"``, which stays true (a
+        coach did speak to the person behind this account).
+
+        Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
+        """
+        from crush_lu.services.real_person_check import (
+            granted_badge_medium,
+            real_person_badge_visible,
+        )
+
+        if self.is_photo_verified:
+            return "in_person"
+        if not real_person_badge_visible():
+            return ""
+        return granted_badge_medium(self)
+
+    def end_real_person_badge_if_deverified(self, was_verified: bool) -> None:
+        """Delete the Connect real-person badge when this profile left verified.
+
+        ``was_verified`` is the stored status before the write. The badge's
+        ``approved_at`` snapshot already ends it for every writer that moves
+        that value; this covers one that does not (the admin change form, where
+        ``approved_at`` is read-only), so ticking a member verified again never
+        brings back a badge no coach has re-granted. Costs a query only on that
+        transition. A queryset ``update()`` never reaches here, which is why the
+        snapshot stays the primary mechanism.
+
+        Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
+        """
+        if was_verified and self.verification_status != "verified":
+            from crush_lu.services.real_person_check import discard_badge
+
+            discard_badge(self.pk)
 
     @property
     def is_photo_review_approved(self) -> bool:
@@ -1468,6 +1523,7 @@ class CrushProfile(models.Model):
         6. Invalidate photo attestation when the primary photo changes.
         7. Omit untouched online photo-review columns from unrelated updates.
         8. Keep a photo slot's current file when this save left it untouched.
+        9. End a Connect real-person badge when the save de-verifies the profile.
         """
         loaded_verification = getattr(self, "_loaded_verification", None)
         verification_fields = (
@@ -1500,9 +1556,11 @@ class CrushProfile(models.Model):
         uploaded_slots = []
         cleared_slots = []
         discarded_keys = []
+        was_verified = False
         if self.pk:  # Only on update, not create
             try:
                 old_instance = CrushProfile.objects.get(pk=self.pk)
+                was_verified = old_instance.verification_status == "verified"
                 if old_instance.phone_verified:
                     # Preserve verified phone data - cannot be changed
                     self.phone_number = old_instance.phone_number
@@ -1785,6 +1843,11 @@ class CrushProfile(models.Model):
                 ).delete()
         else:
             super().save(*args, **kwargs)
+        # A save that took the profile out of "verified" ends its Connect
+        # real-person badge; only a write that carried the status counts.
+        written_fields = kwargs.get("update_fields")
+        if written_fields is None or "verification_status" in written_fields:
+            self.end_real_person_badge_if_deverified(was_verified)
         # This instance is now in step with the row, so a later save on it
         # judges "touched since" against what was actually written.
         self._loaded_language = (
@@ -2309,6 +2372,17 @@ class CallAttempt(models.Model):
         null=True,
         blank=True,
         help_text=_("Related event (for event invite SMS)"),
+    )
+    real_person_check = models.ForeignKey(
+        "crush_lu.ConnectRealPersonCheck",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="call_attempts",
+        help_text=_(
+            "The Connect real-person check this contact attempt belongs to. "
+            "Such rows are not screening calls and stay out of those metrics."
+        ),
     )
 
     class Meta:

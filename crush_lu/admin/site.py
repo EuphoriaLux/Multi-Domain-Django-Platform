@@ -221,6 +221,16 @@ class CrushLuAdminSite(admin.AdminSite):
                 "icon": "🗣️",
                 "group": "Crush Connect",
             },  # post-cycle verdict (Task 13.4)
+            "connectrealpersoncheck": {
+                "order": 22,
+                "icon": "📞",
+                "group": "Crush Connect",
+            },  # coach call that confirms a member is real (superuser-only)
+            "connectrealpersonbadge": {
+                "order": 23,
+                "icon": "🏅",
+                "group": "Crush Connect",
+            },  # the badge it grants (superuser-only)
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 1: Users & Profiles (Core user management)
             # ═══════════════════════════════════════════════════════════════════

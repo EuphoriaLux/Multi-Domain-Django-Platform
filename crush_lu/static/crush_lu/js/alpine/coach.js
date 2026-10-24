@@ -7,7 +7,7 @@
  * Build: `npm run build:js`.
  */
 
-import { makeModal, mixin } from "./shared.js";
+import { makeConfirm, makeModal, mixin } from "./shared.js";
 
 document.addEventListener("alpine:init", function () {
     Alpine.data("photoSwipeDeck", function () {
@@ -3616,6 +3616,187 @@ document.addEventListener("alpine:init", function () {
                 });
             },
         };
+    });
+
+    // Connect real-person check: the call checklist and decision form on
+    // coach_real_person_check.html. The coach picks video or voice, ticks that
+    // medium's items, then chooses an outcome. The required keys come from the
+    // server (data-required-voice / data-required-video render the same
+    // REQUIRED_CHECKLIST_KEYS constant the service validates against), and only
+    // the chosen medium's keys are posted. The decision is a plain form.submit(),
+    // which drops the clicked button's name and value, so the outcome, the
+    // checklist JSON and the confirmation are written into hidden inputs (x-ref)
+    // right before it. The HTMX contact-log forms live outside this component
+    // and are never submitted from here.
+    function realPersonKeys(value) {
+        return (value || "").split(",").filter(Boolean);
+    }
+
+    Alpine.data("realPersonCheckChecklist", function () {
+        return mixin(makeConfirm({ autoSubmit: false }), {
+            medium: "",
+            outcome: "",
+            ticked: {},
+            requiredVoice: [],
+            requiredVideo: [],
+            videoAvailable: true,
+            isSubmitting: false,
+            init() {
+                const data = this.$el.dataset;
+                this.requiredVoice = realPersonKeys(data.requiredVoice);
+                this.requiredVideo = realPersonKeys(data.requiredVideo);
+                this.videoAvailable = data.videoAvailable !== "false";
+                const ticked = {};
+                this.requiredVideo.concat(this.requiredVoice).forEach((key) => {
+                    ticked[key] = false;
+                });
+                this.ticked = ticked;
+            },
+            // CSP-safe handlers: no arguments in the template, the checkbox
+            // names its own key.
+            // Changing the medium or a tick while a pass is waiting for its
+            // confirmation withdraws that confirmation: the outcome the panel
+            // was opened for would no longer match what the form shows, and
+            // the server would grant (or refuse) something else.
+            selectVideo() {
+                if (!this.videoAvailable || this.medium === "video") return;
+                this.withdrawPassConfirmation();
+                this.medium = "video";
+            },
+            selectVoice() {
+                if (this.medium === "voice") return;
+                this.withdrawPassConfirmation();
+                this.medium = "voice";
+            },
+            toggleItem(e) {
+                this.withdrawPassConfirmation();
+                this.ticked[e.target.dataset.key] = !!e.target.checked;
+            },
+            withdrawPassConfirmation() {
+                if (this.isConfirming && this.isPassOutcome) this.cancelDecision();
+            },
+            get isVideo() {
+                return this.medium === "video";
+            },
+            get isVoice() {
+                return this.medium === "voice";
+            },
+            get hasMedium() {
+                return this.medium !== "";
+            },
+            get noMedium() {
+                return this.medium === "";
+            },
+            get requiredKeys() {
+                if (this.isVideo) return this.requiredVideo;
+                if (this.isVoice) return this.requiredVoice;
+                return [];
+            },
+            get completedCount() {
+                return this.requiredKeys.filter((key) => this.ticked[key] === true)
+                    .length;
+            },
+            get requiredCount() {
+                return this.requiredKeys.length;
+            },
+            get progressWidth() {
+                const total = this.requiredCount || 1;
+                return "width: " + (this.completedCount / total) * 100 + "%";
+            },
+            get isComplete() {
+                return this.hasMedium && this.completedCount === this.requiredCount;
+            },
+            get passDisabled() {
+                return !this.isComplete || this.isSubmitting;
+            },
+            get actionDisabled() {
+                return this.isSubmitting;
+            },
+            get isPassOutcome() {
+                return this.outcome === "pass_video" || this.outcome === "pass_voice";
+            },
+            get isFakeOutcome() {
+                return this.outcome === "suspected_fake";
+            },
+            get checklistJson() {
+                // Only a pass carries ticks, and only for the chosen medium.
+                const posted = {};
+                if (this.isPassOutcome) {
+                    this.requiredKeys.forEach((key) => {
+                        if (this.ticked[key] === true) posted[key] = true;
+                    });
+                }
+                return JSON.stringify(posted);
+            },
+            choosePass() {
+                if (!this.isComplete) return;
+                this.outcome = this.isVideo ? "pass_video" : "pass_voice";
+                this.openConfirm();
+            },
+            chooseFake() {
+                this.outcome = "suspected_fake";
+                this.openConfirm();
+            },
+            // On a phone the panel sits well below the button that opened it:
+            // bring it into view and put the keyboard on "Yes, confirm".
+            openConfirm() {
+                this.request();
+                this.$nextTick(() => {
+                    const panel = this.$refs.confirmPanel;
+                    const button = this.$refs.confirmButton;
+                    if (panel && panel.scrollIntoView) {
+                        panel.scrollIntoView({ block: "nearest" });
+                    }
+                    if (button) button.focus({ preventScroll: true });
+                });
+            },
+            get confirmLabelId() {
+                return this.isFakeOutcome ? "rpc-confirm-fake" : "rpc-confirm-pass";
+            },
+            chooseUnreachable() {
+                this.outcome = "unreachable";
+                this.submitDecision(false);
+            },
+            chooseDeclined() {
+                this.outcome = "declined";
+                this.submitDecision(false);
+            },
+            confirmDecision() {
+                // The panel was opened for one outcome. Work the pass out again
+                // from what the form shows now, and send nothing the ticks do
+                // not back up.
+                if (this.isPassOutcome) {
+                    if (!this.isComplete) {
+                        this.cancelDecision();
+                        return;
+                    }
+                    this.outcome = this.isVideo ? "pass_video" : "pass_voice";
+                }
+                this.submitDecision(true);
+            },
+            cancelDecision() {
+                this.outcome = "";
+                this.cancelConfirm();
+            },
+            submitDecision(confirmed) {
+                if (this.isSubmitting) return;
+                // Written straight to the inputs: a reactive binding would
+                // update them a microtask too late for the submit below.
+                this.$refs.outcomeInput.value = this.outcome;
+                this.$refs.checklistInput.value = this.checklistJson;
+                this.$refs.confirmInput.value = confirmed ? "yes" : "";
+                this.isSubmitting = true;
+                this.$refs.form.submit();
+            },
+            // Back/forward cache restores the page as it was left: re-arm it.
+            resetSubmit(event) {
+                if (event && event.persisted) {
+                    this.isSubmitting = false;
+                    this.outcome = "";
+                    this.cancelConfirm();
+                }
+            },
+        });
     });
 
     // Screening Call Guideline Component for Coach Review

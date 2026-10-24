@@ -27,10 +27,14 @@ VIDEO_CALL_KINDS = {
     # Superuser-only test room for checking calls and the relay on real
     # phones. Each superuser is a role, so test with two different accounts.
     "staff-test": "crush_lu.services.video_call.authorize_staff_test_call",
+    # Connect real-person check: the coach and the member of one live check.
+    "real-person-check": "crush_lu.services.real_person_check.authorize_video_call",
 }
 
 # Both end up in a channel group name, which allows only ASCII letters,
 # digits, hyphens, underscores and periods, under 100 characters.
+# Matched with ``fullmatch`` (see ``valid_call_address``): ``$`` also matches
+# before a trailing newline, so an id plus a newline would pass ``.match``.
 KIND_RE = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
 OBJECT_ID_RE = re.compile(r"^[A-Za-z0-9]{1,32}$")
 ROLE_RE = re.compile(r"^[a-z0-9-]{1,32}$")
@@ -42,8 +46,8 @@ def valid_call_address(kind, object_id) -> bool:
     return bool(
         isinstance(kind, str)
         and isinstance(object_id, str)
-        and KIND_RE.match(kind)
-        and OBJECT_ID_RE.match(object_id)
+        and KIND_RE.fullmatch(kind)
+        and OBJECT_ID_RE.fullmatch(object_id)
     )
 
 

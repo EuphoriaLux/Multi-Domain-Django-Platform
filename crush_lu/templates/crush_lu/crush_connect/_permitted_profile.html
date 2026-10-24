@@ -8,6 +8,7 @@
     </div>
     {% include "crush_lu/crush_connect/_reviewed_secondary_photos.html" with profile=target_profile %}
     <p>{{ target.first_name|default:_("A member") }} · {{ target_profile.age_range }}</p>
+    {% include "crush_lu/components/coach_verified_badge.html" with profile=target_profile variant="inline" %}
     <div class="flex flex-wrap gap-2">{% for language in target_membership.languages_display %}<span class="badge badge-info">{{ language }}</span>{% endfor %}
     {% for interest in target_membership.interests.all|slice:':3' %}<span class="badge badge-primary">{{ interest.label }}</span>{% endfor %}</div>
 </div>

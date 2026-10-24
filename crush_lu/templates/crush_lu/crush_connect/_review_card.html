@@ -59,6 +59,8 @@ template-local until Wave 2's shared confirm-sheet component lands.
     {% include "crush_lu/crush_connect/_reviewed_secondary_photos.html" with profile=target_profile %}
 
     <div class="p-3 flex flex-col gap-2 flex-1">
+        {# Inline, not an overlay: this card's top-right corner already holds the coach-reviewed pill. #}
+        {% include "crush_lu/components/coach_verified_badge.html" with profile=target_profile variant="inline" css_class="self-start" %}
         {% if answers %}
         <ul class="space-y-1 mb-0 list-none pl-0 text-xs text-gray-600 dark:text-gray-300">
             {% for answer in answers %}
